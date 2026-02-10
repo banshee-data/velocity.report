@@ -346,3 +346,338 @@ func TestRunComparison_Structure(t *testing.T) {
 		t.Errorf("MergeCandidates should have 1 element")
 	}
 }
+
+func TestCompareRuns_EmptyRuns(t *testing.T) {
+	// Test with empty runs
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	// Create two empty runs
+	run1 := &AnalysisRun{
+		RunID:      "empty_run_1",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+	run2 := &AnalysisRun{
+		RunID:      "empty_run_2",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+
+	if err := store.InsertRun(run1); err != nil {
+		t.Fatalf("Failed to insert run1: %v", err)
+	}
+	if err := store.InsertRun(run2); err != nil {
+		t.Fatalf("Failed to insert run2: %v", err)
+	}
+
+	// Compare empty runs
+	comparison, err := CompareRuns(store, run1.RunID, run2.RunID)
+	if err != nil {
+		t.Fatalf("CompareRuns failed: %v", err)
+	}
+
+	if comparison.Run1ID != run1.RunID {
+		t.Errorf("Run1ID mismatch")
+	}
+	if comparison.Run2ID != run2.RunID {
+		t.Errorf("Run2ID mismatch")
+	}
+	if len(comparison.MatchedTracks) != 0 {
+		t.Errorf("Expected no matched tracks, got %d", len(comparison.MatchedTracks))
+	}
+	if len(comparison.TracksOnlyRun1) != 0 {
+		t.Errorf("Expected no tracks only in run1")
+	}
+	if len(comparison.TracksOnlyRun2) != 0 {
+		t.Errorf("Expected no tracks only in run2")
+	}
+}
+
+func TestCompareRuns_MatchedTracks(t *testing.T) {
+	// Test with overlapping tracks
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	// Create two runs
+	run1 := &AnalysisRun{
+		RunID:      "matched_run_1",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+	run2 := &AnalysisRun{
+		RunID:      "matched_run_2",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+
+	if err := store.InsertRun(run1); err != nil {
+		t.Fatalf("Failed to insert run1: %v", err)
+	}
+	if err := store.InsertRun(run2); err != nil {
+		t.Fatalf("Failed to insert run2: %v", err)
+	}
+
+	// Create tracks with high temporal overlap
+	now := time.Now().UnixNano()
+	track1 := &RunTrack{
+		RunID:            run1.RunID,
+		TrackID:          "track_1",
+		SensorID:         "sensor_1",
+		TrackState:       "confirmed",
+		StartUnixNanos:   now,
+		EndUnixNanos:     now + int64(10*time.Second),
+		ObservationCount: 100,
+	}
+	track2 := &RunTrack{
+		RunID:            run2.RunID,
+		TrackID:          "track_1_matched",
+		SensorID:         "sensor_1",
+		TrackState:       "confirmed",
+		StartUnixNanos:   now + int64(1*time.Second), // Slight offset
+		EndUnixNanos:     now + int64(11*time.Second),
+		ObservationCount: 100,
+	}
+
+	if err := store.InsertRunTrack(track1); err != nil {
+		t.Fatalf("Failed to insert track1: %v", err)
+	}
+	if err := store.InsertRunTrack(track2); err != nil {
+		t.Fatalf("Failed to insert track2: %v", err)
+	}
+
+	// Compare runs
+	comparison, err := CompareRuns(store, run1.RunID, run2.RunID)
+	if err != nil {
+		t.Fatalf("CompareRuns failed: %v", err)
+	}
+
+	if len(comparison.MatchedTracks) != 1 {
+		t.Fatalf("Expected 1 matched track, got %d", len(comparison.MatchedTracks))
+	}
+
+	match := comparison.MatchedTracks[0]
+	if match.Track1ID != track1.TrackID {
+		t.Errorf("Track1ID mismatch: got %s, want %s", match.Track1ID, track1.TrackID)
+	}
+	if match.Track2ID != track2.TrackID {
+		t.Errorf("Track2ID mismatch: got %s, want %s", match.Track2ID, track2.TrackID)
+	}
+	if match.OverlapPct < 30.0 {
+		t.Errorf("Expected high overlap, got %.2f%%", match.OverlapPct)
+	}
+}
+
+func TestCompareRuns_NoOverlap(t *testing.T) {
+	// Test with non-overlapping tracks
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	// Create two runs
+	run1 := &AnalysisRun{
+		RunID:      "no_overlap_run_1",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+	run2 := &AnalysisRun{
+		RunID:      "no_overlap_run_2",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+
+	if err := store.InsertRun(run1); err != nil {
+		t.Fatalf("Failed to insert run1: %v", err)
+	}
+	if err := store.InsertRun(run2); err != nil {
+		t.Fatalf("Failed to insert run2: %v", err)
+	}
+
+	// Create tracks with no temporal overlap
+	now := time.Now().UnixNano()
+	track1 := &RunTrack{
+		RunID:            run1.RunID,
+		TrackID:          "track_early",
+		SensorID:         "sensor_1",
+		TrackState:       "confirmed",
+		StartUnixNanos:   now,
+		EndUnixNanos:     now + int64(5*time.Second),
+		ObservationCount: 50,
+	}
+	track2 := &RunTrack{
+		RunID:            run2.RunID,
+		TrackID:          "track_late",
+		SensorID:         "sensor_1",
+		TrackState:       "confirmed",
+		StartUnixNanos:   now + int64(10*time.Second), // No overlap
+		EndUnixNanos:     now + int64(15*time.Second),
+		ObservationCount: 50,
+	}
+
+	if err := store.InsertRunTrack(track1); err != nil {
+		t.Fatalf("Failed to insert track1: %v", err)
+	}
+	if err := store.InsertRunTrack(track2); err != nil {
+		t.Fatalf("Failed to insert track2: %v", err)
+	}
+
+	// Compare runs
+	comparison, err := CompareRuns(store, run1.RunID, run2.RunID)
+	if err != nil {
+		t.Fatalf("CompareRuns failed: %v", err)
+	}
+
+	if len(comparison.MatchedTracks) != 0 {
+		t.Errorf("Expected no matched tracks due to no overlap, got %d", len(comparison.MatchedTracks))
+	}
+	if len(comparison.TracksOnlyRun1) != 1 {
+		t.Errorf("Expected 1 track only in run1")
+	}
+	if len(comparison.TracksOnlyRun2) != 1 {
+		t.Errorf("Expected 1 track only in run2")
+	}
+}
+
+func TestCompareRuns_SplitDetection(t *testing.T) {
+	// Test split detection: one run1 track matched to multiple run2 tracks
+	// Note: Current implementation uses 1:1 Hungarian matching, so splits are not yet detected
+	// This test documents the future expected behaviour
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	// Create two runs
+	run1 := &AnalysisRun{
+		RunID:      "split_run_1",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+	run2 := &AnalysisRun{
+		RunID:      "split_run_2",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor_1",
+		Status:     "completed",
+	}
+
+	if err := store.InsertRun(run1); err != nil {
+		t.Fatalf("Failed to insert run1: %v", err)
+	}
+	if err := store.InsertRun(run2); err != nil {
+		t.Fatalf("Failed to insert run2: %v", err)
+	}
+
+	// Create one track in run1 and two overlapping tracks in run2
+	now := time.Now().UnixNano()
+	track1 := &RunTrack{
+		RunID:            run1.RunID,
+		TrackID:          "track_original",
+		SensorID:         "sensor_1",
+		TrackState:       "confirmed",
+		StartUnixNanos:   now,
+		EndUnixNanos:     now + int64(20*time.Second),
+		ObservationCount: 200,
+	}
+	track2a := &RunTrack{
+		RunID:            run2.RunID,
+		TrackID:          "track_split_a",
+		SensorID:         "sensor_1",
+		TrackState:       "confirmed",
+		StartUnixNanos:   now,
+		EndUnixNanos:     now + int64(10*time.Second),
+		ObservationCount: 100,
+	}
+	track2b := &RunTrack{
+		RunID:            run2.RunID,
+		TrackID:          "track_split_b",
+		SensorID:         "sensor_1",
+		TrackState:       "confirmed",
+		StartUnixNanos:   now + int64(10*time.Second),
+		EndUnixNanos:     now + int64(20*time.Second),
+		ObservationCount: 100,
+	}
+
+	if err := store.InsertRunTrack(track1); err != nil {
+		t.Fatalf("Failed to insert track1: %v", err)
+	}
+	if err := store.InsertRunTrack(track2a); err != nil {
+		t.Fatalf("Failed to insert track2a: %v", err)
+	}
+	if err := store.InsertRunTrack(track2b); err != nil {
+		t.Fatalf("Failed to insert track2b: %v", err)
+	}
+
+	// Compare runs
+	comparison, err := CompareRuns(store, run1.RunID, run2.RunID)
+	if err != nil {
+		t.Fatalf("CompareRuns failed: %v", err)
+	}
+
+	// With Hungarian matching, only one of the split tracks will be matched
+	// The other will appear as unmatched
+	if len(comparison.MatchedTracks) != 1 {
+		t.Logf("Expected 1 matched track (Hungarian gives 1:1 matching), got %d", len(comparison.MatchedTracks))
+	}
+
+	// Future enhancement: split detection would find that track_original overlaps with both track_split_a and track_split_b
+	// For now, we just verify the comparison completes without error
+}
+
+func TestCompareParams_NoDifference(t *testing.T) {
+	params := DefaultRunParams()
+
+	diff := compareParams(&params, &params)
+
+	if len(diff) != 0 {
+		t.Errorf("Expected no differences, got %v", diff)
+	}
+}
+
+func TestCompareParams_BackgroundDifference(t *testing.T) {
+	params1 := DefaultRunParams()
+	params2 := DefaultRunParams()
+	params2.Background.BackgroundUpdateFraction = 0.05
+
+	diff := compareParams(&params1, &params2)
+
+	if len(diff) == 0 {
+		t.Fatalf("Expected differences, got none")
+	}
+
+	bgDiff, ok := diff["background"].(map[string]any)
+	if !ok {
+		t.Fatalf("Expected background diff")
+	}
+
+	updateDiff, ok := bgDiff["background_update_fraction"].(map[string]any)
+	if !ok {
+		t.Fatalf("Expected background_update_fraction diff")
+	}
+
+	if updateDiff["run1"] != params1.Background.BackgroundUpdateFraction {
+		t.Errorf("run1 value mismatch")
+	}
+	if updateDiff["run2"] != params2.Background.BackgroundUpdateFraction {
+		t.Errorf("run2 value mismatch")
+	}
+}

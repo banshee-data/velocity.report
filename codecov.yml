@@ -44,6 +44,7 @@ flags:
   web:
     paths:
       - web/src/
+      - internal/lidar/monitor/assets/
     carryforward: true
   mac:
     paths:

@@ -304,6 +304,9 @@ export interface Site {
 	map_angle?: number | null;
 	include_map: boolean;
 	site_description?: string | null;
+	cosine_error_angle?: number | null;
+	speed_limit?: number | null;
+	speed_limit_note?: string | null;
 	bbox_ne_lat?: number | null;
 	bbox_ne_lng?: number | null;
 	bbox_sw_lat?: number | null;
@@ -430,8 +433,13 @@ export async function updateTransitWorker(
 // LiDAR Track API
 
 import type {
+	AnalysisRun,
 	BackgroundGrid,
+	LabellingProgress,
+	LidarScene,
+	MissedRegion,
 	ObservationListResponse,
+	RunTrack,
 	Track,
 	TrackHistoryResponse,
 	TrackListResponse,
@@ -546,4 +554,186 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch background grid: ${res.status}`);
 	return res.json();
+}
+
+// LiDAR Scene and Run Labelling API (Phase 3: track labelling UI)
+// Uses API_BASE for consistency with other LiDAR endpoints.
+
+export async function getLidarScenes(sensorId?: string): Promise<LidarScene[]> {
+	const params = new URLSearchParams();
+	if (sensorId) params.set('sensor_id', sensorId);
+	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch scenes: ${res.status}`);
+	const data = await res.json();
+	return data.scenes || [];
+}
+
+export async function getLidarScene(sceneId: string): Promise<LidarScene> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`);
+	if (!res.ok) throw new Error(`Failed to fetch scene: ${res.status}`);
+	return res.json();
+}
+
+export async function createLidarScene(scene: {
+	sensor_id: string;
+	pcap_file: string;
+	pcap_start_secs?: number;
+	pcap_duration_secs?: number;
+	description?: string;
+}): Promise<LidarScene> {
+	const res = await fetch(`${API_BASE}/lidar/scenes`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(scene)
+	});
+	if (!res.ok) throw new Error(`Failed to create scene: ${res.status}`);
+	return res.json();
+}
+
+export async function updateLidarScene(
+	sceneId: string,
+	update: {
+		description?: string;
+		reference_run_id?: string;
+		optimal_params_json?: string;
+		pcap_start_secs?: number;
+		pcap_duration_secs?: number;
+	}
+): Promise<LidarScene> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(update)
+	});
+	if (!res.ok) throw new Error(`Failed to update scene: ${res.status}`);
+	return res.json();
+}
+
+export async function deleteLidarScene(sceneId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete scene: ${res.status}`);
+}
+
+// PCAP file scanning API
+
+export interface PcapFileInfo {
+	path: string;
+	size_bytes: number;
+	modified_at: string;
+	in_use: boolean;
+}
+
+export interface PcapFilesResponse {
+	pcap_dir: string;
+	files: PcapFileInfo[];
+	count: number;
+}
+
+export async function scanPcapFiles(): Promise<PcapFilesResponse> {
+	const res = await fetch(`${API_BASE}/lidar/pcap/files`);
+	if (!res.ok) throw new Error(`Failed to scan PCAP files: ${res.status}`);
+	return res.json();
+}
+
+export async function getLidarRuns(params?: {
+	sensor_id?: string;
+	status?: string;
+	limit?: number;
+}): Promise<AnalysisRun[]> {
+	const searchParams = new URLSearchParams();
+	if (params?.sensor_id) searchParams.set('sensor_id', params.sensor_id);
+	if (params?.status) searchParams.set('status', params.status);
+	if (params?.limit) searchParams.set('limit', String(params.limit));
+	const url = `${API_BASE}/lidar/runs${searchParams.toString() ? '?' + searchParams : ''}`;
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to fetch runs: ${res.status}`);
+	const data = await res.json();
+	return data.runs || [];
+}
+
+export async function getRunTracks(runId: string): Promise<RunTrack[]> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks`);
+	if (!res.ok) throw new Error(`Failed to fetch tracks: ${res.status}`);
+	const data = await res.json();
+	return data.tracks || [];
+}
+
+export async function updateTrackLabel(
+	runId: string,
+	trackId: string,
+	label: {
+		user_label?: string;
+		quality_label?: string;
+		label_confidence?: number;
+		labeler_id?: string;
+	}
+): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/label`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(label)
+	});
+	if (!res.ok) throw new Error(`Failed to update label: ${res.status}`);
+}
+
+export async function updateTrackFlags(
+	runId: string,
+	trackId: string,
+	flags: {
+		linked_track_ids?: string[];
+		user_label?: string;
+	}
+): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}/flags`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(flags)
+	});
+	if (!res.ok) throw new Error(`Failed to update flags: ${res.status}`);
+}
+
+export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/labelling-progress`);
+	if (!res.ok) throw new Error(`Failed to fetch progress: ${res.status}`);
+	return res.json();
+}
+
+// LiDAR Missed Regions API (Phase 7: identifying missed objects)
+
+export async function getMissedRegions(runId: string): Promise<MissedRegion[]> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`);
+	if (!res.ok) throw new Error(`Failed to fetch missed regions: ${res.status}`);
+	const data = await res.json();
+	return data.regions || [];
+}
+
+export async function createMissedRegion(
+	runId: string,
+	region: {
+		center_x: number;
+		center_y: number;
+		radius_m?: number;
+		time_start_ns: number;
+		time_end_ns: number;
+		expected_label?: string;
+		notes?: string;
+	}
+): Promise<MissedRegion> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(region)
+	});
+	if (!res.ok) throw new Error(`Failed to create missed region: ${res.status}`);
+	return res.json();
+}
+
+export async function deleteMissedRegion(runId: string, regionId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions/${regionId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete missed region: ${res.status}`);
 }

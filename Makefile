@@ -72,6 +72,7 @@ help:
 	@echo "  migrate-force        Force version (recovery, VERSION=N)"
 	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
+	@echo "  schema-erd           Generate schema ERD (entity-relationship diagram) as SVG"
 	@echo ""
 	@echo "FORMATTING (mutating):"
 	@echo "  format               Format all code (Go + Python + Web + macOS + SQL + Markdown)"
@@ -142,7 +143,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre3
+VERSION := 0.5.0-pre4
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -719,7 +720,7 @@ test-perf:
 # DATABASE MIGRATIONS
 # =============================================================================
 
-.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync schema-erd
 
 # Apply all pending migrations
 migrate-up:
@@ -775,6 +776,11 @@ schema-sync:
 	@echo "Regenerating schema.sql from latest migrations..."
 	@bash scripts/sync-schema.sh
 
+# Generate schema ERD (Entity-Relationship Diagram) as SVG
+schema-erd:
+	@echo "Generating schema ERD (schema.svg)..."
+	@bash data/sqlite-erd/graph.sh internal/db/schema.sql
+
 # =============================================================================
 # FORMATTING (mutating)
 # =============================================================================
@@ -805,6 +811,19 @@ format-web:
 		fi; \
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
+	fi
+	@if [ -d "$(WEB_DIR)" ]; then \
+		cd $(WEB_DIR) && pnpm exec prettier --write \
+			../internal/lidar/monitor/assets/dashboard_common.js \
+			../internal/lidar/monitor/assets/regions_dashboard.js \
+			../internal/lidar/monitor/assets/sweep_dashboard.js \
+			../internal/lidar/monitor/assets/common.css \
+			../internal/lidar/monitor/assets/status_dashboard.css \
+			../internal/lidar/monitor/assets/dashboard.css \
+			../internal/lidar/monitor/assets/regions_dashboard.css \
+			../internal/lidar/monitor/assets/sweep_dashboard.css \
+			2>/dev/null \
+			|| echo "monitor assets prettier skipped"; \
 	fi
 
 format-mac:

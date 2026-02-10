@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import type { BackgroundGrid, Track, TrackObservation } from '$lib/types/lidar';
+	import type { BackgroundGrid, MissedRegion, Track, TrackObservation } from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
 	import { onDestroy, onMount } from 'svelte';
 
@@ -24,6 +24,11 @@
 	export let foreground: TrackObservation[] = [];
 	export let foregroundEnabled = true;
 	export let foregroundOffset = { x: 0, y: 0 };
+	// Missed regions (Phase 7)
+	export let missedRegions: MissedRegion[] = [];
+	export let markMissedMode = false;
+	export let onMapClick: ((worldX: number, worldY: number) => void) | null = null;
+	export let onDeleteMissedRegion: ((regionId: string) => void) | null = null;
 	// Toggles (controlled locally)
 	let showHistory = true;
 	let showObservations = true;
@@ -88,7 +93,9 @@
 		observations ||
 		foreground ||
 		foregroundOffset ||
-		foregroundEnabled
+		foregroundEnabled ||
+		missedRegions ||
+		markMissedMode
 	) {
 		markDirty();
 	}
@@ -176,6 +183,11 @@
 			renderObservations();
 		}
 
+		// Draw missed regions (Phase 7)
+		if (missedRegions.length > 0) {
+			renderMissedRegions();
+		}
+
 		// Draw crosshair at world origin
 		if (showCrosshair) {
 			renderCrosshair();
@@ -233,6 +245,57 @@
 			ctxLocal.beginPath();
 			ctxLocal.arc(sx, sy, size, 0, Math.PI * 2);
 			ctxLocal.fill();
+		});
+		ctxLocal.restore();
+	}
+
+	// Render missed regions as dashed purple circles
+	function renderMissedRegions() {
+		const ctxLocal = ctx;
+		if (!ctxLocal || missedRegions.length === 0) return;
+
+		ctxLocal.save();
+		missedRegions.forEach((region) => {
+			const [cx, cy] = worldToScreen(region.center_x, region.center_y);
+			const radiusPx = region.radius_m * scale;
+
+			// Dashed purple circle
+			ctxLocal.beginPath();
+			ctxLocal.strokeStyle = '#a855f7';
+			ctxLocal.lineWidth = 2;
+			ctxLocal.setLineDash([6, 4]);
+			ctxLocal.arc(cx, cy, radiusPx, 0, Math.PI * 2);
+			ctxLocal.stroke();
+			ctxLocal.setLineDash([]);
+
+			// Semi-transparent fill
+			ctxLocal.fillStyle = 'rgba(168, 85, 247, 0.15)';
+			ctxLocal.fill();
+
+			// "MISSED" label
+			ctxLocal.fillStyle = '#a855f7';
+			ctxLocal.font = '10px monospace';
+			ctxLocal.textAlign = 'center';
+			ctxLocal.fillText('MISSED', cx, cy - radiusPx - 5);
+			ctxLocal.textAlign = 'start';
+
+			// Delete button (small "x" in top-right of circle)
+			if (onDeleteMissedRegion) {
+				const btnX = cx + radiusPx * 0.7;
+				const btnY = cy - radiusPx * 0.7;
+				ctxLocal.fillStyle = 'rgba(239, 68, 68, 0.8)';
+				ctxLocal.beginPath();
+				ctxLocal.arc(btnX, btnY, 7, 0, Math.PI * 2);
+				ctxLocal.fill();
+				ctxLocal.strokeStyle = '#fff';
+				ctxLocal.lineWidth = 1.5;
+				ctxLocal.beginPath();
+				ctxLocal.moveTo(btnX - 3, btnY - 3);
+				ctxLocal.lineTo(btnX + 3, btnY + 3);
+				ctxLocal.moveTo(btnX + 3, btnY - 3);
+				ctxLocal.lineTo(btnX - 3, btnY + 3);
+				ctxLocal.stroke();
+			}
 		});
 		ctxLocal.restore();
 	}
@@ -374,7 +437,7 @@
 				for (let i = track.history.length - 1; i >= 0; i--) {
 					const pt = track.history[i];
 					if (Math.abs(pt.x) >= 0.01 || Math.abs(pt.y) >= 0.01) {
-						pos = pt;
+						pos = { x: pt.x, y: pt.y, z: 0 };
 						break;
 					}
 				}
@@ -558,7 +621,8 @@
 		// Overlay layers
 		const overlays = [
 			{ label: 'Track observations', color: '#60a5fa' },
-			{ label: 'Foreground (window)', color: '#f472b6' }
+			{ label: 'Foreground (window)', color: '#f472b6' },
+			{ label: 'Missed region', color: '#a855f7' }
 		];
 
 		overlays.forEach(({ label, color }) => {
@@ -587,8 +651,29 @@
 
 	function handleMouseDown(e: MouseEvent) {
 		if (e.button === 0) {
-			// Left click - check for track selection
+			// Left click - check for track selection or mark-missed mode
 			const [worldX, worldY] = screenToWorld(e.offsetX, e.offsetY);
+
+			// Check if clicking a missed region delete button
+			if (onDeleteMissedRegion && missedRegions.length > 0) {
+				for (const region of missedRegions) {
+					const [cx, cy] = worldToScreen(region.center_x, region.center_y);
+					const radiusPx = region.radius_m * scale;
+					const btnX = cx + radiusPx * 0.7;
+					const btnY = cy - radiusPx * 0.7;
+					const dist = Math.hypot(e.offsetX - btnX, e.offsetY - btnY);
+					if (dist <= 10) {
+						onDeleteMissedRegion(region.region_id);
+						return;
+					}
+				}
+			}
+
+			// Mark-missed mode: create a missed region at click location
+			if (markMissedMode && onMapClick) {
+				onMapClick(worldX, worldY);
+				return;
+			}
 
 			// Find closest track
 			let closestTrack: Track | null = null;
@@ -652,6 +737,7 @@
 
 	// Resize handler
 	let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+	let resizeObserver: ResizeObserver | null = null;
 	function handleResize() {
 		if (!browser) return;
 		if (resizeTimeout !== null) {
@@ -689,12 +775,26 @@
 		if (!browser) return;
 		initCanvas();
 		window.addEventListener('resize', handleResize);
+
+		// Observe parent container size changes (e.g. from drag-resize handle)
+		const container = canvas?.parentElement;
+		if (container) {
+			resizeObserver = new ResizeObserver(() => {
+				handleResize();
+			});
+			resizeObserver.observe(container);
+		}
+
 		startAnimation();
 	});
 
 	onDestroy(() => {
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('resize', handleResize);
+		}
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+			resizeObserver = null;
 		}
 		stopAnimation();
 		if (resizeTimeout !== null) {
@@ -712,7 +812,7 @@
 		on:mousemove={handleMouseMove}
 		on:mouseup={handleMouseUp}
 		on:contextmenu={handleContextMenu}
-		class="cursor-move"
+		class={markMissedMode ? 'cursor-crosshair' : 'cursor-move'}
 	></canvas>
 
 	<!-- Controls overlay -->
@@ -720,7 +820,7 @@
 		<div class="font-mono">
 			<div>Scale: {scale.toFixed(1)}x</div>
 			<div class="mt-2 text-xs text-gray-400">
-				<div>Left click: Select track</div>
+				<div>Left click: {markMissedMode ? 'Mark missed region' : 'Select track'}</div>
 				<div>Right click + drag: Pan</div>
 				<div>Scroll: Zoom</div>
 			</div>

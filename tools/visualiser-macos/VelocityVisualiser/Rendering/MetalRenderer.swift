@@ -950,6 +950,55 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         compositeRenderer?.getStats() ?? (background: 0, foreground: pointCount, total: pointCount)
     }
 
+    // MARK: - Track Label Projection
+
+    /// Label data projected to screen coordinates for SwiftUI overlay.
+    struct TrackScreenLabel: Identifiable {
+        let id: String  // trackID
+        let screenX: Float
+        let screenY: Float
+        let classLabel: String
+        let isSelected: Bool
+    }
+
+    /// Project all visible track positions to screen coordinates for label overlay.
+    func projectTrackLabels(viewSize: CGSize) -> [TrackScreenLabel] {
+        guard let tracks = _lastTracks, !tracks.isEmpty else { return [] }
+
+        let mvp = camera.projectionMatrix * camera.viewMatrix
+        let halfWidth = Float(viewSize.width) * 0.5
+        let halfHeight = Float(viewSize.height) * 0.5
+
+        var labels: [TrackScreenLabel] = []
+
+        for track in tracks {
+            // Only label confirmed/tentative tracks
+            if track.state == .deleted || track.state == .unknown { continue }
+
+            // Project position above the bounding box top
+            let worldPos = simd_float4(track.x, track.y, track.z + track.bboxHeightAvg, 1.0)
+            let clip = mvp * worldPos
+            guard clip.w > 0 else { continue }
+
+            let ndcX = clip.x / clip.w
+            let ndcY = clip.y / clip.w
+
+            // Skip tracks outside view frustum (with margin)
+            guard abs(ndcX) < 1.2 && abs(ndcY) < 1.2 else { continue }
+
+            // NDC to screen — SwiftUI uses top-down Y, Metal uses bottom-up
+            let screenX = (ndcX + 1.0) * halfWidth
+            let screenY = (1.0 - ndcY) * halfHeight
+
+            labels.append(
+                TrackScreenLabel(
+                    id: track.trackID, screenX: screenX, screenY: screenY,
+                    classLabel: track.classLabel, isSelected: selectedTrackID == track.trackID))
+        }
+
+        return labels
+    }
+
     /// Handle keyboard input for camera control.
     /// Returns true if the key was handled.
     func handleKeyDown(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {

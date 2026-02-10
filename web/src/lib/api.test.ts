@@ -1849,4 +1849,410 @@ describe('api', () => {
 			});
 		});
 	});
+
+	// Phase 3-6: LiDAR labelling and transit API tests
+	describe('LiDAR labelling API', () => {
+		describe('getLidarScenes', () => {
+			it('should fetch scenes without filter', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ scenes: [{ scene_id: 's1', sensor_id: 'sensor1' }] })
+				});
+				const { getLidarScenes } = await import('./api');
+				const result = await getLidarScenes();
+				expect(result).toEqual([{ scene_id: 's1', sensor_id: 'sensor1' }]);
+			});
+
+			it('should fetch scenes with sensor_id filter', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ scenes: [] })
+				});
+				const { getLidarScenes } = await import('./api');
+				const result = await getLidarScenes('hesai');
+				expect(result).toEqual([]);
+				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+				expect(callUrl).toContain('sensor_id=hesai');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getLidarScenes } = await import('./api');
+				await expect(getLidarScenes()).rejects.toThrow('Failed to fetch scenes: 500');
+			});
+		});
+
+		describe('getLidarRuns', () => {
+			it('should fetch runs with filters', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ runs: [{ run_id: 'r1' }] })
+				});
+				const { getLidarRuns } = await import('./api');
+				const result = await getLidarRuns({ sensor_id: 'hesai', status: 'complete', limit: 10 });
+				expect(result).toEqual([{ run_id: 'r1' }]);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getLidarRuns } = await import('./api');
+				await expect(getLidarRuns()).rejects.toThrow('Failed to fetch runs: 500');
+			});
+		});
+
+		describe('getRunTracks', () => {
+			it('should fetch run tracks', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ tracks: [{ track_id: 't1', user_label: 'good_vehicle' }] })
+				});
+				const { getRunTracks } = await import('./api');
+				const result = await getRunTracks('run-001');
+				expect(result).toEqual([{ track_id: 't1', user_label: 'good_vehicle' }]);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getRunTracks } = await import('./api');
+				await expect(getRunTracks('bad-id')).rejects.toThrow('Failed to fetch tracks: 404');
+			});
+		});
+
+		describe('updateTrackLabel', () => {
+			it('should update label via PUT', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { updateTrackLabel } = await import('./api');
+				await updateTrackLabel('run-001', 'track-001', {
+					user_label: 'good_vehicle',
+					quality_label: 'perfect'
+				});
+				const call = (global.fetch as jest.Mock).mock.calls[0];
+				expect(call[1].method).toBe('PUT');
+				expect(JSON.parse(call[1].body)).toEqual({
+					user_label: 'good_vehicle',
+					quality_label: 'perfect'
+				});
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
+				const { updateTrackLabel } = await import('./api');
+				await expect(updateTrackLabel('r', 't', { user_label: 'invalid' })).rejects.toThrow(
+					'Failed to update label: 400'
+				);
+			});
+		});
+
+		describe('updateTrackFlags', () => {
+			it('should update flags via PUT', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { updateTrackFlags } = await import('./api');
+				await updateTrackFlags('run-001', 'track-001', {
+					linked_track_ids: ['t2'],
+					user_label: 'split'
+				});
+				const call = (global.fetch as jest.Mock).mock.calls[0];
+				expect(call[1].method).toBe('PUT');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { updateTrackFlags } = await import('./api');
+				await expect(updateTrackFlags('r', 't', { linked_track_ids: [] })).rejects.toThrow(
+					'Failed to update flags: 500'
+				);
+			});
+		});
+
+		describe('getLabellingProgress', () => {
+			it('should fetch labelling progress', async () => {
+				const mockProgress = { total: 100, labelled: 50, progress_pct: 50.0, by_class: {} };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockProgress
+				});
+				const { getLabellingProgress } = await import('./api');
+				const result = await getLabellingProgress('run-001');
+				expect(result).toEqual(mockProgress);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getLabellingProgress } = await import('./api');
+				await expect(getLabellingProgress('bad-id')).rejects.toThrow(
+					'Failed to fetch progress: 404'
+				);
+			});
+		});
+	});
+
+	describe('LiDAR Scene Management', () => {
+		describe('getLidarScene', () => {
+			it('should fetch a single scene by ID', async () => {
+				const mockScene = {
+					scene_id: 'scene-001',
+					sensor_id: 'hesai-pandar40p',
+					pcap_file: 'test.pcap',
+					description: 'Test scene',
+					created_at_ns: 1000000000
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockScene
+				});
+				const { getLidarScene } = await import('./api');
+				const result = await getLidarScene('scene-001');
+				expect(result).toEqual(mockScene);
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/scenes/scene-001');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getLidarScene } = await import('./api');
+				await expect(getLidarScene('bad-id')).rejects.toThrow('Failed to fetch scene: 404');
+			});
+		});
+
+		describe('createLidarScene', () => {
+			it('should create a new scene', async () => {
+				const newScene = {
+					sensor_id: 'hesai-pandar40p',
+					pcap_file: 'new.pcap',
+					description: 'New test scene'
+				};
+				const mockResponse = {
+					...newScene,
+					scene_id: 'scene-new',
+					created_at_ns: 1000000000
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResponse
+				});
+				const { createLidarScene } = await import('./api');
+				const result = await createLidarScene(newScene);
+				expect(result).toEqual(mockResponse);
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/scenes',
+					expect.objectContaining({
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(newScene)
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
+				const { createLidarScene } = await import('./api');
+				await expect(
+					createLidarScene({
+						sensor_id: 'hesai-pandar40p',
+						pcap_file: 'test.pcap'
+					})
+				).rejects.toThrow('Failed to create scene: 400');
+			});
+		});
+
+		describe('updateLidarScene', () => {
+			it('should update an existing scene', async () => {
+				const update = {
+					description: 'Updated description',
+					reference_run_id: 'run-001'
+				};
+				const mockResponse = {
+					scene_id: 'scene-001',
+					sensor_id: 'hesai-pandar40p',
+					pcap_file: 'test.pcap',
+					...update,
+					created_at_ns: 1000000000
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResponse
+				});
+				const { updateLidarScene } = await import('./api');
+				const result = await updateLidarScene('scene-001', update);
+				expect(result).toEqual(mockResponse);
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/scenes/scene-001',
+					expect.objectContaining({
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(update)
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { updateLidarScene } = await import('./api');
+				await expect(updateLidarScene('scene-001', {})).rejects.toThrow(
+					'Failed to update scene: 500'
+				);
+			});
+		});
+
+		describe('deleteLidarScene', () => {
+			it('should delete a scene', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { deleteLidarScene } = await import('./api');
+				await deleteLidarScene('scene-001');
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/scenes/scene-001',
+					expect.objectContaining({
+						method: 'DELETE'
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { deleteLidarScene } = await import('./api');
+				await expect(deleteLidarScene('scene-001')).rejects.toThrow('Failed to delete scene: 404');
+			});
+		});
+
+		describe('scanPcapFiles', () => {
+			it('should scan for PCAP files', async () => {
+				const mockResponse = {
+					pcap_dir: '/data/pcaps',
+					files: [
+						{ path: 'file1.pcap', size_bytes: 1024, modified_at: '2024-01-01', in_use: false },
+						{ path: 'file2.pcap', size_bytes: 2048, modified_at: '2024-01-02', in_use: true }
+					],
+					count: 2
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResponse
+				});
+				const { scanPcapFiles } = await import('./api');
+				const result = await scanPcapFiles();
+				expect(result).toEqual(mockResponse);
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/pcap/files');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { scanPcapFiles } = await import('./api');
+				await expect(scanPcapFiles()).rejects.toThrow('Failed to scan PCAP files: 500');
+			});
+		});
+	});
+
+	describe('LiDAR Missed Regions', () => {
+		describe('getMissedRegions', () => {
+			it('should fetch missed regions for a run', async () => {
+				const mockRegions = [
+					{
+						region_id: 'region-001',
+						run_id: 'run-001',
+						center_x: 10.5,
+						center_y: 20.3,
+						radius_m: 5.0,
+						time_start_ns: 1000000000,
+						time_end_ns: 2000000000,
+						expected_label: 'vehicle',
+						notes: 'Missed detection'
+					}
+				];
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({ regions: mockRegions })
+				});
+				const { getMissedRegions } = await import('./api');
+				const result = await getMissedRegions('run-001');
+				expect(result).toEqual(mockRegions);
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/runs/run-001/missed-regions');
+			});
+
+			it('should return empty array if no regions key in response', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({})
+				});
+				const { getMissedRegions } = await import('./api');
+				const result = await getMissedRegions('run-001');
+				expect(result).toEqual([]);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getMissedRegions } = await import('./api');
+				await expect(getMissedRegions('run-001')).rejects.toThrow(
+					'Failed to fetch missed regions: 404'
+				);
+			});
+		});
+
+		describe('createMissedRegion', () => {
+			it('should create a new missed region', async () => {
+				const newRegion = {
+					center_x: 10.5,
+					center_y: 20.3,
+					radius_m: 5.0,
+					time_start_ns: 1000000000,
+					time_end_ns: 2000000000,
+					expected_label: 'vehicle',
+					notes: 'Test missed region'
+				};
+				const mockResponse = {
+					...newRegion,
+					region_id: 'region-new',
+					run_id: 'run-001'
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResponse
+				});
+				const { createMissedRegion } = await import('./api');
+				const result = await createMissedRegion('run-001', newRegion);
+				expect(result).toEqual(mockResponse);
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/run-001/missed-regions',
+					expect.objectContaining({
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(newRegion)
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
+				const { createMissedRegion } = await import('./api');
+				await expect(
+					createMissedRegion('run-001', {
+						center_x: 10.5,
+						center_y: 20.3,
+						time_start_ns: 1000000000,
+						time_end_ns: 2000000000
+					})
+				).rejects.toThrow('Failed to create missed region: 400');
+			});
+		});
+
+		describe('deleteMissedRegion', () => {
+			it('should delete a missed region', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { deleteMissedRegion } = await import('./api');
+				await deleteMissedRegion('run-001', 'region-001');
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/run-001/missed-regions/region-001',
+					expect.objectContaining({
+						method: 'DELETE'
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { deleteMissedRegion } = await import('./api');
+				await expect(deleteMissedRegion('run-001', 'region-001')).rejects.toThrow(
+					'Failed to delete missed region: 404'
+				);
+			});
+		});
+	});
 });

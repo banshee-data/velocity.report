@@ -5,7 +5,9 @@
 		mdiGithub,
 		mdiHome,
 		mdiMapMarker,
-		mdiMapMarkerPath
+		mdiMapMarkerPath,
+		mdiMovieOpen,
+		mdiPlayCircleOutline
 	} from '@mdi/js';
 	import {
 		AppBar,
@@ -80,6 +82,18 @@
 			text="Lidar Tracks"
 			icon={mdiMapMarkerPath}
 			path="/app/lidar/tracks"
+			currentUrl={page.url}
+		/>
+		<NavItem
+			text="Lidar Scenes"
+			icon={mdiMovieOpen}
+			path="/app/lidar/scenes"
+			currentUrl={page.url}
+		/>
+		<NavItem
+			text="Lidar Runs"
+			icon={mdiPlayCircleOutline}
+			path="/app/lidar/runs"
 			currentUrl={page.url}
 		/>
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />

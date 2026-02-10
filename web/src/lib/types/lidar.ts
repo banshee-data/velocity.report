@@ -175,3 +175,108 @@ export const TRACK_COLORS = {
 	tentative: '#FF9800', // Orange (unconfirmed)
 	deleted: '#F44336' // Red (just deleted)
 } as const;
+
+/** Detection labels for track ground truth */
+export type DetectionLabel =
+	| 'good_vehicle'
+	| 'good_pedestrian'
+	| 'good_other'
+	| 'noise'
+	| 'noise_flora'
+	| 'split'
+	| 'merge'
+	| 'missed';
+
+/** Quality labels for track measurement quality */
+export type QualityLabel =
+	| 'perfect'
+	| 'good'
+	| 'truncated'
+	| 'noisy_velocity'
+	| 'stopped_recovered';
+
+/** Scene represents a PCAP-based evaluation environment */
+export interface LidarScene {
+	scene_id: string;
+	sensor_id: string;
+	pcap_file: string;
+	pcap_start_secs?: number;
+	pcap_duration_secs?: number;
+	description?: string;
+	reference_run_id?: string;
+	optimal_params_json?: string;
+	created_at_ns: number;
+	updated_at_ns?: number;
+}
+
+/** Analysis run with track snapshots */
+export interface AnalysisRun {
+	run_id: string;
+	created_at: string;
+	source_type: string;
+	source_path?: string;
+	sensor_id: string;
+	params_json?: Record<string, unknown>;
+	duration_secs?: number;
+	total_frames?: number;
+	total_clusters?: number;
+	total_tracks: number;
+	confirmed_tracks: number;
+	processing_time_ms?: number;
+	status: string;
+	error_message?: string;
+	parent_run_id?: string;
+	notes?: string;
+}
+
+/** Run track with labelling fields */
+export interface RunTrack {
+	run_id: string;
+	track_id: string;
+	sensor_id: string;
+	track_state: string;
+	start_unix_nanos: number;
+	end_unix_nanos: number;
+	observation_count: number;
+	avg_speed_mps: number;
+	peak_speed_mps: number;
+	p50_speed_mps: number;
+	p85_speed_mps: number;
+	p95_speed_mps: number;
+	bounding_box_length_avg: number;
+	bounding_box_width_avg: number;
+	bounding_box_height_avg: number;
+	object_class?: string;
+	object_confidence?: number;
+	user_label?: string;
+	quality_label?: string;
+	label_confidence?: number;
+	labeler_id?: string;
+	labeled_at?: number;
+	is_split_candidate?: boolean;
+	is_merge_candidate?: boolean;
+	linked_track_ids?: string[];
+}
+
+/** Labelling progress statistics */
+export interface LabellingProgress {
+	total: number;
+	labelled: number;
+	progress_pct: number;
+	by_class: Record<string, number>;
+}
+
+/** Missed region: area where an object should have been tracked but wasn't */
+export interface MissedRegion {
+	region_id: string;
+	run_id: string;
+	center_x: number;
+	center_y: number;
+	radius_m: number;
+	time_start_ns: number;
+	time_end_ns: number;
+	expected_label: string;
+	labeler_id?: string;
+	labeled_at?: number;
+	notes?: string;
+}

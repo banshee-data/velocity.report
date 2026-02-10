@@ -1,7 +1,7 @@
 {
 	"name": "velocity.report-web",
 	"private": true,
-	"version": "0.5.0-pre3",
+	"version": "0.5.0-pre4",
 	"type": "module",
 	"license": "Apache-2.0",
 	"scripts": {
@@ -28,7 +28,7 @@
 		"@layerstack/tailwind": "2.0.0-next.22",
 		"@mdi/js": "^7.4.47",
 		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/kit": "^2.50.1",
+		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "6.2.4",
 		"@tailwindcss/vite": "^4.1.18",
 		"@testing-library/jest-dom": "^6.9.1",
@@ -48,14 +48,14 @@
 		"prettier": "3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
 		"prettier-plugin-tailwindcss": "^0.7.2",
-		"svelte": "^5.49.1",
+		"svelte": "^5.50.0",
 		"svelte-check": "^4.3.6",
 		"svelte-jester": "^5.0.0",
 		"svelte-ux": "2.0.0-next.21",
 		"tailwindcss": "^4.1.18",
 		"ts-jest": "^29.4.6",
 		"typescript": "^5.9.3",
-		"typescript-eslint": "^8.54.0",
+		"typescript-eslint": "^8.55.0",
 		"vite": "^7.3.1"
 	},
 	"pnpm": {

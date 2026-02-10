@@ -511,6 +511,39 @@ func main() {
 		autoTuner := sweep.NewAutoTuner(sweepRunner)
 		lidarWebServer.SetAutoTuneRunner(autoTuner)
 
+		// Wire ground truth scorer and scene store for label-aware auto-tuning.
+		// The scene store enables persisting optimal params after ground truth sweeps.
+		// The scorer closure resolves the scene's reference_run_id at evaluation time.
+		sceneStore := lidar.NewSceneStore(lidarDB.DB)
+		analysisRunStore := lidar.NewAnalysisRunStore(lidarDB.DB)
+		autoTuner.SetSceneStore(sceneStore)
+		autoTuner.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
+			scene, err := sceneStore.GetScene(sceneID)
+			if err != nil {
+				return 0, fmt.Errorf("loading scene %s: %w", sceneID, err)
+			}
+			if scene.ReferenceRunID == "" {
+				return 0, fmt.Errorf("scene %s has no reference_run_id set", sceneID)
+			}
+			// Convert sweep weights to lidar evaluator weights
+			lidarWeights := lidar.GroundTruthWeights{
+				DetectionRate:     weights.DetectionRate,
+				Fragmentation:     weights.Fragmentation,
+				FalsePositives:    weights.FalsePositives,
+				VelocityCoverage:  weights.VelocityCoverage,
+				QualityPremium:    weights.QualityPremium,
+				TruncationRate:    weights.TruncationRate,
+				VelocityNoiseRate: weights.VelocityNoiseRate,
+				StoppedRecovery:   weights.StoppedRecovery,
+			}
+			evaluator := lidar.NewGroundTruthEvaluator(analysisRunStore, lidarWeights)
+			result, err := evaluator.Evaluate(scene.ReferenceRunID, candidateRunID)
+			if err != nil {
+				return 0, err
+			}
+			return result.CompositeScore, nil
+		})
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

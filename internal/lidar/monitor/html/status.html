@@ -4,123 +4,7 @@
 <head>
   <title>Lidar Monitor - {{.SensorID}}</title>
   <link rel="stylesheet" href="/assets/common.css">
-  <style>
-    h1 {
-      grid-column: 1 / -1;
-    }
-
-    .grid-container {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
-      align-items: start;
-      margin: 0 auto;
-      max-width: 500px;
-      width: 100%;
-    }
-
-    @media (min-width: 1060px) {
-      .grid-container {
-        grid-template-columns: repeat(2, 1fr);
-        max-width: 1000px;
-      }
-    }
-
-    @media (min-width: 1560px) {
-      .grid-container {
-        grid-template-columns: repeat(3, 1fr);
-        max-width: 1500px;
-      }
-    }
-
-    .card {
-      overflow-x: auto;
-      padding: 20px;
-    }
-
-    th,
-    td {
-      border: 1px solid var(--card-border);
-    }
-
-    th {
-      background-color: var(--card-header-bg);
-    }
-
-    ul {
-      padding-left: 20px;
-      margin-bottom: 0;
-    }
-
-    li {
-      margin-bottom: 8px;
-    }
-
-    form {
-      margin-bottom: 15px;
-    }
-
-    textarea {
-      width: 100% !important;
-      background: var(--input-bg);
-      color: var(--input-fg);
-      border: 1px solid var(--input-border);
-      border-radius: 4px;
-      padding: 6px;
-      font-family: var(--mono);
-      font-size: 13px;
-      box-sizing: border-box;
-    }
-
-    .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      margin-bottom: 15px;
-      align-items: flex-end;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
-      min-width: 140px;
-    }
-
-    .form-group label {
-      font-weight: 600;
-      font-size: 0.9em;
-      color: var(--fg-muted);
-    }
-
-    .form-inline {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-direction: row;
-    }
-
-    .form-grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-
-    button {
-      cursor: pointer;
-      padding: 5px 10px;
-      background-color: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 4px;
-    }
-
-    button:hover {
-      background-color: var(--accent-hover);
-    }
-  </style>
+  <link rel="stylesheet" href="/assets/status_dashboard.css">
 </head>
 
 <body>
@@ -155,6 +39,14 @@
           </td>
           <td>{{.BuildTime}}</td>
         </tr>
+        {{if .PCAPSafeDir}}
+        <tr>
+          <td>
+            <strong>PCAP Safe Directory:</strong>
+          </td>
+          <td>{{.PCAPSafeDir}}</td>
+        </tr>
+        {{end}}
         {{if .PCAPFile}}
         <tr>
           <td>
@@ -202,14 +94,6 @@
           </td>
           <td>{{.ParsingStatus}}</td>
         </tr>
-        {{if .PCAPSafeDir}}
-        <tr>
-          <td>
-            <strong>PCAP Safe Directory:</strong>
-          </td>
-          <td>{{.PCAPSafeDir}}</td>
-        </tr>
-        {{end}}
         <tr>
           <td>
             <strong>Uptime:</strong>
@@ -408,10 +292,19 @@
 
             <div class="form-row">
               <div class="form-group" style="flex: 2;">
+                <label>Scene:</label>
+                <select id="scene-select-{{.SensorID}}" style="margin-bottom: 8px;">
+                  <option value="">(manual entry)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" style="flex: 2;">
                 <label>Replay File
                   {{if .PCAPSafeDir}}(from {{.PCAPSafeDir}}){{end}}:
                 </label>
-                <input type="text" name="pcap_file" placeholder="filename.pcap" required />
+                <input type="text" name="pcap_file" id="pcap-file-{{.SensorID}}" placeholder="filename.pcap" required />
               </div>
               <div class="form-group">
                 <label>FG Debug:</label>
@@ -454,11 +347,11 @@
             <div class="form-grid-2">
               <div class="form-group">
                 <label>Start (seconds):</label>
-                <input type="number" name="start_seconds" min="0" step="0.1" value="0" />
+                <input type="number" name="start_seconds" id="pcap-start-{{.SensorID}}" min="0" step="0.1" value="0" />
               </div>
               <div class="form-group">
                 <label>Duration (seconds, -1=all):</label>
-                <input type="number" name="duration_seconds" step="0.1" value="-1" />
+                <input type="number" name="duration_seconds" id="pcap-duration-{{.SensorID}}" step="0.1" value="-1" />
               </div>
 
               <div class="form-group">
@@ -497,6 +390,50 @@
                 update();
               } catch (e) {
                 // no-op: keep template resilient to missing elements
+              }
+            })();
+          </script>
+          <script>
+            (function () {
+              try {
+                var sceneSelect = document.getElementById('scene-select-{{.SensorID}}');
+                var pcapFile = document.getElementById('pcap-file-{{.SensorID}}');
+                var startSecs = document.getElementById('pcap-start-{{.SensorID}}');
+                var durationSecs = document.getElementById('pcap-duration-{{.SensorID}}');
+                if (!sceneSelect || !pcapFile) return;
+
+                var scenesData = [];
+
+                fetch('/api/lidar/scenes?sensor_id={{.SensorID}}')
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    scenesData = data.scenes || [];
+                    scenesData.forEach(function (s) {
+                      var opt = document.createElement('option');
+                      opt.value = s.scene_id;
+                      var label = s.pcap_file;
+                      if (s.description) label = s.description + ' (' + s.pcap_file + ')';
+                      opt.textContent = label;
+                      sceneSelect.appendChild(opt);
+                    });
+                  })
+                  .catch(function () { /* ignore fetch errors */ });
+
+                sceneSelect.addEventListener('change', function () {
+                  var sceneId = sceneSelect.value;
+                  if (!sceneId) return;
+                  var scene = scenesData.find(function (s) { return s.scene_id === sceneId; });
+                  if (!scene) return;
+                  pcapFile.value = scene.pcap_file;
+                  if (startSecs && scene.pcap_start_secs != null) {
+                    startSecs.value = scene.pcap_start_secs;
+                  }
+                  if (durationSecs && scene.pcap_duration_secs != null) {
+                    durationSecs.value = scene.pcap_duration_secs;
+                  }
+                });
+              } catch (e) {
+                // no-op
               }
             })();
           </script>

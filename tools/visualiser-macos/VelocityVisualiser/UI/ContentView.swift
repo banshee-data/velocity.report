@@ -17,14 +17,28 @@ struct ContentView: View {
                 ToolbarView()
 
                 // Metal view - frames are delivered directly to renderer via AppState
-                MetalViewRepresentable(
-                    showPoints: appState.showPoints, showBoxes: appState.showBoxes,
-                    showClusters: appState.showClusters,  // M4
-                    showTrails: appState.showTrails, showDebug: appState.showDebug,  // M6
-                    pointSize: appState.pointSize,
-                    onRendererCreated: { renderer in appState.registerRenderer(renderer) },
-                    onTrackSelected: { trackID in appState.selectTrack(trackID) }
-                ).frame(minWidth: 400, minHeight: 300)
+                ZStack {
+                    MetalViewRepresentable(
+                        showPoints: appState.showPoints, showBoxes: appState.showBoxes,
+                        showClusters: appState.showClusters,  // M4
+                        showTrails: appState.showTrails, showDebug: appState.showDebug,  // M6
+                        pointSize: appState.pointSize,
+                        onRendererCreated: { renderer in appState.registerRenderer(renderer) },
+                        onTrackSelected: { trackID in appState.selectTrack(trackID) },
+                        onCameraChanged: { appState.reprojectLabels() })
+
+                    // Track label overlay (SwiftUI text positioned over 3D tracks)
+                    if appState.showTrackLabels {
+                        TrackLabelOverlay(labels: appState.trackLabels).allowsHitTesting(false)
+                    }
+
+                    // Capture Metal view size for label projection
+                    GeometryReader { geometry in
+                        Color.clear.onAppear { appState.metalViewSize = geometry.size }.onChange(
+                            of: geometry.size
+                        ) { appState.metalViewSize = $0 }
+                    }.allowsHitTesting(false)
+                }.frame(minWidth: 400, minHeight: 300)
 
                 // Playback controls
                 PlaybackControlsView()
@@ -198,6 +212,7 @@ struct OverlayTogglesView: View {
             ToggleButton(label: "C", isOn: $appState.showClusters, help: "Clusters")  // M4
             ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
+            ToggleButton(label: "L", isOn: $appState.showTrackLabels, help: "Track Labels")
 
             Divider().frame(height: 20)
 
@@ -560,6 +575,9 @@ struct DebugOverlayTogglesView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Debug Overlays").font(.headline)
 
+            Toggle("Track Labels", isOn: $appState.showTrackLabels).font(.caption).toggleStyle(
+                .checkbox)
+
             Toggle("Association Lines", isOn: $appState.showAssociation).font(.caption).toggleStyle(
                 .checkbox
             ).disabled(!appState.showDebug)
@@ -580,6 +598,41 @@ struct DebugOverlayTogglesView: View {
     }
 }
 
+// MARK: - Track Label Overlay
+
+/// SwiftUI overlay that renders track ID and class labels above 3D bounding boxes.
+/// Positions are projected from world space by MetalRenderer.projectTrackLabels().
+struct TrackLabelOverlay: View {
+    let labels: [MetalRenderer.TrackScreenLabel]
+
+    var body: some View {
+        ZStack {
+            ForEach(labels) { label in
+                TrackLabelPill(label: label).position(
+                    x: CGFloat(label.screenX), y: CGFloat(label.screenY))
+            }
+        }
+    }
+}
+
+/// A single track label pill: monospaced track ID prefix + class label.
+struct TrackLabelPill: View {
+    let label: MetalRenderer.TrackScreenLabel
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Text(String(label.id.prefix(8))).font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.white)
+
+            if !label.classLabel.isEmpty {
+                Text(label.classLabel).font(.system(size: 10)).foregroundColor(.yellow)
+            }
+        }.padding(.horizontal, 5).padding(.vertical, 2).background(
+            label.isSelected ? Color.blue.opacity(0.8) : Color.black.opacity(0.6)
+        ).cornerRadius(4).fontWeight(label.isSelected ? .bold : .regular)
+    }
+}
+
 // MARK: - Metal View
 
 struct MetalViewRepresentable: NSViewRepresentable {
@@ -595,6 +648,8 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var onRendererCreated: ((MetalRenderer) -> Void)?
     // M6: Track selection callback
     var onTrackSelected: ((String?) -> Void)?
+    // Camera changed callback — reproject labels when the user orbits/pans/zooms
+    var onCameraChanged: (() -> Void)?
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -607,6 +662,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             context.coordinator.renderer = renderer
             metalView.renderer = renderer
             metalView.onTrackSelected = onTrackSelected
+            metalView.onCameraChanged = onCameraChanged
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -628,6 +684,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         // Update track selection callback
         if let metalView = nsView as? InteractiveMetalView {
             metalView.onTrackSelected = onTrackSelected
+            metalView.onCameraChanged = onCameraChanged
         }
     }
 
@@ -642,6 +699,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
 class InteractiveMetalView: MTKView {
     weak var renderer: MetalRenderer?
     var onTrackSelected: ((String?) -> Void)?
+    var onCameraChanged: (() -> Void)?
     private var lastMouseLocation = CGPoint.zero
     private var mouseDownLocation = CGPoint.zero  // M6: Track click detection
 
@@ -670,6 +728,7 @@ class InteractiveMetalView: MTKView {
         let shiftHeld = event.modifierFlags.contains(.shift)
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
+        onCameraChanged?()
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -695,17 +754,20 @@ class InteractiveMetalView: MTKView {
 
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false)
+        onCameraChanged?()
     }
 
     override func scrollWheel(with event: NSEvent) {
         // Trackpad: use scrollingDeltaY. Mouse wheel: use deltaY
         let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.deltaY
         renderer?.handleZoom(delta: delta)
+        onCameraChanged?()
     }
 
     override func magnify(with event: NSEvent) {
         // Pinch gesture on trackpad
         renderer?.handleZoom(delta: event.magnification * 10)
+        onCameraChanged?()
     }
 
     // MARK: - Keyboard Events
@@ -714,7 +776,8 @@ class InteractiveMetalView: MTKView {
         if let renderer = renderer,
             renderer.handleKeyDown(keyCode: event.keyCode, modifiers: event.modifierFlags)
         {
-            // Key was handled
+            // Key was handled (camera movement)
+            onCameraChanged?()
             return
         }
         super.keyDown(with: event)

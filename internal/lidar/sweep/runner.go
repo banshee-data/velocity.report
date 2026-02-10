@@ -87,6 +87,8 @@ type SweepRequest struct {
 
 // ComboResult holds the summary result for one parameter combination
 type ComboResult struct {
+	RunID string `json:"run_id,omitempty"` // Analysis run ID (when ground truth mode is active)
+
 	// Generic param values (new)
 	ParamValues map[string]interface{} `json:"param_values,omitempty"`
 
@@ -110,6 +112,12 @@ type ComboResult struct {
 	AlignmentDegStddev      float64 `json:"alignment_deg_stddev"`
 	MisalignmentRatioMean   float64 `json:"misalignment_ratio_mean"`
 	MisalignmentRatioStddev float64 `json:"misalignment_ratio_stddev"`
+}
+
+// AnalysisRunCreator creates analysis runs for sweep combinations.
+// Defined as an interface to avoid circular imports with the lidar package.
+type AnalysisRunCreator interface {
+	CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error)
 }
 
 // SweepState holds the current state and results of a sweep

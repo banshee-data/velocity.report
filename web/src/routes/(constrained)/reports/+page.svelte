@@ -69,7 +69,7 @@
 	const options = groupOptions.map((o) => ({ value: o, label: o }));
 
 	$: selectedSite =
-		selectedSiteId != null ? sites.find((site) => site.id === selectedSiteId) : null;
+		selectedSiteId != null ? (sites.find((site) => site.id === selectedSiteId) ?? null) : null;
 
 	async function loadConfig() {
 		try {
@@ -217,7 +217,7 @@
 				group: group,
 				source: selectedSource,
 				min_speed: minSpeed,
-				hist_max: maxSpeedCutoff,
+				hist_max: maxSpeedCutoff ?? undefined,
 				boundary_threshold: boundaryThreshold,
 				histogram: true,
 				hist_bucket_size: 5.0,

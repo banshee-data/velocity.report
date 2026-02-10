@@ -82,10 +82,10 @@ struct LabelEncodingTests {
         label.id = "test-id-123"
         label.trackID = "track-001"
         label.classLabel = "car"
-        label.startFrameID = 100
-        label.endFrameID = 200
-        label.createdNanos = 1_000_000_000
-        label.annotator = "david"
+        label.startTimestampNs = 100_000_000
+        label.endTimestampNs = 200_000_000
+        label.createdAtNs = 1_000_000_000
+        label.createdBy = "david"
         label.notes = "White sedan heading north"
 
         let encoder = JSONEncoder()
@@ -102,13 +102,13 @@ struct LabelEncodingTests {
     @Test func labelEventDecodesAllFields() throws {
         let json = """
             {
-                "id": "decoded-id",
-                "trackID": "track-002",
-                "classLabel": "pedestrian",
-                "startFrameID": 50,
-                "endFrameID": 150,
-                "createdNanos": 2000000000,
-                "annotator": "jane",
+                "label_id": "decoded-id",
+                "track_id": "track-002",
+                "class_label": "pedestrian",
+                "start_timestamp_ns": 50000000,
+                "end_timestamp_ns": 150000000,
+                "created_at_ns": 2000000000,
+                "created_by": "jane",
                 "notes": "Walking slowly"
             }
             """
@@ -119,10 +119,10 @@ struct LabelEncodingTests {
         #expect(label.id == "decoded-id")
         #expect(label.trackID == "track-002")
         #expect(label.classLabel == "pedestrian")
-        #expect(label.startFrameID == 50)
-        #expect(label.endFrameID == 150)
-        #expect(label.createdNanos == 2_000_000_000)
-        #expect(label.annotator == "jane")
+        #expect(label.startTimestampNs == 50_000_000)
+        #expect(label.endTimestampNs == 150_000_000)
+        #expect(label.createdAtNs == 2_000_000_000)
+        #expect(label.createdBy == "jane")
         #expect(label.notes == "Walking slowly")
     }
 
@@ -130,14 +130,20 @@ struct LabelEncodingTests {
         var labelSet = LabelSet()
         labelSet.sessionID = "session-abc"
         labelSet.sourceFile = "test.vrlog"
-        labelSet.labels = [
-            LabelEvent(
-                trackID: "t1", classLabel: "car", startFrameID: 0, endFrameID: 100, createdNanos: 0,
-                annotator: "", notes: ""),
-            LabelEvent(
-                trackID: "t2", classLabel: "truck", startFrameID: 50, endFrameID: 200,
-                createdNanos: 0, annotator: "", notes: ""),
-        ]
+
+        var l1 = LabelEvent()
+        l1.trackID = "t1"
+        l1.classLabel = "car"
+        l1.startTimestampNs = 0
+        l1.endTimestampNs = 100_000_000
+
+        var l2 = LabelEvent()
+        l2.trackID = "t2"
+        l2.classLabel = "truck"
+        l2.startTimestampNs = 50_000_000
+        l2.endTimestampNs = 200_000_000
+
+        labelSet.labels = [l1, l2]
 
         let encoder = JSONEncoder()
         let data = try encoder.encode(labelSet)
@@ -156,13 +162,12 @@ struct LabelEncodingTests {
                 "sourceFile": "data.vrlog",
                 "labels": [
                     {
-                        "id": "l1",
-                        "trackID": "t1",
-                        "classLabel": "bicycle",
-                        "startFrameID": 10,
-                        "endFrameID": 20,
-                        "createdNanos": 0,
-                        "annotator": "",
+                        "label_id": "l1",
+                        "track_id": "t1",
+                        "class_label": "bicycle",
+                        "start_timestamp_ns": 10000000,
+                        "end_timestamp_ns": 20000000,
+                        "created_at_ns": 0,
                         "notes": ""
                     }
                 ]

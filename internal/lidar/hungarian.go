@@ -16,13 +16,13 @@ import "math"
 
 const hungarianlnf = 1e18 // Stand-in for infinity in cost matrix
 
-// hungarianAssign solves the rectangular assignment problem for an n×m cost
+// HungarianAssign solves the rectangular assignment problem for an n×m cost
 // matrix. It returns assignments[i] = column index assigned to row i, or -1
 // if unassigned. Costs ≥ hungarianlnf are treated as forbidden.
 //
 // For n ≤ m it pads nothing; for n > m it pads columns with hungarianlnf so
 // excess rows stay unassigned.
-func hungarianAssign(cost [][]float32) []int {
+func HungarianAssign(cost [][]float32) []int {
 	n := len(cost)
 	if n == 0 {
 		return nil

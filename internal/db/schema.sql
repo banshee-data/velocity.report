@@ -18,19 +18,6 @@ CREATE TABLE lidar_analysis_runs (
         , statistics_json TEXT
           );
 
-   CREATE TABLE lidar_bg_snapshot (
-          snapshot_id INTEGER PRIMARY KEY
-        , sensor_id TEXT NOT NULL
-        , taken_unix_nanos INTEGER NOT NULL
-        , rings INTEGER NOT NULL
-        , azimuth_bins INTEGER NOT NULL
-        , params_json TEXT NOT NULL
-        , ring_elevations_json TEXT
-        , grid_blob BLOB NOT NULL
-        , changed_cells_count INTEGER
-        , snapshot_reason TEXT
-          );
-
    CREATE TABLE lidar_bg_regions (
           region_set_id INTEGER PRIMARY KEY AUTOINCREMENT
         , snapshot_id INTEGER REFERENCES lidar_bg_snapshot (snapshot_id)
@@ -42,6 +29,19 @@ CREATE TABLE lidar_analysis_runs (
         , settling_frames INTEGER NOT NULL
         , scene_hash TEXT NOT NULL
         , source_path TEXT
+          );
+
+   CREATE TABLE lidar_bg_snapshot (
+          snapshot_id INTEGER PRIMARY KEY
+        , sensor_id TEXT NOT NULL
+        , taken_unix_nanos INTEGER NOT NULL
+        , rings INTEGER NOT NULL
+        , azimuth_bins INTEGER NOT NULL
+        , params_json TEXT NOT NULL
+        , ring_elevations_json TEXT
+        , grid_blob BLOB NOT NULL
+        , changed_cells_count INTEGER
+        , snapshot_reason TEXT
           );
 
    CREATE TABLE lidar_clusters (
@@ -61,6 +61,21 @@ CREATE TABLE lidar_analysis_runs (
         , noise_points_count INTEGER DEFAULT 0
         , cluster_density REAL
         , aspect_ratio REAL
+          );
+
+   CREATE TABLE lidar_missed_regions (
+          region_id TEXT PRIMARY KEY
+        , run_id TEXT NOT NULL
+        , center_x REAL NOT NULL
+        , center_y REAL NOT NULL
+        , radius_m REAL NOT NULL DEFAULT 3.0
+        , time_start_ns INTEGER NOT NULL
+        , time_end_ns INTEGER NOT NULL
+        , expected_label TEXT NOT NULL DEFAULT 'good_vehicle'
+        , labeler_id TEXT
+        , labeled_at INTEGER
+        , notes TEXT
+        , FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE CASCADE
           );
 
    CREATE TABLE lidar_run_tracks (
@@ -91,8 +106,23 @@ CREATE TABLE lidar_analysis_runs (
         , is_split_candidate INTEGER DEFAULT 0
         , is_merge_candidate INTEGER DEFAULT 0
         , linked_track_ids TEXT
+        , quality_label TEXT
         , PRIMARY KEY (run_id, track_id)
         , FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE CASCADE
+          );
+
+   CREATE TABLE lidar_scenes (
+          scene_id TEXT PRIMARY KEY
+        , sensor_id TEXT NOT NULL
+        , pcap_file TEXT NOT NULL
+        , pcap_start_secs REAL
+        , pcap_duration_secs REAL
+        , description TEXT
+        , reference_run_id TEXT
+        , optimal_params_json TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE SET NULL
           );
 
    CREATE TABLE lidar_tracks (
@@ -124,6 +154,22 @@ CREATE TABLE lidar_analysis_runs (
         , noise_point_ratio REAL
           );
 
+   CREATE TABLE lidar_labels (
+          label_id TEXT PRIMARY KEY
+        , track_id TEXT NOT NULL
+        , class_label TEXT NOT NULL
+        , start_timestamp_ns INTEGER NOT NULL
+        , end_timestamp_ns INTEGER
+        , confidence REAL
+        , created_by TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , notes TEXT
+        , scene_id TEXT
+        , source_file TEXT
+        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
+          );
+
    CREATE TABLE lidar_track_obs (
           track_id TEXT NOT NULL
         , ts_unix_nanos INTEGER NOT NULL
@@ -141,20 +187,6 @@ CREATE TABLE lidar_analysis_runs (
         , height_p95 REAL
         , intensity_mean REAL
         , PRIMARY KEY (track_id, ts_unix_nanos)
-        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
-          );
-
-   CREATE TABLE lidar_labels (
-          label_id TEXT PRIMARY KEY
-        , track_id TEXT NOT NULL
-        , class_label TEXT NOT NULL
-        , start_timestamp_ns INTEGER NOT NULL
-        , end_timestamp_ns INTEGER
-        , confidence REAL
-        , created_by TEXT
-        , created_at_ns INTEGER NOT NULL
-        , updated_at_ns INTEGER
-        , notes TEXT
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
@@ -280,12 +312,6 @@ CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
 
 CREATE INDEX idx_bg_snapshot_sensor_time ON lidar_bg_snapshot (sensor_id, taken_unix_nanos);
 
-CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
-
-CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
-
-CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
-
 CREATE INDEX idx_transits_time ON radar_data_transits (transit_start_unix, transit_end_unix);
 
 CREATE INDEX idx_transit_links_transit ON radar_transit_links (transit_id);
@@ -309,12 +335,6 @@ CREATE INDEX idx_lidar_tracks_class ON lidar_tracks (object_class);
 CREATE INDEX idx_lidar_track_obs_track ON lidar_track_obs (track_id);
 
 CREATE INDEX idx_lidar_track_obs_time ON lidar_track_obs (ts_unix_nanos);
-
-CREATE INDEX idx_lidar_labels_track ON lidar_labels (track_id);
-
-CREATE INDEX idx_lidar_labels_time ON lidar_labels (start_timestamp_ns, end_timestamp_ns);
-
-CREATE INDEX idx_lidar_labels_class ON lidar_labels (class_label);
 
 CREATE INDEX idx_lidar_runs_created ON lidar_analysis_runs (created_at);
 
@@ -376,3 +396,25 @@ CREATE TRIGGER update_site_timestamp AFTER
     WHERE id = NEW.id;
 
 END;
+
+CREATE INDEX idx_lidar_labels_track ON lidar_labels (track_id);
+
+CREATE INDEX idx_lidar_labels_time ON lidar_labels (start_timestamp_ns, end_timestamp_ns);
+
+CREATE INDEX idx_lidar_labels_class ON lidar_labels (class_label);
+
+CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
+
+CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
+
+CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
+
+CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_label);
+
+CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
+
+CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes (sensor_id);
+
+CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes (pcap_file);
+
+CREATE INDEX idx_missed_regions_run_id ON lidar_missed_regions (run_id);

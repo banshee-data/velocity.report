@@ -437,7 +437,7 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	}
 
 	// Solve optimal assignment.
-	assign := hungarianAssign(costMatrix)
+	assign := HungarianAssign(costMatrix)
 
 	// Populate associations and record debug info.
 	for ci := range clusters {

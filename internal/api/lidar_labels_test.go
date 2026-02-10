@@ -55,11 +55,14 @@ func setupLabelTestDB(t *testing.T) *sql.DB {
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
 			notes TEXT,
+			scene_id TEXT,
+			source_file TEXT,
 			FOREIGN KEY (track_id) REFERENCES lidar_tracks(track_id) ON DELETE CASCADE
 		);
 		CREATE INDEX idx_lidar_labels_track ON lidar_labels(track_id);
 		CREATE INDEX idx_lidar_labels_time ON lidar_labels(start_timestamp_ns, end_timestamp_ns);
 		CREATE INDEX idx_lidar_labels_class ON lidar_labels(class_label);
+		CREATE INDEX idx_lidar_labels_scene ON lidar_labels(scene_id);
 	`)
 	if err != nil {
 		t.Fatalf("failed to create lidar_labels table: %v", err)

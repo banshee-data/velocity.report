@@ -969,6 +969,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
 	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
 	mux.HandleFunc("/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive)
+	mux.HandleFunc("/api/lidar/pcap/files", ws.handleListPCAPFiles)
 
 	// Chart API routes (structured JSON data for frontend charts)
 	mux.HandleFunc("/api/lidar/chart/polar", ws.handleChartPolarJSON)
@@ -989,6 +990,24 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("/api/lidar/observations", ws.trackAPI.handleListObservations)
 		mux.HandleFunc("/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks)
 	}
+
+	// Label API routes (delegate to LidarLabelAPI handlers)
+	if ws.db != nil {
+		labelAPI := api.NewLidarLabelAPI(ws.db.DB)
+		labelAPI.RegisterRoutes(mux)
+	}
+
+	// Run track API routes (Phase 1.6 & 1.7: analysis run management and track labelling)
+	if ws.db != nil {
+		mux.HandleFunc("/api/lidar/runs/", ws.handleRunTrackAPI)
+	}
+
+	// Scene API routes (Phase 2.3: scene management for track labelling and auto-tuning)
+	if ws.db != nil {
+		mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
+		mux.HandleFunc("/api/lidar/scenes/", ws.handleSceneByID)
+	}
+
 }
 
 // setupRoutes configures the HTTP routes and handlers
@@ -1563,10 +1582,10 @@ func (ws *WebServer) handleSweepDashboard(w http.ResponseWriter, r *http.Request
 	if sensorID == "" {
 		sensorID = ws.sensorID
 	}
-	// Use JSEscapeString because the value is interpolated into a JS string
-	// literal in sweep_dashboard.html — html.EscapeString doesn't escape
-	// single quotes which could allow script injection.
-	safeSensorID := template.JSEscapeString(sensorID)
+	// Use html.EscapeString because the value is interpolated into an HTML
+	// attribute (meta tag) in sweep_dashboard.html — the JS now reads
+	// sensorId from the DOM instead of a string literal.
+	safeSensorID := html.EscapeString(sensorID)
 
 	doc := fmt.Sprintf(sweepDashboardHTML, safeSensorID)
 

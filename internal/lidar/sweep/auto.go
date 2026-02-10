@@ -6,9 +6,16 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
 	"sync"
 	"time"
 )
+
+// SceneStoreSaver is the interface for saving optimal parameters to a scene.
+// This is defined here to avoid circular imports with the lidar package.
+type SceneStoreSaver interface {
+	SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error
+}
 
 const (
 	// singleValueMarginRatio is the fraction of a single value to use as margin when narrowing
@@ -26,13 +33,41 @@ const (
 	maxValuesPerParam = 10000
 )
 
+// GroundTruthWeights holds the weights for computing composite ground truth scores.
+// These weights control the relative importance of each metric in the overall score.
+// This is defined here to avoid circular imports between sweep and lidar packages.
+type GroundTruthWeights struct {
+	DetectionRate     float64 `json:"detection_rate"`      // w1: Weight for detection rate (matched good tracks)
+	Fragmentation     float64 `json:"fragmentation"`       // w2: Penalty for track splits
+	FalsePositives    float64 `json:"false_positives"`     // w3: Penalty for unmatched candidate tracks
+	VelocityCoverage  float64 `json:"velocity_coverage"`   // w4: Bonus for tracks with velocity data
+	QualityPremium    float64 `json:"quality_premium"`     // w5: Bonus for "perfect" quality tracks
+	TruncationRate    float64 `json:"truncation_rate"`     // w6: Penalty for truncated tracks
+	VelocityNoiseRate float64 `json:"velocity_noise_rate"` // w7: Penalty for noisy velocity tracks
+	StoppedRecovery   float64 `json:"stopped_recovery"`    // w8: Bonus for stopped vehicle recovery
+}
+
+// DefaultGroundTruthWeights returns the default weights from the design doc.
+func DefaultGroundTruthWeights() GroundTruthWeights {
+	return GroundTruthWeights{
+		DetectionRate:     1.0,
+		Fragmentation:     5.0,
+		FalsePositives:    2.0,
+		VelocityCoverage:  0.5,
+		QualityPremium:    0.3,
+		TruncationRate:    0.4,
+		VelocityNoiseRate: 0.4,
+		StoppedRecovery:   0.2,
+	}
+}
+
 // AutoTuneRequest defines the parameters for an auto-tuning run.
 type AutoTuneRequest struct {
 	Params           []SweepParam      `json:"params"`
 	MaxRounds        int               `json:"max_rounds"`
 	ValuesPerParam   int               `json:"values_per_param"`
 	TopK             int               `json:"top_k"`
-	Objective        string            `json:"objective"` // "acceptance", "weighted"
+	Objective        string            `json:"objective"` // "acceptance", "weighted", "ground_truth"
 	Weights          *ObjectiveWeights `json:"weights,omitempty"`
 	Iterations       int               `json:"iterations"`
 	SettleTime       string            `json:"settle_time"`
@@ -43,6 +78,10 @@ type AutoTuneRequest struct {
 	PCAPStartSecs    float64           `json:"pcap_start_secs,omitempty"`
 	PCAPDurationSecs float64           `json:"pcap_duration_secs,omitempty"`
 	SettleMode       string            `json:"settle_mode,omitempty"`
+
+	// Phase 5: Ground truth evaluation support
+	SceneID            string              `json:"scene_id,omitempty"`             // When set, enables ground truth evaluation
+	GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights,omitempty"` // Weights for ground truth scoring
 }
 
 // RoundSummary holds the results of one round of auto-tuning.
@@ -77,6 +116,15 @@ type AutoTuner struct {
 	mu     sync.RWMutex
 	state  AutoTuneState
 	cancel context.CancelFunc
+
+	// Phase 5: Ground truth scoring support
+	// When set, this function is called to score each combination's results using ground truth evaluation.
+	// The function receives the scene_id, candidate run_id, and ground truth weights,
+	// and returns the composite ground truth score.
+	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
+
+	// Phase 5: Scene store for saving optimal params when ground truth mode completes
+	sceneStore SceneStoreSaver
 }
 
 // NewAutoTuner creates a new AutoTuner wrapping the given Runner.
@@ -88,6 +136,23 @@ func NewAutoTuner(runner *Runner) *AutoTuner {
 			Mode:   "auto",
 		},
 	}
+}
+
+// SetGroundTruthScorer sets the ground truth scoring function for label-aware auto-tuning.
+// This function will be called to evaluate each combination's results against reference ground truth
+// when objective is "ground_truth" and scene_id is set. The weights parameter allows per-request
+// customisation of the scoring formula.
+func (at *AutoTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
+	at.mu.Lock()
+	defer at.mu.Unlock()
+	at.groundTruthScorer = scorer
+}
+
+// SetSceneStore sets the scene store for saving optimal parameters after auto-tuning completes.
+func (at *AutoTuner) SetSceneStore(store SceneStoreSaver) {
+	at.mu.Lock()
+	defer at.mu.Unlock()
+	at.sceneStore = store
 }
 
 // Start begins an auto-tuning run. Implements the AutoTuneRunner interface.
@@ -128,6 +193,21 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 
 	// Validate and apply defaults
 	req = applyAutoTuneDefaults(req)
+
+	// Phase 5: Validate ground truth configuration
+	if req.Objective == "ground_truth" {
+		if req.SceneID == "" {
+			return fmt.Errorf("ground_truth objective requires scene_id to be set")
+		}
+		if at.groundTruthScorer == nil {
+			return fmt.Errorf("ground_truth objective requires a ground truth scorer to be configured")
+		}
+		// Apply default ground truth weights if none provided
+		if req.GroundTruthWeights == nil {
+			defaultWeights := DefaultGroundTruthWeights()
+			req.GroundTruthWeights = &defaultWeights
+		}
+	}
 
 	if req.MaxRounds > 10 {
 		return fmt.Errorf("max_rounds must not exceed 10, got %d", req.MaxRounds)
@@ -383,7 +463,41 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		}
 
 		// Score and rank results
-		scored := RankResults(roundResults, weights)
+		var scored []ScoredResult
+		if req.Objective == "ground_truth" {
+			// Phase 5: Ground truth evaluation mode
+			// Each combo should have created an analysis run with ID stored in result.RunID
+			scored = make([]ScoredResult, len(roundResults))
+			for i, result := range roundResults {
+				// Copy common fields first
+				scored[i].ParamValues = result.ParamValues
+				scored[i].OverallAcceptMean = result.OverallAcceptMean
+				scored[i].MisalignmentRatioMean = result.MisalignmentRatioMean
+				scored[i].AlignmentDegMean = result.AlignmentDegMean
+				scored[i].NonzeroCellsMean = result.NonzeroCellsMean
+
+				// Then evaluate score
+				if result.RunID == "" {
+					// No run ID - log warning and give score 0
+					log.Printf("[sweep] WARNING: combo %d has no RunID; cannot evaluate with ground truth. Assigning score 0.", i)
+					scored[i].Score = 0.0
+				} else {
+					// Call ground truth scorer with per-request weights
+					score, err := at.groundTruthScorer(req.SceneID, result.RunID, *req.GroundTruthWeights)
+					if err != nil {
+						log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
+						scored[i].Score = 0.0
+					} else {
+						scored[i].Score = score
+					}
+				}
+			}
+			// Sort by ground truth score (highest = best)
+			scored = sortScoredResults(scored)
+		} else {
+			// Standard objective-based scoring
+			scored = RankResults(roundResults, weights)
+		}
 
 		// Update overall best
 		if overallBest == nil || scored[0].Score > overallBest.Score {
@@ -455,6 +569,26 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 	at.mu.Unlock()
 
 	log.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
+
+	// Phase 5: Save optimal params to scene when ground truth mode is enabled
+	if req.SceneID != "" && req.Objective == "ground_truth" && overallBest != nil && at.sceneStore != nil {
+		// Extract just the parameter values (without score/metrics) for storage
+		optimalParams := make(map[string]interface{})
+		for k, v := range overallBest.ParamValues {
+			optimalParams[k] = v
+		}
+
+		paramsJSON, err := json.Marshal(optimalParams)
+		if err != nil {
+			log.Printf("[sweep] Error marshalling optimal params for scene %s: %v", req.SceneID, err)
+		} else {
+			if err := at.sceneStore.SetOptimalParams(req.SceneID, paramsJSON); err != nil {
+				log.Printf("[sweep] Error saving optimal params for scene %s: %v", req.SceneID, err)
+			} else {
+				log.Printf("[sweep] Saved optimal params for scene %s: %s", req.SceneID, string(paramsJSON))
+			}
+		}
+	}
 }
 
 // waitForSweepComplete polls the runner until the sweep completes or fails.
@@ -671,5 +805,18 @@ func generateIntGrid(start, end float64, n int) []int {
 		result = append(result, intEnd)
 	}
 
+	return result
+}
+
+// sortScoredResults sorts scored results by score in descending order (highest first).
+// Returns a new sorted slice, leaving the original unchanged.
+func sortScoredResults(scored []ScoredResult) []ScoredResult {
+	// Create a copy to avoid modifying the input
+	result := make([]ScoredResult, len(scored))
+	copy(result, scored)
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Score > result[j].Score
+	})
 	return result
 }
