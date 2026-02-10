@@ -152,7 +152,10 @@ func (l *UDPListener) Start(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			// Set read deadline to allow checking context cancellation
-			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			if err := conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+				log.Printf("failed to set read deadline: %v", err)
+				// Continue anyway - this is non-fatal
+			}
 
 			n, addr, err := conn.ReadFromUDP(buffer)
 			if err != nil {

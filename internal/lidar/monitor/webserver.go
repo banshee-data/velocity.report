@@ -1077,7 +1077,9 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			w.Header().Set("Content-Type", "application/json")
 			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
-			enc.Encode(resp)
+			if err := enc.Encode(resp); err != nil {
+				log.Printf("failed to encode response: %v", err)
+			}
 			return
 		}
 
@@ -2200,7 +2202,9 @@ func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request
 	}
 	limit := 10
 	if l := r.URL.Query().Get("limit"); l != "" {
-		fmt.Sscanf(l, "%d", &limit)
+		if _, err := fmt.Sscanf(l, "%d", &limit); err != nil {
+			limit = 10 // Reset to default on parse error
+		}
 		if limit <= 0 || limit > 100 {
 			limit = 10
 		}
