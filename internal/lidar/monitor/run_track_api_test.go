@@ -581,3 +581,183 @@ func TestParseTrackPath(t *testing.T) {
 		})
 	}
 }
+
+func TestRunTrackAPI_DispatchErrors(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ws := &WebServer{db: &db.DB{DB: sqlDB}}
+
+	tests := []struct {
+		name       string
+		method     string
+		path       string
+		wantStatus int
+	}{
+		{
+			name:       "missing track id",
+			method:     http.MethodPut,
+			path:       "/api/lidar/runs/run-1/tracks//label",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "unknown track action",
+			method:     http.MethodPut,
+			path:       "/api/lidar/runs/run-1/tracks/track-1/unknown",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "unknown run subpath",
+			method:     http.MethodGet,
+			path:       "/api/lidar/runs/run-1/does-not-exist",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "missing region id",
+			method:     http.MethodDelete,
+			path:       "/api/lidar/runs/run-1/missed-regions/",
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			w := httptest.NewRecorder()
+			ws.handleRunTrackAPI(w, req)
+			if w.Code != tt.wantStatus {
+				t.Fatalf("expected %d got %d body=%s", tt.wantStatus, w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestRunTrackAPI_MissedRegionsLifecycle(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	runID := "run-missed-001"
+	store := lidar.NewAnalysisRunStore(sqlDB)
+	setupTestRun(t, store, runID)
+
+	ws := &WebServer{db: &db.DB{DB: sqlDB}}
+
+	// Create region.
+	createBody := map[string]interface{}{
+		"center_x":      12.3,
+		"center_y":      -4.5,
+		"time_start_ns": 1000,
+		"time_end_ns":   2000,
+		"notes":         "test region",
+	}
+	bodyBytes, _ := json.Marshal(createBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/missed-regions", bytes.NewReader(bodyBytes))
+	w := httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected %d got %d body=%s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var created lidar.MissedRegion
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created region: %v", err)
+	}
+	if created.RegionID == "" {
+		t.Fatal("expected created region id")
+	}
+
+	// List should include the created region.
+	req = httptest.NewRequest(http.MethodGet, "/api/lidar/runs/"+runID+"/missed-regions", nil)
+	w = httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var listResp struct {
+		Count int `json:"count"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &listResp); err != nil {
+		t.Fatalf("decode list response: %v", err)
+	}
+	if listResp.Count != 1 {
+		t.Fatalf("expected list count 1, got %d", listResp.Count)
+	}
+
+	// Delete should succeed.
+	req = httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/"+runID+"/missed-regions/"+created.RegionID, nil)
+	w = httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	// Deleting again should return 404.
+	req = httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/"+runID+"/missed-regions/"+created.RegionID, nil)
+	w = httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected %d got %d body=%s", http.StatusNotFound, w.Code, w.Body.String())
+	}
+}
+
+func TestRunTrackAPI_EvaluateRun(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	runID := "eval-run"
+	store := lidar.NewAnalysisRunStore(sqlDB)
+	setupTestRun(t, store, runID)
+
+	ws := &WebServer{db: &db.DB{DB: sqlDB}}
+
+	t.Run("method not allowed", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/"+runID+"/evaluate", nil)
+		w := httptest.NewRecorder()
+		ws.handleRunTrackAPI(w, req)
+		if w.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
+		}
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/evaluate", bytes.NewReader([]byte("{")))
+		w := httptest.NewRecorder()
+		ws.handleRunTrackAPI(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("auto detect no scene reference", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/evaluate", bytes.NewReader([]byte(`{}`)))
+		w := httptest.NewRecorder()
+		ws.handleRunTrackAPI(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d got %d body=%s", http.StatusBadRequest, w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("explicit reference success", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/evaluate", bytes.NewReader([]byte(`{"reference_run_id":"reference-run"}`)))
+		w := httptest.NewRecorder()
+		ws.handleRunTrackAPI(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
+		}
+
+		var resp map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if resp["reference_run_id"] != "reference-run" {
+			t.Fatalf("unexpected reference_run_id: %v", resp["reference_run_id"])
+		}
+		if resp["candidate_run_id"] != runID {
+			t.Fatalf("unexpected candidate_run_id: %v", resp["candidate_run_id"])
+		}
+		if _, ok := resp["score"]; !ok {
+			t.Fatalf("expected score in response")
+		}
+	})
+}

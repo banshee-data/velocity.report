@@ -459,3 +459,86 @@ func TestSceneAPI_NoDatabaseConfigured(t *testing.T) {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusServiceUnavailable)
 	}
 }
+
+func TestParseScenePath(t *testing.T) {
+	tests := []struct {
+		path      string
+		wantScene string
+		wantAct   string
+	}{
+		{"/api/lidar/scenes/scene-1", "scene-1", ""},
+		{"/api/lidar/scenes/scene-1/replay", "scene-1", "replay"},
+		{"/api/lidar/scenes/scene-1/evaluations", "scene-1", "evaluations"},
+		{"/wrong/prefix", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			sceneID, action := parseScenePath(tt.path)
+			if sceneID != tt.wantScene {
+				t.Fatalf("sceneID mismatch: got %q want %q", sceneID, tt.wantScene)
+			}
+			if action != tt.wantAct {
+				t.Fatalf("action mismatch: got %q want %q", action, tt.wantAct)
+			}
+		})
+	}
+}
+
+func TestSceneAPI_ListSceneEvaluations_NotImplemented(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	defer ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-xyz/evaluations", nil)
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want %d body=%s", w.Code, http.StatusNotImplemented, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "not_implemented") {
+		t.Fatalf("expected not_implemented marker in body, got %s", w.Body.String())
+	}
+}
+
+func TestSceneAPI_ReplayScene_ErrorBranches(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	defer ws.db.DB.Close()
+
+	t.Run("scene not found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/nonexistent/replay", nil)
+		w := httptest.NewRecorder()
+		ws.handleSceneByID(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+		}
+	})
+
+	t.Run("invalid json body", func(t *testing.T) {
+		store := lidar.NewSceneStore(ws.db.DB)
+		scene := &lidar.Scene{SensorID: "sensor-001", PCAPFile: "test.pcap"}
+		if err := store.InsertScene(scene); err != nil {
+			t.Fatalf("failed to insert scene: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.SceneID+"/replay", strings.NewReader("{"))
+		w := httptest.NewRecorder()
+		ws.handleSceneByID(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d body=%s", w.Code, http.StatusBadRequest, w.Body.String())
+		}
+	})
+}
+
+func TestSceneAPI_HandleSceneByID_UnknownAction(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	defer ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1/unknown-action", nil)
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}

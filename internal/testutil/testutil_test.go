@@ -3,6 +3,8 @@ package testutil
 import (
 	"errors"
 	"net/http"
+	"os"
+	"os/exec"
 	"testing"
 )
 
@@ -22,11 +24,16 @@ func TestAssertStatusCode(t *testing.T) {
 func TestAssertStatusCode_FailurePath(t *testing.T) {
 	t.Parallel()
 
-	ok := t.Run("status mismatch", func(t *testing.T) {
+	if os.Getenv("TESTUTIL_ASSERT_STATUS_FAIL") == "1" {
 		AssertStatusCode(t, http.StatusOK, http.StatusBadRequest)
-	})
-	if ok {
-		t.Fatal("expected subtest to fail on mismatched status code")
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestAssertStatusCode_FailurePath")
+	cmd.Env = append(os.Environ(), "TESTUTIL_ASSERT_STATUS_FAIL=1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected subprocess to fail on mismatched status code")
 	}
 }
 
@@ -40,11 +47,16 @@ func TestAssertNoError(t *testing.T) {
 func TestAssertNoError_FailurePath(t *testing.T) {
 	t.Parallel()
 
-	ok := t.Run("unexpected error", func(t *testing.T) {
+	if os.Getenv("TESTUTIL_ASSERT_NO_ERROR_FAIL") == "1" {
 		AssertNoError(t, errors.New("boom"))
-	})
-	if ok {
-		t.Fatal("expected subtest to fail when error is non-nil")
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestAssertNoError_FailurePath")
+	cmd.Env = append(os.Environ(), "TESTUTIL_ASSERT_NO_ERROR_FAIL=1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected subprocess to fail when error is non-nil")
 	}
 }
 
@@ -58,11 +70,16 @@ func TestAssertError(t *testing.T) {
 func TestAssertError_FailurePath(t *testing.T) {
 	t.Parallel()
 
-	ok := t.Run("missing expected error", func(t *testing.T) {
+	if os.Getenv("TESTUTIL_ASSERT_ERROR_FAIL") == "1" {
 		AssertError(t, nil)
-	})
-	if ok {
-		t.Fatal("expected subtest to fail when error is nil")
+		return
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestAssertError_FailurePath")
+	cmd.Env = append(os.Environ(), "TESTUTIL_ASSERT_ERROR_FAIL=1")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected subprocess to fail when error is nil")
 	}
 }
 
