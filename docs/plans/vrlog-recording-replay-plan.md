@@ -1,6 +1,11 @@
-# VRLOG Recording, Replay & Playback Sync
+# Unified Plan: Seekable Replay and Swift-Native Track Labeling
 
-Record VRLOG files during analysis PCAP replay, enable VRLOG replay via gRPC (Mac app gets seekable playback), expose REST playback control so the Svelte timeline syncs with the Mac app.
+Unifies:
+
+- `docs/plans/vrlog-recording-replay-plan.md` (VRLOG record/replay plumbing)
+- `docs/plans/swift-macos-labeling-playback-alternatives.md` (option analysis)
+
+into one implementation plan with one recommendation.
 
 ## Status
 
@@ -8,223 +13,203 @@ Record VRLOG files during analysis PCAP replay, enable VRLOG replay via gRPC (Ma
 
 ---
 
-## Architecture
+## Goal
 
-```
-Recording (during analysis PCAP replay):
-
-  PCAP -> Pipeline -> FrameAdapter -> Publisher.Publish()
-                                           |
-                                      FrameRecorder.Record()  -> .vrlog directory
-                                           |
-                                      frameChan -> broadcastLoop -> gRPC clients
-
-VRLOG Replay (later, on demand):
-
-  Publisher.vrlogReplayLoop()
-       |
-       |  reads from FrameReader (Replayer)
-       |  rate control + pause handling
-       |
-       v
-  Publisher.Publish()  -> frameChan -> broadcastLoop -> gRPC clients
-                                                            |
-  REST /api/lidar/playback/* <--- Web UI polls status       |
-  REST /api/lidar/vrlog/*    <--- Web UI loads/stops        |
-                                                       Mac app (gRPC)
-```
-
-**Key design decision**: VRLOG replay feeds frames through `Publisher.Publish()` into the existing broadcast path. This means all gRPC clients receive frames (multi-client), and we reuse the existing broadcast infrastructure. The alternative (inline `streamFromReader` on Server, like `ReplayServer`) only supports single-client streaming.
+Enable operators to label tracks while viewing 3D evolution in the macOS Swift app, with reliable timeline scrub/seek and maintainable backend replay architecture.
 
 ---
 
-## Step 1: Publisher — FrameRecorder Interface + Recording Tap
+## Options Compared
 
-**Problem**: `recorder` package imports `visualiser` (for `*FrameBundle`), so `publisher.go` (in `visualiser`) cannot import `recorder`. Circular dependency.
+### Option 1: Existing baseline (VRLOG replay + web-driven timeline/labeling)
 
-**Fix**: Define interface in visualiser; `*recorder.Recorder` satisfies it via duck typing.
+- Keep current direction from the original VRLOG plan.
+- Web tracks page is primary timeline and labeling UI.
+- Swift app mostly consumes streamed frames.
 
-**File**: `internal/lidar/visualiser/publisher.go`
+### Option 2: VRLOG-backed replay + Swift-native labeling (recommended)
+
+- Keep VRLOG as canonical seekable replay format.
+- Move primary labeling workflow into Swift app.
+- Reuse backend run-track labeling APIs and replay controls.
+
+### Option 3: Swift-native labeling + direct PCAP seek
+
+- Skip VRLOG conversion/recording.
+- Add true random seek over PCAP replay with state rebuild.
+
+---
+
+## Comparison Matrix
+
+Scoring: `1 (worst)` to `5 (best)`.
+
+| Option | Maintainability | UX (label + scrub) | Performance | Notes |
+| --- | --- | --- | --- | --- |
+| 1. Baseline VRLOG + web-driven workflow | 3 | 2 | 4 | Backend is straightforward, but operators context-switch between Swift 3D view and web labeling/timeline. |
+| 2. VRLOG + Swift-native labeling | 4 | 5 | 4 | Best operator flow; robust seek semantics via VRLOG. Requires Swift-side API integration and run browser work. |
+| 3. Direct PCAP seek | 2 | 3 | 2 | High risk and complexity: seek must rebuild time-dependent state (background/tracker/warmup), likely high latency and fragility. |
+
+## Single Recommendation
+
+Pursue **Option 2: VRLOG-backed replay with Swift-native labeling**.
+
+Why:
+
+- **Maintainability**: one canonical seekable replay substrate (VRLOG).
+- **Usability**: labeling happens where 3D behavior is inspected.
+- **Performance**: avoids repeated random-access PCAP decode + state reconstruction during scrub.
+
+Option 1 remains a migration path/fallback. Option 3 is explicitly deferred.
+
+---
+
+## Target Architecture (Recommended)
+
+```
+Recording during analysis replay:
+
+  PCAP -> Pipeline -> FrameAdapter -> Publisher.Publish()
+                                           |
+                                      FrameRecorder.Record() -> .vrlog dir
+                                           |
+                                      frameChan -> broadcastLoop -> gRPC clients
+
+Replay + labeling:
+
+  Publisher.vrlogReplayLoop()
+       |
+       | reads FrameReader (Replayer), handles pause/rate/seek
+       v
+  Publisher.Publish() -> gRPC stream (Swift)
+                           |
+                           +-- Swift timeline scrub/step/rate (Seek/Play/Pause RPCs)
+                           +-- Swift track labeling -> REST run-track label API
+
+Optional parity:
+  REST /api/lidar/playback/* + /api/lidar/vrlog/* for web controls/status
+```
+
+**Key design decision**: VRLOG replay must feed through `Publisher.Publish()` (shared broadcast path) rather than a single-client `streamFromReader` path.
+
+---
+
+## Implementation Plan
+
+## Phase 0: Canonical Label Contract
+
+1. Use run-track labels as canonical for analysis/tuning workflows:
+   - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
+   - existing labelling progress endpoints for run-level QA.
+2. Keep `/api/lidar/labels` as optional free-form event annotation.
+3. Add explicit mapping rules only if both stores are needed in the same workflow.
+
+## Phase 1: Record VRLOG During Analysis PCAP Replay
+
+### 1.1 Publisher recording tap (`internal/lidar/visualiser/publisher.go`)
+
+Problem: `recorder` imports `visualiser`; `publisher.go` cannot import `recorder` without a cycle.
+
+Use interface indirection:
 
 ```go
-// FrameRecorder allows recording frames without importing the recorder package.
 type FrameRecorder interface {
     Record(frame *FrameBundle) error
 }
 ```
 
-Add field to `Publisher`:
+Add:
+
+- `recorder FrameRecorder` field
+- `SetRecorder(rec FrameRecorder)`
+- `ClearRecorder()`
+
+Record in `Publish()` after frame type/background metadata assignment and before enqueue to `frameChan`.
+
+### 1.2 Persist `vrlog_path` on runs
+
+New migration:
+
+- `internal/db/migrations/000022_add_vrlog_path.up.sql`
+- `internal/db/migrations/000022_add_vrlog_path.down.sql`
+
+`internal/lidar/analysis_run.go`:
+
+- Add `VRLogPath string \`json:"vrlog_path,omitempty"\`` to `AnalysisRun`.
+- Update `InsertRun`, `GetRun`, `ListRuns`.
+- Add `UpdateRunVRLogPath(runID, vrlogPath string) error`.
+
+### 1.3 Wire record lifecycle in replay flow
+
+`internal/lidar/monitor/webserver.go` in `WebServerConfig`:
 
 ```go
-recorder   FrameRecorder  // nil when not recording
+OnRecordingStart func(runID string)
+OnRecordingStop  func(runID string) string
 ```
 
-Add methods:
+In PCAP analysis goroutine:
+
+- call `OnRecordingStart` immediately after successful `StartRun()`
+- call `OnRecordingStop` **before** `CompleteRun()`
+- persist returned path with `UpdateRunVRLogPath`
+
+`cmd/radar/radar.go`:
+
+- hold active `*recorder.Recorder`
+- start recorder under `<pcapDir>/vrlog/<runID>`
+- set/clear recorder on publisher
+
+## Phase 2: Seekable VRLOG Replay in Main Runtime
+
+### 2.1 Replay control in publisher (`internal/lidar/visualiser/publisher.go`)
+
+Add VRLOG replay state:
 
 ```go
-func (p *Publisher) SetRecorder(rec FrameRecorder)
-func (p *Publisher) ClearRecorder()
-```
-
-In `Publish()`, after FrameType/BackgroundSeq are set but before `frameChan` send:
-
-```go
-if rec := p.recorder; rec != nil {
-    if err := rec.Record(frameBundle); err != nil {
-        log.Printf("[Visualiser] Recording error: %v", err)
-    }
-}
-```
-
-**Note**: Recording happens after decimation/frame-type assignment, so VRLOG files contain foreground-only frames with FrameType already set. Replayed frames won't be re-decimated because of the `FrameType == 0` guard in `Publish()`.
-
----
-
-## Step 2: DB Migration + AnalysisRun Field
-
-**Note**: There is no `analysis_run_store.go`. All store code is in `analysis_run.go`.
-
-### New files
-
-**`internal/db/migrations/000022_add_vrlog_path.up.sql`**
-
-```sql
-ALTER TABLE lidar_analysis_runs ADD COLUMN vrlog_path TEXT;
-```
-
-**`internal/db/migrations/000022_add_vrlog_path.down.sql`**
-
-```sql
-ALTER TABLE lidar_analysis_runs DROP COLUMN vrlog_path;
-```
-
-### Modify `internal/lidar/analysis_run.go`
-
-1. Add field to `AnalysisRun` struct (after `Notes`):
-
-   ```go
-   VRLogPath    string `json:"vrlog_path,omitempty"`
-   ```
-
-2. Update `InsertRun`: Add `vrlog_path` to INSERT columns + `nullString(run.VRLogPath)` to values (16 to 17 columns).
-
-3. Update `GetRun`: Add `vrlog_path` to SELECT + scan as `sql.NullString`.
-
-4. Update `ListRuns`: Same — add column + scan.
-
-5. Add new method:
-   ```go
-   func (s *AnalysisRunStore) UpdateRunVRLogPath(runID, vrlogPath string) error
-   ```
-
----
-
-## Step 3: Wire Recording During Analysis PCAP Replay
-
-### Modify `internal/lidar/monitor/webserver.go`
-
-Add callbacks to `WebServerConfig`:
-
-```go
-OnRecordingStart func(runID string)          // Create recorder, set on Publisher
-OnRecordingStop  func(runID string) string   // Clear recorder, close it, return vrlog path
-```
-
-In PCAP goroutine, after `StartRun()` succeeds:
-
-```go
-if ws.pcapAnalysisMode && runID != "" && ws.onRecordingStart != nil {
-    ws.onRecordingStart(runID)
-}
-```
-
-Before `CompleteRun()`, stop recording and store path:
-
-```go
-if ws.pcapAnalysisMode && runID != "" && ws.onRecordingStop != nil {
-    vrlogPath := ws.onRecordingStop(runID)
-    if vrlogPath != "" {
-        store := lidar.NewAnalysisRunStore(ws.db.DB)
-        store.UpdateRunVRLogPath(runID, vrlogPath)
-    }
-}
-```
-
-**Critical ordering**: `OnRecordingStop` must fire BEFORE `CompleteRun()` so the recorder is closed and the path is stored while the run is still active.
-
-### Modify `cmd/radar/radar.go`
-
-Add package-level `var activeRecorder *recorder.Recorder` and wire the callbacks:
-
-- `OnRecordingStart`: Create `recorder.NewRecorder()` in `<pcapDir>/vrlog/<runID>`, call `publisher.SetRecorder(rec)`.
-- `OnRecordingStop`: Call `publisher.ClearRecorder()`, close recorder, return `recorder.Path()`.
-
----
-
-## Step 4: VRLOG Replay via Publisher Broadcast
-
-### Modify `internal/lidar/visualiser/publisher.go`
-
-Add fields to `Publisher`:
-
-```go
-vrlogReader        FrameReader   // Set during VRLOG replay
-vrlogStopCh        chan struct{}  // Signals replay goroutine to stop
-vrlogMu            sync.Mutex    // Protects vrlog state
+vrlogReader        FrameReader
+vrlogStopCh        chan struct{}
+vrlogMu            sync.Mutex
 vrlogPaused        bool
 vrlogRate          float32
-vrlogSeekSignal    chan struct{}  // Signals seek occurred (reset timing)
-suppressBackground bool          // Skip background snapshots during VRLOG replay
+vrlogSeekSignal    chan struct{}
+suppressBackground bool
 ```
 
-`FrameReader` is already defined in `replay.go` in the same package.
+Add lifecycle/control methods:
 
-Add lifecycle methods:
+- `StartVRLogReplay(reader FrameReader) error`
+- `StopVRLogReplay()`
+- `IsVRLogActive() bool`
+- `VRLogReader() FrameReader`
+- `SetVRLogPaused(paused bool)`
+- `SetVRLogRate(rate float32)`
+- `SeekVRLog(frameIdx uint64) error`
+- `SeekVRLogTimestamp(tsNs int64) error`
 
-```go
-func (p *Publisher) StartVRLogReplay(reader FrameReader) error
-func (p *Publisher) StopVRLogReplay()
-func (p *Publisher) IsVRLogActive() bool
-func (p *Publisher) VRLogReader() FrameReader  // For status queries
-```
+Replay loop requirements:
 
-Add playback control methods (called by Server RPCs):
+- read via `reader.ReadFrame()`
+- pause polling (50ms), wake on seek signal
+- rate control from frame timestamp deltas
+- reset timing after seek
+- publish frames through `p.Publish(frame)`
+- stop on `io.EOF`, stop signal, or error
 
-```go
-func (p *Publisher) SetVRLogPaused(paused bool)
-func (p *Publisher) SetVRLogRate(rate float32)
-func (p *Publisher) SeekVRLog(frameIdx uint64) error
-func (p *Publisher) SeekVRLogTimestamp(tsNs int64) error
-```
+Suppress periodic background snapshots during VRLOG replay (`shouldSendBackground()` guard).
 
-Add replay goroutine `vrlogReplayLoop()`:
+### 2.2 gRPC control delegation (`internal/lidar/visualiser/grpc_server.go`)
 
-- Reads frames via `reader.ReadFrame()`
-- Handles pause (poll 50ms sleep loop, wake on seek signal for single-frame preview)
-- Rate control using frame timestamp deltas divided by playback rate
-- Resets timing after seek
-- Publishes via `p.Publish(frame)`
-- Exits on `io.EOF`, error, or stop signal
+- add `vrlogMode bool`
+- `SetVRLogMode(enabled bool)` should also set `replayMode`
+- delegate `Pause()`, `Play()`, `SetRate()` to publisher in VRLOG mode
+- implement `Seek()` by calling publisher seek methods (currently unimplemented)
 
-Modify `shouldSendBackground()` to return false when `suppressBackground` is set.
+## Phase 3: Playback API Surface and Orchestration
 
-### Modify `internal/lidar/visualiser/grpc_server.go`
+### 3.1 Backend playback callbacks (`internal/lidar/monitor/webserver.go`)
 
-Add `vrlogMode bool` field to `Server`.
-
-Add `SetVRLogMode(enabled bool)` method that sets both `vrlogMode` and `replayMode`.
-
-Modify `Pause()`, `Play()`, `SetRate()` to delegate to Publisher when `vrlogMode`.
-
-Implement `Seek()` (currently returns Unimplemented) to call `publisher.SeekVRLogTimestamp()` or `publisher.SeekVRLog()`.
-
----
-
-## Step 5: REST Playback Endpoints
-
-### Modify `internal/lidar/monitor/webserver.go`
-
-Add callbacks to `WebServerConfig`:
+Add callbacks:
 
 ```go
 OnPlaybackPause   func()
@@ -236,11 +221,11 @@ OnVRLogStop       func()
 GetPlaybackStatus func() PlaybackStatusInfo
 ```
 
-Add `PlaybackStatusInfo` type:
+Add status type:
 
 ```go
 type PlaybackStatusInfo struct {
-    Mode         string  `json:"mode"`            // "live", "pcap", "vrlog"
+    Mode         string  `json:"mode"` // live|pcap|vrlog
     Paused       bool    `json:"paused"`
     Rate         float32 `json:"rate"`
     Seekable     bool    `json:"seekable"`
@@ -253,149 +238,137 @@ type PlaybackStatusInfo struct {
 }
 ```
 
-Register routes:
+Routes:
 
-| Method | Path                         | Body                      | Description                       |
-| ------ | ---------------------------- | ------------------------- | --------------------------------- |
-| GET    | `/api/lidar/playback/status` | —                         | Returns `PlaybackStatusInfo` JSON |
-| POST   | `/api/lidar/playback/pause`  | —                         | Pause playback                    |
-| POST   | `/api/lidar/playback/play`   | —                         | Resume playback                   |
-| POST   | `/api/lidar/playback/seek`   | `{"timestamp_ns": int64}` | Seek to timestamp                 |
-| POST   | `/api/lidar/playback/rate`   | `{"rate": float32}`       | Set playback rate                 |
-| POST   | `/api/lidar/vrlog/load`      | `{"run_id": string}`      | Load VRLOG for run                |
-| POST   | `/api/lidar/vrlog/stop`      | —                         | Stop VRLOG replay                 |
+- `GET /api/lidar/playback/status`
+- `POST /api/lidar/playback/pause`
+- `POST /api/lidar/playback/play`
+- `POST /api/lidar/playback/seek`
+- `POST /api/lidar/playback/rate`
+- `POST /api/lidar/vrlog/load` (input `run_id`, resolves stored `vrlog_path`)
+- `POST /api/lidar/vrlog/stop`
 
-The `/vrlog/load` handler looks up the run's `vrlog_path` from the DB by `run_id`, validates the path, and calls `OnVRLogLoad`.
+`cmd/radar/radar.go` wires callbacks to server/publisher.
 
-### Modify `cmd/radar/radar.go`
+## Phase 4: Swift App as Primary Labeling UI
 
-Wire the callbacks to the visualiser server/publisher.
+### 4.1 Replay loading in Swift
 
----
+Use existing Swift playback controls (already implemented, currently gated by `isSeekable`):
 
-## Step 6: Web UI API Functions
+- timeline scrub
+- frame step forward/back
+- pause/play/rate
 
-### Modify `web/src/lib/types/lidar.ts`
+Add run browser and replay loader:
 
-Add `PlaybackStatus` interface and `vrlog_path?: string` to `AnalysisRun`.
+- list runs
+- detect `vrlog_path`
+- load selected run replay
+- surface run id in app state
 
-```typescript
-export interface PlaybackStatus {
-  mode: "live" | "pcap" | "vrlog";
-  paused: boolean;
-  rate: number;
-  seekable: boolean;
-  current_frame?: number;
-  total_frames?: number;
-  timestamp_ns?: number;
-  log_start_ns?: number;
-  log_end_ns?: number;
-  vrlog_path?: string;
-}
-```
+### 4.2 Run-track labeling client in Swift
 
-### Modify `web/src/lib/api.ts`
+Add `RunTrackLabelAPIClient` for:
 
-Add functions following existing fetch pattern:
+- list run tracks
+- update run-track labels/quality
+- update split/merge flags
+- fetch labelling progress
 
-```typescript
-getPlaybackStatus(): Promise<PlaybackStatus>
-playbackPause(): Promise<void>
-playbackPlay(): Promise<void>
-playbackSeek(timestampNs: number): Promise<void>
-playbackSetRate(rate: number): Promise<void>
-loadVRLog(runId: string): Promise<void>
-stopVRLog(): Promise<void>
-```
+Connect 3D selection to run-track labeling actions in side panel.
 
----
+### 4.3 Keep existing `LabelAPIClient` scoped
 
-## Step 7: Web UI Timeline Sync
+- keep for free-form label events only
+- avoid mixing stores for the same labeling workflow
 
-### Modify `web/src/routes/lidar/tracks/+page.svelte`
+## Phase 5: Web Parity (Optional / Secondary)
 
-When selected run has `vrlog_path`, show a "Load Recording" button in the header controls area.
+Keep or extend web playback controls for parity/fallback:
 
-On click:
+- `web/src/lib/types/lidar.ts`: playback status type + `vrlog_path` on run
+- `web/src/lib/api.ts`: playback/vrlog functions
+- `web/src/routes/lidar/tracks/+page.svelte`: optional backend playback sync
+- `web/src/routes/lidar/runs/+page.svelte`: replay entry affordance
 
-1. Call `loadVRLog(selectedRun.run_id)`
-2. Start polling `getPlaybackStatus()` every 200ms
-3. Sync `selectedTime` from `backendPlayback.timestamp_ns / 1e6`
-4. Sync `isPlaying` from `!backendPlayback.paused`
-5. Timeline seek/play/pause send REST commands to backend
-
-On unload or run change:
-
-1. Call `stopVRLog()`
-2. Stop polling, revert to local playback mode
-
-### Modify `web/src/routes/lidar/runs/+page.svelte`
-
-In run detail panel:
-
-- Show `vrlog_path` if present
-- Add "Replay" button that navigates to tracks page with `?run_id=X&vrlog=1` to auto-load
+Web is secondary; Swift is primary labeling workflow.
 
 ---
 
-## Implementation Order
+## Deferred Work: Direct PCAP Seek
+
+Do not pursue as primary path.
+
+Only revisit after a dedicated spike proves:
+
+- deterministic state rebuild after arbitrary seek,
+- acceptable seek latency under production PCAP sizes,
+- correctness parity with VRLOG replay.
+
+---
+
+## Ordering
 
 ```
-Step 1 -----+
-             +---> Step 3 (wire recording, depends on 1+2)
-Step 2 -----+
-                   Step 4 (VRLOG replay, depends on 1)
-                      |
-                      v
-                   Step 5 (REST endpoints, depends on 4)
-                      |
-                      v
-                   Step 6 (Web API, depends on 5)
-                      |
-                      v
-                   Step 7 (Web timeline, depends on 6)
+Phase 0 (label contract)
+    |
+    +--> Phase 1 (recording + DB path persistence)
+    |
+    +--> Phase 2 (main-runtime VRLOG replay + gRPC seek)
+    |
+    +--> Phase 3 (REST orchestration/status)
+    |
+    +--> Phase 4 (Swift replay browser + run-track labeling)
+    |
+    +--> Phase 5 (optional web parity)
 ```
-
-Steps 1 and 2 are independent. Step 4 only depends on Step 1 (FrameRecorder interface and FrameReader being available). Steps 3 and 4 are independent of each other.
 
 ---
 
 ## Key Gotchas
 
-1. **Circular dep**: `publisher.go` CANNOT import `recorder`. Use `FrameRecorder` interface.
-2. **No `analysis_run_store.go`**: All store code lives in `analysis_run.go`.
-3. **Recording stops before CompleteRun**: `OnRecordingStop` must fire before `CompleteRun()` clears the run.
-4. **Background suppression**: Set `suppressBackground = true` during VRLOG replay. VRLOG frames already have `FrameType` set, so they won't be re-decimated.
-5. **PointCloud ref counting**: VRLOG frames from JSON deserialisation won't have pool-allocated slices. `Retain()`/`Release()` still work correctly — `Release()` at refCount=0 is a no-op for non-pooled slices.
-6. **Path validation**: `/api/lidar/vrlog/load` must validate paths to prevent traversal.
-7. **VRLOG load conflicts**: Reject VRLOG load if PCAP replay is in progress.
+1. `publisher.go` cannot import `recorder`; use `FrameRecorder` interface.
+2. `analysis_run` store code is in `internal/lidar/analysis_run.go`, not a separate store file.
+3. `OnRecordingStop` must execute before run completion finalization.
+4. During VRLOG replay, suppress periodic background snapshots.
+5. Ensure path validation on VRLOG load endpoints.
+6. Reject VRLOG load while PCAP replay is active.
+7. Keep one canonical labeling store per workflow to avoid data divergence.
 
 ---
 
 ## Files to Modify
 
-| File                                       | Changes                                                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `internal/lidar/visualiser/publisher.go`   | FrameRecorder interface, recorder field, VRLOG replay goroutine + lifecycle + playback control, suppressBackground |
-| `internal/lidar/visualiser/grpc_server.go` | vrlogMode field, SetVRLogMode(), delegate Pause/Play/SetRate/Seek to Publisher                                     |
-| `internal/lidar/analysis_run.go`           | VRLogPath field, update InsertRun/GetRun/ListRuns scans, add UpdateRunVRLogPath                                    |
-| `internal/lidar/monitor/webserver.go`      | Recording callbacks, REST playback/vrlog endpoints, PlaybackStatusInfo type                                        |
-| `cmd/radar/radar.go`                       | Wire recording + playback + vrlog callbacks, activeRecorder var                                                    |
-| `internal/db/migrations/000022_*.sql`      | Add vrlog_path column (new files)                                                                                  |
-| `web/src/lib/api.ts`                       | Playback + VRLOG API functions                                                                                     |
-| `web/src/lib/types/lidar.ts`               | PlaybackStatus type, vrlog_path on AnalysisRun                                                                     |
-| `web/src/routes/lidar/tracks/+page.svelte` | Load Recording button, backend playback sync polling                                                               |
-| `web/src/routes/lidar/runs/+page.svelte`   | Show vrlog_path, Replay button                                                                                     |
+| Area | File(s) | Changes |
+| --- | --- | --- |
+| Replay recording/replay | `internal/lidar/visualiser/publisher.go` | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
+| gRPC controls | `internal/lidar/visualiser/grpc_server.go` | Implement seek delegation, VRLOG mode routing |
+| Run persistence | `internal/lidar/analysis_run.go` | `vrlog_path` field + store updates |
+| DB migration | `internal/db/migrations/000022_add_vrlog_path.*.sql` | Add/drop `vrlog_path` |
+| Orchestration API | `internal/lidar/monitor/webserver.go` | recording/playback callbacks + routes + status model |
+| Wiring | `cmd/radar/radar.go` | recorder lifecycle + replay callback wiring |
+| Swift app | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` and new API client(s) | run browser state, replay load flow, run-track labeling integration |
+| Optional web parity | `web/src/lib/types/lidar.ts`, `web/src/lib/api.ts`, `web/src/routes/lidar/tracks/+page.svelte`, `web/src/routes/lidar/runs/+page.svelte` | playback status sync and replay controls |
 
 ---
 
 ## Verification
 
-1. `go build ./...` passes
-2. `npm run build` passes
-3. Start analysis PCAP replay -> confirm VRLOG directory created with header.json, index.bin, chunks
-4. Check analysis run in DB -> confirm vrlog_path is populated after completion
-5. `POST /api/lidar/vrlog/load` with run_id -> Mac app receives seekable frames via gRPC
-6. `GET /api/lidar/playback/status` -> shows mode=vrlog, current position, seekable=true
-7. `POST /api/lidar/playback/seek` -> both Mac app and status endpoint reflect new position
-8. Tracks page: select run with vrlog_path, click "Load Recording" -> timeline syncs
+1. `go build ./...` passes.
+2. `npm run build` passes.
+3. Analysis PCAP replay produces VRLOG directory (`header.json`, `index.bin`, `frames/chunk_*.pb`).
+4. Completed run row contains `vrlog_path`.
+5. Loading replay by run id sets replay mode and `seekable=true`.
+6. gRPC `Seek`/`Pause`/`Play`/`SetRate` work in main runtime.
+7. Swift app can scrub/step and labels persist via run-track endpoints.
+8. Labeling progress reflects Swift-authored labels through existing run APIs.
+
+---
+
+## Exit Criteria
+
+- Operator can load a run in Swift, scrub timeline, step frames, and label tracks without leaving Swift.
+- Replay seek is stable and deterministic.
+- Run-track labels produced in Swift are visible to analysis/tuning workflows.
+- Option 3 (direct PCAP seek) is not required for production workflow.
