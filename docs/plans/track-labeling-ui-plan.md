@@ -9,7 +9,31 @@ into one implementation plan with one recommendation.
 
 ## Status
 
-**Draft** — not yet implemented.
+**In Progress** — Option 2 backend work complete, Swift/macOS work in progress.
+
+### Implementation Checklist
+
+#### Go Backend (Complete)
+
+- [x] **Phase 0: Canonical Label Contract** — Run-track labels via `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
+- [x] **Phase 1.1: Publisher recording tap** — `FrameRecorder` interface in `publisher.go`
+- [x] **Phase 1.2: Persist vrlog_path** — Migration 000022, `AnalysisRun.VRLogPath` field
+- [x] **Phase 1.3: Recording callbacks** — `OnRecordingStart`/`OnRecordingStop` in `WebServerConfig`
+- [x] **Phase 2.1: VRLOG replay in publisher** — `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, etc.
+- [x] **Phase 2.2: gRPC control delegation** — `vrlogMode`, `Pause`/`Play`/`Seek`/`SetRate` delegation
+- [x] **Phase 3.1: Playback callbacks** — `OnPlaybackPause`, `OnPlaybackPlay`, `OnPlaybackSeek`, etc.
+- [x] **Phase 3: Playback API** — REST endpoints: `/api/lidar/playback/*`, `/api/lidar/vrlog/*`
+
+#### Swift/macOS (In Progress)
+
+- [x] **Phase 4.1: Run browser state** — `RunBrowserState` for listing and loading runs
+- [x] **Phase 4.1: Run browser UI** — `RunBrowserView` with run list and replay loader
+- [x] **Phase 4.2: RunTrackLabelAPIClient** — REST client for run-track labelling
+- [x] **Phase 4.3: Connect labelling to run-track API** — Wire selection to `RunTrackLabelAPIClient`
+
+#### Optional (Deferred)
+
+- [ ] **Phase 5: Web parity** — Web playback controls for secondary fallback
 
 ---
 

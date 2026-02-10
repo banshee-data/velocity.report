@@ -67,6 +67,10 @@ struct ContentView: View {
                 appState.increaseRate()
                 return .handled
             }
+            // Run browser sheet (Phase 4.1)
+            .sheet(isPresented: $appState.showRunBrowser) {
+                RunBrowserView().environmentObject(appState)
+            }
     }
 }
 
@@ -84,6 +88,14 @@ struct ToolbarView: View {
 
             // Connection status
             ConnectionStatusView()
+
+            // Run browser button (Phase 4.1)
+            if appState.isConnected {
+                Divider().frame(height: 20)
+                Button(action: { appState.showRunBrowser = true }) {
+                    Label("Runs", systemImage: "doc.text.magnifyingglass")
+                }.help("Browse analysis runs")
+            }
 
             Spacer()
 
@@ -541,14 +553,22 @@ struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
     let labels = ["pedestrian", "car", "cyclist", "bird", "other"]
+    let qualities = ["good", "acceptable", "poor", "unusable"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Label Track").font(.headline)
 
             if let trackID = appState.selectedTrackID {
-                Text("Track: \(trackID)").font(.caption).foregroundColor(.secondary)
+                Text("Track: \(trackID.truncated(12))").font(.caption).foregroundColor(.secondary)
 
+                // Run context indicator (Phase 4.3)
+                if let runID = appState.currentRunID {
+                    Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
+                }
+
+                // Class labels
+                Text("Class").font(.caption).foregroundColor(.secondary).padding(.top, 4)
                 ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
                     Button(action: { appState.assignLabel(label) }) {
                         HStack {
@@ -557,7 +577,31 @@ struct LabelPanelView: View {
                             Text(label)
                             Spacer()
                         }
-                    }.buttonStyle(.plain).padding(.vertical, 4)
+                    }.buttonStyle(.plain).padding(.vertical, 2)
+                }
+
+                // Quality ratings (Phase 4.2 - only in run mode)
+                if appState.currentRunID != nil {
+                    Divider().padding(.vertical, 4)
+                    Text("Quality").font(.caption).foregroundColor(.secondary)
+                    ForEach(qualities, id: \.self) { quality in
+                        Button(action: { appState.assignQuality(quality) }) {
+                            HStack {
+                                Text(quality)
+                                Spacer()
+                            }
+                        }.buttonStyle(.plain).padding(.vertical, 2)
+                    }
+
+                    // Split/Merge flags (Phase 4.2)
+                    Divider().padding(.vertical, 4)
+                    Text("Track Issues").font(.caption).foregroundColor(.secondary)
+                    HStack {
+                        Button("Mark Split") { appState.markAsSplit(true) }
+                            .buttonStyle(.bordered).controlSize(.small)
+                        Button("Mark Merge") { appState.markAsMerge(true) }
+                            .buttonStyle(.bordered).controlSize(.small)
+                    }
                 }
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
