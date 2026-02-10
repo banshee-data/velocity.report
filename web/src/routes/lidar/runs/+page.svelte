@@ -87,6 +87,13 @@
 		}
 	}
 
+	function handleKeyboardActivation(e: KeyboardEvent, action: () => void) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			action();
+		}
+	}
+
 	function findSceneForRun(run: AnalysisRun): LidarScene | null {
 		const byRef = scenes.find((s) => s.reference_run_id === run.run_id);
 		if (byRef) return byRef;
@@ -240,7 +247,7 @@
 									<td
 										class="cursor-pointer px-4 py-3"
 										on:click={() => selectRun(run)}
-										on:keydown={(e) => e.key === 'Enter' && selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
 										role="button"
 										tabindex="0"
 									>
@@ -253,7 +260,7 @@
 									<td
 										class="text-surface-content cursor-pointer px-4 py-3 text-sm"
 										on:click={() => selectRun(run)}
-										on:keydown={(e) => e.key === 'Enter' && selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
 										role="button"
 										tabindex="0"
 									>
@@ -262,7 +269,7 @@
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
 										on:click={() => selectRun(run)}
-										on:keydown={(e) => e.key === 'Enter' && selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
 										role="button"
 										tabindex="0"
 									>
@@ -271,7 +278,7 @@
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
 										on:click={() => selectRun(run)}
-										on:keydown={(e) => e.key === 'Enter' && selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
 										role="button"
 										tabindex="0"
 									>
@@ -280,7 +287,7 @@
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
 										on:click={() => selectRun(run)}
-										on:keydown={(e) => e.key === 'Enter' && selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
 										role="button"
 										tabindex="0"
 									>

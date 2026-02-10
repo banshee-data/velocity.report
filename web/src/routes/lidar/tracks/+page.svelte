@@ -99,27 +99,35 @@
 	let containerRef: HTMLDivElement;
 
 	// Track sensorId changes and reload data when it changes (client-side navigation)
-	let previousSensorId = sensorId;
-	$: if (browser && sensorId !== previousSensorId) {
-		previousSensorId = sensorId;
-		// Reset state
-		tracks = [];
-		backgroundGrid = null;
-		selectedTrackId = null;
-		selectedSceneId = null;
-		selectedRunId = null;
-		scenes = [];
-		runs = [];
-		runTracks = [];
-		observationsByTrack = {};
-		selectedTrackObservations = [];
-		foregroundObservations = [];
-		missedRegions = [];
-		timeRange = null;
-		// Reload data for new sensor
-		loadHistoricalData();
-		loadBackgroundGrid();
-		loadScenes();
+	// Guard to prevent duplicate loads on initial mount
+	let previousSensorId: typeof sensorId | null = null;
+	let hasSeenSensorIdOnce = false;
+	$: if (browser) {
+		if (!hasSeenSensorIdOnce) {
+			// Record the initial sensorId without triggering duplicate loads
+			previousSensorId = sensorId;
+			hasSeenSensorIdOnce = true;
+		} else if (sensorId !== previousSensorId) {
+			previousSensorId = sensorId;
+			// Reset state
+			tracks = [];
+			backgroundGrid = null;
+			selectedTrackId = null;
+			selectedSceneId = null;
+			selectedRunId = null;
+			scenes = [];
+			runs = [];
+			runTracks = [];
+			observationsByTrack = {};
+			selectedTrackObservations = [];
+			foregroundObservations = [];
+			missedRegions = [];
+			timeRange = null;
+			// Reload data for new sensor
+			loadHistoricalData();
+			loadBackgroundGrid();
+			loadScenes();
+		}
 	}
 
 	// Load historical data for playback
