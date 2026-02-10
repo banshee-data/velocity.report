@@ -11,20 +11,22 @@ type ObjectiveWeights struct {
 	Misalignment float64 `json:"misalignment"`
 	Alignment    float64 `json:"alignment"`
 	NonzeroCells float64 `json:"nonzero_cells"`
+	ActiveTracks float64 `json:"active_tracks"`
 }
 
-// DefaultObjectiveWeights returns default weights: acceptance=1.0, misalignment=-0.5, alignment=-0.01, NonzeroCells=0.1
+// DefaultObjectiveWeights returns default weights for multi-objective scoring.
 func DefaultObjectiveWeights() ObjectiveWeights {
 	return ObjectiveWeights{
 		Acceptance:   1.0,
 		Misalignment: -0.5,
 		Alignment:    -0.01,
 		NonzeroCells: 0.1,
+		ActiveTracks: 0.3,
 	}
 }
 
 // ScoreResult computes a scalar score for a ComboResult using the given weights.
-// Formula: w1 * accept_rate + w2 * misalignment_ratio + w3 * alignment_deg + w4 * log(NonzeroCells)
+// Formula: w1*accept_rate + w2*misalignment_ratio + w3*alignment_deg + w4*log(NonzeroCells) + w5*log(ActiveTracks)
 // Note: w2 and w3 are typically negative (minimise), so the sign should be baked into the weight values.
 func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 	score := 0.0
@@ -41,6 +43,11 @@ func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 	// Nonzero cells (log scale, more cells is better)
 	if result.NonzeroCellsMean > 0 {
 		score += weights.NonzeroCells * math.Log(result.NonzeroCellsMean)
+	}
+
+	// Active tracks (log scale, more tracks is better for detection)
+	if result.ActiveTracksMean > 0 {
+		score += weights.ActiveTracks * math.Log(result.ActiveTracksMean)
 	}
 
 	return score

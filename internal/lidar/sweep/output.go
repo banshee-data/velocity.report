@@ -19,9 +19,13 @@ type SampleResult struct {
 	Timestamp        time.Time
 
 	// Track health metrics (best-effort; zero if tracker unavailable)
-	ActiveTracks      int
-	MeanAlignmentDeg  float64
-	MisalignmentRatio float64
+	ActiveTracks       int
+	MeanAlignmentDeg   float64
+	MisalignmentRatio  float64
+	HeadingJitterDeg   float64
+	FragmentationRatio float64
+	TracksCreated      int
+	TracksConfirmed    int
 }
 
 // SweepParams holds the sweep parameters for a single test run.

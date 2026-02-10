@@ -347,6 +347,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 			Misalignment: 0.0,
 			Alignment:    0.0,
 			NonzeroCells: 0.0,
+			ActiveTracks: 0.0,
 		}
 	} else {
 		// Default weighted objective

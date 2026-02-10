@@ -116,6 +116,18 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			if v, ok := trackMetrics["misalignment_ratio"]; ok {
 				result.MisalignmentRatio = toFloat64FromMap(v)
 			}
+			if v, ok := trackMetrics["heading_jitter_deg"]; ok {
+				result.HeadingJitterDeg = toFloat64FromMap(v)
+			}
+			if v, ok := trackMetrics["fragmentation_ratio"]; ok {
+				result.FragmentationRatio = toFloat64FromMap(v)
+			}
+			if v, ok := trackMetrics["tracks_created"]; ok {
+				result.TracksCreated = toIntFromMap(v)
+			}
+			if v, ok := trackMetrics["tracks_confirmed"]; ok {
+				result.TracksConfirmed = toIntFromMap(v)
+			}
 		}
 
 		results = append(results, result)

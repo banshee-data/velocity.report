@@ -112,6 +112,9 @@ type ComboResult struct {
 	AlignmentDegStddev      float64 `json:"alignment_deg_stddev"`
 	MisalignmentRatioMean   float64 `json:"misalignment_ratio_mean"`
 	MisalignmentRatioStddev float64 `json:"misalignment_ratio_stddev"`
+	HeadingJitterDegMean    float64 `json:"heading_jitter_deg_mean"`
+	HeadingJitterDegStddev  float64 `json:"heading_jitter_deg_stddev"`
+	FragmentationRatioMean  float64 `json:"fragmentation_ratio_mean"`
 }
 
 // AnalysisRunCreator creates analysis runs for sweep combinations.
@@ -491,6 +494,13 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				}
 
 				if isPCAP {
+					// Reset acceptance counters before each PCAP combination so metrics
+					// reflect only this combination's data (mirrors live mode at line 526).
+					if err := r.client.ResetAcceptance(); err != nil {
+						log.Printf("[sweep] WARNING: Failed to reset acceptance before PCAP: %v", err)
+						r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
+					}
+
 					// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
 					if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
 						PCAPFile:        req.PCAPFile,
@@ -793,6 +803,20 @@ func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, res
 	}
 	combo.MisalignmentRatioMean, combo.MisalignmentRatioStddev = MeanStddev(misVals)
 
+	// Track health: heading jitter
+	jitterVals := make([]float64, len(results))
+	for ri, r := range results {
+		jitterVals[ri] = r.HeadingJitterDeg
+	}
+	combo.HeadingJitterDegMean, combo.HeadingJitterDegStddev = MeanStddev(jitterVals)
+
+	// Track health: fragmentation ratio
+	fragVals := make([]float64, len(results))
+	for ri, r := range results {
+		fragVals[ri] = r.FragmentationRatio
+	}
+	combo.FragmentationRatioMean, _ = MeanStddev(fragVals)
+
 	return combo
 }
 
@@ -866,6 +890,8 @@ func coerceValue(v interface{}, typ string) (interface{}, error) {
 		}
 	case "int":
 		switch val := v.(type) {
+		case int:
+			return val, nil
 		case float64:
 			return int(val), nil
 		case string:
@@ -877,6 +903,8 @@ func coerceValue(v interface{}, typ string) (interface{}, error) {
 		}
 	case "int64":
 		switch val := v.(type) {
+		case int64:
+			return val, nil
 		case float64:
 			return int64(val), nil
 		case string:
