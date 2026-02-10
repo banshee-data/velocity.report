@@ -2,12 +2,16 @@ package monitor
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type mockSweepHandlerRunner struct {
@@ -321,4 +325,221 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 			t.Fatalf("expected Stop to be called once, got %d", runner.stopCalls)
 		}
 	})
+}
+
+
+// setupTestSweepStoreForHandlers creates an in-memory database and SweepStore for handler testing
+func setupTestSweepStoreForHandlers(t *testing.T) (*sql.DB, *lidar.SweepStore) {
+t.Helper()
+db, err := sql.Open("sqlite3", ":memory:")
+if err != nil {
+t.Fatalf("failed to open test db: %v", err)
+}
+
+_, err = db.Exec(`
+CREATE TABLE IF NOT EXISTS lidar_sweeps (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+sweep_id TEXT NOT NULL UNIQUE,
+sensor_id TEXT NOT NULL,
+mode TEXT NOT NULL DEFAULT 'sweep',
+status TEXT NOT NULL DEFAULT 'running',
+request TEXT NOT NULL,
+results TEXT,
+charts TEXT,
+recommendation TEXT,
+round_results TEXT,
+error TEXT,
+started_at DATETIME NOT NULL,
+completed_at DATETIME,
+created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+`)
+if err != nil {
+t.Fatalf("failed to create lidar_sweeps table: %v", err)
+}
+
+return db, lidar.NewSweepStore(db)
+}
+
+func TestSweepHandlers_ListSweeps(t *testing.T) {
+t.Run("method not allowed", func(t *testing.T) {
+ws := &WebServer{}
+req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweeps", nil)
+w := httptest.NewRecorder()
+
+ws.handleListSweeps(w, req)
+if w.Code != http.StatusMethodNotAllowed {
+t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
+}
+})
+
+t.Run("store not configured", func(t *testing.T) {
+ws := &WebServer{}
+req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweeps", nil)
+w := httptest.NewRecorder()
+
+ws.handleListSweeps(w, req)
+if w.Code != http.StatusServiceUnavailable {
+t.Fatalf("expected %d got %d", http.StatusServiceUnavailable, w.Code)
+}
+})
+}
+
+func TestSweepHandlers_GetSweep(t *testing.T) {
+t.Run("method not allowed", func(t *testing.T) {
+ws := &WebServer{}
+req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweeps/test-id", nil)
+w := httptest.NewRecorder()
+
+ws.handleGetSweep(w, req)
+if w.Code != http.StatusMethodNotAllowed {
+t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
+}
+})
+
+t.Run("store not configured", func(t *testing.T) {
+ws := &WebServer{}
+req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweeps/test-id", nil)
+w := httptest.NewRecorder()
+
+ws.handleGetSweep(w, req)
+if w.Code != http.StatusServiceUnavailable {
+t.Fatalf("expected %d got %d", http.StatusServiceUnavailable, w.Code)
+}
+})
+
+t.Run("missing sweep_id", func(t *testing.T) {
+db, store := setupTestSweepStoreForHandlers(t)
+defer db.Close()
+ws := &WebServer{sweepStore: store}
+req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweeps/", nil)
+w := httptest.NewRecorder()
+
+ws.handleGetSweep(w, req)
+if w.Code != http.StatusBadRequest {
+t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+}
+})
+}
+
+func TestSweepHandlers_SweepCharts(t *testing.T) {
+t.Run("method not allowed", func(t *testing.T) {
+ws := &WebServer{}
+req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweeps/charts", nil)
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusMethodNotAllowed {
+t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
+}
+})
+
+t.Run("store not configured", func(t *testing.T) {
+ws := &WebServer{}
+req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts", strings.NewReader(`{}`))
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusServiceUnavailable {
+t.Fatalf("expected %d got %d", http.StatusServiceUnavailable, w.Code)
+}
+})
+
+t.Run("invalid json", func(t *testing.T) {
+db, store := setupTestSweepStoreForHandlers(t)
+defer db.Close()
+ws := &WebServer{sweepStore: store}
+req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts", strings.NewReader(`{`))
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusBadRequest {
+t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+}
+})
+
+t.Run("missing sweep_id", func(t *testing.T) {
+db, store := setupTestSweepStoreForHandlers(t)
+defer db.Close()
+ws := &WebServer{sweepStore: store}
+req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts", strings.NewReader(`{"charts":[]}`))
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusBadRequest {
+t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+}
+if !strings.Contains(w.Body.String(), "sweep_id is required") {
+t.Fatalf("expected sweep_id error, got %q", w.Body.String())
+}
+})
+
+t.Run("double encoded JSON string rejected", func(t *testing.T) {
+db, store := setupTestSweepStoreForHandlers(t)
+defer db.Close()
+ws := &WebServer{sweepStore: store}
+// Send charts as a JSON-encoded string instead of array
+req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts",
+strings.NewReader(`{"sweep_id":"test","charts":"[{\"id\":\"chart1\"}]"}`))
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusBadRequest {
+t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+}
+if !strings.Contains(w.Body.String(), "must be a JSON array or object") {
+t.Fatalf("expected double-encoded error, got %q", w.Body.String())
+}
+})
+
+t.Run("invalid JSON in charts", func(t *testing.T) {
+db, store := setupTestSweepStoreForHandlers(t)
+defer db.Close()
+ws := &WebServer{sweepStore: store}
+// Send invalid JSON in charts field
+req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts",
+strings.NewReader(`{"sweep_id":"test","charts":{invalid}}`))
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusBadRequest {
+t.Fatalf("expected %d got %d", http.StatusBadRequest, w.Code)
+}
+})
+
+t.Run("success with array", func(t *testing.T) {
+db, store := setupTestSweepStoreForHandlers(t)
+defer db.Close()
+ws := &WebServer{sweepStore: store}
+req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts",
+strings.NewReader(`{"sweep_id":"test","charts":[{"id":"chart1","type":"line"}]}`))
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusOK {
+t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
+}
+
+var resp map[string]string
+if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+t.Fatalf("decode response: %v", err)
+}
+if resp["status"] != "saved" {
+t.Fatalf("expected status saved, got %q", resp["status"])
+}
+})
+
+t.Run("success with object", func(t *testing.T) {
+db, store := setupTestSweepStoreForHandlers(t)
+defer db.Close()
+ws := &WebServer{sweepStore: store}
+req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts",
+strings.NewReader(`{"sweep_id":"test","charts":{"config":"value"}}`))
+w := httptest.NewRecorder()
+
+ws.handleSweepCharts(w, req)
+if w.Code != http.StatusOK {
+t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
+}
+})
 }
