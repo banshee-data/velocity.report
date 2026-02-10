@@ -44,6 +44,20 @@ func TestRunMigrateCommand_Help(t *testing.T) {
 	// that are called by it.
 }
 
+func TestRunMigrateCommand_KnownActions_DoNotExit(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "migrate-actions.db")
+
+	// These actions are expected to complete without os.Exit for a valid DB path.
+	RunMigrateCommand([]string{"up"}, dbPath)
+	RunMigrateCommand([]string{"status"}, dbPath)
+	RunMigrateCommand([]string{"version", "1"}, dbPath)
+	RunMigrateCommand([]string{"down"}, dbPath)
+	RunMigrateCommand([]string{"baseline", "1"}, dbPath)
+	RunMigrateCommand([]string{"detect"}, dbPath)
+	RunMigrateCommand([]string{"help"}, dbPath)
+}
+
 // Test that we can get migrations FS
 func TestGetMigrationsFS(t *testing.T) {
 	migrationsFS, err := getMigrationsFS()
@@ -429,6 +443,47 @@ func TestHandleMigrateForce_RequiresInteractiveInput(t *testing.T) {
 	// - Accept an io.Reader for confirmation input
 	// - Return an error instead of calling log.Fatalf
 	t.Skip("handleMigrateForce requires interactive stdin input; underlying MigrateForce is tested in migrate_extended_test.go")
+}
+
+func TestHandleMigrateForce_ConfirmationYes(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "force.db")
+
+	database, err := OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("OpenDB failed: %v", err)
+	}
+	defer database.Close()
+
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("getMigrationsFS failed: %v", err)
+	}
+
+	// Ensure schema_migrations exists before force.
+	if err := database.MigrateUp(migrationsFS); err != nil {
+		t.Fatalf("MigrateUp failed: %v", err)
+	}
+
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	_, _ = w.WriteString("y\n")
+	_ = w.Close()
+	os.Stdin = r
+	defer func() { os.Stdin = oldStdin }()
+
+	handleMigrateForce(database, migrationsFS, "1")
+
+	version, dirty, err := database.MigrateVersion(migrationsFS)
+	if err != nil {
+		t.Fatalf("MigrateVersion failed: %v", err)
+	}
+	if version != 1 {
+		t.Fatalf("expected forced version 1, got %d", version)
+	}
+	if dirty {
+		t.Fatal("expected clean migration state after force")
+	}
 }
 
 func TestHandleMigrateVersion_InvalidVersion(t *testing.T) {

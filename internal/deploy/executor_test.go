@@ -1,6 +1,8 @@
 package deploy
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -415,6 +417,142 @@ func TestExecutor_WriteFile_LocalError(t *testing.T) {
 	err := e.WriteFile("/nonexistent_dir_12345/test.txt", "content")
 	if err == nil {
 		t.Error("Expected error for unwritable path")
+	}
+}
+
+func TestExecutor_Run_Remote_UsesSSHBuilder(t *testing.T) {
+	e := NewExecutor("remote.example.com", "deployer", "/tmp/key", "/tmp/agent", false)
+	builder := NewMockCommandBuilder()
+	logger := &testLogger{}
+	e.SetLogger(logger)
+	e.SetCommandBuilder(builder)
+
+	builder.SetNextExecutor(&MockCommandExecutor{Output: []byte("ok\n")})
+	out, err := e.Run("echo hello")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(out) != "ok" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+
+	last := builder.LastCommand()
+	if last == nil || last.Name != "ssh" {
+		t.Fatalf("expected ssh command, got %+v", last)
+	}
+	if len(last.Args) == 0 || last.Args[len(last.Args)-1] != "echo hello" {
+		t.Fatalf("expected remote command at end of args, got %+v", last.Args)
+	}
+
+	builder.SetNextExecutor(&MockCommandExecutor{Err: errors.New("ssh failed"), Output: []byte("stderr")})
+	if _, err := e.Run("exit 1"); err == nil {
+		t.Fatal("expected ssh error")
+	}
+}
+
+func TestExecutor_RunSudo_Remote_UsesSSHBuilder(t *testing.T) {
+	e := NewExecutor("remote.example.com", "deployer", "", "", false)
+	builder := NewMockCommandBuilder()
+	e.SetCommandBuilder(builder)
+
+	builder.SetNextExecutor(&MockCommandExecutor{Output: []byte("ok")})
+	if _, err := e.RunSudo("systemctl restart velocity"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	last := builder.LastCommand()
+	if last == nil || last.Name != "ssh" {
+		t.Fatalf("expected ssh command, got %+v", last)
+	}
+	if len(last.Args) == 0 || last.Args[len(last.Args)-1] != "sudo systemctl restart velocity" {
+		t.Fatalf("expected sudo remote command, got %+v", last.Args)
+	}
+
+	builder.SetNextExecutor(&MockCommandExecutor{Err: errors.New("sudo failed")})
+	if _, err := e.RunSudo("false"); err == nil {
+		t.Fatal("expected remote sudo error")
+	}
+}
+
+func TestExecutor_CopyFile_RemotePaths(t *testing.T) {
+	t.Run("remote copy to user path uses scp then ssh mv", func(t *testing.T) {
+		e := NewExecutor("remote.example.com", "deployer", "/tmp/key", "", false)
+		builder := NewMockCommandBuilder()
+		e.SetCommandBuilder(builder)
+
+		// scp succeeds, then ssh mv succeeds
+		builder.ExecutorFactory = func(name string, args []string) *MockCommandExecutor {
+			return &MockCommandExecutor{Output: []byte(fmt.Sprintf("%s ok", name))}
+		}
+
+		if err := e.CopyFile("/tmp/src.txt", "/home/deployer/dst.txt"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(builder.Commands) < 2 {
+			t.Fatalf("expected at least scp and ssh commands, got %d", len(builder.Commands))
+		}
+		if builder.Commands[0].Name != "scp" {
+			t.Fatalf("expected first command scp, got %s", builder.Commands[0].Name)
+		}
+		if builder.Commands[1].Name != "ssh" {
+			t.Fatalf("expected second command ssh (mv), got %s", builder.Commands[1].Name)
+		}
+	})
+
+	t.Run("remote copy to privileged path uses sudo mv", func(t *testing.T) {
+		e := NewExecutor("remote.example.com", "deployer", "", "", false)
+		builder := NewMockCommandBuilder()
+		e.SetCommandBuilder(builder)
+
+		builder.ExecutorFactory = func(name string, args []string) *MockCommandExecutor {
+			return &MockCommandExecutor{Output: []byte("ok")}
+		}
+
+		if err := e.CopyFile("/tmp/src.txt", "/etc/velocity/config.yml"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(builder.Commands) < 2 {
+			t.Fatalf("expected scp + ssh commands, got %d", len(builder.Commands))
+		}
+		if builder.Commands[0].Name != "scp" {
+			t.Fatalf("expected first command scp, got %s", builder.Commands[0].Name)
+		}
+		if builder.Commands[1].Name != "ssh" {
+			t.Fatalf("expected second command ssh (sudo mv), got %s", builder.Commands[1].Name)
+		}
+		lastArgs := builder.Commands[1].Args
+		if len(lastArgs) == 0 || !strings.Contains(lastArgs[len(lastArgs)-1], "sudo mv ") {
+			t.Fatalf("expected sudo mv command, got args=%v", lastArgs)
+		}
+	})
+
+	t.Run("scp failure returns wrapped error", func(t *testing.T) {
+		e := NewExecutor("remote.example.com", "", "", "", false)
+		builder := NewMockCommandBuilder()
+		e.SetCommandBuilder(builder)
+
+		builder.SetNextExecutor(&MockCommandExecutor{Err: errors.New("scp failed")})
+		err := e.CopyFile("/tmp/src.txt", "/tmp/dst.txt")
+		if err == nil {
+			t.Fatal("expected scp error")
+		}
+		if !strings.Contains(err.Error(), "scp failed") {
+			t.Fatalf("expected wrapped scp error, got %v", err)
+		}
+	})
+}
+
+func TestExecutor_WriteFile_RemoteFailure(t *testing.T) {
+	// Remote WriteFile uses an ssh exec.Cmd path; verify error wrapping on failure.
+	e := NewExecutor("invalid-host-for-test", "deployer", "", "", false)
+	err := e.WriteFile("/tmp/velocity-test.txt", "content")
+	if err == nil {
+		t.Fatal("expected remote write failure")
+	}
+	if !strings.Contains(err.Error(), "ssh write failed") {
+		t.Fatalf("expected wrapped ssh write error, got %v", err)
 	}
 }
 
