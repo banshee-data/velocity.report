@@ -143,6 +143,19 @@ type WebServer struct {
 	onPCAPProgress   func(currentPacket, totalPackets uint64)
 	onPCAPTimestamps func(startNs, endNs int64)
 
+	// Recording lifecycle callbacks (Phase 1.3)
+	onRecordingStart func(runID string)
+	onRecordingStop  func(runID string) string
+
+	// Playback control callbacks (Phase 3)
+	onPlaybackPause   func()
+	onPlaybackPlay    func()
+	onPlaybackSeek    func(timestampNs int64) error
+	onPlaybackRate    func(rate float32)
+	onVRLogLoad       func(vrlogPath string) error
+	onVRLogStop       func()
+	getPlaybackStatus func() *PlaybackStatusInfo
+
 	// Sweep runner for web-triggered parameter sweeps
 	sweepRunner SweepRunner
 
@@ -151,6 +164,20 @@ type WebServer struct {
 
 	// Sweep store for persisting sweep results
 	sweepStore *lidar.SweepStore
+}
+
+// PlaybackStatusInfo represents the current playback state for API responses.
+type PlaybackStatusInfo struct {
+	Mode         string  `json:"mode"`          // "live", "pcap", "vrlog"
+	Paused       bool    `json:"paused"`
+	Rate         float32 `json:"rate"`
+	Seekable     bool    `json:"seekable"`
+	CurrentFrame uint64  `json:"current_frame"`
+	TotalFrames  uint64  `json:"total_frames"`
+	TimestampNs  int64   `json:"timestamp_ns"`
+	LogStartNs   int64   `json:"log_start_ns"`
+	LogEndNs     int64   `json:"log_end_ns"`
+	VRLogPath    string  `json:"vrlog_path,omitempty"`
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -191,6 +218,23 @@ type WebServerConfig struct {
 	// OnPCAPTimestamps is called after PCAP pre-counting with the first and
 	// last capture timestamps, enabling timeline display in the UI.
 	OnPCAPTimestamps func(startNs, endNs int64)
+
+	// OnRecordingStart is called when VRLOG recording starts for an analysis run.
+	// The callback receives the run ID and should start the recorder.
+	OnRecordingStart func(runID string)
+
+	// OnRecordingStop is called when VRLOG recording stops.
+	// The callback receives the run ID and should return the path to the recorded VRLOG.
+	OnRecordingStop func(runID string) string
+
+	// Playback control callbacks (Phase 3)
+	OnPlaybackPause func()
+	OnPlaybackPlay  func()
+	OnPlaybackSeek  func(timestampNs int64) error
+	OnPlaybackRate  func(rate float32)
+	OnVRLogLoad     func(vrlogPath string) error
+	OnVRLogStop     func()
+	GetPlaybackStatus func() *PlaybackStatusInfo
 }
 
 // NewWebServer creates a new web server with the provided configuration
@@ -237,6 +281,15 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		onPCAPStopped:     config.OnPCAPStopped,
 		onPCAPProgress:    config.OnPCAPProgress,
 		onPCAPTimestamps:  config.OnPCAPTimestamps,
+		onRecordingStart:  config.OnRecordingStart,
+		onRecordingStop:   config.OnRecordingStop,
+		onPlaybackPause:   config.OnPlaybackPause,
+		onPlaybackPlay:    config.OnPlaybackPlay,
+		onPlaybackSeek:    config.OnPlaybackSeek,
+		onPlaybackRate:    config.OnPlaybackRate,
+		onVRLogLoad:       config.OnVRLogLoad,
+		onVRLogStop:       config.OnVRLogStop,
+		getPlaybackStatus: config.GetPlaybackStatus,
 	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
@@ -1028,6 +1081,15 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
 		mux.HandleFunc("/api/lidar/scenes/", ws.handleSceneByID)
 	}
+
+	// Playback API routes (Phase 3: VRLOG replay control)
+	mux.HandleFunc("/api/lidar/playback/status", ws.handlePlaybackStatus)
+	mux.HandleFunc("/api/lidar/playback/pause", ws.handlePlaybackPause)
+	mux.HandleFunc("/api/lidar/playback/play", ws.handlePlaybackPlay)
+	mux.HandleFunc("/api/lidar/playback/seek", ws.handlePlaybackSeek)
+	mux.HandleFunc("/api/lidar/playback/rate", ws.handlePlaybackRate)
+	mux.HandleFunc("/api/lidar/vrlog/load", ws.handleVRLogLoad)
+	mux.HandleFunc("/api/lidar/vrlog/stop", ws.handleVRLogStop)
 
 }
 
@@ -3344,4 +3406,241 @@ func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(doc))
+}
+
+// handlePlaybackStatus returns the current playback state.
+// GET /api/lidar/playback/status
+func (ws *WebServer) handlePlaybackStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.getPlaybackStatus == nil {
+		// Return default live status when no playback callback is configured
+		status := &PlaybackStatusInfo{
+			Mode:     "live",
+			Paused:   false,
+			Rate:     1.0,
+			Seekable: false,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(status)
+		return
+	}
+
+	status := ws.getPlaybackStatus()
+	if status == nil {
+		status = &PlaybackStatusInfo{
+			Mode:     "live",
+			Paused:   false,
+			Rate:     1.0,
+			Seekable: false,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+// handlePlaybackPause pauses playback.
+// POST /api/lidar/playback/pause
+func (ws *WebServer) handlePlaybackPause(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.onPlaybackPause == nil {
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback pause not configured")
+		return
+	}
+
+	ws.onPlaybackPause()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"paused":  true,
+	})
+}
+
+// handlePlaybackPlay resumes playback.
+// POST /api/lidar/playback/play
+func (ws *WebServer) handlePlaybackPlay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.onPlaybackPlay == nil {
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback play not configured")
+		return
+	}
+
+	ws.onPlaybackPlay()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"paused":  false,
+	})
+}
+
+// handlePlaybackSeek seeks to a specific timestamp.
+// POST /api/lidar/playback/seek
+// Body: {"timestamp_ns": 1234567890}
+func (ws *WebServer) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.onPlaybackSeek == nil {
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback seek not configured")
+		return
+	}
+
+	var body struct {
+		TimestampNs int64 `json:"timestamp_ns"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if err := ws.onPlaybackSeek(body.TimestampNs); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("seek failed: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"timestamp_ns": body.TimestampNs,
+	})
+}
+
+// handlePlaybackRate sets the playback rate.
+// POST /api/lidar/playback/rate
+// Body: {"rate": 1.5}
+func (ws *WebServer) handlePlaybackRate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.onPlaybackRate == nil {
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback rate not configured")
+		return
+	}
+
+	var body struct {
+		Rate float32 `json:"rate"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if body.Rate <= 0 {
+		ws.writeJSONError(w, http.StatusBadRequest, "rate must be positive")
+		return
+	}
+
+	ws.onPlaybackRate(body.Rate)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"rate":    body.Rate,
+	})
+}
+
+// handleVRLogLoad loads a VRLOG for replay by run ID.
+// POST /api/lidar/vrlog/load
+// Body: {"run_id": "abc123"} or {"vrlog_path": "/path/to/vrlog"}
+func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.onVRLogLoad == nil {
+		ws.writeJSONError(w, http.StatusNotImplemented, "vrlog load not configured")
+		return
+	}
+
+	var body struct {
+		RunID     string `json:"run_id"`
+		VRLogPath string `json:"vrlog_path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var vrlogPath string
+
+	// If run_id is provided, look up the vrlog_path from the database
+	if body.RunID != "" {
+		if ws.db == nil {
+			ws.writeJSONError(w, http.StatusInternalServerError, "database not configured")
+			return
+		}
+		store := lidar.NewAnalysisRunStore(ws.db.DB)
+		run, err := store.GetRun(body.RunID)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("run not found: %v", err))
+			return
+		}
+		if run.VRLogPath == "" {
+			ws.writeJSONError(w, http.StatusBadRequest, "run has no vrlog_path")
+			return
+		}
+		vrlogPath = run.VRLogPath
+	} else if body.VRLogPath != "" {
+		vrlogPath = body.VRLogPath
+	} else {
+		ws.writeJSONError(w, http.StatusBadRequest, "run_id or vrlog_path required")
+		return
+	}
+
+	// Basic path validation to prevent directory traversal
+	if !filepath.IsAbs(vrlogPath) {
+		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be absolute")
+		return
+	}
+
+	if err := ws.onVRLogLoad(vrlogPath); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load vrlog: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"vrlog_path": vrlogPath,
+	})
+}
+
+// handleVRLogStop stops VRLOG replay and returns to live mode.
+// POST /api/lidar/vrlog/stop
+func (ws *WebServer) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.onVRLogStop == nil {
+		ws.writeJSONError(w, http.StatusNotImplemented, "vrlog stop not configured")
+		return
+	}
+
+	ws.onVRLogStop()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+	})
 }

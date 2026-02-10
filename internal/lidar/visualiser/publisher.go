@@ -65,6 +65,10 @@ type Publisher struct {
 	lastBackgroundSeq  uint64
 	lastBackgroundSent time.Time
 
+	// Frame recording (Phase 1.1)
+	recorder   FrameRecorder
+	recorderMu sync.RWMutex
+
 	// Stats
 	frameCount     atomic.Uint64
 	clientCount    atomic.Int32
@@ -84,6 +88,12 @@ type Publisher struct {
 type BackgroundManagerInterface interface {
 	GenerateBackgroundSnapshot() (interface{}, error) // Returns *lidar.BackgroundSnapshotData
 	GetBackgroundSequenceNumber() uint64
+}
+
+// FrameRecorder is an interface for recording frames.
+// This avoids circular imports with the recorder package.
+type FrameRecorder interface {
+	Record(frame *FrameBundle) error
 }
 
 // clientStream represents a connected streaming client.
@@ -108,6 +118,21 @@ func NewPublisher(cfg Config) *Publisher {
 // SetBackgroundManager sets the background manager for split streaming (M3.5).
 func (p *Publisher) SetBackgroundManager(mgr BackgroundManagerInterface) {
 	p.backgroundMgr = mgr
+}
+
+// SetRecorder sets the frame recorder for VRLOG recording (Phase 1.1).
+// The recorder will receive all frames published via Publish().
+func (p *Publisher) SetRecorder(rec FrameRecorder) {
+	p.recorderMu.Lock()
+	defer p.recorderMu.Unlock()
+	p.recorder = rec
+}
+
+// ClearRecorder removes the current frame recorder.
+func (p *Publisher) ClearRecorder() {
+	p.recorderMu.Lock()
+	defer p.recorderMu.Unlock()
+	p.recorder = nil
 }
 
 // shouldSendBackground determines if a background snapshot should be sent.
@@ -284,6 +309,16 @@ func (p *Publisher) Publish(frame interface{}) {
 	// Set background sequence number for client cache coherence
 	if p.backgroundMgr != nil {
 		frameBundle.BackgroundSeq = p.backgroundMgr.GetBackgroundSequenceNumber()
+	}
+
+	// Phase 1.1: Record frame if recorder is set
+	p.recorderMu.RLock()
+	rec := p.recorder
+	p.recorderMu.RUnlock()
+	if rec != nil {
+		if err := rec.Record(frameBundle); err != nil {
+			log.Printf("[Visualiser] Recording error: %v", err)
+		}
 	}
 
 	// Calculate frame size for diagnostics
