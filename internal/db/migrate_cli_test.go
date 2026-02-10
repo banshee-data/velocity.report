@@ -470,8 +470,8 @@ func TestHandleMigrateForce_ConfirmationYes(t *testing.T) {
 	_, _ = w.WriteString("y\n")
 	_ = w.Close()
 	os.Stdin = r
-	defer r.Close()
 	defer func() { os.Stdin = oldStdin }()
+	defer r.Close()
 
 	handleMigrateForce(database, migrationsFS, "1")
 
