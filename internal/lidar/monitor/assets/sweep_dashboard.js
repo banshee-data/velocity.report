@@ -242,11 +242,9 @@ function metricLabel(key) {
   if (key === "_combo") return "Combination";
   var schema = PARAM_SCHEMA[key];
   if (schema) return schema.label;
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, function (c) {
-      return c.toUpperCase();
-    });
+  return key.replace(/_/g, " ").replace(/\b\w/g, function (c) {
+    return c.toUpperCase();
+  });
 }
 
 function extractValue(result, key) {
