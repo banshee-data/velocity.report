@@ -546,8 +546,12 @@ func TestExecutor_CopyFile_RemotePaths(t *testing.T) {
 
 func TestExecutor_WriteFile_RemoteFailure(t *testing.T) {
 	// Remote WriteFile uses an ssh exec.Cmd path; verify error wrapping on failure.
-	// Use localhost:1 (port 1) to get a fast "connection refused" error instead of DNS timeout.
-	e := NewExecutor("localhost:1", "deployer", "", "", false)
+	// Use a mock ssh executor to simulate a fast failure instead of relying on real network/SSH behaviour.
+	e := NewExecutor("remote.example.com", "deployer", "", "", false)
+
+	builder := NewMockCommandBuilder()
+	e.SetCommandBuilder(builder)
+	builder.SetNextExecutor(&MockCommandExecutor{Err: errors.New("ssh failed")})
 	err := e.WriteFile("/tmp/velocity-test.txt", "content")
 	if err == nil {
 		t.Fatal("expected remote write failure")
