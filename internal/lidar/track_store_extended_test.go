@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -510,5 +511,190 @@ func TestGetTracksInRange_NullEndNanos(t *testing.T) {
 
 	if len(result) != 1 {
 		t.Errorf("Expected 1 track in range, got %d", len(result))
+	}
+}
+
+// TestClearRuns verifies clearing all analysis runs and their associated run tracks for a sensor.
+func TestClearRuns(t *testing.T) {
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	sensorID1 := "sensor-clear-runs-1"
+	sensorID2 := "sensor-clear-runs-2"
+
+	// Create an AnalysisRunStore
+	store := NewAnalysisRunStore(db)
+
+	// Insert runs for sensor 1
+	run1 := &AnalysisRun{
+		RunID:           "run-001",
+		SensorID:        sensorID1,
+		SourceType:      "pcap",
+		SourcePath:      "/test/data1.pcap",
+		ParamsJSON:      []byte(`{"version":"1.0"}`),
+		DurationSecs:    10.0,
+		TotalFrames:     100,
+		TotalClusters:   50,
+		TotalTracks:     5,
+		ConfirmedTracks: 3,
+		Status:          "completed",
+	}
+	if err := store.InsertRun(run1); err != nil {
+		t.Fatalf("failed to insert run1: %v", err)
+	}
+
+	run2 := &AnalysisRun{
+		RunID:           "run-002",
+		SensorID:        sensorID1,
+		SourceType:      "pcap",
+		SourcePath:      "/test/data2.pcap",
+		ParamsJSON:      []byte(`{"version":"1.0"}`),
+		DurationSecs:    15.0,
+		TotalFrames:     150,
+		TotalClusters:   75,
+		TotalTracks:     8,
+		ConfirmedTracks: 5,
+		Status:          "completed",
+	}
+	if err := store.InsertRun(run2); err != nil {
+		t.Fatalf("failed to insert run2: %v", err)
+	}
+
+	// Insert run for sensor 2 (should not be deleted)
+	run3 := &AnalysisRun{
+		RunID:           "run-003",
+		SensorID:        sensorID2,
+		SourceType:      "pcap",
+		SourcePath:      "/test/data3.pcap",
+		ParamsJSON:      []byte(`{"version":"1.0"}`),
+		DurationSecs:    20.0,
+		TotalFrames:     200,
+		TotalClusters:   100,
+		TotalTracks:     10,
+		ConfirmedTracks: 7,
+		Status:          "completed",
+	}
+	if err := store.InsertRun(run3); err != nil {
+		t.Fatalf("failed to insert run3: %v", err)
+	}
+
+	// Insert run tracks for all runs
+	track1 := &RunTrack{
+		RunID:            "run-001",
+		TrackID:          "track-001",
+		SensorID:         sensorID1,
+		TrackState:       "confirmed",
+		StartUnixNanos:   1000000000,
+		EndUnixNanos:     2000000000,
+		ObservationCount: 10,
+		AvgSpeedMps:      5.5,
+		PeakSpeedMps:     8.0,
+	}
+	if err := store.InsertRunTrack(track1); err != nil {
+		t.Fatalf("failed to insert track1: %v", err)
+	}
+
+	track2 := &RunTrack{
+		RunID:            "run-002",
+		TrackID:          "track-002",
+		SensorID:         sensorID1,
+		TrackState:       "confirmed",
+		StartUnixNanos:   3000000000,
+		EndUnixNanos:     4000000000,
+		ObservationCount: 15,
+		AvgSpeedMps:      6.2,
+		PeakSpeedMps:     9.0,
+	}
+	if err := store.InsertRunTrack(track2); err != nil {
+		t.Fatalf("failed to insert track2: %v", err)
+	}
+
+	track3 := &RunTrack{
+		RunID:            "run-003",
+		TrackID:          "track-003",
+		SensorID:         sensorID2,
+		TrackState:       "confirmed",
+		StartUnixNanos:   5000000000,
+		EndUnixNanos:     6000000000,
+		ObservationCount: 20,
+		AvgSpeedMps:      7.0,
+		PeakSpeedMps:     10.0,
+	}
+	if err := store.InsertRunTrack(track3); err != nil {
+		t.Fatalf("failed to insert track3: %v", err)
+	}
+
+	// Verify runs and tracks exist before clear
+	var count int
+	var err error
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_analysis_runs WHERE sensor_id = ?", sensorID1).Scan(&count)
+	if err != nil {
+		t.Fatalf("Count runs before clear failed: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("Expected 2 runs for sensor1 before clear, got %d", count)
+	}
+
+	// Clear runs for sensor 1
+	if err := ClearRuns(db, sensorID1); err != nil {
+		t.Fatalf("ClearRuns failed: %v", err)
+	}
+
+	// Verify sensor 1 runs are deleted
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_analysis_runs WHERE sensor_id = ?", sensorID1).Scan(&count)
+	if err != nil {
+		t.Fatalf("Count runs after clear failed: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 runs for sensor1 after clear, got %d", count)
+	}
+
+	// Verify sensor 1 run tracks are deleted (cascade)
+	tracks1, err := store.GetRunTracks("run-001")
+	if err != nil {
+		t.Fatalf("GetRunTracks for run-001 after clear failed: %v", err)
+	}
+	if len(tracks1) != 0 {
+		t.Errorf("Expected 0 tracks for run-001 after clear, got %d", len(tracks1))
+	}
+
+	tracks2, err := store.GetRunTracks("run-002")
+	if err != nil {
+		t.Fatalf("GetRunTracks for run-002 after clear failed: %v", err)
+	}
+	if len(tracks2) != 0 {
+		t.Errorf("Expected 0 tracks for run-002 after clear, got %d", len(tracks2))
+	}
+
+	// Verify sensor 2 runs are NOT deleted
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_analysis_runs WHERE sensor_id = ?", sensorID2).Scan(&count)
+	if err != nil {
+		t.Fatalf("Count runs for sensor2 after clear failed: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("Expected 1 run for sensor2 after clear, got %d", count)
+	}
+
+	// Verify sensor 2 run tracks are NOT deleted
+	tracks3, err := store.GetRunTracks("run-003")
+	if err != nil {
+		t.Fatalf("GetRunTracks for run-003 after clear failed: %v", err)
+	}
+	if len(tracks3) != 1 {
+		t.Errorf("Expected 1 track for run-003 after clear, got %d", len(tracks3))
+	}
+}
+
+// TestClearRuns_EmptySensorID verifies error when sensorID is empty.
+func TestClearRuns_EmptySensorID(t *testing.T) {
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	err := ClearRuns(db, "")
+	if err == nil {
+		t.Error("Expected error for empty sensorID")
+	}
+	if err != nil && !strings.Contains(err.Error(), "sensorID is required") {
+		t.Errorf("Expected 'sensorID is required' error, got: %v", err)
 	}
 }

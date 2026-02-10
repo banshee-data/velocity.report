@@ -2254,5 +2254,65 @@ describe('api', () => {
 				);
 			});
 		});
+
+		describe('deleteAllRuns', () => {
+			it('should delete all runs for a sensor', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { deleteAllRuns } = await import('./api');
+				await deleteAllRuns('test-sensor');
+				expect(global.fetch).toHaveBeenCalledWith(
+					expect.objectContaining({
+						href: expect.stringContaining('/api/lidar/runs/clear?sensor_id=test-sensor')
+					}),
+					expect.objectContaining({
+						method: 'POST'
+					})
+				);
+			});
+
+			it('should delete all runs without sensor_id', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { deleteAllRuns } = await import('./api');
+				await deleteAllRuns();
+				expect(global.fetch).toHaveBeenCalledWith(
+					expect.objectContaining({
+						href: expect.stringContaining('/api/lidar/runs/clear')
+					}),
+					expect.objectContaining({
+						method: 'POST'
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { deleteAllRuns } = await import('./api');
+				await expect(deleteAllRuns('test-sensor')).rejects.toThrow(
+					'Failed to delete all runs: 500'
+				);
+			});
+		});
+
+		describe('deleteRunTrack', () => {
+			it('should delete a specific run track', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { deleteRunTrack } = await import('./api');
+				await deleteRunTrack('run-001', 'track-001');
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/run-001/tracks/track-001',
+					expect.objectContaining({
+						method: 'DELETE'
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { deleteRunTrack } = await import('./api');
+				await expect(deleteRunTrack('run-001', 'track-001')).rejects.toThrow(
+					'Failed to delete run track: 404'
+				);
+			});
+		});
 	});
 });
