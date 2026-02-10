@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -248,6 +249,16 @@ func TestNoopStats(t *testing.T) {
 	stats.AddPoints(50)
 	stats.LogStats(true)
 	stats.LogStats(false)
+}
+
+func TestNoopStatsViaInterface(t *testing.T) {
+	// Exercise no-op methods through interface dispatch so coverage includes
+	// the concrete method bodies.
+	var stats PacketStatsInterface = &noopStats{}
+	stats.AddPacket(100)
+	stats.AddDropped()
+	stats.AddPoints(50)
+	stats.LogStats(true)
 }
 
 // TestDefaultSensorConfig tests the default sensor configuration
@@ -968,5 +979,85 @@ func TestUDPListener_Start_SocketFactoryError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to listen") {
 		t.Errorf("Expected 'failed to listen' error, got: %v", err)
+	}
+}
+
+func TestUDPListener_Start_SetReadBufferErrorContinues(t *testing.T) {
+	mockSocket := NewMockUDPSocket(nil)
+	mockSocket.SetReadBufferError = errors.New("set buffer failed")
+	mockFactory := NewMockUDPSocketFactory(mockSocket)
+
+	stats := &MockFullPacketStats{}
+	listener := NewUDPListener(UDPListenerConfig{
+		Address:       "127.0.0.1:2368",
+		RcvBuf:        65536,
+		SocketFactory: mockFactory,
+		Stats:         stats,
+		LogInterval:   time.Hour,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- listener.Start(ctx)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("listener did not exit after cancellation")
+	}
+}
+
+func TestUDPListener_Start_ReadErrorThenRecovers(t *testing.T) {
+	packets := []MockUDPPacket{
+		{Data: []byte("packet-after-error"), Addr: &net.UDPAddr{IP: net.ParseIP("192.168.1.2"), Port: 2368}},
+	}
+	mockSocket := NewMockUDPSocket(packets)
+	mockSocket.ReadError = errors.New("temporary read failure")
+	mockFactory := NewMockUDPSocketFactory(mockSocket)
+
+	stats := &MockFullPacketStats{}
+	listener := NewUDPListener(UDPListenerConfig{
+		Address:       "127.0.0.1:2368",
+		RcvBuf:        65536,
+		SocketFactory: mockFactory,
+		Stats:         stats,
+		LogInterval:   time.Hour,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- listener.Start(ctx)
+	}()
+
+	// Wait until packet after transient read error has been processed.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if stats.GetPacketCount() >= 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if stats.GetPacketCount() < 1 {
+		cancel()
+		t.Fatal("expected listener to recover from read error and process next packet")
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("listener did not exit after cancellation")
 	}
 }
