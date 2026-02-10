@@ -168,7 +168,7 @@ type WebServer struct {
 
 // PlaybackStatusInfo represents the current playback state for API responses.
 type PlaybackStatusInfo struct {
-	Mode         string  `json:"mode"`          // "live", "pcap", "vrlog"
+	Mode         string  `json:"mode"` // "live", "pcap", "vrlog"
 	Paused       bool    `json:"paused"`
 	Rate         float32 `json:"rate"`
 	Seekable     bool    `json:"seekable"`
@@ -228,12 +228,12 @@ type WebServerConfig struct {
 	OnRecordingStop func(runID string) string
 
 	// Playback control callbacks (Phase 3)
-	OnPlaybackPause func()
-	OnPlaybackPlay  func()
-	OnPlaybackSeek  func(timestampNs int64) error
-	OnPlaybackRate  func(rate float32)
-	OnVRLogLoad     func(vrlogPath string) error
-	OnVRLogStop     func()
+	OnPlaybackPause   func()
+	OnPlaybackPlay    func()
+	OnPlaybackSeek    func(timestampNs int64) error
+	OnPlaybackRate    func(rate float32)
+	OnVRLogLoad       func(vrlogPath string) error
+	OnVRLogStop       func()
 	GetPlaybackStatus func() *PlaybackStatusInfo
 }
 
