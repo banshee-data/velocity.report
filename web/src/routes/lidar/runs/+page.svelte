@@ -6,7 +6,7 @@
 	 * matching the scenes page layout pattern.
 	 */
 	import {
-		deleteAllRuns,
+		deleteRun,
 		deleteRunTrack,
 		getLabellingProgress,
 		getLidarRuns,
@@ -21,7 +21,6 @@
 	let scenes: LidarScene[] = [];
 	let loading = true;
 	let error: string | null = null;
-	let deleteAllLoading = false;
 
 	// Selected run for detail panel
 	let selectedRun: AnalysisRun | null = null;
@@ -43,28 +42,24 @@
 		}
 	}
 
-	async function handleDeleteAll() {
+	async function handleDeleteRun(run: AnalysisRun) {
 		if (
 			!confirm(
-				'Are you sure you want to delete ALL runs? This action cannot be undone and will delete all analysis runs and their tracks.'
+				`Are you sure you want to delete run ${run.run_id.substring(0, 8)}? This action cannot be undone and will delete the run and all its tracks.`
 			)
 		) {
 			return;
 		}
 
-		deleteAllLoading = true;
 		try {
-			await deleteAllRuns();
+			await deleteRun(run.run_id);
 			await loadData();
 			// If the selected run was deleted, clear the selection
-			if (selectedRun && !runs.find((r) => r.run_id === selectedRun!.run_id)) {
+			if (selectedRun && selectedRun.run_id === run.run_id) {
 				deselectRun();
 			}
-			alert('All runs deleted successfully');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete runs';
-		} finally {
-			deleteAllLoading = false;
+			error = e instanceof Error ? e.message : 'Failed to delete run';
 		}
 	}
 
@@ -89,6 +84,13 @@
 			}
 		} catch (e) {
 			alert(e instanceof Error ? e.message : 'Failed to delete track');
+		}
+	}
+
+	function handleKeyboardActivation(e: KeyboardEvent, action: () => void) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			action();
 		}
 	}
 
@@ -182,14 +184,6 @@
 				</p>
 			</div>
 			<div class="flex gap-2">
-				<Button
-					variant="outline"
-					color="danger"
-					on:click={handleDeleteAll}
-					disabled={deleteAllLoading || loading}
-				>
-					{deleteAllLoading ? 'Deleting...' : 'Delete All'}
-				</Button>
 				<Button variant="outline" on:click={loadData} disabled={loading}>
 					{loading ? 'Loading...' : 'Refresh'}
 				</Button>
@@ -236,6 +230,9 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
 								>
+								<th class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
+									>Actions</th
+								>
 							</tr>
 						</thead>
 						<tbody>
@@ -243,29 +240,68 @@
 								{@const scene = findSceneForRun(run)}
 								{@const isSelected = selectedRun?.run_id === run.run_id}
 								<tr
-									class="border-surface-content/10 hover:bg-surface-200/50 cursor-pointer border-b transition-colors last:border-b-0 {isSelected
+									class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0 {isSelected
 										? 'bg-primary/5'
 										: ''}"
-									on:click={() => selectRun(run)}
 								>
-									<td class="px-4 py-3">
+									<td
+										class="cursor-pointer px-4 py-3"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										<span
 											class="rounded px-2 py-0.5 text-xs font-medium {statusColour(run.status)}"
 										>
 											{run.status}
 										</span>
 									</td>
-									<td class="text-surface-content px-4 py-3 text-sm">
+									<td
+										class="text-surface-content cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{run.source_path ? basename(run.source_path) : run.source_type}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 text-sm">
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{run.total_tracks} / {run.confirmed_tracks}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 text-sm">
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{scene ? scene.description || scene.scene_id.substring(0, 8) : '-'}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 text-sm">
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{formatDate(run.created_at)}
+									</td>
+									<td class="px-4 py-3 text-center">
+										<button
+											type="button"
+											class="text-surface-content/40 rounded px-2 py-1 text-xs transition-colors hover:bg-red-50 hover:text-red-600"
+											on:click|stopPropagation={() => handleDeleteRun(run)}
+											title="Delete run"
+										>
+											Delete
+										</button>
 									</td>
 								</tr>
 							{/each}

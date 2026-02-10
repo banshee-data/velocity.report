@@ -994,7 +994,11 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("/api/lidar/clusters", ws.trackAPI.handleListClusters)
 		mux.HandleFunc("/api/lidar/observations", ws.trackAPI.handleListObservations)
 		mux.HandleFunc("/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks)
-		mux.HandleFunc("/api/lidar/runs/clear", ws.trackAPI.handleClearRuns)
+
+		// Highly destructive endpoint: only register when explicitly enabled for development/debug use.
+		if os.Getenv("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API") == "1" {
+			mux.HandleFunc("/api/lidar/runs/clear", ws.trackAPI.handleClearRuns)
+		}
 	}
 
 	// Label API routes (delegate to LidarLabelAPI handlers)

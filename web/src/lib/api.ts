@@ -754,6 +754,17 @@ export async function deleteAllRuns(sensorId?: string): Promise<void> {
 }
 
 /**
+ * Delete a specific run
+ * @param runId - Run identifier
+ */
+export async function deleteRun(runId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/runs/${runId}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) throw new Error(`Failed to delete run: ${res.status}`);
+}
+
+/**
  * Delete a specific run track
  * @param runId - Run identifier
  * @param trackId - Track identifier

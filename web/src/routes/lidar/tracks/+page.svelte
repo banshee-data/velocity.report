@@ -37,7 +37,7 @@
 		Track,
 		TrackObservation
 	} from '$lib/types/lidar';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SelectField } from 'svelte-ux';
 
 	// Playback constants
@@ -45,7 +45,9 @@
 	const PLAYBACK_UPDATE_FREQUENCY_HZ = 10; // 10Hz
 
 	// State
-	let sensorId = $page.url.searchParams.get('sensor_id') || 'hesai-pandar40p';
+	let sensorId: string;
+	// Reactive to URL changes - updates when user navigates with different sensor_id param
+	$: sensorId = $page.url.searchParams.get('sensor_id') || 'hesai-pandar40p';
 	let selectedTime = Date.now();
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
@@ -96,6 +98,42 @@
 	let topPaneHeight: number | null = null;
 	let containerRef: HTMLDivElement;
 
+	// Track sensorId changes and reload data when it changes (client-side navigation)
+	// Guard to prevent duplicate loads on initial mount
+	let previousSensorId: typeof sensorId | null = null;
+	let hasSeenSensorIdOnce = false;
+	$: if (browser) {
+		// Use untrack for guard variables to prevent Svelte 5 infinite reactive loops.
+		// Only sensorId should be a reactive dependency here.
+		const seen = untrack(() => hasSeenSensorIdOnce);
+		const prev = untrack(() => previousSensorId);
+		if (!seen) {
+			// Record the initial sensorId without triggering duplicate loads
+			previousSensorId = sensorId;
+			hasSeenSensorIdOnce = true;
+		} else if (sensorId !== prev) {
+			previousSensorId = sensorId;
+			// Reset state
+			tracks = [];
+			backgroundGrid = null;
+			selectedTrackId = null;
+			selectedSceneId = null;
+			selectedRunId = null;
+			scenes = [];
+			runs = [];
+			runTracks = [];
+			observationsByTrack = {};
+			selectedTrackObservations = [];
+			foregroundObservations = [];
+			missedRegions = [];
+			timeRange = null;
+			// Reload data for new sensor
+			void loadHistoricalData(); // eslint-disable-line svelte/infinite-reactive-loop
+			void loadBackgroundGrid(); // eslint-disable-line svelte/infinite-reactive-loop
+			void loadScenes(); // eslint-disable-line svelte/infinite-reactive-loop
+		}
+	}
+
 	// Load historical data for playback
 	async function loadHistoricalData() {
 		console.log('[TrackHistory] Starting data load for sensor:', sensorId);
@@ -119,7 +157,7 @@
 			console.log('[TrackHistory] Calling API...');
 			const history = await getTrackHistory(sensorId, startTime, endTime, 1000);
 			console.log('[TrackHistory] API response:', history);
-			tracks = history.tracks;
+			tracks = history.tracks; // eslint-disable-line svelte/infinite-reactive-loop
 
 			console.log('[TrackHistory] Loaded', tracks.length, 'tracks');
 
@@ -146,6 +184,7 @@
 					lastSeenTimes.slice(0, 3)
 				);
 
+				// eslint-disable-next-line svelte/infinite-reactive-loop
 				timeRange = {
 					start: Math.min(...tracks.map((t) => new Date(t.first_seen).getTime())),
 					end: Math.max(...tracks.map((t) => new Date(t.last_seen).getTime()))
@@ -164,7 +203,7 @@
 
 			// Load foreground observation overlay once we know the time window
 			if (timeRange) {
-				loadForegroundObservations(timeRange.start, timeRange.end);
+				loadForegroundObservations(timeRange.start, timeRange.end); // eslint-disable-line svelte/infinite-reactive-loop
 			}
 		} catch (error) {
 			console.error('[TrackHistory] Failed to load historical data:', error);
@@ -179,9 +218,9 @@
 	async function loadScenes() {
 		scenesLoading = true;
 		try {
-			scenes = await getLidarScenes(sensorId);
+			scenes = await getLidarScenes(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
 		} catch {
-			scenes = [];
+			scenes = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {
 			scenesLoading = false;
 		}
@@ -274,7 +313,7 @@
 	// Load background grid
 	async function loadBackgroundGrid() {
 		try {
-			backgroundGrid = await getBackgroundGrid(sensorId);
+			backgroundGrid = await getBackgroundGrid(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
 		} catch (error) {
 			console.error('Failed to load background grid:', error);
 		}
@@ -302,7 +341,7 @@
 
 	// Debug visible tracks changes
 	let lastVisibleCount = -1;
-	$: if (visibleTracks.length !== lastVisibleCount) {
+	$: if (visibleTracks.length !== untrack(() => lastVisibleCount)) {
 		console.log(
 			'[VisibleTracks] At time',
 			new Date(selectedTime).toISOString(),
@@ -451,11 +490,11 @@
 				Math.floor(windowEnd * 1e6),
 				4000
 			);
-			foregroundObservations = res.observations ?? [];
+			foregroundObservations = res.observations ?? []; // eslint-disable-line svelte/infinite-reactive-loop
 		} catch (error) {
 			foregroundError =
 				error instanceof Error ? error.message : 'Failed to load foreground observations';
-			foregroundObservations = [];
+			foregroundObservations = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {
 			foregroundLoading = false;
 		}
@@ -585,10 +624,11 @@
 				<!-- Sensor Selection -->
 				<SelectField
 					label="Sensor"
-					bind:value={sensorId}
+					value={sensorId}
 					options={[{ label: 'Hesai Pandar40P', value: 'hesai-pandar40p' }]}
 					size="sm"
 					class="w-48"
+					disabled
 				/>
 
 				<!-- Phase 3: Scene Selection -->

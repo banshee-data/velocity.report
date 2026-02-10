@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import type { BackgroundGrid, MissedRegion, Track, TrackObservation } from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 
 	// Rendering constants
 	const RANGE_SPREAD_THRESHOLD = 2.0; // meters - threshold for background stability
@@ -79,7 +79,7 @@
 	// Detect background grid changes
 	let bgDataVersion = 0;
 	$: if (backgroundGrid) {
-		bgDataVersion++;
+		bgDataVersion = untrack(() => bgDataVersion) + 1;
 	}
 
 	// Mouse world coordinate readout
@@ -94,7 +94,7 @@
 		foreground ||
 		foregroundOffset ||
 		foregroundEnabled ||
-		currentTime ||
+		currentTime != null ||
 		missedRegions ||
 		markMissedMode
 	) {
@@ -102,15 +102,19 @@
 	}
 
 	// Pre-compute time-filtered observation subsets (avoids filtering inside render loop)
-	$: visibleForegroundObs = currentTime
-		? foreground.filter((obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime)
-		: foreground;
+	$: visibleForegroundObs =
+		currentTime != null
+			? foreground.filter(
+					(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
+				)
+			: foreground;
 
-	$: visibleSelectedObs = currentTime
-		? observations.filter(
-				(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
-			)
-		: observations;
+	$: visibleSelectedObs =
+		currentTime != null
+			? observations.filter(
+					(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
+				)
+			: observations;
 
 	// Mark view as needing re-render
 	function markDirty() {
