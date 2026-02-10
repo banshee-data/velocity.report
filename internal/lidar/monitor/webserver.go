@@ -841,7 +841,7 @@ func (ws *WebServer) resetFrameBuilder() {
 
 // resetAllState performs a comprehensive reset of all processing state
 // when switching data sources. This includes the background grid, frame
-// builder, and any other stateful components.
+// builder, tracker, and any other stateful components.
 func (ws *WebServer) resetAllState() error {
 	// Reset frame builder first to discard any in-flight frames
 	ws.resetFrameBuilder()
@@ -849,6 +849,11 @@ func (ws *WebServer) resetAllState() error {
 	// Reset background grid
 	if err := ws.resetBackgroundGrid(); err != nil {
 		return err
+	}
+
+	// Reset tracker to clear Kalman filter state and restart track IDs from 1
+	if ws.tracker != nil {
+		ws.tracker.Reset()
 	}
 
 	return nil

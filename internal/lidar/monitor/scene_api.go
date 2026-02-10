@@ -333,6 +333,15 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 		AnalysisMode:    true, // Preserve state after completion
 	}
 
+	// Reset tracker to ensure deterministic track IDs starting from track_1
+	if ws.tracker != nil {
+		ws.tracker.Reset()
+	}
+	// Reset background grid for clean analysis
+	if err := ws.resetBackgroundGrid(); err != nil {
+		log.Printf("Warning: failed to reset background grid before replay: %v", err)
+	}
+
 	if err := ws.StartPCAPInternal(scene.PCAPFile, config); err != nil {
 		// Update run status to failed
 		if updateErr := runStore.UpdateRunStatus(run.RunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {

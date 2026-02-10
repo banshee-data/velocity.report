@@ -45,7 +45,7 @@
 	const PLAYBACK_UPDATE_FREQUENCY_HZ = 10; // 10Hz
 
 	// State
-	let sensorId = 'hesai-pandar40p';
+	let sensorId = $page.url.searchParams.get('sensor_id') || 'hesai-pandar40p';
 	let selectedTime = Date.now();
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
@@ -245,13 +245,29 @@
 	// Phase 3: Handle run selection change
 	function handleRunChange() {
 		if (selectedRunId !== null) {
-			loadRunTracks();
+			loadRunTracks().then(() => {
+				// Scope time range to this run's tracks
+				if (runTracks.length > 0) {
+					const runStart = Math.min(...runTracks.map((rt) => rt.start_unix_nanos / 1e6));
+					const runEnd = Math.max(...runTracks.map((rt) => rt.end_unix_nanos / 1e6));
+					timeRange = { start: runStart, end: runEnd };
+					selectedTime = runStart;
+				}
+			});
 			loadMissedRegions();
 		} else {
 			runTracks = [];
 			labellingProgress = null;
 			missedRegions = [];
 			markMissedMode = false;
+			// Restore full time range from all tracks
+			if (tracks.length > 0) {
+				timeRange = {
+					start: Math.min(...tracks.map((t) => new Date(t.first_seen).getTime())),
+					end: Math.max(...tracks.map((t) => new Date(t.last_seen).getTime()))
+				};
+				selectedTime = timeRange.start;
+			}
 		}
 	}
 
@@ -264,12 +280,25 @@
 		}
 	}
 
-	// Get tracks visible at current time
+	// Run-scoped track filtering: when a run is selected, only show its tracks
+	$: runTrackIds =
+		selectedRunId && runTracks.length > 0 ? new Set(runTracks.map((rt) => rt.track_id)) : null;
+
+	// Get tracks visible at current time, filtered by run if selected
 	$: visibleTracks = tracks.filter((track) => {
+		if (runTrackIds && !runTrackIds.has(track.track_id)) return false;
 		const firstSeen = new Date(track.first_seen).getTime();
 		const lastSeen = new Date(track.last_seen).getTime();
 		return selectedTime >= firstSeen && selectedTime <= lastSeen;
 	});
+
+	// Run-scoped foreground observations
+	$: visibleForeground = runTrackIds
+		? foregroundObservations.filter((obs) => runTrackIds.has(obs.track_id))
+		: foregroundObservations;
+
+	// Run-scoped tracks for TrackList sidebar
+	$: listTracks = runTrackIds ? tracks.filter((t) => runTrackIds.has(t.track_id)) : tracks;
 
 	// Debug visible tracks changes
 	let lastVisibleCount = -1;
@@ -661,7 +690,7 @@
 				{backgroundGrid}
 				currentTime={selectedTime}
 				observations={selectedTrackObservations}
-				foreground={foregroundObservations}
+				foreground={visibleForeground}
 				foregroundEnabled={showForeground}
 				{foregroundOffset}
 				onTrackSelect={handleTrackSelect}
@@ -703,7 +732,7 @@
 			<!-- Track List Sidebar -->
 			<div class="border-surface-content/20 bg-surface-100 w-[500px] overflow-hidden border-l">
 				<TrackList
-					{tracks}
+					tracks={listTracks}
 					{selectedTrackId}
 					onTrackSelect={handleTrackSelect}
 					onPaginatedTracksChange={(newTracks) => (paginatedTracks = newTracks)}
