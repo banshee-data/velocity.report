@@ -203,7 +203,7 @@ func TestSweepHandlers_SweepStatusAndStop(t *testing.T) {
 func TestSweepHandlers_AutoTune(t *testing.T) {
 	t.Run("dispatcher method not allowed", func(t *testing.T) {
 		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPut, "/api/lidar/auto_tune", nil)
+		req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweep/auto", nil)
 		w := httptest.NewRecorder()
 		ws.handleAutoTune(w, req)
 		if w.Code != http.StatusMethodNotAllowed {
@@ -213,7 +213,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("start no runner", func(t *testing.T) {
 		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/auto_tune", strings.NewReader(`{}`))
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{}`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStart(w, req)
 		if w.Code != http.StatusServiceUnavailable {
@@ -223,7 +223,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("start invalid json", func(t *testing.T) {
 		ws := &WebServer{autoTuneRunner: &mockSweepHandlerRunner{}}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/auto_tune", strings.NewReader(`{`))
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStart(w, req)
 		if w.Code != http.StatusBadRequest {
@@ -233,7 +233,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("start conflict", func(t *testing.T) {
 		ws := &WebServer{autoTuneRunner: &mockSweepHandlerRunner{startErr: errors.New("already in progress")}}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/auto_tune", strings.NewReader(`{"x":1}`))
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{"x":1}`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStart(w, req)
 		if w.Code != http.StatusConflict {
@@ -243,7 +243,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("start bad request", func(t *testing.T) {
 		ws := &WebServer{autoTuneRunner: &mockSweepHandlerRunner{startErr: errors.New("invalid")}}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/auto_tune", strings.NewReader(`{"x":1}`))
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{"x":1}`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStart(w, req)
 		if w.Code != http.StatusBadRequest {
@@ -254,7 +254,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 	t.Run("start success", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{}
 		ws := &WebServer{autoTuneRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/auto_tune", strings.NewReader(`{"x":1}`))
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{"x":1}`))
 		w := httptest.NewRecorder()
 		ws.handleAutoTune(w, req) // Exercise dispatcher POST path
 		if w.Code != http.StatusOK {
@@ -267,7 +267,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("status no runner", func(t *testing.T) {
 		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/auto_tune", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto", nil)
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStatus(w, req)
 		if w.Code != http.StatusServiceUnavailable {
@@ -277,7 +277,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("status success", func(t *testing.T) {
 		ws := &WebServer{autoTuneRunner: &mockSweepHandlerRunner{state: map[string]interface{}{"status": "running"}}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/auto_tune", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto", nil)
 		w := httptest.NewRecorder()
 		ws.handleAutoTune(w, req) // Exercise dispatcher GET path
 		if w.Code != http.StatusOK {
@@ -290,7 +290,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("stop method not allowed", func(t *testing.T) {
 		ws := &WebServer{autoTuneRunner: &mockSweepHandlerRunner{}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/auto_tune/stop", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto/stop", nil)
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStop(w, req)
 		if w.Code != http.StatusMethodNotAllowed {
@@ -300,7 +300,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 
 	t.Run("stop no runner", func(t *testing.T) {
 		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/auto_tune/stop", nil)
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/stop", nil)
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStop(w, req)
 		if w.Code != http.StatusServiceUnavailable {
@@ -311,7 +311,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 	t.Run("stop success", func(t *testing.T) {
 		runner := &mockSweepHandlerRunner{}
 		ws := &WebServer{autoTuneRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/auto_tune/stop", nil)
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/stop", nil)
 		w := httptest.NewRecorder()
 		ws.handleAutoTuneStop(w, req)
 		if w.Code != http.StatusOK {

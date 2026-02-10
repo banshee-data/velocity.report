@@ -176,8 +176,9 @@ func TestReadPCAPFile_WithTag_ContextCancelled(t *testing.T) {
 func TestReadPCAPFileRealtime_WithTag_Success(t *testing.T) {
 	parser := &replayTestParser{motorSpeed: 600}
 	stats := &MockFullPacketStats{}
-	bgManager := lidar.NewBackgroundManager("sensor-replay", 40, 360, lidar.BackgroundParams{}, nil)
-	defer lidar.RegisterBackgroundManager("sensor-replay", nil)
+	// Use a unique sensor ID to avoid cross-test registry pollution
+	sensorID := "sensor-replay-" + t.Name()
+	bgManager := lidar.NewBackgroundManager(sensorID, 40, 360, lidar.BackgroundParams{}, nil)
 
 	foregroundForwarder := &ForegroundForwarder{
 		channel: make(chan []lidar.PointPolar, 8),
@@ -199,9 +200,9 @@ func TestReadPCAPFileRealtime_WithTag_Success(t *testing.T) {
 		nil, // keep nil so BackgroundManager path in replay is exercised
 		stats,
 		RealtimeReplayConfig{
-			SpeedMultiplier:     0, // exercises defaulting to 1.0
+			SpeedMultiplier:     10.0, // Use high multiplier to avoid slow test
 			DurationSeconds:     -1,
-			SensorID:            "sensor-replay",
+			SensorID:            sensorID,
 			BackgroundManager:   bgManager,
 			ForegroundForwarder: foregroundForwarder,
 			WarmupPackets:       1,

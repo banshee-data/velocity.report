@@ -29,7 +29,7 @@ func TestAssertStatusCode_FailurePath(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestAssertStatusCode_FailurePath")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestAssertStatusCode_FailurePath$")
 	cmd.Env = append(os.Environ(), "TESTUTIL_ASSERT_STATUS_FAIL=1")
 	err := cmd.Run()
 	if err == nil {
@@ -52,7 +52,7 @@ func TestAssertNoError_FailurePath(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestAssertNoError_FailurePath")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestAssertNoError_FailurePath$")
 	cmd.Env = append(os.Environ(), "TESTUTIL_ASSERT_NO_ERROR_FAIL=1")
 	err := cmd.Run()
 	if err == nil {
@@ -75,7 +75,7 @@ func TestAssertError_FailurePath(t *testing.T) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=TestAssertError_FailurePath")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestAssertError_FailurePath$")
 	cmd.Env = append(os.Environ(), "TESTUTIL_ASSERT_ERROR_FAIL=1")
 	err := cmd.Run()
 	if err == nil {
