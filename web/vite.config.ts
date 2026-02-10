@@ -37,6 +37,7 @@ export default defineConfig({
 	},
 	build: {
 		emptyOutDir: true,
+		chunkSizeWarningLimit: 2000,
 		rollupOptions: {
 			output: {
 				// Force everything into a single chunk

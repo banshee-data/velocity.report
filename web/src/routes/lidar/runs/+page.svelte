@@ -5,7 +5,14 @@
 	 * Table layout with a detail panel that slides out to the right,
 	 * matching the scenes page layout pattern.
 	 */
-	import { getLabellingProgress, getLidarRuns, getLidarScenes, getRunTracks } from '$lib/api';
+	import {
+		deleteRun,
+		deleteRunTrack,
+		getLabellingProgress,
+		getLidarRuns,
+		getLidarScenes,
+		getRunTracks
+	} from '$lib/api';
 	import type { AnalysisRun, LabellingProgress, LidarScene, RunTrack } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -32,6 +39,58 @@
 			error = e instanceof Error ? e.message : 'Failed to load data';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handleDeleteRun(run: AnalysisRun) {
+		if (
+			!confirm(
+				`Are you sure you want to delete run ${run.run_id.substring(0, 8)}? This action cannot be undone and will delete the run and all its tracks.`
+			)
+		) {
+			return;
+		}
+
+		try {
+			await deleteRun(run.run_id);
+			await loadData();
+			// If the selected run was deleted, clear the selection
+			if (selectedRun && selectedRun.run_id === run.run_id) {
+				deselectRun();
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to delete run';
+		}
+	}
+
+	async function handleDeleteTrack(runId: string, trackId: string) {
+		if (
+			!confirm(`Are you sure you want to delete track ${trackId}? This action cannot be undone.`)
+		) {
+			return;
+		}
+
+		try {
+			await deleteRunTrack(runId, trackId);
+			// Reload tracks for the current run
+			if (selectedRun && selectedRun.run_id === runId) {
+				runTracks = runTracks.filter((t) => t.track_id !== trackId);
+				// Reload labelling progress
+				try {
+					labellingProgress = await getLabellingProgress(runId);
+				} catch {
+					labellingProgress = null;
+				}
+			}
+		} catch (e) {
+			alert(e instanceof Error ? e.message : 'Failed to delete track');
+		}
+	}
+
+	function handleKeyboardActivation(e: KeyboardEvent, action: () => void) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			action();
 		}
 	}
 
@@ -124,9 +183,11 @@
 					Analysis runs with parameters, scenes, and track summaries
 				</p>
 			</div>
-			<Button variant="outline" on:click={loadData} disabled={loading}>
-				{loading ? 'Loading...' : 'Refresh'}
-			</Button>
+			<div class="flex gap-2">
+				<Button variant="outline" on:click={loadData} disabled={loading}>
+					{loading ? 'Loading...' : 'Refresh'}
+				</Button>
+			</div>
 		</div>
 	</div>
 
@@ -169,6 +230,9 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
 								>
+								<th class="text-surface-content/70 px-4 py-3 text-center text-sm font-medium"
+									>Actions</th
+								>
 							</tr>
 						</thead>
 						<tbody>
@@ -176,29 +240,68 @@
 								{@const scene = findSceneForRun(run)}
 								{@const isSelected = selectedRun?.run_id === run.run_id}
 								<tr
-									class="border-surface-content/10 hover:bg-surface-200/50 cursor-pointer border-b transition-colors last:border-b-0 {isSelected
+									class="border-surface-content/10 hover:bg-surface-200/50 border-b transition-colors last:border-b-0 {isSelected
 										? 'bg-primary/5'
 										: ''}"
-									on:click={() => selectRun(run)}
 								>
-									<td class="px-4 py-3">
+									<td
+										class="cursor-pointer px-4 py-3"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										<span
 											class="rounded px-2 py-0.5 text-xs font-medium {statusColour(run.status)}"
 										>
 											{run.status}
 										</span>
 									</td>
-									<td class="text-surface-content px-4 py-3 text-sm">
+									<td
+										class="text-surface-content cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{run.source_path ? basename(run.source_path) : run.source_type}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 text-sm">
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{run.total_tracks} / {run.confirmed_tracks}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 text-sm">
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{scene ? scene.description || scene.scene_id.substring(0, 8) : '-'}
 									</td>
-									<td class="text-surface-content/70 px-4 py-3 text-sm">
+									<td
+										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
+										on:click={() => selectRun(run)}
+										on:keydown={(e) => handleKeyboardActivation(e, () => selectRun(run))}
+										role="button"
+										tabindex="0"
+									>
 										{formatDate(run.created_at)}
+									</td>
+									<td class="px-4 py-3 text-center">
+										<button
+											type="button"
+											class="text-surface-content/40 rounded px-2 py-1 text-xs transition-colors hover:bg-red-50 hover:text-red-600"
+											on:click|stopPropagation={() => handleDeleteRun(run)}
+											title="Delete run"
+										>
+											Delete
+										</button>
 									</td>
 								</tr>
 							{/each}
@@ -241,7 +344,7 @@
 					<!-- Source -->
 					{#if selectedRun.source_path}
 						<div>
-							<label class="text-surface-content/70 mb-1 block text-sm font-medium">Source</label>
+							<div class="text-surface-content/70 mb-1 block text-sm font-medium">Source</div>
 							<div
 								class="text-surface-content bg-surface-200 rounded px-3 py-2 font-mono text-xs break-all"
 							>
@@ -294,7 +397,7 @@
 
 					<!-- Scene info -->
 					<div>
-						<label class="text-surface-content/70 mb-1 block text-sm font-medium">Scene</label>
+						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Scene</div>
 						{#if scene}
 							<dl class="text-sm">
 								<div class="flex justify-between py-1">
@@ -335,7 +438,7 @@
 
 					<!-- Track summary & labelling -->
 					<div>
-						<label class="text-surface-content/70 mb-1 block text-sm font-medium">Tracks</label>
+						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Tracks</div>
 						{#if tracksLoading}
 							<p class="text-surface-content/50 text-sm">Loading tracks...</p>
 						{:else}
@@ -374,6 +477,45 @@
 									{/if}
 								{/if}
 							</dl>
+
+							<!-- Track List with Delete buttons -->
+							{#if runTracks.length > 0}
+								<div class="mt-4">
+									<dt class="text-surface-content/70 mb-2 text-sm font-medium">
+										Track List ({runTracks.length})
+									</dt>
+									<div class="bg-surface-200 max-h-[300px] space-y-1 overflow-y-auto rounded p-2">
+										{#each runTracks as track (track.track_id)}
+											<div
+												class="bg-surface-100 flex items-center justify-between rounded px-2 py-1.5 text-xs"
+											>
+												<div class="flex-1">
+													<span class="text-surface-content/70 font-mono"
+														>{track.track_id.substring(0, 12)}</span
+													>
+													<span
+														class="text-surface-content/50 ml-2 rounded px-1.5 py-0.5 text-[10px] {track.track_state ===
+														'confirmed'
+															? 'bg-green-100 text-green-700'
+															: 'bg-gray-100 text-gray-700'}"
+													>
+														{track.track_state}
+													</span>
+												</div>
+												<button
+													type="button"
+													class="text-surface-content/40 ml-2 rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-red-50 hover:text-red-600"
+													on:click={() =>
+														selectedRun && handleDeleteTrack(selectedRun.run_id, track.track_id)}
+													title="Delete track"
+												>
+													Delete
+												</button>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
 
 							<!-- Link to tracks view -->
 							<div class="pt-3">

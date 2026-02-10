@@ -19,9 +19,13 @@ type SampleResult struct {
 	Timestamp        time.Time
 
 	// Track health metrics (best-effort; zero if tracker unavailable)
-	ActiveTracks      int
-	MeanAlignmentDeg  float64
-	MisalignmentRatio float64
+	ActiveTracks       int
+	MeanAlignmentDeg   float64
+	MisalignmentRatio  float64
+	HeadingJitterDeg   float64
+	FragmentationRatio float64
+	TracksCreated      int
+	TracksConfirmed    int
 }
 
 // SweepParams holds the sweep parameters for a single test run.
@@ -61,7 +65,9 @@ func (c *CSVWriter) writeSummaryHeader(buckets []string) {
 		header = append(header, "bucket_"+b+"_stddev")
 	}
 	header = append(header, "nonzero_cells_mean", "nonzero_cells_stddev", "overall_accept_mean", "overall_accept_stddev")
-	c.Summary.Write(header)
+	if err := c.Summary.Write(header); err != nil {
+		log.Printf("failed to write summary header: %v", err)
+	}
 }
 
 // writeRawHeader writes the raw data CSV header.
@@ -80,7 +86,9 @@ func (c *CSVWriter) writeRawHeader(buckets []string) {
 		header = append(header, "acceptance_rates_"+b)
 	}
 	header = append(header, "nonzero_cells", "overall_accept_percent")
-	c.Raw.Write(header)
+	if err := c.Raw.Write(header); err != nil {
+		log.Printf("failed to write raw header: %v", err)
+	}
 }
 
 // WriteRawRow writes a single raw data row to the raw CSV file.
@@ -108,7 +116,9 @@ func (c *CSVWriter) WriteRawRow(params SweepParams, iter int, result SampleResul
 	row = append(row, fmt.Sprintf("%.0f", result.NonzeroCells))
 	row = append(row, fmt.Sprintf("%.6f", result.OverallAcceptPct))
 
-	c.Raw.Write(row)
+	if err := c.Raw.Write(row); err != nil {
+		log.Printf("failed to write raw row: %v", err)
+	}
 	c.Raw.Flush()
 }
 
@@ -167,7 +177,9 @@ func (c *CSVWriter) WriteSummary(params SweepParams, results []SampleResult, buc
 	row = append(row, fmt.Sprintf("%.6f", overallMean))
 	row = append(row, fmt.Sprintf("%.6f", overallStd))
 
-	c.Summary.Write(row)
+	if err := c.Summary.Write(row); err != nil {
+		log.Printf("failed to write summary row: %v", err)
+	}
 	c.Summary.Flush()
 }
 

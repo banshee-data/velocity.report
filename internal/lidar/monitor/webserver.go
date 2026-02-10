@@ -841,7 +841,7 @@ func (ws *WebServer) resetFrameBuilder() {
 
 // resetAllState performs a comprehensive reset of all processing state
 // when switching data sources. This includes the background grid, frame
-// builder, and any other stateful components.
+// builder, tracker, and any other stateful components.
 func (ws *WebServer) resetAllState() error {
 	// Reset frame builder first to discard any in-flight frames
 	ws.resetFrameBuilder()
@@ -849,6 +849,11 @@ func (ws *WebServer) resetAllState() error {
 	// Reset background grid
 	if err := ws.resetBackgroundGrid(); err != nil {
 		return err
+	}
+
+	// Reset tracker to clear Kalman filter state and restart track IDs from 1
+	if ws.tracker != nil {
+		ws.tracker.Reset()
 	}
 
 	return nil
@@ -989,6 +994,11 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("/api/lidar/clusters", ws.trackAPI.handleListClusters)
 		mux.HandleFunc("/api/lidar/observations", ws.trackAPI.handleListObservations)
 		mux.HandleFunc("/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks)
+
+		// Highly destructive endpoint: only register when explicitly enabled for development/debug use.
+		if os.Getenv("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API") == "1" {
+			mux.HandleFunc("/api/lidar/runs/clear", ws.trackAPI.handleClearRuns)
+		}
 	}
 
 	// Label API routes (delegate to LidarLabelAPI handlers)
@@ -1076,7 +1086,9 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			w.Header().Set("Content-Type", "application/json")
 			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
-			enc.Encode(resp)
+			if err := enc.Encode(resp); err != nil {
+				log.Printf("failed to encode response: %v", err)
+			}
 			return
 		}
 
@@ -2199,7 +2211,9 @@ func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request
 	}
 	limit := 10
 	if l := r.URL.Query().Get("limit"); l != "" {
-		fmt.Sscanf(l, "%d", &limit)
+		if _, err := fmt.Sscanf(l, "%d", &limit); err != nil {
+			limit = 10 // Reset to default on parse error
+		}
 		if limit <= 0 || limit > 100 {
 			limit = 10
 		}

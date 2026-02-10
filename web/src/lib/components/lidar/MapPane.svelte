@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import type { BackgroundGrid, MissedRegion, Track, TrackObservation } from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 
 	// Rendering constants
 	const RANGE_SPREAD_THRESHOLD = 2.0; // meters - threshold for background stability
@@ -79,7 +79,7 @@
 	// Detect background grid changes
 	let bgDataVersion = 0;
 	$: if (backgroundGrid) {
-		bgDataVersion++;
+		bgDataVersion = untrack(() => bgDataVersion) + 1;
 	}
 
 	// Mouse world coordinate readout
@@ -94,11 +94,27 @@
 		foreground ||
 		foregroundOffset ||
 		foregroundEnabled ||
+		currentTime != null ||
 		missedRegions ||
 		markMissedMode
 	) {
 		markDirty();
 	}
+
+	// Pre-compute time-filtered observation subsets (avoids filtering inside render loop)
+	$: visibleForegroundObs =
+		currentTime != null
+			? foreground.filter(
+					(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
+				)
+			: foreground;
+
+	$: visibleSelectedObs =
+		currentTime != null
+			? observations.filter(
+					(obs) => !obs.timestamp || new Date(obs.timestamp).getTime() <= currentTime
+				)
+			: observations;
 
 	// Mark view as needing re-render
 	function markDirty() {
@@ -173,13 +189,13 @@
 			renderTrack(track, track.track_id === selectedTrackId);
 		});
 
-		// Foreground observation layer (time-window slice)
-		if (foregroundEnabled && foreground.length > 0) {
+		// Foreground observation layer (time-window slice, progressive)
+		if (foregroundEnabled && visibleForegroundObs.length > 0) {
 			renderForeground();
 		}
 
-		// Draw observations for the selected track if provided
-		if (showObservations && observations.length > 0) {
+		// Draw observations for the selected track if provided (progressive)
+		if (showObservations && visibleSelectedObs.length > 0) {
 			renderObservations();
 		}
 
@@ -220,7 +236,7 @@
 		ctxLocal.fillStyle = '#60a5fa';
 		ctxLocal.globalAlpha = 0.8;
 		const size = Math.max(2, 4 - scale * 0.02);
-		observations.forEach((obs) => {
+		visibleSelectedObs.forEach((obs) => {
 			const [sx, sy] = worldToScreen(obs.position.x, obs.position.y);
 			ctxLocal.beginPath();
 			ctxLocal.arc(sx, sy, size, 0, Math.PI * 2);
@@ -238,7 +254,7 @@
 		const size = Math.max(2, 4 - scale * 0.02);
 		const offsetXLocal = foregroundOffset.x || 0;
 		const offsetYLocal = foregroundOffset.y || 0;
-		foreground.forEach((obs) => {
+		visibleForegroundObs.forEach((obs) => {
 			const worldX = obs.position.x + offsetXLocal;
 			const worldY = obs.position.y + offsetYLocal;
 			const [sx, sy] = worldToScreen(worldX, worldY);

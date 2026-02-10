@@ -93,7 +93,12 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			// ErrTxDone means transaction was already committed/rolled back
+			log.Printf("warning: failed to rollback transaction: %v", err)
+		}
+	}()
 
 	// Delete overlapping transits with the same model_version before inserting.
 	// This handles hourly re-runs and window overlaps, preventing duplicates.

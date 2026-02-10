@@ -19,6 +19,9 @@ func TestDefaultObjectiveWeights(t *testing.T) {
 	if weights.NonzeroCells != 0.1 {
 		t.Errorf("expected NonzeroCells=0.1, got %v", weights.NonzeroCells)
 	}
+	if weights.ActiveTracks != 0.3 {
+		t.Errorf("expected ActiveTracks=0.3, got %v", weights.ActiveTracks)
+	}
 }
 
 func TestScoreResultFormula(t *testing.T) {

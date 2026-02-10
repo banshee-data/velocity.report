@@ -266,6 +266,71 @@ func ClearTracks(db *sql.DB, sensorID string) error {
 	return nil
 }
 
+// ClearRuns removes all analysis runs and their associated run tracks for a sensor.
+// This is intended for development/debug resets and should not be exposed in production without auth.
+// The CASCADE foreign key on lidar_run_tracks will automatically delete associated run track records.
+func ClearRuns(db *sql.DB, sensorID string) error {
+	if sensorID == "" {
+		return fmt.Errorf("sensorID is required to clear runs")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin clear runs tx: %w", err)
+	}
+
+	// Delete runs for this sensor (CASCADE will delete lidar_run_tracks)
+	query := `DELETE FROM lidar_analysis_runs WHERE sensor_id = ?`
+	if _, err := tx.Exec(query, sensorID); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("clear runs failed: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit clear runs tx: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteRun removes a specific analysis run and its associated run tracks.
+// The CASCADE foreign key on lidar_run_tracks will automatically delete associated run track records.
+func DeleteRun(db *sql.DB, runID string) error {
+	if runID == "" {
+		return fmt.Errorf("runID is required to delete run")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin delete run tx: %w", err)
+	}
+
+	// Delete the run (CASCADE will delete lidar_run_tracks)
+	query := `DELETE FROM lidar_analysis_runs WHERE run_id = ?`
+	result, err := tx.Exec(query, runID)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("delete run failed: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		tx.Rollback()
+		return fmt.Errorf("run not found: %s", runID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete run tx: %w", err)
+	}
+
+	return nil
+}
+
 // GetTrackObservationsInRange returns observations for a sensor within a time window (inclusive).
 // Joins against tracks to scope by sensor.
 func GetTrackObservationsInRange(db *sql.DB, sensorID string, startNanos, endNanos int64, limit int, trackID string) ([]*TrackObservation, error) {

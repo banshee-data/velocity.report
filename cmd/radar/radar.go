@@ -689,7 +689,10 @@ func runTransitsCommand(args []string) {
 		fmt.Printf("This will delete all transits with model_version = %q\n", modelVersion)
 		fmt.Print("Are you sure? [y/N]: ")
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			fmt.Println("Aborted.")
+			os.Exit(0)
+		}
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Aborted.")
 			os.Exit(0)
@@ -711,7 +714,10 @@ func runTransitsCommand(args []string) {
 		fmt.Printf("  2. Re-process full radar_data history with model_version = %q\n", toVersion)
 		fmt.Print("Are you sure? [y/N]: ")
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			fmt.Println("Aborted.")
+			os.Exit(0)
+		}
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Aborted.")
 			os.Exit(0)
@@ -727,7 +733,10 @@ func runTransitsCommand(args []string) {
 		fmt.Printf("  2. Re-process full radar_data history\n")
 		fmt.Print("Are you sure? [y/N]: ")
 		var confirm string
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			fmt.Println("Aborted.")
+			os.Exit(0)
+		}
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Aborted.")
 			os.Exit(0)

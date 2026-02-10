@@ -326,7 +326,10 @@ func (gp *GridPlotter) GeneratePlots() (int, error) {
 	byRing := make(map[int]map[int][]GridSample) // ring -> azBin -> samples
 	for key, samples := range gp.samples {
 		var ring, azBin int
-		fmt.Sscanf(key, "%d_%d", &ring, &azBin)
+		if _, err := fmt.Sscanf(key, "%d_%d", &ring, &azBin); err != nil {
+			// Skip malformed keys
+			continue
+		}
 
 		if byRing[ring] == nil {
 			byRing[ring] = make(map[int][]GridSample)

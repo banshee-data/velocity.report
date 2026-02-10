@@ -142,6 +142,11 @@ type TrackedObject struct {
 	AlignmentSumRad      float32 // Running sum of angular differences (radians)
 	AlignmentMeanRad     float32 // Running mean angular difference (radians, [0, π])
 	AlignmentMisaligned  int     // Count of samples where angular diff > π/4 (45°)
+
+	// Heading Jitter Metrics
+	// Measures frame-to-frame OBB heading instability (spinning bounding boxes).
+	HeadingJitterSumSq float64 // Running sum of squared heading deltas (radians²)
+	HeadingJitterCount int     // Number of heading delta samples
 }
 
 // TrackingMetrics holds aggregate tracking quality metrics across all active tracks.
@@ -159,6 +164,13 @@ type TrackingMetrics struct {
 	TotalMisaligned int `json:"total_misaligned"`
 	// Misalignment ratio: misaligned / total samples [0, 1]
 	MisalignmentRatio float32 `json:"misalignment_ratio"`
+	// Heading jitter: RMS of frame-to-frame OBB heading changes (degrees)
+	HeadingJitterDeg float32 `json:"heading_jitter_deg"`
+	// Track fragmentation: fraction of created tracks that never confirmed [0, 1]
+	FragmentationRatio float32 `json:"fragmentation_ratio"`
+	// Total tracks created and confirmed since last reset
+	TracksCreated   int `json:"tracks_created"`
+	TracksConfirmed int `json:"tracks_confirmed"`
 	// Per-track alignment breakdown
 	PerTrack []TrackAlignmentMetrics `json:"per_track,omitempty"`
 }
@@ -183,6 +195,10 @@ type Tracker struct {
 
 	// Last update timestamp for dt computation
 	LastUpdateNanos int64
+
+	// Fragmentation counters (reset via ResetFragmentation)
+	TracksCreated   int
+	TracksConfirmed int
 
 	// lastAssociations stores the result of the most recent associate() call.
 	// It is a slice indexed by cluster index; each element is the trackID
@@ -268,6 +284,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			// Promote tentative → confirmed
 			if track.State == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
 				track.State = TrackConfirmed
+				t.TracksConfirmed++
 			}
 		}
 	}
@@ -739,6 +756,21 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			}
 		}
 
+		// Track heading jitter before smoothing: measure angular change between
+		// the previous smoothed heading and the new raw heading.
+		if track.ObservationCount > 1 { // Skip first observation (no previous heading)
+			headingDelta := float64(newOBBHeading - track.OBBHeadingRad)
+			// Normalise to [-π, π]
+			for headingDelta > math.Pi {
+				headingDelta -= 2 * math.Pi
+			}
+			for headingDelta < -math.Pi {
+				headingDelta += 2 * math.Pi
+			}
+			track.HeadingJitterSumSq += headingDelta * headingDelta
+			track.HeadingJitterCount++
+		}
+
 		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, 0.15)
 		track.LatestZ = cluster.OBB.CenterZ
 	}
@@ -798,6 +830,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	}
 
 	t.Tracks[trackID] = track
+	t.TracksCreated++
 	return track
 }
 
@@ -1036,12 +1069,18 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	var totalSamples int
 	var totalAngDiff float32
 	var totalMisaligned int
+	var totalJitterSumSq float64
+	var totalJitterCount int
 
 	for _, track := range t.Tracks {
 		if track.State == TrackDeleted {
 			continue
 		}
 		metrics.ActiveTracks++
+
+		// Accumulate heading jitter across all active tracks
+		totalJitterSumSq += track.HeadingJitterSumSq
+		totalJitterCount += track.HeadingJitterCount
 
 		if track.AlignmentSampleCount == 0 {
 			continue
@@ -1075,6 +1114,19 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 		metrics.MeanAlignmentRad = totalAngDiff / float32(totalSamples)
 		metrics.MeanAlignmentDeg = metrics.MeanAlignmentRad * 180 / math.Pi
 		metrics.MisalignmentRatio = float32(totalMisaligned) / float32(totalSamples)
+	}
+
+	// Heading jitter: RMS of frame-to-frame heading changes (degrees)
+	if totalJitterCount > 0 {
+		rmsRad := math.Sqrt(totalJitterSumSq / float64(totalJitterCount))
+		metrics.HeadingJitterDeg = float32(rmsRad * 180 / math.Pi)
+	}
+
+	// Fragmentation: fraction of created tracks that never confirmed
+	metrics.TracksCreated = t.TracksCreated
+	metrics.TracksConfirmed = t.TracksConfirmed
+	if t.TracksCreated > 0 {
+		metrics.FragmentationRatio = 1.0 - float32(t.TracksConfirmed)/float32(t.TracksCreated)
 	}
 
 	return metrics
