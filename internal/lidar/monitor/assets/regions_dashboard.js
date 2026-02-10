@@ -2,6 +2,7 @@
 
 /* Shared utilities: browser receives them via prior <script> tag;
    Node/Jest pulls them in via require(). */
+/* c8 ignore start -- browser-only fallback paths; unreachable under Jest/Node */
 var _common =
   typeof module !== "undefined" && typeof require === "function"
     ? require("./dashboard_common.js")
@@ -11,6 +12,7 @@ var escapeHTML = _common
   : typeof window !== "undefined"
     ? window.escapeHTML
     : undefined;
+/* c8 ignore stop */
 
 var canvas = null;
 var ctx = null;
@@ -332,6 +334,7 @@ function init() {
   autoRefresh();
 }
 
+/* c8 ignore next 3 -- browser-only auto-init */
 if (typeof document !== "undefined" && typeof module === "undefined") {
   init();
 }
