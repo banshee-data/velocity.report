@@ -49,6 +49,7 @@ type Server struct {
 	paused       bool
 	playbackRate float32
 	replayMode   bool // True when replaying a PCAP or log (not live sensor)
+	vrlogMode    bool // True when replaying a VRLOG (seekable replay)
 	playbackMu   sync.RWMutex
 
 	// PCAP progress tracking (updated by WebServer progress callback)
@@ -89,6 +90,18 @@ func (s *Server) SetReplayMode(enabled bool) {
 		s.pcapTotalPackets = 0
 		s.pcapStartNs = 0
 		s.pcapEndNs = 0
+	}
+}
+
+// SetVRLogMode marks the server as replaying a VRLOG file (seekable replay).
+// This also sets replayMode to true. In VRLOG mode, pause/play/seek/rate
+// commands are delegated to the publisher's VRLOG replay loop.
+func (s *Server) SetVRLogMode(enabled bool) {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	s.vrlogMode = enabled
+	if enabled {
+		s.replayMode = true
 	}
 }
 
@@ -564,9 +577,16 @@ func byteSliceToUint32(b []uint8) []uint32 {
 // Pause pauses playback (replay mode).
 func (s *Server) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.PlaybackStatus, error) {
 	s.playbackMu.Lock()
+	isVRLog := s.vrlogMode
 	s.paused = true
 	rate := s.playbackRate
 	s.playbackMu.Unlock()
+
+	// In VRLOG mode, delegate to publisher
+	if isVRLog && s.publisher != nil {
+		s.publisher.SetVRLogPaused(true)
+	}
+
 	return &pb.PlaybackStatus{
 		Paused: true,
 		Rate:   rate,
@@ -576,9 +596,16 @@ func (s *Server) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.PlaybackS
 // Play resumes playback (replay mode).
 func (s *Server) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlaybackStatus, error) {
 	s.playbackMu.Lock()
+	isVRLog := s.vrlogMode
 	s.paused = false
 	rate := s.playbackRate
 	s.playbackMu.Unlock()
+
+	// In VRLOG mode, delegate to publisher
+	if isVRLog && s.publisher != nil {
+		s.publisher.SetVRLogPaused(false)
+	}
+
 	return &pb.PlaybackStatus{
 		Paused: false,
 		Rate:   rate,
@@ -587,17 +614,59 @@ func (s *Server) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlaybackSta
 
 // Seek seeks to a specific timestamp or frame (replay mode).
 func (s *Server) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.PlaybackStatus, error) {
-	// TODO: Implement seek when replay is supported
-	return nil, status.Error(codes.Unimplemented, "seek not yet supported")
+	s.playbackMu.RLock()
+	isVRLog := s.vrlogMode
+	paused := s.paused
+	rate := s.playbackRate
+	s.playbackMu.RUnlock()
+
+	// In VRLOG mode, delegate to publisher
+	if isVRLog && s.publisher != nil {
+		var err error
+		var currentFrame uint64
+
+		switch target := req.Target.(type) {
+		case *pb.SeekRequest_TimestampNs:
+			err = s.publisher.SeekVRLogTimestamp(target.TimestampNs)
+		case *pb.SeekRequest_FrameId:
+			err = s.publisher.SeekVRLog(target.FrameId)
+		default:
+			return nil, status.Error(codes.InvalidArgument, "seek target not specified")
+		}
+
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "seek failed: %v", err)
+		}
+
+		reader := s.publisher.VRLogReader()
+		if reader != nil {
+			currentFrame = reader.CurrentFrame()
+		}
+
+		return &pb.PlaybackStatus{
+			Paused:         paused,
+			Rate:           rate,
+			CurrentFrameId: currentFrame,
+		}, nil
+	}
+
+	return nil, status.Error(codes.Unimplemented, "seek not supported in current mode")
 }
 
 // SetRate sets the playback rate.
 func (s *Server) SetRate(ctx context.Context, req *pb.SetRateRequest) (*pb.PlaybackStatus, error) {
 	s.playbackMu.Lock()
+	isVRLog := s.vrlogMode
 	s.playbackRate = req.Rate
 	paused := s.paused
 	rate := s.playbackRate
 	s.playbackMu.Unlock()
+
+	// In VRLOG mode, delegate to publisher
+	if isVRLog && s.publisher != nil {
+		s.publisher.SetVRLogRate(req.Rate)
+	}
+
 	return &pb.PlaybackStatus{
 		Paused: paused,
 		Rate:   rate,
@@ -640,8 +709,8 @@ func (s *Server) GetCapabilities(ctx context.Context, req *pb.CapabilitiesReques
 		SupportsClusters:  true,
 		SupportsTracks:    true,
 		SupportsDebug:     true,
-		SupportsReplay:    false, // TODO: Enable when replay is implemented
-		SupportsRecording: false, // TODO: Enable when recording is implemented
+		SupportsReplay:    true,
+		SupportsRecording: true,
 		AvailableSensors:  []string{s.publisher.config.SensorID},
 	}, nil
 }

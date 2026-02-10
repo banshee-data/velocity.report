@@ -69,6 +69,16 @@ type Publisher struct {
 	recorder   FrameRecorder
 	recorderMu sync.RWMutex
 
+	// VRLOG replay state (Phase 2.1)
+	vrlogReader     FrameReader
+	vrlogStopCh     chan struct{}
+	vrlogMu         sync.RWMutex
+	vrlogPaused     bool
+	vrlogRate       float32
+	vrlogSeekSignal chan struct{}
+	vrlogActive     bool
+	vrlogWg         sync.WaitGroup
+
 	// Stats
 	frameCount     atomic.Uint64
 	clientCount    atomic.Int32
@@ -135,10 +145,210 @@ func (p *Publisher) ClearRecorder() {
 	p.recorder = nil
 }
 
+// StartVRLogReplay starts VRLOG replay from a FrameReader.
+// Frames are published to all connected clients at the specified rate.
+func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
+	p.vrlogMu.Lock()
+	defer p.vrlogMu.Unlock()
+
+	if p.vrlogActive {
+		return fmt.Errorf("VRLOG replay already active")
+	}
+
+	p.vrlogReader = reader
+	p.vrlogStopCh = make(chan struct{})
+	p.vrlogSeekSignal = make(chan struct{}, 1)
+	p.vrlogPaused = false
+	p.vrlogRate = 1.0
+	p.vrlogActive = true
+
+	p.vrlogWg.Add(1)
+	go p.vrlogReplayLoop()
+
+	log.Printf("[Visualiser] Started VRLOG replay: %d total frames", reader.TotalFrames())
+	return nil
+}
+
+// StopVRLogReplay stops the current VRLOG replay.
+func (p *Publisher) StopVRLogReplay() {
+	p.vrlogMu.Lock()
+	if !p.vrlogActive {
+		p.vrlogMu.Unlock()
+		return
+	}
+	close(p.vrlogStopCh)
+	p.vrlogActive = false
+	p.vrlogMu.Unlock()
+
+	p.vrlogWg.Wait()
+
+	p.vrlogMu.Lock()
+	if p.vrlogReader != nil {
+		p.vrlogReader.Close()
+		p.vrlogReader = nil
+	}
+	p.vrlogMu.Unlock()
+
+	log.Printf("[Visualiser] Stopped VRLOG replay")
+}
+
+// IsVRLogActive returns true if VRLOG replay is currently active.
+func (p *Publisher) IsVRLogActive() bool {
+	p.vrlogMu.RLock()
+	defer p.vrlogMu.RUnlock()
+	return p.vrlogActive
+}
+
+// VRLogReader returns the current VRLOG reader (nil if not active).
+func (p *Publisher) VRLogReader() FrameReader {
+	p.vrlogMu.RLock()
+	defer p.vrlogMu.RUnlock()
+	return p.vrlogReader
+}
+
+// SetVRLogPaused sets the paused state for VRLOG replay.
+func (p *Publisher) SetVRLogPaused(paused bool) {
+	p.vrlogMu.Lock()
+	defer p.vrlogMu.Unlock()
+	p.vrlogPaused = paused
+	if p.vrlogReader != nil {
+		p.vrlogReader.SetPaused(paused)
+	}
+}
+
+// SetVRLogRate sets the playback rate for VRLOG replay.
+func (p *Publisher) SetVRLogRate(rate float32) {
+	p.vrlogMu.Lock()
+	defer p.vrlogMu.Unlock()
+	p.vrlogRate = rate
+	if p.vrlogReader != nil {
+		p.vrlogReader.SetRate(rate)
+	}
+}
+
+// SeekVRLog seeks to a specific frame index in VRLOG replay.
+func (p *Publisher) SeekVRLog(frameIdx uint64) error {
+	p.vrlogMu.Lock()
+	defer p.vrlogMu.Unlock()
+
+	if p.vrlogReader == nil {
+		return fmt.Errorf("VRLOG replay not active")
+	}
+
+	if err := p.vrlogReader.Seek(frameIdx); err != nil {
+		return fmt.Errorf("seek failed: %w", err)
+	}
+
+	// Signal the replay loop to reset timing
+	select {
+	case p.vrlogSeekSignal <- struct{}{}:
+	default:
+	}
+
+	return nil
+}
+
+// SeekVRLogTimestamp seeks to a specific timestamp in VRLOG replay.
+func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) error {
+	p.vrlogMu.Lock()
+	defer p.vrlogMu.Unlock()
+
+	if p.vrlogReader == nil {
+		return fmt.Errorf("VRLOG replay not active")
+	}
+
+	if err := p.vrlogReader.SeekToTimestamp(timestampNs); err != nil {
+		return fmt.Errorf("seek failed: %w", err)
+	}
+
+	// Signal the replay loop to reset timing
+	select {
+	case p.vrlogSeekSignal <- struct{}{}:
+	default:
+	}
+
+	return nil
+}
+
+// vrlogReplayLoop reads frames from the VRLOG reader and publishes them.
+func (p *Publisher) vrlogReplayLoop() {
+	defer p.vrlogWg.Done()
+
+	var lastFrameTime int64
+	var lastWallTime time.Time
+
+	for {
+		select {
+		case <-p.vrlogStopCh:
+			return
+		case <-p.vrlogSeekSignal:
+			// Reset timing after seek
+			lastFrameTime = 0
+			lastWallTime = time.Time{}
+			continue
+		default:
+		}
+
+		p.vrlogMu.RLock()
+		isPaused := p.vrlogPaused
+		rate := p.vrlogRate
+		reader := p.vrlogReader
+		p.vrlogMu.RUnlock()
+
+		if isPaused || reader == nil {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+
+		frame, err := reader.ReadFrame()
+		if err != nil {
+			if err.Error() == "EOF" {
+				log.Printf("[Visualiser] VRLOG replay complete")
+			} else {
+				log.Printf("[Visualiser] VRLOG replay error: %v", err)
+			}
+			return
+		}
+
+		// Rate control: sleep to match playback rate
+		if lastFrameTime > 0 && rate > 0 {
+			frameDelta := time.Duration(float64(frame.TimestampNanos-lastFrameTime) / float64(rate))
+			wallDelta := time.Since(lastWallTime)
+			if frameDelta > wallDelta {
+				sleepTime := frameDelta - wallDelta
+				// Cap sleep to avoid long waits
+				if sleepTime > 500*time.Millisecond {
+					sleepTime = 500 * time.Millisecond
+				}
+				time.Sleep(sleepTime)
+			}
+		}
+
+		lastFrameTime = frame.TimestampNanos
+		lastWallTime = time.Now()
+
+		// Mark frame as seekable replay
+		if frame.PlaybackInfo == nil {
+			frame.PlaybackInfo = &PlaybackInfo{}
+		}
+		frame.PlaybackInfo.IsLive = false
+		frame.PlaybackInfo.Seekable = true
+
+		// Publish to all clients
+		p.Publish(frame)
+	}
+}
+
 // shouldSendBackground determines if a background snapshot should be sent.
 func (p *Publisher) shouldSendBackground() bool {
 	if p.backgroundMgr == nil {
 		return false // No background manager configured
+	}
+
+	// Phase 2.1: Suppress background snapshots during VRLOG replay
+	// The recorded frames already have background data embedded
+	if p.IsVRLogActive() {
+		return false
 	}
 
 	// Send if:
