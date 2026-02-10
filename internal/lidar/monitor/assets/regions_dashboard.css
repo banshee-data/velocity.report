@@ -1,0 +1,115 @@
+/* regions_dashboard.css — Page-specific styles for the background regions page. */
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.info-panel {
+  background: var(--card-bg);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 12px var(--card-shadow);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-label {
+  font-size: 0.85em;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+
+.info-value {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.canvas-container {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 12px var(--card-shadow);
+}
+
+#regionCanvas {
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  max-width: 100%;
+  cursor: crosshair;
+}
+
+.legend {
+  margin-top: 15px;
+  padding: 10px;
+  background: var(--card-header-bg);
+  border-radius: 4px;
+}
+
+.legend-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid var(--card-border);
+}
+
+.region-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  display: none;
+  z-index: 1000;
+}
+
+.status-complete {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.refresh-btn {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.refresh-btn:hover {
+  background: var(--accent-hover);
+}
