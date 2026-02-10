@@ -8,7 +8,9 @@
 package visualiser
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -302,7 +304,7 @@ func (p *Publisher) vrlogReplayLoop() {
 
 		frame, err := reader.ReadFrame()
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				log.Printf("[Visualiser] VRLOG replay complete")
 			} else {
 				log.Printf("[Visualiser] VRLOG replay error: %v", err)
