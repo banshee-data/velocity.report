@@ -240,7 +240,7 @@ function makeFetchRouter(overrides: Record<string, any> = {}) {
 		'/api/lidar/scenes': { scenes: [] },
 		...overrides
 	};
-	return jest.fn().mockImplementation((url: string, opts?: any) => {
+	return jest.fn().mockImplementation((url: string) => {
 		for (const [pattern, data] of Object.entries(routes)) {
 			if (url.includes(pattern)) {
 				return Promise.resolve({
@@ -784,7 +784,7 @@ describe('buildScenarioJSON', () => {
 	});
 
 	it('handles bool param values', () => {
-		const id = addParamRow('seed_from_first');
+		addParamRow('seed_from_first');
 		// seed_from_first is bool, default values "true, false"
 		const scenario = buildScenarioJSON();
 		expect(scenario.params[0].values).toEqual([true, false]);
@@ -1570,6 +1570,7 @@ describe('renderCharts', () => {
 
 	it('renders without buckets', () => {
 		const results = makeTestResults().map((r: any) => {
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { buckets: _b, bucket_means: _bm, ...rest } = r;
 			return rest;
 		});
@@ -2275,7 +2276,6 @@ describe('applyRecommendation error on params POST', () => {
 	});
 
 	it('shows error when params POST fails', async () => {
-		let callIdx = 0;
 		global.fetch = jest.fn().mockImplementation((url: string) => {
 			if (url.includes('/api/lidar/sweep/auto')) {
 				return Promise.resolve({
