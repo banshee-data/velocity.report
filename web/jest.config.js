@@ -1,6 +1,6 @@
+import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -67,6 +67,12 @@ export default {
 	],
 	coverageThreshold: {
 		[resolve(repoRoot, 'web/src/lib/')]: {
+			branches: 90,
+			functions: 90,
+			lines: 90,
+			statements: 90
+		},
+		[resolve(repoRoot, 'internal/lidar/monitor/assets/')]: {
 			branches: 90,
 			functions: 90,
 			lines: 90,
