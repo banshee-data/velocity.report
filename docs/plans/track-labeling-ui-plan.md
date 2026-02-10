@@ -44,11 +44,11 @@ Enable operators to label tracks while viewing 3D evolution in the macOS Swift a
 
 Scoring: `1 (worst)` to `5 (best)`.
 
-| Option | Maintainability | UX (label + scrub) | Performance | Notes |
-| --- | --- | --- | --- | --- |
-| 1. Baseline VRLOG + web-driven workflow | 3 | 2 | 4 | Backend is straightforward, but operators context-switch between Swift 3D view and web labeling/timeline. |
-| 2. VRLOG + Swift-native labeling | 4 | 5 | 4 | Best operator flow; robust seek semantics via VRLOG. Requires Swift-side API integration and run browser work. |
-| 3. Direct PCAP seek | 2 | 3 | 2 | High risk and complexity: seek must rebuild time-dependent state (background/tracker/warmup), likely high latency and fragility. |
+| Option                                  | Maintainability | UX (label + scrub) | Performance | Notes                                                                                                                            |
+| --------------------------------------- | --------------- | ------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Baseline VRLOG + web-driven workflow | 3               | 2                  | 4           | Backend is straightforward, but operators context-switch between Swift 3D view and web labeling/timeline.                        |
+| 2. VRLOG + Swift-native labeling        | 4               | 5                  | 4           | Best operator flow; robust seek semantics via VRLOG. Requires Swift-side API integration and run browser work.                   |
+| 3. Direct PCAP seek                     | 2               | 3                  | 2           | High risk and complexity: seek must rebuild time-dependent state (background/tracker/warmup), likely high latency and fragility. |
 
 ## Single Recommendation
 
@@ -135,7 +135,7 @@ New migration:
 
 `internal/lidar/analysis_run.go`:
 
-- Add `VRLogPath string \`json:"vrlog_path,omitempty"\`` to `AnalysisRun`.
+- Add `VRLogPath string \`json:"vrlog_path,omitempty"\``to`AnalysisRun`.
 - Update `InsertRun`, `GetRun`, `ListRuns`.
 - Add `UpdateRunVRLogPath(runID, vrlogPath string) error`.
 
@@ -340,16 +340,16 @@ Phase 0 (label contract)
 
 ## Files to Modify
 
-| Area | File(s) | Changes |
-| --- | --- | --- |
-| Replay recording/replay | `internal/lidar/visualiser/publisher.go` | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
-| gRPC controls | `internal/lidar/visualiser/grpc_server.go` | Implement seek delegation, VRLOG mode routing |
-| Run persistence | `internal/lidar/analysis_run.go` | `vrlog_path` field + store updates |
-| DB migration | `internal/db/migrations/000022_add_vrlog_path.*.sql` | Add/drop `vrlog_path` |
-| Orchestration API | `internal/lidar/monitor/webserver.go` | recording/playback callbacks + routes + status model |
-| Wiring | `cmd/radar/radar.go` | recorder lifecycle + replay callback wiring |
-| Swift app | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` and new API client(s) | run browser state, replay load flow, run-track labeling integration |
-| Optional web parity | `web/src/lib/types/lidar.ts`, `web/src/lib/api.ts`, `web/src/routes/lidar/tracks/+page.svelte`, `web/src/routes/lidar/runs/+page.svelte` | playback status sync and replay controls |
+| Area                    | File(s)                                                                                                                                  | Changes                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Replay recording/replay | `internal/lidar/visualiser/publisher.go`                                                                                                 | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
+| gRPC controls           | `internal/lidar/visualiser/grpc_server.go`                                                                                               | Implement seek delegation, VRLOG mode routing                        |
+| Run persistence         | `internal/lidar/analysis_run.go`                                                                                                         | `vrlog_path` field + store updates                                   |
+| DB migration            | `internal/db/migrations/000022_add_vrlog_path.*.sql`                                                                                     | Add/drop `vrlog_path`                                                |
+| Orchestration API       | `internal/lidar/monitor/webserver.go`                                                                                                    | recording/playback callbacks + routes + status model                 |
+| Wiring                  | `cmd/radar/radar.go`                                                                                                                     | recorder lifecycle + replay callback wiring                          |
+| Swift app               | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` and new API client(s)                                                     | run browser state, replay load flow, run-track labeling integration  |
+| Optional web parity     | `web/src/lib/types/lidar.ts`, `web/src/lib/api.ts`, `web/src/routes/lidar/tracks/+page.svelte`, `web/src/routes/lidar/runs/+page.svelte` | playback status sync and replay controls                             |
 
 ---
 
