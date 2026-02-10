@@ -148,6 +148,9 @@ type WebServer struct {
 
 	// Auto-tune runner for web-triggered auto-tuning
 	autoTuneRunner AutoTuneRunner
+
+	// Sweep store for persisting sweep results
+	sweepStore *lidar.SweepStore
 }
 
 // WebServerConfig contains configuration options for the web server
@@ -288,6 +291,11 @@ func (ws *WebServer) SetSweepRunner(runner SweepRunner) {
 // SetAutoTuneRunner sets the auto-tune runner for web-triggered auto-tuning.
 func (ws *WebServer) SetAutoTuneRunner(runner AutoTuneRunner) {
 	ws.autoTuneRunner = runner
+}
+
+// SetSweepStore sets the sweep store for persisting sweep results.
+func (ws *WebServer) SetSweepStore(store *lidar.SweepStore) {
+	ws.sweepStore = store
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
@@ -953,6 +961,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
 	mux.HandleFunc("/api/lidar/sweep/auto", ws.handleAutoTune)
 	mux.HandleFunc("/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop)
+	mux.HandleFunc("/api/lidar/sweeps/charts", ws.handleSweepCharts) // PUT: save chart config
+	mux.HandleFunc("/api/lidar/sweeps/", ws.handleGetSweep)          // GET /api/lidar/sweeps/{sweep_id}
+	mux.HandleFunc("/api/lidar/sweeps", ws.handleListSweeps)         // GET ?sensor_id=...&limit=20
 	mux.HandleFunc("/debug/lidar/sweep", ws.handleSweepDashboard)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)

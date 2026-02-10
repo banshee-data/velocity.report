@@ -9,6 +9,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // SceneStoreSaver is the interface for saving optimal parameters to a scene.
@@ -117,6 +119,10 @@ type AutoTuner struct {
 	state  AutoTuneState
 	cancel context.CancelFunc
 
+	// Persistence
+	persister SweepPersister
+	sweepID   string // current auto-tune's unique ID
+
 	// Phase 5: Ground truth scoring support
 	// When set, this function is called to score each combination's results using ground truth evaluation.
 	// The function receives the scene_id, candidate run_id, and ground truth weights,
@@ -136,6 +142,20 @@ func NewAutoTuner(runner *Runner) *AutoTuner {
 			Mode:   "auto",
 		},
 	}
+}
+
+// SetPersister sets the database persister for saving auto-tune results.
+func (at *AutoTuner) SetPersister(p SweepPersister) {
+	at.mu.Lock()
+	defer at.mu.Unlock()
+	at.persister = p
+}
+
+// GetSweepID returns the current auto-tune's unique ID.
+func (at *AutoTuner) GetSweepID() string {
+	at.mu.RLock()
+	defer at.mu.RUnlock()
+	return at.sweepID
 }
 
 // SetGroundTruthScorer sets the ground truth scoring function for label-aware auto-tuning.
@@ -257,6 +277,7 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 	}
 
 	now := time.Now()
+	at.sweepID = uuid.New().String()
 	at.state = AutoTuneState{
 		Status:       SweepStatusRunning,
 		Mode:         "auto",
@@ -269,6 +290,18 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	at.cancel = cancel
 	at.mu.Unlock()
+
+	// Persist auto-tune start to database
+	if at.persister != nil {
+		reqJSON, _ := json.Marshal(req)
+		sensorID := ""
+		if at.runner != nil && at.runner.client != nil {
+			sensorID = at.runner.client.SensorID
+		}
+		if err := at.persister.SaveSweepStart(at.sweepID, sensorID, "auto", reqJSON, now); err != nil {
+			log.Printf("[sweep] WARNING: Failed to persist auto-tune start: %v", err)
+		}
+	}
 
 	// Run auto-tuning in background
 	go at.run(runCtx, req)
@@ -590,6 +623,9 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 			}
 		}
 	}
+
+	// Persist completion to database
+	at.persistComplete("complete", allResults, recommendation, nil)
 }
 
 // waitForSweepComplete polls the runner until the sweep completes or fails.
@@ -632,7 +668,39 @@ func (at *AutoTuner) setError(msg string) {
 	at.state.Status = SweepStatusError
 	at.state.Error = msg
 	at.state.CompletedAt = &now
+	results := make([]ComboResult, len(at.state.Results))
+	copy(results, at.state.Results)
 	at.mu.Unlock()
+	at.persistComplete("error", results, nil, &msg)
+}
+
+// persistComplete saves the final auto-tune state to the database.
+func (at *AutoTuner) persistComplete(status string, results []ComboResult, recommendation map[string]interface{}, errMsg *string) {
+	if at.persister == nil || at.sweepID == "" {
+		return
+	}
+
+	resultsJSON, _ := json.Marshal(results)
+	var recJSON json.RawMessage
+	if recommendation != nil {
+		recJSON, _ = json.Marshal(recommendation)
+	}
+
+	at.mu.RLock()
+	var roundResultsJSON json.RawMessage
+	if len(at.state.RoundResults) > 0 {
+		roundResultsJSON, _ = json.Marshal(at.state.RoundResults)
+	}
+	at.mu.RUnlock()
+
+	errStr := ""
+	if errMsg != nil {
+		errStr = *errMsg
+	}
+	now := time.Now()
+	if err := at.persister.SaveSweepComplete(at.sweepID, status, resultsJSON, recJSON, roundResultsJSON, now, errStr); err != nil {
+		log.Printf("[sweep] WARNING: Failed to persist auto-tune completion: %v", err)
+	}
 }
 
 // narrowBounds computes narrowed parameter bounds from the top K results.
