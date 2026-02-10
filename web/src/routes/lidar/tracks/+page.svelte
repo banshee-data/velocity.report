@@ -45,6 +45,7 @@
 	const PLAYBACK_UPDATE_FREQUENCY_HZ = 10; // 10Hz
 
 	// State
+	let sensorId: string;
 	// Reactive to URL changes - updates when user navigates with different sensor_id param
 	$: sensorId = $page.url.searchParams.get('sensor_id') || 'hesai-pandar40p';
 	let selectedTime = Date.now();
