@@ -89,6 +89,7 @@ const {
 	buildSeriesOption,
 	buildHeatmapOption,
 	buildScatterOption,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	renderDynamicCharts,
 	disposeAllCharts,
 	loadSweepHistory,
@@ -96,6 +97,7 @@ const {
 	loadHistoricalSweep,
 	openChartModal,
 	closeChartModal,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	applyChartModal,
 	init
 } = mod;
