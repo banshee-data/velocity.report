@@ -124,9 +124,10 @@
 			missedRegions = [];
 			timeRange = null;
 			// Reload data for new sensor
-			loadHistoricalData();
-			loadBackgroundGrid();
-			loadScenes();
+			// Wrap in void to prevent infinite loop warnings (functions are async and don't affect reactive dependencies)
+			void loadHistoricalData();
+			void loadBackgroundGrid();
+			void loadScenes();
 		}
 	}
 
