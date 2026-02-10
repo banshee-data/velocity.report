@@ -1569,10 +1569,11 @@ describe('renderCharts', () => {
 		stopPolling();
 	});
 
-	it('renders charts with full data including heatmaps', () => {
+	it('renders charts with existing configs from init', () => {
 		renderCharts(makeTestResults());
-		// 2 numeric params → 4 bar charts + 3 heatmaps = 7
-		expect((global as any).echarts.init).toHaveBeenCalledTimes(7);
+		// init() already populated chartConfigs with 4 bar charts (no results),
+		// renderCharts reuses existing configs → 4 chart instances
+		expect((global as any).echarts.init).toHaveBeenCalledTimes(4);
 	});
 
 	it('creates only bar charts when only one numeric param', () => {
