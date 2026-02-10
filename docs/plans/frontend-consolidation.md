@@ -54,6 +54,8 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 - **Go-embedded dashboards must eventually migrate** — maintaining vanilla JS + ECharts alongside Svelte + LayerChart is unsustainable
 - **Radar-only deploys need a clean experience** — no dead LiDAR links
 - **Raspberry Pi 4 is the target** — resource-constrained; binary size matters
+- **Dynamic LiDAR lifecycle** — LiDAR can be enabled/disabled at runtime without interrupting radar logging/stream
+- **Private LAN deployment** — no auth/access control required for now (future work)
 - **Privacy-first** — no architectural changes affect data privacy
 
 ## Proposed End State
@@ -146,7 +148,8 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 
 - Radar-only binary still ships LiDAR JavaScript (dead code in the bundle)
 - Requires a capabilities API and conditional navigation logic
-- LiDAR routes technically accessible via direct URL even when disabled (returns empty data)
+- Requires runtime capability refresh and backend lifecycle management for hot-enable/disable
+- LiDAR routes must return an explicit "LiDAR disabled" response and must not initialize hardware when disabled
 - Single `package.json` may accumulate LiDAR-specific dependencies over time
 
 ### Option C: One Svelte App with Build-Time LiDAR Exclusion
@@ -205,29 +208,32 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 
 Option B is the clear winner. The single-app approach avoids duplication, keeps the build simple, and provides the best user experience. The minor downside — shipping ~50KB of unused LiDAR JavaScript in radar-only deploys — is negligible compared to the maintenance cost of two separate applications or custom build tooling.
 
-The dead-route concern is mitigated by the fact that LiDAR API endpoints return errors when `--enable-lidar` is off, so direct URL access to `/app/lidar/*` shows empty states rather than broken functionality.
+The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/*` must return a clear "LiDAR disabled" response and must not initialize hardware when LiDAR is off. Direct URL access to `/app/lidar/*` should show a friendly disabled state. This pairs with runtime capability refresh so hot-enable/disable is reflected without restarting the radar process.
 
 ## Migration Plan
 
 ### Phase 0: Capabilities API & Conditional Navigation
 
-**Effort: Small (1–2 days)**
+**Effort: Small (2–4 days)**
 
-Add a `/api/capabilities` endpoint (or extend `/api/config`) that reports which sensors are active:
+Add a `/api/capabilities` endpoint (or extend `/api/config`) that reports which sensors are active and their runtime state:
 
 ```json
 {
   "radar": true,
-  "lidar": false,
+  "lidar": { "enabled": false, "state": "disabled" },
   "lidar_sweep": false
 }
 ```
 
-Update the root `+layout.svelte` to fetch capabilities on load and conditionally render LiDAR navigation items. When `lidar` is false, the sidebar shows only radar routes.
+Capabilities must reflect runtime transitions (disabled, starting, ready, error) so LiDAR can be enabled or disabled without restarting the radar process. A backend lifecycle manager should own start/stop of LiDAR pipelines and must not interrupt radar logging or streaming.
+
+Update the root `+layout.svelte` to fetch capabilities on load and conditionally render LiDAR navigation items. Add periodic refresh (or SSE) so the UI updates when LiDAR comes online. When `lidar` is disabled, the sidebar shows only radar routes and all `/api/lidar/*` endpoints return a clear "LiDAR disabled" response without initializing hardware.
 
 **Files changed:**
 
 - `internal/api/server.go` — new endpoint
+- `internal/lidar/` — lifecycle manager and capability source
 - `web/src/routes/+layout.svelte` — conditional nav rendering
 - `web/src/lib/api.ts` — capabilities fetch function
 
@@ -366,25 +372,133 @@ This reduces binary size and eliminates the dual charting stack.
 
 | Phase     | Scope                              | Effort         | Charting Rewrite                         |
 | --------- | ---------------------------------- | -------------- | ---------------------------------------- |
-| 0         | Capabilities API + conditional nav | 1–2 days       | None                                     |
+| 0         | Capabilities API + conditional nav | 2–4 days       | None                                     |
 | 1         | Status page migration              | 2–3 days       | None                                     |
 | 2         | Regions dashboard migration        | 2–3 days       | None (Canvas 2D)                         |
 | 3         | Sweep dashboard migration          | 2–3 weeks      | **8 chart types** (ECharts → LayerChart) |
 | 4         | Debug dashboard retirement         | 1 day          | None                                     |
 | 5         | Port 8081 retirement               | 3–5 days       | None                                     |
 | 6         | Go embed cleanup                   | 1 day          | None                                     |
-| **Total** |                                    | **~4–5 weeks** |                                          |
+| **Total** |                                    | **~5–6 weeks** |                                          |
 
 Phase 3 (sweep dashboard) dominates the effort due to the ECharts-to-LayerChart rewrite. All other phases are straightforward migrations of forms, tables, and Canvas-based visualisations that don't require charting library translation.
 
+## Detailed Checklists and Timelines (Option B)
+
+### Phase 0: Capabilities API & Conditional Navigation
+
+Expected timeline: 2–4 days.
+
+Checklist:
+
+- [ ] Define the capabilities schema and state machine (disabled, starting, ready, error) and document the contract in `docs/`.
+- [ ] Implement a backend LiDAR lifecycle manager that can start/stop LiDAR pipelines without interrupting radar logging/stream.
+- [ ] Implement `/api/capabilities` (or extend `/api/config`) with unit tests for default values and hardware-off scenarios.
+- [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initializing hardware).
+- [ ] Add `getCapabilities()` to `web/src/lib/api.ts` with retry/backoff and error handling.
+- [ ] Update `web/src/routes/+layout.svelte` to gate LiDAR nav items, including a loading state and a fallback when the endpoint fails.
+- [ ] Add a shared "LiDAR not enabled" empty-state component for direct route access.
+- [ ] Add UI capability refresh (poll or SSE) and handle transitional states (starting, error).
+- [ ] Add route-level lazy loading for LiDAR routes to minimize radar-only initial load.
+- [ ] Verify radar-only UX on Pi 4 (startup time, sidebar items, zero broken links).
+- [ ] Add tests that hot-enable/disable LiDAR does not interrupt radar logging.
+
+### Phase 1: Status Page Migration
+
+Expected timeline: 2–3 days.
+
+Checklist:
+
+- [ ] Inventory all `status.html` features and map each to an API endpoint or new endpoint.
+- [ ] Build `/app/lidar/status` with svelte-ux form components and validations.
+- [ ] Implement/extend status APIs for read/write, ensuring param updates are atomic and validated server-side.
+- [ ] Add PCAP replay controls and diagnostic link directory parity with the old page.
+- [ ] Add error states, loading states, and form reset/rollback behavior.
+- [ ] Confirm feature parity with the Go-template version and remove/redirect old links.
+- [ ] Add API integration tests and basic UI regression checks for status workflows.
+
+### Phase 2: Background Regions Dashboard Migration
+
+Expected timeline: 2–3 days.
+
+Checklist:
+
+- [ ] Inventory existing API usage and data assumptions from `regions_dashboard.js`.
+- [ ] Port `regions_dashboard.js` Canvas rendering into `RegionsCanvas.svelte` with resize handling.
+- [ ] Wire data loading, caching, and refresh cadence to existing APIs.
+- [ ] Recreate hover/selection, legend, and tooltip behavior.
+- [ ] Validate performance on Pi 4 (fps, memory) with realistic data.
+- [ ] Add basic UI tests for interactions and empty/error states.
+
+### Phase 3: Sweep Dashboard Migration
+
+Expected timeline: 2–3 weeks.
+
+Checklist:
+
+- [ ] Document sweep workflows (manual + auto-tune) and required data schemas, including any undocumented API fields.
+- [ ] Create a Svelte store/model for sweep state, polling, and cancellation.
+- [ ] Rebuild chart components (8 total).
+- [ ] Acceptance rate line (Spline + Area)
+- [ ] Nonzero cells line (Spline)
+- [ ] Bucket distribution bar (Bar)
+- [ ] Track count line (Spline)
+- [ ] Alignment score line (Spline)
+- [ ] Parameter heatmap (Canvas or SVG grid)
+- [ ] Multi-round comparison (Grouped + Spline)
+- [ ] Recommendation table (svelte-ux Table)
+- [ ] Implement scene/PCAP selection and ground-truth evaluation UI.
+- [ ] Implement CSV/JSON export and parameter preset management.
+- [ ] Add throttling or sampling for high-frequency polling to protect Pi 4 performance.
+- [ ] Add render throttling/virtualization so all charts do not repaint at once.
+- [ ] Validate parity with existing sweep outputs and run real-data acceptance checks.
+
+### Phase 4: Debug Dashboard Retirement
+
+Expected timeline: 1 day.
+
+Checklist:
+
+- [ ] Decide whether to retire or redirect the iframe grid.
+- [ ] If kept, re-implement as a Svelte route with links to new pages.
+- [ ] Remove old debug nav entries and update documentation.
+
+### Phase 5: Retire Port 8081
+
+Expected timeline: 3–5 days.
+
+Checklist:
+
+- [ ] Confirm no external consumers depend on port 8081 (per current deployment).
+- [ ] Move LiDAR API route registration to `internal/api/server.go` and update handlers.
+- [ ] Update `web/vite.config.ts` proxy rules to consolidate on 8080.
+- [ ] Deprecate `--lidar-listen` and any 8081-specific deployment configs.
+- [ ] Update docs, systemd/unit files, and deployment notes.
+- [ ] Validate that macOS visualiser (gRPC 50051) is unaffected.
+
+### Phase 6: Go Embed Cleanup
+
+Expected timeline: 1 day.
+
+Checklist:
+
+- [ ] Delete retired HTML/JS/CSS assets in `internal/lidar/monitor/`.
+- [ ] Remove obsolete `//go:embed` directives and handler routes.
+- [ ] Remove ECharts assets and any remaining references.
+- [ ] Run Go and web tests; verify binary size reduction.
+
 ## Risks and Mitigations
 
-| Risk                                                  | Likelihood | Impact | Mitigation                                                                                           |
-| ----------------------------------------------------- | ---------- | ------ | ---------------------------------------------------------------------------------------------------- |
-| LayerChart lacks heatmap support for sweep charts     | High       | Medium | Use raw Canvas/SVG within Svelte component; LayerChart isn't required for every chart                |
-| Sweep dashboard polling logic is complex to port      | Medium     | Medium | Svelte stores + `setInterval` can replicate the polling pattern; consider SSE for future improvement |
-| Port consolidation breaks existing deployment scripts | Medium     | High   | Phase 5 should provide a compatibility shim or deprecation period for 8081                           |
-| LiDAR routes accessed directly in radar-only mode     | Low        | Low    | Return empty state with "LiDAR not enabled" message; not a security concern                          |
+| Risk                                                       | Likelihood | Impact | Mitigation                                                                                                  |
+| ---------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| LayerChart lacks heatmap support for sweep charts          | High       | Medium | Use raw Canvas/SVG within Svelte component; LayerChart isn't required for every chart                       |
+| Sweep dashboard polling logic is complex to port           | Medium     | Medium | Svelte stores + `setInterval` can replicate the polling pattern; consider SSE for future improvement        |
+| Hot-enable/disable LiDAR disrupts radar logging            | Medium     | High   | Introduce a LiDAR lifecycle manager with start/stop isolation and tests that assert radar stream continuity |
+| `/api/lidar/*` endpoints initialize hardware when disabled | Low        | High   | Enforce capability gating server-side; return explicit "LiDAR disabled" and never initialize when disabled  |
+| Sweep UI performance on Pi 4 regresses                     | Medium     | Medium | Data decimation, chart throttling, polling backoff, and lazy render of off-screen charts                    |
+| API parity gaps surface late in migration                  | Medium     | Medium | API/schema inventory before each migration, plus acceptance tests using real data                           |
+| UI capability state drifts from runtime reality            | Medium     | Low    | Capability refresh via polling or SSE; handle transitional states (starting/error)                          |
+| Test coverage insufficient for regressions                 | Medium     | Medium | Add API integration tests and a minimal E2E sweep flow using representative datasets                        |
 
 ## Non-Goals
 
@@ -392,3 +506,4 @@ Phase 3 (sweep dashboard) dominates the effort due to the ECharts-to-LayerChart 
 - **PDF report generation** — out of scope; remains a Python/LaTeX tool
 - **LiDAR build tag** — runtime `--enable-lidar` flag is sufficient; no need for compile-time exclusion
 - **New charting library adoption** — use existing LayerChart/d3-scale stack; ECharts is retired, not replaced with another heavyweight library
+- **Auth/access control** — out of scope for now; deployments are private LAN only
