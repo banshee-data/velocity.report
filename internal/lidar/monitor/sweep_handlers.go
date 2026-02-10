@@ -253,6 +253,23 @@ func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate that charts is a valid JSON array or object, not primitives or double-encoded strings
+	if len(req.Charts) > 0 {
+		var test interface{}
+		if err := json.Unmarshal(req.Charts, &test); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "charts must be valid JSON: "+err.Error())
+			return
+		}
+		// Only allow JSON objects or arrays; reject primitives and double-encoded strings
+		switch test.(type) {
+		case map[string]interface{}, []interface{}:
+			// valid chart structure
+		default:
+			ws.writeJSONError(w, http.StatusBadRequest, "charts must be a JSON array or object")
+			return
+		}
+	}
+
 	if err := ws.sweepStore.UpdateSweepCharts(req.SweepID, req.Charts); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, "failed to save charts: "+err.Error())
 		return

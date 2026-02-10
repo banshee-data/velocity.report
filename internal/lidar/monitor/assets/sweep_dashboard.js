@@ -1688,18 +1688,35 @@ function renderDynamicCharts(results) {
       card = document.createElement("div");
       card.className = "card";
       card.id = cardId;
-      card.innerHTML =
-        '<div class="chart-card-actions">' +
-        "<button onclick=\"editChart('" +
-        cfg.id +
-        '\')" title="Edit">Edit</button>' +
-        "<button onclick=\"removeChart('" +
-        cfg.id +
-        '\')" title="Remove">&times;</button>' +
-        "</div>" +
-        '<div id="' +
-        chartId +
-        '" class="chart-container"></div>';
+
+      var actions = document.createElement("div");
+      actions.className = "chart-card-actions";
+
+      var editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.title = "Edit";
+      editButton.textContent = "Edit";
+      editButton.addEventListener("click", function () {
+        editChart(cfg.id);
+      });
+
+      var removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.title = "Remove";
+      removeButton.textContent = "×";
+      removeButton.addEventListener("click", function () {
+        removeChart(cfg.id);
+      });
+
+      actions.appendChild(editButton);
+      actions.appendChild(removeButton);
+
+      var chartContainer = document.createElement("div");
+      chartContainer.id = chartId;
+      chartContainer.className = "chart-container";
+
+      card.appendChild(actions);
+      card.appendChild(chartContainer);
       grid.appendChild(card);
     }
 
@@ -2454,7 +2471,7 @@ function saveChartConfigs() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       sweep_id: currentSweepId,
-      charts: JSON.stringify(chartConfigs),
+      charts: chartConfigs,
     }),
   })
     .then(function (r) {
@@ -2508,6 +2525,7 @@ function onSweepHistorySelected() {
     chartConfigs = [];
     disposeAllCharts();
     initCharts();
+    startPolling();
     return;
   }
   loadHistoricalSweep(sweepId);

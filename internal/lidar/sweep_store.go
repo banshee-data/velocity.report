@@ -41,7 +41,7 @@ func (s *SweepStore) InsertSweep(record SweepRecord) error {
 			sweep_id, sensor_id, mode, status, request, started_at
 		) VALUES (?, ?, ?, ?, ?, ?)
 	`
-	return retryOnBusy(func() error {
+	err := retryOnBusy(func() error {
 		_, err := s.db.Exec(query,
 			record.SweepID,
 			record.SensorID,
@@ -52,6 +52,10 @@ func (s *SweepStore) InsertSweep(record SweepRecord) error {
 		)
 		return err
 	})
+	if err != nil {
+		return fmt.Errorf("inserting sweep %s: %w", record.SweepID, err)
+	}
+	return nil
 }
 
 // UpdateSweepResults updates a sweep record with results on completion or error.
@@ -66,7 +70,7 @@ func (s *SweepStore) UpdateSweepResults(sweepID, status string, results, recomme
 		s := completedAt.UTC().Format(time.RFC3339)
 		completedAtStr = &s
 	}
-	return retryOnBusy(func() error {
+	err := retryOnBusy(func() error {
 		_, err := s.db.Exec(query,
 			status,
 			nullJSON(results),
@@ -78,15 +82,23 @@ func (s *SweepStore) UpdateSweepResults(sweepID, status string, results, recomme
 		)
 		return err
 	})
+	if err != nil {
+		return fmt.Errorf("updating sweep results for %s: %w", sweepID, err)
+	}
+	return nil
 }
 
 // UpdateSweepCharts saves chart configuration for a sweep.
 func (s *SweepStore) UpdateSweepCharts(sweepID string, charts json.RawMessage) error {
 	query := `UPDATE lidar_sweeps SET charts = ? WHERE sweep_id = ?`
-	return retryOnBusy(func() error {
+	err := retryOnBusy(func() error {
 		_, err := s.db.Exec(query, string(charts), sweepID)
 		return err
 	})
+	if err != nil {
+		return fmt.Errorf("updating sweep charts for %s: %w", sweepID, err)
+	}
+	return nil
 }
 
 // GetSweep returns a single sweep record by ID.
@@ -123,14 +135,18 @@ func (s *SweepStore) GetSweep(sweepID string) (*SweepRecord, error) {
 		rec.Error = errMsg.String
 	}
 	if startedAt.Valid {
-		if t, err := time.Parse(time.RFC3339, startedAt.String); err == nil {
-			rec.StartedAt = t
+		t, err := time.Parse(time.RFC3339, startedAt.String)
+		if err != nil {
+			return nil, fmt.Errorf("parsing started_at for sweep %s: %w", sweepID, err)
 		}
+		rec.StartedAt = t
 	}
 	if completedAt.Valid {
-		if t, err := time.Parse(time.RFC3339, completedAt.String); err == nil {
-			rec.CompletedAt = &t
+		t, err := time.Parse(time.RFC3339, completedAt.String)
+		if err != nil {
+			return nil, fmt.Errorf("parsing completed_at for sweep %s: %w", sweepID, err)
 		}
+		rec.CompletedAt = &t
 	}
 
 	return &rec, nil
@@ -186,14 +202,18 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 			rec.Error = errMsg.String
 		}
 		if startedAt.Valid {
-			if t, err := time.Parse(time.RFC3339, startedAt.String); err == nil {
-				rec.StartedAt = t
+			t, err := time.Parse(time.RFC3339, startedAt.String)
+			if err != nil {
+				return nil, fmt.Errorf("parsing started_at for sweep row: %w", err)
 			}
+			rec.StartedAt = t
 		}
 		if completedAt.Valid {
-			if t, err := time.Parse(time.RFC3339, completedAt.String); err == nil {
-				rec.CompletedAt = &t
+			t, err := time.Parse(time.RFC3339, completedAt.String)
+			if err != nil {
+				return nil, fmt.Errorf("parsing completed_at for sweep row: %w", err)
 			}
+			rec.CompletedAt = &t
 		}
 
 		sweeps = append(sweeps, rec)

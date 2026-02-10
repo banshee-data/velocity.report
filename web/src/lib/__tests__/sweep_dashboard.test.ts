@@ -89,14 +89,12 @@ const {
 	buildSeriesOption,
 	buildHeatmapOption,
 	buildScatterOption,
-	renderDynamicCharts,
 	disposeAllCharts,
 	loadSweepHistory,
 	onSweepHistorySelected,
 	loadHistoricalSweep,
 	openChartModal,
 	closeChartModal,
-	applyChartModal,
 	init
 } = mod;
 /* eslint-enable @typescript-eslint/no-require-imports */
