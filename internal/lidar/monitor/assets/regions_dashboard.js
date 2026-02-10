@@ -236,11 +236,19 @@ if (typeof module !== "undefined" && module.exports) {
     regionColors: regionColors,
     cellAtPixel: cellAtPixel,
     escapeHTML: escapeHTML,
+    loadRegions: loadRegions,
+    updateInfoPanel: updateInfoPanel,
+    drawRegions: drawRegions,
+    updateLegend: updateLegend,
+    selectRegion: selectRegion,
+    drawRegionOutline: drawRegionOutline,
+    autoRefresh: autoRefresh,
+    init: init,
   };
 }
 
 // ---- Page initialization (runs only in browser, not when required by Jest) ----
-if (typeof document !== "undefined" && typeof module === "undefined") {
+function init() {
   canvas = document.getElementById("regionCanvas");
   ctx = canvas.getContext("2d");
   tooltip = document.getElementById("tooltip");
@@ -320,4 +328,8 @@ if (typeof document !== "undefined" && typeof module === "undefined") {
 
   // Initial load
   autoRefresh();
+}
+
+if (typeof document !== "undefined" && typeof module === "undefined") {
+  init();
 }

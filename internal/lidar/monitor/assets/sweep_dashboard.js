@@ -2362,11 +2362,48 @@ if (typeof module !== "undefined" && module.exports) {
     comboLabel: comboLabel,
     formatParamValues: formatParamValues,
     PARAM_SCHEMA: PARAM_SCHEMA,
+    val: val,
+    numVal: numVal,
+    intVal: intVal,
+    showError: showError,
+    getParamValueCount: getParamValueCount,
+    updateSweepSummary: updateSweepSummary,
+    addParamRow: addParamRow,
+    removeParamRow: removeParamRow,
+    updateParamFields: updateParamFields,
+    buildScenarioJSON: buildScenarioJSON,
+    downloadScenario: downloadScenario,
+    uploadScenario: uploadScenario,
+    loadScenario: loadScenario,
+    toggleJSONEditor: toggleJSONEditor,
+    applyJSONEditor: applyJSONEditor,
+    handleStart: handleStart,
+    handleStartManualSweep: handleStartManualSweep,
+    handleStartAutoTune: handleStartAutoTune,
+    handleStop: handleStop,
+    startPolling: startPolling,
+    stopPolling: stopPolling,
+    pollStatus: pollStatus,
+    pollAutoTuneStatus: pollAutoTuneStatus,
+    renderRecommendation: renderRecommendation,
+    applyRecommendation: applyRecommendation,
+    applySceneParams: applySceneParams,
+    downloadCSV: downloadCSV,
+    initCharts: initCharts,
+    renderCharts: renderCharts,
+    renderTable: renderTable,
+    fetchCurrentParams: fetchCurrentParams,
+    displayCurrentParams: displayCurrentParams,
+    loadSweepScenes: loadSweepScenes,
+    onSweepSceneSelected: onSweepSceneSelected,
+    setMode: setMode,
+    toggleWeights: toggleWeights,
+    togglePCAP: togglePCAP,
+    init: init,
   };
 }
 
-// ---- Page initialization (runs only in browser, not when required by Jest) ----
-if (typeof document !== "undefined" && typeof module === "undefined") {
+function init() {
   sensorId = document.querySelector('meta[name="sensor-id"]').content;
 
   // Initialise charts empty on page load
@@ -2494,4 +2531,9 @@ if (typeof document !== "undefined" && typeof module === "undefined") {
   document.getElementById("param-rows").addEventListener("change", function () {
     displayCurrentParams(window.currentParamsCache || {});
   });
+}
+
+// ---- Page initialization (runs only in browser, not when required by Jest) ----
+if (typeof document !== "undefined" && typeof module === "undefined") {
+  init();
 }
