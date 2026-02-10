@@ -672,3 +672,91 @@ func TestWebServer_HandleDeleteRunTrack_MethodNotAllowed(t *testing.T) {
 		t.Errorf("expected status 405, got %d", w.Code)
 	}
 }
+
+func TestWebServer_HandleDeleteRun_Success(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	testDB := &db.DB{DB: sqlDB}
+
+	ws := &WebServer{db: testDB}
+
+	// Create a test run
+	store := lidar.NewAnalysisRunStore(sqlDB)
+	run := &lidar.AnalysisRun{
+		RunID:      "run-001",
+		SensorID:   "test-sensor",
+		SourceType: "pcap",
+		Status:     "completed",
+	}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("failed to insert run: %v", err)
+	}
+
+	// DELETE request
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/run-001", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleDeleteRun(w, req, "run-001")
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify run is deleted
+	_, err := store.GetRun("run-001")
+	if err == nil {
+		t.Error("expected error getting deleted run, got nil")
+	}
+}
+
+func TestWebServer_HandleDeleteRun_NotFound(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	testDB := &db.DB{DB: sqlDB}
+
+	ws := &WebServer{db: testDB}
+
+	// DELETE non-existent run
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/run-999", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleDeleteRun(w, req, "run-999")
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestWebServer_HandleDeleteRun_MethodNotAllowed(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	testDB := &db.DB{DB: sqlDB}
+
+	ws := &WebServer{db: testDB}
+
+	// GET request (not allowed)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-001", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleDeleteRun(w, req, "run-001")
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", w.Code)
+	}
+}
+
+func TestWebServer_HandleDeleteRun_NoDB(t *testing.T) {
+	ws := &WebServer{db: nil}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/run-001", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleDeleteRun(w, req, "run-001")
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected status 503, got %d", w.Code)
+	}
+}

@@ -2293,6 +2293,26 @@ describe('api', () => {
 			});
 		});
 
+		describe('deleteRun', () => {
+			it('should delete a specific run', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { deleteRun } = await import('./api');
+				await deleteRun('run-001');
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/runs/run-001',
+					expect.objectContaining({
+						method: 'DELETE'
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { deleteRun } = await import('./api');
+				await expect(deleteRun('run-001')).rejects.toThrow('Failed to delete run: 404');
+			});
+		});
+
 		describe('deleteRunTrack', () => {
 			it('should delete a specific run track', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });

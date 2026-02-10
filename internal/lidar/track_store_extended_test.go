@@ -698,3 +698,146 @@ func TestClearRuns_EmptySensorID(t *testing.T) {
 		t.Errorf("Expected 'sensorID is required' error, got: %v", err)
 	}
 }
+
+// TestDeleteRun verifies deleting a specific analysis run and its tracks.
+func TestDeleteRun(t *testing.T) {
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	sensorID := "sensor-delete-run"
+
+	// Create an AnalysisRunStore
+	store := NewAnalysisRunStore(db)
+
+	// Insert two runs
+	run1 := &AnalysisRun{
+		RunID:           "run-001",
+		SensorID:        sensorID,
+		SourceType:      "pcap",
+		SourcePath:      "/test/data1.pcap",
+		ParamsJSON:      []byte(`{"version":"1.0"}`),
+		DurationSecs:    10.0,
+		TotalFrames:     100,
+		TotalClusters:   50,
+		TotalTracks:     5,
+		ConfirmedTracks: 3,
+		Status:          "completed",
+	}
+	if err := store.InsertRun(run1); err != nil {
+		t.Fatalf("failed to insert run1: %v", err)
+	}
+
+	run2 := &AnalysisRun{
+		RunID:           "run-002",
+		SensorID:        sensorID,
+		SourceType:      "pcap",
+		SourcePath:      "/test/data2.pcap",
+		ParamsJSON:      []byte(`{"version":"1.0"}`),
+		DurationSecs:    15.0,
+		TotalFrames:     150,
+		TotalClusters:   75,
+		TotalTracks:     8,
+		ConfirmedTracks: 5,
+		Status:          "completed",
+	}
+	if err := store.InsertRun(run2); err != nil {
+		t.Fatalf("failed to insert run2: %v", err)
+	}
+
+	// Insert run tracks
+	track1 := &RunTrack{
+		RunID:            "run-001",
+		TrackID:          "track-001",
+		SensorID:         sensorID,
+		TrackState:       "confirmed",
+		StartUnixNanos:   1000000000,
+		EndUnixNanos:     2000000000,
+		ObservationCount: 10,
+		AvgSpeedMps:      5.5,
+		PeakSpeedMps:     8.0,
+	}
+	if err := store.InsertRunTrack(track1); err != nil {
+		t.Fatalf("failed to insert track1: %v", err)
+	}
+
+	track2 := &RunTrack{
+		RunID:            "run-002",
+		TrackID:          "track-002",
+		SensorID:         sensorID,
+		TrackState:       "confirmed",
+		StartUnixNanos:   3000000000,
+		EndUnixNanos:     4000000000,
+		ObservationCount: 15,
+		AvgSpeedMps:      6.2,
+		PeakSpeedMps:     9.0,
+	}
+	if err := store.InsertRunTrack(track2); err != nil {
+		t.Fatalf("failed to insert track2: %v", err)
+	}
+
+	// Delete run-001
+	if err := DeleteRun(db, "run-001"); err != nil {
+		t.Fatalf("DeleteRun failed: %v", err)
+	}
+
+	// Verify run-001 is deleted
+	_, err := store.GetRun("run-001")
+	if err == nil {
+		t.Error("Expected error getting deleted run, got nil")
+	}
+
+	// Verify run-001 tracks are deleted (cascade)
+	tracks1, err := store.GetRunTracks("run-001")
+	if err != nil {
+		t.Fatalf("GetRunTracks for run-001 failed: %v", err)
+	}
+	if len(tracks1) != 0 {
+		t.Errorf("Expected 0 tracks for deleted run-001, got %d", len(tracks1))
+	}
+
+	// Verify run-002 is NOT deleted
+	run2Retrieved, err := store.GetRun("run-002")
+	if err != nil {
+		t.Fatalf("GetRun for run-002 failed: %v", err)
+	}
+	if run2Retrieved.RunID != "run-002" {
+		t.Errorf("Expected run-002, got %s", run2Retrieved.RunID)
+	}
+
+	// Verify run-002 tracks are NOT deleted
+	tracks2, err := store.GetRunTracks("run-002")
+	if err != nil {
+		t.Fatalf("GetRunTracks for run-002 failed: %v", err)
+	}
+	if len(tracks2) != 1 {
+		t.Errorf("Expected 1 track for run-002, got %d", len(tracks2))
+	}
+}
+
+// TestDeleteRun_NotFound verifies error when run doesn't exist.
+func TestDeleteRun_NotFound(t *testing.T) {
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	err := DeleteRun(db, "nonexistent-run")
+	if err == nil {
+		t.Error("Expected error for nonexistent run")
+	}
+	if err != nil && !strings.Contains(err.Error(), "run not found") {
+		t.Errorf("Expected 'run not found' error, got: %v", err)
+	}
+}
+
+// TestDeleteRun_EmptyRunID verifies error when runID is empty.
+func TestDeleteRun_EmptyRunID(t *testing.T) {
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	err := DeleteRun(db, "")
+	if err == nil {
+		t.Error("Expected error for empty runID")
+	}
+	if err != nil && !strings.Contains(err.Error(), "runID is required") {
+		t.Errorf("Expected 'runID is required' error, got: %v", err)
+	}
+}
