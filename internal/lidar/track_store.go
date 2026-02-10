@@ -266,6 +266,33 @@ func ClearTracks(db *sql.DB, sensorID string) error {
 	return nil
 }
 
+// ClearRuns removes all analysis runs and their associated run tracks for a sensor.
+// This is intended for development/debug resets and should not be exposed in production without auth.
+// The CASCADE foreign key on lidar_run_tracks will automatically delete associated run track records.
+func ClearRuns(db *sql.DB, sensorID string) error {
+	if sensorID == "" {
+		return fmt.Errorf("sensorID is required to clear runs")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin clear runs tx: %w", err)
+	}
+
+	// Delete runs for this sensor (CASCADE will delete lidar_run_tracks)
+	query := `DELETE FROM lidar_analysis_runs WHERE sensor_id = ?`
+	if _, err := tx.Exec(query, sensorID); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("clear runs failed: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit clear runs tx: %w", err)
+	}
+
+	return nil
+}
+
 // GetTrackObservationsInRange returns observations for a sensor within a time window (inclusive).
 // Joins against tracks to scope by sensor.
 func GetTrackObservationsInRange(db *sql.DB, sensorID string, startNanos, endNanos int64, limit int, trackID string) ([]*TrackObservation, error) {
