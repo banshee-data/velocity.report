@@ -253,6 +253,20 @@ func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate that charts is a valid JSON array or object, not a double-encoded string
+	if len(req.Charts) > 0 {
+		var test interface{}
+		if err := json.Unmarshal(req.Charts, &test); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "charts must be valid JSON: "+err.Error())
+			return
+		}
+		// If it's a string, it might be double-encoded - reject it
+		if _, isString := test.(string); isString {
+			ws.writeJSONError(w, http.StatusBadRequest, "charts must be a JSON array or object, not a JSON string")
+			return
+		}
+	}
+
 	if err := ws.sweepStore.UpdateSweepCharts(req.SweepID, req.Charts); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, "failed to save charts: "+err.Error())
 		return
