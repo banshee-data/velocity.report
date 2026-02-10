@@ -9,7 +9,7 @@ into one implementation plan with one recommendation.
 
 ## Status
 
-**In Progress** — Option 2 backend work complete, Swift/macOS work in progress.
+**Complete** — Option 2 implementation complete. Backend and Swift/macOS work done.
 
 ### Implementation Checklist
 
@@ -24,7 +24,7 @@ into one implementation plan with one recommendation.
 - [x] **Phase 3.1: Playback callbacks** — `OnPlaybackPause`, `OnPlaybackPlay`, `OnPlaybackSeek`, etc.
 - [x] **Phase 3: Playback API** — REST endpoints: `/api/lidar/playback/*`, `/api/lidar/vrlog/*`
 
-#### Swift/macOS (In Progress)
+#### Swift/macOS (Complete)
 
 - [x] **Phase 4.1: Run browser state** — `RunBrowserState` for listing and loading runs
 - [x] **Phase 4.1: Run browser UI** — `RunBrowserView` with run list and replay loader
