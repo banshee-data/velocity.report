@@ -1333,92 +1333,92 @@ func TestTrackAPI_HandleUpdateTrack_WithValidUpdate(t *testing.T) {
 }
 
 func TestTrackAPI_HandleClearRuns_Success(t *testing.T) {
-db, cleanup := setupTestDB(t)
-defer cleanup()
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
 
-sensorID := "test-sensor"
-api := NewTrackAPI(db, sensorID)
+	sensorID := "test-sensor"
+	api := NewTrackAPI(db, sensorID)
 
-// Create some test runs
-store := lidar.NewAnalysisRunStore(db)
-run1 := &lidar.AnalysisRun{
-RunID:           "run-001",
-SensorID:        sensorID,
-SourceType:      "pcap",
-SourcePath:      "/test/data.pcap",
-ParamsJSON:      []byte(`{"version":"1.0"}`),
-DurationSecs:    10.0,
-TotalFrames:     100,
-Status:          "completed",
-}
-if err := store.InsertRun(run1); err != nil {
-t.Fatalf("failed to insert run: %v", err)
-}
+	// Create some test runs
+	store := lidar.NewAnalysisRunStore(db)
+	run1 := &lidar.AnalysisRun{
+		RunID:        "run-001",
+		SensorID:     sensorID,
+		SourceType:   "pcap",
+		SourcePath:   "/test/data.pcap",
+		ParamsJSON:   []byte(`{"version":"1.0"}`),
+		DurationSecs: 10.0,
+		TotalFrames:  100,
+		Status:       "completed",
+	}
+	if err := store.InsertRun(run1); err != nil {
+		t.Fatalf("failed to insert run: %v", err)
+	}
 
-// POST request to clear runs
-req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/clear?sensor_id="+sensorID, nil)
-w := httptest.NewRecorder()
+	// POST request to clear runs
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/clear?sensor_id="+sensorID, nil)
+	w := httptest.NewRecorder()
 
-api.handleClearRuns(w, req)
+	api.handleClearRuns(w, req)
 
-if w.Code != http.StatusOK {
-t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
-}
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
 
-// Verify response
-var response map[string]interface{}
-if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-t.Fatalf("failed to decode response: %v", err)
-}
+	// Verify response
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
-if response["status"] != "ok" {
-t.Errorf("expected status ok, got %v", response["status"])
-}
+	if response["status"] != "ok" {
+		t.Errorf("expected status ok, got %v", response["status"])
+	}
 }
 
 func TestTrackAPI_HandleClearRuns_MissingSensorID(t *testing.T) {
-db, cleanup := setupTestDB(t)
-defer cleanup()
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
 
-api := NewTrackAPI(db, "") // No default sensor ID
+	api := NewTrackAPI(db, "") // No default sensor ID
 
-// POST request without sensor_id
-req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/clear", nil)
-w := httptest.NewRecorder()
+	// POST request without sensor_id
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/clear", nil)
+	w := httptest.NewRecorder()
 
-api.handleClearRuns(w, req)
+	api.handleClearRuns(w, req)
 
-if w.Code != http.StatusBadRequest {
-t.Errorf("expected status 400, got %d", w.Code)
-}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
 }
 
 func TestTrackAPI_HandleClearRuns_MethodNotAllowed(t *testing.T) {
-db, cleanup := setupTestDB(t)
-defer cleanup()
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
 
-api := NewTrackAPI(db, "test-sensor")
+	api := NewTrackAPI(db, "test-sensor")
 
-// PUT request (not allowed)
-req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/clear?sensor_id=test-sensor", nil)
-w := httptest.NewRecorder()
+	// PUT request (not allowed)
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/clear?sensor_id=test-sensor", nil)
+	w := httptest.NewRecorder()
 
-api.handleClearRuns(w, req)
+	api.handleClearRuns(w, req)
 
-if w.Code != http.StatusMethodNotAllowed {
-t.Errorf("expected status 405, got %d", w.Code)
-}
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", w.Code)
+	}
 }
 
 func TestTrackAPI_HandleClearRuns_NoDB(t *testing.T) {
-api := NewTrackAPI(nil, "test-sensor")
+	api := NewTrackAPI(nil, "test-sensor")
 
-req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/clear?sensor_id=test-sensor", nil)
-w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/clear?sensor_id=test-sensor", nil)
+	w := httptest.NewRecorder()
 
-api.handleClearRuns(w, req)
+	api.handleClearRuns(w, req)
 
-if w.Code != http.StatusServiceUnavailable {
-t.Errorf("expected status 503, got %d", w.Code)
-}
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected status 503, got %d", w.Code)
+	}
 }
