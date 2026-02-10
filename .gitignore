@@ -35,6 +35,7 @@ app-*
 velocity-report-*
 velocity-deploy*
 mock_serial_port*
+/radar
 
 # =============================================================================
 # Database Files
