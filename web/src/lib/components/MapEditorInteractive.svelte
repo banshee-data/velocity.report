@@ -951,7 +951,7 @@
 	</div>
 
 	<!-- Radar Angle -->
-	<TextField bind:value={radarAngle} label="Radar Angle (degrees)" type="integer" placeholder="0" />
+	<TextField bind:value={radarAngle} label="Radar Angle (degrees)" type="number" placeholder="0" />
 
 	<!-- Download SVG -->
 	<div class="space-y-2">

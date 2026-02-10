@@ -48,14 +48,17 @@ function parseDuration(s) {
  * Examples: 5 -> "5s", 90 -> "1m 30s", 3600 -> "1h".
  */
 function formatDuration(secs) {
-  if (secs < 60) return secs.toFixed(0) + "s";
-  if (secs < 3600) {
-    var m = Math.floor(secs / 60);
-    var s = Math.round(secs % 60);
+  // Round once to the nearest whole second, then decompose using integer maths
+  // so that seconds/minutes never reach 60.
+  var total = Math.round(secs);
+  if (total < 60) return total + "s";
+  if (total < 3600) {
+    var m = Math.floor(total / 60);
+    var s = total % 60;
     return s > 0 ? m + "m " + s + "s" : m + "m";
   }
-  var h = Math.floor(secs / 3600);
-  var rm = Math.round((secs % 3600) / 60);
+  var h = Math.floor(total / 3600);
+  var rm = Math.floor((total % 3600) / 60);
   return rm > 0 ? h + "h " + rm + "m" : h + "h";
 }
 

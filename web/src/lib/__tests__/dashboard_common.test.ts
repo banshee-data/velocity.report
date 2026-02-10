@@ -127,4 +127,13 @@ describe('formatDuration', () => {
 		expect(formatDuration(5.4)).toBe('5s');
 		expect(formatDuration(5.6)).toBe('6s');
 	});
+
+	it('avoids rounding overflow (59m 60s → 1h)', () => {
+		// 3599.6 rounds to 3600s which is exactly 1h
+		expect(formatDuration(3599.6)).toBe('1h');
+		// 7199.6 rounds to 7200s which is exactly 2h
+		expect(formatDuration(7199.6)).toBe('2h');
+		// 89.6 rounds to 90s = 1m 30s
+		expect(formatDuration(89.6)).toBe('1m 30s');
+	});
 });

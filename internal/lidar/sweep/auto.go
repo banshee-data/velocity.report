@@ -119,8 +119,9 @@ type AutoTuner struct {
 
 	// Phase 5: Ground truth scoring support
 	// When set, this function is called to score each combination's results using ground truth evaluation.
-	// The function receives the scene_id and candidate run_id, and returns the composite ground truth score.
-	groundTruthScorer func(sceneID, candidateRunID string) (float64, error)
+	// The function receives the scene_id, candidate run_id, and ground truth weights,
+	// and returns the composite ground truth score.
+	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
 
 	// Phase 5: Scene store for saving optimal params when ground truth mode completes
 	sceneStore SceneStoreSaver
@@ -139,8 +140,9 @@ func NewAutoTuner(runner *Runner) *AutoTuner {
 
 // SetGroundTruthScorer sets the ground truth scoring function for label-aware auto-tuning.
 // This function will be called to evaluate each combination's results against reference ground truth
-// when objective is "ground_truth" and scene_id is set.
-func (at *AutoTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string) (float64, error)) {
+// when objective is "ground_truth" and scene_id is set. The weights parameter allows per-request
+// customisation of the scoring formula.
+func (at *AutoTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 	at.groundTruthScorer = scorer
@@ -480,8 +482,8 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 					log.Printf("[sweep] WARNING: combo %d has no RunID; cannot evaluate with ground truth. Assigning score 0.", i)
 					scored[i].Score = 0.0
 				} else {
-					// Call ground truth scorer
-					score, err := at.groundTruthScorer(req.SceneID, result.RunID)
+					// Call ground truth scorer with per-request weights
+					score, err := at.groundTruthScorer(req.SceneID, result.RunID, *req.GroundTruthWeights)
 					if err != nil {
 						log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
 						scored[i].Score = 0.0

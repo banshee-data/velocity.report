@@ -517,7 +517,7 @@ func main() {
 		sceneStore := lidar.NewSceneStore(lidarDB.DB)
 		analysisRunStore := lidar.NewAnalysisRunStore(lidarDB.DB)
 		autoTuner.SetSceneStore(sceneStore)
-		autoTuner.SetGroundTruthScorer(func(sceneID, candidateRunID string) (float64, error) {
+		autoTuner.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
 			scene, err := sceneStore.GetScene(sceneID)
 			if err != nil {
 				return 0, fmt.Errorf("loading scene %s: %w", sceneID, err)
@@ -525,7 +525,18 @@ func main() {
 			if scene.ReferenceRunID == "" {
 				return 0, fmt.Errorf("scene %s has no reference_run_id set", sceneID)
 			}
-			evaluator := lidar.NewGroundTruthEvaluator(analysisRunStore, lidar.DefaultGroundTruthWeights())
+			// Convert sweep weights to lidar evaluator weights
+			lidarWeights := lidar.GroundTruthWeights{
+				DetectionRate:     weights.DetectionRate,
+				Fragmentation:     weights.Fragmentation,
+				FalsePositives:    weights.FalsePositives,
+				VelocityCoverage:  weights.VelocityCoverage,
+				QualityPremium:    weights.QualityPremium,
+				TruncationRate:    weights.TruncationRate,
+				VelocityNoiseRate: weights.VelocityNoiseRate,
+				StoppedRecovery:   weights.StoppedRecovery,
+			}
+			evaluator := lidar.NewGroundTruthEvaluator(analysisRunStore, lidarWeights)
 			result, err := evaluator.Evaluate(scene.ReferenceRunID, candidateRunID)
 			if err != nil {
 				return 0, err

@@ -42,13 +42,23 @@ func (ws *WebServer) handleListPCAPFiles(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Collect scene PCAP files for in_use check.
+	// Normalise paths to cleaned relative form for consistent comparison.
 	usedFiles := make(map[string]bool)
 	if ws.db != nil {
 		store := lidar.NewSceneStore(ws.db.DB)
 		scenes, err := store.ListScenes("")
 		if err == nil {
 			for _, s := range scenes {
-				usedFiles[s.PCAPFile] = true
+				// Clean the path: strip leading ./ or /, then use filepath.Clean
+				cleaned := filepath.Clean(s.PCAPFile)
+				// If it's an absolute path under safeDir, convert to relative
+				if filepath.IsAbs(cleaned) {
+					rel, relErr := filepath.Rel(safeDirAbs, cleaned)
+					if relErr == nil {
+						cleaned = rel
+					}
+				}
+				usedFiles[cleaned] = true
 			}
 		}
 	}
@@ -82,7 +92,7 @@ func (ws *WebServer) handleListPCAPFiles(w http.ResponseWriter, r *http.Request)
 			Path:       rel,
 			SizeBytes:  info.Size(),
 			ModifiedAt: info.ModTime().UTC().Format(time.RFC3339),
-			InUse:      usedFiles[rel],
+			InUse:      usedFiles[filepath.Clean(rel)],
 		})
 
 		if len(files) >= maxFiles {

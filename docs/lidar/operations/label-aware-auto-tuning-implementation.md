@@ -6,7 +6,7 @@
 
 ## Summary
 
-Phase 5 of the Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning design has been implemented. This phase adds support for ground truth-based parameter optimization in the auto-tuning system, allowing the tuner to optimize parameters based on labelled reference tracks rather than just acceptance metrics.
+Phase 5 of the Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning design has been implemented. This phase adds support for ground truth-based parameter optimisation in the auto-tuning system, allowing the tuner to optimise parameters based on labelled reference tracks rather than just acceptance metrics.
 
 ## What Was Implemented
 

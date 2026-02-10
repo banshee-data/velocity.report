@@ -1,10 +1,10 @@
 # Phase 5 Usage Examples
 
-This document shows how Phase 5 (Label-Aware Auto-Tuning) will be used once Phase 2.5 is complete.
+This document shows how Phase 5 (Label-Aware Auto-Tuning) is used with ground truth evaluation.
 
-## Current State (Phase 5 Complete, Phase 2.5 Pending)
+## Current State (Phase 5 Complete)
 
-The auto-tuning system now accepts ground truth configuration, but defers actual scoring until Phase 2.5.
+The auto-tuning system accepts ground truth configuration and actively scores combinations against labelled reference tracks when `objective` is set to `"ground_truth"`.
 
 ### API Request Example
 
@@ -53,23 +53,14 @@ POST /api/lidar/sweep/auto
 
 ### Current Behaviour
 
-When you make this request today:
+When you make this request:
 
 1. ✅ Validation passes (scene_id set, scorer configured)
-2. ⚠️ Auto-tuner runs with **standard objective scoring** (acceptance rate)
-3. ⚠️ Warning logged: "Ground truth objective selected but Phase 2.5 not yet implemented"
-4. ✅ Optimal params saved to scene at completion
-
-### What Happens After Phase 2.5
-
-Once Phase 2.5 is complete, the same request will:
-
-1. ✅ Validation passes
 2. ✅ Each combination creates an analysis run
-3. ✅ Run tracks persisted to database
-4. ✅ Ground truth evaluator scores each run against reference
-5. ✅ Auto-tuner uses composite ground truth score
-6. ✅ Best params saved to scene
+3. ✅ Run tracks are persisted to database
+4. ✅ Ground truth evaluator scores each run against reference tracks
+5. ✅ Auto-tuner uses composite ground truth score to rank combinations
+6. ✅ Optimal params saved to scene at completion
 
 ## Monitor Layer Integration (Post Phase 2.5)
 
@@ -294,9 +285,9 @@ func TestAutoTuneGroundTruthMode(t *testing.T) {
 }
 ```
 
-## Future Dashboard Integration (Phase 5.4-5.6)
+## Dashboard Integration (Phase 5.4-5.6)
 
-The sweep dashboard will be enhanced to support ground truth mode:
+The sweep dashboard supports ground truth mode:
 
 ### Scene Selection
 
@@ -318,19 +309,12 @@ The sweep dashboard will be enhanced to support ground truth mode:
 - Quality metrics (velocity coverage, quality premium, truncation, noise)
 - Composite score with breakdown
 
-These UI changes are deferred to future work.
-
 ## Summary
 
 Phase 5 is **complete and functional** for:
 
 - ✅ Request validation
-- ✅ Weight configuration
+- ✅ Weight configuration (per-request customisable)
+- ✅ Ground truth scoring against labelled reference tracks
 - ✅ Optimal parameter persistence
-- ✅ Integration points defined
-
-Phase 5 is **ready but inactive** for:
-
-- ⏸️ Actual ground truth scoring (requires Phase 2.5)
-
-Once Phase 2.5 completes analysis run creation per combo, simply uncomment the scoring logic in `AutoTuner.run()` and the system will work end-to-end.
+- ✅ Integration with sweep and auto-tune systems

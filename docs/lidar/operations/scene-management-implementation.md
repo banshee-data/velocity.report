@@ -101,7 +101,7 @@ Created `internal/lidar/monitor/scene_api.go` with HTTP endpoints:
 | GET    | `/api/lidar/scenes/{scene_id}`        | Get scene details including reference run and params              |
 | PUT    | `/api/lidar/scenes/{scene_id}`        | Update scene (description, reference_run_id, optimal_params_json) |
 | DELETE | `/api/lidar/scenes/{scene_id}`        | Delete scene                                                      |
-| POST   | `/api/lidar/scenes/{scene_id}/replay` | Replay PCAP (placeholder, returns 501)                            |
+| POST   | `/api/lidar/scenes/{scene_id}/replay` | Replay PCAP, creating an analysis run (returns 202 on success)    |
 
 **Request/Response Types:**
 
@@ -118,16 +118,15 @@ if ws.db != nil {
 }
 ```
 
-### Phase 2.4 & 2.5: Placeholders
+### Phase 2.4 & 2.5: Scene Replay and Sweep Integration
 
-Added TODO comments and placeholder implementation:
+Phase 2.4 (scene replay) is now implemented. The `/replay` endpoint creates an analysis run and initiates PCAP replay using the scene's parameters:
 
-```go
-// TODO(Phase 2.4): Connect scene creation to PCAP replay
-// TODO(Phase 2.5): Wire sweep/auto-tune to create analysis runs per combo
-```
+- Returns 202 with the created `run_id` on success
+- Returns 404 if the scene is not found
+- Returns 500 if the analysis run cannot be created
 
-The `/replay` endpoint returns `501 Not Implemented` until these phases are completed.
+Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID` field on `ComboResult` to support creating analysis runs per sweep combination.
 
 ## Testing
 
