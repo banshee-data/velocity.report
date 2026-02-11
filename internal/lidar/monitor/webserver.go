@@ -89,6 +89,7 @@ type WebServer struct {
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
 	pcapSafeDir       string // Safe directory for PCAP file access
+	vrlogSafeDir      string // Safe directory for VRLOG file access
 	packetForwarder   *network.PacketForwarder
 
 	// UDP listener lifecycle (live data source)
@@ -194,6 +195,7 @@ type WebServerConfig struct {
 	Parser            network.Parser
 	FrameBuilder      network.FrameBuilder
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
+	VRLogSafeDir      string // Safe directory for VRLOG file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
 	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
@@ -240,6 +242,10 @@ type WebServerConfig struct {
 // NewWebServer creates a new web server with the provided configuration
 func NewWebServer(config WebServerConfig) *WebServer {
 	listenerConfig := config.UDPListenerConfig
+	vrlogSafeDir := config.VRLogSafeDir
+	if vrlogSafeDir == "" {
+		vrlogSafeDir = "/var/lib/velocity-report"
+	}
 	if listenerConfig.Stats == nil {
 		listenerConfig.Stats = config.Stats
 	}
@@ -272,6 +278,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		parser:            config.Parser,
 		frameBuilder:      config.FrameBuilder,
 		pcapSafeDir:       config.PCAPSafeDir,
+		vrlogSafeDir:      vrlogSafeDir,
 		packetForwarder:   config.PacketForwarder,
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
@@ -3623,7 +3630,7 @@ func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Path validation to prevent directory traversal and restrict to data directory
-	const baseVRLogDir = "/var/lib/velocity-report"
+	baseVRLogDir := ws.vrlogSafeDir
 	cleanedPath := filepath.Clean(vrlogPath)
 
 	if !filepath.IsAbs(cleanedPath) {

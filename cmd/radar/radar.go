@@ -458,6 +458,7 @@ func main() {
 			Parser:            parser,
 			FrameBuilder:      frameBuilder,
 			PCAPSafeDir:       *lidarPCAPDir,
+			VRLogSafeDir:      filepath.Join(*lidarPCAPDir, "vrlog"),
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
@@ -498,7 +499,7 @@ func main() {
 					vrlogRecorderPath = ""
 				}
 
-				baseDir := "/var/lib/velocity-report/vrlog"
+				baseDir := filepath.Join(*lidarPCAPDir, "vrlog")
 				if err := os.MkdirAll(baseDir, 0755); err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
 					return
