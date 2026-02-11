@@ -280,6 +280,9 @@ func main() {
 		var classifier *lidar.TrackClassifier
 		var visualiserServer *visualiser.Server       // Hoisted so WebServerConfig callbacks can reference it
 		var visualiserPublisher *visualiser.Publisher // Hoisted so OnVRLogLoad callback can reference it
+		var vrlogRecorderMu sync.Mutex
+		var vrlogRecorder *recorder.Recorder
+		var vrlogRecorderPath string
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
 		if *lidarFGForward {
@@ -479,6 +482,55 @@ func main() {
 				if visualiserServer != nil {
 					visualiserServer.SetPCAPTimestamps(startNs, endNs)
 				}
+			},
+			OnRecordingStart: func(runID string) {
+				if visualiserPublisher == nil {
+					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
+					return
+				}
+				vrlogRecorderMu.Lock()
+				defer vrlogRecorderMu.Unlock()
+
+				if vrlogRecorder != nil {
+					visualiserPublisher.ClearRecorder()
+					_ = vrlogRecorder.Close()
+					vrlogRecorder = nil
+					vrlogRecorderPath = ""
+				}
+
+				baseDir := "/var/lib/velocity-report/vrlog"
+				if err := os.MkdirAll(baseDir, 0755); err != nil {
+					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
+					return
+				}
+				recordPath := filepath.Join(baseDir, runID)
+				rec, err := recorder.NewRecorder(recordPath, *lidarSensor)
+				if err != nil {
+					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
+					return
+				}
+				vrlogRecorder = rec
+				vrlogRecorderPath = rec.Path()
+				visualiserPublisher.SetRecorder(rec)
+				log.Printf("[Visualiser] VRLOG recording started: %s", vrlogRecorderPath)
+			},
+			OnRecordingStop: func(runID string) string {
+				if visualiserPublisher == nil {
+					return ""
+				}
+				vrlogRecorderMu.Lock()
+				defer vrlogRecorderMu.Unlock()
+
+				if vrlogRecorder == nil {
+					return ""
+				}
+				visualiserPublisher.ClearRecorder()
+				_ = vrlogRecorder.Close()
+				path := vrlogRecorderPath
+				vrlogRecorder = nil
+				vrlogRecorderPath = ""
+				log.Printf("[Visualiser] VRLOG recording stopped: %s", path)
+				return path
 			},
 			OnVRLogLoad: func(vrlogPath string) error {
 				if visualiserPublisher == nil {

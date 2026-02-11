@@ -658,6 +658,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		ws.pcapMu.Unlock()
 
 		var runID string
+		var recordingStarted bool
 		if isAnalysisMode && ws.analysisRunManager != nil {
 			// Build run parameters from current background manager settings
 			runParams := lidar.DefaultRunParams()
@@ -669,6 +670,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
 			if startErr != nil {
 				log.Printf("Warning: Failed to start analysis run: %v", startErr)
+			} else if runID != "" && ws.onRecordingStart != nil {
+				ws.onRecordingStart(runID)
+				recordingStarted = true
 			}
 		}
 
@@ -822,6 +826,18 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				if completeErr := ws.analysisRunManager.CompleteRun(); completeErr != nil {
 					log.Printf("Warning: Failed to complete analysis run: %v", completeErr)
 				}
+			}
+		}
+
+		if recordingStarted && ws.onRecordingStop != nil {
+			vrlogPath := ws.onRecordingStop(runID)
+			if vrlogPath != "" && ws.db != nil {
+				store := lidar.NewAnalysisRunStore(ws.db.DB)
+				if updateErr := store.UpdateRunVRLogPath(runID, vrlogPath); updateErr != nil {
+					log.Printf("Warning: Failed to update vrlog_path for run %s: %v", runID, updateErr)
+				}
+			} else if vrlogPath == "" {
+				log.Printf("Warning: VRLOG recording did not produce a path for run %s", runID)
 			}
 		}
 
