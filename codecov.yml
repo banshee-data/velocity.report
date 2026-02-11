@@ -11,6 +11,9 @@ coverage:
         threshold: 1%
         informational: true
 
+ignore:
+  - "internal/lidar/visualiser/pb/**"
+
 comment:
   layout: "reach, diff, flags, files"
   behavior: default
