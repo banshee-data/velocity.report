@@ -127,6 +127,21 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Sweep dashboard — ECharts: bar charts, heatmaps, results table (`sweep_dashboard.html`)
 - ✅ PARAM_SCHEMA with sane defaults for all numeric parameters
 
+#### Phase 4.0: Track Labelling & VRLOG Replay (Feb 2026)
+
+- ✅ VRLOG recording format — binary frame bundles with index for seek (`internal/lidar/visualiser/recorder/`)
+- ✅ VRLOG replay in Publisher — `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, `SetVRLogRate`
+- ✅ gRPC control delegation — Pause/Play/Seek/SetRate with VRLOG mode routing
+- ✅ REST playback API — `/api/lidar/playback/*` (status, pause, play, seek, rate)
+- ✅ VRLOG load API — `/api/lidar/vrlog/load` (by run_id or vrlog_path), `/api/lidar/vrlog/stop`
+- ✅ Path traversal protection — validate vrlog_path within allowed directory
+- ✅ Run-track label API — `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
+- ✅ DB migration 000023 — `vrlog_path` column for analysis runs
+- ✅ Swift run browser UI — `RunBrowserView`, `RunBrowserState` for loading analysis runs
+- ✅ Swift label API client — `RunTrackLabelAPIClient` for track labelling
+
+See: [`docs/plans/track-labeling-ui-plan.md`](../plans/track-labeling-ui-plan.md)
+
 #### macOS Visualiser: M0–M7 Complete (Oct 2025 – Feb 2026)
 
 - ✅ M0: Schema + Synthetic — gRPC streaming, synthetic data
@@ -141,10 +156,10 @@ Tracking pipeline refactor and upgrade proposals.
 
 **Test Coverage (February 2026):**
 
-- `internal/lidar/visualiser`: 92.3%
-- `internal/lidar/network`: 92.9%
-- `internal/lidar/sweep`: 99.4%
-- `internal/lidar`: 88.2%
+- `internal/lidar/visualiser`: 89.7%
+- `internal/lidar/network`: 94.7%
+- `internal/lidar/monitor`: 75.9%
+- `internal/lidar`: 87.0%
 
 **Resolved Issues (January 2026):**
 
@@ -154,15 +169,12 @@ Tracking pipeline refactor and upgrade proposals.
 
 ### Planned Work (Priority Order)
 
-#### P0: Track Labelling & Ground Truth (Phase 4.0)
+#### P0: Track Labelling Enhancements (Remaining Phase 4.0)
 
-- Wire label API routes into WebServer (migration 000016 exists, CRUD handlers exist in `internal/api/lidar_labels.go`, routes not yet registered)
-- Scene management (PCAP + sensor + reference run)
-- Svelte track labelling UI (class labels, split/merge flags)
 - Ground truth evaluation engine (temporal IoU, Hungarian matching)
 - Label-aware auto-tuning (composite scoring vs reference)
+- Web playback controls (optional parity with macOS visualiser)
 - `lidar_transits` table for dashboard/report integration
-- See: [`future/track-labeling-auto-aware-tuning.md`](future/track-labeling-auto-aware-tuning.md)
 
 #### P1: ML Classification Pipeline (Phase 4.1–4.3)
 
