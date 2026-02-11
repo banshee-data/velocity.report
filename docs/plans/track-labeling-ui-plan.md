@@ -159,7 +159,7 @@ New migration:
 
 `internal/lidar/analysis_run.go`:
 
-- Add `VRLogPath string \`json:"vrlog_path,omitempty"\``to`AnalysisRun`.
+- Add `VRLogPath string` with tag `json:"vrlog_path,omitempty"` to `AnalysisRun`.
 - Update `InsertRun`, `GetRun`, `ListRuns`.
 - Add `UpdateRunVRLogPath(runID, vrlogPath string) error`.
 

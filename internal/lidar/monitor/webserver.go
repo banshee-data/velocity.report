@@ -3543,8 +3543,8 @@ func (ws *WebServer) handlePlaybackRate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if body.Rate <= 0 {
-		ws.writeJSONError(w, http.StatusBadRequest, "rate must be positive")
+	if body.Rate <= 0 || body.Rate > 100 {
+		ws.writeJSONError(w, http.StatusBadRequest, "rate must be between 0 and 100")
 		return
 	}
 
@@ -3606,11 +3606,28 @@ func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic path validation to prevent directory traversal
-	if !filepath.IsAbs(vrlogPath) {
+	// Path validation to prevent directory traversal and restrict to data directory
+	const baseVRLogDir = "/var/lib/velocity-report"
+	cleanedPath := filepath.Clean(vrlogPath)
+
+	if !filepath.IsAbs(cleanedPath) {
 		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be absolute")
 		return
 	}
+
+	baseWithSep := baseVRLogDir + string(os.PathSeparator)
+	if cleanedPath != baseVRLogDir && !strings.HasPrefix(cleanedPath, baseWithSep) {
+		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be within allowed directory")
+		return
+	}
+
+	// Defence in depth: cleaned path should not contain parent directory references
+	if strings.Contains(cleanedPath, "..") {
+		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must not contain parent directory references")
+		return
+	}
+
+	vrlogPath = cleanedPath
 
 	if err := ws.onVRLogLoad(vrlogPath); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load vrlog: %v", err))

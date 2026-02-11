@@ -309,6 +309,8 @@ func (p *Publisher) vrlogReplayLoop() {
 			} else {
 				log.Printf("[Visualiser] VRLOG replay error: %v", err)
 			}
+			// Clean up replay state on exit to prevent resource leaks
+			p.StopVRLogReplay()
 			return
 		}
 

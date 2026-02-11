@@ -38,7 +38,10 @@ func (m *mockRecorder) Record(frame *FrameBundle) error {
 func (m *mockRecorder) Frames() []*FrameBundle {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.frames
+	// Return a copy to prevent race conditions with concurrent Record() calls
+	copyFrames := make([]*FrameBundle, len(m.frames))
+	copy(copyFrames, m.frames)
+	return copyFrames
 }
 
 // TestPublisher_SetRecorder tests the FrameRecorder interface setup.

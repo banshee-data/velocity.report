@@ -78,7 +78,14 @@ struct RunBrowserView: View {
                         .lineLimit(1)
                     Spacer()
                     Button("Stop Replay") {
-                        Task { await runBrowserState.stopReplay() }
+                        Task {
+                            await runBrowserState.stopReplay()
+                            // Restore app state to live mode
+                            await MainActor.run {
+                                appState.isLive = true
+                                appState.currentRunID = nil
+                            }
+                        }
                     }.buttonStyle(.bordered)
                 } else {
                     Text("Select a run to load for labelling").font(.caption).foregroundColor(
@@ -97,7 +104,8 @@ struct RunBrowserView: View {
         if success {
             // Update app state to indicate we're in VRLOG replay mode
             appState.isLive = false
-            // The gRPC stream will automatically update with replay frames
+            // Set currentRunID so labels route to run-track API
+            appState.currentRunID = run.runId
         }
     }
 }

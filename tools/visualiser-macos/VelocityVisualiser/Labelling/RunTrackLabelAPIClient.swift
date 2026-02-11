@@ -41,9 +41,12 @@ class RunTrackLabelAPIClient {
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
 
+        // Backend returns: {"runs": [...], "count": N}
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode([AnalysisRun].self, from: data)
+        decoder.dateDecodingStrategy = .iso8601
+        let wrapper = try decoder.decode(RunsResponse.self, from: data)
+        return wrapper.runs
     }
 
     /// Get a single analysis run by ID.
@@ -58,6 +61,7 @@ class RunTrackLabelAPIClient {
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(AnalysisRun.self, from: data)
     }
 
@@ -76,9 +80,11 @@ class RunTrackLabelAPIClient {
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
 
+        // Backend returns: {"run_id": "...", "tracks": [...], "count": N}
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode([RunTrack].self, from: data)
+        let wrapper = try decoder.decode(TracksResponse.self, from: data)
+        return wrapper.tracks
     }
 
     /// Get a single track by ID.
@@ -104,7 +110,7 @@ class RunTrackLabelAPIClient {
     func updateLabel(
         runID: String, trackID: String, userLabel: String? = nil, qualityLabel: String? = nil,
         labelConfidence: Float? = nil, labelerID: String? = nil
-    ) async throws -> RunTrack {
+    ) async throws -> LabelUpdateResponse {
         let url = baseURL.appendingPathComponent("api/lidar/runs/\(runID)/tracks/\(trackID)/label")
 
         var request = URLRequest(url: url)
@@ -128,7 +134,7 @@ class RunTrackLabelAPIClient {
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode(RunTrack.self, from: data)
+        return try decoder.decode(LabelUpdateResponse.self, from: data)
     }
 
     /// Get labelling progress for a run.
@@ -141,6 +147,7 @@ class RunTrackLabelAPIClient {
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
 
+        // Backend returns: {"run_id", "total", "labelled", "by_class", "progress_pct"}
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(LabellingProgress.self, from: data)
@@ -213,12 +220,38 @@ class RunTrackLabelAPIClient {
     }
 }
 
+// MARK: - Response Wrappers
+
+/// Wrapper for /api/lidar/runs response
+struct RunsResponse: Codable {
+    let runs: [AnalysisRun]
+    let count: Int
+}
+
+/// Wrapper for /api/lidar/runs/{run_id}/tracks response
+struct TracksResponse: Codable {
+    let runId: String
+    let tracks: [RunTrack]
+    let count: Int
+}
+
+/// Response from label update endpoint
+struct LabelUpdateResponse: Codable {
+    let status: String
+    let runId: String
+    let trackId: String
+    let userLabel: String?
+    let qualityLabel: String?
+    let labelConfidence: Float?
+    let labelerId: String?
+}
+
 // MARK: - Data Models
 
 /// Analysis run from the backend.
 struct AnalysisRun: Codable, Identifiable {
     let runId: String
-    let createdAt: Int64
+    let createdAt: Date  // Backend sends RFC3339 formatted time.Time
     let sourceType: String
     let sourcePath: String?
     let sensorId: String
@@ -239,43 +272,49 @@ struct AnalysisRun: Codable, Identifiable {
 
     /// Formatted creation date.
     var formattedDate: String {
-        let date = Date(timeIntervalSince1970: Double(createdAt) / 1_000_000_000)
         let formatter = DateFormatter()
         formatter.dateStyle = .short
         formatter.timeStyle = .medium
-        return formatter.string(from: date)
+        return formatter.string(from: createdAt)
     }
 }
 
 /// Track within an analysis run.
+/// Matches backend schema from lidar.AnalysisRunTrack
 struct RunTrack: Codable, Identifiable {
     let runId: String
     let trackId: String
     let sensorId: String
-    let classLabel: String
-    let quality: String
-    let isSplit: Bool
-    let isMerge: Bool
-    let firstSeenNs: Int64
-    let lastSeenNs: Int64
-    let totalObservations: Int
-    let durationSecs: Double
-    let avgSpeedMps: Double
-    let peakSpeedMps: Double
+    let userLabel: String?  // Backend field name
+    let qualityLabel: String?  // Backend field name
+    let labelConfidence: Float?
+    let labelerId: String?
+    let startUnixNanos: Int64?
+    let endUnixNanos: Int64?
+    let totalObservations: Int?
+    let durationSecs: Double?
+    let avgSpeedMps: Double?
+    let peakSpeedMps: Double?
+    let isSplitCandidate: Bool?
+    let isMergeCandidate: Bool?
 
     var id: String { trackId }
 
     /// Whether this track has been labelled.
-    var isLabelled: Bool { !classLabel.isEmpty }
+    var isLabelled: Bool {
+        if let label = userLabel, !label.isEmpty { return true }
+        return false
+    }
 }
 
 /// Labelling progress for a run.
+/// Matches backend response: {"run_id", "total", "labelled", "by_class", "progress_pct"}
 struct LabellingProgress: Codable {
     let runId: String
-    let totalTracks: Int
-    let labelledTracks: Int
-    let labelledPercent: Double
-    let labelCounts: [String: Int]
+    let total: Int
+    let labelled: Int
+    let byClass: [String: Int]?
+    let progressPct: Double
 }
 
 /// Playback status from the backend.

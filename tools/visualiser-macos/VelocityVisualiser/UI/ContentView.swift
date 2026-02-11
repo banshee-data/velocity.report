@@ -599,9 +599,14 @@ struct LabelPanelView: View {
                     HStack {
                         Button("Mark Split") { appState.markAsSplit(true) }
                             .buttonStyle(.bordered).controlSize(.small)
+                            .disabled(true)
                         Button("Mark Merge") { appState.markAsMerge(true) }
                             .buttonStyle(.bordered).controlSize(.small)
+                            .disabled(true)
                     }
+                    Text("Split/merge labelling not yet available in this build.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
