@@ -2017,18 +2017,32 @@ function buildHeatmapOption(results, cfg) {
     if (xVal != null) xSet[String(xVal)] = true;
     if (yVal != null) ySet[String(yVal)] = true;
   });
-  
+
   // Check if values are numeric to decide on sorting strategy
   var xKeys = Object.keys(xSet);
   var yKeys = Object.keys(ySet);
-  var xIsNumeric = xKeys.every(function(k) { return !isNaN(Number(k)); });
-  var yIsNumeric = yKeys.every(function(k) { return !isNaN(Number(k)); });
-  
+  var xIsNumeric = xKeys.every(function (k) {
+    return !isNaN(Number(k));
+  });
+  var yIsNumeric = yKeys.every(function (k) {
+    return !isNaN(Number(k));
+  });
+
   var xVals = xIsNumeric
-    ? xKeys.map(Number).sort(function (a, b) { return a - b; }).map(String)
+    ? xKeys
+        .map(Number)
+        .sort(function (a, b) {
+          return a - b;
+        })
+        .map(String)
     : xKeys.sort();
   var yVals = yIsNumeric
-    ? yKeys.map(Number).sort(function (a, b) { return a - b; }).map(String)
+    ? yKeys
+        .map(Number)
+        .sort(function (a, b) {
+          return a - b;
+        })
+        .map(String)
     : yKeys.sort();
 
   var data = [];
