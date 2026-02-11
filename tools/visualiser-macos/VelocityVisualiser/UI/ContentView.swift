@@ -49,7 +49,7 @@ struct ContentView: View {
 
             // Side panel
             if appState.showSidePanel || appState.selectedTrackID != nil {
-                SidePanelView().frame(width: 280)
+                SidePanelView().frame(width: 520)
             }
         }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
             .onKeyPress(.space) {
@@ -573,7 +573,7 @@ struct DetailRow: View {
 /// In live mode: shows tracks from the current frame.
 struct TrackListView: View {
     @EnvironmentObject var appState: AppState
-    @State private var isExpanded = false
+    @State private var isExpanded = true
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
 
@@ -628,8 +628,8 @@ struct TrackListView: View {
                 }
             }
         }.onChange(of: appState.currentRunID) { _, newRunID in
-            if newRunID != nil && isExpanded { fetchRunTracks() } else { runTracks = [] }
-        }
+            if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
+        }.onAppear { if isRunMode { fetchRunTracks() } }
     }
 
     // MARK: - Run Track List (API-fetched)
