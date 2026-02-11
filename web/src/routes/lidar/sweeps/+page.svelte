@@ -238,6 +238,7 @@
 			{:else if sweeps.length === 0}
 				<p class="text-surface-content/50 text-sm">
 					No sweeps found. Run a sweep from the
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
 					<a href="/debug/lidar/sweep" class="text-primary underline">sweep dashboard</a>.
 				</p>
 			{:else}
@@ -361,6 +362,7 @@
 
 					<!-- Dashboard Link -->
 					<div class="mb-4">
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
 						<a
 							href={dashboardUrl(selectedSweep.sweep_id)}
 							target="_blank"
@@ -388,7 +390,7 @@
 							<div class="bg-surface-200 rounded p-3">
 								<table class="w-full text-xs">
 									<tbody>
-										{#each params as [key, val]}
+										{#each params as [key, val] (key)}
 											<tr>
 												<td class="text-surface-content/70 py-0.5 pr-3 font-mono">{key}</td>
 												<td class="text-surface-content py-0.5 text-right font-mono font-medium"
@@ -407,7 +409,7 @@
 									<div class="bg-surface-200 mt-1 rounded p-3">
 										<table class="w-full text-xs">
 											<tbody>
-												{#each metrics as [key, val]}
+												{#each metrics as [key, val] (key)}
 													<tr>
 														<td class="text-surface-content/70 py-0.5 pr-3 font-mono">{key}</td>
 														<td class="text-surface-content/50 py-0.5 text-right font-mono"
@@ -459,7 +461,7 @@
 								Rounds ({selectedSweep.round_results.length})
 							</summary>
 							<div class="mt-2 space-y-2">
-								{#each selectedSweep.round_results as round, i}
+								{#each selectedSweep.round_results as round, i (i)}
 									<div class="bg-surface-200 rounded p-3 text-xs">
 										<span class="font-medium">Round {i + 1}</span>
 										<pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap">{JSON.stringify(
