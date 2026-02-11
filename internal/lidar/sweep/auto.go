@@ -604,6 +604,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		recommendation["empty_box_ratio"] = overallBest.EmptyBoxRatioMean
 		recommendation["fragmentation_ratio"] = overallBest.FragmentationRatioMean
 		recommendation["heading_jitter_deg"] = overallBest.HeadingJitterDegMean
+		recommendation["speed_jitter_mps"] = overallBest.SpeedJitterMpsMean
 	}
 
 	now := time.Now()

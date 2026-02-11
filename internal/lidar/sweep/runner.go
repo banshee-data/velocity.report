@@ -116,6 +116,8 @@ type ComboResult struct {
 	MisalignmentRatioStddev float64 `json:"misalignment_ratio_stddev"`
 	HeadingJitterDegMean    float64 `json:"heading_jitter_deg_mean"`
 	HeadingJitterDegStddev  float64 `json:"heading_jitter_deg_stddev"`
+	SpeedJitterMpsMean      float64 `json:"speed_jitter_mps_mean"`
+	SpeedJitterMpsStddev    float64 `json:"speed_jitter_mps_stddev"`
 	FragmentationRatioMean  float64 `json:"fragmentation_ratio_mean"`
 
 	// Scene-level foreground capture metrics
@@ -878,6 +880,13 @@ func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, res
 		jitterVals[ri] = r.HeadingJitterDeg
 	}
 	combo.HeadingJitterDegMean, combo.HeadingJitterDegStddev = MeanStddev(jitterVals)
+
+	// Track health: speed jitter
+	speedJitterVals := make([]float64, len(results))
+	for ri, r := range results {
+		speedJitterVals[ri] = r.SpeedJitterMps
+	}
+	combo.SpeedJitterMpsMean, combo.SpeedJitterMpsStddev = MeanStddev(speedJitterVals)
 
 	// Track health: fragmentation ratio
 	fragVals := make([]float64, len(results))
