@@ -152,7 +152,9 @@ type RLHFSweepRequest struct {
     AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria"`
 
     // Minimum fraction of tracks that must be labelled before
-    // the human can click "Continue" (default: 0.9 = 90%)
+    // the human can click "Continue" (default: 0.9 = 90%).
+    // Sparse labels depress detection rate because unlabelled
+    // tracks count as non-detections in ground truth scoring.
     MinLabelThreshold float64 `json:"min_label_threshold"`
 
     // Whether to carry over labels from previous round via temporal IoU
@@ -227,6 +229,62 @@ Each round updates the scene's `reference_run_id` to point to the latest labelle
 run. This is already supported by `SceneStore.SetReferenceRun()`. On completion
 the scene's `optimal_params_json` is updated with the best parameters (already
 supported by `SceneStore.SetOptimalParams()`).
+
+## Prerequisite: macOS Visualiser Label UX Changes
+
+The macOS app's labelling workflow needs three changes before RLHF mode is
+viable. These are independent of the RLHF backend and can be shipped first.
+
+### P1. Display Existing Labels in LabelPanelView
+
+**Problem:** `LabelPanelView` does not fetch or display a track's existing
+`user_label` / `quality_label` from the database. The checkmark only appears for
+labels assigned during the current session (`@State lastAssignedLabel`). When
+reviewing carried-over labels or resuming a labelling session, the human has no
+visual indication of what's already set.
+
+**Fix:** When a track is selected in run mode (`currentRunID` is set), fetch the
+track's label from the run-track list (already loaded by `TrackListView`) and
+pre-populate the `LabelPanelView`'s selection state. Specifically:
+
+1. In `LabelPanelView`, accept the selected `RunTrack?` as a binding or
+   environment value.
+2. When the selected track changes, set `lastAssignedLabel` and
+   `lastAssignedQuality` from `runTrack.userLabel` and `runTrack.qualityLabel`.
+3. Show the checkmark on the matching button so the human sees the current state.
+4. For carried-over labels, add a small "↻ carried" badge next to the checkmark
+   (requires a `label_source` field or convention, e.g. `labeler_id = "rlhf-
+carryover"`).
+
+**Files:**
+
+- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — `LabelPanelView`
+- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — track selection
+
+### P2. Remove Export Labels Button
+
+**Problem:** The "Export Labels" button in `SidePanelView` exports free-form
+`LabelEvent` records (session-based, via `LabelAPIClient`). In RLHF mode, labels
+are always run-track labels saved directly to the database via
+`RunTrackLabelAPIClient`. The export button is confusing because it doesn't
+export the labels the human just assigned.
+
+**Fix:** Remove the "Export Labels" button and `exportLabels()` method from
+`AppState`. Labels are persisted server-side on every click — no export step is
+needed. If a bulk-export feature is needed later, it should export run-track
+labels via a server endpoint (e.g. `GET /api/lidar/runs/{run_id}/labels/export`).
+
+**Files:**
+
+- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — remove button (~line 467)
+- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — remove `exportLabels()`
+
+### P3. Auto-Save Labels on Click (Already Implemented)
+
+`assignLabel()` and `assignQuality()` in `AppState` already fire async API calls
+immediately on click — no batching or explicit save step. This is the correct
+behaviour for RLHF. No changes needed, but worth noting as a confirmed
+requirement.
 
 ## Implementation Plan
 
@@ -331,6 +389,25 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
      `analysisRunStore.SetTrackLabel(newRunID, trackID, label)`.
    - Records count in `RLHFState.LabelsCarriedOver` for UI display.
    - The human reviews and corrects any mismatches during the label window.
+
+7. Implement scoring weight adjustments for early rounds. The default
+   `GroundTruthWeights` are tuned for full-coverage labels. For RLHF round 1
+   (where the labeller may focus on salient tracks), the tuner applies
+   round-dependent weight multipliers:
+
+   | Round | `DetectionRate` weight | `FalsePositiveRate` weight | Rationale                          |
+   | ----- | ---------------------- | -------------------------- | ---------------------------------- |
+   | 1     | 1.5× default           | 0.5× default               | Focus on finding all real vehicles |
+   | 2+    | 1.0× default           | 1.0× default               | Balanced scoring with more labels  |
+
+   Applied inside `RLHFTuner.buildAutoTuneRequest()` before passing weights to
+   the ground truth scorer. Not persisted — the final recommendation uses
+   default weights for a clean comparison.
+
+8. Handle partial labelling. Unlabelled tracks (up to 10% given the 90%
+   threshold) are excluded from ground truth evaluation. The
+   `LabelProgress.ByClass` map lets the human verify label distribution before
+   continuing.
 
 ### Phase 2: Backend — API Endpoints
 
@@ -449,7 +526,8 @@ Key elements:
 
 - **Progress bar** showing label completion with threshold marker at 90%
 - **Threshold enforcement** — "Continue" button disabled until
-  `progress_pct >= min_label_threshold`. Tooltip explains the requirement.
+  `progress_pct >= min_label_threshold`. Tooltip shows e.g.
+  `"Label at least 90% of tracks (currently 67%)"`.
 - **Carried-over label count** — shows how many labels were pre-populated
   from the previous round.
 - **Countdown timer** to the deadline
@@ -569,155 +647,6 @@ Update the page subtitle and add mode-specific descriptions:
 > label the tracks to establish ground truth, then the tuner sweeps parameters
 > using your labels as the objective. Repeats for multiple rounds, progressively
 > narrowing towards parameters that produce tracks you judge as correct.
-
-## Design Decisions (Resolved)
-
-### 1. Minimum Label Threshold — 90%
-
-The system enforces a minimum of **90% of tracks labelled** before the human can
-click "Continue". The threshold is configurable via `min_label_threshold` in the
-request (default `0.9`). Rationale: ground truth scoring with sparse labels
-artificially depresses detection rate because unlabelled tracks count as
-non-detections. At 90%, the scoring is reliable enough for meaningful parameter
-comparison.
-
-Enforcement:
-
-- **Server-side:** The `/api/lidar/sweep/rlhf/continue` handler checks progress
-  before accepting the signal. Returns `400 Bad Request` if below threshold.
-- **Client-side:** The "Continue" button is disabled with a tooltip showing
-  `"Label at least 90% of tracks (currently 67%)"` until the threshold is met.
-- **Deadline expiry:** If the label-window deadline expires before the threshold
-  is met, the sweep transitions to `"failed"` with a descriptive error rather
-  than continuing with insufficient labels.
-
-### 2. Label Carryover — Enabled
-
-When round N+1 creates a new reference run, labels from round N are
-automatically **carried over** by matching tracks using temporal IoU
-(overlap-over-union of `[startUnixNanos, endUnixNanos]` intervals).
-
-**Algorithm:**
-
-1. Fetch all labelled tracks from the previous round's reference run.
-2. Fetch all unlabelled tracks from the new reference run.
-3. For each labelled track, compute temporal IoU with every new track.
-4. If best IoU ≥ 0.5, copy `user_label`, `quality_label`, and
-   `label_confidence` to the new track.
-5. Record the number of carried-over labels in `RLHFState.LabelsCarriedOver`
-   and display in the progress card.
-
-**Bias mitigation:** The human reviews carried-over labels during the label
-window. Changed parameters may produce different track boundaries, so carried-
-over labels are a starting point, not final. The dashboard highlights carried-
-over labels with a distinct badge so the human knows which ones to review.
-
-**Configuration:** `carry_over_labels` (default `true`). Set to `false` to start
-each round from scratch.
-
-### 3. Partial Labelling Strategy
-
-With the 90% threshold, partial labelling is limited to at most 10% of tracks.
-Unlabelled tracks are excluded from ground truth evaluation. At this coverage
-level, the scoring bias is minimal. The `LabelProgress` struct's `by_class` map
-lets the human and the system verify label distribution before continuing.
-
-### 4. Browser Notifications — Enabled
-
-Browser notifications via the `Notification` API fire when:
-
-- A sweep round completes and labels are needed (`awaiting_labels` transition).
-- The RLHF sweep completes (`completed` transition).
-
-Notifications use `requireInteraction: true` to persist until dismissed —
-critical for overnight sweeps where the user has stepped away. The dashboard
-requests `Notification.requestPermission()` when RLHF mode is first selected.
-See Phase 4b for implementation details.
-
-### 5. Scoring Weight Adjustments for Early Rounds
-
-The default `GroundTruthWeights` are tuned for full-coverage labels. For RLHF
-rounds (where coverage is ≥90% but the labeller may focus on salient tracks), the
-tuner applies round-dependent weight adjustments:
-
-| Round | `DetectionRate` weight | `FalsePositiveRate` weight | Rationale                          |
-| ----- | ---------------------- | -------------------------- | ---------------------------------- |
-| 1     | 1.5× default           | 0.5× default               | Focus on finding all real vehicles |
-| 2+    | 1.0× default           | 1.0× default               | Balanced scoring with more labels  |
-
-The multipliers are applied inside `RLHFTuner.buildAutoTuneRequest()` before
-passing weights to the ground truth scorer. They are not persisted — the final
-recommendation uses default weights for a clean comparison.
-
-### 6. Editable Round Durations + Extra Rounds
-
-During the `awaiting_labels` phase, the human can:
-
-1. **Edit the next sweep duration** via a number input in the progress card.
-   The edited value is sent in the `POST /api/lidar/sweep/rlhf/continue` body
-   as `next_sweep_duration_mins`. This handles the common case of missing a
-   label window overnight and needing to adjust the schedule.
-
-2. **Add an extra round** via a checkbox. When checked, `add_round: true` is
-   sent in the continue request. The tuner increments `TotalRounds` by 1 and
-   appends a default duration entry. This lets the human extend the sweep if
-   intermediate results show the parameter space hasn't converged.
-
-## Prerequisite: macOS Visualiser Label UX Changes
-
-The macOS app's labelling workflow needs three changes before RLHF mode is
-viable. These are independent of the RLHF backend and can be shipped first.
-
-### P1. Display Existing Labels in LabelPanelView
-
-**Problem:** `LabelPanelView` does not fetch or display a track's existing
-`user_label` / `quality_label` from the database. The checkmark only appears for
-labels assigned during the current session (`@State lastAssignedLabel`). When
-reviewing carried-over labels or resuming a labelling session, the human has no
-visual indication of what's already set.
-
-**Fix:** When a track is selected in run mode (`currentRunID` is set), fetch the
-track's label from the run-track list (already loaded by `TrackListView`) and
-pre-populate the `LabelPanelView`'s selection state. Specifically:
-
-1. In `LabelPanelView`, accept the selected `RunTrack?` as a binding or
-   environment value.
-2. When the selected track changes, set `lastAssignedLabel` and
-   `lastAssignedQuality` from `runTrack.userLabel` and `runTrack.qualityLabel`.
-3. Show the checkmark on the matching button so the human sees the current state.
-4. For carried-over labels, add a small "↻ carried" badge next to the checkmark
-   (requires a `label_source` field or convention, e.g. `labeler_id = "rlhf-
-carryover"`).
-
-**Files:**
-
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — `LabelPanelView`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — track selection
-
-### P2. Remove Export Labels Button
-
-**Problem:** The "Export Labels" button in `SidePanelView` exports free-form
-`LabelEvent` records (session-based, via `LabelAPIClient`). In RLHF mode, labels
-are always run-track labels saved directly to the database via
-`RunTrackLabelAPIClient`. The export button is confusing because it doesn't
-export the labels the human just assigned.
-
-**Fix:** Remove the "Export Labels" button and `exportLabels()` method from
-`AppState`. Labels are persisted server-side on every click — no export step is
-needed. If a bulk-export feature is needed later, it should export run-track
-labels via a server endpoint (e.g. `GET /api/lidar/runs/{run_id}/labels/export`).
-
-**Files:**
-
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — remove button (~line 467)
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — remove `exportLabels()`
-
-### P3. Auto-Save Labels on Click (Already Implemented)
-
-`assignLabel()` and `assignQuality()` in `AppState` already fire async API calls
-immediately on click — no batching or explicit save step. This is the correct
-behaviour for RLHF. No changes needed, but worth noting as a confirmed
-requirement.
 
 ## Implementation Checklist
 
