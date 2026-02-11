@@ -427,3 +427,73 @@ func TestProcessFramePolarWithMask_ReacquisitionBoostCapped(t *testing.T) {
 		t.Errorf("expected boosted alpha to be capped, but avg jumped to %.2f", avgAfter)
 	}
 }
+
+// TestProcessFramePolarWithMask_AcceptanceCounting verifies that per-range
+// acceptance metrics are accumulated during ProcessFramePolarWithMask calls.
+// This is the root cause fix for accept_rate=0 in auto-tune sweeps.
+func TestProcessFramePolarWithMask_AcceptanceCounting(t *testing.T) {
+	// Use NewBackgroundManager to get proper acceptance bucket initialisation
+	bm := NewBackgroundManager("test-acceptance-counting", 4, 180, BackgroundParams{
+		BackgroundUpdateFraction:       0.5,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.4,
+		NoiseRelativeFraction:          0.01,
+		SeedFromFirstObservation:       true,
+		NeighborConfirmationCount:      5,
+	}, nil)
+	if bm == nil {
+		t.Fatal("failed to create background manager")
+	}
+	// Clean up global registry after test
+	defer func() {
+		bgMgrRegistryMu.Lock()
+		delete(bgMgrRegistry, "test-acceptance-counting")
+		bgMgrRegistryMu.Unlock()
+	}()
+
+	// Verify acceptance buckets are initialised
+	g := bm.Grid
+	if len(g.AcceptanceBucketsMeters) == 0 {
+		t.Fatal("AcceptanceBucketsMeters not initialised")
+	}
+
+	// Seed a point at 5m (channel 1 = ring 0, azimuth 0)
+	seedPoints := []PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 5.0}}
+	_, err := bm.ProcessFramePolarWithMask(seedPoints)
+	if err != nil {
+		t.Fatalf("seed frame failed: %v", err)
+	}
+
+	// Process several more frames with the same point (should be accepted as background)
+	for i := 0; i < 10; i++ {
+		_, err := bm.ProcessFramePolarWithMask(seedPoints)
+		if err != nil {
+			t.Fatalf("frame %d failed: %v", i, err)
+		}
+	}
+
+	// Check that acceptance metrics are non-zero
+	metrics := bm.GetAcceptanceMetrics()
+	if metrics == nil {
+		t.Fatal("GetAcceptanceMetrics returned nil")
+	}
+
+	var totalAccept, totalReject int64
+	for i := range metrics.AcceptCounts {
+		totalAccept += metrics.AcceptCounts[i]
+		totalReject += metrics.RejectCounts[i]
+	}
+
+	total := totalAccept + totalReject
+	if total == 0 {
+		t.Fatal("expected non-zero acceptance metrics after processing frames, got 0 total")
+	}
+
+	// After seeding + 10 background frames, most should be accepted
+	if totalAccept == 0 {
+		t.Errorf("expected non-zero accept count, got 0 (reject=%d)", totalReject)
+	}
+
+	t.Logf("Acceptance counting: accept=%d, reject=%d, total=%d, rate=%.2f%%",
+		totalAccept, totalReject, total, float64(totalAccept)/float64(total)*100)
+}

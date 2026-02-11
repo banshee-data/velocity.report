@@ -99,6 +99,27 @@ var PARAM_SCHEMA = {
     defaultEnd: 0.5,
     desc: "Background update alpha after settling (0 = freeze background).",
   },
+  background_update_fraction: {
+    type: "float64",
+    label: "Background Update Fraction",
+    step: 0.005,
+    defaultStart: 0.005,
+    defaultEnd: 0.1,
+    desc: "EMA learning rate for background grid updates during settling (0–1).",
+  },
+  safety_margin_meters: {
+    type: "float64",
+    label: "Safety Margin (m)",
+    step: 0.1,
+    defaultStart: 0,
+    defaultEnd: 2.0,
+    desc: "Additional additive margin (metres) on the closeness threshold for background classification.",
+  },
+  enable_diagnostics: {
+    type: "bool",
+    label: "Enable Diagnostics",
+    desc: "If true, enables verbose per-frame diagnostic logging.",
+  },
   foreground_min_cluster_points: {
     type: "int",
     label: "FG Min Cluster Points",
@@ -201,6 +222,14 @@ var PARAM_SCHEMA = {
     defaultStart: 3,
     defaultEnd: 30,
     desc: "Consecutive misses before a confirmed track is deleted.",
+  },
+  max_tracks: {
+    type: "int",
+    label: "Max Tracks",
+    step: 10,
+    defaultStart: 10,
+    defaultEnd: 500,
+    desc: "Maximum number of simultaneous tracks the tracker maintains.",
   },
 };
 

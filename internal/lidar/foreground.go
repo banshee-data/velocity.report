@@ -429,6 +429,19 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		}
 
 		g.ChangesSinceSnapshot++
+
+		// Update per-range acceptance metrics (mirrors ProcessFramePolar logic).
+		// This is essential for the sweep tool to measure background-model fit.
+		for b := range g.AcceptanceBucketsMeters {
+			if p.Distance <= g.AcceptanceBucketsMeters[b] {
+				if isBackgroundLike {
+					g.AcceptByRangeBuckets[b]++
+				} else {
+					g.RejectByRangeBuckets[b]++
+				}
+				break
+			}
+		}
 	}
 
 	// Suppress foreground output during warmup while still allowing background seeding.
