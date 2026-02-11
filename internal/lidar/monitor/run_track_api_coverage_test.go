@@ -881,3 +881,390 @@ func TestCov_HandleReprocessRun_Success(t *testing.T) {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotImplemented)
 	}
 }
+
+// ====================================================================
+// Additional coverage tests — targeting uncovered branches
+// ====================================================================
+
+// --- handleUpdateTrackLabel coverage ---
+
+func TestCov_HandleUpdateTrackLabel_WrongMethod(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-1/tracks/track-1/label", nil)
+	w := httptest.NewRecorder()
+	ws.handleUpdateTrackLabel(w, req, "run-1", "track-1")
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestCov_HandleUpdateTrackLabel_InvalidJSON(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/run-1/tracks/track-1/label",
+		bytes.NewReader([]byte("not json")))
+	w := httptest.NewRecorder()
+	ws.handleUpdateTrackLabel(w, req, "run-1", "track-1")
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCov_HandleUpdateTrackLabel_InvalidUserLabel(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user_label":       "totally_bogus",
+		"quality_label":    "",
+		"label_confidence": 0.9,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/run-1/tracks/track-1/label",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleUpdateTrackLabel(w, req, "run-1", "track-1")
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCov_HandleUpdateTrackLabel_InvalidQualityLabel(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user_label":       "good_vehicle",
+		"quality_label":    "garbage_quality",
+		"label_confidence": 0.9,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/run-1/tracks/track-1/label",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleUpdateTrackLabel(w, req, "run-1", "track-1")
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCov_HandleUpdateTrackLabel_StoreError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	// Close the DB to force a store error on UpdateTrackLabel.
+	ws.db.DB.Close()
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user_label":       "good_vehicle",
+		"quality_label":    "perfect",
+		"label_confidence": 0.95,
+		"labeler_id":       "tester",
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/run-1/tracks/track-1/label",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleUpdateTrackLabel(w, req, "run-1", "track-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleUpdateTrackLabel_Success(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "label-ok")
+	covInsertTrack(t, ws, runID, "track-label-1")
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user_label":       "good_vehicle",
+		"quality_label":    "perfect",
+		"label_confidence": 0.95,
+		"labeler_id":       "tester",
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/"+runID+"/tracks/track-label-1/label",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleUpdateTrackLabel(w, req, runID, "track-label-1")
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+}
+
+// --- handleDeleteRunTrack DB error ---
+
+func TestCov_HandleDeleteRunTrack_DBError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/run-1/tracks/track-1", nil)
+	w := httptest.NewRecorder()
+	ws.handleDeleteRunTrack(w, req, "run-1", "track-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- handleDeleteRun non-existent run (direct call) ---
+
+func TestCov_HandleDeleteRun_NonExistentRun(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/no-such-run", nil)
+	w := httptest.NewRecorder()
+	ws.handleDeleteRun(w, req, "no-such-run")
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+// --- handleListRunTracks GetRunTracks error ---
+
+func TestCov_HandleListRunTracks_DBError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-1/tracks", nil)
+	w := httptest.NewRecorder()
+	ws.handleListRunTracks(w, req, "run-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- handleListRuns filter branch coverage ---
+
+func TestCov_HandleListRuns_SensorIDFilterNoMatch(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	covInsertRun(t, ws, "sensor-nomatch")
+
+	// Filter for a sensor_id that does not match the inserted run (test-sensor).
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/?sensor_id=other-sensor", nil)
+	w := httptest.NewRecorder()
+	ws.handleListRuns(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if count, ok := resp["count"].(float64); ok && count != 0 {
+		t.Errorf("count = %v, want 0", count)
+	}
+}
+
+func TestCov_HandleListRuns_StatusFilterNoMatch(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	covInsertRun(t, ws, "status-nomatch") // status = "completed"
+
+	// Filter for a status that does not match.
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/?status=running", nil)
+	w := httptest.NewRecorder()
+	ws.handleListRuns(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if count, ok := resp["count"].(float64); ok && count != 0 {
+		t.Errorf("count = %v, want 0 (no runs with status=running)", count)
+	}
+}
+
+// --- handleGetRun non-ErrNoRows DB error ---
+
+func TestCov_HandleGetRun_DBError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-1", nil)
+	w := httptest.NewRecorder()
+	ws.handleGetRun(w, req, "run-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- handleEvaluateRun additional branch coverage ---
+
+func TestCov_HandleEvaluateRun_NonExistentCandidate(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	// No reference_run_id → handler tries to GetRun for a non-existent candidate.
+	body, _ := json.Marshal(map[string]interface{}{})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/nonexistent-cand/evaluate",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleEvaluateRun(w, req, "nonexistent-cand")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleEvaluateRun_ListScenesError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "eval-scenes-err")
+
+	// Drop the scenes table so ListScenes fails while GetRun still succeeds.
+	if _, err := ws.db.DB.Exec("DROP TABLE IF EXISTS lidar_scenes"); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/evaluate",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleEvaluateRun(w, req, runID)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleEvaluateRun_SceneNoMatchingSourcePath(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	// Reference and candidate runs.
+	refRunID := covInsertRun(t, ws, "eval-nomatch-ref")
+	candRunID := covInsertRun(t, ws, "eval-nomatch-cand")
+	covInsertTrack(t, ws, refRunID, "ref-t1")
+	covInsertTrack(t, ws, candRunID, "cand-t1")
+
+	// Scene with same sensor but a DIFFERENT PCAPFile than the candidate's SourcePath.
+	// Candidate has SourcePath="/test/file.pcap"; scene has PCAPFile="/different/path.pcap".
+	// First pass (exact source path match) will NOT find it; second pass (fallback by
+	// sensor + ReferenceRunID) will.
+	sceneStore := lidar.NewSceneStore(ws.db.DB)
+	scene := &lidar.Scene{
+		SensorID:       "test-sensor",
+		PCAPFile:       "/different/path.pcap",
+		ReferenceRunID: refRunID,
+	}
+	if err := sceneStore.InsertScene(scene); err != nil {
+		t.Fatalf("InsertScene: %v", err)
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+candRunID+"/evaluate",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleEvaluateRun(w, req, candRunID)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+}
+
+// --- handleMissedRegions store error paths ---
+
+func TestCov_HandleMissedRegions_GET_StoreError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-1/missed-regions", nil)
+	w := httptest.NewRecorder()
+	ws.handleMissedRegions(w, req, "run-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleMissedRegions_POST_StoreError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	ws.db.DB.Close()
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"center_x":      1.5,
+		"center_y":      2.5,
+		"time_start_ns": 1000,
+		"time_end_ns":   2000,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/run-1/missed-regions",
+		bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleMissedRegions(w, req, "run-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- handleDeleteMissedRegion generic DB error (non-ErrNoRows) ---
+
+func TestCov_HandleDeleteMissedRegion_DBError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/run-1/missed-regions/region-1", nil)
+	w := httptest.NewRecorder()
+	ws.handleDeleteMissedRegion(w, req, "region-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- parseTrackPath empty string ---
+
+func TestCov_ParseTrackPath_EmptyString(t *testing.T) {
+	trackID, action := parseTrackPath("")
+	// strings.SplitN("", "/", 2) → [""], so trackID="" and action="".
+	if trackID != "" {
+		t.Errorf("trackID = %q, want empty", trackID)
+	}
+	if action != "" {
+		t.Errorf("action = %q, want empty", action)
+	}
+}
+
+// --- handleRunTrackAPI unknown sub-path (deeper path) ---
+
+func TestCov_HandleRunTrackAPI_UnknownDeepSubPath(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	// Path with a sub-path that doesn't match any known prefix.
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-1/something-unknown", nil)
+	w := httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
