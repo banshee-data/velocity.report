@@ -333,7 +333,11 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 
 	// Persist sweep start to database
 	if r.persister != nil {
-		reqJSON, _ := json.Marshal(req)
+		reqJSON, err := json.Marshal(req)
+		if err != nil {
+			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
+			reqJSON = []byte("{}")
+		}
 		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now); err != nil {
 			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
 		}
@@ -400,7 +404,11 @@ func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, s
 
 	// Persist sweep start to database
 	if r.persister != nil {
-		reqJSON, _ := json.Marshal(req)
+		reqJSON, err := json.Marshal(req)
+		if err != nil {
+			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
+			reqJSON = []byte("{}")
+		}
 		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now); err != nil {
 			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
 		}
@@ -537,7 +545,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				}
 				if err := r.client.SetParams(params); err != nil {
 					log.Printf("[sweep] ERROR: Failed to set params: %v", err)
-					errMsg := fmt.Sprintf("combo %d: failed to set params: %v", comboNum+1, err)
+					errMsg := fmt.Sprintf("combo %d: failed to set params: %v", comboNum, err)
 					r.mu.Lock()
 					r.state.Status = SweepStatusError
 					r.state.Error = errMsg
@@ -914,7 +922,11 @@ func (r *Runner) persistComplete(status, errMsg string, recommendation json.RawM
 	copy(results, state.Results)
 	r.mu.RUnlock()
 
-	resultsJSON, _ := json.Marshal(results)
+	resultsJSON, err := json.Marshal(results)
+	if err != nil {
+		log.Printf("[sweep] WARNING: Failed to marshal sweep results for persistence: %v", err)
+		resultsJSON = []byte("[]")
+	}
 	now := time.Now()
 	if err := r.persister.SaveSweepComplete(r.sweepID, status, resultsJSON, recommendation, nil, now, errMsg); err != nil {
 		log.Printf("[sweep] WARNING: Failed to persist sweep completion: %v", err)

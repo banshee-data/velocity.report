@@ -457,13 +457,31 @@ func TestSweepStore_GetSweep_InvalidTimeFormat(t *testing.T) {
 	// SQLite DATETIME type with invalid input will store as TEXT without conversion
 	// We need to store a string that SQLite won't auto-convert but is not RFC3339
 	// Use a string type column to bypass SQLite's DATETIME type affinity
-	_, err := db.Exec(`ALTER TABLE lidar_sweeps DROP COLUMN started_at`)
+	// Recreate the table with started_at as TEXT to avoid SQLite DROP COLUMN issues
+	_, err := db.Exec(`DROP TABLE lidar_sweeps`)
 	if err != nil {
-		t.Fatalf("failed to drop column: %v", err)
+		t.Fatalf("failed to drop lidar_sweeps table: %v", err)
 	}
-	_, err = db.Exec(`ALTER TABLE lidar_sweeps ADD COLUMN started_at TEXT NOT NULL DEFAULT ''`)
+	_, err = db.Exec(`
+		CREATE TABLE lidar_sweeps (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			sweep_id TEXT NOT NULL UNIQUE,
+			sensor_id TEXT NOT NULL,
+			mode TEXT NOT NULL DEFAULT 'sweep',
+			status TEXT NOT NULL DEFAULT 'running',
+			request TEXT NOT NULL,
+			results TEXT,
+			charts TEXT,
+			recommendation TEXT,
+			round_results TEXT,
+			error TEXT,
+			started_at TEXT NOT NULL,
+			completed_at DATETIME,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
 	if err != nil {
-		t.Fatalf("failed to add column: %v", err)
+		t.Fatalf("failed to recreate lidar_sweeps table with TEXT started_at: %v", err)
 	}
 
 	// Insert with an invalid RFC3339 format that SQLite won't convert
@@ -491,14 +509,31 @@ func TestSweepStore_GetSweep_InvalidCompletedAtFormat(t *testing.T) {
 
 	store := NewSweepStore(db)
 
-	// Alter completed_at to TEXT type to avoid SQLite conversion
-	_, err := db.Exec(`ALTER TABLE lidar_sweeps DROP COLUMN completed_at`)
+	// Recreate the table with completed_at as TEXT to avoid SQLite DROP COLUMN issues
+	_, err := db.Exec(`DROP TABLE lidar_sweeps`)
 	if err != nil {
-		t.Fatalf("failed to drop column: %v", err)
+		t.Fatalf("failed to drop lidar_sweeps table: %v", err)
 	}
-	_, err = db.Exec(`ALTER TABLE lidar_sweeps ADD COLUMN completed_at TEXT`)
+	_, err = db.Exec(`
+		CREATE TABLE lidar_sweeps (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			sweep_id TEXT NOT NULL UNIQUE,
+			sensor_id TEXT NOT NULL,
+			mode TEXT NOT NULL DEFAULT 'sweep',
+			status TEXT NOT NULL DEFAULT 'running',
+			request TEXT NOT NULL,
+			results TEXT,
+			charts TEXT,
+			recommendation TEXT,
+			round_results TEXT,
+			error TEXT,
+			started_at DATETIME NOT NULL,
+			completed_at TEXT,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
 	if err != nil {
-		t.Fatalf("failed to add column: %v", err)
+		t.Fatalf("failed to recreate lidar_sweeps table with TEXT completed_at: %v", err)
 	}
 
 	// Insert with valid started_at but invalid completed_at format

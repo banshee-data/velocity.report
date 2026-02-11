@@ -264,12 +264,24 @@ function extractValue(result, key) {
 }
 
 function getAvailableMetrics(results) {
-  if (!results || results.length === 0) return { params: [], metrics: [] };
+  // When no results are available yet, fall back to all known metric keys so
+  // the chart modal can still present sensible defaults.
+  var defaultResult = { params: [], metrics: METRIC_KEYS.slice() };
+
+  if (!results || results.length === 0) return defaultResult;
+
   var r0 = results[0];
   var params = Object.keys(r0.param_values || {});
   var metrics = METRIC_KEYS.filter(function (k) {
     return r0[k] !== undefined;
   });
+
+  // If none of the known metric keys are present on the first result, fall
+  // back to the default list to avoid empty metric selections in the UI.
+  if (metrics.length === 0) {
+    metrics = defaultResult.metrics;
+  }
+
   return { params: params, metrics: metrics };
 }
 
@@ -2000,26 +2012,47 @@ function buildHeatmapOption(results, cfg) {
   var xSet = {};
   var ySet = {};
   results.forEach(function (r) {
-    xSet[extractValue(r, xKey)] = true;
-    ySet[extractValue(r, yKey)] = true;
+    var xVal = extractValue(r, xKey);
+    var yVal = extractValue(r, yKey);
+    if (xVal != null) xSet[String(xVal)] = true;
+    if (yVal != null) ySet[String(yVal)] = true;
   });
-  var xVals = Object.keys(xSet)
-    .map(Number)
-    .sort(function (a, b) {
-      return a - b;
-    });
-  var yVals = Object.keys(ySet)
-    .map(Number)
-    .sort(function (a, b) {
-      return a - b;
-    });
+
+  // Check if values are numeric to decide on sorting strategy
+  var xKeys = Object.keys(xSet);
+  var yKeys = Object.keys(ySet);
+  var xIsNumeric = xKeys.every(function (k) {
+    return !isNaN(Number(k));
+  });
+  var yIsNumeric = yKeys.every(function (k) {
+    return !isNaN(Number(k));
+  });
+
+  var xVals = xIsNumeric
+    ? xKeys
+        .map(Number)
+        .sort(function (a, b) {
+          return a - b;
+        })
+        .map(String)
+    : xKeys.sort();
+  var yVals = yIsNumeric
+    ? yKeys
+        .map(Number)
+        .sort(function (a, b) {
+          return a - b;
+        })
+        .map(String)
+    : yKeys.sort();
 
   var data = [];
   var hmMax = 0;
   var hmMin = Infinity;
   results.forEach(function (r) {
-    var xi = xVals.indexOf(extractValue(r, xKey));
-    var yi = yVals.indexOf(extractValue(r, yKey));
+    var xVal = String(extractValue(r, xKey));
+    var yVal = String(extractValue(r, yKey));
+    var xi = xVals.indexOf(xVal);
+    var yi = yVals.indexOf(yVal);
     var v = extractValue(r, zKey) || 0;
     if (xi >= 0 && yi >= 0) {
       data.push([xi, yi, v]);
