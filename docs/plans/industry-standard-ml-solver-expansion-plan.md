@@ -10,7 +10,7 @@ This document translates practices from an industry standard ML solver into a co
 
 ### 1.1 What is already strong
 
-Velocity Report already has an unusually strong foundation for parameter optimization:
+Velocity Report already has an unusually strong foundation for parameter optimisation:
 
 - **Robust sweep engine + auto-tuning loop are in production shape.**
   - Multi-round narrowing (`AutoTuner`) exists, including objective variants and result ranking.
@@ -22,12 +22,12 @@ Velocity Report already has an unusually strong foundation for parameter optimiz
   - The sweep dashboard supports configuration, run-state visibility, result analysis, and sweep history.
 - **Scene abstraction exists and is strategically important.**
   - Scene-backed evaluation enables deterministic replay and brings repeatability to tuning.
-- **Run/track labeling infrastructure exists on the backend and in the macOS toolchain.**
-  - This is the critical prerequisite for RLHF and closed-loop human-in-the-loop optimization.
+- **Run/track labelling infrastructure exists on the backend and in the macOS toolchain.**
+  - This is the critical prerequisite for RLHF and closed-loop human-in-the-loop optimisation.
 
 ### 1.2 Architectural inflection point
 
-Velocity Report is transitioning from **proxy-metric optimization** (acceptance/alignment/fragmentation heuristics) to **human-validated optimization** (ground truth and RLHF).
+Velocity Report is transitioning from **proxy-metric optimisation** (acceptance/alignment/fragmentation heuristics) to **human-validated optimisation** (ground truth and RLHF).
 
 That transition creates a new requirement:
 
@@ -37,7 +37,7 @@ Current architecture supports this partially (results + metrics + dashboard), bu
 
 - Label provenance and carry-over confidence.
 - Round-to-round explainability (“why this parameter set improved”).
-- Better separation between feature engineering, scoring rules, and optimization strategy.
+- Better separation between feature engineering, scoring rules, and optimisation strategy.
 - Stronger experiment reproducibility contracts.
 
 ### 1.3 RLHF plan status assessment (`docs/plans/rlhf-sweep-mode.md`)
@@ -48,7 +48,7 @@ The RLHF plan is comprehensive and implementation-ready at design level. It alre
 - A round-based RLHF state machine.
 - API surface (`start`, `status`, `continue`, `stop`).
 - Dashboard UX contract for round progress, thresholds, and continuation controls.
-- Label carry-over and human gating behavior.
+- Label carry-over and human gating behaviour.
 
 However, the plan currently behaves mostly as a **feature plan**, not yet a **platform plan**. The gap is not correctness; the gap is **long-term scalability of experimentation**. Specifically:
 
@@ -57,7 +57,7 @@ However, the plan currently behaves mostly as a **feature plan**, not yet a **pl
 2. **Feature transformations are implicit.**
    There is no explicit transform layer for derived signals used by objective/scoring (e.g., round-normalized metrics, class imbalance corrections, uncertainty penalties).
 3. **Explainability is currently output-oriented, not decomposition-oriented.**
-   The system can show aggregate scores, but needs score component decomposition and “top contributing factors” to improve operator trust and labeling quality.
+   The system can show aggregate scores, but needs score component decomposition and “top contributing factors” to improve operator trust and labelling quality.
 4. **Experiment schema versioning is under-specified.**
    RLHF creates longitudinal experiments; reproducibility requires explicit versioning of transforms, scoring formulas, weight sets, and eligibility filters.
 5. **Search strategy is primarily grid narrowing.**
@@ -96,7 +96,7 @@ Benefits:
 
 - Faster experimentation.
 - Better testability.
-- Cleaner RLHF heuristics (round-aware behavior becomes data-driven config, not ad hoc code branches).
+- Cleaner RLHF heuristics (round-aware behaviour becomes data-driven config, not ad hoc code branches).
 
 ### 2.3 First-class model/score debugging
 
@@ -110,7 +110,7 @@ Add a **Score Explain API** that emits component-level contributions:
 - Round-over-round deltas (“what changed vs previous best”).
 - Label-coverage confidence penalties.
 
-This directly improves human labeling behavior and allows faster diagnosis of bad recommendations.
+This directly improves human labelling behaviour and allows faster diagnosis of bad recommendations.
 
 ### 2.4 Pipelineized training/eval/calibration
 
@@ -121,9 +121,9 @@ Another strong pattern is treating train/eval/calibrate as explicit pipeline sta
 Mirror this with RLHF lifecycle stages:
 
 1. Reference generation.
-2. Human labeling.
+2. Human labelling.
 3. Candidate scoring.
-4. Calibration/normalization pass.
+4. Calibration/normalisation pass.
 5. Recommendation publication.
 
 Each stage should have durable artifacts and promotion conditions.
@@ -134,7 +134,7 @@ The solver patterns include iterative range shrinking around prior best paramete
 
 **Relevance for Velocity Report:**
 
-This aligns well with current auto-tune behavior and suggests extending with:
+This aligns well with current auto-tune behaviour and suggests extending with:
 
 - Hybrid search (grid + stochastic perturbation).
 - Progressive narrowing ratio controls per round.
@@ -146,7 +146,7 @@ This aligns well with current auto-tune behavior and suggests extending with:
 
 ### 3.1 Strategic goal
 
-Evolve sweep/auto/RLHF from a feature set into a reusable **Optimization Platform** with the following properties:
+Evolve sweep/auto/RLHF from a feature set into a reusable **Optimisation Platform** with the following properties:
 
 - Deterministic when needed.
 - Exploratory when beneficial.
@@ -205,7 +205,7 @@ Add gates for:
 
 - Class coverage minimums (e.g., vehicle/pedestrian/noise representation).
 - Temporal coverage spread.
-- Agreement consistency checks where multiple labelers exist.
+- Agreement consistency checks where multiple labellers exist.
 
 ### 4.3 Score decomposition in dashboard and APIs
 
@@ -304,8 +304,8 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 3. **Risk: Score drift across versions.**
    - Mitigation: strict version stamping and back-compat replay tooling.
 
-4. **Risk: RLHF throughput bottleneck (human labeling time).**
-   - Mitigation: carry-over confidence + priority labeling queues + label quality gates.
+4. **Risk: RLHF throughput bottleneck (human labelling time).**
+   - Mitigation: carry-over confidence + priority labelling queues + label quality gates.
 
 ---
 
@@ -313,8 +313,8 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 
 Define success as measurable deltas:
 
-- **Optimization efficiency**: fewer evaluated combos to hit target quality.
-- **Human efficiency**: reduced labeling time per useful round.
+- **Optimisation efficiency**: fewer evaluated combos to hit target quality.
+- **Human efficiency**: reduced labelling time per useful round.
 - **Trust**: increased operator acceptance of recommendations due to explainability.
 - **Reproducibility**: ability to replay and compare historical sweeps across objective versions.
 
@@ -328,4 +328,4 @@ Define success as measurable deltas:
 4. Add explanation payload rendering in sweep dashboard and Svelte sweeps page.
 5. Start a small hybrid-search experiment behind a config flag for RLHF rounds.
 
-These actions preserve existing behavior while laying platform foundations for scalable, interpretable, human-guided optimization.
+These actions preserve existing behaviour while laying platform foundations for scalable, interpretable, human-guided optimisation.
