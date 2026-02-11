@@ -562,66 +562,152 @@ struct DetailRow: View {
 // MARK: - Track List
 
 /// Track list for selecting a track for labelling.
-/// Shows all tracks from the current frame regardless of state.
+/// In run mode: fetches ALL tracks from the run via the API (so prior tracks are visible).
+/// In live mode: shows tracks from the current frame.
 struct TrackListView: View {
     @EnvironmentObject var appState: AppState
     @State private var isExpanded = false
+    @State private var runTracks: [RunTrack] = []
+    @State private var isFetchingRunTracks = false
 
-    private var tracks: [Track] {
+    /// Tracks visible in the current frame (live mode or as supplementary info).
+    private var frameTracks: [Track] {
         guard let trackSet = appState.currentFrame?.tracks else { return [] }
         return trackSet.tracks.sorted { $0.trackID < $1.trackID }
     }
 
+    /// Whether we are in run replay mode.
+    private var isRunMode: Bool { appState.currentRunID != nil }
+
+    /// Display count for the header badge.
+    private var displayCount: Int { isRunMode ? runTracks.count : frameTracks.count }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button(action: { isExpanded.toggle() }) {
+            Button(action: {
+                isExpanded.toggle()
+                if isExpanded && isRunMode && runTracks.isEmpty { fetchRunTracks() }
+            }) {
                 HStack {
                     Label(
                         "Track List",
                         systemImage: isExpanded ? "list.bullet.circle.fill" : "list.bullet.circle")
                     Spacer()
-                    Text("\(tracks.count)").font(.caption).foregroundColor(.secondary)
+                    if isFetchingRunTracks {
+                        ProgressView().controlSize(.mini)
+                    } else {
+                        Text("\(displayCount)").font(.caption).foregroundColor(.secondary)
+                    }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption)
                         .foregroundColor(.secondary)
                 }
             }.buttonStyle(.plain)
 
             if isExpanded {
-                if tracks.isEmpty {
-                    Text("No active tracks").font(.caption).foregroundColor(.secondary)
+                if isRunMode {
+                    // Run mode: show all tracks from the analysis run
+                    runTrackListContent
                 } else {
-                    ForEach(tracks, id: \.trackID) { track in
-                        Button(action: { appState.selectTrack(track.trackID) }) {
-                            HStack(spacing: 6) {
-                                Circle().fill(trackStateColour(track.state)).frame(
-                                    width: 8, height: 8)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(track.trackID.truncated(12)).font(
-                                        .system(.caption, design: .monospaced)
-                                    ).lineLimit(1)
-                                    HStack(spacing: 4) {
-                                        Text(String(format: "%.1f m/s", track.speedMps)).font(
-                                            .caption2)
-                                        if !track.classLabel.isEmpty {
-                                            Text(track.classLabel).font(.caption2).foregroundColor(
-                                                .orange)
-                                        }
-                                    }.foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                if track.trackID == appState.selectedTrackID {
-                                    Image(systemName: "checkmark.circle.fill").foregroundColor(
-                                        .accentColor
-                                    ).font(.caption)
-                                }
-                            }.padding(.vertical, 2).padding(.horizontal, 4).background(
-                                track.trackID == appState.selectedTrackID
-                                    ? Color.accentColor.opacity(0.15) : Color.clear
-                            ).cornerRadius(4)
-                        }.buttonStyle(.plain)
-                    }
+                    // Live mode: show tracks from the current frame
+                    frameTrackListContent
                 }
             }
+        }.onChange(of: appState.currentRunID) { _, newRunID in
+            if newRunID != nil && isExpanded { fetchRunTracks() } else { runTracks = [] }
+        }
+    }
+
+    // MARK: - Run Track List (API-fetched)
+
+    @ViewBuilder private var runTrackListContent: some View {
+        if runTracks.isEmpty && !isFetchingRunTracks {
+            Text("No tracks in run").font(.caption).foregroundColor(.secondary)
+        } else {
+            ForEach(runTracks, id: \.trackId) { track in
+                Button(action: { appState.selectTrack(track.trackId) }) {
+                    HStack(spacing: 6) {
+                        // Label status indicator
+                        Circle().fill(track.isLabelled ? Color.green : Color.gray.opacity(0.5))
+                            .frame(width: 8, height: 8)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(track.trackId.truncated(12)).font(
+                                .system(.caption, design: .monospaced)
+                            ).lineLimit(1)
+                            HStack(spacing: 4) {
+                                if let speed = track.avgSpeedMps {
+                                    Text(String(format: "%.1f m/s", speed)).font(.caption2)
+                                }
+                                if let label = track.userLabel, !label.isEmpty {
+                                    Text(label).font(.caption2).foregroundColor(.orange)
+                                }
+                                if let quality = track.qualityLabel, !quality.isEmpty {
+                                    Text(quality).font(.caption2).foregroundColor(.cyan)
+                                }
+                            }.foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if track.trackId == appState.selectedTrackID {
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
+                                .font(.caption)
+                        }
+                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
+                        track.trackId == appState.selectedTrackID
+                            ? Color.accentColor.opacity(0.15) : Color.clear
+                    ).cornerRadius(4)
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Frame Track List (live mode)
+
+    @ViewBuilder private var frameTrackListContent: some View {
+        if frameTracks.isEmpty {
+            Text("No active tracks").font(.caption).foregroundColor(.secondary)
+        } else {
+            ForEach(frameTracks, id: \.trackID) { track in
+                Button(action: { appState.selectTrack(track.trackID) }) {
+                    HStack(spacing: 6) {
+                        Circle().fill(trackStateColour(track.state)).frame(width: 8, height: 8)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(track.trackID.truncated(12)).font(
+                                .system(.caption, design: .monospaced)
+                            ).lineLimit(1)
+                            HStack(spacing: 4) {
+                                Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
+                                if !track.classLabel.isEmpty {
+                                    Text(track.classLabel).font(.caption2).foregroundColor(.orange)
+                                }
+                            }.foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if track.trackID == appState.selectedTrackID {
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
+                                .font(.caption)
+                        }
+                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
+                        track.trackID == appState.selectedTrackID
+                            ? Color.accentColor.opacity(0.15) : Color.clear
+                    ).cornerRadius(4)
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func fetchRunTracks() {
+        guard let runID = appState.currentRunID else { return }
+        isFetchingRunTracks = true
+        Task {
+            do {
+                let client = RunTrackLabelAPIClient()
+                let tracks = try await client.listTracks(runID: runID, limit: 500)
+                await MainActor.run {
+                    self.runTracks = tracks
+                    self.isFetchingRunTracks = false
+                }
+            } catch { await MainActor.run { self.isFetchingRunTracks = false } }
         }
     }
 
