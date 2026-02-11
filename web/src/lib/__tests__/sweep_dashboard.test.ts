@@ -95,6 +95,13 @@ const {
 	loadHistoricalSweep,
 	openChartModal,
 	closeChartModal,
+	applyChartModal,
+	editChart,
+	removeChart,
+	saveChartConfigs,
+	applyPastedParams,
+	loadCurrentIntoEditor,
+	renderDynamicCharts,
 	init
 } = mod;
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -206,7 +213,10 @@ function setupDOM(): void {
 		'</div>',
 		'<table><thead id="results-head"><tr></tr></thead>',
 		'<tbody id="results-body"></tbody></table>',
-		'<div id="current-params-display"></div>'
+		'<div id="current-params-display"></div>',
+		'<textarea id="paste-params-json"></textarea>',
+		'<span id="paste-apply-status"></span>',
+		'<button id="btn-paste-apply">Apply</button>'
 	].join('\n');
 }
 
@@ -3150,6 +3160,405 @@ describe('|| 0 default value fallback branches', () => {
 		removeParamRow(rowId);
 		// removeParamRow should call displayCurrentParams(window.currentParamsCache)
 		// when currentParamsCache is truthy
+	});
+});
+
+// ===========================================================================
+// Chart modal CRUD tests (applyChartModal, editChart, removeChart)
+// ===========================================================================
+
+describe('chart modal CRUD', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('applyChartModal adds a new chart config', () => {
+		openChartModal();
+		(document.getElementById('chart-cfg-title') as HTMLInputElement).value = 'Test Chart';
+		(document.getElementById('chart-cfg-type') as HTMLSelectElement).value = 'bar';
+		applyChartModal();
+		// Modal should be hidden after apply
+		expect(document.getElementById('chart-modal')!.style.display).toBe('none');
+	});
+
+	it('applyChartModal edits an existing chart config', () => {
+		// First, add a chart
+		openChartModal();
+		(document.getElementById('chart-cfg-title') as HTMLInputElement).value = 'First';
+		applyChartModal();
+
+		// Now edit it via editChart
+		editChart('chart-1');
+		(document.getElementById('chart-cfg-title') as HTMLInputElement).value = 'Edited';
+		applyChartModal();
+		expect(document.getElementById('chart-modal')!.style.display).toBe('none');
+	});
+
+	it('removeChart removes a chart from the grid', () => {
+		openChartModal();
+		(document.getElementById('chart-cfg-title') as HTMLInputElement).value = 'Removable';
+		applyChartModal();
+
+		// The chart card should have been added to the grid
+		const grid = document.getElementById('chart-grid')!;
+		const cardCount = grid.children.length;
+
+		removeChart('chart-1');
+		expect(grid.children.length).toBeLessThanOrEqual(cardCount);
+	});
+
+	it('openChartModal in edit mode populates fields from existing config', () => {
+		// Add a chart first
+		openChartModal();
+		(document.getElementById('chart-cfg-title') as HTMLInputElement).value = 'My Chart';
+		(document.getElementById('chart-cfg-type') as HTMLSelectElement).value = 'line';
+		applyChartModal();
+
+		// Re-open in edit mode
+		openChartModal('chart-1');
+		expect((document.getElementById('chart-cfg-id') as HTMLInputElement).value).toBe('chart-1');
+		expect(document.getElementById('chart-modal-title')!.textContent).toBe('Edit Chart');
+	});
+});
+
+// ===========================================================================
+// saveChartConfigs tests
+// ===========================================================================
+
+describe('saveChartConfigs', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('does nothing when no currentSweepId', () => {
+		saveChartConfigs();
+		expect(global.fetch).not.toHaveBeenCalled();
+	});
+
+	it('sends PUT request when sweep is loaded', async () => {
+		// Load a historical sweep to set currentSweepId
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-save-test',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults()
+				})
+		});
+		loadHistoricalSweep('sw-save-test');
+		await flushPromises();
+
+		(global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+		saveChartConfigs();
+		await flushPromises();
+		expect(global.fetch).toHaveBeenCalledWith(
+			'/api/lidar/sweeps/charts',
+			expect.objectContaining({ method: 'PUT' })
+		);
+	});
+
+	it('shows error when save fails', async () => {
+		// Load a historical sweep first
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-fail',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults()
+				})
+		});
+		loadHistoricalSweep('sw-fail');
+		await flushPromises();
+
+		(global.fetch as jest.Mock).mockRejectedValue(new Error('Network down'));
+		saveChartConfigs();
+		await flushPromises();
+		expect(document.getElementById('error-box')!.textContent).toContain('Network down');
+	});
+});
+
+// ===========================================================================
+// Paste & Apply params tests
+// ===========================================================================
+
+describe('paste and apply params', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('applyPastedParams shows error for empty textarea', () => {
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = '';
+		applyPastedParams();
+		expect(document.getElementById('error-box')!.textContent).toContain('Paste a JSON');
+	});
+
+	it('applyPastedParams shows error for invalid JSON', () => {
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = '{bad json';
+		applyPastedParams();
+		expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
+	});
+
+	it('applyPastedParams shows error for non-object JSON', () => {
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = '[1,2,3]';
+		applyPastedParams();
+		expect(document.getElementById('error-box')!.textContent).toContain('JSON object');
+	});
+
+	it('applyPastedParams shows error when only metric keys present', () => {
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
+			acceptance_rate: 0.9,
+			empty_box_ratio: 0.1
+		});
+		applyPastedParams();
+		expect(document.getElementById('error-box')!.textContent).toContain('No tuning parameters');
+	});
+
+	it('applyPastedParams sends filtered params to API', async () => {
+		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
+			noise_relative: 0.05,
+			empty_box_ratio: 0.1
+		});
+		applyPastedParams();
+		await flushPromises();
+		expect(global.fetch).toHaveBeenCalledWith(
+			expect.stringContaining('/api/lidar/params'),
+			expect.objectContaining({ method: 'POST' })
+		);
+		expect(document.getElementById('paste-apply-status')!.textContent).toContain('Applied 1');
+	});
+
+	it('applyPastedParams shows error when API fails', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: false,
+			text: () => Promise.resolve('Bad request')
+		});
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
+			noise_relative: 0.05
+		});
+		applyPastedParams();
+		await flushPromises();
+		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
+	});
+
+	it('loadCurrentIntoEditor populates textarea', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ noise_relative: 0.05, closeness_multiplier: 5 })
+		});
+		loadCurrentIntoEditor();
+		await flushPromises();
+		const val = (document.getElementById('paste-params-json') as HTMLTextAreaElement).value;
+		expect(val).toContain('noise_relative');
+		expect(val).toContain('closeness_multiplier');
+	});
+
+	it('loadCurrentIntoEditor shows error on failure', async () => {
+		global.fetch = jest.fn().mockRejectedValue(new Error('fetch failed'));
+		loadCurrentIntoEditor();
+		await flushPromises();
+		expect(document.getElementById('error-box')!.textContent).toContain('fetch failed');
+	});
+});
+
+// ===========================================================================
+// renderDynamicCharts tests
+// ===========================================================================
+
+describe('renderDynamicCharts', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('renders charts into the chart grid', () => {
+		renderDynamicCharts(makeTestResults());
+		const grid = document.getElementById('chart-grid')!;
+		expect(grid.children.length).toBeGreaterThan(0);
+	});
+});
+
+// ===========================================================================
+// loadHistoricalSweep additional branches
+// ===========================================================================
+
+describe('loadHistoricalSweep branches', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('loads sweep with saved charts', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-charts',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults(),
+					charts: JSON.stringify([
+						{
+							id: 'c1',
+							title: 'Saved',
+							type: 'bar',
+							x_metric: '_combo',
+							y_metric: 'overall_accept_mean',
+							order: 0
+						}
+					])
+				})
+		});
+		loadHistoricalSweep('sw-charts');
+		await flushPromises();
+		expect(document.getElementById('results-body')!.children.length).toBeGreaterThan(0);
+	});
+
+	it('loads sweep with recommendation and round_results', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-rec',
+					mode: 'auto',
+					status: 'complete',
+					results: makeTestResults(),
+					recommendation: JSON.stringify({ noise_relative: 0.05 }),
+					round_results: JSON.stringify([{ round: 1, best: { noise_relative: 0.05 } }])
+				})
+		});
+		loadHistoricalSweep('sw-rec');
+		await flushPromises();
+		expect(document.getElementById('recommendation-card')!.style.display).not.toBe('none');
+	});
+
+	it('handles sweep with empty charts array', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-empty-charts',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults(),
+					charts: '[]'
+				})
+		});
+		loadHistoricalSweep('sw-empty-charts');
+		await flushPromises();
+		expect(document.getElementById('results-body')!.children.length).toBeGreaterThan(0);
+	});
+
+	it('handles sweep with invalid charts JSON', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-bad-charts',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults(),
+					charts: 'not-json'
+				})
+		});
+		loadHistoricalSweep('sw-bad-charts');
+		await flushPromises();
+		// Should not throw; falls back to empty charts
+		expect(document.getElementById('results-body')!.children.length).toBeGreaterThan(0);
+	});
+
+	it('handles sweep with no results', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-no-results',
+					mode: 'sweep',
+					status: 'running'
+				})
+		});
+		loadHistoricalSweep('sw-no-results');
+		await flushPromises();
+		// Should not throw
+		expect(document.getElementById('status-badge')!.textContent).toBe('running');
+	});
+
+	it('handles fetch error', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: false
+		});
+		loadHistoricalSweep('sw-error');
+		await flushPromises();
+		expect(document.getElementById('error-box')!.textContent).toContain('Failed to load sweep');
+	});
+
+	it('onSweepHistorySelected loads sweep for non-empty value', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-hist',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults()
+				})
+		});
+		const sel = document.getElementById('sweep-history-select') as HTMLSelectElement;
+		const opt = document.createElement('option');
+		opt.value = 'sw-hist';
+		opt.textContent = 'Test';
+		sel.appendChild(opt);
+		sel.value = 'sw-hist';
+		onSweepHistorySelected();
+		await flushPromises();
+		expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('sw-hist'));
 	});
 });
 

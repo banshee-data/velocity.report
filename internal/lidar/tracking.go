@@ -147,6 +147,12 @@ type TrackedObject struct {
 	// Measures frame-to-frame OBB heading instability (spinning bounding boxes).
 	HeadingJitterSumSq float64 // Running sum of squared heading deltas (radians²)
 	HeadingJitterCount int     // Number of heading delta samples
+
+	// Speed Jitter Metrics
+	// Measures frame-to-frame Kalman speed instability (m/s).
+	SpeedJitterSumSq float64 // Running sum of squared speed deltas ((m/s)²)
+	SpeedJitterCount int     // Number of speed delta samples
+	PrevSpeedMps     float32 // Previous frame speed for delta computation
 }
 
 // TrackingMetrics holds aggregate tracking quality metrics across all active tracks.
@@ -166,6 +172,8 @@ type TrackingMetrics struct {
 	MisalignmentRatio float32 `json:"misalignment_ratio"`
 	// Heading jitter: RMS of frame-to-frame OBB heading changes (degrees)
 	HeadingJitterDeg float32 `json:"heading_jitter_deg"`
+	// Speed jitter: RMS of frame-to-frame Kalman speed changes (m/s)
+	SpeedJitterMps float32 `json:"speed_jitter_mps"`
 	// Track fragmentation: fraction of created tracks that never confirmed [0, 1]
 	FragmentationRatio float32 `json:"fragmentation_ratio"`
 	// Total tracks created and confirmed since last reset
@@ -713,6 +721,14 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		track.PeakSpeedMps = speed
 	}
 
+	// Speed jitter: measure frame-to-frame speed change
+	if track.ObservationCount > 1 {
+		speedDelta := float64(speed - track.PrevSpeedMps)
+		track.SpeedJitterSumSq += speedDelta * speedDelta
+		track.SpeedJitterCount++
+	}
+	track.PrevSpeedMps = speed
+
 	// Append to history
 	// Skip points too close to origin (noise/self-reflection)
 	distFromOrigin := track.X*track.X + track.Y*track.Y
@@ -1117,6 +1133,8 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	var totalMisaligned int
 	var totalJitterSumSq float64
 	var totalJitterCount int
+	var totalSpeedJitterSumSq float64
+	var totalSpeedJitterCount int
 
 	for _, track := range t.Tracks {
 		if track.State == TrackDeleted {
@@ -1127,6 +1145,10 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 		// Accumulate heading jitter across all active tracks
 		totalJitterSumSq += track.HeadingJitterSumSq
 		totalJitterCount += track.HeadingJitterCount
+
+		// Accumulate speed jitter across all active tracks
+		totalSpeedJitterSumSq += track.SpeedJitterSumSq
+		totalSpeedJitterCount += track.SpeedJitterCount
 
 		if track.AlignmentSampleCount == 0 {
 			continue
@@ -1166,6 +1188,11 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	if totalJitterCount > 0 {
 		rmsRad := math.Sqrt(totalJitterSumSq / float64(totalJitterCount))
 		metrics.HeadingJitterDeg = float32(rmsRad * 180 / math.Pi)
+	}
+
+	// Speed jitter: RMS of frame-to-frame speed changes (m/s)
+	if totalSpeedJitterCount > 0 {
+		metrics.SpeedJitterMps = float32(math.Sqrt(totalSpeedJitterSumSq / float64(totalSpeedJitterCount)))
 	}
 
 	// Fragmentation: fraction of created tracks that never confirmed

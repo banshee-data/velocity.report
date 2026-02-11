@@ -61,6 +61,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     @Published var selectedTrackID: String?
     @Published var showLabelPanel: Bool = false
+    @Published var showSidePanel: Bool = false
 
     // MARK: - Frame Data
 
@@ -102,6 +103,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     private var lastFrameTime: Date = Date()
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
+    private let runTrackLabelClient = RunTrackLabelAPIClient()  // Phase 4.2: Run-track labels
+
+    // MARK: - Run State (Phase 4.1)
+
+    @Published var currentRunID: String?  // Current run being replayed
+    @Published var showRunBrowser: Bool = false  // Show run browser sheet
 
     // MARK: - Initialisation
 
@@ -356,7 +363,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func selectTrack(_ trackID: String?) {
         selectedTrackID = trackID
         renderer?.selectedTrackID = trackID
-        if trackID != nil { showLabelPanel = true }
+        if trackID != nil {
+            showLabelPanel = true
+            showSidePanel = true
+        }
     }
 
     func assignLabel(_ label: String) {
@@ -365,11 +375,50 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         Task {
             do {
-                _ = try await labelClient.createLabel(
-                    trackID: trackID, classLabel: label, startTimestampNs: currentTimestamp)
-                logger.info("Label '\(label)' saved for track \(trackID)")
+                // Phase 4.3: Use run-track label API when in run replay mode
+                if let runID = currentRunID {
+                    _ = try await runTrackLabelClient.updateLabel(
+                        runID: runID, trackID: trackID, userLabel: label)
+                    logger.info(
+                        "Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
+                } else {
+                    // Fallback to free-form label API for live mode
+                    _ = try await labelClient.createLabel(
+                        trackID: trackID, classLabel: label, startTimestampNs: currentTimestamp)
+                    logger.info("Label '\(label)' saved for track \(trackID)")
+                }
             } catch { logger.error("Failed to save label: \(error.localizedDescription)") }
         }
+    }
+
+    /// Assign quality rating to the selected track (Phase 4.2).
+    func assignQuality(_ quality: String) {
+        guard let trackID = selectedTrackID, let runID = currentRunID else { return }
+        logger.info("Assigning quality '\(quality)' to track \(trackID)")
+
+        Task {
+            do {
+                _ = try await runTrackLabelClient.updateLabel(
+                    runID: runID, trackID: trackID, qualityLabel: quality)
+                logger.info("Quality '\(quality)' saved for track \(trackID)")
+            } catch { logger.error("Failed to save quality: \(error.localizedDescription)") }
+        }
+    }
+
+    /// Mark track as split (Phase 4.2).
+    /// Note: split/merge flags require additional API support in the backend.
+    func markAsSplit(_ isSplit: Bool) {
+        guard let trackID = selectedTrackID, let _ = currentRunID else { return }
+        logger.info("Marking track \(trackID) as split=\(isSplit) (requires backend support)")
+        // TODO: Add split flag support to backend API when needed
+    }
+
+    /// Mark track as merge (Phase 4.2).
+    /// Note: split/merge flags require additional API support in the backend.
+    func markAsMerge(_ isMerge: Bool) {
+        guard let trackID = selectedTrackID, let _ = currentRunID else { return }
+        logger.info("Marking track \(trackID) as merge=\(isMerge) (requires backend support)")
+        // TODO: Add merge flag support to backend API when needed
     }
 
     func exportLabels() {
@@ -423,7 +472,48 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     // MARK: - Frame Handling
 
     func onFrameReceived(_ frame: FrameBundle) {
+        // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
+
+        // Forward frame directly to renderer (bypasses SwiftUI)
+        renderer?.updateFrame(frame)
+        renderer?.showClusters = showClusters  // M4: Update cluster toggle
+        renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
+        renderer?.showGating = showGating  // M6: Gating ellipses
+        renderer?.showAssociation = showAssociation  // M6: Association lines
+        renderer?.showResiduals = showResiduals  // M6: Residual vectors
+        renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
+
+        // Pre-compute values for deferred UI update
+        let now = Date()
+        let deltaTime = now.timeIntervalSince(lastFrameTime)
+        lastFrameTime = now
+        let instantFPS = deltaTime > 0 ? 1.0 / deltaTime : 0
+        let newCacheStatus = renderer?.getCacheStatus() ?? ""
+
+        let newLabels: [MetalRenderer.TrackScreenLabel]
+        if showTrackLabels, let r = renderer, metalViewSize.width > 0 {
+            newLabels = r.projectTrackLabels(viewSize: metalViewSize)
+        } else {
+            newLabels = []
+        }
+
+        // Defer @Published state mutations to the next run loop iteration
+        // to avoid SwiftUI AttributeGraph cycles during view updates.
+        Task { [weak self] in
+            guard let self else { return }
+            self.applyFrameStateUpdate(
+                frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
+                newLabels: newLabels)
+        }
+    }
+
+    /// Applies @Published state mutations from a received frame.
+    /// Called from a deferred Task to avoid AttributeGraph cycles.
+    private func applyFrameStateUpdate(
+        frame: FrameBundle, instantFPS: Double, newCacheStatus: String,
+        newLabels: [MetalRenderer.TrackScreenLabel]
+    ) {
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1
@@ -452,15 +542,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             }
         }
 
-        // Calculate FPS using exponential moving average
-        let now = Date()
-        let deltaTime = now.timeIntervalSince(lastFrameTime)
-        if deltaTime > 0 {
-            let instantFPS = 1.0 / deltaTime
-            // Exponential moving average with alpha=0.2 for smoothing
-            fps = fps == 0 ? instantFPS : (0.2 * instantFPS + 0.8 * fps)
-        }
-        lastFrameTime = now
+        // Apply pre-computed FPS
+        fps = fps == 0 ? instantFPS : (0.2 * instantFPS + 0.8 * fps)
 
         // Update stats
         pointCount = frame.pointCloud?.pointCount ?? 0
@@ -468,23 +551,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         trackCount = frame.tracks?.tracks.count ?? 0
 
         // M3.5: Update cache status
-        cacheStatus = renderer?.getCacheStatus() ?? ""
-
-        // Forward frame directly to renderer (bypasses SwiftUI)
-        renderer?.updateFrame(frame)
-        renderer?.showClusters = showClusters  // M4: Update cluster toggle
-        renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
-        renderer?.showGating = showGating  // M6: Gating ellipses
-        renderer?.showAssociation = showAssociation  // M6: Association lines
-        renderer?.showResiduals = showResiduals  // M6: Residual vectors
-        renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
+        cacheStatus = newCacheStatus
 
         // Update track label overlay positions
-        if showTrackLabels, let r = renderer, metalViewSize.width > 0 {
-            trackLabels = r.projectTrackLabels(viewSize: metalViewSize)
-        } else {
-            trackLabels = []
-        }
+        trackLabels = newLabels
 
         // Log every 100 frames to show activity
         if frameCount % 100 == 1 {

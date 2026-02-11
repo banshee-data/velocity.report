@@ -2334,5 +2334,112 @@ describe('api', () => {
 				);
 			});
 		});
+
+		describe('listSweeps', () => {
+			it('should list sweeps for a sensor', async () => {
+				const mockSweeps = [{ sweep_id: 'sw-1', mode: 'auto', status: 'complete' }];
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockSweeps
+				});
+				const { listSweeps } = await import('./api');
+				const result = await listSweeps('sensor-01');
+				expect(global.fetch).toHaveBeenCalledWith(
+					expect.objectContaining({
+						href: expect.stringContaining('/api/lidar/sweeps')
+					})
+				);
+				expect(result).toEqual(mockSweeps);
+			});
+
+			it('should pass custom limit', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => []
+				});
+				const { listSweeps } = await import('./api');
+				await listSweeps('sensor-01', 50);
+				const calledUrl = (global.fetch as jest.Mock).mock.calls[0][0];
+				expect(calledUrl.toString()).toContain('limit=50');
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { listSweeps } = await import('./api');
+				await expect(listSweeps('sensor-01')).rejects.toThrow('Failed to list sweeps: 500');
+			});
+		});
+
+		describe('getSweep', () => {
+			it('should get a single sweep', async () => {
+				const mockSweep = { sweep_id: 'sw-1', mode: 'auto', status: 'complete' };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockSweep
+				});
+				const { getSweep } = await import('./api');
+				const result = await getSweep('sw-1');
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweeps/sw-1');
+				expect(result).toEqual(mockSweep);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getSweep } = await import('./api');
+				await expect(getSweep('sw-1')).rejects.toThrow('Failed to get sweep: 404');
+			});
+		});
+
+		describe('getLidarParams', () => {
+			it('should get current params', async () => {
+				const mockParams = { noise_relative: 0.05 };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockParams
+				});
+				const { getLidarParams } = await import('./api');
+				const result = await getLidarParams('sensor-01');
+				expect(global.fetch).toHaveBeenCalledWith(
+					expect.objectContaining({
+						href: expect.stringContaining('/api/lidar/params')
+					})
+				);
+				expect(result).toEqual(mockParams);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getLidarParams } = await import('./api');
+				await expect(getLidarParams('sensor-01')).rejects.toThrow('Failed to get params: 500');
+			});
+		});
+
+		describe('applyLidarParams', () => {
+			it('should apply params via POST', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { applyLidarParams } = await import('./api');
+				await applyLidarParams('sensor-01', { noise_relative: 0.1 });
+				expect(global.fetch).toHaveBeenCalledWith(
+					expect.objectContaining({
+						href: expect.stringContaining('/api/lidar/params')
+					}),
+					expect.objectContaining({
+						method: 'POST',
+						body: JSON.stringify({ noise_relative: 0.1 })
+					})
+				);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					text: async () => 'Invalid params'
+				});
+				const { applyLidarParams } = await import('./api');
+				await expect(applyLidarParams('sensor-01', { bad: true })).rejects.toThrow(
+					'Failed to apply params: Invalid params'
+				);
+			});
+		});
 	});
 });

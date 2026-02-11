@@ -36,7 +36,10 @@ struct ContentView: View {
                     GeometryReader { geometry in
                         Color.clear.onAppear { appState.metalViewSize = geometry.size }.onChange(
                             of: geometry.size
-                        ) { appState.metalViewSize = $0 }
+                        ) { _, newSize in
+                            // Defer to next run loop to avoid AttributeGraph cycle
+                            Task { @MainActor in appState.metalViewSize = newSize }
+                        }
                     }.allowsHitTesting(false)
                 }.frame(minWidth: 400, minHeight: 300)
 
@@ -45,8 +48,8 @@ struct ContentView: View {
             }.frame(minWidth: 600)
 
             // Side panel
-            if appState.showLabelPanel || appState.selectedTrackID != nil {
-                SidePanelView().frame(width: 280)
+            if appState.showSidePanel || appState.selectedTrackID != nil {
+                SidePanelView().frame(width: 520)
             }
         }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
             .onKeyPress(.space) {
@@ -66,6 +69,9 @@ struct ContentView: View {
             }.onKeyPress("]") {
                 appState.increaseRate()
                 return .handled
+            }  // Run browser sheet (Phase 4.1)
+            .sheet(isPresented: $appState.showRunBrowser) {
+                RunBrowserView().environmentObject(appState)
             }
     }
 }
@@ -84,6 +90,19 @@ struct ToolbarView: View {
 
             // Connection status
             ConnectionStatusView()
+
+            // Run browser button (Phase 4.1)
+            if appState.isConnected {
+                Divider().frame(height: 20)
+                Button(action: { appState.showRunBrowser = true }) {
+                    Label("Runs", systemImage: "doc.text.magnifyingglass")
+                }.help("Browse analysis runs")
+
+                Divider().frame(height: 20)
+                Button(action: { appState.showSidePanel.toggle() }) {
+                    Label("Inspector", systemImage: "sidebar.trailing")
+                }.help("Toggle track inspector")
+            }
 
             Spacer()
 
@@ -386,28 +405,40 @@ struct SidePanelView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Track info
-                if let trackID = appState.selectedTrackID { TrackInspectorView(trackID: trackID) }
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Track info
+                    if let trackID = appState.selectedTrackID {
+                        TrackInspectorView(trackID: trackID)
+                    }
+
+                    Divider()
+
+                    // Label panel
+                    LabelPanelView()
+
+                    Divider()
+
+                    // Debug overlay toggles
+                    DebugOverlayTogglesView()
+
+                    Divider()
+
+                    // Export
+                    Button(action: { appState.exportLabels() }) {
+                        Label("Export Labels", systemImage: "square.and.arrow.up")
+                    }.disabled(!appState.isConnected)
+
+                    Spacer()
+                }.frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider()
 
-                // Label panel
-                LabelPanelView()
-
-                Divider()
-
-                // Debug overlay toggles
-                DebugOverlayTogglesView()
-
-                Divider()
-
-                // Export
-                Button(action: { appState.exportLabels() }) {
-                    Label("Export Labels", systemImage: "square.and.arrow.up")
-                }.disabled(!appState.isConnected)
-
-                Spacer()
+                VStack(alignment: .leading, spacing: 16) {
+                    // Track list for selecting tracks
+                    TrackListView()
+                    Spacer()
+                }.frame(width: 220, alignment: .leading)
             }.padding()
         }.background(Color(nsColor: .controlBackgroundColor))
     }
@@ -535,34 +566,279 @@ struct DetailRow: View {
     }
 }
 
+// MARK: - Track List
+
+/// Track list for selecting a track for labelling.
+/// In run mode: fetches ALL tracks from the run via the API (so prior tracks are visible).
+/// In live mode: shows tracks from the current frame.
+struct TrackListView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var isExpanded = true
+    @State private var runTracks: [RunTrack] = []
+    @State private var isFetchingRunTracks = false
+
+    /// Tracks visible in the current frame (live mode or as supplementary info).
+    private var frameTracks: [Track] {
+        guard let trackSet = appState.currentFrame?.tracks else { return [] }
+        return trackSet.tracks.sorted { $0.trackID < $1.trackID }
+    }
+
+    /// Track lookup for determining in-view state and colours.
+    private var frameTrackByID: [String: Track] {
+        Dictionary(uniqueKeysWithValues: frameTracks.map { ($0.trackID, $0) })
+    }
+
+    /// Whether we are in run replay mode.
+    private var isRunMode: Bool { appState.currentRunID != nil }
+
+    /// Display count for the header badge.
+    private var displayCount: Int { isRunMode ? runTracks.count : frameTracks.count }
+
+    /// Track IDs visible in the current frame (for run mode in-view indicator).
+    private var inViewTrackIDs: Set<String> { Set(frameTracks.map { $0.trackID }) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button(action: {
+                isExpanded.toggle()
+                if isExpanded && isRunMode && runTracks.isEmpty { fetchRunTracks() }
+            }) {
+                HStack {
+                    Label(
+                        "Track List",
+                        systemImage: isExpanded ? "list.bullet.circle.fill" : "list.bullet.circle")
+                    Spacer()
+                    if isFetchingRunTracks {
+                        ProgressView().controlSize(.mini)
+                    } else {
+                        Text("\(displayCount)").font(.caption).foregroundColor(.secondary)
+                    }
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }.buttonStyle(.plain)
+
+            if isExpanded {
+                if isRunMode {
+                    // Run mode: show all tracks from the analysis run
+                    runTrackListContent
+                } else {
+                    // Live mode: show tracks from the current frame
+                    frameTrackListContent
+                }
+            }
+        }.onChange(of: appState.currentRunID) { _, newRunID in
+            if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
+        }.onAppear { if isRunMode { fetchRunTracks() } }
+    }
+
+    // MARK: - Run Track List (API-fetched)
+
+    @ViewBuilder private var runTrackListContent: some View {
+        if runTracks.isEmpty && !isFetchingRunTracks {
+            Text("No tracks in run").font(.caption).foregroundColor(.secondary)
+        } else {
+            ForEach(runTracks, id: \.trackId) { track in
+                let frameTrack = frameTrackByID[track.trackId]
+                let isInView = frameTrack != nil
+                let statusColour =
+                    frameTrack.map { trackStateColour($0.state) } ?? Color.gray.opacity(0.5)
+                Button(action: { appState.selectTrack(track.trackId) }) {
+                    HStack(spacing: 6) {
+                        // Label status indicator
+                        Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
+                            width: 8, height: 8)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(track.trackId.truncated(12)).font(
+                                .system(.caption, design: .monospaced)
+                            ).lineLimit(1)
+                            HStack(spacing: 4) {
+                                if let speed = track.avgSpeedMps {
+                                    Text(String(format: "%.1f m/s", speed)).font(.caption2)
+                                }
+                                if let label = track.userLabel, !label.isEmpty {
+                                    Text(label).font(.caption2).foregroundColor(.orange)
+                                }
+                                if let quality = track.qualityLabel, !quality.isEmpty {
+                                    Text(quality).font(.caption2).foregroundColor(.cyan)
+                                }
+                            }.foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if track.trackId == appState.selectedTrackID {
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
+                                .font(.caption)
+                        }
+                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
+                        track.trackId == appState.selectedTrackID
+                            ? Color.accentColor.opacity(0.15) : Color.clear
+                    ).cornerRadius(4)
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Frame Track List (live mode)
+
+    @ViewBuilder private var frameTrackListContent: some View {
+        if frameTracks.isEmpty {
+            Text("No active tracks").font(.caption).foregroundColor(.secondary)
+        } else {
+            ForEach(frameTracks, id: \.trackID) { track in
+                Button(action: { appState.selectTrack(track.trackID) }) {
+                    HStack(spacing: 6) {
+                        Circle().fill(trackStateColour(track.state)).frame(width: 8, height: 8)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(track.trackID.truncated(12)).font(
+                                .system(.caption, design: .monospaced)
+                            ).lineLimit(1)
+                            HStack(spacing: 4) {
+                                Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
+                                if !track.classLabel.isEmpty {
+                                    Text(track.classLabel).font(.caption2).foregroundColor(.orange)
+                                }
+                            }.foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if track.trackID == appState.selectedTrackID {
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
+                                .font(.caption)
+                        }
+                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
+                        track.trackID == appState.selectedTrackID
+                            ? Color.accentColor.opacity(0.15) : Color.clear
+                    ).cornerRadius(4)
+                }.buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func fetchRunTracks() {
+        guard let runID = appState.currentRunID else { return }
+        isFetchingRunTracks = true
+        Task {
+            do {
+                let client = RunTrackLabelAPIClient()
+                let tracks = try await client.listTracks(runID: runID, limit: 500)
+                await MainActor.run {
+                    self.runTracks = tracks
+                    self.isFetchingRunTracks = false
+                }
+            } catch { await MainActor.run { self.isFetchingRunTracks = false } }
+        }
+    }
+
+    private func trackStateColour(_ state: TrackState) -> Color {
+        switch state {
+        case .unknown: return .gray
+        case .tentative: return .yellow
+        case .confirmed: return .green
+        case .deleted: return .red
+        }
+    }
+}
+
 // MARK: - Label Panel
 
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
-    let labels = ["pedestrian", "car", "cyclist", "bird", "other"]
+    // Canonical detection labels — must match Go validUserLabels and Svelte DetectionLabel
+    let userLabels = [
+        "good_vehicle", "good_pedestrian", "good_other", "noise", "noise_flora", "split", "merge",
+        "missed",
+    ]
+
+    // Canonical quality labels — must match Go validQualityLabels and Svelte QualityLabel
+    let qualityLabels = ["perfect", "good", "truncated", "noisy_velocity", "stopped_recovered"]
+
+    @State private var lastAssignedLabel: String?
+    @State private var lastAssignedQuality: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Label Track").font(.headline)
 
             if let trackID = appState.selectedTrackID {
-                Text("Track: \(trackID)").font(.caption).foregroundColor(.secondary)
+                Text("Track: \(trackID.truncated(12))").font(.caption).foregroundColor(.secondary)
 
-                ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
-                    Button(action: { appState.assignLabel(label) }) {
-                        HStack {
-                            Text("\(index + 1)").font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.secondary)
-                            Text(label)
-                            Spacer()
+                // Run context indicator (Phase 4.3)
+                if let runID = appState.currentRunID {
+                    Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
+                }
+
+                // Detection labels (user_label)
+                Text("Detection").font(.caption).foregroundColor(.secondary).padding(.top, 4)
+                ForEach(Array(userLabels.enumerated()), id: \.offset) { index, label in
+                    LabelButton(
+                        label: label, shortcut: index < 9 ? "\(index + 1)" : nil,
+                        isActive: lastAssignedLabel == label
+                    ) {
+                        appState.assignLabel(label)
+                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = label }
+                    }
+                }
+
+                // Quality ratings (Phase 4.2 - only in run mode)
+                if appState.currentRunID != nil {
+                    Divider().padding(.vertical, 4)
+                    Text("Quality").font(.caption).foregroundColor(.secondary)
+                    ForEach(qualityLabels, id: \.self) { quality in
+                        LabelButton(
+                            label: quality, shortcut: nil, isActive: lastAssignedQuality == quality
+                        ) {
+                            appState.assignQuality(quality)
+                            withAnimation(.easeOut(duration: 0.3)) { lastAssignedQuality = quality }
                         }
-                    }.buttonStyle(.plain).padding(.vertical, 4)
+                    }
                 }
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
             }
+        }.onChange(of: appState.selectedTrackID) { _, _ in
+            // Reset feedback when track selection changes
+            lastAssignedLabel = nil
+            lastAssignedQuality = nil
         }
+    }
+}
+
+/// A styled label button with hover and selection feedback.
+struct LabelButton: View {
+    let label: String
+    let shortcut: String?
+    let isActive: Bool
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                if let shortcut {
+                    Text(shortcut).font(.system(.caption, design: .monospaced)).foregroundColor(
+                        .secondary
+                    ).frame(width: 14, alignment: .trailing)
+                }
+                Text(displayName(label)).font(.callout)
+                Spacer()
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green).font(
+                        .caption)
+                }
+            }.padding(.vertical, 3).padding(.horizontal, 6).background(
+                isActive
+                    ? Color.accentColor.opacity(0.2)
+                    : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
+            ).cornerRadius(4)
+        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }
+    }
+
+    /// Convert snake_case label to a readable display name.
+    private func displayName(_ label: String) -> String {
+        label.replacingOccurrences(of: "_", with: " ")
     }
 }
 

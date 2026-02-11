@@ -16,6 +16,7 @@ CREATE TABLE lidar_analysis_runs (
         , parent_run_id TEXT
         , notes TEXT
         , statistics_json TEXT
+        , vrlog_path TEXT
           );
 
    CREATE TABLE lidar_bg_regions (

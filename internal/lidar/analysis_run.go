@@ -33,6 +33,7 @@ type AnalysisRun struct {
 	ErrorMessage     string          `json:"error_message,omitempty"`
 	ParentRunID      string          `json:"parent_run_id,omitempty"`
 	Notes            string          `json:"notes,omitempty"`
+	VRLogPath        string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
 }
 
 // RunParams captures all configurable parameters for reproducibility.
@@ -332,8 +333,8 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 			run_id, created_at, source_type, source_path, sensor_id,
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			status, error_message, parent_run_id, notes, vrlog_path
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	// Retry on SQLITE_BUSY errors
@@ -355,6 +356,7 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 			nullString(run.ErrorMessage),
 			nullString(run.ParentRunID),
 			nullString(run.Notes),
+			nullString(run.VRLogPath),
 		)
 		if err != nil {
 			return fmt.Errorf("insert analysis run: %w", err)
@@ -370,6 +372,18 @@ func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error
 		_, err := s.db.Exec(query, status, nullString(errorMsg), runID)
 		if err != nil {
 			return fmt.Errorf("update run status: %w", err)
+		}
+		return nil
+	})
+}
+
+// UpdateRunVRLogPath updates the vrlog_path of an analysis run.
+func (s *AnalysisRunStore) UpdateRunVRLogPath(runID, vrlogPath string) error {
+	query := `UPDATE lidar_analysis_runs SET vrlog_path = ? WHERE run_id = ?`
+	return retryOnBusy(func() error {
+		_, err := s.db.Exec(query, nullString(vrlogPath), runID)
+		if err != nil {
+			return fmt.Errorf("update run vrlog path: %w", err)
 		}
 		return nil
 	})
@@ -413,14 +427,14 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		SELECT run_id, created_at, source_type, source_path, sensor_id,
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes
+			status, error_message, parent_run_id, notes, vrlog_path
 		FROM lidar_analysis_runs
 		WHERE run_id = ?
 	`
 
 	var run AnalysisRun
 	var createdAt int64
-	var sourcePath, errorMessage, parentRunID, notes sql.NullString
+	var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
 	var paramsJSON string
 
 	err := s.db.QueryRow(query, runID).Scan(
@@ -440,6 +454,7 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		&errorMessage,
 		&parentRunID,
 		&notes,
+		&vrlogPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get run: %w", err)
@@ -459,6 +474,9 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 	if notes.Valid {
 		run.Notes = notes.String
 	}
+	if vrlogPath.Valid {
+		run.VRLogPath = vrlogPath.String
+	}
 
 	return &run, nil
 }
@@ -469,7 +487,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 		SELECT run_id, created_at, source_type, source_path, sensor_id,
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes
+			status, error_message, parent_run_id, notes, vrlog_path
 		FROM lidar_analysis_runs
 		ORDER BY created_at DESC
 		LIMIT ?
@@ -485,7 +503,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 	for rows.Next() {
 		var run AnalysisRun
 		var createdAt int64
-		var sourcePath, errorMessage, parentRunID, notes sql.NullString
+		var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
 		var paramsJSON string
 
 		err := rows.Scan(
@@ -505,6 +523,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 			&errorMessage,
 			&parentRunID,
 			&notes,
+			&vrlogPath,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan run: %w", err)
@@ -523,6 +542,9 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 		}
 		if notes.Valid {
 			run.Notes = notes.String
+		}
+		if vrlogPath.Valid {
+			run.VRLogPath = vrlogPath.String
 		}
 
 		runs = append(runs, &run)

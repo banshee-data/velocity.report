@@ -119,6 +119,9 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			if v, ok := trackMetrics["heading_jitter_deg"]; ok {
 				result.HeadingJitterDeg = toFloat64FromMap(v)
 			}
+			if v, ok := trackMetrics["speed_jitter_mps"]; ok {
+				result.SpeedJitterMps = toFloat64FromMap(v)
+			}
 			if v, ok := trackMetrics["fragmentation_ratio"]; ok {
 				result.FragmentationRatio = toFloat64FromMap(v)
 			}

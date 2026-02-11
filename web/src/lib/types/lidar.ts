@@ -280,3 +280,32 @@ export interface MissedRegion {
 	labeled_at?: number;
 	notes?: string;
 }
+
+/** Lightweight sweep record for list views (no large JSON blobs). */
+export interface SweepSummary {
+	id: number;
+	sweep_id: string;
+	sensor_id: string;
+	mode: string;
+	status: string;
+	error?: string;
+	started_at: string;
+	completed_at?: string;
+}
+
+/** Full sweep record including results, recommendation, charts, and round results. */
+export interface SweepRecord {
+	id: number;
+	sweep_id: string;
+	sensor_id: string;
+	mode: string;
+	status: string;
+	request?: Record<string, unknown>;
+	results?: Record<string, unknown>[];
+	charts?: Record<string, unknown>[];
+	recommendation?: Record<string, unknown>;
+	round_results?: Record<string, unknown>[];
+	error?: string;
+	started_at: string;
+	completed_at?: string;
+}

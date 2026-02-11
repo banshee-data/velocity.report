@@ -181,7 +181,7 @@ import XCTest
         await fulfillment(of: [expectation], timeout: 6.0)
     }
 
-    func testOnFrameReceived() throws {
+    func testOnFrameReceived() async throws {
         let state = AppState()
 
         var frame = FrameBundle()
@@ -205,6 +205,7 @@ import XCTest
             tracks: [Track(trackID: "track-001", state: .confirmed)], trails: [])
 
         state.onFrameReceived(frame)
+        await Task.yield()
 
         XCTAssertEqual(state.currentFrameID, 42)
         XCTAssertEqual(state.currentTimestamp, 1_000_000_000)
@@ -215,7 +216,7 @@ import XCTest
         XCTAssertEqual(state.currentFrame?.frameID, 42)
     }
 
-    func testOnFrameReceivedUpdatesReplayProgress() throws {
+    func testOnFrameReceivedUpdatesReplayProgress() async throws {
         let state = AppState()
         state.isLive = false
         state.logStartTimestamp = 1_000_000_000
@@ -226,11 +227,12 @@ import XCTest
         frame.timestampNanos = 1_500_000_000  // Midpoint
 
         state.onFrameReceived(frame)
+        await Task.yield()
 
         XCTAssertEqual(state.replayProgress, 0.5)
     }
 
-    func testMultipleFramesIncrementCount() throws {
+    func testMultipleFramesIncrementCount() async throws {
         let state = AppState()
 
         for i in 1...10 {
@@ -238,6 +240,7 @@ import XCTest
             frame.frameID = UInt64(i)
             frame.timestampNanos = Int64(i) * 100_000_000
             state.onFrameReceived(frame)
+            await Task.yield()
         }
 
         XCTAssertEqual(state.frameCount, 10)
@@ -491,7 +494,7 @@ import XCTest
 
 @available(macOS 15.0, *) @MainActor final class FrameProcessingTests: XCTestCase {
 
-    func testPlaybackInfoUpdatesFromFrame() throws {
+    func testPlaybackInfoUpdatesFromFrame() async throws {
         let state = AppState()
         state.isLive = true
 
@@ -503,6 +506,7 @@ import XCTest
             paused: false, currentFrameIndex: 50, totalFrames: 500)
 
         state.onFrameReceived(frame)
+        await Task.yield()
 
         XCTAssertFalse(state.isLive)
         XCTAssertEqual(state.logStartTimestamp, 1_000_000_000)
@@ -512,18 +516,19 @@ import XCTest
         XCTAssertEqual(state.totalFrames, 500)
     }
 
-    func testFrameReceivingClearsReplayFinished() throws {
+    func testFrameReceivingClearsReplayFinished() async throws {
         let state = AppState()
         state.replayFinished = true
 
         var frame = FrameBundle()
         frame.frameID = 1
         state.onFrameReceived(frame)
+        await Task.yield()
 
         XCTAssertFalse(state.replayFinished)
     }
 
-    func testFPSCalculation() throws {
+    func testFPSCalculation() async throws {
         let state = AppState()
         XCTAssertEqual(state.fps, 0.0)
 
@@ -532,6 +537,7 @@ import XCTest
             var frame = FrameBundle()
             frame.frameID = UInt64(i)
             state.onFrameReceived(frame)
+            await Task.yield()
         }
 
         // FPS should be calculated (non-zero after multiple frames)
@@ -539,7 +545,7 @@ import XCTest
         XCTAssertEqual(state.frameCount, 10)
     }
 
-    func testProgressCalculationInReplayMode() throws {
+    func testProgressCalculationInReplayMode() async throws {
         let state = AppState()
         state.isLive = false
         state.logStartTimestamp = 0
@@ -550,11 +556,12 @@ import XCTest
         frame.timestampNanos = 250_000_000  // 25% progress
 
         state.onFrameReceived(frame)
+        await Task.yield()
 
         XCTAssertEqual(state.replayProgress, 0.25, accuracy: 0.01)
     }
 
-    func testProgressNotUpdatedWhileSeeking() throws {
+    func testProgressNotUpdatedWhileSeeking() async throws {
         let state = AppState()
         state.isLive = false
         state.logStartTimestamp = 0
@@ -567,16 +574,18 @@ import XCTest
         frame.timestampNanos = 250_000_000  // Would be 25%
 
         state.onFrameReceived(frame)
+        await Task.yield()
 
         // Progress should NOT be updated while seeking
         XCTAssertEqual(state.replayProgress, 0.5)
     }
 
-    func testEmptyFrameHandling() throws {
+    func testEmptyFrameHandling() async throws {
         let state = AppState()
 
         let frame = FrameBundle()  // Empty frame
         state.onFrameReceived(frame)
+        await Task.yield()
 
         XCTAssertEqual(state.pointCount, 0)
         XCTAssertEqual(state.clusterCount, 0)

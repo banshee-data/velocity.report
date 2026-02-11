@@ -18,6 +18,7 @@ type ObjectiveWeights struct {
 	EmptyBoxes        float64 `json:"empty_boxes"`        // Negative = minimise empty box ratio
 	Fragmentation     float64 `json:"fragmentation"`      // Negative = minimise fragmentation ratio
 	HeadingJitter     float64 `json:"heading_jitter"`     // Negative = minimise heading jitter
+	SpeedJitter       float64 `json:"speed_jitter"`       // Negative = minimise speed jitter
 }
 
 // DefaultObjectiveWeights returns default weights for multi-objective scoring.
@@ -67,6 +68,9 @@ func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 
 	// Heading jitter degrees (lower is better, so weight is typically negative)
 	score += weights.HeadingJitter * result.HeadingJitterDegMean
+
+	// Speed jitter m/s (lower is better, so weight is typically negative)
+	score += weights.SpeedJitter * result.SpeedJitterMpsMean
 
 	return score
 }

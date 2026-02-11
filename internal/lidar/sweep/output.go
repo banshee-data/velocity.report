@@ -23,6 +23,7 @@ type SampleResult struct {
 	MeanAlignmentDeg   float64
 	MisalignmentRatio  float64
 	HeadingJitterDeg   float64
+	SpeedJitterMps     float64
 	FragmentationRatio float64
 	TracksCreated      int
 	TracksConfirmed    int

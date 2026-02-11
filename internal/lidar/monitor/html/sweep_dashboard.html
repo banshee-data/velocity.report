@@ -304,6 +304,27 @@
         </div>
         <div id="current-params-display">Loading...</div>
       </div>
+
+      <!-- Card 5: Paste & Apply Params -->
+      <div class="card">
+        <h2>Paste &amp; Apply Params</h2>
+        <small class="field-desc" style="display: block; margin-bottom: 8px">
+          Paste a JSON object of tuning parameters (e.g. from a sweep recommendation or
+          another source) and apply directly to the system. Only recognised parameter keys
+          are sent; metric keys are filtered out automatically.
+        </small>
+        <textarea id="paste-params-json" rows="8" style="width: 100%; font-family: monospace; font-size: 0.85em; resize: vertical"
+          placeholder='{"foreground_dbscan_eps": 0.3, "measurement_noise": 0.9, ...}'></textarea>
+        <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
+          <button class="btn-sm btn-add" id="btn-paste-apply" onclick="applyPastedParams()">
+            Apply to System
+          </button>
+          <button class="btn-sm btn-secondary" onclick="loadCurrentIntoEditor()">
+            Load Current
+          </button>
+          <span id="paste-apply-status" style="font-size: 0.85em; color: var(--fg-muted)"></span>
+        </div>
+      </div>
     </div>
     <!-- End other-config-section -->
   </div>
