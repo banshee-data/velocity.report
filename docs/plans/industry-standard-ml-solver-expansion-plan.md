@@ -89,7 +89,7 @@ Another key pattern is a transform layer that is separate from the model/scorer.
 Introduce a **Sweep Transform Pipeline** before scoring:
 
 - Raw run metrics → transformed features.
-- Optional transforms: normalization, clipping, logarithmic scaling, class weighting, round-dependent modifiers.
+- Optional transforms: normalisation, clipping, logarithmic scaling, class weighting, round-dependent modifiers.
 - Output feeds objective/scorer.
 
 Benefits:
