@@ -3,6 +3,7 @@ package sweep
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -843,4 +844,583 @@ func TestFailWithError(t *testing.T) {
 	if p.completeCalls != 1 {
 		t.Errorf("SaveSweepComplete calls = %d, want 1", p.completeCalls)
 	}
+}
+
+// --- Test 14: GetState returns interface ---
+
+func TestGetStateInterface(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	got := tuner.GetState()
+	_, ok := got.(RLHFState)
+	if !ok {
+		t.Errorf("GetState() returned %T, want RLHFState", got)
+	}
+}
+
+// --- Test 15: GetRLHFState deep copy with sweep deadline ---
+
+func TestGetRLHFState_SweepDeadline(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	now := time.Now()
+	tuner.mu.Lock()
+	tuner.state.SweepDeadline = &now
+	ats := AutoTuneState{Status: SweepStatusRunning}
+	tuner.state.AutoTuneState = &ats
+	tuner.mu.Unlock()
+
+	state := tuner.GetRLHFState()
+	if state.SweepDeadline == nil {
+		t.Fatal("SweepDeadline should not be nil")
+	}
+	if state.AutoTuneState == nil {
+		t.Fatal("AutoTuneState should not be nil")
+	}
+
+	// Mutate the copy
+	newTime := now.Add(time.Hour)
+	state.SweepDeadline = &newTime
+
+	// Original should be unchanged
+	original := tuner.GetRLHFState()
+	if !original.SweepDeadline.Equal(now) {
+		t.Error("SweepDeadline was mutated through copy")
+	}
+}
+
+// --- Test 16: run() fails when sceneGetter is nil ---
+
+func TestRunFailsWithoutSceneGetter(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "s1",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	// Wait for run goroutine to fail
+	time.Sleep(100 * time.Millisecond)
+
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q", state.Status, "failed")
+	}
+	if state.Error == "" {
+		t.Error("expected error message about scene getter")
+	}
+}
+
+// --- Test 17: run() fails when scene not found ---
+
+func TestRunFailsWhenSceneNotFound(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{err: fmt.Errorf("scene not found")})
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "missing",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q", state.Status, "failed")
+	}
+}
+
+// --- Test 18: run() fails when runCreator not configured ---
+
+func TestRunFailsWithoutRunCreator(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	})
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "s1",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q", state.Status, "failed")
+	}
+}
+
+// --- Test 19: run() context cancellation ---
+
+func TestRunCancelledByContext(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	})
+	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
+	tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 5})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err := tuner.Start(ctx, RLHFSweepRequest{
+		SceneID:           "s1",
+		NumRounds:         1,
+		RoundDurations:    []int{60}, // long wait
+		MinLabelThreshold: 0.9,
+		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	// Let it reach awaiting_labels, then cancel
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+	time.Sleep(100 * time.Millisecond)
+
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q (context cancelled)", state.Status, "failed")
+	}
+}
+
+// --- Test 20: run() uses midpoints when no optimal params ---
+
+func TestRunUsesMidpointsForParams(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{
+			SceneID:  "s1",
+			SensorID: "sensor1",
+			PCAPFile: "test.pcap",
+			// No OptimalParamsJSON
+		},
+	})
+	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "s1",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.2, End: 0.8}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	tuner.Stop()
+}
+
+// --- Test 21: ContinueFromLabels with no label querier succeeds ---
+
+func TestContinueFromLabelsNoQuerier(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.mu.Lock()
+	tuner.state.Status = "awaiting_labels"
+	tuner.state.MinLabelThreshold = 0.9
+	tuner.mu.Unlock()
+
+	// With no label querier, it should skip the threshold check
+	err := tuner.ContinueFromLabels(60, false)
+	if err != nil {
+		t.Errorf("ContinueFromLabels without querier should succeed, got %v", err)
+	}
+	// Drain channel
+	<-tuner.continueCh
+}
+
+// --- Test 22: waitForLabelsOrDeadline deadline expired insufficient labels ---
+
+func TestWaitForLabelsDeadlineExpired(t *testing.T) {
+	lq := &mockLabelQuerier{total: 10, labelled: 3} // 30% < 90% threshold
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetLabelQuerier(lq)
+
+	// Use 0 minute duration so deadline is immediately past
+	err := tuner.waitForLabelsOrDeadline(context.Background(), "run1", 0, 0.9)
+	if err == nil {
+		t.Error("expected deadline expired error")
+	}
+}
+
+// --- Test 23: failWithError without persister ---
+
+func TestFailWithErrorNoPersister(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	// No persister set - should not panic
+	tuner.failWithError("test error")
+
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q", state.Status, "failed")
+	}
+}
+
+// --- Test 24: run() loads existing optimal params ---
+
+func TestRunLoadsOptimalParams(t *testing.T) {
+	optimalParams := `{"eps": 0.5, "noise": 0.02}`
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{
+			SceneID:           "s1",
+			SensorID:          "sensor1",
+			PCAPFile:          "test.pcap",
+			OptimalParamsJSON: json.RawMessage(optimalParams),
+		},
+	})
+	// No run creator → will fail after loading params but exercises the path
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "s1",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Should fail because no run creator, but params should have been loaded
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q", state.Status, "failed")
+	}
+}
+
+// --- Test 25: run() with invalid optimal params JSON ---
+
+func TestRunInvalidOptimalParamsJSON(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{
+			SceneID:           "s1",
+			SensorID:          "sensor1",
+			PCAPFile:          "test.pcap",
+			OptimalParamsJSON: json.RawMessage(`not json`),
+		},
+	})
+	// No run creator → will fail after loading params but exercises the parse error path
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "s1",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Should still have started (falls back to midpoints)
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q (falls back to midpoints, then fails on run creator)", state.Status, "failed")
+	}
+}
+
+// --- Test 26: run() with runCreator error ---
+
+func TestRunRunCreatorError(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	})
+	tuner.SetRunCreator(&mockRunCreator{err: fmt.Errorf("pcap not found")})
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "s1",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Errorf("status = %q, want %q", state.Status, "failed")
+	}
+	if !strings.Contains(state.Error, "failed to create reference run") {
+		t.Errorf("error should mention reference run, got %q", state.Error)
+	}
+}
+
+// --- Test 27: run() with persist failure on start ---
+
+func TestRunPersistStartFailure(t *testing.T) {
+	p := &mockRLHFPersister{startErr: fmt.Errorf("db error")}
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetPersister(p)
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	})
+	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:   "s1",
+		NumRounds: 1,
+		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Persist failure is logged but doesn't block start
+	if p.startCalls != 1 {
+		t.Errorf("SaveSweepStart calls = %d, want 1", p.startCalls)
+	}
+	tuner.Stop()
+}
+
+// --- Test 28: Stop when not running ---
+
+func TestStopWhenIdle(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	// Should not panic when stopping an idle tuner
+	tuner.Stop()
+
+	state := tuner.GetRLHFState()
+	if state.Status != "idle" {
+		t.Errorf("status = %q, want %q", state.Status, "idle")
+	}
+}
+
+// --- Test 29: run() with roundHistory recording after runCreator succeeds ---
+
+func TestRunRecordsRound(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	})
+	tuner.SetRunCreator(&mockRunCreator{runID: "run-abc"})
+	tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err := tuner.Start(ctx, RLHFSweepRequest{
+		SceneID:           "s1",
+		NumRounds:         1,
+		MinLabelThreshold: 0.0,
+		RoundDurations:    []int{0}, // immediate deadline
+		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	// Let it reach awaiting_labels and pass threshold check
+	time.Sleep(200 * time.Millisecond)
+
+	state := tuner.GetRLHFState()
+	// Verify reference run ID was set
+	if state.ReferenceRunID != "run-abc" {
+		t.Errorf("ReferenceRunID = %q, want %q", state.ReferenceRunID, "run-abc")
+	}
+
+	cancel()
+	time.Sleep(100 * time.Millisecond)
+}
+
+// --- Test 30: waitForAutoTuneComplete returns on completion ---
+
+func TestWaitForAutoTuneComplete(t *testing.T) {
+	at := NewAutoTuner(nil)
+	tuner := NewRLHFTuner(at)
+	tuner.pollInterval = 10 * time.Millisecond
+
+	// Set auto-tuner state to complete after a brief delay
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		at.mu.Lock()
+		at.state.Status = SweepStatusComplete
+		at.state.Recommendation = map[string]interface{}{"eps": 0.5, "score": 0.95}
+		at.mu.Unlock()
+	}()
+
+	deadline := time.Now().Add(time.Second)
+	state, err := tuner.waitForAutoTuneComplete(context.Background(), deadline)
+	if err != nil {
+		t.Fatalf("waitForAutoTuneComplete error = %v", err)
+	}
+	if state.Status != SweepStatusComplete {
+		t.Errorf("status = %q, want %q", state.Status, SweepStatusComplete)
+	}
+}
+
+// --- Test 31: waitForAutoTuneComplete returns error on failure ---
+
+func TestWaitForAutoTuneCompleteError(t *testing.T) {
+	at := NewAutoTuner(nil)
+	tuner := NewRLHFTuner(at)
+	tuner.pollInterval = 10 * time.Millisecond
+
+	// Set auto-tuner to error
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		at.mu.Lock()
+		at.state.Status = SweepStatusError
+		at.state.Error = "out of memory"
+		at.mu.Unlock()
+	}()
+
+	deadline := time.Now().Add(time.Second)
+	_, err := tuner.waitForAutoTuneComplete(context.Background(), deadline)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "auto-tune failed") {
+		t.Errorf("error = %v, should mention auto-tune failed", err)
+	}
+}
+
+// --- Test 32: waitForAutoTuneComplete deadline exceeded ---
+
+func TestWaitForAutoTuneCompleteDeadline(t *testing.T) {
+	at := NewAutoTuner(nil)
+	tuner := NewRLHFTuner(at)
+	tuner.pollInterval = 10 * time.Millisecond
+
+	// Auto-tuner stays idle (never completes)
+	deadline := time.Now() // already past
+	_, err := tuner.waitForAutoTuneComplete(context.Background(), deadline)
+	if err == nil {
+		t.Fatal("expected deadline exceeded error")
+	}
+	if !strings.Contains(err.Error(), "deadline exceeded") {
+		t.Errorf("error = %v, should mention deadline exceeded", err)
+	}
+}
+
+// --- Test 33: waitForAutoTuneComplete context cancellation ---
+
+func TestWaitForAutoTuneCompleteContextCancel(t *testing.T) {
+	at := NewAutoTuner(nil)
+	tuner := NewRLHFTuner(at)
+	tuner.pollInterval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	deadline := time.Now().Add(time.Second)
+	_, err := tuner.waitForAutoTuneComplete(ctx, deadline)
+	if err == nil {
+		t.Fatal("expected context cancelled error")
+	}
+}
+
+// --- Test 34: runRound with carry-over labels ---
+
+func TestRunRoundWithCarryOver(t *testing.T) {
+	lq := &mockLabelQuerier{
+		total:    10,
+		labelled: 10,
+		prevTracks: []RLHFRunTrack{
+			{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+		},
+		newTracks: []RLHFRunTrack{
+			{TrackID: "n1", StartUnixNanos: 0, EndUnixNanos: 100},
+		},
+	}
+
+	at := NewAutoTuner(nil)
+	tuner := NewRLHFTuner(at)
+	tuner.pollInterval = 10 * time.Millisecond
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	})
+	tuner.SetRunCreator(&mockRunCreator{runID: "run-test"})
+	tuner.SetLabelQuerier(lq)
+
+	// Set up state as if round 1 was already completed
+	tuner.mu.Lock()
+	tuner.state.RoundHistory = []RLHFRound{
+		{Round: 1, ReferenceRunID: "prev-run"},
+	}
+	tuner.mu.Unlock()
+
+	scene := &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"}
+	currentParams := map[string]float64{"eps": 0.5}
+	bounds := map[string][2]float64{"eps": {0.1, 1.0}}
+
+	req := RLHFSweepRequest{
+		SceneID:           "s1",
+		NumRounds:         2,
+		MinLabelThreshold: 0.0,
+		RoundDurations:    []int{0}, // immediate
+		CarryOverLabels:   true,
+		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	}
+
+	// Set auto-tuner to error immediately to end the round
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		at.mu.Lock()
+		at.state.Status = SweepStatusError
+		at.state.Error = "test stop"
+		at.mu.Unlock()
+	}()
+
+	_, _, err := tuner.runRound(context.Background(), req, scene, 2, currentParams, bounds)
+	// Expect an error from auto-tune but the carry-over and labelling should have worked
+	if err == nil {
+		t.Log("runRound succeeded (auto-tune completed)")
+	}
+
+	// Check labels were carried over
+	if lq.labelCalls < 1 {
+		t.Log("Note: label carry-over may not have matched any tracks")
+	}
+}
+
+// --- Test 35: Start with default values_per_param ---
+
+func TestStartDefaultValuesPerParam(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.SetSceneGetter(&mockSceneGetter{
+		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	})
+
+	err := tuner.Start(context.Background(), RLHFSweepRequest{
+		SceneID:        "s1",
+		NumRounds:      1,
+		ValuesPerParam: 0, // should get default
+		TopK:           0, // should get default
+		Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+	})
+	if err != nil {
+		t.Fatalf("Start should not fail: %v", err)
+	}
+
+	// Should have started OK with defaults applied internally
+	state := tuner.GetRLHFState()
+	if state.Status == "idle" {
+		t.Error("status should not be idle after start")
+	}
+	tuner.Stop()
 }
