@@ -562,16 +562,14 @@ struct DetailRow: View {
 // MARK: - Track List
 
 /// Track list for selecting a track for labelling.
-/// Shows all confirmed and tentative tracks from the current frame.
+/// Shows all tracks from the current frame regardless of state.
 struct TrackListView: View {
     @EnvironmentObject var appState: AppState
     @State private var isExpanded = false
 
     private var tracks: [Track] {
         guard let trackSet = appState.currentFrame?.tracks else { return [] }
-        return trackSet.tracks.filter { $0.state == .confirmed || $0.state == .tentative }.sorted {
-            $0.trackID < $1.trackID
-        }
+        return trackSet.tracks.sorted { $0.trackID < $1.trackID }
     }
 
     var body: some View {
@@ -642,8 +640,17 @@ struct TrackListView: View {
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
-    let labels = ["pedestrian", "car", "cyclist", "bird", "other"]
-    let qualities = ["good", "acceptable", "poor", "unusable"]
+    // Canonical detection labels — must match Go validUserLabels and Svelte DetectionLabel
+    let userLabels = [
+        "good_vehicle", "good_pedestrian", "good_other", "noise", "noise_flora", "split", "merge",
+        "missed",
+    ]
+
+    // Canonical quality labels — must match Go validQualityLabels and Svelte QualityLabel
+    let qualityLabels = ["perfect", "good", "truncated", "noisy_velocity", "stopped_recovered"]
+
+    @State private var lastAssignedLabel: String?
+    @State private var lastAssignedQuality: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -657,48 +664,76 @@ struct LabelPanelView: View {
                     Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
                 }
 
-                // Class labels
-                Text("Class").font(.caption).foregroundColor(.secondary).padding(.top, 4)
-                ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
-                    Button(action: { appState.assignLabel(label) }) {
-                        HStack {
-                            Text("\(index + 1)").font(.system(.caption, design: .monospaced))
-                                .foregroundColor(.secondary)
-                            Text(label)
-                            Spacer()
-                        }
-                    }.buttonStyle(.plain).padding(.vertical, 2)
+                // Detection labels (user_label)
+                Text("Detection").font(.caption).foregroundColor(.secondary).padding(.top, 4)
+                ForEach(Array(userLabels.enumerated()), id: \.offset) { index, label in
+                    LabelButton(
+                        label: label, shortcut: index < 9 ? "\(index + 1)" : nil,
+                        isActive: lastAssignedLabel == label
+                    ) {
+                        appState.assignLabel(label)
+                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = label }
+                    }
                 }
 
                 // Quality ratings (Phase 4.2 - only in run mode)
                 if appState.currentRunID != nil {
                     Divider().padding(.vertical, 4)
                     Text("Quality").font(.caption).foregroundColor(.secondary)
-                    ForEach(qualities, id: \.self) { quality in
-                        Button(action: { appState.assignQuality(quality) }) {
-                            HStack {
-                                Text(quality)
-                                Spacer()
-                            }
-                        }.buttonStyle(.plain).padding(.vertical, 2)
+                    ForEach(qualityLabels, id: \.self) { quality in
+                        LabelButton(
+                            label: quality, shortcut: nil, isActive: lastAssignedQuality == quality
+                        ) {
+                            appState.assignQuality(quality)
+                            withAnimation(.easeOut(duration: 0.3)) { lastAssignedQuality = quality }
+                        }
                     }
-
-                    // Split/Merge flags (Phase 4.2)
-                    Divider().padding(.vertical, 4)
-                    Text("Track Issues").font(.caption).foregroundColor(.secondary)
-                    HStack {
-                        Button("Mark Split") { appState.markAsSplit(true) }.buttonStyle(.bordered)
-                            .controlSize(.small).disabled(true)
-                        Button("Mark Merge") { appState.markAsMerge(true) }.buttonStyle(.bordered)
-                            .controlSize(.small).disabled(true)
-                    }
-                    Text("Split/merge labelling not yet available in this build.").font(.caption2)
-                        .foregroundColor(.secondary)
                 }
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
             }
+        }.onChange(of: appState.selectedTrackID) { _, _ in
+            // Reset feedback when track selection changes
+            lastAssignedLabel = nil
+            lastAssignedQuality = nil
         }
+    }
+}
+
+/// A styled label button with hover and selection feedback.
+struct LabelButton: View {
+    let label: String
+    let shortcut: String?
+    let isActive: Bool
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                if let shortcut {
+                    Text(shortcut).font(.system(.caption, design: .monospaced)).foregroundColor(
+                        .secondary
+                    ).frame(width: 14, alignment: .trailing)
+                }
+                Text(displayName(label)).font(.callout)
+                Spacer()
+                if isActive {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green).font(
+                        .caption)
+                }
+            }.padding(.vertical, 3).padding(.horizontal, 6).background(
+                isActive
+                    ? Color.accentColor.opacity(0.2)
+                    : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
+            ).cornerRadius(4)
+        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }
+    }
+
+    /// Convert snake_case label to a readable display name.
+    private func displayName(_ label: String) -> String {
+        label.replacingOccurrences(of: "_", with: " ")
     }
 }
 

@@ -51,13 +51,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     /// Load a run for VRLOG replay.
     func loadRunForReplay(_ runID: String) async -> Bool {
-        guard let run = runs.first(where: { $0.runId == runID }) else {
+        guard runs.first(where: { $0.runId == runID }) != nil else {
             error = "Run not found"
-            return false
-        }
-
-        guard run.hasVRLog else {
-            error = "Run has no VRLOG available"
             return false
         }
 

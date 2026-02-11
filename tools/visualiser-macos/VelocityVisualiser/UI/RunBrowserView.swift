@@ -144,7 +144,7 @@ extension String {
 
             // Load button
             Button(action: onSelect) { Text(isSelected ? "Loaded" : "Load") }.buttonStyle(.bordered)
-                .disabled(!run.hasVRLog || isSelected)
+                .disabled(isSelected)
         }.padding(.vertical, 4).background(
             isSelected ? Color.accentColor.opacity(0.1) : Color.clear
         ).cornerRadius(4)
