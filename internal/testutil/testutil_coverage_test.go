@@ -15,6 +15,15 @@ func TestAssertStatusCode_Matching(t *testing.T) {
 	}
 }
 
+// TestAssertStatusCode_Mismatch exercises the error branch.
+func TestAssertStatusCode_Mismatch(t *testing.T) {
+	fakeT := &testing.T{}
+	AssertStatusCode(fakeT, http.StatusOK, http.StatusNotFound)
+	if !fakeT.Failed() {
+		t.Error("expected failure for mismatched status codes")
+	}
+}
+
 // TestAssertNoError_NilErr tests nil error path.
 func TestAssertNoError_NilErr(t *testing.T) {
 	fakeT := &testing.T{}
@@ -24,12 +33,40 @@ func TestAssertNoError_NilErr(t *testing.T) {
 	}
 }
 
+// TestAssertNoError_WithErr exercises the error branch (Fatalf path).
+func TestAssertNoError_WithErr(t *testing.T) {
+	fakeT := &testing.T{}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		AssertNoError(fakeT, errors.New("boom"))
+	}()
+	<-done
+	if !fakeT.Failed() {
+		t.Error("expected failure for non-nil error")
+	}
+}
+
 // TestAssertError_WithErr tests non-nil error path.
 func TestAssertError_WithErr(t *testing.T) {
 	fakeT := &testing.T{}
 	AssertError(fakeT, errors.New("something wrong"))
 	if fakeT.Failed() {
 		t.Error("expected no failure when error is present")
+	}
+}
+
+// TestAssertError_NilErr exercises the error branch (Fatal path).
+func TestAssertError_NilErr(t *testing.T) {
+	fakeT := &testing.T{}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		AssertError(fakeT, nil)
+	}()
+	<-done
+	if !fakeT.Failed() {
+		t.Error("expected failure for nil error")
 	}
 }
 
