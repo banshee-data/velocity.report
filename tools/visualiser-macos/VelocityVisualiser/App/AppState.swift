@@ -61,6 +61,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     @Published var selectedTrackID: String?
     @Published var showLabelPanel: Bool = false
+    @Published var showSidePanel: Bool = false
 
     // MARK: - Frame Data
 
@@ -362,7 +363,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func selectTrack(_ trackID: String?) {
         selectedTrackID = trackID
         renderer?.selectedTrackID = trackID
-        if trackID != nil { showLabelPanel = true }
+        if trackID != nil {
+            showLabelPanel = true
+            showSidePanel = true
+        }
     }
 
     func assignLabel(_ label: String) {
@@ -468,7 +472,48 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     // MARK: - Frame Handling
 
     func onFrameReceived(_ frame: FrameBundle) {
+        // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
+
+        // Forward frame directly to renderer (bypasses SwiftUI)
+        renderer?.updateFrame(frame)
+        renderer?.showClusters = showClusters  // M4: Update cluster toggle
+        renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
+        renderer?.showGating = showGating  // M6: Gating ellipses
+        renderer?.showAssociation = showAssociation  // M6: Association lines
+        renderer?.showResiduals = showResiduals  // M6: Residual vectors
+        renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
+
+        // Pre-compute values for deferred UI update
+        let now = Date()
+        let deltaTime = now.timeIntervalSince(lastFrameTime)
+        lastFrameTime = now
+        let instantFPS = deltaTime > 0 ? 1.0 / deltaTime : 0
+        let newCacheStatus = renderer?.getCacheStatus() ?? ""
+
+        let newLabels: [MetalRenderer.TrackScreenLabel]
+        if showTrackLabels, let r = renderer, metalViewSize.width > 0 {
+            newLabels = r.projectTrackLabels(viewSize: metalViewSize)
+        } else {
+            newLabels = []
+        }
+
+        // Defer @Published state mutations to the next run loop iteration
+        // to avoid SwiftUI AttributeGraph cycles during view updates.
+        Task { [weak self] in
+            guard let self else { return }
+            self.applyFrameStateUpdate(
+                frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
+                newLabels: newLabels)
+        }
+    }
+
+    /// Applies @Published state mutations from a received frame.
+    /// Called from a deferred Task to avoid AttributeGraph cycles.
+    private func applyFrameStateUpdate(
+        frame: FrameBundle, instantFPS: Double, newCacheStatus: String,
+        newLabels: [MetalRenderer.TrackScreenLabel]
+    ) {
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1
@@ -497,15 +542,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             }
         }
 
-        // Calculate FPS using exponential moving average
-        let now = Date()
-        let deltaTime = now.timeIntervalSince(lastFrameTime)
-        if deltaTime > 0 {
-            let instantFPS = 1.0 / deltaTime
-            // Exponential moving average with alpha=0.2 for smoothing
-            fps = fps == 0 ? instantFPS : (0.2 * instantFPS + 0.8 * fps)
-        }
-        lastFrameTime = now
+        // Apply pre-computed FPS
+        fps = fps == 0 ? instantFPS : (0.2 * instantFPS + 0.8 * fps)
 
         // Update stats
         pointCount = frame.pointCloud?.pointCount ?? 0
@@ -513,23 +551,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         trackCount = frame.tracks?.tracks.count ?? 0
 
         // M3.5: Update cache status
-        cacheStatus = renderer?.getCacheStatus() ?? ""
-
-        // Forward frame directly to renderer (bypasses SwiftUI)
-        renderer?.updateFrame(frame)
-        renderer?.showClusters = showClusters  // M4: Update cluster toggle
-        renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
-        renderer?.showGating = showGating  // M6: Gating ellipses
-        renderer?.showAssociation = showAssociation  // M6: Association lines
-        renderer?.showResiduals = showResiduals  // M6: Residual vectors
-        renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
+        cacheStatus = newCacheStatus
 
         // Update track label overlay positions
-        if showTrackLabels, let r = renderer, metalViewSize.width > 0 {
-            trackLabels = r.projectTrackLabels(viewSize: metalViewSize)
-        } else {
-            trackLabels = []
-        }
+        trackLabels = newLabels
 
         // Log every 100 frames to show activity
         if frameCount % 100 == 1 {

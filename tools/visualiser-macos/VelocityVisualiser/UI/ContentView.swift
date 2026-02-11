@@ -36,7 +36,10 @@ struct ContentView: View {
                     GeometryReader { geometry in
                         Color.clear.onAppear { appState.metalViewSize = geometry.size }.onChange(
                             of: geometry.size
-                        ) { appState.metalViewSize = $0 }
+                        ) { _, newSize in
+                            // Defer to next run loop to avoid AttributeGraph cycle
+                            Task { @MainActor in appState.metalViewSize = newSize }
+                        }
                     }.allowsHitTesting(false)
                 }.frame(minWidth: 400, minHeight: 300)
 
@@ -45,7 +48,7 @@ struct ContentView: View {
             }.frame(minWidth: 600)
 
             // Side panel
-            if appState.showLabelPanel || appState.selectedTrackID != nil {
+            if appState.showSidePanel || appState.selectedTrackID != nil {
                 SidePanelView().frame(width: 280)
             }
         }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
@@ -94,6 +97,11 @@ struct ToolbarView: View {
                 Button(action: { appState.showRunBrowser = true }) {
                     Label("Runs", systemImage: "doc.text.magnifyingglass")
                 }.help("Browse analysis runs")
+
+                Divider().frame(height: 20)
+                Button(action: { appState.showSidePanel.toggle() }) {
+                    Label("Inspector", systemImage: "sidebar.trailing")
+                }.help("Toggle track inspector")
             }
 
             Spacer()
@@ -403,6 +411,11 @@ struct SidePanelView: View {
 
                 Divider()
 
+                // Track list for selecting tracks
+                TrackListView()
+
+                Divider()
+
                 // Label panel
                 LabelPanelView()
 
@@ -542,6 +555,84 @@ struct DetailRow: View {
             Text(label).font(.caption).foregroundColor(.secondary)
             Spacer()
             Text(value).font(.system(.caption, design: .monospaced))
+        }
+    }
+}
+
+// MARK: - Track List
+
+/// Track list for selecting a track for labelling.
+/// Shows all confirmed and tentative tracks from the current frame.
+struct TrackListView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var isExpanded = false
+
+    private var tracks: [Track] {
+        guard let trackSet = appState.currentFrame?.tracks else { return [] }
+        return trackSet.tracks.filter { $0.state == .confirmed || $0.state == .tentative }.sorted {
+            $0.trackID < $1.trackID
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button(action: { isExpanded.toggle() }) {
+                HStack {
+                    Label(
+                        "Track List",
+                        systemImage: isExpanded ? "list.bullet.circle.fill" : "list.bullet.circle")
+                    Spacer()
+                    Text("\(tracks.count)").font(.caption).foregroundColor(.secondary)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }.buttonStyle(.plain)
+
+            if isExpanded {
+                if tracks.isEmpty {
+                    Text("No active tracks").font(.caption).foregroundColor(.secondary)
+                } else {
+                    ForEach(tracks, id: \.trackID) { track in
+                        Button(action: { appState.selectTrack(track.trackID) }) {
+                            HStack(spacing: 6) {
+                                Circle().fill(trackStateColour(track.state)).frame(
+                                    width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(track.trackID.truncated(12)).font(
+                                        .system(.caption, design: .monospaced)
+                                    ).lineLimit(1)
+                                    HStack(spacing: 4) {
+                                        Text(String(format: "%.1f m/s", track.speedMps)).font(
+                                            .caption2)
+                                        if !track.classLabel.isEmpty {
+                                            Text(track.classLabel).font(.caption2).foregroundColor(
+                                                .orange)
+                                        }
+                                    }.foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if track.trackID == appState.selectedTrackID {
+                                    Image(systemName: "checkmark.circle.fill").foregroundColor(
+                                        .accentColor
+                                    ).font(.caption)
+                                }
+                            }.padding(.vertical, 2).padding(.horizontal, 4).background(
+                                track.trackID == appState.selectedTrackID
+                                    ? Color.accentColor.opacity(0.15) : Color.clear
+                            ).cornerRadius(4)
+                        }.buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func trackStateColour(_ state: TrackState) -> Color {
+        switch state {
+        case .unknown: return .gray
+        case .tentative: return .yellow
+        case .confirmed: return .green
+        case .deleted: return .red
         }
     }
 }

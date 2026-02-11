@@ -19,6 +19,27 @@ class RunTrackLabelAPIClient {
     /// URL session for HTTP requests.
     private let session: URLSession
 
+    /// Shared JSON decoder configured for Go backend responses.
+    /// Handles snake_case keys and Go's RFC3339Nano date format with
+    /// fractional seconds and timezone offsets (e.g. "2026-02-10T20:05:09.283745-08:00").
+    private static let goDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let isoFrac = ISO8601DateFormatter()
+        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+            if let date = isoFrac.date(from: dateString) { return date }
+            if let date = iso.date(from: dateString) { return date }
+            throw DecodingError.dataCorruptedError(
+                in: container, debugDescription: "Cannot decode date: \(dateString)")
+        }
+        return decoder
+    }()
+
     // MARK: - Initialisation
 
     init(baseURL: URL = URL(string: "http://localhost:8080")!) {
@@ -40,11 +61,7 @@ class RunTrackLabelAPIClient {
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
 
-        // Backend returns: {"runs": [...], "count": N}
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        decoder.dateDecodingStrategy = .iso8601
-        let wrapper = try decoder.decode(RunsResponse.self, from: data)
+        let wrapper = try Self.goDecoder.decode(RunsResponse.self, from: data)
         return wrapper.runs
     }
 
@@ -58,10 +75,7 @@ class RunTrackLabelAPIClient {
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
 
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(AnalysisRun.self, from: data)
+        return try Self.goDecoder.decode(AnalysisRun.self, from: data)
     }
 
     // MARK: - Track Operations
