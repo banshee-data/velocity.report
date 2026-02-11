@@ -183,7 +183,7 @@ Evolve sweep/auto/RLHF from a feature set into a reusable **Optimization Platfor
 
 ---
 
-## 4) RLHF-Specific Enhancements to Prioritize
+## 4) RLHF-Specific Enhancements to Prioritise
 
 ### 4.1 Label provenance and confidence contract
 
