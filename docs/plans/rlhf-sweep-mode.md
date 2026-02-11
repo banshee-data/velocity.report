@@ -47,8 +47,13 @@ part of the optimisation loop.
 │     Human opens the Runs/Tracks page and labels tracks      │
 │     Detection: vehicle, pedestrian, noise, split, etc.      │
 │     Quality: perfect, good, truncated, noisy_velocity       │
+│     Labels auto-saved on click (no explicit export step)    │
 │     Dashboard shows labelling progress + countdown          │
-│     When done (or round duration elapsed): click "Continue" │
+│     Prior round labels are pre-populated via temporal IoU   │
+│     ≥90% label threshold enforced before continuing         │
+│     Human can edit next round duration before clicking      │
+│     "Continue" (or add an extra round)                      │
+│     Browser notification fires when labels are needed       │
 └──────────────────────────┬──────────────────────────────────┘
                            │
                            ▼
@@ -100,6 +105,17 @@ round.
 can be completed early by clicking "Continue". Sweep rounds may finish early if
 all combinations are evaluated before the time limit.
 
+**Editing durations mid-run:** During the `awaiting_labels` phase, the dashboard
+exposes the next sweep-round duration as an editable field. The human can
+increase or decrease it before clicking "Continue" — useful when a label window
+was missed and the schedule needs adjustment. The updated duration is sent in the
+`POST /api/lidar/sweep/rlhf/continue` request body.
+
+**Adding extra rounds:** The same "Continue" card includes an "Add Round" toggle.
+When enabled, the system appends one additional label→sweep cycle after the
+current round completes, using the edited duration. This lets the human extend
+the sweep if intermediate results look promising.
+
 ## Data Model Changes
 
 ### New `RLHFSweepRequest` (Go struct in `sweep/auto.go`)
@@ -134,6 +150,14 @@ type RLHFSweepRequest struct {
 
     // Acceptance criteria (optional hard thresholds)
     AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria"`
+
+    // Minimum fraction of tracks that must be labelled before
+    // the human can click "Continue" (default: 0.9 = 90%)
+    MinLabelThreshold float64 `json:"min_label_threshold"`
+
+    // Whether to carry over labels from previous round via temporal IoU
+    // matching (default: true)
+    CarryOverLabels bool `json:"carry_over_labels"`
 }
 ```
 
@@ -154,6 +178,15 @@ type RLHFState struct {
     Recommendation map[string]any  `json:"recommendation,omitempty"`
     RoundHistory   []RLHFRound     `json:"round_history"`
     Error          string          `json:"error,omitempty"`
+
+    // Minimum label threshold (echoed from request for UI enforcement)
+    MinLabelThreshold float64     `json:"min_label_threshold"`
+
+    // Whether labels were carried over from a previous round
+    LabelsCarriedOver int         `json:"labels_carried_over"`
+
+    // Next round's sweep duration (editable by human during awaiting_labels)
+    NextSweepDuration int         `json:"next_sweep_duration_mins"`
 }
 
 type LabelProgress struct {
@@ -164,13 +197,14 @@ type LabelProgress struct {
 }
 
 type RLHFRound struct {
-    Round          int                `json:"round"`
-    ReferenceRunID string             `json:"reference_run_id"`
-    LabelledAt     *time.Time         `json:"labelled_at,omitempty"`
-    LabelProgress  *LabelProgress     `json:"label_progress,omitempty"`
-    SweepID        string             `json:"sweep_id,omitempty"`
-    BestScore      float64            `json:"best_score"`
-    BestParams     map[string]float64 `json:"best_params,omitempty"`
+    Round             int                `json:"round"`
+    ReferenceRunID    string             `json:"reference_run_id"`
+    LabelledAt        *time.Time         `json:"labelled_at,omitempty"`
+    LabelProgress     *LabelProgress     `json:"label_progress,omitempty"`
+    LabelsCarriedOver int                `json:"labels_carried_over"`
+    SweepID           string             `json:"sweep_id,omitempty"`
+    BestScore         float64            `json:"best_score"`
+    BestParams        map[string]float64 `json:"best_params,omitempty"`
 }
 ```
 
@@ -222,15 +256,23 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
         sceneStore.SetReferenceRun(req.SceneID, runID)
         rt.setReferenceRunID(runID)
 
+        // --- Carry Over Labels (round 2+) ---
+        if round > 1 && req.CarryOverLabels {
+            carried := carryOverLabels(prevRunID, runID)
+            rt.setLabelsCarriedOver(carried)
+        }
+
         // --- Await Labels ---
         rt.setState("awaiting_labels", round)
         labelDuration := getDuration(req.RoundDurations, (round-1)*2)
         rt.setLabelDeadline(now + labelDuration)
-        waitForLabelsOrDeadline(ctx, runID, labelDuration)
+        rt.setNextSweepDuration(getDuration(req.RoundDurations, (round-1)*2+1))
+        err := waitForLabelsOrDeadline(ctx, runID, labelDuration, req.MinLabelThreshold)
+        if err != nil { rt.setState("failed"); return }  // threshold not met at deadline
 
         // --- Sweep Round ---
         rt.setState("running_sweep", round)
-        sweepDuration := getDuration(req.RoundDurations, (round-1)*2 + 1)
+        sweepDuration := rt.getNextSweepDuration()  // may have been edited
         rt.setSweepDeadline(now + sweepDuration)
 
         autoReq := buildAutoTuneRequest(bounds, req, scene)
@@ -245,6 +287,10 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
         currentParams = bestResult.params
         bounds = narrowBounds(bounds, topKResults)
         rt.recordRound(round, runID, bestResult)
+        prevRunID = runID
+
+        // --- Check for extra round added by human ---
+        // (TotalRounds may have been incremented by continueFromLabels)
 
     // --- Complete ---
     applyBestParams(currentParams)
@@ -255,11 +301,36 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
 4. Implement `waitForLabelsOrDeadline`:
    - Poll `analysisRunStore.GetLabelingProgress(runID)` every 10s.
    - Also check for a manual "continue" signal (channel/atomic flag).
-   - Return when: (a) deadline expires, (b) continue signal received, or
-     (c) context cancelled.
+   - Enforce `MinLabelThreshold` — the continue signal is rejected if
+     `progress.Pct < req.MinLabelThreshold` (default 0.9 = 90%). The HTTP
+     handler returns `400 Bad Request` with a message showing the current
+     progress and the required threshold.
+   - Return when: (a) deadline expires, (b) continue signal received _and_
+     threshold met, or (c) context cancelled.
+   - On deadline expiry, if threshold is not met, transition to `"failed"`
+     with an error message rather than proceeding with insufficient labels.
 
-5. Implement `continueFromLabels()` — public method called by the API handler
-   when the human clicks "Continue". Sets the atomic flag and unblocks the wait.
+5. Implement `continueFromLabels(nextDuration int, addRound bool)` — public
+   method called by the API handler when the human clicks "Continue".
+   - Validates label threshold is met.
+   - If `nextDuration > 0`, overrides the next sweep-round duration.
+   - If `addRound`, increments `TotalRounds` by 1 and appends a default
+     duration entry.
+   - Sets the atomic flag and unblocks the wait.
+
+6. Implement `carryOverLabels(prevRunID, newRunID string)`:
+   - Fetches labelled tracks from `prevRunID` via
+     `analysisRunStore.GetRunTracks(prevRunID)`.
+   - Fetches unlabelled tracks from `newRunID`.
+   - For each labelled track in the previous run, finds the best-matching
+     track in the new run using temporal IoU (overlap of
+     `[startUnixNanos, endUnixNanos]` intervals divided by their union).
+   - Only carries a label if IoU ≥ 0.5 (sufficient temporal overlap to
+     consider them the same real-world event).
+   - Writes carried-over labels via
+     `analysisRunStore.SetTrackLabel(newRunID, trackID, label)`.
+   - Records count in `RLHFState.LabelsCarriedOver` for UI display.
+   - The human reviews and corrects any mismatches during the label window.
 
 ### Phase 2: Backend — API Endpoints
 
@@ -271,6 +342,23 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
 | `/api/lidar/sweep/rlhf`          | GET    | Get current `RLHFState` for polling               |
 | `/api/lidar/sweep/rlhf/continue` | POST   | Signal "labels done, continue to sweep"           |
 | `/api/lidar/sweep/rlhf/stop`     | POST   | Cancel the RLHF run                               |
+
+**`/api/lidar/sweep/rlhf/continue` request body:**
+
+```json
+{
+  "next_sweep_duration_mins": 120,
+  "add_round": false
+}
+```
+
+Both fields are optional. If `next_sweep_duration_mins` is provided, it overrides
+the scheduled duration for the upcoming sweep round. If `add_round` is `true`,
+an extra label→sweep cycle is appended after the current round.
+
+The handler returns `400 Bad Request` if `label_progress.progress_pct` is below
+`min_label_threshold` (default 90%). The error message includes the current
+progress and the required threshold so the dashboard can show it.
 
 The RLHF state is polled by the dashboard alongside the existing auto-tune
 polling. The `RLHFState` response includes enough information for the dashboard
@@ -340,26 +428,40 @@ provides the PCAP source.
 Replaces the generic progress section when in RLHF mode:
 
 ```
-┌─────────────────────────────────────┐
-│  Round 2 of 3                       │
-│  Phase: Awaiting Labels             │
-│  ┌─────────────────────────────┐    │
-│  │ ████████░░░░  12/18 (67%)   │    │
-│  └─────────────────────────────┘    │
-│  Time remaining: 42:15              │
-│  Run: abc123...  [Open Tracks →]    │
-│                                     │
-│  [Continue to Sweep]                │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Round 2 of 3                               │
+│  Phase: Awaiting Labels                     │
+│  ┌─────────────────────────────────┐        │
+│  │ ████████████░░  16/18 (89%)     │  ≥90%  │
+│  └─────────────────────────────────┘        │
+│  Time remaining: 42:15                      │
+│  Labels carried over: 14 (from round 1)     │
+│  Run: abc123...  [Open Tracks →]            │
+│                                             │
+│  Next sweep duration: [120] mins            │
+│  ☐ Add extra round after this sweep         │
+│                                             │
+│  [Continue to Sweep]  (disabled until ≥90%) │
+└─────────────────────────────────────────────┘
 ```
 
 Key elements:
 
-- **Progress bar** showing label completion
+- **Progress bar** showing label completion with threshold marker at 90%
+- **Threshold enforcement** — "Continue" button disabled until
+  `progress_pct >= min_label_threshold`. Tooltip explains the requirement.
+- **Carried-over label count** — shows how many labels were pre-populated
+  from the previous round.
 - **Countdown timer** to the deadline
 - **Link to Tracks page** — direct link to
   `/app/lidar/tracks?scene_id=X&run_id=Y` to label
-- **Continue button** — calls `POST /api/lidar/sweep/rlhf/continue`
+- **Editable next sweep duration** — number input pre-filled from
+  `next_sweep_duration_mins` in the state response. Sent in the continue
+  request body.
+- **Add extra round toggle** — checkbox that sends `add_round: true` in the
+  continue request. Useful when the human wants more refinement.
+- **Continue button** — calls `POST /api/lidar/sweep/rlhf/continue` with
+  `{ next_sweep_duration_mins, add_round }`
 - During "running_sweep" phase, shows sweep progress instead (reuses existing
   auto-tune progress rendering)
 
@@ -380,8 +482,14 @@ Extend `pollAutoTuneStatus()` (or add `pollRLHFStatus()`) to poll
 1. Renders the RLHF progress card with current phase / round info.
 2. During `awaiting_labels`:
    - Shows label progress bar (re-poll every 5s for progress updates).
+   - Progress bar includes 90% threshold marker.
    - Shows countdown timer (client-side, from `label_deadline`).
-   - Enables "Continue to Sweep" button.
+   - Shows carried-over label count if > 0.
+   - Shows editable next-sweep-duration field.
+   - Shows "Add extra round" checkbox.
+   - Enables "Continue to Sweep" button only when `progress_pct ≥ 0.9`.
+   - Sends browser notification via Notification API when entering this
+     phase (if permission granted and tab is not focused).
 3. During `running_sweep`:
    - Shows sweep progress (combo N of M, time remaining).
    - Shows intermediate results chart if available.
@@ -392,6 +500,37 @@ Extend `pollAutoTuneStatus()` (or add `pollRLHFStatus()`) to poll
    - Shows round history summary.
 6. On `failed`:
    - Shows error message.
+
+### Phase 4b: Browser Notifications
+
+The dashboard requests `Notification.requestPermission()` when RLHF mode is
+selected. Notifications fire at two transition points:
+
+1. **Sweep round completed → labels needed.** When the poller detects a
+   transition to `awaiting_labels`, it fires:
+
+   ```js
+   new Notification("Labels needed — Round N", {
+     body: "Reference run ready. Label tracks to continue the sweep.",
+     tag: "rlhf-labels-needed",
+     requireInteraction: true,
+   });
+   ```
+
+   `requireInteraction: true` keeps the notification visible until dismissed
+   (useful for overnight sweeps where the user may have stepped away).
+
+2. **RLHF sweep completed.** When the poller detects `completed`:
+   ```js
+   new Notification("RLHF Sweep Complete", {
+     body: "Best parameters found. Review and apply.",
+     tag: "rlhf-complete",
+   });
+   ```
+
+Clicking either notification calls `window.focus()` to bring the dashboard tab
+to the front. The `tag` field ensures duplicate notifications are replaced rather
+than stacked.
 
 ### Phase 5: Svelte Sweeps Page Updates
 
@@ -431,48 +570,255 @@ Update the page subtitle and add mode-specific descriptions:
 > using your labels as the objective. Repeats for multiple rounds, progressively
 > narrowing towards parameters that produce tracks you judge as correct.
 
-## Open Questions
+## Design Decisions (Resolved)
 
-1. **Minimum label threshold:** Should the system enforce a minimum number of
-   labelled tracks before allowing "Continue"? Suggested: require ≥50% labelled
-   or at least 5 tracks to have meaningful ground truth.
+### 1. Minimum Label Threshold — 90%
 
-2. **Label carryover:** When round N+1 creates a new reference run with different
-   params, should we attempt to pre-populate labels by matching tracks from the
-   previous round (using temporal IoU), or always start fresh? Pre-populating
-   would speed up labelling but might introduce bias.
+The system enforces a minimum of **90% of tracks labelled** before the human can
+click "Continue". The threshold is configurable via `min_label_threshold` in the
+request (default `0.9`). Rationale: ground truth scoring with sparse labels
+artificially depresses detection rate because unlabelled tracks count as
+non-detections. At 90%, the scoring is reliable enough for meaningful parameter
+comparison.
 
-3. **Partial labelling strategy:** If the human only labels 60% of tracks, the
-   unlabelled tracks are excluded from ground truth evaluation. Document expected
-   biases: detection rate may appear lower because some good tracks are simply
-   unlabelled.
+Enforcement:
 
-4. **Notifications:** Should the system send a notification (browser
-   notification, webhook, or email) when a sweep round completes and labels are
-   needed? For overnight sweeps this is valuable. Suggested: browser notification
-   via the Notification API if the dashboard tab is open.
+- **Server-side:** The `/api/lidar/sweep/rlhf/continue` handler checks progress
+  before accepting the signal. Returns `400 Bad Request` if below threshold.
+- **Client-side:** The "Continue" button is disabled with a tooltip showing
+  `"Label at least 90% of tracks (currently 67%)"` until the threshold is met.
+- **Deadline expiry:** If the label-window deadline expires before the threshold
+  is met, the sweep transitions to `"failed"` with a descriptive error rather
+  than continuing with insufficient labels.
 
-5. **Scoring composit adjustments:** The default `GroundTruthWeights` were
-   designed for a single pre-labelled reference. For iterative RLHF with
-   potentially sparse labels, the weights may need adjustment. Consider bumping
-   `DetectionRate` weight and reducing `FalsePositiveRate` weight for early rounds
-   when few tracks are labelled.
+### 2. Label Carryover — Enabled
+
+When round N+1 creates a new reference run, labels from round N are
+automatically **carried over** by matching tracks using temporal IoU
+(overlap-over-union of `[startUnixNanos, endUnixNanos]` intervals).
+
+**Algorithm:**
+
+1. Fetch all labelled tracks from the previous round's reference run.
+2. Fetch all unlabelled tracks from the new reference run.
+3. For each labelled track, compute temporal IoU with every new track.
+4. If best IoU ≥ 0.5, copy `user_label`, `quality_label`, and
+   `label_confidence` to the new track.
+5. Record the number of carried-over labels in `RLHFState.LabelsCarriedOver`
+   and display in the progress card.
+
+**Bias mitigation:** The human reviews carried-over labels during the label
+window. Changed parameters may produce different track boundaries, so carried-
+over labels are a starting point, not final. The dashboard highlights carried-
+over labels with a distinct badge so the human knows which ones to review.
+
+**Configuration:** `carry_over_labels` (default `true`). Set to `false` to start
+each round from scratch.
+
+### 3. Partial Labelling Strategy
+
+With the 90% threshold, partial labelling is limited to at most 10% of tracks.
+Unlabelled tracks are excluded from ground truth evaluation. At this coverage
+level, the scoring bias is minimal. The `LabelProgress` struct's `by_class` map
+lets the human and the system verify label distribution before continuing.
+
+### 4. Browser Notifications — Enabled
+
+Browser notifications via the `Notification` API fire when:
+
+- A sweep round completes and labels are needed (`awaiting_labels` transition).
+- The RLHF sweep completes (`completed` transition).
+
+Notifications use `requireInteraction: true` to persist until dismissed —
+critical for overnight sweeps where the user has stepped away. The dashboard
+requests `Notification.requestPermission()` when RLHF mode is first selected.
+See Phase 4b for implementation details.
+
+### 5. Scoring Weight Adjustments for Early Rounds
+
+The default `GroundTruthWeights` are tuned for full-coverage labels. For RLHF
+rounds (where coverage is ≥90% but the labeller may focus on salient tracks), the
+tuner applies round-dependent weight adjustments:
+
+| Round | `DetectionRate` weight | `FalsePositiveRate` weight | Rationale                          |
+| ----- | ---------------------- | -------------------------- | ---------------------------------- |
+| 1     | 1.5× default           | 0.5× default               | Focus on finding all real vehicles |
+| 2+    | 1.0× default           | 1.0× default               | Balanced scoring with more labels  |
+
+The multipliers are applied inside `RLHFTuner.buildAutoTuneRequest()` before
+passing weights to the ground truth scorer. They are not persisted — the final
+recommendation uses default weights for a clean comparison.
+
+### 6. Editable Round Durations + Extra Rounds
+
+During the `awaiting_labels` phase, the human can:
+
+1. **Edit the next sweep duration** via a number input in the progress card.
+   The edited value is sent in the `POST /api/lidar/sweep/rlhf/continue` body
+   as `next_sweep_duration_mins`. This handles the common case of missing a
+   label window overnight and needing to adjust the schedule.
+
+2. **Add an extra round** via a checkbox. When checked, `add_round: true` is
+   sent in the continue request. The tuner increments `TotalRounds` by 1 and
+   appends a default duration entry. This lets the human extend the sweep if
+   intermediate results show the parameter space hasn't converged.
+
+## Prerequisite: macOS Visualiser Label UX Changes
+
+The macOS app's labelling workflow needs three changes before RLHF mode is
+viable. These are independent of the RLHF backend and can be shipped first.
+
+### P1. Display Existing Labels in LabelPanelView
+
+**Problem:** `LabelPanelView` does not fetch or display a track's existing
+`user_label` / `quality_label` from the database. The checkmark only appears for
+labels assigned during the current session (`@State lastAssignedLabel`). When
+reviewing carried-over labels or resuming a labelling session, the human has no
+visual indication of what's already set.
+
+**Fix:** When a track is selected in run mode (`currentRunID` is set), fetch the
+track's label from the run-track list (already loaded by `TrackListView`) and
+pre-populate the `LabelPanelView`'s selection state. Specifically:
+
+1. In `LabelPanelView`, accept the selected `RunTrack?` as a binding or
+   environment value.
+2. When the selected track changes, set `lastAssignedLabel` and
+   `lastAssignedQuality` from `runTrack.userLabel` and `runTrack.qualityLabel`.
+3. Show the checkmark on the matching button so the human sees the current state.
+4. For carried-over labels, add a small "↻ carried" badge next to the checkmark
+   (requires a `label_source` field or convention, e.g. `labeler_id = "rlhf-
+carryover"`).
+
+**Files:**
+
+- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — `LabelPanelView`
+- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — track selection
+
+### P2. Remove Export Labels Button
+
+**Problem:** The "Export Labels" button in `SidePanelView` exports free-form
+`LabelEvent` records (session-based, via `LabelAPIClient`). In RLHF mode, labels
+are always run-track labels saved directly to the database via
+`RunTrackLabelAPIClient`. The export button is confusing because it doesn't
+export the labels the human just assigned.
+
+**Fix:** Remove the "Export Labels" button and `exportLabels()` method from
+`AppState`. Labels are persisted server-side on every click — no export step is
+needed. If a bulk-export feature is needed later, it should export run-track
+labels via a server endpoint (e.g. `GET /api/lidar/runs/{run_id}/labels/export`).
+
+**Files:**
+
+- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — remove button (~line 467)
+- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — remove `exportLabels()`
+
+### P3. Auto-Save Labels on Click (Already Implemented)
+
+`assignLabel()` and `assignQuality()` in `AppState` already fire async API calls
+immediately on click — no batching or explicit save step. This is the correct
+behaviour for RLHF. No changes needed, but worth noting as a confirmed
+requirement.
+
+## Implementation Checklist
+
+### Prerequisites (macOS Visualiser)
+
+- [ ] **P1** — Display existing labels in `LabelPanelView`
+  - [ ] Accept selected `RunTrack?` in `LabelPanelView`
+  - [ ] Pre-populate `lastAssignedLabel` / `lastAssignedQuality` from run-track data
+  - [ ] Show checkmark on matching button for current label state
+  - [ ] Add "↻ carried" badge for carried-over labels
+- [ ] **P2** — Remove Export Labels button
+  - [ ] Remove "Export Labels" button from `SidePanelView`
+  - [ ] Remove `exportLabels()` from `AppState`
+- [ ] **P3** — Confirm auto-save on click works (no changes needed)
+
+### Phase 1: Backend — `RLHFTuner` Engine
+
+- [ ] Define `RLHFSweepRequest` struct (scene ID, rounds, durations, threshold, carryover flag)
+- [ ] Define `RLHFState` struct (phase, round, deadlines, label progress, carried-over count)
+- [ ] Implement `RLHFTuner` struct with dependency injection
+- [ ] Implement `run(ctx, req)` core loop (reference → labels → sweep → narrow → repeat)
+- [ ] Implement `waitForLabelsOrDeadline` with 10s polling, threshold enforcement, deadline expiry
+- [ ] Implement `continueFromLabels(nextDuration, addRound)` with threshold validation
+- [ ] Implement `carryOverLabels(prevRunID, newRunID)` with temporal IoU matching (≥ 0.5)
+- [ ] Implement scoring weight adjustments for early rounds
+- [ ] Write unit tests (`rlhf_test.go`)
+
+### Phase 2: Backend — API Endpoints
+
+- [ ] `POST /api/lidar/sweep/rlhf` — start RLHF sweep
+- [ ] `GET /api/lidar/sweep/rlhf` — poll current `RLHFState`
+- [ ] `POST /api/lidar/sweep/rlhf/continue` — signal labels done (with threshold check)
+- [ ] `POST /api/lidar/sweep/rlhf/stop` — cancel RLHF run
+- [ ] Wire `rlhfTuner` into `WebServer` and `cmd/radar/radar.go`
+- [ ] Write API handler tests
+
+### Phase 3: Dashboard UI — Third Mode
+
+- [ ] **3a** — Add "Human-in-the-Loop" mode toggle button
+- [ ] Update `setMode()` for three-way switching + CSS body classes
+- [ ] **3b** — RLHF config card (scene dropdown, rounds, durations input)
+- [ ] **3c** — RLHF progress card
+  - [ ] Label progress bar with 90% threshold marker
+  - [ ] Countdown timer (from `label_deadline`)
+  - [ ] Carried-over label count display
+  - [ ] Link to Tracks page for labelling
+  - [ ] Editable next-sweep-duration field
+  - [ ] "Add extra round" checkbox
+  - [ ] "Continue to Sweep" button (disabled until ≥ 90%)
+  - [ ] Sweep progress display during `running_sweep` phase
+- [ ] **3d** — Round history (collapsible list of completed rounds)
+- [ ] Write dashboard tests (`sweep_dashboard.test.ts`)
+
+### Phase 4: Dashboard Polling
+
+- [ ] Implement `pollRLHFStatus()` or extend `pollAutoTuneStatus()`
+- [ ] Handle `awaiting_labels` phase (5s poll, progress bar, countdown, continue button)
+- [ ] Handle `running_sweep` phase (combo progress, intermediate results)
+- [ ] Handle `running_reference` phase (spinner)
+- [ ] Handle `completed` phase (recommendation + apply button + round history)
+- [ ] Handle `failed` phase (error message)
+
+### Phase 4b: Browser Notifications
+
+- [ ] Request `Notification.requestPermission()` on RLHF mode selection
+- [ ] Fire "Labels needed — Round N" notification on `awaiting_labels` transition
+- [ ] Fire "RLHF Sweep Complete" notification on `completed` transition
+- [ ] Bring dashboard tab to front on notification click
+
+### Phase 5: Svelte Sweeps Page Updates
+
+- [ ] Show RLHF sweeps with distinct `mode = "rlhf"` badge
+- [ ] RLHF detail panel: round history with links to reference run tracks
+- [ ] RLHF detail panel: label progress and ground truth scores per round
+- [ ] Inline "Continue" button for `awaiting_labels` state
+- [ ] Add `startRLHF`, `getRLHFState`, `continueRLHF`, `stopRLHF` to `api.ts`
+- [ ] Add `RLHFState`, `RLHFRound`, `LabelProgress` types to `lidar.ts`
+
+### Phase 6: Mode Description Updates
+
+- [ ] Add page subtitle shared across modes
+- [ ] Add Auto-Tune description text (`.auto-only`)
+- [ ] Add RLHF description text (`.rlhf-only`)
 
 ## File Manifest
 
-| File                                                | Action     | Description                                                                |
-| --------------------------------------------------- | ---------- | -------------------------------------------------------------------------- |
-| `internal/lidar/sweep/rlhf.go`                      | **Create** | `RLHFTuner`, `RLHFSweepRequest`, `RLHFState`, core loop                    |
-| `internal/lidar/sweep/rlhf_test.go`                 | **Create** | Unit tests for state machine, duration parsing, bound narrowing            |
-| `internal/lidar/monitor/sweep_handlers.go`          | **Modify** | Add 4 RLHF endpoints                                                       |
-| `internal/lidar/monitor/webserver.go`               | **Modify** | Wire `rlhfTuner` field + routes                                            |
-| `cmd/radar/radar.go`                                | **Modify** | Create `RLHFTuner`, inject dependencies                                    |
-| `internal/lidar/monitor/html/sweep_dashboard.html`  | **Modify** | Third mode button, RLHF config card, RLHF progress card                    |
-| `internal/lidar/monitor/assets/sweep_dashboard.js`  | **Modify** | `setMode` three-way, `handleStartRLHF`, `pollRLHFStatus`, continue handler |
-| `internal/lidar/monitor/assets/sweep_dashboard.css` | **Modify** | `.rlhf-mode`, `.rlhf-only`, `.auto-or-rlhf` classes                        |
-| `web/src/routes/lidar/sweeps/+page.svelte`          | **Modify** | RLHF mode badge, round history, label link                                 |
-| `web/src/lib/api.ts`                                | **Modify** | Add `startRLHF`, `getRLHFState`, `continueRLHF`, `stopRLHF`                |
-| `web/src/lib/types/lidar.ts`                        | **Modify** | Add `RLHFState`, `RLHFRound`, `LabelProgress` types                        |
+| File                                                             | Action     | Description                                                              |
+| ---------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
+| `internal/lidar/sweep/rlhf.go`                                   | **Create** | `RLHFTuner`, `RLHFSweepRequest`, `RLHFState`, core loop, label carryover |
+| `internal/lidar/sweep/rlhf_test.go`                              | **Create** | Unit tests: state machine, duration parsing, carryover, threshold        |
+| `internal/lidar/monitor/sweep_handlers.go`                       | **Modify** | Add 4 RLHF endpoints (with continue body parsing)                        |
+| `internal/lidar/monitor/webserver.go`                            | **Modify** | Wire `rlhfTuner` field + routes                                          |
+| `cmd/radar/radar.go`                                             | **Modify** | Create `RLHFTuner`, inject dependencies                                  |
+| `internal/lidar/monitor/html/sweep_dashboard.html`               | **Modify** | Third mode button, RLHF config/progress cards, notification permission   |
+| `internal/lidar/monitor/assets/sweep_dashboard.js`               | **Modify** | `setMode` three-way, `handleStartRLHF`, `pollRLHFStatus`, notifications  |
+| `internal/lidar/monitor/assets/sweep_dashboard.css`              | **Modify** | `.rlhf-mode`, `.rlhf-only`, `.auto-or-rlhf` classes                      |
+| `web/src/routes/lidar/sweeps/+page.svelte`                       | **Modify** | RLHF mode badge, round history, label link, carryover count              |
+| `web/src/lib/api.ts`                                             | **Modify** | Add `startRLHF`, `getRLHFState`, `continueRLHF`, `stopRLHF`              |
+| `web/src/lib/types/lidar.ts`                                     | **Modify** | Add `RLHFState`, `RLHFRound`, `LabelProgress` types                      |
+| `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | **Modify** | Show existing labels in panel, remove Export Labels button               |
+| `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`   | **Modify** | Remove `exportLabels()`, wire selected RunTrack to LabelPanelView        |
 
 ## Testing Strategy
 
@@ -481,18 +827,39 @@ Update the page subtitle and add mode-specific descriptions:
    - State machine transitions: idle → running_reference → awaiting_labels →
      running_sweep → running_reference → … → completed.
    - Continue signal unblocks wait.
+   - Continue rejected when below 90% threshold (returns error).
+   - Label carryover: temporal IoU matching with threshold 0.5.
+   - Label carryover: IoU < 0.5 is not carried over.
    - Context cancellation stops the loop.
    - Bound narrowing carries over between rounds.
+   - `continueFromLabels` with `nextDuration` overrides sweep duration.
+   - `continueFromLabels` with `addRound` increments total rounds.
+   - Scoring weight adjustments applied for round 1 vs round 2+.
+   - Deadline expiry with insufficient labels → `"failed"` state.
 
 2. **Integration tests** (manual):
    - Start RLHF with a short PCAP scene, 2 rounds, durations `[1, 1]`.
    - Verify reference run appears in Runs page.
-   - Label a few tracks, click Continue.
+   - Verify browser notification fires on `awaiting_labels` transition.
+   - Label < 90% of tracks, verify Continue is disabled/rejected.
+   - Label ≥ 90% of tracks, click Continue.
    - Verify sweep starts and produces results.
    - Verify second reference run uses narrowed params.
+   - Verify labels are carried over from round 1 (check counts).
+   - Verify carried-over labels display in macOS app.
+   - Edit next-round duration, verify it takes effect.
+   - Add an extra round, verify it executes.
    - Verify final recommendation is applied.
 
 3. **Dashboard tests** (`sweep_dashboard.test.ts`):
    - Mode switching to/from "rlhf" shows/hides correct cards.
    - RLHF start request is built correctly from UI inputs.
+   - Continue button disabled when progress < 90%.
+   - Continue request includes `next_sweep_duration_mins` and `add_round`.
+   - Notification permission requested on mode switch.
    - Polling renders correct phase displays.
+
+4. **macOS visualiser tests** (`AppStateTests.swift`):
+   - LabelPanelView shows existing `userLabel` when track is selected.
+   - LabelPanelView shows existing `qualityLabel` when track is selected.
+   - Export Labels button is removed (UI snapshot test or manual check).
