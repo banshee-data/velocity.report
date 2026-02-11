@@ -411,6 +411,16 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 		BackgroundSeq:  snapshot.SequenceNumber,
 	}
 
+	// Phase 1.1: Record background snapshot if recorder is set
+	p.recorderMu.RLock()
+	rec := p.recorder
+	p.recorderMu.RUnlock()
+	if rec != nil {
+		if err := rec.Record(bundle); err != nil {
+			log.Printf("[Visualiser] Recording error (background): %v", err)
+		}
+	}
+
 	// Send to all clients
 	select {
 	case p.frameChan <- bundle:
@@ -678,6 +688,11 @@ func (p *Publisher) Stats() PublisherStats {
 		ClientCount: p.clientCount.Load(),
 		Running:     p.running.Load(),
 	}
+}
+
+// SendBackgroundSnapshot forces a background snapshot to be sent to clients.
+func (p *Publisher) SendBackgroundSnapshot() error {
+	return p.sendBackgroundSnapshot()
 }
 
 // PublisherStats contains publisher statistics.

@@ -563,6 +563,9 @@ func main() {
 					replayer.Close()
 					return fmt.Errorf("failed to start vrlog replay: %w", err)
 				}
+				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
+					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
+				}
 				log.Printf("[Visualiser] VRLOG replay started: %s", vrlogPath)
 				return nil
 			},
