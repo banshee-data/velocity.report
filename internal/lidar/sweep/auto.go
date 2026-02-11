@@ -81,6 +81,9 @@ type AutoTuneRequest struct {
 	PCAPDurationSecs float64           `json:"pcap_duration_secs,omitempty"`
 	SettleMode       string            `json:"settle_mode,omitempty"`
 
+	// Acceptance criteria: hard thresholds that reject combos before scoring
+	AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria,omitempty"`
+
 	// Phase 5: Ground truth evaluation support
 	SceneID            string              `json:"scene_id,omitempty"`             // When set, enables ground truth evaluation
 	GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights,omitempty"` // Weights for ground truth scoring
@@ -529,8 +532,8 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 			// Sort by ground truth score (highest = best)
 			scored = sortScoredResults(scored)
 		} else {
-			// Standard objective-based scoring
-			scored = RankResults(roundResults, weights)
+			// Standard objective-based scoring (with optional acceptance criteria)
+			scored = RankResultsWithCriteria(roundResults, weights, req.AcceptanceCriteria)
 		}
 
 		// Update overall best
@@ -592,6 +595,11 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		recommendation["misalignment_ratio"] = overallBest.MisalignmentRatioMean
 		recommendation["alignment_deg"] = overallBest.AlignmentDegMean
 		recommendation["nonzero_cells"] = overallBest.NonzeroCellsMean
+		recommendation["foreground_capture"] = overallBest.ForegroundCaptureMean
+		recommendation["unbounded_point_ratio"] = overallBest.UnboundedPointMean
+		recommendation["empty_box_ratio"] = overallBest.EmptyBoxRatioMean
+		recommendation["fragmentation_ratio"] = overallBest.FragmentationRatioMean
+		recommendation["heading_jitter_deg"] = overallBest.HeadingJitterDegMean
 	}
 
 	now := time.Now()

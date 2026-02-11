@@ -171,6 +171,18 @@ type TrackingMetrics struct {
 	// Total tracks created and confirmed since last reset
 	TracksCreated   int `json:"tracks_created"`
 	TracksConfirmed int `json:"tracks_confirmed"`
+
+	// Scene-level foreground capture metrics
+	// ForegroundCaptureRatio is the fraction of foreground points assigned to
+	// DBSCAN clusters (and hence to tracks). Higher is better. [0, 1]
+	ForegroundCaptureRatio float32 `json:"foreground_capture_ratio"`
+	// UnboundedPointRatio is 1 - ForegroundCaptureRatio: fraction of foreground
+	// points that are DBSCAN noise and not captured by any bounding box. [0, 1]
+	UnboundedPointRatio float32 `json:"unbounded_point_ratio"`
+	// EmptyBoxRatio is the fraction of active-track-frames where the track had
+	// no cluster association (coasting). Lower is better. [0, 1]
+	EmptyBoxRatio float32 `json:"empty_box_ratio"`
+
 	// Per-track alignment breakdown
 	PerTrack []TrackAlignmentMetrics `json:"per_track,omitempty"`
 }
@@ -199,6 +211,15 @@ type Tracker struct {
 	// Fragmentation counters (reset via ResetFragmentation)
 	TracksCreated   int
 	TracksConfirmed int
+
+	// Scene-level foreground capture accumulators.
+	// Updated via RecordFrameStats() from the tracking pipeline.
+	TotalForegroundPoints int64 // Running total of foreground points entering DBSCAN
+	ClusteredPoints       int64 // Running total of points assigned to DBSCAN clusters
+
+	// Empty box accumulators — updated in Update() per frame.
+	EmptyBoxFrames int64 // Running sum of unmatched active tracks across frames
+	TotalBoxFrames int64 // Running sum of active tracks across frames
 
 	// lastAssociations stores the result of the most recent associate() call.
 	// It is a slice indexed by cluster index; each element is the trackID
@@ -232,6 +253,10 @@ func (t *Tracker) Reset() {
 	t.NextTrackID = 1
 	t.LastUpdateNanos = 0
 	t.lastAssociations = nil
+	t.TotalForegroundPoints = 0
+	t.ClusteredPoints = 0
+	t.EmptyBoxFrames = 0
+	t.TotalBoxFrames = 0
 }
 
 // NewTracker creates a new tracker with the specified configuration.
@@ -241,6 +266,15 @@ func NewTracker(config TrackerConfig) *Tracker {
 		NextTrackID: 1,
 		Config:      config,
 	}
+}
+
+// RecordFrameStats records per-frame foreground point statistics.
+// Called from the tracking pipeline after DBSCAN clustering, before Update().
+func (t *Tracker) RecordFrameStats(totalForegroundPoints, clusteredPoints int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.TotalForegroundPoints += int64(totalForegroundPoints)
+	t.ClusteredPoints += int64(clusteredPoints)
 }
 
 // Update processes a new frame of clusters and updates tracks.
@@ -335,6 +369,18 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			}
 		}
 	}
+
+	// Step 4b: Update empty box accumulators.
+	// Count active tracks not matched to any cluster this frame.
+	activeCount := int64(0)
+	for _, track := range t.Tracks {
+		if track.State != TrackDeleted {
+			activeCount++
+		}
+	}
+	matchedCount := int64(len(matchedTracks))
+	t.TotalBoxFrames += activeCount
+	t.EmptyBoxFrames += activeCount - matchedCount
 
 	// Step 5: Initialise new tracks from unassociated clusters
 	for clusterIdx, trackID := range associations {
@@ -1127,6 +1173,17 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	metrics.TracksConfirmed = t.TracksConfirmed
 	if t.TracksCreated > 0 {
 		metrics.FragmentationRatio = 1.0 - float32(t.TracksConfirmed)/float32(t.TracksCreated)
+	}
+
+	// Foreground capture: fraction of foreground points assigned to clusters
+	if t.TotalForegroundPoints > 0 {
+		metrics.ForegroundCaptureRatio = float32(t.ClusteredPoints) / float32(t.TotalForegroundPoints)
+		metrics.UnboundedPointRatio = 1.0 - metrics.ForegroundCaptureRatio
+	}
+
+	// Empty box: fraction of active-track-frames with no cluster association
+	if t.TotalBoxFrames > 0 {
+		metrics.EmptyBoxRatio = float32(t.EmptyBoxFrames) / float32(t.TotalBoxFrames)
 	}
 
 	return metrics

@@ -22,6 +22,19 @@ func TestDefaultObjectiveWeights(t *testing.T) {
 	if weights.ActiveTracks != 0.3 {
 		t.Errorf("expected ActiveTracks=0.3, got %v", weights.ActiveTracks)
 	}
+	// New scene-level weights should default to 0 (opt-in)
+	if weights.ForegroundCapture != 0 {
+		t.Errorf("expected ForegroundCapture=0, got %v", weights.ForegroundCapture)
+	}
+	if weights.EmptyBoxes != 0 {
+		t.Errorf("expected EmptyBoxes=0, got %v", weights.EmptyBoxes)
+	}
+	if weights.Fragmentation != 0 {
+		t.Errorf("expected Fragmentation=0, got %v", weights.Fragmentation)
+	}
+	if weights.HeadingJitter != 0 {
+		t.Errorf("expected HeadingJitter=0, got %v", weights.HeadingJitter)
+	}
 }
 
 func TestScoreResultFormula(t *testing.T) {
@@ -143,5 +156,135 @@ func TestRankResultsTiedScores(t *testing.T) {
 	// Scores should be equal
 	if math.Abs(ranked[0].Score-ranked[1].Score) > 0.0001 {
 		t.Errorf("expected tied scores, got %v and %v", ranked[0].Score, ranked[1].Score)
+	}
+}
+
+func TestScoreResultWithSceneLevelWeights(t *testing.T) {
+	result := ComboResult{
+		OverallAcceptMean:      0.8,
+		ForegroundCaptureMean:  0.75,
+		EmptyBoxRatioMean:      0.1,
+		FragmentationRatioMean: 0.2,
+		HeadingJitterDegMean:   3.0,
+	}
+
+	weights := ObjectiveWeights{
+		Acceptance:        1.0,
+		ForegroundCapture: 2.0,
+		EmptyBoxes:        -1.0,
+		Fragmentation:     -0.5,
+		HeadingJitter:     -0.1,
+	}
+
+	score := ScoreResult(result, weights)
+
+	// Expected: 1.0*0.8 + 2.0*0.75 + (-1.0)*0.1 + (-0.5)*0.2 + (-0.1)*3.0
+	// = 0.8 + 1.5 - 0.1 - 0.1 - 0.3 = 1.8
+	expected := 1.0*0.8 + 2.0*0.75 + (-1.0)*0.1 + (-0.5)*0.2 + (-0.1)*3.0
+
+	if math.Abs(score-expected) > 0.0001 {
+		t.Errorf("expected score ~%v, got %v", expected, score)
+	}
+}
+
+func TestCheckAcceptanceNilCriteria(t *testing.T) {
+	result := ComboResult{
+		FragmentationRatioMean: 0.9,
+		UnboundedPointMean:     0.9,
+		EmptyBoxRatioMean:      0.9,
+	}
+	if !CheckAcceptance(result, nil) {
+		t.Error("nil criteria should accept all results")
+	}
+}
+
+func TestCheckAcceptanceAllPass(t *testing.T) {
+	maxFrag := 0.5
+	maxUnb := 0.3
+	maxEmpty := 0.2
+	criteria := &AcceptanceCriteria{
+		MaxFragmentationRatio:  &maxFrag,
+		MaxUnboundedPointRatio: &maxUnb,
+		MaxEmptyBoxRatio:       &maxEmpty,
+	}
+	result := ComboResult{
+		FragmentationRatioMean: 0.1,
+		UnboundedPointMean:     0.1,
+		EmptyBoxRatioMean:      0.1,
+	}
+	if !CheckAcceptance(result, criteria) {
+		t.Error("expected result to pass all criteria")
+	}
+}
+
+func TestCheckAcceptanceFragmentationFails(t *testing.T) {
+	maxFrag := 0.5
+	criteria := &AcceptanceCriteria{
+		MaxFragmentationRatio: &maxFrag,
+	}
+	result := ComboResult{
+		FragmentationRatioMean: 0.6,
+	}
+	if CheckAcceptance(result, criteria) {
+		t.Error("expected result to fail fragmentation criterion")
+	}
+}
+
+func TestCheckAcceptanceUnboundedFails(t *testing.T) {
+	maxUnb := 0.3
+	criteria := &AcceptanceCriteria{
+		MaxUnboundedPointRatio: &maxUnb,
+	}
+	result := ComboResult{
+		UnboundedPointMean: 0.4,
+	}
+	if CheckAcceptance(result, criteria) {
+		t.Error("expected result to fail unbounded point criterion")
+	}
+}
+
+func TestCheckAcceptanceEmptyBoxFails(t *testing.T) {
+	maxEmpty := 0.2
+	criteria := &AcceptanceCriteria{
+		MaxEmptyBoxRatio: &maxEmpty,
+	}
+	result := ComboResult{
+		EmptyBoxRatioMean: 0.3,
+	}
+	if CheckAcceptance(result, criteria) {
+		t.Error("expected result to fail empty box criterion")
+	}
+}
+
+func TestRankResultsWithCriteriaRejectsFailedCombos(t *testing.T) {
+	maxFrag := 0.3
+	criteria := &AcceptanceCriteria{
+		MaxFragmentationRatio: &maxFrag,
+	}
+
+	results := []ComboResult{
+		{OverallAcceptMean: 0.5, FragmentationRatioMean: 0.4, NonzeroCellsMean: 50},  // Fails
+		{OverallAcceptMean: 0.9, FragmentationRatioMean: 0.1, NonzeroCellsMean: 100}, // Passes
+		{OverallAcceptMean: 0.7, FragmentationRatioMean: 0.2, NonzeroCellsMean: 80},  // Passes
+	}
+
+	weights := ObjectiveWeights{Acceptance: 1.0}
+	ranked := RankResultsWithCriteria(results, weights, criteria)
+
+	if len(ranked) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(ranked))
+	}
+
+	// Best should be one with highest acceptance that passes
+	if ranked[0].OverallAcceptMean != 0.9 {
+		t.Errorf("expected best to have accept=0.9, got %v", ranked[0].OverallAcceptMean)
+	}
+
+	// Last should be the failed one with -MaxFloat64
+	if ranked[2].Score != -math.MaxFloat64 {
+		t.Errorf("expected failed combo score=-MaxFloat64, got %v", ranked[2].Score)
+	}
+	if ranked[2].FragmentationRatioMean != 0.4 {
+		t.Errorf("expected failed combo frag=0.4, got %v", ranked[2].FragmentationRatioMean)
 	}
 }

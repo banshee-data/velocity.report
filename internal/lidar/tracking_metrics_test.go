@@ -305,3 +305,47 @@ func TestGetTrackingMetrics(t *testing.T) {
 		assert.InDelta(t, 5.0, float64(perTrack.SpeedMps), 0.01)
 	})
 }
+
+// TestRecordFrameStatsAndSceneMetrics tests the scene-level foreground capture metrics.
+func TestRecordFrameStatsAndSceneMetrics(t *testing.T) {
+	t.Parallel()
+
+	t.Run("zero frames returns zero ratios", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(TrackerConfig{})
+
+		metrics := tracker.GetTrackingMetrics()
+		assert.Equal(t, float32(0), metrics.ForegroundCaptureRatio)
+		assert.Equal(t, float32(0), metrics.UnboundedPointRatio)
+		assert.Equal(t, float32(0), metrics.EmptyBoxRatio)
+	})
+
+	t.Run("records foreground and clustered points", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(TrackerConfig{})
+
+		// Simulate 2 frames: first with 100 foreground, 80 clustered; second with 50 foreground, 40 clustered
+		tracker.RecordFrameStats(100, 80)
+		tracker.RecordFrameStats(50, 40)
+
+		metrics := tracker.GetTrackingMetrics()
+		// Total: 150 foreground, 120 clustered
+		// Capture ratio = 120/150 = 0.8
+		assert.InDelta(t, 0.8, float64(metrics.ForegroundCaptureRatio), 0.01)
+		// Unbounded = 1 - 0.8 = 0.2
+		assert.InDelta(t, 0.2, float64(metrics.UnboundedPointRatio), 0.01)
+	})
+
+	t.Run("reset clears accumulators", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(TrackerConfig{})
+
+		tracker.RecordFrameStats(100, 80)
+		tracker.Reset()
+
+		metrics := tracker.GetTrackingMetrics()
+		assert.Equal(t, float32(0), metrics.ForegroundCaptureRatio)
+		assert.Equal(t, float32(0), metrics.UnboundedPointRatio)
+		assert.Equal(t, float32(0), metrics.EmptyBoxRatio)
+	})
+}

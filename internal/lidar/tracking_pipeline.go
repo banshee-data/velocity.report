@@ -283,7 +283,20 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 
 		clusters := DBSCAN(filteredPoints, dbscanParams)
 		if len(clusters) == 0 {
+			// No clusters, but still record foreground stats (all points are noise)
+			if cfg.Tracker != nil {
+				cfg.Tracker.RecordFrameStats(len(filteredPoints), 0)
+			}
 			return
+		}
+
+		// Record foreground capture stats: total foreground vs clustered points
+		if cfg.Tracker != nil {
+			clusteredPointCount := 0
+			for _, c := range clusters {
+				clusteredPointCount += c.PointsCount
+			}
+			cfg.Tracker.RecordFrameStats(len(filteredPoints), clusteredPointCount)
 		}
 
 		// Record clusters for analysis run if active

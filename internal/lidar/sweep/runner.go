@@ -117,6 +117,14 @@ type ComboResult struct {
 	HeadingJitterDegMean    float64 `json:"heading_jitter_deg_mean"`
 	HeadingJitterDegStddev  float64 `json:"heading_jitter_deg_stddev"`
 	FragmentationRatioMean  float64 `json:"fragmentation_ratio_mean"`
+
+	// Scene-level foreground capture metrics
+	ForegroundCaptureMean   float64 `json:"foreground_capture_mean"`
+	ForegroundCaptureStddev float64 `json:"foreground_capture_stddev"`
+	UnboundedPointMean      float64 `json:"unbounded_point_mean"`
+	UnboundedPointStddev    float64 `json:"unbounded_point_stddev"`
+	EmptyBoxRatioMean       float64 `json:"empty_box_ratio_mean"`
+	EmptyBoxRatioStddev     float64 `json:"empty_box_ratio_stddev"`
 }
 
 // AnalysisRunCreator creates analysis runs for sweep combinations.
@@ -869,6 +877,27 @@ func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, res
 		fragVals[ri] = r.FragmentationRatio
 	}
 	combo.FragmentationRatioMean, _ = MeanStddev(fragVals)
+
+	// Scene-level: foreground capture ratio
+	capVals := make([]float64, len(results))
+	for ri, r := range results {
+		capVals[ri] = r.ForegroundCaptureRatio
+	}
+	combo.ForegroundCaptureMean, combo.ForegroundCaptureStddev = MeanStddev(capVals)
+
+	// Scene-level: unbounded point ratio
+	unbVals := make([]float64, len(results))
+	for ri, r := range results {
+		unbVals[ri] = r.UnboundedPointRatio
+	}
+	combo.UnboundedPointMean, combo.UnboundedPointStddev = MeanStddev(unbVals)
+
+	// Scene-level: empty box ratio
+	ebVals := make([]float64, len(results))
+	for ri, r := range results {
+		ebVals[ri] = r.EmptyBoxRatio
+	}
+	combo.EmptyBoxRatioMean, combo.EmptyBoxRatioStddev = MeanStddev(ebVals)
 
 	return combo
 }
