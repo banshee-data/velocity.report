@@ -15,6 +15,6 @@
         , created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
           );
 
-CREATE INDEX idx_lidar_sweeps_sensor ON lidar_sweeps (sensor_id);
+CREATE INDEX IF NOT EXISTS idx_lidar_sweeps_sensor ON lidar_sweeps (sensor_id);
 
-CREATE INDEX idx_lidar_sweeps_status ON lidar_sweeps (status);
+CREATE INDEX IF NOT EXISTS idx_lidar_sweeps_status ON lidar_sweeps (status);

@@ -296,7 +296,11 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 
 	// Persist auto-tune start to database
 	if at.persister != nil {
-		reqJSON, _ := json.Marshal(req)
+		reqJSON, err := json.Marshal(req)
+		if err != nil {
+			log.Printf("[sweep] WARNING: Failed to marshal auto-tune request for persistence (sweepID=%s): %v", at.sweepID, err)
+			reqJSON = []byte("{}")
+		}
 		sensorID := ""
 		if at.runner != nil && at.runner.client != nil {
 			sensorID = at.runner.client.SensorID
@@ -688,16 +692,26 @@ func (at *AutoTuner) persistComplete(status string, results []ComboResult, recom
 		return
 	}
 
-	resultsJSON, _ := json.Marshal(results)
+	resultsJSON, err := json.Marshal(results)
+	if err != nil {
+		log.Printf("[sweep] WARNING: Failed to marshal auto-tune results for persistence (sweepID=%s): %v", at.sweepID, err)
+		resultsJSON = []byte("[]")
+	}
 	var recJSON json.RawMessage
 	if recommendation != nil {
-		recJSON, _ = json.Marshal(recommendation)
+		recJSON, err = json.Marshal(recommendation)
+		if err != nil {
+			log.Printf("[sweep] WARNING: Failed to marshal auto-tune recommendation for persistence (sweepID=%s): %v", at.sweepID, err)
+		}
 	}
 
 	at.mu.RLock()
 	var roundResultsJSON json.RawMessage
 	if len(at.state.RoundResults) > 0 {
-		roundResultsJSON, _ = json.Marshal(at.state.RoundResults)
+		roundResultsJSON, err = json.Marshal(at.state.RoundResults)
+		if err != nil {
+			log.Printf("[sweep] WARNING: Failed to marshal auto-tune round results for persistence (sweepID=%s): %v", at.sweepID, err)
+		}
 	}
 	at.mu.RUnlock()
 
