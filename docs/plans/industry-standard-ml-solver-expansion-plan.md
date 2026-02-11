@@ -320,11 +320,13 @@ Define success as measurable deltas:
 
 ---
 
-## 9) Immediate Next Actions — Implementation Checklist
+## 9) Implementation Checklist
 
-The following checklist details the concrete work needed to deliver items 9.1 through
-9.4 on this branch. Each task references the current codebase, the 6.1 data model
-additions, and the RLHF implementation that landed via `docs/plans/rlhf-sweep-mode.md`.
+This section contains a comprehensive checklist for **all** action items identified
+in this document. Items are organised by the phase they belong to (A–E from §5),
+cross-referenced to the transferable learnings (§2), RLHF enhancements (§4), and
+data model proposals (§6). Immediate implementation targets (9.1–9.4) are called
+out first, followed by the full backlog.
 
 ### Current state (what already exists)
 
@@ -340,7 +342,11 @@ The RLHF sweep mode is fully implemented (Phase 1–6 of the RLHF plan):
 - [x] `lidar_sweeps` persistence: `sweep_id`, `sensor_id`, `mode`, `status`, `request`, `results`, `charts`, `recommendation`, `round_results`, `error`, `started_at`, `completed_at`
 - [x] `lidar_run_tracks` label fields: `user_label`, `label_confidence`, `labeler_id`, `quality_label`
 
+---
+
 ### 9.1 — Schema/version stamp fields in sweep persistence
+
+_Phase A — Foundation. Refs: §2.1, §4.4, §6.1._
 
 Implements section 6.1 data model additions. Requires a new DB migration (migration 000024)
 and corresponding changes to the persistence layer and Go structs.
@@ -354,7 +360,7 @@ and corresponding changes to the persistence layer and Go structs.
 - [ ] Add column `score_components_json TEXT` to `lidar_sweeps`
 - [ ] Add column `recommendation_explanation_json TEXT` to `lidar_sweeps`
 - [ ] Add column `label_provenance_summary_json TEXT` to `lidar_sweeps`
-- [ ] Create matching `000024_add_sweep_metadata.down.sql` (use the table-recreation workaround for portability; see `sweep_store_test.go` test helpers for the pattern)
+- [ ] Create matching `000024_add_sweep_metadata.down.sql` (use `ALTER TABLE DROP COLUMN` per modernc.org/sqlite support)
 
 **Persistence layer (`internal/lidar/sweep_store.go`)**
 
@@ -387,10 +393,12 @@ and corresponding changes to the persistence layer and Go structs.
 
 ### 9.2 — Score component breakdown in objective code paths
 
+_Phase A — Foundation. Refs: §2.3, §4.3._
+
 Expose the component-level breakdown that is already computed internally but not
 surfaced in API responses or stored in the database.
 
-**Score decomposition struct (`internal/lidar/sweep/objective.go` or new `score_explain.go`)**
+**Score decomposition struct (`internal/lidar/sweep/score_explain.go` — new file)**
 
 - [ ] Define `ScoreComponents` struct with explicit per-metric contributions:
   - `DetectionRate`, `Fragmentation`, `FalsePositives`, `VelocityCoverage` (float64)
@@ -419,6 +427,8 @@ surfaced in API responses or stored in the database.
   - Includes component vector, top contributors, delta vs baseline
 
 ### 9.3 — Extend RLHF continue validation with class/time coverage checks
+
+_Phase C — RLHF Quality and Explainability. Refs: §4.2._
 
 Currently `ContinueFromLabels` only enforces a percentage threshold. Add optional
 quality gates that check class diversity and temporal spread.
@@ -451,6 +461,8 @@ quality gates that check class diversity and temporal spread.
 
 ### 9.4 — Explanation payload rendering in dashboard and Svelte sweeps page
 
+_Phase C — RLHF Quality and Explainability. Refs: §2.3, §4.3._
+
 Surface the score decomposition and recommendation explanation in both UIs.
 
 **Sweep dashboard (`internal/lidar/monitor/html/sweep_dashboard.html`, `assets/sweep_dashboard.js`)**
@@ -482,7 +494,79 @@ Surface the score decomposition and recommendation explanation in both UIs.
 
 ---
 
-### Work summary for this branch
+### Phase A backlog — Foundation (§5 Phase A)
+
+_Beyond 9.1–9.4, the following Phase A items remain:_
+
+- [ ] Add provenance markers for carried-over labels (§4.1 — augment `label_confidence` with explicit `source` enum: `human_manual`, `carried_over`, `auto_suggested`)
+- [ ] Persist confidence scores for carry-over matches (currently hardcoded `1.0`; should reflect IoU)
+- [ ] Define explicit schema contract for RLHF round records (§2.1 — typed, versioned JSON)
+- [ ] Define explicit schema contract for objective component vectors (§2.1)
+- [ ] Define explicit schema contract for recommendation rationale payloads (§2.1)
+- [ ] Persist schema version with every sweep (§2.1 — `schema_version` field on sweep record)
+
+### Phase B backlog — Transform + Objective Platform (§5 Phase B)
+
+- [ ] Implement Sweep Transform Pipeline engine (§2.2 — config-driven sequence of metric transforms before scoring)
+  - [ ] Define `Transform` interface with `Apply(metrics) → metrics`
+  - [ ] Implement standard transforms: normalisation, clipping, log scaling, class weighting
+  - [ ] Add round-dependent modifier transforms for RLHF
+  - [ ] Wire pipeline into `auto.go` and `rlhf.go` scoring paths
+- [ ] Refactor objective implementations into registry-driven modules (§3.2 item 3)
+  - [ ] Define `ObjectiveDefinition` struct with name, version, formula, expected input features
+  - [ ] Register built-in objectives: `weighted`, `acceptance`, `ground_truth`
+  - [ ] Add `GET /api/lidar/sweep/objectives` endpoint (§6.2)
+- [ ] Add `GET /api/lidar/sweep/transforms` endpoint listing pipeline presets + versions (§6.2)
+- [ ] Add objective/transform version stamps in run artefacts
+
+### Phase C backlog — RLHF Quality and Explainability (§5 Phase C)
+
+_Beyond 9.3–9.4:_
+
+- [ ] Expose round-over-round delta explanations (§4.3 — "what changed vs previous best")
+- [ ] Add agreement consistency checks where multiple labellers exist (§4.2)
+- [ ] Add label-coverage confidence penalty to scoring (§2.3)
+
+### Phase D backlog — Adaptive Search Expansion (§5 Phase D)
+
+- [ ] Add stochastic/hybrid search strategy behind a feature flag (§4.5)
+  - [ ] Round 1: broader exploratory search with random perturbation
+  - [ ] Round 2+: tighter exploitation with optional jitter around incumbent best
+- [ ] Add progressive narrowing ratio controls per round (§2.5)
+- [ ] Add early stopping based on confidence intervals and score stability (§2.5)
+- [ ] Compare compute-cost vs quality against pure grid narrowing
+
+### Phase E backlog — Governance + Promotion (§5 Phase E)
+
+- [ ] Add experiment promotion rules for applying optimal params to scenes (§3.2 item 6)
+- [ ] Add promotion criteria: minimum labels, confidence thresholds, quality checks
+- [ ] Add audit reports for "why recommendation was accepted"
+- [ ] Add canary mode for recommendation rollout in production scenes
+- [ ] Add artefact retention policy and traceable lineage
+
+### API additions backlog (§6.2)
+
+- [ ] `GET /api/lidar/sweep/{id}/explain` — score decomposition and parameter rationale (covered by 9.2/9.4)
+- [ ] `GET /api/lidar/sweep/objectives` — list available objective modules + versions (Phase B)
+- [ ] `GET /api/lidar/sweep/transforms` — list transform pipeline presets + versions (Phase B)
+
+### Risk mitigations to track (§7)
+
+- [ ] Enforce module boundaries between transform/objective/search to contain complexity (§7.1)
+- [ ] Implement progressive disclosure in UI — summary first, detail on demand (§7.2)
+- [ ] Add strict version stamping and back-compat replay tooling for score drift (§7.3)
+- [ ] Add priority labelling queues and label quality gates for RLHF throughput (§7.4)
+
+### Success criteria to measure (§8)
+
+- [ ] Instrument optimisation efficiency: track number of combos evaluated to reach target quality
+- [ ] Instrument human efficiency: track labelling time per useful RLHF round
+- [ ] Instrument trust: track operator acceptance rate of recommendations
+- [ ] Add replay tooling: ability to re-score historical sweeps with a different objective version
+
+---
+
+### Work summary for this branch (9.1–9.4)
 
 | Item | Scope | Key files |
 |------|-------|-----------|
