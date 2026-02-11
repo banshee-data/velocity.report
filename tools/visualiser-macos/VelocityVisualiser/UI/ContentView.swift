@@ -405,33 +405,40 @@ struct SidePanelView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Track info
-                if let trackID = appState.selectedTrackID { TrackInspectorView(trackID: trackID) }
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Track info
+                    if let trackID = appState.selectedTrackID {
+                        TrackInspectorView(trackID: trackID)
+                    }
+
+                    Divider()
+
+                    // Label panel
+                    LabelPanelView()
+
+                    Divider()
+
+                    // Debug overlay toggles
+                    DebugOverlayTogglesView()
+
+                    Divider()
+
+                    // Export
+                    Button(action: { appState.exportLabels() }) {
+                        Label("Export Labels", systemImage: "square.and.arrow.up")
+                    }.disabled(!appState.isConnected)
+
+                    Spacer()
+                }.frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider()
 
-                // Track list for selecting tracks
-                TrackListView()
-
-                Divider()
-
-                // Label panel
-                LabelPanelView()
-
-                Divider()
-
-                // Debug overlay toggles
-                DebugOverlayTogglesView()
-
-                Divider()
-
-                // Export
-                Button(action: { appState.exportLabels() }) {
-                    Label("Export Labels", systemImage: "square.and.arrow.up")
-                }.disabled(!appState.isConnected)
-
-                Spacer()
+                VStack(alignment: .leading, spacing: 16) {
+                    // Track list for selecting tracks
+                    TrackListView()
+                    Spacer()
+                }.frame(width: 220, alignment: .leading)
             }.padding()
         }.background(Color(nsColor: .controlBackgroundColor))
     }
@@ -576,6 +583,11 @@ struct TrackListView: View {
         return trackSet.tracks.sorted { $0.trackID < $1.trackID }
     }
 
+    /// Track lookup for determining in-view state and colours.
+    private var frameTrackByID: [String: Track] {
+        Dictionary(uniqueKeysWithValues: frameTracks.map { ($0.trackID, $0) })
+    }
+
     /// Whether we are in run replay mode.
     private var isRunMode: Bool { appState.currentRunID != nil }
 
@@ -627,8 +639,10 @@ struct TrackListView: View {
             Text("No tracks in run").font(.caption).foregroundColor(.secondary)
         } else {
             ForEach(runTracks, id: \.trackId) { track in
-                let isInView = inViewTrackIDs.contains(track.trackId)
-                let statusColour = track.isLabelled ? Color.green : Color.gray.opacity(0.5)
+                let frameTrack = frameTrackByID[track.trackId]
+                let isInView = frameTrack != nil
+                let statusColour =
+                    frameTrack.map { trackStateColour($0.state) } ?? Color.gray.opacity(0.5)
                 Button(action: { appState.selectTrack(track.trackId) }) {
                     HStack(spacing: 6) {
                         // Label status indicator
