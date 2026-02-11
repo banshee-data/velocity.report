@@ -128,6 +128,15 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			if v, ok := trackMetrics["tracks_confirmed"]; ok {
 				result.TracksConfirmed = toIntFromMap(v)
 			}
+			if v, ok := trackMetrics["foreground_capture_ratio"]; ok {
+				result.ForegroundCaptureRatio = toFloat64FromMap(v)
+			}
+			if v, ok := trackMetrics["unbounded_point_ratio"]; ok {
+				result.UnboundedPointRatio = toFloat64FromMap(v)
+			}
+			if v, ok := trackMetrics["empty_box_ratio"]; ok {
+				result.EmptyBoxRatio = toFloat64FromMap(v)
+			}
 		}
 
 		results = append(results, result)

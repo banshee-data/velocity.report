@@ -189,19 +189,18 @@
         </div>
       </div>
 
-      <!-- Card 3: Scenario (manual mode only) -->
-      <div class="card scenario-card manual-only">
-        <h2>Scenario</h2>
-        <div class="scenario-card-content">
-          <div class="scenario-bar">
-            <button class="btn-sm btn-secondary" onclick="downloadScenario()">
+      <!-- Card 3: Scene (manual mode only) -->
+      <div class="card scene-card manual-only">
+        <h2>Scene</h2>
+        <div class="scene-card-content">
+          <div class="scene-bar">
+            <button class="btn-sm btn-secondary" onclick="downloadScene()">
               Download JSON
             </button>
-            <button class="btn-sm btn-secondary" onclick="document.getElementById('scenario-upload').click()">
+            <button class="btn-sm btn-secondary" onclick="document.getElementById('scene-upload').click()">
               Upload JSON
             </button>
-            <input id="scenario-upload" type="file" accept=".json" style="display: none"
-              onchange="uploadScenario(this)" />
+            <input id="scene-upload" type="file" accept=".json" style="display: none" onchange="uploadScene(this)" />
             <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">
               Edit JSON
             </button>
@@ -256,6 +255,40 @@
             <label><span>Cells Weight</span><input id="w_nonzero" type="number" step="0.1" value="0.1" />
               <small class="field-desc">Weight for log(nonzero cells) (positive = maximise).</small>
             </label>
+            <label><span>Tracks Weight</span><input id="w_active_tracks" type="number" step="0.1" value="0.3" />
+              <small class="field-desc">Weight for log(active tracks) (positive = maximise).</small>
+            </label>
+            <label><span>Capture Weight</span><input id="w_foreground_capture" type="number" step="0.1" value="0" />
+              <small class="field-desc">Weight for foreground capture ratio (positive = maximise).</small>
+            </label>
+            <label><span>Empty Box Weight</span><input id="w_empty_boxes" type="number" step="0.1" value="0" />
+              <small class="field-desc">Weight for empty box ratio (negative = minimise).</small>
+            </label>
+            <label><span>Fragment Weight</span><input id="w_fragmentation" type="number" step="0.1" value="0" />
+              <small class="field-desc">Weight for fragmentation ratio (negative = minimise).</small>
+            </label>
+            <label><span>Jitter Weight</span><input id="w_heading_jitter" type="number" step="0.01" value="0" />
+              <small class="field-desc">Weight for heading jitter degrees (negative = minimise).</small>
+            </label>
+          </div>
+        </div>
+        <div id="acceptance-criteria-fields" style="display: none; margin-top: 10px">
+          <h3 style="margin: 0 0 8px 0; font-size: 0.95em">Acceptance Criteria</h3>
+          <small class="field-desc" style="display: block; margin-bottom: 8px">Hard thresholds that reject combinations
+            before scoring. Leave blank for no constraint.</small>
+          <div class="field-stack">
+            <label><span>Max Fragmentation</span><input id="ac_max_fragmentation" type="number" step="0.01"
+                placeholder="e.g. 0.5" />
+              <small class="field-desc">Maximum fragmentation ratio allowed (0-1).</small>
+            </label>
+            <label><span>Max Unbounded</span><input id="ac_max_unbounded" type="number" step="0.01"
+                placeholder="e.g. 0.3" />
+              <small class="field-desc">Maximum unbounded point ratio allowed (0-1).</small>
+            </label>
+            <label><span>Max Empty Boxes</span><input id="ac_max_empty_boxes" type="number" step="0.01"
+                placeholder="e.g. 0.2" />
+              <small class="field-desc">Maximum empty box ratio allowed (0-1).</small>
+            </label>
           </div>
         </div>
       </div>
@@ -276,32 +309,24 @@
   </div>
   <!-- End config-container -->
 
-  <!-- Charts (always visible, start empty) -->
+  <!-- Sweep History -->
+  <div id="sweep-history-bar">
+    <label><span>History</span>
+      <select id="sweep-history-select" onchange="onSweepHistorySelected()">
+        <option value="">Current (live)</option>
+      </select>
+    </label>
+    <button class="btn-sm btn-secondary" onclick="loadSweepHistory()">Refresh</button>
+  </div>
+
+  <!-- Charts (dynamically built) -->
   <div id="charts-section">
-    <div class="card">
-      <div id="acceptance-chart" class="chart-container"></div>
+    <div id="chart-toolbar">
+      <button class="btn-sm btn-add" onclick="openChartModal()">+ Add Chart</button>
+      <button class="btn-sm btn-secondary" id="btn-save-charts" onclick="saveChartConfigs()" style="display:none">Save
+        Charts</button>
     </div>
-    <div class="card">
-      <div id="nonzero-chart" class="chart-container"></div>
-    </div>
-    <div class="card">
-      <div id="bucket-chart" class="chart-container"></div>
-    </div>
-    <div class="card">
-      <div id="param-heatmap" class="chart-container"></div>
-    </div>
-    <div class="card">
-      <div id="alignment-chart" class="chart-container"></div>
-    </div>
-    <div class="card">
-      <div id="tracks-chart" class="chart-container"></div>
-    </div>
-    <div class="card">
-      <div id="tracks-heatmap" class="chart-container"></div>
-    </div>
-    <div class="card">
-      <div id="alignment-heatmap" class="chart-container"></div>
-    </div>
+    <div id="chart-grid"></div>
 
     <!-- Results Table -->
     <div id="results-card" class="card">
@@ -323,11 +348,53 @@
               <th>Active Tracks</th>
               <th>Alignment (deg)</th>
               <th>Misalignment</th>
+              <th>Fg Capture</th>
+              <th>Unbounded</th>
+              <th>Empty Box</th>
+              <th>Fragmentation</th>
+              <th>Jitter (deg)</th>
             </tr>
           </thead>
           <tbody id="results-body"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- Chart Config Modal -->
+  <div id="chart-modal" class="modal-overlay" style="display:none">
+    <div class="modal-content card">
+      <h2 id="chart-modal-title">Add Chart</h2>
+      <div class="field-stack">
+        <label><span>Title</span><input id="chart-cfg-title" type="text" placeholder="Chart title" /></label>
+        <label><span>Type</span>
+          <select id="chart-cfg-type" onchange="onChartTypeChange()">
+            <option value="bar">Bar</option>
+            <option value="line">Line</option>
+            <option value="scatter">Scatter</option>
+            <option value="heatmap">Heatmap</option>
+          </select>
+        </label>
+        <label><span>X Axis</span>
+          <select id="chart-cfg-x"></select>
+        </label>
+        <label><span>Y Axis</span>
+          <select id="chart-cfg-y"></select>
+        </label>
+        <label id="chart-cfg-z-row"><span>Color (Z)</span>
+          <select id="chart-cfg-z"></select>
+        </label>
+        <label id="chart-cfg-group-row"><span>Group By</span>
+          <select id="chart-cfg-group">
+            <option value="">(none)</option>
+          </select>
+        </label>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeChartModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="applyChartModal()">Apply</button>
+      </div>
+      <input id="chart-cfg-id" type="hidden" />
     </div>
   </div>
 

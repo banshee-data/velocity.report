@@ -1,7 +1,7 @@
 -- Reverse migration: Remove map-related fields from site table
--- SQLite doesn't support DROP COLUMN in versions < 3.35.0
--- Following the pattern from 000014, we recreate the table without the map fields
-
+-- NOTE: As of modernc.org/sqlite v1.44.3 (SQLite 3.51.2), ALTER TABLE DROP COLUMN
+-- is supported. This migration predates that capability and uses the legacy
+-- table-recreation workaround. New migrations should use DROP COLUMN directly.
 -- Step 1: Create new table without map-related columns
    CREATE TABLE site_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT

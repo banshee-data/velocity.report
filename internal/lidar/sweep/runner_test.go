@@ -537,20 +537,26 @@ func TestComputeComboResult(t *testing.T) {
 
 	results := []SampleResult{
 		{
-			AcceptanceRates:   []float64{0.80, 0.90, 0.70},
-			NonzeroCells:      100,
-			OverallAcceptPct:  0.80,
-			ActiveTracks:      3,
-			MeanAlignmentDeg:  10.0,
-			MisalignmentRatio: 0.1,
+			AcceptanceRates:        []float64{0.80, 0.90, 0.70},
+			NonzeroCells:           100,
+			OverallAcceptPct:       0.80,
+			ActiveTracks:           3,
+			MeanAlignmentDeg:       10.0,
+			MisalignmentRatio:      0.1,
+			ForegroundCaptureRatio: 0.8,
+			UnboundedPointRatio:    0.2,
+			EmptyBoxRatio:          0.1,
 		},
 		{
-			AcceptanceRates:   []float64{0.90, 0.80, 0.60},
-			NonzeroCells:      120,
-			OverallAcceptPct:  0.76,
-			ActiveTracks:      5,
-			MeanAlignmentDeg:  20.0,
-			MisalignmentRatio: 0.3,
+			AcceptanceRates:        []float64{0.90, 0.80, 0.60},
+			NonzeroCells:           120,
+			OverallAcceptPct:       0.76,
+			ActiveTracks:           5,
+			MeanAlignmentDeg:       20.0,
+			MisalignmentRatio:      0.3,
+			ForegroundCaptureRatio: 0.6,
+			UnboundedPointRatio:    0.4,
+			EmptyBoxRatio:          0.3,
 		},
 	}
 
@@ -601,6 +607,21 @@ func TestComputeComboResult(t *testing.T) {
 	// Misalignment ratio: mean of 0.1 and 0.3 = 0.2
 	if math.Abs(combo.MisalignmentRatioMean-0.2) > 0.001 {
 		t.Errorf("expected misalignment_ratio_mean ~0.2, got %f", combo.MisalignmentRatioMean)
+	}
+
+	// Foreground capture: mean of 0.8 and 0.6 = 0.7
+	if math.Abs(combo.ForegroundCaptureMean-0.7) > 0.001 {
+		t.Errorf("expected foreground_capture_mean ~0.7, got %f", combo.ForegroundCaptureMean)
+	}
+
+	// Unbounded point: mean of 0.2 and 0.4 = 0.3
+	if math.Abs(combo.UnboundedPointMean-0.3) > 0.001 {
+		t.Errorf("expected unbounded_point_mean ~0.3, got %f", combo.UnboundedPointMean)
+	}
+
+	// Empty box ratio: mean of 0.1 and 0.3 = 0.2
+	if math.Abs(combo.EmptyBoxRatioMean-0.2) > 0.001 {
+		t.Errorf("expected empty_box_ratio_mean ~0.2, got %f", combo.EmptyBoxRatioMean)
 	}
 }
 

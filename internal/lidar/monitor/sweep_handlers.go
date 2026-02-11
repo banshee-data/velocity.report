@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -156,4 +157,124 @@ func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) 
 	ws.autoTuneRunner.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+// handleListSweeps returns a list of recent sweep records for the current sensor.
+func (ws *WebServer) handleListSweeps(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.sweepStore == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
+		return
+	}
+
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		sensorID = ws.sensorID
+	}
+
+	limit := 20
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	sweeps, err := ws.sweepStore.ListSweeps(sensorID, limit)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to list sweeps: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sweeps)
+}
+
+// handleGetSweep returns a single sweep record with full results.
+func (ws *WebServer) handleGetSweep(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.sweepStore == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
+		return
+	}
+
+	// Extract sweep_id from path: /api/lidar/sweeps/{sweep_id}
+	path := strings.TrimPrefix(r.URL.Path, "/api/lidar/sweeps/")
+	sweepID := strings.TrimRight(path, "/")
+	if sweepID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing sweep_id in path")
+		return
+	}
+
+	sweep, err := ws.sweepStore.GetSweep(sweepID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to get sweep: "+err.Error())
+		return
+	}
+	if sweep == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "sweep not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sweep)
+}
+
+// handleSweepCharts saves chart configuration for a sweep.
+func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.sweepStore == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
+		return
+	}
+
+	var req struct {
+		SweepID string          `json:"sweep_id"`
+		Charts  json.RawMessage `json:"charts"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if req.SweepID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "sweep_id is required")
+		return
+	}
+
+	// Validate that charts is a valid JSON array or object, not primitives or double-encoded strings
+	if len(req.Charts) > 0 {
+		var test interface{}
+		if err := json.Unmarshal(req.Charts, &test); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, "charts must be valid JSON: "+err.Error())
+			return
+		}
+		// Only allow JSON objects or arrays; reject primitives and double-encoded strings
+		switch test.(type) {
+		case map[string]interface{}, []interface{}:
+			// valid chart structure
+		default:
+			ws.writeJSONError(w, http.StatusBadRequest, "charts must be a JSON array or object")
+			return
+		}
+	}
+
+	if err := ws.sweepStore.UpdateSweepCharts(req.SweepID, req.Charts); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to save charts: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 }

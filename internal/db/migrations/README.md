@@ -461,6 +461,20 @@ ALTER TABLE site_reports ADD COLUMN IF NOT EXISTS speed_limit INTEGER DEFAULT 25
 
 Essential SQLite PRAGMAs (journal_mode, busy_timeout, etc.) are applied in Go code (`internal/db/db.go/applyPragmas()`), not in migrations. This ensures consistency regardless of how the database is created.
 
+### 8. Use DROP COLUMN Directly
+
+As of `modernc.org/sqlite v1.44.3`, the bundled SQLite engine (v3.51.2) supports `ALTER TABLE DROP COLUMN` (available since SQLite 3.35.0). New migrations that need to remove columns should use this directly:
+
+```sql
+-- ✓ Preferred (new migrations)
+ALTER TABLE my_table DROP COLUMN old_col;
+
+-- ✗ Legacy workaround (used in migrations 000014-000019)
+-- CREATE TABLE my_table_new (...); INSERT INTO ...; DROP TABLE my_table; ALTER TABLE RENAME ...
+```
+
+Older migrations in this repository still use the table-recreation workaround because they predate this capability. They are left as-is for safety.
+
 ## Troubleshooting
 
 ### "Dirty migration" Error
@@ -643,7 +657,7 @@ If a migration causes issues:
 velocity.report uses [golang-migrate](https://github.com/golang-migrate/migrate) for database migrations. Key components:
 
 - **Migration files:** SQL files embedded in binary via Go's `embed.FS`
-- **Driver:** `modernc.org/sqlite` (pure-Go, no CGO) for cross-platform compatibility
+- **Driver:** `modernc.org/sqlite v1.44.3` (pure-Go, no CGO) — bundles SQLite 3.51.2, which supports `ALTER TABLE DROP COLUMN`
 - **Tracking:** `schema_migrations` table stores version and dirty state
 - **Commands:** Exposed via `velocity-report migrate` CLI
 

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 )
 
@@ -115,12 +117,27 @@ type ComboResult struct {
 	HeadingJitterDegMean    float64 `json:"heading_jitter_deg_mean"`
 	HeadingJitterDegStddev  float64 `json:"heading_jitter_deg_stddev"`
 	FragmentationRatioMean  float64 `json:"fragmentation_ratio_mean"`
+
+	// Scene-level foreground capture metrics
+	ForegroundCaptureMean   float64 `json:"foreground_capture_mean"`
+	ForegroundCaptureStddev float64 `json:"foreground_capture_stddev"`
+	UnboundedPointMean      float64 `json:"unbounded_point_mean"`
+	UnboundedPointStddev    float64 `json:"unbounded_point_stddev"`
+	EmptyBoxRatioMean       float64 `json:"empty_box_ratio_mean"`
+	EmptyBoxRatioStddev     float64 `json:"empty_box_ratio_stddev"`
 }
 
 // AnalysisRunCreator creates analysis runs for sweep combinations.
 // Defined as an interface to avoid circular imports with the lidar package.
 type AnalysisRunCreator interface {
 	CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error)
+}
+
+// SweepPersister persists sweep results to a database.
+// Defined as an interface to avoid circular imports with the lidar package.
+type SweepPersister interface {
+	SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time) error
+	SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string) error
 }
 
 // SweepState holds the current state and results of a sweep
@@ -139,10 +156,12 @@ type SweepState struct {
 
 // Runner orchestrates parameter sweeps
 type Runner struct {
-	client *monitor.Client
-	mu     sync.RWMutex
-	state  SweepState
-	cancel context.CancelFunc
+	client    *monitor.Client
+	mu        sync.RWMutex
+	state     SweepState
+	cancel    context.CancelFunc
+	persister SweepPersister
+	sweepID   string // current sweep's unique ID
 }
 
 // NewRunner creates a new sweep runner
@@ -151,6 +170,18 @@ func NewRunner(client *monitor.Client) *Runner {
 		client: client,
 		state:  SweepState{Status: SweepStatusIdle},
 	}
+}
+
+// SetPersister sets the database persister for saving sweep results.
+func (r *Runner) SetPersister(p SweepPersister) {
+	r.persister = p
+}
+
+// GetSweepID returns the current sweep's unique ID.
+func (r *Runner) GetSweepID() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.sweepID
 }
 
 // addWarning appends a warning message to the sweep state.
@@ -287,6 +318,7 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	}
 
 	now := time.Now()
+	r.sweepID = uuid.New().String()
 	r.state = SweepState{
 		Status:      SweepStatusRunning,
 		StartedAt:   &now,
@@ -298,6 +330,18 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	sweepCtx, cancel := context.WithCancel(ctx)
 	r.cancel = cancel
 	r.mu.Unlock()
+
+	// Persist sweep start to database
+	if r.persister != nil {
+		reqJSON, err := json.Marshal(req)
+		if err != nil {
+			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
+			reqJSON = []byte("{}")
+		}
+		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now); err != nil {
+			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
+		}
+	}
 
 	// Run sweep in background
 	go r.run(sweepCtx, req, noiseCombos, closenessCombos, neighbourCombos, interval, settleTime)
@@ -345,6 +389,7 @@ func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, s
 	}
 
 	now := time.Now()
+	r.sweepID = uuid.New().String()
 	r.state = SweepState{
 		Status:      SweepStatusRunning,
 		StartedAt:   &now,
@@ -356,6 +401,18 @@ func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, s
 	sweepCtx, cancel := context.WithCancel(ctx)
 	r.cancel = cancel
 	r.mu.Unlock()
+
+	// Persist sweep start to database
+	if r.persister != nil {
+		reqJSON, err := json.Marshal(req)
+		if err != nil {
+			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
+			reqJSON = []byte("{}")
+		}
+		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now); err != nil {
+			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
+		}
+	}
 
 	go r.runGeneric(sweepCtx, req, combos, interval, settleTime)
 
@@ -451,10 +508,12 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				case <-ctx.Done():
 					r.mu.Lock()
 					r.state.Status = SweepStatusError
-					r.state.Error = fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum, totalCombos, ctx.Err())
+					errMsg := fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum, totalCombos, ctx.Err())
+					r.state.Error = errMsg
 					now := time.Now()
 					r.state.CompletedAt = &now
 					r.mu.Unlock()
+					r.persistComplete("error", errMsg, nil)
 					return
 				default:
 				}
@@ -486,10 +545,12 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				}
 				if err := r.client.SetParams(params); err != nil {
 					log.Printf("[sweep] ERROR: Failed to set params: %v", err)
+					errMsg := fmt.Sprintf("combo %d: failed to set params: %v", comboNum, err)
 					r.mu.Lock()
 					r.state.Status = SweepStatusError
-					r.state.Error = fmt.Sprintf("combo %d: failed to set params: %v", comboNum+1, err)
+					r.state.Error = errMsg
 					r.mu.Unlock()
+					r.persistComplete("error", errMsg, nil)
 					return
 				}
 
@@ -581,6 +642,9 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 	r.state.CompletedAt = &now
 	r.mu.Unlock()
 	log.Printf("[sweep] Sweep complete: %d combinations evaluated", comboNum)
+
+	// Persist completion to database
+	r.persistComplete("complete", "", nil)
 }
 
 // runGeneric executes the generic N-dimensional sweep.
@@ -606,10 +670,12 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		case <-ctx.Done():
 			r.mu.Lock()
 			r.state.Status = SweepStatusError
-			r.state.Error = fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum+1, totalCombos, ctx.Err())
+			errMsg := fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum+1, totalCombos, ctx.Err())
+			r.state.Error = errMsg
 			now := time.Now()
 			r.state.CompletedAt = &now
 			r.mu.Unlock()
+			r.persistComplete("error", errMsg, nil)
 			return
 		default:
 		}
@@ -740,6 +806,9 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 	r.state.CompletedAt = &now
 	r.mu.Unlock()
 	log.Printf("[sweep] Sweep complete: %d combinations evaluated", len(combos))
+
+	// Persist completion to database
+	r.persistComplete("complete", "", nil)
 }
 
 // computeComboResult computes summary statistics for a parameter combination
@@ -817,7 +886,51 @@ func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, res
 	}
 	combo.FragmentationRatioMean, _ = MeanStddev(fragVals)
 
+	// Scene-level: foreground capture ratio
+	capVals := make([]float64, len(results))
+	for ri, r := range results {
+		capVals[ri] = r.ForegroundCaptureRatio
+	}
+	combo.ForegroundCaptureMean, combo.ForegroundCaptureStddev = MeanStddev(capVals)
+
+	// Scene-level: unbounded point ratio
+	unbVals := make([]float64, len(results))
+	for ri, r := range results {
+		unbVals[ri] = r.UnboundedPointRatio
+	}
+	combo.UnboundedPointMean, combo.UnboundedPointStddev = MeanStddev(unbVals)
+
+	// Scene-level: empty box ratio
+	ebVals := make([]float64, len(results))
+	for ri, r := range results {
+		ebVals[ri] = r.EmptyBoxRatio
+	}
+	combo.EmptyBoxRatioMean, combo.EmptyBoxRatioStddev = MeanStddev(ebVals)
+
 	return combo
+}
+
+// persistComplete saves the final sweep state to the database.
+func (r *Runner) persistComplete(status, errMsg string, recommendation json.RawMessage) {
+	if r.persister == nil || r.sweepID == "" {
+		return
+	}
+
+	r.mu.RLock()
+	state := r.state
+	results := make([]ComboResult, len(state.Results))
+	copy(results, state.Results)
+	r.mu.RUnlock()
+
+	resultsJSON, err := json.Marshal(results)
+	if err != nil {
+		log.Printf("[sweep] WARNING: Failed to marshal sweep results for persistence: %v", err)
+		resultsJSON = []byte("[]")
+	}
+	now := time.Now()
+	if err := r.persister.SaveSweepComplete(r.sweepID, status, resultsJSON, recommendation, nil, now, errMsg); err != nil {
+		log.Printf("[sweep] WARNING: Failed to persist sweep completion: %v", err)
+	}
 }
 
 // expandSweepParam expands a SweepParam's range fields into Values.

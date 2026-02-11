@@ -42,6 +42,13 @@ type TrackerInterface interface {
 	// across all active tracks. Used by the sweep tool to evaluate
 	// tracking parameter configurations.
 	GetTrackingMetrics() TrackingMetrics
+
+	// RecordFrameStats records per-frame foreground point statistics.
+	// totalForegroundPoints is the number of world-frame points that entered
+	// DBSCAN; clusteredPoints is the sum of PointsCount across all clusters
+	// produced by DBSCAN. The difference represents noise points that were
+	// not captured by any bounding box.
+	RecordFrameStats(totalForegroundPoints, clusteredPoints int)
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.

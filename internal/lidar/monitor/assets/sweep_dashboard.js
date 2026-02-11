@@ -29,15 +29,12 @@ var pollTimer = null;
 var stopRequested = false;
 var sweepMode = "manual"; // 'manual' or 'auto'
 var sensorId = null;
-var acceptChart = null;
-var nzChart = null;
-var bktChart = null;
-var alignChart = null;
-var tracksChart = null;
-var paramHeatmapChart = null;
-var tracksHeatmapChart = null;
-var alignHeatmapChart = null;
 var latestResults = null;
+var chartConfigs = [];
+var chartInstances = {};
+var chartConfigCounter = 0;
+var currentSweepId = null;
+var viewingHistorical = false;
 
 // Detect dark mode for ECharts (guarded for test environments)
 var isDark =
@@ -55,7 +52,7 @@ var PARAM_SCHEMA = {
     step: 0.001,
     defaultStart: 0.01,
     defaultEnd: 0.2,
-    desc: "Fraction of measured range treated as noise threshold (0\u20131). Higher = more tolerant of range variation.",
+    desc: "Fraction of measured range treated as noise threshold (0–1). Higher = more tolerant of range variation.",
   },
   closeness_multiplier: {
     type: "float64",
@@ -71,7 +68,7 @@ var PARAM_SCHEMA = {
     step: 1,
     defaultStart: 0,
     defaultEnd: 8,
-    desc: "Number of neighbouring cells (0\u20138) that must agree before marking foreground.",
+    desc: "Number of neighbouring cells (0–8) that must agree before marking foreground.",
   },
   seed_from_first: {
     type: "bool",
@@ -143,7 +140,7 @@ var PARAM_SCHEMA = {
   },
   gating_distance_squared: {
     type: "float64",
-    label: "Gating Distance\u00b2",
+    label: "Gating Distance²",
     step: 1.0,
     defaultStart: 4.0,
     defaultEnd: 100.0,
@@ -209,6 +206,84 @@ var PARAM_SCHEMA = {
 
 var paramNames = Object.keys(PARAM_SCHEMA);
 var paramCounter = 0;
+
+var CHART_COLORS = [
+  "#5470c6",
+  "#91cc75",
+  "#fac858",
+  "#ee6666",
+  "#73c0de",
+  "#3ba272",
+  "#fc8452",
+  "#9a60b4",
+];
+
+var METRIC_KEYS = [
+  "overall_accept_mean",
+  "overall_accept_stddev",
+  "nonzero_cells_mean",
+  "nonzero_cells_stddev",
+  "active_tracks_mean",
+  "active_tracks_stddev",
+  "alignment_deg_mean",
+  "alignment_deg_stddev",
+  "misalignment_ratio_mean",
+  "misalignment_ratio_stddev",
+  "heading_jitter_deg_mean",
+  "heading_jitter_deg_stddev",
+  "fragmentation_ratio_mean",
+  "fragmentation_ratio_stddev",
+  "foreground_capture_mean",
+  "foreground_capture_stddev",
+  "unbounded_point_mean",
+  "unbounded_point_stddev",
+  "empty_box_ratio_mean",
+  "empty_box_ratio_stddev",
+  "ground_truth_score",
+  "detection_rate",
+  "false_positive_rate",
+];
+
+function metricLabel(key) {
+  if (key === "_combo") return "Combination";
+  var schema = PARAM_SCHEMA[key];
+  if (schema) return schema.label;
+  return key.replace(/_/g, " ").replace(/\b\w/g, function (c) {
+    return c.toUpperCase();
+  });
+}
+
+function extractValue(result, key) {
+  if (result.param_values && result.param_values[key] !== undefined) {
+    return result.param_values[key];
+  }
+  if (result[key] !== undefined) {
+    return result[key];
+  }
+  return null;
+}
+
+function getAvailableMetrics(results) {
+  // When no results are available yet, fall back to all known metric keys so
+  // the chart modal can still present sensible defaults.
+  var defaultResult = { params: [], metrics: METRIC_KEYS.slice() };
+
+  if (!results || results.length === 0) return defaultResult;
+
+  var r0 = results[0];
+  var params = Object.keys(r0.param_values || {});
+  var metrics = METRIC_KEYS.filter(function (k) {
+    return r0[k] !== undefined;
+  });
+
+  // If none of the known metric keys are present on the first result, fall
+  // back to the default list to avoid empty metric selections in the UI.
+  if (metrics.length === 0) {
+    metrics = defaultResult.metrics;
+  }
+
+  return { params: params, metrics: metrics };
+}
 
 function val(id) {
   return document.getElementById(id).value;
@@ -280,7 +355,7 @@ function onSweepSceneSelected() {
     return;
   }
 
-  // Populate the PCAP fields so buildScenarioJSON / handleStartAutoTune can read them
+  // Populate the PCAP fields so buildSceneJSON / handleStartAutoTune can read them
   document.getElementById("pcap_file").value = scene.pcap_file;
   if (scene.pcap_start_secs != null) {
     document.getElementById("pcap_start_secs").value = scene.pcap_start_secs;
@@ -338,8 +413,11 @@ function setMode(mode) {
 
 function toggleWeights() {
   var obj = document.getElementById("objective").value;
-  document.getElementById("weight-fields").style.display =
-    obj === "weighted" ? "" : "none";
+  var show = obj === "weighted";
+  document.getElementById("weight-fields").style.display = show ? "" : "none";
+  document.getElementById("acceptance-criteria-fields").style.display = show
+    ? ""
+    : "none";
 }
 
 function addParamRow(name) {
@@ -528,7 +606,7 @@ function updateSweepSummary() {
             escapeHTML(label) +
             "</strong>: " +
             escapeHTML(startEl.value) +
-            " \u2192 " +
+            " → " +
             escapeHTML(endEl.value) +
             " (" +
             escapeHTML(valuesPerParam) +
@@ -662,9 +740,9 @@ function updateSweepSummary() {
   el.innerHTML = html;
 }
 
-// ---- Scenario management ----
+// ---- Scene management ----
 
-function buildScenarioJSON() {
+function buildSceneJSON() {
   var ds = val("data_source");
   var req = {
     seed: val("seed"),
@@ -741,24 +819,24 @@ function buildScenarioJSON() {
   return req;
 }
 
-function downloadScenario() {
-  var obj = buildScenarioJSON();
+function downloadScene() {
+  var obj = buildSceneJSON();
   var json = JSON.stringify(obj, null, 2);
   var blob = new Blob([json], { type: "application/json" });
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "sweep-scenario.json";
+  a.download = "sweep-scene.json";
   a.click();
   URL.revokeObjectURL(a.href);
 }
 
-function uploadScenario(input) {
+function uploadScene(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function (e) {
     try {
       var obj = JSON.parse(e.target.result);
-      loadScenario(obj);
+      loadScene(obj);
     } catch (err) {
       showError("Invalid JSON: " + err.message);
     }
@@ -767,7 +845,7 @@ function uploadScenario(input) {
   input.value = "";
 }
 
-function loadScenario(obj) {
+function loadScene(obj) {
   if (obj.seed) document.getElementById("seed").value = obj.seed;
   if (obj.iterations)
     document.getElementById("iterations").value = obj.iterations;
@@ -831,7 +909,7 @@ function toggleJSONEditor() {
     wrap.style.display = "";
     applyBtn.style.display = "";
     document.getElementById("scenario-json").value = JSON.stringify(
-      buildScenarioJSON(),
+      buildSceneJSON(),
       null,
       2,
     );
@@ -844,7 +922,7 @@ function toggleJSONEditor() {
 function applyJSONEditor() {
   try {
     var obj = JSON.parse(document.getElementById("scenario-json").value);
-    loadScenario(obj);
+    loadScene(obj);
     showError("");
     // Hide the editor after successful apply
     document.getElementById("json-editor-wrap").style.display = "none";
@@ -872,7 +950,7 @@ function handleStart() {
 }
 
 function handleStartManualSweep() {
-  var req = buildScenarioJSON();
+  var req = buildSceneJSON();
   req.mode = "params";
 
   if (!req.params || req.params.length === 0) {
@@ -957,7 +1035,24 @@ function handleStartAutoTune() {
       misalignment: numVal("w_misalignment") || -0.5,
       alignment: numVal("w_alignment") || -0.01,
       nonzero_cells: numVal("w_nonzero") || 0.1,
+      active_tracks: numVal("w_active_tracks") || 0.3,
+      foreground_capture: numVal("w_foreground_capture") || 0,
+      empty_boxes: numVal("w_empty_boxes") || 0,
+      fragmentation: numVal("w_fragmentation") || 0,
+      heading_jitter: numVal("w_heading_jitter") || 0,
     };
+
+    // Build acceptance criteria (only include non-empty fields)
+    var ac = {};
+    var acFrag = document.getElementById("ac_max_fragmentation").value;
+    var acUnb = document.getElementById("ac_max_unbounded").value;
+    var acEmpty = document.getElementById("ac_max_empty_boxes").value;
+    if (acFrag !== "") ac.max_fragmentation_ratio = parseFloat(acFrag);
+    if (acUnb !== "") ac.max_unbounded_point_ratio = parseFloat(acUnb);
+    if (acEmpty !== "") ac.max_empty_box_ratio = parseFloat(acEmpty);
+    if (Object.keys(ac).length > 0) {
+      req.acceptance_criteria = ac;
+    }
   }
 
   // Hide previous recommendation
@@ -1076,7 +1171,7 @@ function pollStatus() {
         cc.textContent =
           "Current: " +
           lbl +
-          " \u2192 acceptance=" +
+          " → acceptance=" +
           ((c.overall_accept_mean || 0) * 100).toFixed(1) +
           "%";
       } else {
@@ -1138,8 +1233,7 @@ function pollAutoTuneStatus() {
       // Show round progress
       var roundInfo = "";
       if (st.total_rounds > 0) {
-        roundInfo =
-          "Round " + (st.round || 1) + "/" + st.total_rounds + " \u2014 ";
+        roundInfo = "Round " + (st.round || 1) + "/" + st.total_rounds + " — ";
       }
       document.getElementById("combo-count").textContent =
         roundInfo +
@@ -1173,7 +1267,7 @@ function pollAutoTuneStatus() {
           '<div class="auto-progress">Last round best score: <strong>' +
           escapeHTML((lastRound.best_score || 0).toFixed(4)) +
           "</strong>" +
-          " \u2014 " +
+          " — " +
           escapeHTML(formatParamValues(lastRound.best_params)) +
           "</div>";
       } else if (st.status === "running") {
@@ -1245,7 +1339,12 @@ function renderRecommendation(rec, roundResults) {
       k !== "acceptance_rate" &&
       k !== "misalignment_ratio" &&
       k !== "alignment_deg" &&
-      k !== "nonzero_cells"
+      k !== "nonzero_cells" &&
+      k !== "foreground_capture" &&
+      k !== "unbounded_point_ratio" &&
+      k !== "empty_box_ratio" &&
+      k !== "fragmentation_ratio" &&
+      k !== "heading_jitter_deg"
     );
   });
   paramKeys.forEach(function (k) {
@@ -1283,11 +1382,31 @@ function renderRecommendation(rec, roundResults) {
   metricsHtml +=
     '<div class="metric">Alignment: <span class="metric-value">' +
     escapeHTML((rec.alignment_deg || 0).toFixed(1)) +
-    "\u00b0</span></div>";
+    "°</span></div>";
   metricsHtml +=
     '<div class="metric">Nonzero Cells: <span class="metric-value">' +
     escapeHTML((rec.nonzero_cells || 0).toFixed(0)) +
     "</span></div>";
+  metricsHtml +=
+    '<div class="metric">Fg Capture: <span class="metric-value">' +
+    escapeHTML(((rec.foreground_capture || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Unbounded: <span class="metric-value">' +
+    escapeHTML(((rec.unbounded_point_ratio || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Empty Box: <span class="metric-value">' +
+    escapeHTML(((rec.empty_box_ratio || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Fragmentation: <span class="metric-value">' +
+    escapeHTML(((rec.fragmentation_ratio || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Jitter: <span class="metric-value">' +
+    escapeHTML((rec.heading_jitter_deg || 0).toFixed(1)) +
+    "°</span></div>";
   metricsHtml += "</div>";
 
   // Round history
@@ -1418,7 +1537,7 @@ function applySceneParams() {
           throw new Error(t);
         });
       document.getElementById("btn-apply-scene-params").textContent =
-        "Applied \u2713";
+        "Applied ✓";
       setTimeout(function () {
         document.getElementById("btn-apply-scene-params").textContent =
           "Apply Scene Params";
@@ -1455,6 +1574,15 @@ function downloadCSV() {
     "alignment_deg_stddev",
     "misalignment_ratio_mean",
     "misalignment_ratio_stddev",
+    "foreground_capture_mean",
+    "foreground_capture_stddev",
+    "unbounded_point_mean",
+    "unbounded_point_stddev",
+    "empty_box_ratio_mean",
+    "empty_box_ratio_stddev",
+    "fragmentation_ratio_mean",
+    "heading_jitter_deg_mean",
+    "heading_jitter_deg_stddev",
   ];
 
   var header = paramKeys.concat(metricCols);
@@ -1481,6 +1609,15 @@ function downloadCSV() {
     row.push(r.alignment_deg_stddev || 0);
     row.push(r.misalignment_ratio_mean || 0);
     row.push(r.misalignment_ratio_stddev || 0);
+    row.push(r.foreground_capture_mean || 0);
+    row.push(r.foreground_capture_stddev || 0);
+    row.push(r.unbounded_point_mean || 0);
+    row.push(r.unbounded_point_stddev || 0);
+    row.push(r.empty_box_ratio_mean || 0);
+    row.push(r.empty_box_ratio_stddev || 0);
+    row.push(r.fragmentation_ratio_mean || 0);
+    row.push(r.heading_jitter_deg_mean || 0);
+    row.push(r.heading_jitter_deg_stddev || 0);
     rows.push(row.join(","));
   });
 
@@ -1494,648 +1631,551 @@ function downloadCSV() {
 }
 
 function initCharts() {
-  acceptChart = echarts.init(
-    document.getElementById("acceptance-chart"),
-    chartTheme,
-  );
-  nzChart = echarts.init(document.getElementById("nonzero-chart"), chartTheme);
-  bktChart = echarts.init(document.getElementById("bucket-chart"), chartTheme);
-  alignChart = echarts.init(
-    document.getElementById("alignment-chart"),
-    chartTheme,
-  );
-  tracksChart = echarts.init(
-    document.getElementById("tracks-chart"),
-    chartTheme,
-  );
-  paramHeatmapChart = echarts.init(
-    document.getElementById("param-heatmap"),
-    chartTheme,
-  );
-  tracksHeatmapChart = echarts.init(
-    document.getElementById("tracks-heatmap"),
-    chartTheme,
-  );
-  alignHeatmapChart = echarts.init(
-    document.getElementById("alignment-heatmap"),
-    chartTheme,
-  );
-
-  var emptyOpt = {
-    title: {
-      text: "Waiting for data...",
-      left: "center",
-      top: "center",
-      textStyle: { color: "#94a3b8", fontSize: 14, fontWeight: "normal" },
-    },
-    backgroundColor: chartBg,
-  };
-  acceptChart.setOption(emptyOpt);
-  nzChart.setOption(emptyOpt);
-  bktChart.setOption(emptyOpt);
-  alignChart.setOption(emptyOpt);
-  tracksChart.setOption(emptyOpt);
-  paramHeatmapChart.setOption(emptyOpt);
-  tracksHeatmapChart.setOption(emptyOpt);
-  alignHeatmapChart.setOption(emptyOpt);
+  // Generate default chart configs if none exist
+  if (chartConfigs.length === 0) {
+    chartConfigs = generateDefaultCharts(null);
+  }
+  renderDynamicCharts(null);
 }
 
 function renderCharts(results) {
-  var labels = results.map(comboLabel);
+  if (chartConfigs.length === 0 && results && results.length > 0) {
+    chartConfigs = generateDefaultCharts(results);
+  }
+  renderDynamicCharts(results);
+}
 
-  // Overall acceptance chart
-  acceptChart.setOption(
-    {
-      title: {
-        text: "Overall Acceptance Rate",
-        left: "center",
-        top: 0,
-        textStyle: { fontSize: 14 },
-      },
-      tooltip: { trigger: "axis" },
-      xAxis: {
-        type: "category",
-        data: labels,
-        axisLabel: { rotate: 45, fontSize: 10 },
-      },
-      yAxis: {
-        type: "value",
-        name: "Acceptance Rate",
-        axisLabel: {
-          formatter: function (v) {
-            return (v * 100).toFixed(0) + "%";
-          },
-        },
-      },
-      series: [
-        {
-          name: "Mean",
-          type: "bar",
-          data: results.map(function (r) {
-            return r.overall_accept_mean;
-          }),
-          itemStyle: { color: "#5470c6" },
-        },
-      ],
-      grid: { bottom: 100 },
-      backgroundColor: chartBg,
-    },
-    true,
-  );
+function generateDefaultCharts(results) {
+  var charts = [];
+  var order = 0;
+  charts.push({
+    id: "default-accept",
+    title: "Acceptance Rate",
+    type: "bar",
+    x_metric: "_combo",
+    y_metric: "overall_accept_mean",
+    group_by: "",
+    order: order++,
+  });
+  charts.push({
+    id: "default-nzcells",
+    title: "Nonzero Background Cells",
+    type: "bar",
+    x_metric: "_combo",
+    y_metric: "nonzero_cells_mean",
+    group_by: "",
+    order: order++,
+  });
+  charts.push({
+    id: "default-tracks",
+    title: "Active Tracks",
+    type: "bar",
+    x_metric: "_combo",
+    y_metric: "active_tracks_mean",
+    group_by: "",
+    order: order++,
+  });
 
-  // Nonzero cells chart
-  nzChart.setOption(
-    {
-      title: {
-        text: "Nonzero Background Cells",
-        left: "center",
-        top: 0,
-        textStyle: { fontSize: 14 },
-      },
-      tooltip: { trigger: "axis" },
-      xAxis: {
-        type: "category",
-        data: labels,
-        axisLabel: { rotate: 45, fontSize: 10 },
-      },
-      yAxis: { type: "value", name: "Cell Count" },
-      series: [
-        {
-          name: "Mean",
-          type: "bar",
-          data: results.map(function (r) {
-            return r.nonzero_cells_mean;
-          }),
-          itemStyle: { color: "#91cc75" },
-        },
-      ],
-      grid: { bottom: 100 },
-      backgroundColor: chartBg,
-    },
-    true,
-  );
+  var numParams = [];
+  if (results && results.length > 0 && results[0].param_values) {
+    numParams = Object.keys(results[0].param_values).filter(function (k) {
+      return typeof results[0].param_values[k] === "number";
+    });
+  }
 
-  // Bucket heatmap
-  if (results[0] && results[0].buckets && results[0].buckets.length > 0) {
-    var buckets = results[0].buckets;
-    var data = [];
-    var mx = 0;
-    var mn = Infinity;
-    results.forEach(function (r, ri) {
-      if (r.bucket_means) {
-        r.bucket_means.forEach(function (v, bi) {
-          data.push([ri, bi, v]);
-          if (v > mx) mx = v;
-          if (v > 0 && v < mn) mn = v;
-        });
+  if (numParams.length >= 2) {
+    charts.push({
+      id: "default-accept-hm",
+      title: "Acceptance Heatmap",
+      type: "heatmap",
+      x_metric: numParams[0],
+      y_metric: numParams[1],
+      z_metric: "overall_accept_mean",
+      group_by: "",
+      order: order++,
+    });
+  }
+
+  charts.push({
+    id: "default-align",
+    title: "Alignment & Misalignment",
+    type: "bar",
+    x_metric: "_combo",
+    y_metric: "alignment_deg_mean",
+    group_by: "",
+    order: order++,
+  });
+
+  if (numParams.length >= 2) {
+    charts.push({
+      id: "default-tracks-hm",
+      title: "Tracks Heatmap",
+      type: "heatmap",
+      x_metric: numParams[0],
+      y_metric: numParams[1],
+      z_metric: "active_tracks_mean",
+      group_by: "",
+      order: order++,
+    });
+    charts.push({
+      id: "default-align-hm",
+      title: "Alignment Heatmap",
+      type: "heatmap",
+      x_metric: numParams[0],
+      y_metric: numParams[1],
+      z_metric: "alignment_deg_mean",
+      group_by: "",
+      order: order++,
+    });
+  }
+
+  return charts;
+}
+
+function renderDynamicCharts(results) {
+  var grid = document.getElementById("chart-grid");
+  if (!grid) return;
+
+  // Sort configs by order
+  var sorted = chartConfigs.slice().sort(function (a, b) {
+    return (a.order || 0) - (b.order || 0);
+  });
+
+  // Track which chart IDs are still active
+  var activeIds = {};
+  sorted.forEach(function (cfg) {
+    activeIds[cfg.id] = true;
+  });
+
+  // Remove stale chart containers and instances
+  Object.keys(chartInstances).forEach(function (id) {
+    if (!activeIds[id]) {
+      if (chartInstances[id]) {
+        chartInstances[id].dispose();
+        delete chartInstances[id];
       }
+      var el = document.getElementById("chart-card-" + id);
+      if (el) el.remove();
+    }
+  });
+
+  sorted.forEach(function (cfg) {
+    var cardId = "chart-card-" + cfg.id;
+    var chartId = "chart-el-" + cfg.id;
+    var card = document.getElementById(cardId);
+
+    // Create container if needed
+    if (!card) {
+      card = document.createElement("div");
+      card.className = "card";
+      card.id = cardId;
+
+      var actions = document.createElement("div");
+      actions.className = "chart-card-actions";
+
+      var editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.title = "Edit";
+      editButton.textContent = "Edit";
+      editButton.addEventListener("click", function () {
+        editChart(cfg.id);
+      });
+
+      var removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.title = "Remove";
+      removeButton.textContent = "×";
+      removeButton.addEventListener("click", function () {
+        removeChart(cfg.id);
+      });
+
+      actions.appendChild(editButton);
+      actions.appendChild(removeButton);
+
+      var chartContainer = document.createElement("div");
+      chartContainer.id = chartId;
+      chartContainer.className = "chart-container";
+
+      card.appendChild(actions);
+      card.appendChild(chartContainer);
+      grid.appendChild(card);
+    }
+
+    // Create or get ECharts instance
+    var chartEl = document.getElementById(chartId);
+    if (!chartInstances[cfg.id]) {
+      chartInstances[cfg.id] = echarts.init(chartEl, chartTheme);
+    }
+    var chart = chartInstances[cfg.id];
+
+    // Build and set option
+    if (!results || results.length === 0) {
+      chart.setOption(
+        {
+          title: {
+            text: cfg.title || "Waiting for data...",
+            left: "center",
+            top: "center",
+            textStyle: {
+              color: "#94a3b8",
+              fontSize: 14,
+              fontWeight: "normal",
+            },
+          },
+          backgroundColor: chartBg,
+        },
+        true,
+      );
+      return;
+    }
+
+    var opt = null;
+    if (cfg.type === "heatmap") {
+      opt = buildHeatmapOption(results, cfg);
+    } else if (cfg.type === "scatter") {
+      opt = buildScatterOption(results, cfg);
+    } else if (cfg.type === "line") {
+      opt = buildSeriesOption(results, cfg, "line");
+    } else {
+      opt = buildSeriesOption(results, cfg, "bar");
+    }
+    if (opt) {
+      chart.setOption(opt, true);
+    }
+  });
+
+  // Resize all after DOM settles
+  setTimeout(function () {
+    Object.keys(chartInstances).forEach(function (id) {
+      if (chartInstances[id]) chartInstances[id].resize();
     });
-    if (mn === Infinity || mn >= mx) mn = 0;
-    bktChart.setOption(
-      {
-        title: {
-          text: "Per-Bucket Acceptance Rates",
-          left: "center",
-          top: 0,
-          textStyle: { fontSize: 14 },
-        },
-        tooltip: {
-          formatter: function (p) {
-            var ri = p.value[0],
-              bi = p.value[1],
-              v = p.value[2];
-            return (
-              comboLabel(results[ri]) +
-              "<br/>Bucket " +
-              buckets[bi] +
-              "m: " +
-              (v * 100).toFixed(2) +
-              "%"
-            );
-          },
-        },
-        xAxis: {
-          type: "category",
-          data: labels,
-          axisLabel: { rotate: 45, fontSize: 10 },
-        },
-        yAxis: {
-          type: "category",
-          data: buckets.map(function (b) {
-            return b + "m";
-          }),
-          name: "Range Bucket",
-        },
-        visualMap: {
-          min: mn,
-          max: mx || 1,
-          calculable: true,
-          orient: "horizontal",
-          left: "center",
-          bottom: 0,
-          inRange: {
-            color: [
-              "#313695",
-              "#4575b4",
-              "#74add1",
-              "#abd9e9",
-              "#fee090",
-              "#fdae61",
-              "#f46d43",
-              "#d73027",
-            ],
-          },
-          formatter: function (v) {
-            return (v * 100).toFixed(1) + "%";
-          },
-        },
-        series: [
-          {
-            type: "heatmap",
-            data: data,
-            emphasis: {
-              itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.5)" },
-            },
-          },
-        ],
-        grid: { bottom: 80, top: 60 },
-        backgroundColor: chartBg,
-      },
-      true,
-    );
-  }
+  }, 50);
+}
 
-  // Track alignment chart (lower is better)
-  alignChart.setOption(
-    {
-      title: {
-        text: "Track Alignment (lower = better)",
-        left: "center",
-        top: 0,
-        textStyle: { fontSize: 14 },
-      },
-      tooltip: {
-        trigger: "axis",
-        formatter: function (p) {
-          var d = p[0];
-          var r = results[d.dataIndex];
-          return (
-            comboLabel(r) +
-            "<br/>Alignment: " +
-            (r.alignment_deg_mean || 0).toFixed(1) +
-            "\u00b0 \u00b1" +
-            (r.alignment_deg_stddev || 0).toFixed(1) +
-            "<br/>Misalignment: " +
-            ((r.misalignment_ratio_mean || 0) * 100).toFixed(1) +
-            "%"
-          );
-        },
-      },
-      xAxis: {
-        type: "category",
-        data: labels,
-        axisLabel: { rotate: 45, fontSize: 10 },
-      },
-      yAxis: [
-        { type: "value", name: "Alignment (\u00b0)", position: "left" },
-        {
-          type: "value",
-          name: "Misalignment %",
-          position: "right",
-          axisLabel: {
-            formatter: function (v) {
-              return (v * 100).toFixed(0) + "%";
-            },
-          },
-        },
-      ],
-      series: [
-        {
-          name: "Alignment",
-          type: "bar",
-          data: results.map(function (r) {
-            return r.alignment_deg_mean || 0;
-          }),
-          itemStyle: { color: "#ee6666" },
-        },
-        {
-          name: "Misalignment",
-          type: "line",
-          yAxisIndex: 1,
-          data: results.map(function (r) {
-            return r.misalignment_ratio_mean || 0;
-          }),
-          lineStyle: { color: "#fac858" },
-          itemStyle: { color: "#fac858" },
-        },
-      ],
-      legend: { bottom: 0 },
-      grid: { bottom: 120, top: 40 },
-      backgroundColor: chartBg,
-    },
-    true,
-  );
+function buildSeriesOption(results, cfg, chartType) {
+  var labels = results.map(comboLabel);
+  var title = {
+    text: cfg.title,
+    left: "center",
+    top: 0,
+    textStyle: { fontSize: 14 },
+  };
 
-  // Active tracks chart
-  tracksChart.setOption(
-    {
-      title: {
-        text: "Active Tracks",
-        left: "center",
-        top: 0,
-        textStyle: { fontSize: 14 },
-      },
+  if (cfg.x_metric === "_combo" && !cfg.group_by) {
+    return {
+      title: title,
       tooltip: { trigger: "axis" },
       xAxis: {
         type: "category",
         data: labels,
         axisLabel: { rotate: 45, fontSize: 10 },
       },
-      yAxis: { type: "value", name: "Track Count" },
+      yAxis: { type: "value", name: metricLabel(cfg.y_metric) },
       series: [
         {
-          name: "Mean",
-          type: "bar",
+          name: metricLabel(cfg.y_metric),
+          type: chartType,
           data: results.map(function (r) {
-            return r.active_tracks_mean || 0;
+            return extractValue(r, cfg.y_metric);
           }),
-          itemStyle: { color: "#73c0de" },
+          itemStyle: { color: CHART_COLORS[0] },
         },
       ],
       grid: { bottom: 100 },
       backgroundColor: chartBg,
+    };
+  }
+
+  // Grouped or specific x_metric
+  var xKey = cfg.x_metric === "_combo" ? null : cfg.x_metric;
+  var groupKey = cfg.group_by || null;
+
+  if (groupKey) {
+    var groups = {};
+    results.forEach(function (r) {
+      var gval = String(extractValue(r, groupKey));
+      if (!groups[gval]) groups[gval] = [];
+      groups[gval].push(r);
+    });
+
+    var xSet = {};
+    results.forEach(function (r) {
+      var xv = xKey ? extractValue(r, xKey) : comboLabel(r);
+      xSet[xv] = true;
+    });
+    var xVals = Object.keys(xSet);
+    if (xKey) {
+      xVals = xVals.map(Number).sort(function (a, b) {
+        return a - b;
+      });
+    }
+
+    var series = [];
+    var ci = 0;
+    Object.keys(groups).forEach(function (gkey) {
+      var gdata = groups[gkey];
+      var dataMap = {};
+      gdata.forEach(function (r) {
+        var xv = xKey ? extractValue(r, xKey) : comboLabel(r);
+        dataMap[String(xv)] = extractValue(r, cfg.y_metric);
+      });
+      series.push({
+        name: metricLabel(groupKey) + "=" + gkey,
+        type: chartType,
+        data: xVals.map(function (xv) {
+          return dataMap[String(xv)] != null ? dataMap[String(xv)] : null;
+        }),
+        itemStyle: { color: CHART_COLORS[ci % CHART_COLORS.length] },
+      });
+      ci++;
+    });
+
+    return {
+      title: title,
+      tooltip: { trigger: "axis" },
+      legend: { bottom: 0, type: "scroll" },
+      xAxis: {
+        type: "category",
+        data: xVals.map(String),
+        name: xKey ? metricLabel(xKey) : "",
+        axisLabel: { rotate: 45, fontSize: 10 },
+      },
+      yAxis: { type: "value", name: metricLabel(cfg.y_metric) },
+      series: series,
+      grid: { bottom: 80, top: 40 },
+      backgroundColor: chartBg,
+    };
+  }
+
+  // No group, specific x_metric
+  if (xKey) {
+    var sorted = results.slice().sort(function (a, b) {
+      return (extractValue(a, xKey) || 0) - (extractValue(b, xKey) || 0);
+    });
+    return {
+      title: title,
+      tooltip: { trigger: "axis" },
+      xAxis: {
+        type: "category",
+        data: sorted.map(function (r) {
+          return String(extractValue(r, xKey));
+        }),
+        name: metricLabel(xKey),
+        axisLabel: { rotate: 45, fontSize: 10 },
+      },
+      yAxis: { type: "value", name: metricLabel(cfg.y_metric) },
+      series: [
+        {
+          name: metricLabel(cfg.y_metric),
+          type: chartType,
+          data: sorted.map(function (r) {
+            return extractValue(r, cfg.y_metric);
+          }),
+          itemStyle: { color: CHART_COLORS[0] },
+        },
+      ],
+      grid: { bottom: 100 },
+      backgroundColor: chartBg,
+    };
+  }
+
+  // Fallback: combo labels on x
+  return {
+    title: title,
+    tooltip: { trigger: "axis" },
+    xAxis: {
+      type: "category",
+      data: labels,
+      axisLabel: { rotate: 45, fontSize: 10 },
     },
-    true,
-  );
+    yAxis: { type: "value", name: metricLabel(cfg.y_metric) },
+    series: [
+      {
+        name: metricLabel(cfg.y_metric),
+        type: chartType,
+        data: results.map(function (r) {
+          return extractValue(r, cfg.y_metric);
+        }),
+        itemStyle: { color: CHART_COLORS[0] },
+      },
+    ],
+    grid: { bottom: 100 },
+    backgroundColor: chartBg,
+  };
+}
 
-  // Parameter heatmap: show acceptance rate for first two numerical params
-  if (results[0] && results[0].param_values) {
-    var pKeys = Object.keys(results[0].param_values);
-    var numKeys = pKeys.filter(function (k) {
-      return typeof results[0].param_values[k] === "number";
-    });
-    if (numKeys.length >= 2) {
-      var xKey = numKeys[0],
-        yKey = numKeys[1];
-      var xSchema = PARAM_SCHEMA[xKey],
-        ySchema = PARAM_SCHEMA[yKey];
-      var xLabel = xSchema ? xSchema.label : xKey;
-      var yLabel = ySchema ? ySchema.label : yKey;
-      // Collect unique sorted axis values
-      var xSet = {},
-        ySet = {};
-      results.forEach(function (r) {
-        xSet[r.param_values[xKey]] = true;
-        ySet[r.param_values[yKey]] = true;
-      });
-      var xVals = Object.keys(xSet)
+function buildHeatmapOption(results, cfg) {
+  var xKey = cfg.x_metric;
+  var yKey = cfg.y_metric;
+  var zKey = cfg.z_metric || "overall_accept_mean";
+
+  var xSet = {};
+  var ySet = {};
+  results.forEach(function (r) {
+    var xVal = extractValue(r, xKey);
+    var yVal = extractValue(r, yKey);
+    if (xVal != null) xSet[String(xVal)] = true;
+    if (yVal != null) ySet[String(yVal)] = true;
+  });
+
+  // Check if values are numeric to decide on sorting strategy
+  var xKeys = Object.keys(xSet);
+  var yKeys = Object.keys(ySet);
+  var xIsNumeric = xKeys.every(function (k) {
+    return !isNaN(Number(k));
+  });
+  var yIsNumeric = yKeys.every(function (k) {
+    return !isNaN(Number(k));
+  });
+
+  var xVals = xIsNumeric
+    ? xKeys
         .map(Number)
         .sort(function (a, b) {
           return a - b;
-        });
-      var yVals = Object.keys(ySet)
+        })
+        .map(String)
+    : xKeys.sort();
+  var yVals = yIsNumeric
+    ? yKeys
         .map(Number)
         .sort(function (a, b) {
           return a - b;
-        });
-      var hmData = [];
-      var hmMax = 0;
-      var hmMin = Infinity;
-      results.forEach(function (r) {
-        var xi = xVals.indexOf(r.param_values[xKey]);
-        var yi = yVals.indexOf(r.param_values[yKey]);
-        var v = r.overall_accept_mean || 0;
-        if (xi >= 0 && yi >= 0) {
-          hmData.push([xi, yi, v]);
-          if (v > hmMax) hmMax = v;
-          if (v > 0 && v < hmMin) hmMin = v;
-        }
-      });
-      if (hmMin === Infinity || hmMin >= hmMax) hmMin = 0;
-      paramHeatmapChart.setOption(
-        {
-          title: {
-            text: "Acceptance by " + xLabel + " vs " + yLabel,
-            left: "center",
-            top: 0,
-            textStyle: { fontSize: 14 },
-          },
-          tooltip: {
-            formatter: function (p) {
-              return (
-                xLabel +
-                ": " +
-                xVals[p.value[0]] +
-                "<br/>" +
-                yLabel +
-                ": " +
-                yVals[p.value[1]] +
-                "<br/>" +
-                "Accept: " +
-                (p.value[2] * 100).toFixed(2) +
-                "%"
-              );
-            },
-          },
-          xAxis: {
-            type: "category",
-            data: xVals.map(String),
-            name: xLabel,
-            axisLabel: { fontSize: 10 },
-          },
-          yAxis: {
-            type: "category",
-            data: yVals.map(String),
-            name: yLabel,
-            axisLabel: { fontSize: 10 },
-          },
-          visualMap: {
-            min: hmMin,
-            max: hmMax || 1,
-            calculable: true,
-            orient: "horizontal",
-            left: "center",
-            bottom: 0,
-            inRange: {
-              color: [
-                "#313695",
-                "#4575b4",
-                "#74add1",
-                "#abd9e9",
-                "#fee090",
-                "#fdae61",
-                "#f46d43",
-                "#d73027",
-              ],
-            },
-            formatter: function (v) {
-              return (v * 100).toFixed(1) + "%";
-            },
-          },
-          series: [
-            {
-              type: "heatmap",
-              data: hmData,
-              emphasis: {
-                itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.5)" },
-              },
-            },
-          ],
-          grid: { bottom: 80, top: 60 },
-          backgroundColor: chartBg,
-        },
-        true,
-      );
-      document.getElementById("param-heatmap").style.display = "";
-    } else {
-      document.getElementById("param-heatmap").style.display = "none";
+        })
+        .map(String)
+    : yKeys.sort();
+
+  var data = [];
+  var hmMax = 0;
+  var hmMin = Infinity;
+  results.forEach(function (r) {
+    var xVal = String(extractValue(r, xKey));
+    var yVal = String(extractValue(r, yKey));
+    var xi = xVals.indexOf(xVal);
+    var yi = yVals.indexOf(yVal);
+    var v = extractValue(r, zKey) || 0;
+    if (xi >= 0 && yi >= 0) {
+      data.push([xi, yi, v]);
+      if (v > hmMax) hmMax = v;
+      if (v > 0 && v < hmMin) hmMin = v;
     }
-  } else {
-    document.getElementById("param-heatmap").style.display = "none";
-  }
+  });
+  if (hmMin === Infinity || hmMin >= hmMax) hmMin = 0;
 
-  // Tracks heatmap and alignment heatmap (both use first two numerical params)
-  if (results[0] && results[0].param_values) {
-    var pKeys2 = Object.keys(results[0].param_values);
-    var numKeys2 = pKeys2.filter(function (k) {
-      return typeof results[0].param_values[k] === "number";
-    });
-    if (numKeys2.length >= 2) {
-      var xKey2 = numKeys2[0],
-        yKey2 = numKeys2[1];
-      var xSchema2 = PARAM_SCHEMA[xKey2],
-        ySchema2 = PARAM_SCHEMA[yKey2];
-      var xLabel2 = xSchema2 ? xSchema2.label : xKey2;
-      var yLabel2 = ySchema2 ? ySchema2.label : yKey2;
-      var xSet2 = {},
-        ySet2 = {};
-      results.forEach(function (r) {
-        xSet2[r.param_values[xKey2]] = true;
-        ySet2[r.param_values[yKey2]] = true;
-      });
-      var xVals2 = Object.keys(xSet2)
-        .map(Number)
-        .sort(function (a, b) {
-          return a - b;
-        });
-      var yVals2 = Object.keys(ySet2)
-        .map(Number)
-        .sort(function (a, b) {
-          return a - b;
-        });
-
-      // Tracks heatmap
-      var thmData = [];
-      var thmMax = 0;
-      var thmMin = Infinity;
-      results.forEach(function (r) {
-        var xi = xVals2.indexOf(r.param_values[xKey2]);
-        var yi = yVals2.indexOf(r.param_values[yKey2]);
-        var v = r.active_tracks_mean || 0;
-        if (xi >= 0 && yi >= 0) {
-          thmData.push([xi, yi, v]);
-          if (v > thmMax) thmMax = v;
-          if (v > 0 && v < thmMin) thmMin = v;
-        }
-      });
-      if (thmMin === Infinity || thmMin >= thmMax) thmMin = 0;
-      tracksHeatmapChart.setOption(
-        {
-          title: {
-            text: "Active Tracks by " + xLabel2 + " vs " + yLabel2,
-            left: "center",
-            top: 0,
-            textStyle: { fontSize: 14 },
-          },
-          tooltip: {
-            formatter: function (p) {
-              return (
-                xLabel2 +
-                ": " +
-                xVals2[p.value[0]] +
-                "<br/>" +
-                yLabel2 +
-                ": " +
-                yVals2[p.value[1]] +
-                "<br/>" +
-                "Tracks: " +
-                p.value[2].toFixed(1)
-              );
-            },
-          },
-          xAxis: {
-            type: "category",
-            data: xVals2.map(String),
-            name: xLabel2,
-            axisLabel: { fontSize: 10 },
-          },
-          yAxis: {
-            type: "category",
-            data: yVals2.map(String),
-            name: yLabel2,
-            axisLabel: { fontSize: 10 },
-          },
-          visualMap: {
-            min: thmMin,
-            max: thmMax || 1,
-            calculable: true,
-            orient: "horizontal",
-            left: "center",
-            bottom: 0,
-            inRange: {
-              color: ["#f7fcf5", "#c7e9c0", "#74c476", "#238b45", "#00441b"],
-            },
-          },
-          series: [
-            {
-              type: "heatmap",
-              data: thmData,
-              emphasis: {
-                itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.5)" },
-              },
-            },
-          ],
-          grid: { bottom: 80, top: 60 },
-          backgroundColor: chartBg,
+  return {
+    title: {
+      text: cfg.title,
+      left: "center",
+      top: 0,
+      textStyle: { fontSize: 14 },
+    },
+    tooltip: {
+      formatter: function (p) {
+        return (
+          metricLabel(xKey) +
+          ": " +
+          xVals[p.value[0]] +
+          "<br/>" +
+          metricLabel(yKey) +
+          ": " +
+          yVals[p.value[1]] +
+          "<br/>" +
+          metricLabel(zKey) +
+          ": " +
+          p.value[2].toFixed(4)
+        );
+      },
+    },
+    xAxis: {
+      type: "category",
+      data: xVals.map(String),
+      name: metricLabel(xKey),
+      axisLabel: { fontSize: 10 },
+    },
+    yAxis: {
+      type: "category",
+      data: yVals.map(String),
+      name: metricLabel(yKey),
+      axisLabel: { fontSize: 10 },
+    },
+    visualMap: {
+      min: hmMin,
+      max: hmMax || 1,
+      calculable: true,
+      orient: "horizontal",
+      left: "center",
+      bottom: 0,
+      inRange: {
+        color: [
+          "#313695",
+          "#4575b4",
+          "#74add1",
+          "#abd9e9",
+          "#fee090",
+          "#fdae61",
+          "#f46d43",
+          "#d73027",
+        ],
+      },
+    },
+    series: [
+      {
+        type: "heatmap",
+        data: data,
+        emphasis: {
+          itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.5)" },
         },
-        true,
-      );
-      document.getElementById("tracks-heatmap").style.display = "";
+      },
+    ],
+    grid: { bottom: 80, top: 60 },
+    backgroundColor: chartBg,
+  };
+}
 
-      // Alignment heatmap
-      var ahmData = [];
-      var ahmMax = 0;
-      var ahmMin = Infinity;
-      results.forEach(function (r) {
-        var xi = xVals2.indexOf(r.param_values[xKey2]);
-        var yi = yVals2.indexOf(r.param_values[yKey2]);
-        var v = r.alignment_deg_mean || 0;
-        if (xi >= 0 && yi >= 0) {
-          ahmData.push([xi, yi, v]);
-          if (v > ahmMax) ahmMax = v;
-          if (v > 0 && v < ahmMin) ahmMin = v;
-        }
-      });
-      if (ahmMin === Infinity || ahmMin >= ahmMax) ahmMin = 0;
-      alignHeatmapChart.setOption(
-        {
-          title: {
-            text: "Alignment (\u00b0) by " + xLabel2 + " vs " + yLabel2,
-            left: "center",
-            top: 0,
-            textStyle: { fontSize: 14 },
-          },
-          tooltip: {
-            formatter: function (p) {
-              return (
-                xLabel2 +
-                ": " +
-                xVals2[p.value[0]] +
-                "<br/>" +
-                yLabel2 +
-                ": " +
-                yVals2[p.value[1]] +
-                "<br/>" +
-                "Alignment: " +
-                p.value[2].toFixed(1) +
-                "\u00b0"
-              );
-            },
-          },
-          xAxis: {
-            type: "category",
-            data: xVals2.map(String),
-            name: xLabel2,
-            axisLabel: { fontSize: 10 },
-          },
-          yAxis: {
-            type: "category",
-            data: yVals2.map(String),
-            name: yLabel2,
-            axisLabel: { fontSize: 10 },
-          },
-          visualMap: {
-            min: ahmMin,
-            max: ahmMax || 1,
-            calculable: true,
-            orient: "horizontal",
-            left: "center",
-            bottom: 0,
-            inRange: {
-              color: [
-                "#00441b",
-                "#238b45",
-                "#74c476",
-                "#fee090",
-                "#fdae61",
-                "#f46d43",
-                "#d73027",
-              ],
-            },
-          },
-          series: [
-            {
-              type: "heatmap",
-              data: ahmData,
-              emphasis: {
-                itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.5)" },
-              },
-            },
-          ],
-          grid: { bottom: 80, top: 60 },
-          backgroundColor: chartBg,
-        },
-        true,
-      );
-      document.getElementById("alignment-heatmap").style.display = "";
-    } else {
-      document.getElementById("tracks-heatmap").style.display = "none";
-      document.getElementById("alignment-heatmap").style.display = "none";
-    }
-  } else {
-    document.getElementById("tracks-heatmap").style.display = "none";
-    document.getElementById("alignment-heatmap").style.display = "none";
-  }
+function buildScatterOption(results, cfg) {
+  var xKey = cfg.x_metric;
+  var yKey = cfg.y_metric;
+
+  return {
+    title: {
+      text: cfg.title,
+      left: "center",
+      top: 0,
+      textStyle: { fontSize: 14 },
+    },
+    tooltip: {
+      formatter: function (p) {
+        return (
+          metricLabel(xKey) +
+          ": " +
+          p.value[0] +
+          "<br/>" +
+          metricLabel(yKey) +
+          ": " +
+          p.value[1]
+        );
+      },
+    },
+    xAxis: {
+      type: "value",
+      name: metricLabel(xKey),
+    },
+    yAxis: {
+      type: "value",
+      name: metricLabel(yKey),
+    },
+    series: [
+      {
+        type: "scatter",
+        data: results.map(function (r) {
+          return [extractValue(r, xKey), extractValue(r, yKey)];
+        }),
+        itemStyle: { color: CHART_COLORS[0] },
+      },
+    ],
+    grid: { bottom: 60, top: 40 },
+    backgroundColor: chartBg,
+  };
 }
 
 function renderTable(results) {
@@ -2174,9 +2214,11 @@ function renderTable(results) {
   } else {
     // Standard metrics
     headerHtml +=
-      "<th>Accept Rate</th><th>\u00b1 StdDev</th><th>Nonzero Cells</th><th>\u00b1 StdDev</th>";
+      "<th>Accept Rate</th><th>± StdDev</th><th>Nonzero Cells</th><th>± StdDev</th>";
     headerHtml +=
-      "<th>Active Tracks</th><th>Alignment (\u00b0)</th><th>Misalignment</th>";
+      "<th>Active Tracks</th><th>Alignment (°)</th><th>Misalignment</th>";
+    headerHtml +=
+      "<th>Fg Capture</th><th>Unbounded</th><th>Empty Box</th><th>Fragmentation</th><th>Jitter (°)</th>";
   }
 
   headerHtml += "</tr>";
@@ -2244,13 +2286,13 @@ function renderTable(results) {
         '<td class="mono">' +
         escapeHTML((r.overall_accept_mean * 100).toFixed(2)) +
         "%</td>" +
-        '<td class="mono" style="color:var(--fg-faint)">\u00b1' +
+        '<td class="mono" style="color:var(--fg-faint)">±' +
         escapeHTML((r.overall_accept_stddev * 100).toFixed(2)) +
         "%</td>" +
         '<td class="mono">' +
         escapeHTML(r.nonzero_cells_mean.toFixed(0)) +
         "</td>" +
-        '<td class="mono" style="color:var(--fg-faint)">\u00b1' +
+        '<td class="mono" style="color:var(--fg-faint)">±' +
         escapeHTML(r.nonzero_cells_stddev.toFixed(0)) +
         "</td>" +
         '<td class="mono">' +
@@ -2258,10 +2300,25 @@ function renderTable(results) {
         "</td>" +
         '<td class="mono">' +
         escapeHTML((r.alignment_deg_mean || 0).toFixed(1)) +
-        "\u00b0</td>" +
+        "°</td>" +
         '<td class="mono">' +
         escapeHTML(((r.misalignment_ratio_mean || 0) * 100).toFixed(1)) +
-        "%</td>";
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.foreground_capture_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.unbounded_point_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.empty_box_ratio_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.fragmentation_ratio_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML((r.heading_jitter_deg_mean || 0).toFixed(1)) +
+        "°</td>";
     }
 
     tr.innerHTML = html;
@@ -2270,14 +2327,9 @@ function renderTable(results) {
 }
 
 window.addEventListener("resize", function () {
-  if (acceptChart) acceptChart.resize();
-  if (nzChart) nzChart.resize();
-  if (bktChart) bktChart.resize();
-  if (paramHeatmapChart) paramHeatmapChart.resize();
-  if (alignChart) alignChart.resize();
-  if (tracksChart) tracksChart.resize();
-  if (tracksHeatmapChart) tracksHeatmapChart.resize();
-  if (alignHeatmapChart) alignHeatmapChart.resize();
+  Object.keys(chartInstances).forEach(function (id) {
+    if (chartInstances[id]) chartInstances[id].resize();
+  });
 });
 
 // ---- Current params display ----
@@ -2355,6 +2407,343 @@ function displayCurrentParams(params) {
   document.getElementById("current-params-display").innerHTML = lines.join("");
 }
 
+// ---- Chart builder ----
+
+function openChartModal(editId) {
+  var modal = document.getElementById("chart-modal");
+  var titleEl = document.getElementById("chart-modal-title");
+  var idEl = document.getElementById("chart-cfg-id");
+  populateChartModalSelects();
+
+  if (editId) {
+    titleEl.textContent = "Edit Chart";
+    idEl.value = editId;
+    var cfg = chartConfigs.find(function (c) {
+      return c.id === editId;
+    });
+    if (cfg) {
+      document.getElementById("chart-cfg-title").value = cfg.title || "";
+      document.getElementById("chart-cfg-type").value = cfg.type || "bar";
+      document.getElementById("chart-cfg-x").value = cfg.x_metric || "_combo";
+      document.getElementById("chart-cfg-y").value =
+        cfg.y_metric || "overall_accept_mean";
+      document.getElementById("chart-cfg-z").value =
+        cfg.z_metric || "overall_accept_mean";
+      document.getElementById("chart-cfg-group").value = cfg.group_by || "";
+    }
+  } else {
+    titleEl.textContent = "Add Chart";
+    idEl.value = "";
+    document.getElementById("chart-cfg-title").value = "";
+    document.getElementById("chart-cfg-type").value = "bar";
+    document.getElementById("chart-cfg-x").value = "_combo";
+    document.getElementById("chart-cfg-y").value = "overall_accept_mean";
+    document.getElementById("chart-cfg-z").value = "overall_accept_mean";
+    document.getElementById("chart-cfg-group").value = "";
+  }
+  onChartTypeChange();
+  modal.style.display = "";
+}
+
+function closeChartModal() {
+  document.getElementById("chart-modal").style.display = "none";
+}
+
+function onChartTypeChange() {
+  var type = document.getElementById("chart-cfg-type").value;
+  document.getElementById("chart-cfg-z-row").style.display =
+    type === "heatmap" ? "" : "none";
+  document.getElementById("chart-cfg-group-row").style.display =
+    type === "heatmap" ? "none" : "";
+}
+
+function populateChartModalSelects() {
+  var avail = getAvailableMetrics(latestResults);
+  var xSel = document.getElementById("chart-cfg-x");
+  var ySel = document.getElementById("chart-cfg-y");
+  var zSel = document.getElementById("chart-cfg-z");
+  var gSel = document.getElementById("chart-cfg-group");
+
+  // X axis: _combo + params + metrics
+  var xOpts = '<option value="_combo">Combination (label)</option>';
+  avail.params.forEach(function (k) {
+    xOpts +=
+      '<option value="' +
+      escapeHTML(k) +
+      '">' +
+      escapeHTML(metricLabel(k)) +
+      "</option>";
+  });
+  avail.metrics.forEach(function (k) {
+    xOpts +=
+      '<option value="' +
+      escapeHTML(k) +
+      '">' +
+      escapeHTML(metricLabel(k)) +
+      "</option>";
+  });
+  xSel.innerHTML = xOpts;
+
+  // Y axis: metrics
+  var yOpts = "";
+  avail.metrics.forEach(function (k) {
+    yOpts +=
+      '<option value="' +
+      escapeHTML(k) +
+      '">' +
+      escapeHTML(metricLabel(k)) +
+      "</option>";
+  });
+  // also add params as potential Y values
+  avail.params.forEach(function (k) {
+    yOpts +=
+      '<option value="' +
+      escapeHTML(k) +
+      '">' +
+      escapeHTML(metricLabel(k)) +
+      "</option>";
+  });
+  ySel.innerHTML = yOpts;
+
+  // Z axis (heatmap color): metrics only
+  zSel.innerHTML = yOpts;
+
+  // Group by: params
+  var gOpts = '<option value="">(none)</option>';
+  avail.params.forEach(function (k) {
+    gOpts +=
+      '<option value="' +
+      escapeHTML(k) +
+      '">' +
+      escapeHTML(metricLabel(k)) +
+      "</option>";
+  });
+  gSel.innerHTML = gOpts;
+}
+
+function applyChartModal() {
+  var idEl = document.getElementById("chart-cfg-id");
+  var editId = idEl.value;
+  var type = document.getElementById("chart-cfg-type").value;
+
+  var cfg = {
+    id: editId || "chart-" + ++chartConfigCounter,
+    title: document.getElementById("chart-cfg-title").value || "Chart",
+    type: type,
+    x_metric: document.getElementById("chart-cfg-x").value,
+    y_metric: document.getElementById("chart-cfg-y").value,
+    z_metric:
+      type === "heatmap" ? document.getElementById("chart-cfg-z").value : "",
+    group_by:
+      type !== "heatmap"
+        ? document.getElementById("chart-cfg-group").value
+        : "",
+    order: 0,
+  };
+
+  if (editId) {
+    var idx = chartConfigs.findIndex(function (c) {
+      return c.id === editId;
+    });
+    if (idx >= 0) {
+      cfg.order = chartConfigs[idx].order;
+      chartConfigs[idx] = cfg;
+    }
+  } else {
+    cfg.order = chartConfigs.length;
+    chartConfigs.push(cfg);
+  }
+
+  closeChartModal();
+  renderDynamicCharts(latestResults);
+  showSaveChartsButton();
+}
+
+function editChart(id) {
+  openChartModal(id);
+}
+
+function removeChart(id) {
+  chartConfigs = chartConfigs.filter(function (c) {
+    return c.id !== id;
+  });
+  if (chartInstances[id]) {
+    chartInstances[id].dispose();
+    delete chartInstances[id];
+  }
+  var el = document.getElementById("chart-card-" + id);
+  if (el) el.remove();
+  showSaveChartsButton();
+}
+
+function showSaveChartsButton() {
+  var btn = document.getElementById("btn-save-charts");
+  if (btn && currentSweepId) {
+    btn.style.display = "";
+  }
+}
+
+function saveChartConfigs() {
+  if (!currentSweepId) return;
+  fetch("/api/lidar/sweeps/charts", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sweep_id: currentSweepId,
+      charts: chartConfigs,
+    }),
+  })
+    .then(function (r) {
+      if (!r.ok) throw new Error("Save failed");
+      var btn = document.getElementById("btn-save-charts");
+      if (btn) btn.textContent = "Saved";
+      setTimeout(function () {
+        if (btn) btn.textContent = "Save Charts";
+      }, 1500);
+    })
+    .catch(function (e) {
+      showError("Failed to save chart config: " + e.message);
+    });
+}
+
+// ---- Sweep history ----
+
+function loadSweepHistory() {
+  fetch("/api/lidar/sweeps?sensor_id=" + encodeURIComponent(sensorId))
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (sweeps) {
+      var sel = document.getElementById("sweep-history-select");
+      // Preserve current value
+      var curVal = sel.value;
+      sel.innerHTML = '<option value="">Current (live)</option>';
+      if (!sweeps || sweeps.length === 0) return;
+      sweeps.forEach(function (s) {
+        var opt = document.createElement("option");
+        opt.value = s.sweep_id;
+        var d = new Date(s.started_at);
+        var label = s.mode + " | " + s.status + " | " + d.toLocaleString();
+        opt.textContent = label;
+        sel.appendChild(opt);
+      });
+      sel.value = curVal;
+    })
+    .catch(function () {});
+}
+
+function onSweepHistorySelected() {
+  var sel = document.getElementById("sweep-history-select");
+  var sweepId = sel.value;
+  if (!sweepId) {
+    // Switch back to live mode
+    viewingHistorical = false;
+    currentSweepId = null;
+    document.getElementById("btn-save-charts").style.display = "none";
+    // Clear and re-init to live state
+    chartConfigs = [];
+    disposeAllCharts();
+    initCharts();
+    startPolling();
+    return;
+  }
+  loadHistoricalSweep(sweepId);
+}
+
+function loadHistoricalSweep(sweepId) {
+  fetch("/api/lidar/sweeps/" + encodeURIComponent(sweepId))
+    .then(function (r) {
+      if (!r.ok) throw new Error("Failed to load sweep");
+      return r.json();
+    })
+    .then(function (sweep) {
+      viewingHistorical = true;
+      currentSweepId = sweep.sweep_id;
+      stopPolling();
+
+      // Load chart configs if saved
+      if (sweep.charts) {
+        try {
+          var parsed = JSON.parse(sweep.charts);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            chartConfigs = parsed;
+          } else {
+            chartConfigs = [];
+          }
+        } catch (e) {
+          chartConfigs = [];
+        }
+      } else {
+        chartConfigs = [];
+      }
+
+      // Parse and display results
+      var results = null;
+      if (sweep.results) {
+        try {
+          results =
+            typeof sweep.results === "string"
+              ? JSON.parse(sweep.results)
+              : sweep.results;
+        } catch (e) {
+          results = null;
+        }
+      }
+
+      if (results && results.length > 0) {
+        latestResults = results;
+        if (chartConfigs.length === 0) {
+          chartConfigs = generateDefaultCharts(results);
+        }
+        disposeAllCharts();
+        renderDynamicCharts(results);
+        renderTable(results);
+      }
+
+      // Show recommendation if auto-tune
+      if (sweep.recommendation) {
+        try {
+          var rec =
+            typeof sweep.recommendation === "string"
+              ? JSON.parse(sweep.recommendation)
+              : sweep.recommendation;
+          var roundResults = null;
+          if (sweep.round_results) {
+            roundResults =
+              typeof sweep.round_results === "string"
+                ? JSON.parse(sweep.round_results)
+                : sweep.round_results;
+          }
+          renderRecommendation(rec, roundResults);
+        } catch (e) {}
+      }
+
+      // Show save button
+      showSaveChartsButton();
+
+      // Update progress display
+      var prog = document.getElementById("progress-section");
+      prog.style.display = "";
+      var badge = document.getElementById("status-badge");
+      badge.textContent = sweep.status;
+      badge.className = "status-badge status-" + sweep.status;
+    })
+    .catch(function (e) {
+      showError("Failed to load sweep: " + e.message);
+    });
+}
+
+function disposeAllCharts() {
+  Object.keys(chartInstances).forEach(function (id) {
+    if (chartInstances[id]) {
+      chartInstances[id].dispose();
+    }
+  });
+  chartInstances = {};
+  var grid = document.getElementById("chart-grid");
+  if (grid) grid.innerHTML = "";
+}
+
 // ---- CommonJS exports for testing ----
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -2373,10 +2762,10 @@ if (typeof module !== "undefined" && module.exports) {
     addParamRow: addParamRow,
     removeParamRow: removeParamRow,
     updateParamFields: updateParamFields,
-    buildScenarioJSON: buildScenarioJSON,
-    downloadScenario: downloadScenario,
-    uploadScenario: uploadScenario,
-    loadScenario: loadScenario,
+    buildSceneJSON: buildSceneJSON,
+    downloadScene: downloadScene,
+    uploadScene: uploadScene,
+    loadScene: loadScene,
     toggleJSONEditor: toggleJSONEditor,
     applyJSONEditor: applyJSONEditor,
     handleStart: handleStart,
@@ -2393,6 +2782,24 @@ if (typeof module !== "undefined" && module.exports) {
     downloadCSV: downloadCSV,
     initCharts: initCharts,
     renderCharts: renderCharts,
+    renderDynamicCharts: renderDynamicCharts,
+    generateDefaultCharts: generateDefaultCharts,
+    buildSeriesOption: buildSeriesOption,
+    buildHeatmapOption: buildHeatmapOption,
+    buildScatterOption: buildScatterOption,
+    openChartModal: openChartModal,
+    closeChartModal: closeChartModal,
+    applyChartModal: applyChartModal,
+    editChart: editChart,
+    removeChart: removeChart,
+    saveChartConfigs: saveChartConfigs,
+    loadSweepHistory: loadSweepHistory,
+    onSweepHistorySelected: onSweepHistorySelected,
+    loadHistoricalSweep: loadHistoricalSweep,
+    disposeAllCharts: disposeAllCharts,
+    metricLabel: metricLabel,
+    extractValue: extractValue,
+    getAvailableMetrics: getAvailableMetrics,
     renderTable: renderTable,
     fetchCurrentParams: fetchCurrentParams,
     displayCurrentParams: displayCurrentParams,
@@ -2411,23 +2818,19 @@ function init() {
   stopRequested = false;
   sweepScenesData = [];
   currentSceneHasReference = false;
+  chartConfigs = [];
+  chartInstances = {};
+  chartConfigCounter = 0;
+  currentSweepId = null;
+  viewingHistorical = false;
 
   sensorId = document.querySelector('meta[name="sensor-id"]').content;
 
   // Initialise charts empty on page load
   initCharts();
 
-  // Resize charts after layout settles (CSS grid may not have final dimensions at init time)
-  setTimeout(function () {
-    acceptChart.resize();
-    nzChart.resize();
-    bktChart.resize();
-    paramHeatmapChart.resize();
-    alignChart.resize();
-    tracksChart.resize();
-    tracksHeatmapChart.resize();
-    alignHeatmapChart.resize();
-  }, 100);
+  // Load sweep history
+  loadSweepHistory();
 
   // Check for existing sweep on page load
   fetch("/api/lidar/sweep/auto")

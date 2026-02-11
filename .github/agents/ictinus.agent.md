@@ -176,7 +176,7 @@ Sensors → Go Server → SQLite → (Web Frontend | PDF Generator)
 
 **Software:**
 
-- SQLite single-file database (no clustering)
+- SQLite single-file database (no clustering) — `modernc.org/sqlite v1.44.3` bundles SQLite 3.51.2 with `ALTER TABLE DROP COLUMN` support
 - Local-only deployment (no cloud infrastructure)
 - ARM64 compilation required (cross-platform builds)
 

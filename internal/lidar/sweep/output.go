@@ -26,6 +26,11 @@ type SampleResult struct {
 	FragmentationRatio float64
 	TracksCreated      int
 	TracksConfirmed    int
+
+	// Scene-level foreground capture metrics
+	ForegroundCaptureRatio float64
+	UnboundedPointRatio    float64
+	EmptyBoxRatio          float64
 }
 
 // SweepParams holds the sweep parameters for a single test run.

@@ -21,7 +21,7 @@ Object.defineProperty(window, 'matchMedia', {
 
 // Mock echarts before module load
 function createMockChart() {
-	return { setOption: jest.fn(), resize: jest.fn() };
+	return { setOption: jest.fn(), resize: jest.fn(), dispose: jest.fn() };
 }
 (global as any).echarts = {
 	init: jest.fn().mockImplementation(() => createMockChart())
@@ -51,8 +51,8 @@ const {
 	updateParamFields,
 	getParamValueCount,
 	updateSweepSummary,
-	buildScenarioJSON,
-	loadScenario,
+	buildSceneJSON,
+	loadScene,
 	toggleJSONEditor,
 	applyJSONEditor,
 	handleStart,
@@ -70,8 +70,8 @@ const {
 	renderCharts,
 	initCharts,
 	downloadCSV,
-	downloadScenario,
-	uploadScenario,
+	downloadScene,
+	uploadScene,
 	fetchCurrentParams,
 	displayCurrentParams,
 	loadSweepScenes,
@@ -82,6 +82,19 @@ const {
 	escapeHTML,
 	parseDuration,
 	formatDuration,
+	metricLabel,
+	extractValue,
+	getAvailableMetrics,
+	generateDefaultCharts,
+	buildSeriesOption,
+	buildHeatmapOption,
+	buildScatterOption,
+	disposeAllCharts,
+	loadSweepHistory,
+	onSweepHistorySelected,
+	loadHistoricalSweep,
+	openChartModal,
+	closeChartModal,
 	init
 } = mod;
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -158,20 +171,39 @@ function setupDOM(): void {
 		'  <input id="w_misalignment" type="number" value="-0.5" />',
 		'  <input id="w_alignment" type="number" value="-0.01" />',
 		'  <input id="w_nonzero" type="number" value="0.1" />',
+		'  <input id="w_active_tracks" type="number" value="0.3" />',
+		'  <input id="w_foreground_capture" type="number" value="0" />',
+		'  <input id="w_empty_boxes" type="number" value="0" />',
+		'  <input id="w_fragmentation" type="number" value="0" />',
+		'  <input id="w_heading_jitter" type="number" value="0" />',
 		'</div>',
-		'<input id="scenario-upload" type="file" style="display:none" />',
+		'<div id="acceptance-criteria-fields" style="display:none">',
+		'  <input id="ac_max_fragmentation" type="number" value="" />',
+		'  <input id="ac_max_unbounded" type="number" value="" />',
+		'  <input id="ac_max_empty_boxes" type="number" value="" />',
+		'</div>',
+		'<input id="scene-upload" type="file" style="display:none" />',
 		'<div id="json-editor-wrap" style="display:none">',
 		'  <textarea id="scenario-json"></textarea>',
 		'</div>',
 		'<button id="btn-apply-json" style="display:none"></button>',
-		'<div id="acceptance-chart"></div>',
-		'<div id="nonzero-chart"></div>',
-		'<div id="bucket-chart"></div>',
-		'<div id="param-heatmap"></div>',
-		'<div id="alignment-chart"></div>',
-		'<div id="tracks-chart"></div>',
-		'<div id="tracks-heatmap"></div>',
-		'<div id="alignment-heatmap"></div>',
+		'<div id="chart-grid"></div>',
+		'<div id="chart-toolbar">',
+		'  <button id="btn-save-charts" style="display:none">Save Charts</button>',
+		'</div>',
+		'<select id="sweep-history-select">',
+		'  <option value="">Current (live)</option>',
+		'</select>',
+		'<div id="chart-modal" style="display:none">',
+		'  <h2 id="chart-modal-title">Add Chart</h2>',
+		'  <input id="chart-cfg-title" type="text" />',
+		'  <select id="chart-cfg-type"><option value="bar">Bar</option><option value="line">Line</option><option value="scatter">Scatter</option><option value="heatmap">Heatmap</option></select>',
+		'  <select id="chart-cfg-x"></select>',
+		'  <select id="chart-cfg-y"></select>',
+		'  <label id="chart-cfg-z-row"><select id="chart-cfg-z"></select></label>',
+		'  <label id="chart-cfg-group-row"><select id="chart-cfg-group"><option value="">(none)</option></select></label>',
+		'  <input id="chart-cfg-id" type="hidden" />',
+		'</div>',
 		'<table><thead id="results-head"><tr></tr></thead>',
 		'<tbody id="results-body"></tbody></table>',
 		'<div id="current-params-display"></div>'
@@ -238,6 +270,7 @@ function makeFetchRouter(overrides: Record<string, any> = {}) {
 		'/api/lidar/sweep/status': { status: 'idle', results: [] },
 		'/api/lidar/params': { noise_relative: 0.05 },
 		'/api/lidar/scenes': { scenes: [] },
+		'/api/lidar/sweeps': [],
 		...overrides
 	};
 	return jest.fn().mockImplementation((url: string) => {
@@ -449,12 +482,14 @@ describe('toggleWeights', () => {
 		(document.getElementById('objective') as HTMLSelectElement).value = 'weighted';
 		toggleWeights();
 		expect(document.getElementById('weight-fields')!.style.display).toBe('');
+		expect(document.getElementById('acceptance-criteria-fields')!.style.display).toBe('');
 	});
 
 	it('hides weight fields for other objective values', () => {
 		(document.getElementById('objective') as HTMLSelectElement).value = 'acceptance';
 		toggleWeights();
 		expect(document.getElementById('weight-fields')!.style.display).toBe('none');
+		expect(document.getElementById('acceptance-criteria-fields')!.style.display).toBe('none');
 	});
 });
 
@@ -725,15 +760,15 @@ describe('updateSweepSummary', () => {
 });
 
 // ===========================================================================
-// Scenario management
+// Scene management
 // ===========================================================================
 
-describe('buildScenarioJSON', () => {
+describe('buildSceneJSON', () => {
 	beforeEach(setupDOM);
 
 	it('builds scenario with default values', () => {
 		addParamRow('noise_relative');
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.seed).toBe('true');
 		expect(scenario.iterations).toBe(10);
 		expect(scenario.interval).toBe('2s');
@@ -746,7 +781,7 @@ describe('buildScenarioJSON', () => {
 
 	it('includes start/end/step for numeric params', () => {
 		addParamRow('noise_relative');
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.params[0].start).toBe(0.01);
 		expect(scenario.params[0].end).toBe(0.2);
 		expect(scenario.params[0].step).toBe(0.001);
@@ -755,7 +790,7 @@ describe('buildScenarioJSON', () => {
 	it('includes explicit values when provided', () => {
 		const id = addParamRow('noise_relative');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05, 0.1';
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual([0.01, 0.05, 0.1]);
 		expect(scenario.params[0].start).toBeUndefined();
 	});
@@ -764,7 +799,7 @@ describe('buildScenarioJSON', () => {
 		(document.getElementById('data_source') as HTMLSelectElement).value = 'pcap';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 		addParamRow('noise_relative');
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.data_source).toBe('pcap');
 		expect(scenario.pcap_file).toBe('test.pcap');
 	});
@@ -776,7 +811,7 @@ describe('buildScenarioJSON', () => {
 		(document.getElementById('scene_select') as HTMLSelectElement).value = 'scene-1';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 		addParamRow('noise_relative');
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		// scene translates to pcap for data_source
 		expect(scenario.data_source).toBe('pcap');
 		expect(scenario.scene_id).toBe('scene-1');
@@ -786,37 +821,37 @@ describe('buildScenarioJSON', () => {
 	it('handles bool param values', () => {
 		addParamRow('seed_from_first');
 		// seed_from_first is bool, default values "true, false"
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual([true, false]);
 	});
 
 	it('handles int param values', () => {
 		const id = addParamRow('neighbor_confirmation_count');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '1, 3, 5';
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual([1, 3, 5]);
 	});
 
 	it('handles string param values', () => {
 		const id = addParamRow('buffer_timeout');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '500ms, 1s, 2s';
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual(['500ms', '1s', '2s']);
 	});
 
 	it('skips rows with no parameter selected', () => {
 		addParamRow(); // no name
 		addParamRow('noise_relative');
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		expect(scenario.params).toHaveLength(1);
 	});
 });
 
-describe('loadScenario', () => {
+describe('loadScene', () => {
 	beforeEach(setupDOM);
 
 	it('loads scenario values into form fields', () => {
-		loadScenario({
+		loadScene({
 			seed: 'false',
 			iterations: 20,
 			interval: '3s',
@@ -833,7 +868,7 @@ describe('loadScenario', () => {
 	});
 
 	it('loads explicit values', () => {
-		loadScenario({
+		loadScene({
 			params: [{ name: 'noise_relative', type: 'float64', values: [0.01, 0.05, 0.1] }]
 		});
 		const rows = document.getElementById('param-rows')!.children;
@@ -843,12 +878,12 @@ describe('loadScenario', () => {
 	});
 
 	it('handles scene_id by switching data source', () => {
-		loadScenario({ scene_id: 'my-scene', params: [] });
+		loadScene({ scene_id: 'my-scene', params: [] });
 		expect(val('data_source')).toBe('scene');
 	});
 
 	it('handles pcap data_source', () => {
-		loadScenario({ data_source: 'pcap', pcap_file: 'test.pcap', params: [] });
+		loadScene({ data_source: 'pcap', pcap_file: 'test.pcap', params: [] });
 		expect(val('data_source')).toBe('pcap');
 		expect(val('pcap_file')).toBe('test.pcap');
 	});
@@ -857,7 +892,7 @@ describe('loadScenario', () => {
 		addParamRow('noise_relative');
 		addParamRow('closeness_multiplier');
 		expect(document.getElementById('param-rows')!.children.length).toBe(2);
-		loadScenario({ params: [{ name: 'hits_to_confirm', type: 'int', start: 1, end: 5, step: 1 }] });
+		loadScene({ params: [{ name: 'hits_to_confirm', type: 'int', start: 1, end: 5, step: 1 }] });
 		expect(document.getElementById('param-rows')!.children.length).toBe(1);
 	});
 });
@@ -910,7 +945,7 @@ describe('applyJSONEditor', () => {
 	});
 });
 
-describe('downloadScenario', () => {
+describe('downloadScene', () => {
 	beforeEach(setupDOM);
 
 	it('creates and clicks a download link', () => {
@@ -923,13 +958,13 @@ describe('downloadScenario', () => {
 			}
 			return document.createElement(tag);
 		});
-		downloadScenario();
+		downloadScene();
 		expect(URL.createObjectURL).toHaveBeenCalled();
 		(document.createElement as jest.Mock).mockRestore();
 	});
 });
 
-describe('uploadScenario', () => {
+describe('uploadScene', () => {
 	beforeEach(setupDOM);
 
 	it('loads scenario from file', () => {
@@ -945,7 +980,7 @@ describe('uploadScenario', () => {
 			}
 		};
 		const input = { files: [new Blob([''])], value: 'file.json' } as any;
-		uploadScenario(input);
+		uploadScene(input);
 		expect(val('seed')).toBe('false');
 		expect(val('iterations')).toBe('3');
 		expect(input.value).toBe('');
@@ -963,13 +998,13 @@ describe('uploadScenario', () => {
 			}
 		};
 		const input = { files: [new Blob([''])], value: 'file.json' } as any;
-		uploadScenario(input);
+		uploadScene(input);
 		expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
 		(global as any).FileReader = OrigFileReader;
 	});
 
 	it('returns early when no files', () => {
-		uploadScenario({ files: null } as any);
+		uploadScene({ files: null } as any);
 		// Should not throw
 	});
 });
@@ -1424,12 +1459,25 @@ describe('pollAutoTuneStatus', () => {
 // ===========================================================================
 
 describe('initCharts', () => {
-	beforeEach(setupDOM);
-
-	it('initializes 8 chart instances', () => {
+	beforeEach(() => {
+		setupDOM();
+		// Reset chart state via init
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
 		(global as any).echarts.init.mockClear();
+		disposeAllCharts();
+	});
+
+	afterEach(() => {
+		stopPolling();
+	});
+
+	it('creates default chart instances with no results', () => {
 		initCharts();
-		expect((global as any).echarts.init).toHaveBeenCalledTimes(8);
+		// With null results, generateDefaultCharts creates 4 charts:
+		// accept, nzcells, tracks, align (no heatmaps without param data)
+		expect((global as any).echarts.init).toHaveBeenCalledTimes(4);
 	});
 });
 
@@ -1520,19 +1568,25 @@ describe('renderTable', () => {
 describe('renderCharts', () => {
 	beforeEach(() => {
 		setupDOM();
-		initCharts();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		(global as any).echarts.init.mockClear();
+		disposeAllCharts();
 	});
 
-	it('renders all charts with full data', () => {
-		// Should not throw
+	afterEach(() => {
+		stopPolling();
+	});
+
+	it('renders charts with existing configs from init', () => {
 		renderCharts(makeTestResults());
-		// Heatmaps should be visible (2 numeric params)
-		expect(document.getElementById('param-heatmap')!.style.display).toBe('');
-		expect(document.getElementById('tracks-heatmap')!.style.display).toBe('');
-		expect(document.getElementById('alignment-heatmap')!.style.display).toBe('');
+		// init() already populated chartConfigs with 4 bar charts (no results),
+		// renderCharts reuses existing configs → 4 chart instances
+		expect((global as any).echarts.init).toHaveBeenCalledTimes(4);
 	});
 
-	it('hides heatmaps when only one numeric param', () => {
+	it('creates only bar charts when only one numeric param', () => {
 		const results = [
 			{
 				param_values: { noise_relative: 0.05, seed_from_first: true },
@@ -1546,12 +1600,11 @@ describe('renderCharts', () => {
 			}
 		];
 		renderCharts(results);
-		expect(document.getElementById('param-heatmap')!.style.display).toBe('none');
-		expect(document.getElementById('tracks-heatmap')!.style.display).toBe('none');
-		expect(document.getElementById('alignment-heatmap')!.style.display).toBe('none');
+		// 1 numeric param → 4 bar charts, no heatmaps
+		expect((global as any).echarts.init).toHaveBeenCalledTimes(4);
 	});
 
-	it('hides heatmaps when no param_values', () => {
+	it('creates only bar charts when no param_values', () => {
 		const results = [
 			{
 				noise: 0.05,
@@ -1565,7 +1618,8 @@ describe('renderCharts', () => {
 			}
 		];
 		renderCharts(results);
-		expect(document.getElementById('param-heatmap')!.style.display).toBe('none');
+		// No param_values → 4 bar charts, no heatmaps
+		expect((global as any).echarts.init).toHaveBeenCalledTimes(4);
 	});
 
 	it('renders without buckets', () => {
@@ -1576,6 +1630,7 @@ describe('renderCharts', () => {
 		});
 		// Should not throw
 		renderCharts(results);
+		expect((global as any).echarts.init.mock.calls.length).toBeGreaterThan(0);
 	});
 });
 
@@ -2108,7 +2163,7 @@ describe('init', () => {
 		(global as any).echarts.init.mockClear();
 		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
 		init();
-		expect((global as any).echarts.init).toHaveBeenCalledTimes(8);
+		expect((global as any).echarts.init).toHaveBeenCalledTimes(4);
 	});
 
 	it('schedules chart resize after 100ms', () => {
@@ -2219,11 +2274,11 @@ describe('updateSweepSummary additional branches', () => {
 	});
 });
 
-describe('loadScenario additional branches', () => {
+describe('loadScene additional branches', () => {
 	beforeEach(setupDOM);
 
 	it('loads pcap_start_secs and pcap_duration_secs', () => {
-		loadScenario({
+		loadScene({
 			data_source: 'pcap',
 			pcap_file: 'test.pcap',
 			pcap_start_secs: 10,
@@ -2482,114 +2537,239 @@ describe('init with manual sweep running', () => {
 	});
 });
 
-describe('ECharts formatter functions', () => {
+describe('dynamic chart utility functions', () => {
+	it('metricLabel returns schema label for known params', () => {
+		expect(metricLabel('noise_relative')).toBe('Noise Relative');
+		expect(metricLabel('closeness_multiplier')).toBe('Closeness Multiplier');
+	});
+
+	it('metricLabel returns "Combination" for _combo', () => {
+		expect(metricLabel('_combo')).toBe('Combination');
+	});
+
+	it('metricLabel title-cases unknown keys', () => {
+		const label = metricLabel('overall_accept_mean');
+		expect(label).toBe('Overall Accept Mean');
+	});
+
+	it('extractValue gets param_values first', () => {
+		const r = { param_values: { noise_relative: 0.05 }, noise_relative: 999 };
+		expect(extractValue(r, 'noise_relative')).toBe(0.05);
+	});
+
+	it('extractValue falls back to top-level keys', () => {
+		const r = { overall_accept_mean: 0.85 };
+		expect(extractValue(r, 'overall_accept_mean')).toBe(0.85);
+	});
+
+	it('extractValue returns null for missing keys', () => {
+		expect(extractValue({}, 'missing')).toBeNull();
+	});
+
+	it('getAvailableMetrics returns default metrics for no results', () => {
+		const { params, metrics } = getAvailableMetrics([]);
+		expect(params).toEqual([]);
+		expect(metrics.length).toBeGreaterThan(0);
+		expect(metrics).toContain('overall_accept_mean');
+	});
+
+	it('getAvailableMetrics extracts params and metrics', () => {
+		const results = makeTestResults();
+		const { params, metrics } = getAvailableMetrics(results);
+		expect(params).toContain('noise_relative');
+		expect(params).toContain('closeness_multiplier');
+		expect(metrics).toContain('overall_accept_mean');
+	});
+
+	it('generateDefaultCharts with no results produces 4 charts', () => {
+		const charts = generateDefaultCharts(null);
+		expect(charts).toHaveLength(4);
+		expect(charts.map((c: any) => c.type)).toEqual(['bar', 'bar', 'bar', 'bar']);
+	});
+
+	it('generateDefaultCharts with 2 numeric params produces 7 charts', () => {
+		const charts = generateDefaultCharts(makeTestResults());
+		expect(charts).toHaveLength(7);
+		const types = charts.map((c: any) => c.type);
+		expect(types.filter((t: string) => t === 'heatmap')).toHaveLength(3);
+		expect(types.filter((t: string) => t === 'bar')).toHaveLength(4);
+	});
+
+	it('generateDefaultCharts with 1 numeric param produces 4 charts', () => {
+		const results = [
+			{
+				param_values: { noise_relative: 0.05, seed_from_first: true },
+				overall_accept_mean: 0.85,
+				nonzero_cells_mean: 100,
+				active_tracks_mean: 3,
+				alignment_deg_mean: 1.0
+			}
+		];
+		const charts = generateDefaultCharts(results);
+		expect(charts).toHaveLength(4);
+	});
+});
+
+describe('buildSeriesOption', () => {
+	it('builds bar chart with combo labels', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Test',
+			x_metric: '_combo',
+			y_metric: 'overall_accept_mean',
+			group_by: ''
+		};
+		const opt = buildSeriesOption(results, cfg, 'bar');
+		expect(opt.series[0].type).toBe('bar');
+		expect(opt.series[0].data).toHaveLength(2);
+		expect(opt.xAxis.type).toBe('category');
+	});
+
+	it('builds line chart with specific x_metric', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Test',
+			x_metric: 'noise_relative',
+			y_metric: 'overall_accept_mean',
+			group_by: ''
+		};
+		const opt = buildSeriesOption(results, cfg, 'line');
+		expect(opt.series[0].type).toBe('line');
+		expect(opt.xAxis.name).toContain('Noise');
+	});
+
+	it('builds grouped chart', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Test',
+			x_metric: 'noise_relative',
+			y_metric: 'overall_accept_mean',
+			group_by: 'closeness_multiplier'
+		};
+		const opt = buildSeriesOption(results, cfg, 'bar');
+		expect(opt.series.length).toBeGreaterThanOrEqual(1);
+		expect(opt.legend).toBeDefined();
+	});
+});
+
+describe('buildHeatmapOption', () => {
+	it('builds heatmap with x/y params and z metric', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Heatmap Test',
+			x_metric: 'noise_relative',
+			y_metric: 'closeness_multiplier',
+			z_metric: 'overall_accept_mean'
+		};
+		const opt = buildHeatmapOption(results, cfg);
+		expect(opt.series[0].type).toBe('heatmap');
+		expect(opt.xAxis.name).toContain('Noise');
+		expect(opt.yAxis.name).toContain('Closeness');
+		expect(opt.visualMap).toBeDefined();
+	});
+});
+
+describe('buildScatterOption', () => {
+	it('builds scatter plot', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Scatter Test',
+			x_metric: 'noise_relative',
+			y_metric: 'overall_accept_mean'
+		};
+		const opt = buildScatterOption(results, cfg);
+		expect(opt.series[0].type).toBe('scatter');
+		expect(opt.series[0].data).toHaveLength(2);
+	});
+});
+
+describe('sweep history', () => {
 	beforeEach(() => {
+		jest.useFakeTimers();
 		setupDOM();
-		(global as any).echarts.init.mockClear();
-		initCharts();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
 	});
 
-	it('acceptance chart yAxis formatter returns percentage string', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		// acceptChart is the first init call
-		const acceptMock = optCalls[0].value;
-		const opts = acceptMock.setOption.mock.calls[1][0]; // second call from renderCharts
-		const formatter = opts.yAxis.axisLabel.formatter;
-		expect(formatter(0.85)).toBe('85%');
-		expect(formatter(1)).toBe('100%');
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
 	});
 
-	it('bucket chart tooltip formatter returns bucket info', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		// bktChart is the third init call (index 2)
-		const bktMock = optCalls[2].value;
-		const lastCallIdx = bktMock.setOption.mock.calls.length - 1;
-		const opts = bktMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.tooltip.formatter;
-		expect(formatter({ value: [0, 1, 0.85] })).toContain('85.00%');
+	it('loadSweepHistory populates history select', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve([
+					{
+						sweep_id: 'sw-1',
+						mode: 'sweep',
+						status: 'complete',
+						started_at: '2024-01-01T00:00:00Z'
+					}
+				])
+		});
+		loadSweepHistory();
+		await flushPromises();
+		const sel = document.getElementById('sweep-history-select') as HTMLSelectElement;
+		expect(sel.options.length).toBeGreaterThanOrEqual(2); // "Current (live)" + 1 sweep
 	});
 
-	it('bucket chart visualMap formatter returns percentage string', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		const bktMock = optCalls[2].value;
-		const lastCallIdx = bktMock.setOption.mock.calls.length - 1;
-		const opts = bktMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.visualMap.formatter;
-		expect(formatter(0.9)).toBe('90.0%');
+	it('loadHistoricalSweep renders results', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-1',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults()
+				})
+		});
+		loadHistoricalSweep('sw-1');
+		await flushPromises();
+		expect(document.getElementById('results-body')!.children.length).toBeGreaterThan(0);
 	});
 
-	it('alignment chart tooltip formatter returns alignment info', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		// alignChart is the 4th init call (index 3)
-		const alignMock = optCalls[3].value;
-		const lastCallIdx = alignMock.setOption.mock.calls.length - 1;
-		const opts = alignMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.tooltip.formatter;
-		const result = formatter([{ dataIndex: 0 }]);
-		expect(result).toContain('Alignment:');
-		expect(result).toContain('Misalignment:');
+	it('onSweepHistorySelected returns to live mode for empty value', () => {
+		(document.getElementById('sweep-history-select') as HTMLSelectElement).value = '';
+		onSweepHistorySelected();
+		// Should not throw
 	});
 
-	it('alignment chart yAxis formatter returns percentage string', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		const alignMock = optCalls[3].value;
-		const lastCallIdx = alignMock.setOption.mock.calls.length - 1;
-		const opts = alignMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.yAxis[1].axisLabel.formatter;
-		expect(formatter(0.05)).toBe('5%');
+	it('disposeAllCharts clears chart grid', () => {
+		// Add a dummy element to chart grid
+		const grid = document.getElementById('chart-grid')!;
+		grid.innerHTML = '<div>dummy</div>';
+		disposeAllCharts();
+		expect(grid.innerHTML).toBe('');
+	});
+});
+
+describe('chart modal', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
 	});
 
-	it('param heatmap tooltip formatter returns param info', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		// paramHeatmapChart is the 6th init call (index 5)
-		const hmMock = optCalls[5].value;
-		const lastCallIdx = hmMock.setOption.mock.calls.length - 1;
-		const opts = hmMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.tooltip.formatter;
-		const result = formatter({ value: [0, 0, 0.9] });
-		expect(result).toContain('Accept:');
-		expect(result).toContain('90.00%');
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
 	});
 
-	it('param heatmap visualMap formatter returns percentage string', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		const hmMock = optCalls[5].value;
-		const lastCallIdx = hmMock.setOption.mock.calls.length - 1;
-		const opts = hmMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.visualMap.formatter;
-		expect(formatter(0.85)).toBe('85.0%');
+	it('openChartModal shows modal', () => {
+		openChartModal();
+		expect(document.getElementById('chart-modal')!.style.display).toBe('');
 	});
 
-	it('tracks heatmap tooltip formatter returns track info', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		// tracksHeatmapChart is the 7th init call (index 6)
-		const thmMock = optCalls[6].value;
-		const lastCallIdx = thmMock.setOption.mock.calls.length - 1;
-		const opts = thmMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.tooltip.formatter;
-		const result = formatter({ value: [0, 0, 3.5] });
-		expect(result).toContain('Tracks:');
-		expect(result).toContain('3.5');
-	});
-
-	it('alignment heatmap tooltip formatter returns alignment info', () => {
-		renderCharts(makeTestResults());
-		const optCalls = (global as any).echarts.init.mock.results;
-		// alignHeatmapChart is the 8th init call (index 7)
-		const ahmMock = optCalls[7].value;
-		const lastCallIdx = ahmMock.setOption.mock.calls.length - 1;
-		const opts = ahmMock.setOption.mock.calls[lastCallIdx][0];
-		const formatter = opts.tooltip.formatter;
-		const result = formatter({ value: [0, 0, 1.2] });
-		expect(result).toContain('Alignment:');
+	it('closeChartModal hides modal', () => {
+		openChartModal();
+		closeChartModal();
+		expect(document.getElementById('chart-modal')!.style.display).toBe('none');
 	});
 });
 
@@ -2893,6 +3073,11 @@ describe('|| 0 default value fallback branches', () => {
 		(document.getElementById('w_misalignment') as HTMLInputElement).value = '';
 		(document.getElementById('w_alignment') as HTMLInputElement).value = '';
 		(document.getElementById('w_nonzero') as HTMLInputElement).value = '';
+		(document.getElementById('w_active_tracks') as HTMLInputElement).value = '';
+		(document.getElementById('w_foreground_capture') as HTMLInputElement).value = '';
+		(document.getElementById('w_empty_boxes') as HTMLInputElement).value = '';
+		(document.getElementById('w_fragmentation') as HTMLInputElement).value = '';
+		(document.getElementById('w_heading_jitter') as HTMLInputElement).value = '';
 		// Clear max_rounds, values_per_param, top_k
 		(document.getElementById('max_rounds') as HTMLInputElement).value = '';
 		(document.getElementById('values_per_param') as HTMLInputElement).value = '';
@@ -2904,6 +3089,11 @@ describe('|| 0 default value fallback branches', () => {
 		expect(body.weights.misalignment).toBe(-0.5);
 		expect(body.weights.alignment).toBe(-0.01);
 		expect(body.weights.nonzero_cells).toBe(0.1);
+		expect(body.weights.active_tracks).toBe(0.3);
+		expect(body.weights.foreground_capture).toBe(0);
+		expect(body.weights.empty_boxes).toBe(0);
+		expect(body.weights.fragmentation).toBe(0);
+		expect(body.weights.heading_jitter).toBe(0);
 		expect(body.max_rounds).toBe(3);
 		expect(body.values_per_param).toBe(5);
 		expect(body.top_k).toBe(5);
@@ -2923,26 +3113,26 @@ describe('|| 0 default value fallback branches', () => {
 		expect(fields).toContain('Values');
 	});
 
-	it('buildScenarioJSON with bool param values string', () => {
+	it('buildSceneJSON with bool param values string', () => {
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
 		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'seed_from_first';
 		updateParamFields(rowId);
 		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = 'true, false';
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		const param = scenario.params.find((p: any) => p.name === 'seed_from_first');
 		expect(param.values).toEqual([true, false]);
 	});
 
-	it('buildScenarioJSON with string param values', () => {
+	it('buildSceneJSON with string param values', () => {
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
 		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'buffer_timeout';
 		updateParamFields(rowId);
 		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = '500ms, 1s, 2s';
-		const scenario = buildScenarioJSON();
+		const scenario = buildSceneJSON();
 		const param = scenario.params.find((p: any) => p.name === 'buffer_timeout');
 		expect(param.values).toEqual(['500ms', '1s', '2s']);
 	});

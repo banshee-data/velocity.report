@@ -12,6 +12,12 @@ type ObjectiveWeights struct {
 	Alignment    float64 `json:"alignment"`
 	NonzeroCells float64 `json:"nonzero_cells"`
 	ActiveTracks float64 `json:"active_tracks"`
+
+	// Scene-level weights (opt-in; zero by default)
+	ForegroundCapture float64 `json:"foreground_capture"` // Positive = maximise capture ratio
+	EmptyBoxes        float64 `json:"empty_boxes"`        // Negative = minimise empty box ratio
+	Fragmentation     float64 `json:"fragmentation"`      // Negative = minimise fragmentation ratio
+	HeadingJitter     float64 `json:"heading_jitter"`     // Negative = minimise heading jitter
 }
 
 // DefaultObjectiveWeights returns default weights for multi-objective scoring.
@@ -26,8 +32,8 @@ func DefaultObjectiveWeights() ObjectiveWeights {
 }
 
 // ScoreResult computes a scalar score for a ComboResult using the given weights.
-// Formula: w1*accept_rate + w2*misalignment_ratio + w3*alignment_deg + w4*log(NonzeroCells) + w5*log(ActiveTracks)
-// Note: w2 and w3 are typically negative (minimise), so the sign should be baked into the weight values.
+// Log-scale is used for NonzeroCells and ActiveTracks; all other terms are linear.
+// Note: minimisation weights (e.g. Misalignment, EmptyBoxes) should be negative.
 func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 	score := 0.0
 
@@ -50,7 +56,45 @@ func ScoreResult(result ComboResult, weights ObjectiveWeights) float64 {
 		score += weights.ActiveTracks * math.Log(result.ActiveTracksMean)
 	}
 
+	// Foreground capture ratio (0-1, higher is better)
+	score += weights.ForegroundCapture * result.ForegroundCaptureMean
+
+	// Empty box ratio (0-1, lower is better, so weight is typically negative)
+	score += weights.EmptyBoxes * result.EmptyBoxRatioMean
+
+	// Fragmentation ratio (0-1, lower is better, so weight is typically negative)
+	score += weights.Fragmentation * result.FragmentationRatioMean
+
+	// Heading jitter degrees (lower is better, so weight is typically negative)
+	score += weights.HeadingJitter * result.HeadingJitterDegMean
+
 	return score
+}
+
+// AcceptanceCriteria defines hard thresholds that a ComboResult must satisfy
+// to be considered viable. A nil pointer means no constraint for that metric.
+type AcceptanceCriteria struct {
+	MaxFragmentationRatio  *float64 `json:"max_fragmentation_ratio,omitempty"`
+	MaxUnboundedPointRatio *float64 `json:"max_unbounded_point_ratio,omitempty"`
+	MaxEmptyBoxRatio       *float64 `json:"max_empty_box_ratio,omitempty"`
+}
+
+// CheckAcceptance returns true if the result satisfies all acceptance criteria.
+// A nil criteria pointer means all results are accepted.
+func CheckAcceptance(result ComboResult, criteria *AcceptanceCriteria) bool {
+	if criteria == nil {
+		return true
+	}
+	if criteria.MaxFragmentationRatio != nil && result.FragmentationRatioMean > *criteria.MaxFragmentationRatio {
+		return false
+	}
+	if criteria.MaxUnboundedPointRatio != nil && result.UnboundedPointMean > *criteria.MaxUnboundedPointRatio {
+		return false
+	}
+	if criteria.MaxEmptyBoxRatio != nil && result.EmptyBoxRatioMean > *criteria.MaxEmptyBoxRatio {
+		return false
+	}
+	return true
 }
 
 // ScoredResult pairs a ComboResult with its objective score.
@@ -70,6 +114,31 @@ func RankResults(results []ComboResult, weights ObjectiveWeights) []ScoredResult
 	}
 
 	// Sort by score descending (highest first)
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].Score > scored[j].Score
+	})
+
+	return scored
+}
+
+// RankResultsWithCriteria scores and ranks results, applying acceptance criteria.
+// Combos that fail criteria receive score = -MaxFloat64 and sort to the bottom.
+func RankResultsWithCriteria(results []ComboResult, weights ObjectiveWeights, criteria *AcceptanceCriteria) []ScoredResult {
+	scored := make([]ScoredResult, len(results))
+	for i, r := range results {
+		if CheckAcceptance(r, criteria) {
+			scored[i] = ScoredResult{
+				ComboResult: r,
+				Score:       ScoreResult(r, weights),
+			}
+		} else {
+			scored[i] = ScoredResult{
+				ComboResult: r,
+				Score:       -math.MaxFloat64,
+			}
+		}
+	}
+
 	sort.Slice(scored, func(i, j int) bool {
 		return scored[i].Score > scored[j].Score
 	})

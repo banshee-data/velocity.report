@@ -125,6 +125,23 @@ CREATE TABLE lidar_analysis_runs (
         , FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE SET NULL
           );
 
+   CREATE TABLE lidar_sweeps (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , sweep_id TEXT NOT NULL UNIQUE
+        , sensor_id TEXT NOT NULL
+        , mode TEXT NOT NULL DEFAULT 'sweep'
+        , status TEXT NOT NULL DEFAULT 'running'
+        , request TEXT NOT NULL
+        , results TEXT
+        , charts TEXT
+        , recommendation TEXT
+        , round_results TEXT
+        , error TEXT
+        , started_at DATETIME NOT NULL
+        , completed_at DATETIME
+        , created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+
    CREATE TABLE lidar_tracks (
           track_id TEXT PRIMARY KEY
         , sensor_id TEXT NOT NULL
@@ -418,3 +435,7 @@ CREATE INDEX idx_lidar_scenes_sensor ON lidar_scenes (sensor_id);
 CREATE INDEX idx_lidar_scenes_pcap ON lidar_scenes (pcap_file);
 
 CREATE INDEX idx_missed_regions_run_id ON lidar_missed_regions (run_id);
+
+CREATE INDEX idx_lidar_sweeps_sensor ON lidar_sweeps (sensor_id);
+
+CREATE INDEX idx_lidar_sweeps_status ON lidar_sweeps (status);

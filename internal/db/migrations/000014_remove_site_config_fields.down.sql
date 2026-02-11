@@ -1,7 +1,8 @@
 -- Migration rollback: Add back cosine_error_angle, speed_limit, and speed_limit_note to site table
 -- Date: 2026-01-20
--- SQLite doesn't support ADD COLUMN with NOT NULL and no default easily
--- So we recreate the table with the original columns
+-- NOTE: As of modernc.org/sqlite v1.44.3 (SQLite 3.51.2), ALTER TABLE DROP COLUMN
+-- is supported. This migration uses table recreation to restore columns with specific
+-- defaults and constraints. New migrations needing column removal should use DROP COLUMN directly.
    CREATE TABLE site_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , name TEXT NOT NULL UNIQUE
