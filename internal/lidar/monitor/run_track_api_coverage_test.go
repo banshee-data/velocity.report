@@ -417,13 +417,14 @@ func TestCov_HandleRunTrackAPI_LabellingProgress(t *testing.T) {
 	defer cleanup()
 
 	runID := covInsertRun(t, ws, "progress")
+	covInsertTrack(t, ws, runID, "track-lp-1")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/"+runID+"/labelling-progress", nil)
 	w := httptest.NewRecorder()
 	ws.handleRunTrackAPI(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+		t.Errorf("status = %d, want %d; body = %s", w.Code, http.StatusOK, w.Body.String())
 	}
 }
 

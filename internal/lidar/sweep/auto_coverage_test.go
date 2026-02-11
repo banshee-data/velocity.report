@@ -3,9 +3,26 @@ package sweep
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 )
+
+// testClient returns a *monitor.Client backed by a dummy HTTP server.
+// The server returns empty JSON for any request, preventing nil pointer panics
+// when Runner goroutines try to call monitor.Client methods.
+func testClient(t *testing.T) *monitor.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(srv.Close)
+	return monitor.NewClient(srv.Client(), srv.URL, "test-sensor")
+}
 
 // --- AutoTuner accessor tests ---
 
@@ -103,7 +120,7 @@ func TestAutoTuner_Start_InvalidRequestType(t *testing.T) {
 }
 
 func TestAutoTuner_Start_MapRequest(t *testing.T) {
-	runner := NewRunner(nil)
+	runner := NewRunner(testClient(t))
 	at := NewAutoTuner(runner)
 	m := map[string]interface{}{
 		"params": []interface{}{
@@ -112,14 +129,16 @@ func TestAutoTuner_Start_MapRequest(t *testing.T) {
 		"values_per_param": 3,
 	}
 	err := at.Start(context.Background(), m)
-	// Should fail on runner nil check, but not on marshalling
-	if err == nil {
-		t.Error("expected error (runner has no client)")
+	// Map request is marshalled to AutoTuneRequest and auto-tune starts
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
+	at.Stop()
+	time.Sleep(50 * time.Millisecond)
 }
 
 func TestAutoTuner_Start_MaxRoundsExceedsLimit(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
@@ -132,7 +151,7 @@ func TestAutoTuner_Start_MaxRoundsExceedsLimit(t *testing.T) {
 }
 
 func TestAutoTuner_Start_ValuesPerParamTooLow(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
@@ -144,7 +163,7 @@ func TestAutoTuner_Start_ValuesPerParamTooLow(t *testing.T) {
 }
 
 func TestAutoTuner_Start_ValuesPerParamTooHigh(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
@@ -156,7 +175,7 @@ func TestAutoTuner_Start_ValuesPerParamTooHigh(t *testing.T) {
 }
 
 func TestAutoTuner_Start_TopKTooHigh(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
@@ -169,7 +188,7 @@ func TestAutoTuner_Start_TopKTooHigh(t *testing.T) {
 }
 
 func TestAutoTuner_Start_NoParams(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         nil,
@@ -181,7 +200,7 @@ func TestAutoTuner_Start_NoParams(t *testing.T) {
 }
 
 func TestAutoTuner_Start_TooManyParams(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	params := make([]SweepParam, 11)
 	for i := range params {
@@ -197,7 +216,7 @@ func TestAutoTuner_Start_TooManyParams(t *testing.T) {
 }
 
 func TestAutoTuner_Start_InvalidParamBounds(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 5, End: 1}},
@@ -209,7 +228,7 @@ func TestAutoTuner_Start_InvalidParamBounds(t *testing.T) {
 }
 
 func TestAutoTuner_Start_UnsupportedParamType(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "string", Start: 0, End: 1}},
@@ -221,7 +240,7 @@ func TestAutoTuner_Start_UnsupportedParamType(t *testing.T) {
 }
 
 func TestAutoTuner_Start_GroundTruth_NoSceneID(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
@@ -234,7 +253,7 @@ func TestAutoTuner_Start_GroundTruth_NoSceneID(t *testing.T) {
 }
 
 func TestAutoTuner_Start_GroundTruth_NoScorer(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
@@ -248,7 +267,7 @@ func TestAutoTuner_Start_GroundTruth_NoScorer(t *testing.T) {
 }
 
 func TestAutoTuner_Start_AlreadyRunning(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	at.mu.Lock()
 	at.state.Status = SweepStatusRunning
@@ -264,7 +283,7 @@ func TestAutoTuner_Start_AlreadyRunning(t *testing.T) {
 }
 
 func TestAutoTuner_Start_IntParams(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(testClient(t))
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "int", Start: 0, End: 10}},
@@ -280,7 +299,7 @@ func TestAutoTuner_Start_IntParams(t *testing.T) {
 }
 
 func TestAutoTuner_Start_Int64Params(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(testClient(t))
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "int64", Start: 0, End: 100}},
@@ -296,7 +315,7 @@ func TestAutoTuner_Start_Int64Params(t *testing.T) {
 // --- waitForSweepComplete tests ---
 
 func TestAutoTuner_WaitForSweepComplete_Cancelled(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	at := NewAutoTuner(runner)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -307,7 +326,7 @@ func TestAutoTuner_WaitForSweepComplete_Cancelled(t *testing.T) {
 }
 
 func TestAutoTuner_WaitForSweepComplete_Complete(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	runner.mu.Lock()
 	runner.state.Status = SweepStatusComplete
 	runner.mu.Unlock()
@@ -323,7 +342,7 @@ func TestAutoTuner_WaitForSweepComplete_Complete(t *testing.T) {
 }
 
 func TestAutoTuner_WaitForSweepComplete_Error(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	runner.mu.Lock()
 	runner.state.Status = SweepStatusError
 	runner.state.Error = "test error"
@@ -340,7 +359,7 @@ func TestAutoTuner_WaitForSweepComplete_Error(t *testing.T) {
 }
 
 func TestAutoTuner_WaitForSweepComplete_UnexpectedStatus(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(nil)
 	runner.mu.Lock()
 	runner.state.Status = SweepStatus("unknown")
 	runner.mu.Unlock()
@@ -545,7 +564,7 @@ func TestAutoTuner_GetAutoTuneState_DeepCopy(t *testing.T) {
 // --- Start with persister ---
 
 func TestAutoTuner_Start_WithPersister(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(testClient(t))
 	at := NewAutoTuner(runner)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
@@ -569,7 +588,7 @@ func TestAutoTuner_Start_WithPersister(t *testing.T) {
 }
 
 func TestAutoTuner_Start_NilContext(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(testClient(t))
 	at := NewAutoTuner(runner)
 	//nolint:staticcheck
 	err := at.start(nil, AutoTuneRequest{
@@ -584,7 +603,7 @@ func TestAutoTuner_Start_NilContext(t *testing.T) {
 }
 
 func TestAutoTuner_Start_GroundTruth_DefaultWeights(t *testing.T) {
-	runner := NewRunner(&mockClient{})
+	runner := NewRunner(testClient(t))
 	at := NewAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.9, nil
@@ -627,5 +646,3 @@ type mockSceneStore struct{}
 func (m *mockSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
 	return nil
 }
-
-type mockClient struct{}

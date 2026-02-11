@@ -103,8 +103,7 @@ func TestRunner_Start_NilClient(t *testing.T) {
 }
 
 func TestRunner_Start_NilContext(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(testClient(t))
 	//nolint:staticcheck
 	err := r.start(nil, SweepRequest{
 		Mode:        "multi",
@@ -168,16 +167,17 @@ func TestRunner_Start_UnsupportedMode(t *testing.T) {
 	}
 }
 
-func TestRunner_Start_NoCombinations(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+func TestRunner_Start_DefaultCombinations(t *testing.T) {
+	r := NewRunner(testClient(t))
 	err := r.start(context.Background(), SweepRequest{
 		Mode: "multi",
-		// No values provided
+		// No values provided — should default to built-in ranges
 	})
-	if err == nil {
-		t.Error("expected error for no combinations")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
+	r.Stop()
+	time.Sleep(50 * time.Millisecond)
 }
 
 func TestRunner_Start_AlreadyRunning(t *testing.T) {
@@ -197,8 +197,7 @@ func TestRunner_Start_AlreadyRunning(t *testing.T) {
 }
 
 func TestRunner_Start_WithPersister(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(testClient(t))
 	mp := &mockPersister{}
 	r.SetPersister(mp)
 
@@ -221,8 +220,7 @@ func TestRunner_Start_WithPersister(t *testing.T) {
 }
 
 func TestRunner_Start_DefaultIterations(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(testClient(t))
 
 	err := r.start(context.Background(), SweepRequest{
 		Mode:        "multi",
@@ -237,8 +235,7 @@ func TestRunner_Start_DefaultIterations(t *testing.T) {
 }
 
 func TestRunner_Start_DefaultMode(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(testClient(t))
 
 	err := r.start(context.Background(), SweepRequest{
 		Mode:        "", // should default to "multi"
@@ -309,8 +306,7 @@ func TestRunner_StartGeneric_AlreadyRunning(t *testing.T) {
 }
 
 func TestRunner_StartGeneric_Success(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(testClient(t))
 	mp := &mockPersister{}
 	r.SetPersister(mp)
 
@@ -692,8 +688,7 @@ func TestRunner_ComputeCombinations_NoiseMode_Range(t *testing.T) {
 }
 
 func TestRunner_Start_ParamsMode(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(testClient(t))
 
 	err := r.start(context.Background(), SweepRequest{
 		Mode: "params",
