@@ -1,5 +1,5 @@
 -- Migration 000024: Add metadata columns for experiment versioning and explainability
--- Supports section 9.1 of industry-standard-ml-solver-expansion-plan.md
+-- Supports sections 9.1 and 9.2 of industry-standard-ml-solver-expansion-plan.md
 
 ALTER TABLE lidar_sweeps ADD COLUMN objective_name TEXT;
 ALTER TABLE lidar_sweeps ADD COLUMN objective_version TEXT;

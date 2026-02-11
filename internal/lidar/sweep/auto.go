@@ -132,6 +132,10 @@ type AutoTuner struct {
 	// and returns the composite ground truth score.
 	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
 
+	// Detailed ground truth scorer that returns component breakdown.
+	// When set, called instead of groundTruthScorer to populate score decomposition.
+	groundTruthScorerDetailed func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error)
+
 	// Phase 5: Scene store for saving optimal params when ground truth mode completes
 	sceneStore SceneStoreSaver
 }
@@ -169,6 +173,14 @@ func (at *AutoTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID st
 	at.mu.Lock()
 	defer at.mu.Unlock()
 	at.groundTruthScorer = scorer
+}
+
+// SetGroundTruthScorerDetailed sets the detailed ground truth scoring function
+// that returns both a composite score and component-level breakdown.
+func (at *AutoTuner) SetGroundTruthScorerDetailed(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error)) {
+	at.mu.Lock()
+	defer at.mu.Unlock()
+	at.groundTruthScorerDetailed = scorer
 }
 
 // SetSceneStore sets the scene store for saving optimal parameters after auto-tuning completes.
@@ -523,13 +535,25 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 					log.Printf("[sweep] WARNING: combo %d has no RunID; cannot evaluate with ground truth. Assigning score 0.", i)
 					scored[i].Score = 0.0
 				} else {
-					// Call ground truth scorer with per-request weights
-					score, err := at.groundTruthScorer(req.SceneID, result.RunID, *req.GroundTruthWeights)
-					if err != nil {
-						log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
-						scored[i].Score = 0.0
+					// Try detailed scorer first, fall back to simple scorer
+					if at.groundTruthScorerDetailed != nil {
+						score, components, err := at.groundTruthScorerDetailed(req.SceneID, result.RunID, *req.GroundTruthWeights)
+						if err != nil {
+							log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
+							scored[i].Score = 0.0
+						} else {
+							scored[i].Score = score
+							scored[i].Components = components
+						}
 					} else {
-						scored[i].Score = score
+						// Call ground truth scorer with per-request weights
+						score, err := at.groundTruthScorer(req.SceneID, result.RunID, *req.GroundTruthWeights)
+						if err != nil {
+							log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
+							scored[i].Score = 0.0
+						} else {
+							scored[i].Score = score
+						}
 					}
 				}
 			}

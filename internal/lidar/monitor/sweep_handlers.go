@@ -389,3 +389,53 @@ func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 }
+
+// handleSweepExplain returns a score explanation for a sweep.
+func (ws *WebServer) handleSweepExplain(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.sweepStore == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
+		return
+	}
+
+	// Extract sweep_id from path: /api/lidar/sweep/explain/{sweep_id}
+	path := strings.TrimPrefix(r.URL.Path, "/api/lidar/sweep/explain/")
+	sweepID := strings.TrimRight(path, "/")
+	if sweepID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing sweep_id in path")
+		return
+	}
+
+	record, err := ws.sweepStore.GetSweep(sweepID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to get sweep: "+err.Error())
+		return
+	}
+	if record == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "sweep not found")
+		return
+	}
+
+	// Build explanation from stored components
+	var response struct {
+		SweepID                   string          `json:"sweep_id"`
+		ObjectiveName             string          `json:"objective_name,omitempty"`
+		ObjectiveVersion          string          `json:"objective_version,omitempty"`
+		ScoreComponents           json.RawMessage `json:"score_components,omitempty"`
+		RecommendationExplanation json.RawMessage `json:"recommendation_explanation,omitempty"`
+		LabelProvenanceSummary    json.RawMessage `json:"label_provenance_summary,omitempty"`
+	}
+	response.SweepID = record.SweepID
+	response.ObjectiveName = record.ObjectiveName
+	response.ObjectiveVersion = record.ObjectiveVersion
+	response.ScoreComponents = record.ScoreComponents
+	response.RecommendationExplanation = record.RecommendationExplanation
+	response.LabelProvenanceSummary = record.LabelProvenanceSummary
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}

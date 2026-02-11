@@ -97,14 +97,15 @@ type LabelProgress struct {
 
 // RLHFRound records the results of a single RLHF round.
 type RLHFRound struct {
-	Round             int                `json:"round"`
-	ReferenceRunID    string             `json:"reference_run_id"`
-	LabelledAt        *time.Time         `json:"labelled_at,omitempty"`
-	LabelProgress     *LabelProgress     `json:"label_progress,omitempty"`
-	LabelsCarriedOver int                `json:"labels_carried_over"`
-	SweepID           string             `json:"sweep_id,omitempty"`
-	BestScore         float64            `json:"best_score"`
-	BestParams        map[string]float64 `json:"best_params,omitempty"`
+	Round               int                `json:"round"`
+	ReferenceRunID      string             `json:"reference_run_id"`
+	LabelledAt          *time.Time         `json:"labelled_at,omitempty"`
+	LabelProgress       *LabelProgress     `json:"label_progress,omitempty"`
+	LabelsCarriedOver   int                `json:"labels_carried_over"`
+	SweepID             string             `json:"sweep_id,omitempty"`
+	BestScore           float64            `json:"best_score"`
+	BestParams          map[string]float64 `json:"best_params,omitempty"`
+	BestScoreComponents *ScoreComponents   `json:"best_score_components,omitempty"`
 }
 
 // RLHFTuner orchestrates human-in-the-loop parameter optimisation.
