@@ -174,6 +174,8 @@
 				return 'Auto-Tune';
 			case 'params':
 				return 'Manual';
+			case 'rlhf':
+				return 'Human-in-the-Loop';
 			default:
 				return mode;
 		}
@@ -437,6 +439,32 @@
 								{/if}
 							</div>
 						</div>
+					{/if}
+
+					<!-- RLHF Round History -->
+					{#if selectedSweep.mode === 'rlhf' && selectedSweep.round_results && Array.isArray(selectedSweep.round_results)}
+						<details class="mb-4" open>
+							<summary class="text-surface-content cursor-pointer text-sm font-semibold">
+								RLHF Rounds ({selectedSweep.round_results.length})
+							</summary>
+							<div class="mt-2 space-y-2">
+								{#each selectedSweep.round_results as round, i (i)}
+									<div class="bg-surface-200 rounded p-3 text-xs">
+										<div class="flex justify-between font-medium">
+											<span>Round {round.round ?? i + 1}</span>
+											{#if round.best_score}
+												<span>Score: {Number(round.best_score).toFixed(4)}</span>
+											{/if}
+										</div>
+										{#if round.labels_carried_over}
+											<div class="text-surface-content/60 mt-1">
+												↻ {round.labels_carried_over} labels carried over
+											</div>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						</details>
 					{/if}
 
 					<!-- Request Config -->

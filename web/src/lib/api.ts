@@ -837,3 +837,53 @@ export async function applyLidarParams(
 		throw new Error(`Failed to apply params: ${text}`);
 	}
 }
+
+/**
+ * Get the current RLHF sweep state.
+ */
+export async function getRLHFState(): Promise<Record<string, unknown>> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf`);
+	if (!res.ok) throw new Error(`Failed to get RLHF state: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Start an RLHF sweep.
+ * @param req - RLHF sweep request parameters
+ */
+export async function startRLHFSweep(req: Record<string, unknown>): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(req)
+	});
+	if (!res.ok) {
+		const body = await res.json();
+		throw new Error(body.error || `Failed to start RLHF sweep: ${res.status}`);
+	}
+}
+
+/**
+ * Signal RLHF tuner to continue from labelling to sweep phase.
+ * @param nextDurationMins - Override for next sweep duration (0 = use default)
+ * @param addRound - Whether to add an extra round
+ */
+export async function continueRLHF(nextDurationMins = 0, addRound = false): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf/continue`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ next_sweep_duration_mins: nextDurationMins, add_round: addRound })
+	});
+	if (!res.ok) {
+		const body = await res.json();
+		throw new Error(body.error || `Failed to continue RLHF: ${res.status}`);
+	}
+}
+
+/**
+ * Stop a running RLHF sweep.
+ */
+export async function stopRLHF(): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf/stop`, { method: 'POST' });
+	if (!res.ok) throw new Error(`Failed to stop RLHF: ${res.status}`);
+}
