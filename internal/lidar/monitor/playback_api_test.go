@@ -331,14 +331,14 @@ func TestHandleVRLogLoad(t *testing.T) {
 		{
 			name:           "POST without callback returns not implemented",
 			method:         http.MethodPost,
-			body:           `{"vrlog_path": "/tmp/test.vrlog"}`,
+			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
 			onLoad:         nil,
 			expectedStatus: http.StatusNotImplemented,
 		},
 		{
 			name:           "POST with vrlog_path succeeds",
 			method:         http.MethodPost,
-			body:           `{"vrlog_path": "/tmp/test.vrlog"}`,
+			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
 			onLoad:         func(path string) error { return nil },
 			expectedStatus: http.StatusOK,
 		},
@@ -352,9 +352,16 @@ func TestHandleVRLogLoad(t *testing.T) {
 		{
 			name:           "POST with load error returns internal error",
 			method:         http.MethodPost,
-			body:           `{"vrlog_path": "/tmp/test.vrlog"}`,
+			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
 			onLoad:         func(path string) error { return errors.New("load failed") },
 			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:           "POST with path outside allowed directory returns bad request",
+			method:         http.MethodPost,
+			body:           `{"vrlog_path": "/tmp/test.vrlog"}`,
+			onLoad:         func(path string) error { return nil },
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "POST with no run_id or vrlog_path returns bad request",
