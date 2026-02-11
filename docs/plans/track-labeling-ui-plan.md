@@ -154,8 +154,8 @@ Record in `Publish()` after frame type/background metadata assignment and before
 
 New migration:
 
-- `internal/db/migrations/000022_add_vrlog_path.up.sql`
-- `internal/db/migrations/000022_add_vrlog_path.down.sql`
+- `internal/db/migrations/000023_add_vrlog_path.up.sql`
+- `internal/db/migrations/000023_add_vrlog_path.down.sql`
 
 `internal/lidar/analysis_run.go`:
 
@@ -369,7 +369,7 @@ Phase 0 (label contract)
 | Replay recording/replay | `internal/lidar/visualiser/publisher.go`                                                                                                 | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
 | gRPC controls           | `internal/lidar/visualiser/grpc_server.go`                                                                                               | Implement seek delegation, VRLOG mode routing                        |
 | Run persistence         | `internal/lidar/analysis_run.go`                                                                                                         | `vrlog_path` field + store updates                                   |
-| DB migration            | `internal/db/migrations/000022_add_vrlog_path.*.sql`                                                                                     | Add/drop `vrlog_path`                                                |
+| DB migration            | `internal/db/migrations/000023_add_vrlog_path.*.sql`                                                                                     | Add/drop `vrlog_path`                                                |
 | Orchestration API       | `internal/lidar/monitor/webserver.go`                                                                                                    | recording/playback callbacks + routes + status model                 |
 | Wiring                  | `cmd/radar/radar.go`                                                                                                                     | recorder lifecycle + replay callback wiring                          |
 | Swift app               | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` and new API client(s)                                                     | run browser state, replay load flow, run-track labeling integration  |
