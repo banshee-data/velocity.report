@@ -286,6 +286,13 @@ func TestHandlePlaybackRate(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
+			name:           "POST with rate exceeding maximum returns bad request",
+			method:         http.MethodPost,
+			body:           `{"rate": 101}`,
+			onRate:         func(r float32) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
 			name:           "POST with invalid body returns bad request",
 			method:         http.MethodPost,
 			body:           `invalid json`,
@@ -326,6 +333,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 		method         string
 		body           string
 		onLoad         func(string) error
+		vrlogSafeDir   string
 		expectedStatus int
 	}{
 		{
@@ -333,6 +341,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
 			onLoad:         nil,
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusNotImplemented,
 		},
 		{
@@ -340,6 +349,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
 			onLoad:         func(path string) error { return nil },
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusOK,
 		},
 		{
@@ -347,6 +357,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "relative/path.vrlog"}`,
 			onLoad:         func(path string) error { return nil },
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -354,6 +365,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
 			onLoad:         func(path string) error { return errors.New("load failed") },
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusInternalServerError,
 		},
 		{
@@ -361,6 +373,15 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/tmp/test.vrlog"}`,
 			onLoad:         func(path string) error { return nil },
+			vrlogSafeDir:   "/var/lib/velocity-report",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "POST with directory traversal returns bad request",
+			method:         http.MethodPost,
+			body:           `{"vrlog_path": "/var/lib/velocity-report/../../../etc/passwd"}`,
+			onLoad:         func(path string) error { return nil },
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -368,6 +389,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `{}`,
 			onLoad:         func(path string) error { return nil },
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -375,6 +397,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodPost,
 			body:           `invalid json`,
 			onLoad:         func(path string) error { return nil },
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
@@ -382,6 +405,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			method:         http.MethodGet,
 			body:           ``,
 			onLoad:         func(path string) error { return nil },
+			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusMethodNotAllowed,
 		},
 	}
@@ -389,7 +413,8 @@ func TestHandleVRLogLoad(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ws := &WebServer{
-				onVRLogLoad: tt.onLoad,
+				onVRLogLoad:  tt.onLoad,
+				vrlogSafeDir: tt.vrlogSafeDir,
 			}
 
 			req := httptest.NewRequest(tt.method, "/api/lidar/vrlog/load", bytes.NewBufferString(tt.body))
@@ -448,4 +473,25 @@ func TestHandleVRLogStop(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestHandleVRLogLoadWithRunID tests the run_id lookup path.
+func TestHandleVRLogLoadWithRunID(t *testing.T) {
+	t.Run("POST with run_id but no db returns internal error", func(t *testing.T) {
+		ws := &WebServer{
+			onVRLogLoad:  func(path string) error { return nil },
+			vrlogSafeDir: "/var/lib/velocity-report",
+			db:           nil, // No database configured
+		}
+
+		body := `{"run_id": "test-run-123"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", bytes.NewBufferString(body))
+		w := httptest.NewRecorder()
+
+		ws.handleVRLogLoad(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+		}
+	})
 }
