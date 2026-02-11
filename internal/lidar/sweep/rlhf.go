@@ -270,7 +270,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 			log.Printf("[rlhf] WARNING: Failed to marshal request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
-		if err := rt.persister.SaveSweepStart(rt.sweepID, "", "rlhf", reqJSON, time.Now()); err != nil {
+		if err := rt.persister.SaveSweepStart(rt.sweepID, "", "rlhf", reqJSON, time.Now(), "ground_truth", ObjectiveVersion); err != nil {
 			log.Printf("[rlhf] Failed to persist sweep start: %v", err)
 		}
 	}
@@ -587,7 +587,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 		recJSON, _ := json.Marshal(currentParams)
 		roundJSON, _ := json.Marshal(rt.state.RoundHistory)
 		now := time.Now()
-		if err := rt.persister.SaveSweepComplete(rt.sweepID, "completed", nil, recJSON, roundJSON, now, ""); err != nil {
+		if err := rt.persister.SaveSweepComplete(rt.sweepID, "completed", nil, recJSON, roundJSON, now, "", nil, nil, nil, "", ""); err != nil {
 			log.Printf("[rlhf] Failed to persist sweep completion: %v", err)
 		}
 	}
@@ -998,7 +998,7 @@ func (rt *RLHFTuner) failWithError(errMsg string) {
 
 	if rt.persister != nil {
 		now := time.Now()
-		if err := rt.persister.SaveSweepComplete(rt.sweepID, "failed", nil, nil, nil, now, errMsg); err != nil {
+		if err := rt.persister.SaveSweepComplete(rt.sweepID, "failed", nil, nil, nil, now, errMsg, nil, nil, nil, "", ""); err != nil {
 			log.Printf("[rlhf] Failed to persist error: %v", err)
 		}
 	}

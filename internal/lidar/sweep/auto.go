@@ -305,7 +305,7 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 		if at.runner != nil && at.runner.client != nil {
 			sensorID = at.runner.client.SensorID
 		}
-		if err := at.persister.SaveSweepStart(at.sweepID, sensorID, "auto", reqJSON, now); err != nil {
+		if err := at.persister.SaveSweepStart(at.sweepID, sensorID, "auto", reqJSON, now, req.Objective, ObjectiveVersion); err != nil {
 			log.Printf("[sweep] WARNING: Failed to persist auto-tune start: %v", err)
 		}
 	}
@@ -721,7 +721,7 @@ func (at *AutoTuner) persistComplete(status string, results []ComboResult, recom
 		errStr = *errMsg
 	}
 	now := time.Now()
-	if err := at.persister.SaveSweepComplete(at.sweepID, status, resultsJSON, recJSON, roundResultsJSON, now, errStr); err != nil {
+	if err := at.persister.SaveSweepComplete(at.sweepID, status, resultsJSON, recJSON, roundResultsJSON, now, errStr, nil, nil, nil, "", ""); err != nil {
 		log.Printf("[sweep] WARNING: Failed to persist auto-tune completion: %v", err)
 	}
 }

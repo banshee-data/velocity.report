@@ -23,6 +23,9 @@ const (
 	SweepStatusRunning  SweepStatus = "running"
 	SweepStatusComplete SweepStatus = "complete"
 	SweepStatusError    SweepStatus = "error"
+
+	// ObjectiveVersion is the current version of the objective/scoring system
+	ObjectiveVersion = "v1"
 )
 
 // ErrSweepAlreadyRunning is returned when a sweep is already in progress.
@@ -138,8 +141,8 @@ type AnalysisRunCreator interface {
 // SweepPersister persists sweep results to a database.
 // Defined as an interface to avoid circular imports with the lidar package.
 type SweepPersister interface {
-	SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time) error
-	SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string) error
+	SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error
+	SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error
 }
 
 // SweepState holds the current state and results of a sweep
@@ -340,7 +343,7 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
-		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now); err != nil {
+		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now, "manual", ObjectiveVersion); err != nil {
 			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
 		}
 	}
@@ -411,7 +414,7 @@ func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, s
 			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
-		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now); err != nil {
+		if err := r.persister.SaveSweepStart(r.sweepID, r.client.SensorID, "sweep", reqJSON, now, "manual", ObjectiveVersion); err != nil {
 			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
 		}
 	}
@@ -937,7 +940,7 @@ func (r *Runner) persistComplete(status, errMsg string, recommendation json.RawM
 		resultsJSON = []byte("[]")
 	}
 	now := time.Now()
-	if err := r.persister.SaveSweepComplete(r.sweepID, status, resultsJSON, recommendation, nil, now, errMsg); err != nil {
+	if err := r.persister.SaveSweepComplete(r.sweepID, status, resultsJSON, recommendation, nil, now, errMsg, nil, nil, nil, "", ""); err != nil {
 		log.Printf("[sweep] WARNING: Failed to persist sweep completion: %v", err)
 	}
 }

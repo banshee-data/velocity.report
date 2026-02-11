@@ -34,7 +34,14 @@ func setupTestSweepDB(t *testing.T) *sql.DB {
 			error TEXT,
 			started_at DATETIME NOT NULL,
 			completed_at DATETIME,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			objective_name TEXT,
+			objective_version TEXT,
+			transform_pipeline_name TEXT,
+			transform_pipeline_version TEXT,
+			score_components_json TEXT,
+			recommendation_explanation_json TEXT,
+			label_provenance_summary_json TEXT
 		)
 	`)
 	if err != nil {
@@ -128,7 +135,7 @@ func TestSweepStore_UpdateSweepResults(t *testing.T) {
 	recommendation := json.RawMessage(`{"param":"noise_relative","value":0.05}`)
 	roundResults := json.RawMessage(`[{"value":0.01,"score":80},{"value":0.05,"score":95.5}]`)
 
-	err := store.UpdateSweepResults("sweep-002", "completed", results, recommendation, roundResults, &completedAt, "")
+	err := store.UpdateSweepResults("sweep-002", "completed", results, recommendation, roundResults, &completedAt, "", nil, nil, nil, "", "")
 	if err != nil {
 		t.Fatalf("UpdateSweepResults failed: %v", err)
 	}
@@ -186,7 +193,7 @@ func TestSweepStore_UpdateSweepResults_WithError(t *testing.T) {
 	completedAt := time.Now().UTC()
 	errMsg := "sensor communication timeout"
 
-	err := store.UpdateSweepResults("sweep-003", "failed", nil, nil, nil, &completedAt, errMsg)
+	err := store.UpdateSweepResults("sweep-003", "failed", nil, nil, nil, &completedAt, errMsg, nil, nil, nil, "", "")
 	if err != nil {
 		t.Fatalf("UpdateSweepResults failed: %v", err)
 	}
@@ -477,7 +484,14 @@ func TestSweepStore_GetSweep_InvalidTimeFormat(t *testing.T) {
 			error TEXT,
 			started_at TEXT NOT NULL,
 			completed_at DATETIME,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			objective_name TEXT,
+			objective_version TEXT,
+			transform_pipeline_name TEXT,
+			transform_pipeline_version TEXT,
+			score_components_json TEXT,
+			recommendation_explanation_json TEXT,
+			label_provenance_summary_json TEXT
 		)
 	`)
 	if err != nil {
@@ -529,7 +543,14 @@ func TestSweepStore_GetSweep_InvalidCompletedAtFormat(t *testing.T) {
 			error TEXT,
 			started_at DATETIME NOT NULL,
 			completed_at TEXT,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			objective_name TEXT,
+			objective_version TEXT,
+			transform_pipeline_name TEXT,
+			transform_pipeline_version TEXT,
+			score_components_json TEXT,
+			recommendation_explanation_json TEXT,
+			label_provenance_summary_json TEXT
 		)
 	`)
 	if err != nil {
@@ -592,7 +613,14 @@ func TestSweepStore_ListSweeps_InvalidTimeFormat(t *testing.T) {
 			error TEXT,
 			started_at TEXT NOT NULL,
 			completed_at TEXT,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			objective_name TEXT,
+			objective_version TEXT,
+			transform_pipeline_name TEXT,
+			transform_pipeline_version TEXT,
+			score_components_json TEXT,
+			recommendation_explanation_json TEXT,
+			label_provenance_summary_json TEXT
 		)
 	`)
 	if err != nil {
@@ -643,7 +671,7 @@ func TestSweepStore_SaveSweepStart(t *testing.T) {
 	// Test SaveSweepStart interface method
 	startedAt := time.Now().UTC()
 	request := json.RawMessage(`{"param":"closeness_multiplier"}`)
-	err := store.SaveSweepStart("sweep-501", "sensor-001", "auto", request, startedAt)
+	err := store.SaveSweepStart("sweep-501", "sensor-001", "auto", request, startedAt, "acceptance", "v1")
 	if err != nil {
 		t.Fatalf("SaveSweepStart failed: %v", err)
 	}
@@ -687,7 +715,7 @@ func TestSweepStore_SaveSweepComplete(t *testing.T) {
 	recommendation := json.RawMessage(`{"param":"closeness_multiplier","value":1.5}`)
 	roundResults := json.RawMessage(`[{"round":1,"value":1.5}]`)
 
-	err := store.SaveSweepComplete("sweep-502", "completed", results, recommendation, roundResults, completedAt, "")
+	err := store.SaveSweepComplete("sweep-502", "completed", results, recommendation, roundResults, completedAt, "", nil, nil, nil, "", "")
 	if err != nil {
 		t.Fatalf("SaveSweepComplete failed: %v", err)
 	}
