@@ -548,6 +548,9 @@ func main() {
 				if visualiserPublisher == nil {
 					return fmt.Errorf("visualiser publisher not initialised")
 				}
+				if visualiserServer != nil {
+					visualiserServer.SetVRLogMode(true)
+				}
 				// Stop any existing replay first
 				visualiserPublisher.StopVRLogReplay()
 				// Open the VRLOG directory as a replayer
@@ -567,6 +570,10 @@ func main() {
 				if visualiserPublisher != nil {
 					visualiserPublisher.StopVRLogReplay()
 					log.Printf("[Visualiser] VRLOG replay stopped")
+				}
+				if visualiserServer != nil {
+					visualiserServer.SetVRLogMode(false)
+					visualiserServer.SetReplayMode(false)
 				}
 			},
 		})
