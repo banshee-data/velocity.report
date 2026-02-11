@@ -3621,12 +3621,6 @@ func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Defence in depth: cleaned path should not contain parent directory references
-	if strings.Contains(cleanedPath, "..") {
-		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must not contain parent directory references")
-		return
-	}
-
 	vrlogPath = cleanedPath
 
 	if err := ws.onVRLogLoad(vrlogPath); err != nil {

@@ -1,4 +1,4 @@
--- Migration 000022: Remove vrlog_path column
+-- Migration 000023: Remove vrlog_path column
 -- Rollback for Phase 1.2 of track-labeling-ui-plan.md
 
 -- This project uses modernc.org/sqlite v1.44.3 (SQLite 3.45+), which fully
