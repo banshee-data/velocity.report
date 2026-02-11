@@ -1424,3 +1424,133 @@ func TestStartDefaultValuesPerParam(t *testing.T) {
 	}
 	tuner.Stop()
 }
+
+// --- Test 36: ContinueFromLabels class coverage gate ---
+
+func TestContinueFromLabels_ClassCoverageGate(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	querier := &mockLabelQuerier{
+		total:    10,
+		labelled: 9,
+		byClass:  map[string]int{"vehicle": 5, "pedestrian": 2, "noise": 2},
+	}
+	tuner.SetLabelQuerier(querier)
+
+	t.Run("passes when all classes meet minimum", func(t *testing.T) {
+		tuner.mu.Lock()
+		tuner.state.Status = "awaiting_labels"
+		tuner.state.ReferenceRunID = "run-1"
+		tuner.state.MinLabelThreshold = 0.5
+		tuner.state.MinClassCoverage = map[string]int{"vehicle": 3, "pedestrian": 1}
+		tuner.continueCh = make(chan continueSignal, 1)
+		tuner.mu.Unlock()
+
+		err := tuner.ContinueFromLabels(0, false)
+		if err != nil {
+			t.Errorf("expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("fails when class below minimum", func(t *testing.T) {
+		tuner.mu.Lock()
+		tuner.state.Status = "awaiting_labels"
+		tuner.state.ReferenceRunID = "run-1"
+		tuner.state.MinLabelThreshold = 0.5
+		tuner.state.MinClassCoverage = map[string]int{"vehicle": 3, "pedestrian": 10}
+		tuner.continueCh = make(chan continueSignal, 1)
+		tuner.mu.Unlock()
+
+		err := tuner.ContinueFromLabels(0, false)
+		if err == nil {
+			t.Fatal("expected error for insufficient pedestrian coverage")
+		}
+		if !strings.Contains(err.Error(), "class coverage not met") {
+			t.Errorf("expected class coverage error, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), "pedestrian") {
+			t.Errorf("expected error to mention pedestrian, got: %v", err)
+		}
+	})
+}
+
+// --- Test 37: ContinueFromLabels temporal spread gate ---
+
+func TestContinueFromLabels_TemporalSpreadGate(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+
+	// Tracks spanning 5 seconds (labelled ones)
+	querier := &mockLabelQuerier{
+		total:    10,
+		labelled: 9,
+		byClass:  map[string]int{"vehicle": 9},
+		prevTracks: []RLHFRunTrack{
+			{TrackID: "t1", StartUnixNanos: 1_000_000_000, EndUnixNanos: 2_000_000_000, UserLabel: "vehicle"},
+			{TrackID: "t2", StartUnixNanos: 3_000_000_000, EndUnixNanos: 6_000_000_000, UserLabel: "vehicle"},
+			{TrackID: "t3", StartUnixNanos: 4_000_000_000, EndUnixNanos: 5_000_000_000, UserLabel: ""}, // unlabelled
+		},
+	}
+	tuner.SetLabelQuerier(querier)
+
+	t.Run("passes when spread meets minimum", func(t *testing.T) {
+		querier.callCount = 0 // Reset
+		tuner.mu.Lock()
+		tuner.state.Status = "awaiting_labels"
+		tuner.state.ReferenceRunID = "run-1"
+		tuner.state.MinLabelThreshold = 0.5
+		tuner.state.MinTemporalSpreadSecs = 4.0 // 6s-1s = 5s >= 4s
+		tuner.state.MinClassCoverage = nil
+		tuner.continueCh = make(chan continueSignal, 1)
+		tuner.mu.Unlock()
+
+		err := tuner.ContinueFromLabels(0, false)
+		if err != nil {
+			t.Errorf("expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("fails when spread below minimum", func(t *testing.T) {
+		querier.callCount = 0
+		tuner.mu.Lock()
+		tuner.state.Status = "awaiting_labels"
+		tuner.state.ReferenceRunID = "run-1"
+		tuner.state.MinLabelThreshold = 0.5
+		tuner.state.MinTemporalSpreadSecs = 10.0 // 5s < 10s
+		tuner.state.MinClassCoverage = nil
+		tuner.continueCh = make(chan continueSignal, 1)
+		tuner.mu.Unlock()
+
+		err := tuner.ContinueFromLabels(0, false)
+		if err == nil {
+			t.Fatal("expected error for insufficient temporal spread")
+		}
+		if !strings.Contains(err.Error(), "temporal spread not met") {
+			t.Errorf("expected temporal spread error, got: %v", err)
+		}
+	})
+}
+
+// --- Test 38: ContinueFromLabels gates disabled ---
+
+func TestContinueFromLabels_GatesDisabled(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	querier := &mockLabelQuerier{
+		total:    10,
+		labelled: 9,
+		byClass:  map[string]int{"vehicle": 9},
+	}
+	tuner.SetLabelQuerier(querier)
+
+	tuner.mu.Lock()
+	tuner.state.Status = "awaiting_labels"
+	tuner.state.ReferenceRunID = "run-1"
+	tuner.state.MinLabelThreshold = 0.5
+	tuner.state.MinClassCoverage = nil    // disabled
+	tuner.state.MinTemporalSpreadSecs = 0 // disabled
+	tuner.continueCh = make(chan continueSignal, 1)
+	tuner.mu.Unlock()
+
+	err := tuner.ContinueFromLabels(0, false)
+	if err != nil {
+		t.Errorf("expected no error with gates disabled, got: %v", err)
+	}
+}

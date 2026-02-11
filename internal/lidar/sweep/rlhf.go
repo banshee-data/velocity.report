@@ -51,40 +51,44 @@ type ReferenceRunCreator interface {
 
 // RLHFSweepRequest defines the request for an RLHF tuning sweep.
 type RLHFSweepRequest struct {
-	SceneID            string              `json:"scene_id"`
-	NumRounds          int                 `json:"num_rounds"`
-	RoundDurations     []int               `json:"round_durations"`
-	Params             []SweepParam        `json:"params"`
-	ValuesPerParam     int                 `json:"values_per_param"`
-	TopK               int                 `json:"top_k"`
-	Iterations         int                 `json:"iterations"`
-	Interval           string              `json:"interval"`
-	SettleTime         string              `json:"settle_time"`
-	Seed               string              `json:"seed"`
-	SettleMode         string              `json:"settle_mode"`
-	GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights"`
-	AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria"`
-	MinLabelThreshold  float64             `json:"min_label_threshold"`
-	CarryOverLabels    bool                `json:"carry_over_labels"`
+	SceneID               string              `json:"scene_id"`
+	NumRounds             int                 `json:"num_rounds"`
+	RoundDurations        []int               `json:"round_durations"`
+	Params                []SweepParam        `json:"params"`
+	ValuesPerParam        int                 `json:"values_per_param"`
+	TopK                  int                 `json:"top_k"`
+	Iterations            int                 `json:"iterations"`
+	Interval              string              `json:"interval"`
+	SettleTime            string              `json:"settle_time"`
+	Seed                  string              `json:"seed"`
+	SettleMode            string              `json:"settle_mode"`
+	GroundTruthWeights    *GroundTruthWeights `json:"ground_truth_weights"`
+	AcceptanceCriteria    *AcceptanceCriteria `json:"acceptance_criteria"`
+	MinLabelThreshold     float64             `json:"min_label_threshold"`
+	CarryOverLabels       bool                `json:"carry_over_labels"`
+	MinClassCoverage      map[string]int      `json:"min_class_coverage,omitempty"`
+	MinTemporalSpreadSecs float64             `json:"min_temporal_spread_secs,omitempty"`
 }
 
 // RLHFState represents the current state of an RLHF tuning session.
 type RLHFState struct {
-	Status            string                 `json:"status"` // "idle","running_reference","awaiting_labels","running_sweep","completed","failed"
-	Mode              string                 `json:"mode"`   // always "rlhf"
-	CurrentRound      int                    `json:"current_round"`
-	TotalRounds       int                    `json:"total_rounds"`
-	ReferenceRunID    string                 `json:"reference_run_id,omitempty"`
-	LabelProgress     *LabelProgress         `json:"label_progress,omitempty"`
-	LabelDeadline     *time.Time             `json:"label_deadline,omitempty"`
-	SweepDeadline     *time.Time             `json:"sweep_deadline,omitempty"`
-	AutoTuneState     *AutoTuneState         `json:"auto_tune_state,omitempty"`
-	Recommendation    map[string]interface{} `json:"recommendation,omitempty"`
-	RoundHistory      []RLHFRound            `json:"round_history"`
-	Error             string                 `json:"error,omitempty"`
-	MinLabelThreshold float64                `json:"min_label_threshold"`
-	LabelsCarriedOver int                    `json:"labels_carried_over"`
-	NextSweepDuration int                    `json:"next_sweep_duration_mins"`
+	Status                string                 `json:"status"` // "idle","running_reference","awaiting_labels","running_sweep","completed","failed"
+	Mode                  string                 `json:"mode"`   // always "rlhf"
+	CurrentRound          int                    `json:"current_round"`
+	TotalRounds           int                    `json:"total_rounds"`
+	ReferenceRunID        string                 `json:"reference_run_id,omitempty"`
+	LabelProgress         *LabelProgress         `json:"label_progress,omitempty"`
+	LabelDeadline         *time.Time             `json:"label_deadline,omitempty"`
+	SweepDeadline         *time.Time             `json:"sweep_deadline,omitempty"`
+	AutoTuneState         *AutoTuneState         `json:"auto_tune_state,omitempty"`
+	Recommendation        map[string]interface{} `json:"recommendation,omitempty"`
+	RoundHistory          []RLHFRound            `json:"round_history"`
+	Error                 string                 `json:"error,omitempty"`
+	MinLabelThreshold     float64                `json:"min_label_threshold"`
+	LabelsCarriedOver     int                    `json:"labels_carried_over"`
+	NextSweepDuration     int                    `json:"next_sweep_duration_mins"`
+	MinClassCoverage      map[string]int         `json:"min_class_coverage,omitempty"`
+	MinTemporalSpreadSecs float64                `json:"min_temporal_spread_secs,omitempty"`
 }
 
 // LabelProgress tracks labelling progress for a reference run.
@@ -255,13 +259,15 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	// Initialize state
 	rt.sweepID = uuid.New().String()
 	rt.state = RLHFState{
-		Status:            "running_reference",
-		Mode:              "rlhf",
-		CurrentRound:      0,
-		TotalRounds:       req.NumRounds,
-		RoundHistory:      []RLHFRound{},
-		MinLabelThreshold: req.MinLabelThreshold,
-		NextSweepDuration: getDuration(req.RoundDurations, 0),
+		Status:                "running_reference",
+		Mode:                  "rlhf",
+		CurrentRound:          0,
+		TotalRounds:           req.NumRounds,
+		RoundHistory:          []RLHFRound{},
+		MinLabelThreshold:     req.MinLabelThreshold,
+		NextSweepDuration:     getDuration(req.RoundDurations, 0),
+		MinClassCoverage:      req.MinClassCoverage,
+		MinTemporalSpreadSecs: req.MinTemporalSpreadSecs,
 	}
 
 	// Persist start if persister available
@@ -331,6 +337,14 @@ func (rt *RLHFTuner) GetRLHFState() RLHFState {
 		state.Recommendation = make(map[string]interface{})
 		for k, v := range rt.state.Recommendation {
 			state.Recommendation[k] = v
+		}
+	}
+
+	// Deep copy MinClassCoverage
+	if state.MinClassCoverage != nil {
+		state.MinClassCoverage = make(map[string]int)
+		for k, v := range rt.state.MinClassCoverage {
+			state.MinClassCoverage[k] = v
 		}
 	}
 
@@ -407,6 +421,44 @@ func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) err
 
 		if pct < rt.state.MinLabelThreshold {
 			return fmt.Errorf("label threshold not met: %.1f%% < %.1f%%", pct*100, rt.state.MinLabelThreshold*100)
+		}
+
+		// Class coverage gate (optional — skip if no requirements set)
+		if len(rt.state.MinClassCoverage) > 0 {
+			for className, minCount := range rt.state.MinClassCoverage {
+				actual := byClass[className]
+				if actual < minCount {
+					return fmt.Errorf("class coverage not met: %s has %d labelled, need %d", className, actual, minCount)
+				}
+			}
+		}
+
+		// Temporal spread gate (optional — skip if zero)
+		if rt.state.MinTemporalSpreadSecs > 0 && rt.labelQuerier != nil {
+			tracks, err := rt.labelQuerier.GetRunTracks(rt.state.ReferenceRunID)
+			if err != nil {
+				return fmt.Errorf("failed to query tracks for temporal spread: %w", err)
+			}
+			var minStart, maxEnd int64
+			found := false
+			for _, track := range tracks {
+				if track.UserLabel == "" {
+					continue // Only consider labelled tracks
+				}
+				if !found || track.StartUnixNanos < minStart {
+					minStart = track.StartUnixNanos
+				}
+				if !found || track.EndUnixNanos > maxEnd {
+					maxEnd = track.EndUnixNanos
+				}
+				found = true
+			}
+			if found {
+				spreadSecs := float64(maxEnd-minStart) / 1e9
+				if spreadSecs < rt.state.MinTemporalSpreadSecs {
+					return fmt.Errorf("temporal spread not met: %.1fs < %.1fs required", spreadSecs, rt.state.MinTemporalSpreadSecs)
+				}
+			}
 		}
 
 		// Update progress one more time
