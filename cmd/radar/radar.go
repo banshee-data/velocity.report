@@ -982,20 +982,29 @@ func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 		Params:     []sweep.SweepParam{},
 	}
 
-	if err := a.runner.StartWithRequest(context.Background(), req); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if err := a.runner.StartWithRequest(ctx, req); err != nil {
 		return "", fmt.Errorf("creating reference run: %w", err)
 	}
 
-	// Wait for completion and return the run ID from the sweep state
-	for i := 0; i < 300; i++ { // max 5 minutes wait
-		time.Sleep(time.Second)
-		state := a.runner.GetSweepState()
-		if state.Status == sweep.SweepStatusComplete || state.Status == sweep.SweepStatusError {
-			if len(state.Results) > 0 && state.Results[0].RunID != "" {
-				return state.Results[0].RunID, nil
+	// Poll for completion using a ticker
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("reference run timed out")
+		case <-ticker.C:
+			state := a.runner.GetSweepState()
+			if state.Status == sweep.SweepStatusComplete || state.Status == sweep.SweepStatusError {
+				if len(state.Results) > 0 && state.Results[0].RunID != "" {
+					return state.Results[0].RunID, nil
+				}
+				return "", fmt.Errorf("reference run completed without run ID")
 			}
-			return "", fmt.Errorf("reference run completed without run ID")
 		}
 	}
-	return "", fmt.Errorf("reference run timed out")
 }

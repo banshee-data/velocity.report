@@ -858,8 +858,15 @@ export async function startRLHFSweep(req: Record<string, unknown>): Promise<void
 		body: JSON.stringify(req)
 	});
 	if (!res.ok) {
-		const body = await res.json();
-		throw new Error(body.error || `Failed to start RLHF sweep: ${res.status}`);
+		const text = await res.text();
+		let msg = `Failed to start RLHF sweep: ${res.status}`;
+		try {
+			const body = JSON.parse(text);
+			if (body.error) msg = body.error;
+		} catch {
+			if (text) msg = text;
+		}
+		throw new Error(msg);
 	}
 }
 
@@ -875,8 +882,15 @@ export async function continueRLHF(nextDurationMins = 0, addRound = false): Prom
 		body: JSON.stringify({ next_sweep_duration_mins: nextDurationMins, add_round: addRound })
 	});
 	if (!res.ok) {
-		const body = await res.json();
-		throw new Error(body.error || `Failed to continue RLHF: ${res.status}`);
+		const text = await res.text();
+		let msg = `Failed to continue RLHF: ${res.status}`;
+		try {
+			const body = JSON.parse(text);
+			if (body.error) msg = body.error;
+		} catch {
+			if (text) msg = text;
+		}
+		throw new Error(msg);
 	}
 }
 
