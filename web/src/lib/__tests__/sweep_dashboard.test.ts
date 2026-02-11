@@ -2566,10 +2566,11 @@ describe('dynamic chart utility functions', () => {
 		expect(extractValue({}, 'missing')).toBeNull();
 	});
 
-	it('getAvailableMetrics returns empty for no results', () => {
+	it('getAvailableMetrics returns default metrics for no results', () => {
 		const { params, metrics } = getAvailableMetrics([]);
 		expect(params).toEqual([]);
-		expect(metrics).toEqual([]);
+		expect(metrics.length).toBeGreaterThan(0);
+		expect(metrics).toContain('overall_accept_mean');
 	});
 
 	it('getAvailableMetrics extracts params and metrics', () => {
