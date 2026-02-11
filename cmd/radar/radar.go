@@ -32,6 +32,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
+	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -277,7 +278,8 @@ func main() {
 		var frameBuilder *lidar.FrameBuilder
 		var tracker *lidar.Tracker
 		var classifier *lidar.TrackClassifier
-		var visualiserServer *visualiser.Server // Hoisted so WebServerConfig callbacks can reference it
+		var visualiserServer *visualiser.Server       // Hoisted so WebServerConfig callbacks can reference it
+		var visualiserPublisher *visualiser.Publisher // Hoisted so OnVRLogLoad callback can reference it
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
 		if *lidarFGForward {
@@ -325,7 +327,6 @@ func main() {
 			}
 
 			// Initialise visualiser components if gRPC mode is enabled
-			var visualiserPublisher *visualiser.Publisher
 			var frameAdapter *visualiser.FrameAdapter
 			var lidarViewAdapter *visualiser.LidarViewAdapter
 
@@ -477,6 +478,31 @@ func main() {
 			OnPCAPTimestamps: func(startNs, endNs int64) {
 				if visualiserServer != nil {
 					visualiserServer.SetPCAPTimestamps(startNs, endNs)
+				}
+			},
+			OnVRLogLoad: func(vrlogPath string) error {
+				if visualiserPublisher == nil {
+					return fmt.Errorf("visualiser publisher not initialised")
+				}
+				// Stop any existing replay first
+				visualiserPublisher.StopVRLogReplay()
+				// Open the VRLOG directory as a replayer
+				replayer, err := recorder.NewReplayer(vrlogPath)
+				if err != nil {
+					return fmt.Errorf("failed to open vrlog: %w", err)
+				}
+				// Start replay through the publisher
+				if err := visualiserPublisher.StartVRLogReplay(replayer); err != nil {
+					replayer.Close()
+					return fmt.Errorf("failed to start vrlog replay: %w", err)
+				}
+				log.Printf("[Visualiser] VRLOG replay started: %s", vrlogPath)
+				return nil
+			},
+			OnVRLogStop: func() {
+				if visualiserPublisher != nil {
+					visualiserPublisher.StopVRLogReplay()
+					log.Printf("[Visualiser] VRLOG replay stopped")
 				}
 			},
 		})
