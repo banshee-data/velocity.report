@@ -24,9 +24,18 @@
       Manual Sweep
     </button>
     <button id="mode-auto" onclick="setMode('auto')">Auto-Tune</button>
+    <button id="mode-rlhf" onclick="setMode('rlhf')">Human-in-the-Loop</button>
   </div>
 
-  <!-- Recommendation (shown when auto-tune completes) -->
+  <!-- Mode Descriptions -->
+  <p class="mode-description auto-only">
+    Auto-Tune iteratively narrows parameter bounds across multiple rounds, scoring each combination automatically.
+  </p>
+  <p class="mode-description rlhf-only">
+    Human-in-the-Loop runs reference scenes, waits for you to label tracks, then sweeps using ground truth scores. Repeat for each round.
+  </p>
+
+  <!-- Recommendation (shown when auto-tune or RLHF completes) -->
   <div id="recommendation-card" class="card recommendation-card" style="display: none">
     <h2>
       Recommendation
@@ -291,6 +300,86 @@
             </label>
           </div>
         </div>
+      </div>
+
+      <!-- Card 3b (rlhf mode): RLHF Settings -->
+      <div class="card rlhf-only">
+        <h2>RLHF Settings</h2>
+        <div id="rlhf-config-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <label>
+            <span>Scene</span>
+            <select id="rlhf_scene_select" onchange="onRLHFSceneSelected()">
+              <option value="">-- Select Scene --</option>
+            </select>
+            <small class="field-desc">Scene with reference PCAP and labelled tracks.</small>
+          </label>
+          <label>
+            <span>Rounds</span>
+            <input id="rlhf_rounds" type="number" value="3" min="1" max="10" />
+            <small class="field-desc">Number of label-then-sweep rounds (1–10).</small>
+          </label>
+          <label>
+            <span>Round durations (mins)</span>
+            <input id="rlhf_durations" type="text" value="60" placeholder="e.g. 30,60,120" />
+            <small class="field-desc">Comma-separated labelling durations per round.</small>
+          </label>
+          <label>
+            <span>Label threshold (%)</span>
+            <input id="rlhf_threshold" type="number" value="90" min="10" max="100" step="5" />
+            <small class="field-desc">Minimum % of tracks labelled before sweep (default 90).</small>
+          </label>
+          <label>
+            <span>Carry over labels</span>
+            <input id="rlhf_carryover" type="checkbox" checked />
+            <small class="field-desc">Copy labels to next round via temporal IoU matching.</small>
+          </label>
+        </div>
+      </div>
+
+      <!-- RLHF Progress Card (shown during RLHF run) -->
+      <div id="rlhf-progress-card" class="card rlhf-only" style="display: none">
+        <h2>RLHF Progress</h2>
+        <div id="rlhf-status-text" style="margin-bottom: 8px"></div>
+        <div id="rlhf-label-progress" style="display: none">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
+            <span id="rlhf-label-count">0/0 labelled</span>
+            <span id="rlhf-label-pct">0%</span>
+          </div>
+          <div class="progress-bar-bg" style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
+            <div id="rlhf-label-bar" style="height: 100%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s"></div>
+            <div id="rlhf-threshold-marker" style="position: absolute; top: 0; height: 100%; border-left: 2px dashed #cc0000; left: 90%"
+              title="90% threshold"></div>
+          </div>
+          <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center">
+            <span id="rlhf-countdown" style="font-size: 12px; color: var(--fg-muted)">Deadline: —</span>
+            <span id="rlhf-carried-count" style="font-size: 12px; color: var(--fg-muted)"></span>
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
+            <label style="flex: 1">
+              <span style="font-size: 12px">Next sweep duration (mins)</span>
+              <input id="rlhf-next-duration" type="number" value="60" min="1" style="width: 80px" />
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px">
+              <input id="rlhf-add-round" type="checkbox" />
+              <span style="font-size: 12px">Add extra round</span>
+            </label>
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 8px">
+            <a id="rlhf-tracks-link" href="" target="_blank" class="btn btn-sm">Open Tracks Page →</a>
+            <button id="rlhf-continue-btn" class="btn btn-primary btn-sm" onclick="handleRLHFContinue()" disabled>
+              Continue to Sweep
+            </button>
+          </div>
+        </div>
+        <div id="rlhf-sweep-progress" style="display: none">
+          <div id="rlhf-sweep-info" style="font-size: 12px; color: var(--fg-muted)"></div>
+        </div>
+      </div>
+
+      <!-- RLHF Round History (shown during/after RLHF run) -->
+      <div id="rlhf-round-history" class="card rlhf-only" style="display: none">
+        <h2>Round History</h2>
+        <div id="rlhf-rounds-list"></div>
       </div>
 
       <!-- Card 4: Current Tuning Parameters -->

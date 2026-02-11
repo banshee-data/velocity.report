@@ -333,7 +333,7 @@ body {
   color: #fff;
 }
 
-/* Auto/manual visibility toggles */
+/* Auto/manual/RLHF visibility toggles */
 body.auto-mode .manual-only {
   display: none !important;
 }
@@ -342,10 +342,23 @@ body:not(.auto-mode) .auto-only {
   display: none !important;
 }
 
-/* Hide step/values in auto mode */
-body.auto-mode .param-field-step,
-body.auto-mode .param-field-values {
+body:not(.rlhf-mode) .rlhf-only {
   display: none !important;
+}
+
+/* Hide step/values in auto/rlhf mode */
+body.auto-mode .param-field-step,
+body.auto-mode .param-field-values,
+body.rlhf-mode .param-field-step,
+body.rlhf-mode .param-field-values {
+  display: none !important;
+}
+
+/* Mode descriptions */
+.mode-description {
+  font-size: 13px;
+  color: var(--fg-muted);
+  margin: -8px 0 12px 0;
 }
 
 /* Recommendation card */
