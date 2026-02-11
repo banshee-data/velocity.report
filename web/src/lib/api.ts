@@ -440,6 +440,8 @@ import type {
 	MissedRegion,
 	ObservationListResponse,
 	RunTrack,
+	SweepRecord,
+	SweepSummary,
 	Track,
 	TrackHistoryResponse,
 	TrackListResponse,
@@ -774,4 +776,64 @@ export async function deleteRunTrack(runId: string, trackId: string): Promise<vo
 		method: 'DELETE'
 	});
 	if (!res.ok) throw new Error(`Failed to delete run track: ${res.status}`);
+}
+
+// ---- Sweep / Auto-Tune ----
+
+/**
+ * List recent sweeps for a sensor.
+ * @param sensorId - Sensor identifier
+ * @param limit - Maximum number of results (default 20)
+ */
+export async function listSweeps(sensorId: string, limit = 20): Promise<SweepSummary[]> {
+	const url = new URL(`${API_BASE}/lidar/sweeps`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	if (limit !== 20) url.searchParams.append('limit', String(limit));
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to list sweeps: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get a single sweep record with full results.
+ * @param sweepId - Sweep identifier
+ */
+export async function getSweep(sweepId: string): Promise<SweepRecord> {
+	const res = await fetch(`${API_BASE}/lidar/sweeps/${sweepId}`);
+	if (!res.ok) throw new Error(`Failed to get sweep: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Get the current LiDAR tuning parameters.
+ * @param sensorId - Sensor identifier
+ */
+export async function getLidarParams(sensorId: string): Promise<Record<string, unknown>> {
+	const url = new URL(`${API_BASE}/lidar/params`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to get params: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Apply tuning parameters to the LiDAR system.
+ * @param sensorId - Sensor identifier
+ * @param params - Partial tuning parameter object
+ */
+export async function applyLidarParams(
+	sensorId: string,
+	params: Record<string, unknown>
+): Promise<void> {
+	const url = new URL(`${API_BASE}/lidar/params`, window.location.origin);
+	url.searchParams.append('sensor_id', sensorId);
+	const res = await fetch(url, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(params)
+	});
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(`Failed to apply params: ${text}`);
+	}
 }

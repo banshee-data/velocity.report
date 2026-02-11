@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		mdiChartBoxOutline,
 		mdiCog,
 		mdiFileDocument,
 		mdiGithub,
@@ -94,6 +95,12 @@
 			text="Lidar Runs"
 			icon={mdiPlayCircleOutline}
 			path="/app/lidar/runs"
+			currentUrl={page.url}
+		/>
+		<NavItem
+			text="Lidar Sweeps"
+			icon={mdiChartBoxOutline}
+			path="/app/lidar/sweeps"
 			currentUrl={page.url}
 		/>
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />

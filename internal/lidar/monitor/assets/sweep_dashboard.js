@@ -260,6 +260,8 @@ var METRIC_KEYS = [
   "misalignment_ratio_stddev",
   "heading_jitter_deg_mean",
   "heading_jitter_deg_stddev",
+  "speed_jitter_mps_mean",
+  "speed_jitter_mps_stddev",
   "fragmentation_ratio_mean",
   "fragmentation_ratio_stddev",
   "foreground_capture_mean",
@@ -1502,7 +1504,13 @@ function applyRecommendation() {
           k !== "acceptance_rate" &&
           k !== "misalignment_ratio" &&
           k !== "alignment_deg" &&
-          k !== "nonzero_cells"
+          k !== "nonzero_cells" &&
+          k !== "foreground_capture" &&
+          k !== "unbounded_point_ratio" &&
+          k !== "empty_box_ratio" &&
+          k !== "fragmentation_ratio" &&
+          k !== "heading_jitter_deg" &&
+          k !== "speed_jitter_mps"
         ) {
           tuningParams[k] = st.recommendation[k];
         }
@@ -1578,6 +1586,119 @@ function applySceneParams() {
     });
 }
 
+// ---- Paste & Apply Params ----
+
+// Keys that are metrics (not tuning parameters) — filtered out before applying.
+var METRIC_FILTER_KEYS = [
+  "score",
+  "acceptance_rate",
+  "misalignment_ratio",
+  "alignment_deg",
+  "nonzero_cells",
+  "foreground_capture",
+  "unbounded_point_ratio",
+  "empty_box_ratio",
+  "fragmentation_ratio",
+  "heading_jitter_deg",
+  "speed_jitter_mps",
+];
+
+function applyPastedParams() {
+  var textarea = document.getElementById("paste-params-json");
+  var statusEl = document.getElementById("paste-apply-status");
+  var btn = document.getElementById("btn-paste-apply");
+
+  var raw = textarea.value.trim();
+  if (!raw) {
+    showError("Paste a JSON object first.");
+    return;
+  }
+
+  var parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    showError("Invalid JSON: " + e.message);
+    return;
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    showError("Expected a JSON object (not an array or primitive).");
+    return;
+  }
+
+  // Filter out metric keys
+  var tuningParams = {};
+  var filtered = [];
+  Object.keys(parsed).forEach(function (k) {
+    if (METRIC_FILTER_KEYS.indexOf(k) !== -1) {
+      filtered.push(k);
+    } else {
+      tuningParams[k] = parsed[k];
+    }
+  });
+
+  var paramCount = Object.keys(tuningParams).length;
+  if (paramCount === 0) {
+    showError(
+      "No tuning parameters found after filtering metrics. Keys filtered: " +
+        filtered.join(", "),
+    );
+    return;
+  }
+
+  statusEl.textContent = "Applying " + paramCount + " params...";
+  btn.disabled = true;
+
+  fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(tuningParams),
+  })
+    .then(function (r) {
+      if (!r.ok)
+        return r.text().then(function (t) {
+          throw new Error(t);
+        });
+      statusEl.textContent =
+        "Applied " +
+        paramCount +
+        " params" +
+        (filtered.length
+          ? " (" + filtered.length + " metric keys filtered)"
+          : "") +
+        " ✓";
+      btn.disabled = false;
+      fetchCurrentParams();
+    })
+    .catch(function (e) {
+      showError("Apply failed: " + e.message);
+      statusEl.textContent = "";
+      btn.disabled = false;
+    });
+}
+
+function loadCurrentIntoEditor() {
+  fetch(
+    "/api/lidar/params?sensor_id=" +
+      encodeURIComponent(sensorId) +
+      "&format=pretty",
+  )
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (params) {
+      document.getElementById("paste-params-json").value = JSON.stringify(
+        params,
+        null,
+        2,
+      );
+    })
+    .catch(function (e) {
+      showError("Failed to load current params: " + e.message);
+    });
+}
+
 function downloadCSV() {
   if (!latestResults || latestResults.length === 0) {
     showError("No results to download.");
@@ -1612,6 +1733,8 @@ function downloadCSV() {
     "fragmentation_ratio_mean",
     "heading_jitter_deg_mean",
     "heading_jitter_deg_stddev",
+    "speed_jitter_mps_mean",
+    "speed_jitter_mps_stddev",
   ];
 
   var header = paramKeys.concat(metricCols);
@@ -1647,6 +1770,8 @@ function downloadCSV() {
     row.push(r.fragmentation_ratio_mean || 0);
     row.push(r.heading_jitter_deg_mean || 0);
     row.push(r.heading_jitter_deg_stddev || 0);
+    row.push(r.speed_jitter_mps_mean || 0);
+    row.push(r.speed_jitter_mps_stddev || 0);
     rows.push(row.join(","));
   });
 
@@ -2808,6 +2933,8 @@ if (typeof module !== "undefined" && module.exports) {
     renderRecommendation: renderRecommendation,
     applyRecommendation: applyRecommendation,
     applySceneParams: applySceneParams,
+    applyPastedParams: applyPastedParams,
+    loadCurrentIntoEditor: loadCurrentIntoEditor,
     downloadCSV: downloadCSV,
     initCharts: initCharts,
     renderCharts: renderCharts,
