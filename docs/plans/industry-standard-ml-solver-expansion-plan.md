@@ -354,7 +354,7 @@ and corresponding changes to the persistence layer and Go structs.
 - [ ] Add column `score_components_json TEXT` to `lidar_sweeps`
 - [ ] Add column `recommendation_explanation_json TEXT` to `lidar_sweeps`
 - [ ] Add column `label_provenance_summary_json TEXT` to `lidar_sweeps`
-- [ ] Create matching `000024_add_sweep_metadata.down.sql` (recreation pattern per test conventions)
+- [ ] Create matching `000024_add_sweep_metadata.down.sql` (use the table-recreation workaround for portability; see `sweep_store_test.go` test helpers for the pattern)
 
 **Persistence layer (`internal/lidar/sweep_store.go`)**
 
@@ -406,7 +406,7 @@ surfaced in API responses or stored in the database.
 
 **Ground truth scorer integration**
 
-- [ ] Refactor `groundTruthScorer` callback to return `(float64, *ScoreComponents, error)` instead of `(float64, error)` — or add a parallel `groundTruthScorerDetailed` callback
+- [ ] Add a parallel `groundTruthScorerDetailed` callback that returns `(float64, *ScoreComponents, error)` alongside the existing `groundTruthScorer` (keep the original signature for backward compatibility; the detailed variant is called when component storage is needed)
 - [ ] Populate component breakdown during scoring in `auto.go` where objective is `"ground_truth"`
 - [ ] Populate component breakdown during RLHF scoring in `rlhf.go`
 
