@@ -255,6 +255,40 @@
             <label><span>Cells Weight</span><input id="w_nonzero" type="number" step="0.1" value="0.1" />
               <small class="field-desc">Weight for log(nonzero cells) (positive = maximise).</small>
             </label>
+            <label><span>Tracks Weight</span><input id="w_active_tracks" type="number" step="0.1" value="0.3" />
+              <small class="field-desc">Weight for log(active tracks) (positive = maximise).</small>
+            </label>
+            <label><span>Capture Weight</span><input id="w_foreground_capture" type="number" step="0.1" value="0" />
+              <small class="field-desc">Weight for foreground capture ratio (positive = maximise).</small>
+            </label>
+            <label><span>Empty Box Weight</span><input id="w_empty_boxes" type="number" step="0.1" value="0" />
+              <small class="field-desc">Weight for empty box ratio (negative = minimise).</small>
+            </label>
+            <label><span>Fragment Weight</span><input id="w_fragmentation" type="number" step="0.1" value="0" />
+              <small class="field-desc">Weight for fragmentation ratio (negative = minimise).</small>
+            </label>
+            <label><span>Jitter Weight</span><input id="w_heading_jitter" type="number" step="0.01" value="0" />
+              <small class="field-desc">Weight for heading jitter degrees (negative = minimise).</small>
+            </label>
+          </div>
+        </div>
+        <div id="acceptance-criteria-fields" style="display: none; margin-top: 10px">
+          <h3 style="margin: 0 0 8px 0; font-size: 0.95em">Acceptance Criteria</h3>
+          <small class="field-desc" style="display: block; margin-bottom: 8px">Hard thresholds that reject combinations
+            before scoring. Leave blank for no constraint.</small>
+          <div class="field-stack">
+            <label><span>Max Fragmentation</span><input id="ac_max_fragmentation" type="number" step="0.01"
+                placeholder="e.g. 0.5" />
+              <small class="field-desc">Maximum fragmentation ratio allowed (0-1).</small>
+            </label>
+            <label><span>Max Unbounded</span><input id="ac_max_unbounded" type="number" step="0.01"
+                placeholder="e.g. 0.3" />
+              <small class="field-desc">Maximum unbounded point ratio allowed (0-1).</small>
+            </label>
+            <label><span>Max Empty Boxes</span><input id="ac_max_empty_boxes" type="number" step="0.01"
+                placeholder="e.g. 0.2" />
+              <small class="field-desc">Maximum empty box ratio allowed (0-1).</small>
+            </label>
           </div>
         </div>
       </div>
@@ -314,6 +348,11 @@
               <th>Active Tracks</th>
               <th>Alignment (deg)</th>
               <th>Misalignment</th>
+              <th>Fg Capture</th>
+              <th>Unbounded</th>
+              <th>Empty Box</th>
+              <th>Fragmentation</th>
+              <th>Jitter (deg)</th>
             </tr>
           </thead>
           <tbody id="results-body"></tbody>

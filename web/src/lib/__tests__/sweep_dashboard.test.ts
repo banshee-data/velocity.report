@@ -171,6 +171,16 @@ function setupDOM(): void {
 		'  <input id="w_misalignment" type="number" value="-0.5" />',
 		'  <input id="w_alignment" type="number" value="-0.01" />',
 		'  <input id="w_nonzero" type="number" value="0.1" />',
+		'  <input id="w_active_tracks" type="number" value="0.3" />',
+		'  <input id="w_foreground_capture" type="number" value="0" />',
+		'  <input id="w_empty_boxes" type="number" value="0" />',
+		'  <input id="w_fragmentation" type="number" value="0" />',
+		'  <input id="w_heading_jitter" type="number" value="0" />',
+		'</div>',
+		'<div id="acceptance-criteria-fields" style="display:none">',
+		'  <input id="ac_max_fragmentation" type="number" value="" />',
+		'  <input id="ac_max_unbounded" type="number" value="" />',
+		'  <input id="ac_max_empty_boxes" type="number" value="" />',
 		'</div>',
 		'<input id="scene-upload" type="file" style="display:none" />',
 		'<div id="json-editor-wrap" style="display:none">',
@@ -472,12 +482,14 @@ describe('toggleWeights', () => {
 		(document.getElementById('objective') as HTMLSelectElement).value = 'weighted';
 		toggleWeights();
 		expect(document.getElementById('weight-fields')!.style.display).toBe('');
+		expect(document.getElementById('acceptance-criteria-fields')!.style.display).toBe('');
 	});
 
 	it('hides weight fields for other objective values', () => {
 		(document.getElementById('objective') as HTMLSelectElement).value = 'acceptance';
 		toggleWeights();
 		expect(document.getElementById('weight-fields')!.style.display).toBe('none');
+		expect(document.getElementById('acceptance-criteria-fields')!.style.display).toBe('none');
 	});
 });
 
@@ -3060,6 +3072,11 @@ describe('|| 0 default value fallback branches', () => {
 		(document.getElementById('w_misalignment') as HTMLInputElement).value = '';
 		(document.getElementById('w_alignment') as HTMLInputElement).value = '';
 		(document.getElementById('w_nonzero') as HTMLInputElement).value = '';
+		(document.getElementById('w_active_tracks') as HTMLInputElement).value = '';
+		(document.getElementById('w_foreground_capture') as HTMLInputElement).value = '';
+		(document.getElementById('w_empty_boxes') as HTMLInputElement).value = '';
+		(document.getElementById('w_fragmentation') as HTMLInputElement).value = '';
+		(document.getElementById('w_heading_jitter') as HTMLInputElement).value = '';
 		// Clear max_rounds, values_per_param, top_k
 		(document.getElementById('max_rounds') as HTMLInputElement).value = '';
 		(document.getElementById('values_per_param') as HTMLInputElement).value = '';
@@ -3071,6 +3088,11 @@ describe('|| 0 default value fallback branches', () => {
 		expect(body.weights.misalignment).toBe(-0.5);
 		expect(body.weights.alignment).toBe(-0.01);
 		expect(body.weights.nonzero_cells).toBe(0.1);
+		expect(body.weights.active_tracks).toBe(0.3);
+		expect(body.weights.foreground_capture).toBe(0);
+		expect(body.weights.empty_boxes).toBe(0);
+		expect(body.weights.fragmentation).toBe(0);
+		expect(body.weights.heading_jitter).toBe(0);
 		expect(body.max_rounds).toBe(3);
 		expect(body.values_per_param).toBe(5);
 		expect(body.top_k).toBe(5);

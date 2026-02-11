@@ -233,6 +233,12 @@ var METRIC_KEYS = [
   "heading_jitter_deg_stddev",
   "fragmentation_ratio_mean",
   "fragmentation_ratio_stddev",
+  "foreground_capture_mean",
+  "foreground_capture_stddev",
+  "unbounded_point_mean",
+  "unbounded_point_stddev",
+  "empty_box_ratio_mean",
+  "empty_box_ratio_stddev",
   "ground_truth_score",
   "detection_rate",
   "false_positive_rate",
@@ -395,8 +401,11 @@ function setMode(mode) {
 
 function toggleWeights() {
   var obj = document.getElementById("objective").value;
-  document.getElementById("weight-fields").style.display =
-    obj === "weighted" ? "" : "none";
+  var show = obj === "weighted";
+  document.getElementById("weight-fields").style.display = show ? "" : "none";
+  document.getElementById("acceptance-criteria-fields").style.display = show
+    ? ""
+    : "none";
 }
 
 function addParamRow(name) {
@@ -1014,7 +1023,24 @@ function handleStartAutoTune() {
       misalignment: numVal("w_misalignment") || -0.5,
       alignment: numVal("w_alignment") || -0.01,
       nonzero_cells: numVal("w_nonzero") || 0.1,
+      active_tracks: numVal("w_active_tracks") || 0.3,
+      foreground_capture: numVal("w_foreground_capture") || 0,
+      empty_boxes: numVal("w_empty_boxes") || 0,
+      fragmentation: numVal("w_fragmentation") || 0,
+      heading_jitter: numVal("w_heading_jitter") || 0,
     };
+
+    // Build acceptance criteria (only include non-empty fields)
+    var ac = {};
+    var acFrag = document.getElementById("ac_max_fragmentation").value;
+    var acUnb = document.getElementById("ac_max_unbounded").value;
+    var acEmpty = document.getElementById("ac_max_empty_boxes").value;
+    if (acFrag !== "") ac.max_fragmentation_ratio = parseFloat(acFrag);
+    if (acUnb !== "") ac.max_unbounded_point_ratio = parseFloat(acUnb);
+    if (acEmpty !== "") ac.max_empty_box_ratio = parseFloat(acEmpty);
+    if (Object.keys(ac).length > 0) {
+      req.acceptance_criteria = ac;
+    }
   }
 
   // Hide previous recommendation
@@ -1301,7 +1327,12 @@ function renderRecommendation(rec, roundResults) {
       k !== "acceptance_rate" &&
       k !== "misalignment_ratio" &&
       k !== "alignment_deg" &&
-      k !== "nonzero_cells"
+      k !== "nonzero_cells" &&
+      k !== "foreground_capture" &&
+      k !== "unbounded_point_ratio" &&
+      k !== "empty_box_ratio" &&
+      k !== "fragmentation_ratio" &&
+      k !== "heading_jitter_deg"
     );
   });
   paramKeys.forEach(function (k) {
@@ -1344,6 +1375,26 @@ function renderRecommendation(rec, roundResults) {
     '<div class="metric">Nonzero Cells: <span class="metric-value">' +
     escapeHTML((rec.nonzero_cells || 0).toFixed(0)) +
     "</span></div>";
+  metricsHtml +=
+    '<div class="metric">Fg Capture: <span class="metric-value">' +
+    escapeHTML(((rec.foreground_capture || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Unbounded: <span class="metric-value">' +
+    escapeHTML(((rec.unbounded_point_ratio || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Empty Box: <span class="metric-value">' +
+    escapeHTML(((rec.empty_box_ratio || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Fragmentation: <span class="metric-value">' +
+    escapeHTML(((rec.fragmentation_ratio || 0) * 100).toFixed(1)) +
+    "%</span></div>";
+  metricsHtml +=
+    '<div class="metric">Jitter: <span class="metric-value">' +
+    escapeHTML((rec.heading_jitter_deg || 0).toFixed(1)) +
+    "°</span></div>";
   metricsHtml += "</div>";
 
   // Round history
@@ -1511,6 +1562,15 @@ function downloadCSV() {
     "alignment_deg_stddev",
     "misalignment_ratio_mean",
     "misalignment_ratio_stddev",
+    "foreground_capture_mean",
+    "foreground_capture_stddev",
+    "unbounded_point_mean",
+    "unbounded_point_stddev",
+    "empty_box_ratio_mean",
+    "empty_box_ratio_stddev",
+    "fragmentation_ratio_mean",
+    "heading_jitter_deg_mean",
+    "heading_jitter_deg_stddev",
   ];
 
   var header = paramKeys.concat(metricCols);
@@ -1537,6 +1597,15 @@ function downloadCSV() {
     row.push(r.alignment_deg_stddev || 0);
     row.push(r.misalignment_ratio_mean || 0);
     row.push(r.misalignment_ratio_stddev || 0);
+    row.push(r.foreground_capture_mean || 0);
+    row.push(r.foreground_capture_stddev || 0);
+    row.push(r.unbounded_point_mean || 0);
+    row.push(r.unbounded_point_stddev || 0);
+    row.push(r.empty_box_ratio_mean || 0);
+    row.push(r.empty_box_ratio_stddev || 0);
+    row.push(r.fragmentation_ratio_mean || 0);
+    row.push(r.heading_jitter_deg_mean || 0);
+    row.push(r.heading_jitter_deg_stddev || 0);
     rows.push(row.join(","));
   });
 
@@ -2115,6 +2184,8 @@ function renderTable(results) {
       "<th>Accept Rate</th><th>± StdDev</th><th>Nonzero Cells</th><th>± StdDev</th>";
     headerHtml +=
       "<th>Active Tracks</th><th>Alignment (°)</th><th>Misalignment</th>";
+    headerHtml +=
+      "<th>Fg Capture</th><th>Unbounded</th><th>Empty Box</th><th>Fragmentation</th><th>Jitter (°)</th>";
   }
 
   headerHtml += "</tr>";
@@ -2199,7 +2270,22 @@ function renderTable(results) {
         "°</td>" +
         '<td class="mono">' +
         escapeHTML(((r.misalignment_ratio_mean || 0) * 100).toFixed(1)) +
-        "%</td>";
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.foreground_capture_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.unbounded_point_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.empty_box_ratio_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML(((r.fragmentation_ratio_mean || 0) * 100).toFixed(1)) +
+        "%</td>" +
+        '<td class="mono">' +
+        escapeHTML((r.heading_jitter_deg_mean || 0).toFixed(1)) +
+        "°</td>";
     }
 
     tr.innerHTML = html;
