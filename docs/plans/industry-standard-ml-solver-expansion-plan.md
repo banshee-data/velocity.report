@@ -67,7 +67,7 @@ However, the plan currently behaves mostly as a **feature plan**, not yet a **pl
 
 ## 2) Transferable Learnings from an Industry Standard ML Solver
 
-### 2.1 Explicit schema for examples and model artifacts
+### 2.1 Explicit schema for examples and model artefacts
 
 A major strength is using typed example/model schema contracts that stay stable across training, scoring, and debugging workflows.
 
