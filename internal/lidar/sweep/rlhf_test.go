@@ -129,9 +129,9 @@ func TestGetDuration(t *testing.T) {
 
 func TestTemporalIoU(t *testing.T) {
 	tests := []struct {
-		name                     string
+		name                       string
 		aStart, aEnd, bStart, bEnd int64
-		want                     float64
+		want                       float64
 	}{
 		{"perfect overlap", 0, 10, 0, 10, 1.0},
 		{"no overlap separate", 0, 5, 10, 15, 0.0},
@@ -487,8 +487,8 @@ func TestCarryOverLabels(t *testing.T) {
 				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
 			},
 			newTracks: []RLHFRunTrack{
-				{TrackID: "n1", StartUnixNanos: 30, EndUnixNanos: 130},  // IoU = 70/130 ≈ 0.538
-				{TrackID: "n2", StartUnixNanos: 0, EndUnixNanos: 100},   // IoU = 1.0 (best)
+				{TrackID: "n1", StartUnixNanos: 30, EndUnixNanos: 130}, // IoU = 70/130 ≈ 0.538
+				{TrackID: "n2", StartUnixNanos: 0, EndUnixNanos: 100},  // IoU = 1.0 (best)
 			},
 		}
 

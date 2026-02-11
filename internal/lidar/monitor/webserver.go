@@ -1052,8 +1052,8 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/rlhf/stop", ws.handleRLHFStop)         // POST: cancel RLHF run
 	mux.HandleFunc("/api/lidar/sweep/rlhf", ws.handleRLHF)                  // POST: start, GET: status
 	mux.HandleFunc("/api/lidar/sweeps/charts", ws.handleSweepCharts)        // PUT: save chart config
-	mux.HandleFunc("/api/lidar/sweeps/", ws.handleGetSweep)          // GET /api/lidar/sweeps/{sweep_id}
-	mux.HandleFunc("/api/lidar/sweeps", ws.handleListSweeps)         // GET ?sensor_id=...&limit=20
+	mux.HandleFunc("/api/lidar/sweeps/", ws.handleGetSweep)                 // GET /api/lidar/sweeps/{sweep_id}
+	mux.HandleFunc("/api/lidar/sweeps", ws.handleListSweeps)                // GET ?sensor_id=...&limit=20
 	mux.HandleFunc("/debug/lidar/sweep", ws.handleSweepDashboard)
 	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
 	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)

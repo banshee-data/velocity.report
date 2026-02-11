@@ -70,21 +70,21 @@ type RLHFSweepRequest struct {
 
 // RLHFState represents the current state of an RLHF tuning session.
 type RLHFState struct {
-	Status             string                 `json:"status"` // "idle","running_reference","awaiting_labels","running_sweep","completed","failed"
-	Mode               string                 `json:"mode"`   // always "rlhf"
-	CurrentRound       int                    `json:"current_round"`
-	TotalRounds        int                    `json:"total_rounds"`
-	ReferenceRunID     string                 `json:"reference_run_id,omitempty"`
-	LabelProgress      *LabelProgress         `json:"label_progress,omitempty"`
-	LabelDeadline      *time.Time             `json:"label_deadline,omitempty"`
-	SweepDeadline      *time.Time             `json:"sweep_deadline,omitempty"`
-	AutoTuneState      *AutoTuneState         `json:"auto_tune_state,omitempty"`
-	Recommendation     map[string]interface{} `json:"recommendation,omitempty"`
-	RoundHistory       []RLHFRound            `json:"round_history"`
-	Error              string                 `json:"error,omitempty"`
-	MinLabelThreshold  float64                `json:"min_label_threshold"`
-	LabelsCarriedOver  int                    `json:"labels_carried_over"`
-	NextSweepDuration  int                    `json:"next_sweep_duration_mins"`
+	Status            string                 `json:"status"` // "idle","running_reference","awaiting_labels","running_sweep","completed","failed"
+	Mode              string                 `json:"mode"`   // always "rlhf"
+	CurrentRound      int                    `json:"current_round"`
+	TotalRounds       int                    `json:"total_rounds"`
+	ReferenceRunID    string                 `json:"reference_run_id,omitempty"`
+	LabelProgress     *LabelProgress         `json:"label_progress,omitempty"`
+	LabelDeadline     *time.Time             `json:"label_deadline,omitempty"`
+	SweepDeadline     *time.Time             `json:"sweep_deadline,omitempty"`
+	AutoTuneState     *AutoTuneState         `json:"auto_tune_state,omitempty"`
+	Recommendation    map[string]interface{} `json:"recommendation,omitempty"`
+	RoundHistory      []RLHFRound            `json:"round_history"`
+	Error             string                 `json:"error,omitempty"`
+	MinLabelThreshold float64                `json:"min_label_threshold"`
+	LabelsCarriedOver int                    `json:"labels_carried_over"`
+	NextSweepDuration int                    `json:"next_sweep_duration_mins"`
 }
 
 // LabelProgress tracks labelling progress for a reference run.
