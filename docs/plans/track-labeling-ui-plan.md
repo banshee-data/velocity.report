@@ -17,7 +17,7 @@ into one implementation plan with one recommendation.
 
 - [x] **Phase 0: Canonical Label Contract** — Run-track labels via `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
 - [x] **Phase 1.1: Publisher recording tap** — `FrameRecorder` interface in `publisher.go`
-- [x] **Phase 1.2: Persist vrlog_path** — Migration 000022, `AnalysisRun.VRLogPath` field
+- [x] **Phase 1.2: Persist vrlog_path** — Migration 000023, `AnalysisRun.VRLogPath` field
 - [x] **Phase 1.3: Recording callbacks** — `OnRecordingStart`/`OnRecordingStop` in `WebServerConfig`
 - [x] **Phase 2.1: VRLOG replay in publisher** — `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, etc.
 - [x] **Phase 2.2: gRPC control delegation** — `vrlogMode`, `Pause`/`Play`/`Seek`/`SetRate` delegation

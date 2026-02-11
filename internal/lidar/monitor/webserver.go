@@ -3570,7 +3570,7 @@ func (ws *WebServer) handlePlaybackRate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if body.Rate <= 0 || body.Rate > 100 {
-		ws.writeJSONError(w, http.StatusBadRequest, "rate must be between 0 and 100")
+		ws.writeJSONError(w, http.StatusBadRequest, "rate must be greater than 0 and at most 100")
 		return
 	}
 
@@ -3634,6 +3634,10 @@ func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 
 	// Path validation to prevent directory traversal and restrict to data directory
 	baseVRLogDir := ws.vrlogSafeDir
+	if baseVRLogDir == "" {
+		// Default to /var/lib/velocity-report if not configured
+		baseVRLogDir = "/var/lib/velocity-report"
+	}
 	cleanedPath := filepath.Clean(vrlogPath)
 
 	if !filepath.IsAbs(cleanedPath) {
