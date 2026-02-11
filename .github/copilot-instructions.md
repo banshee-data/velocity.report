@@ -210,6 +210,12 @@ velocity.report/
 - New: `.venv/` at root (target state)
 - Use `.venv/` paths in all new code and documentation
 
+## SQLite Capabilities
+
+The project uses `modernc.org/sqlite v1.44.3`, a pure-Go SQLite driver bundling **SQLite 3.51.2** (2026-01-09).
+
+**DROP COLUMN support:** `ALTER TABLE ... DROP COLUMN` is fully supported (available since SQLite 3.35.0). New migrations should use `DROP COLUMN` directly instead of the legacy table-recreation workaround (CREATE new table → copy data → DROP old → RENAME). Older migrations (000014-000019) still use the workaround and are left as-is.
+
 ## Build System
 
 **Makefile pattern:** `<action>-<subsystem>[-<variant>]`

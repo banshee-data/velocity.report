@@ -33,6 +33,8 @@ velocity.report is a **privacy-first traffic monitoring system** with three main
 - Single SQLite database as source of truth
 - Production: `/var/lib/velocity-report/sensor_data.db`
 - Development: `./sensor_data.db`
+- Driver: `modernc.org/sqlite v1.44.3` (pure-Go, bundles SQLite 3.51.2)
+- **DROP COLUMN:** `ALTER TABLE ... DROP COLUMN` is supported. New migrations should use it directly instead of the legacy table-recreation workaround.
 
 ## Development Workflow
 

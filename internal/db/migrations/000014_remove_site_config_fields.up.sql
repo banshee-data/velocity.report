@@ -2,7 +2,9 @@
 -- Date: 2026-01-20
 -- Description: These fields are now managed exclusively through site_config_periods (SCD)
 --              speed_limit and speed_limit_note will be reintroduced later
--- SQLite doesn't support DROP COLUMN directly, so we need to recreate the table
+-- NOTE: As of modernc.org/sqlite v1.44.3 (SQLite 3.51.2), ALTER TABLE DROP COLUMN
+-- is supported. This migration predates that capability and uses the legacy
+-- table-recreation workaround. New migrations should use DROP COLUMN directly.
 -- Step 1: Create new table without the columns we want to remove
    CREATE TABLE site_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT
