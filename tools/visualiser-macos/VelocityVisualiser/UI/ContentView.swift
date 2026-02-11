@@ -582,6 +582,9 @@ struct TrackListView: View {
     /// Display count for the header badge.
     private var displayCount: Int { isRunMode ? runTracks.count : frameTracks.count }
 
+    /// Track IDs visible in the current frame (for run mode in-view indicator).
+    private var inViewTrackIDs: Set<String> { Set(frameTracks.map { $0.trackID }) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: {
@@ -624,11 +627,13 @@ struct TrackListView: View {
             Text("No tracks in run").font(.caption).foregroundColor(.secondary)
         } else {
             ForEach(runTracks, id: \.trackId) { track in
+                let isInView = inViewTrackIDs.contains(track.trackId)
+                let statusColour = track.isLabelled ? Color.green : Color.gray.opacity(0.5)
                 Button(action: { appState.selectTrack(track.trackId) }) {
                     HStack(spacing: 6) {
                         // Label status indicator
-                        Circle().fill(track.isLabelled ? Color.green : Color.gray.opacity(0.5))
-                            .frame(width: 8, height: 8)
+                        Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
+                            width: 8, height: 8)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(track.trackId.truncated(12)).font(
                                 .system(.caption, design: .monospaced)
