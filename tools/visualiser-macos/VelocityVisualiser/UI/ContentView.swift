@@ -66,8 +66,7 @@ struct ContentView: View {
             }.onKeyPress("]") {
                 appState.increaseRate()
                 return .handled
-            }
-            // Run browser sheet (Phase 4.1)
+            }  // Run browser sheet (Phase 4.1)
             .sheet(isPresented: $appState.showRunBrowser) {
                 RunBrowserView().environmentObject(appState)
             }
@@ -597,15 +596,12 @@ struct LabelPanelView: View {
                     Divider().padding(.vertical, 4)
                     Text("Track Issues").font(.caption).foregroundColor(.secondary)
                     HStack {
-                        Button("Mark Split") { appState.markAsSplit(true) }
-                            .buttonStyle(.bordered).controlSize(.small)
-                            .disabled(true)
-                        Button("Mark Merge") { appState.markAsMerge(true) }
-                            .buttonStyle(.bordered).controlSize(.small)
-                            .disabled(true)
+                        Button("Mark Split") { appState.markAsSplit(true) }.buttonStyle(.bordered)
+                            .controlSize(.small).disabled(true)
+                        Button("Mark Merge") { appState.markAsMerge(true) }.buttonStyle(.bordered)
+                            .controlSize(.small).disabled(true)
                     }
-                    Text("Split/merge labelling not yet available in this build.")
-                        .font(.caption2)
+                    Text("Split/merge labelling not yet available in this build.").font(.caption2)
                         .foregroundColor(.secondary)
                 }
             } else {

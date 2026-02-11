@@ -17,8 +17,7 @@ extension String {
 }
 
 /// View for browsing and selecting analysis runs.
-@available(macOS 15.0, *)
-struct RunBrowserView: View {
+@available(macOS 15.0, *) struct RunBrowserView: View {
     @StateObject private var runBrowserState = RunBrowserState()
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
@@ -94,9 +93,7 @@ struct RunBrowserView: View {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 500, height: 400).onAppear {
-            Task { await runBrowserState.fetchRuns() }
-        }
+        }.frame(width: 500, height: 400).onAppear { Task { await runBrowserState.fetchRuns() } }
     }
 
     private func loadRun(_ run: AnalysisRun) async {
@@ -111,8 +108,7 @@ struct RunBrowserView: View {
 }
 
 /// Row view for a single run in the list.
-@available(macOS 15.0, *)
-struct RunRowView: View {
+@available(macOS 15.0, *) struct RunRowView: View {
     let run: AnalysisRun
     let isSelected: Bool
     let onSelect: () -> Void
@@ -147,11 +143,11 @@ struct RunRowView: View {
             }
 
             // Load button
-            Button(action: onSelect) {
-                Text(isSelected ? "Loaded" : "Load")
-            }.buttonStyle(.bordered).disabled(!run.hasVRLog || isSelected)
-        }.padding(.vertical, 4).background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
-            .cornerRadius(4)
+            Button(action: onSelect) { Text(isSelected ? "Loaded" : "Load") }.buttonStyle(.bordered)
+                .disabled(!run.hasVRLog || isSelected)
+        }.padding(.vertical, 4).background(
+            isSelected ? Color.accentColor.opacity(0.1) : Color.clear
+        ).cornerRadius(4)
     }
 
     private func formatDuration(_ seconds: Double) -> String {
@@ -181,7 +177,4 @@ struct StatusDot: View {
 
 // MARK: - Preview
 
-@available(macOS 15.0, *)
-#Preview {
-    RunBrowserView().environmentObject(AppState())
-}
+@available(macOS 15.0, *) #Preview { RunBrowserView().environmentObject(AppState()) }

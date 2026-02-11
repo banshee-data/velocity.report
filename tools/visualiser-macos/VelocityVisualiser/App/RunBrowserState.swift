@@ -10,9 +10,7 @@ import os
 private let logger = Logger(subsystem: "report.velocity.visualiser", category: "RunBrowserState")
 
 /// State for browsing and selecting analysis runs.
-@available(macOS 15.0, *)
-@MainActor
-class RunBrowserState: ObservableObject {
+@available(macOS 15.0, *) @MainActor class RunBrowserState: ObservableObject {
 
     // MARK: - Published State
 
@@ -86,13 +84,9 @@ class RunBrowserState: ObservableObject {
             try await apiClient.stopVRLog()
             selectedRunID = nil
             logger.info("Stopped VRLOG replay")
-        } catch {
-            logger.error("Failed to stop VRLOG: \(error.localizedDescription)")
-        }
+        } catch { logger.error("Failed to stop VRLOG: \(error.localizedDescription)") }
     }
 
     /// Refresh the run list.
-    func refresh() async {
-        await fetchRuns()
-    }
+    func refresh() async { await fetchRuns() }
 }

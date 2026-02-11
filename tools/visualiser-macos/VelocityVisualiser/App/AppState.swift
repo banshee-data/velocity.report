@@ -375,7 +375,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 if let runID = currentRunID {
                     _ = try await runTrackLabelClient.updateLabel(
                         runID: runID, trackID: trackID, userLabel: label)
-                    logger.info("Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
+                    logger.info(
+                        "Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
                 } else {
                     // Fallback to free-form label API for live mode
                     _ = try await labelClient.createLabel(

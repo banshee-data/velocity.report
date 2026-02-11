@@ -31,8 +31,7 @@ class RunTrackLabelAPIClient {
     /// List recent analysis runs.
     func listRuns(limit: Int = 50) async throws -> [AnalysisRun] {
         var components = URLComponents(
-            url: baseURL.appendingPathComponent("api/lidar/runs"),
-            resolvingAgainstBaseURL: false)!
+            url: baseURL.appendingPathComponent("api/lidar/runs"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
 
         let (data, response) = try await session.data(from: components.url!)
@@ -213,8 +212,7 @@ class RunTrackLabelAPIClient {
                     return "Request failed with status \(http.statusCode)"
                 }
                 return "Request failed"
-            case .decodingFailed(let error):
-                return "Decoding failed: \(error.localizedDescription)"
+            case .decodingFailed(let error): return "Decoding failed: \(error.localizedDescription)"
             }
         }
     }
