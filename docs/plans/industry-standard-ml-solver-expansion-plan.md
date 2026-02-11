@@ -144,7 +144,7 @@ This aligns well with current auto-tune behavior and suggests extending with:
 
 ## 3) Expansion Blueprint for Velocity Report
 
-## 3.1 Strategic goal
+### 3.1 Strategic goal
 
 Evolve sweep/auto/RLHF from a feature set into a reusable **Optimization Platform** with the following properties:
 
