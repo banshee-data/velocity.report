@@ -246,6 +246,9 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	if vrlogSafeDir == "" {
 		vrlogSafeDir = "/var/lib/velocity-report"
 	}
+	if absDir, err := filepath.Abs(vrlogSafeDir); err == nil {
+		vrlogSafeDir = absDir
+	}
 	if listenerConfig.Stats == nil {
 		listenerConfig.Stats = config.Stats
 	}
