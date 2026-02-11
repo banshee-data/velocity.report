@@ -24,6 +24,14 @@ type AutoTuneRunner interface {
 	Stop()
 }
 
+// RLHFRunner defines the interface for RLHF sweep operations.
+type RLHFRunner interface {
+	Start(ctx context.Context, req interface{}) error
+	GetState() interface{}
+	Stop()
+	ContinueFromLabels(nextDurationMins int, addRound bool) error
+}
+
 // handleSweepStart starts a parameter sweep
 func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -155,6 +163,109 @@ func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ws.autoTuneRunner.Stop()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+// handleRLHF handles both starting (POST) and getting status (GET) for RLHF sweep.
+func (ws *WebServer) handleRLHF(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		ws.handleRLHFStart(w, r)
+	} else if r.Method == http.MethodGet {
+		ws.handleRLHFStatus(w, r)
+	} else {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+// handleRLHFStart starts an RLHF sweep.
+func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	var req map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if err := ws.rlhfRunner.Start(context.Background(), req); err != nil {
+		if strings.Contains(err.Error(), "already in progress") {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
+}
+
+// handleRLHFStatus returns the current RLHF state.
+func (ws *WebServer) handleRLHFStatus(w http.ResponseWriter, r *http.Request) {
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	state := ws.rlhfRunner.GetState()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
+// handleRLHFContinue signals the RLHF tuner to proceed from labels to sweep.
+func (ws *WebServer) handleRLHFContinue(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	var body struct {
+		NextSweepDurationMins int  `json:"next_sweep_duration_mins"`
+		AddRound              bool `json:"add_round"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		// Allow empty body (both fields are optional)
+		body.NextSweepDurationMins = 0
+		body.AddRound = false
+	}
+
+	if err := ws.rlhfRunner.ContinueFromLabels(body.NextSweepDurationMins, body.AddRound); err != nil {
+		if strings.Contains(err.Error(), "threshold") {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		} else if strings.Contains(err.Error(), "not in awaiting_labels") {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "continued"})
+}
+
+// handleRLHFStop cancels a running RLHF sweep.
+func (ws *WebServer) handleRLHFStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	ws.rlhfRunner.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
 }
