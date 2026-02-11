@@ -2,8 +2,6 @@
 
 This project uses [Codecov](https://codecov.io) to track code coverage across all three main components: Go server, Python PDF generator, and Web frontend.
 
-**Current Status:** See [coverage-status.md](coverage-status.md) for improvement progress and outstanding work.
-
 ## Coverage Badges
 
 The README displays live coverage badges for each component:

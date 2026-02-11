@@ -4,14 +4,6 @@ This directory contains internal project documentation for development and plann
 
 ## Contents
 
-### Coverage Analysis
-
-- [`coverage/`](coverage/) - Test coverage improvement documentation
-  - [Coverage Improvement Analysis](coverage/coverage-improvement-analysis.md)
-  - [Coverage Improvement Checklist](coverage/coverage-improvement-checklist.md)
-  - [Coverage Improvement Summary](coverage/coverage-improvement-summary.md)
-  - [Coverage Documentation](coverage/coverage.md)
-
 ### LiDAR Documentation
 
 - [`lidar/`](lidar/) - LiDAR subsystem documentation
