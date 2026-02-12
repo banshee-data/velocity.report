@@ -3,6 +3,7 @@ package monitor
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -312,7 +313,9 @@ func (c *Client) StopPCAPReplay() error {
 	return nil
 }
 
-// WaitForPCAPComplete polls the data source status until the PCAP replay finishes.
+// WaitForPCAPComplete uses long-polling to wait until the PCAP replay finishes.
+// The server blocks the request until PCAP completes, avoiding 500ms polling.
+// Falls back to short-poll if the long-poll request fails (e.g. older server).
 // Returns nil when the PCAP is no longer in progress, or an error on timeout.
 func (c *Client) WaitForPCAPComplete(timeout time.Duration) error {
 	if timeout <= 0 {
@@ -320,6 +323,35 @@ func (c *Client) WaitForPCAPComplete(timeout time.Duration) error {
 	}
 
 	deadline := time.Now().Add(timeout)
+
+	// Try long-poll first: server blocks until PCAP finishes.
+	// This avoids the 500ms polling loop when the server supports it.
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
+	longPollURL := fmt.Sprintf("%s/api/lidar/data_source?sensor_id=%s&wait_for_done=true", c.BaseURL, c.SensorID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, longPollURL, nil)
+	if err == nil {
+		resp, err := c.HTTPClient.Do(req)
+		if err == nil {
+			var ds map[string]interface{}
+			if json.NewDecoder(resp.Body).Decode(&ds) == nil {
+				if inProgress, ok := ds["pcap_in_progress"].(bool); ok && !inProgress {
+					resp.Body.Close()
+					return nil
+				}
+			}
+			resp.Body.Close()
+			// Long-poll returned pcap_in_progress=true or bad JSON.
+			// If deadline passed during the long-poll, report timeout.
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timeout waiting for PCAP to complete")
+			}
+		}
+		// HTTP error (connection refused, etc.) → fall through to legacy polling.
+	}
+
+	// Fallback: short-poll (matches original retry/sleep behaviour).
 	for time.Now().Before(deadline) {
 		resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/data_source?sensor_id=%s", c.BaseURL, c.SensorID))
 		if err != nil {

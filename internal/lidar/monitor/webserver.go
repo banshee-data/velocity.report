@@ -1596,6 +1596,26 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Long-poll support: if wait_for_done=true and PCAP is in progress,
+	// block until PCAP completes or the request context is cancelled.
+	// This replaces the 500ms polling loop in Client.WaitForPCAPComplete.
+	if r.URL.Query().Get("wait_for_done") == "true" {
+		ws.pcapMu.Lock()
+		done := ws.pcapDone
+		inProgress := ws.pcapInProgress
+		ws.pcapMu.Unlock()
+
+		if inProgress && done != nil {
+			select {
+			case <-done:
+				// PCAP finished — fall through to return current state
+			case <-r.Context().Done():
+				// Client disconnected or request timeout
+				return
+			}
+		}
+	}
+
 	ws.dataSourceMu.RLock()
 	currentSource := ws.currentSource
 	currentPCAPFile := ws.currentPCAPFile

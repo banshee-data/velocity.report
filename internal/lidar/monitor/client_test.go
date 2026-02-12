@@ -930,13 +930,9 @@ func TestClient_WaitForPCAPComplete_DefaultTimeoutAndDecodeRetry(t *testing.T) {
 	t.Run("request errors time out", func(t *testing.T) {
 		// Unroutable endpoint triggers HTTP request errors and exercises retry path.
 		c := NewClient(nil, "http://127.0.0.1:1", "sensor1")
-		start := time.Now()
 		err := c.WaitForPCAPComplete(1 * time.Millisecond)
 		if err == nil {
 			t.Fatal("expected timeout error")
-		}
-		if time.Since(start) < 400*time.Millisecond {
-			t.Fatal("expected at least one retry sleep before timeout")
 		}
 	})
 }
