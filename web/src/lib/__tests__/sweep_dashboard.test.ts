@@ -236,6 +236,8 @@ function setupDOM(): void {
 		'<input id="rlhf_durations" type="text" value="60" />',
 		'<input id="rlhf_threshold" type="number" value="90" />',
 		'<input id="rlhf_carryover" type="checkbox" checked />',
+		'<input id="rlhf_class_coverage" type="text" />',
+		'<input id="rlhf_temporal_spread" type="number" />',
 		'<div id="rlhf-progress-card" style="display:none">',
 		'  <div id="rlhf-status-text"></div>',
 		'  <div id="rlhf-label-progress" style="display:none">',
@@ -245,6 +247,7 @@ function setupDOM(): void {
 		'    <div id="rlhf-threshold-marker"></div>',
 		'    <span id="rlhf-countdown"></span>',
 		'    <span id="rlhf-carried-count"></span>',
+		'    <div id="rlhf-gate-status" style="display:none"></div>',
 		'    <a id="rlhf-tracks-link" href="#"></a>',
 		'    <button id="rlhf-continue-btn" disabled>Continue</button>',
 		'    <input id="rlhf-next-duration" type="number" value="0" />',
@@ -265,7 +268,11 @@ function setupDOM(): void {
 		'  <span id="explanation-top-list"></span>',
 		'  <span id="explanation-label-pct"></span>',
 		'  <table><tbody id="explanation-components-body"></tbody></table>',
-		'</div>'
+		'</div>',
+		'<details id="recommendation-explanation" style="display:none">',
+		'  <div id="rec-explain-top"></div>',
+		'  <table><tbody id="rec-explain-tbody"></tbody></table>',
+		'</details>'
 	].join('\n');
 }
 
@@ -3718,6 +3725,25 @@ describe('RLHF Functions', () => {
 			expect(document.getElementById('error-box')!.textContent).toContain('Server error');
 			expect(document.getElementById('btn-start')!.style.display).toBe('block');
 		});
+
+		it('shows error for invalid class coverage JSON', () => {
+			const paramRow = document.createElement('div');
+			paramRow.innerHTML =
+				'<input class="param-name" value="test" />' +
+				'<input class="param-type" value="float64" />' +
+				'<input class="param-start" value="0" />' +
+				'<input class="param-end" value="1" />';
+			document.getElementById('param-rows')!.appendChild(paramRow);
+			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const opt = document.createElement('option');
+			opt.value = 'scene-1';
+			opt.text = 'Test Scene';
+			sel.appendChild(opt);
+			sel.value = 'scene-1';
+			(document.getElementById('rlhf_class_coverage') as HTMLInputElement).value = 'not valid json';
+			handleStartRLHF();
+			expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
+		});
 	});
 
 	// Polling functions
@@ -3857,6 +3883,30 @@ describe('RLHF Functions', () => {
 			expect(document.getElementById('rlhf-tracks-link')!.getAttribute('href')).toContain(
 				'run-abc'
 			);
+		});
+
+		it('renders gate status when class coverage and temporal spread are set', () => {
+			renderRLHFState({
+				status: 'awaiting_labels',
+				current_round: 1,
+				total_rounds: 3,
+				min_label_threshold: 0.8,
+				label_progress: {
+					labelled: 5,
+					total: 10,
+					progress_pct: 50,
+					by_class: { vehicle: 3, pedestrian: 0 }
+				},
+				min_class_coverage: { vehicle: 2, pedestrian: 1 },
+				min_temporal_spread_secs: 30
+			});
+
+			const gateEl = document.getElementById('rlhf-gate-status')!;
+			expect(gateEl.style.display).toBe('block');
+			expect(gateEl.textContent).toContain('Threshold');
+			expect(gateEl.textContent).toContain('vehicle');
+			expect(gateEl.textContent).toContain('pedestrian');
+			expect(gateEl.textContent).toContain('Temporal spread');
 		});
 
 		it('disables continue button when below threshold', () => {
@@ -4175,6 +4225,29 @@ describe('RLHF Functions', () => {
 
 			const tbody = document.getElementById('explanation-components-body')!;
 			expect(tbody.children.length).toBe(8); // 8 SCORE_METRICS
+		});
+
+		it('populates "Why this recommendation?" section with delta', () => {
+			renderExplanation({
+				objective_name: 'ground_truth',
+				score_components: {
+					composite_score: 0.85,
+					detection_rate: 0.9,
+					fragmentation: 0.1,
+					top_contributors: ['detection_rate', 'velocity_coverage']
+				},
+				delta_vs_previous: {
+					detection_rate: 0.05,
+					fragmentation: -0.02
+				}
+			});
+
+			const recExplain = document.getElementById('recommendation-explanation')!;
+			expect(recExplain.style.display).toBe('');
+			const topDiv = document.getElementById('rec-explain-top')!;
+			expect(topDiv.textContent).toContain('detection_rate');
+			const recTbody = document.getElementById('rec-explain-tbody')!;
+			expect(recTbody.children.length).toBe(8);
 		});
 	});
 

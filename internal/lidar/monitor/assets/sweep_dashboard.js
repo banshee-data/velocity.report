@@ -3217,6 +3217,25 @@ function handleStartRLHF() {
     carry_over_labels: document.getElementById("rlhf_carryover").checked,
   };
 
+  // Add optional class coverage gates
+  var classCoverageStr = (document.getElementById("rlhf_class_coverage") || {})
+    .value;
+  if (classCoverageStr) {
+    try {
+      req.min_class_coverage = JSON.parse(classCoverageStr);
+    } catch (e) {
+      showError("Invalid JSON for class coverage: " + e.message);
+      return;
+    }
+  }
+
+  var temporalSpread = parseFloat(
+    (document.getElementById("rlhf_temporal_spread") || {}).value,
+  );
+  if (temporalSpread > 0) {
+    req.min_temporal_spread_secs = temporalSpread;
+  }
+
   document.getElementById("btn-start").style.display = "none";
   document.getElementById("btn-stop").style.display = "block";
   showError("");
@@ -3351,6 +3370,44 @@ function renderRLHFState(st) {
     if (st.labels_carried_over > 0) {
       document.getElementById("rlhf-carried-count").textContent =
         "↻ " + st.labels_carried_over + " labels carried over";
+    }
+
+    // Gate status display
+    var gateStatus = document.getElementById("rlhf-gate-status");
+    if (gateStatus) {
+      var gates = [];
+      // Percentage gate
+      var pctMet =
+        st.label_progress &&
+        st.label_progress.progress_pct >= st.min_label_threshold * 100;
+      gates.push(
+        (pctMet ? "✅" : "⬜") +
+          " Threshold: " +
+          (st.min_label_threshold * 100).toFixed(0) +
+          "%",
+      );
+
+      // Class coverage gate
+      if (st.min_class_coverage) {
+        var byClass = (st.label_progress && st.label_progress.by_class) || {};
+        Object.keys(st.min_class_coverage).forEach(function (cls) {
+          var need = st.min_class_coverage[cls];
+          var have = byClass[cls] || 0;
+          gates.push(
+            (have >= need ? "✅" : "⬜") + " " + cls + ": " + have + "/" + need,
+          );
+        });
+      }
+
+      // Temporal spread gate
+      if (st.min_temporal_spread_secs > 0) {
+        gates.push(
+          "⬜ Temporal spread: ≥" + st.min_temporal_spread_secs + "s required",
+        );
+      }
+
+      gateStatus.textContent = gates.join("  ·  ");
+      gateStatus.style.display = gates.length > 1 ? "block" : "none";
     }
 
     // Tracks link
@@ -3604,6 +3661,46 @@ function renderExplanation(data) {
   }
 
   card.style.display = "";
+
+  // Populate "Why this recommendation?" in the recommendation card
+  var recExplain = document.getElementById("recommendation-explanation");
+  if (recExplain && components) {
+    recExplain.style.display = "";
+
+    var topDiv = document.getElementById("rec-explain-top");
+    if (topDiv) {
+      var topContrib =
+        components.top_contributors ||
+        (data.top_contributors ? data.top_contributors : null);
+      topDiv.textContent = topContrib
+        ? "Top factors: " + topContrib.join(", ")
+        : "";
+    }
+
+    var recTbody = document.getElementById("rec-explain-tbody");
+    if (recTbody) {
+      recTbody.innerHTML = "";
+      var delta = data.delta_vs_previous || components.delta_vs_previous;
+      SCORE_METRICS.forEach(function (m) {
+        var val = components[m.key];
+        var deltaVal = delta ? delta[m.key] : null;
+        var row = document.createElement("tr");
+        row.innerHTML =
+          '<td style="padding: 3px 6px">' +
+          m.label +
+          "</td>" +
+          '<td style="padding: 3px 6px">' +
+          (val != null ? val.toFixed(4) : "—") +
+          "</td>" +
+          '<td style="padding: 3px 6px">' +
+          (deltaVal != null
+            ? (deltaVal >= 0 ? "+" : "") + deltaVal.toFixed(4)
+            : "—") +
+          "</td>";
+        recTbody.appendChild(row);
+      });
+    }
+  }
 }
 
 // ---- Browser Notifications ----

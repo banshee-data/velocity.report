@@ -446,11 +446,11 @@ quality gates that check class diversity and temporal spread.
 
 **Dashboard UI (`sweep_dashboard.html`, `sweep_dashboard.js`)**
 
-- [ ] Add optional fields to RLHF config card:
+- [x] Add optional fields to RLHF config card:
   - Class coverage minimums (JSON input or simple key-value pairs)
   - Temporal spread minimum (numeric input, seconds)
-- [ ] Include these fields in the `handleStartRLHF()` request payload
-- [ ] Show gate status in the RLHF progress card (which gates are met/unmet)
+- [x] Include these fields in the `handleStartRLHF()` request payload
+- [x] Show gate status in the RLHF progress card (which gates are met/unmet)
 
 _(Dashboard UI for gates deferred — backend validation is complete; dashboard inputs can be added when the gates are tested in production.)_
 
@@ -474,7 +474,7 @@ Surface the score decomposition and recommendation explanation in both UIs.
   - Top 3 contributing factors highlighted
   - Label coverage confidence indicator
 - [ ] In RLHF progress card, show per-round score decomposition in round history entries _(deferred — requires live data to verify rendering)_
-- [ ] In recommendation card, add expandable "Why this recommendation?" section showing:
+- [x] In recommendation card, add expandable "Why this recommendation?" section showing:
   - Component breakdown table
   - Delta vs previous round best (if available)
 
@@ -500,11 +500,11 @@ Surface the score decomposition and recommendation explanation in both UIs.
 
 _Beyond 9.1–9.4, the following Phase A items remain:_
 
-- [ ] Add provenance markers for carried-over labels (§4.1 — augment `label_confidence` with explicit `source` enum: `human_manual`, `carried_over`, `auto_suggested`)
-- [ ] Persist confidence scores for carry-over matches (currently hardcoded `1.0`; should reflect IoU)
-- [ ] Define explicit schema contract for RLHF round records (§2.1 — typed, versioned JSON)
-- [ ] Define explicit schema contract for objective component vectors (§2.1)
-- [ ] Define explicit schema contract for recommendation rationale payloads (§2.1)
+- [x] Add provenance markers for carried-over labels (§4.1 — augment `label_confidence` with explicit `source` enum: `human_manual`, `carried_over`, `auto_suggested`)
+- [x] Persist confidence scores for carry-over matches (previously hardcoded `1.0`; now uses actual IoU)
+- [x] Define explicit schema contract for RLHF round records (§2.1 — typed, versioned JSON) — `schema_contracts.go`
+- [x] Define explicit schema contract for objective component vectors (§2.1) — `schema_contracts.go`
+- [x] Define explicit schema contract for recommendation rationale payloads (§2.1) — `schema_contracts.go`
 - [ ] Persist schema version with every sweep (§2.1 — `schema_version` field on sweep record)
 
 ### Phase B backlog — Transform + Objective Platform (§5 Phase B)

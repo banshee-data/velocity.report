@@ -45,6 +45,22 @@
       </button>
     </h2>
     <div id="recommendation-content"></div>
+    <details id="recommendation-explanation" style="margin-top: 12px; display: none">
+      <summary style="cursor: pointer; font-size: 0.9em; color: var(--accent)">Why this recommendation?</summary>
+      <div id="recommendation-explanation-body" style="margin-top: 8px; font-size: 0.85em; padding: 8px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px">
+        <div id="rec-explain-top" style="margin-bottom: 8px"></div>
+        <table id="rec-explain-table" style="width: 100%; border-collapse: collapse">
+          <thead>
+            <tr style="text-align: left; border-bottom: 1px solid var(--border)">
+              <th style="padding: 3px 6px">Metric</th>
+              <th style="padding: 3px 6px">Value</th>
+              <th style="padding: 3px 6px">Δ vs Previous</th>
+            </tr>
+          </thead>
+          <tbody id="rec-explain-tbody"></tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <!-- Score Explanation Card (shown after auto-tune or RLHF completes) -->
@@ -366,6 +382,16 @@
             <input id="rlhf_carryover" type="checkbox" checked />
             <small class="field-desc">Copy labels to next round via temporal IoU matching.</small>
           </label>
+          <label>
+            <span>Min class coverage (JSON)</span>
+            <input id="rlhf_class_coverage" type="text" placeholder='{"vehicle":3,"pedestrian":1}' />
+            <small class="field-desc">Optional: minimum labelled tracks per class before proceeding.</small>
+          </label>
+          <label>
+            <span>Min temporal spread (seconds)</span>
+            <input id="rlhf_temporal_spread" type="number" value="" min="0" step="1" placeholder="0" />
+            <small class="field-desc">Optional: minimum time span (seconds) covered by labelled tracks.</small>
+          </label>
         </div>
       </div>
 
@@ -387,6 +413,7 @@
             <span id="rlhf-countdown" style="font-size: 12px; color: var(--fg-muted)">Deadline: —</span>
             <span id="rlhf-carried-count" style="font-size: 12px; color: var(--fg-muted)"></span>
           </div>
+          <div id="rlhf-gate-status" style="display: none; margin-top: 6px; font-size: 11px; color: var(--fg-muted); background: var(--card-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border)"></div>
           <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
             <label style="flex: 1">
               <span style="font-size: 12px">Next sweep duration (mins)</span>
