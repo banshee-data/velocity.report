@@ -196,6 +196,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         clientDelegate = nil
         isConnected = false
         currentFrame = nil
+        // Reset playback timestamps to prevent stale values on reconnect
+        logStartTimestamp = 0
+        logEndTimestamp = 0
+        currentTimestamp = 0
+        replayProgress = 0
+        frameCount = 0
         logger.debug("Disconnected")
     }
 
@@ -367,6 +373,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             showLabelPanel = true
             showSidePanel = true
         }
+        // Reproject labels so the overlay highlights the newly selected track
+        reprojectLabels()
     }
 
     func assignLabel(_ label: String) {
