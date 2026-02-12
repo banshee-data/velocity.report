@@ -3,6 +3,8 @@ package monitor
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -191,7 +193,7 @@ func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.rlhfRunner.Start(context.Background(), req); err != nil {
+	if err := ws.rlhfRunner.Start(r.Context(), req); err != nil {
 		if strings.Contains(err.Error(), "already in progress") {
 			ws.writeJSONError(w, http.StatusConflict, err.Error())
 		} else {
@@ -233,7 +235,11 @@ func (ws *WebServer) handleRLHFContinue(w http.ResponseWriter, r *http.Request) 
 		AddRound              bool `json:"add_round"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		// Allow empty body (both fields are optional)
+		// Allow empty body (io.EOF), but reject malformed JSON.
+		if !errors.Is(err, io.EOF) {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+			return
+		}
 		body.NextSweepDurationMins = 0
 		body.AddRound = false
 	}

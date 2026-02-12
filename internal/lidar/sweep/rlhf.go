@@ -270,6 +270,14 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 		MinTemporalSpreadSecs: req.MinTemporalSpreadSecs,
 	}
 
+	// Pre-fetch scene to capture sensor ID for persistence.
+	sensorID := ""
+	if rt.sceneGetter != nil {
+		if scene, err := rt.sceneGetter.GetScene(req.SceneID); err == nil && scene != nil {
+			sensorID = scene.SensorID
+		}
+	}
+
 	// Persist start if persister available
 	if rt.persister != nil {
 		reqJSON, err := json.Marshal(req)
@@ -277,7 +285,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 			log.Printf("[rlhf] WARNING: Failed to marshal request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
-		if err := rt.persister.SaveSweepStart(rt.sweepID, "", "rlhf", reqJSON, time.Now(), "ground_truth", ObjectiveVersion); err != nil {
+		if err := rt.persister.SaveSweepStart(rt.sweepID, sensorID, "rlhf", reqJSON, time.Now(), "ground_truth", ObjectiveVersion); err != nil {
 			log.Printf("[rlhf] Failed to persist sweep start: %v", err)
 		}
 	}
@@ -597,13 +605,12 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 			}
 		}
 
-		// Record round result
+		// Update round result on existing entry (appended at start of runRound)
 		rt.mu.Lock()
-		rt.state.RoundHistory = append(rt.state.RoundHistory, RLHFRound{
-			Round:      currentRound,
-			BestScore:  bestScore,
-			BestParams: bestParams,
-		})
+		if idx := len(rt.state.RoundHistory) - 1; idx >= 0 {
+			rt.state.RoundHistory[idx].BestScore = bestScore
+			rt.state.RoundHistory[idx].BestParams = bestParams
+		}
 		rt.mu.Unlock()
 	}
 
@@ -690,14 +697,19 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 
 	rt.mu.Lock()
 	rt.state.ReferenceRunID = runID
+	// Append round entry now so it's available for carry-over and label updates.
+	rt.state.RoundHistory = append(rt.state.RoundHistory, RLHFRound{
+		Round:          round,
+		ReferenceRunID: runID,
+	})
 	rt.mu.Unlock()
 
 	// Phase 2: Carry over labels if this is not the first round
 	carriedOver := 0
 	rt.mu.RLock()
 	prevRunID := ""
-	if round > 1 && req.CarryOverLabels && len(rt.state.RoundHistory) > 0 {
-		prevRunID = rt.state.RoundHistory[len(rt.state.RoundHistory)-1].ReferenceRunID
+	if round > 1 && req.CarryOverLabels && len(rt.state.RoundHistory) > 1 {
+		prevRunID = rt.state.RoundHistory[len(rt.state.RoundHistory)-2].ReferenceRunID
 	}
 	rt.mu.RUnlock()
 	if prevRunID != "" {
@@ -725,14 +737,13 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 		return nil, 0, fmt.Errorf("label waiting failed: %w", err)
 	}
 
-	// Record label completion time
+	// Record label completion time on current round entry
 	now := time.Now()
 	rt.mu.Lock()
-	if len(rt.state.RoundHistory) > 0 {
-		rt.state.RoundHistory[len(rt.state.RoundHistory)-1].LabelledAt = &now
-		rt.state.RoundHistory[len(rt.state.RoundHistory)-1].LabelProgress = rt.state.LabelProgress
-		rt.state.RoundHistory[len(rt.state.RoundHistory)-1].LabelsCarriedOver = carriedOver
-		rt.state.RoundHistory[len(rt.state.RoundHistory)-1].ReferenceRunID = runID
+	if idx := len(rt.state.RoundHistory) - 1; idx >= 0 {
+		rt.state.RoundHistory[idx].LabelledAt = &now
+		rt.state.RoundHistory[idx].LabelProgress = rt.state.LabelProgress
+		rt.state.RoundHistory[idx].LabelsCarriedOver = carriedOver
 	}
 	rt.mu.Unlock()
 
@@ -748,6 +759,10 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	rt.mu.Unlock()
 
 	log.Printf("[rlhf] Running auto-tune sweep (duration: %d minutes)", sweepDuration)
+
+	if rt.autoTuner == nil {
+		return nil, 0, fmt.Errorf("auto-tuner not configured")
+	}
 
 	autoTuneReq := rt.buildAutoTuneRequest(bounds, req, scene, round)
 

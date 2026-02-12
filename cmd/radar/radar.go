@@ -974,12 +974,26 @@ type rlhfRunCreator struct {
 
 func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error) {
 	// For RLHF reference runs, we start a single-combo sweep with the given params.
-	// The sweep runner will apply the params, replay the PCAP, and create an analysis run.
+	// Parse paramsJSON into a single-combination sweep: one SweepParam per key with a single fixed value.
+	var sweepParams []sweep.SweepParam
+	if len(paramsJSON) > 0 && string(paramsJSON) != "null" {
+		var rawParams map[string]interface{}
+		if err := json.Unmarshal(paramsJSON, &rawParams); err != nil {
+			return "", fmt.Errorf("parsing paramsJSON for reference run: %w", err)
+		}
+		for name, value := range rawParams {
+			sweepParams = append(sweepParams, sweep.SweepParam{
+				Name:   name,
+				Values: []interface{}{value},
+			})
+		}
+	}
+
 	req := sweep.SweepRequest{
 		Mode:       "params",
 		DataSource: "pcap",
 		PCAPFile:   pcapFile,
-		Params:     []sweep.SweepParam{},
+		Params:     sweepParams,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
