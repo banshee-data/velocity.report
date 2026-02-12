@@ -36,7 +36,7 @@ func (m *mockLabelQuerier) GetRunTracks(runID string) ([]RLHFRunTrack, error) {
 	return m.newTracks, m.err
 }
 
-func (m *mockLabelQuerier) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID string) error {
+func (m *mockLabelQuerier) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
 	m.labelCalls++
 	return m.updateErr
 }

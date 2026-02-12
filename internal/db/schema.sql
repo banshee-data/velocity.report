@@ -108,6 +108,7 @@ CREATE TABLE lidar_analysis_runs (
         , is_merge_candidate INTEGER DEFAULT 0
         , linked_track_ids TEXT
         , quality_label TEXT
+        , label_source TEXT
         , PRIMARY KEY (run_id, track_id)
         , FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE CASCADE
           );

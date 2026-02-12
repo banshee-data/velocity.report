@@ -15,7 +15,7 @@ import (
 type LabelProgressQuerier interface {
 	GetLabelingProgress(runID string) (total, labelled int, byClass map[string]int, err error)
 	GetRunTracks(runID string) ([]RLHFRunTrack, error)
-	UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID string) error
+	UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error
 }
 
 // RLHFRunTrack is a minimal track representation for label carryover.
@@ -914,9 +914,9 @@ func (rt *RLHFTuner) carryOverLabels(prevRunID, newRunID string) (int, error) {
 			}
 		}
 
-		// Carry over if IoU >= 0.5
+		// Carry over if IoU >= 0.5, using IoU as confidence
 		if bestMatch != nil && bestIoU >= 0.5 {
-			if err := rt.labelQuerier.UpdateTrackLabel(newRunID, bestMatch.TrackID, prevTrack.UserLabel, prevTrack.QualityLabel, 1.0, "rlhf-carryover"); err != nil {
+			if err := rt.labelQuerier.UpdateTrackLabel(newRunID, bestMatch.TrackID, prevTrack.UserLabel, prevTrack.QualityLabel, float32(bestIoU), "rlhf-carryover", "carried_over"); err != nil {
 				log.Printf("[rlhf] Failed to carry over label for track %s: %v", bestMatch.TrackID, err)
 			} else {
 				carried++

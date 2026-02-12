@@ -962,8 +962,8 @@ func (a *rlhfLabelAdapter) GetRunTracks(runID string) ([]sweep.RLHFRunTrack, err
 	return result, nil
 }
 
-func (a *rlhfLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID string) error {
-	return a.store.UpdateTrackLabel(runID, trackID, userLabel, qualityLabel, confidence, labelerID)
+func (a *rlhfLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
+	return a.store.UpdateTrackLabel(runID, trackID, userLabel, qualityLabel, confidence, labelerID, labelSource)
 }
 
 // rlhfRunCreator bridges the sweep.Runner to sweep.ReferenceRunCreator.

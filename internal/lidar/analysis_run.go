@@ -200,6 +200,7 @@ type RunTrack struct {
 	LabelerID       string  `json:"labeler_id,omitempty"`
 	LabeledAt       int64   `json:"labeled_at,omitempty"`
 	QualityLabel    string  `json:"quality_label,omitempty"`
+	LabelSource     string  `json:"label_source,omitempty"` // human_manual, carried_over, auto_suggested
 
 	// Track quality flags
 	IsSplitCandidate bool     `json:"is_split_candidate,omitempty"`
@@ -576,8 +577,9 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
+			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	var endNanos interface{}
@@ -618,6 +620,7 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 			nullString(track.LabelerID),
 			labeledAt,
 			nullString(track.QualityLabel),
+			nullString(track.LabelSource),
 			track.IsSplitCandidate,
 			track.IsMergeCandidate,
 			linkedJSON,
@@ -639,6 +642,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
+			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
 		FROM lidar_run_tracks
 		WHERE run_id = ?
@@ -655,7 +659,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	for rows.Next() {
 		var track RunTrack
 		var endNanos, labeledAt sql.NullInt64
-		var objectClass, classModel, userLabel, labelerID, qualityLabel, linkedJSON sql.NullString
+		var objectClass, classModel, userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
 		var objConf, labelConf sql.NullFloat64
 
 		err := rows.Scan(
@@ -684,6 +688,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 			&labelerID,
 			&labeledAt,
 			&qualityLabel,
+			&labelSource,
 			&track.IsSplitCandidate,
 			&track.IsMergeCandidate,
 			&linkedJSON,
@@ -719,6 +724,9 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 		if qualityLabel.Valid {
 			track.QualityLabel = qualityLabel.String
 		}
+		if labelSource.Valid {
+			track.LabelSource = labelSource.String
+		}
 		if linkedJSON.Valid && linkedJSON.String != "" && linkedJSON.String != "[]" {
 			json.Unmarshal([]byte(linkedJSON.String), &track.LinkedTrackIDs)
 		}
@@ -738,14 +746,15 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 // This function does NOT validate enum values - it accepts any string and stores it as-is.
 // Validation of label enum values should be performed by the caller (e.g., API handlers)
 // using ValidateUserLabel() and ValidateQualityLabel() from the api package.
-func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID string) error {
+func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
 	query := `
 		UPDATE lidar_run_tracks SET
 			user_label = ?,
 			label_confidence = ?,
 			labeler_id = ?,
 			labeled_at = ?,
-			quality_label = ?
+			quality_label = ?,
+			label_source = ?
 		WHERE run_id = ? AND track_id = ?
 	`
 
@@ -755,6 +764,7 @@ func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLa
 		nullString(labelerID),
 		time.Now().UnixNano(),
 		nullString(qualityLabel),
+		nullString(labelSource),
 		runID,
 		trackID,
 	)
@@ -844,6 +854,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
+			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
 		FROM lidar_run_tracks
 		WHERE run_id = ? AND (user_label IS NULL OR user_label = '')
@@ -861,7 +872,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	for rows.Next() {
 		var track RunTrack
 		var endNanos, labeledAt sql.NullInt64
-		var objectClass, classModel, userLabel, labelerID, qualityLabel, linkedJSON sql.NullString
+		var objectClass, classModel, userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
 		var objConf, labelConf sql.NullFloat64
 
 		err := rows.Scan(
@@ -890,6 +901,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			&labelerID,
 			&labeledAt,
 			&qualityLabel,
+			&labelSource,
 			&track.IsSplitCandidate,
 			&track.IsMergeCandidate,
 			&linkedJSON,
@@ -924,6 +936,9 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 		}
 		if qualityLabel.Valid {
 			track.QualityLabel = qualityLabel.String
+		}
+		if labelSource.Valid {
+			track.LabelSource = labelSource.String
 		}
 		if linkedJSON.Valid && linkedJSON.String != "" && linkedJSON.String != "[]" {
 			json.Unmarshal([]byte(linkedJSON.String), &track.LinkedTrackIDs)

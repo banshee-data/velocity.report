@@ -219,7 +219,7 @@ func TestUpdateTrackLabelClear(t *testing.T) {
 	setupTestRun(t, store, runID)
 
 	// First, set a label
-	if err := store.UpdateTrackLabel(runID, "track-001", "good_vehicle", "perfect", 0.95, "test-user"); err != nil {
+	if err := store.UpdateTrackLabel(runID, "track-001", "good_vehicle", "perfect", 0.95, "test-user", "human_manual"); err != nil {
 		t.Fatalf("failed to set initial label: %v", err)
 	}
 
@@ -321,7 +321,7 @@ func TestLabellingProgress(t *testing.T) {
 	setupTestRun(t, store, runID)
 
 	// Label one track
-	if err := store.UpdateTrackLabel(runID, "track-001", "good_vehicle", "perfect", 0.95, "test-user"); err != nil {
+	if err := store.UpdateTrackLabel(runID, "track-001", "good_vehicle", "perfect", 0.95, "test-user", "human_manual"); err != nil {
 		t.Fatalf("failed to label track: %v", err)
 	}
 

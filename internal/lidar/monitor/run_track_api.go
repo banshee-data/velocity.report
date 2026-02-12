@@ -159,6 +159,7 @@ func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Reque
 		QualityLabel    string  `json:"quality_label"`
 		LabelConfidence float32 `json:"label_confidence"`
 		LabelerID       string  `json:"labeler_id"`
+		LabelSource     string  `json:"label_source"` // human_manual, carried_over, auto_suggested
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -178,9 +179,15 @@ func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Default label_source to human_manual for API calls
+	labelSource := req.LabelSource
+	if labelSource == "" {
+		labelSource = "human_manual"
+	}
+
 	// Update the track label
 	store := lidar.NewAnalysisRunStore(ws.db.DB)
-	err := store.UpdateTrackLabel(runID, trackID, req.UserLabel, req.QualityLabel, req.LabelConfidence, req.LabelerID)
+	err := store.UpdateTrackLabel(runID, trackID, req.UserLabel, req.QualityLabel, req.LabelConfidence, req.LabelerID, labelSource)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track label: %v", err))
 		return
