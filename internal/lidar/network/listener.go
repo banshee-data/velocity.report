@@ -233,45 +233,7 @@ func (l *UDPListener) handlePacket(packet []byte) error {
 
 		// Add points to FrameBuilder for complete rotation accumulation
 		if l.frameBuilder != nil && len(points) > 0 {
-			// Prefer polar-aware API if available
-			if fbPolar, ok := l.frameBuilder.(interface{ AddPointsPolar([]lidar.PointPolar) }); ok {
-				fbPolar.AddPointsPolar(points)
-			} else {
-				// Fallback: convert to cartesian Points and call legacy AddPoints
-				pts := make([]lidar.Point, 0, len(points))
-				for _, p := range points {
-					x, y, z := lidar.SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
-					pts = append(pts, lidar.Point{
-						X:           x,
-						Y:           y,
-						Z:           z,
-						Intensity:   p.Intensity,
-						Distance:    p.Distance,
-						Azimuth:     p.Azimuth,
-						Elevation:   p.Elevation,
-						Channel:     p.Channel,
-						Timestamp:   time.Unix(0, p.Timestamp),
-						BlockID:     p.BlockID,
-						UDPSequence: p.UDPSequence,
-					})
-				}
-				// Convert cartesian points back to polar and use polar API
-				polarPts := make([]lidar.PointPolar, 0, len(pts))
-				for _, p := range pts {
-					polarPts = append(polarPts, lidar.PointPolar{
-						Channel:         p.Channel,
-						Azimuth:         p.Azimuth,
-						Elevation:       p.Elevation,
-						Distance:        p.Distance,
-						Intensity:       p.Intensity,
-						Timestamp:       p.Timestamp.UnixNano(),
-						BlockID:         p.BlockID,
-						UDPSequence:     p.UDPSequence,
-						RawBlockAzimuth: p.RawBlockAzimuth,
-					})
-				}
-				l.frameBuilder.AddPointsPolar(polarPts)
-			}
+			l.frameBuilder.AddPointsPolar(points)
 		}
 	}
 
