@@ -108,6 +108,7 @@ CREATE TABLE lidar_analysis_runs (
         , is_merge_candidate INTEGER DEFAULT 0
         , linked_track_ids TEXT
         , quality_label TEXT
+        , label_source TEXT
         , PRIMARY KEY (run_id, track_id)
         , FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs (run_id) ON DELETE CASCADE
           );
@@ -141,6 +142,13 @@ CREATE TABLE lidar_analysis_runs (
         , started_at DATETIME NOT NULL
         , completed_at DATETIME
         , created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        , objective_name TEXT
+        , objective_version TEXT
+        , transform_pipeline_name TEXT
+        , transform_pipeline_version TEXT
+        , score_components_json TEXT
+        , recommendation_explanation_json TEXT
+        , label_provenance_summary_json TEXT
           );
 
    CREATE TABLE lidar_tracks (

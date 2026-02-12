@@ -102,6 +102,18 @@ const {
 	applyPastedParams,
 	loadCurrentIntoEditor,
 	renderDynamicCharts,
+	handleStartRLHF,
+	startRLHFPolling,
+	stopRLHFPolling,
+	pollRLHFStatus,
+	renderRLHFState,
+	handleRLHFContinue,
+	populateRLHFScenes,
+	onRLHFSceneSelected,
+	requestNotificationPermission,
+	fireNotification,
+	fetchSweepExplanation,
+	renderExplanation,
 	init
 } = mod;
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -216,7 +228,51 @@ function setupDOM(): void {
 		'<div id="current-params-display"></div>',
 		'<textarea id="paste-params-json"></textarea>',
 		'<span id="paste-apply-status"></span>',
-		'<button id="btn-paste-apply">Apply</button>'
+		'<button id="btn-paste-apply">Apply</button>',
+		// RLHF elements
+		'<button id="mode-rlhf"></button>',
+		'<select id="rlhf_scene_select"><option value="">-- Select Scene --</option></select>',
+		'<input id="rlhf_rounds" type="number" value="3" />',
+		'<input id="rlhf_durations" type="text" value="60" />',
+		'<input id="rlhf_threshold" type="number" value="90" />',
+		'<input id="rlhf_carryover" type="checkbox" checked />',
+		'<input id="rlhf_class_coverage" type="text" />',
+		'<input id="rlhf_temporal_spread" type="number" />',
+		'<div id="rlhf-progress-card" style="display:none">',
+		'  <div id="rlhf-status-text"></div>',
+		'  <div id="rlhf-label-progress" style="display:none">',
+		'    <span id="rlhf-label-count"></span>',
+		'    <span id="rlhf-label-pct"></span>',
+		'    <div id="rlhf-label-bar" style="width:0%"></div>',
+		'    <div id="rlhf-threshold-marker"></div>',
+		'    <span id="rlhf-countdown"></span>',
+		'    <span id="rlhf-carried-count"></span>',
+		'    <div id="rlhf-gate-status" style="display:none"></div>',
+		'    <a id="rlhf-tracks-link" href="#"></a>',
+		'    <button id="rlhf-continue-btn" disabled>Continue</button>',
+		'    <input id="rlhf-next-duration" type="number" value="0" />',
+		'    <input id="rlhf-add-round" type="checkbox" />',
+		'  </div>',
+		'  <div id="rlhf-sweep-progress" style="display:none">',
+		'    <span id="rlhf-sweep-info"></span>',
+		'  </div>',
+		'</div>',
+		'<div id="rlhf-round-history" style="display:none">',
+		'  <div id="rlhf-rounds-list"></div>',
+		'</div>',
+		// Explanation elements
+		'<div id="explanation-card" style="display:none">',
+		'  <span id="explanation-objective-name"></span>',
+		'  <span id="explanation-objective-version"></span>',
+		'  <span id="explanation-composite-score"></span>',
+		'  <span id="explanation-top-list"></span>',
+		'  <span id="explanation-label-pct"></span>',
+		'  <table><tbody id="explanation-components-body"></tbody></table>',
+		'</div>',
+		'<details id="recommendation-explanation" style="display:none">',
+		'  <div id="rec-explain-top"></div>',
+		'  <table><tbody id="rec-explain-tbody"></tbody></table>',
+		'</details>'
 	].join('\n');
 }
 
@@ -3562,7 +3618,700 @@ describe('loadHistoricalSweep branches', () => {
 	});
 });
 
-// Cleanup URL mocks
+// ---------------------------------------------------------------------------
+// RLHF Functions
+// ---------------------------------------------------------------------------
+
+describe('RLHF Functions', () => {
+	beforeEach(() => {
+		setupDOM();
+		jest.useFakeTimers();
+	});
+
+	afterEach(() => {
+		jest.useRealTimers();
+		jest.restoreAllMocks();
+		stopRLHFPolling();
+	});
+
+	// handleStartRLHF
+	describe('handleStartRLHF', () => {
+		it('shows error when no scene selected', () => {
+			handleStartRLHF();
+			expect(document.getElementById('error-box')!.textContent).toContain('Select a scene');
+		});
+
+		it('shows error when no params', () => {
+			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const opt = document.createElement('option');
+			opt.value = 'scene-1';
+			opt.textContent = 'Scene 1';
+			sel.appendChild(opt);
+			sel.value = 'scene-1';
+			handleStartRLHF();
+			expect(document.getElementById('error-box')!.textContent).toContain(
+				'Add at least one parameter'
+			);
+		});
+
+		it('sends POST request with correct payload', async () => {
+			// Add scene selection
+			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const opt = document.createElement('option');
+			opt.value = 'scene-1';
+			sel.appendChild(opt);
+			sel.value = 'scene-1';
+
+			// Create a parameter row with the classes handleStartRLHF expects
+			const paramRows = document.getElementById('param-rows')!;
+			const row = document.createElement('div');
+			row.innerHTML = [
+				'<select class="param-name"><option value="noise" selected>Noise</option></select>',
+				'<select class="param-type"><option value="float64" selected>float64</option></select>',
+				'<input class="param-start" value="0.1" />',
+				'<input class="param-end" value="0.5" />'
+			].join('');
+			paramRows.appendChild(row);
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ status: 'running' })
+			});
+
+			handleStartRLHF();
+			await flushPromises();
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				'/api/lidar/sweep/rlhf',
+				expect.objectContaining({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' }
+				})
+			);
+
+			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+			expect(body.scene_id).toBe('scene-1');
+			expect(body.params).toHaveLength(1);
+			expect(body.params[0].name).toBe('noise');
+			expect(body.num_rounds).toBe(3);
+			expect(body.min_label_threshold).toBeCloseTo(0.9);
+			expect(body.carry_over_labels).toBe(true);
+		});
+
+		it('shows error on fetch failure', async () => {
+			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const opt = document.createElement('option');
+			opt.value = 'scene-1';
+			sel.appendChild(opt);
+			sel.value = 'scene-1';
+
+			const paramRows = document.getElementById('param-rows')!;
+			const row = document.createElement('div');
+			row.innerHTML = [
+				'<select class="param-name"><option value="x" selected>X</option></select>',
+				'<input class="param-start" value="0" />',
+				'<input class="param-end" value="1" />'
+			].join('');
+			paramRows.appendChild(row);
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: false,
+				json: () => Promise.resolve({ error: 'Server error' })
+			});
+
+			handleStartRLHF();
+			await flushPromises();
+
+			expect(document.getElementById('error-box')!.textContent).toContain('Server error');
+			expect(document.getElementById('btn-start')!.style.display).toBe('block');
+		});
+
+		it('shows error for invalid class coverage JSON', () => {
+			const paramRow = document.createElement('div');
+			paramRow.innerHTML =
+				'<input class="param-name" value="test" />' +
+				'<input class="param-type" value="float64" />' +
+				'<input class="param-start" value="0" />' +
+				'<input class="param-end" value="1" />';
+			document.getElementById('param-rows')!.appendChild(paramRow);
+			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const opt = document.createElement('option');
+			opt.value = 'scene-1';
+			opt.text = 'Test Scene';
+			sel.appendChild(opt);
+			sel.value = 'scene-1';
+			(document.getElementById('rlhf_class_coverage') as HTMLInputElement).value = 'not valid json';
+			handleStartRLHF();
+			expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
+		});
+	});
+
+	// Polling functions
+	describe('startRLHFPolling / stopRLHFPolling', () => {
+		it('starts and stops polling intervals', () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ status: 'running_sweep', current_round: 1, total_rounds: 3 })
+			});
+
+			startRLHFPolling();
+			// Should call pollRLHFStatus immediately
+			expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/rlhf');
+
+			stopRLHFPolling();
+			// After stop, advancing timers should not trigger more fetches
+			const callCount = (global.fetch as jest.Mock).mock.calls.length;
+			jest.advanceTimersByTime(10000);
+			expect((global.fetch as jest.Mock).mock.calls.length).toBe(callCount);
+		});
+	});
+
+	describe('pollRLHFStatus', () => {
+		it('fetches state and renders it', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						status: 'running_sweep',
+						current_round: 1,
+						total_rounds: 3,
+						auto_tune_state: { completed_combos: 5, total_combos: 10, round: 1, total_rounds: 3 }
+					})
+			});
+
+			pollRLHFStatus();
+			await flushPromises();
+
+			expect(document.getElementById('rlhf-progress-card')!.style.display).toBe('block');
+			expect(document.getElementById('rlhf-sweep-info')!.textContent).toContain('5/10');
+		});
+
+		it('fires notification on phase transition to awaiting_labels', async () => {
+			const mockNotification = jest.fn();
+			(global as any).Notification = mockNotification;
+			(global as any).Notification.permission = 'granted';
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						status: 'awaiting_labels',
+						current_round: 1,
+						total_rounds: 3,
+						min_label_threshold: 0.9,
+						label_progress: { labelled: 5, total: 10, progress_pct: 50 }
+					})
+			});
+
+			pollRLHFStatus();
+			await flushPromises();
+
+			expect(mockNotification).toHaveBeenCalledWith(
+				expect.stringContaining('Labels needed'),
+				expect.objectContaining({ body: expect.any(String) })
+			);
+		});
+
+		it('stops polling and resets buttons on completed status', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						status: 'completed',
+						current_round: 3,
+						total_rounds: 3,
+						recommendation: { noise: 0.3 }
+					})
+			});
+
+			startRLHFPolling();
+			await flushPromises();
+
+			expect(document.getElementById('btn-start')!.style.display).toBe('block');
+			expect(document.getElementById('btn-stop')!.style.display).toBe('none');
+		});
+
+		it('stops polling on failed status', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						status: 'failed',
+						current_round: 1,
+						total_rounds: 3,
+						error: 'Something broke'
+					})
+			});
+
+			startRLHFPolling();
+			await flushPromises();
+
+			expect(document.getElementById('btn-start')!.style.display).toBe('block');
+		});
+
+		it('handles fetch errors gracefully', async () => {
+			global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+			pollRLHFStatus();
+			await flushPromises();
+			// Should not throw
+		});
+	});
+
+	// renderRLHFState
+	describe('renderRLHFState', () => {
+		it('renders awaiting_labels state with label progress', () => {
+			const deadline = new Date(Date.now() + 120000).toISOString();
+			renderRLHFState({
+				status: 'awaiting_labels',
+				current_round: 2,
+				total_rounds: 4,
+				min_label_threshold: 0.8,
+				label_progress: { labelled: 8, total: 10, progress_pct: 80 },
+				label_deadline: deadline,
+				labels_carried_over: 3,
+				reference_run_id: 'run-abc'
+			});
+
+			expect(document.getElementById('rlhf-label-progress')!.style.display).toBe('block');
+			expect(document.getElementById('rlhf-label-count')!.textContent).toContain('8/10');
+			expect(document.getElementById('rlhf-label-pct')!.textContent).toContain('80');
+			expect(document.getElementById('rlhf-label-bar')!.style.width).toBe('80%');
+			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(false);
+			expect(document.getElementById('rlhf-countdown')!.textContent).toContain('remaining');
+			expect(document.getElementById('rlhf-carried-count')!.textContent).toContain('3');
+			expect(document.getElementById('rlhf-tracks-link')!.getAttribute('href')).toContain(
+				'run-abc'
+			);
+		});
+
+		it('renders gate status when class coverage and temporal spread are set', () => {
+			renderRLHFState({
+				status: 'awaiting_labels',
+				current_round: 1,
+				total_rounds: 3,
+				min_label_threshold: 0.8,
+				label_progress: {
+					labelled: 5,
+					total: 10,
+					progress_pct: 50,
+					by_class: { vehicle: 3, pedestrian: 0 }
+				},
+				min_class_coverage: { vehicle: 2, pedestrian: 1 },
+				min_temporal_spread_secs: 30
+			});
+
+			const gateEl = document.getElementById('rlhf-gate-status')!;
+			expect(gateEl.style.display).toBe('block');
+			expect(gateEl.textContent).toContain('Threshold');
+			expect(gateEl.textContent).toContain('vehicle');
+			expect(gateEl.textContent).toContain('pedestrian');
+			expect(gateEl.textContent).toContain('Temporal spread');
+		});
+
+		it('disables continue button when below threshold', () => {
+			renderRLHFState({
+				status: 'awaiting_labels',
+				current_round: 1,
+				total_rounds: 3,
+				min_label_threshold: 0.9,
+				label_progress: { labelled: 2, total: 10, progress_pct: 20 }
+			});
+
+			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(true);
+		});
+
+		it('renders running_sweep state with auto-tune info', () => {
+			renderRLHFState({
+				status: 'running_sweep',
+				current_round: 1,
+				total_rounds: 3,
+				auto_tune_state: { completed_combos: 3, total_combos: 8, round: 1, total_rounds: 2 }
+			});
+
+			expect(document.getElementById('rlhf-label-progress')!.style.display).toBe('none');
+			expect(document.getElementById('rlhf-sweep-progress')!.style.display).toBe('block');
+			expect(document.getElementById('rlhf-sweep-info')!.textContent).toContain('3/8');
+		});
+
+		it('renders running_reference state', () => {
+			renderRLHFState({
+				status: 'running_reference',
+				current_round: 1,
+				total_rounds: 3
+			});
+
+			expect(document.getElementById('rlhf-sweep-info')!.textContent).toContain('reference');
+		});
+
+		it('renders completed state with recommendation', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve([{ sweep_id: 'sw-latest' }])
+			});
+
+			renderRLHFState({
+				status: 'completed',
+				current_round: 3,
+				total_rounds: 3,
+				recommendation: { noise_relative: 0.3, closeness_multiplier: 7 }
+			});
+
+			expect(document.getElementById('recommendation-card')!.style.display).toBe('block');
+			expect(document.getElementById('recommendation-content')!.innerHTML).toContain(
+				'noise_relative'
+			);
+			expect(document.getElementById('rlhf-status-text')!.innerHTML).toContain('complete');
+		});
+
+		it('renders failed state with error', () => {
+			renderRLHFState({
+				status: 'failed',
+				current_round: 1,
+				total_rounds: 3,
+				error: 'Sensor disconnected'
+			});
+
+			expect(document.getElementById('rlhf-status-text')!.innerHTML).toContain(
+				'Sensor disconnected'
+			);
+		});
+
+		it('renders round history', () => {
+			renderRLHFState({
+				status: 'running_sweep',
+				current_round: 2,
+				total_rounds: 3,
+				round_history: [
+					{ round: 1, best_score: 0.8765, labels_carried_over: 0, reference_run_id: 'run-1' },
+					{ round: 2, best_score: 0.9123, labels_carried_over: 5, reference_run_id: 'run-2' }
+				]
+			});
+
+			expect(document.getElementById('rlhf-round-history')!.style.display).toBe('block');
+			const list = document.getElementById('rlhf-rounds-list')!;
+			expect(list.innerHTML).toContain('Round 1');
+			expect(list.innerHTML).toContain('0.8765');
+			expect(list.innerHTML).toContain('Round 2');
+			expect(list.innerHTML).toContain('5 labels');
+		});
+	});
+
+	// handleRLHFContinue
+	describe('handleRLHFContinue', () => {
+		it('sends POST request', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ status: 'ok' })
+			});
+
+			handleRLHFContinue();
+			await flushPromises();
+
+			expect(global.fetch).toHaveBeenCalledWith(
+				'/api/lidar/sweep/rlhf/continue',
+				expect.objectContaining({ method: 'POST' })
+			);
+			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(true);
+		});
+
+		it('shows error on failure', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: false,
+				json: () => Promise.resolve({ error: 'Not enough labels' })
+			});
+
+			handleRLHFContinue();
+			await flushPromises();
+
+			expect(document.getElementById('error-box')!.textContent).toContain('Not enough labels');
+		});
+	});
+
+	// populateRLHFScenes
+	describe('populateRLHFScenes', () => {
+		it('copies options from main scene select', () => {
+			const mainSel = document.getElementById('scene_select')!;
+			const opt = document.createElement('option');
+			opt.value = 'sc-1';
+			opt.textContent = 'Test Scene';
+			mainSel.appendChild(opt);
+
+			populateRLHFScenes();
+
+			const rlhfSel = document.getElementById('rlhf_scene_select')!;
+			expect(rlhfSel.innerHTML).toContain('Test Scene');
+		});
+
+		it('fetches scenes from API when main select missing', async () => {
+			// Remove the main scene_select from DOM
+			const mainSel = document.getElementById('scene_select');
+			if (mainSel) mainSel.remove();
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve([
+						{ scene_id: 'sc-1', description: 'First' },
+						{ scene_id: 'sc-2', description: '' }
+					])
+			});
+
+			populateRLHFScenes();
+			await flushPromises();
+
+			const sel = document.getElementById('rlhf_scene_select')!;
+			expect(sel.innerHTML).toContain('sc-1');
+			expect(sel.innerHTML).toContain('First');
+		});
+
+		it('handles fetch error gracefully', async () => {
+			const mainSel = document.getElementById('scene_select');
+			if (mainSel) mainSel.remove();
+
+			global.fetch = jest.fn().mockRejectedValue(new Error('Offline'));
+			populateRLHFScenes();
+			await flushPromises();
+			// Should not throw
+		});
+
+		it('returns early when no select element', () => {
+			const sel = document.getElementById('rlhf_scene_select');
+			if (sel) sel.remove();
+			populateRLHFScenes(); // Should not throw
+		});
+	});
+
+	// onRLHFSceneSelected
+	describe('onRLHFSceneSelected', () => {
+		it('is a no-op function that does not throw', () => {
+			expect(() => onRLHFSceneSelected()).not.toThrow();
+		});
+	});
+
+	// fetchSweepExplanation
+	describe('fetchSweepExplanation', () => {
+		it('returns early for empty sweepId', async () => {
+			global.fetch = jest.fn();
+			fetchSweepExplanation('');
+			await flushPromises();
+			expect(global.fetch).not.toHaveBeenCalled();
+		});
+
+		it('fetches and renders explanation data', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						objective_name: 'ground_truth',
+						objective_version: 'v1',
+						score_components: {
+							composite_score: 0.8765,
+							detection_rate: 0.95,
+							fragmentation: 0.1,
+							top_contributors: ['detection_rate', 'quality_premium'],
+							label_coverage_confidence: 0.92,
+							weights_used: { detection_rate: 0.3, fragmentation: 0.15 }
+						}
+					})
+			});
+
+			fetchSweepExplanation('sw-123');
+			await flushPromises();
+
+			expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/explain/sw-123');
+			expect(document.getElementById('explanation-card')!.style.display).toBe('');
+			expect(document.getElementById('explanation-objective-name')!.textContent).toBe(
+				'ground_truth'
+			);
+		});
+
+		it('handles non-ok response', async () => {
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: false,
+				json: () => Promise.resolve({})
+			});
+
+			fetchSweepExplanation('sw-123');
+			await flushPromises();
+			// Should not render (no crash)
+		});
+
+		it('handles fetch rejection', async () => {
+			global.fetch = jest.fn().mockRejectedValue(new Error('Network'));
+			fetchSweepExplanation('sw-123');
+			await flushPromises();
+			// Should not throw
+		});
+	});
+
+	// renderExplanation
+	describe('renderExplanation', () => {
+		it('renders explanation with all fields', () => {
+			renderExplanation({
+				objective_name: 'ground_truth',
+				objective_version: 'v2',
+				score_components: {
+					composite_score: 0.91,
+					detection_rate: 0.95,
+					fragmentation: 0.05,
+					top_contributors: ['detection_rate'],
+					label_coverage_confidence: 0.88,
+					weights_used: { detection_rate: 0.3 }
+				}
+			});
+
+			expect(document.getElementById('explanation-objective-name')!.textContent).toBe(
+				'ground_truth'
+			);
+			expect(document.getElementById('explanation-objective-version')!.textContent).toContain('v2');
+			expect(document.getElementById('explanation-composite-score')!.textContent).toContain('0.91');
+			expect(document.getElementById('explanation-top-list')!.textContent).toContain(
+				'detection_rate'
+			);
+			expect(document.getElementById('explanation-label-pct')!.textContent).toContain('88');
+		});
+
+		it('renders explanation with string score_components', () => {
+			renderExplanation({
+				objective_name: 'test',
+				score_components: JSON.stringify({
+					composite_score: 0.75,
+					top_contributors: ['fragmentation'],
+					label_coverage_confidence: 0.5,
+					weights_used: {}
+				})
+			});
+
+			expect(document.getElementById('explanation-composite-score')!.textContent).toContain('0.75');
+		});
+
+		it('handles missing score_components', () => {
+			renderExplanation({ objective_name: 'test' });
+			expect(document.getElementById('explanation-composite-score')!.textContent).toBe('—');
+			expect(document.getElementById('explanation-top-list')!.textContent).toBe('—');
+			expect(document.getElementById('explanation-label-pct')!.textContent).toBe('—');
+		});
+
+		it('handles invalid JSON string score_components', () => {
+			renderExplanation({
+				objective_name: 'test',
+				score_components: 'not valid json'
+			});
+			expect(document.getElementById('explanation-composite-score')!.textContent).toBe('—');
+		});
+
+		it('returns early when explanation-card not in DOM', () => {
+			document.getElementById('explanation-card')!.remove();
+			expect(() => renderExplanation({ objective_name: 'test' })).not.toThrow();
+		});
+
+		it('populates component breakdown table', () => {
+			renderExplanation({
+				objective_name: 'test',
+				score_components: {
+					composite_score: 0.85,
+					detection_rate: 0.9,
+					fragmentation: 0.1,
+					false_positives: 0.05,
+					velocity_coverage: 0.8,
+					quality_premium: 0.7,
+					truncation_rate: 0.02,
+					velocity_noise_rate: 0.03,
+					stopped_recovery: 0.6,
+					weights_used: { detection_rate: 0.3, fragmentation: 0.2 }
+				}
+			});
+
+			const tbody = document.getElementById('explanation-components-body')!;
+			expect(tbody.children.length).toBe(8); // 8 SCORE_METRICS
+		});
+
+		it('populates "Why this recommendation?" section with delta', () => {
+			renderExplanation({
+				objective_name: 'ground_truth',
+				score_components: {
+					composite_score: 0.85,
+					detection_rate: 0.9,
+					fragmentation: 0.1,
+					top_contributors: ['detection_rate', 'velocity_coverage']
+				},
+				delta_vs_previous: {
+					detection_rate: 0.05,
+					fragmentation: -0.02
+				}
+			});
+
+			const recExplain = document.getElementById('recommendation-explanation')!;
+			expect(recExplain.style.display).toBe('');
+			const topDiv = document.getElementById('rec-explain-top')!;
+			expect(topDiv.textContent).toContain('detection_rate');
+			const recTbody = document.getElementById('rec-explain-tbody')!;
+			expect(recTbody.children.length).toBe(8);
+		});
+	});
+
+	// Notification functions
+	describe('requestNotificationPermission', () => {
+		it('requests permission when status is default', () => {
+			const mockReqPerm = jest.fn();
+			(global as any).Notification = { permission: 'default', requestPermission: mockReqPerm };
+			requestNotificationPermission();
+			expect(mockReqPerm).toHaveBeenCalled();
+		});
+
+		it('does nothing when permission already granted', () => {
+			const mockReqPerm = jest.fn();
+			(global as any).Notification = { permission: 'granted', requestPermission: mockReqPerm };
+			requestNotificationPermission();
+			expect(mockReqPerm).not.toHaveBeenCalled();
+		});
+
+		it('does nothing when Notification is undefined', () => {
+			delete (global as any).Notification;
+			expect(() => requestNotificationPermission()).not.toThrow();
+		});
+	});
+
+	describe('fireNotification', () => {
+		it('creates notification when permission granted', () => {
+			const instances: any[] = [];
+			const MockNotif = jest.fn().mockImplementation(function (this: any) {
+				instances.push(this);
+				this.close = jest.fn();
+			});
+			(MockNotif as any).permission = 'granted';
+			(global as any).Notification = MockNotif;
+
+			fireNotification('Test Title', 'Test Body');
+			expect(MockNotif).toHaveBeenCalledWith('Test Title', {
+				body: 'Test Body',
+				icon: '/favicon.ico'
+			});
+
+			// Test onclick handler
+			const notification = instances[0];
+			window.focus = jest.fn();
+			notification.onclick();
+			expect(window.focus).toHaveBeenCalled();
+			expect(notification.close).toHaveBeenCalled();
+		});
+
+		it('does nothing when permission not granted', () => {
+			const MockNotif = jest.fn();
+			(MockNotif as any).permission = 'denied';
+			(global as any).Notification = MockNotif;
+
+			fireNotification('Test', 'Body');
+			expect(MockNotif).not.toHaveBeenCalled();
+		});
+
+		it('does nothing when Notification is undefined', () => {
+			delete (global as any).Notification;
+			expect(() => fireNotification('Test', 'Body')).not.toThrow();
+		});
+	});
+});
 afterAll(() => {
 	URL.createObjectURL = origCreateObjectURL;
 	URL.revokeObjectURL = origRevokeObjectURL;

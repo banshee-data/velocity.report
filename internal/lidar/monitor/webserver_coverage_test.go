@@ -2319,10 +2319,13 @@ func TestCov3_ExportForegroundSequenceInternal_ZeroCount(t *testing.T) {
 }
 
 func TestCov3_ExportForegroundSequenceInternal_NoSnapshot(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow export-sequence timeout test in short mode")
+	}
 	ws := &WebServer{}
-	// This will loop until deadline with no snapshot available; use short timeout by
-	// calling with a nonexistent sensor. It will time out in ~30s but we just verify
-	// it doesn't panic. The test is fast because there's no snapshot to find.
+	// With no snapshot available the function loops until its internal 30s
+	// deadline expires. Run it in a goroutine with a generous outer timeout
+	// to confirm it terminates without panicking.
 	done := make(chan struct{})
 	go func() {
 		ws.exportForegroundSequenceInternal("cov3-fgseq-nosensor", 1)
@@ -2330,9 +2333,9 @@ func TestCov3_ExportForegroundSequenceInternal_NoSnapshot(t *testing.T) {
 	}()
 	select {
 	case <-done:
-		// completed
-	case <-time.After(35 * time.Second):
-		t.Error("exportForegroundSequenceInternal did not complete within timeout")
+		// completed within deadline — success
+	case <-time.After(45 * time.Second):
+		t.Fatal("exportForegroundSequenceInternal did not return after its 30s deadline")
 	}
 }
 

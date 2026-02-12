@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -623,7 +624,7 @@ func main() {
 		sceneStore := lidar.NewSceneStore(lidarDB.DB)
 		analysisRunStore := lidar.NewAnalysisRunStore(lidarDB.DB)
 		autoTuner.SetSceneStore(sceneStore)
-		autoTuner.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
+		groundTruthScorer := func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
 			scene, err := sceneStore.GetScene(sceneID)
 			if err != nil {
 				return 0, fmt.Errorf("loading scene %s: %w", sceneID, err)
@@ -648,7 +649,18 @@ func main() {
 				return 0, err
 			}
 			return result.CompositeScore, nil
-		})
+		}
+		autoTuner.SetGroundTruthScorer(groundTruthScorer)
+
+		// Set up RLHF tuner for human-in-the-loop parameter optimisation
+		rlhfTuner := sweep.NewRLHFTuner(autoTuner)
+		rlhfTuner.SetPersister(sweepStore)
+		rlhfTuner.SetGroundTruthScorer(groundTruthScorer)
+		rlhfTuner.SetSceneStore(sceneStore)
+		rlhfTuner.SetSceneGetter(&rlhfSceneAdapter{store: sceneStore})
+		rlhfTuner.SetLabelQuerier(&rlhfLabelAdapter{store: analysisRunStore})
+		rlhfTuner.SetRunCreator(&rlhfRunCreator{runner: sweepRunner})
+		lidarWebServer.SetRLHFRunner(rlhfTuner)
 
 		wg.Add(1)
 		go func() {
@@ -892,4 +904,121 @@ func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, err
 
 func (b *backgroundManagerBridge) GetBackgroundSequenceNumber() uint64 {
 	return b.mgr.GetBackgroundSequenceNumber()
+}
+
+// --- RLHF adapters ---
+// These bridge the lidar package types to the sweep package interfaces
+// to avoid circular imports.
+
+// rlhfSceneAdapter bridges lidar.SceneStore to sweep.SceneGetter.
+type rlhfSceneAdapter struct {
+	store *lidar.SceneStore
+}
+
+func (a *rlhfSceneAdapter) GetScene(sceneID string) (*sweep.RLHFScene, error) {
+	scene, err := a.store.GetScene(sceneID)
+	if err != nil {
+		return nil, err
+	}
+	return &sweep.RLHFScene{
+		SceneID:           scene.SceneID,
+		SensorID:          scene.SensorID,
+		PCAPFile:          scene.PCAPFile,
+		PCAPStartSecs:     scene.PCAPStartSecs,
+		PCAPDurationSecs:  scene.PCAPDurationSecs,
+		ReferenceRunID:    scene.ReferenceRunID,
+		OptimalParamsJSON: scene.OptimalParamsJSON,
+	}, nil
+}
+
+func (a *rlhfSceneAdapter) SetReferenceRun(sceneID, runID string) error {
+	return a.store.SetReferenceRun(sceneID, runID)
+}
+
+// rlhfLabelAdapter bridges lidar.AnalysisRunStore to sweep.LabelProgressQuerier.
+type rlhfLabelAdapter struct {
+	store *lidar.AnalysisRunStore
+}
+
+func (a *rlhfLabelAdapter) GetLabelingProgress(runID string) (int, int, map[string]int, error) {
+	return a.store.GetLabelingProgress(runID)
+}
+
+func (a *rlhfLabelAdapter) GetRunTracks(runID string) ([]sweep.RLHFRunTrack, error) {
+	tracks, err := a.store.GetRunTracks(runID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]sweep.RLHFRunTrack, len(tracks))
+	for i, t := range tracks {
+		result[i] = sweep.RLHFRunTrack{
+			TrackID:        t.TrackID,
+			StartUnixNanos: t.StartUnixNanos,
+			EndUnixNanos:   t.EndUnixNanos,
+			UserLabel:      t.UserLabel,
+			QualityLabel:   t.QualityLabel,
+		}
+	}
+	return result, nil
+}
+
+func (a *rlhfLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
+	return a.store.UpdateTrackLabel(runID, trackID, userLabel, qualityLabel, confidence, labelerID, labelSource)
+}
+
+// rlhfRunCreator bridges the sweep.Runner to sweep.ReferenceRunCreator.
+// It creates a single-combo sweep run to generate a reference run with given params.
+type rlhfRunCreator struct {
+	runner *sweep.Runner
+}
+
+func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error) {
+	// For RLHF reference runs, we start a single-combo sweep with the given params.
+	// Parse paramsJSON into a single-combination sweep: one SweepParam per key with a single fixed value.
+	var sweepParams []sweep.SweepParam
+	if len(paramsJSON) > 0 && string(paramsJSON) != "null" {
+		var rawParams map[string]interface{}
+		if err := json.Unmarshal(paramsJSON, &rawParams); err != nil {
+			return "", fmt.Errorf("parsing paramsJSON for reference run: %w", err)
+		}
+		for name, value := range rawParams {
+			sweepParams = append(sweepParams, sweep.SweepParam{
+				Name:   name,
+				Values: []interface{}{value},
+			})
+		}
+	}
+
+	req := sweep.SweepRequest{
+		Mode:       "params",
+		DataSource: "pcap",
+		PCAPFile:   pcapFile,
+		Params:     sweepParams,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if err := a.runner.StartWithRequest(ctx, req); err != nil {
+		return "", fmt.Errorf("creating reference run: %w", err)
+	}
+
+	// Poll for completion using a ticker
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("reference run timed out")
+		case <-ticker.C:
+			state := a.runner.GetSweepState()
+			if state.Status == sweep.SweepStatusComplete || state.Status == sweep.SweepStatusError {
+				if len(state.Results) > 0 && state.Results[0].RunID != "" {
+					return state.Results[0].RunID, nil
+				}
+				return "", fmt.Errorf("reference run completed without run ID")
+			}
+		}
+	}
 }

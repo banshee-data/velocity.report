@@ -104,7 +104,8 @@ func CheckAcceptance(result ComboResult, criteria *AcceptanceCriteria) bool {
 // ScoredResult pairs a ComboResult with its objective score.
 type ScoredResult struct {
 	ComboResult
-	Score float64 `json:"score"`
+	Score      float64          `json:"score"`
+	Components *ScoreComponents `json:"score_components,omitempty"`
 }
 
 // RankResults sorts ComboResults by score (highest first) and returns the sorted slice.

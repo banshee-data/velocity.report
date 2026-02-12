@@ -1,7 +1,7 @@
 {
 	"name": "velocity.report-web",
 	"private": true,
-	"version": "0.5.0-pre6",
+	"version": "0.5.0-pre7",
 	"type": "module",
 	"license": "Apache-2.0",
 	"scripts": {

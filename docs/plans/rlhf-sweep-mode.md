@@ -1,5 +1,7 @@
 # RLHF Sweep Mode — Human-in-the-Loop Parameter Tuning
 
+**Status**: Implemented ✅ (Phase 1–6 complete)
+
 ## Summary
 
 A new sweep mode alongside Manual Sweep and Auto-Tune that integrates human

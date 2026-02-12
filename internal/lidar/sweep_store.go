@@ -9,19 +9,26 @@ import (
 
 // SweepRecord represents a persisted sweep or auto-tune run.
 type SweepRecord struct {
-	ID             int64           `json:"id"`
-	SweepID        string          `json:"sweep_id"`
-	SensorID       string          `json:"sensor_id"`
-	Mode           string          `json:"mode"`
-	Status         string          `json:"status"`
-	Request        json.RawMessage `json:"request"`
-	Results        json.RawMessage `json:"results,omitempty"`
-	Charts         json.RawMessage `json:"charts,omitempty"`
-	Recommendation json.RawMessage `json:"recommendation,omitempty"`
-	RoundResults   json.RawMessage `json:"round_results,omitempty"`
-	Error          string          `json:"error,omitempty"`
-	StartedAt      time.Time       `json:"started_at"`
-	CompletedAt    *time.Time      `json:"completed_at,omitempty"`
+	ID                        int64           `json:"id"`
+	SweepID                   string          `json:"sweep_id"`
+	SensorID                  string          `json:"sensor_id"`
+	Mode                      string          `json:"mode"`
+	Status                    string          `json:"status"`
+	Request                   json.RawMessage `json:"request"`
+	Results                   json.RawMessage `json:"results,omitempty"`
+	Charts                    json.RawMessage `json:"charts,omitempty"`
+	Recommendation            json.RawMessage `json:"recommendation,omitempty"`
+	RoundResults              json.RawMessage `json:"round_results,omitempty"`
+	Error                     string          `json:"error,omitempty"`
+	StartedAt                 time.Time       `json:"started_at"`
+	CompletedAt               *time.Time      `json:"completed_at,omitempty"`
+	ObjectiveName             string          `json:"objective_name,omitempty"`
+	ObjectiveVersion          string          `json:"objective_version,omitempty"`
+	TransformPipelineName     string          `json:"transform_pipeline_name,omitempty"`
+	TransformPipelineVersion  string          `json:"transform_pipeline_version,omitempty"`
+	ScoreComponents           json.RawMessage `json:"score_components,omitempty"`
+	RecommendationExplanation json.RawMessage `json:"recommendation_explanation,omitempty"`
+	LabelProvenanceSummary    json.RawMessage `json:"label_provenance_summary,omitempty"`
 }
 
 // SweepStore provides persistence for sweep and auto-tune results.
@@ -38,8 +45,9 @@ func NewSweepStore(db *sql.DB) *SweepStore {
 func (s *SweepStore) InsertSweep(record SweepRecord) error {
 	query := `
 		INSERT INTO lidar_sweeps (
-			sweep_id, sensor_id, mode, status, request, started_at
-		) VALUES (?, ?, ?, ?, ?, ?)
+			sweep_id, sensor_id, mode, status, request, started_at,
+			objective_name, objective_version
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	err := retryOnBusy(func() error {
 		_, err := s.db.Exec(query,
@@ -49,6 +57,8 @@ func (s *SweepStore) InsertSweep(record SweepRecord) error {
 			record.Status,
 			string(record.Request),
 			record.StartedAt.UTC().Format(time.RFC3339),
+			nullStr(record.ObjectiveName),
+			nullStr(record.ObjectiveVersion),
 		)
 		return err
 	})
@@ -59,10 +69,12 @@ func (s *SweepStore) InsertSweep(record SweepRecord) error {
 }
 
 // UpdateSweepResults updates a sweep record with results on completion or error.
-func (s *SweepStore) UpdateSweepResults(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt *time.Time, errMsg string) error {
+func (s *SweepStore) UpdateSweepResults(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt *time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	query := `
 		UPDATE lidar_sweeps
-		SET status = ?, results = ?, recommendation = ?, round_results = ?, error = ?, completed_at = ?
+		SET status = ?, results = ?, recommendation = ?, round_results = ?, error = ?, completed_at = ?,
+		    score_components_json = ?, recommendation_explanation_json = ?, label_provenance_summary_json = ?,
+		    transform_pipeline_name = ?, transform_pipeline_version = ?
 		WHERE sweep_id = ?
 	`
 	var completedAtStr *string
@@ -78,6 +90,11 @@ func (s *SweepStore) UpdateSweepResults(sweepID, status string, results, recomme
 			nullJSON(roundResults),
 			nullStr(errMsg),
 			completedAtStr,
+			nullJSON(scoreComponents),
+			nullJSON(recommendationExplanation),
+			nullJSON(labelProvenanceSummary),
+			nullStr(transformPipelineName),
+			nullStr(transformPipelineVersion),
 			sweepID,
 		)
 		return err
@@ -105,19 +122,25 @@ func (s *SweepStore) UpdateSweepCharts(sweepID string, charts json.RawMessage) e
 func (s *SweepStore) GetSweep(sweepID string) (*SweepRecord, error) {
 	query := `
 		SELECT id, sweep_id, sensor_id, mode, status, request, results, charts,
-		       recommendation, round_results, error, started_at, completed_at
+		       recommendation, round_results, error, started_at, completed_at,
+		       objective_name, objective_version, transform_pipeline_name, transform_pipeline_version,
+		       score_components_json, recommendation_explanation_json, label_provenance_summary_json
 		FROM lidar_sweeps
 		WHERE sweep_id = ?
 	`
 	var rec SweepRecord
 	var request, results, charts, recommendation, roundResults, errMsg sql.NullString
 	var startedAt, completedAt sql.NullString
+	var objectiveName, objectiveVersion, transformPipelineName, transformPipelineVersion sql.NullString
+	var scoreComponents, recommendationExplanation, labelProvenanceSummary sql.NullString
 
 	err := s.db.QueryRow(query, sweepID).Scan(
 		&rec.ID, &rec.SweepID, &rec.SensorID, &rec.Mode, &rec.Status,
 		&request, &results, &charts,
 		&recommendation, &roundResults, &errMsg,
 		&startedAt, &completedAt,
+		&objectiveName, &objectiveVersion, &transformPipelineName, &transformPipelineVersion,
+		&scoreComponents, &recommendationExplanation, &labelProvenanceSummary,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -148,6 +171,21 @@ func (s *SweepStore) GetSweep(sweepID string) (*SweepRecord, error) {
 		}
 		rec.CompletedAt = &t
 	}
+	if objectiveName.Valid {
+		rec.ObjectiveName = objectiveName.String
+	}
+	if objectiveVersion.Valid {
+		rec.ObjectiveVersion = objectiveVersion.String
+	}
+	if transformPipelineName.Valid {
+		rec.TransformPipelineName = transformPipelineName.String
+	}
+	if transformPipelineVersion.Valid {
+		rec.TransformPipelineVersion = transformPipelineVersion.String
+	}
+	rec.ScoreComponents = jsonOrNil(scoreComponents)
+	rec.RecommendationExplanation = jsonOrNil(recommendationExplanation)
+	rec.LabelProvenanceSummary = jsonOrNil(labelProvenanceSummary)
 
 	return &rec, nil
 }
@@ -231,20 +269,22 @@ func (s *SweepStore) DeleteSweep(sweepID string) error {
 }
 
 // SaveSweepStart implements sweep.SweepPersister for the Runner/AutoTuner integration.
-func (s *SweepStore) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time) error {
+func (s *SweepStore) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
 	return s.InsertSweep(SweepRecord{
-		SweepID:   sweepID,
-		SensorID:  sensorID,
-		Mode:      mode,
-		Status:    "running",
-		Request:   request,
-		StartedAt: startedAt,
+		SweepID:          sweepID,
+		SensorID:         sensorID,
+		Mode:             mode,
+		Status:           "running",
+		Request:          request,
+		StartedAt:        startedAt,
+		ObjectiveName:    objectiveName,
+		ObjectiveVersion: objectiveVersion,
 	})
 }
 
 // SaveSweepComplete implements sweep.SweepPersister for the Runner/AutoTuner integration.
-func (s *SweepStore) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string) error {
-	return s.UpdateSweepResults(sweepID, status, results, recommendation, roundResults, &completedAt, errMsg)
+func (s *SweepStore) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
+	return s.UpdateSweepResults(sweepID, status, results, recommendation, roundResults, &completedAt, errMsg, scoreComponents, recommendationExplanation, labelProvenanceSummary, transformPipelineName, transformPipelineVersion)
 }
 
 // nullJSON returns a sql.NullString for a JSON value, treating nil or empty as NULL.

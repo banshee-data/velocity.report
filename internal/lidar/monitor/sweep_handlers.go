@@ -3,6 +3,8 @@ package monitor
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,6 +24,14 @@ type AutoTuneRunner interface {
 	Start(ctx context.Context, req interface{}) error
 	GetState() interface{}
 	Stop()
+}
+
+// RLHFRunner defines the interface for RLHF sweep operations.
+type RLHFRunner interface {
+	Start(ctx context.Context, req interface{}) error
+	GetState() interface{}
+	Stop()
+	ContinueFromLabels(nextDurationMins int, addRound bool) error
 }
 
 // handleSweepStart starts a parameter sweep
@@ -159,6 +169,113 @@ func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
 }
 
+// handleRLHF handles both starting (POST) and getting status (GET) for RLHF sweep.
+func (ws *WebServer) handleRLHF(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		ws.handleRLHFStart(w, r)
+	} else if r.Method == http.MethodGet {
+		ws.handleRLHFStatus(w, r)
+	} else {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+// handleRLHFStart starts an RLHF sweep.
+func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	var req map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if err := ws.rlhfRunner.Start(r.Context(), req); err != nil {
+		if strings.Contains(err.Error(), "already in progress") {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
+}
+
+// handleRLHFStatus returns the current RLHF state.
+func (ws *WebServer) handleRLHFStatus(w http.ResponseWriter, r *http.Request) {
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	state := ws.rlhfRunner.GetState()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
+// handleRLHFContinue signals the RLHF tuner to proceed from labels to sweep.
+func (ws *WebServer) handleRLHFContinue(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	var body struct {
+		NextSweepDurationMins int  `json:"next_sweep_duration_mins"`
+		AddRound              bool `json:"add_round"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		// Allow empty body (io.EOF), but reject malformed JSON.
+		if !errors.Is(err, io.EOF) {
+			ws.writeJSONError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+			return
+		}
+		body.NextSweepDurationMins = 0
+		body.AddRound = false
+	}
+
+	if err := ws.rlhfRunner.ContinueFromLabels(body.NextSweepDurationMins, body.AddRound); err != nil {
+		if strings.Contains(err.Error(), "threshold") {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		} else if strings.Contains(err.Error(), "not in awaiting_labels") {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "continued"})
+}
+
+// handleRLHFStop cancels a running RLHF sweep.
+func (ws *WebServer) handleRLHFStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.rlhfRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+		return
+	}
+
+	ws.rlhfRunner.Stop()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
 // handleListSweeps returns a list of recent sweep records for the current sensor.
 func (ws *WebServer) handleListSweeps(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -277,4 +394,54 @@ func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+}
+
+// handleSweepExplain returns a score explanation for a sweep.
+func (ws *WebServer) handleSweepExplain(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.sweepStore == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
+		return
+	}
+
+	// Extract sweep_id from path: /api/lidar/sweep/explain/{sweep_id}
+	path := strings.TrimPrefix(r.URL.Path, "/api/lidar/sweep/explain/")
+	sweepID := strings.TrimRight(path, "/")
+	if sweepID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing sweep_id in path")
+		return
+	}
+
+	record, err := ws.sweepStore.GetSweep(sweepID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, "failed to get sweep: "+err.Error())
+		return
+	}
+	if record == nil {
+		ws.writeJSONError(w, http.StatusNotFound, "sweep not found")
+		return
+	}
+
+	// Build explanation from stored components
+	var response struct {
+		SweepID                   string          `json:"sweep_id"`
+		ObjectiveName             string          `json:"objective_name,omitempty"`
+		ObjectiveVersion          string          `json:"objective_version,omitempty"`
+		ScoreComponents           json.RawMessage `json:"score_components,omitempty"`
+		RecommendationExplanation json.RawMessage `json:"recommendation_explanation,omitempty"`
+		LabelProvenanceSummary    json.RawMessage `json:"label_provenance_summary,omitempty"`
+	}
+	response.SweepID = record.SweepID
+	response.ObjectiveName = record.ObjectiveName
+	response.ObjectiveVersion = record.ObjectiveVersion
+	response.ScoreComponents = record.ScoreComponents
+	response.RecommendationExplanation = record.RecommendationExplanation
+	response.LabelProvenanceSummary = record.LabelProvenanceSummary
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

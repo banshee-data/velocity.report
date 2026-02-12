@@ -314,7 +314,7 @@ func TestUpdateTrackLabel(t *testing.T) {
 	}
 
 	// Update label
-	if err := store.UpdateTrackLabel("run-label", "track-label", "car", "", 0.95, "user-123"); err != nil {
+	if err := store.UpdateTrackLabel("run-label", "track-label", "car", "", 0.95, "user-123", "human_manual"); err != nil {
 		t.Fatalf("UpdateTrackLabel failed: %v", err)
 	}
 
@@ -415,8 +415,8 @@ func TestGetLabelingProgress(t *testing.T) {
 	}
 
 	// Label some tracks
-	store.UpdateTrackLabel("run-progress", "track-1", "car", "", 0.9, "user-1")
-	store.UpdateTrackLabel("run-progress", "track-2", "pedestrian", "", 0.8, "user-1")
+	store.UpdateTrackLabel("run-progress", "track-1", "car", "", 0.9, "user-1", "human_manual")
+	store.UpdateTrackLabel("run-progress", "track-2", "pedestrian", "", 0.8, "user-1", "human_manual")
 
 	// Get progress
 	total, labeled, byClass, err := store.GetLabelingProgress("run-progress")
@@ -462,7 +462,7 @@ func TestGetUnlabeledTracks(t *testing.T) {
 	}
 
 	// Label one track
-	store.UpdateTrackLabel("run-unlabeled", "track-2", "car", "", 0.9, "user-1")
+	store.UpdateTrackLabel("run-unlabeled", "track-2", "car", "", 0.9, "user-1", "human_manual")
 
 	// Get unlabeled tracks
 	unlabeled, err := store.GetUnlabeledTracks("run-unlabeled", 10)
