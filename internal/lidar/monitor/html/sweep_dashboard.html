@@ -49,7 +49,7 @@
       <summary style="cursor: pointer; font-size: 0.9em; color: var(--accent)">Why this recommendation?</summary>
       <div id="recommendation-explanation-body" style="margin-top: 8px; font-size: 0.85em; padding: 8px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px">
         <div id="rec-explain-top" style="margin-bottom: 8px"></div>
-        <table id="rec-explain-table" style="width: 100%; border-collapse: collapse">
+        <table id="rec-explain-table" style="width: 100%%; border-collapse: collapse">
           <thead>
             <tr style="text-align: left; border-bottom: 1px solid var(--border)">
               <th style="padding: 3px 6px">Metric</th>
@@ -83,7 +83,7 @@
       <span class="label">Label Coverage:</span>
       <span id="explanation-label-pct"></span>
     </div>
-    <table id="explanation-components-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em">
+    <table id="explanation-components-table" style="width: 100%%; border-collapse: collapse; font-size: 0.9em">
       <thead>
         <tr style="text-align: left; border-bottom: 1px solid var(--border)">
           <th style="padding: 4px 8px">Metric</th>
@@ -170,12 +170,12 @@
               height: 36px;
             ">
           <button id="btn-start" class="btn btn-primary" onclick="handleStart()"
-            style="width: 100%; position: absolute; top: 0; left: 0">
+            style="width: 100%%; position: absolute; top: 0; left: 0">
             Start Sweep
           </button>
           <button id="btn-stop" class="btn btn-danger" onclick="handleStop()" style="
                 display: none;
-                width: 100%;
+                width: 100%%;
                 position: absolute;
                 top: 0;
                 left: 0;
@@ -184,7 +184,7 @@
           </button>
           <div id="stopping-indicator" style="
                 display: none;
-                width: 100%;
+                width: 100%%;
                 text-align: center;
                 padding: 8px;
                 background: #ffe6e6;
@@ -373,9 +373,9 @@
             <small class="field-desc">Comma-separated labelling durations per round.</small>
           </label>
           <label>
-            <span>Label threshold (%)</span>
+            <span>Label threshold (%%)</span>
             <input id="rlhf_threshold" type="number" value="90" min="10" max="100" step="5" />
-            <small class="field-desc">Minimum % of tracks labelled before sweep (default 90).</small>
+            <small class="field-desc">Minimum %% of tracks labelled before sweep (default 90).</small>
           </label>
           <label>
             <span>Carry over labels</span>
@@ -402,12 +402,12 @@
         <div id="rlhf-label-progress" style="display: none">
           <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
             <span id="rlhf-label-count">0/0 labelled</span>
-            <span id="rlhf-label-pct">0%</span>
+            <span id="rlhf-label-pct">0%%</span>
           </div>
           <div class="progress-bar-bg" style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
-            <div id="rlhf-label-bar" style="height: 100%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s"></div>
-            <div id="rlhf-threshold-marker" style="position: absolute; top: 0; height: 100%; border-left: 2px dashed #cc0000; left: 90%"
-              title="90% threshold"></div>
+            <div id="rlhf-label-bar" style="height: 100%%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s"></div>
+            <div id="rlhf-threshold-marker" style="position: absolute; top: 0; height: 100%%; border-left: 2px dashed #cc0000; left: 90%%"
+              title="90%% threshold"></div>
           </div>
           <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center">
             <span id="rlhf-countdown" style="font-size: 12px; color: var(--fg-muted)">Deadline: —</span>
@@ -462,7 +462,7 @@
           another source) and apply directly to the system. Only recognised parameter keys
           are sent; metric keys are filtered out automatically.
         </small>
-        <textarea id="paste-params-json" rows="8" style="width: 100%; font-family: monospace; font-size: 0.85em; resize: vertical"
+        <textarea id="paste-params-json" rows="8" style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical"
           placeholder='{"foreground_dbscan_eps": 0.3, "measurement_noise": 0.9, ...}'></textarea>
         <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
           <button class="btn-sm btn-add" id="btn-paste-apply" onclick="applyPastedParams()">
