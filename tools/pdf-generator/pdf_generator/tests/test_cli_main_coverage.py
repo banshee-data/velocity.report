@@ -606,6 +606,21 @@ class TestGenerateAllCharts(unittest.TestCase):
         self.assertTrue(mock_ts.called)
 
 
+def _make_sample_metric():
+    """Return a single-row metric list for use in process_date_range tests."""
+    return [{
+        "start_time": "2025-01-15T12:00:00-08:00",
+        "count": 10,
+        "mean_speed": 30.0,
+        "p50_speed": 28.0,
+        "p85_speed": 35.0,
+        "p98_speed": 42.0,
+        "max_speed": 50.0,
+        "min_speed": 15.0,
+        "std_dev": 5.0,
+    }]
+
+
 class TestProcessDateRange(unittest.TestCase):
     """Test process_date_range with mocked dependencies."""
 
@@ -636,9 +651,7 @@ class TestProcessDateRange(unittest.TestCase):
 
         mock_client = MagicMock()
         mock_fetch_granular.return_value = (
-            [{"start_time": "2025-01-15T12:00:00-08:00", "count": 10, "mean_speed": 30.0,
-              "p50_speed": 28.0, "p85_speed": 35.0, "p98_speed": 42.0, "max_speed": 50.0,
-              "min_speed": 15.0, "std_dev": 5.0}],
+            _make_sample_metric(),
             None,
             None,
             None,
@@ -700,9 +713,7 @@ class TestProcessDateRange(unittest.TestCase):
         mock_client = MagicMock()
         # First call is main range, subsequent calls are comparison
         mock_fetch_granular.return_value = (
-            [{"start_time": "2025-01-15T12:00:00-08:00", "count": 10, "mean_speed": 30.0,
-              "p50_speed": 28.0, "p85_speed": 35.0, "p98_speed": 42.0, "max_speed": 50.0,
-              "min_speed": 15.0, "std_dev": 5.0}],
+            _make_sample_metric(),
             None,
             None,
             MagicMock(),
@@ -743,9 +754,7 @@ class TestProcessDateRange(unittest.TestCase):
 
         mock_client = MagicMock()
         mock_fetch_granular.return_value = (
-            [{"start_time": "2025-01-15T12:00:00-08:00", "count": 10, "mean_speed": 30.0,
-              "p50_speed": 28.0, "p85_speed": 35.0, "p98_speed": 42.0, "max_speed": 50.0,
-              "min_speed": 15.0, "std_dev": 5.0}],
+            _make_sample_metric(),
             None,
             None,
             None,
@@ -978,9 +987,7 @@ class TestProcessDateRangeDebugPaths(unittest.TestCase):
 
         mock_client = MagicMock()
         mock_fetch_granular.return_value = (
-            [{"start_time": "2025-01-15T12:00:00-08:00", "count": 10, "mean_speed": 30.0,
-              "p50_speed": 28.0, "p85_speed": 35.0, "p98_speed": 42.0, "max_speed": 50.0,
-              "min_speed": 15.0, "std_dev": 5.0}],
+            _make_sample_metric(),
             None,
             None,
             MagicMock(),
