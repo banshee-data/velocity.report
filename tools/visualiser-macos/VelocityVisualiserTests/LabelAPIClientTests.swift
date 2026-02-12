@@ -288,6 +288,11 @@ func makeMockLabelClient() -> (LabelAPIClient, URLSession) {
 
 final class LabelAPIClientHTTPTests: XCTestCase {
 
+    override func tearDown() {
+        MockURLProtocol.requestHandler = nil
+        super.tearDown()
+    }
+
     func testCreateLabelSuccess() async throws {
         let (client, _) = makeMockLabelClient()
 
@@ -337,7 +342,11 @@ final class LabelAPIClientHTTPTests: XCTestCase {
                 as? [String: Any]
             {
                 XCTAssertEqual(json["end_timestamp_ns"] as? Int64, 2_000_000_000)
-                XCTAssertEqual(json["confidence"] as? Double, 0.95, accuracy: 0.01)
+                if let confidence = json["confidence"] as? Double {
+                    XCTAssertEqual(confidence, 0.95, accuracy: 0.01)
+                } else {
+                    XCTFail("Expected confidence field in request body")
+                }
                 XCTAssertEqual(json["source_file"] as? String, "test.vrlog")
             }
             let response = HTTPURLResponse(

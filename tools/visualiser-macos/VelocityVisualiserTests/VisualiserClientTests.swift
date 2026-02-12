@@ -394,13 +394,10 @@ struct RecordingStatusTests {
         }
     }
 
-    func testConnectSkippedWhenAlreadyConnected() async throws {
+    func testDisconnectSafeWhenNotConnected() async throws {
         let client = VisualiserClient(address: "localhost:50051")
-        // Manually set connected state (normally done by connect)
-        // Can't easily set _isConnected directly, but calling connect on non-running server
-        // will fail at transport level, so just test the guard logic
 
-        // Calling disconnect when not connected should be safe
+        // Calling disconnect when not connected should be a no-op and remain safe
         client.disconnect()
         XCTAssertFalse(client.isConnected)
     }

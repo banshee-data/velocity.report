@@ -847,11 +847,11 @@ import XCTest
         let client = VisualiserClient(address: "localhost:50051")
 
         delegate.clientDidConnect(client)
-        await Task.yield()
 
-        // Give the async main actor task a moment to execute
-        try await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertTrue(state.isConnected)
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(block: { _, _ in state.isConnected }),
+            object: nil)
+        await fulfillment(of: [expectation], timeout: 2.0)
         XCTAssertNil(state.connectionError)
         XCTAssertFalse(state.replayFinished)
     }
@@ -864,10 +864,11 @@ import XCTest
 
         let error = NSError(domain: "test", code: -1, userInfo: nil)
         delegate.clientDidDisconnect(client, error: error)
-        await Task.yield()
 
-        try await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertFalse(state.isConnected)
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(block: { _, _ in !state.isConnected }),
+            object: nil)
+        await fulfillment(of: [expectation], timeout: 2.0)
         XCTAssertEqual(state.connectionError, "Connection lost")
     }
 
@@ -878,10 +879,11 @@ import XCTest
         let client = VisualiserClient(address: "localhost:50051")
 
         delegate.clientDidDisconnect(client, error: nil)
-        await Task.yield()
 
-        try await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertFalse(state.isConnected)
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(block: { _, _ in !state.isConnected }),
+            object: nil)
+        await fulfillment(of: [expectation], timeout: 2.0)
         // No error should be set
         XCTAssertNil(state.connectionError)
     }
@@ -896,10 +898,11 @@ import XCTest
         frame.timestampNanos = 500_000_000
 
         delegate.client(client, didReceiveFrame: frame)
-        await Task.yield()
 
-        try await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertEqual(state.currentFrameID, 99)
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(block: { _, _ in state.currentFrameID == 99 }),
+            object: nil)
+        await fulfillment(of: [expectation], timeout: 2.0)
     }
 
     func testDelegateDidFinishStream() async throws {
@@ -910,10 +913,11 @@ import XCTest
         let client = VisualiserClient(address: "localhost:50051")
 
         delegate.clientDidFinishStream(client)
-        await Task.yield()
 
-        try await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertTrue(state.replayFinished)
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(block: { _, _ in state.replayFinished }),
+            object: nil)
+        await fulfillment(of: [expectation], timeout: 2.0)
         XCTAssertTrue(state.isPaused)
         XCTAssertEqual(state.replayProgress, 1.0)
     }

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import MetalKit
 import SwiftUI
 import Testing
 import XCTest
