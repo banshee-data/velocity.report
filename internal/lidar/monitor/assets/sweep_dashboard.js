@@ -1365,13 +1365,17 @@ function pollAutoTuneStatus() {
         }
         // Fetch and display score explanation for the latest sweep
         fetch("/api/lidar/sweeps?limit=1")
-          .then(function(resp) { return resp.json(); })
-          .then(function(sweeps) {
+          .then(function (resp) {
+            return resp.json();
+          })
+          .then(function (sweeps) {
             if (sweeps && sweeps.length > 0) {
               fetchSweepExplanation(sweeps[0].sweep_id);
             }
           })
-          .catch(function(err) { console.warn("Could not fetch latest sweep:", err); });
+          .catch(function (err) {
+            console.warn("Could not fetch latest sweep:", err);
+          });
       } else if (st.status === "error") {
         stopPolling();
       }
@@ -3192,7 +3196,9 @@ function handleStartRLHF() {
     return;
   }
 
-  var durationsStr = (document.getElementById("rlhf_durations").value || "60").trim();
+  var durationsStr = (
+    document.getElementById("rlhf_durations").value || "60"
+  ).trim();
   var durations = durationsStr.split(",").map(function (s) {
     return parseInt(s.trim(), 10) || 60;
   });
@@ -3202,10 +3208,12 @@ function handleStartRLHF() {
     num_rounds: parseInt(document.getElementById("rlhf_rounds").value, 10) || 3,
     round_durations: durations,
     params: params,
-    values_per_param: parseInt(document.getElementById("values_per_param").value, 10) || 5,
+    values_per_param:
+      parseInt(document.getElementById("values_per_param").value, 10) || 5,
     top_k: parseInt(document.getElementById("top_k").value, 10) || 3,
     min_label_threshold:
-      (parseInt(document.getElementById("rlhf_threshold").value, 10) || 90) / 100,
+      (parseInt(document.getElementById("rlhf_threshold").value, 10) || 90) /
+      100,
     carry_over_labels: document.getElementById("rlhf_carryover").checked,
   };
 
@@ -3258,17 +3266,25 @@ function pollRLHFStatus() {
       // Phase transition notifications
       if (st.status !== lastRLHFPhase) {
         if (st.status === "awaiting_labels") {
-          fireNotification("Labels needed — Round " + st.current_round,
-            "RLHF sweep is waiting for track labels.");
+          fireNotification(
+            "Labels needed — Round " + st.current_round,
+            "RLHF sweep is waiting for track labels.",
+          );
         } else if (st.status === "completed") {
-          fireNotification("RLHF Sweep Complete",
-            "Parameter optimisation finished.");
+          fireNotification(
+            "RLHF Sweep Complete",
+            "Parameter optimisation finished.",
+          );
         }
         lastRLHFPhase = st.status;
       }
 
       // Stop polling when complete or failed
-      if (st.status === "completed" || st.status === "failed" || st.status === "idle") {
+      if (
+        st.status === "completed" ||
+        st.status === "failed" ||
+        st.status === "idle"
+      ) {
         stopRLHFPolling();
         document.getElementById("btn-start").style.display = "block";
         document.getElementById("btn-stop").style.display = "none";
@@ -3288,8 +3304,16 @@ function renderRLHFState(st) {
   var sweepSection = document.getElementById("rlhf-sweep-progress");
 
   statusText.innerHTML =
-    "<strong>Round " + st.current_round + " / " + st.total_rounds + "</strong> — " +
-    "<span class=\"status-badge status-" + st.status + "\">" + st.status.replace(/_/g, " ") + "</span>";
+    "<strong>Round " +
+    st.current_round +
+    " / " +
+    st.total_rounds +
+    "</strong> — " +
+    '<span class="status-badge status-' +
+    st.status +
+    '">' +
+    st.status.replace(/_/g, " ") +
+    "</span>";
 
   if (st.status === "awaiting_labels") {
     labelSection.style.display = "block";
@@ -3301,15 +3325,16 @@ function renderRLHFState(st) {
         lp.labelled + "/" + lp.total + " labelled";
       document.getElementById("rlhf-label-pct").textContent =
         lp.progress_pct.toFixed(1) + "%";
-      document.getElementById("rlhf-label-bar").style.width = lp.progress_pct + "%";
+      document.getElementById("rlhf-label-bar").style.width =
+        lp.progress_pct + "%";
 
       var continueBtn = document.getElementById("rlhf-continue-btn");
-      continueBtn.disabled = lp.progress_pct < (st.min_label_threshold * 100);
+      continueBtn.disabled = lp.progress_pct < st.min_label_threshold * 100;
     }
 
     // Set threshold marker
     var marker = document.getElementById("rlhf-threshold-marker");
-    marker.style.left = (st.min_label_threshold * 100) + "%";
+    marker.style.left = st.min_label_threshold * 100 + "%";
     marker.title = (st.min_label_threshold * 100).toFixed(0) + "% threshold";
 
     // Countdown
@@ -3333,7 +3358,6 @@ function renderRLHFState(st) {
       document.getElementById("rlhf-tracks-link").href =
         "/lidar/tracks?run_id=" + encodeURIComponent(st.reference_run_id);
     }
-
   } else if (st.status === "running_sweep") {
     labelSection.style.display = "none";
     sweepSection.style.display = "block";
@@ -3341,15 +3365,22 @@ function renderRLHFState(st) {
     if (st.auto_tune_state) {
       var ats = st.auto_tune_state;
       document.getElementById("rlhf-sweep-info").textContent =
-        "Sweep: " + ats.completed_combos + "/" + ats.total_combos + " combos " +
-        "(round " + ats.round + "/" + ats.total_rounds + ")";
+        "Sweep: " +
+        ats.completed_combos +
+        "/" +
+        ats.total_combos +
+        " combos " +
+        "(round " +
+        ats.round +
+        "/" +
+        ats.total_rounds +
+        ")";
     }
-
   } else if (st.status === "running_reference") {
     labelSection.style.display = "none";
     sweepSection.style.display = "block";
-    document.getElementById("rlhf-sweep-info").textContent = "Creating reference run…";
-
+    document.getElementById("rlhf-sweep-info").textContent =
+      "Creating reference run…";
   } else if (st.status === "completed") {
     labelSection.style.display = "none";
     sweepSection.style.display = "none";
@@ -3358,9 +3389,15 @@ function renderRLHFState(st) {
     if (st.recommendation) {
       var recCard = document.getElementById("recommendation-card");
       recCard.style.display = "block";
-      var html = "<table class=\"results-table\"><thead><tr><th>Param</th><th>Value</th></tr></thead><tbody>";
+      var html =
+        '<table class="results-table"><thead><tr><th>Param</th><th>Value</th></tr></thead><tbody>';
       for (var key in st.recommendation) {
-        html += "<tr><td>" + key + "</td><td>" + st.recommendation[key] + "</td></tr>";
+        html +=
+          "<tr><td>" +
+          key +
+          "</td><td>" +
+          st.recommendation[key] +
+          "</td></tr>";
       }
       html += "</tbody></table>";
       document.getElementById("recommendation-content").innerHTML = html;
@@ -3368,18 +3405,24 @@ function renderRLHFState(st) {
 
     // Fetch and display score explanation for the latest sweep
     fetch("/api/lidar/sweeps?limit=1")
-      .then(function(resp) { return resp.json(); })
-      .then(function(sweeps) {
+      .then(function (resp) {
+        return resp.json();
+      })
+      .then(function (sweeps) {
         if (sweeps && sweeps.length > 0) {
           fetchSweepExplanation(sweeps[0].sweep_id);
         }
       })
-      .catch(function(err) { console.warn("Could not fetch latest sweep:", err); });
-
+      .catch(function (err) {
+        console.warn("Could not fetch latest sweep:", err);
+      });
   } else if (st.status === "failed") {
     labelSection.style.display = "none";
     sweepSection.style.display = "none";
-    statusText.innerHTML += " — <span style=\"color:#cc0000\">" + (st.error || "Unknown error") + "</span>";
+    statusText.innerHTML +=
+      ' — <span style="color:#cc0000">' +
+      (st.error || "Unknown error") +
+      "</span>";
   }
 
   // Round history
@@ -3389,13 +3432,18 @@ function renderRLHFState(st) {
     var historyHtml = "";
     for (var i = 0; i < st.round_history.length; i++) {
       var rnd = st.round_history[i];
-      historyHtml += "<div style=\"padding: 6px 0; border-bottom: 1px solid var(--card-border)\">";
+      historyHtml +=
+        '<div style="padding: 6px 0; border-bottom: 1px solid var(--card-border)">';
       historyHtml += "<strong>Round " + rnd.round + "</strong>";
-      if (rnd.best_score) historyHtml += " — Score: " + rnd.best_score.toFixed(4);
-      if (rnd.labels_carried_over > 0) historyHtml += " (↻ " + rnd.labels_carried_over + " labels)";
+      if (rnd.best_score)
+        historyHtml += " — Score: " + rnd.best_score.toFixed(4);
+      if (rnd.labels_carried_over > 0)
+        historyHtml += " (↻ " + rnd.labels_carried_over + " labels)";
       if (rnd.reference_run_id) {
-        historyHtml += " <a href=\"/lidar/tracks?run_id=" + encodeURIComponent(rnd.reference_run_id) +
-          "\" target=\"_blank\" style=\"font-size:12px\">tracks →</a>";
+        historyHtml +=
+          ' <a href="/lidar/tracks?run_id=' +
+          encodeURIComponent(rnd.reference_run_id) +
+          '" target="_blank" style="font-size:12px">tracks →</a>';
       }
       historyHtml += "</div>";
     }
@@ -3404,7 +3452,8 @@ function renderRLHFState(st) {
 }
 
 function handleRLHFContinue() {
-  var nextDuration = parseInt(document.getElementById("rlhf-next-duration").value, 10) || 0;
+  var nextDuration =
+    parseInt(document.getElementById("rlhf-next-duration").value, 10) || 0;
   var addRound = document.getElementById("rlhf-add-round").checked;
 
   fetch("/api/lidar/sweep/rlhf/continue", {
@@ -3439,14 +3488,18 @@ function populateRLHFScenes() {
     select.innerHTML = mainSelect.innerHTML;
   } else {
     fetch("/api/lidar/scenes")
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        return r.json();
+      })
       .then(function (scenes) {
-        select.innerHTML = "<option value=\"\">-- Select Scene --</option>";
+        select.innerHTML = '<option value="">-- Select Scene --</option>';
         if (scenes && scenes.length) {
           for (var i = 0; i < scenes.length; i++) {
             var opt = document.createElement("option");
             opt.value = scenes[i].scene_id;
-            opt.textContent = scenes[i].scene_id + (scenes[i].description ? " - " + scenes[i].description : "");
+            opt.textContent =
+              scenes[i].scene_id +
+              (scenes[i].description ? " - " + scenes[i].description : "");
             select.appendChild(opt);
           }
         }
@@ -3483,7 +3536,10 @@ function renderExplanation(data) {
   var nameEl = document.getElementById("explanation-objective-name");
   var versionEl = document.getElementById("explanation-objective-version");
   if (nameEl) nameEl.textContent = data.objective_name || "—";
-  if (versionEl) versionEl.textContent = data.objective_version ? " (" + data.objective_version + ")" : "";
+  if (versionEl)
+    versionEl.textContent = data.objective_version
+      ? " (" + data.objective_version + ")"
+      : "";
 
   // Parse score_components if it's a string
   var components = data.score_components;
@@ -3497,9 +3553,10 @@ function renderExplanation(data) {
 
   var compositeEl = document.getElementById("explanation-composite-score");
   if (compositeEl) {
-    compositeEl.textContent = components && components.composite_score != null
-      ? components.composite_score.toFixed(4)
-      : "—";
+    compositeEl.textContent =
+      components && components.composite_score != null
+        ? components.composite_score.toFixed(4)
+        : "—";
   }
 
   // Top contributors
@@ -3516,7 +3573,8 @@ function renderExplanation(data) {
   var labelEl = document.getElementById("explanation-label-pct");
   if (labelEl) {
     if (components && components.label_coverage_confidence != null) {
-      labelEl.textContent = (components.label_coverage_confidence * 100).toFixed(1) + "%";
+      labelEl.textContent =
+        (components.label_coverage_confidence * 100).toFixed(1) + "%";
     } else {
       labelEl.textContent = "—";
     }
@@ -3532,9 +3590,15 @@ function renderExplanation(data) {
       var weight = weights[m.key];
       var row = document.createElement("tr");
       row.innerHTML =
-        '<td style="padding: 4px 8px">' + m.label + "</td>" +
-        '<td style="padding: 4px 8px">' + (val != null ? val.toFixed(4) : "—") + "</td>" +
-        '<td style="padding: 4px 8px">' + (weight != null ? weight.toFixed(2) : "—") + "</td>";
+        '<td style="padding: 4px 8px">' +
+        m.label +
+        "</td>" +
+        '<td style="padding: 4px 8px">' +
+        (val != null ? val.toFixed(4) : "—") +
+        "</td>" +
+        '<td style="padding: 4px 8px">' +
+        (weight != null ? weight.toFixed(2) : "—") +
+        "</td>";
       tbody.appendChild(row);
     });
   }
@@ -3545,13 +3609,19 @@ function renderExplanation(data) {
 // ---- Browser Notifications ----
 
 function requestNotificationPermission() {
-  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+  if (
+    typeof Notification !== "undefined" &&
+    Notification.permission === "default"
+  ) {
     Notification.requestPermission();
   }
 }
 
 function fireNotification(title, body) {
-  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+  if (
+    typeof Notification !== "undefined" &&
+    Notification.permission === "granted"
+  ) {
     var n = new Notification(title, { body: body, icon: "/favicon.ico" });
     n.onclick = function () {
       window.focus();

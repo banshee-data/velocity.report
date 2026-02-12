@@ -3642,7 +3642,9 @@ describe('RLHF Functions', () => {
 			sel.appendChild(opt);
 			sel.value = 'scene-1';
 			handleStartRLHF();
-			expect(document.getElementById('error-box')!.textContent).toContain('Add at least one parameter');
+			expect(document.getElementById('error-box')!.textContent).toContain(
+				'Add at least one parameter'
+			);
 		});
 
 		it('sends POST request with correct payload', async () => {
@@ -3852,7 +3854,9 @@ describe('RLHF Functions', () => {
 			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(false);
 			expect(document.getElementById('rlhf-countdown')!.textContent).toContain('remaining');
 			expect(document.getElementById('rlhf-carried-count')!.textContent).toContain('3');
-			expect(document.getElementById('rlhf-tracks-link')!.getAttribute('href')).toContain('run-abc');
+			expect(document.getElementById('rlhf-tracks-link')!.getAttribute('href')).toContain(
+				'run-abc'
+			);
 		});
 
 		it('disables continue button when below threshold', () => {
@@ -3904,7 +3908,9 @@ describe('RLHF Functions', () => {
 			});
 
 			expect(document.getElementById('recommendation-card')!.style.display).toBe('block');
-			expect(document.getElementById('recommendation-content')!.innerHTML).toContain('noise_relative');
+			expect(document.getElementById('recommendation-content')!.innerHTML).toContain(
+				'noise_relative'
+			);
 			expect(document.getElementById('rlhf-status-text')!.innerHTML).toContain('complete');
 		});
 
@@ -3916,7 +3922,9 @@ describe('RLHF Functions', () => {
 				error: 'Sensor disconnected'
 			});
 
-			expect(document.getElementById('rlhf-status-text')!.innerHTML).toContain('Sensor disconnected');
+			expect(document.getElementById('rlhf-status-text')!.innerHTML).toContain(
+				'Sensor disconnected'
+			);
 		});
 
 		it('renders round history', () => {
@@ -4063,7 +4071,9 @@ describe('RLHF Functions', () => {
 
 			expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/explain/sw-123');
 			expect(document.getElementById('explanation-card')!.style.display).toBe('');
-			expect(document.getElementById('explanation-objective-name')!.textContent).toBe('ground_truth');
+			expect(document.getElementById('explanation-objective-name')!.textContent).toBe(
+				'ground_truth'
+			);
 		});
 
 		it('handles non-ok response', async () => {
@@ -4101,10 +4111,14 @@ describe('RLHF Functions', () => {
 				}
 			});
 
-			expect(document.getElementById('explanation-objective-name')!.textContent).toBe('ground_truth');
+			expect(document.getElementById('explanation-objective-name')!.textContent).toBe(
+				'ground_truth'
+			);
 			expect(document.getElementById('explanation-objective-version')!.textContent).toContain('v2');
 			expect(document.getElementById('explanation-composite-score')!.textContent).toContain('0.91');
-			expect(document.getElementById('explanation-top-list')!.textContent).toContain('detection_rate');
+			expect(document.getElementById('explanation-top-list')!.textContent).toContain(
+				'detection_rate'
+			);
 			expect(document.getElementById('explanation-label-pct')!.textContent).toContain('88');
 		});
 
@@ -4197,7 +4211,10 @@ describe('RLHF Functions', () => {
 			(global as any).Notification = MockNotif;
 
 			fireNotification('Test Title', 'Test Body');
-			expect(MockNotif).toHaveBeenCalledWith('Test Title', { body: 'Test Body', icon: '/favicon.ico' });
+			expect(MockNotif).toHaveBeenCalledWith('Test Title', {
+				body: 'Test Body',
+				icon: '/favicon.ico'
+			});
 
 			// Test onclick handler
 			const notification = instances[0];

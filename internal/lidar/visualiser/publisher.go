@@ -229,17 +229,20 @@ func (p *Publisher) SetVRLogRate(rate float32) {
 }
 
 // SeekVRLog seeks to a specific frame index in VRLOG replay.
-func (p *Publisher) SeekVRLog(frameIdx uint64) error {
+// Returns the current frame index after seeking (captured atomically under lock).
+func (p *Publisher) SeekVRLog(frameIdx uint64) (uint64, error) {
 	p.vrlogMu.Lock()
 	defer p.vrlogMu.Unlock()
 
 	if p.vrlogReader == nil {
-		return fmt.Errorf("VRLOG replay not active")
+		return 0, fmt.Errorf("VRLOG replay not active")
 	}
 
 	if err := p.vrlogReader.Seek(frameIdx); err != nil {
-		return fmt.Errorf("seek failed: %w", err)
+		return 0, fmt.Errorf("seek failed: %w", err)
 	}
+
+	currentFrame := p.vrlogReader.CurrentFrame()
 
 	// Signal the replay loop to reset timing
 	select {
@@ -247,21 +250,24 @@ func (p *Publisher) SeekVRLog(frameIdx uint64) error {
 	default:
 	}
 
-	return nil
+	return currentFrame, nil
 }
 
 // SeekVRLogTimestamp seeks to a specific timestamp in VRLOG replay.
-func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) error {
+// Returns the current frame index after seeking (captured atomically under lock).
+func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
 	p.vrlogMu.Lock()
 	defer p.vrlogMu.Unlock()
 
 	if p.vrlogReader == nil {
-		return fmt.Errorf("VRLOG replay not active")
+		return 0, fmt.Errorf("VRLOG replay not active")
 	}
 
 	if err := p.vrlogReader.SeekToTimestamp(timestampNs); err != nil {
-		return fmt.Errorf("seek failed: %w", err)
+		return 0, fmt.Errorf("seek failed: %w", err)
 	}
+
+	currentFrame := p.vrlogReader.CurrentFrame()
 
 	// Signal the replay loop to reset timing
 	select {
@@ -269,7 +275,7 @@ func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) error {
 	default:
 	}
 
-	return nil
+	return currentFrame, nil
 }
 
 // vrlogReplayLoop reads frames from the VRLOG reader and publishes them.

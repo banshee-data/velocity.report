@@ -277,7 +277,7 @@ func TestPublisher_VRLogReplay_Seek(t *testing.T) {
 	defer pub.StopVRLogReplay()
 
 	// Seek by frame index
-	if err := pub.SeekVRLog(5); err != nil {
+	if _, err := pub.SeekVRLog(5); err != nil {
 		t.Errorf("SeekVRLog failed: %v", err)
 	}
 
@@ -287,7 +287,7 @@ func TestPublisher_VRLogReplay_Seek(t *testing.T) {
 
 	// Seek by timestamp
 	targetTime := baseTime + int64(3)*int64(time.Second)
-	if err := pub.SeekVRLogTimestamp(targetTime); err != nil {
+	if _, err := pub.SeekVRLogTimestamp(targetTime); err != nil {
 		t.Errorf("SeekVRLogTimestamp failed: %v", err)
 	}
 
@@ -308,11 +308,11 @@ func TestPublisher_VRLogReplay_SeekErrors(t *testing.T) {
 	defer pub.Stop()
 
 	// Seek without active replay should fail
-	if err := pub.SeekVRLog(5); err == nil {
+	if _, err := pub.SeekVRLog(5); err == nil {
 		t.Error("expected error when seeking without active replay")
 	}
 
-	if err := pub.SeekVRLogTimestamp(123456); err == nil {
+	if _, err := pub.SeekVRLogTimestamp(123456); err == nil {
 		t.Error("expected error when seeking by timestamp without active replay")
 	}
 }

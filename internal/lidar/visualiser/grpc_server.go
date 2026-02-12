@@ -627,20 +627,15 @@ func (s *Server) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.PlaybackSta
 
 		switch target := req.Target.(type) {
 		case *pb.SeekRequest_TimestampNs:
-			err = s.publisher.SeekVRLogTimestamp(target.TimestampNs)
+			currentFrame, err = s.publisher.SeekVRLogTimestamp(target.TimestampNs)
 		case *pb.SeekRequest_FrameId:
-			err = s.publisher.SeekVRLog(target.FrameId)
+			currentFrame, err = s.publisher.SeekVRLog(target.FrameId)
 		default:
 			return nil, status.Error(codes.InvalidArgument, "seek target not specified")
 		}
 
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "seek failed: %v", err)
-		}
-
-		reader := s.publisher.VRLogReader()
-		if reader != nil {
-			currentFrame = reader.CurrentFrame()
 		}
 
 		return &pb.PlaybackStatus{
