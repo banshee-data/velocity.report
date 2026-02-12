@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/db"
 )
 
 // Coverage tests for server.go - focused on uncovered paths
@@ -1446,4 +1449,679 @@ func TestHandleTimeline_ValidRequest(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected 200, got %d", w.Code)
 	}
+}
+
+// TestGenerateReport_FullFlowCommandFails exercises the generateReport code path
+// from site creation through config building and python command execution failure.
+// This covers defaults, map fields, compare dates, and command execution error.
+func TestGenerateReport_FullFlowCommandFails(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+// Create a site with map fields populated to exercise lines 1006-1027
+lat := 51.5
+lng := -0.1
+angle := 45.0
+neLat := 51.6
+neLng := 0.0
+swLat := 51.4
+swLng := -0.2
+site := &db.Site{
+Name:       "Test Site",
+Location:   "Test Location",
+Surveyor:   "Tester",
+Contact:    "test@test.com",
+Latitude:   &lat,
+Longitude:  &lng,
+MapAngle:   &angle,
+BBoxNELat:  &neLat,
+BBoxNELng:  &neLng,
+BBoxSWLat:  &swLat,
+BBoxSWLng:  &swLng,
+IncludeMap: true,
+}
+if err := dbInst.CreateSite(site); err != nil {
+t.Fatalf("create site: %v", err)
+}
+// Create active config period
+notes := "test config"
+if err := dbInst.CreateSiteConfigPeriod(&db.SiteConfigPeriod{
+SiteID:             site.ID,
+EffectiveStartUnix: 0,
+IsActive:           true,
+Notes:              &notes,
+}); err != nil {
+t.Fatalf("create config period: %v", err)
+}
+
+// Set PDF_GENERATOR_PYTHON to a failing command
+oldPy := os.Getenv("PDF_GENERATOR_PYTHON")
+os.Setenv("PDF_GENERATOR_PYTHON", "/usr/bin/false")
+defer func() {
+if oldPy == "" {
+os.Unsetenv("PDF_GENERATOR_PYTHON")
+} else {
+os.Setenv("PDF_GENERATOR_PYTHON", oldPy)
+}
+}()
+
+body, _ := json.Marshal(map[string]interface{}{
+"start_date":         "2025-01-01",
+"end_date":           "2025-01-31",
+"site_id":            site.ID,
+"compare_start_date": "2024-12-01",
+"compare_end_date":   "2024-12-31",
+})
+req := httptest.NewRequest(http.MethodPost, "/api/generate-report", bytes.NewReader(body))
+w := httptest.NewRecorder()
+server.generateReport(w, req)
+
+// Should fail at command execution
+if w.Code != http.StatusInternalServerError {
+t.Errorf("Expected 500 from failed command, got %d: %s", w.Code, w.Body.String())
+}
+}
+
+// TestGenerateReport_DefaultSiteFields exercises the generateReport code path
+// where site has empty location/surveyor/contact to trigger the default values.
+func TestGenerateReport_DefaultSiteFields(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+// Create a site with minimal fields (location/surveyor/contact empty)
+site := &db.Site{
+Name:     "Bare Site",
+Location: "",
+Surveyor: "",
+Contact:  "",
+}
+if err := dbInst.CreateSite(site); err != nil {
+t.Fatalf("create site: %v", err)
+}
+notes := "test"
+if err := dbInst.CreateSiteConfigPeriod(&db.SiteConfigPeriod{
+SiteID:             site.ID,
+EffectiveStartUnix: 0,
+IsActive:           true,
+Notes:              &notes,
+}); err != nil {
+t.Fatalf("create config period: %v", err)
+}
+
+oldPy := os.Getenv("PDF_GENERATOR_PYTHON")
+os.Setenv("PDF_GENERATOR_PYTHON", "/usr/bin/false")
+defer func() {
+if oldPy == "" {
+os.Unsetenv("PDF_GENERATOR_PYTHON")
+} else {
+os.Setenv("PDF_GENERATOR_PYTHON", oldPy)
+}
+}()
+
+body, _ := json.Marshal(map[string]interface{}{
+"start_date": "2025-01-01",
+"end_date":   "2025-01-31",
+"site_id":    site.ID,
+})
+req := httptest.NewRequest(http.MethodPost, "/api/generate-report", bytes.NewReader(body))
+w := httptest.NewRecorder()
+server.generateReport(w, req)
+
+if w.Code != http.StatusInternalServerError {
+t.Errorf("Expected 500, got %d: %s", w.Code, w.Body.String())
+}
+}
+
+// TestShowRadarObjectStats_DBError tests the DB error path in showRadarObjectStats.
+func TestShowRadarObjectStats_DBError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+fname := t.Name() + ".db"
+dbInst.Close()
+
+req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000", nil)
+w := httptest.NewRecorder()
+server.showRadarObjectStats(w, req)
+
+if w.Code != http.StatusInternalServerError {
+t.Errorf("Expected 500, got %d", w.Code)
+}
+
+cleanupClosedDB(t, fname)
+}
+
+// TestShowRadarObjectStats_InvalidMinSpeed tests the invalid min_speed path.
+func TestShowRadarObjectStats_InvalidMinSpeed(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000&min_speed=abc", nil)
+w := httptest.NewRecorder()
+server.showRadarObjectStats(w, req)
+
+if w.Code != http.StatusBadRequest {
+t.Errorf("Expected 400, got %d", w.Code)
+}
+}
+
+// TestShowRadarObjectStats_InvalidHistBucketSize tests invalid hist_bucket_size.
+func TestShowRadarObjectStats_BadHistBucketSize(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000&hist_bucket_size=abc", nil)
+w := httptest.NewRecorder()
+server.showRadarObjectStats(w, req)
+
+if w.Code != http.StatusBadRequest {
+t.Errorf("Expected 400, got %d", w.Code)
+}
+}
+
+// TestShowRadarObjectStats_InvalidHistMax tests invalid hist_max.
+func TestShowRadarObjectStats_BadHistMax(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodGet, "/api/radar-stats?start=1000&end=2000&hist_max=abc", nil)
+w := httptest.NewRecorder()
+server.showRadarObjectStats(w, req)
+
+if w.Code != http.StatusBadRequest {
+t.Errorf("Expected 400, got %d", w.Code)
+}
+}
+
+// TestDownloadReport_ZipNotAvailable tests downloadReport when zip not available.
+func TestDownloadReport_ZipMissing(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+report := &db.SiteReport{
+SiteID:    0,
+StartDate: "2025-01-01",
+EndDate:   "2025-01-31",
+Filepath:  "output/test/report.pdf",
+Filename:  "report.pdf",
+RunID:     "test-run",
+Timezone:  "UTC",
+Units:     "mph",
+Source:    "radar_objects",
+}
+if err := dbInst.CreateSiteReport(report); err != nil {
+t.Fatalf("create report: %v", err)
+}
+
+req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=zip", nil)
+w := httptest.NewRecorder()
+server.downloadReport(w, req, report.ID, "zip")
+
+if w.Code != http.StatusNotFound {
+t.Errorf("Expected 404 for missing zip, got %d", w.Code)
+}
+}
+
+// TestDownloadReport_FileNotFound tests downloadReport when file doesn't exist on disk.
+func TestDownloadReport_FileNotFound(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+zipPath := "output/test/report.zip"
+zipName := "report.zip"
+report := &db.SiteReport{
+SiteID:      0,
+StartDate:   "2025-01-01",
+EndDate:     "2025-01-31",
+Filepath:    "output/test/report.pdf",
+Filename:    "report.pdf",
+ZipFilepath: &zipPath,
+ZipFilename: &zipName,
+RunID:       "test-run",
+Timezone:    "UTC",
+Units:       "mph",
+Source:      "radar_objects",
+}
+if err := dbInst.CreateSiteReport(report); err != nil {
+t.Fatalf("create report: %v", err)
+}
+
+// Try PDF download - file won't exist (may get 403 from path validation or 404)
+req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=pdf", nil)
+w := httptest.NewRecorder()
+server.downloadReport(w, req, report.ID, "pdf")
+
+if w.Code != http.StatusNotFound && w.Code != http.StatusForbidden {
+t.Errorf("Expected 404 or 403 for missing PDF file, got %d", w.Code)
+}
+
+// Try ZIP download - file won't exist (may get 403 from path validation or 404)
+req2 := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=zip", nil)
+w2 := httptest.NewRecorder()
+server.downloadReport(w2, req2, report.ID, "zip")
+
+if w2.Code != http.StatusNotFound && w2.Code != http.StatusForbidden {
+t.Errorf("Expected 404 or 403 for missing ZIP file, got %d", w2.Code)
+}
+}
+
+// TestHandleDatabaseStats_Success tests handleDatabaseStats on a healthy DB.
+func TestHandleDatabaseStats_Healthy(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodGet, "/api/database-stats", nil)
+w := httptest.NewRecorder()
+server.handleDatabaseStats(w, req)
+
+if w.Code != http.StatusOK {
+t.Errorf("Expected 200, got %d: %s", w.Code, w.Body.String())
+}
+}
+
+// TestListEvents_ValidWithParams tests listEvents with valid units and timezone.
+func TestListEvents_ValidWithParams(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodGet, "/api/events?units=kph&timezone=Europe/London", nil)
+w := httptest.NewRecorder()
+server.listEvents(w, req)
+
+if w.Code != http.StatusOK {
+t.Errorf("Expected 200, got %d", w.Code)
+}
+}
+
+// TestGetPDFGeneratorDir_EnvOverride tests getPDFGeneratorDir with env var set.
+func TestGetPDFGeneratorDir_EnvOverride(t *testing.T) {
+old := os.Getenv("PDF_GENERATOR_DIR")
+os.Setenv("PDF_GENERATOR_DIR", "/tmp/test-pdf-dir")
+defer func() {
+if old == "" {
+os.Unsetenv("PDF_GENERATOR_DIR")
+} else {
+os.Setenv("PDF_GENERATOR_DIR", old)
+}
+}()
+
+dir, err := getPDFGeneratorDir()
+if err != nil {
+t.Fatalf("Unexpected error: %v", err)
+}
+if dir != "/tmp/test-pdf-dir" {
+t.Errorf("Expected /tmp/test-pdf-dir, got %s", dir)
+}
+}
+
+// TestListSiteConfigPeriods_NegativeSiteID tests negative site_id handling.
+func TestListSiteConfigPeriods_NegativeSiteID(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodGet, "/api/site-config-periods?site_id=-1", nil)
+w := httptest.NewRecorder()
+server.listSiteConfigPeriods(w, req)
+
+if w.Code != http.StatusBadRequest {
+t.Errorf("Expected 400, got %d", w.Code)
+}
+}
+
+// TestUpsertSiteConfigPeriod_InvalidJSON tests upsertSiteConfigPeriod with bad JSON.
+func TestUpsertSiteConfigPeriod_BadJSON(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodPost, "/api/site-config-periods", strings.NewReader("{bad"))
+w := httptest.NewRecorder()
+server.upsertSiteConfigPeriod(w, req)
+
+if w.Code != http.StatusBadRequest {
+t.Errorf("Expected 400, got %d", w.Code)
+}
+}
+
+// TestHandleSiteConfigPeriods_MethodNotAllowed tests DELETE on site config periods.
+func TestHandleSiteConfigPeriods_DeleteNotAllowed(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodDelete, "/api/site-config-periods", nil)
+w := httptest.NewRecorder()
+server.handleSiteConfigPeriods(w, req)
+
+if w.Code != http.StatusMethodNotAllowed {
+t.Errorf("Expected 405, got %d", w.Code)
+}
+}
+
+// TestGenerateReport_PythonDiscovery exercises the python binary discovery path
+// in generateReport when PDF_GENERATOR_PYTHON is not set.
+func TestGenerateReport_PythonDiscovery(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+site := &db.Site{
+Name:     "Discovery Site",
+Location: "Loc",
+Surveyor: "S",
+Contact:  "C",
+}
+if err := dbInst.CreateSite(site); err != nil {
+t.Fatalf("create site: %v", err)
+}
+notes := "test"
+if err := dbInst.CreateSiteConfigPeriod(&db.SiteConfigPeriod{
+SiteID:             site.ID,
+EffectiveStartUnix: 0,
+IsActive:           true,
+Notes:              &notes,
+}); err != nil {
+t.Fatalf("create config period: %v", err)
+}
+
+// Clear PDF_GENERATOR_PYTHON to exercise the discovery code path
+oldPy := os.Getenv("PDF_GENERATOR_PYTHON")
+os.Unsetenv("PDF_GENERATOR_PYTHON")
+defer func() {
+if oldPy != "" {
+os.Setenv("PDF_GENERATOR_PYTHON", oldPy)
+}
+}()
+
+body, _ := json.Marshal(map[string]interface{}{
+"start_date": "2025-01-01",
+"end_date":   "2025-01-31",
+"site_id":    site.ID,
+})
+req := httptest.NewRequest(http.MethodPost, "/api/generate-report", bytes.NewReader(body))
+w := httptest.NewRecorder()
+server.generateReport(w, req)
+
+// Will fail at PDF generation (no data) but exercises the path discovery code
+if w.Code == http.StatusOK {
+t.Error("Expected non-200 status from report generation without data")
+}
+}
+
+// TestDownloadReport_SuccessfulPDFDownload exercises the successful download path
+// by creating a real file on disk.
+func TestDownloadReport_SuccessfulPDFDownload(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+// Create a temp directory structure for the PDF
+tmpDir := t.TempDir()
+outputDir := filepath.Join(tmpDir, "output", "test-run")
+os.MkdirAll(outputDir, 0755)
+
+// Create a fake PDF file
+pdfContent := []byte("%PDF-1.4 fake content")
+pdfFilename := "report.pdf"
+pdfPath := filepath.Join(outputDir, pdfFilename)
+os.WriteFile(pdfPath, pdfContent, 0644)
+
+// Create a fake ZIP file
+zipContent := []byte("PK fake zip")
+zipFilename := "report.zip"
+zipPath := filepath.Join(outputDir, zipFilename)
+os.WriteFile(zipPath, zipContent, 0644)
+
+// Use relative paths from tmpDir
+relPdfPath := "output/test-run/report.pdf"
+relZipPath := "output/test-run/report.zip"
+
+report := &db.SiteReport{
+SiteID:      0,
+StartDate:   "2025-01-01",
+EndDate:     "2025-01-31",
+Filepath:    relPdfPath,
+Filename:    pdfFilename,
+ZipFilepath: &relZipPath,
+ZipFilename: &zipFilename,
+RunID:       "test-run",
+Timezone:    "UTC",
+Units:       "mph",
+Source:      "radar_objects",
+}
+if err := dbInst.CreateSiteReport(report); err != nil {
+t.Fatalf("create report: %v", err)
+}
+
+// Set PDF_GENERATOR_DIR to point to our temp directory
+old := os.Getenv("PDF_GENERATOR_DIR")
+os.Setenv("PDF_GENERATOR_DIR", tmpDir)
+defer func() {
+if old == "" {
+os.Unsetenv("PDF_GENERATOR_DIR")
+} else {
+os.Setenv("PDF_GENERATOR_DIR", old)
+}
+}()
+
+// Download PDF
+req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=pdf", nil)
+w := httptest.NewRecorder()
+server.downloadReport(w, req, report.ID, "pdf")
+
+if w.Code != http.StatusOK {
+t.Errorf("Expected 200 for PDF download, got %d: %s", w.Code, w.Body.String())
+}
+if w.Body.Len() != len(pdfContent) {
+t.Errorf("Expected %d bytes, got %d", len(pdfContent), w.Body.Len())
+}
+
+// Download ZIP
+req2 := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=zip", nil)
+w2 := httptest.NewRecorder()
+server.downloadReport(w2, req2, report.ID, "zip")
+
+if w2.Code != http.StatusOK {
+t.Errorf("Expected 200 for ZIP download, got %d: %s", w2.Code, w2.Body.String())
+}
+}
+
+// TestListSiteReports_Success tests listSiteReports happy path.
+func TestListSiteReports_HappyPath(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
+if err := dbInst.CreateSite(site); err != nil {
+t.Fatalf("create site: %v", err)
+}
+
+req := httptest.NewRequest(http.MethodGet, "/api/reports/site/1", nil)
+w := httptest.NewRecorder()
+server.listSiteReports(w, req, site.ID)
+
+if w.Code != http.StatusOK {
+t.Errorf("Expected 200, got %d", w.Code)
+}
+}
+
+// TestListAllReports_Success tests listAllReports happy path.
+func TestListAllReports_HappyPath(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+req := httptest.NewRequest(http.MethodGet, "/api/reports", nil)
+w := httptest.NewRecorder()
+server.listAllReports(w, req)
+
+if w.Code != http.StatusOK {
+t.Errorf("Expected 200, got %d", w.Code)
+}
+}
+
+// failWriter is a ResponseWriter that fails on Write to trigger json.Encode errors.
+type failWriter struct {
+header     http.Header
+statusCode int
+writeFail  bool
+}
+
+func (fw *failWriter) Header() http.Header {
+if fw.header == nil {
+fw.header = make(http.Header)
+}
+return fw.header
+}
+
+func (fw *failWriter) Write(b []byte) (int, error) {
+if fw.writeFail {
+return 0, fmt.Errorf("simulated write failure")
+}
+return len(b), nil
+}
+
+func (fw *failWriter) WriteHeader(statusCode int) {
+fw.statusCode = statusCode
+}
+
+// TestListSites_EncodeError tests listSites json encode error path.
+func TestListSites_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/sites/", nil)
+server.listSites(fw, req)
+}
+
+// TestGetSite_EncodeError tests getSite json encode error path.
+func TestGetSite_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+// Create a site first
+site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
+dbInst.CreateSite(site)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/sites/1", nil)
+server.getSite(fw, req, site.ID)
+}
+
+// TestCreateSite_EncodeError tests createSite json encode error path.
+func TestCreateSite_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+fw := &failWriter{writeFail: true}
+body := `{"name": "Test", "location": "Loc", "surveyor": "S", "contact": "C"}`
+req := httptest.NewRequest(http.MethodPost, "/api/sites/", strings.NewReader(body))
+server.createSite(fw, req)
+}
+
+// TestUpdateSite_EncodeError tests updateSite json encode error path.
+func TestUpdateSite_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
+dbInst.CreateSite(site)
+
+fw := &failWriter{writeFail: true}
+body := `{"name": "Updated", "location": "Updated Loc"}`
+req := httptest.NewRequest(http.MethodPut, "/api/sites/1", strings.NewReader(body))
+server.updateSite(fw, req, site.ID)
+}
+
+// TestListSiteConfigPeriods_EncodeError tests listSiteConfigPeriods json encode error.
+func TestListSiteConfigPeriods_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
+dbInst.CreateSite(site)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/site-config-periods?site_id=1", nil)
+server.listSiteConfigPeriods(fw, req)
+}
+
+// TestHandleTimeline_EncodeError tests handleTimeline json encode error.
+func TestHandleTimeline_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
+dbInst.CreateSite(site)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/timeline?site_id=1", nil)
+server.handleTimeline(fw, req)
+}
+
+// TestListEvents_EncodeError tests listEvents json encode error.
+func TestListEvents_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/events", nil)
+server.listEvents(fw, req)
+}
+
+// TestListAllReports_EncodeError tests listAllReports json encode error.
+func TestListAllReports_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/reports", nil)
+server.listAllReports(fw, req)
+}
+
+// TestListSiteReports_EncodeError tests listSiteReports json encode error.
+func TestListSiteReports_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/reports/site/1", nil)
+server.listSiteReports(fw, req, 1)
+}
+
+// TestGetReport_EncodeError tests getReport json encode error.
+func TestGetReport_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+report := &db.SiteReport{
+SiteID:    0,
+StartDate: "2025-01-01",
+EndDate:   "2025-01-31",
+Filepath:  "output/test/report.pdf",
+Filename:  "report.pdf",
+RunID:     "test-run",
+Timezone:  "UTC",
+Units:     "mph",
+Source:    "radar_objects",
+}
+dbInst.CreateSiteReport(report)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/reports/1", nil)
+server.getReport(fw, req, report.ID)
+}
+
+// TestHandleDatabaseStats_EncodeError tests handleDatabaseStats json encode error.
+func TestHandleDatabaseStats_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/database-stats", nil)
+server.handleDatabaseStats(fw, req)
+}
+
+// TestShowConfig_EncodeError tests showConfig json encode error.
+func TestShowConfig_EncodeError(t *testing.T) {
+server, dbInst := setupTestServer(t)
+defer cleanupTestServer(t, dbInst)
+
+fw := &failWriter{writeFail: true}
+req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+server.showConfig(fw, req)
 }
