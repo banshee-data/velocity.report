@@ -108,8 +108,6 @@ const {
 	pollRLHFStatus,
 	renderRLHFState,
 	handleRLHFContinue,
-	populateRLHFScenes,
-	onRLHFSceneSelected,
 	requestNotificationPermission,
 	fireNotification,
 	fetchSweepExplanation,
@@ -231,7 +229,6 @@ function setupDOM(): void {
 		'<button id="btn-paste-apply">Apply</button>',
 		// RLHF elements
 		'<button id="mode-rlhf"></button>',
-		'<select id="rlhf_scene_select"><option value="">-- Select Scene --</option></select>',
 		'<input id="rlhf_rounds" type="number" value="3" />',
 		'<input id="rlhf_durations" type="text" value="60" />',
 		'<input id="rlhf_threshold" type="number" value="90" />',
@@ -3642,7 +3639,7 @@ describe('RLHF Functions', () => {
 		});
 
 		it('auto-populates default params when none added', () => {
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			opt.textContent = 'Scene 1';
@@ -3664,7 +3661,7 @@ describe('RLHF Functions', () => {
 
 		it('sends POST request with correct payload', async () => {
 			// Add scene selection
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			sel.appendChild(opt);
@@ -3708,7 +3705,7 @@ describe('RLHF Functions', () => {
 		});
 
 		it('shows error on fetch failure', async () => {
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			sel.appendChild(opt);
@@ -3748,7 +3745,7 @@ describe('RLHF Functions', () => {
 				'<label class="param-field"><span>End</span><input id="pend-97" type="number" value="1" /></label></div>'
 			].join('');
 			paramRows.appendChild(paramRow);
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			opt.text = 'Test Scene';
@@ -4039,67 +4036,6 @@ describe('RLHF Functions', () => {
 			await flushPromises();
 
 			expect(document.getElementById('error-box')!.textContent).toContain('Not enough labels');
-		});
-	});
-
-	// populateRLHFScenes
-	describe('populateRLHFScenes', () => {
-		it('copies options from main scene select', () => {
-			const mainSel = document.getElementById('scene_select')!;
-			const opt = document.createElement('option');
-			opt.value = 'sc-1';
-			opt.textContent = 'Test Scene';
-			mainSel.appendChild(opt);
-
-			populateRLHFScenes();
-
-			const rlhfSel = document.getElementById('rlhf_scene_select')!;
-			expect(rlhfSel.innerHTML).toContain('Test Scene');
-		});
-
-		it('fetches scenes from API when main select missing', async () => {
-			// Remove the main scene_select from DOM
-			const mainSel = document.getElementById('scene_select');
-			if (mainSel) mainSel.remove();
-
-			global.fetch = jest.fn().mockResolvedValue({
-				ok: true,
-				json: () =>
-					Promise.resolve([
-						{ scene_id: 'sc-1', description: 'First' },
-						{ scene_id: 'sc-2', description: '' }
-					])
-			});
-
-			populateRLHFScenes();
-			await flushPromises();
-
-			const sel = document.getElementById('rlhf_scene_select')!;
-			expect(sel.innerHTML).toContain('sc-1');
-			expect(sel.innerHTML).toContain('First');
-		});
-
-		it('handles fetch error gracefully', async () => {
-			const mainSel = document.getElementById('scene_select');
-			if (mainSel) mainSel.remove();
-
-			global.fetch = jest.fn().mockRejectedValue(new Error('Offline'));
-			populateRLHFScenes();
-			await flushPromises();
-			// Should not throw
-		});
-
-		it('returns early when no select element', () => {
-			const sel = document.getElementById('rlhf_scene_select');
-			if (sel) sel.remove();
-			populateRLHFScenes(); // Should not throw
-		});
-	});
-
-	// onRLHFSceneSelected
-	describe('onRLHFSceneSelected', () => {
-		it('is a no-op function that does not throw', () => {
-			expect(() => onRLHFSceneSelected()).not.toThrow();
 		});
 	});
 

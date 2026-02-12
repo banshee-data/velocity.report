@@ -451,17 +451,16 @@ function setMode(mode) {
   } else if (mode === "rlhf") {
     document.body.classList.add("rlhf-mode");
     requestNotificationPermission();
-    populateRLHFScenes();
+    loadSweepScenes();
   }
 
-  // Hide the "Scene" data source option in RLHF mode (RLHF has its own scene selector)
-  var sceneOpt = document.querySelector('#data_source option[value="scene"]');
-  if (sceneOpt) sceneOpt.style.display = mode === "rlhf" ? "none" : "";
-  // If data_source is currently "scene" and we switched to RLHF, reset to "live"
-  var dsEl = document.getElementById("data_source");
-  if (mode === "rlhf" && dsEl && dsEl.value === "scene") {
-    dsEl.value = "live";
-    togglePCAP();
+  // In RLHF mode, force data source to "scene" (RLHF always uses scenes)
+  if (mode === "rlhf") {
+    var dsEl = document.getElementById("data_source");
+    if (dsEl) {
+      dsEl.value = "scene";
+      togglePCAP();
+    }
   }
 
   // Update button text
@@ -3032,8 +3031,7 @@ if (typeof module !== "undefined" && module.exports) {
     pollRLHFStatus: pollRLHFStatus,
     renderRLHFState: renderRLHFState,
     handleRLHFContinue: handleRLHFContinue,
-    populateRLHFScenes: populateRLHFScenes,
-    onRLHFSceneSelected: onRLHFSceneSelected,
+
     requestNotificationPermission: requestNotificationPermission,
     fireNotification: fireNotification,
     init: init,
@@ -3188,7 +3186,8 @@ var DEFAULT_RLHF_PARAMS = [
 ];
 
 function handleStartRLHF() {
-  var sceneSelect = document.getElementById("rlhf_scene_select");
+  // RLHF uses the scene selector from the Data Source card
+  var sceneSelect = document.getElementById("scene_select");
   var sceneId = sceneSelect ? sceneSelect.value : "";
   if (!sceneId) {
     showError("Select a scene before starting RLHF sweep.");
@@ -3572,40 +3571,6 @@ function handleRLHFContinue() {
     .catch(function (e) {
       showError(e.message);
     });
-}
-
-function populateRLHFScenes() {
-  var select = document.getElementById("rlhf_scene_select");
-  if (!select) return;
-
-  // Copy options from scene_select if it exists
-  var mainSelect = document.getElementById("scene_select");
-  if (mainSelect) {
-    select.innerHTML = mainSelect.innerHTML;
-  } else {
-    fetch("/api/lidar/scenes")
-      .then(function (r) {
-        return r.json();
-      })
-      .then(function (scenes) {
-        select.innerHTML = '<option value="">-- Select Scene --</option>';
-        if (scenes && scenes.length) {
-          for (var i = 0; i < scenes.length; i++) {
-            var opt = document.createElement("option");
-            opt.value = scenes[i].scene_id;
-            opt.textContent =
-              scenes[i].scene_id +
-              (scenes[i].description ? " - " + scenes[i].description : "");
-            select.appendChild(opt);
-          }
-        }
-      })
-      .catch(function () {});
-  }
-}
-
-function onRLHFSceneSelected() {
-  // Currently no additional action needed on scene selection
 }
 
 // ---- Score Explanation Functions ----
