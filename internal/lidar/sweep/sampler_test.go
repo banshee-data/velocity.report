@@ -3,25 +3,21 @@ package sweep
 import (
 	"bytes"
 	"encoding/csv"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 )
 
 func TestNewSampler(t *testing.T) {
-	client := monitor.NewClient(nil, "http://localhost:8080", "sensor1")
+	backend := defaultMockBackend()
 	buckets := []string{"1", "2", "4"}
 	interval := 100 * time.Millisecond
 
-	s := NewSampler(client, buckets, interval)
+	s := NewSampler(backend, buckets, interval)
 
-	if s.Client != client {
-		t.Error("Client mismatch")
+	if s.Backend != backend {
+		t.Error("Backend mismatch")
 	}
 	if len(s.Buckets) != 3 {
 		t.Errorf("Expected 3 buckets, got %d", len(s.Buckets))
@@ -32,33 +28,28 @@ func TestNewSampler(t *testing.T) {
 }
 
 func TestSampler_Sample_Success(t *testing.T) {
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if strings.Contains(r.URL.Path, "acceptance") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+	var fetchCount int
+	backend := &mockBackend{
+		FetchAcceptanceFn: func() (map[string]interface{}, error) {
+			fetchCount++
+			return map[string]interface{}{
 				"AcceptCounts":    []interface{}{100.0, 200.0, 300.0},
 				"RejectCounts":    []interface{}{10.0, 20.0, 30.0},
 				"Totals":          []interface{}{110.0, 220.0, 330.0},
 				"AcceptanceRates": []interface{}{0.909, 0.909, 0.909},
-			})
-		} else if strings.Contains(r.URL.Path, "grid_status") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"background_count": 150.0,
-			})
-		} else if strings.Contains(r.URL.Path, "tracks/metrics") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"active_tracks":      3.0,
-				"mean_alignment_deg": 5.2,
-				"misalignment_ratio": 0.1,
-			})
-		}
-	}))
-	defer server.Close()
-
-	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+			}, nil
+		},
+		gridStatus: map[string]interface{}{
+			"background_count": 150.0,
+		},
+		trackingMetrics: map[string]interface{}{
+			"active_tracks":      3.0,
+			"mean_alignment_deg": 5.2,
+			"misalignment_ratio": 0.1,
+		},
+	}
 	buckets := []string{"1", "2", "4"}
-	s := NewSampler(client, buckets, 10*time.Millisecond)
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 	cfg := SampleConfig{
 		Noise:      0.1,
@@ -78,31 +69,25 @@ func TestSampler_Sample_Success(t *testing.T) {
 	if results[0].ActiveTracks != 3 {
 		t.Errorf("Expected active tracks 3, got %d", results[0].ActiveTracks)
 	}
-	if callCount != 6 { // 2 acceptance + 2 grid_status + 2 tracking metrics
-		t.Errorf("Expected 6 calls, got %d", callCount)
+	if fetchCount != 2 {
+		t.Errorf("Expected 2 acceptance fetches, got %d", fetchCount)
 	}
 }
 
 func TestSampler_Sample_WithRawWriter(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "acceptance") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"AcceptCounts":    []interface{}{100.0},
-				"RejectCounts":    []interface{}{10.0},
-				"Totals":          []interface{}{110.0},
-				"AcceptanceRates": []interface{}{0.909},
-			})
-		} else if strings.Contains(r.URL.Path, "grid_status") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"background_count": 150.0,
-			})
-		}
-	}))
-	defer server.Close()
-
-	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	backend := &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"AcceptCounts":    []interface{}{100.0},
+			"RejectCounts":    []interface{}{10.0},
+			"Totals":          []interface{}{110.0},
+			"AcceptanceRates": []interface{}{0.909},
+		},
+		gridStatus: map[string]interface{}{
+			"background_count": 150.0,
+		},
+	}
 	buckets := []string{"1"}
-	s := NewSampler(client, buckets, 10*time.Millisecond)
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 	var buf bytes.Buffer
 	rawW := csv.NewWriter(&buf)
@@ -125,14 +110,13 @@ func TestSampler_Sample_WithRawWriter(t *testing.T) {
 }
 
 func TestSampler_Sample_AcceptanceError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	backend := &mockBackend{
+		FetchAcceptanceFn: func() (map[string]interface{}, error) {
+			return nil, fmt.Errorf("server error")
+		},
+	}
 	buckets := []string{"1"}
-	s := NewSampler(client, buckets, 10*time.Millisecond)
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 	cfg := SampleConfig{
 		Iterations: 2,
@@ -147,25 +131,19 @@ func TestSampler_Sample_AcceptanceError(t *testing.T) {
 }
 
 func TestSampler_Sample_GridStatusError(t *testing.T) {
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "acceptance") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"AcceptCounts":    []interface{}{100.0},
-				"RejectCounts":    []interface{}{10.0},
-				"Totals":          []interface{}{110.0},
-				"AcceptanceRates": []interface{}{0.909},
-			})
-		} else if strings.Contains(r.URL.Path, "grid_status") {
-			callCount++
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-	}))
-	defer server.Close()
-
-	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	backend := &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"AcceptCounts":    []interface{}{100.0},
+			"RejectCounts":    []interface{}{10.0},
+			"Totals":          []interface{}{110.0},
+			"AcceptanceRates": []interface{}{0.909},
+		},
+		FetchGridStatusFn: func() (map[string]interface{}, error) {
+			return nil, fmt.Errorf("server error")
+		},
+	}
 	buckets := []string{"1"}
-	s := NewSampler(client, buckets, 10*time.Millisecond)
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 	cfg := SampleConfig{
 		Iterations: 1,
@@ -330,23 +308,16 @@ func TestWriteSummary_ShortAcceptanceRates(t *testing.T) {
 }
 
 func TestSampler_Sample_OverallAcceptCalculation(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "acceptance") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"AcceptCounts":    []interface{}{100.0, 200.0},
-				"RejectCounts":    []interface{}{0.0, 0.0},
-				"Totals":          []interface{}{100.0, 200.0},
-				"AcceptanceRates": []interface{}{1.0, 1.0},
-			})
-		} else if strings.Contains(r.URL.Path, "grid_status") {
-			json.NewEncoder(w).Encode(map[string]interface{}{})
-		}
-	}))
-	defer server.Close()
-
-	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	backend := &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"AcceptCounts":    []interface{}{100.0, 200.0},
+			"RejectCounts":    []interface{}{0.0, 0.0},
+			"Totals":          []interface{}{100.0, 200.0},
+			"AcceptanceRates": []interface{}{1.0, 1.0},
+		},
+	}
 	buckets := []string{"1", "2"}
-	s := NewSampler(client, buckets, 10*time.Millisecond)
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 	cfg := SampleConfig{
 		Iterations: 1,
@@ -364,23 +335,16 @@ func TestSampler_Sample_OverallAcceptCalculation(t *testing.T) {
 }
 
 func TestSampler_Sample_ZeroTotals(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "acceptance") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"AcceptCounts":    []interface{}{0.0},
-				"RejectCounts":    []interface{}{0.0},
-				"Totals":          []interface{}{0.0},
-				"AcceptanceRates": []interface{}{0.0},
-			})
-		} else if strings.Contains(r.URL.Path, "grid_status") {
-			json.NewEncoder(w).Encode(map[string]interface{}{})
-		}
-	}))
-	defer server.Close()
-
-	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	backend := &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"AcceptCounts":    []interface{}{0.0},
+			"RejectCounts":    []interface{}{0.0},
+			"Totals":          []interface{}{0.0},
+			"AcceptanceRates": []interface{}{0.0},
+		},
+	}
 	buckets := []string{"1"}
-	s := NewSampler(client, buckets, 10*time.Millisecond)
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 	cfg := SampleConfig{
 		Iterations: 1,
@@ -411,25 +375,19 @@ func TestSampler_Sample_BackgroundCountTypes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if strings.Contains(r.URL.Path, "acceptance") {
-					json.NewEncoder(w).Encode(map[string]interface{}{
-						"AcceptCounts":    []interface{}{100.0},
-						"RejectCounts":    []interface{}{10.0},
-						"Totals":          []interface{}{110.0},
-						"AcceptanceRates": []interface{}{0.909},
-					})
-				} else if strings.Contains(r.URL.Path, "grid_status") {
-					json.NewEncoder(w).Encode(map[string]interface{}{
-						"background_count": tc.value,
-					})
-				}
-			}))
-			defer server.Close()
-
-			client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+			backend := &mockBackend{
+				acceptanceMetrics: map[string]interface{}{
+					"AcceptCounts":    []interface{}{100.0},
+					"RejectCounts":    []interface{}{10.0},
+					"Totals":          []interface{}{110.0},
+					"AcceptanceRates": []interface{}{0.909},
+				},
+				gridStatus: map[string]interface{}{
+					"background_count": tc.value,
+				},
+			}
 			buckets := []string{"1"}
-			s := NewSampler(client, buckets, 10*time.Millisecond)
+			s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 			cfg := SampleConfig{
 				Iterations: 1,
@@ -448,26 +406,19 @@ func TestSampler_Sample_BackgroundCountTypes(t *testing.T) {
 }
 
 func TestSampler_Sample_ExcessiveIterationsClamp(t *testing.T) {
-	// Test that excessive iterations are clamped to prevent DoS
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "acceptance") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"AcceptCounts":    []interface{}{100.0},
-				"RejectCounts":    []interface{}{10.0},
-				"Totals":          []interface{}{110.0},
-				"AcceptanceRates": []interface{}{0.909},
-			})
-		} else if strings.Contains(r.URL.Path, "grid_status") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"background_count": 100.0,
-			})
-		}
-	}))
-	defer server.Close()
-
-	client := monitor.NewClient(server.Client(), server.URL, "sensor1")
+	backend := &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"AcceptCounts":    []interface{}{100.0},
+			"RejectCounts":    []interface{}{10.0},
+			"Totals":          []interface{}{110.0},
+			"AcceptanceRates": []interface{}{0.909},
+		},
+		gridStatus: map[string]interface{}{
+			"background_count": 100.0,
+		},
+	}
 	buckets := []string{"1"}
-	s := NewSampler(client, buckets, 10*time.Millisecond)
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
 
 	testCases := []struct {
 		name              string
