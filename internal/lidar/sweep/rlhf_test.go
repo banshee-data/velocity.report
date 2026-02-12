@@ -225,15 +225,17 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("empty params returns error", func(t *testing.T) {
+	t.Run("empty params auto-populates defaults", func(t *testing.T) {
 		tuner := NewRLHFTuner(nil)
 		err := tuner.Start(context.Background(), RLHFSweepRequest{
 			SceneID:   "scene1",
 			NumRounds: 1,
 			Params:    []SweepParam{},
 		})
-		if err == nil || !strings.Contains(err.Error(), "params") {
-			t.Errorf("expected params error, got %v", err)
+		// Should NOT error — defaults are auto-populated.
+		// It may fail later (e.g. no scene getter) but not on param validation.
+		if err != nil && strings.Contains(err.Error(), "params cannot be empty") {
+			t.Errorf("empty params should auto-populate, got error: %v", err)
 		}
 	})
 

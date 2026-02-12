@@ -112,6 +112,20 @@ type RLHFRound struct {
 	BestScoreComponents *ScoreComponents   `json:"best_score_components,omitempty"`
 }
 
+// defaultRLHFParams returns the default set of sweep parameters for RLHF
+// when the caller does not specify any. These cover the most impactful
+// background-subtraction and foreground-clustering knobs.
+func defaultRLHFParams() []SweepParam {
+	return []SweepParam{
+		{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.2},
+		{Name: "closeness_multiplier", Type: "float64", Start: 1.0, End: 20.0},
+		{Name: "background_update_fraction", Type: "float64", Start: 0.005, End: 0.1},
+		{Name: "safety_margin_meters", Type: "float64", Start: 0, End: 2.0},
+		{Name: "foreground_min_cluster_points", Type: "int", Start: 0, End: 20},
+		{Name: "foreground_dbscan_eps", Type: "float64", Start: 0, End: 2.0},
+	}
+}
+
 // RLHFTuner orchestrates human-in-the-loop parameter optimisation.
 type RLHFTuner struct {
 	mu sync.RWMutex
@@ -227,8 +241,9 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	if req.NumRounds < 1 || req.NumRounds > 10 {
 		return fmt.Errorf("num_rounds must be between 1 and 10, got %d", req.NumRounds)
 	}
+	// Auto-populate default RLHF sweep params if none provided.
 	if len(req.Params) == 0 {
-		return fmt.Errorf("params cannot be empty")
+		req.Params = defaultRLHFParams()
 	}
 	if len(req.Params) > 20 {
 		return fmt.Errorf("too many parameters (max 20, got %d)", len(req.Params))
