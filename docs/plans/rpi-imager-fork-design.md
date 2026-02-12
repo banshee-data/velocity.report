@@ -53,32 +53,32 @@ and recommends a phased implementation plan.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    CI Pipeline (GitHub Actions)              │
+│                   CI Pipeline (GitHub Actions)              │
 │                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │  pi-gen /     │    │ Go cross-    │    │ Python wheel │  │
-│  │  rpi-image-gen│◄───│ compile      │◄───│ + LaTeX deps │  │
-│  │  (image build)│    │ (ARM64)      │    │ (bundled)    │  │
-│  └──────┬───────┘    └──────────────┘    └──────────────┘  │
+│  ┌───────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │ pi-gen /      │    │ Go cross-    │    │ Python wheel │  │
+│  │ rpi-image-gen │◄───│ compile      │◄───│ + LaTeX deps │  │
+│  │ (image build) │    │ (ARM64)      │    │ (bundled)    │  │
+│  └──────┬────────┘    └──────────────┘    └──────────────┘  │
 │         │                                                   │
 │         ▼                                                   │
-│  ┌──────────────┐    ┌──────────────────────────────────┐  │
+│  ┌──────────────┐    ┌───────────────────────────────────┐  │
 │  │ .img.xz file │───►│ GitHub Release (asset upload)     │  │
 │  │ (~2-4 GB)    │    │ + os-list JSON for rpi-imager     │  │
-│  └──────────────┘    └───────────────┬──────────────────┘  │
+│  └──────────────┘    └───────────────┬───────────────────┘  │
 │                                      │                      │
 └──────────────────────────────────────┼──────────────────────┘
                                        │
             ┌──────────────────────────┼──────────────────┐
-            │          End-User Machine                    │
-            │                                              │
+            │          End-User Machine                   │
+            │                                             │
             │  ┌──────────────────────┐                   │
             │  │ rpi-imager (stock or │   SD Card         │
             │  │ forked) pointed at   │──────────────►    │
             │  │ custom repo JSON     │   velocity.report │
             │  └──────────────────────┘   image flashed   │
-            │                                              │
-            └──────────────────────────────────────────────┘
+            │                                             │
+            └─────────────────────────────────────────────┘
 ```
 
 The solution has two independent concerns:
