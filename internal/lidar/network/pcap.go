@@ -9,6 +9,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -153,12 +154,12 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 
 				// Diagnostic: report parsed point counts to help debug empty backgrounds
 				if len(points) == 0 {
-					log.Printf("PCAP packet %d parsed -> 0 points", packetCount)
+					lidar.Debugf("PCAP packet %d parsed -> 0 points", packetCount)
 				} else {
 					totalPoints += len(points)
-					// Log more frequently than packet progress: every 1000 packets
+					// Debug-level: every 1000 packets
 					if packetCount%1000 == 0 {
-						log.Printf("PCAP parsed points: packet=%d, points_this_packet=%d, total_parsed_points=%d",
+						lidar.Debugf("PCAP parsed points: packet=%d, points_this_packet=%d, total_parsed_points=%d",
 							packetCount, len(points), totalPoints)
 					}
 				}
