@@ -225,78 +225,78 @@ func TestSceneStore_SetOptimalParams_NotFound(t *testing.T) {
 }
 
 func TestSceneStore_InsertScene_DBClosed(t *testing.T) {
-db := setupTestSceneDB(t)
-store := NewSceneStore(db)
-db.Close()
+	db := setupTestSceneDB(t)
+	store := NewSceneStore(db)
+	db.Close()
 
-err := store.InsertScene(&Scene{SceneID: "x", SensorID: "s", PCAPFile: "f"})
-if err == nil {
-t.Fatal("expected error from closed DB")
-}
+	err := store.InsertScene(&Scene{SceneID: "x", SensorID: "s", PCAPFile: "f"})
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
 }
 
 func TestSceneStore_GetScene_DBClosed(t *testing.T) {
-db := setupTestSceneDB(t)
-store := NewSceneStore(db)
-db.Close()
+	db := setupTestSceneDB(t)
+	store := NewSceneStore(db)
+	db.Close()
 
-_, err := store.GetScene("x")
-if err == nil {
-t.Fatal("expected error from closed DB")
-}
+	_, err := store.GetScene("x")
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
 }
 
 func TestSceneStore_ListScenes_DBClosed(t *testing.T) {
-db := setupTestSceneDB(t)
-store := NewSceneStore(db)
-db.Close()
+	db := setupTestSceneDB(t)
+	store := NewSceneStore(db)
+	db.Close()
 
-_, err := store.ListScenes("")
-if err == nil {
-t.Fatal("expected error from closed DB")
-}
+	_, err := store.ListScenes("")
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
 }
 
 func TestSceneStore_UpdateScene_DBClosed(t *testing.T) {
-db := setupTestSceneDB(t)
-store := NewSceneStore(db)
-db.Close()
+	db := setupTestSceneDB(t)
+	store := NewSceneStore(db)
+	db.Close()
 
-err := store.UpdateScene(&Scene{SceneID: "x"})
-if err == nil {
-t.Fatal("expected error from closed DB")
-}
+	err := store.UpdateScene(&Scene{SceneID: "x"})
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
 }
 
 func TestSceneStore_DeleteScene_DBClosed(t *testing.T) {
-db := setupTestSceneDB(t)
-store := NewSceneStore(db)
-db.Close()
+	db := setupTestSceneDB(t)
+	store := NewSceneStore(db)
+	db.Close()
 
-err := store.DeleteScene("x")
-if err == nil {
-t.Fatal("expected error from closed DB")
-}
+	err := store.DeleteScene("x")
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
 }
 
 func TestSceneStore_SetReferenceRun_DBClosed(t *testing.T) {
-db := setupTestSceneDB(t)
-store := NewSceneStore(db)
-db.Close()
+	db := setupTestSceneDB(t)
+	store := NewSceneStore(db)
+	db.Close()
 
-err := store.SetReferenceRun("x", "y")
-if err == nil {
-t.Fatal("expected error from closed DB")
-}
+	err := store.SetReferenceRun("x", "y")
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
 }
 
 func TestSceneStore_SetOptimalParams_DBClosed(t *testing.T) {
-db := setupTestSceneDB(t)
-store := NewSceneStore(db)
-db.Close()
+	db := setupTestSceneDB(t)
+	store := NewSceneStore(db)
+	db.Close()
 
-err := store.SetOptimalParams("x", nil)
-if err == nil {
-t.Fatal("expected error from closed DB")
-}
+	err := store.SetOptimalParams("x", nil)
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
 }

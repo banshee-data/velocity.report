@@ -15,37 +15,37 @@ func (e errForTest) Error() string { return string(e) }
 
 // initRunState sets up the tuner state as Start() would before calling run().
 func initRunState(tuner *RLHFTuner, numRounds int) {
-tuner.mu.Lock()
-tuner.state = RLHFState{
-Status:      "running_reference",
-Mode:        "rlhf",
-TotalRounds: numRounds,
-}
-tuner.mu.Unlock()
+	tuner.mu.Lock()
+	tuner.state = RLHFState{
+		Status:      "running_reference",
+		Mode:        "rlhf",
+		TotalRounds: numRounds,
+	}
+	tuner.mu.Unlock()
 }
 
 // TestRun_SceneGetterNil tests run() when sceneGetter is nil.
 func TestRun_SceneGetterNil(t *testing.T) {
-tuner := NewRLHFTuner(nil)
-tuner.SetPersister(&mockRLHFPersister{})
-tuner.sweepID = "test-nil-getter"
-initRunState(tuner, 1)
-tuner.run(context.Background(), RLHFSweepRequest{SceneID: "s1"})
-state := tuner.GetRLHFState()
-if state.Status != "failed" {
-t.Fatalf("expected failed, got %s", state.Status)
-}
-if state.Error != "scene getter not configured" {
-t.Fatalf("unexpected error: %s", state.Error)
-}
+	tuner := NewRLHFTuner(nil)
+	tuner.SetPersister(&mockRLHFPersister{})
+	tuner.sweepID = "test-nil-getter"
+	initRunState(tuner, 1)
+	tuner.run(context.Background(), RLHFSweepRequest{SceneID: "s1"})
+	state := tuner.GetRLHFState()
+	if state.Status != "failed" {
+		t.Fatalf("expected failed, got %s", state.Status)
+	}
+	if state.Error != "scene getter not configured" {
+		t.Fatalf("unexpected error: %s", state.Error)
+	}
 }
 
 // TestRun_SceneNotFound tests run() when scene lookup fails.
 func TestRun_SceneNotFound(t *testing.T) {
-tuner := NewRLHFTuner(nil)
-tuner.SetPersister(&mockRLHFPersister{})
-tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("scene not found")})
-tuner.sweepID = "test-scene-notfound"
+	tuner := NewRLHFTuner(nil)
+	tuner.SetPersister(&mockRLHFPersister{})
+	tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("scene not found")})
+	tuner.sweepID = "test-scene-notfound"
 initRunState(tuner, 1)
 tuner.run(context.Background(), RLHFSweepRequest{SceneID: "missing"})
 state := tuner.GetRLHFState()
@@ -534,7 +534,7 @@ err := tuner.Start(context.Background(), req)
 if err != nil {
 t.Fatalf("unexpected error: %v", err)
 }
-time.Sleep(50 * time.Millisecond)
+
 tuner.Stop()
 }
 

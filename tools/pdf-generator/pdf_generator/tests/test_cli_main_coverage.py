@@ -5,7 +5,7 @@ import json
 import os
 import sys
 import tempfile
-import textwrap
+
 import unittest
 from io import StringIO
 from unittest.mock import MagicMock, patch
@@ -171,7 +171,7 @@ class TestNextSequencedPrefix(unittest.TestCase):
             self.assertTrue(result.startswith("report-3-"))
 
 
-class TestComputeIsoTimestamps(unittest.TestCase):
+class TestComputeIsoTimestampsBasic(unittest.TestCase):
     def test_utc(self):
         start, end = compute_iso_timestamps(1704067200, 1704153600, None)
         self.assertIn("2024-01-01", start)
@@ -362,7 +362,7 @@ class TestFetchFunctions(unittest.TestCase):
         with patch("sys.stdout", captured):
             print_api_debug_info(None, [{"count": 10}], {"bins": [1, 2, 3]})
         output = captured.getvalue()
-        self.assertTrue(len(output) > 0)
+        self.assertGreater(len(output), 0)
 
 
 class TestImportChartBuilderCold(unittest.TestCase):
@@ -777,7 +777,7 @@ class TestMainEntrypoint(unittest.TestCase):
             with patch("pdf_generator.core.dependency_checker.check_dependencies", return_value=True):
                 with self.assertRaises(SystemExit) as cm:
                     from pdf_generator.cli.main import main as _main_fn
-                    import pdf_generator.cli.main as mod
+
                     # Simulate main entry
                     import argparse
                     parser = argparse.ArgumentParser()
@@ -1052,7 +1052,7 @@ class TestDeriveOverallEdgeCases(unittest.TestCase):
             ]
         )
         self.assertIsNotNone(result)
-        self.assertTrue(len(result) > 0)
+        self.assertGreater(len(result), 0)
 
 
 class TestMainBlockExecution(unittest.TestCase):

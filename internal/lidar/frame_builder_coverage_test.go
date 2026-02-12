@@ -313,31 +313,31 @@ func TestExportFrameToASCInternal_EmptyFrame(t *testing.T) {
 }
 
 func TestExportFrameToASCInternal_WithZeroZ(t *testing.T) {
-frame := &LiDARFrame{
-FrameID:  "z-zero-test",
-SensorID: "test",
-Points: []Point{
-{X: 1, Y: 2, Z: 0, Distance: 10, Azimuth: 45, Elevation: 10, Intensity: 100},
-{X: 3, Y: 4, Z: 0, Distance: 20, Azimuth: 90, Elevation: 5, Intensity: 200},
-},
-PointCount: 2,
-}
-// This will try to write to disk; the export itself may fail due to permissions
-// but should exercise the Z=0 recompute path
-_ = exportFrameToASCInternal(frame)
+	frame := &LiDARFrame{
+		FrameID:  "z-zero-test",
+		SensorID: "test",
+		Points: []Point{
+			{X: 1, Y: 2, Z: 0, Distance: 10, Azimuth: 45, Elevation: 10, Intensity: 100},
+			{X: 3, Y: 4, Z: 0, Distance: 20, Azimuth: 90, Elevation: 5, Intensity: 200},
+		},
+		PointCount: 2,
+	}
+	// This will try to write to disk; the export itself may fail due to permissions
+	// but should exercise the Z=0 recompute path
+	_ = exportFrameToASCInternal(frame)
 }
 
 func TestExportFrameToASCInternal_WithNonZeroZ(t *testing.T) {
-frame := &LiDARFrame{
-FrameID:  "z-nonzero-test",
-SensorID: "test",
-Points: []Point{
-{X: 1, Y: 2, Z: 3, Distance: 10, Azimuth: 45, Elevation: 10, Intensity: 100},
-{X: 4, Y: 5, Z: 6, Distance: 20, Azimuth: 90, Elevation: 5, Intensity: 200},
-},
-PointCount: 2,
-}
-_ = exportFrameToASCInternal(frame)
+	frame := &LiDARFrame{
+		FrameID:  "z-nonzero-test",
+		SensorID: "test",
+		Points: []Point{
+			{X: 1, Y: 2, Z: 3, Distance: 10, Azimuth: 45, Elevation: 10, Intensity: 100},
+			{X: 4, Y: 5, Z: 6, Distance: 20, Azimuth: 90, Elevation: 5, Intensity: 200},
+		},
+		PointCount: 2,
+	}
+	_ = exportFrameToASCInternal(frame)
 }
 
 func TestFinalizeFrame_WithExportNext_Complete(t *testing.T) {
