@@ -971,7 +971,7 @@ struct RunTrackTests {
 
 // MARK: - ContentView Overlay Toggle Tests
 
-struct OverlayToggleTests {
+struct OverlayTogglesCoverageTests {
     @Test func overlayTogglesViewAllEnabled() throws {
         let state = AppState()
         state.showPoints = true
