@@ -255,7 +255,13 @@ class MockURLProtocol: URLProtocol {
 
     override func startLoading() {
         guard let handler = MockURLProtocol.requestHandler else {
-            client?.urlProtocolDidFinishLoading(self)
+            let error = NSError(
+                domain: "MockURLProtocol", code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "No request handler set — unexpected request: \(request.url?.absoluteString ?? "nil")"
+                ])
+            client?.urlProtocol(self, didFailWithError: error)
             return
         }
         do {

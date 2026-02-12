@@ -91,7 +91,7 @@ struct FormatDurationTests {
 
 // MARK: - ModeIndicatorView Tests
 
-@available(macOS 15.0, *) struct ModeIndicatorViewTests {
+struct ModeIndicatorViewTests {
     @Test func liveConnectedIndicator() throws {
         let view = ModeIndicatorView(isLive: true, isConnected: true)
         // Verify the view can be created without crash
@@ -111,7 +111,7 @@ struct FormatDurationTests {
 
 // MARK: - StatLabel Tests
 
-@available(macOS 15.0, *) struct StatLabelTests {
+struct StatLabelTests {
     @Test func statLabelCreation() throws {
         let label = StatLabel(title: "FPS", value: "60.0")
         let _ = label.body
@@ -130,7 +130,7 @@ struct FormatDurationTests {
 
 // MARK: - CacheStatusLabel Tests
 
-@available(macOS 15.0, *) struct CacheStatusLabelTests {
+struct CacheStatusLabelTests {
     @Test func cachedStatus() throws {
         let label = CacheStatusLabel(status: "Cached (seq 42)")
         let _ = label.body
@@ -154,7 +154,7 @@ struct FormatDurationTests {
 
 // MARK: - DetailRow Tests
 
-@available(macOS 15.0, *) struct DetailRowTests {
+struct DetailRowTests {
     @Test func detailRowCreation() throws {
         let row = DetailRow(label: "Speed", value: "12.5 m/s")
         let _ = row.body
@@ -168,7 +168,7 @@ struct FormatDurationTests {
 
 // MARK: - ToggleButton Tests
 
-@available(macOS 15.0, *) struct ToggleButtonTests {
+struct ToggleButtonTests {
     @Test func toggleButtonOn() throws {
         var isOn = true
         let button = ToggleButton(
@@ -186,7 +186,7 @@ struct FormatDurationTests {
 
 // MARK: - LabelButton Tests
 
-@available(macOS 15.0, *) struct LabelButtonTests {
+struct LabelButtonTests {
     @Test func labelButtonWithShortcut() throws {
         let button = LabelButton(
             label: "good_vehicle", shortcut: "1", isActive: false, action: {})
@@ -206,7 +206,7 @@ struct FormatDurationTests {
 
 // MARK: - TrackLabelPill Tests
 
-@available(macOS 15.0, *) struct TrackLabelPillTests {
+struct TrackLabelPillTests {
     @Test func pillWithClassLabel() throws {
         let label = MetalRenderer.TrackScreenLabel(
             id: "track-001", screenX: 100, screenY: 200, classLabel: "car", isSelected: false)
@@ -231,7 +231,7 @@ struct FormatDurationTests {
 
 // MARK: - TrackLabelOverlay Tests
 
-@available(macOS 15.0, *) struct TrackLabelOverlayTests {
+struct TrackLabelOverlayTests {
     @Test func overlayWithEmptyLabels() throws {
         let overlay = TrackLabelOverlay(labels: [])
         let _ = overlay.body

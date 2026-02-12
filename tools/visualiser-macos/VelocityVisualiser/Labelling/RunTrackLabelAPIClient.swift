@@ -42,9 +42,9 @@ class RunTrackLabelAPIClient {
 
     // MARK: - Initialisation
 
-    init(baseURL: URL = URL(string: "http://localhost:8080")!) {
+    init(baseURL: URL = URL(string: "http://localhost:8080")!, session: URLSession = .shared) {
         self.baseURL = baseURL
-        self.session = URLSession.shared
+        self.session = session
     }
 
     // MARK: - Run Operations
