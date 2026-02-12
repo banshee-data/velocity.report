@@ -4,13 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 )
 
 // --- Runner accessor tests ---
@@ -107,7 +102,7 @@ func TestRunner_Start_NilClient(t *testing.T) {
 }
 
 func TestRunner_Start_NilContext(t *testing.T) {
-	r := NewRunner(testClient(t))
+	r := NewRunner(defaultMockBackend())
 	//nolint:staticcheck
 	err := r.start(nil, SweepRequest{
 		Mode:        "multi",
@@ -122,8 +117,7 @@ func TestRunner_Start_NilContext(t *testing.T) {
 }
 
 func TestRunner_Start_InvalidInterval(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
 		Mode:        "multi",
 		NoiseValues: []float64{0.01},
@@ -135,8 +129,7 @@ func TestRunner_Start_InvalidInterval(t *testing.T) {
 }
 
 func TestRunner_Start_InvalidSettleTime(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
 		Mode:        "multi",
 		NoiseValues: []float64{0.01},
@@ -148,8 +141,7 @@ func TestRunner_Start_InvalidSettleTime(t *testing.T) {
 }
 
 func TestRunner_Start_ExcessiveIterations(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
 		Mode:        "multi",
 		NoiseValues: []float64{0.01},
@@ -161,8 +153,7 @@ func TestRunner_Start_ExcessiveIterations(t *testing.T) {
 }
 
 func TestRunner_Start_UnsupportedMode(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
 		Mode: "unknown",
 	})
@@ -172,7 +163,7 @@ func TestRunner_Start_UnsupportedMode(t *testing.T) {
 }
 
 func TestRunner_Start_DefaultCombinations(t *testing.T) {
-	r := NewRunner(testClient(t))
+	r := NewRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
 		Mode: "multi",
 		// No values provided — should default to built-in ranges
@@ -185,8 +176,7 @@ func TestRunner_Start_DefaultCombinations(t *testing.T) {
 }
 
 func TestRunner_Start_AlreadyRunning(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 	r.mu.Lock()
 	r.state.Status = SweepStatusRunning
 	r.mu.Unlock()
@@ -201,7 +191,7 @@ func TestRunner_Start_AlreadyRunning(t *testing.T) {
 }
 
 func TestRunner_Start_WithPersister(t *testing.T) {
-	r := NewRunner(testClient(t))
+	r := NewRunner(defaultMockBackend())
 	mp := &mockPersister{}
 	r.SetPersister(mp)
 
@@ -227,7 +217,7 @@ func TestRunner_Start_WithPersister(t *testing.T) {
 }
 
 func TestRunner_Start_DefaultIterations(t *testing.T) {
-	r := NewRunner(testClient(t))
+	r := NewRunner(defaultMockBackend())
 
 	err := r.start(context.Background(), SweepRequest{
 		Mode:        "multi",
@@ -242,7 +232,7 @@ func TestRunner_Start_DefaultIterations(t *testing.T) {
 }
 
 func TestRunner_Start_DefaultMode(t *testing.T) {
-	r := NewRunner(testClient(t))
+	r := NewRunner(defaultMockBackend())
 
 	err := r.start(context.Background(), SweepRequest{
 		Mode:        "", // should default to "multi"
@@ -258,8 +248,7 @@ func TestRunner_Start_DefaultMode(t *testing.T) {
 // --- startGeneric tests ---
 
 func TestRunner_StartGeneric_TooManyParams(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 
 	params := make([]SweepParam, 11)
 	for i := range params {
@@ -274,8 +263,7 @@ func TestRunner_StartGeneric_TooManyParams(t *testing.T) {
 }
 
 func TestRunner_StartGeneric_InvalidParam(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 
 	err := r.startGeneric(context.Background(), SweepRequest{
 		Params: []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1, Step: 0}},
@@ -286,8 +274,7 @@ func TestRunner_StartGeneric_InvalidParam(t *testing.T) {
 }
 
 func TestRunner_StartGeneric_EmptyValues(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 
 	err := r.startGeneric(context.Background(), SweepRequest{
 		Params: []SweepParam{{Name: "p", Type: "string"}}, // string with no values
@@ -298,8 +285,7 @@ func TestRunner_StartGeneric_EmptyValues(t *testing.T) {
 }
 
 func TestRunner_StartGeneric_AlreadyRunning(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 	r.mu.Lock()
 	r.state.Status = SweepStatusRunning
 	r.mu.Unlock()
@@ -313,7 +299,7 @@ func TestRunner_StartGeneric_AlreadyRunning(t *testing.T) {
 }
 
 func TestRunner_StartGeneric_Success(t *testing.T) {
-	r := NewRunner(testClient(t))
+	r := NewRunner(defaultMockBackend())
 	mp := &mockPersister{}
 	r.SetPersister(mp)
 
@@ -335,8 +321,7 @@ func TestRunner_StartGeneric_Success(t *testing.T) {
 }
 
 func TestRunner_StartGeneric_TooManyCombos(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 
 	// Each param has many values -> product exceeds 1000
 	err := r.startGeneric(context.Background(), SweepRequest{
@@ -640,20 +625,10 @@ func TestRunner_GetSweepState_DeepCopy(t *testing.T) {
 	}
 }
 
-// --- Helper: mockClient implements the fields Runner expects ---
-// We need a real monitor.Client since Runner uses client.SensorID and client.HTTPClient
-// In these tests we null-check to avoid actual HTTP calls.
-
-func init() {
-	// Force Client to exist with zero-value structure for mocks
-	_ = &monitor.Client{}
-}
-
 // --- TooManyCombinations test for legacy mode ---
 
 func TestRunner_Start_TooManyCombinations(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 
 	vals := make([]float64, 20)
 	for i := range vals {
@@ -677,8 +652,7 @@ func TestRunner_Start_TooManyCombinations(t *testing.T) {
 // --- computeCombinations mode tests ---
 
 func TestRunner_ComputeCombinations_NoiseMode_Range(t *testing.T) {
-	client := &monitor.Client{BaseURL: "http://localhost:8080", SensorID: "test"}
-	r := NewRunner(client)
+	r := NewRunner(defaultMockBackend())
 
 	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
 		Mode:       "noise",
@@ -698,7 +672,7 @@ func TestRunner_ComputeCombinations_NoiseMode_Range(t *testing.T) {
 }
 
 func TestRunner_Start_ParamsMode(t *testing.T) {
-	r := NewRunner(testClient(t))
+	r := NewRunner(defaultMockBackend())
 
 	err := r.start(context.Background(), SweepRequest{
 		Mode: "params",
@@ -752,67 +726,33 @@ func TestRunner_PersistComplete_WithError(t *testing.T) {
 	}
 }
 
-// runnerMockServer is like sweepMockServer but is for the Runner's run()/runGeneric() path.
-func runnerMockServer(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	acceptanceJSON := `{
-		"BucketsMeters": [1,2,4],
-		"AcceptCounts": [10,20,30],
-		"RejectCounts": [2,3,4],
-		"Totals": [12,23,34],
-		"AcceptanceRates": [0.83,0.87,0.88]
-	}`
-	gridStatusJSON := `{"background_count": 42, "settled": true}`
-	trackMetricsJSON := `{
-		"active_tracks": 3,
-		"mean_alignment_deg": 2.5,
-		"misalignment_ratio": 0.1,
-		"heading_jitter_deg": 1.0,
-		"speed_jitter_mps": 0.5,
-		"fragmentation_ratio": 0.05,
-		"foreground_capture_ratio": 0.85,
-		"unbounded_point_ratio": 0.02,
-		"empty_box_ratio": 0.01
-	}`
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		path := r.URL.Path
-		switch {
-		case strings.Contains(path, "/api/lidar/acceptance/reset"):
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/acceptance"):
-			fmt.Fprint(w, acceptanceJSON)
-		case strings.Contains(path, "/api/lidar/grid/reset"):
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/grid_status"):
-			fmt.Fprint(w, gridStatusJSON)
-		case strings.Contains(path, "/api/lidar/tuning-params"):
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/params"):
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/tracks/metrics"):
-			fmt.Fprint(w, trackMetricsJSON)
-		case strings.Contains(path, "/api/lidar/pcap/start"):
-			fmt.Fprint(w, `{"status":"started"}`)
-		case strings.Contains(path, "/api/lidar/pcap/stop"):
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/data_source"):
-			fmt.Fprint(w, `{"pcap_in_progress":false,"source":"live"}`)
-		case strings.Contains(path, "/api/lidar/data-source"):
-			fmt.Fprint(w, `{"source":"live"}`)
-		default:
-			fmt.Fprint(w, `{}`)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-func runnerTestClient(t *testing.T, srv *httptest.Server) *monitor.Client {
-	t.Helper()
-	return monitor.NewClient(srv.Client(), srv.URL, "test-sensor")
+// runnerMockBackend returns a mockBackend pre-loaded with the same
+// deterministic data that the old runnerMockServer HTTP handler returned.
+func runnerMockBackend() *mockBackend {
+	return &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"BucketsMeters":   []interface{}{float64(1), float64(2), float64(4)},
+			"AcceptCounts":    []interface{}{float64(10), float64(20), float64(30)},
+			"RejectCounts":    []interface{}{float64(2), float64(3), float64(4)},
+			"Totals":          []interface{}{float64(12), float64(23), float64(34)},
+			"AcceptanceRates": []interface{}{0.83, 0.87, 0.88},
+		},
+		gridStatus: map[string]interface{}{
+			"background_count": float64(42),
+			"settled":          true,
+		},
+		trackingMetrics: map[string]interface{}{
+			"active_tracks":            float64(3),
+			"mean_alignment_deg":       2.5,
+			"misalignment_ratio":       0.1,
+			"heading_jitter_deg":       1.0,
+			"speed_jitter_mps":         0.5,
+			"fragmentation_ratio":      0.05,
+			"foreground_capture_ratio": 0.85,
+			"unbounded_point_ratio":    0.02,
+			"empty_box_ratio":          0.01,
+		},
+	}
 }
 
 // waitForRunnerStatus waits for the runner's sweep to reach a status.
@@ -836,9 +776,7 @@ func waitForRunnerStatus(t *testing.T, r *Runner, timeout time.Duration, targets
 // --- Legacy run() tests ---
 
 func TestRunnerCov2_RunLegacyComplete(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -864,9 +802,7 @@ func TestRunnerCov2_RunLegacyComplete(t *testing.T) {
 }
 
 func TestRunnerCov2_RunLegacyCancelled(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -897,9 +833,7 @@ func TestRunnerCov2_RunLegacyCancelled(t *testing.T) {
 }
 
 func TestRunnerCov2_RunLegacyToggleSeed(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -923,9 +857,7 @@ func TestRunnerCov2_RunLegacyToggleSeed(t *testing.T) {
 }
 
 func TestRunnerCov2_RunLegacySeedFalse(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -949,9 +881,7 @@ func TestRunnerCov2_RunLegacySeedFalse(t *testing.T) {
 }
 
 func TestRunnerCov2_RunLegacySettleOnce(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -975,9 +905,7 @@ func TestRunnerCov2_RunLegacySettleOnce(t *testing.T) {
 }
 
 func TestRunnerCov2_RunLegacyWithPersister(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 	r.SetPersister(&runnerMockPersister{})
 
 	req := SweepRequest{
@@ -1006,9 +934,7 @@ func TestRunnerCov2_RunLegacyWithPersister(t *testing.T) {
 // --- Legacy run() PCAP mode ---
 
 func TestRunnerCov2_RunLegacyPCAPMode(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -1031,9 +957,7 @@ func TestRunnerCov2_RunLegacyPCAPMode(t *testing.T) {
 }
 
 func TestRunnerCov2_RunLegacyPCAPSettleOnce(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -1059,9 +983,7 @@ func TestRunnerCov2_RunLegacyPCAPSettleOnce(t *testing.T) {
 // --- runGeneric() tests ---
 
 func TestRunnerCov2_RunGenericComplete(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode: "params",
@@ -1084,9 +1006,7 @@ func TestRunnerCov2_RunGenericComplete(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericCancelled(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -1113,9 +1033,7 @@ func TestRunnerCov2_RunGenericCancelled(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericToggleSeed(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode: "params",
@@ -1139,9 +1057,7 @@ func TestRunnerCov2_RunGenericToggleSeed(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericSeedFalse(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode: "params",
@@ -1165,9 +1081,7 @@ func TestRunnerCov2_RunGenericSeedFalse(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericSettleOnce(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode: "params",
@@ -1191,9 +1105,7 @@ func TestRunnerCov2_RunGenericSettleOnce(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericPCAPMode(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:       "params",
@@ -1216,9 +1128,7 @@ func TestRunnerCov2_RunGenericPCAPMode(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericPCAPSettleOnce(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:       "params",
@@ -1242,9 +1152,7 @@ func TestRunnerCov2_RunGenericPCAPSettleOnce(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericWithPersister(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 	r.SetPersister(&runnerMockPersister{})
 
 	req := SweepRequest{
@@ -1270,20 +1178,12 @@ func TestRunnerCov2_RunGenericWithPersister(t *testing.T) {
 // --- SetParams failure in run() ---
 
 func TestRunnerCov2_RunLegacySetParamsFail(t *testing.T) {
-	// Return 500 for params endpoint to test error path
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if strings.Contains(r.URL.Path, "/api/lidar/params") || strings.Contains(r.URL.Path, "/api/lidar/tuning-params") {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, `{"error":"test failure"}`)
-			return
-		}
-		fmt.Fprint(w, `{}`)
-	}))
-	t.Cleanup(srv.Close)
-
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	// Use a backend that returns errors on SetTuningParams to test error path.
+	backend := runnerMockBackend()
+	backend.SetTuningParamsFn = func(params map[string]interface{}) error {
+		return fmt.Errorf("test failure")
+	}
+	r := NewRunner(backend)
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -1304,23 +1204,18 @@ func TestRunnerCov2_RunLegacySetParamsFail(t *testing.T) {
 }
 
 func TestRunnerCov2_RunGenericSetParamsFail(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if strings.Contains(r.URL.Path, "/api/lidar/params") {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, `{"error":"test failure"}`)
-			return
-		}
-		if strings.Contains(r.URL.Path, "/api/lidar/acceptance") {
-			fmt.Fprint(w, `{"BucketsMeters":[1],"AcceptCounts":[10],"RejectCounts":[2],"Totals":[12],"AcceptanceRates":[0.83]}`)
-			return
-		}
-		fmt.Fprint(w, `{}`)
-	}))
-	t.Cleanup(srv.Close)
-
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	backend := runnerMockBackend()
+	backend.acceptanceMetrics = map[string]interface{}{
+		"BucketsMeters":   []interface{}{float64(1)},
+		"AcceptCounts":    []interface{}{float64(10)},
+		"RejectCounts":    []interface{}{float64(2)},
+		"Totals":          []interface{}{float64(12)},
+		"AcceptanceRates": []interface{}{0.83},
+	}
+	backend.SetTuningParamsFn = func(params map[string]interface{}) error {
+		return fmt.Errorf("test failure")
+	}
+	r := NewRunner(backend)
 
 	req := SweepRequest{
 		Mode: "params",
@@ -1523,9 +1418,7 @@ func TestRunnerCov2_ToInt(t *testing.T) {
 // --- start() validation ---
 
 func TestRunnerCov2_Start_NilContext(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -1545,9 +1438,7 @@ func TestRunnerCov2_Start_NilContext(t *testing.T) {
 }
 
 func TestRunnerCov2_Start_TooManyIterations(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode:            "multi",
@@ -1563,9 +1454,7 @@ func TestRunnerCov2_Start_TooManyIterations(t *testing.T) {
 }
 
 func TestRunnerCov2_Start_UnsupportedMode(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{Mode: "invalid"}
 	err := r.Start(context.Background(), req)
@@ -1575,9 +1464,7 @@ func TestRunnerCov2_Start_UnsupportedMode(t *testing.T) {
 }
 
 func TestRunnerCov2_Start_BadInterval(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{Interval: "bad_dur"}
 	err := r.Start(context.Background(), req)
@@ -1587,9 +1474,7 @@ func TestRunnerCov2_Start_BadInterval(t *testing.T) {
 }
 
 func TestRunnerCov2_Start_BadSettleTime(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{SettleTime: "bad_dur"}
 	err := r.Start(context.Background(), req)
@@ -1601,9 +1486,7 @@ func TestRunnerCov2_Start_BadSettleTime(t *testing.T) {
 // --- startGeneric() validation ---
 
 func TestRunnerCov2_StartGeneric_TooManyParams(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	params := make([]SweepParam, 11)
 	for i := range params {
@@ -1623,9 +1506,7 @@ func TestRunnerCov2_StartGeneric_TooManyParams(t *testing.T) {
 }
 
 func TestRunnerCov2_StartGeneric_TooManyCombos(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	// 5 params × 10 values each = 100,000 combos > 1000 limit
 	params := make([]SweepParam, 5)
@@ -1650,9 +1531,7 @@ func TestRunnerCov2_StartGeneric_TooManyCombos(t *testing.T) {
 }
 
 func TestRunnerCov2_StartGeneric_AlreadyRunning(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	req := SweepRequest{
 		Mode: "params",
@@ -1681,9 +1560,7 @@ func TestRunnerCov2_StartGeneric_AlreadyRunning(t *testing.T) {
 // --- Start via map[string]interface{} ---
 
 func TestRunnerCov2_Start_ViaMap(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	reqMap := map[string]interface{}{
 		"mode":             "multi",
@@ -1702,9 +1579,7 @@ func TestRunnerCov2_Start_ViaMap(t *testing.T) {
 }
 
 func TestRunnerCov2_Start_ViaInvalidType(t *testing.T) {
-	srv := runnerMockServer(t)
-	client := runnerTestClient(t, srv)
-	r := NewRunner(client)
+	r := NewRunner(runnerMockBackend())
 
 	err := r.Start(context.Background(), 42)
 	if err == nil {

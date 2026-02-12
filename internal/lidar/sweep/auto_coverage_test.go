@@ -4,28 +4,146 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 )
 
-// testClient returns a *monitor.Client backed by a dummy HTTP server.
-// The server returns empty JSON for any request, preventing nil pointer panics
-// when Runner goroutines try to call monitor.Client methods.
-func testClient(t *testing.T) *monitor.Client {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{}`))
-	}))
-	t.Cleanup(srv.Close)
-	return monitor.NewClient(srv.Client(), srv.URL, "test-sensor")
+// mockBackend implements SweepBackend for testing. Each method can be
+// overridden by setting the corresponding function field; the zero value
+// provides sensible defaults that never error.
+type mockBackend struct {
+	sensorID           string
+	buckets            []string
+	acceptanceMetrics  map[string]interface{}
+	gridStatus         map[string]interface{}
+	trackingMetrics    map[string]interface{}
+	lastAnalysisRunID  string
+	setTuningParamsErr error
+	startPCAPErr       error
+	stopPCAPErr        error
+	waitPCAPErr        error
+
+	// Overrides — when non-nil, called instead of the default.
+	FetchAcceptanceFn   func() (map[string]interface{}, error)
+	FetchGridStatusFn   func() (map[string]interface{}, error)
+	FetchTrackingFn     func() (map[string]interface{}, error)
+	SetTuningParamsFn   func(params map[string]interface{}) error
+	WaitForGridSettleFn func(timeout time.Duration)
+}
+
+func (m *mockBackend) SensorID() string {
+	if m.sensorID != "" {
+		return m.sensorID
+	}
+	return "test-sensor"
+}
+
+func (m *mockBackend) FetchBuckets() []string {
+	if m.buckets != nil {
+		return m.buckets
+	}
+	return []string{"1", "2", "4"}
+}
+
+func (m *mockBackend) FetchAcceptanceMetrics() (map[string]interface{}, error) {
+	if m.FetchAcceptanceFn != nil {
+		return m.FetchAcceptanceFn()
+	}
+	if m.acceptanceMetrics != nil {
+		return m.acceptanceMetrics, nil
+	}
+	return map[string]interface{}{}, nil
+}
+
+func (m *mockBackend) ResetAcceptance() error { return nil }
+
+func (m *mockBackend) FetchGridStatus() (map[string]interface{}, error) {
+	if m.FetchGridStatusFn != nil {
+		return m.FetchGridStatusFn()
+	}
+	if m.gridStatus != nil {
+		return m.gridStatus, nil
+	}
+	return map[string]interface{}{}, nil
+}
+
+func (m *mockBackend) ResetGrid() error { return nil }
+
+func (m *mockBackend) WaitForGridSettle(timeout time.Duration) {
+	if m.WaitForGridSettleFn != nil {
+		m.WaitForGridSettleFn(timeout)
+	}
+}
+
+func (m *mockBackend) FetchTrackingMetrics() (map[string]interface{}, error) {
+	if m.FetchTrackingFn != nil {
+		return m.FetchTrackingFn()
+	}
+	if m.trackingMetrics != nil {
+		return m.trackingMetrics, nil
+	}
+	return map[string]interface{}{}, nil
+}
+
+func (m *mockBackend) SetTuningParams(params map[string]interface{}) error {
+	if m.SetTuningParamsFn != nil {
+		return m.SetTuningParamsFn(params)
+	}
+	return m.setTuningParamsErr
+}
+
+func (m *mockBackend) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
+	return m.startPCAPErr
+}
+
+func (m *mockBackend) StopPCAPReplay() error {
+	return m.stopPCAPErr
+}
+
+func (m *mockBackend) WaitForPCAPComplete(timeout time.Duration) error {
+	return m.waitPCAPErr
+}
+
+func (m *mockBackend) GetLastAnalysisRunID() string {
+	return m.lastAnalysisRunID
+}
+
+// defaultMockBackend returns a mockBackend with empty-JSON-equivalent
+// responses (same behaviour as the old testClient dummy HTTP server).
+func defaultMockBackend() *mockBackend {
+	return &mockBackend{}
+}
+
+// sweepMockBackend returns a mockBackend pre-loaded with the same
+// deterministic acceptance, grid and tracking data that the old
+// sweepMockServer HTTP handler returned.
+func sweepMockBackend() *mockBackend {
+	return &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"BucketsMeters":   []interface{}{float64(1), float64(2), float64(4)},
+			"AcceptCounts":    []interface{}{float64(10), float64(20), float64(30)},
+			"RejectCounts":    []interface{}{float64(2), float64(3), float64(4)},
+			"Totals":          []interface{}{float64(12), float64(23), float64(34)},
+			"AcceptanceRates": []interface{}{0.83, 0.87, 0.88},
+		},
+		gridStatus: map[string]interface{}{
+			"background_count": float64(42),
+		},
+		trackingMetrics: map[string]interface{}{
+			"active_tracks":            float64(3),
+			"mean_alignment_deg":       2.5,
+			"misalignment_ratio":       0.1,
+			"heading_jitter_deg":       1.0,
+			"speed_jitter_mps":         0.5,
+			"fragmentation_ratio":      0.05,
+			"foreground_capture_ratio": 0.85,
+			"unbounded_point_ratio":    0.02,
+			"empty_box_ratio":          0.01,
+		},
+	}
 }
 
 // --- AutoTuner accessor tests ---
@@ -124,7 +242,7 @@ func TestAutoTuner_Start_InvalidRequestType(t *testing.T) {
 }
 
 func TestAutoTuner_Start_MapRequest(t *testing.T) {
-	runner := NewRunner(testClient(t))
+	runner := NewRunner(defaultMockBackend())
 	at := NewAutoTuner(runner)
 	m := map[string]interface{}{
 		"params": []interface{}{
@@ -287,7 +405,7 @@ func TestAutoTuner_Start_AlreadyRunning(t *testing.T) {
 }
 
 func TestAutoTuner_Start_IntParams(t *testing.T) {
-	runner := NewRunner(testClient(t))
+	runner := NewRunner(defaultMockBackend())
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "int", Start: 0, End: 10}},
@@ -303,7 +421,7 @@ func TestAutoTuner_Start_IntParams(t *testing.T) {
 }
 
 func TestAutoTuner_Start_Int64Params(t *testing.T) {
-	runner := NewRunner(testClient(t))
+	runner := NewRunner(defaultMockBackend())
 	at := NewAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "int64", Start: 0, End: 100}},
@@ -568,7 +686,7 @@ func TestAutoTuner_GetAutoTuneState_DeepCopy(t *testing.T) {
 // --- Start with persister ---
 
 func TestAutoTuner_Start_WithPersister(t *testing.T) {
-	runner := NewRunner(testClient(t))
+	runner := NewRunner(defaultMockBackend())
 	at := NewAutoTuner(runner)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
@@ -595,7 +713,7 @@ func TestAutoTuner_Start_WithPersister(t *testing.T) {
 }
 
 func TestAutoTuner_Start_NilContext(t *testing.T) {
-	runner := NewRunner(testClient(t))
+	runner := NewRunner(defaultMockBackend())
 	at := NewAutoTuner(runner)
 	//nolint:staticcheck
 	err := at.start(nil, AutoTuneRequest{
@@ -610,7 +728,7 @@ func TestAutoTuner_Start_NilContext(t *testing.T) {
 }
 
 func TestAutoTuner_Start_GroundTruth_DefaultWeights(t *testing.T) {
-	runner := NewRunner(testClient(t))
+	runner := NewRunner(defaultMockBackend())
 	at := NewAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.9, nil
@@ -659,72 +777,6 @@ func (m *mockSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMes
 	return nil
 }
 
-// sweepMockServer creates an httptest.Server that handles all the API endpoints
-// the Runner's runGeneric() path calls: acceptance, grid_status, grid_reset,
-// params, acceptance/reset, tracks/metrics. The acceptance endpoint returns
-// configurable bucket data so that the sampler produces non-zero results.
-// The returned server should be closed via t.Cleanup (done automatically).
-func sweepMockServer(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	// Acceptance response with deterministic bucket data
-	acceptanceJSON := `{
-		"BucketsMeters": [1,2,4],
-		"AcceptCounts": [10,20,30],
-		"RejectCounts": [2,3,4],
-		"Totals": [12,23,34],
-		"AcceptanceRates": [0.83,0.87,0.88]
-	}`
-
-	gridStatusJSON := `{"background_count": 42}`
-
-	trackMetricsJSON := `{
-		"active_tracks": 3,
-		"mean_alignment_deg": 2.5,
-		"misalignment_ratio": 0.1,
-		"heading_jitter_deg": 1.0,
-		"speed_jitter_mps": 0.5,
-		"fragmentation_ratio": 0.05,
-		"foreground_capture_ratio": 0.85,
-		"unbounded_point_ratio": 0.02,
-		"empty_box_ratio": 0.01
-	}`
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		path := r.URL.Path
-
-		switch {
-		case strings.Contains(path, "/api/lidar/acceptance/reset"):
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/acceptance"):
-			fmt.Fprint(w, acceptanceJSON)
-		case strings.Contains(path, "/api/lidar/grid_reset"):
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/grid_status"):
-			fmt.Fprint(w, gridStatusJSON)
-		case strings.Contains(path, "/api/lidar/params"):
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/tracks/metrics"):
-			fmt.Fprint(w, trackMetricsJSON)
-		default:
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-// sweepTestClient creates a monitor.Client backed by the provided mock server.
-func sweepTestClient(t *testing.T, srv *httptest.Server) *monitor.Client {
-	t.Helper()
-	return monitor.NewClient(srv.Client(), srv.URL, "test-sensor")
-}
-
 // waitForAutoTuneStatus polls the auto-tuner state until it reaches one
 // of the target statuses or the timeout expires.
 func waitForAutoTuneStatus(t *testing.T, at *AutoTuner, timeout time.Duration, targets ...SweepStatus) AutoTuneState {
@@ -749,9 +801,7 @@ func waitForAutoTuneStatus(t *testing.T, at *AutoTuner, timeout time.Duration, t
 // TestAutoCov2_RunFullExecution starts an auto-tune with a tiny 1-round,
 // 2-value sweep and verifies the run() goroutine completes successfully.
 func TestAutoCov2_RunFullExecution(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -790,9 +840,7 @@ func TestAutoCov2_RunFullExecution(t *testing.T) {
 
 // TestAutoCov2_RunMultipleRounds tests the narrowing logic across multiple rounds.
 func TestAutoCov2_RunMultipleRounds(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -821,9 +869,7 @@ func TestAutoCov2_RunMultipleRounds(t *testing.T) {
 
 // TestAutoCov2_RunWithIntParams exercises the int grid path in run().
 func TestAutoCov2_RunWithIntParams(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -849,9 +895,7 @@ func TestAutoCov2_RunWithIntParams(t *testing.T) {
 
 // TestAutoCov2_RunWithInt64Params exercises the int64 grid path in run().
 func TestAutoCov2_RunWithInt64Params(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -878,43 +922,29 @@ func TestAutoCov2_RunWithInt64Params(t *testing.T) {
 // TestAutoCov2_RunCancelledMidway cancels auto-tuning during execution
 // and verifies the error state.
 func TestAutoCov2_RunCancelledMidway(t *testing.T) {
-	// Use a slow server to ensure the auto-tuner is still running when we cancel.
-	var requestCount int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		path := r.URL.Path
-		count := atomic.AddInt32(&requestCount, 1)
-
-		switch {
-		case strings.Contains(path, "/api/lidar/acceptance/reset"):
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/acceptance"):
-			fmt.Fprint(w, `{"BucketsMeters":[1],"AcceptCounts":[10],"RejectCounts":[2],"Totals":[12],"AcceptanceRates":[0.83]}`)
-		case strings.Contains(path, "/api/lidar/grid_reset"):
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/grid_status"):
-			// Make settle slow enough to allow cancellation on first combo
-			if count < 5 {
-				fmt.Fprint(w, `{"background_count": 0}`)
-			} else {
-				fmt.Fprint(w, `{"background_count": 42}`)
+	// Use a slow-settling mockBackend to ensure the auto-tuner is still
+	// running when we cancel.
+	var gridCalls int32
+	backend := &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"BucketsMeters":   []interface{}{float64(1)},
+			"AcceptCounts":    []interface{}{float64(10)},
+			"RejectCounts":    []interface{}{float64(2)},
+			"Totals":          []interface{}{float64(12)},
+			"AcceptanceRates": []interface{}{0.83},
+		},
+		trackingMetrics: map[string]interface{}{
+			"active_tracks": float64(1),
+		},
+		FetchGridStatusFn: func() (map[string]interface{}, error) {
+			n := atomic.AddInt32(&gridCalls, 1)
+			if n < 5 {
+				return map[string]interface{}{"background_count": float64(0)}, nil
 			}
-		case strings.Contains(path, "/api/lidar/params"):
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		case strings.Contains(path, "/api/lidar/tracks/metrics"):
-			fmt.Fprint(w, `{"active_tracks":1}`)
-		default:
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, `{}`)
-		}
-	}))
-	t.Cleanup(srv.Close)
-
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+			return map[string]interface{}{"background_count": float64(42)}, nil
+		},
+	}
+	runner := NewRunner(backend)
 	at := NewAutoTuner(runner)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -949,9 +979,7 @@ func TestAutoCov2_RunCancelledMidway(t *testing.T) {
 
 // TestAutoCov2_RunWithPersister ensures run() calls the persister on completion.
 func TestAutoCov2_RunWithPersister(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
@@ -995,9 +1023,7 @@ func TestAutoCov2_RunWithPersister(t *testing.T) {
 
 // TestAutoCov2_RunWithPersisterError ensures run() handles persister errors gracefully.
 func TestAutoCov2_RunWithPersisterError(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 	mp := &failingPersister{}
 	at.SetPersister(mp)
@@ -1028,9 +1054,7 @@ func TestAutoCov2_RunWithPersisterError(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruth exercises the ground truth scoring path in run().
 func TestAutoCov2_RunGroundTruth(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	var scorerCalls int32
@@ -1071,9 +1095,7 @@ func TestAutoCov2_RunGroundTruth(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruthWithSceneStore tests scene store saving on completion.
 func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
@@ -1120,9 +1142,7 @@ func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruthScorerError tests the path where ground truth scorer returns errors.
 func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
@@ -1155,9 +1175,7 @@ func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruthSceneStoreError tests graceful handling of scene store errors.
 func TestAutoCov2_RunGroundTruthSceneStoreError(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
@@ -1195,9 +1213,7 @@ func TestAutoCov2_RunGroundTruthSceneStoreError(t *testing.T) {
 
 // TestAutoCov2_RunWeightedObjective exercises the weighted objective path in run().
 func TestAutoCov2_RunWeightedObjective(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -1224,9 +1240,7 @@ func TestAutoCov2_RunWeightedObjective(t *testing.T) {
 
 // TestAutoCov2_RunCustomWeights exercises the custom weights path in run().
 func TestAutoCov2_RunCustomWeights(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -1262,26 +1276,19 @@ func TestAutoCov2_RunCustomWeights(t *testing.T) {
 
 // TestAutoCov2_RunSweepStartFailure tests the error path when the inner sweep fails to start.
 func TestAutoCov2_RunSweepStartFailure(t *testing.T) {
-	// Use a server that returns errors on the params endpoint
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		path := r.URL.Path
-
-		if strings.Contains(path, "/api/lidar/params") {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, `{"error": "server crashed"}`)
-			return
-		}
-		if strings.Contains(path, "/api/lidar/acceptance") {
-			fmt.Fprint(w, `{"BucketsMeters":[1],"AcceptCounts":[10],"RejectCounts":[2],"Totals":[12],"AcceptanceRates":[0.83]}`)
-			return
-		}
-		fmt.Fprint(w, `{}`)
-	}))
-	t.Cleanup(srv.Close)
-
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	// Use a backend that returns errors on SetTuningParams.
+	backend := sweepMockBackend()
+	backend.acceptanceMetrics = map[string]interface{}{
+		"BucketsMeters":   []interface{}{float64(1)},
+		"AcceptCounts":    []interface{}{float64(10)},
+		"RejectCounts":    []interface{}{float64(2)},
+		"Totals":          []interface{}{float64(12)},
+		"AcceptanceRates": []interface{}{0.83},
+	}
+	backend.SetTuningParamsFn = func(params map[string]interface{}) error {
+		return fmt.Errorf("server crashed")
+	}
+	runner := NewRunner(backend)
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -1307,9 +1314,7 @@ func TestAutoCov2_RunSweepStartFailure(t *testing.T) {
 
 // TestAutoCov2_RunMultiParam exercises the multi-parameter Cartesian product path.
 func TestAutoCov2_RunMultiParam(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -1344,9 +1349,7 @@ func TestAutoCov2_RunMultiParam(t *testing.T) {
 // TestAutoCov2_StartViaMapWithPersister tests Start() with a map request and persister,
 // exercising the JSON marshal/unmarshal + persisterSaveStart path.
 func TestAutoCov2_StartViaMapWithPersister(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
@@ -1492,9 +1495,7 @@ func TestAutoCov2_SetErrorWithFailingPersister(t *testing.T) {
 // TestAutoCov2_RecommendationContainsAllFields verifies that the recommendation
 // built by run() includes all expected metric fields.
 func TestAutoCov2_RecommendationContainsAllFields(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -1537,9 +1538,7 @@ func TestAutoCov2_RecommendationContainsAllFields(t *testing.T) {
 // TestAutoCov2_BoundsNarrowingClampedToOriginal verifies that narrowed bounds are
 // clamped to the original parameter range.
 func TestAutoCov2_BoundsNarrowingClampedToOriginal(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -1570,9 +1569,7 @@ func TestAutoCov2_BoundsNarrowingClampedToOriginal(t *testing.T) {
 // ---- Start with AcceptanceCriteria ----
 
 func TestAutoCov2_RunWithAcceptanceCriteria(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	maxFrag := 0.5
@@ -1603,9 +1600,7 @@ func TestAutoCov2_RunWithAcceptanceCriteria(t *testing.T) {
 // ---- Start with GroundTruth + custom weights ----
 
 func TestAutoCov2_RunGroundTruthCustomWeights(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
@@ -1647,9 +1642,7 @@ func TestAutoCov2_RunGroundTruthCustomWeights(t *testing.T) {
 // ---- TopK larger than results ----
 
 func TestAutoCov2_RunTopKLargerThanResults(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{

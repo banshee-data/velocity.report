@@ -463,8 +463,9 @@ func (rt *RLHFTuner) setStatus(status string) {
 	rt.stateCond.Broadcast()
 }
 
-// WaitForChange blocks until the RLHF status differs from lastStatus
-// or ctx is cancelled. Returns the current state.
+// WaitForChange blocks until the RLHF state changes (status transition
+// or label-progress update) compared to the caller's last-seen snapshot,
+// or ctx is cancelled.  Returns the current state.
 func (rt *RLHFTuner) WaitForChange(ctx context.Context, lastStatus string) interface{} {
 	// Use a goroutine to unblock the Cond.Wait when the context is done.
 	done := make(chan struct{})
@@ -476,8 +477,10 @@ func (rt *RLHFTuner) WaitForChange(ctx context.Context, lastStatus string) inter
 		}
 	}()
 
+	// Block once and then return — any broadcast (status change OR
+	// label-progress update) counts as a change the client should see.
 	rt.mu.RLock()
-	for rt.state.Status == lastStatus && ctx.Err() == nil {
+	if rt.state.Status == lastStatus && ctx.Err() == nil {
 		rt.stateCond.Wait()
 	}
 	rt.mu.RUnlock()
@@ -878,11 +881,19 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 		return nil, 0, fmt.Errorf("auto-tune did not complete successfully: %s", finalState.Status)
 	}
 
-	// Extract best result
+	// Extract best result — only keep actual sweep param names
+	// (Recommendation also contains metric keys like acceptance_rate,
+	// alignment_deg, etc. which must not be passed to the next round.)
 	var bestParams map[string]float64
 	var bestScore float64
 
 	if finalState.Recommendation != nil {
+		// Build set of valid param names from the request.
+		paramNames := make(map[string]struct{}, len(req.Params))
+		for _, p := range req.Params {
+			paramNames[p.Name] = struct{}{}
+		}
+
 		bestParams = make(map[string]float64)
 		for k, v := range finalState.Recommendation {
 			if k == "score" {
@@ -890,6 +901,9 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 					bestScore = fv
 				}
 				continue
+			}
+			if _, ok := paramNames[k]; !ok {
+				continue // skip metric keys
 			}
 			if fv, ok := v.(float64); ok {
 				bestParams[k] = fv
@@ -980,6 +994,8 @@ func (rt *RLHFTuner) waitForLabelsOrDeadline(ctx context.Context, runID string, 
 				ByClass:  byClass,
 			}
 			rt.mu.Unlock()
+			// Wake long-poll waiters so the UI sees updated label progress.
+			rt.stateCond.Broadcast()
 
 			log.Printf("[rlhf] Label progress: %d/%d (%.1f%%)", labelled, total, pct*100)
 
