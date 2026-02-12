@@ -454,7 +454,7 @@ func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) err
 				found = true
 			}
 			if found {
-				spreadSecs := float64(maxEnd-minStart) / 1e9
+				spreadSecs := (float64(maxEnd) - float64(minStart)) / 1e9
 				if spreadSecs < rt.state.MinTemporalSpreadSecs {
 					return fmt.Errorf("temporal spread not met: %.1fs < %.1fs required", spreadSecs, rt.state.MinTemporalSpreadSecs)
 				}

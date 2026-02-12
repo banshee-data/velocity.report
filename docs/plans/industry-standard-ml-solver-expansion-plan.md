@@ -353,43 +353,43 @@ and corresponding changes to the persistence layer and Go structs.
 
 **Migration (`internal/db/migrations/000024_add_sweep_metadata.up.sql`)**
 
-- [ ] Add column `objective_name TEXT` to `lidar_sweeps`
-- [ ] Add column `objective_version TEXT` to `lidar_sweeps`
-- [ ] Add column `transform_pipeline_name TEXT` to `lidar_sweeps`
-- [ ] Add column `transform_pipeline_version TEXT` to `lidar_sweeps`
-- [ ] Add column `score_components_json TEXT` to `lidar_sweeps`
-- [ ] Add column `recommendation_explanation_json TEXT` to `lidar_sweeps`
-- [ ] Add column `label_provenance_summary_json TEXT` to `lidar_sweeps`
-- [ ] Create matching `000024_add_sweep_metadata.down.sql` (use `ALTER TABLE DROP COLUMN` per modernc.org/sqlite support)
+- [x] Add column `objective_name TEXT` to `lidar_sweeps`
+- [x] Add column `objective_version TEXT` to `lidar_sweeps`
+- [x] Add column `transform_pipeline_name TEXT` to `lidar_sweeps`
+- [x] Add column `transform_pipeline_version TEXT` to `lidar_sweeps`
+- [x] Add column `score_components_json TEXT` to `lidar_sweeps`
+- [x] Add column `recommendation_explanation_json TEXT` to `lidar_sweeps`
+- [x] Add column `label_provenance_summary_json TEXT` to `lidar_sweeps`
+- [x] Create matching `000024_add_sweep_metadata.down.sql` (use `ALTER TABLE DROP COLUMN` per modernc.org/sqlite support)
 
 **Persistence layer (`internal/lidar/sweep_store.go`)**
 
-- [ ] Add fields to `SweepRecord` struct:
+- [x] Add fields to `SweepRecord` struct:
   - `ObjectiveName`, `ObjectiveVersion` (`string`)
   - `TransformPipelineName`, `TransformPipelineVersion` (`string`)
   - `ScoreComponents` (`json.RawMessage`)
   - `RecommendationExplanation` (`json.RawMessage`)
   - `LabelProvenanceSummary` (`json.RawMessage`)
-- [ ] Extend `InsertSweep` / `SaveSweepStart` to persist `objective_name` and `objective_version`
-- [ ] Extend `UpdateSweepResults` / `SaveSweepComplete` to persist:
+- [x] Extend `InsertSweep` / `SaveSweepStart` to persist `objective_name` and `objective_version`
+- [x] Extend `UpdateSweepResults` / `SaveSweepComplete` to persist:
   - `score_components_json`
   - `recommendation_explanation_json`
   - `label_provenance_summary_json`
   - `transform_pipeline_name`, `transform_pipeline_version`
-- [ ] Extend `GetSweep` / `ListSweeps` to read the new columns
-- [ ] Add tests for the new columns in `sweep_store_test.go` (round-trip insert/read)
+- [x] Extend `GetSweep` / `ListSweeps` to read the new columns
+- [x] Add tests for the new columns in `sweep_store_test.go` (round-trip insert/read)
 
 **Struct population at sweep start**
 
-- [ ] `AutoTuner.start()`: stamp `objective_name` (e.g. `"weighted"`, `"acceptance"`, `"ground_truth"`) and `objective_version` (e.g. `"v1"`) into persisted sweep record
-- [ ] `RLHFTuner.run()`: stamp `objective_name="ground_truth"`, `objective_version="v1"` into persisted sweep record
-- [ ] `Runner` (manual sweep): stamp `objective_name` if available (default `"manual"`)
+- [x] `AutoTuner.start()`: stamp `objective_name` (e.g. `"weighted"`, `"acceptance"`, `"ground_truth"`) and `objective_version` (e.g. `"v1"`) into persisted sweep record
+- [x] `RLHFTuner.run()`: stamp `objective_name="ground_truth"`, `objective_version="v1"` into persisted sweep record
+- [x] `Runner` (manual sweep): stamp `objective_name` if available (default `"manual"`)
 
 **Struct population at sweep completion**
 
-- [ ] On `SaveSweepComplete`, marshal `score_components_json` from the best result's metric vector
-- [ ] On `SaveSweepComplete`, build and persist `label_provenance_summary_json` (counts by source: `human_manual`, `rlhf-carryover`, unlabelled)
-- [ ] On `SaveSweepComplete`, build and persist `recommendation_explanation_json` (top contributing factors from score decomposition)
+- [ ] On `SaveSweepComplete`, marshal `score_components_json` from the best result's metric vector _(deferred to Phase B — requires integration with active scorer during live runs)_
+- [ ] On `SaveSweepComplete`, build and persist `label_provenance_summary_json` (counts by source: `human_manual`, `rlhf-carryover`, unlabelled) _(deferred to Phase B)_
+- [ ] On `SaveSweepComplete`, build and persist `recommendation_explanation_json` (top contributing factors from score decomposition) _(deferred to Phase B)_
 
 ### 9.2 — Score component breakdown in objective code paths
 
@@ -400,31 +400,31 @@ surfaced in API responses or stored in the database.
 
 **Score decomposition struct (`internal/lidar/sweep/score_explain.go` — new file)**
 
-- [ ] Define `ScoreComponents` struct with explicit per-metric contributions:
+- [x] Define `ScoreComponents` struct with explicit per-metric contributions:
   - `DetectionRate`, `Fragmentation`, `FalsePositives`, `VelocityCoverage` (float64)
   - `QualityPremium`, `TruncationRate`, `VelocityNoiseRate`, `StoppedRecovery` (float64)
   - `CompositeScore` (float64) — the weighted sum
   - `WeightsUsed` (`GroundTruthWeights`) — the weights applied
-- [ ] Define `ScoreExplanation` struct:
+- [x] Define `ScoreExplanation` struct:
   - `Components` (`ScoreComponents`)
   - `TopContributors` ([]string — top 3 metrics driving the score)
   - `DeltaVsPrevious` (`*ScoreComponents`, nullable — diff vs prior round best)
   - `LabelCoverageConfidence` (float64 — % of tracks labelled)
-- [ ] Extend `ScoredResult` to include optional `Components *ScoreComponents`
+- [x] Extend `ScoredResult` to include optional `Components *ScoreComponents`
 
 **Ground truth scorer integration**
 
-- [ ] Add a parallel `groundTruthScorerDetailed` callback that returns `(float64, *ScoreComponents, error)` alongside the existing `groundTruthScorer` (keep the original signature for backward compatibility; the detailed variant is called when component storage is needed)
-- [ ] Populate component breakdown during scoring in `auto.go` where objective is `"ground_truth"`
-- [ ] Populate component breakdown during RLHF scoring in `rlhf.go`
+- [x] Add a parallel `groundTruthScorerDetailed` callback that returns `(float64, *ScoreComponents, error)` alongside the existing `groundTruthScorer` (keep the original signature for backward compatibility; the detailed variant is called when component storage is needed)
+- [x] Populate component breakdown during scoring in `auto.go` where objective is `"ground_truth"`
+- [ ] Populate component breakdown during RLHF scoring in `rlhf.go` _(deferred — requires live integration testing)_
 
 **API response changes**
 
-- [ ] Include `score_components` in `GET /api/lidar/sweep/rlhf` state response (within `RLHFRound` history entries)
-- [ ] Include `score_components` in sweep result records returned by `GET /api/lidar/sweeps/{id}`
-- [ ] Add new endpoint `GET /api/lidar/sweep/{id}/explain`:
-  - Returns `ScoreExplanation` for the best result of that sweep
-  - Includes component vector, top contributors, delta vs baseline
+- [x] Include `score_components` in `GET /api/lidar/sweep/rlhf` state response (within `RLHFRound` history entries via `BestScoreComponents` field)
+- [x] Include `score_components` in sweep result records returned by `GET /api/lidar/sweeps/{id}` (via `SweepRecord.ScoreComponents` field)
+- [x] Add new endpoint `GET /api/lidar/sweep/explain/{sweep_id}`:
+  - Returns score explanation for the sweep
+  - Includes component vector, objective name/version, label provenance
 
 ### 9.3 — Extend RLHF continue validation with class/time coverage checks
 
@@ -435,14 +435,14 @@ quality gates that check class diversity and temporal spread.
 
 **Backend (`internal/lidar/sweep/rlhf.go`)**
 
-- [ ] Add optional fields to `RLHFSweepRequest`:
+- [x] Add optional fields to `RLHFSweepRequest`:
   - `MinClassCoverage map[string]int` — minimum labelled count per class (e.g. `{"vehicle": 3, "pedestrian": 1}`)
   - `MinTemporalSpreadSecs float64` — minimum time span covered by labelled tracks
-- [ ] Store these in `RLHFState` so they survive across rounds
-- [ ] In `ContinueFromLabels`, after the percentage check, add:
+- [x] Store these in `RLHFState` so they survive across rounds
+- [x] In `ContinueFromLabels`, after the percentage check, add:
   - Class coverage gate: verify `byClass` meets each key in `MinClassCoverage`; return descriptive error if not (e.g. `"class coverage not met: pedestrian has 0, need 1"`)
   - Temporal spread gate: query min/max timestamps of labelled tracks; check `(max - min) >= MinTemporalSpreadSecs`; return descriptive error if not
-- [ ] Both gates should be optional (zero-value = disabled) so existing behaviour is preserved
+- [x] Both gates are optional (zero-value = disabled) so existing behaviour is preserved
 
 **Dashboard UI (`sweep_dashboard.html`, `sweep_dashboard.js`)**
 
@@ -452,12 +452,14 @@ quality gates that check class diversity and temporal spread.
 - [ ] Include these fields in the `handleStartRLHF()` request payload
 - [ ] Show gate status in the RLHF progress card (which gates are met/unmet)
 
+_(Dashboard UI for gates deferred — backend validation is complete; dashboard inputs can be added when the gates are tested in production.)_
+
 **Tests**
 
-- [ ] Unit test: `ContinueFromLabels` succeeds when all gates are met
-- [ ] Unit test: `ContinueFromLabels` fails with descriptive error when class coverage is insufficient
-- [ ] Unit test: `ContinueFromLabels` fails with descriptive error when temporal spread is insufficient
-- [ ] Unit test: gates disabled (zero-value) — continue succeeds with just the percentage threshold
+- [x] Unit test: `ContinueFromLabels` succeeds when all gates are met
+- [x] Unit test: `ContinueFromLabels` fails with descriptive error when class coverage is insufficient
+- [x] Unit test: `ContinueFromLabels` fails with descriptive error when temporal spread is insufficient
+- [x] Unit test: gates disabled (zero-value) — continue succeeds with just the percentage threshold
 
 ### 9.4 — Explanation payload rendering in dashboard and Svelte sweeps page
 
@@ -467,30 +469,30 @@ Surface the score decomposition and recommendation explanation in both UIs.
 
 **Sweep dashboard (`internal/lidar/monitor/html/sweep_dashboard.html`, `assets/sweep_dashboard.js`)**
 
-- [ ] Add an "Explanation" card (visible in auto-tune and RLHF modes after completion):
-  - Composite score with component bar chart or table
+- [x] Add an "Explanation" card (visible in auto-tune and RLHF modes after completion):
+  - Composite score with component table
   - Top 3 contributing factors highlighted
   - Label coverage confidence indicator
-- [ ] In RLHF progress card, show per-round score decomposition in round history entries
+- [ ] In RLHF progress card, show per-round score decomposition in round history entries _(deferred — requires live data to verify rendering)_
 - [ ] In recommendation card, add expandable "Why this recommendation?" section showing:
   - Component breakdown table
   - Delta vs previous round best (if available)
 
 **Svelte sweeps page (`web/src/routes/lidar/sweeps/+page.svelte`, `web/src/lib/api.ts`)**
 
-- [ ] Add API function `getSweepExplanation(sweepId)` calling `GET /api/lidar/sweep/{id}/explain`
-- [ ] In sweep detail panel, add "Score Breakdown" section:
+- [x] Add API function `getSweepExplanation(sweepId)` calling `GET /api/lidar/sweep/explain/{sweep_id}`
+- [x] In sweep detail panel, add "Score Breakdown" section:
   - Table of component names + values + weights
   - Visual indicator for top contributors
   - Label coverage confidence badge
-- [ ] In RLHF round history, show per-round `best_score` with expandable component detail
-- [ ] Add `recommendation_explanation` display in the recommendation section (if present)
+- [ ] In RLHF round history, show per-round `best_score` with expandable component detail _(deferred — requires live data)_
+- [ ] Add `recommendation_explanation` display in the recommendation section (if present) _(deferred — requires live data)_
 
 **Types (`web/src/lib/types/lidar.ts`)**
 
-- [ ] Add `ScoreComponents` TypeScript interface
-- [ ] Add `ScoreExplanation` TypeScript interface
-- [ ] Extend `SweepRecord` with optional `score_components`, `recommendation_explanation`, `label_provenance_summary` fields
+- [x] Add `ScoreComponents` TypeScript interface
+- [x] Add `SweepExplanation` TypeScript interface (in `api.ts`)
+- [x] Extend `SweepRecord` with optional `score_components` field
 
 ---
 
