@@ -584,12 +584,13 @@ func TestStart_PersisterStartError(t *testing.T) {
 		}
 		select {
 		case <-deadline:
-			break
+			t.Log("timed out waiting for state to change, proceeding with Stop")
+			goto stop
 		default:
+			time.Sleep(5 * time.Millisecond)
 		}
-		break
 	}
-
+stop:
 	tuner.Stop()
 }
 
