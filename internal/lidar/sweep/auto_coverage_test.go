@@ -583,7 +583,10 @@ func TestAutoTuner_Start_WithPersister(t *testing.T) {
 	at.Stop()
 	time.Sleep(100 * time.Millisecond)
 
-	if !mp.startCalled {
+	mp.mu.Lock()
+	started := mp.startCalled
+	mp.mu.Unlock()
+	if !started {
 		t.Error("expected persister.SaveSweepStart to be called")
 	}
 	if at.GetSweepID() == "" {
@@ -629,17 +632,22 @@ func TestAutoTuner_Start_GroundTruth_DefaultWeights(t *testing.T) {
 // --- Helper mocks ---
 
 type mockPersister struct {
+	mu             sync.Mutex
 	startCalled    bool
 	completeCalled bool
 	completeStatus string
 }
 
 func (m *mockPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.startCalled = true
 	return nil
 }
 
 func (m *mockPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.completeCalled = true
 	m.completeStatus = status
 	return nil
@@ -968,14 +976,20 @@ func TestAutoCov2_RunWithPersister(t *testing.T) {
 		t.Fatalf("expected complete, got %q error=%q", state.Status, state.Error)
 	}
 
-	if !mp.startCalled {
+	mp.mu.Lock()
+	startCalled := mp.startCalled
+	completeCalled := mp.completeCalled
+	completeStatus := mp.completeStatus
+	mp.mu.Unlock()
+
+	if !startCalled {
 		t.Error("expected SaveSweepStart to be called")
 	}
-	if !mp.completeCalled {
+	if !completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
-	if mp.completeStatus != "complete" {
-		t.Errorf("expected complete status, got %q", mp.completeStatus)
+	if completeStatus != "complete" {
+		t.Errorf("expected complete status, got %q", completeStatus)
 	}
 }
 
@@ -1091,11 +1105,16 @@ func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
 		t.Fatalf("expected complete, got %q error=%q", state.Status, state.Error)
 	}
 
-	if !store.called {
+	store.mu.Lock()
+	called := store.called
+	sceneID := store.sceneID
+	store.mu.Unlock()
+
+	if !called {
 		t.Error("expected SetOptimalParams to be called on scene store")
 	}
-	if store.sceneID != "scene-save-test" {
-		t.Errorf("scene store called with sceneID=%q, want 'scene-save-test'", store.sceneID)
+	if sceneID != "scene-save-test" {
+		t.Errorf("scene store called with sceneID=%q, want 'scene-save-test'", sceneID)
 	}
 }
 
@@ -1353,7 +1372,10 @@ func TestAutoCov2_StartViaMapWithPersister(t *testing.T) {
 		t.Fatalf("expected complete, got %q error=%q", state.Status, state.Error)
 	}
 
-	if !mp.startCalled {
+	mp.mu.Lock()
+	started := mp.startCalled
+	mp.mu.Unlock()
+	if !started {
 		t.Error("expected SaveSweepStart to be called")
 	}
 }

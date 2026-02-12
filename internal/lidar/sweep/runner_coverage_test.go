@@ -215,7 +215,10 @@ func TestRunner_Start_WithPersister(t *testing.T) {
 	r.Stop()
 	time.Sleep(50 * time.Millisecond)
 
-	if !mp.startCalled {
+	mp.mu.Lock()
+	started := mp.startCalled
+	mp.mu.Unlock()
+	if !started {
 		t.Error("expected persister.SaveSweepStart to be called")
 	}
 	if r.GetSweepID() == "" {
@@ -323,7 +326,10 @@ func TestRunner_StartGeneric_Success(t *testing.T) {
 	r.Stop()
 	time.Sleep(50 * time.Millisecond)
 
-	if !mp.startCalled {
+	mp.mu.Lock()
+	started := mp.startCalled
+	mp.mu.Unlock()
+	if !started {
 		t.Error("expected persister to be called")
 	}
 }
