@@ -60,6 +60,10 @@ func DefaultBackgroundConfig() *BackgroundConfig {
 		ReacquisitionBoostMultiplier: 5.0,
 		LockedBaselineThreshold:      50,
 		LockedBaselineMultiplier:     4.0,
+
+		// Foreground filtering
+		ForegroundMinClusterPoints: 2,
+		ForegroundDBSCANEps:        0.3,
 	}
 }
 
@@ -196,5 +200,17 @@ func (c *BackgroundConfig) WithSnapshotInterval(d time.Duration) *BackgroundConf
 // WithChangeThresholdSnapshot sets the minimum changed cells for snapshot.
 func (c *BackgroundConfig) WithChangeThresholdSnapshot(n int) *BackgroundConfig {
 	c.ChangeThresholdSnapshot = n
+	return c
+}
+
+// WithForegroundMinClusterPoints sets the minimum points for a foreground cluster.
+func (c *BackgroundConfig) WithForegroundMinClusterPoints(n int) *BackgroundConfig {
+	c.ForegroundMinClusterPoints = n
+	return c
+}
+
+// WithForegroundDBSCANEps sets the DBSCAN epsilon for foreground clustering.
+func (c *BackgroundConfig) WithForegroundDBSCANEps(eps float32) *BackgroundConfig {
+	c.ForegroundDBSCANEps = eps
 	return c
 }
