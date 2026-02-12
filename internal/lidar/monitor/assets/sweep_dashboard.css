@@ -346,6 +346,11 @@ body:not(.rlhf-mode) .rlhf-only {
   display: none !important;
 }
 
+/* Hide sweep params and sweep config cards in RLHF mode — RLHF auto-configures */
+body.rlhf-mode #sweep-params-section {
+  display: none !important;
+}
+
 /* Hide step/values in auto/rlhf mode */
 body.auto-mode .param-field-step,
 body.auto-mode .param-field-values,

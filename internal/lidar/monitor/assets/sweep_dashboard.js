@@ -454,6 +454,16 @@ function setMode(mode) {
     populateRLHFScenes();
   }
 
+  // Hide the "Scene" data source option in RLHF mode (RLHF has its own scene selector)
+  var sceneOpt = document.querySelector('#data_source option[value="scene"]');
+  if (sceneOpt) sceneOpt.style.display = mode === "rlhf" ? "none" : "";
+  // If data_source is currently "scene" and we switched to RLHF, reset to "live"
+  var dsEl = document.getElementById("data_source");
+  if (mode === "rlhf" && dsEl && dsEl.value === "scene") {
+    dsEl.value = "live";
+    togglePCAP();
+  }
+
   // Update button text
   if (mode === "rlhf") {
     document.getElementById("btn-start").textContent = "Start RLHF Sweep";
@@ -3166,6 +3176,16 @@ function init() {
 var rlhfPollTimer = null;
 var lastRLHFPhase = "";
 
+// Default parameters for RLHF auto-configuration when user hasn't added any.
+var DEFAULT_RLHF_PARAMS = [
+  "noise_relative",
+  "closeness_multiplier",
+  "background_update_fraction",
+  "safety_margin_meters",
+  "foreground_min_cluster_points",
+  "foreground_dbscan_eps",
+];
+
 function handleStartRLHF() {
   var sceneSelect = document.getElementById("rlhf_scene_select");
   var sceneId = sceneSelect ? sceneSelect.value : "";
@@ -3174,26 +3194,44 @@ function handleStartRLHF() {
     return;
   }
 
+  // Collect manually-added params from the UI
   var rows = document.getElementById("param-rows").children;
   var params = [];
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i];
-    var nameInput = row.querySelector(".param-name");
-    var typeInput = row.querySelector(".param-type");
-    var startInput = row.querySelector(".param-start");
-    var endInput = row.querySelector(".param-end");
-    if (nameInput && startInput && endInput) {
+    var rowId = row.id.replace("param-row-", "");
+    var nameEl = document.getElementById("pname-" + rowId);
+    if (!nameEl) continue;
+    var name = nameEl.value;
+    if (!name) continue;
+    var schema = PARAM_SCHEMA[name];
+    var typ = schema ? schema.type : "float64";
+    var startEl = document.getElementById("pstart-" + rowId);
+    var endEl = document.getElementById("pend-" + rowId);
+    if (startEl && endEl) {
       params.push({
-        name: nameInput.value,
-        type: typeInput ? typeInput.value : "float64",
-        start: parseFloat(startInput.value),
-        end: parseFloat(endInput.value),
+        name: name,
+        type: typ,
+        start: parseFloat(startEl.value),
+        end: parseFloat(endEl.value),
       });
     }
   }
+
+  // Auto-populate with default RLHF params when none specified
   if (params.length === 0) {
-    showError("Add at least one parameter.");
-    return;
+    for (var d = 0; d < DEFAULT_RLHF_PARAMS.length; d++) {
+      var pn = DEFAULT_RLHF_PARAMS[d];
+      var ps = PARAM_SCHEMA[pn];
+      if (ps && ps.defaultStart !== undefined && ps.defaultEnd !== undefined) {
+        params.push({
+          name: pn,
+          type: ps.type,
+          start: ps.defaultStart,
+          end: ps.defaultEnd,
+        });
+      }
+    }
   }
 
   var durationsStr = (
