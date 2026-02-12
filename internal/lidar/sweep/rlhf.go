@@ -634,11 +634,21 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	// Complete
 	rt.mu.Lock()
 	rt.state.Status = string(SweepStatusComplete)
+	roundHistoryCopy := make([]RLHFRound, len(rt.state.RoundHistory))
+	copy(roundHistoryCopy, rt.state.RoundHistory)
 	rt.mu.Unlock()
 
 	if rt.persister != nil {
-		recJSON, _ := json.Marshal(currentParams)
-		roundJSON, _ := json.Marshal(rt.state.RoundHistory)
+		recJSON, err := json.Marshal(currentParams)
+		if err != nil {
+			log.Printf("[rlhf] Failed to marshal recommendation: %v", err)
+			recJSON = []byte("{}")
+		}
+		roundJSON, err := json.Marshal(roundHistoryCopy)
+		if err != nil {
+			log.Printf("[rlhf] Failed to marshal round history: %v", err)
+			roundJSON = []byte("[]")
+		}
 		now := time.Now()
 		if err := rt.persister.SaveSweepComplete(rt.sweepID, "completed", nil, recJSON, roundJSON, now, "", nil, nil, nil, "", ""); err != nil {
 			log.Printf("[rlhf] Failed to persist sweep completion: %v", err)
@@ -684,19 +694,22 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 
 	// Phase 2: Carry over labels if this is not the first round
 	carriedOver := 0
+	rt.mu.RLock()
+	prevRunID := ""
 	if round > 1 && req.CarryOverLabels && len(rt.state.RoundHistory) > 0 {
-		prevRunID := rt.state.RoundHistory[len(rt.state.RoundHistory)-1].ReferenceRunID
-		if prevRunID != "" {
-			log.Printf("[rlhf] Carrying over labels from previous run %s", prevRunID)
-			carriedOver, err = rt.carryOverLabels(prevRunID, runID)
-			if err != nil {
-				log.Printf("[rlhf] Failed to carry over labels: %v", err)
-			} else {
-				log.Printf("[rlhf] Carried over %d labels", carriedOver)
-				rt.mu.Lock()
-				rt.state.LabelsCarriedOver = carriedOver
-				rt.mu.Unlock()
-			}
+		prevRunID = rt.state.RoundHistory[len(rt.state.RoundHistory)-1].ReferenceRunID
+	}
+	rt.mu.RUnlock()
+	if prevRunID != "" {
+		log.Printf("[rlhf] Carrying over labels from previous run %s", prevRunID)
+		carriedOver, err = rt.carryOverLabels(prevRunID, runID)
+		if err != nil {
+			log.Printf("[rlhf] Failed to carry over labels: %v", err)
+		} else {
+			log.Printf("[rlhf] Carried over %d labels", carriedOver)
+			rt.mu.Lock()
+			rt.state.LabelsCarriedOver = carriedOver
+			rt.mu.Unlock()
 		}
 	}
 
