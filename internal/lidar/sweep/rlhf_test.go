@@ -66,7 +66,7 @@ type mockRunCreator struct {
 	calls int
 }
 
-func (m *mockRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error) {
+func (m *mockRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
 	m.calls++
 	return m.runID, m.err
 }

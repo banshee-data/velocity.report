@@ -378,6 +378,12 @@
             <small class="field-desc">Copy labels to next round via temporal IoU matching.</small>
           </label>
           <label>
+            <span>Tune background</span>
+            <input id="rlhf_tune_background" type="checkbox" />
+            <small class="field-desc">Re-settle background grid per combo. Enable when sweeping background
+              params.</small>
+          </label>
+          <label>
             <span>Min class coverage (JSON)</span>
             <input id="rlhf_class_coverage" type="text" placeholder='{"vehicle":3,"pedestrian":1}' />
             <small class="field-desc">Optional: minimum labelled tracks per class before proceeding.</small>

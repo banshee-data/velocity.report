@@ -3176,14 +3176,22 @@ var rlhfPollTimer = null;
 var lastRLHFPhase = "";
 
 // Default parameters for RLHF auto-configuration when user hasn't added any.
-var DEFAULT_RLHF_PARAMS = [
+var DEFAULT_RLHF_FOREGROUND_PARAMS = [
+  "foreground_min_cluster_points",
+  "foreground_dbscan_eps",
+];
+
+var DEFAULT_RLHF_BACKGROUND_PARAMS = [
   "noise_relative",
   "closeness_multiplier",
   "background_update_fraction",
   "safety_margin_meters",
-  "foreground_min_cluster_points",
-  "foreground_dbscan_eps",
 ];
+
+// DEFAULT_RLHF_PARAMS kept for backward compatibility (all params).
+var DEFAULT_RLHF_PARAMS = DEFAULT_RLHF_FOREGROUND_PARAMS.concat(
+  DEFAULT_RLHF_BACKGROUND_PARAMS,
+);
 
 function handleStartRLHF() {
   // RLHF uses the scene selector from the Data Source card
@@ -3218,10 +3226,15 @@ function handleStartRLHF() {
     }
   }
 
-  // Auto-populate with default RLHF params when none specified
+  // Auto-populate with default RLHF params when none specified.
+  // When tune_background is off we only sweep foreground params.
+  var tuneBackground = document.getElementById("rlhf_tune_background").checked;
+  var defaultParams = tuneBackground
+    ? DEFAULT_RLHF_PARAMS
+    : DEFAULT_RLHF_FOREGROUND_PARAMS;
   if (params.length === 0) {
-    for (var d = 0; d < DEFAULT_RLHF_PARAMS.length; d++) {
-      var pn = DEFAULT_RLHF_PARAMS[d];
+    for (var d = 0; d < defaultParams.length; d++) {
+      var pn = defaultParams[d];
       var ps = PARAM_SCHEMA[pn];
       if (ps && ps.defaultStart !== undefined && ps.defaultEnd !== undefined) {
         params.push({
@@ -3253,6 +3266,7 @@ function handleStartRLHF() {
       (parseInt(document.getElementById("rlhf_threshold").value, 10) || 90) /
       100,
     carry_over_labels: document.getElementById("rlhf_carryover").checked,
+    tune_background: document.getElementById("rlhf_tune_background").checked,
   };
 
   // Add optional class coverage gates
