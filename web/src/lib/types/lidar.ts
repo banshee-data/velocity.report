@@ -308,4 +308,21 @@ export interface SweepRecord {
 	error?: string;
 	started_at: string;
 	completed_at?: string;
+	score_components?: ScoreComponents | string;
+}
+
+/** Score components for sweep scoring explanation */
+export interface ScoreComponents {
+	detection_rate: number;
+	fragmentation: number;
+	false_positives: number;
+	velocity_coverage: number;
+	quality_premium: number;
+	truncation_rate: number;
+	velocity_noise_rate: number;
+	stopped_recovery: number;
+	composite_score: number;
+	weights_used: Record<string, number>;
+	top_contributors?: string[];
+	label_coverage_confidence?: number;
 }

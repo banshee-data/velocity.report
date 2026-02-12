@@ -47,6 +47,39 @@
     <div id="recommendation-content"></div>
   </div>
 
+  <!-- Score Explanation Card (shown after auto-tune or RLHF completes) -->
+  <div id="explanation-card" class="card" style="display: none">
+    <h2>Score Explanation</h2>
+    <div id="explanation-objective" style="margin-bottom: 8px">
+      <span class="label">Objective:</span>
+      <span id="explanation-objective-name"></span>
+      <span id="explanation-objective-version" style="color: var(--muted)"></span>
+    </div>
+    <div id="explanation-composite" style="margin-bottom: 12px">
+      <span class="label">Composite Score:</span>
+      <strong id="explanation-composite-score"></strong>
+    </div>
+    <div id="explanation-top-contributors" style="margin-bottom: 12px">
+      <span class="label">Top Contributors:</span>
+      <span id="explanation-top-list"></span>
+    </div>
+    <div id="explanation-label-coverage" style="margin-bottom: 12px">
+      <span class="label">Label Coverage:</span>
+      <span id="explanation-label-pct"></span>
+    </div>
+    <table id="explanation-components-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em">
+      <thead>
+        <tr style="text-align: left; border-bottom: 1px solid var(--border)">
+          <th style="padding: 4px 8px">Metric</th>
+          <th style="padding: 4px 8px">Contribution</th>
+          <th style="padding: 4px 8px">Weight</th>
+        </tr>
+      </thead>
+      <tbody id="explanation-components-body">
+      </tbody>
+    </table>
+  </div>
+
   <!-- Config Sections Container -->
   <div id="config-container">
     <!-- Sweep Parameters Card (full width) -->

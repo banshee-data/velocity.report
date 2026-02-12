@@ -13,6 +13,18 @@
 	/** Default sensor — matches the single-sensor pattern used elsewhere. */
 	const SENSOR_ID = 'hesai-pandar40p';
 
+	/** Score component metric definitions for display */
+	const SCORE_METRICS: Array<[string, string]> = [
+		['Detection Rate', 'detection_rate'],
+		['Fragmentation', 'fragmentation'],
+		['False Positives', 'false_positives'],
+		['Velocity Coverage', 'velocity_coverage'],
+		['Quality Premium', 'quality_premium'],
+		['Truncation Rate', 'truncation_rate'],
+		['Velocity Noise', 'velocity_noise_rate'],
+		['Stopped Recovery', 'stopped_recovery']
+	];
+
 	let sweeps: SweepSummary[] = [];
 	let loading = true;
 	let error: string | null = null;
@@ -465,6 +477,61 @@
 								{/each}
 							</div>
 						</details>
+					{/if}
+
+					<!-- Score Breakdown -->
+					{#if selectedSweep.score_components}
+						{@const components =
+							typeof selectedSweep.score_components === 'string'
+								? JSON.parse(selectedSweep.score_components)
+								: selectedSweep.score_components}
+						{#if components}
+							<div class="mb-4">
+								<h4 class="text-surface-content mb-2 text-sm font-semibold">Score Breakdown</h4>
+								<div class="bg-surface-200 rounded p-3">
+									<div class="mb-2 text-sm">
+										<span class="text-surface-content/60">Composite Score:</span>
+										<strong class="ml-2">{components.composite_score?.toFixed(4) ?? '—'}</strong>
+									</div>
+									{#if components.top_contributors && components.top_contributors.length > 0}
+										<div class="mb-3 text-xs">
+											<span class="text-surface-content/60">Top Contributors:</span>
+											<span class="ml-2">{components.top_contributors.join(', ')}</span>
+										</div>
+									{/if}
+									{#if components.label_coverage_confidence != null}
+										<div class="mb-3 text-xs">
+											<span class="text-surface-content/60">Label Coverage:</span>
+											<span class="ml-2"
+												>{(components.label_coverage_confidence * 100).toFixed(1)}%</span
+											>
+										</div>
+									{/if}
+									<table class="w-full text-xs">
+										<thead>
+											<tr class="border-surface-content/10 border-b">
+												<th class="text-surface-content/70 px-2 py-1 text-left">Metric</th>
+												<th class="text-surface-content/70 px-2 py-1 text-right">Value</th>
+												<th class="text-surface-content/70 px-2 py-1 text-right">Weight</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each SCORE_METRICS as [label, key] (key)}
+												<tr class="border-surface-content/5 border-b">
+													<td class="px-2 py-1">{label}</td>
+													<td class="px-2 py-1 text-right font-mono"
+														>{components[key]?.toFixed(4) ?? '—'}</td
+													>
+													<td class="text-surface-content/60 px-2 py-1 text-right font-mono"
+														>{components.weights_used?.[key]?.toFixed(2) ?? '—'}</td
+													>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						{/if}
 					{/if}
 
 					<!-- Request Config -->

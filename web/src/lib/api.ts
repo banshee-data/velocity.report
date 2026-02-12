@@ -440,6 +440,7 @@ import type {
 	MissedRegion,
 	ObservationListResponse,
 	RunTrack,
+	ScoreComponents,
 	SweepRecord,
 	SweepSummary,
 	Track,
@@ -802,6 +803,30 @@ export async function getSweep(sweepId: string): Promise<SweepRecord> {
 	const res = await fetch(`${API_BASE}/lidar/sweeps/${sweepId}`);
 	if (!res.ok) throw new Error(`Failed to get sweep: ${res.status}`);
 	return res.json();
+}
+
+/** Score explanation response from the explain endpoint. */
+export interface SweepExplanation {
+	sweep_id: string;
+	objective_name?: string;
+	objective_version?: string;
+	score_components?: ScoreComponents;
+	recommendation_explanation?: Record<string, unknown>;
+	label_provenance_summary?: Record<string, unknown>;
+}
+
+/**
+ * Fetch score explanation for a sweep.
+ * @param sweepId - Sweep identifier
+ */
+export async function getSweepExplanation(sweepId: string): Promise<SweepExplanation | null> {
+	try {
+		const resp = await fetch(`${API_BASE}/lidar/sweep/explain/${encodeURIComponent(sweepId)}`);
+		if (!resp.ok) return null;
+		return await resp.json();
+	} catch {
+		return null;
+	}
 }
 
 /**

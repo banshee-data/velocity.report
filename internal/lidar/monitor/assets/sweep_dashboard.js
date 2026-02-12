@@ -247,6 +247,18 @@ var CHART_COLORS = [
   "#9a60b4",
 ];
 
+// Score component metric definitions for explanation display
+var SCORE_METRICS = [
+  { key: "detection_rate", label: "Detection Rate" },
+  { key: "fragmentation", label: "Fragmentation" },
+  { key: "false_positives", label: "False Positives" },
+  { key: "velocity_coverage", label: "Velocity Coverage" },
+  { key: "quality_premium", label: "Quality Premium" },
+  { key: "truncation_rate", label: "Truncation Rate" },
+  { key: "velocity_noise_rate", label: "Velocity Noise Rate" },
+  { key: "stopped_recovery", label: "Stopped Recovery" },
+];
+
 var METRIC_KEYS = [
   "overall_accept_mean",
   "overall_accept_stddev",
@@ -1351,6 +1363,15 @@ function pollAutoTuneStatus() {
         if (st.recommendation) {
           renderRecommendation(st.recommendation, st.round_results);
         }
+        // Fetch and display score explanation for the latest sweep
+        fetch("/api/lidar/sweeps?limit=1")
+          .then(function(resp) { return resp.json(); })
+          .then(function(sweeps) {
+            if (sweeps && sweeps.length > 0) {
+              fetchSweepExplanation(sweeps[0].sweep_id);
+            }
+          })
+          .catch(function(err) { console.warn("Could not fetch latest sweep:", err); });
       } else if (st.status === "error") {
         stopPolling();
       }
@@ -2988,6 +3009,8 @@ if (typeof module !== "undefined" && module.exports) {
     setMode: setMode,
     toggleWeights: toggleWeights,
     togglePCAP: togglePCAP,
+    fetchSweepExplanation: fetchSweepExplanation,
+    renderExplanation: renderExplanation,
     init: init,
   };
 }
@@ -3333,6 +3356,16 @@ function renderRLHFState(st) {
       document.getElementById("recommendation-content").innerHTML = html;
     }
 
+    // Fetch and display score explanation for the latest sweep
+    fetch("/api/lidar/sweeps?limit=1")
+      .then(function(resp) { return resp.json(); })
+      .then(function(sweeps) {
+        if (sweeps && sweeps.length > 0) {
+          fetchSweepExplanation(sweeps[0].sweep_id);
+        }
+      })
+      .catch(function(err) { console.warn("Could not fetch latest sweep:", err); });
+
   } else if (st.status === "failed") {
     labelSection.style.display = "none";
     sweepSection.style.display = "none";
@@ -3414,6 +3447,89 @@ function populateRLHFScenes() {
 
 function onRLHFSceneSelected() {
   // Currently no additional action needed on scene selection
+}
+
+// ---- Score Explanation Functions ----
+
+function fetchSweepExplanation(sweepId) {
+  if (!sweepId) return;
+  fetch("/api/lidar/sweep/explain/" + encodeURIComponent(sweepId))
+    .then(function (resp) {
+      if (!resp.ok) return null;
+      return resp.json();
+    })
+    .then(function (data) {
+      if (data) renderExplanation(data);
+    })
+    .catch(function (err) {
+      console.warn("Failed to fetch explanation:", err);
+    });
+}
+
+function renderExplanation(data) {
+  var card = document.getElementById("explanation-card");
+  if (!card) return;
+
+  var nameEl = document.getElementById("explanation-objective-name");
+  var versionEl = document.getElementById("explanation-objective-version");
+  if (nameEl) nameEl.textContent = data.objective_name || "—";
+  if (versionEl) versionEl.textContent = data.objective_version ? " (" + data.objective_version + ")" : "";
+
+  // Parse score_components if it's a string
+  var components = data.score_components;
+  if (typeof components === "string") {
+    try {
+      components = JSON.parse(components);
+    } catch (e) {
+      components = null;
+    }
+  }
+
+  var compositeEl = document.getElementById("explanation-composite-score");
+  if (compositeEl) {
+    compositeEl.textContent = components && components.composite_score != null
+      ? components.composite_score.toFixed(4)
+      : "—";
+  }
+
+  // Top contributors
+  var topEl = document.getElementById("explanation-top-list");
+  if (topEl) {
+    if (components && components.top_contributors) {
+      topEl.textContent = components.top_contributors.join(", ");
+    } else {
+      topEl.textContent = "—";
+    }
+  }
+
+  // Label coverage
+  var labelEl = document.getElementById("explanation-label-pct");
+  if (labelEl) {
+    if (components && components.label_coverage_confidence != null) {
+      labelEl.textContent = (components.label_coverage_confidence * 100).toFixed(1) + "%";
+    } else {
+      labelEl.textContent = "—";
+    }
+  }
+
+  // Component breakdown table
+  var tbody = document.getElementById("explanation-components-body");
+  if (tbody && components) {
+    tbody.innerHTML = "";
+    var weights = components.weights_used || {};
+    SCORE_METRICS.forEach(function (m) {
+      var val = components[m.key];
+      var weight = weights[m.key];
+      var row = document.createElement("tr");
+      row.innerHTML =
+        '<td style="padding: 4px 8px">' + m.label + "</td>" +
+        '<td style="padding: 4px 8px">' + (val != null ? val.toFixed(4) : "—") + "</td>" +
+        '<td style="padding: 4px 8px">' + (weight != null ? weight.toFixed(2) : "—") + "</td>";
+      tbody.appendChild(row);
+    });
+  }
+
+  card.style.display = "";
 }
 
 // ---- Browser Notifications ----
