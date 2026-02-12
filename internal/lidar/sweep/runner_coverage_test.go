@@ -1766,10 +1766,10 @@ type runnerMockPersister struct {
 	completeErr error
 }
 
-func (m *runnerMockPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time) error {
+func (m *runnerMockPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
 	return m.startErr
 }
 
-func (m *runnerMockPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string) error {
+func (m *runnerMockPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	return m.completeErr
 }
