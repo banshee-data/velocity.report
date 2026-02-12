@@ -624,6 +624,11 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				// Compute summary
 				combo := r.computeComboResult(noise, closeness, neighbour, results, buckets)
 
+				// Capture analysis run ID from the server (set during PCAP replay)
+				if isPCAP {
+					combo.RunID = r.client.GetLastAnalysisRunID()
+				}
+
 				// Update state
 				r.mu.Lock()
 				r.state.Results = append(r.state.Results, combo)
@@ -789,6 +794,11 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		// Compute summary with generic param values
 		combo := r.computeComboResult(noise, closeness, neighbour, results, buckets)
 		combo.ParamValues = paramValues
+
+		// Capture analysis run ID from the server (set during PCAP replay)
+		if isPCAP {
+			combo.RunID = r.client.GetLastAnalysisRunID()
+		}
 
 		// Update state
 		r.mu.Lock()
