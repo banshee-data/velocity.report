@@ -570,12 +570,12 @@ _Beyond 9.3–9.4:_
 
 ### Work summary for this branch (9.1–9.4)
 
-| Item | Scope | Key files |
-|------|-------|-----------|
-| **9.1** Schema/version stamps | DB migration + persistence + struct population | `migrations/000024_*.sql`, `sweep_store.go`, `auto.go`, `rlhf.go`, `runner.go` |
-| **9.2** Score component breakdown | New structs + scorer refactor + API | `score_explain.go` (new), `objective.go`, `auto.go`, `rlhf.go`, `sweep_handlers.go` |
-| **9.3** Class/time coverage gates | RLHF request/state extension + continue validation | `rlhf.go`, `rlhf_test.go`, `sweep_dashboard.js`, `sweep_dashboard.html` |
-| **9.4** Explanation rendering | Dashboard + Svelte UI | `sweep_dashboard.html`, `sweep_dashboard.js`, `sweep_dashboard.css`, `+page.svelte`, `api.ts`, `lidar.ts` |
+| Item                              | Scope                                              | Key files                                                                                                 |
+| --------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **9.1** Schema/version stamps     | DB migration + persistence + struct population     | `migrations/000024_*.sql`, `sweep_store.go`, `auto.go`, `rlhf.go`, `runner.go`                            |
+| **9.2** Score component breakdown | New structs + scorer refactor + API                | `score_explain.go` (new), `objective.go`, `auto.go`, `rlhf.go`, `sweep_handlers.go`                       |
+| **9.3** Class/time coverage gates | RLHF request/state extension + continue validation | `rlhf.go`, `rlhf_test.go`, `sweep_dashboard.js`, `sweep_dashboard.html`                                   |
+| **9.4** Explanation rendering     | Dashboard + Svelte UI                              | `sweep_dashboard.html`, `sweep_dashboard.js`, `sweep_dashboard.css`, `+page.svelte`, `api.ts`, `lidar.ts` |
 
 These actions preserve existing behaviour while laying platform foundations for
 scalable, interpretable, human-guided optimisation.
