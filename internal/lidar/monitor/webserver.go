@@ -1177,6 +1177,8 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			"post_settle_update_fraction":   params.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
+			"background_update_fraction":    params.BackgroundUpdateFraction,
+			"safety_margin_meters":          params.SafetyMarginMeters,
 		}
 
 		// Include tracker config if tracker is available
@@ -1219,6 +1221,8 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
 			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
 			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
+			BackgroundUpdateFraction   *float64 `json:"background_update_fraction"`
+			SafetyMarginMeters         *float64 `json:"safety_margin_meters"`
 			// Tracker params
 			GatingDistanceSquared *float64 `json:"gating_distance_squared"`
 			ProcessNoisePos       *float64 `json:"process_noise_pos"`
@@ -1311,6 +1315,22 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		}
+		if body.BackgroundUpdateFraction != nil {
+			p := bm.GetParams()
+			p.BackgroundUpdateFraction = float32(*body.BackgroundUpdateFraction)
+			if err := bm.SetParams(p); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.SafetyMarginMeters != nil {
+			p := bm.GetParams()
+			p.SafetyMarginMeters = float32(*body.SafetyMarginMeters)
+			if err := bm.SetParams(p); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
 
 		// Apply tracker config changes if tracker is available
 		if ws.tracker != nil {
@@ -1369,6 +1389,8 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			"post_settle_update_fraction":   cur.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": cur.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         cur.ForegroundDBSCANEps,
+			"background_update_fraction":    cur.BackgroundUpdateFraction,
+			"safety_margin_meters":          cur.SafetyMarginMeters,
 		}
 
 		// Include tracker config in response if tracker is available
