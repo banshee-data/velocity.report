@@ -790,7 +790,7 @@ struct AnalysisRunTests {
         #expect(!formatted.isEmpty)
     }
 
-    @Test func hasVRLogTrue() throws {
+    @Test func hasVRLogReturnsTrueWhenPathExists() throws {
         let run = AnalysisRun(
             runId: "run-2", createdAt: Date(), sourceType: "vrlog",
             sourcePath: nil, sensorId: "hesai-01", durationSecs: 0,
@@ -801,7 +801,7 @@ struct AnalysisRunTests {
         #expect(run.hasVRLog == true)
     }
 
-    @Test func hasVRLogFalse() throws {
+    @Test func hasVRLogReturnsFalseWhenPathIsNil() throws {
         let run = AnalysisRun(
             runId: "run-3", createdAt: Date(), sourceType: "live",
             sourcePath: nil, sensorId: "hesai-01", durationSecs: 0,
