@@ -394,11 +394,11 @@ t.Fatalf("expected exportBatchExported=1, got %d", fb.exportBatchExported)
 }
 
 func TestNewFrameBuilderWithDebugLoggingAndInterval_Coverage(t *testing.T) {
-fb := NewFrameBuilderWithDebugLoggingAndInterval("test-dbg", true, 500*time.Millisecond)
-if fb == nil {
-t.Fatal("expected non-nil FrameBuilder")
-}
-if !fb.debug {
-t.Fatal("expected debug=true")
-}
+	fb := NewFrameBuilderWithDebugLoggingAndInterval("test-dbg", true, 500*time.Millisecond)
+	if fb == nil {
+		t.Fatal("expected non-nil FrameBuilder")
+	}
+	if fb.frameCallback == nil {
+		t.Fatal("expected non-nil frameCallback when debug=true")
+	}
 }

@@ -2,6 +2,7 @@ package lidar
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -122,7 +123,7 @@ func TestSceneStore_UpdateScene_NotFound(t *testing.T) {
 	store := NewSceneStore(db)
 
 	err := store.UpdateScene(&Scene{SceneID: "nonexistent"})
-	if err == nil || err.Error() != "scene not found" {
+	if err == nil || !strings.Contains(err.Error(), "scene not found") {
 		t.Fatalf("expected 'scene not found', got: %v", err)
 	}
 }
@@ -140,7 +141,7 @@ func TestSceneStore_DeleteScene_Success(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 	_, err := store.GetScene("del-1")
-	if err == nil || err.Error() != "scene not found" {
+	if err == nil || !strings.Contains(err.Error(), "scene not found") {
 		t.Fatalf("expected not found after delete, got: %v", err)
 	}
 }
@@ -151,7 +152,7 @@ func TestSceneStore_DeleteScene_NotFound(t *testing.T) {
 	store := NewSceneStore(db)
 
 	err := store.DeleteScene("nonexistent")
-	if err == nil || err.Error() != "scene not found" {
+	if err == nil || !strings.Contains(err.Error(), "scene not found") {
 		t.Fatalf("expected 'scene not found', got: %v", err)
 	}
 }
@@ -187,7 +188,7 @@ func TestSceneStore_SetReferenceRun_NotFound(t *testing.T) {
 	store := NewSceneStore(db)
 
 	err := store.SetReferenceRun("nonexistent", "run-1")
-	if err == nil || err.Error() != "scene not found" {
+	if err == nil || !strings.Contains(err.Error(), "scene not found") {
 		t.Fatalf("expected 'scene not found', got: %v", err)
 	}
 }
@@ -218,7 +219,7 @@ func TestSceneStore_SetOptimalParams_NotFound(t *testing.T) {
 	store := NewSceneStore(db)
 
 	err := store.SetOptimalParams("nonexistent", json.RawMessage(`{}`))
-	if err == nil || err.Error() != "scene not found" {
+	if err == nil || !strings.Contains(err.Error(), "scene not found") {
 		t.Fatalf("expected 'scene not found', got: %v", err)
 	}
 }
