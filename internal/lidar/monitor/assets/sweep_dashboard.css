@@ -347,7 +347,11 @@ body:not(.rlhf-mode) .rlhf-only {
 }
 
 /* Hide sweep params and sweep config cards in RLHF mode — RLHF auto-configures */
-body.rlhf-mode #sweep-params-section {
+body.rlhf-mode #sweep-params-section,
+body.rlhf-mode #current-params-card,
+body.rlhf-mode #paste-params-card,
+body.rlhf-mode #scene-info,
+body.rlhf-mode #scene-actions {
   display: none !important;
 }
 

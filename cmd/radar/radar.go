@@ -993,8 +993,18 @@ func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 			return "", fmt.Errorf("parsing paramsJSON for reference run: %w", err)
 		}
 		for name, value := range rawParams {
+			// Infer type from the Go value (JSON numbers are always float64,
+			// booleans are bool, strings are string).
+			typ := "float64"
+			switch value.(type) {
+			case bool:
+				typ = "bool"
+			case string:
+				typ = "string"
+			}
 			sweepParams = append(sweepParams, sweep.SweepParam{
 				Name:   name,
+				Type:   typ,
 				Values: []interface{}{value},
 			})
 		}
