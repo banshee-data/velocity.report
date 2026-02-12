@@ -314,8 +314,8 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 			reqJSON = []byte("{}")
 		}
 		sensorID := ""
-		if at.runner != nil && at.runner.client != nil {
-			sensorID = at.runner.client.SensorID
+		if at.runner != nil && at.runner.backend != nil {
+			sensorID = at.runner.backend.SensorID()
 		}
 		if err := at.persister.SaveSweepStart(at.sweepID, sensorID, "auto", reqJSON, now, req.Objective, ObjectiveVersion); err != nil {
 			log.Printf("[sweep] WARNING: Failed to persist auto-tune start: %v", err)

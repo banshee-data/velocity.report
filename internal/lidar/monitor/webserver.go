@@ -482,6 +482,147 @@ func (ws *WebServer) StopPCAPInternal() {
 	}
 }
 
+// --- Exported helpers for DirectBackend (in-process sweep) ---
+
+// StartPCAPForSweep starts a PCAP replay suitable for sweep use.
+// It stops the live listener, resets all state (grid, frame builder, tracker),
+// and begins the replay. It retries on conflict (another PCAP in progress)
+// up to maxRetries times with 5-second delays.
+func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMode string,
+	startSeconds, durationSeconds float64, maxRetries int) error {
+
+	if maxRetries <= 0 {
+		maxRetries = 60
+	}
+
+	for retry := 0; retry < maxRetries; retry++ {
+		ws.dataSourceMu.Lock()
+
+		if ws.currentSource == DataSourcePCAP || ws.currentSource == DataSourcePCAPAnalysis {
+			ws.dataSourceMu.Unlock()
+			if retry == 0 {
+				log.Printf("PCAP replay in progress, waiting...")
+			}
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		ws.stopLiveListenerLocked()
+
+		if err := ws.resetAllState(); err != nil {
+			// Try to restart live listener on failure
+			_ = ws.startLiveListenerLocked()
+			ws.dataSourceMu.Unlock()
+			return fmt.Errorf("reset state: %w", err)
+		}
+
+		// Set source path on BackgroundManager for region restoration
+		if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+			mgr.SetSourcePath(pcapFile)
+		}
+
+		if err := ws.startPCAPLocked(pcapFile, speedMode, 1.0, startSeconds, durationSeconds,
+			0, 0, 0, 0, false, false); err != nil {
+			_ = ws.startLiveListenerLocked()
+			ws.dataSourceMu.Unlock()
+			return fmt.Errorf("start PCAP: %w", err)
+		}
+
+		ws.pcapMu.Lock()
+		ws.pcapAnalysisMode = analysisMode
+		ws.pcapMu.Unlock()
+
+		ws.currentSource = DataSourcePCAP
+		ws.dataSourceMu.Unlock()
+
+		if ws.onPCAPStarted != nil {
+			ws.onPCAPStarted()
+		}
+		return nil
+	}
+	return fmt.Errorf("timeout waiting for PCAP replay slot")
+}
+
+// StopPCAPForSweep cancels any running PCAP replay and restores live mode.
+func (ws *WebServer) StopPCAPForSweep() error {
+	ws.dataSourceMu.Lock()
+	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
+		ws.dataSourceMu.Unlock()
+		return nil // not in PCAP mode — nothing to do
+	}
+
+	ws.pcapMu.Lock()
+	cancel := ws.pcapCancel
+	done := ws.pcapDone
+	ws.pcapCancel = nil
+	ws.pcapDone = nil
+	ws.pcapMu.Unlock()
+
+	// Unlock before waiting so PCAP goroutine can finish
+	ws.dataSourceMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+
+	ws.pcapMu.Lock()
+	analysisMode := ws.pcapAnalysisMode
+	ws.pcapAnalysisMode = false
+	ws.pcapMu.Unlock()
+
+	if !analysisMode {
+		if err := ws.resetAllState(); err != nil {
+			return fmt.Errorf("reset state after stop: %w", err)
+		}
+	} else {
+		ws.resetFrameBuilder()
+	}
+
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		mgr.SetSourcePath("")
+	}
+
+	if err := ws.startLiveListenerLocked(); err != nil {
+		return fmt.Errorf("restart live listener: %w", err)
+	}
+
+	ws.currentSource = DataSourceLive
+	ws.currentPCAPFile = ""
+
+	if ws.onPCAPStopped != nil {
+		ws.onPCAPStopped()
+	}
+	return nil
+}
+
+// PCAPDone returns a channel that is closed when the current PCAP replay
+// finishes, or nil if no replay is in progress. The caller must not close
+// the returned channel.
+func (ws *WebServer) PCAPDone() <-chan struct{} {
+	ws.pcapMu.Lock()
+	defer ws.pcapMu.Unlock()
+	return ws.pcapDone
+}
+
+// LastAnalysisRunID returns the run ID set during the most recent PCAP
+// replay in analysis mode.
+func (ws *WebServer) LastAnalysisRunID() string {
+	ws.pcapMu.Lock()
+	defer ws.pcapMu.Unlock()
+	return ws.pcapLastRunID
+}
+
+// ResetAllStateDirect exposes the internal resetAllState for in-process callers.
+func (ws *WebServer) ResetAllStateDirect() error {
+	return ws.resetAllState()
+}
+
 // BaseContext returns the base context for operations.
 func (ws *WebServer) BaseContext() context.Context {
 	return ws.baseContext()

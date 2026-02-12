@@ -11,6 +11,8 @@ import (
 	"math"
 	"net/http"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
 // Client provides HTTP operations for LiDAR monitoring endpoints.
@@ -516,3 +518,37 @@ func (c *Client) GetLastAnalysisRunID() string {
 	}
 	return ""
 }
+
+// --- sweep.SweepBackend adapter methods ---
+
+// GetSensorID returns the sensor identifier (method form of the SensorID field).
+func (c *Client) GetSensorID() string { return c.SensorID }
+
+// StartPCAPReplayWithSweepConfig starts a PCAP replay using the sweep-package
+// config type. It converts to the monitor.PCAPReplayConfig and delegates.
+func (c *Client) StartPCAPReplayWithSweepConfig(cfg sweep.PCAPReplayConfig) error {
+	return c.StartPCAPReplayWithConfig(PCAPReplayConfig{
+		PCAPFile:        cfg.PCAPFile,
+		StartSeconds:    cfg.StartSeconds,
+		DurationSeconds: cfg.DurationSeconds,
+		MaxRetries:      cfg.MaxRetries,
+		AnalysisMode:    cfg.AnalysisMode,
+		SpeedMode:       cfg.SpeedMode,
+	})
+}
+
+// ClientBackend wraps a *Client to satisfy sweep.SweepBackend.
+// The wrapper is needed because the Client struct has a public SensorID
+// field which conflicts with the interface's SensorID() method.
+type ClientBackend struct{ *Client }
+
+// NewClientBackend wraps an HTTP Client as a SweepBackend.
+func NewClientBackend(c *Client) *ClientBackend { return &ClientBackend{Client: c} }
+
+func (cb *ClientBackend) SensorID() string { return cb.Client.SensorID }
+func (cb *ClientBackend) StartPCAPReplayWithConfig(cfg sweep.PCAPReplayConfig) error {
+	return cb.Client.StartPCAPReplayWithSweepConfig(cfg)
+}
+
+// Compile-time check.
+var _ sweep.SweepBackend = (*ClientBackend)(nil)
