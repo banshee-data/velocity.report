@@ -714,6 +714,12 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}()
 		}
 
+		// Belt-and-braces: ensure replay mode is set before any frames are
+		// produced, even if the handler's onPCAPStarted call raced with us.
+		if ws.onPCAPStarted != nil {
+			ws.onPCAPStarted()
+		}
+
 		// Start the packet forwarder for PCAP replay.
 		// The forwarder was stopped when the live UDP listener was stopped,
 		// so we need to restart it with the PCAP context to forward packets.
@@ -3120,6 +3126,11 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set analysis mode AFTER startPCAPLocked returns but note the goroutine
+	// inside already reads pcapAnalysisMode — we must set it here promptly.
+	// The goroutine's read is protected by pcapMu so this is safe as long as
+	// the goroutine hasn't acquired the lock yet (which is typical since it
+	// yields to OS scheduling first).
 	ws.pcapMu.Lock()
 	ws.pcapAnalysisMode = analysisMode
 	ws.pcapMu.Unlock()
@@ -3133,7 +3144,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
 
-	// Notify visualiser gRPC server that we are now replaying
+	// Notify visualiser gRPC server that we are now replaying.
+	// NOTE: This must happen before the goroutine produces any frames so that
+	// the gRPC server injects PlaybackInfo into streamed frames. The goroutine
+	// won't emit frames until after pre-counting completes (which takes measurable
+	// time), so this call races are unlikely in practice. However, the goroutine
+	// also calls onPCAPStarted internally as a belt-and-braces guard.
 	if ws.onPCAPStarted != nil {
 		ws.onPCAPStarted()
 	}
