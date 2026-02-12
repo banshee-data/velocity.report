@@ -334,9 +334,17 @@ class TestPlotStatsPage(unittest.TestCase):
         from pdf_generator.cli.main import _plot_stats_page
 
         stats = [
-            {"start_time": "2025-01-01T00:00:00Z", "count": 10, "mean_speed": 30.0,
-             "p50_speed": 28.0, "p85_speed": 35.0, "p98_speed": 42.0, "max_speed": 50.0,
-             "min_speed": 15.0, "std_dev": 5.0}
+            {
+                "start_time": "2025-01-01T00:00:00Z",
+                "count": 10,
+                "mean_speed": 30.0,
+                "p50_speed": 28.0,
+                "p85_speed": 35.0,
+                "p98_speed": 42.0,
+                "max_speed": 50.0,
+                "min_speed": 15.0,
+                "std_dev": 5.0,
+            }
         ]
         result = _plot_stats_page(stats, "Test", "kph")
         self.assertIsNotNone(result)
@@ -351,7 +359,9 @@ class TestFetchFunctions(unittest.TestCase):
         from pdf_generator.core.api_client import RadarStatsClient
 
         client = RadarStatsClient(base_url="http://localhost:99999")
-        result = fetch_site_config_periods(client, site_id=1, start_ts=1000, end_ts=2000)
+        result = fetch_site_config_periods(
+            client, site_id=1, start_ts=1000, end_ts=2000
+        )
         # Should return empty list on connection error
         self.assertEqual(result, [])
 
@@ -370,31 +380,32 @@ class TestImportChartBuilderCold(unittest.TestCase):
 
     def test_import_chart_builder_cold(self):
         """Test first-time import of chart builder by resetting global."""
-        import pdf_generator.cli.main as module
+        from pdf_generator.cli.main import _import_chart_builder
 
-        # Save original and reset
+        module = sys.modules["pdf_generator.cli.main"]
         original = module.TimeSeriesChartBuilder
         module.TimeSeriesChartBuilder = None  # type: ignore
         try:
-            result = module._import_chart_builder()
+            result = _import_chart_builder()
             self.assertIsNotNone(result)
         finally:
             module.TimeSeriesChartBuilder = original
 
     def test_import_chart_saver_cold(self):
         """Test first-time import of chart saver by resetting global."""
-        import pdf_generator.cli.main as module
+        from pdf_generator.cli.main import _import_chart_saver
 
+        module = sys.modules["pdf_generator.cli.main"]
         original = module.save_chart_as_pdf
         module.save_chart_as_pdf = None  # type: ignore
         try:
-            result = module._import_chart_saver()
+            result = _import_chart_saver()
             self.assertIsNotNone(result)
         finally:
             module.save_chart_as_pdf = original
 
 
-class TestNextSequencedPrefix(unittest.TestCase):
+class TestNextSequencedPrefixExtended(unittest.TestCase):
     """Test _next_sequenced_prefix with existing numbered files."""
 
     def test_with_existing_files(self):
@@ -608,17 +619,19 @@ class TestGenerateAllCharts(unittest.TestCase):
 
 def _make_sample_metric():
     """Return a single-row metric list for use in process_date_range tests."""
-    return [{
-        "start_time": "2025-01-15T12:00:00-08:00",
-        "count": 10,
-        "mean_speed": 30.0,
-        "p50_speed": 28.0,
-        "p85_speed": 35.0,
-        "p98_speed": 42.0,
-        "max_speed": 50.0,
-        "min_speed": 15.0,
-        "std_dev": 5.0,
-    }]
+    return [
+        {
+            "start_time": "2025-01-15T12:00:00-08:00",
+            "count": 10,
+            "mean_speed": 30.0,
+            "p50_speed": 28.0,
+            "p85_speed": 35.0,
+            "p98_speed": 42.0,
+            "max_speed": 50.0,
+            "min_speed": 15.0,
+            "std_dev": 5.0,
+        }
+    ]
 
 
 class TestProcessDateRange(unittest.TestCase):
@@ -774,18 +787,24 @@ class TestMainEntrypoint(unittest.TestCase):
     def test_check_flag(self):
         """Test --check flag."""
         with patch("sys.argv", ["main.py", "--check"]):
-            with patch("pdf_generator.core.dependency_checker.check_dependencies", return_value=True):
+            with patch(
+                "pdf_generator.core.dependency_checker.check_dependencies",
+                return_value=True,
+            ):
                 with self.assertRaises(SystemExit) as cm:
-                    from pdf_generator.cli.main import main as _main_fn
 
                     # Simulate main entry
                     import argparse
+
                     parser = argparse.ArgumentParser()
                     parser.add_argument("config_file", nargs="?")
                     parser.add_argument("--check", action="store_true")
                     args = parser.parse_args(["--check"])
                     if args.check:
-                        from pdf_generator.core.dependency_checker import check_dependencies
+                        from pdf_generator.core.dependency_checker import (
+                            check_dependencies,
+                        )
+
                         system_ready = check_dependencies(verbose=False)
                         sys.exit(0 if system_ready else 1)
                 self.assertEqual(cm.exception.code, 0)
@@ -807,15 +826,17 @@ class TestMainEntrypoint(unittest.TestCase):
             process_date_range("2025-01-01", "2025-01-31", config, mock_client)
 
 
-class TestComputeIsoTimestamps(unittest.TestCase):
+class TestComputeIsoTimestampsExtended(unittest.TestCase):
     def test_basic(self):
         from pdf_generator.cli.main import compute_iso_timestamps
+
         start, end = compute_iso_timestamps(1704067200, 1706745600, "US/Pacific")
         self.assertIsNotNone(start)
         self.assertIsNotNone(end)
 
     def test_no_timezone(self):
         from pdf_generator.cli.main import compute_iso_timestamps
+
         start, end = compute_iso_timestamps(1704067200, 1706745600, None)
         self.assertIsNotNone(start)
         self.assertIsNotNone(end)
@@ -884,7 +905,6 @@ class TestDeriveFromGranularEdgeCases(unittest.TestCase):
 
     def test_with_nan_count(self):
         from pdf_generator.cli.main import derive_daily_from_granular
-        import math
 
         rows = [
             {
@@ -1045,10 +1065,26 @@ class TestDeriveOverallEdgeCases(unittest.TestCase):
 
         result = derive_overall_from_granular(
             [
-                {"count": 10, "mean_speed": 30.0, "p50_speed": 28.0, "p85_speed": 35.0,
-                 "p98_speed": 42.0, "max_speed": 50.0, "min_speed": 15.0, "std_dev": 5.0},
-                {"count": 20, "mean_speed": 35.0, "p50_speed": 33.0, "p85_speed": 40.0,
-                 "p98_speed": 48.0, "max_speed": 55.0, "min_speed": 12.0, "std_dev": 6.0},
+                {
+                    "count": 10,
+                    "mean_speed": 30.0,
+                    "p50_speed": 28.0,
+                    "p85_speed": 35.0,
+                    "p98_speed": 42.0,
+                    "max_speed": 50.0,
+                    "min_speed": 15.0,
+                    "std_dev": 5.0,
+                },
+                {
+                    "count": 20,
+                    "mean_speed": 35.0,
+                    "p50_speed": 33.0,
+                    "p85_speed": 40.0,
+                    "p98_speed": 48.0,
+                    "max_speed": 55.0,
+                    "min_speed": 12.0,
+                    "std_dev": 6.0,
+                },
             ]
         )
         self.assertIsNotNone(result)
@@ -1061,13 +1097,12 @@ class TestMainBlockExecution(unittest.TestCase):
     def test_check_flag_subprocess(self):
         """Run the module with --check flag via subprocess."""
         import subprocess
+
         result = subprocess.run(
             [sys.executable, "-m", "pdf_generator.cli.main", "--check"],
             capture_output=True,
             text=True,
-            cwd=os.path.join(
-                os.path.dirname(__file__), os.pardir, os.pardir
-            ),
+            cwd=os.path.join(os.path.dirname(__file__), os.pardir, os.pardir),
         )
         # Exit code 0 means all deps are available, 1 means some missing
         self.assertIn(result.returncode, [0, 1])
@@ -1075,26 +1110,29 @@ class TestMainBlockExecution(unittest.TestCase):
     def test_no_args_subprocess(self):
         """Run the module with no args shows error."""
         import subprocess
+
         result = subprocess.run(
             [sys.executable, "-m", "pdf_generator.cli.main"],
             capture_output=True,
             text=True,
-            cwd=os.path.join(
-                os.path.dirname(__file__), os.pardir, os.pardir
-            ),
+            cwd=os.path.join(os.path.dirname(__file__), os.pardir, os.pardir),
         )
         self.assertEqual(result.returncode, 2)  # argparse error
 
     def test_nonexistent_config_file(self):
         """Run with a nonexistent config file."""
         import subprocess
+
         result = subprocess.run(
-            [sys.executable, "-m", "pdf_generator.cli.main", "/nonexistent/config.json"],
+            [
+                sys.executable,
+                "-m",
+                "pdf_generator.cli.main",
+                "/nonexistent/config.json",
+            ],
             capture_output=True,
             text=True,
-            cwd=os.path.join(
-                os.path.dirname(__file__), os.pardir, os.pardir
-            ),
+            cwd=os.path.join(os.path.dirname(__file__), os.pardir, os.pardir),
         )
         self.assertEqual(result.returncode, 2)
 
@@ -1112,9 +1150,7 @@ class TestMainBlockExecution(unittest.TestCase):
             },
             "output": {"output_dir": "/tmp/test-pdf-gen"},
         }
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(config, f)
             config_path = f.name
 
@@ -1124,9 +1160,7 @@ class TestMainBlockExecution(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 timeout=10,
-                cwd=os.path.join(
-                    os.path.dirname(__file__), os.pardir, os.pardir
-                ),
+                cwd=os.path.join(os.path.dirname(__file__), os.pardir, os.pardir),
             )
             # Will fail to connect to API or config validation, but should not crash (SIGSEGV etc)
             self.assertIn(result.returncode, [0, 1, 2])

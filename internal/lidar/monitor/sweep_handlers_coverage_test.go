@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +28,10 @@ func setupSweepStoreWithRecord(t *testing.T) (*sql.DB, *lidar.SweepStore, string
 		"recommendation_explanation_json TEXT",
 		"label_provenance_summary_json TEXT",
 	} {
-		db.Exec("ALTER TABLE lidar_sweeps ADD COLUMN " + col)
+		_, err := db.Exec("ALTER TABLE lidar_sweeps ADD COLUMN " + col)
+		if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+			t.Fatalf("ALTER TABLE ADD COLUMN %s: %v", col, err)
+		}
 	}
 
 	sweepID := "test-sweep-001"

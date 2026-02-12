@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -172,12 +173,14 @@ func TestFinalizeFrame_NilFrame(t *testing.T) {
 }
 
 func TestFinalizeFrame_IncompleteFrame(t *testing.T) {
+	done := make(chan struct{})
 	var received *LiDARFrame
 	var mu sync.Mutex
 	cb := func(f *LiDARFrame) {
 		mu.Lock()
 		received = f
 		mu.Unlock()
+		close(done)
 	}
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "fin-incomplete", FrameCallback: cb})
@@ -196,7 +199,12 @@ func TestFinalizeFrame_IncompleteFrame(t *testing.T) {
 	}
 
 	fb.finalizeFrame(frame, "test-incomplete-reason")
-	time.Sleep(10 * time.Millisecond) // wait for goroutine
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for callback")
+	}
 
 	if frame.SpinComplete {
 		t.Fatal("expected SpinComplete=false for incomplete frame")
@@ -209,12 +217,14 @@ func TestFinalizeFrame_IncompleteFrame(t *testing.T) {
 }
 
 func TestFinalizeFrame_CompleteFrame(t *testing.T) {
+	done := make(chan struct{})
 	var received *LiDARFrame
 	var mu sync.Mutex
 	cb := func(f *LiDARFrame) {
 		mu.Lock()
 		received = f
 		mu.Unlock()
+		close(done)
 	}
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "fin-complete", FrameCallback: cb})
@@ -234,7 +244,12 @@ func TestFinalizeFrame_CompleteFrame(t *testing.T) {
 	}
 
 	fb.finalizeFrame(frame, "test-complete-reason")
-	time.Sleep(10 * time.Millisecond) // wait for goroutine
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for callback")
+	}
 
 	if !frame.SpinComplete {
 		t.Fatal("expected SpinComplete=true for complete frame")
@@ -313,6 +328,10 @@ func TestExportFrameToASCInternal_EmptyFrame(t *testing.T) {
 }
 
 func TestExportFrameToASCInternal_WithZeroZ(t *testing.T) {
+	oldDir := defaultExportDir
+	defaultExportDir = t.TempDir()
+	defer func() { defaultExportDir = oldDir }()
+
 	frame := &LiDARFrame{
 		FrameID:  "z-zero-test",
 		SensorID: "test",
@@ -322,12 +341,17 @@ func TestExportFrameToASCInternal_WithZeroZ(t *testing.T) {
 		},
 		PointCount: 2,
 	}
-	// This will try to write to disk; the export itself may fail due to permissions
-	// but should exercise the Z=0 recompute path
-	_ = exportFrameToASCInternal(frame)
+	err := exportFrameToASCInternal(frame)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestExportFrameToASCInternal_WithNonZeroZ(t *testing.T) {
+	oldDir := defaultExportDir
+	defaultExportDir = t.TempDir()
+	defer func() { defaultExportDir = oldDir }()
+
 	frame := &LiDARFrame{
 		FrameID:  "z-nonzero-test",
 		SensorID: "test",
@@ -337,60 +361,71 @@ func TestExportFrameToASCInternal_WithNonZeroZ(t *testing.T) {
 		},
 		PointCount: 2,
 	}
-	_ = exportFrameToASCInternal(frame)
+	err := exportFrameToASCInternal(frame)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestFinalizeFrame_WithExportNext_Complete(t *testing.T) {
-fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "export-complete"})
-fb.debug = true
-fb.exportNextFrameASC = true
+	oldDir := defaultExportDir
+	defaultExportDir = t.TempDir()
+	defer func() { defaultExportDir = oldDir }()
 
-// Create a complete frame (enough coverage and points)
-points := make([]Point, 15000)
-for i := range points {
-points[i] = Point{X: float64(i), Y: float64(i), Z: float64(i), Intensity: 100, Distance: 10, Azimuth: float64(i) * 0.024, Elevation: 5}
-}
-frame := &LiDARFrame{
-FrameID:        "export-next",
-SensorID:       "export-complete",
-StartTimestamp: time.Now(),
-EndTimestamp:   time.Now().Add(100 * time.Millisecond),
-Points:         points,
-MinAzimuth:     0,
-MaxAzimuth:     355,
-PointCount:     15000,
-}
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "export-complete"})
+	fb.debug = true
+	fb.exportNextFrameASC = true
 
-fb.finalizeFrame(frame, "test-export")
-// Export flag should be cleared after successful export
+	// Create a complete frame (enough coverage and points)
+	points := make([]Point, 15000)
+	for i := range points {
+		points[i] = Point{X: float64(i), Y: float64(i), Z: float64(i), Intensity: 100, Distance: 10, Azimuth: float64(i) * 0.024, Elevation: 5}
+	}
+	frame := &LiDARFrame{
+		FrameID:        "export-next",
+		SensorID:       "export-complete",
+		StartTimestamp: time.Now(),
+		EndTimestamp:   time.Now().Add(100 * time.Millisecond),
+		Points:         points,
+		MinAzimuth:     0,
+		MaxAzimuth:     355,
+		PointCount:     15000,
+	}
+
+	fb.finalizeFrame(frame, "test-export")
+	// Export flag should be cleared after successful export
 }
 
 func TestFinalizeFrame_WithBatchExport_Complete(t *testing.T) {
-fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "batch-complete"})
-fb.debug = true
-fb.exportBatchCount = 2
-fb.exportBatchExported = 0
+	oldDir := defaultExportDir
+	defaultExportDir = t.TempDir()
+	defer func() { defaultExportDir = oldDir }()
 
-points := make([]Point, 15000)
-for i := range points {
-points[i] = Point{X: float64(i), Y: float64(i), Z: float64(i), Intensity: 100}
-}
-frame := &LiDARFrame{
-FrameID:        "batch-1",
-SensorID:       "batch-complete",
-StartTimestamp: time.Now(),
-EndTimestamp:   time.Now().Add(100 * time.Millisecond),
-Points:         points,
-MinAzimuth:     0,
-MaxAzimuth:     355,
-PointCount:     15000,
-}
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "batch-complete"})
+	fb.debug = true
+	fb.exportBatchCount = 2
+	fb.exportBatchExported = 0
 
-fb.finalizeFrame(frame, "test-batch-1")
+	points := make([]Point, 15000)
+	for i := range points {
+		points[i] = Point{X: float64(i), Y: float64(i), Z: float64(i), Intensity: 100}
+	}
+	frame := &LiDARFrame{
+		FrameID:        "batch-1",
+		SensorID:       "batch-complete",
+		StartTimestamp: time.Now(),
+		EndTimestamp:   time.Now().Add(100 * time.Millisecond),
+		Points:         points,
+		MinAzimuth:     0,
+		MaxAzimuth:     355,
+		PointCount:     15000,
+	}
 
-if fb.exportBatchExported != 1 {
-t.Fatalf("expected exportBatchExported=1, got %d", fb.exportBatchExported)
-}
+	fb.finalizeFrame(frame, "test-batch-1")
+
+	if fb.exportBatchExported != 1 {
+		t.Fatalf("expected exportBatchExported=1, got %d", fb.exportBatchExported)
+	}
 }
 
 func TestNewFrameBuilderWithDebugLoggingAndInterval_Coverage(t *testing.T) {
@@ -400,5 +435,27 @@ func TestNewFrameBuilderWithDebugLoggingAndInterval_Coverage(t *testing.T) {
 	}
 	if fb.frameCallback == nil {
 		t.Fatal("expected non-nil frameCallback when debug=true")
+	}
+}
+
+func TestExportFrameToASCInternal_WriteDirNotExist(t *testing.T) {
+	oldDir := defaultExportDir
+	defaultExportDir = "/nonexistent/path/that/should/not/exist"
+	defer func() { defaultExportDir = oldDir }()
+
+	frame := &LiDARFrame{
+		FrameID:  "fail-test",
+		SensorID: "test",
+		Points: []Point{
+			{X: 1, Y: 2, Z: 3, Distance: 10, Azimuth: 45, Elevation: 10, Intensity: 100},
+		},
+		PointCount: 1,
+	}
+	err := exportFrameToASCInternal(frame)
+	if err == nil {
+		t.Fatal("expected error when export dir does not exist")
+	}
+	if !strings.Contains(err.Error(), "failed to export ASC") {
+		t.Fatalf("unexpected error message: %v", err)
 	}
 }

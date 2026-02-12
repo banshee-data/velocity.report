@@ -54,13 +54,13 @@ func TestSceneStore_ListScenes_WithOptionalFields(t *testing.T) {
 	startSecs := 10.0
 	durSecs := 30.0
 	s := &Scene{
-		SceneID:        "full",
-		SensorID:       "sensor-c",
-		PCAPFile:       "c.pcap",
-		Description:    "test scene",
-		PCAPStartSecs:  &startSecs,
-		PCAPDurationSecs:    &durSecs,
-		OptimalParamsJSON:  json.RawMessage(`{"key":"value"}`),
+		SceneID:           "full",
+		SensorID:          "sensor-c",
+		PCAPFile:          "c.pcap",
+		Description:       "test scene",
+		PCAPStartSecs:     &startSecs,
+		PCAPDurationSecs:  &durSecs,
+		OptimalParamsJSON: json.RawMessage(`{"key":"value"}`),
 	}
 	if err := store.InsertScene(s); err != nil {
 		t.Fatalf("insert: %v", err)
@@ -98,10 +98,10 @@ func TestSceneStore_UpdateScene_Success(t *testing.T) {
 	startSecs := 5.0
 	durSecs := 20.0
 	update := &Scene{
-		SceneID:       "upd-1",
-		Description:   "updated",
-		PCAPStartSecs: &startSecs,
-		PCAPDurationSecs:   &durSecs,
+		SceneID:           "upd-1",
+		Description:       "updated",
+		PCAPStartSecs:     &startSecs,
+		PCAPDurationSecs:  &durSecs,
 		OptimalParamsJSON: json.RawMessage(`{"updated":true}`),
 	}
 	if err := store.UpdateScene(update); err != nil {

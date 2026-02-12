@@ -13,15 +13,16 @@ import (
 // --- Mock implementations ---
 
 type mockLabelQuerier struct {
-	total      int
-	labelled   int
-	byClass    map[string]int
-	prevTracks []RLHFRunTrack // tracks returned for first call
-	newTracks  []RLHFRunTrack // tracks returned for second call
-	err        error
-	updateErr  error
-	labelCalls int
-	callCount  int // number of GetRunTracks calls
+	total          int
+	labelled       int
+	byClass        map[string]int
+	prevTracks     []RLHFRunTrack // tracks returned for first call
+	newTracks      []RLHFRunTrack // tracks returned for second call
+	err            error
+	updateErr      error
+	labelCalls     int
+	callCount      int    // number of GetRunTracks calls
+	onGetRunTracks func() // optional callback when GetRunTracks is called
 }
 
 func (m *mockLabelQuerier) GetLabelingProgress(runID string) (int, int, map[string]int, error) {
@@ -30,6 +31,9 @@ func (m *mockLabelQuerier) GetLabelingProgress(runID string) (int, int, map[stri
 
 func (m *mockLabelQuerier) GetRunTracks(runID string) ([]RLHFRunTrack, error) {
 	m.callCount++
+	if m.onGetRunTracks != nil {
+		m.onGetRunTracks()
+	}
 	if m.callCount == 1 {
 		return m.prevTracks, m.err
 	}
