@@ -3641,17 +3641,25 @@ describe('RLHF Functions', () => {
 			expect(document.getElementById('error-box')!.textContent).toContain('Select a scene');
 		});
 
-		it('shows error when no params', () => {
+		it('auto-populates default params when none added', () => {
 			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			opt.textContent = 'Scene 1';
 			sel.appendChild(opt);
 			sel.value = 'scene-1';
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ status: 'running' })
+			});
+
 			handleStartRLHF();
-			expect(document.getElementById('error-box')!.textContent).toContain(
+			// Should NOT show param error — auto-populates defaults and proceeds
+			expect(document.getElementById('error-box')!.textContent).not.toContain(
 				'Add at least one parameter'
 			);
+			expect(global.fetch).toHaveBeenCalled();
 		});
 
 		it('sends POST request with correct payload', async () => {
@@ -3662,14 +3670,15 @@ describe('RLHF Functions', () => {
 			sel.appendChild(opt);
 			sel.value = 'scene-1';
 
-			// Create a parameter row with the classes handleStartRLHF expects
+			// Create a parameter row matching addParamRow() ID-based structure
 			const paramRows = document.getElementById('param-rows')!;
 			const row = document.createElement('div');
+			row.className = 'param-row';
+			row.id = 'param-row-99';
 			row.innerHTML = [
-				'<select class="param-name"><option value="noise" selected>Noise</option></select>',
-				'<select class="param-type"><option value="float64" selected>float64</option></select>',
-				'<input class="param-start" value="0.1" />',
-				'<input class="param-end" value="0.5" />'
+				'<label class="param-name"><span>Parameter</span><select id="pname-99"><option value="noise_relative" selected>Noise Relative</option></select></label>',
+				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-99" type="number" value="0.1" /></label>',
+				'<label class="param-field"><span>End</span><input id="pend-99" type="number" value="0.5" /></label></div>'
 			].join('');
 			paramRows.appendChild(row);
 
@@ -3692,7 +3701,7 @@ describe('RLHF Functions', () => {
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
 			expect(body.scene_id).toBe('scene-1');
 			expect(body.params).toHaveLength(1);
-			expect(body.params[0].name).toBe('noise');
+			expect(body.params[0].name).toBe('noise_relative');
 			expect(body.num_rounds).toBe(3);
 			expect(body.min_label_threshold).toBeCloseTo(0.9);
 			expect(body.carry_over_labels).toBe(true);
@@ -3707,10 +3716,12 @@ describe('RLHF Functions', () => {
 
 			const paramRows = document.getElementById('param-rows')!;
 			const row = document.createElement('div');
+			row.className = 'param-row';
+			row.id = 'param-row-98';
 			row.innerHTML = [
-				'<select class="param-name"><option value="x" selected>X</option></select>',
-				'<input class="param-start" value="0" />',
-				'<input class="param-end" value="1" />'
+				'<label class="param-name"><span>Parameter</span><select id="pname-98"><option value="noise_relative" selected>X</option></select></label>',
+				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-98" type="number" value="0" /></label>',
+				'<label class="param-field"><span>End</span><input id="pend-98" type="number" value="1" /></label></div>'
 			].join('');
 			paramRows.appendChild(row);
 
@@ -3727,13 +3738,16 @@ describe('RLHF Functions', () => {
 		});
 
 		it('shows error for invalid class coverage JSON', () => {
+			const paramRows = document.getElementById('param-rows')!;
 			const paramRow = document.createElement('div');
-			paramRow.innerHTML =
-				'<input class="param-name" value="test" />' +
-				'<input class="param-type" value="float64" />' +
-				'<input class="param-start" value="0" />' +
-				'<input class="param-end" value="1" />';
-			document.getElementById('param-rows')!.appendChild(paramRow);
+			paramRow.className = 'param-row';
+			paramRow.id = 'param-row-97';
+			paramRow.innerHTML = [
+				'<label class="param-name"><span>Parameter</span><select id="pname-97"><option value="noise_relative" selected>Test</option></select></label>',
+				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-97" type="number" value="0" /></label>',
+				'<label class="param-field"><span>End</span><input id="pend-97" type="number" value="1" /></label></div>'
+			].join('');
+			paramRows.appendChild(paramRow);
 			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
