@@ -150,8 +150,9 @@ func defaultRLHFParams(tuneBackground bool) []SweepParam {
 type RLHFTuner struct {
 	mu sync.RWMutex
 
-	state  RLHFState
-	cancel context.CancelFunc
+	state     RLHFState
+	stateCond *sync.Cond // broadcast on every status transition
+	cancel    context.CancelFunc
 
 	// Dependencies (injected)
 	autoTuner         *AutoTuner
@@ -178,7 +179,7 @@ type continueSignal struct {
 
 // NewRLHFTuner creates a new RLHF tuner with the given AutoTuner backend.
 func NewRLHFTuner(autoTuner *AutoTuner) *RLHFTuner {
-	return &RLHFTuner{
+	rt := &RLHFTuner{
 		autoTuner:    autoTuner,
 		continueCh:   make(chan continueSignal, 1),
 		pollInterval: 10 * time.Second,
@@ -188,6 +189,8 @@ func NewRLHFTuner(autoTuner *AutoTuner) *RLHFTuner {
 			RoundHistory: []RLHFRound{},
 		},
 	}
+	rt.stateCond = sync.NewCond(rt.mu.RLocker())
+	return rt
 }
 
 // SetLabelQuerier sets the label progress querier dependency.
@@ -451,6 +454,38 @@ func (rt *RLHFTuner) GetRLHFState() RLHFState {
 	return state
 }
 
+// setStatus updates the RLHF status and broadcasts to any long-poll waiters.
+// Caller must NOT hold rt.mu.
+func (rt *RLHFTuner) setStatus(status string) {
+	rt.mu.Lock()
+	rt.state.Status = status
+	rt.mu.Unlock()
+	rt.stateCond.Broadcast()
+}
+
+// WaitForChange blocks until the RLHF status differs from lastStatus
+// or ctx is cancelled. Returns the current state.
+func (rt *RLHFTuner) WaitForChange(ctx context.Context, lastStatus string) interface{} {
+	// Use a goroutine to unblock the Cond.Wait when the context is done.
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			rt.stateCond.Broadcast()
+		case <-done:
+		}
+	}()
+
+	rt.mu.RLock()
+	for rt.state.Status == lastStatus && ctx.Err() == nil {
+		rt.stateCond.Wait()
+	}
+	rt.mu.RUnlock()
+	close(done)
+
+	return rt.GetState()
+}
+
 // Stop cancels the running RLHF session.
 func (rt *RLHFTuner) Stop() {
 	rt.mu.Lock()
@@ -575,6 +610,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 			rt.state.Status = "failed"
 			rt.state.Error = fmt.Sprintf("panic: %v", r)
 			rt.mu.Unlock()
+			rt.stateCond.Broadcast()
 		}
 	}()
 
@@ -707,6 +743,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	roundHistoryCopy := make([]RLHFRound, len(rt.state.RoundHistory))
 	copy(roundHistoryCopy, rt.state.RoundHistory)
 	rt.mu.Unlock()
+	rt.stateCond.Broadcast()
 
 	if rt.persister != nil {
 		recJSON, err := json.Marshal(currentParams)
@@ -731,9 +768,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 // runRound executes a single RLHF round.
 func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *RLHFScene, round int, currentParams map[string]float64, bounds map[string][2]float64) (map[string]float64, float64, error) {
 	// Phase 1: Create reference run
-	rt.mu.Lock()
-	rt.state.Status = "running_reference"
-	rt.mu.Unlock()
+	rt.setStatus("running_reference")
 
 	log.Printf("[rlhf] Creating reference run with current params")
 
@@ -789,9 +824,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	}
 
 	// Phase 3: Wait for labels
-	rt.mu.Lock()
-	rt.state.Status = "awaiting_labels"
-	rt.mu.Unlock()
+	rt.setStatus("awaiting_labels")
 
 	durationMins := getDuration(req.RoundDurations, round-1)
 	log.Printf("[rlhf] Awaiting labels for %d minutes (threshold: %.1f%%)", durationMins, req.MinLabelThreshold*100)
@@ -813,6 +846,9 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	// Phase 4: Run auto-tune sweep
 	rt.mu.Lock()
 	rt.state.Status = "running_sweep"
+	rt.mu.Unlock()
+	rt.stateCond.Broadcast()
+	rt.mu.Lock()
 	sweepDuration := rt.state.NextSweepDuration
 	if sweepDuration == 0 {
 		sweepDuration = 60 // default
@@ -1160,6 +1196,7 @@ func (rt *RLHFTuner) failWithError(errMsg string) {
 	rt.state.Status = "failed"
 	rt.state.Error = errMsg
 	rt.mu.Unlock()
+	rt.stateCond.Broadcast()
 
 	if rt.persister != nil {
 		now := time.Now()

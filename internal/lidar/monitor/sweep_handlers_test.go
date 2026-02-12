@@ -618,6 +618,10 @@ func (m *mockRLHFRunner) GetState() interface{} {
 	return m.state
 }
 
+func (m *mockRLHFRunner) WaitForChange(_ context.Context, _ string) interface{} {
+	return m.state
+}
+
 func (m *mockRLHFRunner) Stop() {
 	m.stopCalls++
 }

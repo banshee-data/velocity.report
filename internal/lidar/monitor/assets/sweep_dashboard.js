@@ -3173,6 +3173,7 @@ function init() {
 // ---- RLHF Functions ----
 
 var rlhfPollTimer = null;
+var rlhfLongPollAbort = null;
 var lastRLHFPhase = "";
 
 // Default parameters for RLHF auto-configuration when user hasn't added any.
@@ -3315,7 +3316,7 @@ function handleStartRLHF() {
 
 function startRLHFPolling() {
   stopRLHFPolling();
-  rlhfPollTimer = setInterval(pollRLHFStatus, 5000);
+  // Kick off the first poll immediately, then long-poll in a loop.
   pollRLHFStatus();
 }
 
@@ -3324,9 +3325,17 @@ function stopRLHFPolling() {
     clearInterval(rlhfPollTimer);
     rlhfPollTimer = null;
   }
+  if (rlhfLongPollAbort) {
+    rlhfLongPollAbort.abort();
+    rlhfLongPollAbort = null;
+  }
 }
 
 function pollRLHFStatus() {
+  // Cancel any existing long-poll before starting a new one.
+  if (rlhfLongPollAbort) {
+    rlhfLongPollAbort.abort();
+  }
   fetch("/api/lidar/sweep/rlhf")
     .then(function (r) {
       return r.json();
@@ -3360,9 +3369,33 @@ function pollRLHFStatus() {
         document.getElementById("btn-start").style.display = "block";
         document.getElementById("btn-stop").style.display = "none";
         document.getElementById("stopping-indicator").style.display = "none";
+        return;
       }
+
+      // Long-poll: wait for the server to signal a state change.
+      rlhfLongPollAbort = new AbortController();
+      fetch(
+        "/api/lidar/sweep/rlhf?wait_for_change=" +
+          encodeURIComponent(st.status),
+        {
+          signal: rlhfLongPollAbort.signal,
+        },
+      )
+        .then(function () {
+          // State changed — poll again to render the new state.
+          pollRLHFStatus();
+        })
+        .catch(function (err) {
+          // Aborted or network error — retry after a short delay unless stopped.
+          if (err.name !== "AbortError") {
+            rlhfPollTimer = setTimeout(pollRLHFStatus, 5000);
+          }
+        });
     })
-    .catch(function () {});
+    .catch(function () {
+      // Initial fetch failed — retry after delay.
+      rlhfPollTimer = setTimeout(pollRLHFStatus, 5000);
+    });
 }
 
 function renderRLHFState(st) {

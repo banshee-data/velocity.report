@@ -32,6 +32,9 @@ type RLHFRunner interface {
 	GetState() interface{}
 	Stop()
 	ContinueFromLabels(nextDurationMins int, addRound bool) error
+	// WaitForChange blocks until the RLHF status differs from lastStatus
+	// or the context is cancelled. Returns the new state.
+	WaitForChange(ctx context.Context, lastStatus string) interface{}
 }
 
 // handleSweepStart starts a parameter sweep
@@ -208,13 +211,24 @@ func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRLHFStatus returns the current RLHF state.
+// With ?wait_for_change=<status>, the handler blocks until the status differs
+// from the supplied value — replacing 5-second polling with long-polling.
 func (ws *WebServer) handleRLHFStatus(w http.ResponseWriter, r *http.Request) {
 	if ws.rlhfRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
 		return
 	}
 
-	state := ws.rlhfRunner.GetState()
+	var state interface{}
+	if lastStatus := r.URL.Query().Get("wait_for_change"); lastStatus != "" {
+		state = ws.rlhfRunner.WaitForChange(r.Context(), lastStatus)
+		if r.Context().Err() != nil {
+			return // client disconnected
+		}
+	} else {
+		state = ws.rlhfRunner.GetState()
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(state)
 }
