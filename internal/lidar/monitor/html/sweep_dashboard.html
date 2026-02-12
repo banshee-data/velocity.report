@@ -32,7 +32,8 @@
     Auto-Tune iteratively narrows parameter bounds across multiple rounds, scoring each combination automatically.
   </p>
   <p class="mode-description rlhf-only">
-    Human-in-the-Loop runs reference scenes, waits for you to label tracks, then sweeps using ground truth scores. Repeat for each round.
+    Human-in-the-Loop runs reference scenes, waits for you to label tracks, then sweeps using ground truth scores.
+    Repeat for each round.
   </p>
 
   <!-- Recommendation (shown when auto-tune or RLHF completes) -->
@@ -47,7 +48,8 @@
     <div id="recommendation-content"></div>
     <details id="recommendation-explanation" style="margin-top: 12px; display: none">
       <summary style="cursor: pointer; font-size: 0.9em; color: var(--accent)">Why this recommendation?</summary>
-      <div id="recommendation-explanation-body" style="margin-top: 8px; font-size: 0.85em; padding: 8px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px">
+      <div id="recommendation-explanation-body"
+        style="margin-top: 8px; font-size: 0.85em; padding: 8px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 4px">
         <div id="rec-explain-top" style="margin-bottom: 8px"></div>
         <table id="rec-explain-table" style="width: 100%%; border-collapse: collapse">
           <thead>
@@ -356,13 +358,6 @@
         <h2>RLHF Settings</h2>
         <div id="rlhf-config-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
           <label>
-            <span>Scene</span>
-            <select id="rlhf_scene_select" onchange="onRLHFSceneSelected()">
-              <option value="">-- Select Scene --</option>
-            </select>
-            <small class="field-desc">Scene with reference PCAP and labelled tracks.</small>
-          </label>
-          <label>
             <span>Rounds</span>
             <input id="rlhf_rounds" type="number" value="3" min="1" max="10" />
             <small class="field-desc">Number of label-then-sweep rounds (1–10).</small>
@@ -404,16 +399,22 @@
             <span id="rlhf-label-count">0/0 labelled</span>
             <span id="rlhf-label-pct">0%%</span>
           </div>
-          <div class="progress-bar-bg" style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
-            <div id="rlhf-label-bar" style="height: 100%%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s"></div>
-            <div id="rlhf-threshold-marker" style="position: absolute; top: 0; height: 100%%; border-left: 2px dashed #cc0000; left: 90%%"
+          <div class="progress-bar-bg"
+            style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
+            <div id="rlhf-label-bar"
+              style="height: 100%%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s">
+            </div>
+            <div id="rlhf-threshold-marker"
+              style="position: absolute; top: 0; height: 100%%; border-left: 2px dashed #cc0000; left: 90%%"
               title="90%% threshold"></div>
           </div>
           <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center">
             <span id="rlhf-countdown" style="font-size: 12px; color: var(--fg-muted)">Deadline: —</span>
             <span id="rlhf-carried-count" style="font-size: 12px; color: var(--fg-muted)"></span>
           </div>
-          <div id="rlhf-gate-status" style="display: none; margin-top: 6px; font-size: 11px; color: var(--fg-muted); background: var(--card-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border)"></div>
+          <div id="rlhf-gate-status"
+            style="display: none; margin-top: 6px; font-size: 11px; color: var(--fg-muted); background: var(--card-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border)">
+          </div>
           <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
             <label style="flex: 1">
               <span style="font-size: 12px">Next sweep duration (mins)</span>
@@ -462,7 +463,8 @@
           another source) and apply directly to the system. Only recognised parameter keys
           are sent; metric keys are filtered out automatically.
         </small>
-        <textarea id="paste-params-json" rows="8" style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical"
+        <textarea id="paste-params-json" rows="8"
+          style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical"
           placeholder='{"foreground_dbscan_eps": 0.3, "measurement_noise": 0.9, ...}'></textarea>
         <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
           <button class="btn-sm btn-add" id="btn-paste-apply" onclick="applyPastedParams()">

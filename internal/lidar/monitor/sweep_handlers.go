@@ -193,7 +193,8 @@ func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ws.rlhfRunner.Start(r.Context(), req); err != nil {
+	// Use context.Background so the RLHF goroutine outlives the HTTP request.
+	if err := ws.rlhfRunner.Start(context.Background(), req); err != nil {
 		if strings.Contains(err.Error(), "already in progress") {
 			ws.writeJSONError(w, http.StatusConflict, err.Error())
 		} else {
