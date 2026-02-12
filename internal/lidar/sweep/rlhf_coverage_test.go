@@ -3,6 +3,7 @@ package sweep
 import (
 "context"
 "encoding/json"
+"strings"
 "testing"
 "time"
 )
@@ -247,7 +248,7 @@ err := tuner.ContinueFromLabels(60, false)
 if err == nil {
 t.Fatal("expected temporal spread error")
 }
-if !contains(err.Error(), "temporal spread") {
+if !strings.Contains(err.Error(), "temporal spread") {
 t.Fatalf("unexpected error: %v", err)
 }
 }
@@ -272,7 +273,7 @@ err := tuner.ContinueFromLabels(60, false)
 if err == nil {
 t.Fatal("expected class coverage error")
 }
-if !contains(err.Error(), "class coverage") {
+if !strings.Contains(err.Error(), "class coverage") {
 t.Fatalf("unexpected error: %v", err)
 }
 }
@@ -317,7 +318,7 @@ tuner.mu.Unlock()
 tuner.SetLabelQuerier(&mockLabelQuerier{err: errForTest("query failed")})
 
 err := tuner.ContinueFromLabels(60, false)
-if err == nil || !contains(err.Error(), "query failed") {
+if err == nil || !strings.Contains(err.Error(), "query failed") {
 t.Fatalf("expected query failed error, got: %v", err)
 }
 }
@@ -330,20 +331,6 @@ state := tuner.GetRLHFState()
 if state.Status != "failed" || state.Error != "test error" {
 t.Fatal("expected failed state with error message")
 }
-}
-
-// contains is a simple helper.
-func contains(s, sub string) bool {
-return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsLoop(s, sub))
-}
-
-func containsLoop(s, sub string) bool {
-for i := 0; i <= len(s)-len(sub); i++ {
-if s[i:i+len(sub)] == sub {
-return true
-}
-}
-return false
 }
 
 // TestRun_FullSuccessPath exercises the complete success path through run().
@@ -499,7 +486,7 @@ state := tuner.GetRLHFState()
 if state.Status != "failed" {
 t.Fatalf("expected failed, got %s", state.Status)
 }
-if !containsLoop(state.Error, "panic") {
+if !strings.Contains(state.Error, "panic") {
 t.Fatalf("expected panic error, got: %s", state.Error)
 }
 }
