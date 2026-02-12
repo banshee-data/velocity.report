@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -596,27 +594,10 @@ func main() {
 		if tracker != nil {
 			lidarWebServer.SetTracker(tracker)
 		}
-		// Create and wire sweep runner for web-triggered parameter sweeps
-		httpClient := &http.Client{Timeout: 30 * time.Second}
-		// Construct base URL for loopback communication
-		// Normalize wildcard hosts (0.0.0.0, ::, "") to localhost for client connectivity
-		baseURL := "http://localhost" + *lidarListen
-		if !strings.HasPrefix(*lidarListen, ":") {
-			host, port, err := net.SplitHostPort(*lidarListen)
-			if err == nil {
-				// Normalize wildcard/unspecified hosts to localhost
-				if host == "" || host == "0.0.0.0" || host == "::" {
-					baseURL = "http://localhost:" + port
-				} else {
-					baseURL = "http://" + *lidarListen
-				}
-			} else {
-				// If SplitHostPort fails, use the address as-is (backward compatibility)
-				baseURL = "http://" + *lidarListen
-			}
-		}
-		sweepClient := monitor.NewClient(httpClient, baseURL, *lidarSensor)
-		sweepRunner := sweep.NewRunner(sweepClient)
+		// Create and wire sweep runner using direct in-process backend.
+		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.
+		sweepBackend := monitor.NewDirectBackend(*lidarSensor, lidarWebServer)
+		sweepRunner := sweep.NewRunner(sweepBackend)
 		lidarWebServer.SetSweepRunner(sweepRunner)
 
 		// Set up auto-tuner
