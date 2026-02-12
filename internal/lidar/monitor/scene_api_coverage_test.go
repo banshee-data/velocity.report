@@ -287,3 +287,185 @@ func TestCov_WriteJSONError(t *testing.T) {
 		t.Errorf("body = %q, want to contain 'test error'", w.Body.String())
 	}
 }
+
+// --- DB error paths (closed DB) ---
+
+func TestCov_HandleListScenes_DBError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	ws.db.DB.Close() // force DB error
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes", nil)
+	w := httptest.NewRecorder()
+	ws.handleScenes(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleGetScene_GenericDBError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	ws.db.DB.Close() // force generic DB error (not "not found")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1", nil)
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleUpdateScene_GenericDBError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	ws.db.DB.Close() // force generic DB error in GetScene
+
+	desc := "updated"
+	body, _ := json.Marshal(UpdateSceneRequest{Description: &desc})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/scene-1", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleUpdateScene_StoreError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+
+	// Insert a scene, then drop the table so UpdateScene fails
+	store := lidar.NewSceneStore(ws.db.DB)
+	scene := &lidar.Scene{SensorID: "sensor-001", PCAPFile: "test.pcap"}
+	if err := store.InsertScene(scene); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	// Rename/drop the table to break update but allow read
+	// Actually - just close after creating the scene won't work for GetScene.
+	// Let's corrupt: drop a column that UpdateScene needs
+	_, _ = ws.db.DB.Exec("DROP TABLE lidar_scenes")
+	_, _ = ws.db.DB.Exec(`CREATE TABLE lidar_scenes (scene_id TEXT PRIMARY KEY)`) // minimal table
+
+	desc := "updated"
+	body, _ := json.Marshal(UpdateSceneRequest{Description: &desc})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.SceneID, bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	// GetScene will fail since columns are missing
+	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want error status; body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestCov_HandleDeleteScene_GenericDBError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	ws.db.DB.Close() // force generic DB error (not "not found")
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/scenes/scene-1", nil)
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleCreateScene_DBError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	ws.db.DB.Close() // force DB error on InsertScene
+
+	body, _ := json.Marshal(CreateSceneRequest{SensorID: "s1", PCAPFile: "p.pcap"})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleScenes(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleReplayScene_InsertRunDBError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+
+	// Insert scene first
+	store := lidar.NewSceneStore(ws.db.DB)
+	scene := &lidar.Scene{SensorID: "sensor-001", PCAPFile: "test.pcap"}
+	if err := store.InsertScene(scene); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	// Drop analysis_runs table to force InsertRun failure
+	_, _ = ws.db.DB.Exec("DROP TABLE lidar_analysis_runs")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.SceneID+"/replay", nil)
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleReplayScene_GenericDBError(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+
+	// Insert scene, then close DB so GetScene fails with generic error
+	store := lidar.NewSceneStore(ws.db.DB)
+	scene := &lidar.Scene{SensorID: "sensor-001", PCAPFile: "test.pcap"}
+	if err := store.InsertScene(scene); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.SceneID+"/replay", nil)
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+}
+
+func TestCov_HandleListScenes_EmptyReturnsArray(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	defer ws.db.DB.Close()
+
+	// No scenes inserted — should return empty array, not null
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes", nil)
+	w := httptest.NewRecorder()
+	ws.handleScenes(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	scenes, ok := resp["scenes"].([]interface{})
+	if !ok {
+		t.Fatal("expected scenes to be an array")
+	}
+	if len(scenes) != 0 {
+		t.Errorf("expected 0 scenes, got %d", len(scenes))
+	}
+}
+
+func TestCov_HandleListSceneEvaluations_GET(t *testing.T) {
+	ws := setupTestSceneWebServer(t)
+	defer ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1/evaluations", nil)
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusNotImplemented {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	}
+	if !strings.Contains(w.Body.String(), "scene-1") {
+		t.Errorf("expected scene_id in response, got: %s", w.Body.String())
+	}
+}
