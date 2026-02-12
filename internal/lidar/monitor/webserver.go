@@ -111,6 +111,7 @@ type WebServer struct {
 	pcapAnalysisMode bool // When true, preserve grid after PCAP completion
 	pcapSpeedMode    string
 	pcapSpeedRatio   float64
+	pcapLastRunID    string // Last analysis run ID from PCAP replay (protected by pcapMu)
 
 	// PCAP progress tracking (protected by pcapMu)
 	pcapCurrentPacket uint64 // 0-based index of current packet
@@ -644,6 +645,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 	ws.pcapCancel = cancel
 	ws.pcapDone = done
 	ws.plotsEnabled = enablePlots
+	ws.pcapLastRunID = "" // Clear previous run ID before starting new PCAP
 	ws.pcapMu.Unlock()
 
 	// Initialize grid plotter if enabled
@@ -688,9 +690,16 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
 			if startErr != nil {
 				log.Printf("Warning: Failed to start analysis run: %v", startErr)
-			} else if runID != "" && ws.onRecordingStart != nil {
-				ws.onRecordingStart(runID)
-				recordingStarted = true
+			} else if runID != "" {
+				// Store the run ID so the sweep runner can retrieve it
+				ws.pcapMu.Lock()
+				ws.pcapLastRunID = runID
+				ws.pcapMu.Unlock()
+
+				if ws.onRecordingStart != nil {
+					ws.onRecordingStart(runID)
+					recordingStarted = true
+				}
 			}
 		}
 
@@ -1589,6 +1598,7 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 	ws.pcapMu.Lock()
 	pcapInProgress := ws.pcapInProgress
 	analysisMode := ws.pcapAnalysisMode
+	lastRunID := ws.pcapLastRunID
 	ws.pcapMu.Unlock()
 
 	response := map[string]interface{}{
@@ -1597,6 +1607,7 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		"pcap_file":        currentPCAPFile,
 		"pcap_in_progress": pcapInProgress,
 		"analysis_mode":    analysisMode,
+		"last_run_id":      lastRunID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
