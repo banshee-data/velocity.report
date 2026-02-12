@@ -568,12 +568,16 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					}
 
 					// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
+					// Use "realtime" speed to ensure the full tracking pipeline (BackgroundManager,
+					// ForegroundForwarder, warmup) runs — "fastest" mode skips foreground extraction
+					// and produces 0 tracks.
 					if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
 						PCAPFile:        req.PCAPFile,
 						StartSeconds:    req.PCAPStartSecs,
 						DurationSeconds: req.PCAPDurationSecs,
 						MaxRetries:      30,
 						AnalysisMode:    true,
+						SpeedMode:       "realtime",
 					}); err != nil {
 						log.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum, err)
 						r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum, err))
@@ -733,12 +737,16 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		if isPCAP {
 			// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
 			// Starting PCAP internally resets all state (grid, frame builder), so no separate reset needed.
+			// Use "realtime" speed to ensure the full tracking pipeline (BackgroundManager,
+			// ForegroundForwarder, warmup) runs — "fastest" mode skips foreground extraction
+			// and produces 0 tracks.
 			if err := r.client.StartPCAPReplayWithConfig(monitor.PCAPReplayConfig{
 				PCAPFile:        req.PCAPFile,
 				StartSeconds:    req.PCAPStartSecs,
 				DurationSeconds: req.PCAPDurationSecs,
 				MaxRetries:      30,
 				AnalysisMode:    true,
+				SpeedMode:       "realtime",
 			}); err != nil {
 				log.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum+1, err)
 				r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum+1, err))
