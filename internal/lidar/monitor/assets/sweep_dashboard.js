@@ -3448,10 +3448,14 @@ function renderRLHFState(st) {
       gateStatus.style.display = gates.length > 1 ? "block" : "none";
     }
 
-    // Tracks link
+    // Tracks link — the SvelteKit web app runs on port 8080 with base /app
     if (st.reference_run_id) {
+      var webBase =
+        window.location.protocol + "//" + window.location.hostname + ":8080";
       document.getElementById("rlhf-tracks-link").href =
-        "/lidar/tracks?run_id=" + encodeURIComponent(st.reference_run_id);
+        webBase +
+        "/app/lidar/tracks?run_id=" +
+        encodeURIComponent(st.reference_run_id);
     }
   } else if (st.status === "running_sweep") {
     labelSection.style.display = "none";
@@ -3535,8 +3539,12 @@ function renderRLHFState(st) {
       if (rnd.labels_carried_over > 0)
         historyHtml += " (↻ " + rnd.labels_carried_over + " labels)";
       if (rnd.reference_run_id) {
+        var roundWebBase =
+          window.location.protocol + "//" + window.location.hostname + ":8080";
         historyHtml +=
-          ' <a href="/lidar/tracks?run_id=' +
+          ' <a href="' +
+          roundWebBase +
+          "/app/lidar/tracks?run_id=" +
           encodeURIComponent(rnd.reference_run_id) +
           '" target="_blank" style="font-size:12px">tracks →</a>';
       }
