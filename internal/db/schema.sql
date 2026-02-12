@@ -141,6 +141,13 @@ CREATE TABLE lidar_analysis_runs (
         , started_at DATETIME NOT NULL
         , completed_at DATETIME
         , created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        , objective_name TEXT
+        , objective_version TEXT
+        , transform_pipeline_name TEXT
+        , transform_pipeline_version TEXT
+        , score_components_json TEXT
+        , recommendation_explanation_json TEXT
+        , label_provenance_summary_json TEXT
           );
 
    CREATE TABLE lidar_tracks (

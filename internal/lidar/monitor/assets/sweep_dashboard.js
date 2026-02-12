@@ -3011,6 +3011,16 @@ if (typeof module !== "undefined" && module.exports) {
     togglePCAP: togglePCAP,
     fetchSweepExplanation: fetchSweepExplanation,
     renderExplanation: renderExplanation,
+    handleStartRLHF: handleStartRLHF,
+    startRLHFPolling: startRLHFPolling,
+    stopRLHFPolling: stopRLHFPolling,
+    pollRLHFStatus: pollRLHFStatus,
+    renderRLHFState: renderRLHFState,
+    handleRLHFContinue: handleRLHFContinue,
+    populateRLHFScenes: populateRLHFScenes,
+    onRLHFSceneSelected: onRLHFSceneSelected,
+    requestNotificationPermission: requestNotificationPermission,
+    fireNotification: fireNotification,
     init: init,
   };
 }
