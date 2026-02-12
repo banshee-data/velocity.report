@@ -365,6 +365,12 @@ struct TimeDisplayView: View {
     @EnvironmentObject var appState: AppState
     @State private var showRemaining: Bool = false
 
+    /// Whether we have valid log boundaries to compute durations.
+    private var hasValidRange: Bool {
+        appState.logStartTimestamp > 0 && appState.logEndTimestamp > appState.logStartTimestamp
+            && appState.currentTimestamp >= appState.logStartTimestamp
+    }
+
     private var elapsed: Int64 { appState.currentTimestamp - appState.logStartTimestamp }
 
     private var total: Int64 { appState.logEndTimestamp - appState.logStartTimestamp }
@@ -372,14 +378,19 @@ struct TimeDisplayView: View {
     private var remaining: Int64 { appState.logEndTimestamp - appState.currentTimestamp }
 
     var body: some View {
-        let currentText = showRemaining ? formatDuration(-remaining) : formatDuration(elapsed)
-        let totalText = formatDuration(total)
+        if hasValidRange {
+            let currentText = showRemaining ? formatDuration(-remaining) : formatDuration(elapsed)
+            let totalText = formatDuration(total)
 
-        Button(action: { showRemaining.toggle() }) {
-            Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-        }.buttonStyle(.plain).help(
-            showRemaining ? "Showing remaining time" : "Showing elapsed time")
+            Button(action: { showRemaining.toggle() }) {
+                Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }.buttonStyle(.plain).help(
+                showRemaining ? "Showing remaining time" : "Showing elapsed time")
+        } else {
+            Text("--:-- / --:--").font(.system(.caption, design: .monospaced)).foregroundColor(
+                .secondary)
+        }
     }
 }
 
@@ -404,8 +415,9 @@ struct SidePanelView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ScrollView {
-            HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: 0) {
+            // Left column: inspector + labels (scrolls independently)
+            ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Track info
                     if let trackID = appState.selectedTrackID {
@@ -422,24 +434,19 @@ struct SidePanelView: View {
                     // Debug overlay toggles
                     DebugOverlayTogglesView()
 
-                    Divider()
-
-                    // Export
-                    Button(action: { appState.exportLabels() }) {
-                        Label("Export Labels", systemImage: "square.and.arrow.up")
-                    }.disabled(!appState.isConnected)
-
                     Spacer()
-                }.frame(maxWidth: .infinity, alignment: .leading)
+                }.padding()
+            }.frame(maxWidth: .infinity, alignment: .leading)
 
-                Divider()
+            Divider()
 
+            // Right column: track list (scrolls independently)
+            ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Track list for selecting tracks
                     TrackListView()
                     Spacer()
-                }.frame(width: 220, alignment: .leading)
-            }.padding()
+                }.padding()
+            }.frame(width: 220, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -746,13 +753,35 @@ struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
     // Canonical detection labels — must match Go validUserLabels and Svelte DetectionLabel
-    let userLabels = [
-        "good_vehicle", "good_pedestrian", "good_other", "noise", "noise_flora", "split", "merge",
-        "missed",
+    static let userLabels: [(name: String, help: String)] = [
+        ("good_vehicle", "Correctly tracked vehicle with accurate speed and trajectory"),
+        ("good_pedestrian", "Correctly tracked pedestrian with accurate trajectory"),
+        (
+            "good_other",
+            "Correctly tracked non-vehicle/non-pedestrian object (cyclist, animal, etc.)"
+        ), ("noise", "Spurious track caused by sensor noise, rain, dust, or multipath reflections"),
+        (
+            "noise_flora",
+            "Spurious track caused by vegetation movement (trees, bushes swaying in wind)"
+        ),
+        (
+            "split",
+            "Single object incorrectly tracked as two or more separate tracks — the tracker split one real target"
+        ),
+        (
+            "merge",
+            "Two or more distinct objects incorrectly merged into a single track — the tracker fused separate targets"
+        ), ("missed", "A real object that the tracker failed to detect or dropped prematurely"),
     ]
 
     // Canonical quality labels — must match Go validQualityLabels and Svelte QualityLabel
-    let qualityLabels = ["perfect", "good", "truncated", "noisy_velocity", "stopped_recovered"]
+    static let qualityLabels: [(name: String, help: String)] = [
+        ("perfect", "Flawless track: correct ID, speed, and trajectory throughout"),
+        ("good", "Mostly correct track with minor imperfections"),
+        ("truncated", "Track starts late or ends early compared to the real object's presence"),
+        ("noisy_velocity", "Track position is correct but speed or heading estimates are noisy"),
+        ("stopped_recovered", "Track was lost briefly then recovered — identity may have changed"),
+    ]
 
     @State private var lastAssignedLabel: String?
     @State private var lastAssignedQuality: String?
@@ -771,13 +800,13 @@ struct LabelPanelView: View {
 
                 // Detection labels (user_label)
                 Text("Detection").font(.caption).foregroundColor(.secondary).padding(.top, 4)
-                ForEach(Array(userLabels.enumerated()), id: \.offset) { index, label in
+                ForEach(Array(Self.userLabels.enumerated()), id: \.offset) { index, entry in
                     LabelButton(
-                        label: label, shortcut: index < 9 ? "\(index + 1)" : nil,
-                        isActive: lastAssignedLabel == label
+                        label: entry.name, shortcut: index < 9 ? "\(index + 1)" : nil,
+                        isActive: lastAssignedLabel == entry.name, helpText: entry.help
                     ) {
-                        appState.assignLabel(label)
-                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = label }
+                        appState.assignLabel(entry.name)
+                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = entry.name }
                     }
                 }
 
@@ -785,22 +814,46 @@ struct LabelPanelView: View {
                 if appState.currentRunID != nil {
                     Divider().padding(.vertical, 4)
                     Text("Quality").font(.caption).foregroundColor(.secondary)
-                    ForEach(qualityLabels, id: \.self) { quality in
+                    ForEach(Array(Self.qualityLabels.enumerated()), id: \.offset) { _, entry in
                         LabelButton(
-                            label: quality, shortcut: nil, isActive: lastAssignedQuality == quality
+                            label: entry.name, shortcut: nil,
+                            isActive: lastAssignedQuality == entry.name, helpText: entry.help
                         ) {
-                            appState.assignQuality(quality)
-                            withAnimation(.easeOut(duration: 0.3)) { lastAssignedQuality = quality }
+                            appState.assignQuality(entry.name)
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                lastAssignedQuality = entry.name
+                            }
                         }
                     }
                 }
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
             }
-        }.onChange(of: appState.selectedTrackID) { _, _ in
+        }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
             lastAssignedLabel = nil
             lastAssignedQuality = nil
+            // Fetch existing labels for the newly selected track
+            if let trackID = newTrackID, let runID = appState.currentRunID {
+                Task {
+                    do {
+                        let client = RunTrackLabelAPIClient()
+                        let track = try await client.getTrack(runID: runID, trackID: trackID)
+                        await MainActor.run {
+                            // Only update if we're still on the same track
+                            guard appState.selectedTrackID == trackID else { return }
+                            if let label = track.userLabel, !label.isEmpty {
+                                lastAssignedLabel = label
+                            }
+                            if let quality = track.qualityLabel, !quality.isEmpty {
+                                lastAssignedQuality = quality
+                            }
+                        }
+                    } catch {
+                        // Silently ignore — track may not exist in API yet
+                    }
+                }
+            }
         }
     }
 }
@@ -810,6 +863,7 @@ struct LabelButton: View {
     let label: String
     let shortcut: String?
     let isActive: Bool
+    var helpText: String = ""
     let action: () -> Void
 
     @State private var isHovered = false
@@ -833,7 +887,8 @@ struct LabelButton: View {
                     ? Color.accentColor.opacity(0.2)
                     : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
             ).cornerRadius(4)
-        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }
+        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }.help(
+            helpText.isEmpty ? displayName(label) : helpText)
     }
 
     /// Convert snake_case label to a readable display name.

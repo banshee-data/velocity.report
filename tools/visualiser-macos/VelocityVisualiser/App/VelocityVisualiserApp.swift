@@ -89,11 +89,6 @@ struct AppCommands: Commands {
         CommandMenu("Labels") {
             Button("Label Selected Track") { appState.showLabelPanel = true }.keyboardShortcut(
                 "l", modifiers: [])
-
-            Divider()
-
-            Button("Export Labels...") { appState.exportLabels() }.keyboardShortcut(
-                "e", modifiers: .command)
         }
     }
 }

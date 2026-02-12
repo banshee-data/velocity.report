@@ -90,8 +90,14 @@ class CompositePointCloudRenderer {
     func processFrame(_ frame: FrameBundle) {
         switch frame.frameType {
         case .full:
-            // Legacy mode: treat as foreground only
+            // Legacy mode: treat point cloud as foreground
             if let pointCloud = frame.pointCloud { updateForegroundBuffer(pointCloud) }
+            // Also ingest background data when present (e.g. first VRLOG frame)
+            if let background = frame.background {
+                updateBackgroundBuffer(background)
+                backgroundSeq = background.sequenceNumber
+                cacheState = .cached(seq: backgroundSeq)
+            }
 
         case .foreground:
             // M3.5 mode: foreground points only
