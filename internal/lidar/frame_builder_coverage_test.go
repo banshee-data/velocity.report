@@ -311,3 +311,94 @@ func TestExportFrameToASCInternal_EmptyFrame(t *testing.T) {
 		t.Fatal("expected error for empty frame")
 	}
 }
+
+func TestExportFrameToASCInternal_WithZeroZ(t *testing.T) {
+frame := &LiDARFrame{
+FrameID:  "z-zero-test",
+SensorID: "test",
+Points: []Point{
+{X: 1, Y: 2, Z: 0, Distance: 10, Azimuth: 45, Elevation: 10, Intensity: 100},
+{X: 3, Y: 4, Z: 0, Distance: 20, Azimuth: 90, Elevation: 5, Intensity: 200},
+},
+PointCount: 2,
+}
+// This will try to write to disk; the export itself may fail due to permissions
+// but should exercise the Z=0 recompute path
+_ = exportFrameToASCInternal(frame)
+}
+
+func TestExportFrameToASCInternal_WithNonZeroZ(t *testing.T) {
+frame := &LiDARFrame{
+FrameID:  "z-nonzero-test",
+SensorID: "test",
+Points: []Point{
+{X: 1, Y: 2, Z: 3, Distance: 10, Azimuth: 45, Elevation: 10, Intensity: 100},
+{X: 4, Y: 5, Z: 6, Distance: 20, Azimuth: 90, Elevation: 5, Intensity: 200},
+},
+PointCount: 2,
+}
+_ = exportFrameToASCInternal(frame)
+}
+
+func TestFinalizeFrame_WithExportNext_Complete(t *testing.T) {
+fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "export-complete"})
+fb.debug = true
+fb.exportNextFrameASC = true
+
+// Create a complete frame (enough coverage and points)
+points := make([]Point, 15000)
+for i := range points {
+points[i] = Point{X: float64(i), Y: float64(i), Z: float64(i), Intensity: 100, Distance: 10, Azimuth: float64(i) * 0.024, Elevation: 5}
+}
+frame := &LiDARFrame{
+FrameID:        "export-next",
+SensorID:       "export-complete",
+StartTimestamp: time.Now(),
+EndTimestamp:   time.Now().Add(100 * time.Millisecond),
+Points:         points,
+MinAzimuth:     0,
+MaxAzimuth:     355,
+PointCount:     15000,
+}
+
+fb.finalizeFrame(frame, "test-export")
+// Export flag should be cleared after successful export
+}
+
+func TestFinalizeFrame_WithBatchExport_Complete(t *testing.T) {
+fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "batch-complete"})
+fb.debug = true
+fb.exportBatchCount = 2
+fb.exportBatchExported = 0
+
+points := make([]Point, 15000)
+for i := range points {
+points[i] = Point{X: float64(i), Y: float64(i), Z: float64(i), Intensity: 100}
+}
+frame := &LiDARFrame{
+FrameID:        "batch-1",
+SensorID:       "batch-complete",
+StartTimestamp: time.Now(),
+EndTimestamp:   time.Now().Add(100 * time.Millisecond),
+Points:         points,
+MinAzimuth:     0,
+MaxAzimuth:     355,
+PointCount:     15000,
+}
+
+fb.finalizeFrame(frame, "test-batch-1")
+
+if fb.exportBatchExported != 1 {
+t.Fatalf("expected exportBatchExported=1, got %d", fb.exportBatchExported)
+}
+}
+
+func TestNewFrameBuilderWithDebugLoggingAndInterval_Coverage(t *testing.T) {
+fb := NewFrameBuilderWithDebugLoggingAndInterval("test-dbg", true, 500*time.Millisecond)
+if fb == nil {
+t.Fatal("expected non-nil FrameBuilder")
+}
+if !fb.debug {
+t.Fatal("expected debug=true")
+}
+}
