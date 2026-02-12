@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
 
@@ -46,7 +47,7 @@ type RLHFScene struct {
 
 // ReferenceRunCreator creates analysis runs for RLHF reference.
 type ReferenceRunCreator interface {
-	CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error)
+	CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error)
 }
 
 // RLHFSweepRequest defines the request for an RLHF tuning sweep.
@@ -68,6 +69,13 @@ type RLHFSweepRequest struct {
 	CarryOverLabels       bool                `json:"carry_over_labels"`
 	MinClassCoverage      map[string]int      `json:"min_class_coverage,omitempty"`
 	MinTemporalSpreadSecs float64             `json:"min_temporal_spread_secs,omitempty"`
+
+	// TuneBackground controls whether the background grid is re-settled
+	// for each exploration combo. When false (default), the grid settled
+	// during the reference run is reused (SettleMode forced to "once").
+	// Set to true when sweeping background-subtraction params so each
+	// combo gets a fresh settle.
+	TuneBackground bool `json:"tune_background,omitempty"`
 }
 
 // RLHFState represents the current state of an RLHF tuning session.
@@ -89,6 +97,7 @@ type RLHFState struct {
 	NextSweepDuration     int                    `json:"next_sweep_duration_mins"`
 	MinClassCoverage      map[string]int         `json:"min_class_coverage,omitempty"`
 	MinTemporalSpreadSecs float64                `json:"min_temporal_spread_secs,omitempty"`
+	TuneBackground        bool                   `json:"tune_background"`
 }
 
 // LabelProgress tracks labelling progress for a reference run.
@@ -113,17 +122,28 @@ type RLHFRound struct {
 }
 
 // defaultRLHFParams returns the default set of sweep parameters for RLHF
-// when the caller does not specify any. These cover the most impactful
-// background-subtraction and foreground-clustering knobs.
-func defaultRLHFParams() []SweepParam {
-	return []SweepParam{
-		{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.2},
-		{Name: "closeness_multiplier", Type: "float64", Start: 1.0, End: 20.0},
-		{Name: "background_update_fraction", Type: "float64", Start: 0.005, End: 0.1},
-		{Name: "safety_margin_meters", Type: "float64", Start: 0, End: 2.0},
+// when the caller does not specify any.
+//
+// When tuneBackground is false (the default), only foreground/clustering
+// params are returned — the background grid settles once on the reference
+// run and is reused across all exploration combos.
+//
+// When tuneBackground is true, background-subtraction params are also
+// included since each exploration combo must re-settle the grid.
+func defaultRLHFParams(tuneBackground bool) []SweepParam {
+	params := []SweepParam{
 		{Name: "foreground_min_cluster_points", Type: "int", Start: 0, End: 20},
 		{Name: "foreground_dbscan_eps", Type: "float64", Start: 0, End: 2.0},
 	}
+	if tuneBackground {
+		params = append(params,
+			SweepParam{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.2},
+			SweepParam{Name: "closeness_multiplier", Type: "float64", Start: 1.0, End: 20.0},
+			SweepParam{Name: "background_update_fraction", Type: "float64", Start: 0.005, End: 0.1},
+			SweepParam{Name: "safety_margin_meters", Type: "float64", Start: 0, End: 2.0},
+		)
+	}
+	return params
 }
 
 // RLHFTuner orchestrates human-in-the-loop parameter optimisation.
@@ -243,7 +263,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	}
 	// Auto-populate default RLHF sweep params if none provided.
 	if len(req.Params) == 0 {
-		req.Params = defaultRLHFParams()
+		req.Params = defaultRLHFParams(req.TuneBackground)
 	}
 	if len(req.Params) > 20 {
 		return fmt.Errorf("too many parameters (max 20, got %d)", len(req.Params))
@@ -253,14 +273,49 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	if req.MinLabelThreshold == 0 {
 		req.MinLabelThreshold = 0.9
 	}
-	if req.Iterations == 0 {
-		req.Iterations = 10
-	}
 	if req.TopK == 0 {
 		req.TopK = 3
 	}
 	if req.ValuesPerParam == 0 {
 		req.ValuesPerParam = 5
+	}
+
+	// When TuneBackground is false (default), force settle_mode to "once"
+	// so the grid is settled once on the first exploration combo and reused.
+	if !req.TuneBackground && req.SettleMode == "" {
+		req.SettleMode = "once"
+	}
+
+	// Pre-fetch scene to derive PCAP duration and compute iterations.
+	sensorID := ""
+	var scenePCAPDuration float64
+	if rt.sceneGetter != nil {
+		if scene, err := rt.sceneGetter.GetScene(req.SceneID); err == nil && scene != nil {
+			sensorID = scene.SensorID
+			if scene.PCAPDurationSecs != nil && *scene.PCAPDurationSecs > 0 {
+				scenePCAPDuration = *scene.PCAPDurationSecs
+			}
+		}
+	}
+
+	// Fit iterations to the scene duration: scene duration takes precedence
+	// and we derive the number of intervals to cover the full scene window.
+	if req.Iterations == 0 {
+		if scenePCAPDuration > 0 {
+			interval := 2.0 // default interval in seconds
+			if req.Interval != "" {
+				if d, err := time.ParseDuration(req.Interval); err == nil {
+					interval = d.Seconds()
+				}
+			}
+			if interval > 0 {
+				req.Iterations = int(math.Floor(scenePCAPDuration / interval))
+			}
+		}
+		if req.Iterations < 1 {
+			req.Iterations = 10
+		}
+		log.Printf("[rlhf] Fitted iterations=%d from scene duration=%.1fs", req.Iterations, scenePCAPDuration)
 	}
 
 	// Check not already running
@@ -283,14 +338,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 		NextSweepDuration:     getDuration(req.RoundDurations, 0),
 		MinClassCoverage:      req.MinClassCoverage,
 		MinTemporalSpreadSecs: req.MinTemporalSpreadSecs,
-	}
-
-	// Pre-fetch scene to capture sensor ID for persistence.
-	sensorID := ""
-	if rt.sceneGetter != nil {
-		if scene, err := rt.sceneGetter.GetScene(req.SceneID); err == nil && scene != nil {
-			sensorID = scene.SensorID
-		}
+		TuneBackground:        req.TuneBackground,
 	}
 
 	// Persist start if persister available
@@ -698,7 +746,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 		return nil, 0, fmt.Errorf("run creator not configured")
 	}
 
-	runID, err := rt.runCreator.CreateSweepRun(scene.SensorID, scene.PCAPFile, paramsJSON)
+	runID, err := rt.runCreator.CreateSweepRun(scene.SensorID, scene.PCAPFile, paramsJSON, scenePCAPStart(scene), scenePCAPDuration(scene))
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create reference run: %w", err)
 	}
@@ -816,6 +864,22 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	log.Printf("[rlhf] Round %d complete: score=%.4f, params=%v", round, bestScore, bestParams)
 
 	return bestParams, bestScore, nil
+}
+
+// scenePCAPStart returns the scene's PCAP start offset, or 0 if not set.
+func scenePCAPStart(scene *RLHFScene) float64 {
+	if scene != nil && scene.PCAPStartSecs != nil {
+		return *scene.PCAPStartSecs
+	}
+	return 0
+}
+
+// scenePCAPDuration returns the scene's PCAP duration, or -1 (full file) if not set.
+func scenePCAPDuration(scene *RLHFScene) float64 {
+	if scene != nil && scene.PCAPDurationSecs != nil {
+		return *scene.PCAPDurationSecs
+	}
+	return -1
 }
 
 // getDuration returns the duration for the given round index.
@@ -1013,7 +1077,8 @@ func (rt *RLHFTuner) buildAutoTuneRequest(bounds map[string][2]float64, req RLHF
 		}
 	}
 
-	// Build base request
+	// Build base request — always use the scene's PCAP so the exploration
+	// sweep replays the same capture window as the reference run.
 	autoReq := AutoTuneRequest{
 		SceneID:            req.SceneID,
 		Objective:          "ground_truth",
@@ -1028,6 +1093,10 @@ func (rt *RLHFTuner) buildAutoTuneRequest(bounds map[string][2]float64, req RLHF
 		SettleMode:         req.SettleMode,
 		GroundTruthWeights: req.GroundTruthWeights,
 		AcceptanceCriteria: req.AcceptanceCriteria,
+		DataSource:         "pcap",
+		PCAPFile:           scene.PCAPFile,
+		PCAPStartSecs:      scenePCAPStart(scene),
+		PCAPDurationSecs:   scenePCAPDuration(scene),
 	}
 
 	// Apply defaults
