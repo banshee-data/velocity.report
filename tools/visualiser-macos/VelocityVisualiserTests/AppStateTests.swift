@@ -841,6 +841,29 @@ import XCTest
 
 @available(macOS 15.0, *) @MainActor final class ClientDelegateAdapterTests: XCTestCase {
 
+    // MARK: - MainActor-safe polling helper
+    //
+    // XCTNSPredicateExpectation evaluates its NSPredicate(block:) on a
+    // non-MainActor thread, which races with @MainActor-isolated AppState
+    // properties.  This helper polls the condition on MainActor instead,
+    // yielding between checks to let enqueued Tasks execute.
+
+    private func waitForMainActor(
+        timeout: TimeInterval = 2.0,
+        condition: @escaping @MainActor () -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let deadline = ContinuousClock.now + .seconds(timeout)
+        while !condition() {
+            guard ContinuousClock.now < deadline else {
+                XCTFail("Timed out after \(timeout)s waiting for condition", file: file, line: line)
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     func testDelegateConnect() async throws {
         let state = AppState()
         let delegate = ClientDelegateAdapter(appState: state)
@@ -848,10 +871,7 @@ import XCTest
 
         delegate.clientDidConnect(client)
 
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(block: { _, _ in state.isConnected }),
-            object: nil)
-        await fulfillment(of: [expectation], timeout: 2.0)
+        try await waitForMainActor { state.isConnected }
         XCTAssertNil(state.connectionError)
         XCTAssertFalse(state.replayFinished)
     }
@@ -865,10 +885,7 @@ import XCTest
         let error = NSError(domain: "test", code: -1, userInfo: nil)
         delegate.clientDidDisconnect(client, error: error)
 
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(block: { _, _ in !state.isConnected }),
-            object: nil)
-        await fulfillment(of: [expectation], timeout: 2.0)
+        try await waitForMainActor { !state.isConnected }
         XCTAssertEqual(state.connectionError, "Connection lost")
     }
 
@@ -880,10 +897,7 @@ import XCTest
 
         delegate.clientDidDisconnect(client, error: nil)
 
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(block: { _, _ in !state.isConnected }),
-            object: nil)
-        await fulfillment(of: [expectation], timeout: 2.0)
+        try await waitForMainActor { !state.isConnected }
         // No error should be set
         XCTAssertNil(state.connectionError)
     }
@@ -899,10 +913,7 @@ import XCTest
 
         delegate.client(client, didReceiveFrame: frame)
 
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(block: { _, _ in state.currentFrameID == 99 }),
-            object: nil)
-        await fulfillment(of: [expectation], timeout: 2.0)
+        try await waitForMainActor { state.currentFrameID == 99 }
     }
 
     func testDelegateDidFinishStream() async throws {
@@ -914,10 +925,7 @@ import XCTest
 
         delegate.clientDidFinishStream(client)
 
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(block: { _, _ in state.replayFinished }),
-            object: nil)
-        await fulfillment(of: [expectation], timeout: 2.0)
+        try await waitForMainActor { state.replayFinished }
         XCTAssertTrue(state.isPaused)
         XCTAssertEqual(state.replayProgress, 1.0)
     }
