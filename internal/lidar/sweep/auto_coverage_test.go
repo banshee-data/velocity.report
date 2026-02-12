@@ -638,14 +638,14 @@ type mockPersister struct {
 	completeStatus string
 }
 
-func (m *mockPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time) error {
+func (m *mockPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.startCalled = true
 	return nil
 }
 
-func (m *mockPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string) error {
+func (m *mockPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.completeCalled = true
@@ -1723,11 +1723,11 @@ func TestAutoCov2_GetAutoTuneState_EmptySlices(t *testing.T) {
 // failingPersister always returns errors.
 type failingPersister struct{}
 
-func (fp *failingPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time) error {
+func (fp *failingPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
 	return fmt.Errorf("simulated start persistence failure")
 }
 
-func (fp *failingPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string) error {
+func (fp *failingPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	return fmt.Errorf("simulated complete persistence failure")
 }
 

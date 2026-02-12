@@ -26,12 +26,12 @@ const LabelProvenanceSchemaVersion = "1"
 
 // LabelProvenanceSummary aggregates label source counts for a sweep's reference runs.
 type LabelProvenanceSummary struct {
-	SchemaVersion string           `json:"schema_version"`
-	TotalTracks   int              `json:"total_tracks"`
-	LabelledCount int              `json:"labelled_count"`
-	BySource      map[string]int   `json:"by_source"`  // human_manual, carried_over, auto_suggested
-	ByClass       map[string]int   `json:"by_class"`   // vehicle, pedestrian, etc.
-	Confidence    ConfidenceStats  `json:"confidence"`
+	SchemaVersion string          `json:"schema_version"`
+	TotalTracks   int             `json:"total_tracks"`
+	LabelledCount int             `json:"labelled_count"`
+	BySource      map[string]int  `json:"by_source"` // human_manual, carried_over, auto_suggested
+	ByClass       map[string]int  `json:"by_class"`  // vehicle, pedestrian, etc.
+	Confidence    ConfidenceStats `json:"confidence"`
 }
 
 // ConfidenceStats summarises label confidence across a sweep.
