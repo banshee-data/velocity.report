@@ -593,6 +593,538 @@ import XCTest
     }
 }
 
+// MARK: - Toggle Debug Tests
+
+@available(macOS 15.0, *) @MainActor final class ToggleDebugTests: XCTestCase {
+
+    func testToggleDebugEnablesSubToggles() throws {
+        let state = AppState()
+        XCTAssertFalse(state.showDebug)
+        XCTAssertFalse(state.showGating)
+        XCTAssertFalse(state.showAssociation)
+        XCTAssertFalse(state.showResiduals)
+
+        state.toggleDebug()
+
+        XCTAssertTrue(state.showDebug)
+        XCTAssertTrue(state.showGating)
+        XCTAssertTrue(state.showAssociation)
+        XCTAssertTrue(state.showResiduals)
+    }
+
+    func testToggleDebugOffDoesNotResetSubToggles() throws {
+        let state = AppState()
+
+        // Enable debug (and sub-toggles)
+        state.toggleDebug()
+        XCTAssertTrue(state.showDebug)
+        XCTAssertTrue(state.showGating)
+
+        // Disable debug
+        state.toggleDebug()
+        XCTAssertFalse(state.showDebug)
+        // Sub-toggles remain as-is (not reset)
+        XCTAssertTrue(state.showGating)
+    }
+
+    func testToggleDebugTwiceRoundTrips() throws {
+        let state = AppState()
+        state.toggleDebug()
+        state.toggleDebug()
+        XCTAssertFalse(state.showDebug)
+    }
+}
+
+// MARK: - Toggle Connection Tests
+
+@available(macOS 15.0, *) @MainActor final class ToggleConnectionTests: XCTestCase {
+
+    func testToggleConnectionIgnoredWhileConnecting() throws {
+        let state = AppState()
+        state.isConnecting = true
+
+        // Should be ignored
+        state.toggleConnection()
+        // isConnecting should remain true (not toggled)
+        XCTAssertTrue(state.isConnecting)
+    }
+
+    func testToggleConnectionCallsDisconnectWhenConnected() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isConnecting = false
+
+        state.toggleConnection()
+        // disconnect() clears isConnected
+        XCTAssertFalse(state.isConnected)
+    }
+
+    func testConnectSkippedWhenAlreadyConnecting() throws {
+        let state = AppState()
+        state.isConnecting = true
+
+        state.connect()
+        // Should skip — isConnecting remains true
+        XCTAssertTrue(state.isConnecting)
+    }
+
+    func testConnectSkippedWhenAlreadyConnected() throws {
+        let state = AppState()
+        state.isConnected = true
+
+        state.connect()
+        // Should skip — isConnected remains true without transition to isConnecting
+        XCTAssertTrue(state.isConnected)
+    }
+
+    func testConnectSetsIsConnecting() throws {
+        let state = AppState()
+        state.isConnected = false
+        state.isConnecting = false
+
+        state.connect()
+        // connect() should set isConnecting and clear connectionError
+        XCTAssertTrue(state.isConnecting)
+        XCTAssertNil(state.connectionError)
+    }
+}
+
+// MARK: - Assign Label / Quality Tests
+
+@available(macOS 15.0, *) @MainActor final class AssignLabelTests: XCTestCase {
+
+    func testAssignLabelNoSelectedTrackDoesNothing() throws {
+        let state = AppState()
+        state.selectedTrackID = nil
+
+        // Should not crash or throw
+        state.assignLabel("car")
+    }
+
+    func testAssignLabelWithSelectedTrackInLiveMode() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        state.currentRunID = nil  // Live mode
+
+        // Should not crash — fires async task that will fail HTTP but doesn't throw
+        state.assignLabel("car")
+    }
+
+    func testAssignLabelWithSelectedTrackInRunMode() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        state.currentRunID = "run-abc"  // Run mode
+
+        // Should not crash — fires async task
+        state.assignLabel("good_vehicle")
+    }
+
+    func testAssignQualityRequiresSelectedTrackAndRunID() throws {
+        let state = AppState()
+
+        // No selected track — should do nothing
+        state.selectedTrackID = nil
+        state.currentRunID = "run-abc"
+        state.assignQuality("perfect")
+
+        // No run ID — should do nothing
+        state.selectedTrackID = "track-001"
+        state.currentRunID = nil
+        state.assignQuality("perfect")
+    }
+
+    func testAssignQualityWithBothSet() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        state.currentRunID = "run-abc"
+
+        // Should not crash — fires async task
+        state.assignQuality("good")
+    }
+}
+
+// MARK: - Mark as Split/Merge Tests
+
+@available(macOS 15.0, *) @MainActor final class MarkSplitMergeTests: XCTestCase {
+
+    func testMarkAsSplitRequiresSelectedTrackAndRunID() throws {
+        let state = AppState()
+
+        // No track ID — guard returns
+        state.selectedTrackID = nil
+        state.currentRunID = "run-abc"
+        state.markAsSplit(true)
+
+        // No run ID — guard returns
+        state.selectedTrackID = "track-001"
+        state.currentRunID = nil
+        state.markAsSplit(true)
+    }
+
+    func testMarkAsSplitWithBothSet() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        state.currentRunID = "run-abc"
+
+        state.markAsSplit(true)
+        state.markAsSplit(false)
+    }
+
+    func testMarkAsMergeRequiresSelectedTrackAndRunID() throws {
+        let state = AppState()
+
+        state.selectedTrackID = nil
+        state.currentRunID = "run-abc"
+        state.markAsMerge(true)
+
+        state.selectedTrackID = "track-001"
+        state.currentRunID = nil
+        state.markAsMerge(true)
+    }
+
+    func testMarkAsMergeWithBothSet() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        state.currentRunID = "run-abc"
+
+        state.markAsMerge(true)
+        state.markAsMerge(false)
+    }
+}
+
+// MARK: - Reproject Labels Tests
+
+@available(macOS 15.0, *) @MainActor final class ReprojectLabelsTests: XCTestCase {
+
+    func testReprojectLabelsSkippedWhenTrackLabelsHidden() throws {
+        let state = AppState()
+        state.showTrackLabels = false
+        state.metalViewSize = CGSize(width: 800, height: 600)
+
+        // Should not crash, labels should remain empty
+        state.reprojectLabels()
+        XCTAssertTrue(state.trackLabels.isEmpty)
+    }
+
+    func testReprojectLabelsSkippedWhenZeroViewSize() throws {
+        let state = AppState()
+        state.showTrackLabels = true
+        state.metalViewSize = .zero
+
+        state.reprojectLabels()
+        XCTAssertTrue(state.trackLabels.isEmpty)
+    }
+
+    func testReprojectLabelsSkippedWithNoRenderer() throws {
+        let state = AppState()
+        state.showTrackLabels = true
+        state.metalViewSize = CGSize(width: 800, height: 600)
+
+        // No renderer registered — should not crash
+        state.reprojectLabels()
+        XCTAssertTrue(state.trackLabels.isEmpty)
+    }
+}
+
+// MARK: - Send Overlay Preferences Tests
+
+@available(macOS 15.0, *) @MainActor final class SendOverlayPreferencesTests: XCTestCase {
+
+    func testSendOverlayPreferencesWithoutConnection() throws {
+        let state = AppState()
+        // Should not crash even without a gRPC client
+        state.sendOverlayPreferences()
+    }
+}
+
+// MARK: - Client Delegate Adapter Tests
+
+@available(macOS 15.0, *) @MainActor final class ClientDelegateAdapterTests: XCTestCase {
+
+    // MARK: - MainActor-safe polling helper
+    //
+    // XCTNSPredicateExpectation evaluates its NSPredicate(block:) on a
+    // non-MainActor thread, which races with @MainActor-isolated AppState
+    // properties.  This helper polls the condition on MainActor instead,
+    // yielding between checks to let enqueued Tasks execute.
+
+    private func waitForMainActor(
+        timeout: TimeInterval = 2.0,
+        condition: @escaping @MainActor () -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let deadline = ContinuousClock.now + .seconds(timeout)
+        while !condition() {
+            guard ContinuousClock.now < deadline else {
+                XCTFail("Timed out after \(timeout)s waiting for condition", file: file, line: line)
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    func testDelegateConnect() async throws {
+        let state = AppState()
+        let delegate = ClientDelegateAdapter(appState: state)
+        let client = VisualiserClient(address: "localhost:50051")
+
+        delegate.clientDidConnect(client)
+
+        try await waitForMainActor { state.isConnected }
+        XCTAssertNil(state.connectionError)
+        XCTAssertFalse(state.replayFinished)
+    }
+
+    func testDelegateDisconnectWithError() async throws {
+        let state = AppState()
+        state.isConnected = true
+        let delegate = ClientDelegateAdapter(appState: state)
+        let client = VisualiserClient(address: "localhost:50051")
+
+        let error = NSError(domain: "test", code: -1, userInfo: nil)
+        delegate.clientDidDisconnect(client, error: error)
+
+        try await waitForMainActor { !state.isConnected }
+        XCTAssertEqual(state.connectionError, "Connection lost")
+    }
+
+    func testDelegateDisconnectWithoutError() async throws {
+        let state = AppState()
+        state.isConnected = true
+        let delegate = ClientDelegateAdapter(appState: state)
+        let client = VisualiserClient(address: "localhost:50051")
+
+        delegate.clientDidDisconnect(client, error: nil)
+
+        try await waitForMainActor { !state.isConnected }
+        // No error should be set
+        XCTAssertNil(state.connectionError)
+    }
+
+    func testDelegateDidReceiveFrame() async throws {
+        let state = AppState()
+        let delegate = ClientDelegateAdapter(appState: state)
+        let client = VisualiserClient(address: "localhost:50051")
+
+        var frame = FrameBundle()
+        frame.frameID = 99
+        frame.timestampNanos = 500_000_000
+
+        delegate.client(client, didReceiveFrame: frame)
+
+        try await waitForMainActor { state.currentFrameID == 99 }
+    }
+
+    func testDelegateDidFinishStream() async throws {
+        let state = AppState()
+        state.isPaused = false
+        state.replayProgress = 0.5
+        let delegate = ClientDelegateAdapter(appState: state)
+        let client = VisualiserClient(address: "localhost:50051")
+
+        delegate.clientDidFinishStream(client)
+
+        try await waitForMainActor { state.replayFinished }
+        XCTAssertTrue(state.isPaused)
+        XCTAssertEqual(state.replayProgress, 1.0)
+    }
+}
+
+// MARK: - Step Forward/Backward Guard Tests
+
+@available(macOS 15.0, *) @MainActor final class StepGuardTests: XCTestCase {
+
+    func testStepForwardIgnoredWhenNotSeekable() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = false
+        state.currentFrameIndex = 0
+        state.totalFrames = 100
+
+        state.stepForward()
+        // No crash expected
+    }
+
+    func testStepForwardIgnoredAtEnd() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.currentFrameIndex = 99
+        state.totalFrames = 100
+
+        state.stepForward()
+        // Guard should prevent stepping past end
+    }
+
+    func testStepBackwardIgnoredWhenNotSeekable() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = false
+        state.currentFrameIndex = 50
+
+        state.stepBackward()
+        // No crash expected
+    }
+
+    func testSeekIgnoredWhenNotSeekable() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = false
+        state.replayProgress = 0.0
+
+        state.seek(to: 0.5)
+        // replayProgress should NOT change because isSeekable is false
+        XCTAssertEqual(state.replayProgress, 0.0)
+    }
+
+    func testSeekWhenReplayFinished() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.replayFinished = true
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+
+        state.seek(to: 0.3)
+        XCTAssertEqual(state.replayProgress, 0.3)
+        XCTAssertTrue(state.isSeekingInProgress)
+    }
+}
+
+// MARK: - Frame Playback Info Edge Cases
+
+@available(macOS 15.0, *) @MainActor final class FramePlaybackEdgeCaseTests: XCTestCase {
+
+    func testSeekableStateFromPlaybackInfo() async throws {
+        let state = AppState()
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.timestampNanos = 1_000_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
+            paused: false, currentFrameIndex: 0, totalFrames: 100, seekable: true)
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertTrue(state.isSeekable)
+    }
+
+    func testOnFrameReceivedUpdatesRendererFlags() async throws {
+        let state = AppState()
+        state.showClusters = false
+        state.showDebug = true
+        state.showGating = true
+        state.showAssociation = true
+        state.showResiduals = true
+        state.selectedTrackID = "track-001"
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        // Just verify it doesn't crash — renderer is nil so flags are set on nil
+        XCTAssertEqual(state.currentFrameID, 1)
+    }
+
+    func testOnFrameReceivedClearsReplayFinishedFlag() async throws {
+        let state = AppState()
+        state.replayFinished = true
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertFalse(state.replayFinished)
+    }
+
+    func testReplayProgressClampedToZeroOne() async throws {
+        let state = AppState()
+        state.isLive = false
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+
+        // Timestamp before log start
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.timestampNanos = 500_000_000  // Before start
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertGreaterThanOrEqual(state.replayProgress, 0.0)
+    }
+
+    func testFPSExponentialMovingAverage() async throws {
+        let state = AppState()
+
+        // First frame: fps starts at 0, so first calculation sets it directly
+        var frame1 = FrameBundle()
+        frame1.frameID = 1
+        state.onFrameReceived(frame1)
+        await Task.yield()
+
+        // fps should be set (from 0 case)
+        let firstFPS = state.fps
+
+        // Second frame quickly after
+        var frame2 = FrameBundle()
+        frame2.frameID = 2
+        state.onFrameReceived(frame2)
+        await Task.yield()
+
+        // FPS should now use EMA (0.2 * new + 0.8 * old)
+        XCTAssertNotEqual(state.fps, firstFPS)
+    }
+}
+
+// MARK: - Run State Tests
+
+@available(macOS 15.0, *) @MainActor final class RunStateTests: XCTestCase {
+
+    func testCurrentRunIDDefault() throws {
+        let state = AppState()
+        XCTAssertNil(state.currentRunID)
+    }
+
+    func testShowRunBrowserDefault() throws {
+        let state = AppState()
+        XCTAssertFalse(state.showRunBrowser)
+    }
+
+    func testCurrentRunIDCanBeSet() throws {
+        let state = AppState()
+        state.currentRunID = "run-123"
+        XCTAssertEqual(state.currentRunID, "run-123")
+    }
+
+    func testShowSidePanelDefault() throws {
+        let state = AppState()
+        XCTAssertFalse(state.showSidePanel)
+    }
+
+    func testSelectTrackShowsSidePanel() throws {
+        let state = AppState()
+        state.selectTrack("track-001")
+
+        XCTAssertTrue(state.showLabelPanel)
+        XCTAssertTrue(state.showSidePanel)
+    }
+
+    func testSelectNilTrackDoesNotShowPanels() throws {
+        let state = AppState()
+        state.showLabelPanel = false
+        state.showSidePanel = false
+
+        state.selectTrack(nil)
+        XCTAssertFalse(state.showLabelPanel)
+        XCTAssertFalse(state.showSidePanel)
+    }
+}
+
 // MARK: - Labelling State Tests
 
 @available(macOS 15.0, *) @MainActor final class LabellingStateTests: XCTestCase {

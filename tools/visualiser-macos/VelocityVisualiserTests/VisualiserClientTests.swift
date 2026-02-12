@@ -213,3 +213,242 @@ struct RecordingStatusTests {
         XCTAssertFalse(delegate.didFinishStream)
     }
 }
+
+// MARK: - VisualiserClient Not Connected Error Tests
+
+@available(macOS 15.0, *) final class VisualiserClientNotConnectedTests: XCTestCase {
+
+    func testPauseThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        XCTAssertFalse(client.isConnected)
+
+        do {
+            try await client.pause()
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break  // Expected
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testPlayThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            try await client.play()
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testSeekToTimestampThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            try await client.seek(to: 1_000_000_000)
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testSeekToFrameThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            try await client.seek(toFrame: 42)
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testSetRateThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            try await client.setRate(2.0)
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testSetOverlayModesThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            try await client.setOverlayModes(
+                showPoints: true, showClusters: true, showTracks: true, showTrails: true,
+                showVelocity: true, showGating: false, showAssociation: false, showResiduals: false)
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testGetCapabilitiesThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            _ = try await client.getCapabilities()
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testStartRecordingThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            _ = try await client.startRecording(outputPath: "/tmp/test.vrlog")
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+
+    func testStopRecordingThrowsWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        do {
+            _ = try await client.stopRecording()
+            XCTFail("Expected notConnected error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .notConnected: break
+            default: XCTFail("Expected .notConnected, got \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - VisualiserClient Address Parsing Tests
+
+@available(macOS 15.0, *) final class VisualiserClientAddressTests: XCTestCase {
+
+    func testConnectWithInvalidAddressMissingPort() async throws {
+        let client = VisualiserClient(address: "localhost")
+
+        do {
+            try await client.connect()
+            XCTFail("Expected invalidAddress error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .invalidAddress: break
+            default: XCTFail("Expected .invalidAddress, got \(error)")
+            }
+        }
+    }
+
+    func testConnectWithInvalidAddressNonNumericPort() async throws {
+        let client = VisualiserClient(address: "localhost:abc")
+
+        do {
+            try await client.connect()
+            XCTFail("Expected invalidAddress error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .invalidAddress: break
+            default: XCTFail("Expected .invalidAddress, got \(error)")
+            }
+        }
+    }
+
+    func testConnectWithInvalidAddressTooManyColons() async throws {
+        let client = VisualiserClient(address: "host:port:extra")
+
+        do {
+            try await client.connect()
+            XCTFail("Expected invalidAddress error")
+        } catch let error as VisualiserClientError {
+            switch error {
+            case .invalidAddress: break
+            default: XCTFail("Expected .invalidAddress, got \(error)")
+            }
+        }
+    }
+
+    func testDisconnectSafeWhenNotConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        // Calling disconnect when not connected should be a no-op and remain safe
+        client.disconnect()
+        XCTAssertFalse(client.isConnected)
+    }
+}
+
+// MARK: - VisualiserClient RestartStream Tests
+
+@available(macOS 15.0, *) final class VisualiserClientRestartTests: XCTestCase {
+
+    func testRestartStreamWhenNotConnected() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        XCTAssertFalse(client.isConnected)
+
+        // Should be a no-op when not connected (guard check)
+        client.restartStream()
+        XCTAssertFalse(client.isConnected)
+    }
+}
+
+// MARK: - VisualiserClient Stream Configuration Tests
+
+@available(macOS 15.0, *) final class VisualiserClientStreamConfigTests: XCTestCase {
+
+    func testDefaultStreamConfiguration() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+
+        XCTAssertTrue(client.includePoints)
+        XCTAssertTrue(client.includeClusters)
+        XCTAssertTrue(client.includeTracks)
+        XCTAssertFalse(client.includeDebug)
+        XCTAssertEqual(client.decimationRatio, 1.0)
+    }
+
+    func testIncludeDebugToggle() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        client.includeDebug = true
+        XCTAssertTrue(client.includeDebug)
+
+        client.includeDebug = false
+        XCTAssertFalse(client.includeDebug)
+    }
+
+    func testDecimationModeDefault() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        // Default decimation mode
+        XCTAssertEqual(client.decimationRatio, 1.0)
+    }
+
+    func testDecimationRatioCustom() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        client.decimationRatio = 0.25
+        XCTAssertEqual(client.decimationRatio, 0.25)
+    }
+}

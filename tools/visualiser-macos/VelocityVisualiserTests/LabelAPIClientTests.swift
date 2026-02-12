@@ -7,6 +7,7 @@
 
 import Foundation
 import Testing
+import XCTest
 
 @testable import VelocityVisualiser
 
@@ -216,5 +217,359 @@ struct LabelIdentityTests {
         // Identifiable requires an 'id' property
         let _: String = label.id
         #expect(!label.id.isEmpty)
+    }
+}
+
+// MARK: - LabelAPIClient URL Construction Tests
+
+struct LabelAPIClientURLTests {
+    @Test func defaultBaseURL() throws {
+        let client = LabelAPIClient()
+        // Just verify creation doesn't fail
+        #expect(!client.sessionID.isEmpty)
+    }
+
+    @Test func customBaseURLPreserved() throws {
+        let customURL = URL(string: "https://192.168.1.50:9090")!
+        let client = LabelAPIClient(baseURL: customURL)
+        #expect(!client.sessionID.isEmpty)
+    }
+
+    @Test func localhostIPv4BaseURL() throws {
+        let url = URL(string: "http://127.0.0.1:8080")!
+        let client = LabelAPIClient(baseURL: url)
+        #expect(!client.sessionID.isEmpty)
+    }
+}
+
+// MARK: - LabelAPIClient Mock HTTP Tests
+
+/// Custom URLProtocol for intercepting and mocking HTTP requests in tests.
+class MockURLProtocol: URLProtocol {
+    /// Handler closure to produce mock responses. Set before running tests.
+    static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = MockURLProtocol.requestHandler else {
+            let error = NSError(
+                domain: "MockURLProtocol", code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "No request handler set — unexpected request: \(request.url?.absoluteString ?? "nil")"
+                ])
+            client?.urlProtocol(self, didFailWithError: error)
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+/// Helper to create a LabelAPIClient with a mocked URLSession.
+func makeMockLabelClient() -> (LabelAPIClient, URLSession) {
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [MockURLProtocol.self]
+    let session = URLSession(configuration: config)
+    let client = LabelAPIClient(baseURL: URL(string: "http://localhost:8080")!, session: session)
+    return (client, session)
+}
+
+final class LabelAPIClientHTTPTests: XCTestCase {
+
+    override func tearDown() {
+        MockURLProtocol.requestHandler = nil
+        super.tearDown()
+    }
+
+    func testCreateLabelSuccess() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        let responseJSON = """
+            {
+                "label_id": "new-label-1",
+                "track_id": "track-001",
+                "class_label": "car",
+                "start_timestamp_ns": 1000000000,
+                "end_timestamp_ns": 0,
+                "created_at_ns": 0,
+                "notes": ""
+            }
+            """
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertTrue(request.url!.path.contains("api/lidar/labels"))
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, responseJSON.data(using: .utf8)!)
+        }
+
+        let label = try await client.createLabel(
+            trackID: "track-001", classLabel: "car", startTimestampNs: 1_000_000_000)
+        XCTAssertEqual(label.trackID, "track-001")
+        XCTAssertEqual(label.classLabel, "car")
+    }
+
+    func testCreateLabelWithOptionalFields() async throws {
+        let (client, _) = makeMockLabelClient()
+        client.sourceFile = "test.vrlog"
+
+        let responseJSON = """
+            {
+                "label_id": "new-label-2",
+                "track_id": "track-002",
+                "class_label": "pedestrian",
+                "start_timestamp_ns": 1000000000,
+                "end_timestamp_ns": 2000000000,
+                "created_at_ns": 0,
+                "notes": "Walking"
+            }
+            """
+        MockURLProtocol.requestHandler = { request in
+            // Verify optional fields are included in the request body
+            if let body = request.httpBody, let json = try? JSONSerialization.jsonObject(with: body)
+                as? [String: Any]
+            {
+                XCTAssertEqual(json["end_timestamp_ns"] as? Int64, 2_000_000_000)
+                if let confidence = json["confidence"] as? Double {
+                    XCTAssertEqual(confidence, 0.95, accuracy: 0.01)
+                } else {
+                    XCTFail("Expected confidence field in request body")
+                }
+                XCTAssertEqual(json["source_file"] as? String, "test.vrlog")
+            }
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil)!
+            return (response, responseJSON.data(using: .utf8)!)
+        }
+
+        let label = try await client.createLabel(
+            trackID: "track-002", classLabel: "pedestrian", startTimestampNs: 1_000_000_000,
+            endTimestampNs: 2_000_000_000, confidence: 0.95)
+        XCTAssertEqual(label.classLabel, "pedestrian")
+    }
+
+    func testCreateLabelServerError() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        do {
+            _ = try await client.createLabel(
+                trackID: "track-001", classLabel: "car", startTimestampNs: 0)
+            XCTFail("Expected requestFailed error")
+        } catch is LabelAPIClient.APIError {
+            // Expected
+        }
+    }
+
+    func testGetLabelsForSession() async throws {
+        let (client, _) = makeMockLabelClient()
+        client.sessionID = "test-session"
+
+        let responseJSON = """
+            [{
+                "label_id": "l1",
+                "track_id": "track-001",
+                "class_label": "car",
+                "start_timestamp_ns": 0,
+                "end_timestamp_ns": 0,
+                "created_at_ns": 0,
+                "notes": ""
+            }]
+            """
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertTrue(request.url!.absoluteString.contains("session_id=test-session"))
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, responseJSON.data(using: .utf8)!)
+        }
+
+        let labels = try await client.getLabelsForSession()
+        XCTAssertEqual(labels.count, 1)
+        XCTAssertEqual(labels[0].classLabel, "car")
+    }
+
+    func testGetLabelsForTrack() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        let responseJSON = """
+            [{
+                "label_id": "l1",
+                "track_id": "track-abc",
+                "class_label": "pedestrian",
+                "start_timestamp_ns": 0,
+                "end_timestamp_ns": 0,
+                "created_at_ns": 0,
+                "notes": ""
+            }]
+            """
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertTrue(request.url!.absoluteString.contains("track_id=track-abc"))
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, responseJSON.data(using: .utf8)!)
+        }
+
+        let labels = try await client.getLabelsForTrack("track-abc")
+        XCTAssertEqual(labels.count, 1)
+        XCTAssertEqual(labels[0].trackID, "track-abc")
+    }
+
+    func testUpdateLabel() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        var label = LabelEvent()
+        label.id = "label-to-update"
+        label.trackID = "track-001"
+        label.classLabel = "truck"
+
+        let responseJSON = """
+            {
+                "label_id": "label-to-update",
+                "track_id": "track-001",
+                "class_label": "truck",
+                "start_timestamp_ns": 0,
+                "end_timestamp_ns": 0,
+                "created_at_ns": 0,
+                "notes": ""
+            }
+            """
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.httpMethod, "PUT")
+            XCTAssertTrue(request.url!.path.contains("label-to-update"))
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, responseJSON.data(using: .utf8)!)
+        }
+
+        let updated = try await client.updateLabel(label)
+        XCTAssertEqual(updated.classLabel, "truck")
+    }
+
+    func testDeleteLabelSuccess() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.httpMethod, "DELETE")
+            XCTAssertTrue(request.url!.path.contains("label-123"))
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        try await client.deleteLabel("label-123")
+    }
+
+    func testDeleteLabelServerError() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        do {
+            try await client.deleteLabel("nonexistent")
+            XCTFail("Expected requestFailed error")
+        } catch is LabelAPIClient.APIError {
+            // Expected
+        }
+    }
+
+    func testExportLabels() async throws {
+        let (client, _) = makeMockLabelClient()
+        client.sessionID = "export-session"
+
+        let exportData = """
+            {"labels": [{"track_id": "t1", "class_label": "car"}]}
+            """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertTrue(request.url!.path.contains("export"))
+            XCTAssertTrue(request.url!.absoluteString.contains("session_id=export-session"))
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, exportData)
+        }
+
+        let data = try await client.exportLabels()
+        XCTAssertGreaterThan(data.count, 0)
+    }
+
+    func testExportToFile() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        let exportData = """
+            {"labels": []}
+            """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, exportData)
+        }
+
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "test-export-\(UUID().uuidString).json")
+        try await client.exportToFile(tempURL)
+
+        let fileData = try Data(contentsOf: tempURL)
+        XCTAssertGreaterThan(fileData.count, 0)
+
+        // Clean up
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+
+    func testGetLabelsForSessionServerError() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        do {
+            _ = try await client.getLabelsForSession()
+            XCTFail("Expected requestFailed error")
+        } catch is LabelAPIClient.APIError {
+            // Expected
+        }
+    }
+
+    func testUpdateLabelServerError() async throws {
+        let (client, _) = makeMockLabelClient()
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 400, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        var label = LabelEvent()
+        label.id = "bad-label"
+        do {
+            _ = try await client.updateLabel(label)
+            XCTFail("Expected requestFailed error")
+        } catch is LabelAPIClient.APIError {
+            // Expected
+        }
     }
 }

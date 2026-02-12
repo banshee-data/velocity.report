@@ -271,7 +271,7 @@ struct ToggleButton: View {
 // MARK: - Playback Controls
 
 /// Format playback rate for display: "0.5", "1", "2", "64" etc.
-private func formatRate(_ rate: Float) -> String {
+func formatRate(_ rate: Float) -> String {
     if rate == Float(Int(rate)) {
         return String(Int(rate))
     } else {
@@ -280,7 +280,7 @@ private func formatRate(_ rate: Float) -> String {
 }
 
 /// Format nanosecond duration as MM:SS or HH:MM:SS.
-private func formatDuration(_ nanos: Int64) -> String {
+func formatDuration(_ nanos: Int64) -> String {
     let totalSeconds = abs(nanos) / 1_000_000_000
     let hours = totalSeconds / 3600
     let minutes = (totalSeconds % 3600) / 60
