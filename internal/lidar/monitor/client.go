@@ -221,7 +221,8 @@ type PCAPReplayConfig struct {
 	StartSeconds    float64
 	DurationSeconds float64
 	MaxRetries      int
-	AnalysisMode    bool // When true, preserve grid after PCAP completion
+	AnalysisMode    bool   // When true, preserve grid after PCAP completion
+	SpeedMode       string // "fastest", "realtime", or "ratio" (default: server decides)
 }
 
 // StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.
@@ -240,6 +241,9 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	}
 	if cfg.AnalysisMode {
 		payload["analysis_mode"] = true
+	}
+	if cfg.SpeedMode != "" {
+		payload["speed_mode"] = cfg.SpeedMode
 	}
 	data, _ := json.Marshal(payload)
 
