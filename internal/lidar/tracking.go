@@ -57,12 +57,12 @@ func DefaultTrackerConfig() TrackerConfig {
 	return TrackerConfig{
 		MaxTracks:               100,
 		MaxMisses:               3,
-		MaxMissesConfirmed:      15,   // Confirmed tracks coast through occlusion (~1.5s at 10Hz)
-		HitsToConfirm:           3,    // Require 3 consecutive hits for confirmation
-		GatingDistanceSquared:   36.0, // 6.0 metres squared — wider gate for re-association
+		MaxMissesConfirmed:      15,  // Confirmed tracks coast through occlusion (~1.5s at 10Hz)
+		HitsToConfirm:           3,   // Require 3 consecutive hits for confirmation
+		GatingDistanceSquared:   4.0, // 2.0 metres squared — tight gate for association
 		ProcessNoisePos:         0.1,
 		ProcessNoiseVel:         0.5,
-		MeasurementNoise:        0.2,
+		MeasurementNoise:        0.3,
 		OcclusionCovInflation:   0.5, // Widen gating gate during occlusion
 		DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
 	}

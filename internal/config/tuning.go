@@ -61,8 +61,8 @@ func DefaultTuningConfig() *TuningConfig {
 		WarmupDurationNanos:        ptrInt64(30000000000), // 30 seconds
 		WarmupMinFrames:            ptrInt(100),
 		PostSettleUpdateFraction:   ptrFloat64(0),
-		ForegroundMinClusterPoints: ptrInt(0),
-		ForegroundDBSCANEps:        ptrFloat64(0),
+		ForegroundMinClusterPoints: ptrInt(2),
+		ForegroundDBSCANEps:        ptrFloat64(0.3),
 
 		// Frame builder params
 		BufferTimeout:  ptrString("500ms"),
@@ -73,10 +73,10 @@ func DefaultTuningConfig() *TuningConfig {
 		BackgroundFlush: ptrBool(false),
 
 		// Tracker params
-		GatingDistanceSquared: ptrFloat64(36.0),
+		GatingDistanceSquared: ptrFloat64(4.0),
 		ProcessNoisePos:       ptrFloat64(0.1),
 		ProcessNoiseVel:       ptrFloat64(0.5),
-		MeasurementNoise:      ptrFloat64(0.2),
+		MeasurementNoise:      ptrFloat64(0.3),
 		OcclusionCovInflation: ptrFloat64(0.5),
 		HitsToConfirm:         ptrInt(3),
 		MaxMisses:             ptrInt(3),
@@ -211,4 +211,124 @@ func (c *TuningConfig) GetBackgroundFlush() bool {
 		return false // default: flushing disabled
 	}
 	return *c.BackgroundFlush
+}
+
+// GetClosenessMultiplier returns the closeness_multiplier value or the default.
+func (c *TuningConfig) GetClosenessMultiplier() float64 {
+	if c.ClosenessMultiplier == nil {
+		return 8.0
+	}
+	return *c.ClosenessMultiplier
+}
+
+// GetNeighborConfirmationCount returns the neighbor_confirmation_count value or the default.
+func (c *TuningConfig) GetNeighborConfirmationCount() int {
+	if c.NeighborConfirmationCount == nil {
+		return 7
+	}
+	return *c.NeighborConfirmationCount
+}
+
+// GetWarmupDurationNanos returns the warmup_duration_nanos value or the default.
+func (c *TuningConfig) GetWarmupDurationNanos() int64 {
+	if c.WarmupDurationNanos == nil {
+		return 30000000000 // 30 seconds
+	}
+	return *c.WarmupDurationNanos
+}
+
+// GetWarmupMinFrames returns the warmup_min_frames value or the default.
+func (c *TuningConfig) GetWarmupMinFrames() int {
+	if c.WarmupMinFrames == nil {
+		return 100
+	}
+	return *c.WarmupMinFrames
+}
+
+// GetPostSettleUpdateFraction returns the post_settle_update_fraction value or the default.
+func (c *TuningConfig) GetPostSettleUpdateFraction() float64 {
+	if c.PostSettleUpdateFraction == nil {
+		return 0
+	}
+	return *c.PostSettleUpdateFraction
+}
+
+// GetForegroundMinClusterPoints returns the foreground_min_cluster_points value or the default.
+func (c *TuningConfig) GetForegroundMinClusterPoints() int {
+	if c.ForegroundMinClusterPoints == nil {
+		return 2
+	}
+	return *c.ForegroundMinClusterPoints
+}
+
+// GetForegroundDBSCANEps returns the foreground_dbscan_eps value or the default.
+func (c *TuningConfig) GetForegroundDBSCANEps() float64 {
+	if c.ForegroundDBSCANEps == nil {
+		return 0.3
+	}
+	return *c.ForegroundDBSCANEps
+}
+
+// GetGatingDistanceSquared returns the gating_distance_squared value or the default.
+func (c *TuningConfig) GetGatingDistanceSquared() float64 {
+	if c.GatingDistanceSquared == nil {
+		return 4.0
+	}
+	return *c.GatingDistanceSquared
+}
+
+// GetProcessNoisePos returns the process_noise_pos value or the default.
+func (c *TuningConfig) GetProcessNoisePos() float64 {
+	if c.ProcessNoisePos == nil {
+		return 0.1
+	}
+	return *c.ProcessNoisePos
+}
+
+// GetProcessNoiseVel returns the process_noise_vel value or the default.
+func (c *TuningConfig) GetProcessNoiseVel() float64 {
+	if c.ProcessNoiseVel == nil {
+		return 0.5
+	}
+	return *c.ProcessNoiseVel
+}
+
+// GetMeasurementNoise returns the measurement_noise value or the default.
+func (c *TuningConfig) GetMeasurementNoise() float64 {
+	if c.MeasurementNoise == nil {
+		return 0.3
+	}
+	return *c.MeasurementNoise
+}
+
+// GetOcclusionCovInflation returns the occlusion_cov_inflation value or the default.
+func (c *TuningConfig) GetOcclusionCovInflation() float64 {
+	if c.OcclusionCovInflation == nil {
+		return 0.5
+	}
+	return *c.OcclusionCovInflation
+}
+
+// GetHitsToConfirm returns the hits_to_confirm value or the default.
+func (c *TuningConfig) GetHitsToConfirm() int {
+	if c.HitsToConfirm == nil {
+		return 3
+	}
+	return *c.HitsToConfirm
+}
+
+// GetMaxMisses returns the max_misses value or the default.
+func (c *TuningConfig) GetMaxMisses() int {
+	if c.MaxMisses == nil {
+		return 3
+	}
+	return *c.MaxMisses
+}
+
+// GetMaxMissesConfirmed returns the max_misses_confirmed value or the default.
+func (c *TuningConfig) GetMaxMissesConfirmed() int {
+	if c.MaxMissesConfirmed == nil {
+		return 15
+	}
+	return *c.MaxMissesConfirmed
 }

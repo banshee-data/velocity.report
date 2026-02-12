@@ -128,8 +128,8 @@ func TestDefaultTuningConfigComplete(t *testing.T) {
 	if *cfg.WarmupMinFrames != 100 {
 		t.Errorf("WarmupMinFrames = %v, want 100 (from DefaultBackgroundConfig)", *cfg.WarmupMinFrames)
 	}
-	if *cfg.GatingDistanceSquared != 36.0 {
-		t.Errorf("GatingDistanceSquared = %v, want 36.0 (from DefaultTrackerConfig)", *cfg.GatingDistanceSquared)
+	if *cfg.GatingDistanceSquared != 4.0 {
+		t.Errorf("GatingDistanceSquared = %v, want 4.0 (from tuning.defaults.json)", *cfg.GatingDistanceSquared)
 	}
 	if *cfg.ProcessNoisePos != 0.1 {
 		t.Errorf("ProcessNoisePos = %v, want 0.1 (from DefaultTrackerConfig)", *cfg.ProcessNoisePos)
@@ -137,8 +137,8 @@ func TestDefaultTuningConfigComplete(t *testing.T) {
 	if *cfg.ProcessNoiseVel != 0.5 {
 		t.Errorf("ProcessNoiseVel = %v, want 0.5 (from DefaultTrackerConfig)", *cfg.ProcessNoiseVel)
 	}
-	if *cfg.MeasurementNoise != 0.2 {
-		t.Errorf("MeasurementNoise = %v, want 0.2 (from DefaultTrackerConfig)", *cfg.MeasurementNoise)
+	if *cfg.MeasurementNoise != 0.3 {
+		t.Errorf("MeasurementNoise = %v, want 0.3 (from tuning.defaults.json)", *cfg.MeasurementNoise)
 	}
 	if *cfg.OcclusionCovInflation != 0.5 {
 		t.Errorf("OcclusionCovInflation = %v, want 0.5 (from DefaultTrackerConfig)", *cfg.OcclusionCovInflation)

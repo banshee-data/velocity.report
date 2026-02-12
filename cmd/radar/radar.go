@@ -249,7 +249,9 @@ func main() {
 		// Create BackgroundManager using BackgroundConfig for cleaner configuration
 		bgConfig := lidar.DefaultBackgroundConfig().
 			WithNoiseRelativeFraction(float32(bgNoiseRelative)).
-			WithSeedFromFirstObservation(seedFromFirst)
+			WithSeedFromFirstObservation(seedFromFirst).
+			WithForegroundMinClusterPoints(tuningCfg.GetForegroundMinClusterPoints()).
+			WithForegroundDBSCANEps(float32(tuningCfg.GetForegroundDBSCANEps()))
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
@@ -310,8 +312,17 @@ func main() {
 			parser.SetDebug(*debugMode)
 			parse.ConfigureTimestampMode(parser)
 
-			// Initialise tracking components
-			tracker = lidar.NewTracker(lidar.DefaultTrackerConfig())
+			// Initialise tracking components from tuning config
+			trackerCfg := lidar.DefaultTrackerConfig()
+			trackerCfg.GatingDistanceSquared = float32(tuningCfg.GetGatingDistanceSquared())
+			trackerCfg.ProcessNoisePos = float32(tuningCfg.GetProcessNoisePos())
+			trackerCfg.ProcessNoiseVel = float32(tuningCfg.GetProcessNoiseVel())
+			trackerCfg.MeasurementNoise = float32(tuningCfg.GetMeasurementNoise())
+			trackerCfg.OcclusionCovInflation = float32(tuningCfg.GetOcclusionCovInflation())
+			trackerCfg.HitsToConfirm = tuningCfg.GetHitsToConfirm()
+			trackerCfg.MaxMisses = tuningCfg.GetMaxMisses()
+			trackerCfg.MaxMissesConfirmed = tuningCfg.GetMaxMissesConfirmed()
+			tracker = lidar.NewTracker(trackerCfg)
 			classifier = lidar.NewTrackClassifier()
 			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
 
