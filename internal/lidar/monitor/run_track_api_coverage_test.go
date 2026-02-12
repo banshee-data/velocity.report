@@ -403,12 +403,41 @@ func TestCov_HandleRunTrackAPI_Tracks_DeleteTrack_WrongMethod(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/run-1/tracks/track-1", nil)
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/run-1/tracks/track-1", nil)
 	w := httptest.NewRecorder()
 	ws.handleRunTrackAPI(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestCov_HandleRunTrackAPI_Tracks_GetTrack(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "get-track")
+	covInsertTrack(t, ws, runID, "track-get-1")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/"+runID+"/tracks/track-get-1", nil)
+	w := httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestCov_HandleRunTrackAPI_Tracks_GetTrack_NotFound(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/missing-run/tracks/missing-track", nil)
+	w := httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
 

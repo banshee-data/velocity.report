@@ -317,6 +317,60 @@ func TestPublisher_VRLogReplay_SeekErrors(t *testing.T) {
 	}
 }
 
+// TestPublisher_VRLogReplay_SeekWhilePaused verifies that seeking while paused
+// delivers exactly one frame to connected subscribers (sendOneFrame semantics).
+func TestPublisher_VRLogReplay_SeekWhilePaused(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	baseTime := time.Now().UnixNano()
+	frames := make([]*FrameBundle, 10)
+	for i := range frames {
+		frames[i] = &FrameBundle{
+			FrameID:        uint64(i + 1),
+			TimestampNanos: baseTime + int64(i)*int64(time.Second),
+			SensorID:       "test-sensor",
+		}
+	}
+	reader := newMockFrameReader(frames)
+
+	if err := pub.StartVRLogReplay(reader); err != nil {
+		t.Fatalf("StartVRLogReplay failed: %v", err)
+	}
+	defer pub.StopVRLogReplay()
+
+	// Let a couple of frames publish so the loop is running
+	time.Sleep(200 * time.Millisecond)
+
+	// Pause playback
+	pub.SetVRLogPaused(true)
+	time.Sleep(100 * time.Millisecond)
+
+	// Seek to frame 7 while paused
+	currentFrame, err := pub.SeekVRLog(7)
+	if err != nil {
+		t.Fatalf("SeekVRLog failed: %v", err)
+	}
+	if currentFrame != 7 {
+		t.Errorf("expected currentFrame=7, got %d", currentFrame)
+	}
+
+	// The replay loop should deliver one frame despite being paused.
+	// Give it time to process.
+	time.Sleep(200 * time.Millisecond)
+
+	// After delivering one frame, the reader should have advanced to frame 8.
+	if reader.CurrentFrame() != 8 {
+		t.Errorf("expected reader at frame 8 (after reading seeked frame), got %d", reader.CurrentFrame())
+	}
+}
+
 // TestPublisher_VRLogReader tests VRLogReader accessor.
 func TestPublisher_VRLogReader(t *testing.T) {
 	cfg := DefaultConfig()
