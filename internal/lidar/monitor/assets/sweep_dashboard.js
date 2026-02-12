@@ -3026,6 +3026,7 @@ if (typeof module !== "undefined" && module.exports) {
     fetchSweepExplanation: fetchSweepExplanation,
     renderExplanation: renderExplanation,
     handleStartRLHF: handleStartRLHF,
+    DEFAULT_RLHF_PARAMS: DEFAULT_RLHF_PARAMS,
     startRLHFPolling: startRLHFPolling,
     stopRLHFPolling: stopRLHFPolling,
     pollRLHFStatus: pollRLHFStatus,
