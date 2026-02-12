@@ -270,3 +270,96 @@ class TestDeriveOverallFromGranular(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestImportHelpers(unittest.TestCase):
+    def test_import_chart_builder(self):
+        from pdf_generator.cli.main import _import_chart_builder
+
+        builder = _import_chart_builder()
+        self.assertIsNotNone(builder)
+
+    def test_import_chart_saver(self):
+        from pdf_generator.cli.main import _import_chart_saver
+
+        saver = _import_chart_saver()
+        self.assertIsNotNone(saver)
+
+    def test_import_chart_builder_cached(self):
+        """Test that second call returns cached version."""
+        from pdf_generator.cli.main import _import_chart_builder
+
+        first = _import_chart_builder()
+        second = _import_chart_builder()
+        self.assertIs(first, second)
+
+    def test_import_chart_saver_cached(self):
+        """Test that second call returns cached version."""
+        from pdf_generator.cli.main import _import_chart_saver
+
+        first = _import_chart_saver()
+        second = _import_chart_saver()
+        self.assertIs(first, second)
+
+
+class TestDeriveDaily(unittest.TestCase):
+    def test_derive_daily_empty(self):
+        from pdf_generator.cli.main import derive_daily_from_granular
+
+        result = derive_daily_from_granular([], "US/Pacific")
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 0)
+
+    def test_derive_daily_single_row(self):
+        from pdf_generator.cli.main import derive_daily_from_granular
+
+        row = {
+            "start_time": "2025-01-01T12:00:00-08:00",
+            "count": 10,
+            "mean_speed": 30.0,
+            "p50_speed": 28.0,
+            "p85_speed": 35.0,
+            "p98_speed": 42.0,
+            "max_speed": 50.0,
+            "min_speed": 15.0,
+            "std_dev": 5.0,
+        }
+        result = derive_daily_from_granular([row], "US/Pacific")
+        self.assertIsNotNone(result)
+        self.assertGreater(len(result), 0)
+
+
+class TestPlotStatsPage(unittest.TestCase):
+    def test_plot_stats_page(self):
+        from pdf_generator.cli.main import _plot_stats_page
+
+        stats = [
+            {"start_time": "2025-01-01T00:00:00Z", "count": 10, "mean_speed": 30.0,
+             "p50_speed": 28.0, "p85_speed": 35.0, "p98_speed": 42.0, "max_speed": 50.0,
+             "min_speed": 15.0, "std_dev": 5.0}
+        ]
+        result = _plot_stats_page(stats, "Test", "kph")
+        self.assertIsNotNone(result)
+
+
+class TestFetchFunctions(unittest.TestCase):
+    """Test API fetch functions with mocked responses."""
+
+    def test_fetch_site_config_periods_connection_error(self):
+        """Test graceful handling of connection errors."""
+        from pdf_generator.cli.main import fetch_site_config_periods
+        from pdf_generator.core.api_client import RadarStatsClient
+
+        client = RadarStatsClient(base_url="http://localhost:99999")
+        result = fetch_site_config_periods(client, site_id=1, start_ts=1000, end_ts=2000)
+        # Should return empty list on connection error
+        self.assertEqual(result, [])
+
+    def test_print_api_debug_info(self):
+        from pdf_generator.cli.main import print_api_debug_info
+
+        captured = StringIO()
+        with patch("sys.stdout", captured):
+            print_api_debug_info(None, [{"count": 10}], {"bins": [1, 2, 3]})
+        output = captured.getvalue()
+        self.assertTrue(len(output) > 0)
