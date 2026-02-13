@@ -935,4 +935,24 @@ func TestClient_WaitForPCAPComplete_DefaultTimeoutAndDecodeRetry(t *testing.T) {
 			t.Fatal("expected timeout error")
 		}
 	})
+
+	t.Run("uses long-poll endpoint with wait_for_done parameter", func(t *testing.T) {
+		longPollCalled := false
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if the long-poll endpoint was called with wait_for_done=true
+			if r.URL.Query().Get("wait_for_done") == "true" {
+				longPollCalled = true
+			}
+			json.NewEncoder(w).Encode(map[string]interface{}{"pcap_in_progress": false})
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.WaitForPCAPComplete(2 * time.Second); err != nil {
+			t.Fatalf("expected success, got %v", err)
+		}
+		if !longPollCalled {
+			t.Fatal("expected long-poll endpoint to be called with wait_for_done=true")
+		}
+	})
 }
