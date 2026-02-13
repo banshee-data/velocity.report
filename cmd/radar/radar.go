@@ -230,20 +230,15 @@ func main() {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database
 
-		// Always use tuning config (either from --config file or built-in defaults)
-		bgNoiseRelative := tuningCfg.GetNoiseRelative()
+		// Always use tuning config (loaded from --config file; mandatory)
 		bgFlushInterval := tuningCfg.GetFlushInterval()
 		bgFlushEnable := tuningCfg.GetBackgroundFlush()
-		seedFromFirst := tuningCfg.GetSeedFromFirst()
 		frameBufferTimeout := tuningCfg.GetBufferTimeout()
 		minFramePoints := tuningCfg.GetMinFramePoints()
 
-		// Create BackgroundManager using BackgroundConfig for cleaner configuration
-		bgConfig := lidar.DefaultBackgroundConfig().
-			WithNoiseRelativeFraction(float32(bgNoiseRelative)).
-			WithSeedFromFirstObservation(seedFromFirst).
-			WithForegroundMinClusterPoints(tuningCfg.GetForegroundMinClusterPoints()).
-			WithForegroundDBSCANEps(float32(tuningCfg.GetForegroundDBSCANEps()))
+		// Create BackgroundManager from TuningConfig. All tunable parameters
+		// come exclusively from the config file (single source of truth).
+		bgConfig := lidar.BackgroundConfigFromTuning(tuningCfg)
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
@@ -305,15 +300,7 @@ func main() {
 			parse.ConfigureTimestampMode(parser)
 
 			// Initialise tracking components from tuning config
-			trackerCfg := lidar.DefaultTrackerConfig()
-			trackerCfg.GatingDistanceSquared = float32(tuningCfg.GetGatingDistanceSquared())
-			trackerCfg.ProcessNoisePos = float32(tuningCfg.GetProcessNoisePos())
-			trackerCfg.ProcessNoiseVel = float32(tuningCfg.GetProcessNoiseVel())
-			trackerCfg.MeasurementNoise = float32(tuningCfg.GetMeasurementNoise())
-			trackerCfg.OcclusionCovInflation = float32(tuningCfg.GetOcclusionCovInflation())
-			trackerCfg.HitsToConfirm = tuningCfg.GetHitsToConfirm()
-			trackerCfg.MaxMisses = tuningCfg.GetMaxMisses()
-			trackerCfg.MaxMissesConfirmed = tuningCfg.GetMaxMissesConfirmed()
+			trackerCfg := lidar.TrackerConfigFromTuning(tuningCfg)
 			tracker = lidar.NewTracker(trackerCfg)
 			classifier = lidar.NewTrackClassifier()
 			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)

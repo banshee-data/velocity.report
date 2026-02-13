@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 // Phase 3.7: Analysis Run Infrastructure
@@ -84,33 +86,42 @@ type ClassificationParamsExport struct {
 	Thresholds map[string]interface{} `json:"thresholds,omitempty"`
 }
 
-// DefaultRunParams returns default run parameters.
+// DefaultRunParams returns run parameters loaded from the canonical tuning
+// defaults file (config/tuning.defaults.json). Panics if the file cannot
+// be found — intended for tests and tools.
 func DefaultRunParams() RunParams {
+	cfg := config.MustLoadDefaultConfig()
+	return RunParamsFromTuning(cfg)
+}
+
+// RunParamsFromTuning builds RunParams from a loaded TuningConfig.
+// Use this in production code where the TuningConfig is already loaded.
+func RunParamsFromTuning(cfg *config.TuningConfig) RunParams {
 	return RunParams{
 		Version:   "1.0",
 		Timestamp: time.Now(),
 		Background: BackgroundParamsExport{
-			BackgroundUpdateFraction:       0.02,
-			ClosenessSensitivityMultiplier: 3.0,
-			SafetyMarginMeters:             0.5,
-			NeighborConfirmationCount:      3,
-			NoiseRelativeFraction:          0.01,
-			SeedFromFirstObservation:       true,
+			BackgroundUpdateFraction:       float32(cfg.GetBackgroundUpdateFraction()),
+			ClosenessSensitivityMultiplier: float32(cfg.GetClosenessMultiplier()),
+			SafetyMarginMeters:             float32(cfg.GetSafetyMarginMeters()),
+			NeighborConfirmationCount:      cfg.GetNeighborConfirmationCount(),
+			NoiseRelativeFraction:          float32(cfg.GetNoiseRelative()),
+			SeedFromFirstObservation:       cfg.GetSeedFromFirst(),
 			FreezeDurationNanos:            5e9,
 		},
 		Clustering: ClusteringParamsExport{
-			Eps:      DefaultDBSCANEps,
-			MinPts:   DefaultDBSCANMinPts,
-			CellSize: DefaultDBSCANEps,
+			Eps:      cfg.GetForegroundDBSCANEps(),
+			MinPts:   cfg.GetForegroundMinClusterPoints(),
+			CellSize: cfg.GetForegroundDBSCANEps(),
 		},
 		Tracking: TrackingParamsExport{
-			MaxTracks:               100,
-			MaxMisses:               3,
-			HitsToConfirm:           5, // Require 5 consecutive hits for confirmation (matches DefaultTrackerConfig)
-			GatingDistanceSquared:   25.0,
-			ProcessNoisePos:         0.1,
-			ProcessNoiseVel:         0.5,
-			MeasurementNoise:        0.2,
+			MaxTracks:               cfg.GetMaxTracks(),
+			MaxMisses:               cfg.GetMaxMisses(),
+			HitsToConfirm:           cfg.GetHitsToConfirm(),
+			GatingDistanceSquared:   float32(cfg.GetGatingDistanceSquared()),
+			ProcessNoisePos:         float32(cfg.GetProcessNoisePos()),
+			ProcessNoiseVel:         float32(cfg.GetProcessNoiseVel()),
+			MeasurementNoise:        float32(cfg.GetMeasurementNoise()),
 			DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
 		},
 		Classification: ClassificationParamsExport{

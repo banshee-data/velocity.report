@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -61,12 +62,9 @@ func TestEmptyTuningConfig(t *testing.T) {
 		t.Error("Expected BufferTimeout to be nil")
 	}
 
-	// Getter methods should return fallback defaults
-	if cfg.GetNoiseRelative() != 0.04 {
-		t.Errorf("GetNoiseRelative() fallback = %f, want 0.04", cfg.GetNoiseRelative())
-	}
-	if cfg.GetSeedFromFirst() != true {
-		t.Errorf("GetSeedFromFirst() fallback = %v, want true", cfg.GetSeedFromFirst())
+	// ValidateComplete should fail on empty config
+	if err := cfg.ValidateComplete(); err == nil {
+		t.Error("Expected ValidateComplete to fail on empty config")
 	}
 }
 
@@ -75,12 +73,18 @@ func TestEmptyTuningConfig(t *testing.T) {
 func TestDefaultsFileComplete(t *testing.T) {
 	cfg := MustLoadDefaultConfig()
 
-	// Verify all 22 fields are non-nil
-	if cfg.NoiseRelative == nil {
-		t.Error("NoiseRelative should have default value")
+	// Verify all 25 fields are non-nil (must match tuning.defaults.json field count)
+	if cfg.BackgroundUpdateFraction == nil {
+		t.Error("BackgroundUpdateFraction should have default value")
 	}
 	if cfg.ClosenessMultiplier == nil {
 		t.Error("ClosenessMultiplier should have default value")
+	}
+	if cfg.SafetyMarginMeters == nil {
+		t.Error("SafetyMarginMeters should have default value")
+	}
+	if cfg.NoiseRelative == nil {
+		t.Error("NoiseRelative should have default value")
 	}
 	if cfg.NeighborConfirmationCount == nil {
 		t.Error("NeighborConfirmationCount should have default value")
@@ -139,43 +143,49 @@ func TestDefaultsFileComplete(t *testing.T) {
 	if cfg.MaxMissesConfirmed == nil {
 		t.Error("MaxMissesConfirmed should have default value")
 	}
+	if cfg.MaxTracks == nil {
+		t.Error("MaxTracks should have default value")
+	}
+	if cfg.EnableDiagnostics == nil {
+		t.Error("EnableDiagnostics should have default value")
+	}
 
-	// Verify expected default values match other config sources
+	// Verify expected default values from tuning.defaults.json
 	if *cfg.ClosenessMultiplier != 8.0 {
-		t.Errorf("ClosenessMultiplier = %v, want 8.0 (from DefaultBackgroundConfig)", *cfg.ClosenessMultiplier)
+		t.Errorf("ClosenessMultiplier = %v, want 8.0", *cfg.ClosenessMultiplier)
 	}
 	if *cfg.NeighborConfirmationCount != 7 {
-		t.Errorf("NeighborConfirmationCount = %v, want 7 (from DefaultBackgroundConfig)", *cfg.NeighborConfirmationCount)
+		t.Errorf("NeighborConfirmationCount = %v, want 7", *cfg.NeighborConfirmationCount)
 	}
 	if *cfg.WarmupDurationNanos != 30000000000 {
-		t.Errorf("WarmupDurationNanos = %v, want 30000000000 (30s from DefaultBackgroundConfig)", *cfg.WarmupDurationNanos)
+		t.Errorf("WarmupDurationNanos = %v, want 30000000000 (30s)", *cfg.WarmupDurationNanos)
 	}
 	if *cfg.WarmupMinFrames != 100 {
-		t.Errorf("WarmupMinFrames = %v, want 100 (from DefaultBackgroundConfig)", *cfg.WarmupMinFrames)
+		t.Errorf("WarmupMinFrames = %v, want 100", *cfg.WarmupMinFrames)
 	}
-	if *cfg.GatingDistanceSquared != 4.0 {
-		t.Errorf("GatingDistanceSquared = %v, want 4.0 (from tuning.defaults.json)", *cfg.GatingDistanceSquared)
+	if *cfg.GatingDistanceSquared != 9.21 {
+		t.Errorf("GatingDistanceSquared = %v, want 9.21", *cfg.GatingDistanceSquared)
 	}
-	if *cfg.ProcessNoisePos != 0.1 {
-		t.Errorf("ProcessNoisePos = %v, want 0.1 (from DefaultTrackerConfig)", *cfg.ProcessNoisePos)
+	if *cfg.ProcessNoisePos != 1.0 {
+		t.Errorf("ProcessNoisePos = %v, want 1.0 (dt-normalised)", *cfg.ProcessNoisePos)
 	}
-	if *cfg.ProcessNoiseVel != 0.5 {
-		t.Errorf("ProcessNoiseVel = %v, want 0.5 (from DefaultTrackerConfig)", *cfg.ProcessNoiseVel)
+	if *cfg.ProcessNoiseVel != 5.0 {
+		t.Errorf("ProcessNoiseVel = %v, want 5.0 (dt-normalised)", *cfg.ProcessNoiseVel)
 	}
 	if *cfg.MeasurementNoise != 0.3 {
-		t.Errorf("MeasurementNoise = %v, want 0.3 (from tuning.defaults.json)", *cfg.MeasurementNoise)
+		t.Errorf("MeasurementNoise = %v, want 0.3", *cfg.MeasurementNoise)
 	}
 	if *cfg.OcclusionCovInflation != 0.5 {
-		t.Errorf("OcclusionCovInflation = %v, want 0.5 (from DefaultTrackerConfig)", *cfg.OcclusionCovInflation)
+		t.Errorf("OcclusionCovInflation = %v, want 0.5", *cfg.OcclusionCovInflation)
 	}
 	if *cfg.HitsToConfirm != 3 {
-		t.Errorf("HitsToConfirm = %v, want 3 (from DefaultTrackerConfig)", *cfg.HitsToConfirm)
+		t.Errorf("HitsToConfirm = %v, want 3", *cfg.HitsToConfirm)
 	}
 	if *cfg.MaxMisses != 3 {
-		t.Errorf("MaxMisses = %v, want 3 (from DefaultTrackerConfig)", *cfg.MaxMisses)
+		t.Errorf("MaxMisses = %v, want 3", *cfg.MaxMisses)
 	}
 	if *cfg.MaxMissesConfirmed != 15 {
-		t.Errorf("MaxMissesConfirmed = %v, want 15 (from DefaultTrackerConfig)", *cfg.MaxMissesConfirmed)
+		t.Errorf("MaxMissesConfirmed = %v, want 15", *cfg.MaxMissesConfirmed)
 	}
 }
 
@@ -184,14 +194,33 @@ func TestLoadTuningConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "test_config.json")
 
-	// Write test config with flat schema
+	// Write test config with all required keys
 	testJSON := `{
+  "background_update_fraction": 0.02,
+  "closeness_multiplier": 8.0,
+  "safety_margin_meters": 0.4,
   "noise_relative": 0.05,
+  "neighbor_confirmation_count": 7,
   "seed_from_first": false,
+  "warmup_duration_nanos": 30000000000,
+  "warmup_min_frames": 100,
+  "post_settle_update_fraction": 0,
+  "enable_diagnostics": false,
+  "foreground_dbscan_eps": 0.8,
+  "foreground_min_cluster_points": 5,
   "buffer_timeout": "250ms",
   "min_frame_points": 500,
   "flush_interval": "120s",
-  "background_flush": true
+  "background_flush": true,
+  "gating_distance_squared": 9.21,
+  "process_noise_pos": 1.0,
+  "process_noise_vel": 5.0,
+  "measurement_noise": 0.3,
+  "occlusion_cov_inflation": 0.5,
+  "hits_to_confirm": 3,
+  "max_misses": 3,
+  "max_misses_confirmed": 15,
+  "max_tracks": 100
 }`
 	if err := os.WriteFile(configPath, []byte(testJSON), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -339,25 +368,6 @@ func TestGetFlushInterval(t *testing.T) {
 			},
 			want: 1 * time.Hour,
 		},
-		{
-			name: "nil pointer returns default",
-			cfg:  &TuningConfig{},
-			want: 60 * time.Second,
-		},
-		{
-			name: "empty string returns default",
-			cfg: &TuningConfig{
-				FlushInterval: ptrString(""),
-			},
-			want: 60 * time.Second,
-		},
-		{
-			name: "invalid duration returns default",
-			cfg: &TuningConfig{
-				FlushInterval: ptrString("invalid"),
-			},
-			want: 60 * time.Second,
-		},
 	}
 
 	for _, tt := range tests {
@@ -396,25 +406,6 @@ func TestGetBufferTimeout(t *testing.T) {
 				BufferTimeout: ptrString("250ms"),
 			},
 			want: 250 * time.Millisecond,
-		},
-		{
-			name: "nil pointer returns default",
-			cfg:  &TuningConfig{},
-			want: 500 * time.Millisecond,
-		},
-		{
-			name: "empty string returns default",
-			cfg: &TuningConfig{
-				BufferTimeout: ptrString(""),
-			},
-			want: 500 * time.Millisecond,
-		},
-		{
-			name: "invalid duration returns default",
-			cfg: &TuningConfig{
-				BufferTimeout: ptrString("invalid"),
-			},
-			want: 500 * time.Millisecond,
 		},
 	}
 
@@ -455,7 +446,7 @@ func TestLoadExampleConfigFile(t *testing.T) {
 }
 
 func TestLoadTuningConfigPartial(t *testing.T) {
-	// Partial config: only override noise; everything else should keep defaults.
+	// Partial configs are now rejected — all keys must be present.
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "partial.json")
 
@@ -466,27 +457,12 @@ func TestLoadTuningConfigPartial(t *testing.T) {
 		t.Fatalf("Failed to write test config: %v", err)
 	}
 
-	cfg, err := LoadTuningConfig(configPath)
-	if err != nil {
-		t.Fatalf("Failed to load partial config: %v", err)
+	_, err := LoadTuningConfig(configPath)
+	if err == nil {
+		t.Fatal("Expected error for partial config (missing required keys), got nil")
 	}
-
-	// Overridden value
-	if cfg.GetNoiseRelative() != 0.08 {
-		t.Errorf("Expected overridden NoiseRelative 0.08, got %f", cfg.GetNoiseRelative())
-	}
-	// Default values should be preserved
-	if cfg.GetFlushInterval() != 60*time.Second {
-		t.Errorf("Expected default FlushInterval 60s, got %v", cfg.GetFlushInterval())
-	}
-	if cfg.GetSeedFromFirst() != true {
-		t.Errorf("Expected default SeedFromFirst true, got %v", cfg.GetSeedFromFirst())
-	}
-	if cfg.GetBufferTimeout() != 500*time.Millisecond {
-		t.Errorf("Expected default BufferTimeout 500ms, got %v", cfg.GetBufferTimeout())
-	}
-	if cfg.GetMinFramePoints() != 1000 {
-		t.Errorf("Expected default MinFramePoints 1000, got %d", cfg.GetMinFramePoints())
+	if !strings.Contains(err.Error(), "missing required") {
+		t.Errorf("Expected 'missing required' in error, got: %v", err)
 	}
 }
 
@@ -528,13 +504,16 @@ func TestAllTuningParams(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "all_params.json")
 
 	allParamsJSON := `{
-  "noise_relative": 0.05,
+  "background_update_fraction": 0.03,
   "closeness_multiplier": 2.5,
+  "safety_margin_meters": 0.5,
+  "noise_relative": 0.05,
   "neighbor_confirmation_count": 3,
   "seed_from_first": false,
   "warmup_duration_nanos": 5000000000,
   "warmup_min_frames": 50,
   "post_settle_update_fraction": 0.1,
+  "enable_diagnostics": true,
   "foreground_min_cluster_points": 10,
   "foreground_dbscan_eps": 0.5,
   "buffer_timeout": "250ms",
@@ -548,7 +527,8 @@ func TestAllTuningParams(t *testing.T) {
   "occlusion_cov_inflation": 2.0,
   "hits_to_confirm": 3,
   "max_misses": 5,
-  "max_misses_confirmed": 10
+  "max_misses_confirmed": 10,
+  "max_tracks": 200
 }`
 	if err := os.WriteFile(configPath, []byte(allParamsJSON), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -623,11 +603,23 @@ func TestAllTuningParams(t *testing.T) {
 	if cfg.MaxMissesConfirmed == nil || *cfg.MaxMissesConfirmed != 10 {
 		t.Errorf("MaxMissesConfirmed = %v, want 10", cfg.MaxMissesConfirmed)
 	}
+	if cfg.MaxTracks == nil || *cfg.MaxTracks != 200 {
+		t.Errorf("MaxTracks = %v, want 200", cfg.MaxTracks)
+	}
+	if cfg.BackgroundUpdateFraction == nil || *cfg.BackgroundUpdateFraction != 0.03 {
+		t.Errorf("BackgroundUpdateFraction = %v, want 0.03", cfg.BackgroundUpdateFraction)
+	}
+	if cfg.SafetyMarginMeters == nil || *cfg.SafetyMarginMeters != 0.5 {
+		t.Errorf("SafetyMarginMeters = %v, want 0.5", cfg.SafetyMarginMeters)
+	}
+	if cfg.EnableDiagnostics == nil || *cfg.EnableDiagnostics != true {
+		t.Errorf("EnableDiagnostics = %v, want true", cfg.EnableDiagnostics)
+	}
 }
 
 func TestGetterDefaults(t *testing.T) {
-	// Test that getter methods return expected defaults when pointers are nil
-	cfg := &TuningConfig{} // empty config
+	// Test that getter methods return expected values from the loaded config file
+	cfg := MustLoadDefaultConfig()
 
 	if cfg.GetNoiseRelative() != 0.04 {
 		t.Errorf("GetNoiseRelative() = %f, want 0.04", cfg.GetNoiseRelative())

@@ -3,6 +3,8 @@ package lidar
 import (
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 func TestDBSCANClusterer_NewDefaultDBSCANClusterer(t *testing.T) {
@@ -12,11 +14,12 @@ func TestDBSCANClusterer_NewDefaultDBSCANClusterer(t *testing.T) {
 	}
 
 	params := clusterer.GetParams()
-	if params.Eps != DefaultDBSCANEps {
-		t.Errorf("expected Eps=%f, got %f", DefaultDBSCANEps, params.Eps)
+	cfg := config.MustLoadDefaultConfig()
+	if params.Eps != cfg.GetForegroundDBSCANEps() {
+		t.Errorf("expected Eps=%f, got %f", cfg.GetForegroundDBSCANEps(), params.Eps)
 	}
-	if params.MinPts != DefaultDBSCANMinPts {
-		t.Errorf("expected MinPts=%d, got %d", DefaultDBSCANMinPts, params.MinPts)
+	if params.MinPts != cfg.GetForegroundMinClusterPoints() {
+		t.Errorf("expected MinPts=%d, got %d", cfg.GetForegroundMinClusterPoints(), params.MinPts)
 	}
 }
 

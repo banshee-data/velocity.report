@@ -4,18 +4,12 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
-// Constants for clustering configuration
+// Constants for clustering configuration.
 const (
-	// DefaultDBSCANEps is the default neighbourhood radius in metres for DBSCAN.
-	// 0.8m bridges typical point density gaps within a single vehicle while
-	// avoiding merging vehicles in adjacent lanes (~3m apart).
-	DefaultDBSCANEps = 0.8
-	// DefaultDBSCANMinPts is the default minimum points to form a cluster.
-	// 8 allows detection of sparser clusters from distant vehicles while
-	// still rejecting noise clumps.
-	DefaultDBSCANMinPts = 8
 	// EstimatedPointsPerCell is used for initial spatial index capacity estimation
 	EstimatedPointsPerCell = 4
 )
@@ -226,11 +220,14 @@ type DBSCANParams struct {
 	MinPts int     // Minimum points to form a cluster
 }
 
-// DefaultDBSCANParams returns default DBSCAN parameters suitable for vehicle detection.
+// DefaultDBSCANParams returns DBSCAN parameters loaded from the canonical
+// tuning defaults file (config/tuning.defaults.json).
+// Panics if the file cannot be found.
 func DefaultDBSCANParams() DBSCANParams {
+	cfg := config.MustLoadDefaultConfig()
 	return DBSCANParams{
-		Eps:    DefaultDBSCANEps,
-		MinPts: DefaultDBSCANMinPts,
+		Eps:    cfg.GetForegroundDBSCANEps(),
+		MinPts: cfg.GetForegroundMinClusterPoints(),
 	}
 }
 

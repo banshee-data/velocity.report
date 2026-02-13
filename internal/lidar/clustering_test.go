@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 // =============================================================================
@@ -305,10 +307,11 @@ func TestComputeClusterMetrics(t *testing.T) {
 func TestDefaultDBSCANParams(t *testing.T) {
 	params := DefaultDBSCANParams()
 
-	if params.Eps != DefaultDBSCANEps {
-		t.Errorf("expected Eps=%v, got %v", DefaultDBSCANEps, params.Eps)
+	cfg := config.MustLoadDefaultConfig()
+	if params.Eps != cfg.GetForegroundDBSCANEps() {
+		t.Errorf("expected Eps=%v, got %v", cfg.GetForegroundDBSCANEps(), params.Eps)
 	}
-	if params.MinPts != DefaultDBSCANMinPts {
-		t.Errorf("expected MinPts=%d, got %d", DefaultDBSCANMinPts, params.MinPts)
+	if params.MinPts != cfg.GetForegroundMinClusterPoints() {
+		t.Errorf("expected MinPts=%d, got %d", cfg.GetForegroundMinClusterPoints(), params.MinPts)
 	}
 }
