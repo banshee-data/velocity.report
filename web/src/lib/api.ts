@@ -509,7 +509,11 @@ export async function getTrackHistory(
 	url.searchParams.append('limit', limit.toString());
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch track history: ${res.status}`);
-	return res.json();
+	const data = await res.json();
+	return {
+		tracks: Array.isArray(data.tracks) ? data.tracks : [],
+		observations: data.observations ?? {}
+	};
 }
 
 /**

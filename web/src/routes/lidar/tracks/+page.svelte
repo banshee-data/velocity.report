@@ -157,7 +157,7 @@
 			console.log('[TrackHistory] Calling API...');
 			const history = await getTrackHistory(sensorId, startTime, endTime, 1000);
 			console.log('[TrackHistory] API response:', history);
-			tracks = history.tracks; // eslint-disable-line svelte/infinite-reactive-loop
+			tracks = Array.isArray(history.tracks) ? history.tracks : []; // eslint-disable-line svelte/infinite-reactive-loop
 
 			console.log('[TrackHistory] Loaded', tracks.length, 'tracks');
 

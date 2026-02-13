@@ -176,24 +176,18 @@ export const TRACK_COLORS = {
 	deleted: '#F44336' // Red (just deleted)
 } as const;
 
-/** Detection labels for track ground truth */
-export type DetectionLabel =
-	| 'good_vehicle'
-	| 'good_pedestrian'
-	| 'good_other'
-	| 'noise'
-	| 'noise_flora'
-	| 'split'
-	| 'merge'
-	| 'missed';
+/** Classification labels for track identity (single-select: what is the object?) */
+export type DetectionLabel = 'car' | 'ped' | 'noise';
 
-/** Quality labels for track measurement quality */
+/** Quality flags for track attributes (multi-select: properties of the track) */
 export type QualityLabel =
-	| 'perfect'
 	| 'good'
+	| 'noisy'
+	| 'jitter_velocity'
+	| 'merge'
+	| 'split'
 	| 'truncated'
-	| 'noisy_velocity'
-	| 'stopped_recovered';
+	| 'disconnected';
 
 /** Scene represents a PCAP-based evaluation environment */
 export interface LidarScene {
