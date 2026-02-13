@@ -637,11 +637,21 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				r.state.CompletedCombos = comboNum
 				r.state.CurrentCombo = &combo
 				r.mu.Unlock()
+
+				// Release PCAP slot after each combo so the next combo can start
+				// a fresh replay. Without this, currentSource stays DataSourcePCAP
+				// and subsequent StartPCAPForSweep calls spin on the conflict retry
+				// loop until they time out.
+				if isPCAP {
+					if err := r.backend.StopPCAPReplay(); err != nil {
+						log.Printf("[sweep] WARNING: Failed to stop PCAP after combo %d: %v", comboNum, err)
+					}
+				}
 			}
 		}
 	}
 
-	// Clean up: stop any lingering PCAP replay
+	// Clean up: stop any lingering PCAP replay (covers early exits / errors)
 	if isPCAP {
 		if err := r.backend.StopPCAPReplay(); err != nil {
 			log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
@@ -812,9 +822,19 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		r.state.CompletedCombos = comboNum + 1
 		r.state.CurrentCombo = &combo
 		r.mu.Unlock()
+
+		// Release PCAP slot after each combo so the next combo can start
+		// a fresh replay. Without this, currentSource stays DataSourcePCAP
+		// and subsequent StartPCAPForSweep calls spin on the conflict retry
+		// loop until they time out.
+		if isPCAP {
+			if err := r.backend.StopPCAPReplay(); err != nil {
+				log.Printf("[sweep] WARNING: Failed to stop PCAP after combo %d: %v", comboNum+1, err)
+			}
+		}
 	}
 
-	// Clean up: stop any lingering PCAP replay
+	// Clean up: stop any lingering PCAP replay (covers early exits / errors)
 	if isPCAP {
 		if err := r.backend.StopPCAPReplay(); err != nil {
 			log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
