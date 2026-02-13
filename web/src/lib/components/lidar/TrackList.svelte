@@ -30,25 +30,22 @@
 	let linkMode = false;
 	let linkSource: string | null = null;
 
-	// Detection label options
+	// Classification label options (single-select: what is the object?)
 	const DETECTION_LABELS: { value: DetectionLabel; label: string; shortcut: string }[] = [
-		{ value: 'good_vehicle', label: 'Vehicle', shortcut: '1' },
-		{ value: 'good_pedestrian', label: 'Pedestrian', shortcut: '2' },
-		{ value: 'good_other', label: 'Other', shortcut: '3' },
-		{ value: 'noise', label: 'Noise', shortcut: '4' },
-		{ value: 'noise_flora', label: 'Flora', shortcut: '5' },
-		{ value: 'split', label: 'Split', shortcut: '6' },
-		{ value: 'merge', label: 'Merge', shortcut: '7' },
-		{ value: 'missed', label: 'Missed', shortcut: '8' }
+		{ value: 'car', label: 'Car', shortcut: '1' },
+		{ value: 'ped', label: 'Pedestrian', shortcut: '2' },
+		{ value: 'noise', label: 'Noise', shortcut: '3' }
 	];
 
-	// Quality label options
+	// Quality flag options (multi-select: properties of the track)
 	const QUALITY_LABELS: { value: QualityLabel; label: string; shortcut: string }[] = [
-		{ value: 'perfect', label: 'Perfect', shortcut: 'Shift+1' },
-		{ value: 'good', label: 'Good', shortcut: 'Shift+2' },
-		{ value: 'truncated', label: 'Truncated', shortcut: 'Shift+3' },
-		{ value: 'noisy_velocity', label: 'Noisy Vel', shortcut: 'Shift+4' },
-		{ value: 'stopped_recovered', label: 'Stopped OK', shortcut: 'Shift+5' }
+		{ value: 'good', label: 'Good', shortcut: '' },
+		{ value: 'noisy', label: 'Noisy', shortcut: '' },
+		{ value: 'jitter_velocity', label: 'Jitter Velocity', shortcut: '' },
+		{ value: 'merge', label: 'Merge', shortcut: '' },
+		{ value: 'split', label: 'Split', shortcut: '' },
+		{ value: 'truncated', label: 'Truncated', shortcut: '' },
+		{ value: 'disconnected', label: 'Disconnected', shortcut: '' }
 	];
 
 	// Filter and sort options
@@ -152,7 +149,7 @@
 		}
 	}
 
-	// Phase 3: Apply quality label
+	// Phase 3: Toggle quality flag (multi-select)
 	async function applyQualityLabel(trackId: string, label: QualityLabel) {
 		if (!runId) return;
 
@@ -160,19 +157,35 @@
 		labelError = null;
 
 		try {
+			// Parse current flags and toggle the selected one
+			const runTrack = runTrackMap.get(trackId);
+			const currentFlags = new Set(
+				(runTrack?.quality_label ?? '')
+					.split(',')
+					.map((s) => s.trim())
+					.filter((s) => s.length > 0)
+			);
+
+			if (currentFlags.has(label)) {
+				currentFlags.delete(label);
+			} else {
+				currentFlags.add(label);
+			}
+
+			const newFlagsStr = [...currentFlags].sort().join(',');
+
 			await updateTrackLabel(runId, trackId, {
-				quality_label: label,
+				quality_label: newFlagsStr,
 				labeler_id: 'web-ui'
 			});
 
 			// Update local state
-			const runTrack = runTrackMap.get(trackId);
 			if (runTrack) {
-				runTrack.quality_label = label;
+				runTrack.quality_label = newFlagsStr;
 				runTracks = [...runTracks]; // Trigger reactivity
 			}
 
-			console.log('[Label] Applied quality label', label, 'to track', trackId);
+			console.log('[Label] Toggled quality flag', label, 'on track', trackId, '→', newFlagsStr);
 		} catch (error) {
 			console.error('[Label] Failed to apply quality label:', error);
 			labelError = error instanceof Error ? error.message : 'Failed to apply label';
@@ -422,8 +435,8 @@
 
 		if (!runId || !selectedTrackId) return;
 
-		// Detection labels (1-8)
-		if (!event.shiftKey && event.key >= '1' && event.key <= '8') {
+		// Classification labels (1-3)
+		if (!event.shiftKey && event.key >= '1' && event.key <= '3') {
 			const index = parseInt(event.key) - 1;
 			if (index < DETECTION_LABELS.length) {
 				event.preventDefault();
@@ -431,8 +444,8 @@
 			}
 		}
 
-		// Quality labels (Shift+1 to Shift+5)
-		if (event.shiftKey && event.key >= '1' && event.key <= '5') {
+		// Quality flags (Shift+1 to Shift+7) — toggles
+		if (event.shiftKey && event.key >= '1' && event.key <= '7') {
 			const index = parseInt(event.key) - 1;
 			if (index < QUALITY_LABELS.length) {
 				event.preventDefault();
@@ -465,20 +478,21 @@
 
 	// Phase 3: Get label badge colour
 	function getLabelColor(label: string): string {
-		if (label.startsWith('good_')) return 'bg-green-100 text-green-800';
-		if (label === 'noise' || label === 'noise_flora') return 'bg-red-100 text-red-800';
-		if (label === 'split' || label === 'merge') return 'bg-yellow-100 text-yellow-800';
-		if (label === 'missed') return 'bg-purple-100 text-purple-800';
+		if (label === 'car') return 'bg-blue-100 text-blue-800';
+		if (label === 'ped') return 'bg-green-100 text-green-800';
+		if (label === 'noise') return 'bg-red-100 text-red-800';
 		return 'bg-gray-100 text-gray-800';
 	}
 
 	// Phase 3: Get quality badge colour
 	function getQualityColor(label: string): string {
-		if (label === 'perfect') return 'bg-green-100 text-green-800';
-		if (label === 'good') return 'bg-blue-100 text-blue-800';
-		if (label === 'truncated') return 'bg-yellow-100 text-yellow-800';
-		if (label === 'noisy_velocity') return 'bg-orange-100 text-orange-800';
-		if (label === 'stopped_recovered') return 'bg-purple-100 text-purple-800';
+		if (label === 'good') return 'bg-green-100 text-green-800';
+		if (label === 'noisy') return 'bg-orange-100 text-orange-800';
+		if (label === 'jitter_velocity') return 'bg-orange-100 text-orange-800';
+		if (label === 'merge') return 'bg-yellow-100 text-yellow-800';
+		if (label === 'split') return 'bg-yellow-100 text-yellow-800';
+		if (label === 'truncated') return 'bg-purple-100 text-purple-800';
+		if (label === 'disconnected') return 'bg-purple-100 text-purple-800';
 		return 'bg-gray-100 text-gray-800';
 	}
 
@@ -600,13 +614,16 @@
 					<option value="all">All</option>
 					<option value="unlabelled">Unlabelled</option>
 					<option value="labelled">Labelled</option>
-					<option value="good_vehicle">Vehicle</option>
-					<option value="good_pedestrian">Pedestrian</option>
-					<option value="good_other">Other</option>
+					<option value="car">Car</option>
+					<option value="ped">Pedestrian</option>
 					<option value="noise">Noise</option>
-					<option value="noise_flora">Flora</option>
-					<option value="split">Split</option>
+					<option value="good">Good</option>
+					<option value="noisy">Noisy</option>
+					<option value="jitter_velocity">Jitter Velocity</option>
 					<option value="merge">Merge</option>
+					<option value="split">Split</option>
+					<option value="truncated">Truncated</option>
+					<option value="disconnected">Disconnected</option>
 				</select>
 			</div>
 		{/if}
@@ -736,13 +753,18 @@
 									</span>
 								{/if}
 								{#if runTrack.quality_label}
-									<span
-										class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium {getQualityColor(
-											runTrack.quality_label
-										)}"
-									>
-										{runTrack.quality_label.replace('_', ' ')}
-									</span>
+									{#each runTrack.quality_label
+										.split(',')
+										.map((s) => s.trim())
+										.filter((s) => s.length > 0) as flag}
+										<span
+											class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium {getQualityColor(
+												flag
+											)}"
+										>
+											{flag.replace('_', ' ')}
+										</span>
+									{/each}
 								{/if}
 							</div>
 						{/if}
@@ -829,9 +851,9 @@
 				</div>
 			</div>
 
-			<!-- Quality Labels -->
+			<!-- Quality Flags -->
 			<div>
-				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Quality</div>
+				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Flags</div>
 				<div class="grid grid-cols-2 gap-1">
 					{#each QUALITY_LABELS as { value, label } (value)}
 						<Button
@@ -853,7 +875,7 @@
 			<div class="text-surface-content/50 text-xs">
 				<p class="font-medium">Select a Track</p>
 				<p class="mt-1">Click a track from the list above or on the map to start labelling.</p>
-				<p class="mt-1">Keys 1-8: detection labels, Shift+1-5: quality labels.</p>
+				<p class="mt-1">Keys 1-3: classification labels.</p>
 				<p class="mt-1">Shift+click: multi-select for bulk labelling.</p>
 			</div>
 		</div>
@@ -897,19 +919,21 @@
 				</div>
 			</div>
 
-			<!-- Quality Labels -->
+			<!-- Quality Flags (multi-select) -->
 			<div>
-				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Quality</div>
+				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Flags</div>
 				<div class="grid grid-cols-2 gap-1">
 					{#each QUALITY_LABELS as { value, label, shortcut } (value)}
+						{@const activeFlags = (selectedRunTrack.quality_label ?? '')
+							.split(',')
+							.map((s) => s.trim())}
 						<Button
 							size="sm"
-							variant={selectedRunTrack.quality_label === value ? 'fill' : 'outline'}
-							color={selectedRunTrack.quality_label === value ? 'primary' : 'neutral'}
+							variant={activeFlags.includes(value) ? 'fill' : 'outline'}
+							color={activeFlags.includes(value) ? 'primary' : 'neutral'}
 							on:click={() => applyQualityLabel(selectedTrackId, value)}
 							disabled={isSavingLabel}
 							class="text-xs"
-							title="Keyboard: {shortcut}"
 						>
 							{label}
 						</Button>
@@ -919,8 +943,7 @@
 
 			<div class="text-surface-content/50 text-xs">
 				<p>Use keyboard shortcuts for faster labelling:</p>
-				<p>1-8: Detection labels</p>
-				<p>Shift+1-5: Quality labels</p>
+				<p>1-3: Classification labels</p>
 				<p>Shift+click: Multi-select</p>
 			</div>
 		</div>
