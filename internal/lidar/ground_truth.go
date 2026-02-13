@@ -12,6 +12,23 @@ import (
 // - Compute detection rates, fragmentation, false positives, and quality metrics
 // - Support label-aware auto-tuning with composite scoring
 
+// isPositiveLabel returns true if the classification label represents a real
+// detection (car, ped) rather than noise. These are the reference-worthy labels.
+func isPositiveLabel(label string) bool {
+	return label == "car" || label == "ped"
+}
+
+// hasQualityFlag returns true if the comma-separated quality label string
+// contains the specified flag.
+func hasQualityFlag(qualityLabel, flag string) bool {
+	for _, f := range strings.Split(qualityLabel, ",") {
+		if strings.TrimSpace(f) == flag {
+			return true
+		}
+	}
+	return false
+}
+
 // GroundTruthWeights holds the weights for computing composite ground truth scores.
 // These weights control the relative importance of each metric in the overall score.
 type GroundTruthWeights struct {
@@ -19,7 +36,7 @@ type GroundTruthWeights struct {
 	Fragmentation     float64 `json:"fragmentation"`       // w2: Penalty for track splits
 	FalsePositives    float64 `json:"false_positives"`     // w3: Penalty for unmatched candidate tracks
 	VelocityCoverage  float64 `json:"velocity_coverage"`   // w4: Bonus for tracks with velocity data
-	QualityPremium    float64 `json:"quality_premium"`     // w5: Bonus for "perfect" quality tracks
+	QualityPremium    float64 `json:"quality_premium"`     // w5: Bonus for "good" quality tracks
 	TruncationRate    float64 `json:"truncation_rate"`     // w6: Penalty for truncated tracks
 	VelocityNoiseRate float64 `json:"velocity_noise_rate"` // w7: Penalty for noisy velocity tracks
 	StoppedRecovery   float64 `json:"stopped_recovery"`    // w8: Bonus for stopped vehicle recovery
@@ -48,10 +65,10 @@ type GroundTruthScore struct {
 	Fragmentation        float64            `json:"fragmentation"`           // Fraction of reference tracks split into multiple candidates
 	FalsePositiveRate    float64            `json:"false_positive_rate"`     // Fraction of candidate tracks not matching any reference
 	VelocityCoverage     float64            `json:"velocity_coverage"`       // Fraction of matched tracks with velocity data
-	QualityPremium       float64            `json:"quality_premium"`         // Fraction of matched tracks with "perfect" quality
+	QualityPremium       float64            `json:"quality_premium"`         // Fraction of matched tracks with "good" quality
 	TruncationRate       float64            `json:"truncation_rate"`         // Fraction of matched tracks with "truncated" quality
-	VelocityNoiseRate    float64            `json:"velocity_noise_rate"`     // Fraction of matched tracks with "noisy_velocity" quality
-	StoppedRecoveryRate  float64            `json:"stopped_recovery_rate"`   // Fraction of stopped tracks with "stopped_recovered" quality
+	VelocityNoiseRate    float64            `json:"velocity_noise_rate"`     // Fraction of matched tracks with "jitter_velocity" quality
+	StoppedRecoveryRate  float64            `json:"stopped_recovery_rate"`   // Fraction of stopped tracks with "disconnected" quality
 	CompositeScore       float64            `json:"composite_score"`         // Weighted composite score
 	MatchedCount         int                `json:"matched_count"`           // Number of reference tracks matched
 	ReferenceCount       int                `json:"reference_count"`         // Total number of reference good tracks
@@ -170,13 +187,14 @@ func matchTracks(reference, candidate []*RunTrack) []TrackMatchResult {
 // EvaluateGroundTruth compares candidate tracks against reference ground truth tracks
 // and computes a comprehensive score with multiple quality metrics.
 //
-// Only reference tracks with user_label starting with "good_" are considered ground truth.
+// Only reference tracks with classification label "car" or "ped" are considered ground truth.
+// Tracks labelled "noise" are filtered out of the reference set.
 // All candidate tracks are evaluated to detect false positives.
 func EvaluateGroundTruth(reference, candidate []*RunTrack, weights GroundTruthWeights) *GroundTruthScore {
-	// Filter reference tracks to only those labelled as ground truth (good_*)
+	// Filter reference tracks to only those labelled as positive detections (car, ped)
 	var goodReferenceTracks []*RunTrack
 	for _, track := range reference {
-		if strings.HasPrefix(track.UserLabel, "good_") {
+		if isPositiveLabel(track.UserLabel) {
 			goodReferenceTracks = append(goodReferenceTracks, track)
 		}
 	}
@@ -214,7 +232,7 @@ func EvaluateGroundTruth(reference, candidate []*RunTrack, weights GroundTruthWe
 		score.DetectionRate = float64(len(matches)) / float64(len(goodReferenceTracks))
 	}
 
-	// Compute detection rate by class (good_vehicle, good_pedestrian, good_other)
+	// Compute detection rate by class (car, ped, noise)
 	classCounts := make(map[string]int)
 	classMatched := make(map[string]int)
 
@@ -269,15 +287,17 @@ func EvaluateGroundTruth(reference, candidate []*RunTrack, weights GroundTruthWe
 			tracksWithVelocity++
 		}
 
-		// Quality metrics based on quality_label
-		switch cand.QualityLabel {
-		case "perfect":
+		// Quality metrics based on quality_label (may contain comma-separated flags)
+		if hasQualityFlag(cand.QualityLabel, "good") {
 			perfectQualityTracks++
-		case "truncated":
+		}
+		if hasQualityFlag(cand.QualityLabel, "truncated") {
 			truncatedTracks++
-		case "noisy_velocity":
+		}
+		if hasQualityFlag(cand.QualityLabel, "jitter_velocity") {
 			noisyVelocityTracks++
-		case "stopped_recovered":
+		}
+		if hasQualityFlag(cand.QualityLabel, "disconnected") {
 			stoppedRecoveryTracks++
 		}
 	}

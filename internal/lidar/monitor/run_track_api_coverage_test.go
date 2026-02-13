@@ -968,7 +968,7 @@ func TestCov_HandleUpdateTrackLabel_InvalidQualityLabel(t *testing.T) {
 	defer cleanup()
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"user_label":       "good_vehicle",
+		"user_label":       "car",
 		"quality_label":    "garbage_quality",
 		"label_confidence": 0.9,
 	})
@@ -990,8 +990,8 @@ func TestCov_HandleUpdateTrackLabel_StoreError(t *testing.T) {
 	ws.db.DB.Close()
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"user_label":       "good_vehicle",
-		"quality_label":    "perfect",
+		"user_label":       "car",
+		"quality_label":    "good",
 		"label_confidence": 0.95,
 		"labeler_id":       "tester",
 	})
@@ -1013,8 +1013,8 @@ func TestCov_HandleUpdateTrackLabel_Success(t *testing.T) {
 	covInsertTrack(t, ws, runID, "track-label-1")
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"user_label":       "good_vehicle",
-		"quality_label":    "perfect",
+		"user_label":       "car",
+		"quality_label":    "good",
 		"label_confidence": 0.95,
 		"labeler_id":       "tester",
 	})
