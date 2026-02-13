@@ -62,10 +62,11 @@ Loaded by `DocumentBuilder.add_packages()`:
 | `supertabular` | Tables that break across columns        |
 | `float`        | `[H]` float placement                   |
 | `array`        | Column-spec modifiers `>{...}`, `<{...}`|
+| `geometry`     | Page margins (loaded implicitly by PyLaTeX) |
 
 Plus implicit dependencies pulled in by these packages (e.g. `l3kernel`,
-`l3packages`, `xparse`, `kvoptions`, `etoolbox`, `geometry`, `hyperref`'s
-backend `.def` files).
+`l3packages`, `xparse`, `kvoptions`, `etoolbox`, `hyperref`'s backend `.def`
+files).
 
 ## Design
 
@@ -148,6 +149,7 @@ a single read — faster startup and a guarantee that no packages are missing.
 xelatex -ini \
   -jobname=velocity-report \
   "&xelatex" \
+  "\RequirePackage{geometry}" \
   "\RequirePackage{fancyhdr}" \
   "\RequirePackage{graphicx}" \
   "\RequirePackage{amsmath}" \
@@ -169,7 +171,7 @@ these packages (they are already loaded).
 requirement. The minimal tree works without it — packages are still present as
 `.sty` files. The `.fmt` provides:
 
-- Faster compilation (~2× on Pi 4)
+- Faster compilation (estimated improvement, to be validated in Phase 6)
 - Defence-in-depth: missing `.sty` cannot cause runtime failures
 - Smaller total footprint (some transitive `.sty` deps can be omitted if baked
   into the format)
@@ -226,6 +228,7 @@ Makefile target.
    % velocity-report.ini — custom XeLaTeX format for velocity.report PDFs
    % Build: xelatex -ini velocity-report.ini
    \input xelatex.ini
+   \RequirePackage{geometry}
    \RequirePackage{fancyhdr}
    \RequirePackage{graphicx}
    \RequirePackage{amsmath}
@@ -294,18 +297,24 @@ def resolve_tex_environment() -> TexEnvironment:
     compiler = os.path.join(bin_dir, "xelatex")
     texmf_dist = os.path.join(tex_root, "texmf-dist")
 
-    # Check for precompiled format
-    fmt_path = os.path.join(
-        texmf_dist, "web2c", "xelatex", "velocity-report.fmt"
-    )
-    fmt_name = "velocity-report" if os.path.isfile(fmt_path) else None
-
     env_vars = {
         "TEXMFHOME": os.path.join(tex_root, "texmf"),
         "TEXMFDIST": texmf_dist,
         "TEXMFVAR": os.path.join(tex_root, "texmf-var"),
         "PATH": bin_dir + os.pathsep + os.environ.get("PATH", ""),
     }
+
+    # Check for precompiled format
+    fmt_path = os.path.join(
+        texmf_dist, "web2c", "xelatex", "velocity-report.fmt"
+    )
+    fmt_name = "velocity-report" if os.path.isfile(fmt_path) else None
+
+    if fmt_name:
+        # Point TEXFORMATS at the directory containing the .fmt so the
+        # engine picks it up automatically — no PyLaTeX changes needed.
+        fmt_dir = os.path.dirname(fmt_path)
+        env_vars["TEXFORMATS"] = fmt_dir + os.pathsep
 
     return TexEnvironment(
         mode="production",
@@ -325,9 +334,14 @@ for packages baked into the `.fmt`:
 ```python
 def add_packages(self, doc: Document, skip_preloaded: bool = False) -> None:
     if skip_preloaded:
-        return  # packages are in the precompiled format
+        return  # All packages are in the precompiled format — skip entirely
     # ... existing package loading code ...
 ```
+
+> **Invariant**: The package list in `add_packages()` and the
+> `\RequirePackage` lines in `velocity-report.ini` must stay in sync. If a
+> new package is added to `add_packages()`, it must also be added to the
+> `.ini` file and the format rebuilt. A CI lint step (Phase 5) enforces this.
 
 The `build()` method accepts an optional `TexEnvironment` and passes
 `skip_preloaded=True` when `env.fmt_name` is set.
@@ -338,9 +352,11 @@ The compiler invocation changes to:
 
 1. Call `resolve_tex_environment()` at the start of report generation
 2. Use `env.compiler` instead of the hardcoded `"xelatex"` string
-3. If `env.fmt_name` is set, pass `compiler_args=["-fmt=velocity-report"]`
-   to PyLaTeX's `generate_pdf()` (or use `compiler` as a wrapper command)
-4. Inject `env.env_vars` into the subprocess environment
+3. Inject `env.env_vars` into the subprocess environment (this includes
+   `TEXFORMATS` when a `.fmt` is available, so the engine picks up the
+   precompiled format automatically — no PyLaTeX changes needed; see Open
+   Question 3 for alternatives)
+4. In production mode, skip the lualatex/pdflatex fallback chain
 
 The fallback chain becomes:
 - **Production mode**: only `env.compiler` (no fallback — the minimal tree is
@@ -466,9 +482,9 @@ the tree is hand-curated or TinyTeX-managed.
    real binary keeps everything transparent.
 
 4. **`geometry` package** — PyLaTeX adds `geometry` implicitly via
-   `geometry_options` in the `Document` constructor. This package must also be
-   included in the audit and the `.fmt`. *Recommendation*: include `geometry` in
-   the `.ini` file.
+   `geometry_options` in the `Document` constructor. This package is included in
+   the package table (§ 2), the `.ini` format source, and the `xelatex -ini`
+   command examples above to ensure it is not missed during implementation.
 
 ## References
 
