@@ -750,44 +750,10 @@ func TestStop_WithAutoTuner(t *testing.T) {
 	}
 }
 
-// TestWaitForLabelsOrDeadline_ThresholdMetAfterDeadline tests the polling path
-// where threshold is met and deadline has passed.
-func TestWaitForLabelsOrDeadline_ThresholdMetAfterDeadline(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
-	tuner.SetLabelQuerier(&mockLabelQuerier{
-		total: 10, labelled: 10, byClass: map[string]int{"car": 10},
-	})
-	tuner.pollInterval = 1 * time.Millisecond
-
-	// Use 0 duration so deadline is already in the past
-	err := tuner.waitForLabelsOrDeadline(context.Background(), "run-1", 0, 0.5)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-// TestWaitForLabelsOrDeadline_DeadlineExpiredBelowThreshold tests deadline
-// expiring without meeting threshold.
-func TestWaitForLabelsOrDeadline_DeadlineExpiredBelowThreshold(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
-	tuner.SetLabelQuerier(&mockLabelQuerier{
-		total: 10, labelled: 2, byClass: map[string]int{"car": 2},
-	})
-	tuner.pollInterval = 1 * time.Millisecond
-
-	err := tuner.waitForLabelsOrDeadline(context.Background(), "run-1", 0, 0.5)
-	if err == nil {
-		t.Fatal("expected deadline expired error")
-	}
-	if !strings.Contains(err.Error(), "deadline expired") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-// TestWaitForLabelsOrDeadline_NilQuerier tests polling with nil label querier.
-// With nil querier, the ticker case hits 'continue' which skips the deadline check.
+// TestWaitForLabels_NilQuerier tests waiting with nil label querier.
+// With nil querier, the ticker case skips progress refresh.
 // The only way out is context cancellation.
-func TestWaitForLabelsOrDeadline_NilQuerier(t *testing.T) {
+func TestWaitForLabels_NilQuerier(t *testing.T) {
 	tuner := NewRLHFTuner(nil)
 	// No label querier set
 	tuner.pollInterval = 1 * time.Millisecond
@@ -795,14 +761,14 @@ func TestWaitForLabelsOrDeadline_NilQuerier(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	err := tuner.waitForLabelsOrDeadline(ctx, "run-1", 60, 0.5)
+	err := tuner.waitForLabels(ctx, "run-1", 0.5)
 	if err == nil {
 		t.Fatal("expected context error")
 	}
 }
 
-// TestWaitForLabelsOrDeadline_ContinueSignal tests the continue channel path.
-func TestWaitForLabelsOrDeadline_ContinueSignal(t *testing.T) {
+// TestWaitForLabels_ContinueSignal tests the continue channel path.
+func TestWaitForLabels_ContinueSignal(t *testing.T) {
 	tuner := NewRLHFTuner(nil)
 	tuner.pollInterval = 100 * time.Second // very long to avoid ticker
 
@@ -811,7 +777,7 @@ func TestWaitForLabelsOrDeadline_ContinueSignal(t *testing.T) {
 	tuner.continueCh = make(chan continueSignal, 1)
 	tuner.continueCh <- continueSignal{NextSweepDurationMins: 30}
 
-	err := tuner.waitForLabelsOrDeadline(context.Background(), "run-1", 60, 0.5)
+	err := tuner.waitForLabels(context.Background(), "run-1", 0.5)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -822,10 +788,10 @@ func TestWaitForLabelsOrDeadline_ContinueSignal(t *testing.T) {
 	}
 }
 
-// TestWaitForLabelsOrDeadline_LabelQuerierError tests polling when querier returns error.
-// When querier errors, the ticker case hits 'continue' which skips the deadline check.
+// TestWaitForLabels_LabelQuerierError tests waiting when querier returns error.
+// When querier errors, the ticker case logs and continues.
 // Use context timeout to break out.
-func TestWaitForLabelsOrDeadline_LabelQuerierError(t *testing.T) {
+func TestWaitForLabels_LabelQuerierError(t *testing.T) {
 	tuner := NewRLHFTuner(nil)
 	tuner.SetLabelQuerier(&mockLabelQuerier{err: errForTest("label error")})
 	tuner.pollInterval = 1 * time.Millisecond
@@ -833,9 +799,57 @@ func TestWaitForLabelsOrDeadline_LabelQuerierError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	err := tuner.waitForLabelsOrDeadline(ctx, "run-1", 60, 0.5)
+	err := tuner.waitForLabels(ctx, "run-1", 0.5)
 	if err == nil {
 		t.Fatal("expected context error")
+	}
+}
+
+// TestWaitForLabels_LabelUpdateChannel tests the labelUpdateCh path.
+func TestWaitForLabels_LabelUpdateChannel(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+	tuner.pollInterval = 100 * time.Second // very long to avoid ticker
+	tuner.SetLabelQuerier(&mockLabelQuerier{
+		total: 10, labelled: 8, byClass: map[string]int{"car": 8},
+	})
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		tuner.NotifyLabelUpdate()
+		time.Sleep(20 * time.Millisecond)
+		tuner.continueCh <- continueSignal{}
+	}()
+
+	err := tuner.waitForLabels(context.Background(), "run-1", 0.5)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	state := tuner.GetRLHFState()
+	if state.LabelProgress == nil {
+		t.Fatal("expected label progress to be set")
+	}
+	if state.LabelProgress.Labelled != 8 {
+		t.Fatalf("expected labelled=8, got %d", state.LabelProgress.Labelled)
+	}
+}
+
+// TestNotifyLabelUpdate tests the non-blocking send on labelUpdateCh.
+func TestNotifyLabelUpdate(t *testing.T) {
+	tuner := NewRLHFTuner(nil)
+
+	// First notify should succeed (channel has buffer of 1).
+	tuner.NotifyLabelUpdate()
+
+	// Second notify should not block (default case in select).
+	tuner.NotifyLabelUpdate()
+
+	// Drain and verify a signal is pending.
+	select {
+	case <-tuner.labelUpdateCh:
+		// expected
+	default:
+		t.Fatal("expected pending signal on labelUpdateCh")
 	}
 }
 
@@ -873,22 +887,6 @@ func TestCarryOverLabels_UpdateTrackLabelError(t *testing.T) {
 	// Update failed, so carried should be 0
 	if carried != 0 {
 		t.Fatalf("expected 0 carried (update error), got %d", carried)
-	}
-}
-
-// TestGetDuration tests getDuration edge cases.
-func TestGetDuration_Coverage(t *testing.T) {
-	// Empty durations returns 60
-	if d := getDuration(nil, 0); d != 60 {
-		t.Fatalf("expected 60, got %d", d)
-	}
-	// Index beyond length returns last element
-	if d := getDuration([]int{5, 10}, 5); d != 10 {
-		t.Fatalf("expected 10, got %d", d)
-	}
-	// Valid index returns correct element
-	if d := getDuration([]int{5, 10, 15}, 1); d != 10 {
-		t.Fatalf("expected 10, got %d", d)
 	}
 }
 

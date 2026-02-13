@@ -100,37 +100,7 @@ func (m *mockRLHFPersister) SaveSweepComplete(sweepID, status string, results, r
 	return m.completeErr
 }
 
-// --- Test 1: getDuration ---
-
-func TestGetDuration(t *testing.T) {
-	tests := []struct {
-		name      string
-		durations []int
-		index     int
-		want      int
-	}{
-		{"empty durations returns default 60", []int{}, 0, 60},
-		{"single value index 0", []int{60}, 0, 60},
-		{"single value wraps for index 1", []int{60}, 1, 60},
-		{"single value wraps for index 5", []int{60}, 5, 60},
-		{"multiple values index 0", []int{30, 60, 120}, 0, 30},
-		{"multiple values index 1", []int{30, 60, 120}, 1, 60},
-		{"multiple values index 2", []int{30, 60, 120}, 2, 120},
-		{"index beyond length returns last", []int{30, 60, 120}, 3, 120},
-		{"index well beyond length returns last", []int{30, 60, 120}, 10, 120},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getDuration(tt.durations, tt.index)
-			if got != tt.want {
-				t.Errorf("getDuration(%v, %d) = %d, want %d", tt.durations, tt.index, got, tt.want)
-			}
-		})
-	}
-}
-
-// --- Test 2: temporalIoU ---
+// --- Test 1: temporalIoU ---
 
 func TestTemporalIoU(t *testing.T) {
 	tests := []struct {
@@ -638,9 +608,9 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	})
 }
 
-// --- Test 8: waitForLabelsOrDeadline ---
+// --- Test 8: waitForLabels ---
 
-func TestWaitForLabelsOrDeadline(t *testing.T) {
+func TestWaitForLabels(t *testing.T) {
 	t.Run("context cancellation returns error", func(t *testing.T) {
 		tuner := NewRLHFTuner(nil)
 		tuner.pollInterval = 10 * time.Millisecond
@@ -649,7 +619,7 @@ func TestWaitForLabelsOrDeadline(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // cancel immediately
 
-		err := tuner.waitForLabelsOrDeadline(ctx, "run1", 60, 0.9)
+		err := tuner.waitForLabels(ctx, "run1", 0.9)
 		if err == nil {
 			t.Error("expected context cancelled error")
 		}
@@ -666,21 +636,37 @@ func TestWaitForLabelsOrDeadline(t *testing.T) {
 			tuner.continueCh <- continueSignal{NextSweepDurationMins: 120}
 		}()
 
-		err := tuner.waitForLabelsOrDeadline(context.Background(), "run1", 60, 0.9)
+		err := tuner.waitForLabels(context.Background(), "run1", 0.9)
 		if err != nil {
 			t.Errorf("expected nil error, got %v", err)
 		}
 	})
 
-	t.Run("deadline with threshold met proceeds", func(t *testing.T) {
+	t.Run("label update channel refreshes progress", func(t *testing.T) {
 		tuner := NewRLHFTuner(nil)
-		tuner.pollInterval = 10 * time.Millisecond
-		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10})
+		tuner.pollInterval = 100 * time.Second // very long to avoid ticker
+		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10, byClass: map[string]int{"car": 10}})
 
-		// Use 0 minute duration so deadline is immediately past
-		err := tuner.waitForLabelsOrDeadline(context.Background(), "run1", 0, 0.9)
+		// Send a label update then a continue signal so the test exits
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+			tuner.NotifyLabelUpdate()
+			time.Sleep(20 * time.Millisecond)
+			tuner.continueCh <- continueSignal{}
+		}()
+
+		err := tuner.waitForLabels(context.Background(), "run1", 0.9)
 		if err != nil {
-			t.Errorf("expected nil error (threshold met at deadline), got %v", err)
+			t.Errorf("expected nil error, got %v", err)
+		}
+
+		// Verify progress was refreshed by the label update
+		state := tuner.GetRLHFState()
+		if state.LabelProgress == nil {
+			t.Fatal("expected label progress to be set")
+		}
+		if state.LabelProgress.Total != 10 {
+			t.Errorf("expected total=10, got %d", state.LabelProgress.Total)
 		}
 	})
 }
@@ -1050,22 +1036,7 @@ func TestContinueFromLabelsNoQuerier(t *testing.T) {
 	<-tuner.continueCh
 }
 
-// --- Test 22: waitForLabelsOrDeadline deadline expired insufficient labels ---
-
-func TestWaitForLabelsDeadlineExpired(t *testing.T) {
-	lq := &mockLabelQuerier{total: 10, labelled: 3} // 30% < 90% threshold
-	tuner := NewRLHFTuner(nil)
-	tuner.pollInterval = 10 * time.Millisecond
-	tuner.SetLabelQuerier(lq)
-
-	// Use 0 minute duration so deadline is immediately past
-	err := tuner.waitForLabelsOrDeadline(context.Background(), "run1", 0, 0.9)
-	if err == nil {
-		t.Error("expected deadline expired error")
-	}
-}
-
-// --- Test 23: failWithError without persister ---
+// --- Test 22: failWithError without persister ---
 
 func TestFailWithErrorNoPersister(t *testing.T) {
 	tuner := NewRLHFTuner(nil)
