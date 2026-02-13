@@ -132,10 +132,13 @@ func TestRun_AutoTunerNil(t *testing.T) {
 	tuner.sweepID = "test-no-autotuner"
 	initRunState(tuner, 1)
 
+	// Pre-fill continue signal so waitForLabels returns immediately.
+	tuner.continueCh = make(chan continueSignal, 1)
+	tuner.continueCh <- continueSignal{}
+
 	tuner.run(context.Background(), RLHFSweepRequest{
 		SceneID: "s1", NumRounds: 1,
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
-		RoundDurations:    []int{0},
 		MinLabelThreshold: 0.5,
 	})
 	state := tuner.GetRLHFState()
@@ -373,11 +376,14 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	tuner.sweepID = "test-full-success"
 	initRunState(tuner, 1)
 
+	// Pre-fill continue signal so waitForLabels returns immediately.
+	tuner.continueCh = make(chan continueSignal, 1)
+	tuner.continueCh <- continueSignal{}
+
 	tuner.run(context.Background(), RLHFSweepRequest{
 		SceneID:        "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
-		RoundDurations: []int{0},
 		Iterations:     1,
 		ValuesPerParam: 2,
 		TopK:           2,
@@ -427,11 +433,15 @@ func TestRun_MultipleRounds(t *testing.T) {
 	tuner.sweepID = "test-multi"
 	initRunState(tuner, 2)
 
+	// Pre-fill continue signals (one per round) so waitForLabels returns.
+	tuner.continueCh = make(chan continueSignal, 2)
+	tuner.continueCh <- continueSignal{}
+	tuner.continueCh <- continueSignal{}
+
 	tuner.run(context.Background(), RLHFSweepRequest{
 		SceneID:         "s1",
 		NumRounds:       2,
 		Params:          []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
-		RoundDurations:  []int{0, 0},
 		CarryOverLabels: true,
 		Iterations:      1,
 		ValuesPerParam:  2,
@@ -974,11 +984,14 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	tuner.sweepID = "test-persist-err"
 	initRunState(tuner, 1)
 
+	// Pre-fill continue signal so waitForLabels returns immediately.
+	tuner.continueCh = make(chan continueSignal, 1)
+	tuner.continueCh <- continueSignal{}
+
 	tuner.run(context.Background(), RLHFSweepRequest{
 		SceneID:        "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
-		RoundDurations: []int{0},
 		Iterations:     1,
 		ValuesPerParam: 2,
 		TopK:           2,
@@ -1016,11 +1029,14 @@ func TestRun_SetOptimalParamsError(t *testing.T) {
 	tuner.sweepID = "test-opt-err"
 	initRunState(tuner, 1)
 
+	// Pre-fill continue signal so waitForLabels returns immediately.
+	tuner.continueCh = make(chan continueSignal, 1)
+	tuner.continueCh <- continueSignal{}
+
 	tuner.run(context.Background(), RLHFSweepRequest{
 		SceneID:        "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
-		RoundDurations: []int{0},
 		Iterations:     1,
 		ValuesPerParam: 2,
 		TopK:           2,
