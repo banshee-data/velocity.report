@@ -177,7 +177,7 @@ export const TRACK_COLORS = {
 } as const;
 
 /** Classification labels for track identity (single-select: what is the object?) */
-export type DetectionLabel = 'car' | 'ped' | 'noise';
+export type DetectionLabel = 'car' | 'ped' | 'noise' | 'impossible';
 
 /** Quality flags for track attributes (multi-select: properties of the track) */
 export type QualityLabel =

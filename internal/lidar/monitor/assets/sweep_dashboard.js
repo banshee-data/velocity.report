@@ -3248,17 +3248,9 @@ function handleStartRLHF() {
     }
   }
 
-  var durationsStr = (
-    document.getElementById("rlhf_durations").value || "60"
-  ).trim();
-  var durations = durationsStr.split(",").map(function (s) {
-    return parseInt(s.trim(), 10) || 60;
-  });
-
   var req = {
     scene_id: sceneId,
     num_rounds: parseInt(document.getElementById("rlhf_rounds").value, 10) || 3,
-    round_durations: durations,
     params: params,
     values_per_param:
       parseInt(document.getElementById("values_per_param").value, 10) || 5,
@@ -3441,15 +3433,8 @@ function renderRLHFState(st) {
     marker.style.left = st.min_label_threshold * 100 + "%";
     marker.title = (st.min_label_threshold * 100).toFixed(0) + "% threshold";
 
-    // Countdown
-    if (st.label_deadline) {
-      var deadline = new Date(st.label_deadline);
-      var remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
-      var mins = Math.floor(remaining / 60);
-      var secs = remaining % 60;
-      document.getElementById("rlhf-countdown").textContent =
-        "Deadline: " + mins + "m " + secs + "s remaining";
-    }
+    // Countdown — no longer shown (no deadline in RLHF mode)
+    // Users continue when ready via the Continue button.
 
     // Carried-over labels
     if (st.labels_carried_over > 0) {

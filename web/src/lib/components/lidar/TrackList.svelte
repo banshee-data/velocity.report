@@ -1,15 +1,15 @@
 <script lang="ts">
+	import { updateTrackFlags, updateTrackLabel } from '$lib/api';
 	import type {
-		Track,
-		RunTrack,
-		LabellingProgress,
 		DetectionLabel,
-		QualityLabel
+		LabellingProgress,
+		QualityLabel,
+		RunTrack,
+		Track
 	} from '$lib/types/lidar';
 	import { TRACK_COLORS } from '$lib/types/lidar';
-	import { updateTrackLabel, updateTrackFlags } from '$lib/api';
+	import { onDestroy, onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
-	import { onMount, onDestroy } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	export let tracks: Track[] = [];
@@ -34,7 +34,8 @@
 	const DETECTION_LABELS: { value: DetectionLabel; label: string; shortcut: string }[] = [
 		{ value: 'car', label: 'Car', shortcut: '1' },
 		{ value: 'ped', label: 'Pedestrian', shortcut: '2' },
-		{ value: 'noise', label: 'Noise', shortcut: '3' }
+		{ value: 'noise', label: 'Noise', shortcut: '3' },
+		{ value: 'impossible', label: 'Impossible', shortcut: '4' }
 	];
 
 	// Quality flag options (multi-select: properties of the track)
@@ -481,6 +482,7 @@
 		if (label === 'car') return 'bg-blue-100 text-blue-800';
 		if (label === 'ped') return 'bg-green-100 text-green-800';
 		if (label === 'noise') return 'bg-red-100 text-red-800';
+		if (label === 'impossible') return 'bg-amber-100 text-amber-800';
 		return 'bg-gray-100 text-gray-800';
 	}
 
