@@ -46,7 +46,7 @@ var (
 	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
 	versionFlag  = flag.Bool("version", false, "Print version information and exit")
 	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
-	configFile   = flag.String("config", "", "Path to JSON tuning configuration file (overrides individual tuning flags)")
+	configFile   = flag.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -162,20 +162,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Load tuning configuration from file if specified.
+	// Load tuning configuration from file.
 	// Deferred until after subcommand dispatch so commands like migrate/transits
 	// don't require a valid tuning config.
-	var tuningCfg *config.TuningConfig
-	if *configFile != "" {
-		var err error
-		tuningCfg, err = config.LoadTuningConfig(*configFile)
-		if err != nil {
-			log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
-		}
-		log.Printf("Loaded tuning configuration from %s", *configFile)
-	} else {
-		tuningCfg = config.DefaultTuningConfig()
+	tuningCfg, err := config.LoadTuningConfig(*configFile)
+	if err != nil {
+		log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
 	}
+	log.Printf("Loaded tuning configuration from %s", *configFile)
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface

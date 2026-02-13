@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+// DefaultConfigPath is the path to the canonical tuning defaults file.
+// This is the single source of truth for all default tuning values.
+const DefaultConfigPath = "config/tuning.defaults.json"
+
 // TuningConfig represents the root configuration for tuning parameters.
 // The schema matches the /api/lidar/params endpoint so the same JSON
 // can be used for both startup configuration and runtime updates.
@@ -49,39 +53,10 @@ func ptrString(v string) *string    { return &v }
 func ptrInt(v int) *int             { return &v }
 func ptrInt64(v int64) *int64       { return &v }
 
-// DefaultTuningConfig returns a TuningConfig with default values for all parameters.
-// These defaults are derived from DefaultBackgroundConfig and DefaultTrackerConfig.
-func DefaultTuningConfig() *TuningConfig {
-	return &TuningConfig{
-		// Background params
-		NoiseRelative:              ptrFloat64(0.04),
-		ClosenessMultiplier:        ptrFloat64(8.0),
-		NeighborConfirmationCount:  ptrInt(7),
-		SeedFromFirst:              ptrBool(true),
-		WarmupDurationNanos:        ptrInt64(30000000000), // 30 seconds
-		WarmupMinFrames:            ptrInt(100),
-		PostSettleUpdateFraction:   ptrFloat64(0),
-		ForegroundMinClusterPoints: ptrInt(2),
-		ForegroundDBSCANEps:        ptrFloat64(0.3),
-
-		// Frame builder params
-		BufferTimeout:  ptrString("500ms"),
-		MinFramePoints: ptrInt(1000),
-
-		// Flush params
-		FlushInterval:   ptrString("60s"),
-		BackgroundFlush: ptrBool(false),
-
-		// Tracker params
-		GatingDistanceSquared: ptrFloat64(4.0),
-		ProcessNoisePos:       ptrFloat64(0.1),
-		ProcessNoiseVel:       ptrFloat64(0.5),
-		MeasurementNoise:      ptrFloat64(0.3),
-		OcclusionCovInflation: ptrFloat64(0.5),
-		HitsToConfirm:         ptrInt(3),
-		MaxMisses:             ptrInt(3),
-		MaxMissesConfirmed:    ptrInt(15),
-	}
+// EmptyTuningConfig returns a TuningConfig with all fields set to nil.
+// Use LoadTuningConfig to load actual values from the defaults file.
+func EmptyTuningConfig() *TuningConfig {
+	return &TuningConfig{}
 }
 
 // LoadTuningConfig loads a TuningConfig from a JSON file.
@@ -110,8 +85,9 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Start from defaults so omitted JSON fields keep sensible values.
-	cfg := DefaultTuningConfig()
+	// Parse JSON into empty config. The Get* methods provide fallback
+	// defaults for any fields not specified in the JSON.
+	cfg := EmptyTuningConfig()
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config JSON: %w", err)
 	}
@@ -122,6 +98,26 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+// MustLoadDefaultConfig loads the canonical tuning defaults from DefaultConfigPath.
+// It searches for the file in the current directory and common parent directories.
+// Panics if the file cannot be loaded, intended for test setup.
+func MustLoadDefaultConfig() *TuningConfig {
+	// Try paths from current dir up to repo root
+	candidates := []string{
+		DefaultConfigPath,
+		"../../" + DefaultConfigPath,          // from internal/config/
+		"../../../" + DefaultConfigPath,       // from internal/lidar/sweep/
+		"../../../../" + DefaultConfigPath,    // deeper packages
+		"../../../../../" + DefaultConfigPath, // even deeper
+	}
+	for _, path := range candidates {
+		if cfg, err := LoadTuningConfig(path); err == nil {
+			return cfg
+		}
+	}
+	panic("cannot find " + DefaultConfigPath + " - run tests from repository root")
 }
 
 // Validate checks that the configuration values are valid.
