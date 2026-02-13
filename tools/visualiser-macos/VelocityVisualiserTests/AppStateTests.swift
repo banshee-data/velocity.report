@@ -716,7 +716,7 @@ import XCTest
         state.currentRunID = "run-abc"  // Run mode
 
         // Should not crash — fires async task
-        state.assignLabel("good_vehicle")
+        state.assignLabel("car")
     }
 
     func testAssignQualityRequiresSelectedTrackAndRunID() throws {
@@ -725,12 +725,12 @@ import XCTest
         // No selected track — should do nothing
         state.selectedTrackID = nil
         state.currentRunID = "run-abc"
-        state.assignQuality("perfect")
+        state.assignQuality("good")
 
         // No run ID — should do nothing
         state.selectedTrackID = "track-001"
         state.currentRunID = nil
-        state.assignQuality("perfect")
+        state.assignQuality("good")
     }
 
     func testAssignQualityWithBothSet() throws {

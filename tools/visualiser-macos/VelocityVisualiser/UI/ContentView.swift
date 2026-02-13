@@ -69,6 +69,25 @@ struct ContentView: View {
             }.onKeyPress("]") {
                 appState.increaseRate()
                 return .handled
+            }  // Label shortcuts: keys 1-8 assign detection labels
+            .onKeyPress("1") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 0 else { return .ignored }
+                appState.assignLabel(labels[0].name)
+                return .handled
+            }.onKeyPress("2") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 1 else { return .ignored }
+                appState.assignLabel(labels[1].name)
+                return .handled
+            }.onKeyPress("3") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 2 else { return .ignored }
+                appState.assignLabel(labels[2].name)
+                return .handled
             }  // Run browser sheet (Phase 4.1)
             .sheet(isPresented: $appState.showRunBrowser) {
                 RunBrowserView().environmentObject(appState)
@@ -322,8 +341,14 @@ struct PlaybackControlsView: View {
                 if isSeekable {
                     // Interactive seek slider for .vrlog replay
                     Slider(value: $appState.replayProgress, in: 0...1) { editing in
-                        appState.setSliderEditing(editing)
-                        if !editing { appState.seek(to: appState.replayProgress) }
+                        if editing {
+                            appState.setSliderEditing(true)
+                        } else {
+                            // Capture target before allowing frame updates to overwrite progress.
+                            // seek() sets isSeekingInProgress = true and clears it on completion,
+                            // so we don't call setSliderEditing(false) here to avoid a race.
+                            appState.seek(to: appState.replayProgress)
+                        }
                     }.frame(minWidth: 200)
                 } else {
                     // Read-only progress bar for PCAP replay
@@ -752,39 +777,26 @@ struct TrackListView: View {
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
-    // Canonical detection labels — must match Go validUserLabels and Svelte DetectionLabel
-    static let userLabels: [(name: String, help: String)] = [
-        ("good_vehicle", "Correctly tracked vehicle with accurate speed and trajectory"),
-        ("good_pedestrian", "Correctly tracked pedestrian with accurate trajectory"),
-        (
-            "good_other",
-            "Correctly tracked non-vehicle/non-pedestrian object (cyclist, animal, etc.)"
-        ), ("noise", "Spurious track caused by sensor noise, rain, dust, or multipath reflections"),
-        (
-            "noise_flora",
-            "Spurious track caused by vegetation movement (trees, bushes swaying in wind)"
-        ),
-        (
-            "split",
-            "Single object incorrectly tracked as two or more separate tracks — the tracker split one real target"
-        ),
-        (
-            "merge",
-            "Two or more distinct objects incorrectly merged into a single track — the tracker fused separate targets"
-        ), ("missed", "A real object that the tracker failed to detect or dropped prematurely"),
+    // Canonical classification labels — must match Go validUserLabels and Svelte DetectionLabel
+    static let classificationLabels: [(name: String, help: String)] = [
+        ("car", "Vehicle (car, truck, bus, motorcycle)"),
+        ("ped", "Pedestrian (person walking, running, cycling)"),
+        ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
     ]
 
-    // Canonical quality labels — must match Go validQualityLabels and Svelte QualityLabel
-    static let qualityLabels: [(name: String, help: String)] = [
-        ("perfect", "Flawless track: correct ID, speed, and trajectory throughout"),
-        ("good", "Mostly correct track with minor imperfections"),
-        ("truncated", "Track starts late or ends early compared to the real object's presence"),
-        ("noisy_velocity", "Track position is correct but speed or heading estimates are noisy"),
-        ("stopped_recovered", "Track was lost briefly then recovered — identity may have changed"),
+    // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
+    static let qualityFlags: [(name: String, help: String)] = [
+        ("good", "Clean, accurate track with correct speed and trajectory"),
+        ("noisy", "Track has noisy position or speed estimates"),
+        ("jitter_velocity", "Speed or heading estimates jitter significantly"),
+        ("merge", "Two or more distinct objects incorrectly merged into one track"),
+        ("split", "Single object incorrectly split into multiple tracks"),
+        ("truncated", "Track starts late or ends early compared to the real object"),
+        ("disconnected", "Track was lost and recovered — identity may have changed"),
     ]
 
     @State private var lastAssignedLabel: String?
-    @State private var lastAssignedQuality: String?
+    @State private var activeFlags: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -798,11 +810,12 @@ struct LabelPanelView: View {
                     Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
                 }
 
-                // Detection labels (user_label)
-                Text("Detection").font(.caption).foregroundColor(.secondary).padding(.top, 4)
-                ForEach(Array(Self.userLabels.enumerated()), id: \.offset) { index, entry in
+                // Classification labels (user_label) — single-select
+                Text("Classification").font(.caption).foregroundColor(.secondary).padding(.top, 4)
+                ForEach(Array(Self.classificationLabels.enumerated()), id: \.offset) {
+                    index, entry in
                     LabelButton(
-                        label: entry.name, shortcut: index < 9 ? "\(index + 1)" : nil,
+                        label: entry.name, shortcut: "\(index + 1)",
                         isActive: lastAssignedLabel == entry.name, helpText: entry.help
                     ) {
                         appState.assignLabel(entry.name)
@@ -810,19 +823,25 @@ struct LabelPanelView: View {
                     }
                 }
 
-                // Quality ratings (Phase 4.2 - only in run mode)
+                // Quality flags (quality_label) — multi-select toggles
                 if appState.currentRunID != nil {
                     Divider().padding(.vertical, 4)
-                    Text("Quality").font(.caption).foregroundColor(.secondary)
-                    ForEach(Array(Self.qualityLabels.enumerated()), id: \.offset) { _, entry in
-                        LabelButton(
-                            label: entry.name, shortcut: nil,
-                            isActive: lastAssignedQuality == entry.name, helpText: entry.help
+                    Text("Flags").font(.caption).foregroundColor(.secondary)
+                    ForEach(Array(Self.qualityFlags.enumerated()), id: \.offset) { _, entry in
+                        FlagToggleButton(
+                            label: entry.name, isActive: activeFlags.contains(entry.name),
+                            helpText: entry.help
                         ) {
-                            appState.assignQuality(entry.name)
                             withAnimation(.easeOut(duration: 0.3)) {
-                                lastAssignedQuality = entry.name
+                                if activeFlags.contains(entry.name) {
+                                    activeFlags.remove(entry.name)
+                                } else {
+                                    activeFlags.insert(entry.name)
+                                }
                             }
+                            // Save comma-separated flags
+                            let flagsString = activeFlags.sorted().joined(separator: ",")
+                            appState.assignQuality(flagsString)
                         }
                     }
                 }
@@ -832,7 +851,7 @@ struct LabelPanelView: View {
         }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
             lastAssignedLabel = nil
-            lastAssignedQuality = nil
+            activeFlags = []
             // Fetch existing labels for the newly selected track
             if let trackID = newTrackID, let runID = appState.currentRunID {
                 Task {
@@ -846,7 +865,10 @@ struct LabelPanelView: View {
                                 lastAssignedLabel = label
                             }
                             if let quality = track.qualityLabel, !quality.isEmpty {
-                                lastAssignedQuality = quality
+                                activeFlags = Set(
+                                    quality.split(separator: ",").map {
+                                        String($0).trimmingCharacters(in: .whitespaces)
+                                    })
                             }
                         }
                     } catch {
@@ -885,6 +907,38 @@ struct LabelButton: View {
             }.padding(.vertical, 3).padding(.horizontal, 6).background(
                 isActive
                     ? Color.accentColor.opacity(0.2)
+                    : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
+            ).cornerRadius(4)
+        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }.help(
+            helpText.isEmpty ? displayName(label) : helpText)
+    }
+
+    /// Convert snake_case label to a readable display name.
+    private func displayName(_ label: String) -> String {
+        label.replacingOccurrences(of: "_", with: " ")
+    }
+}
+
+/// A styled toggle button for multi-select quality flags.
+struct FlagToggleButton: View {
+    let label: String
+    let isActive: Bool
+    var helpText: String = ""
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: isActive ? "checkmark.square.fill" : "square").foregroundColor(
+                    isActive ? .accentColor : .secondary
+                ).font(.caption)
+                Text(displayName(label)).font(.callout)
+                Spacer()
+            }.padding(.vertical, 3).padding(.horizontal, 6).background(
+                isActive
+                    ? Color.accentColor.opacity(0.15)
                     : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
             ).cornerRadius(4)
         }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }.help(

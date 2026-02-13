@@ -89,6 +89,14 @@ struct AppCommands: Commands {
         CommandMenu("Labels") {
             Button("Label Selected Track") { appState.showLabelPanel = true }.keyboardShortcut(
                 "l", modifiers: [])
+
+            Divider()
+
+            ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
+                index, entry in
+                Button("Classify: \(entry.name)") { appState.assignLabel(entry.name) }
+                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [])
+            }
         }
     }
 }
