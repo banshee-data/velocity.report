@@ -9,7 +9,9 @@ import (
 )
 
 // DefaultConfigPath is the path to the canonical tuning defaults file.
-// This is the single source of truth for all default tuning values.
+// This is the single source of truth for all tuning parameter values.
+// The Go binary has NO hardcoded fallback defaults; all values must come
+// from this file (or an alternative specified via --config).
 const DefaultConfigPath = "config/tuning.defaults.json"
 
 // TuningConfig represents the root configuration for tuning parameters.
@@ -17,15 +19,20 @@ const DefaultConfigPath = "config/tuning.defaults.json"
 // can be used for both startup configuration and runtime updates.
 type TuningConfig struct {
 	// Background params
-	NoiseRelative              *float64 `json:"noise_relative,omitempty"`
-	ClosenessMultiplier        *float64 `json:"closeness_multiplier,omitempty"`
-	NeighborConfirmationCount  *int     `json:"neighbor_confirmation_count,omitempty"`
-	SeedFromFirst              *bool    `json:"seed_from_first,omitempty"`
-	WarmupDurationNanos        *int64   `json:"warmup_duration_nanos,omitempty"`
-	WarmupMinFrames            *int     `json:"warmup_min_frames,omitempty"`
-	PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction,omitempty"`
-	ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points,omitempty"`
+	BackgroundUpdateFraction  *float64 `json:"background_update_fraction,omitempty"`
+	ClosenessMultiplier       *float64 `json:"closeness_multiplier,omitempty"`
+	SafetyMarginMeters        *float64 `json:"safety_margin_meters,omitempty"`
+	NoiseRelative             *float64 `json:"noise_relative,omitempty"`
+	NeighborConfirmationCount *int     `json:"neighbor_confirmation_count,omitempty"`
+	SeedFromFirst             *bool    `json:"seed_from_first,omitempty"`
+	WarmupDurationNanos       *int64   `json:"warmup_duration_nanos,omitempty"`
+	WarmupMinFrames           *int     `json:"warmup_min_frames,omitempty"`
+	PostSettleUpdateFraction  *float64 `json:"post_settle_update_fraction,omitempty"`
+	EnableDiagnostics         *bool    `json:"enable_diagnostics,omitempty"`
+
+	// Foreground clustering params
 	ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps,omitempty"`
+	ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points,omitempty"`
 
 	// Frame builder params
 	BufferTimeout  *string `json:"buffer_timeout,omitempty"` // duration string like "500ms"
@@ -35,7 +42,7 @@ type TuningConfig struct {
 	FlushInterval   *string `json:"flush_interval,omitempty"` // duration string like "60s"
 	BackgroundFlush *bool   `json:"background_flush,omitempty"`
 
-	// Tracker params (optional)
+	// Tracker params
 	GatingDistanceSquared *float64 `json:"gating_distance_squared,omitempty"`
 	ProcessNoisePos       *float64 `json:"process_noise_pos,omitempty"`
 	ProcessNoiseVel       *float64 `json:"process_noise_vel,omitempty"`
@@ -44,6 +51,7 @@ type TuningConfig struct {
 	HitsToConfirm         *int     `json:"hits_to_confirm,omitempty"`
 	MaxMisses             *int     `json:"max_misses,omitempty"`
 	MaxMissesConfirmed    *int     `json:"max_misses_confirmed,omitempty"`
+	MaxTracks             *int     `json:"max_tracks,omitempty"`
 }
 
 // Helper functions to create pointers
@@ -60,9 +68,8 @@ func EmptyTuningConfig() *TuningConfig {
 }
 
 // LoadTuningConfig loads a TuningConfig from a JSON file.
-// The file is validated to ensure it has a .json extension and is under the max file size.
-// Fields omitted from the JSON file retain their default values, so
-// partial configs are safe.
+// The file must contain ALL required keys — there are no fallback defaults.
+// If any required field is missing, validation will fail.
 func LoadTuningConfig(path string) (*TuningConfig, error) {
 	// Validate the config file path.
 	cleanPath := filepath.Clean(path)
@@ -85,16 +92,17 @@ func LoadTuningConfig(path string) (*TuningConfig, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Parse JSON into empty config. The Get* methods provide fallback
-	// defaults for any fields not specified in the JSON.
 	cfg := EmptyTuningConfig()
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config JSON: %w", err)
 	}
 
-	// Validate the configuration
+	// Validate ranges and completeness (all fields must be present).
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+	if err := cfg.ValidateComplete(); err != nil {
+		return nil, fmt.Errorf("incomplete configuration: %w", err)
 	}
 
 	return cfg, nil
@@ -120,211 +128,199 @@ func MustLoadDefaultConfig() *TuningConfig {
 	panic("cannot find " + DefaultConfigPath + " - run tests from repository root")
 }
 
-// Validate checks that the configuration values are valid.
+// Validate checks that the configuration values are within acceptable ranges.
 func (c *TuningConfig) Validate() error {
-	// Validate NoiseRelative if set
 	if c.NoiseRelative != nil {
 		if *c.NoiseRelative < 0 || *c.NoiseRelative > 1 {
 			return fmt.Errorf("noise_relative must be between 0 and 1, got %f", *c.NoiseRelative)
 		}
 	}
-
-	// Validate FlushInterval can be parsed if set
 	if c.FlushInterval != nil && *c.FlushInterval != "" {
 		if _, err := time.ParseDuration(*c.FlushInterval); err != nil {
 			return fmt.Errorf("invalid flush_interval '%s': %w", *c.FlushInterval, err)
 		}
 	}
-
-	// Validate BufferTimeout can be parsed if set
 	if c.BufferTimeout != nil && *c.BufferTimeout != "" {
 		if _, err := time.ParseDuration(*c.BufferTimeout); err != nil {
 			return fmt.Errorf("invalid buffer_timeout '%s': %w", *c.BufferTimeout, err)
 		}
 	}
-
-	// Validate MinFramePoints if set
 	if c.MinFramePoints != nil {
 		if *c.MinFramePoints < 0 {
 			return fmt.Errorf("min_frame_points must be non-negative, got %d", *c.MinFramePoints)
 		}
 	}
-
 	return nil
 }
 
+// ValidateComplete checks that ALL required fields are present (non-nil).
+// Called after loading from a config file to ensure no keys are missing.
+// There are no hardcoded fallback defaults — every value must come from the file.
+func (c *TuningConfig) ValidateComplete() error {
+	var missing []string
+	if c.BackgroundUpdateFraction == nil {
+		missing = append(missing, "background_update_fraction")
+	}
+	if c.ClosenessMultiplier == nil {
+		missing = append(missing, "closeness_multiplier")
+	}
+	if c.SafetyMarginMeters == nil {
+		missing = append(missing, "safety_margin_meters")
+	}
+	if c.NoiseRelative == nil {
+		missing = append(missing, "noise_relative")
+	}
+	if c.NeighborConfirmationCount == nil {
+		missing = append(missing, "neighbor_confirmation_count")
+	}
+	if c.SeedFromFirst == nil {
+		missing = append(missing, "seed_from_first")
+	}
+	if c.WarmupDurationNanos == nil {
+		missing = append(missing, "warmup_duration_nanos")
+	}
+	if c.WarmupMinFrames == nil {
+		missing = append(missing, "warmup_min_frames")
+	}
+	if c.PostSettleUpdateFraction == nil {
+		missing = append(missing, "post_settle_update_fraction")
+	}
+	if c.EnableDiagnostics == nil {
+		missing = append(missing, "enable_diagnostics")
+	}
+	if c.ForegroundDBSCANEps == nil {
+		missing = append(missing, "foreground_dbscan_eps")
+	}
+	if c.ForegroundMinClusterPoints == nil {
+		missing = append(missing, "foreground_min_cluster_points")
+	}
+	if c.BufferTimeout == nil {
+		missing = append(missing, "buffer_timeout")
+	}
+	if c.MinFramePoints == nil {
+		missing = append(missing, "min_frame_points")
+	}
+	if c.FlushInterval == nil {
+		missing = append(missing, "flush_interval")
+	}
+	if c.BackgroundFlush == nil {
+		missing = append(missing, "background_flush")
+	}
+	if c.GatingDistanceSquared == nil {
+		missing = append(missing, "gating_distance_squared")
+	}
+	if c.ProcessNoisePos == nil {
+		missing = append(missing, "process_noise_pos")
+	}
+	if c.ProcessNoiseVel == nil {
+		missing = append(missing, "process_noise_vel")
+	}
+	if c.MeasurementNoise == nil {
+		missing = append(missing, "measurement_noise")
+	}
+	if c.OcclusionCovInflation == nil {
+		missing = append(missing, "occlusion_cov_inflation")
+	}
+	if c.HitsToConfirm == nil {
+		missing = append(missing, "hits_to_confirm")
+	}
+	if c.MaxMisses == nil {
+		missing = append(missing, "max_misses")
+	}
+	if c.MaxMissesConfirmed == nil {
+		missing = append(missing, "max_misses_confirmed")
+	}
+	if c.MaxTracks == nil {
+		missing = append(missing, "max_tracks")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required keys: %v", missing)
+	}
+	return nil
+}
+
+// ─── Getters ────────────────────────────────────────────────────────────────
+// All getters dereference the pointer field directly. They panic on nil,
+// which indicates the config was not loaded from a complete file. Always
+// call ValidateComplete() before using getters.
+
 // GetFlushInterval parses and returns the FlushInterval as a time.Duration.
 func (c *TuningConfig) GetFlushInterval() time.Duration {
-	if c.FlushInterval == nil || *c.FlushInterval == "" {
-		return 60 * time.Second // default
-	}
-	d, err := time.ParseDuration(*c.FlushInterval)
-	if err != nil {
-		return 60 * time.Second // default on parse error
-	}
+	d, _ := time.ParseDuration(*c.FlushInterval)
 	return d
 }
 
 // GetBufferTimeout parses and returns the BufferTimeout as a time.Duration.
 func (c *TuningConfig) GetBufferTimeout() time.Duration {
-	if c.BufferTimeout == nil || *c.BufferTimeout == "" {
-		return 500 * time.Millisecond // default
-	}
-	d, err := time.ParseDuration(*c.BufferTimeout)
-	if err != nil {
-		return 500 * time.Millisecond // default on parse error
-	}
+	d, _ := time.ParseDuration(*c.BufferTimeout)
 	return d
 }
 
-// GetNoiseRelative returns the noise_relative value or the default.
-func (c *TuningConfig) GetNoiseRelative() float64 {
-	if c.NoiseRelative == nil {
-		return 0.04 // default
-	}
-	return *c.NoiseRelative
-}
+// GetNoiseRelative returns the noise_relative value.
+func (c *TuningConfig) GetNoiseRelative() float64 { return *c.NoiseRelative }
 
-// GetSeedFromFirst returns the seed_from_first value or the default.
-func (c *TuningConfig) GetSeedFromFirst() bool {
-	if c.SeedFromFirst == nil {
-		return true // default
-	}
-	return *c.SeedFromFirst
-}
+// GetSeedFromFirst returns the seed_from_first value.
+func (c *TuningConfig) GetSeedFromFirst() bool { return *c.SeedFromFirst }
 
-// GetMinFramePoints returns the min_frame_points value or the default.
-func (c *TuningConfig) GetMinFramePoints() int {
-	if c.MinFramePoints == nil {
-		return 1000 // default
-	}
-	return *c.MinFramePoints
-}
+// GetMinFramePoints returns the min_frame_points value.
+func (c *TuningConfig) GetMinFramePoints() int { return *c.MinFramePoints }
 
-// GetBackgroundFlush returns the background_flush value or the default.
-func (c *TuningConfig) GetBackgroundFlush() bool {
-	if c.BackgroundFlush == nil {
-		return false // default: flushing disabled
-	}
-	return *c.BackgroundFlush
-}
+// GetBackgroundFlush returns the background_flush value.
+func (c *TuningConfig) GetBackgroundFlush() bool { return *c.BackgroundFlush }
 
-// GetClosenessMultiplier returns the closeness_multiplier value or the default.
-func (c *TuningConfig) GetClosenessMultiplier() float64 {
-	if c.ClosenessMultiplier == nil {
-		return 8.0
-	}
-	return *c.ClosenessMultiplier
-}
+// GetClosenessMultiplier returns the closeness_multiplier value.
+func (c *TuningConfig) GetClosenessMultiplier() float64 { return *c.ClosenessMultiplier }
 
-// GetNeighborConfirmationCount returns the neighbor_confirmation_count value or the default.
-func (c *TuningConfig) GetNeighborConfirmationCount() int {
-	if c.NeighborConfirmationCount == nil {
-		return 7
-	}
-	return *c.NeighborConfirmationCount
-}
+// GetNeighborConfirmationCount returns the neighbor_confirmation_count value.
+func (c *TuningConfig) GetNeighborConfirmationCount() int { return *c.NeighborConfirmationCount }
 
-// GetWarmupDurationNanos returns the warmup_duration_nanos value or the default.
-func (c *TuningConfig) GetWarmupDurationNanos() int64 {
-	if c.WarmupDurationNanos == nil {
-		return 30000000000 // 30 seconds
-	}
-	return *c.WarmupDurationNanos
-}
+// GetWarmupDurationNanos returns the warmup_duration_nanos value.
+func (c *TuningConfig) GetWarmupDurationNanos() int64 { return *c.WarmupDurationNanos }
 
-// GetWarmupMinFrames returns the warmup_min_frames value or the default.
-func (c *TuningConfig) GetWarmupMinFrames() int {
-	if c.WarmupMinFrames == nil {
-		return 100
-	}
-	return *c.WarmupMinFrames
-}
+// GetWarmupMinFrames returns the warmup_min_frames value.
+func (c *TuningConfig) GetWarmupMinFrames() int { return *c.WarmupMinFrames }
 
-// GetPostSettleUpdateFraction returns the post_settle_update_fraction value or the default.
-func (c *TuningConfig) GetPostSettleUpdateFraction() float64 {
-	if c.PostSettleUpdateFraction == nil {
-		return 0
-	}
-	return *c.PostSettleUpdateFraction
-}
+// GetPostSettleUpdateFraction returns the post_settle_update_fraction value.
+func (c *TuningConfig) GetPostSettleUpdateFraction() float64 { return *c.PostSettleUpdateFraction }
 
-// GetForegroundMinClusterPoints returns the foreground_min_cluster_points value or the default.
-func (c *TuningConfig) GetForegroundMinClusterPoints() int {
-	if c.ForegroundMinClusterPoints == nil {
-		return 2
-	}
-	return *c.ForegroundMinClusterPoints
-}
+// GetForegroundDBSCANEps returns the foreground_dbscan_eps value.
+func (c *TuningConfig) GetForegroundDBSCANEps() float64 { return *c.ForegroundDBSCANEps }
 
-// GetForegroundDBSCANEps returns the foreground_dbscan_eps value or the default.
-func (c *TuningConfig) GetForegroundDBSCANEps() float64 {
-	if c.ForegroundDBSCANEps == nil {
-		return 0.3
-	}
-	return *c.ForegroundDBSCANEps
-}
+// GetForegroundMinClusterPoints returns the foreground_min_cluster_points value.
+func (c *TuningConfig) GetForegroundMinClusterPoints() int { return *c.ForegroundMinClusterPoints }
 
-// GetGatingDistanceSquared returns the gating_distance_squared value or the default.
-func (c *TuningConfig) GetGatingDistanceSquared() float64 {
-	if c.GatingDistanceSquared == nil {
-		return 4.0
-	}
-	return *c.GatingDistanceSquared
-}
+// GetGatingDistanceSquared returns the gating_distance_squared value.
+func (c *TuningConfig) GetGatingDistanceSquared() float64 { return *c.GatingDistanceSquared }
 
-// GetProcessNoisePos returns the process_noise_pos value or the default.
-func (c *TuningConfig) GetProcessNoisePos() float64 {
-	if c.ProcessNoisePos == nil {
-		return 0.1
-	}
-	return *c.ProcessNoisePos
-}
+// GetProcessNoisePos returns the process_noise_pos value (dt-normalised).
+func (c *TuningConfig) GetProcessNoisePos() float64 { return *c.ProcessNoisePos }
 
-// GetProcessNoiseVel returns the process_noise_vel value or the default.
-func (c *TuningConfig) GetProcessNoiseVel() float64 {
-	if c.ProcessNoiseVel == nil {
-		return 0.5
-	}
-	return *c.ProcessNoiseVel
-}
+// GetProcessNoiseVel returns the process_noise_vel value (dt-normalised).
+func (c *TuningConfig) GetProcessNoiseVel() float64 { return *c.ProcessNoiseVel }
 
-// GetMeasurementNoise returns the measurement_noise value or the default.
-func (c *TuningConfig) GetMeasurementNoise() float64 {
-	if c.MeasurementNoise == nil {
-		return 0.3
-	}
-	return *c.MeasurementNoise
-}
+// GetMeasurementNoise returns the measurement_noise value.
+func (c *TuningConfig) GetMeasurementNoise() float64 { return *c.MeasurementNoise }
 
-// GetOcclusionCovInflation returns the occlusion_cov_inflation value or the default.
-func (c *TuningConfig) GetOcclusionCovInflation() float64 {
-	if c.OcclusionCovInflation == nil {
-		return 0.5
-	}
-	return *c.OcclusionCovInflation
-}
+// GetOcclusionCovInflation returns the occlusion_cov_inflation value.
+func (c *TuningConfig) GetOcclusionCovInflation() float64 { return *c.OcclusionCovInflation }
 
-// GetHitsToConfirm returns the hits_to_confirm value or the default.
-func (c *TuningConfig) GetHitsToConfirm() int {
-	if c.HitsToConfirm == nil {
-		return 3
-	}
-	return *c.HitsToConfirm
-}
+// GetHitsToConfirm returns the hits_to_confirm value.
+func (c *TuningConfig) GetHitsToConfirm() int { return *c.HitsToConfirm }
 
-// GetMaxMisses returns the max_misses value or the default.
-func (c *TuningConfig) GetMaxMisses() int {
-	if c.MaxMisses == nil {
-		return 3
-	}
-	return *c.MaxMisses
-}
+// GetMaxMisses returns the max_misses value.
+func (c *TuningConfig) GetMaxMisses() int { return *c.MaxMisses }
 
-// GetMaxMissesConfirmed returns the max_misses_confirmed value or the default.
-func (c *TuningConfig) GetMaxMissesConfirmed() int {
-	if c.MaxMissesConfirmed == nil {
-		return 15
-	}
-	return *c.MaxMissesConfirmed
-}
+// GetMaxMissesConfirmed returns the max_misses_confirmed value.
+func (c *TuningConfig) GetMaxMissesConfirmed() int { return *c.MaxMissesConfirmed }
+
+// GetMaxTracks returns the max_tracks value.
+func (c *TuningConfig) GetMaxTracks() int { return *c.MaxTracks }
+
+// GetBackgroundUpdateFraction returns the background_update_fraction value.
+func (c *TuningConfig) GetBackgroundUpdateFraction() float64 { return *c.BackgroundUpdateFraction }
+
+// GetSafetyMarginMeters returns the safety_margin_meters value.
+func (c *TuningConfig) GetSafetyMarginMeters() float64 { return *c.SafetyMarginMeters }
+
+// GetEnableDiagnostics returns the enable_diagnostics value.
+func (c *TuningConfig) GetEnableDiagnostics() bool { return *c.EnableDiagnostics }
