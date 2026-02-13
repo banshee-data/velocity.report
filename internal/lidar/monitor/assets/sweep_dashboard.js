@@ -3067,18 +3067,28 @@ function init() {
       if (st.status === "running") {
         setMode("auto");
         startPolling();
-      } else if (st.status === "complete" && st.recommendation) {
+      } else if (
+        (st.status === "complete" || st.status === "error") &&
+        st.results &&
+        st.results.length > 0
+      ) {
+        // Show results from completed or errored auto-tune (may lack recommendation)
         setMode("auto");
-        if (st.results && st.results.length > 0) {
-          document.getElementById("progress-section").style.display = "";
-          var badge = document.getElementById("status-badge");
-          badge.textContent = st.status;
-          badge.className = "status-badge status-" + st.status;
-          latestResults = st.results;
-          renderCharts(st.results);
-          renderTable(st.results);
+        document.getElementById("progress-section").style.display = "";
+        var badge = document.getElementById("status-badge");
+        badge.textContent = st.status;
+        badge.className = "status-badge status-" + st.status;
+        latestResults = st.results;
+        renderCharts(st.results);
+        renderTable(st.results);
+        if (st.error) {
+          var errEl = document.getElementById("sweep-error");
+          errEl.textContent = st.error;
+          errEl.style.display = "";
         }
-        renderRecommendation(st.recommendation, st.round_results);
+        if (st.recommendation) {
+          renderRecommendation(st.recommendation, st.round_results);
+        }
       } else {
         // No auto-tune running, check manual sweep
         fetch("/api/lidar/sweep/status")
