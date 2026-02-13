@@ -148,10 +148,10 @@ func TestRLHFTunerNewCreation(t *testing.T) {
 		}
 	})
 
-	t.Run("default poll interval is 10s", func(t *testing.T) {
+	t.Run("default poll interval is 60s", func(t *testing.T) {
 		tuner := NewRLHFTuner(nil)
-		if tuner.pollInterval != 10*time.Second {
-			t.Errorf("pollInterval = %v, want %v", tuner.pollInterval, 10*time.Second)
+		if tuner.pollInterval != 60*time.Second {
+			t.Errorf("pollInterval = %v, want %v", tuner.pollInterval, 60*time.Second)
 		}
 	})
 }
@@ -1204,7 +1204,6 @@ func TestRunRecordsRound(t *testing.T) {
 		SceneID:           "s1",
 		NumRounds:         1,
 		MinLabelThreshold: 0.0,
-		RoundDurations:    []int{0}, // immediate deadline
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
@@ -1349,10 +1348,13 @@ func TestRunRoundWithCarryOver(t *testing.T) {
 		SceneID:           "s1",
 		NumRounds:         2,
 		MinLabelThreshold: 0.0,
-		RoundDurations:    []int{0}, // immediate
 		CarryOverLabels:   true,
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	}
+
+	// Pre-fill continue signal so waitForLabels returns immediately.
+	tuner.continueCh = make(chan continueSignal, 1)
+	tuner.continueCh <- continueSignal{}
 
 	// Set auto-tuner to error immediately to end the round
 	go func() {
