@@ -77,10 +77,10 @@ func (f *BackgroundFlusher) Run(ctx context.Context) error {
 	f.mu.Unlock()
 
 	defer func() {
-		close(f.doneCh)
 		f.mu.Lock()
 		f.running = false
 		f.mu.Unlock()
+		close(f.doneCh)
 	}()
 
 	if f.interval <= 0 {
