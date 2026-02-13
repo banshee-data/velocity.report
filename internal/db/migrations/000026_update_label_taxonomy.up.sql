@@ -17,16 +17,16 @@
 
 -- Update existing quality labels in lidar_run_tracks to new taxonomy
    UPDATE lidar_run_tracks
-      SET quality_label = 'good'
-    WHERE quality_label = 'perfect';
+      SET quality_label = REPLACE(quality_label, 'perfect', 'good')
+    WHERE quality_label LIKE '%perfect%';
 
    UPDATE lidar_run_tracks
-      SET quality_label = 'jitter_velocity'
-    WHERE quality_label = 'noisy_velocity';
+      SET quality_label = REPLACE(quality_label, 'noisy_velocity', 'jitter_velocity')
+    WHERE quality_label LIKE '%noisy_velocity%';
 
    UPDATE lidar_run_tracks
-      SET quality_label = 'disconnected'
-    WHERE quality_label = 'stopped_recovered';
+      SET quality_label = REPLACE(quality_label, 'stopped_recovered', 'disconnected')
+    WHERE quality_label LIKE '%stopped_recovered%';
 
 -- Update existing class labels in lidar_labels to new taxonomy
    UPDATE lidar_labels

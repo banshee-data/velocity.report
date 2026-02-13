@@ -633,6 +633,8 @@ func (m *mockRLHFRunner) ContinueFromLabels(nextDurationMins int, addRound bool)
 	return m.continueErr
 }
 
+func (m *mockRLHFRunner) NotifyLabelUpdate() {}
+
 func TestWebServer_SetRLHFRunner(t *testing.T) {
 	ws := &WebServer{}
 	runner := &mockRLHFRunner{}

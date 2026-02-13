@@ -140,7 +140,7 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 				t.Errorf("expected user_label car, got %s", track.UserLabel)
 			}
 			if track.QualityLabel != "good" {
-				t.Errorf("expected quality_label perfect, got %s", track.QualityLabel)
+				t.Errorf("expected quality_label good, got %s", track.QualityLabel)
 			}
 			if track.LabelerID != "test-user" {
 				t.Errorf("expected labeler_id test-user, got %s", track.LabelerID)
