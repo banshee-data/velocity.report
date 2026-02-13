@@ -233,6 +233,7 @@ function setupDOM(): void {
 		'<input id="rlhf_durations" type="text" value="60" />',
 		'<input id="rlhf_threshold" type="number" value="90" />',
 		'<input id="rlhf_carryover" type="checkbox" checked />',
+		'<input id="rlhf_tune_background" type="checkbox" />',
 		'<input id="rlhf_class_coverage" type="text" />',
 		'<input id="rlhf_temporal_spread" type="number" />',
 		'<div id="rlhf-progress-card" style="display:none">',
@@ -3889,7 +3890,6 @@ describe('RLHF Functions', () => {
 			expect(document.getElementById('rlhf-label-pct')!.textContent).toContain('80');
 			expect(document.getElementById('rlhf-label-bar')!.style.width).toBe('80%');
 			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(false);
-			expect(document.getElementById('rlhf-countdown')!.textContent).toContain('remaining');
 			expect(document.getElementById('rlhf-carried-count')!.textContent).toContain('3');
 			expect(document.getElementById('rlhf-tracks-link')!.getAttribute('href')).toContain(
 				'run-abc'

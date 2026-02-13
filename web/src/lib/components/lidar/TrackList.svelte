@@ -160,7 +160,7 @@
 		try {
 			// Parse current flags and toggle the selected one
 			const runTrack = runTrackMap.get(trackId);
-			const currentFlags = new Set(
+			const currentFlags = new SvelteSet(
 				(runTrack?.quality_label ?? '')
 					.split(',')
 					.map((s) => s.trim())
@@ -758,7 +758,7 @@
 									{#each runTrack.quality_label
 										.split(',')
 										.map((s) => s.trim())
-										.filter((s) => s.length > 0) as flag}
+										.filter((s) => s.length > 0) as flag (flag)}
 										<span
 											class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium {getQualityColor(
 												flag
@@ -925,7 +925,7 @@
 			<div>
 				<div class="text-surface-content/70 mb-1 block text-xs font-medium">Flags</div>
 				<div class="grid grid-cols-2 gap-1">
-					{#each QUALITY_LABELS as { value, label, shortcut } (value)}
+					{#each QUALITY_LABELS as { value, label } (value)}
 						{@const activeFlags = (selectedRunTrack.quality_label ?? '')
 							.split(',')
 							.map((s) => s.trim())}
