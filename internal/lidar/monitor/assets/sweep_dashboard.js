@@ -2956,6 +2956,24 @@ function disposeAllCharts() {
   if (grid) grid.innerHTML = "";
 }
 
+// Default parameters for RLHF auto-configuration when user hasn't added any.
+var DEFAULT_RLHF_FOREGROUND_PARAMS = [
+  "foreground_min_cluster_points",
+  "foreground_dbscan_eps",
+];
+
+var DEFAULT_RLHF_BACKGROUND_PARAMS = [
+  "noise_relative",
+  "closeness_multiplier",
+  "background_update_fraction",
+  "safety_margin_meters",
+];
+
+// DEFAULT_RLHF_PARAMS kept for backward compatibility (all params).
+var DEFAULT_RLHF_PARAMS = DEFAULT_RLHF_FOREGROUND_PARAMS.concat(
+  DEFAULT_RLHF_BACKGROUND_PARAMS,
+);
+
 // ---- CommonJS exports for testing ----
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -3185,24 +3203,6 @@ function init() {
 var rlhfPollTimer = null;
 var rlhfLongPollAbort = null;
 var lastRLHFPhase = "";
-
-// Default parameters for RLHF auto-configuration when user hasn't added any.
-var DEFAULT_RLHF_FOREGROUND_PARAMS = [
-  "foreground_min_cluster_points",
-  "foreground_dbscan_eps",
-];
-
-var DEFAULT_RLHF_BACKGROUND_PARAMS = [
-  "noise_relative",
-  "closeness_multiplier",
-  "background_update_fraction",
-  "safety_margin_meters",
-];
-
-// DEFAULT_RLHF_PARAMS kept for backward compatibility (all params).
-var DEFAULT_RLHF_PARAMS = DEFAULT_RLHF_FOREGROUND_PARAMS.concat(
-  DEFAULT_RLHF_BACKGROUND_PARAMS,
-);
 
 function handleStartRLHF() {
   // RLHF uses the scene selector from the Data Source card
