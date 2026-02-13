@@ -151,7 +151,7 @@ func parseTrackPath(path string) (trackID string, action string) {
 
 // handleUpdateTrackLabel updates the user label and quality label for a track.
 // PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label
-// Request body: {"user_label": "good_vehicle", "quality_label": "perfect", "label_confidence": 0.95, "labeler_id": "user1"}
+// Request body: {"user_label": "car", "quality_label": "good,truncated", "label_confidence": 0.95, "labeler_id": "user1"}
 func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request, runID, trackID string) {
 	if r.Method != http.MethodPut {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use PUT")

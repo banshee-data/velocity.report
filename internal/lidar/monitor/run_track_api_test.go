@@ -93,8 +93,8 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 
 	// Test valid label update
 	reqBody := map[string]interface{}{
-		"user_label":       "good_vehicle",
-		"quality_label":    "perfect",
+		"user_label":       "car",
+		"quality_label":    "good",
 		"label_confidence": 0.95,
 		"labeler_id":       "test-user",
 	}
@@ -122,8 +122,8 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 	if result["status"] != "ok" {
 		t.Errorf("expected status ok, got %v", result["status"])
 	}
-	if result["user_label"] != "good_vehicle" {
-		t.Errorf("expected user_label good_vehicle, got %v", result["user_label"])
+	if result["user_label"] != "car" {
+		t.Errorf("expected user_label car, got %v", result["user_label"])
 	}
 
 	// Verify in database
@@ -136,10 +136,10 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 	for _, track := range tracks {
 		if track.TrackID == "track-001" {
 			found = true
-			if track.UserLabel != "good_vehicle" {
-				t.Errorf("expected user_label good_vehicle, got %s", track.UserLabel)
+			if track.UserLabel != "car" {
+				t.Errorf("expected user_label car, got %s", track.UserLabel)
 			}
-			if track.QualityLabel != "perfect" {
+			if track.QualityLabel != "good" {
 				t.Errorf("expected quality_label perfect, got %s", track.QualityLabel)
 			}
 			if track.LabelerID != "test-user" {
@@ -169,7 +169,7 @@ func TestUpdateTrackLabelInvalid(t *testing.T) {
 	// Test invalid user_label
 	reqBody := map[string]interface{}{
 		"user_label":       "invalid_label",
-		"quality_label":    "perfect",
+		"quality_label":    "good",
 		"label_confidence": 0.95,
 		"labeler_id":       "test-user",
 	}
@@ -189,7 +189,7 @@ func TestUpdateTrackLabelInvalid(t *testing.T) {
 
 	// Test invalid quality_label
 	reqBody = map[string]interface{}{
-		"user_label":       "good_vehicle",
+		"user_label":       "car",
 		"quality_label":    "invalid_quality",
 		"label_confidence": 0.95,
 		"labeler_id":       "test-user",
@@ -219,7 +219,7 @@ func TestUpdateTrackLabelClear(t *testing.T) {
 	setupTestRun(t, store, runID)
 
 	// First, set a label
-	if err := store.UpdateTrackLabel(runID, "track-001", "good_vehicle", "perfect", 0.95, "test-user", "human_manual"); err != nil {
+	if err := store.UpdateTrackLabel(runID, "track-001", "car", "good", 0.95, "test-user", "human_manual"); err != nil {
 		t.Fatalf("failed to set initial label: %v", err)
 	}
 
@@ -321,7 +321,7 @@ func TestLabellingProgress(t *testing.T) {
 	setupTestRun(t, store, runID)
 
 	// Label one track
-	if err := store.UpdateTrackLabel(runID, "track-001", "good_vehicle", "perfect", 0.95, "test-user", "human_manual"); err != nil {
+	if err := store.UpdateTrackLabel(runID, "track-001", "car", "good", 0.95, "test-user", "human_manual"); err != nil {
 		t.Fatalf("failed to label track: %v", err)
 	}
 
@@ -371,9 +371,9 @@ func TestLabellingProgress(t *testing.T) {
 		t.Fatalf("expected by_class to be a map, got %T", result["by_class"])
 	}
 
-	goodVehicleCount, ok := byClass["good_vehicle"].(float64)
+	goodVehicleCount, ok := byClass["car"].(float64)
 	if !ok || int(goodVehicleCount) != 1 {
-		t.Errorf("expected good_vehicle count 1, got %v", byClass["good_vehicle"])
+		t.Errorf("expected car count 1, got %v", byClass["car"])
 	}
 }
 

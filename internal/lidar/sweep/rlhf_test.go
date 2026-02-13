@@ -420,7 +420,7 @@ func TestCarryOverLabels(t *testing.T) {
 	t.Run("carries labels with IoU >= 0.5", func(t *testing.T) {
 		lq := &mockLabelQuerier{
 			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle", QualityLabel: "perfect"},
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car", QualityLabel: "good"},
 			},
 			newTracks: []RLHFRunTrack{
 				{TrackID: "n1", StartUnixNanos: 0, EndUnixNanos: 100}, // perfect match IoU=1.0
@@ -445,7 +445,7 @@ func TestCarryOverLabels(t *testing.T) {
 	t.Run("does not carry labels with IoU < 0.5", func(t *testing.T) {
 		lq := &mockLabelQuerier{
 			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 			},
 			newTracks: []RLHFRunTrack{
 				{TrackID: "n1", StartUnixNanos: 200, EndUnixNanos: 300}, // no overlap
@@ -467,7 +467,7 @@ func TestCarryOverLabels(t *testing.T) {
 	t.Run("only labelled tracks are considered", func(t *testing.T) {
 		lq := &mockLabelQuerier{
 			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 				{TrackID: "t2", StartUnixNanos: 200, EndUnixNanos: 300, UserLabel: ""}, // not labelled
 			},
 			newTracks: []RLHFRunTrack{
@@ -491,7 +491,7 @@ func TestCarryOverLabels(t *testing.T) {
 	t.Run("selects best IoU match", func(t *testing.T) {
 		lq := &mockLabelQuerier{
 			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 			},
 			newTracks: []RLHFRunTrack{
 				{TrackID: "n1", StartUnixNanos: 30, EndUnixNanos: 130}, // IoU = 70/130 ≈ 0.538
@@ -700,7 +700,7 @@ func TestRLHFTunerGetState(t *testing.T) {
 		Total:    20,
 		Labelled: 15,
 		Pct:      75.0,
-		ByClass:  map[string]int{"good_vehicle": 10, "noise": 5},
+		ByClass:  map[string]int{"car": 10, "noise": 5},
 	}
 	tuner.state.RoundHistory = []RLHFRound{
 		{
@@ -719,7 +719,7 @@ func TestRLHFTunerGetState(t *testing.T) {
 	state.LabelProgress.Total = 999
 	state.RoundHistory[0].BestScore = 999.0
 	state.Recommendation["eps"] = 999.0
-	state.LabelProgress.ByClass["good_vehicle"] = 999
+	state.LabelProgress.ByClass["car"] = 999
 
 	// Verify original is unchanged
 	original := tuner.GetRLHFState()
@@ -732,8 +732,8 @@ func TestRLHFTunerGetState(t *testing.T) {
 	if original.Recommendation["eps"] != 0.3 {
 		t.Errorf("original Recommendation mutated to %v", original.Recommendation["eps"])
 	}
-	if original.LabelProgress.ByClass["good_vehicle"] != 10 {
-		t.Errorf("original ByClass mutated to %d", original.LabelProgress.ByClass["good_vehicle"])
+	if original.LabelProgress.ByClass["car"] != 10 {
+		t.Errorf("original ByClass mutated to %d", original.LabelProgress.ByClass["car"])
 	}
 }
 
@@ -1347,7 +1347,7 @@ func TestRunRoundWithCarryOver(t *testing.T) {
 		total:    10,
 		labelled: 10,
 		prevTracks: []RLHFRunTrack{
-			{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+			{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 		},
 		newTracks: []RLHFRunTrack{
 			{TrackID: "n1", StartUnixNanos: 0, EndUnixNanos: 100},
