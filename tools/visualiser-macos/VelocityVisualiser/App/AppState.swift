@@ -54,6 +54,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var showGating: Bool = false  // M6: Gating ellipses
     @Published var showAssociation: Bool = false  // M6: Association lines
     @Published var showResiduals: Bool = false  // M6: Residual vectors
+    @Published var showGrid: Bool = true  // Ground reference grid
     @Published var showTrackLabels: Bool = true  // Track ID/class labels above 3D boxes
     @Published var pointSize: Float = 5.0  // Point size for rendering (1-20)
 
@@ -237,9 +238,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard currentFrameIndex + 1 < totalFrames else { return }  // Don't step past end
 
         Task {
-            do { try await grpcClient?.seek(toFrame: currentFrameIndex + 1) } catch {
-                logger.error("Failed to step forward: \(error.localizedDescription)")
-            }
+            do {
+                // Auto-pause so the next frame doesn't immediately overwrite the seek.
+                if !isPaused {
+                    isPaused = true
+                    try await grpcClient?.pause()
+                }
+                try await grpcClient?.seek(toFrame: currentFrameIndex + 1)
+            } catch { logger.error("Failed to step forward: \(error.localizedDescription)") }
         }
     }
 
@@ -247,9 +253,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive, isSeekable, currentFrameIndex > 0 else { return }
 
         Task {
-            do { try await grpcClient?.seek(toFrame: currentFrameIndex - 1) } catch {
-                logger.error("Failed to step backward: \(error.localizedDescription)")
-            }
+            do {
+                // Auto-pause so the next frame doesn't immediately overwrite the seek.
+                if !isPaused {
+                    isPaused = true
+                    try await grpcClient?.pause()
+                }
+                try await grpcClient?.seek(toFrame: currentFrameIndex - 1)
+            } catch { logger.error("Failed to step backward: \(error.localizedDescription)") }
         }
     }
 

@@ -22,7 +22,7 @@ struct ContentView: View {
                         showPoints: appState.showPoints, showBoxes: appState.showBoxes,
                         showClusters: appState.showClusters,  // M4
                         showTrails: appState.showTrails, showDebug: appState.showDebug,  // M6
-                        pointSize: appState.pointSize,
+                        showGrid: appState.showGrid, pointSize: appState.pointSize,
                         onRendererCreated: { renderer in appState.registerRenderer(renderer) },
                         onTrackSelected: { trackID in appState.selectTrack(trackID) },
                         onCameraChanged: { appState.reprojectLabels() })
@@ -87,6 +87,12 @@ struct ContentView: View {
                 let labels = LabelPanelView.classificationLabels
                 guard labels.count > 2 else { return .ignored }
                 appState.assignLabel(labels[2].name)
+                return .handled
+            }.onKeyPress("4") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 3 else { return .ignored }
+                appState.assignLabel(labels[3].name)
                 return .handled
             }  // Run browser sheet (Phase 4.1)
             .sheet(isPresented: $appState.showRunBrowser) {
@@ -251,6 +257,7 @@ struct OverlayTogglesView: View {
             ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
             ToggleButton(label: "L", isOn: $appState.showTrackLabels, help: "Track Labels")
+            ToggleButton(label: "G", isOn: $appState.showGrid, help: "Ground Grid")
 
             Divider().frame(height: 20)
 
@@ -782,6 +789,7 @@ struct LabelPanelView: View {
         ("car", "Vehicle (car, truck, bus, motorcycle)"),
         ("ped", "Pedestrian (person walking, running, cycling)"),
         ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
+        ("impossible", "Track passes through walls or obstacles in the scene"),
     ]
 
     // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
@@ -1027,6 +1035,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var showClusters: Bool  // M4
     var showTrails: Bool
     var showDebug: Bool  // M6
+    var showGrid: Bool
     var pointSize: Float
 
     // Closure to register the renderer with AppState
@@ -1064,6 +1073,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showClusters = showClusters  // M4
         renderer.showTrails = showTrails
         renderer.showDebug = showDebug  // M6
+        renderer.showGrid = showGrid
         renderer.pointSize = pointSize
 
         // Update track selection callback

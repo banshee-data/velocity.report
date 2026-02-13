@@ -77,6 +77,10 @@ struct AppCommands: Commands {
                 isOn: Binding(get: { appState.showVelocity }, set: { appState.showVelocity = $0 })
             ).keyboardShortcut("v", modifiers: [])
 
+            Toggle(
+                "Grid", isOn: Binding(get: { appState.showGrid }, set: { appState.showGrid = $0 })
+            ).keyboardShortcut("g", modifiers: [])
+
             Divider()
 
             Toggle(
