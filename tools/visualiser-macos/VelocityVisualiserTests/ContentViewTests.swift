@@ -190,12 +190,12 @@ struct ToggleButtonTests {
 struct LabelButtonTests {
     @Test func labelButtonWithShortcut() throws {
         let button = LabelButton(
-            label: "good_vehicle", shortcut: "1", isActive: false, action: {})
+            label: "car", shortcut: "1", isActive: false, action: {})
         let _ = button.body
     }
 
     @Test func labelButtonWithoutShortcut() throws {
-        let button = LabelButton(label: "stopped_recovered", shortcut: nil, isActive: false, action: {})
+        let button = LabelButton(label: "disconnected", shortcut: nil, isActive: false, action: {})
         let _ = button.body
     }
 

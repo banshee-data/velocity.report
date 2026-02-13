@@ -834,12 +834,16 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// Handle mouse/trackpad drag for camera orbit or pan.
     func handleMouseDrag(deltaX: CGFloat, deltaY: CGFloat, isRightButton: Bool, shiftHeld: Bool) {
         if isRightButton || shiftHeld {
-            // Pan: move camera and target together
+            // Pan: move camera and target together in screen space
             let sensitivity: Float = 0.05
-            let right = normalize(cross(camera.up, camera.position - camera.target))
-            let up = camera.up
+            let viewDir = normalize(camera.position - camera.target)
+            let right = normalize(cross(camera.up, viewDir))
+            // Compute screen-space up (perpendicular to both view direction and right)
+            // rather than using world up, so vertical drag pans vertically on screen
+            let screenUp = normalize(cross(viewDir, right))
 
-            let offset = right * Float(-deltaX) * sensitivity + up * Float(deltaY) * sensitivity
+            let offset =
+                right * Float(-deltaX) * sensitivity + screenUp * Float(deltaY) * sensitivity
             camera.position += offset
             camera.target += offset
         } else {
