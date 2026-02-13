@@ -351,7 +351,8 @@ body.rlhf-mode #sweep-params-section,
 body.rlhf-mode #current-params-card,
 body.rlhf-mode #paste-params-card,
 body.rlhf-mode #scene-info,
-body.rlhf-mode #scene-actions {
+body.rlhf-mode #scene-actions,
+body.rlhf-mode #sweep-config-card {
   display: none !important;
 }
 
