@@ -7,10 +7,11 @@ import (
 	"time"
 )
 
-func TestDefaultTuningConfig(t *testing.T) {
-	cfg := DefaultTuningConfig()
+// TestLoadDefaultsFile verifies that the canonical defaults file loads correctly.
+func TestLoadDefaultsFile(t *testing.T) {
+	cfg := MustLoadDefaultConfig()
 
-	// Test that defaults are set via pointers
+	// Test that defaults are set via pointers (values from tuning.defaults.json)
 	if cfg.NoiseRelative == nil || *cfg.NoiseRelative != 0.04 {
 		t.Errorf("Expected NoiseRelative 0.04, got %v", cfg.NoiseRelative)
 	}
@@ -30,7 +31,7 @@ func TestDefaultTuningConfig(t *testing.T) {
 		t.Errorf("Expected BackgroundFlush false, got %v", cfg.BackgroundFlush)
 	}
 
-	// Test getter methods
+	// Test getter methods return same values
 	if cfg.GetNoiseRelative() != 0.04 {
 		t.Errorf("GetNoiseRelative() = %f, want 0.04", cfg.GetNoiseRelative())
 	}
@@ -45,10 +46,34 @@ func TestDefaultTuningConfig(t *testing.T) {
 	}
 }
 
-// TestDefaultTuningConfigComplete verifies that all TuningConfig fields have non-nil defaults.
-// This ensures no field is accidentally omitted from DefaultTuningConfig().
-func TestDefaultTuningConfigComplete(t *testing.T) {
-	cfg := DefaultTuningConfig()
+// TestEmptyTuningConfig verifies that EmptyTuningConfig returns all nil fields.
+func TestEmptyTuningConfig(t *testing.T) {
+	cfg := EmptyTuningConfig()
+
+	// All fields should be nil
+	if cfg.NoiseRelative != nil {
+		t.Error("Expected NoiseRelative to be nil")
+	}
+	if cfg.SeedFromFirst != nil {
+		t.Error("Expected SeedFromFirst to be nil")
+	}
+	if cfg.BufferTimeout != nil {
+		t.Error("Expected BufferTimeout to be nil")
+	}
+
+	// Getter methods should return fallback defaults
+	if cfg.GetNoiseRelative() != 0.04 {
+		t.Errorf("GetNoiseRelative() fallback = %f, want 0.04", cfg.GetNoiseRelative())
+	}
+	if cfg.GetSeedFromFirst() != true {
+		t.Errorf("GetSeedFromFirst() fallback = %v, want true", cfg.GetSeedFromFirst())
+	}
+}
+
+// TestDefaultsFileComplete verifies that config/tuning.defaults.json has all fields.
+// This ensures no field is accidentally omitted from the canonical defaults file.
+func TestDefaultsFileComplete(t *testing.T) {
+	cfg := MustLoadDefaultConfig()
 
 	// Verify all 22 fields are non-nil
 	if cfg.NoiseRelative == nil {
@@ -231,8 +256,8 @@ func TestValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "valid config",
-			cfg:     DefaultTuningConfig(),
+			name:    "valid config from defaults file",
+			cfg:     MustLoadDefaultConfig(),
 			wantErr: false,
 		},
 		{
