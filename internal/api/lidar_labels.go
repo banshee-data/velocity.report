@@ -18,9 +18,10 @@ const maxLabelsPerQuery = 1000
 
 // Valid user labels for track classification (what is the object?)
 var validUserLabels = map[string]bool{
-	"car":   true,
-	"ped":   true,
-	"noise": true,
+	"car":        true,
+	"ped":        true,
+	"noise":      true,
+	"impossible": true,
 }
 
 // Valid quality flags for track quality attributes (multi-select, comma-separated).

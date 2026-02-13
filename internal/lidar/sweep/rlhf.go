@@ -164,8 +164,9 @@ type RLHFTuner struct {
 	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
 
 	// Internal coordination
-	continueCh chan continueSignal
-	sweepID    string
+	continueCh    chan continueSignal
+	labelUpdateCh chan struct{} // notified on every label update via API
+	sweepID       string
 
 	// For testability
 	pollInterval time.Duration
@@ -180,9 +181,10 @@ type continueSignal struct {
 // NewRLHFTuner creates a new RLHF tuner with the given AutoTuner backend.
 func NewRLHFTuner(autoTuner *AutoTuner) *RLHFTuner {
 	rt := &RLHFTuner{
-		autoTuner:    autoTuner,
-		continueCh:   make(chan continueSignal, 1),
-		pollInterval: 10 * time.Second,
+		autoTuner:     autoTuner,
+		continueCh:    make(chan continueSignal, 1),
+		labelUpdateCh: make(chan struct{}, 1),
+		pollInterval:  60 * time.Second, // safety fallback; label updates arrive via channel
 		state: RLHFState{
 			Status:       "idle",
 			Mode:         "rlhf",
@@ -338,7 +340,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 		TotalRounds:           req.NumRounds,
 		RoundHistory:          []RLHFRound{},
 		MinLabelThreshold:     req.MinLabelThreshold,
-		NextSweepDuration:     getDuration(req.RoundDurations, 0),
+		NextSweepDuration:     60, // default sweep duration in minutes
 		MinClassCoverage:      req.MinClassCoverage,
 		MinTemporalSpreadSecs: req.MinTemporalSpreadSecs,
 		TuneBackground:        req.TuneBackground,
@@ -829,10 +831,9 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	// Phase 3: Wait for labels
 	rt.setStatus("awaiting_labels")
 
-	durationMins := getDuration(req.RoundDurations, round-1)
-	log.Printf("[rlhf] Awaiting labels for %d minutes (threshold: %.1f%%)", durationMins, req.MinLabelThreshold*100)
+	log.Printf("[rlhf] Awaiting labels (threshold: %.1f%%, no deadline — continue when ready)", req.MinLabelThreshold*100)
 
-	if err := rt.waitForLabelsOrDeadline(ctx, runID, durationMins, req.MinLabelThreshold); err != nil {
+	if err := rt.waitForLabels(ctx, runID, req.MinLabelThreshold); err != nil {
 		return nil, 0, fmt.Errorf("label waiting failed: %w", err)
 	}
 
@@ -932,27 +933,54 @@ func scenePCAPDuration(scene *RLHFScene) float64 {
 	return -1
 }
 
-// getDuration returns the duration for the given round index.
-func getDuration(durations []int, index int) int {
-	if len(durations) == 0 {
-		return 60 // default
+// NotifyLabelUpdate is called by the label-update HTTP handler to wake the
+// RLHF waiter immediately instead of waiting for the next poll tick.
+func (rt *RLHFTuner) NotifyLabelUpdate() {
+	select {
+	case rt.labelUpdateCh <- struct{}{}:
+	default:
+		// Already pending — no need to queue another.
 	}
-	if index < len(durations) {
-		return durations[index]
-	}
-	return durations[len(durations)-1]
 }
 
-// waitForLabelsOrDeadline waits for labelling progress to reach threshold.
-func (rt *RLHFTuner) waitForLabelsOrDeadline(ctx context.Context, runID string, durationMins int, threshold float64) error {
-	deadline := time.Now().Add(time.Duration(durationMins) * time.Minute)
-
+// waitForLabels waits for the user to label tracks and click continue.
+// There is no deadline — the session stays in awaiting_labels until the
+// user explicitly continues via the dashboard.
+func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold float64) error {
 	rt.mu.Lock()
-	rt.state.LabelDeadline = &deadline
+	rt.state.LabelDeadline = nil // no deadline — user continues when ready
 	rt.mu.Unlock()
 
+	// Safety-net ticker: re-query progress periodically in case a label
+	// update notification was missed.  The primary trigger is labelUpdateCh.
 	ticker := time.NewTicker(rt.pollInterval)
 	defer ticker.Stop()
+
+	// Helper: query label progress from the DB, update state, and broadcast.
+	refreshProgress := func() {
+		if rt.labelQuerier == nil {
+			return
+		}
+		total, labelled, byClass, err := rt.labelQuerier.GetLabelingProgress(runID)
+		if err != nil {
+			log.Printf("[rlhf] Failed to query label progress: %v", err)
+			return
+		}
+		pct := 0.0
+		if total > 0 {
+			pct = float64(labelled) / float64(total)
+		}
+		rt.mu.Lock()
+		rt.state.LabelProgress = &LabelProgress{
+			Total:    total,
+			Labelled: labelled,
+			Pct:      pct * 100,
+			ByClass:  byClass,
+		}
+		rt.mu.Unlock()
+		rt.stateCond.Broadcast()
+		log.Printf("[rlhf] Label progress: %d/%d (%.1f%%)", labelled, total, pct*100)
+	}
 
 	for {
 		select {
@@ -960,7 +988,7 @@ func (rt *RLHFTuner) waitForLabelsOrDeadline(ctx context.Context, runID string, 
 			return ctx.Err()
 
 		case sig := <-rt.continueCh:
-			// Manual continue signal
+			// Manual continue signal from the dashboard
 			log.Printf("[rlhf] Received continue signal (next_duration=%d, add_round=%v)", sig.NextSweepDurationMins, sig.AddRound)
 			if sig.NextSweepDurationMins > 0 {
 				rt.mu.Lock()
@@ -969,56 +997,13 @@ func (rt *RLHFTuner) waitForLabelsOrDeadline(ctx context.Context, runID string, 
 			}
 			return nil
 
+		case <-rt.labelUpdateCh:
+			// A label was just saved — immediately refresh progress.
+			refreshProgress()
+
 		case <-ticker.C:
-			// Poll label progress
-			if rt.labelQuerier == nil {
-				continue
-			}
-
-			total, labelled, byClass, err := rt.labelQuerier.GetLabelingProgress(runID)
-			if err != nil {
-				log.Printf("[rlhf] Failed to query label progress: %v", err)
-				continue
-			}
-
-			pct := 0.0
-			if total > 0 {
-				pct = float64(labelled) / float64(total)
-			}
-
-			rt.mu.Lock()
-			rt.state.LabelProgress = &LabelProgress{
-				Total:    total,
-				Labelled: labelled,
-				Pct:      pct * 100,
-				ByClass:  byClass,
-			}
-			rt.mu.Unlock()
-			// Wake long-poll waiters so the UI sees updated label progress.
-			rt.stateCond.Broadcast()
-
-			log.Printf("[rlhf] Label progress: %d/%d (%.1f%%)", labelled, total, pct*100)
-
-			// Check if threshold met and deadline passed
-			if pct >= threshold && time.Now().After(deadline) {
-				log.Printf("[rlhf] Threshold met and deadline passed, proceeding")
-				return nil
-			}
-		}
-
-		// Check if deadline passed without meeting threshold
-		if time.Now().After(deadline) {
-			rt.mu.RLock()
-			currentPct := 0.0
-			if rt.state.LabelProgress != nil {
-				currentPct = rt.state.LabelProgress.Pct / 100
-			}
-			rt.mu.RUnlock()
-
-			if currentPct < threshold {
-				return fmt.Errorf("deadline expired with only %.1f%% labelled (threshold: %.1f%%)", currentPct*100, threshold*100)
-			}
-			return nil
+			// Periodic safety-net refresh.
+			refreshProgress()
 		}
 	}
 }

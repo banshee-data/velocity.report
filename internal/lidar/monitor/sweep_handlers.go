@@ -35,6 +35,8 @@ type RLHFRunner interface {
 	// WaitForChange blocks until the RLHF status differs from lastStatus
 	// or the context is cancelled. Returns the new state.
 	WaitForChange(ctx context.Context, lastStatus string) interface{}
+	// NotifyLabelUpdate wakes the label-wait loop when a track is labelled.
+	NotifyLabelUpdate()
 }
 
 // handleSweepStart starts a parameter sweep
