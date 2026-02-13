@@ -347,10 +347,8 @@ func TestFailWithError_NoPersister(t *testing.T) {
 
 // TestRun_FullSuccessPath exercises the complete success path through run().
 func TestRun_FullSuccessPath(t *testing.T) {
-	// Use a real mock HTTP server so the auto-tuner's runner can complete.
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	// Use a mock backend so the auto-tuner's runner can complete.
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
@@ -399,11 +397,9 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	}
 }
 
-// TestRun_MultipleRounds exercises run() with 2 rounds using a real mock server.
+// TestRun_MultipleRounds exercises run() with 2 rounds using a mock backend.
 func TestRun_MultipleRounds(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
@@ -659,7 +655,7 @@ func TestStart_ValidationErrors(t *testing.T) {
 		{"empty scene_id", RLHFSweepRequest{NumRounds: 1, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
 		{"zero rounds", RLHFSweepRequest{SceneID: "s1", NumRounds: 0, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
 		{"too many rounds", RLHFSweepRequest{SceneID: "s1", NumRounds: 11, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
-		{"no params", RLHFSweepRequest{SceneID: "s1", NumRounds: 1}},
+		// Note: "no params" is now valid — defaults are auto-populated
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -958,9 +954,7 @@ func TestWaitForAutoTuneComplete_ContextCancelled(t *testing.T) {
 // TestRun_FullSuccessWithPersisterErrors tests the run() success path when
 // persister SaveSweepStart and marshal both have coverage.
 func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
@@ -1002,9 +996,7 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 
 // TestRun_SetOptimalParamsError tests run completion when scene store fails.
 func TestRun_SetOptimalParamsError(t *testing.T) {
-	srv := sweepMockServer(t)
-	client := sweepTestClient(t, srv)
-	runner := NewRunner(client)
+	runner := NewRunner(sweepMockBackend())
 	at := NewAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
