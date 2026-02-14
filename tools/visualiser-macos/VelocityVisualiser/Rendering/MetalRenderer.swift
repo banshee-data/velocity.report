@@ -96,6 +96,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // MARK: - Settings
 
     var showPoints: Bool = true
+    var showBackground: Bool = true  // Background grid points toggle
     var showBoxes: Bool = true
     var showClusters: Bool = true  // M4: Toggle for cluster rendering
     var showTrails: Bool = true
@@ -801,11 +802,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         }
 
         // Draw point cloud
-        if showPoints, let pipeline = pointCloudPipeline {
+        if showPoints || showBackground, let pipeline = pointCloudPipeline {
             // M3.5: Use composite renderer if available
             if let composite = compositeRenderer {
-                composite.render(encoder: encoder, pipeline: pipeline, uniforms: &uniforms)
-            } else if let buffer = pointBuffer, pointCount > 0 {
+                composite.render(
+                    encoder: encoder, pipeline: pipeline, uniforms: &uniforms,
+                    drawBackground: showBackground, drawForeground: showPoints)
+            } else if showPoints, let buffer = pointBuffer, pointCount > 0 {
                 // Legacy path: single buffer
                 encoder.setRenderPipelineState(pipeline)
                 encoder.setVertexBuffer(buffer, offset: 0, index: 0)
