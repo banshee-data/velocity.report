@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -937,11 +938,13 @@ func TestClient_WaitForPCAPComplete_DefaultTimeoutAndDecodeRetry(t *testing.T) {
 	})
 
 	t.Run("uses long-poll endpoint with wait_for_done parameter", func(t *testing.T) {
-		longPollCalled := false
+		var longPollCalled atomic.Bool
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Check if the long-poll endpoint was called with wait_for_done=true
-			if r.URL.Query().Get("wait_for_done") == "true" {
-				longPollCalled = true
+			// Verify path and query parameters
+			if r.URL.Path == "/api/lidar/data_source" &&
+				r.URL.Query().Get("sensor_id") == "sensor1" &&
+				r.URL.Query().Get("wait_for_done") == "true" {
+				longPollCalled.Store(true)
 			}
 			json.NewEncoder(w).Encode(map[string]interface{}{"pcap_in_progress": false})
 		}))
@@ -951,8 +954,8 @@ func TestClient_WaitForPCAPComplete_DefaultTimeoutAndDecodeRetry(t *testing.T) {
 		if err := c.WaitForPCAPComplete(2 * time.Second); err != nil {
 			t.Fatalf("expected success, got %v", err)
 		}
-		if !longPollCalled {
-			t.Fatal("expected long-poll endpoint to be called with wait_for_done=true")
+		if !longPollCalled.Load() {
+			t.Fatal("expected long-poll endpoint to be called with /api/lidar/data_source?sensor_id=sensor1&wait_for_done=true")
 		}
 	})
 }
