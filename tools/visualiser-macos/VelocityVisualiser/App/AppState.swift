@@ -46,6 +46,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     // MARK: - Overlay Toggles
 
     @Published var showPoints: Bool = true
+    @Published var showBackground: Bool = true  // Background grid points (K toggle)
     @Published var showBoxes: Bool = true
     @Published var showClusters: Bool = true  // M4: Cluster rendering toggle
     @Published var showTrails: Bool = true
