@@ -22,7 +22,9 @@ func (s *deadlineErrorSocket) ReadFromUDP(b []byte) (int, *net.UDPAddr, error) {
 	if s.closed {
 		return 0, nil, net.ErrClosed
 	}
-	// Always timeout so the listener keeps looping and can check ctx.Done.
+	// Small delay prevents tight busy-looping when SetReadDeadline fails
+	// (the mock returns instantly, unlike a real socket that would block).
+	time.Sleep(10 * time.Millisecond)
 	return 0, nil, &net.OpError{Op: "read", Net: "udp", Err: &timeoutError{}}
 }
 

@@ -144,6 +144,7 @@ func (l *UDPListener) Start(ctx context.Context) error {
 
 	// Prepare buffer for incoming packets
 	buffer := make([]byte, 2048) // Pandar40P packets are 1262 bytes + some margin
+	var deadlineErrLogged bool
 
 	for {
 		select {
@@ -153,7 +154,10 @@ func (l *UDPListener) Start(ctx context.Context) error {
 		default:
 			// Set read deadline to allow checking context cancellation
 			if err := conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
-				log.Printf("failed to set read deadline: %v", err)
+				if !deadlineErrLogged {
+					log.Printf("failed to set read deadline: %v", err)
+					deadlineErrLogged = true
+				}
 				// Continue anyway - this is non-fatal
 			}
 
