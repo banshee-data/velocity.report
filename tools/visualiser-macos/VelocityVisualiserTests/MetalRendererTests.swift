@@ -715,8 +715,7 @@ final class MetalRendererCameraControlTests: XCTestCase {
         XCTAssertTrue(handled)
 
         let moved =
-            renderer.camera.position.x != initialPos.x
-            || renderer.camera.position.y != initialPos.y
+            renderer.camera.position.x != initialPos.x || renderer.camera.position.y != initialPos.y
             || renderer.camera.position.z != initialPos.z
         XCTAssertTrue(moved, "Up arrow should pan camera forward")
     }
@@ -729,8 +728,7 @@ final class MetalRendererCameraControlTests: XCTestCase {
         XCTAssertTrue(handled)
 
         let moved =
-            renderer.camera.position.x != initialPos.x
-            || renderer.camera.position.y != initialPos.y
+            renderer.camera.position.x != initialPos.x || renderer.camera.position.y != initialPos.y
             || renderer.camera.position.z != initialPos.z
         XCTAssertTrue(moved, "Down arrow should pan camera backward")
     }
@@ -837,8 +835,8 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             frameID: 1, timestampNanos: 0,
             clusters: [
                 Cluster(
-                    clusterID: 1, centroidX: 10.0, centroidY: 20.0, centroidZ: 0.8,
-                    aabbLength: 3.0, aabbWidth: 1.5, aabbHeight: 1.2),
+                    clusterID: 1, centroidX: 10.0, centroidY: 20.0, centroidZ: 0.8, aabbLength: 3.0,
+                    aabbWidth: 1.5, aabbHeight: 1.2),
                 Cluster(
                     clusterID: 2, centroidX: 30.0, centroidY: 40.0, centroidZ: 0.9,
                     obb: OrientedBoundingBox(
@@ -880,8 +878,7 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             trails: [
                 TrackTrail(
                     trackID: "track-001",
-                    points: [TrackPoint(x: 10.0, y: 20.0, timestampNanos: 100)])
-                // Only 1 point — not enough for a trail segment
+                    points: [TrackPoint(x: 10.0, y: 20.0, timestampNanos: 100)])// Only 1 point — not enough for a trail segment
             ])
 
         renderer.updateFrame(frame)
@@ -915,8 +912,7 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
                 InnovationResidual(
                     trackID: "track-001", predictedX: 10.0, predictedY: 20.0, measuredX: 10.5,
                     measuredY: 20.3, residualMagnitude: 0.58)
-            ],
-            predictions: [])
+            ], predictions: [])
 
         renderer.updateFrame(frame)
         XCTAssertGreaterThan(renderer.debugLineVertexCount, 0)
@@ -933,10 +929,7 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             associationCandidates: [
                 AssociationCandidate(
                     clusterID: 1, trackID: "track-001", distance: 2.0, accepted: true)
-            ],
-            gatingEllipses: [],
-            residuals: [],
-            predictions: [])
+            ], gatingEllipses: [], residuals: [], predictions: [])
 
         renderer.updateFrame(frame)
         XCTAssertEqual(renderer.debugLineVertexCount, 0)
@@ -969,8 +962,8 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             frameID: 1, timestampNanos: 0,
             tracks: [
                 Track(
-                    trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0,
-                    bboxLengthAvg: 4.0, bboxWidthAvg: 1.8, bboxHeightAvg: 1.5)
+                    trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0, bboxLengthAvg: 4.0,
+                    bboxWidthAvg: 1.8, bboxHeightAvg: 1.5)
             ], trails: [])
 
         renderer.updateFrame(frame)
@@ -1018,7 +1011,8 @@ final class MetalRendererHitTestTests: XCTestCase {
     func testHitTestTrackNoTracks() throws {
         let renderer = try createRenderer()
 
-        let result = renderer.hitTestTrack(at: CGPoint(x: 400, y: 300), viewSize: CGSize(width: 800, height: 600))
+        let result = renderer.hitTestTrack(
+            at: CGPoint(x: 400, y: 300), viewSize: CGSize(width: 800, height: 600))
         XCTAssertNil(result, "Should return nil when no tracks")
     }
 
@@ -1029,9 +1023,8 @@ final class MetalRendererHitTestTests: XCTestCase {
         var frame = FrameBundle()
         frame.tracks = TrackSet(
             frameID: 1, timestampNanos: 0,
-            tracks: [
-                Track(trackID: "track-001", state: .confirmed, x: 0.0, y: 10.0, z: 0.0)
-            ], trails: [])
+            tracks: [Track(trackID: "track-001", state: .confirmed, x: 0.0, y: 10.0, z: 0.0)],
+            trails: [])
         renderer.updateFrame(frame)
 
         // Try hit testing — the result depends on camera projection
@@ -1054,7 +1047,9 @@ final class MetalRendererHitTestTests: XCTestCase {
         frame.tracks = TrackSet(
             frameID: 1, timestampNanos: 0,
             tracks: [
-                Track(trackID: "track-001", state: .confirmed, x: 0.0, y: 10.0, z: 1.0, classLabel: "car"),
+                Track(
+                    trackID: "track-001", state: .confirmed, x: 0.0, y: 10.0, z: 1.0,
+                    classLabel: "car"),
                 Track(trackID: "track-002", state: .tentative, x: 5.0, y: 15.0, z: 0.8),
                 Track(trackID: "track-003", state: .deleted, x: 20.0, y: 30.0, z: 0.5),
                 Track(trackID: "track-004", state: .unknown, x: -5.0, y: 5.0, z: 0.3),
@@ -1075,7 +1070,9 @@ final class MetalRendererHitTestTests: XCTestCase {
         frame.tracks = TrackSet(
             frameID: 1, timestampNanos: 0,
             tracks: [
-                Track(trackID: "track-001", state: .confirmed, x: 0.0, y: 10.0, z: 1.0, classLabel: "car")
+                Track(
+                    trackID: "track-001", state: .confirmed, x: 0.0, y: 10.0, z: 1.0,
+                    classLabel: "car")
             ], trails: [])
         renderer.updateFrame(frame)
 
@@ -1151,6 +1148,7 @@ final class MetalRendererSettingsTests: XCTestCase {
         let renderer = try createRenderer()
 
         XCTAssertTrue(renderer.showPoints)
+        XCTAssertTrue(renderer.showBackground)
         XCTAssertTrue(renderer.showBoxes)
         XCTAssertTrue(renderer.showClusters)
         XCTAssertTrue(renderer.showTrails)
@@ -1166,6 +1164,7 @@ final class MetalRendererSettingsTests: XCTestCase {
         let renderer = try createRenderer()
 
         renderer.showPoints = false
+        renderer.showBackground = false
         renderer.showBoxes = false
         renderer.showClusters = false
         renderer.showTrails = false
@@ -1177,6 +1176,7 @@ final class MetalRendererSettingsTests: XCTestCase {
         renderer.selectedTrackID = "track-001"
 
         XCTAssertFalse(renderer.showPoints)
+        XCTAssertFalse(renderer.showBackground)
         XCTAssertFalse(renderer.showBoxes)
         XCTAssertFalse(renderer.showClusters)
         XCTAssertFalse(renderer.showTrails)
@@ -1236,8 +1236,8 @@ final class MetalRendererClusterOBBTests: XCTestCase {
             frameID: 1, timestampNanos: 0,
             clusters: [
                 Cluster(
-                    clusterID: 1, centroidX: 10.0, centroidY: 20.0, centroidZ: 1.0,
-                    aabbLength: 3.0, aabbWidth: 1.5, aabbHeight: 1.0)
+                    clusterID: 1, centroidX: 10.0, centroidY: 20.0, centroidZ: 1.0, aabbLength: 3.0,
+                    aabbWidth: 1.5, aabbHeight: 1.0)
             ], method: .dbscan)
 
         renderer.updateFrame(frame)
@@ -1313,7 +1313,9 @@ final class MetalRendererHeadingArrowTests: XCTestCase {
         frame.tracks = TrackSet(
             frameID: 1, timestampNanos: 0,
             tracks: [
-                Track(trackID: "t1", state: .confirmed, x: 10.0, y: 20.0, headingRad: 0.0, bboxHeadingRad: 0.0)
+                Track(
+                    trackID: "t1", state: .confirmed, x: 10.0, y: 20.0, headingRad: 0.0,
+                    bboxHeadingRad: 0.0)
             ], trails: [])
 
         renderer.updateFrame(frame)

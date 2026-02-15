@@ -6,12 +6,17 @@ import (
 	"time"
 )
 
-// Constants for foreground extraction configuration
+// Constants for foreground extraction configuration.
+// These are internal algorithm parameters, NOT user-tunable defaults.
+// All user-tunable values come from config/tuning.defaults.json.
 const (
-	// DefaultClosenessSensitivityMultiplier is the default multiplier for closeness threshold
-	DefaultClosenessSensitivityMultiplier = 3.0
-	// DefaultNeighborConfirmationCount is the default number of neighbors needed for confirmation
-	DefaultNeighborConfirmationCount = 3
+	// safetyClosenessSensitivityMultiplier is a safety guard used only when
+	// BackgroundParams.ClosenessSensitivityMultiplier is zero/negative,
+	// which should never happen with a properly loaded config.
+	safetyClosenessSensitivityMultiplier = 3.0
+	// safetyNeighborConfirmationCount is a safety guard used only when
+	// BackgroundParams.NeighborConfirmationCount is negative.
+	safetyNeighborConfirmationCount = 3
 	// FreezeThresholdMultiplier is the multiplier applied to closeness threshold to trigger cell freeze
 	FreezeThresholdMultiplier = 3.0
 	// DefaultReacquisitionBoostMultiplier is the default multiplier for fast re-acquisition
@@ -102,11 +107,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	}
 	closenessMultiplier := float64(g.Params.ClosenessSensitivityMultiplier)
 	if closenessMultiplier <= 0 {
-		closenessMultiplier = DefaultClosenessSensitivityMultiplier
+		closenessMultiplier = safetyClosenessSensitivityMultiplier
 	}
 	neighConfirm := g.Params.NeighborConfirmationCount
 	if neighConfirm < 0 {
-		neighConfirm = DefaultNeighborConfirmationCount
+		neighConfirm = safetyNeighborConfirmationCount
 	}
 	seedFromFirst := g.Params.SeedFromFirstObservation
 

@@ -46,6 +46,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     // MARK: - Overlay Toggles
 
     @Published var showPoints: Bool = true
+    @Published var showBackground: Bool = true  // Background grid points (K toggle)
     @Published var showBoxes: Bool = true
     @Published var showClusters: Bool = true  // M4: Cluster rendering toggle
     @Published var showTrails: Bool = true
@@ -54,6 +55,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var showGating: Bool = false  // M6: Gating ellipses
     @Published var showAssociation: Bool = false  // M6: Association lines
     @Published var showResiduals: Bool = false  // M6: Residual vectors
+    @Published var showGrid: Bool = true  // Ground reference grid
     @Published var showTrackLabels: Bool = true  // Track ID/class labels above 3D boxes
     @Published var pointSize: Float = 5.0  // Point size for rendering (1-20)
 
@@ -196,6 +198,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         clientDelegate = nil
         isConnected = false
         currentFrame = nil
+        // Reset playback timestamps to prevent stale values on reconnect
+        logStartTimestamp = 0
+        logEndTimestamp = 0
+        currentTimestamp = 0
+        replayProgress = 0
+        frameCount = 0
         logger.debug("Disconnected")
     }
 
@@ -231,9 +239,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard currentFrameIndex + 1 < totalFrames else { return }  // Don't step past end
 
         Task {
-            do { try await grpcClient?.seek(toFrame: currentFrameIndex + 1) } catch {
-                logger.error("Failed to step forward: \(error.localizedDescription)")
-            }
+            do {
+                // Auto-pause so the next frame doesn't immediately overwrite the seek.
+                if !isPaused {
+                    isPaused = true
+                    try await grpcClient?.pause()
+                }
+                try await grpcClient?.seek(toFrame: currentFrameIndex + 1)
+            } catch { logger.error("Failed to step forward: \(error.localizedDescription)") }
         }
     }
 
@@ -241,9 +254,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive, isSeekable, currentFrameIndex > 0 else { return }
 
         Task {
-            do { try await grpcClient?.seek(toFrame: currentFrameIndex - 1) } catch {
-                logger.error("Failed to step backward: \(error.localizedDescription)")
-            }
+            do {
+                // Auto-pause so the next frame doesn't immediately overwrite the seek.
+                if !isPaused {
+                    isPaused = true
+                    try await grpcClient?.pause()
+                }
+                try await grpcClient?.seek(toFrame: currentFrameIndex - 1)
+            } catch { logger.error("Failed to step backward: \(error.localizedDescription)") }
         }
     }
 
@@ -367,6 +385,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             showLabelPanel = true
             showSidePanel = true
         }
+        // Reproject labels so the overlay highlights the newly selected track
+        reprojectLabels()
     }
 
     func assignLabel(_ label: String) {

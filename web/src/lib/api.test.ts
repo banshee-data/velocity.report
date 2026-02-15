@@ -1904,11 +1904,11 @@ describe('api', () => {
 			it('should fetch run tracks', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ tracks: [{ track_id: 't1', user_label: 'good_vehicle' }] })
+					json: async () => ({ tracks: [{ track_id: 't1', user_label: 'car' }] })
 				});
 				const { getRunTracks } = await import('./api');
 				const result = await getRunTracks('run-001');
-				expect(result).toEqual([{ track_id: 't1', user_label: 'good_vehicle' }]);
+				expect(result).toEqual([{ track_id: 't1', user_label: 'car' }]);
 			});
 
 			it('should handle errors', async () => {
@@ -1923,13 +1923,13 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
 				const { updateTrackLabel } = await import('./api');
 				await updateTrackLabel('run-001', 'track-001', {
-					user_label: 'good_vehicle',
+					user_label: 'car',
 					quality_label: 'perfect'
 				});
 				const call = (global.fetch as jest.Mock).mock.calls[0];
 				expect(call[1].method).toBe('PUT');
 				expect(JSON.parse(call[1].body)).toEqual({
-					user_label: 'good_vehicle',
+					user_label: 'car',
 					quality_label: 'perfect'
 				});
 			});

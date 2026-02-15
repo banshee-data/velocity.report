@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 func TestRunParams_Serialization(t *testing.T) {
@@ -231,31 +233,32 @@ func TestDefaultRunParams_HasCorrectValues(t *testing.T) {
 		t.Errorf("Version should be 1.0, got %s", params.Version)
 	}
 
-	// Check background defaults
+	// Check background defaults (must match config/tuning.defaults.json)
 	if params.Background.BackgroundUpdateFraction != 0.02 {
 		t.Errorf("BackgroundUpdateFraction should be 0.02")
 	}
-	if params.Background.ClosenessSensitivityMultiplier != 3.0 {
-		t.Errorf("ClosenessSensitivityMultiplier should be 3.0")
+	if params.Background.ClosenessSensitivityMultiplier != 8.0 {
+		t.Errorf("ClosenessSensitivityMultiplier should be 8.0")
 	}
 
-	// Check clustering defaults match DBSCAN defaults
-	if params.Clustering.Eps != DefaultDBSCANEps {
-		t.Errorf("Eps should match DefaultDBSCANEps")
+	// Check clustering defaults match config file
+	cfg := config.MustLoadDefaultConfig()
+	if params.Clustering.Eps != cfg.GetForegroundDBSCANEps() {
+		t.Errorf("Eps should match config foreground_dbscan_eps")
 	}
-	if params.Clustering.MinPts != DefaultDBSCANMinPts {
-		t.Errorf("MinPts should match DefaultDBSCANMinPts")
+	if params.Clustering.MinPts != cfg.GetForegroundMinClusterPoints() {
+		t.Errorf("MinPts should match config foreground_min_cluster_points")
 	}
 
-	// Check tracking defaults
+	// Check tracking defaults (must match config/tuning.defaults.json)
 	if params.Tracking.MaxTracks != 100 {
 		t.Errorf("MaxTracks should be 100")
 	}
 	if params.Tracking.MaxMisses != 3 {
 		t.Errorf("MaxMisses should be 3")
 	}
-	if params.Tracking.HitsToConfirm != 5 {
-		t.Errorf("HitsToConfirm should be 5")
+	if params.Tracking.HitsToConfirm != 3 {
+		t.Errorf("HitsToConfirm should be 3")
 	}
 
 	// Check classification defaults

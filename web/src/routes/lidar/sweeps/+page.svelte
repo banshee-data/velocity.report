@@ -186,7 +186,7 @@
 				return 'Auto-Tune';
 			case 'params':
 				return 'Manual';
-			case 'rlhf':
+			case 'hint':
 				return 'Human-in-the-Loop';
 			default:
 				return mode;
@@ -453,11 +453,11 @@
 						</div>
 					{/if}
 
-					<!-- RLHF Round History -->
-					{#if selectedSweep.mode === 'rlhf' && selectedSweep.round_results && Array.isArray(selectedSweep.round_results)}
+					<!-- HINT Round History -->
+					{#if selectedSweep.mode === 'hint' && selectedSweep.round_results && Array.isArray(selectedSweep.round_results)}
 						<details class="mb-4" open>
 							<summary class="text-surface-content cursor-pointer text-sm font-semibold">
-								RLHF Rounds ({selectedSweep.round_results.length})
+								HINT Rounds ({selectedSweep.round_results.length})
 							</summary>
 							<div class="mt-2 space-y-2">
 								{#each selectedSweep.round_results as round, i (i)}

@@ -1,0 +1,73 @@
+{
+  "_comment": "10-hour overnight sweep targeting Kalman noise and clustering/gating parameters.",
+  "_note": "Run with fixed foreground defaults already applied (closeness=3.0, safety=0.15, neighbour=3, noise_relative=0.02, hits_to_confirm=4).",
+  "_timing": "2 rounds × 243 combos × 72s/combo ≈ 9.7h → fits 10h window.",
+  "_max_combos_note": "Auto-tuner enforces max 1000 combos/round. 3^5=243 is well within limit.",
+  "params": [
+    {
+      "name": "process_noise_pos",
+      "type": "float64",
+      "start": 0.05,
+      "end": 1.0,
+      "step": 0.475,
+      "description": "Position process noise. Current default 1.0, proposed optimised 0.1. Full range exploration."
+    },
+    {
+      "name": "process_noise_vel",
+      "type": "float64",
+      "start": 0.2,
+      "end": 3.0,
+      "step": 1.4,
+      "description": "Velocity process noise. Current default 5.0, proposed optimised 0.3. Sweep low end."
+    },
+    {
+      "name": "measurement_noise",
+      "type": "float64",
+      "start": 0.05,
+      "end": 0.35,
+      "step": 0.15,
+      "description": "Observation uncertainty. Default 0.3, optimised 0.15."
+    },
+    {
+      "name": "gating_distance_squared",
+      "type": "float64",
+      "start": 9.0,
+      "end": 36.0,
+      "step": 13.5,
+      "description": "Association gate radius squared. Current default 36.0, optimised 25.0. Check if reduction helps."
+    },
+    {
+      "name": "foreground_dbscan_eps",
+      "type": "float64",
+      "start": 0.4,
+      "end": 1.0,
+      "step": 0.3,
+      "description": "Clustering radius. Current default 0.8, optimised 0.7. Verify neighbourhood."
+    }
+  ],
+  "max_rounds": 2,
+  "values_per_param": 3,
+  "top_k": 10,
+  "objective": "weighted",
+  "weights": {
+    "acceptance": 1.0,
+    "misalignment": -0.5,
+    "alignment": -0.01,
+    "nonzero_cells": 0.1,
+    "active_tracks": 0.3,
+    "foreground_capture": 1.0,
+    "empty_boxes": -3.0,
+    "fragmentation": -5.0,
+    "heading_jitter": -2.0,
+    "speed_jitter": -2.0
+  },
+  "acceptance_criteria": {
+    "max_fragmentation_ratio": 0.25,
+    "max_empty_box_ratio": 0.15
+  },
+  "iterations": 35,
+  "settle_time": "2s",
+  "settle_mode": "warmup",
+  "data_source": "pcap",
+  "pcap_file": "static/kirk0.pcapng"
+}

@@ -90,8 +90,14 @@ class CompositePointCloudRenderer {
     func processFrame(_ frame: FrameBundle) {
         switch frame.frameType {
         case .full:
-            // Legacy mode: treat as foreground only
+            // Legacy mode: treat point cloud as foreground
             if let pointCloud = frame.pointCloud { updateForegroundBuffer(pointCloud) }
+            // Also ingest background data when present (e.g. first VRLOG frame)
+            if let background = frame.background {
+                updateBackgroundBuffer(background)
+                backgroundSeq = background.sequenceNumber
+                cacheState = .cached(seq: backgroundSeq)
+            }
 
         case .foreground:
             // M3.5 mode: foreground points only
@@ -231,27 +237,30 @@ class CompositePointCloudRenderer {
 
     // MARK: - Rendering
 
-    /// Render both background and foreground buffers.
+    /// Render background and/or foreground buffers.
     /// - Parameters:
     ///   - encoder: The render command encoder
     ///   - pipeline: The point cloud render pipeline
     ///   - uniforms: The uniform buffer (passed as inout for efficiency)
+    ///   - drawBackground: Whether to draw background points (K toggle)
+    ///   - drawForeground: Whether to draw foreground points (F toggle)
     func render(
         encoder: MTLRenderCommandEncoder, pipeline: MTLRenderPipelineState,
-        uniforms: inout MetalRenderer.Uniforms
+        uniforms: inout MetalRenderer.Uniforms, drawBackground: Bool = true,
+        drawForeground: Bool = true
     ) {
         encoder.setRenderPipelineState(pipeline)
 
-        // Draw background first (if cached)
-        if let bgBuffer = backgroundBuffer, backgroundPointCount > 0 {
+        // Draw background first (if cached and enabled)
+        if drawBackground, let bgBuffer = backgroundBuffer, backgroundPointCount > 0 {
             encoder.setVertexBuffer(bgBuffer, offset: 0, index: 0)
             encoder.setVertexBytes(
                 &uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: backgroundPointCount)
         }
 
-        // Draw foreground on top
-        if let fgBuffer = foregroundBuffer, foregroundPointCount > 0 {
+        // Draw foreground on top (if enabled)
+        if drawForeground, let fgBuffer = foregroundBuffer, foregroundPointCount > 0 {
             encoder.setVertexBuffer(fgBuffer, offset: 0, index: 0)
             encoder.setVertexBytes(
                 &uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)

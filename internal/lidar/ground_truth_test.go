@@ -261,8 +261,8 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "perfect detection - all matched",
 			reference: []*RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "good_vehicle"},
-				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "good_vehicle"},
+				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
+				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
 			},
 			candidate: []*RunTrack{
 				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
@@ -275,8 +275,8 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "50% detection - one missed",
 			reference: []*RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "good_vehicle"},
-				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "good_vehicle"},
+				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
+				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
 			},
 			candidate: []*RunTrack{
 				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
@@ -288,7 +288,7 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "false positives present",
 			reference: []*RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "good_vehicle"},
+				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
 			},
 			candidate: []*RunTrack{
 				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
@@ -302,10 +302,10 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "quality labels affect score",
 			reference: []*RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "good_vehicle"},
+				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
 			},
 			candidate: []*RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0, QualityLabel: "perfect"},
+				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0, QualityLabel: "good"},
 			},
 			expectedDetection: 1.0,
 			expectedFP:        0.0,
@@ -314,14 +314,14 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "noise tracks filtered from reference",
 			reference: []*RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "good_vehicle"},
+				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
 				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "noise"},
-				{TrackID: "ref-3", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "noise_flora"},
+				{TrackID: "ref-3", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "noise"},
 			},
 			candidate: []*RunTrack{
 				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
 			},
-			expectedDetection: 1.0, // Only good_vehicle counts in reference
+			expectedDetection: 1.0, // Only car counts in reference
 			expectedFP:        0.0,
 			minComposite:      0.9,
 		},
@@ -359,10 +359,10 @@ func TestEvaluateGroundTruthDetectionByClass(t *testing.T) {
 	weights := DefaultGroundTruthWeights()
 
 	reference := []*RunTrack{
-		{TrackID: "ref-v1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "good_vehicle"},
-		{TrackID: "ref-v2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "good_vehicle"},
-		{TrackID: "ref-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "good_pedestrian"},
-		{TrackID: "ref-o1", StartUnixNanos: 7000, EndUnixNanos: 8000, UserLabel: "good_other"},
+		{TrackID: "ref-v1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
+		{TrackID: "ref-v2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
+		{TrackID: "ref-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "ped"},
+		{TrackID: "ref-o1", StartUnixNanos: 7000, EndUnixNanos: 8000, UserLabel: "noise"},
 	}
 
 	candidate := []*RunTrack{
@@ -374,16 +374,17 @@ func TestEvaluateGroundTruthDetectionByClass(t *testing.T) {
 
 	score := EvaluateGroundTruth(reference, candidate, weights)
 
-	// Check overall detection rate: 3/4 = 0.75
-	if math.Abs(score.DetectionRate-0.75) > 0.01 {
-		t.Errorf("DetectionRate = %f, want 0.75", score.DetectionRate)
+	// Check overall detection rate: 2/3 positive tracks matched (ref-v1, ref-p1)
+	// ref-v2 missed, ref-o1 is noise and excluded from reference
+	wantDetection := 2.0 / 3.0
+	if math.Abs(score.DetectionRate-wantDetection) > 0.01 {
+		t.Errorf("DetectionRate = %f, want %f", score.DetectionRate, wantDetection)
 	}
 
-	// Check class-specific rates
+	// Check class-specific rates (noise excluded from reference)
 	expectedRates := map[string]float64{
-		"good_vehicle":    0.5, // 1/2 vehicles detected
-		"good_pedestrian": 1.0, // 1/1 pedestrian detected
-		"good_other":      1.0, // 1/1 other detected
+		"car": 0.5, // 1/2 vehicles detected
+		"ped": 1.0, // 1/1 pedestrian detected
 	}
 
 	for class, expectedRate := range expectedRates {

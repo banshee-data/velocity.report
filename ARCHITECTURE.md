@@ -241,7 +241,7 @@ All components share a common SQLite database as the single source of truth, wit
 - **`internal/lidar/sweep/`** - Parameter sweep and tuning
   - `Runner` — runs combinatorial parameter sweeps (manual mode)
   - `AutoTuner` — iterative bounds-narrowing with proxy or ground truth scoring (auto mode)
-  - `RLHFTuner` — human-in-the-loop optimisation: creates reference runs, waits for human track labelling, then sweeps with ground truth scores (rlhf mode)
+  - `HINTTuner` — human-involved numerical tuning: creates reference runs, waits for human track labelling, then sweeps with ground truth scores (hint mode)
 
 - **`internal/monitoring/`** - System monitoring
   - Health checks

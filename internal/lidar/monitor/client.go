@@ -3,6 +3,7 @@ package monitor
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"math"
 	"net/http"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
 // Client provides HTTP operations for LiDAR monitoring endpoints.
@@ -221,7 +224,8 @@ type PCAPReplayConfig struct {
 	StartSeconds    float64
 	DurationSeconds float64
 	MaxRetries      int
-	AnalysisMode    bool // When true, preserve grid after PCAP completion
+	AnalysisMode    bool   // When true, preserve grid after PCAP completion
+	SpeedMode       string // "fastest", "realtime", or "ratio" (default: server decides)
 }
 
 // StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.
@@ -240,6 +244,9 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	}
 	if cfg.AnalysisMode {
 		payload["analysis_mode"] = true
+	}
+	if cfg.SpeedMode != "" {
+		payload["speed_mode"] = cfg.SpeedMode
 	}
 	data, _ := json.Marshal(payload)
 
@@ -308,7 +315,9 @@ func (c *Client) StopPCAPReplay() error {
 	return nil
 }
 
-// WaitForPCAPComplete polls the data source status until the PCAP replay finishes.
+// WaitForPCAPComplete uses long-polling to wait until the PCAP replay finishes.
+// The server blocks the request until PCAP completes, avoiding 500ms polling.
+// Falls back to short-poll if the long-poll request fails (e.g. older server).
 // Returns nil when the PCAP is no longer in progress, or an error on timeout.
 func (c *Client) WaitForPCAPComplete(timeout time.Duration) error {
 	if timeout <= 0 {
@@ -316,6 +325,35 @@ func (c *Client) WaitForPCAPComplete(timeout time.Duration) error {
 	}
 
 	deadline := time.Now().Add(timeout)
+
+	// Try long-poll first: server blocks until PCAP finishes.
+	// This avoids the 500ms polling loop when the server supports it.
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
+	longPollURL := fmt.Sprintf("%s/api/lidar/data_source?sensor_id=%s&wait_for_done=true", c.BaseURL, c.SensorID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, longPollURL, nil)
+	if err == nil {
+		resp, err := c.HTTPClient.Do(req)
+		if err == nil {
+			var ds map[string]interface{}
+			if json.NewDecoder(resp.Body).Decode(&ds) == nil {
+				if inProgress, ok := ds["pcap_in_progress"].(bool); ok && !inProgress {
+					resp.Body.Close()
+					return nil
+				}
+			}
+			resp.Body.Close()
+			// Long-poll returned pcap_in_progress=true or bad JSON.
+			// If deadline passed during the long-poll, report timeout.
+			if time.Now().After(deadline) {
+				return fmt.Errorf("timeout waiting for PCAP to complete")
+			}
+		}
+		// HTTP error (connection refused, etc.) → fall through to legacy polling.
+	}
+
+	// Fallback: short-poll (matches original retry/sleep behaviour).
 	for time.Now().Before(deadline) {
 		resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/data_source?sensor_id=%s", c.BaseURL, c.SensorID))
 		if err != nil {
@@ -461,3 +499,56 @@ func (c *Client) SetTrackerConfig(params TrackingParams) error {
 	}
 	return nil
 }
+
+// GetLastAnalysisRunID retrieves the last analysis run ID from the data source endpoint.
+// Returns an empty string if no analysis run has been recorded.
+func (c *Client) GetLastAnalysisRunID() string {
+	resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/data_source?sensor_id=%s", c.BaseURL, c.SensorID))
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var ds map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&ds); err != nil {
+		return ""
+	}
+	if runID, ok := ds["last_run_id"].(string); ok {
+		return runID
+	}
+	return ""
+}
+
+// --- sweep.SweepBackend adapter methods ---
+
+// GetSensorID returns the sensor identifier (method form of the SensorID field).
+func (c *Client) GetSensorID() string { return c.SensorID }
+
+// StartPCAPReplayWithSweepConfig starts a PCAP replay using the sweep-package
+// config type. It converts to the monitor.PCAPReplayConfig and delegates.
+func (c *Client) StartPCAPReplayWithSweepConfig(cfg sweep.PCAPReplayConfig) error {
+	return c.StartPCAPReplayWithConfig(PCAPReplayConfig{
+		PCAPFile:        cfg.PCAPFile,
+		StartSeconds:    cfg.StartSeconds,
+		DurationSeconds: cfg.DurationSeconds,
+		MaxRetries:      cfg.MaxRetries,
+		AnalysisMode:    cfg.AnalysisMode,
+		SpeedMode:       cfg.SpeedMode,
+	})
+}
+
+// ClientBackend wraps a *Client to satisfy sweep.SweepBackend.
+// The wrapper is needed because the Client struct has a public SensorID
+// field which conflicts with the interface's SensorID() method.
+type ClientBackend struct{ *Client }
+
+// NewClientBackend wraps an HTTP Client as a SweepBackend.
+func NewClientBackend(c *Client) *ClientBackend { return &ClientBackend{Client: c} }
+
+func (cb *ClientBackend) SensorID() string { return cb.Client.SensorID }
+func (cb *ClientBackend) StartPCAPReplayWithConfig(cfg sweep.PCAPReplayConfig) error {
+	return cb.Client.StartPCAPReplayWithSweepConfig(cfg)
+}
+
+// Compile-time check.
+var _ sweep.SweepBackend = (*ClientBackend)(nil)

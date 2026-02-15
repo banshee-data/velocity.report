@@ -6,21 +6,19 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
 )
 
 // Sampler collects acceptance metrics over multiple iterations for parameter sweep analysis.
 type Sampler struct {
-	Client   *monitor.Client
+	Backend  SweepBackend
 	Buckets  []string
 	Interval time.Duration
 }
 
-// NewSampler creates a new Sampler with the given client, buckets, and sampling interval.
-func NewSampler(client *monitor.Client, buckets []string, interval time.Duration) *Sampler {
+// NewSampler creates a new Sampler with the given backend, buckets, and sampling interval.
+func NewSampler(backend SweepBackend, buckets []string, interval time.Duration) *Sampler {
 	return &Sampler{
-		Client:   client,
+		Backend:  backend,
 		Buckets:  buckets,
 		Interval: interval,
 	}
@@ -57,7 +55,7 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 	results := make([]SampleResult, 0, maxIterations)
 
 	for i := 0; i < iterations; i++ {
-		metrics, err := s.Client.FetchAcceptanceMetrics()
+		metrics, err := s.Backend.FetchAcceptanceMetrics()
 		if err != nil {
 			log.Printf("WARNING: Sample %d failed: %v", i+1, err)
 			time.Sleep(s.Interval)
@@ -82,7 +80,7 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 
 		// Fetch grid status for nonzero cells
 		var nonzero float64
-		if status, err := s.Client.FetchGridStatus(); err == nil {
+		if status, err := s.Backend.FetchGridStatus(); err == nil {
 			if bc, ok := status["background_count"]; ok {
 				switch v := bc.(type) {
 				case float64:
@@ -106,7 +104,7 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 		}
 
 		// Fetch tracking metrics (best-effort)
-		if trackMetrics, err := s.Client.FetchTrackingMetrics(); err == nil {
+		if trackMetrics, err := s.Backend.FetchTrackingMetrics(); err == nil {
 			if v, ok := trackMetrics["active_tracks"]; ok {
 				result.ActiveTracks = toIntFromMap(v)
 			}

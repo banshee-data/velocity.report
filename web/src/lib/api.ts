@@ -509,7 +509,11 @@ export async function getTrackHistory(
 	url.searchParams.append('limit', limit.toString());
 	const res = await fetch(url);
 	if (!res.ok) throw new Error(`Failed to fetch track history: ${res.status}`);
-	return res.json();
+	const data = await res.json();
+	return {
+		tracks: Array.isArray(data.tracks) ? data.tracks : [],
+		observations: data.observations ?? {}
+	};
 }
 
 /**
@@ -864,27 +868,27 @@ export async function applyLidarParams(
 }
 
 /**
- * Get the current RLHF sweep state.
+ * Get the current HINT sweep state.
  */
-export async function getRLHFState(): Promise<Record<string, unknown>> {
-	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf`);
-	if (!res.ok) throw new Error(`Failed to get RLHF state: ${res.status}`);
+export async function getHINTState(): Promise<Record<string, unknown>> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/hint`);
+	if (!res.ok) throw new Error(`Failed to get HINT state: ${res.status}`);
 	return res.json();
 }
 
 /**
- * Start an RLHF sweep.
- * @param req - RLHF sweep request parameters
+ * Start an HINT sweep.
+ * @param req - HINT sweep request parameters
  */
-export async function startRLHFSweep(req: Record<string, unknown>): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf`, {
+export async function startHINTSweep(req: Record<string, unknown>): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/hint`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(req)
 	});
 	if (!res.ok) {
 		const text = await res.text();
-		let msg = `Failed to start RLHF sweep: ${res.status}`;
+		let msg = `Failed to start HINT sweep: ${res.status}`;
 		try {
 			const body = JSON.parse(text);
 			if (body.error) msg = body.error;
@@ -896,19 +900,19 @@ export async function startRLHFSweep(req: Record<string, unknown>): Promise<void
 }
 
 /**
- * Signal RLHF tuner to continue from labelling to sweep phase.
+ * Signal HINT tuner to continue from labelling to sweep phase.
  * @param nextDurationMins - Override for next sweep duration (0 = use default)
  * @param addRound - Whether to add an extra round
  */
-export async function continueRLHF(nextDurationMins = 0, addRound = false): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf/continue`, {
+export async function continueHINT(nextDurationMins = 0, addRound = false): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/hint/continue`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ next_sweep_duration_mins: nextDurationMins, add_round: addRound })
 	});
 	if (!res.ok) {
 		const text = await res.text();
-		let msg = `Failed to continue RLHF: ${res.status}`;
+		let msg = `Failed to continue HINT: ${res.status}`;
 		try {
 			const body = JSON.parse(text);
 			if (body.error) msg = body.error;
@@ -920,9 +924,9 @@ export async function continueRLHF(nextDurationMins = 0, addRound = false): Prom
 }
 
 /**
- * Stop a running RLHF sweep.
+ * Stop a running HINT sweep.
  */
-export async function stopRLHF(): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/sweep/rlhf/stop`, { method: 'POST' });
-	if (!res.ok) throw new Error(`Failed to stop RLHF: ${res.status}`);
+export async function stopHINT(): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/hint/stop`, { method: 'POST' });
+	if (!res.ok) throw new Error(`Failed to stop HINT: ${res.status}`);
 }

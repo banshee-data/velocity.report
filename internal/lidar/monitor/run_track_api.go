@@ -97,10 +97,14 @@ func (ws *WebServer) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		case "flags":
 			ws.handleUpdateTrackFlags(w, r, runID, trackID)
 		case "":
+			// Handle GET /api/lidar/runs/{run_id}/tracks/{track_id}
 			// Handle DELETE /api/lidar/runs/{run_id}/tracks/{track_id}
-			if r.Method == http.MethodDelete {
+			switch r.Method {
+			case http.MethodGet:
+				ws.handleGetRunTrack(w, r, runID, trackID)
+			case http.MethodDelete:
 				ws.handleDeleteRunTrack(w, r, runID, trackID)
-			} else {
+			default:
 				ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 			}
 		default:
@@ -147,7 +151,7 @@ func parseTrackPath(path string) (trackID string, action string) {
 
 // handleUpdateTrackLabel updates the user label and quality label for a track.
 // PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label
-// Request body: {"user_label": "good_vehicle", "quality_label": "perfect", "label_confidence": 0.95, "labeler_id": "user1"}
+// Request body: {"user_label": "car", "quality_label": "good,truncated", "label_confidence": 0.95, "labeler_id": "user1"}
 func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request, runID, trackID string) {
 	if r.Method != http.MethodPut {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use PUT")
@@ -203,6 +207,12 @@ func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Reque
 		"label_confidence": req.LabelConfidence,
 		"labeler_id":       req.LabelerID,
 	})
+
+	// Notify HINT runner so it can refresh label progress immediately
+	// instead of waiting for the next poll tick.
+	if ws.hintRunner != nil {
+		ws.hintRunner.NotifyLabelUpdate()
+	}
 }
 
 // handleUpdateTrackFlags updates the split/merge flags for a track.
@@ -254,6 +264,29 @@ func (ws *WebServer) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Reque
 		"is_merge":         isMerge,
 		"linked_track_ids": req.LinkedTrackIDs,
 	})
+}
+
+// handleGetRunTrack returns a single track for a run.
+// GET /api/lidar/runs/{run_id}/tracks/{track_id}
+func (ws *WebServer) handleGetRunTrack(w http.ResponseWriter, r *http.Request, runID, trackID string) {
+	if ws.db == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		return
+	}
+
+	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	track, err := store.GetRunTrack(runID, trackID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			ws.writeJSONError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get track: %v", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(track)
 }
 
 // handleDeleteRunTrack deletes a specific track from a run.

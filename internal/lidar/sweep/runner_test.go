@@ -8,7 +8,7 @@ import (
 )
 
 func TestComputeCombinationsMulti(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
 		Mode:            "multi",
 		NoiseValues:     []float64{0.01, 0.02},
@@ -27,7 +27,7 @@ func TestComputeCombinationsMulti(t *testing.T) {
 }
 
 func TestComputeCombinationsNoise(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
 		Mode:           "noise",
 		NoiseStart:     0.01,
@@ -48,7 +48,7 @@ func TestComputeCombinationsNoise(t *testing.T) {
 }
 
 func TestComputeCombinationsCloseness(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
 		Mode:           "closeness",
 		ClosenessStart: 1.5,
@@ -69,7 +69,7 @@ func TestComputeCombinationsCloseness(t *testing.T) {
 }
 
 func TestComputeCombinationsNeighbour(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
 		Mode:           "neighbour",
 		NeighbourStart: 0,
@@ -90,7 +90,7 @@ func TestComputeCombinationsNeighbour(t *testing.T) {
 }
 
 func TestNewRunnerState(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	state := r.GetSweepState()
 	if state.Status != SweepStatusIdle {
 		t.Errorf("expected idle status, got %s", state.Status)
@@ -107,7 +107,7 @@ func TestNewRunnerState(t *testing.T) {
 }
 
 func TestComputeCombinationsDefaults(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
 		Mode: "multi",
 	})
@@ -124,7 +124,7 @@ func TestComputeCombinationsDefaults(t *testing.T) {
 }
 
 func TestComputeCombinationsMultiWithRanges(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
 		Mode:           "multi",
 		NoiseStart:     0.01,
@@ -149,7 +149,7 @@ func TestComputeCombinationsMultiWithRanges(t *testing.T) {
 }
 
 func TestStartRejectsExcessiveCombinations(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	// Generate a request that would produce >1000 combinations
 	err := r.StartWithRequest(nil, SweepRequest{
 		Mode:       "noise",
@@ -164,7 +164,7 @@ func TestStartRejectsExcessiveCombinations(t *testing.T) {
 }
 
 func TestStartRejectsExcessiveIterations(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	err := r.StartWithRequest(nil, SweepRequest{
 		Mode:           "noise",
 		NoiseStart:     0.01,
@@ -475,7 +475,7 @@ func TestToInt(t *testing.T) {
 }
 
 func TestStartGenericRejectsExcessiveCombinations(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	// 100 * 100 = 10000 > 1000
 	vals100 := make([]interface{}, 100)
 	for i := range vals100 {
@@ -494,7 +494,7 @@ func TestStartGenericRejectsExcessiveCombinations(t *testing.T) {
 }
 
 func TestStartGenericRejectsEmptyParam(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	err := r.StartWithRequest(nil, SweepRequest{
 		Iterations: 1,
 		Params: []SweepParam{
@@ -532,7 +532,7 @@ func TestCartesianProductOrder(t *testing.T) {
 }
 
 func TestComputeComboResult(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	buckets := []string{"1", "2", "4"}
 
 	results := []SampleResult{
@@ -626,7 +626,7 @@ func TestComputeComboResult(t *testing.T) {
 }
 
 func TestComputeComboResultEmpty(t *testing.T) {
-	r := NewRunner(nil)
+	r := newQuietRunner(nil)
 	combo := r.computeComboResult(0.04, 8.0, 7, nil, []string{"1"})
 
 	if combo.OverallAcceptMean != 0 {

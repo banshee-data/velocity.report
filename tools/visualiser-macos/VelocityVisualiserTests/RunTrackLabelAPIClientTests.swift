@@ -112,7 +112,7 @@ struct RunTrackModelTests {
     @Test func isLabelledWithLabel() throws {
         let track = RunTrack(
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: "good_vehicle", qualityLabel: nil, labelConfidence: nil,
+            userLabel: "car", qualityLabel: nil, labelConfidence: nil,
             labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
             durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil, isSplitCandidate: nil,
             isMergeCandidate: nil)
@@ -282,8 +282,8 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                     "run_id": "run-001",
                     "track_id": "track-001",
                     "sensor_id": "hesai-01",
-                    "user_label": "good_vehicle",
-                    "quality_label": "perfect",
+                    "user_label": "car",
+                    "quality_label": "good",
                     "label_confidence": 0.95,
                     "labeler_id": "david",
                     "start_unix_nanos": 1000000000,
@@ -309,8 +309,8 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         let tracks = try await client.listTracks(runID: "run-001", limit: 100)
         XCTAssertEqual(tracks.count, 1)
         XCTAssertEqual(tracks[0].trackId, "track-001")
-        XCTAssertEqual(tracks[0].userLabel, "good_vehicle")
-        XCTAssertEqual(tracks[0].qualityLabel, "perfect")
+        XCTAssertEqual(tracks[0].userLabel, "car")
+        XCTAssertEqual(tracks[0].qualityLabel, "good")
         XCTAssertTrue(tracks[0].isLabelled)
     }
 
@@ -395,8 +395,8 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                 "status": "updated",
                 "run_id": "run-001",
                 "track_id": "track-001",
-                "user_label": "good_vehicle",
-                "quality_label": "perfect",
+                "user_label": "car",
+                "quality_label": "good",
                 "label_confidence": 0.9,
                 "labeler_id": "david"
             }
@@ -409,8 +409,8 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
             if let body = request.httpBody,
                 let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
             {
-                XCTAssertEqual(json["user_label"] as? String, "good_vehicle")
-                XCTAssertEqual(json["quality_label"] as? String, "perfect")
+                XCTAssertEqual(json["user_label"] as? String, "car")
+                XCTAssertEqual(json["quality_label"] as? String, "good")
             }
 
             let response = HTTPURLResponse(
@@ -420,9 +420,9 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
 
         let result = try await client.updateLabel(
             runID: "run-001", trackID: "track-001",
-            userLabel: "good_vehicle", qualityLabel: "perfect")
+            userLabel: "car", qualityLabel: "good")
         XCTAssertEqual(result.status, "updated")
-        XCTAssertEqual(result.userLabel, "good_vehicle")
+        XCTAssertEqual(result.userLabel, "car")
     }
 
     func testUpdateLabelOnlyUserLabel() async throws {
@@ -485,7 +485,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                 "run_id": "run-001",
                 "total": 25,
                 "labelled": 15,
-                "by_class": {"good_vehicle": 10, "noise": 5},
+                "by_class": {"car": 10, "noise": 5},
                 "progress_pct": 60.0
             }
             """
@@ -500,7 +500,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         XCTAssertEqual(progress.total, 25)
         XCTAssertEqual(progress.labelled, 15)
         XCTAssertEqual(progress.progressPct, 60.0)
-        XCTAssertEqual(progress.byClass?["good_vehicle"], 10)
+        XCTAssertEqual(progress.byClass?["car"], 10)
     }
 
     func testGetLabellingProgressServerError() async throws {
@@ -752,7 +752,7 @@ struct RunTrackLabelModelDecodingTests {
                 "run_id": "run-001",
                 "total": 50,
                 "labelled": 30,
-                "by_class": {"good_vehicle": 20, "noise": 10},
+                "by_class": {"car": 20, "noise": 10},
                 "progress_pct": 60.0
             }
             """
@@ -762,7 +762,7 @@ struct RunTrackLabelModelDecodingTests {
         #expect(progress.total == 50)
         #expect(progress.labelled == 30)
         #expect(progress.progressPct == 60.0)
-        #expect(progress.byClass?["good_vehicle"] == 20)
+        #expect(progress.byClass?["car"] == 20)
     }
 
     @Test func playbackStatusDecodes() throws {

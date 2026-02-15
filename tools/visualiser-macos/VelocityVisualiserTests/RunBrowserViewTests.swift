@@ -113,7 +113,7 @@ struct AnalysisRunComputedPropertyTests {
 
 struct RunTrackComputedPropertyTests {
     @Test func isLabelledWithUserLabel() throws {
-        let track = makeTrack(userLabel: "good_vehicle")
+        let track = makeTrack(userLabel: "car")
         #expect(track.isLabelled == true)
     }
 
@@ -157,11 +157,11 @@ struct RunTrackComputedPropertyTests {
     @Test func allOptionalFieldsPresent() throws {
         let track = RunTrack(
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: "car", qualityLabel: "perfect", labelConfidence: 0.95,
+            userLabel: "car", qualityLabel: "good", labelConfidence: 0.95,
             labelerId: "david", startUnixNanos: 1_000_000_000, endUnixNanos: 5_000_000_000,
             totalObservations: 40, durationSecs: 4.0, avgSpeedMps: 8.5, peakSpeedMps: 12.0,
             isSplitCandidate: false, isMergeCandidate: false)
-        #expect(track.qualityLabel == "perfect")
+        #expect(track.qualityLabel == "good")
         #expect(track.labelConfidence == 0.95)
         #expect(track.durationSecs == 4.0)
         #expect(track.avgSpeedMps == 8.5)
@@ -184,7 +184,7 @@ struct LabellingProgressModelTests {
     @Test func fullProgress() throws {
         let progress = LabellingProgress(
             runId: "run-001", total: 50, labelled: 50,
-            byClass: ["good_vehicle": 30, "noise": 20], progressPct: 100.0)
+            byClass: ["car": 30, "noise": 20], progressPct: 100.0)
         #expect(progress.progressPct == 100.0)
         #expect(progress.total == progress.labelled)
     }
@@ -199,7 +199,7 @@ struct LabellingProgressModelTests {
     @Test func partialProgress() throws {
         let progress = LabellingProgress(
             runId: "run-001", total: 100, labelled: 60,
-            byClass: ["good_vehicle": 40, "noise": 15, "static_object": 5], progressPct: 60.0)
+            byClass: ["car": 40, "noise": 15, "static_object": 5], progressPct: 60.0)
         #expect(progress.labelled == 60)
         #expect(progress.byClass?.count == 3)
     }

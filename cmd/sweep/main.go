@@ -187,8 +187,8 @@ func main() {
 	sweep.WriteSummaryHeaders(w, buckets)
 	sweep.WriteRawHeaders(rawW, buckets)
 
-	// Create sampler
-	sampler := sweep.NewSampler(client, buckets, *interval)
+	// Create sampler (wrap client as SweepBackend)
+	sampler := sweep.NewSampler(monitor.NewClientBackend(client), buckets, *interval)
 
 	// Run sweep
 	comboNum := 0

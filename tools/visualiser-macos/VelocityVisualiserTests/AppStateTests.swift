@@ -31,6 +31,7 @@ import XCTest
 
         // Overlay toggles
         XCTAssertTrue(state.showPoints)
+        XCTAssertTrue(state.showBackground)
         XCTAssertTrue(state.showBoxes)
         XCTAssertTrue(state.showTrails)
         XCTAssertTrue(state.showVelocity)
@@ -716,7 +717,7 @@ import XCTest
         state.currentRunID = "run-abc"  // Run mode
 
         // Should not crash — fires async task
-        state.assignLabel("good_vehicle")
+        state.assignLabel("car")
     }
 
     func testAssignQualityRequiresSelectedTrackAndRunID() throws {
@@ -725,12 +726,12 @@ import XCTest
         // No selected track — should do nothing
         state.selectedTrackID = nil
         state.currentRunID = "run-abc"
-        state.assignQuality("perfect")
+        state.assignQuality("good")
 
         // No run ID — should do nothing
         state.selectedTrackID = "track-001"
         state.currentRunID = nil
-        state.assignQuality("perfect")
+        state.assignQuality("good")
     }
 
     func testAssignQualityWithBothSet() throws {
@@ -849,10 +850,8 @@ import XCTest
     // yielding between checks to let enqueued Tasks execute.
 
     private func waitForMainActor(
-        timeout: TimeInterval = 2.0,
-        condition: @escaping @MainActor () -> Bool,
-        file: StaticString = #filePath,
-        line: UInt = #line
+        timeout: TimeInterval = 2.0, condition: @escaping @MainActor () -> Bool,
+        file: StaticString = #filePath, line: UInt = #line
     ) async throws {
         let deadline = ContinuousClock.now + .seconds(timeout)
         while !condition() {
@@ -942,8 +941,7 @@ import XCTest
         state.currentFrameIndex = 0
         state.totalFrames = 100
 
-        state.stepForward()
-        // No crash expected
+        state.stepForward()// No crash expected
     }
 
     func testStepForwardIgnoredAtEnd() throws {
@@ -953,8 +951,7 @@ import XCTest
         state.currentFrameIndex = 99
         state.totalFrames = 100
 
-        state.stepForward()
-        // Guard should prevent stepping past end
+        state.stepForward()// Guard should prevent stepping past end
     }
 
     func testStepBackwardIgnoredWhenNotSeekable() throws {
@@ -963,8 +960,7 @@ import XCTest
         state.isSeekable = false
         state.currentFrameIndex = 50
 
-        state.stepBackward()
-        // No crash expected
+        state.stepBackward()// No crash expected
     }
 
     func testSeekIgnoredWhenNotSeekable() throws {

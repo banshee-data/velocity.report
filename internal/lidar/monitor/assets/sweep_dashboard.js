@@ -441,23 +441,32 @@ function setMode(mode) {
     mode === "manual" ? "active" : "";
   document.getElementById("mode-auto").className =
     mode === "auto" ? "active" : "";
-  var rlhfBtn = document.getElementById("mode-rlhf");
-  if (rlhfBtn) rlhfBtn.className = mode === "rlhf" ? "active" : "";
+  var hintBtn = document.getElementById("mode-hint");
+  if (hintBtn) hintBtn.className = mode === "hint" ? "active" : "";
 
   // Body classes for CSS visibility
-  document.body.classList.remove("auto-mode", "rlhf-mode");
+  document.body.classList.remove("auto-mode", "hint-mode");
   if (mode === "auto") {
     document.body.classList.add("auto-mode");
-  } else if (mode === "rlhf") {
-    document.body.classList.add("rlhf-mode");
+  } else if (mode === "hint") {
+    document.body.classList.add("hint-mode");
     requestNotificationPermission();
-    populateRLHFScenes();
+    loadSweepScenes();
+  }
+
+  // In HINT mode, force data source to "scene" (HINT always uses scenes)
+  if (mode === "hint") {
+    var dsEl = document.getElementById("data_source");
+    if (dsEl) {
+      dsEl.value = "scene";
+      togglePCAP();
+    }
   }
 
   // Update button text
-  if (mode === "rlhf") {
-    document.getElementById("btn-start").textContent = "Start RLHF Sweep";
-    document.getElementById("btn-stop").textContent = "Stop RLHF Sweep";
+  if (mode === "hint") {
+    document.getElementById("btn-start").textContent = "Start HINT Sweep";
+    document.getElementById("btn-stop").textContent = "Stop HINT Sweep";
   } else if (mode === "auto") {
     document.getElementById("btn-start").textContent = "Start Auto-Tune";
     document.getElementById("btn-stop").textContent = "Stop Auto-Tune";
@@ -994,13 +1003,13 @@ function applyJSONEditor() {
 function handleStart() {
   showError("");
   var rows = document.getElementById("param-rows").children;
-  if (sweepMode !== "rlhf" && rows.length === 0) {
+  if (sweepMode !== "hint" && rows.length === 0) {
     showError("Add at least one parameter.");
     return;
   }
 
-  if (sweepMode === "rlhf") {
-    handleStartRLHF();
+  if (sweepMode === "hint") {
+    handleStartHINT();
   } else if (sweepMode === "auto") {
     handleStartAutoTune();
   } else {
@@ -1141,8 +1150,8 @@ function handleStop() {
   document.getElementById("stopping-indicator").style.display = "block";
 
   var stopUrl;
-  if (sweepMode === "rlhf") {
-    stopUrl = "/api/lidar/sweep/rlhf/stop";
+  if (sweepMode === "hint") {
+    stopUrl = "/api/lidar/sweep/hint/stop";
   } else if (sweepMode === "auto") {
     stopUrl = "/api/lidar/sweep/auto/stop";
   } else {
@@ -1194,8 +1203,8 @@ function comboLabel(r) {
 }
 
 function pollStatus() {
-  if (sweepMode === "rlhf") {
-    pollRLHFStatus();
+  if (sweepMode === "hint") {
+    pollHINTStatus();
     return;
   }
   if (sweepMode === "auto") {
@@ -2947,6 +2956,24 @@ function disposeAllCharts() {
   if (grid) grid.innerHTML = "";
 }
 
+// Default parameters for HINT auto-configuration when user hasn't added any.
+var DEFAULT_HINT_FOREGROUND_PARAMS = [
+  "foreground_min_cluster_points",
+  "foreground_dbscan_eps",
+];
+
+var DEFAULT_HINT_BACKGROUND_PARAMS = [
+  "noise_relative",
+  "closeness_multiplier",
+  "background_update_fraction",
+  "safety_margin_meters",
+];
+
+// DEFAULT_HINT_PARAMS kept for backward compatibility (all params).
+var DEFAULT_HINT_PARAMS = DEFAULT_HINT_FOREGROUND_PARAMS.concat(
+  DEFAULT_HINT_BACKGROUND_PARAMS,
+);
+
 // ---- CommonJS exports for testing ----
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
@@ -3015,14 +3042,14 @@ if (typeof module !== "undefined" && module.exports) {
     togglePCAP: togglePCAP,
     fetchSweepExplanation: fetchSweepExplanation,
     renderExplanation: renderExplanation,
-    handleStartRLHF: handleStartRLHF,
-    startRLHFPolling: startRLHFPolling,
-    stopRLHFPolling: stopRLHFPolling,
-    pollRLHFStatus: pollRLHFStatus,
-    renderRLHFState: renderRLHFState,
-    handleRLHFContinue: handleRLHFContinue,
-    populateRLHFScenes: populateRLHFScenes,
-    onRLHFSceneSelected: onRLHFSceneSelected,
+    handleStartHINT: handleStartHINT,
+    DEFAULT_HINT_PARAMS: DEFAULT_HINT_PARAMS,
+    startHINTPolling: startHINTPolling,
+    stopHINTPolling: stopHINTPolling,
+    pollHINTStatus: pollHINTStatus,
+    renderHINTState: renderHINTState,
+    handleHINTContinue: handleHINTContinue,
+
     requestNotificationPermission: requestNotificationPermission,
     fireNotification: fireNotification,
     init: init,
@@ -3058,18 +3085,28 @@ function init() {
       if (st.status === "running") {
         setMode("auto");
         startPolling();
-      } else if (st.status === "complete" && st.recommendation) {
+      } else if (
+        (st.status === "complete" || st.status === "error") &&
+        st.results &&
+        st.results.length > 0
+      ) {
+        // Show results from completed or errored auto-tune (may lack recommendation)
         setMode("auto");
-        if (st.results && st.results.length > 0) {
-          document.getElementById("progress-section").style.display = "";
-          var badge = document.getElementById("status-badge");
-          badge.textContent = st.status;
-          badge.className = "status-badge status-" + st.status;
-          latestResults = st.results;
-          renderCharts(st.results);
-          renderTable(st.results);
+        document.getElementById("progress-section").style.display = "";
+        var badge = document.getElementById("status-badge");
+        badge.textContent = st.status;
+        badge.className = "status-badge status-" + st.status;
+        latestResults = st.results;
+        renderCharts(st.results);
+        renderTable(st.results);
+        if (st.error) {
+          var errEl = document.getElementById("sweep-error");
+          errEl.textContent = st.error;
+          errEl.style.display = "";
         }
-        renderRecommendation(st.recommendation, st.round_results);
+        if (st.recommendation) {
+          renderRecommendation(st.recommendation, st.round_results);
+        }
       } else {
         // No auto-tune running, check manual sweep
         fetch("/api/lidar/sweep/status")
@@ -3161,64 +3198,82 @@ function init() {
   });
 }
 
-// ---- RLHF Functions ----
+// ---- HINT Functions ----
 
-var rlhfPollTimer = null;
-var lastRLHFPhase = "";
+var hintPollTimer = null;
+var hintLongPollAbort = null;
+var lastHINTPhase = "";
 
-function handleStartRLHF() {
-  var sceneSelect = document.getElementById("rlhf_scene_select");
+function handleStartHINT() {
+  // HINT uses the scene selector from the Data Source card
+  var sceneSelect = document.getElementById("scene_select");
   var sceneId = sceneSelect ? sceneSelect.value : "";
   if (!sceneId) {
-    showError("Select a scene before starting RLHF sweep.");
+    showError("Select a scene before starting HINT sweep.");
     return;
   }
 
+  // Collect manually-added params from the UI
   var rows = document.getElementById("param-rows").children;
   var params = [];
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i];
-    var nameInput = row.querySelector(".param-name");
-    var typeInput = row.querySelector(".param-type");
-    var startInput = row.querySelector(".param-start");
-    var endInput = row.querySelector(".param-end");
-    if (nameInput && startInput && endInput) {
+    var rowId = row.id.replace("param-row-", "");
+    var nameEl = document.getElementById("pname-" + rowId);
+    if (!nameEl) continue;
+    var name = nameEl.value;
+    if (!name) continue;
+    var schema = PARAM_SCHEMA[name];
+    var typ = schema ? schema.type : "float64";
+    var startEl = document.getElementById("pstart-" + rowId);
+    var endEl = document.getElementById("pend-" + rowId);
+    if (startEl && endEl) {
       params.push({
-        name: nameInput.value,
-        type: typeInput ? typeInput.value : "float64",
-        start: parseFloat(startInput.value),
-        end: parseFloat(endInput.value),
+        name: name,
+        type: typ,
+        start: parseFloat(startEl.value),
+        end: parseFloat(endEl.value),
       });
     }
   }
-  if (params.length === 0) {
-    showError("Add at least one parameter.");
-    return;
-  }
 
-  var durationsStr = (
-    document.getElementById("rlhf_durations").value || "60"
-  ).trim();
-  var durations = durationsStr.split(",").map(function (s) {
-    return parseInt(s.trim(), 10) || 60;
-  });
+  // Auto-populate with default HINT params when none specified.
+  // When tune_background is off we only sweep foreground params.
+  var tuneBackground = document.getElementById("hint_tune_background").checked;
+  var defaultParams = tuneBackground
+    ? DEFAULT_HINT_PARAMS
+    : DEFAULT_HINT_FOREGROUND_PARAMS;
+  if (params.length === 0) {
+    for (var d = 0; d < defaultParams.length; d++) {
+      var pn = defaultParams[d];
+      var ps = PARAM_SCHEMA[pn];
+      if (ps && ps.defaultStart !== undefined && ps.defaultEnd !== undefined) {
+        params.push({
+          name: pn,
+          type: ps.type,
+          start: ps.defaultStart,
+          end: ps.defaultEnd,
+        });
+      }
+    }
+  }
 
   var req = {
     scene_id: sceneId,
-    num_rounds: parseInt(document.getElementById("rlhf_rounds").value, 10) || 3,
-    round_durations: durations,
+    num_rounds: parseInt(document.getElementById("hint_rounds").value, 10) || 3,
     params: params,
     values_per_param:
       parseInt(document.getElementById("values_per_param").value, 10) || 5,
     top_k: parseInt(document.getElementById("top_k").value, 10) || 3,
     min_label_threshold:
-      (parseInt(document.getElementById("rlhf_threshold").value, 10) || 90) /
+      (parseInt(document.getElementById("hint_threshold").value, 10) || 90) /
       100,
-    carry_over_labels: document.getElementById("rlhf_carryover").checked,
+    carry_over_labels: document.getElementById("hint_carryover").checked,
+    tune_background: document.getElementById("hint_tune_background").checked,
   };
 
   // Add optional class coverage gates
-  var classCoverageStr = (document.getElementById("rlhf_class_coverage") || {})
+  var classCoverageStr = (document.getElementById("hint_class_coverage") || {})
     .value;
   if (classCoverageStr) {
     try {
@@ -3230,7 +3285,7 @@ function handleStartRLHF() {
   }
 
   var temporalSpread = parseFloat(
-    (document.getElementById("rlhf_temporal_spread") || {}).value,
+    (document.getElementById("hint_temporal_spread") || {}).value,
   );
   if (temporalSpread > 0) {
     req.min_temporal_spread_secs = temporalSpread;
@@ -3240,7 +3295,7 @@ function handleStartRLHF() {
   document.getElementById("btn-stop").style.display = "block";
   showError("");
 
-  fetch("/api/lidar/sweep/rlhf", {
+  fetch("/api/lidar/sweep/hint", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
@@ -3252,7 +3307,7 @@ function handleStartRLHF() {
       });
     })
     .then(function () {
-      startRLHFPolling();
+      startHINTPolling();
     })
     .catch(function (e) {
       showError(e.message);
@@ -3261,41 +3316,49 @@ function handleStartRLHF() {
     });
 }
 
-function startRLHFPolling() {
-  stopRLHFPolling();
-  rlhfPollTimer = setInterval(pollRLHFStatus, 5000);
-  pollRLHFStatus();
+function startHINTPolling() {
+  stopHINTPolling();
+  // Kick off the first poll immediately, then long-poll in a loop.
+  pollHINTStatus();
 }
 
-function stopRLHFPolling() {
-  if (rlhfPollTimer) {
-    clearInterval(rlhfPollTimer);
-    rlhfPollTimer = null;
+function stopHINTPolling() {
+  if (hintPollTimer) {
+    clearInterval(hintPollTimer);
+    hintPollTimer = null;
+  }
+  if (hintLongPollAbort) {
+    hintLongPollAbort.abort();
+    hintLongPollAbort = null;
   }
 }
 
-function pollRLHFStatus() {
-  fetch("/api/lidar/sweep/rlhf")
+function pollHINTStatus() {
+  // Cancel any existing long-poll before starting a new one.
+  if (hintLongPollAbort) {
+    hintLongPollAbort.abort();
+  }
+  fetch("/api/lidar/sweep/hint")
     .then(function (r) {
       return r.json();
     })
     .then(function (st) {
-      renderRLHFState(st);
+      renderHINTState(st);
 
       // Phase transition notifications
-      if (st.status !== lastRLHFPhase) {
+      if (st.status !== lastHINTPhase) {
         if (st.status === "awaiting_labels") {
           fireNotification(
             "Labels needed — Round " + st.current_round,
-            "RLHF sweep is waiting for track labels.",
+            "HINT sweep is waiting for track labels.",
           );
         } else if (st.status === "completed") {
           fireNotification(
-            "RLHF Sweep Complete",
+            "HINT Sweep Complete",
             "Parameter optimisation finished.",
           );
         }
-        lastRLHFPhase = st.status;
+        lastHINTPhase = st.status;
       }
 
       // Stop polling when complete or failed
@@ -3304,23 +3367,47 @@ function pollRLHFStatus() {
         st.status === "failed" ||
         st.status === "idle"
       ) {
-        stopRLHFPolling();
+        stopHINTPolling();
         document.getElementById("btn-start").style.display = "block";
         document.getElementById("btn-stop").style.display = "none";
         document.getElementById("stopping-indicator").style.display = "none";
+        return;
       }
+
+      // Long-poll: wait for the server to signal a state change.
+      hintLongPollAbort = new AbortController();
+      fetch(
+        "/api/lidar/sweep/hint?wait_for_change=" +
+          encodeURIComponent(st.status),
+        {
+          signal: hintLongPollAbort.signal,
+        },
+      )
+        .then(function () {
+          // State changed — poll again to render the new state.
+          pollHINTStatus();
+        })
+        .catch(function (err) {
+          // Aborted or network error — retry after a short delay unless stopped.
+          if (err.name !== "AbortError") {
+            hintPollTimer = setTimeout(pollHINTStatus, 5000);
+          }
+        });
     })
-    .catch(function () {});
+    .catch(function () {
+      // Initial fetch failed — retry after delay.
+      hintPollTimer = setTimeout(pollHINTStatus, 5000);
+    });
 }
 
-function renderRLHFState(st) {
-  var progressCard = document.getElementById("rlhf-progress-card");
-  var historyCard = document.getElementById("rlhf-round-history");
+function renderHINTState(st) {
+  var progressCard = document.getElementById("hint-progress-card");
+  var historyCard = document.getElementById("hint-round-history");
   progressCard.style.display = "block";
 
-  var statusText = document.getElementById("rlhf-status-text");
-  var labelSection = document.getElementById("rlhf-label-progress");
-  var sweepSection = document.getElementById("rlhf-sweep-progress");
+  var statusText = document.getElementById("hint-status-text");
+  var labelSection = document.getElementById("hint-label-progress");
+  var sweepSection = document.getElementById("hint-sweep-progress");
 
   statusText.innerHTML =
     "<strong>Round " +
@@ -3340,40 +3427,33 @@ function renderRLHFState(st) {
 
     if (st.label_progress) {
       var lp = st.label_progress;
-      document.getElementById("rlhf-label-count").textContent =
+      document.getElementById("hint-label-count").textContent =
         lp.labelled + "/" + lp.total + " labelled";
-      document.getElementById("rlhf-label-pct").textContent =
+      document.getElementById("hint-label-pct").textContent =
         lp.progress_pct.toFixed(1) + "%";
-      document.getElementById("rlhf-label-bar").style.width =
+      document.getElementById("hint-label-bar").style.width =
         lp.progress_pct + "%";
 
-      var continueBtn = document.getElementById("rlhf-continue-btn");
+      var continueBtn = document.getElementById("hint-continue-btn");
       continueBtn.disabled = lp.progress_pct < st.min_label_threshold * 100;
     }
 
     // Set threshold marker
-    var marker = document.getElementById("rlhf-threshold-marker");
+    var marker = document.getElementById("hint-threshold-marker");
     marker.style.left = st.min_label_threshold * 100 + "%";
     marker.title = (st.min_label_threshold * 100).toFixed(0) + "% threshold";
 
-    // Countdown
-    if (st.label_deadline) {
-      var deadline = new Date(st.label_deadline);
-      var remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
-      var mins = Math.floor(remaining / 60);
-      var secs = remaining % 60;
-      document.getElementById("rlhf-countdown").textContent =
-        "Deadline: " + mins + "m " + secs + "s remaining";
-    }
+    // Countdown — no longer shown (no deadline in HINT mode)
+    // Users continue when ready via the Continue button.
 
     // Carried-over labels
     if (st.labels_carried_over > 0) {
-      document.getElementById("rlhf-carried-count").textContent =
+      document.getElementById("hint-carried-count").textContent =
         "↻ " + st.labels_carried_over + " labels carried over";
     }
 
     // Gate status display
-    var gateStatus = document.getElementById("rlhf-gate-status");
+    var gateStatus = document.getElementById("hint-gate-status");
     if (gateStatus) {
       var gates = [];
       // Percentage gate
@@ -3410,10 +3490,14 @@ function renderRLHFState(st) {
       gateStatus.style.display = gates.length > 1 ? "block" : "none";
     }
 
-    // Tracks link
+    // Tracks link — the SvelteKit web app runs on port 8080 with base /app
     if (st.reference_run_id) {
-      document.getElementById("rlhf-tracks-link").href =
-        "/lidar/tracks?run_id=" + encodeURIComponent(st.reference_run_id);
+      var webBase =
+        window.location.protocol + "//" + window.location.hostname + ":8080";
+      document.getElementById("hint-tracks-link").href =
+        webBase +
+        "/app/lidar/tracks?run_id=" +
+        encodeURIComponent(st.reference_run_id);
     }
   } else if (st.status === "running_sweep") {
     labelSection.style.display = "none";
@@ -3421,7 +3505,7 @@ function renderRLHFState(st) {
 
     if (st.auto_tune_state) {
       var ats = st.auto_tune_state;
-      document.getElementById("rlhf-sweep-info").textContent =
+      document.getElementById("hint-sweep-info").textContent =
         "Sweep: " +
         ats.completed_combos +
         "/" +
@@ -3436,7 +3520,7 @@ function renderRLHFState(st) {
   } else if (st.status === "running_reference") {
     labelSection.style.display = "none";
     sweepSection.style.display = "block";
-    document.getElementById("rlhf-sweep-info").textContent =
+    document.getElementById("hint-sweep-info").textContent =
       "Creating reference run…";
   } else if (st.status === "completed") {
     labelSection.style.display = "none";
@@ -3485,7 +3569,7 @@ function renderRLHFState(st) {
   // Round history
   if (st.round_history && st.round_history.length > 0) {
     historyCard.style.display = "block";
-    var list = document.getElementById("rlhf-rounds-list");
+    var list = document.getElementById("hint-rounds-list");
     var historyHtml = "";
     for (var i = 0; i < st.round_history.length; i++) {
       var rnd = st.round_history[i];
@@ -3497,8 +3581,12 @@ function renderRLHFState(st) {
       if (rnd.labels_carried_over > 0)
         historyHtml += " (↻ " + rnd.labels_carried_over + " labels)";
       if (rnd.reference_run_id) {
+        var roundWebBase =
+          window.location.protocol + "//" + window.location.hostname + ":8080";
         historyHtml +=
-          ' <a href="/lidar/tracks?run_id=' +
+          ' <a href="' +
+          roundWebBase +
+          "/app/lidar/tracks?run_id=" +
           encodeURIComponent(rnd.reference_run_id) +
           '" target="_blank" style="font-size:12px">tracks →</a>';
       }
@@ -3508,12 +3596,12 @@ function renderRLHFState(st) {
   }
 }
 
-function handleRLHFContinue() {
+function handleHINTContinue() {
   var nextDuration =
-    parseInt(document.getElementById("rlhf-next-duration").value, 10) || 0;
-  var addRound = document.getElementById("rlhf-add-round").checked;
+    parseInt(document.getElementById("hint-next-duration").value, 10) || 0;
+  var addRound = document.getElementById("hint-add-round").checked;
 
-  fetch("/api/lidar/sweep/rlhf/continue", {
+  fetch("/api/lidar/sweep/hint/continue", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -3528,45 +3616,11 @@ function handleRLHFContinue() {
       });
     })
     .then(function () {
-      document.getElementById("rlhf-continue-btn").disabled = true;
+      document.getElementById("hint-continue-btn").disabled = true;
     })
     .catch(function (e) {
       showError(e.message);
     });
-}
-
-function populateRLHFScenes() {
-  var select = document.getElementById("rlhf_scene_select");
-  if (!select) return;
-
-  // Copy options from scene_select if it exists
-  var mainSelect = document.getElementById("scene_select");
-  if (mainSelect) {
-    select.innerHTML = mainSelect.innerHTML;
-  } else {
-    fetch("/api/lidar/scenes")
-      .then(function (r) {
-        return r.json();
-      })
-      .then(function (scenes) {
-        select.innerHTML = '<option value="">-- Select Scene --</option>';
-        if (scenes && scenes.length) {
-          for (var i = 0; i < scenes.length; i++) {
-            var opt = document.createElement("option");
-            opt.value = scenes[i].scene_id;
-            opt.textContent =
-              scenes[i].scene_id +
-              (scenes[i].description ? " - " + scenes[i].description : "");
-            select.appendChild(opt);
-          }
-        }
-      })
-      .catch(function () {});
-  }
-}
-
-function onRLHFSceneSelected() {
-  // Currently no additional action needed on scene selection
 }
 
 // ---- Score Explanation Functions ----

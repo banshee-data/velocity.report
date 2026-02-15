@@ -61,8 +61,8 @@ func TestMissedRegionStore_InsertListDelete(t *testing.T) {
 	if region.RadiusM != 3.0 {
 		t.Fatalf("expected default radius 3.0, got %f", region.RadiusM)
 	}
-	if region.ExpectedLabel != "good_vehicle" {
-		t.Fatalf("expected default label good_vehicle, got %q", region.ExpectedLabel)
+	if region.ExpectedLabel != "car" {
+		t.Fatalf("expected default label car, got %q", region.ExpectedLabel)
 	}
 
 	regions, err := store.ListByRun(runID)
@@ -161,7 +161,7 @@ func TestMissedRegionStore_ListByRun_ScanError(t *testing.T) {
 			time_start_ns, time_end_ns, expected_label, labeler_id, labeled_at, notes
 		) VALUES (
 			"r1", "run-1", 1.0, 2.0, 3.0,
-			100, 200, "good_vehicle", "labeler-1", "not-an-int", "bad row"
+			100, 200, "car", "labeler-1", "not-an-int", "bad row"
 		)
 	`)
 	if err != nil {

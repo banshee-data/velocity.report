@@ -19,10 +19,10 @@ struct ContentView: View {
                 // Metal view - frames are delivered directly to renderer via AppState
                 ZStack {
                     MetalViewRepresentable(
-                        showPoints: appState.showPoints, showBoxes: appState.showBoxes,
-                        showClusters: appState.showClusters,  // M4
-                        showTrails: appState.showTrails, showDebug: appState.showDebug,  // M6
-                        pointSize: appState.pointSize,
+                        showPoints: appState.showPoints, showBackground: appState.showBackground,
+                        showBoxes: appState.showBoxes, showClusters: appState.showClusters,
+                        showTrails: appState.showTrails, showDebug: appState.showDebug,
+                        showGrid: appState.showGrid, pointSize: appState.pointSize,
                         onRendererCreated: { renderer in appState.registerRenderer(renderer) },
                         onTrackSelected: { trackID in appState.selectTrack(trackID) },
                         onCameraChanged: { appState.reprojectLabels() })
@@ -68,6 +68,59 @@ struct ContentView: View {
                 return .handled
             }.onKeyPress("]") {
                 appState.increaseRate()
+                return .handled
+            }  // Label shortcuts: keys 1-8 assign detection labels
+            .onKeyPress("1") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 0 else { return .ignored }
+                appState.assignLabel(labels[0].name)
+                return .handled
+            }.onKeyPress("2") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 1 else { return .ignored }
+                appState.assignLabel(labels[1].name)
+                return .handled
+            }.onKeyPress("3") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 2 else { return .ignored }
+                appState.assignLabel(labels[2].name)
+                return .handled
+            }.onKeyPress("4") {
+                guard appState.selectedTrackID != nil else { return .ignored }
+                let labels = LabelPanelView.classificationLabels
+                guard labels.count > 3 else { return .ignored }
+                appState.assignLabel(labels[3].name)
+                return .handled
+            }  // Overlay toggle hotkeys
+            .onKeyPress("f") {
+                appState.showPoints.toggle()
+                return .handled
+            }.onKeyPress("k") {
+                appState.showBackground.toggle()
+                return .handled
+            }.onKeyPress("b") {
+                appState.showBoxes.toggle()
+                return .handled
+            }.onKeyPress("c") {
+                appState.showClusters.toggle()
+                return .handled
+            }.onKeyPress("t") {
+                appState.showTrails.toggle()
+                return .handled
+            }.onKeyPress("v") {
+                appState.showVelocity.toggle()
+                return .handled
+            }.onKeyPress("l") {
+                appState.showTrackLabels.toggle()
+                return .handled
+            }.onKeyPress("g") {
+                appState.showGrid.toggle()
+                return .handled
+            }.onKeyPress("d") {
+                appState.toggleDebug()
                 return .handled
             }  // Run browser sheet (Phase 4.1)
             .sheet(isPresented: $appState.showRunBrowser) {
@@ -226,12 +279,14 @@ struct OverlayTogglesView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ToggleButton(label: "P", isOn: $appState.showPoints, help: "Points")
+            ToggleButton(label: "F", isOn: $appState.showPoints, help: "Foreground Points")
+            ToggleButton(label: "K", isOn: $appState.showBackground, help: "Background Points")
             ToggleButton(label: "B", isOn: $appState.showBoxes, help: "Boxes")
-            ToggleButton(label: "C", isOn: $appState.showClusters, help: "Clusters")  // M4
+            ToggleButton(label: "C", isOn: $appState.showClusters, help: "Clusters")
             ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
             ToggleButton(label: "L", isOn: $appState.showTrackLabels, help: "Track Labels")
+            ToggleButton(label: "G", isOn: $appState.showGrid, help: "Ground Grid")
 
             Divider().frame(height: 20)
 
@@ -322,8 +377,14 @@ struct PlaybackControlsView: View {
                 if isSeekable {
                     // Interactive seek slider for .vrlog replay
                     Slider(value: $appState.replayProgress, in: 0...1) { editing in
-                        appState.setSliderEditing(editing)
-                        if !editing { appState.seek(to: appState.replayProgress) }
+                        if editing {
+                            appState.setSliderEditing(true)
+                        } else {
+                            // Capture target before allowing frame updates to overwrite progress.
+                            // seek() sets isSeekingInProgress = true and clears it on completion,
+                            // so we don't call setSliderEditing(false) here to avoid a race.
+                            appState.seek(to: appState.replayProgress)
+                        }
                     }.frame(minWidth: 200)
                 } else {
                     // Read-only progress bar for PCAP replay
@@ -365,6 +426,12 @@ struct TimeDisplayView: View {
     @EnvironmentObject var appState: AppState
     @State private var showRemaining: Bool = false
 
+    /// Whether we have valid log boundaries to compute durations.
+    private var hasValidRange: Bool {
+        appState.logStartTimestamp > 0 && appState.logEndTimestamp > appState.logStartTimestamp
+            && appState.currentTimestamp >= appState.logStartTimestamp
+    }
+
     private var elapsed: Int64 { appState.currentTimestamp - appState.logStartTimestamp }
 
     private var total: Int64 { appState.logEndTimestamp - appState.logStartTimestamp }
@@ -372,14 +439,19 @@ struct TimeDisplayView: View {
     private var remaining: Int64 { appState.logEndTimestamp - appState.currentTimestamp }
 
     var body: some View {
-        let currentText = showRemaining ? formatDuration(-remaining) : formatDuration(elapsed)
-        let totalText = formatDuration(total)
+        if hasValidRange {
+            let currentText = showRemaining ? formatDuration(-remaining) : formatDuration(elapsed)
+            let totalText = formatDuration(total)
 
-        Button(action: { showRemaining.toggle() }) {
-            Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-        }.buttonStyle(.plain).help(
-            showRemaining ? "Showing remaining time" : "Showing elapsed time")
+            Button(action: { showRemaining.toggle() }) {
+                Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }.buttonStyle(.plain).help(
+                showRemaining ? "Showing remaining time" : "Showing elapsed time")
+        } else {
+            Text("--:-- / --:--").font(.system(.caption, design: .monospaced)).foregroundColor(
+                .secondary)
+        }
     }
 }
 
@@ -404,8 +476,9 @@ struct SidePanelView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ScrollView {
-            HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: 0) {
+            // Left column: inspector + labels (scrolls independently)
+            ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     // Track info
                     if let trackID = appState.selectedTrackID {
@@ -422,24 +495,19 @@ struct SidePanelView: View {
                     // Debug overlay toggles
                     DebugOverlayTogglesView()
 
-                    Divider()
-
-                    // Export
-                    Button(action: { appState.exportLabels() }) {
-                        Label("Export Labels", systemImage: "square.and.arrow.up")
-                    }.disabled(!appState.isConnected)
-
                     Spacer()
-                }.frame(maxWidth: .infinity, alignment: .leading)
+                }.padding()
+            }.frame(maxWidth: .infinity, alignment: .leading)
 
-                Divider()
+            Divider()
 
+            // Right column: track list (scrolls independently)
+            ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Track list for selecting tracks
                     TrackListView()
                     Spacer()
-                }.frame(width: 220, alignment: .leading)
-            }.padding()
+                }.padding()
+            }.frame(width: 220, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -745,17 +813,27 @@ struct TrackListView: View {
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
-    // Canonical detection labels — must match Go validUserLabels and Svelte DetectionLabel
-    let userLabels = [
-        "good_vehicle", "good_pedestrian", "good_other", "noise", "noise_flora", "split", "merge",
-        "missed",
+    // Canonical classification labels — must match Go validUserLabels and Svelte DetectionLabel
+    static let classificationLabels: [(name: String, help: String)] = [
+        ("car", "Vehicle (car, truck, bus, motorcycle)"),
+        ("ped", "Pedestrian (person walking, running, cycling)"),
+        ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
+        ("impossible", "Track passes through walls or obstacles in the scene"),
     ]
 
-    // Canonical quality labels — must match Go validQualityLabels and Svelte QualityLabel
-    let qualityLabels = ["perfect", "good", "truncated", "noisy_velocity", "stopped_recovered"]
+    // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
+    static let qualityFlags: [(name: String, help: String)] = [
+        ("good", "Clean, accurate track with correct speed and trajectory"),
+        ("noisy", "Track has noisy position or speed estimates"),
+        ("jitter_velocity", "Speed or heading estimates jitter significantly"),
+        ("merge", "Two or more distinct objects incorrectly merged into one track"),
+        ("split", "Single object incorrectly split into multiple tracks"),
+        ("truncated", "Track starts late or ends early compared to the real object"),
+        ("disconnected", "Track was lost and recovered — identity may have changed"),
+    ]
 
     @State private var lastAssignedLabel: String?
-    @State private var lastAssignedQuality: String?
+    @State private var activeFlags: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -769,38 +847,72 @@ struct LabelPanelView: View {
                     Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
                 }
 
-                // Detection labels (user_label)
-                Text("Detection").font(.caption).foregroundColor(.secondary).padding(.top, 4)
-                ForEach(Array(userLabels.enumerated()), id: \.offset) { index, label in
+                // Classification labels (user_label) — single-select
+                Text("Classification").font(.caption).foregroundColor(.secondary).padding(.top, 4)
+                ForEach(Array(Self.classificationLabels.enumerated()), id: \.offset) {
+                    index, entry in
                     LabelButton(
-                        label: label, shortcut: index < 9 ? "\(index + 1)" : nil,
-                        isActive: lastAssignedLabel == label
+                        label: entry.name, shortcut: "\(index + 1)",
+                        isActive: lastAssignedLabel == entry.name, helpText: entry.help
                     ) {
-                        appState.assignLabel(label)
-                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = label }
+                        appState.assignLabel(entry.name)
+                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = entry.name }
                     }
                 }
 
-                // Quality ratings (Phase 4.2 - only in run mode)
+                // Quality flags (quality_label) — multi-select toggles
                 if appState.currentRunID != nil {
                     Divider().padding(.vertical, 4)
-                    Text("Quality").font(.caption).foregroundColor(.secondary)
-                    ForEach(qualityLabels, id: \.self) { quality in
-                        LabelButton(
-                            label: quality, shortcut: nil, isActive: lastAssignedQuality == quality
+                    Text("Flags").font(.caption).foregroundColor(.secondary)
+                    ForEach(Array(Self.qualityFlags.enumerated()), id: \.offset) { _, entry in
+                        FlagToggleButton(
+                            label: entry.name, isActive: activeFlags.contains(entry.name),
+                            helpText: entry.help
                         ) {
-                            appState.assignQuality(quality)
-                            withAnimation(.easeOut(duration: 0.3)) { lastAssignedQuality = quality }
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                if activeFlags.contains(entry.name) {
+                                    activeFlags.remove(entry.name)
+                                } else {
+                                    activeFlags.insert(entry.name)
+                                }
+                            }
+                            // Save comma-separated flags
+                            let flagsString = activeFlags.sorted().joined(separator: ",")
+                            appState.assignQuality(flagsString)
                         }
                     }
                 }
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
             }
-        }.onChange(of: appState.selectedTrackID) { _, _ in
+        }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
             lastAssignedLabel = nil
-            lastAssignedQuality = nil
+            activeFlags = []
+            // Fetch existing labels for the newly selected track
+            if let trackID = newTrackID, let runID = appState.currentRunID {
+                Task {
+                    do {
+                        let client = RunTrackLabelAPIClient()
+                        let track = try await client.getTrack(runID: runID, trackID: trackID)
+                        await MainActor.run {
+                            // Only update if we're still on the same track
+                            guard appState.selectedTrackID == trackID else { return }
+                            if let label = track.userLabel, !label.isEmpty {
+                                lastAssignedLabel = label
+                            }
+                            if let quality = track.qualityLabel, !quality.isEmpty {
+                                activeFlags = Set(
+                                    quality.split(separator: ",").map {
+                                        String($0).trimmingCharacters(in: .whitespaces)
+                                    })
+                            }
+                        }
+                    } catch {
+                        // Silently ignore — track may not exist in API yet
+                    }
+                }
+            }
         }
     }
 }
@@ -810,6 +922,7 @@ struct LabelButton: View {
     let label: String
     let shortcut: String?
     let isActive: Bool
+    var helpText: String = ""
     let action: () -> Void
 
     @State private var isHovered = false
@@ -833,7 +946,40 @@ struct LabelButton: View {
                     ? Color.accentColor.opacity(0.2)
                     : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
             ).cornerRadius(4)
-        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }
+        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }.help(
+            helpText.isEmpty ? displayName(label) : helpText)
+    }
+
+    /// Convert snake_case label to a readable display name.
+    private func displayName(_ label: String) -> String {
+        label.replacingOccurrences(of: "_", with: " ")
+    }
+}
+
+/// A styled toggle button for multi-select quality flags.
+struct FlagToggleButton: View {
+    let label: String
+    let isActive: Bool
+    var helpText: String = ""
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: isActive ? "checkmark.square.fill" : "square").foregroundColor(
+                    isActive ? .accentColor : .secondary
+                ).font(.caption)
+                Text(displayName(label)).font(.callout)
+                Spacer()
+            }.padding(.vertical, 3).padding(.horizontal, 6).background(
+                isActive
+                    ? Color.accentColor.opacity(0.15)
+                    : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
+            ).cornerRadius(4)
+        }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }.help(
+            helpText.isEmpty ? displayName(label) : helpText)
     }
 
     /// Convert snake_case label to a readable display name.
@@ -914,10 +1060,12 @@ struct TrackLabelPill: View {
 struct MetalViewRepresentable: NSViewRepresentable {
     // Only pass stable properties - frame updates will come directly to the renderer
     var showPoints: Bool
+    var showBackground: Bool
     var showBoxes: Bool
-    var showClusters: Bool  // M4
+    var showClusters: Bool
     var showTrails: Bool
-    var showDebug: Bool  // M6
+    var showDebug: Bool
+    var showGrid: Bool
     var pointSize: Float
 
     // Closure to register the renderer with AppState
@@ -951,10 +1099,12 @@ struct MetalViewRepresentable: NSViewRepresentable {
 
         // Only update overlay settings - frames come directly to renderer
         renderer.showPoints = showPoints
+        renderer.showBackground = showBackground
         renderer.showBoxes = showBoxes
-        renderer.showClusters = showClusters  // M4
+        renderer.showClusters = showClusters
         renderer.showTrails = showTrails
-        renderer.showDebug = showDebug  // M6
+        renderer.showDebug = showDebug
+        renderer.showGrid = showGrid
         renderer.pointSize = pointSize
 
         // Update track selection callback

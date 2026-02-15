@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -48,7 +46,7 @@ var (
 	dbPathFlag   = flag.String("db-path", "sensor_data.db", "path to sqlite DB file (defaults to sensor_data.db)")
 	versionFlag  = flag.Bool("version", false, "Print version information and exit")
 	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
-	configFile   = flag.String("config", "", "Path to JSON tuning configuration file (overrides individual tuning flags)")
+	configFile   = flag.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -164,20 +162,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Load tuning configuration from file if specified.
+	// Load tuning configuration from file.
 	// Deferred until after subcommand dispatch so commands like migrate/transits
 	// don't require a valid tuning config.
-	var tuningCfg *config.TuningConfig
-	if *configFile != "" {
-		var err error
-		tuningCfg, err = config.LoadTuningConfig(*configFile)
-		if err != nil {
-			log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
-		}
-		log.Printf("Loaded tuning configuration from %s", *configFile)
-	} else {
-		tuningCfg = config.DefaultTuningConfig()
+	tuningCfg, err := config.LoadTuningConfig(*configFile)
+	if err != nil {
+		log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
 	}
+	log.Printf("Loaded tuning configuration from %s", *configFile)
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
@@ -238,18 +230,15 @@ func main() {
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database
 
-		// Always use tuning config (either from --config file or built-in defaults)
-		bgNoiseRelative := tuningCfg.GetNoiseRelative()
+		// Always use tuning config (loaded from --config file; mandatory)
 		bgFlushInterval := tuningCfg.GetFlushInterval()
 		bgFlushEnable := tuningCfg.GetBackgroundFlush()
-		seedFromFirst := tuningCfg.GetSeedFromFirst()
 		frameBufferTimeout := tuningCfg.GetBufferTimeout()
 		minFramePoints := tuningCfg.GetMinFramePoints()
 
-		// Create BackgroundManager using BackgroundConfig for cleaner configuration
-		bgConfig := lidar.DefaultBackgroundConfig().
-			WithNoiseRelativeFraction(float32(bgNoiseRelative)).
-			WithSeedFromFirstObservation(seedFromFirst)
+		// Create BackgroundManager from TuningConfig. All tunable parameters
+		// come exclusively from the config file (single source of truth).
+		bgConfig := lidar.BackgroundConfigFromTuning(tuningCfg)
 
 		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
@@ -310,8 +299,9 @@ func main() {
 			parser.SetDebug(*debugMode)
 			parse.ConfigureTimestampMode(parser)
 
-			// Initialise tracking components
-			tracker = lidar.NewTracker(lidar.DefaultTrackerConfig())
+			// Initialise tracking components from tuning config
+			trackerCfg := lidar.TrackerConfigFromTuning(tuningCfg)
+			tracker = lidar.NewTracker(trackerCfg)
 			classifier = lidar.NewTrackClassifier()
 			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
 
@@ -585,27 +575,10 @@ func main() {
 		if tracker != nil {
 			lidarWebServer.SetTracker(tracker)
 		}
-		// Create and wire sweep runner for web-triggered parameter sweeps
-		httpClient := &http.Client{Timeout: 30 * time.Second}
-		// Construct base URL for loopback communication
-		// Normalize wildcard hosts (0.0.0.0, ::, "") to localhost for client connectivity
-		baseURL := "http://localhost" + *lidarListen
-		if !strings.HasPrefix(*lidarListen, ":") {
-			host, port, err := net.SplitHostPort(*lidarListen)
-			if err == nil {
-				// Normalize wildcard/unspecified hosts to localhost
-				if host == "" || host == "0.0.0.0" || host == "::" {
-					baseURL = "http://localhost:" + port
-				} else {
-					baseURL = "http://" + *lidarListen
-				}
-			} else {
-				// If SplitHostPort fails, use the address as-is (backward compatibility)
-				baseURL = "http://" + *lidarListen
-			}
-		}
-		sweepClient := monitor.NewClient(httpClient, baseURL, *lidarSensor)
-		sweepRunner := sweep.NewRunner(sweepClient)
+		// Create and wire sweep runner using direct in-process backend.
+		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.
+		sweepBackend := monitor.NewDirectBackend(*lidarSensor, lidarWebServer)
+		sweepRunner := sweep.NewRunner(sweepBackend)
 		lidarWebServer.SetSweepRunner(sweepRunner)
 
 		// Set up auto-tuner
@@ -652,15 +625,15 @@ func main() {
 		}
 		autoTuner.SetGroundTruthScorer(groundTruthScorer)
 
-		// Set up RLHF tuner for human-in-the-loop parameter optimisation
-		rlhfTuner := sweep.NewRLHFTuner(autoTuner)
-		rlhfTuner.SetPersister(sweepStore)
-		rlhfTuner.SetGroundTruthScorer(groundTruthScorer)
-		rlhfTuner.SetSceneStore(sceneStore)
-		rlhfTuner.SetSceneGetter(&rlhfSceneAdapter{store: sceneStore})
-		rlhfTuner.SetLabelQuerier(&rlhfLabelAdapter{store: analysisRunStore})
-		rlhfTuner.SetRunCreator(&rlhfRunCreator{runner: sweepRunner})
-		lidarWebServer.SetRLHFRunner(rlhfTuner)
+		// Set up HINT tuner for human-in-the-loop parameter optimisation
+		hintTuner := sweep.NewHINTTuner(autoTuner)
+		hintTuner.SetPersister(sweepStore)
+		hintTuner.SetGroundTruthScorer(groundTruthScorer)
+		hintTuner.SetSceneStore(sceneStore)
+		hintTuner.SetSceneGetter(&hintSceneAdapter{store: sceneStore})
+		hintTuner.SetLabelQuerier(&hintLabelAdapter{store: analysisRunStore})
+		hintTuner.SetRunCreator(&hintRunCreator{runner: sweepRunner})
+		lidarWebServer.SetHINTRunner(hintTuner)
 
 		wg.Add(1)
 		go func() {
@@ -906,21 +879,21 @@ func (b *backgroundManagerBridge) GetBackgroundSequenceNumber() uint64 {
 	return b.mgr.GetBackgroundSequenceNumber()
 }
 
-// --- RLHF adapters ---
+// --- HINT adapters ---
 // These bridge the lidar package types to the sweep package interfaces
 // to avoid circular imports.
 
-// rlhfSceneAdapter bridges lidar.SceneStore to sweep.SceneGetter.
-type rlhfSceneAdapter struct {
+// hintSceneAdapter bridges lidar.SceneStore to sweep.SceneGetter.
+type hintSceneAdapter struct {
 	store *lidar.SceneStore
 }
 
-func (a *rlhfSceneAdapter) GetScene(sceneID string) (*sweep.RLHFScene, error) {
+func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
 	scene, err := a.store.GetScene(sceneID)
 	if err != nil {
 		return nil, err
 	}
-	return &sweep.RLHFScene{
+	return &sweep.HINTScene{
 		SceneID:           scene.SceneID,
 		SensorID:          scene.SensorID,
 		PCAPFile:          scene.PCAPFile,
@@ -931,27 +904,27 @@ func (a *rlhfSceneAdapter) GetScene(sceneID string) (*sweep.RLHFScene, error) {
 	}, nil
 }
 
-func (a *rlhfSceneAdapter) SetReferenceRun(sceneID, runID string) error {
+func (a *hintSceneAdapter) SetReferenceRun(sceneID, runID string) error {
 	return a.store.SetReferenceRun(sceneID, runID)
 }
 
-// rlhfLabelAdapter bridges lidar.AnalysisRunStore to sweep.LabelProgressQuerier.
-type rlhfLabelAdapter struct {
+// hintLabelAdapter bridges lidar.AnalysisRunStore to sweep.LabelProgressQuerier.
+type hintLabelAdapter struct {
 	store *lidar.AnalysisRunStore
 }
 
-func (a *rlhfLabelAdapter) GetLabelingProgress(runID string) (int, int, map[string]int, error) {
+func (a *hintLabelAdapter) GetLabelingProgress(runID string) (int, int, map[string]int, error) {
 	return a.store.GetLabelingProgress(runID)
 }
 
-func (a *rlhfLabelAdapter) GetRunTracks(runID string) ([]sweep.RLHFRunTrack, error) {
+func (a *hintLabelAdapter) GetRunTracks(runID string) ([]sweep.HINTRunTrack, error) {
 	tracks, err := a.store.GetRunTracks(runID)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]sweep.RLHFRunTrack, len(tracks))
+	result := make([]sweep.HINTRunTrack, len(tracks))
 	for i, t := range tracks {
-		result[i] = sweep.RLHFRunTrack{
+		result[i] = sweep.HINTRunTrack{
 			TrackID:        t.TrackID,
 			StartUnixNanos: t.StartUnixNanos,
 			EndUnixNanos:   t.EndUnixNanos,
@@ -962,18 +935,18 @@ func (a *rlhfLabelAdapter) GetRunTracks(runID string) ([]sweep.RLHFRunTrack, err
 	return result, nil
 }
 
-func (a *rlhfLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
+func (a *hintLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
 	return a.store.UpdateTrackLabel(runID, trackID, userLabel, qualityLabel, confidence, labelerID, labelSource)
 }
 
-// rlhfRunCreator bridges the sweep.Runner to sweep.ReferenceRunCreator.
+// hintRunCreator bridges the sweep.Runner to sweep.ReferenceRunCreator.
 // It creates a single-combo sweep run to generate a reference run with given params.
-type rlhfRunCreator struct {
+type hintRunCreator struct {
 	runner *sweep.Runner
 }
 
-func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error) {
-	// For RLHF reference runs, we start a single-combo sweep with the given params.
+func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
+	// For HINT reference runs, we start a single-combo sweep with the given params.
 	// Parse paramsJSON into a single-combination sweep: one SweepParam per key with a single fixed value.
 	var sweepParams []sweep.SweepParam
 	if len(paramsJSON) > 0 && string(paramsJSON) != "null" {
@@ -982,18 +955,31 @@ func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 			return "", fmt.Errorf("parsing paramsJSON for reference run: %w", err)
 		}
 		for name, value := range rawParams {
+			// Infer type from the Go value (JSON numbers are always float64,
+			// booleans are bool, strings are string).
+			typ := "float64"
+			switch value.(type) {
+			case bool:
+				typ = "bool"
+			case string:
+				typ = "string"
+			}
 			sweepParams = append(sweepParams, sweep.SweepParam{
 				Name:   name,
+				Type:   typ,
 				Values: []interface{}{value},
 			})
 		}
 	}
 
 	req := sweep.SweepRequest{
-		Mode:       "params",
-		DataSource: "pcap",
-		PCAPFile:   pcapFile,
-		Params:     sweepParams,
+		Mode:             "params",
+		DataSource:       "pcap",
+		PCAPFile:         pcapFile,
+		PCAPStartSecs:    pcapStartSecs,
+		PCAPDurationSecs: pcapDurationSecs,
+		Params:           sweepParams,
+		EnableRecording:  true,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)

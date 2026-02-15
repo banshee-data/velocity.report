@@ -3,9 +3,12 @@ package lidar
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 // Phase 3.7: Analysis Run Infrastructure
@@ -83,33 +86,42 @@ type ClassificationParamsExport struct {
 	Thresholds map[string]interface{} `json:"thresholds,omitempty"`
 }
 
-// DefaultRunParams returns default run parameters.
+// DefaultRunParams returns run parameters loaded from the canonical tuning
+// defaults file (config/tuning.defaults.json). Panics if the file cannot
+// be found — intended for tests and tools.
 func DefaultRunParams() RunParams {
+	cfg := config.MustLoadDefaultConfig()
+	return RunParamsFromTuning(cfg)
+}
+
+// RunParamsFromTuning builds RunParams from a loaded TuningConfig.
+// Use this in production code where the TuningConfig is already loaded.
+func RunParamsFromTuning(cfg *config.TuningConfig) RunParams {
 	return RunParams{
 		Version:   "1.0",
 		Timestamp: time.Now(),
 		Background: BackgroundParamsExport{
-			BackgroundUpdateFraction:       0.02,
-			ClosenessSensitivityMultiplier: 3.0,
-			SafetyMarginMeters:             0.5,
-			NeighborConfirmationCount:      3,
-			NoiseRelativeFraction:          0.01,
-			SeedFromFirstObservation:       true,
+			BackgroundUpdateFraction:       float32(cfg.GetBackgroundUpdateFraction()),
+			ClosenessSensitivityMultiplier: float32(cfg.GetClosenessMultiplier()),
+			SafetyMarginMeters:             float32(cfg.GetSafetyMarginMeters()),
+			NeighborConfirmationCount:      cfg.GetNeighborConfirmationCount(),
+			NoiseRelativeFraction:          float32(cfg.GetNoiseRelative()),
+			SeedFromFirstObservation:       cfg.GetSeedFromFirst(),
 			FreezeDurationNanos:            5e9,
 		},
 		Clustering: ClusteringParamsExport{
-			Eps:      DefaultDBSCANEps,
-			MinPts:   DefaultDBSCANMinPts,
-			CellSize: DefaultDBSCANEps,
+			Eps:      cfg.GetForegroundDBSCANEps(),
+			MinPts:   cfg.GetForegroundMinClusterPoints(),
+			CellSize: cfg.GetForegroundDBSCANEps(),
 		},
 		Tracking: TrackingParamsExport{
-			MaxTracks:               100,
-			MaxMisses:               3,
-			HitsToConfirm:           5, // Require 5 consecutive hits for confirmation (matches DefaultTrackerConfig)
-			GatingDistanceSquared:   25.0,
-			ProcessNoisePos:         0.1,
-			ProcessNoiseVel:         0.5,
-			MeasurementNoise:        0.2,
+			MaxTracks:               cfg.GetMaxTracks(),
+			MaxMisses:               cfg.GetMaxMisses(),
+			HitsToConfirm:           cfg.GetHitsToConfirm(),
+			GatingDistanceSquared:   float32(cfg.GetGatingDistanceSquared()),
+			ProcessNoisePos:         float32(cfg.GetProcessNoisePos()),
+			ProcessNoiseVel:         float32(cfg.GetProcessNoiseVel()),
+			MeasurementNoise:        float32(cfg.GetMeasurementNoise()),
 			DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
 		},
 		Classification: ClassificationParamsExport{
@@ -739,6 +751,102 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	}
 
 	return tracks, nil
+}
+
+// GetRunTrack retrieves a single track for an analysis run.
+func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error) {
+	query := `
+		SELECT run_id, track_id, sensor_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count,
+			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+			height_p95_max, intensity_mean_avg,
+			object_class, object_confidence, classification_model,
+			user_label, label_confidence, labeler_id, labeled_at, quality_label,
+			label_source,
+			is_split_candidate, is_merge_candidate, linked_track_ids
+		FROM lidar_run_tracks
+		WHERE run_id = ? AND track_id = ?
+	`
+
+	var track RunTrack
+	var endNanos, labeledAt sql.NullInt64
+	var objectClass, classModel, userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
+	var objConf, labelConf sql.NullFloat64
+
+	err := s.db.QueryRow(query, runID, trackID).Scan(
+		&track.RunID,
+		&track.TrackID,
+		&track.SensorID,
+		&track.TrackState,
+		&track.StartUnixNanos,
+		&endNanos,
+		&track.ObservationCount,
+		&track.AvgSpeedMps,
+		&track.PeakSpeedMps,
+		&track.P50SpeedMps,
+		&track.P85SpeedMps,
+		&track.P95SpeedMps,
+		&track.BoundingBoxLengthAvg,
+		&track.BoundingBoxWidthAvg,
+		&track.BoundingBoxHeightAvg,
+		&track.HeightP95Max,
+		&track.IntensityMeanAvg,
+		&objectClass,
+		&objConf,
+		&classModel,
+		&userLabel,
+		&labelConf,
+		&labelerID,
+		&labeledAt,
+		&qualityLabel,
+		&labelSource,
+		&track.IsSplitCandidate,
+		&track.IsMergeCandidate,
+		&linkedJSON,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("track %s not found in run %s", trackID, runID)
+		}
+		return nil, fmt.Errorf("query run track: %w", err)
+	}
+
+	if endNanos.Valid {
+		track.EndUnixNanos = endNanos.Int64
+	}
+	if objectClass.Valid {
+		track.ObjectClass = objectClass.String
+	}
+	if objConf.Valid {
+		track.ObjectConfidence = float32(objConf.Float64)
+	}
+	if classModel.Valid {
+		track.ClassificationModel = classModel.String
+	}
+	if userLabel.Valid {
+		track.UserLabel = userLabel.String
+	}
+	if labelConf.Valid {
+		track.LabelConfidence = float32(labelConf.Float64)
+	}
+	if labelerID.Valid {
+		track.LabelerID = labelerID.String
+	}
+	if labeledAt.Valid {
+		track.LabeledAt = labeledAt.Int64
+	}
+	if qualityLabel.Valid {
+		track.QualityLabel = qualityLabel.String
+	}
+	if labelSource.Valid {
+		track.LabelSource = labelSource.String
+	}
+	if linkedJSON.Valid && linkedJSON.String != "" && linkedJSON.String != "[]" {
+		json.Unmarshal([]byte(linkedJSON.String), &track.LinkedTrackIDs)
+	}
+
+	return &track, nil
 }
 
 // UpdateTrackLabel updates the user label and quality label for a track.
