@@ -1,9 +1,9 @@
 {
   "background_update_fraction": 0.02,
-  "closeness_multiplier": 8.0,
-  "safety_margin_meters": 0.4,
-  "noise_relative": 0.04,
-  "neighbor_confirmation_count": 7,
+  "closeness_multiplier": 3.0,
+  "safety_margin_meters": 0.15,
+  "noise_relative": 0.02,
+  "neighbor_confirmation_count": 3,
   "seed_from_first": true,
   "warmup_duration_nanos": 30000000000,
   "warmup_min_frames": 100,
@@ -20,7 +20,7 @@
   "process_noise_vel": 5.0,
   "measurement_noise": 0.3,
   "occlusion_cov_inflation": 0.5,
-  "hits_to_confirm": 3,
+  "hits_to_confirm": 4,
   "max_misses": 3,
   "max_misses_confirmed": 15,
   "max_tracks": 100
