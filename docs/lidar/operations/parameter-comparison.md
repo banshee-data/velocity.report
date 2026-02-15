@@ -134,7 +134,7 @@ If the optimised configuration still shows quality issues, use auto-tuning to re
 
 ## References
 
-- **Full Analysis:** See `docs/pipeline-diagnosis.md` for detailed explanations
+- **Full Analysis:** See `docs/lidar/troubleshooting/pipeline-diagnosis.md` for detailed explanations
 - **Code References:**
   - Background extraction: `internal/lidar/foreground.go`
   - Clustering: `internal/lidar/clustering.go`

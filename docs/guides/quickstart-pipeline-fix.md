@@ -59,7 +59,7 @@ The most impactful changes from current defaults:
 | `measurement_noise`       | 0.3     | 0.15      | **Was causing heading jitter**                                 |
 | `process_noise_vel`       | 0.5     | 0.3       | **Was allowing velocity drift**                                |
 
-See `docs/parameter-comparison.md` for full comparison table.
+See `docs/lidar/operations/parameter-comparison.md` for full comparison table.
 
 ---
 
@@ -156,11 +156,11 @@ If all stages succeed, deploy complete `tuning.optimised.json` for overnight tes
 
 ## Detailed Documentation
 
-- **Full Analysis:** `docs/pipeline-diagnosis.md` (17 pages)
+- **Full Analysis:** `docs/lidar/troubleshooting/pipeline-diagnosis.md` (17 pages)
   - Detailed explanation of each issue
   - Parameter interaction analysis
   - Alternative scenarios (highway, urban, nighttime)
-- **Quick Reference:** `docs/parameter-comparison.md`
+- **Quick Reference:** `docs/lidar/operations/parameter-comparison.md`
   - Side-by-side comparison table
   - Critical changes highlighted
   - Deployment recommendations
@@ -192,7 +192,7 @@ cp config/tuning.defaults.json /path/to/your/active/config.json
 A: Likely tuned for a different scenario (e.g., nighttime, dense urban) or to minimise false positives at the cost of false negatives.
 
 **Q: Will these changes work for all scenarios?**
-A: The optimised config is tuned for typical urban street scenarios. See `docs/pipeline-diagnosis.md` Section 5 for highway, dense urban, and nighttime adjustments.
+A: The optimised config is tuned for typical urban street scenarios. See `docs/lidar/troubleshooting/pipeline-diagnosis.md` Section 5 for highway, dense urban, and nighttime adjustments.
 
 **Q: Can I tune parameters further?**
 A: Yes! Use `config/sweep-quality-tuning.json` for auto-tuning. Expected runtime: ~3 hours for 3 rounds.
