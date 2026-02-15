@@ -3138,7 +3138,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pcapFile string
-	var analysisMode bool
+	analysisMode := true // Default: always create analysis run + VRLOG
 	var speedMode string
 	var speedRatio float64 = 1.0
 	var startSeconds float64 = 0
@@ -3274,6 +3274,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		mgr.SetSourcePath(pcapFile)
 	}
 
+	// Set analysis mode BEFORE startPCAPLocked so the goroutine inside can
+	// read it immediately without a race.
+	ws.pcapMu.Lock()
+	ws.pcapAnalysisMode = analysisMode
+	ws.pcapMu.Unlock()
+
 	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
@@ -3286,15 +3292,6 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	// Set analysis mode AFTER startPCAPLocked returns but note the goroutine
-	// inside already reads pcapAnalysisMode — we must set it here promptly.
-	// The goroutine's read is protected by pcapMu so this is safe as long as
-	// the goroutine hasn't acquired the lock yet (which is typical since it
-	// yields to OS scheduling first).
-	ws.pcapMu.Lock()
-	ws.pcapAnalysisMode = analysisMode
-	ws.pcapMu.Unlock()
 
 	ws.currentSource = DataSourcePCAP
 	currentFile := ws.currentPCAPFile

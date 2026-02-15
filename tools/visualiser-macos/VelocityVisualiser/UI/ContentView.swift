@@ -19,9 +19,9 @@ struct ContentView: View {
                 // Metal view - frames are delivered directly to renderer via AppState
                 ZStack {
                     MetalViewRepresentable(
-                        showPoints: appState.showPoints, showBoxes: appState.showBoxes,
-                        showClusters: appState.showClusters,  // M4
-                        showTrails: appState.showTrails, showDebug: appState.showDebug,  // M6
+                        showPoints: appState.showPoints, showBackground: appState.showBackground,
+                        showBoxes: appState.showBoxes, showClusters: appState.showClusters,
+                        showTrails: appState.showTrails, showDebug: appState.showDebug,
                         showGrid: appState.showGrid, pointSize: appState.pointSize,
                         onRendererCreated: { renderer in appState.registerRenderer(renderer) },
                         onTrackSelected: { trackID in appState.selectTrack(trackID) },
@@ -93,6 +93,34 @@ struct ContentView: View {
                 let labels = LabelPanelView.classificationLabels
                 guard labels.count > 3 else { return .ignored }
                 appState.assignLabel(labels[3].name)
+                return .handled
+            }  // Overlay toggle hotkeys
+            .onKeyPress("f") {
+                appState.showPoints.toggle()
+                return .handled
+            }.onKeyPress("k") {
+                appState.showBackground.toggle()
+                return .handled
+            }.onKeyPress("b") {
+                appState.showBoxes.toggle()
+                return .handled
+            }.onKeyPress("c") {
+                appState.showClusters.toggle()
+                return .handled
+            }.onKeyPress("t") {
+                appState.showTrails.toggle()
+                return .handled
+            }.onKeyPress("v") {
+                appState.showVelocity.toggle()
+                return .handled
+            }.onKeyPress("l") {
+                appState.showTrackLabels.toggle()
+                return .handled
+            }.onKeyPress("g") {
+                appState.showGrid.toggle()
+                return .handled
+            }.onKeyPress("d") {
+                appState.toggleDebug()
                 return .handled
             }  // Run browser sheet (Phase 4.1)
             .sheet(isPresented: $appState.showRunBrowser) {
@@ -251,9 +279,10 @@ struct OverlayTogglesView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ToggleButton(label: "P", isOn: $appState.showPoints, help: "Points")
+            ToggleButton(label: "F", isOn: $appState.showPoints, help: "Foreground Points")
+            ToggleButton(label: "K", isOn: $appState.showBackground, help: "Background Points")
             ToggleButton(label: "B", isOn: $appState.showBoxes, help: "Boxes")
-            ToggleButton(label: "C", isOn: $appState.showClusters, help: "Clusters")  // M4
+            ToggleButton(label: "C", isOn: $appState.showClusters, help: "Clusters")
             ToggleButton(label: "T", isOn: $appState.showTrails, help: "Trails")
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
             ToggleButton(label: "L", isOn: $appState.showTrackLabels, help: "Track Labels")
@@ -1031,10 +1060,11 @@ struct TrackLabelPill: View {
 struct MetalViewRepresentable: NSViewRepresentable {
     // Only pass stable properties - frame updates will come directly to the renderer
     var showPoints: Bool
+    var showBackground: Bool
     var showBoxes: Bool
-    var showClusters: Bool  // M4
+    var showClusters: Bool
     var showTrails: Bool
-    var showDebug: Bool  // M6
+    var showDebug: Bool
     var showGrid: Bool
     var pointSize: Float
 
@@ -1069,10 +1099,11 @@ struct MetalViewRepresentable: NSViewRepresentable {
 
         // Only update overlay settings - frames come directly to renderer
         renderer.showPoints = showPoints
+        renderer.showBackground = showBackground
         renderer.showBoxes = showBoxes
-        renderer.showClusters = showClusters  // M4
+        renderer.showClusters = showClusters
         renderer.showTrails = showTrails
-        renderer.showDebug = showDebug  // M6
+        renderer.showDebug = showDebug
         renderer.showGrid = showGrid
         renderer.pointSize = pointSize
 

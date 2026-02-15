@@ -261,6 +261,7 @@ struct TrackLabelOverlayTests {
             showDebug: false, showGrid: true, pointSize: 5.0)
 
         XCTAssertTrue(rep.showPoints)
+        XCTAssertTrue(rep.showBackground)
         XCTAssertTrue(rep.showBoxes)
         XCTAssertTrue(rep.showClusters)
         XCTAssertTrue(rep.showTrails)
@@ -275,6 +276,7 @@ struct TrackLabelOverlayTests {
             showDebug: true, showGrid: false, pointSize: 15.0)
 
         XCTAssertFalse(rep.showPoints)
+        XCTAssertFalse(rep.showBackground)
         XCTAssertFalse(rep.showBoxes)
         XCTAssertFalse(rep.showClusters)
         XCTAssertFalse(rep.showTrails)
