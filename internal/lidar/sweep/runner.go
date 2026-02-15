@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"strconv"
 	"strings"
@@ -165,14 +166,27 @@ type Runner struct {
 	cancel    context.CancelFunc
 	persister SweepPersister
 	sweepID   string // current sweep's unique ID
+	logger    *log.Logger
 }
 
 // NewRunner creates a new sweep runner with the given backend.
 func NewRunner(backend SweepBackend) *Runner {
 	return &Runner{
 		backend: backend,
+		logger:  log.Default(),
 		state:   SweepState{Status: SweepStatusIdle},
 	}
+}
+
+// SetLogger sets the logger for the Runner. Use log.New(io.Discard, "", 0)
+// in tests to suppress expected error-path log output.
+func (r *Runner) SetLogger(l *log.Logger) {
+	r.logger = l
+}
+
+// discardRunnerLogger returns a logger that discards all output.
+func discardRunnerLogger() *log.Logger {
+	return log.New(io.Discard, "", 0)
 }
 
 // SetPersister sets the database persister for saving sweep results.
@@ -338,11 +352,11 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 	if r.persister != nil {
 		reqJSON, err := json.Marshal(req)
 		if err != nil {
-			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
+			r.logger.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
 		if err := r.persister.SaveSweepStart(r.sweepID, r.backend.SensorID(), "sweep", reqJSON, now, "manual", ObjectiveVersion); err != nil {
-			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
+			r.logger.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
 		}
 	}
 
@@ -409,11 +423,11 @@ func (r *Runner) startGeneric(ctx context.Context, req SweepRequest, interval, s
 	if r.persister != nil {
 		reqJSON, err := json.Marshal(req)
 		if err != nil {
-			log.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
+			r.logger.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
 		if err := r.persister.SaveSweepStart(r.sweepID, r.backend.SensorID(), "sweep", reqJSON, now, "manual", ObjectiveVersion); err != nil {
-			log.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
+			r.logger.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
 		}
 	}
 
@@ -522,7 +536,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				}
 
 				comboNum++
-				log.Printf("[sweep] Combination %d/%d: noise=%.4f, closeness=%.2f, neighbour=%d",
+				r.logger.Printf("[sweep] Combination %d/%d: noise=%.4f, closeness=%.2f, neighbour=%d",
 					comboNum, totalCombos, noise, closeness, neighbour)
 
 				// Determine seed
@@ -547,7 +561,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					"seed_from_first":             seed,
 				}
 				if err := r.backend.SetTuningParams(tuningParams); err != nil {
-					log.Printf("[sweep] ERROR: Failed to set params: %v", err)
+					r.logger.Printf("[sweep] ERROR: Failed to set params: %v", err)
 					errMsg := fmt.Sprintf("combo %d: failed to set params: %v", comboNum, err)
 					r.mu.Lock()
 					r.state.Status = SweepStatusError
@@ -561,7 +575,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					// Reset acceptance counters before each PCAP combination so metrics
 					// reflect only this combination's data (mirrors live mode at line 526).
 					if err := r.backend.ResetAcceptance(); err != nil {
-						log.Printf("[sweep] WARNING: Failed to reset acceptance before PCAP: %v", err)
+						r.logger.Printf("[sweep] WARNING: Failed to reset acceptance before PCAP: %v", err)
 						r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
 					}
 
@@ -577,14 +591,14 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 						AnalysisMode:    true,
 						SpeedMode:       "realtime",
 					}); err != nil {
-						log.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum, err)
+						r.logger.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum, err)
 						r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum, err))
 						continue
 					}
 
 					// Wait for PCAP replay to finish so all data is processed
 					if err := r.backend.WaitForPCAPComplete(120 * time.Second); err != nil {
-						log.Printf("[sweep] WARNING: PCAP wait timeout for combo %d: %v", comboNum, err)
+						r.logger.Printf("[sweep] WARNING: PCAP wait timeout for combo %d: %v", comboNum, err)
 						r.addWarning(fmt.Sprintf("combo %d: PCAP wait timeout: %v", comboNum, err))
 					}
 
@@ -597,12 +611,12 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				} else {
 					// Live mode: reset grid and acceptance, then wait for data
 					if err := r.backend.ResetGrid(); err != nil {
-						log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+						r.logger.Printf("[sweep] WARNING: Grid reset failed: %v", err)
 						r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
 					}
 
 					if err := r.backend.ResetAcceptance(); err != nil {
-						log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
+						r.logger.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
 						r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
 					}
 
@@ -644,7 +658,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 				// loop until they time out.
 				if isPCAP {
 					if err := r.backend.StopPCAPReplay(); err != nil {
-						log.Printf("[sweep] WARNING: Failed to stop PCAP after combo %d: %v", comboNum, err)
+						r.logger.Printf("[sweep] WARNING: Failed to stop PCAP after combo %d: %v", comboNum, err)
 					}
 				}
 			}
@@ -654,7 +668,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 	// Clean up: stop any lingering PCAP replay (covers early exits / errors)
 	if isPCAP {
 		if err := r.backend.StopPCAPReplay(); err != nil {
-			log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
+			r.logger.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
 		}
 	}
 
@@ -663,7 +677,7 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 	now := time.Now()
 	r.state.CompletedAt = &now
 	r.mu.Unlock()
-	log.Printf("[sweep] Sweep complete: %d combinations evaluated", comboNum)
+	r.logger.Printf("[sweep] Sweep complete: %d combinations evaluated", comboNum)
 
 	// Persist completion to database
 	r.persistComplete("complete", "", nil)
@@ -702,7 +716,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		default:
 		}
 
-		log.Printf("[sweep] Combination %d/%d: %v", comboNum+1, totalCombos, paramValues)
+		r.logger.Printf("[sweep] Combination %d/%d: %v", comboNum+1, totalCombos, paramValues)
 
 		// Determine seed
 		var seed bool
@@ -721,7 +735,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		// Build tuning params map, include seed
 		// Validate parameter count to prevent overflow (CWE-770)
 		if len(paramValues) >= maxTuningParams {
-			log.Printf("[sweep] WARNING: Parameter count %d exceeds maximum %d, clamping", len(paramValues), maxTuningParams-1)
+			r.logger.Printf("[sweep] WARNING: Parameter count %d exceeds maximum %d, clamping", len(paramValues), maxTuningParams-1)
 			r.addWarning(fmt.Sprintf("combo %d: parameter count %d exceeds maximum %d (skipped)", comboNum+1, len(paramValues), maxTuningParams-1))
 			continue
 		}
@@ -737,7 +751,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 
 		// Set parameters FIRST (before reset, so new config is active)
 		if err := r.backend.SetTuningParams(tuningParams); err != nil {
-			log.Printf("[sweep] ERROR: Failed to set params: %v", err)
+			r.logger.Printf("[sweep] ERROR: Failed to set params: %v", err)
 			r.addWarning(fmt.Sprintf("combo %d: failed to set params (skipped): %v", comboNum+1, err))
 			continue
 		}
@@ -756,14 +770,14 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 				AnalysisMode:    true,
 				SpeedMode:       "realtime",
 			}); err != nil {
-				log.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum+1, err)
+				r.logger.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum+1, err)
 				r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum+1, err))
 				continue
 			}
 
 			// Wait for PCAP replay to finish so all data is processed
 			if err := r.backend.WaitForPCAPComplete(120 * time.Second); err != nil {
-				log.Printf("[sweep] WARNING: PCAP wait timeout for combo %d: %v", comboNum+1, err)
+				r.logger.Printf("[sweep] WARNING: PCAP wait timeout for combo %d: %v", comboNum+1, err)
 				r.addWarning(fmt.Sprintf("combo %d: PCAP wait timeout: %v", comboNum+1, err))
 			}
 
@@ -776,12 +790,12 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		} else {
 			// Live mode: reset grid and acceptance, then wait for data
 			if err := r.backend.ResetGrid(); err != nil {
-				log.Printf("[sweep] WARNING: Grid reset failed: %v", err)
+				r.logger.Printf("[sweep] WARNING: Grid reset failed: %v", err)
 				r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
 			}
 
 			if err := r.backend.ResetAcceptance(); err != nil {
-				log.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
+				r.logger.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
 				r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
 			}
 
@@ -829,7 +843,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		// loop until they time out.
 		if isPCAP {
 			if err := r.backend.StopPCAPReplay(); err != nil {
-				log.Printf("[sweep] WARNING: Failed to stop PCAP after combo %d: %v", comboNum+1, err)
+				r.logger.Printf("[sweep] WARNING: Failed to stop PCAP after combo %d: %v", comboNum+1, err)
 			}
 		}
 	}
@@ -837,7 +851,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 	// Clean up: stop any lingering PCAP replay (covers early exits / errors)
 	if isPCAP {
 		if err := r.backend.StopPCAPReplay(); err != nil {
-			log.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
+			r.logger.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
 		}
 	}
 
@@ -846,7 +860,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 	now := time.Now()
 	r.state.CompletedAt = &now
 	r.mu.Unlock()
-	log.Printf("[sweep] Sweep complete: %d combinations evaluated", len(combos))
+	r.logger.Printf("[sweep] Sweep complete: %d combinations evaluated", len(combos))
 
 	// Persist completion to database
 	r.persistComplete("complete", "", nil)
@@ -972,12 +986,12 @@ func (r *Runner) persistComplete(status, errMsg string, recommendation json.RawM
 
 	resultsJSON, err := json.Marshal(results)
 	if err != nil {
-		log.Printf("[sweep] WARNING: Failed to marshal sweep results for persistence: %v", err)
+		r.logger.Printf("[sweep] WARNING: Failed to marshal sweep results for persistence: %v", err)
 		resultsJSON = []byte("[]")
 	}
 	now := time.Now()
 	if err := r.persister.SaveSweepComplete(r.sweepID, status, resultsJSON, recommendation, nil, now, errMsg, nil, nil, nil, "", ""); err != nil {
-		log.Printf("[sweep] WARNING: Failed to persist sweep completion: %v", err)
+		r.logger.Printf("[sweep] WARNING: Failed to persist sweep completion: %v", err)
 	}
 }
 

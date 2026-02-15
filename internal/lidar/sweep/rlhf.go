@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"sync"
@@ -170,6 +171,7 @@ type RLHFTuner struct {
 
 	// For testability
 	pollInterval time.Duration
+	logger       *log.Logger
 }
 
 // continueSignal is sent to proceed from awaiting_labels to running_sweep.
@@ -185,6 +187,7 @@ func NewRLHFTuner(autoTuner *AutoTuner) *RLHFTuner {
 		continueCh:    make(chan continueSignal, 1),
 		labelUpdateCh: make(chan struct{}, 1),
 		pollInterval:  60 * time.Second, // safety fallback; label updates arrive via channel
+		logger:        log.Default(),
 		state: RLHFState{
 			Status:       "idle",
 			Mode:         "rlhf",
@@ -193,6 +196,17 @@ func NewRLHFTuner(autoTuner *AutoTuner) *RLHFTuner {
 	}
 	rt.stateCond = sync.NewCond(rt.mu.RLocker())
 	return rt
+}
+
+// SetLogger sets the logger for the RLHF tuner. Use log.New(io.Discard, "", 0)
+// in tests to suppress expected error-path log output.
+func (rt *RLHFTuner) SetLogger(l *log.Logger) {
+	rt.logger = l
+}
+
+// discardLogger returns a logger that discards all output.
+func discardLogger() *log.Logger {
+	return log.New(io.Discard, "", 0)
 }
 
 // SetLabelQuerier sets the label progress querier dependency.
@@ -320,7 +334,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 		if req.Iterations < 1 {
 			req.Iterations = 10
 		}
-		log.Printf("[rlhf] Fitted iterations=%d from scene duration=%.1fs", req.Iterations, scenePCAPDuration)
+		rt.logger.Printf("[rlhf] Fitted iterations=%d from scene duration=%.1fs", req.Iterations, scenePCAPDuration)
 	}
 
 	// Check not already running
@@ -350,11 +364,11 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	if rt.persister != nil {
 		reqJSON, err := json.Marshal(req)
 		if err != nil {
-			log.Printf("[rlhf] WARNING: Failed to marshal request for persistence: %v", err)
+			rt.logger.Printf("[rlhf] WARNING: Failed to marshal request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
 		if err := rt.persister.SaveSweepStart(rt.sweepID, sensorID, "rlhf", reqJSON, time.Now(), "ground_truth", ObjectiveVersion); err != nil {
-			log.Printf("[rlhf] Failed to persist sweep start: %v", err)
+			rt.logger.Printf("[rlhf] Failed to persist sweep start: %v", err)
 		}
 	}
 
@@ -363,7 +377,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	rt.cancel = cancel
 	go rt.run(runCtx, req)
 
-	log.Printf("[rlhf] Started RLHF tuning session %s for scene %s (%d rounds)", rt.sweepID, req.SceneID, req.NumRounds)
+	rt.logger.Printf("[rlhf] Started RLHF tuning session %s for scene %s (%d rounds)", rt.sweepID, req.SceneID, req.NumRounds)
 	return nil
 }
 
@@ -505,7 +519,7 @@ func (rt *RLHFTuner) Stop() {
 		rt.autoTuner.Stop()
 	}
 
-	log.Printf("[rlhf] Stopped RLHF tuning session")
+	rt.logger.Printf("[rlhf] Stopped RLHF tuning session")
 }
 
 // ContinueFromLabels signals the tuner to proceed from awaiting_labels to running_sweep.
@@ -584,13 +598,13 @@ func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) err
 	// Update total rounds if requested
 	if addRound {
 		rt.state.TotalRounds++
-		log.Printf("[rlhf] Added round: now %d total rounds", rt.state.TotalRounds)
+		rt.logger.Printf("[rlhf] Added round: now %d total rounds", rt.state.TotalRounds)
 	}
 
 	// Update next sweep duration if provided
 	if nextDurationMins > 0 {
 		rt.state.NextSweepDuration = nextDurationMins
-		log.Printf("[rlhf] Updated next sweep duration: %d minutes", nextDurationMins)
+		rt.logger.Printf("[rlhf] Updated next sweep duration: %d minutes", nextDurationMins)
 	}
 
 	// Send signal
@@ -599,7 +613,7 @@ func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) err
 		NextSweepDurationMins: nextDurationMins,
 		AddRound:              addRound,
 	}:
-		log.Printf("[rlhf] Sent continue signal")
+		rt.logger.Printf("[rlhf] Sent continue signal")
 		return nil
 	default:
 		return fmt.Errorf("continue channel blocked")
@@ -610,7 +624,7 @@ func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) err
 func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[rlhf] Panic in run loop: %v", r)
+			rt.logger.Printf("[rlhf] Panic in run loop: %v", r)
 			rt.mu.Lock()
 			rt.state.Status = "failed"
 			rt.state.Error = fmt.Sprintf("panic: %v", r)
@@ -635,7 +649,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	currentParams := make(map[string]float64)
 	if len(scene.OptimalParamsJSON) > 0 {
 		if err := json.Unmarshal(scene.OptimalParamsJSON, &currentParams); err != nil {
-			log.Printf("[rlhf] Failed to parse optimal params, using defaults: %v", err)
+			rt.logger.Printf("[rlhf] Failed to parse optimal params, using defaults: %v", err)
 		}
 	}
 
@@ -664,7 +678,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 			break
 		}
 
-		log.Printf("[rlhf] Starting round %d of %d", currentRound, totalRounds)
+		rt.logger.Printf("[rlhf] Starting round %d of %d", currentRound, totalRounds)
 
 		// Update round number
 		rt.mu.Lock()
@@ -703,7 +717,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 					}
 
 					bounds[paramName] = [2]float64{newStart, newEnd}
-					log.Printf("[rlhf] Narrowed bounds for %s: [%.3f, %.3f] -> [%.3f, %.3f]",
+					rt.logger.Printf("[rlhf] Narrowed bounds for %s: [%.3f, %.3f] -> [%.3f, %.3f]",
 						paramName, oldBounds[0], oldBounds[1], newStart, newEnd)
 				}
 			}
@@ -728,9 +742,9 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 
 		if rt.sceneStore != nil {
 			if err := rt.sceneStore.SetOptimalParams(req.SceneID, paramsJSON); err != nil {
-				log.Printf("[rlhf] Failed to persist optimal params: %v", err)
+				rt.logger.Printf("[rlhf] Failed to persist optimal params: %v", err)
 			} else {
-				log.Printf("[rlhf] Applied optimal params: %s", paramsJSON)
+				rt.logger.Printf("[rlhf] Applied optimal params: %s", paramsJSON)
 			}
 		}
 
@@ -753,21 +767,21 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	if rt.persister != nil {
 		recJSON, err := json.Marshal(currentParams)
 		if err != nil {
-			log.Printf("[rlhf] Failed to marshal recommendation: %v", err)
+			rt.logger.Printf("[rlhf] Failed to marshal recommendation: %v", err)
 			recJSON = []byte("{}")
 		}
 		roundJSON, err := json.Marshal(roundHistoryCopy)
 		if err != nil {
-			log.Printf("[rlhf] Failed to marshal round history: %v", err)
+			rt.logger.Printf("[rlhf] Failed to marshal round history: %v", err)
 			roundJSON = []byte("[]")
 		}
 		now := time.Now()
 		if err := rt.persister.SaveSweepComplete(rt.sweepID, "completed", nil, recJSON, roundJSON, now, "", nil, nil, nil, "", ""); err != nil {
-			log.Printf("[rlhf] Failed to persist sweep completion: %v", err)
+			rt.logger.Printf("[rlhf] Failed to persist sweep completion: %v", err)
 		}
 	}
 
-	log.Printf("[rlhf] RLHF tuning completed successfully")
+	rt.logger.Printf("[rlhf] RLHF tuning completed successfully")
 }
 
 // runRound executes a single RLHF round.
@@ -775,7 +789,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	// Phase 1: Create reference run
 	rt.setStatus("running_reference")
 
-	log.Printf("[rlhf] Creating reference run with current params")
+	rt.logger.Printf("[rlhf] Creating reference run with current params")
 
 	paramsJSON, err := json.Marshal(currentParams)
 	if err != nil {
@@ -791,7 +805,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 		return nil, 0, fmt.Errorf("failed to create reference run: %w", err)
 	}
 
-	log.Printf("[rlhf] Created reference run: %s", runID)
+	rt.logger.Printf("[rlhf] Created reference run: %s", runID)
 
 	// Set as scene's reference run
 	if err := rt.sceneGetter.SetReferenceRun(req.SceneID, runID); err != nil {
@@ -816,12 +830,12 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	}
 	rt.mu.RUnlock()
 	if prevRunID != "" {
-		log.Printf("[rlhf] Carrying over labels from previous run %s", prevRunID)
+		rt.logger.Printf("[rlhf] Carrying over labels from previous run %s", prevRunID)
 		carriedOver, err = rt.carryOverLabels(prevRunID, runID)
 		if err != nil {
-			log.Printf("[rlhf] Failed to carry over labels: %v", err)
+			rt.logger.Printf("[rlhf] Failed to carry over labels: %v", err)
 		} else {
-			log.Printf("[rlhf] Carried over %d labels", carriedOver)
+			rt.logger.Printf("[rlhf] Carried over %d labels", carriedOver)
 			rt.mu.Lock()
 			rt.state.LabelsCarriedOver = carriedOver
 			rt.mu.Unlock()
@@ -831,7 +845,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	// Phase 3: Wait for labels
 	rt.setStatus("awaiting_labels")
 
-	log.Printf("[rlhf] Awaiting labels (threshold: %.1f%%, no deadline — continue when ready)", req.MinLabelThreshold*100)
+	rt.logger.Printf("[rlhf] Awaiting labels (threshold: %.1f%%, no deadline — continue when ready)", req.MinLabelThreshold*100)
 
 	if err := rt.waitForLabels(ctx, runID, req.MinLabelThreshold); err != nil {
 		return nil, 0, fmt.Errorf("label waiting failed: %w", err)
@@ -861,7 +875,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	rt.state.SweepDeadline = &deadline
 	rt.mu.Unlock()
 
-	log.Printf("[rlhf] Running auto-tune sweep (duration: %d minutes)", sweepDuration)
+	rt.logger.Printf("[rlhf] Running auto-tune sweep (duration: %d minutes)", sweepDuration)
 
 	if rt.autoTuner == nil {
 		return nil, 0, fmt.Errorf("auto-tuner not configured")
@@ -912,7 +926,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 		}
 	}
 
-	log.Printf("[rlhf] Round %d complete: score=%.4f, params=%v", round, bestScore, bestParams)
+	rt.logger.Printf("[rlhf] Round %d complete: score=%.4f, params=%v", round, bestScore, bestParams)
 
 	return bestParams, bestScore, nil
 }
@@ -963,7 +977,7 @@ func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold 
 		}
 		total, labelled, byClass, err := rt.labelQuerier.GetLabelingProgress(runID)
 		if err != nil {
-			log.Printf("[rlhf] Failed to query label progress: %v", err)
+			rt.logger.Printf("[rlhf] Failed to query label progress: %v", err)
 			return
 		}
 		pct := 0.0
@@ -979,7 +993,7 @@ func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold 
 		}
 		rt.mu.Unlock()
 		rt.stateCond.Broadcast()
-		log.Printf("[rlhf] Label progress: %d/%d (%.1f%%)", labelled, total, pct*100)
+		rt.logger.Printf("[rlhf] Label progress: %d/%d (%.1f%%)", labelled, total, pct*100)
 	}
 
 	for {
@@ -989,7 +1003,7 @@ func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold 
 
 		case sig := <-rt.continueCh:
 			// Manual continue signal from the dashboard
-			log.Printf("[rlhf] Received continue signal (next_duration=%d, add_round=%v)", sig.NextSweepDurationMins, sig.AddRound)
+			rt.logger.Printf("[rlhf] Received continue signal (next_duration=%d, add_round=%v)", sig.NextSweepDurationMins, sig.AddRound)
 			if sig.NextSweepDurationMins > 0 {
 				rt.mu.Lock()
 				rt.state.NextSweepDuration = sig.NextSweepDurationMins
@@ -1048,7 +1062,7 @@ func (rt *RLHFTuner) carryOverLabels(prevRunID, newRunID string) (int, error) {
 		// Carry over if IoU >= 0.5, using IoU as confidence
 		if bestMatch != nil && bestIoU >= 0.5 {
 			if err := rt.labelQuerier.UpdateTrackLabel(newRunID, bestMatch.TrackID, prevTrack.UserLabel, prevTrack.QualityLabel, float32(bestIoU), "rlhf-carryover", "carried_over"); err != nil {
-				log.Printf("[rlhf] Failed to carry over label for track %s: %v", bestMatch.TrackID, err)
+				rt.logger.Printf("[rlhf] Failed to carry over label for track %s: %v", bestMatch.TrackID, err)
 			} else {
 				carried++
 			}
@@ -1148,7 +1162,7 @@ func (rt *RLHFTuner) buildAutoTuneRequest(bounds map[string][2]float64, req RLHF
 		weights.DetectionRate *= 1.5
 		weights.FalsePositives *= 0.5
 		autoReq.GroundTruthWeights = &weights
-		log.Printf("[rlhf] Adjusted weights for round 1: DetectionRate x1.5, FalsePositives x0.5")
+		rt.logger.Printf("[rlhf] Adjusted weights for round 1: DetectionRate x1.5, FalsePositives x0.5")
 	}
 
 	return autoReq
@@ -1192,7 +1206,7 @@ func (rt *RLHFTuner) waitForAutoTuneComplete(ctx context.Context, deadline time.
 
 // failWithError sets the state to failed with the given error message.
 func (rt *RLHFTuner) failWithError(errMsg string) {
-	log.Printf("[rlhf] Failed: %s", errMsg)
+	rt.logger.Printf("[rlhf] Failed: %s", errMsg)
 	rt.mu.Lock()
 	rt.state.Status = "failed"
 	rt.state.Error = errMsg
@@ -1202,7 +1216,7 @@ func (rt *RLHFTuner) failWithError(errMsg string) {
 	if rt.persister != nil {
 		now := time.Now()
 		if err := rt.persister.SaveSweepComplete(rt.sweepID, "failed", nil, nil, nil, now, errMsg, nil, nil, nil, "", ""); err != nil {
-			log.Printf("[rlhf] Failed to persist error: %v", err)
+			rt.logger.Printf("[rlhf] Failed to persist error: %v", err)
 		}
 	}
 }
