@@ -574,3 +574,75 @@ func TestTransformPipeline_PreservesOtherMetrics(t *testing.T) {
 		t.Errorf("expected value3 = 4.0, got %f", result["value3"])
 	}
 }
+
+func TestTransform_Immutability(t *testing.T) {
+	tests := []struct {
+		name      string
+		transform Transform
+		initial   map[string]float64
+		expected  map[string]float64
+	}{
+		{
+			name:      "normalise transform doesn't modify original",
+			transform: &NormaliseTransform{Metric: "value", Min: 0.0, Max: 100.0},
+			initial:   map[string]float64{"value": 50.0},
+			expected:  map[string]float64{"value": 50.0}, // Original unchanged
+		},
+		{
+			name:      "clip transform doesn't modify original",
+			transform: &ClipTransform{Metric: "value", Min: 0.0, Max: 1.0},
+			initial:   map[string]float64{"value": 2.0},
+			expected:  map[string]float64{"value": 2.0}, // Original unchanged
+		},
+		{
+			name:      "log transform doesn't modify original",
+			transform: &LogScaleTransform{Metric: "value"},
+			initial:   map[string]float64{"value": 10.0},
+			expected:  map[string]float64{"value": 10.0}, // Original unchanged
+		},
+		{
+			name:      "weight transform doesn't modify original",
+			transform: &ClassWeightTransform{Metric: "value", Weight: 2.0},
+			initial:   map[string]float64{"value": 5.0},
+			expected:  map[string]float64{"value": 5.0}, // Original unchanged
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Make a copy to verify against expected
+			originalCopy := make(map[string]float64, len(tt.initial))
+			for k, v := range tt.initial {
+				originalCopy[k] = v
+			}
+
+			// Apply transform
+			_ = tt.transform.Apply(tt.initial)
+
+			// Verify original map is unchanged
+			for k, expectedVal := range tt.expected {
+				if tt.initial[k] != expectedVal {
+					t.Errorf("original map was modified: expected %s = %f, got %f", k, expectedVal, tt.initial[k])
+				}
+			}
+		})
+	}
+}
+
+func TestRoundModifierTransform_Immutability(t *testing.T) {
+	currentRound := 2
+	transform := &RoundModifierTransform{
+		Metric:       "value",
+		Multiplier:   3.0,
+		Round:        2,
+		CurrentRound: &currentRound,
+	}
+
+	initial := map[string]float64{"value": 5.0}
+	_ = transform.Apply(initial)
+
+	// Verify original map is unchanged
+	if initial["value"] != 5.0 {
+		t.Errorf("original map was modified: expected value = 5.0, got %f", initial["value"])
+	}
+}

@@ -73,9 +73,15 @@ func (t *NormaliseTransform) Apply(metrics map[string]float64) map[string]float6
 		return metrics
 	}
 
+	// Create a copy to maintain immutability
+	result := make(map[string]float64, len(metrics))
+	for k, v := range metrics {
+		result[k] = v
+	}
+
 	normalised := (val - t.Min) / (t.Max - t.Min)
-	metrics[t.Metric] = normalised
-	return metrics
+	result[t.Metric] = normalised
+	return result
 }
 
 // ClipTransform clamps a metric value to [min, max].
@@ -98,13 +104,19 @@ func (t *ClipTransform) Apply(metrics map[string]float64) map[string]float64 {
 		return metrics
 	}
 
-	if val < t.Min {
-		metrics[t.Metric] = t.Min
-	} else if val > t.Max {
-		metrics[t.Metric] = t.Max
+	// Create a copy to maintain immutability
+	result := make(map[string]float64, len(metrics))
+	for k, v := range metrics {
+		result[k] = v
 	}
 
-	return metrics
+	if val < t.Min {
+		result[t.Metric] = t.Min
+	} else if val > t.Max {
+		result[t.Metric] = t.Max
+	}
+
+	return result
 }
 
 // LogScaleTransform applies log(1 + value) to a metric.
@@ -125,8 +137,14 @@ func (t *LogScaleTransform) Apply(metrics map[string]float64) map[string]float64
 		return metrics
 	}
 
-	metrics[t.Metric] = math.Log(1 + val)
-	return metrics
+	// Create a copy to maintain immutability
+	result := make(map[string]float64, len(metrics))
+	for k, v := range metrics {
+		result[k] = v
+	}
+
+	result[t.Metric] = math.Log(1 + val)
+	return result
 }
 
 // ClassWeightTransform multiplies a metric by a weight factor.
@@ -148,8 +166,14 @@ func (t *ClassWeightTransform) Apply(metrics map[string]float64) map[string]floa
 		return metrics
 	}
 
-	metrics[t.Metric] = val * t.Weight
-	return metrics
+	// Create a copy to maintain immutability
+	result := make(map[string]float64, len(metrics))
+	for k, v := range metrics {
+		result[k] = v
+	}
+
+	result[t.Metric] = val * t.Weight
+	return result
 }
 
 // RoundModifierTransform applies a round-dependent multiplier (for HINT).
@@ -178,8 +202,14 @@ func (t *RoundModifierTransform) Apply(metrics map[string]float64) map[string]fl
 		return metrics
 	}
 
-	metrics[t.Metric] = val * t.Multiplier
-	return metrics
+	// Create a copy to maintain immutability
+	result := make(map[string]float64, len(metrics))
+	for k, v := range metrics {
+		result[k] = v
+	}
+
+	result[t.Metric] = val * t.Multiplier
+	return result
 }
 
 // DefaultTransformPipeline returns the default (identity) pipeline.
