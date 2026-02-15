@@ -27,21 +27,15 @@ struct FormatRateTests {
         #expect(formatRate(64.0) == "64")
     }
 
-    @Test func fractionalRate() throws {
-        #expect(formatRate(0.5) == "0.5")
-    }
+    @Test func fractionalRate() throws { #expect(formatRate(0.5) == "0.5") }
 
-    @Test func largeIntegerRate() throws {
-        #expect(formatRate(100.0) == "100")
-    }
+    @Test func largeIntegerRate() throws { #expect(formatRate(100.0) == "100") }
 }
 
 // MARK: - Format Duration Tests
 
 struct FormatDurationTests {
-    @Test func zeroNanos() throws {
-        #expect(formatDuration(0) == "0:00")
-    }
+    @Test func zeroNanos() throws { #expect(formatDuration(0) == "0:00") }
 
     @Test func oneSecond() throws {
         let nanos: Int64 = 1_000_000_000
@@ -189,8 +183,7 @@ struct ToggleButtonTests {
 
 struct LabelButtonTests {
     @Test func labelButtonWithShortcut() throws {
-        let button = LabelButton(
-            label: "car", shortcut: "1", isActive: false, action: {})
+        let button = LabelButton(label: "car", shortcut: "1", isActive: false, action: {})
         let _ = button.body
     }
 
@@ -257,7 +250,7 @@ struct TrackLabelOverlayTests {
     func testCoordinatorCreation() throws {
         let rep = MetalViewRepresentable(
             showPoints: true, showBoxes: true, showClusters: true, showTrails: true,
-            showDebug: false, pointSize: 5.0)
+            showDebug: false, showGrid: false, pointSize: 5.0)
         let coordinator = rep.makeCoordinator()
         XCTAssertNil(coordinator.renderer)
     }
@@ -265,26 +258,28 @@ struct TrackLabelOverlayTests {
     func testDefaultProperties() throws {
         let rep = MetalViewRepresentable(
             showPoints: true, showBoxes: true, showClusters: true, showTrails: true,
-            showDebug: false, pointSize: 5.0)
+            showDebug: false, showGrid: false, pointSize: 5.0)
 
         XCTAssertTrue(rep.showPoints)
         XCTAssertTrue(rep.showBoxes)
         XCTAssertTrue(rep.showClusters)
         XCTAssertTrue(rep.showTrails)
         XCTAssertFalse(rep.showDebug)
+        XCTAssertFalse(rep.showGrid)
         XCTAssertEqual(rep.pointSize, 5.0)
     }
 
     func testCustomProperties() throws {
         let rep = MetalViewRepresentable(
             showPoints: false, showBoxes: false, showClusters: false, showTrails: false,
-            showDebug: true, pointSize: 15.0)
+            showDebug: true, showGrid: true, pointSize: 15.0)
 
         XCTAssertFalse(rep.showPoints)
         XCTAssertFalse(rep.showBoxes)
         XCTAssertFalse(rep.showClusters)
         XCTAssertFalse(rep.showTrails)
         XCTAssertTrue(rep.showDebug)
+        XCTAssertTrue(rep.showGrid)
         XCTAssertEqual(rep.pointSize, 15.0)
     }
 }
