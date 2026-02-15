@@ -114,7 +114,13 @@ If the optimised configuration still shows quality issues, use auto-tuning to re
 ```json
 {
   "params": [
-    { "name": "foreground_dbscan_eps", "type": "float64", "start": 0.5, "end": 0.9, "step": 0.1 },
+    {
+      "name": "foreground_dbscan_eps",
+      "type": "float64",
+      "start": 0.5,
+      "end": 0.9,
+      "step": 0.1
+    },
     {
       "name": "gating_distance_squared",
       "type": "float64",
@@ -122,7 +128,13 @@ If the optimised configuration still shows quality issues, use auto-tuning to re
       "end": 36.0,
       "step": 4.0
     },
-    { "name": "measurement_noise", "type": "float64", "start": 0.1, "end": 0.25, "step": 0.05 }
+    {
+      "name": "measurement_noise",
+      "type": "float64",
+      "start": 0.1,
+      "end": 0.25,
+      "step": 0.05
+    }
   ],
   "objective": "weighted",
   "weights": {
