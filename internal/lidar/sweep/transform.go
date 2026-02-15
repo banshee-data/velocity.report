@@ -9,7 +9,7 @@ import (
 type Transform interface {
 	// Name returns a human-readable name for this transform.
 	Name() string
-	// Apply transforms metrics in-place or returns new metrics.
+	// Apply transforms the metrics and returns a new map, leaving the original unchanged.
 	Apply(metrics map[string]float64) map[string]float64
 }
 
