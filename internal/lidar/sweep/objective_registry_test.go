@@ -140,10 +140,15 @@ func TestBuiltInObjective_Weighted(t *testing.T) {
 
 	score := def.Score(result, weights)
 
-	// Verify that the score function was called and returned a value
-	// The actual value depends on ScoreResult implementation
-	if score == 0 {
-		t.Log("Score is zero, which may be expected but worth noting")
+	// Verify the score matches what ScoreResult would return
+	expectedScore := ScoreResult(result, weights)
+	if score != expectedScore {
+		t.Errorf("Expected score %.4f to match ScoreResult output %.4f", score, expectedScore)
+	}
+
+	// Verify score is non-zero and reasonable (acceptance alone should contribute 0.8)
+	if score < 0.5 {
+		t.Errorf("Expected score to be at least 0.5 with acceptance=0.8, got %.4f", score)
 	}
 }
 

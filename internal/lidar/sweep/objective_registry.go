@@ -1,6 +1,9 @@
 package sweep
 
-import "sync"
+import (
+	"sort"
+	"sync"
+)
 
 // ObjectiveDefinition describes a registered objective module.
 type ObjectiveDefinition struct {
@@ -67,13 +70,9 @@ func (r *ObjectiveRegistry) List() []ObjectiveInfo {
 	}
 
 	// Sort by name for deterministic output
-	for i := 0; i < len(infos)-1; i++ {
-		for j := i + 1; j < len(infos); j++ {
-			if infos[i].Name > infos[j].Name {
-				infos[i], infos[j] = infos[j], infos[i]
-			}
-		}
-	}
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].Name < infos[j].Name
+	})
 
 	return infos
 }
