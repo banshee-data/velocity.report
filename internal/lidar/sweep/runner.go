@@ -89,7 +89,7 @@ type SweepRequest struct {
 	Seed string `json:"seed"` // "true", "false", or "toggle"
 
 	// EnableRecording enables VRLOG recording during PCAP replays.
-	// Only RLHF tuning runs and manual replays should set this to true;
+	// Only HINT tuning runs and manual replays should set this to true;
 	// regular multi-combo sweeps leave it false to avoid generating a
 	// VRLOG file per combination.
 	EnableRecording bool `json:"enable_recording,omitempty"`

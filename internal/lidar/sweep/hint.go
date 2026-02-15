@@ -16,12 +16,12 @@ import (
 // LabelProgressQuerier queries label progress for a run.
 type LabelProgressQuerier interface {
 	GetLabelingProgress(runID string) (total, labelled int, byClass map[string]int, err error)
-	GetRunTracks(runID string) ([]RLHFRunTrack, error)
+	GetRunTracks(runID string) ([]HINTRunTrack, error)
 	UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error
 }
 
-// RLHFRunTrack is a minimal track representation for label carryover.
-type RLHFRunTrack struct {
+// HINTRunTrack is a minimal track representation for label carryover.
+type HINTRunTrack struct {
 	TrackID        string
 	StartUnixNanos int64
 	EndUnixNanos   int64
@@ -31,12 +31,12 @@ type RLHFRunTrack struct {
 
 // SceneGetter retrieves scene data and sets reference runs.
 type SceneGetter interface {
-	GetScene(sceneID string) (*RLHFScene, error)
+	GetScene(sceneID string) (*HINTScene, error)
 	SetReferenceRun(sceneID, runID string) error
 }
 
-// RLHFScene is a minimal scene representation.
-type RLHFScene struct {
+// HINTScene is a minimal scene representation.
+type HINTScene struct {
 	SceneID           string
 	SensorID          string
 	PCAPFile          string
@@ -46,13 +46,13 @@ type RLHFScene struct {
 	OptimalParamsJSON json.RawMessage
 }
 
-// ReferenceRunCreator creates analysis runs for RLHF reference.
+// ReferenceRunCreator creates analysis runs for HINT reference.
 type ReferenceRunCreator interface {
 	CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error)
 }
 
-// RLHFSweepRequest defines the request for an RLHF tuning sweep.
-type RLHFSweepRequest struct {
+// HINTSweepRequest defines the request for an HINT tuning sweep.
+type HINTSweepRequest struct {
 	SceneID               string              `json:"scene_id"`
 	NumRounds             int                 `json:"num_rounds"`
 	RoundDurations        []int               `json:"round_durations"`
@@ -79,10 +79,10 @@ type RLHFSweepRequest struct {
 	TuneBackground bool `json:"tune_background,omitempty"`
 }
 
-// RLHFState represents the current state of an RLHF tuning session.
-type RLHFState struct {
+// HINTState represents the current state of an HINT tuning session.
+type HINTState struct {
 	Status                string                 `json:"status"` // "idle","running_reference","awaiting_labels","running_sweep","completed","failed"
-	Mode                  string                 `json:"mode"`   // always "rlhf"
+	Mode                  string                 `json:"mode"`   // always "hint"
 	CurrentRound          int                    `json:"current_round"`
 	TotalRounds           int                    `json:"total_rounds"`
 	ReferenceRunID        string                 `json:"reference_run_id,omitempty"`
@@ -91,7 +91,7 @@ type RLHFState struct {
 	SweepDeadline         *time.Time             `json:"sweep_deadline,omitempty"`
 	AutoTuneState         *AutoTuneState         `json:"auto_tune_state,omitempty"`
 	Recommendation        map[string]interface{} `json:"recommendation,omitempty"`
-	RoundHistory          []RLHFRound            `json:"round_history"`
+	RoundHistory          []HINTRound            `json:"round_history"`
 	Error                 string                 `json:"error,omitempty"`
 	MinLabelThreshold     float64                `json:"min_label_threshold"`
 	LabelsCarriedOver     int                    `json:"labels_carried_over"`
@@ -109,8 +109,8 @@ type LabelProgress struct {
 	ByClass  map[string]int `json:"by_class"`
 }
 
-// RLHFRound records the results of a single RLHF round.
-type RLHFRound struct {
+// HINTRound records the results of a single HINT round.
+type HINTRound struct {
 	Round               int                `json:"round"`
 	ReferenceRunID      string             `json:"reference_run_id"`
 	LabelledAt          *time.Time         `json:"labelled_at,omitempty"`
@@ -122,7 +122,7 @@ type RLHFRound struct {
 	BestScoreComponents *ScoreComponents   `json:"best_score_components,omitempty"`
 }
 
-// defaultRLHFParams returns the default set of sweep parameters for RLHF
+// defaultHINTParams returns the default set of sweep parameters for HINT
 // when the caller does not specify any.
 //
 // When tuneBackground is false (the default), only foreground/clustering
@@ -131,7 +131,7 @@ type RLHFRound struct {
 //
 // When tuneBackground is true, background-subtraction params are also
 // included since each exploration combo must re-settle the grid.
-func defaultRLHFParams(tuneBackground bool) []SweepParam {
+func defaultHINTParams(tuneBackground bool) []SweepParam {
 	params := []SweepParam{
 		{Name: "foreground_min_cluster_points", Type: "int", Start: 0, End: 20},
 		{Name: "foreground_dbscan_eps", Type: "float64", Start: 0, End: 2.0},
@@ -147,11 +147,11 @@ func defaultRLHFParams(tuneBackground bool) []SweepParam {
 	return params
 }
 
-// RLHFTuner orchestrates human-in-the-loop parameter optimisation.
-type RLHFTuner struct {
+// HINTTuner orchestrates human-in-the-loop parameter optimisation.
+type HINTTuner struct {
 	mu sync.RWMutex
 
-	state     RLHFState
+	state     HINTState
 	stateCond *sync.Cond // broadcast on every status transition
 	cancel    context.CancelFunc
 
@@ -180,27 +180,27 @@ type continueSignal struct {
 	AddRound              bool `json:"add_round"`
 }
 
-// NewRLHFTuner creates a new RLHF tuner with the given AutoTuner backend.
-func NewRLHFTuner(autoTuner *AutoTuner) *RLHFTuner {
-	rt := &RLHFTuner{
+// NewHINTTuner creates a new HINT tuner with the given AutoTuner backend.
+func NewHINTTuner(autoTuner *AutoTuner) *HINTTuner {
+	rt := &HINTTuner{
 		autoTuner:     autoTuner,
 		continueCh:    make(chan continueSignal, 1),
 		labelUpdateCh: make(chan struct{}, 1),
 		pollInterval:  60 * time.Second, // safety fallback; label updates arrive via channel
 		logger:        log.Default(),
-		state: RLHFState{
+		state: HINTState{
 			Status:       "idle",
-			Mode:         "rlhf",
-			RoundHistory: []RLHFRound{},
+			Mode:         "hint",
+			RoundHistory: []HINTRound{},
 		},
 	}
 	rt.stateCond = sync.NewCond(rt.mu.RLocker())
 	return rt
 }
 
-// SetLogger sets the logger for the RLHF tuner. Use log.New(io.Discard, "", 0)
+// SetLogger sets the logger for the HINT tuner. Use log.New(io.Discard, "", 0)
 // in tests to suppress expected error-path log output.
-func (rt *RLHFTuner) SetLogger(l *log.Logger) {
+func (rt *HINTTuner) SetLogger(l *log.Logger) {
 	rt.logger = l
 }
 
@@ -210,56 +210,56 @@ func discardLogger() *log.Logger {
 }
 
 // SetLabelQuerier sets the label progress querier dependency.
-func (rt *RLHFTuner) SetLabelQuerier(q LabelProgressQuerier) {
+func (rt *HINTTuner) SetLabelQuerier(q LabelProgressQuerier) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.labelQuerier = q
 }
 
 // SetSceneGetter sets the scene getter dependency.
-func (rt *RLHFTuner) SetSceneGetter(g SceneGetter) {
+func (rt *HINTTuner) SetSceneGetter(g SceneGetter) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.sceneGetter = g
 }
 
 // SetSceneStore sets the scene store dependency.
-func (rt *RLHFTuner) SetSceneStore(s SceneStoreSaver) {
+func (rt *HINTTuner) SetSceneStore(s SceneStoreSaver) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.sceneStore = s
 }
 
 // SetRunCreator sets the reference run creator dependency.
-func (rt *RLHFTuner) SetRunCreator(c ReferenceRunCreator) {
+func (rt *HINTTuner) SetRunCreator(c ReferenceRunCreator) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.runCreator = c
 }
 
 // SetPersister sets the persistence layer.
-func (rt *RLHFTuner) SetPersister(p SweepPersister) {
+func (rt *HINTTuner) SetPersister(p SweepPersister) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.persister = p
 }
 
 // SetGroundTruthScorer sets the ground truth scoring function.
-func (rt *RLHFTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
+func (rt *HINTTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.groundTruthScorer = scorer
 }
 
-// Start initiates an RLHF tuning session.
-func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error {
+// Start initiates an HINT tuning session.
+func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 
 	// Parse request
-	var req RLHFSweepRequest
+	var req HINTSweepRequest
 	switch v := reqInterface.(type) {
-	case RLHFSweepRequest:
+	case HINTSweepRequest:
 		req = v
 	case map[string]interface{}:
 		data, err := json.Marshal(v)
@@ -280,9 +280,9 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	if req.NumRounds < 1 || req.NumRounds > 10 {
 		return fmt.Errorf("num_rounds must be between 1 and 10, got %d", req.NumRounds)
 	}
-	// Auto-populate default RLHF sweep params if none provided.
+	// Auto-populate default HINT sweep params if none provided.
 	if len(req.Params) == 0 {
-		req.Params = defaultRLHFParams(req.TuneBackground)
+		req.Params = defaultHINTParams(req.TuneBackground)
 	}
 	if len(req.Params) > 20 {
 		return fmt.Errorf("too many parameters (max 20, got %d)", len(req.Params))
@@ -334,7 +334,7 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 		if req.Iterations < 1 {
 			req.Iterations = 10
 		}
-		rt.logger.Printf("[rlhf] Fitted iterations=%d from scene duration=%.1fs", req.Iterations, scenePCAPDuration)
+		rt.logger.Printf("[hint] Fitted iterations=%d from scene duration=%.1fs", req.Iterations, scenePCAPDuration)
 	}
 
 	// Check not already running
@@ -347,12 +347,12 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 
 	// Initialize state
 	rt.sweepID = uuid.New().String()
-	rt.state = RLHFState{
+	rt.state = HINTState{
 		Status:                "running_reference",
-		Mode:                  "rlhf",
+		Mode:                  "hint",
 		CurrentRound:          0,
 		TotalRounds:           req.NumRounds,
-		RoundHistory:          []RLHFRound{},
+		RoundHistory:          []HINTRound{},
 		MinLabelThreshold:     req.MinLabelThreshold,
 		NextSweepDuration:     60, // default sweep duration in minutes
 		MinClassCoverage:      req.MinClassCoverage,
@@ -364,11 +364,11 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	if rt.persister != nil {
 		reqJSON, err := json.Marshal(req)
 		if err != nil {
-			rt.logger.Printf("[rlhf] WARNING: Failed to marshal request for persistence: %v", err)
+			rt.logger.Printf("[hint] WARNING: Failed to marshal request for persistence: %v", err)
 			reqJSON = []byte("{}")
 		}
-		if err := rt.persister.SaveSweepStart(rt.sweepID, sensorID, "rlhf", reqJSON, time.Now(), "ground_truth", ObjectiveVersion); err != nil {
-			rt.logger.Printf("[rlhf] Failed to persist sweep start: %v", err)
+		if err := rt.persister.SaveSweepStart(rt.sweepID, sensorID, "hint", reqJSON, time.Now(), "ground_truth", ObjectiveVersion); err != nil {
+			rt.logger.Printf("[hint] Failed to persist sweep start: %v", err)
 		}
 	}
 
@@ -377,17 +377,17 @@ func (rt *RLHFTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	rt.cancel = cancel
 	go rt.run(runCtx, req)
 
-	rt.logger.Printf("[rlhf] Started RLHF tuning session %s for scene %s (%d rounds)", rt.sweepID, req.SceneID, req.NumRounds)
+	rt.logger.Printf("[hint] Started HINT tuning session %s for scene %s (%d rounds)", rt.sweepID, req.SceneID, req.NumRounds)
 	return nil
 }
 
 // GetState returns the current state (interface for compatibility).
-func (rt *RLHFTuner) GetState() interface{} {
-	return rt.GetRLHFState()
+func (rt *HINTTuner) GetState() interface{} {
+	return rt.GetHINTState()
 }
 
-// GetRLHFState returns a deep copy of the current RLHF state.
-func (rt *RLHFTuner) GetRLHFState() RLHFState {
+// GetHINTState returns a deep copy of the current HINT state.
+func (rt *HINTTuner) GetHINTState() HINTState {
 	rt.mu.RLock()
 	defer rt.mu.RUnlock()
 
@@ -440,7 +440,7 @@ func (rt *RLHFTuner) GetRLHFState() RLHFState {
 
 	// Deep copy round history
 	if len(state.RoundHistory) > 0 {
-		state.RoundHistory = make([]RLHFRound, len(rt.state.RoundHistory))
+		state.RoundHistory = make([]HINTRound, len(rt.state.RoundHistory))
 		for i, round := range rt.state.RoundHistory {
 			roundCopy := round
 			if round.LabelledAt != nil {
@@ -470,19 +470,19 @@ func (rt *RLHFTuner) GetRLHFState() RLHFState {
 	return state
 }
 
-// setStatus updates the RLHF status and broadcasts to any long-poll waiters.
+// setStatus updates the HINT status and broadcasts to any long-poll waiters.
 // Caller must NOT hold rt.mu.
-func (rt *RLHFTuner) setStatus(status string) {
+func (rt *HINTTuner) setStatus(status string) {
 	rt.mu.Lock()
 	rt.state.Status = status
 	rt.mu.Unlock()
 	rt.stateCond.Broadcast()
 }
 
-// WaitForChange blocks until the RLHF state changes (status transition
+// WaitForChange blocks until the HINT state changes (status transition
 // or label-progress update) compared to the caller's last-seen snapshot,
 // or ctx is cancelled.  Returns the current state.
-func (rt *RLHFTuner) WaitForChange(ctx context.Context, lastStatus string) interface{} {
+func (rt *HINTTuner) WaitForChange(ctx context.Context, lastStatus string) interface{} {
 	// Use a goroutine to unblock the Cond.Wait when the context is done.
 	done := make(chan struct{})
 	go func() {
@@ -505,8 +505,8 @@ func (rt *RLHFTuner) WaitForChange(ctx context.Context, lastStatus string) inter
 	return rt.GetState()
 }
 
-// Stop cancels the running RLHF session.
-func (rt *RLHFTuner) Stop() {
+// Stop cancels the running HINT session.
+func (rt *HINTTuner) Stop() {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 
@@ -519,11 +519,11 @@ func (rt *RLHFTuner) Stop() {
 		rt.autoTuner.Stop()
 	}
 
-	rt.logger.Printf("[rlhf] Stopped RLHF tuning session")
+	rt.logger.Printf("[hint] Stopped HINT tuning session")
 }
 
 // ContinueFromLabels signals the tuner to proceed from awaiting_labels to running_sweep.
-func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) error {
+func (rt *HINTTuner) ContinueFromLabels(nextDurationMins int, addRound bool) error {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 
@@ -598,13 +598,13 @@ func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) err
 	// Update total rounds if requested
 	if addRound {
 		rt.state.TotalRounds++
-		rt.logger.Printf("[rlhf] Added round: now %d total rounds", rt.state.TotalRounds)
+		rt.logger.Printf("[hint] Added round: now %d total rounds", rt.state.TotalRounds)
 	}
 
 	// Update next sweep duration if provided
 	if nextDurationMins > 0 {
 		rt.state.NextSweepDuration = nextDurationMins
-		rt.logger.Printf("[rlhf] Updated next sweep duration: %d minutes", nextDurationMins)
+		rt.logger.Printf("[hint] Updated next sweep duration: %d minutes", nextDurationMins)
 	}
 
 	// Send signal
@@ -613,18 +613,18 @@ func (rt *RLHFTuner) ContinueFromLabels(nextDurationMins int, addRound bool) err
 		NextSweepDurationMins: nextDurationMins,
 		AddRound:              addRound,
 	}:
-		rt.logger.Printf("[rlhf] Sent continue signal")
+		rt.logger.Printf("[hint] Sent continue signal")
 		return nil
 	default:
 		return fmt.Errorf("continue channel blocked")
 	}
 }
 
-// run is the main RLHF orchestration loop.
-func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
+// run is the main HINT orchestration loop.
+func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 	defer func() {
 		if r := recover(); r != nil {
-			rt.logger.Printf("[rlhf] Panic in run loop: %v", r)
+			rt.logger.Printf("[hint] Panic in run loop: %v", r)
 			rt.mu.Lock()
 			rt.state.Status = "failed"
 			rt.state.Error = fmt.Sprintf("panic: %v", r)
@@ -649,7 +649,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	currentParams := make(map[string]float64)
 	if len(scene.OptimalParamsJSON) > 0 {
 		if err := json.Unmarshal(scene.OptimalParamsJSON, &currentParams); err != nil {
-			rt.logger.Printf("[rlhf] Failed to parse optimal params, using defaults: %v", err)
+			rt.logger.Printf("[hint] Failed to parse optimal params, using defaults: %v", err)
 		}
 	}
 
@@ -678,7 +678,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 			break
 		}
 
-		rt.logger.Printf("[rlhf] Starting round %d of %d", currentRound, totalRounds)
+		rt.logger.Printf("[hint] Starting round %d of %d", currentRound, totalRounds)
 
 		// Update round number
 		rt.mu.Lock()
@@ -717,7 +717,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 					}
 
 					bounds[paramName] = [2]float64{newStart, newEnd}
-					rt.logger.Printf("[rlhf] Narrowed bounds for %s: [%.3f, %.3f] -> [%.3f, %.3f]",
+					rt.logger.Printf("[hint] Narrowed bounds for %s: [%.3f, %.3f] -> [%.3f, %.3f]",
 						paramName, oldBounds[0], oldBounds[1], newStart, newEnd)
 				}
 			}
@@ -742,9 +742,9 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 
 		if rt.sceneStore != nil {
 			if err := rt.sceneStore.SetOptimalParams(req.SceneID, paramsJSON); err != nil {
-				rt.logger.Printf("[rlhf] Failed to persist optimal params: %v", err)
+				rt.logger.Printf("[hint] Failed to persist optimal params: %v", err)
 			} else {
-				rt.logger.Printf("[rlhf] Applied optimal params: %s", paramsJSON)
+				rt.logger.Printf("[hint] Applied optimal params: %s", paramsJSON)
 			}
 		}
 
@@ -759,7 +759,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	// Complete
 	rt.mu.Lock()
 	rt.state.Status = string(SweepStatusComplete)
-	roundHistoryCopy := make([]RLHFRound, len(rt.state.RoundHistory))
+	roundHistoryCopy := make([]HINTRound, len(rt.state.RoundHistory))
 	copy(roundHistoryCopy, rt.state.RoundHistory)
 	rt.mu.Unlock()
 	rt.stateCond.Broadcast()
@@ -767,29 +767,29 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest) {
 	if rt.persister != nil {
 		recJSON, err := json.Marshal(currentParams)
 		if err != nil {
-			rt.logger.Printf("[rlhf] Failed to marshal recommendation: %v", err)
+			rt.logger.Printf("[hint] Failed to marshal recommendation: %v", err)
 			recJSON = []byte("{}")
 		}
 		roundJSON, err := json.Marshal(roundHistoryCopy)
 		if err != nil {
-			rt.logger.Printf("[rlhf] Failed to marshal round history: %v", err)
+			rt.logger.Printf("[hint] Failed to marshal round history: %v", err)
 			roundJSON = []byte("[]")
 		}
 		now := time.Now()
 		if err := rt.persister.SaveSweepComplete(rt.sweepID, "completed", nil, recJSON, roundJSON, now, "", nil, nil, nil, "", ""); err != nil {
-			rt.logger.Printf("[rlhf] Failed to persist sweep completion: %v", err)
+			rt.logger.Printf("[hint] Failed to persist sweep completion: %v", err)
 		}
 	}
 
-	rt.logger.Printf("[rlhf] RLHF tuning completed successfully")
+	rt.logger.Printf("[hint] HINT tuning completed successfully")
 }
 
-// runRound executes a single RLHF round.
-func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *RLHFScene, round int, currentParams map[string]float64, bounds map[string][2]float64) (map[string]float64, float64, error) {
+// runRound executes a single HINT round.
+func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *HINTScene, round int, currentParams map[string]float64, bounds map[string][2]float64) (map[string]float64, float64, error) {
 	// Phase 1: Create reference run
 	rt.setStatus("running_reference")
 
-	rt.logger.Printf("[rlhf] Creating reference run with current params")
+	rt.logger.Printf("[hint] Creating reference run with current params")
 
 	paramsJSON, err := json.Marshal(currentParams)
 	if err != nil {
@@ -805,7 +805,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 		return nil, 0, fmt.Errorf("failed to create reference run: %w", err)
 	}
 
-	rt.logger.Printf("[rlhf] Created reference run: %s", runID)
+	rt.logger.Printf("[hint] Created reference run: %s", runID)
 
 	// Set as scene's reference run
 	if err := rt.sceneGetter.SetReferenceRun(req.SceneID, runID); err != nil {
@@ -815,7 +815,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	rt.mu.Lock()
 	rt.state.ReferenceRunID = runID
 	// Append round entry now so it's available for carry-over and label updates.
-	rt.state.RoundHistory = append(rt.state.RoundHistory, RLHFRound{
+	rt.state.RoundHistory = append(rt.state.RoundHistory, HINTRound{
 		Round:          round,
 		ReferenceRunID: runID,
 	})
@@ -830,12 +830,12 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	}
 	rt.mu.RUnlock()
 	if prevRunID != "" {
-		rt.logger.Printf("[rlhf] Carrying over labels from previous run %s", prevRunID)
+		rt.logger.Printf("[hint] Carrying over labels from previous run %s", prevRunID)
 		carriedOver, err = rt.carryOverLabels(prevRunID, runID)
 		if err != nil {
-			rt.logger.Printf("[rlhf] Failed to carry over labels: %v", err)
+			rt.logger.Printf("[hint] Failed to carry over labels: %v", err)
 		} else {
-			rt.logger.Printf("[rlhf] Carried over %d labels", carriedOver)
+			rt.logger.Printf("[hint] Carried over %d labels", carriedOver)
 			rt.mu.Lock()
 			rt.state.LabelsCarriedOver = carriedOver
 			rt.mu.Unlock()
@@ -845,7 +845,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	// Phase 3: Wait for labels
 	rt.setStatus("awaiting_labels")
 
-	rt.logger.Printf("[rlhf] Awaiting labels (threshold: %.1f%%, no deadline — continue when ready)", req.MinLabelThreshold*100)
+	rt.logger.Printf("[hint] Awaiting labels (threshold: %.1f%%, no deadline — continue when ready)", req.MinLabelThreshold*100)
 
 	if err := rt.waitForLabels(ctx, runID, req.MinLabelThreshold); err != nil {
 		return nil, 0, fmt.Errorf("label waiting failed: %w", err)
@@ -875,7 +875,7 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 	rt.state.SweepDeadline = &deadline
 	rt.mu.Unlock()
 
-	rt.logger.Printf("[rlhf] Running auto-tune sweep (duration: %d minutes)", sweepDuration)
+	rt.logger.Printf("[hint] Running auto-tune sweep (duration: %d minutes)", sweepDuration)
 
 	if rt.autoTuner == nil {
 		return nil, 0, fmt.Errorf("auto-tuner not configured")
@@ -926,13 +926,13 @@ func (rt *RLHFTuner) runRound(ctx context.Context, req RLHFSweepRequest, scene *
 		}
 	}
 
-	rt.logger.Printf("[rlhf] Round %d complete: score=%.4f, params=%v", round, bestScore, bestParams)
+	rt.logger.Printf("[hint] Round %d complete: score=%.4f, params=%v", round, bestScore, bestParams)
 
 	return bestParams, bestScore, nil
 }
 
 // scenePCAPStart returns the scene's PCAP start offset, or 0 if not set.
-func scenePCAPStart(scene *RLHFScene) float64 {
+func scenePCAPStart(scene *HINTScene) float64 {
 	if scene != nil && scene.PCAPStartSecs != nil {
 		return *scene.PCAPStartSecs
 	}
@@ -940,7 +940,7 @@ func scenePCAPStart(scene *RLHFScene) float64 {
 }
 
 // scenePCAPDuration returns the scene's PCAP duration, or -1 (full file) if not set.
-func scenePCAPDuration(scene *RLHFScene) float64 {
+func scenePCAPDuration(scene *HINTScene) float64 {
 	if scene != nil && scene.PCAPDurationSecs != nil {
 		return *scene.PCAPDurationSecs
 	}
@@ -948,8 +948,8 @@ func scenePCAPDuration(scene *RLHFScene) float64 {
 }
 
 // NotifyLabelUpdate is called by the label-update HTTP handler to wake the
-// RLHF waiter immediately instead of waiting for the next poll tick.
-func (rt *RLHFTuner) NotifyLabelUpdate() {
+// HINT waiter immediately instead of waiting for the next poll tick.
+func (rt *HINTTuner) NotifyLabelUpdate() {
 	select {
 	case rt.labelUpdateCh <- struct{}{}:
 	default:
@@ -960,7 +960,7 @@ func (rt *RLHFTuner) NotifyLabelUpdate() {
 // waitForLabels waits for the user to label tracks and click continue.
 // There is no deadline — the session stays in awaiting_labels until the
 // user explicitly continues via the dashboard.
-func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold float64) error {
+func (rt *HINTTuner) waitForLabels(ctx context.Context, runID string, threshold float64) error {
 	rt.mu.Lock()
 	rt.state.LabelDeadline = nil // no deadline — user continues when ready
 	rt.mu.Unlock()
@@ -977,7 +977,7 @@ func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold 
 		}
 		total, labelled, byClass, err := rt.labelQuerier.GetLabelingProgress(runID)
 		if err != nil {
-			rt.logger.Printf("[rlhf] Failed to query label progress: %v", err)
+			rt.logger.Printf("[hint] Failed to query label progress: %v", err)
 			return
 		}
 		pct := 0.0
@@ -993,7 +993,7 @@ func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold 
 		}
 		rt.mu.Unlock()
 		rt.stateCond.Broadcast()
-		rt.logger.Printf("[rlhf] Label progress: %d/%d (%.1f%%)", labelled, total, pct*100)
+		rt.logger.Printf("[hint] Label progress: %d/%d (%.1f%%)", labelled, total, pct*100)
 	}
 
 	for {
@@ -1003,7 +1003,7 @@ func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold 
 
 		case sig := <-rt.continueCh:
 			// Manual continue signal from the dashboard
-			rt.logger.Printf("[rlhf] Received continue signal (next_duration=%d, add_round=%v)", sig.NextSweepDurationMins, sig.AddRound)
+			rt.logger.Printf("[hint] Received continue signal (next_duration=%d, add_round=%v)", sig.NextSweepDurationMins, sig.AddRound)
 			if sig.NextSweepDurationMins > 0 {
 				rt.mu.Lock()
 				rt.state.NextSweepDuration = sig.NextSweepDurationMins
@@ -1023,7 +1023,7 @@ func (rt *RLHFTuner) waitForLabels(ctx context.Context, runID string, threshold 
 }
 
 // carryOverLabels transfers labels from previous run to new run based on temporal overlap.
-func (rt *RLHFTuner) carryOverLabels(prevRunID, newRunID string) (int, error) {
+func (rt *HINTTuner) carryOverLabels(prevRunID, newRunID string) (int, error) {
 	if rt.labelQuerier == nil {
 		return 0, fmt.Errorf("label querier not configured")
 	}
@@ -1047,7 +1047,7 @@ func (rt *RLHFTuner) carryOverLabels(prevRunID, newRunID string) (int, error) {
 			continue // not labelled
 		}
 
-		var bestMatch *RLHFRunTrack
+		var bestMatch *HINTRunTrack
 		var bestIoU float64
 
 		for i := range newTracks {
@@ -1061,8 +1061,8 @@ func (rt *RLHFTuner) carryOverLabels(prevRunID, newRunID string) (int, error) {
 
 		// Carry over if IoU >= 0.5, using IoU as confidence
 		if bestMatch != nil && bestIoU >= 0.5 {
-			if err := rt.labelQuerier.UpdateTrackLabel(newRunID, bestMatch.TrackID, prevTrack.UserLabel, prevTrack.QualityLabel, float32(bestIoU), "rlhf-carryover", "carried_over"); err != nil {
-				rt.logger.Printf("[rlhf] Failed to carry over label for track %s: %v", bestMatch.TrackID, err)
+			if err := rt.labelQuerier.UpdateTrackLabel(newRunID, bestMatch.TrackID, prevTrack.UserLabel, prevTrack.QualityLabel, float32(bestIoU), "hint-carryover", "carried_over"); err != nil {
+				rt.logger.Printf("[hint] Failed to carry over label for track %s: %v", bestMatch.TrackID, err)
 			} else {
 				carried++
 			}
@@ -1112,7 +1112,7 @@ func temporalIoU(aStart, aEnd, bStart, bEnd int64) float64 {
 }
 
 // buildAutoTuneRequest constructs an AutoTuneRequest for the current round.
-func (rt *RLHFTuner) buildAutoTuneRequest(bounds map[string][2]float64, req RLHFSweepRequest, scene *RLHFScene, round int) AutoTuneRequest {
+func (rt *HINTTuner) buildAutoTuneRequest(bounds map[string][2]float64, req HINTSweepRequest, scene *HINTScene, round int) AutoTuneRequest {
 	// Build params with current bounds
 	params := make([]SweepParam, 0, len(req.Params))
 	for _, param := range req.Params {
@@ -1162,14 +1162,14 @@ func (rt *RLHFTuner) buildAutoTuneRequest(bounds map[string][2]float64, req RLHF
 		weights.DetectionRate *= 1.5
 		weights.FalsePositives *= 0.5
 		autoReq.GroundTruthWeights = &weights
-		rt.logger.Printf("[rlhf] Adjusted weights for round 1: DetectionRate x1.5, FalsePositives x0.5")
+		rt.logger.Printf("[hint] Adjusted weights for round 1: DetectionRate x1.5, FalsePositives x0.5")
 	}
 
 	return autoReq
 }
 
 // waitForAutoTuneComplete polls the auto-tuner until completion or deadline.
-func (rt *RLHFTuner) waitForAutoTuneComplete(ctx context.Context, deadline time.Time) (*AutoTuneState, error) {
+func (rt *HINTTuner) waitForAutoTuneComplete(ctx context.Context, deadline time.Time) (*AutoTuneState, error) {
 	ticker := time.NewTicker(rt.pollInterval)
 	defer ticker.Stop()
 
@@ -1205,8 +1205,8 @@ func (rt *RLHFTuner) waitForAutoTuneComplete(ctx context.Context, deadline time.
 }
 
 // failWithError sets the state to failed with the given error message.
-func (rt *RLHFTuner) failWithError(errMsg string) {
-	rt.logger.Printf("[rlhf] Failed: %s", errMsg)
+func (rt *HINTTuner) failWithError(errMsg string) {
+	rt.logger.Printf("[hint] Failed: %s", errMsg)
 	rt.mu.Lock()
 	rt.state.Status = "failed"
 	rt.state.Error = errMsg
@@ -1216,7 +1216,7 @@ func (rt *RLHFTuner) failWithError(errMsg string) {
 	if rt.persister != nil {
 		now := time.Now()
 		if err := rt.persister.SaveSweepComplete(rt.sweepID, "failed", nil, nil, nil, now, errMsg, nil, nil, nil, "", ""); err != nil {
-			rt.logger.Printf("[rlhf] Failed to persist error: %v", err)
+			rt.logger.Printf("[hint] Failed to persist error: %v", err)
 		}
 	}
 }

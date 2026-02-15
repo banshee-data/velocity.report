@@ -1,4 +1,4 @@
-# RLHF Sweep Mode — Human-in-the-Loop Parameter Tuning
+# HINT Sweep Mode — Human-Involved Numerical Tuning
 
 **Status**: Implemented ✅ (Phase 1–6 complete)
 
@@ -20,7 +20,7 @@ optimisation.
 | **Auto-Tune**                          | Automated multi-round narrowing with weighted metrics | Metrics are proxy measures (empty_box_ratio, fragmentation) — they never test whether a real vehicle was actually tracked correctly |
 | **Ground Truth** (hidden, scene-based) | Uses labelled tracks as the objective                 | Requires a pre-labelled reference run. Can't adapt labels round-by-round as params change                                           |
 
-RLHF mode fills the gap: the human evaluates track quality _after_ each parameter
+HINT mode fills the gap: the human evaluates track quality _after_ each parameter
 change, so labels always reflect the _current_ parameter regime. This avoids the
 stale-reference problem and makes subjective judgement (split? noise? truncated?)
 part of the optimisation loop.
@@ -32,7 +32,7 @@ part of the optimisation loop.
 │  1. CONFIGURE                                               │
 │     Select scene, number of rounds, round durations         │
 │     Optionally set param bounds and objective weights       │
-│     Click "Start RLHF"                                      │
+│     Click "Start HINT"                                      │
 └──────────────────────────┬──────────────────────────────────┘
                            │
                            ▼
@@ -111,7 +111,7 @@ all combinations are evaluated before the time limit.
 exposes the next sweep-round duration as an editable field. The human can
 increase or decrease it before clicking "Continue" — useful when a label window
 was missed and the schedule needs adjustment. The updated duration is sent in the
-`POST /api/lidar/sweep/rlhf/continue` request body.
+`POST /api/lidar/sweep/hint/continue` request body.
 
 **Adding extra rounds:** The same "Continue" card includes an "Add Round" toggle.
 When enabled, the system appends one additional label→sweep cycle after the
@@ -120,10 +120,10 @@ the sweep if intermediate results look promising.
 
 ## Data Model Changes
 
-### New `RLHFSweepRequest` (Go struct in `sweep/auto.go`)
+### New `HINTSweepRequest` (Go struct in `sweep/auto.go`)
 
 ```go
-type RLHFSweepRequest struct {
+type HINTSweepRequest struct {
     // Scene to use (provides PCAP, sensor_id)
     SceneID string `json:"scene_id"`
 
@@ -165,13 +165,13 @@ type RLHFSweepRequest struct {
 }
 ```
 
-### New `RLHFState` (Go struct in `sweep/auto.go`)
+### New `HINTState` (Go struct in `sweep/auto.go`)
 
 ```go
-type RLHFState struct {
+type HINTState struct {
     Status         string          `json:"status"`
     // "idle" | "running_reference" | "awaiting_labels" | "running_sweep" | "completed" | "failed"
-    Mode           string          `json:"mode"`           // always "rlhf"
+    Mode           string          `json:"mode"`           // always "hint"
     CurrentRound   int             `json:"current_round"`
     TotalRounds    int             `json:"total_rounds"`
     ReferenceRunID string          `json:"reference_run_id,omitempty"`
@@ -180,7 +180,7 @@ type RLHFState struct {
     SweepDeadline  *time.Time      `json:"sweep_deadline,omitempty"`
     AutoTuneState  *AutoTuneState  `json:"auto_tune_state,omitempty"`
     Recommendation map[string]any  `json:"recommendation,omitempty"`
-    RoundHistory   []RLHFRound     `json:"round_history"`
+    RoundHistory   []HINTRound     `json:"round_history"`
     Error          string          `json:"error,omitempty"`
 
     // Minimum label threshold (echoed from request for UI enforcement)
@@ -200,7 +200,7 @@ type LabelProgress struct {
     ByClass  map[string]int `json:"by_class"`
 }
 
-type RLHFRound struct {
+type HINTRound struct {
     Round             int                `json:"round"`
     ReferenceRunID    string             `json:"reference_run_id"`
     LabelledAt        *time.Time         `json:"labelled_at,omitempty"`
@@ -216,11 +216,11 @@ type RLHFRound struct {
 
 No schema changes required. The existing table already stores:
 
-- `mode` — will be `"rlhf"` instead of `"auto"` or `"params"`
-- `request` — JSON blob of the `RLHFSweepRequest`
+- `mode` — will be `"hint"` instead of `"auto"` or `"params"`
+- `request` — JSON blob of the `HINTSweepRequest`
 - `results` — JSON blob of final combo results
 - `recommendation` — JSON blob of best params
-- `round_results` — JSON blob of `RLHFRound[]` history
+- `round_results` — JSON blob of `HINTRound[]` history
 
 The `status` column gains new values: `"awaiting_labels"`,
 `"running_reference"`, `"running_sweep"`.
@@ -234,8 +234,8 @@ supported by `SceneStore.SetOptimalParams()`).
 
 ## Prerequisite: macOS Visualiser Label UX Changes
 
-The macOS app's labelling workflow needs three changes before RLHF mode is
-viable. These are independent of the RLHF backend and can be shipped first.
+The macOS app's labelling workflow needs three changes before HINT mode is
+viable. These are independent of the HINT backend and can be shipped first.
 
 ### P1. Display Existing Labels in LabelPanelView
 
@@ -255,7 +255,7 @@ pre-populate the `LabelPanelView`'s selection state. Specifically:
    `lastAssignedQuality` from `runTrack.userLabel` and `runTrack.qualityLabel`.
 3. Show the checkmark on the matching button so the human sees the current state.
 4. For carried-over labels, add a small "↻ carried" badge next to the checkmark
-   (requires a `label_source` field or convention, e.g. `labeler_id = "rlhf-
+   (requires a `label_source` field or convention, e.g. `labeler_id = "hint-
 carryover"`).
 
 **Files:**
@@ -266,7 +266,7 @@ carryover"`).
 ### P2. Remove Export Labels Button
 
 **Problem:** The "Export Labels" button in `SidePanelView` exports free-form
-`LabelEvent` records (session-based, via `LabelAPIClient`). In RLHF mode, labels
+`LabelEvent` records (session-based, via `LabelAPIClient`). In HINT mode, labels
 are always run-track labels saved directly to the database via
 `RunTrackLabelAPIClient`. The export button is confusing because it doesn't
 export the labels the human just assigned.
@@ -285,17 +285,17 @@ labels via a server endpoint (e.g. `GET /api/lidar/runs/{run_id}/labels/export`)
 
 `assignLabel()` and `assignQuality()` in `AppState` already fire async API calls
 immediately on click — no batching or explicit save step. This is the correct
-behaviour for RLHF. No changes needed, but worth noting as a confirmed
+behaviour for HINT. No changes needed, but worth noting as a confirmed
 requirement.
 
 ## Implementation Plan
 
-### Phase 1: Backend — `RLHFTuner` Engine
+### Phase 1: Backend — `HINTTuner` Engine
 
-**File:** `internal/lidar/sweep/rlhf.go` (new)
+**File:** `internal/lidar/sweep/hint.go` (new)
 
-1. Define `RLHFSweepRequest` and `RLHFState` structs.
-2. Implement `RLHFTuner` struct:
+1. Define `HINTSweepRequest` and `HINTState` structs.
+2. Implement `HINTTuner` struct:
    - Embeds/wraps `AutoTuner` for the sweep-round part.
    - Holds `analysisRunManager` for creating reference runs.
    - Holds `analysisRunStore` for querying label progress.
@@ -304,7 +304,7 @@ requirement.
 3. Implement the core loop in `run(ctx, req)`:
 
 ```
-func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
+func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest):
     scene := sceneStore.GetScene(req.SceneID)
     currentParams := loadCurrentParams()  // or use scene.optimal_params_json
     bounds := req.Params  // initial param bounds
@@ -337,7 +337,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
 
         autoReq := buildAutoTuneRequest(bounds, req, scene)
         autoReq.SceneID = req.SceneID  // ground truth uses this scene's reference_run_id
-        autoReq.MaxRounds = 1  // single round per RLHF cycle
+        autoReq.MaxRounds = 1  // single round per HINT cycle
         autoReq.Objective = "ground_truth"
 
         runAutoTuneRound(ctx, autoReq, sweepDuration)
@@ -389,11 +389,11 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
      consider them the same real-world event).
    - Writes carried-over labels via
      `analysisRunStore.SetTrackLabel(newRunID, trackID, label)`.
-   - Records count in `RLHFState.LabelsCarriedOver` for UI display.
+   - Records count in `HINTState.LabelsCarriedOver` for UI display.
    - The human reviews and corrects any mismatches during the label window.
 
 7. Implement scoring weight adjustments for early rounds. The default
-   `GroundTruthWeights` are tuned for full-coverage labels. For RLHF round 1
+   `GroundTruthWeights` are tuned for full-coverage labels. For HINT round 1
    (where the labeller may focus on salient tracks), the tuner applies
    round-dependent weight multipliers:
 
@@ -402,7 +402,7 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
    | 1     | 1.5× default           | 0.5× default               | Focus on finding all real vehicles |
    | 2+    | 1.0× default           | 1.0× default               | Balanced scoring with more labels  |
 
-   Applied inside `RLHFTuner.buildAutoTuneRequest()` before passing weights to
+   Applied inside `HINTTuner.buildAutoTuneRequest()` before passing weights to
    the ground truth scorer. Not persisted — the final recommendation uses
    default weights for a clean comparison.
 
@@ -417,12 +417,12 @@ func (rt *RLHFTuner) run(ctx context.Context, req RLHFSweepRequest):
 
 | Endpoint                         | Method | Purpose                                           |
 | -------------------------------- | ------ | ------------------------------------------------- |
-| `/api/lidar/sweep/rlhf`          | POST   | Start RLHF sweep (JSON body = `RLHFSweepRequest`) |
-| `/api/lidar/sweep/rlhf`          | GET    | Get current `RLHFState` for polling               |
-| `/api/lidar/sweep/rlhf/continue` | POST   | Signal "labels done, continue to sweep"           |
-| `/api/lidar/sweep/rlhf/stop`     | POST   | Cancel the RLHF run                               |
+| `/api/lidar/sweep/hint`          | POST   | Start HINT sweep (JSON body = `HINTSweepRequest`) |
+| `/api/lidar/sweep/hint`          | GET    | Get current `HINTState` for polling               |
+| `/api/lidar/sweep/hint/continue` | POST   | Signal "labels done, continue to sweep"           |
+| `/api/lidar/sweep/hint/stop`     | POST   | Cancel the HINT run                               |
 
-**`/api/lidar/sweep/rlhf/continue` request body:**
+**`/api/lidar/sweep/hint/continue` request body:**
 
 ```json
 {
@@ -439,14 +439,14 @@ The handler returns `400 Bad Request` if `label_progress.progress_pct` is below
 `min_label_threshold` (default 90%). The error message includes the current
 progress and the required threshold so the dashboard can show it.
 
-The RLHF state is polled by the dashboard alongside the existing auto-tune
-polling. The `RLHFState` response includes enough information for the dashboard
+The HINT state is polled by the dashboard alongside the existing auto-tune
+polling. The `HINTState` response includes enough information for the dashboard
 to show: which round, what phase, label progress, deadline countdown, link to the
 labelling UI.
 
 **Wiring** in `webserver.go`:
 
-- Add `rlhfTuner *RLHFTuner` field to `WebServer`.
+- Add `hintTuner *HINTTuner` field to `WebServer`.
 - Wire dependencies (analysisRunManager, analysisRunStore, sceneStore,
   groundTruthScorer) in `cmd/radar/radar.go`.
 - Register routes with `mux.HandleFunc`.
@@ -465,20 +465,20 @@ Update the mode toggle to three buttons:
     Manual Sweep
   </button>
   <button id="mode-auto" onclick="setMode('auto')">Auto-Tune</button>
-  <button id="mode-rlhf" onclick="setMode('rlhf')">Human-in-the-Loop</button>
+  <button id="mode-hint" onclick="setMode('hint')">Human-in-the-Loop</button>
 </div>
 ```
 
-CSS adds `body.rlhf-mode` alongside `body.auto-mode`:
+CSS adds `body.hint-mode` alongside `body.auto-mode`:
 
-- `.manual-only` hidden in auto and rlhf modes
+- `.manual-only` hidden in auto and hint modes
 - `.auto-only` visible only in auto mode
-- `.rlhf-only` visible only in rlhf mode
-- `.auto-or-rlhf` visible in both auto and rlhf modes (shared config cards)
+- `.hint-only` visible only in hint mode
+- `.auto-or-hint` visible in both auto and hint modes (shared config cards)
 
 Update `setMode()` to handle three states and toggle appropriate body classes.
 
-#### 3b. RLHF Config Card (`.rlhf-only`)
+#### 3b. HINT Config Card (`.hint-only`)
 
 ```
 ┌─────────────────────────────────────┐
@@ -490,7 +490,7 @@ Update `setMode()` to handle three states and toggle appropriate body classes.
 │    (minutes, alternating            │
 │     label / sweep windows)          │
 │                                     │
-│  [Start RLHF]                       │
+│  [Start HINT]                       │
 └─────────────────────────────────────┘
 ```
 
@@ -498,13 +498,13 @@ The durations field is a comma-separated text input. The scene dropdown reuses
 the existing `scene_select` element (shared with auto-tune scene source).
 
 The Sweep Parameters card (param bounds) is shared with auto mode
-(`.auto-or-rlhf`), as is the Sweep Configuration card (iterations, interval,
-settle time). The Data Source card is hidden in RLHF mode because the scene
+(`.auto-or-hint`), as is the Sweep Configuration card (iterations, interval,
+settle time). The Data Source card is hidden in HINT mode because the scene
 provides the PCAP source.
 
-#### 3c. RLHF Progress Card
+#### 3c. HINT Progress Card
 
-Replaces the generic progress section when in RLHF mode:
+Replaces the generic progress section when in HINT mode:
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -540,7 +540,7 @@ Key elements:
   request body.
 - **Add extra round toggle** — checkbox that sends `add_round: true` in the
   continue request. Useful when the human wants more refinement.
-- **Continue button** — calls `POST /api/lidar/sweep/rlhf/continue` with
+- **Continue button** — calls `POST /api/lidar/sweep/hint/continue` with
   `{ next_sweep_duration_mins, add_round }`
 - During "running_sweep" phase, shows sweep progress instead (reuses existing
   auto-tune progress rendering)
@@ -556,10 +556,10 @@ Below the progress card, a collapsible list of completed rounds:
 
 ### Phase 4: Dashboard Polling
 
-Extend `pollAutoTuneStatus()` (or add `pollRLHFStatus()`) to poll
-`GET /api/lidar/sweep/rlhf` when in RLHF mode. The poller:
+Extend `pollAutoTuneStatus()` (or add `pollHINTStatus()`) to poll
+`GET /api/lidar/sweep/hint` when in HINT mode. The poller:
 
-1. Renders the RLHF progress card with current phase / round info.
+1. Renders the HINT progress card with current phase / round info.
 2. During `awaiting_labels`:
    - Shows label progress bar (re-poll every 5s for progress updates).
    - Progress bar includes 90% threshold marker.
@@ -583,7 +583,7 @@ Extend `pollAutoTuneStatus()` (or add `pollRLHFStatus()`) to poll
 
 ### Phase 4b: Browser Notifications
 
-The dashboard requests `Notification.requestPermission()` when RLHF mode is
+The dashboard requests `Notification.requestPermission()` when HINT mode is
 selected. Notifications fire at two transition points:
 
 1. **Sweep round completed → labels needed.** When the poller detects a
@@ -592,7 +592,7 @@ selected. Notifications fire at two transition points:
    ```js
    new Notification("Labels needed — Round N", {
      body: "Reference run ready. Label tracks to continue the sweep.",
-     tag: "rlhf-labels-needed",
+     tag: "hint-labels-needed",
      requireInteraction: true,
    });
    ```
@@ -600,11 +600,11 @@ selected. Notifications fire at two transition points:
    `requireInteraction: true` keeps the notification visible until dismissed
    (useful for overnight sweeps where the user may have stepped away).
 
-2. **RLHF sweep completed.** When the poller detects `completed`:
+2. **HINT sweep completed.** When the poller detects `completed`:
    ```js
-   new Notification("RLHF Sweep Complete", {
+   new Notification("HINT Sweep Complete", {
      body: "Best parameters found. Review and apply.",
-     tag: "rlhf-complete",
+     tag: "hint-complete",
    });
    ```
 
@@ -616,13 +616,13 @@ than stacked.
 
 Extend the existing `/app/lidar/sweeps` page:
 
-1. Show RLHF sweeps with `mode = "rlhf"` — distinct badge colour.
-2. In the detail panel for RLHF sweeps, show:
+1. Show HINT sweeps with `mode = "hint"` — distinct badge colour.
+2. In the detail panel for HINT sweeps, show:
    - Round history with links to each reference run's tracks page.
    - Label progress per round.
    - Ground truth scores per round.
    - Final recommendation with Apply button.
-3. When an RLHF sweep is in `awaiting_labels` state:
+3. When an HINT sweep is in `awaiting_labels` state:
    - Show a prominent "Label Tracks" link to the tracks page.
    - Show "Continue" button inline.
 
@@ -643,7 +643,7 @@ Update the page subtitle and add mode-specific descriptions:
 > Uses proxy metrics (acceptance rate, fragmentation, empty box ratio) or ground
 > truth scoring with a pre-labelled reference run.
 
-**RLHF description** (`.rlhf-only`, above config card):
+**HINT description** (`.hint-only`, above config card):
 
 > Human-in-the-loop tuning. Each round: the system creates a reference run, you
 > label the tracks to establish ground truth, then the tuner sweeps parameters
@@ -664,33 +664,33 @@ Update the page subtitle and add mode-specific descriptions:
   - [ ] Remove `exportLabels()` from `AppState`
 - [ ] **P3** — Confirm auto-save on click works (no changes needed)
 
-### Phase 1: Backend — `RLHFTuner` Engine
+### Phase 1: Backend — `HINTTuner` Engine
 
-- [ ] Define `RLHFSweepRequest` struct (scene ID, rounds, durations, threshold, carryover flag)
-- [ ] Define `RLHFState` struct (phase, round, deadlines, label progress, carried-over count)
-- [ ] Implement `RLHFTuner` struct with dependency injection
+- [ ] Define `HINTSweepRequest` struct (scene ID, rounds, durations, threshold, carryover flag)
+- [ ] Define `HINTState` struct (phase, round, deadlines, label progress, carried-over count)
+- [ ] Implement `HINTTuner` struct with dependency injection
 - [ ] Implement `run(ctx, req)` core loop (reference → labels → sweep → narrow → repeat)
 - [ ] Implement `waitForLabelsOrDeadline` with 10s polling, threshold enforcement, deadline expiry
 - [ ] Implement `continueFromLabels(nextDuration, addRound)` with threshold validation
 - [ ] Implement `carryOverLabels(prevRunID, newRunID)` with temporal IoU matching (≥ 0.5)
 - [ ] Implement scoring weight adjustments for early rounds
-- [ ] Write unit tests (`rlhf_test.go`)
+- [ ] Write unit tests (`hint_test.go`)
 
 ### Phase 2: Backend — API Endpoints
 
-- [ ] `POST /api/lidar/sweep/rlhf` — start RLHF sweep
-- [ ] `GET /api/lidar/sweep/rlhf` — poll current `RLHFState`
-- [ ] `POST /api/lidar/sweep/rlhf/continue` — signal labels done (with threshold check)
-- [ ] `POST /api/lidar/sweep/rlhf/stop` — cancel RLHF run
-- [ ] Wire `rlhfTuner` into `WebServer` and `cmd/radar/radar.go`
+- [ ] `POST /api/lidar/sweep/hint` — start HINT sweep
+- [ ] `GET /api/lidar/sweep/hint` — poll current `HINTState`
+- [ ] `POST /api/lidar/sweep/hint/continue` — signal labels done (with threshold check)
+- [ ] `POST /api/lidar/sweep/hint/stop` — cancel HINT run
+- [ ] Wire `hintTuner` into `WebServer` and `cmd/radar/radar.go`
 - [ ] Write API handler tests
 
 ### Phase 3: Dashboard UI — Third Mode
 
 - [ ] **3a** — Add "Human-in-the-Loop" mode toggle button
 - [ ] Update `setMode()` for three-way switching + CSS body classes
-- [ ] **3b** — RLHF config card (scene dropdown, rounds, durations input)
-- [ ] **3c** — RLHF progress card
+- [ ] **3b** — HINT config card (scene dropdown, rounds, durations input)
+- [ ] **3c** — HINT progress card
   - [ ] Label progress bar with 90% threshold marker
   - [ ] Countdown timer (from `label_deadline`)
   - [ ] Carried-over label count display
@@ -704,7 +704,7 @@ Update the page subtitle and add mode-specific descriptions:
 
 ### Phase 4: Dashboard Polling
 
-- [ ] Implement `pollRLHFStatus()` or extend `pollAutoTuneStatus()`
+- [ ] Implement `pollHINTStatus()` or extend `pollAutoTuneStatus()`
 - [ ] Handle `awaiting_labels` phase (5s poll, progress bar, countdown, continue button)
 - [ ] Handle `running_sweep` phase (combo progress, intermediate results)
 - [ ] Handle `running_reference` phase (spinner)
@@ -713,47 +713,47 @@ Update the page subtitle and add mode-specific descriptions:
 
 ### Phase 4b: Browser Notifications
 
-- [ ] Request `Notification.requestPermission()` on RLHF mode selection
+- [ ] Request `Notification.requestPermission()` on HINT mode selection
 - [ ] Fire "Labels needed — Round N" notification on `awaiting_labels` transition
-- [ ] Fire "RLHF Sweep Complete" notification on `completed` transition
+- [ ] Fire "HINT Sweep Complete" notification on `completed` transition
 - [ ] Bring dashboard tab to front on notification click
 
 ### Phase 5: Svelte Sweeps Page Updates
 
-- [ ] Show RLHF sweeps with distinct `mode = "rlhf"` badge
-- [ ] RLHF detail panel: round history with links to reference run tracks
-- [ ] RLHF detail panel: label progress and ground truth scores per round
+- [ ] Show HINT sweeps with distinct `mode = "hint"` badge
+- [ ] HINT detail panel: round history with links to reference run tracks
+- [ ] HINT detail panel: label progress and ground truth scores per round
 - [ ] Inline "Continue" button for `awaiting_labels` state
-- [ ] Add `startRLHF`, `getRLHFState`, `continueRLHF`, `stopRLHF` to `api.ts`
-- [ ] Add `RLHFState`, `RLHFRound`, `LabelProgress` types to `lidar.ts`
+- [ ] Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT` to `api.ts`
+- [ ] Add `HINTState`, `HINTRound`, `LabelProgress` types to `lidar.ts`
 
 ### Phase 6: Mode Description Updates
 
 - [ ] Add page subtitle shared across modes
 - [ ] Add Auto-Tune description text (`.auto-only`)
-- [ ] Add RLHF description text (`.rlhf-only`)
+- [ ] Add HINT description text (`.hint-only`)
 
 ## File Manifest
 
 | File                                                             | Action     | Description                                                              |
 | ---------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
-| `internal/lidar/sweep/rlhf.go`                                   | **Create** | `RLHFTuner`, `RLHFSweepRequest`, `RLHFState`, core loop, label carryover |
-| `internal/lidar/sweep/rlhf_test.go`                              | **Create** | Unit tests: state machine, duration parsing, carryover, threshold        |
-| `internal/lidar/monitor/sweep_handlers.go`                       | **Modify** | Add 4 RLHF endpoints (with continue body parsing)                        |
-| `internal/lidar/monitor/webserver.go`                            | **Modify** | Wire `rlhfTuner` field + routes                                          |
-| `cmd/radar/radar.go`                                             | **Modify** | Create `RLHFTuner`, inject dependencies                                  |
-| `internal/lidar/monitor/html/sweep_dashboard.html`               | **Modify** | Third mode button, RLHF config/progress cards, notification permission   |
-| `internal/lidar/monitor/assets/sweep_dashboard.js`               | **Modify** | `setMode` three-way, `handleStartRLHF`, `pollRLHFStatus`, notifications  |
-| `internal/lidar/monitor/assets/sweep_dashboard.css`              | **Modify** | `.rlhf-mode`, `.rlhf-only`, `.auto-or-rlhf` classes                      |
-| `web/src/routes/lidar/sweeps/+page.svelte`                       | **Modify** | RLHF mode badge, round history, label link, carryover count              |
-| `web/src/lib/api.ts`                                             | **Modify** | Add `startRLHF`, `getRLHFState`, `continueRLHF`, `stopRLHF`              |
-| `web/src/lib/types/lidar.ts`                                     | **Modify** | Add `RLHFState`, `RLHFRound`, `LabelProgress` types                      |
+| `internal/lidar/sweep/hint.go`                                   | **Create** | `HINTTuner`, `HINTSweepRequest`, `HINTState`, core loop, label carryover |
+| `internal/lidar/sweep/hint_test.go`                              | **Create** | Unit tests: state machine, duration parsing, carryover, threshold        |
+| `internal/lidar/monitor/sweep_handlers.go`                       | **Modify** | Add 4 HINT endpoints (with continue body parsing)                        |
+| `internal/lidar/monitor/webserver.go`                            | **Modify** | Wire `hintTuner` field + routes                                          |
+| `cmd/radar/radar.go`                                             | **Modify** | Create `HINTTuner`, inject dependencies                                  |
+| `internal/lidar/monitor/html/sweep_dashboard.html`               | **Modify** | Third mode button, HINT config/progress cards, notification permission   |
+| `internal/lidar/monitor/assets/sweep_dashboard.js`               | **Modify** | `setMode` three-way, `handleStartHINT`, `pollHINTStatus`, notifications  |
+| `internal/lidar/monitor/assets/sweep_dashboard.css`              | **Modify** | `.hint-mode`, `.hint-only`, `.auto-or-hint` classes                      |
+| `web/src/routes/lidar/sweeps/+page.svelte`                       | **Modify** | HINT mode badge, round history, label link, carryover count              |
+| `web/src/lib/api.ts`                                             | **Modify** | Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT`              |
+| `web/src/lib/types/lidar.ts`                                     | **Modify** | Add `HINTState`, `HINTRound`, `LabelProgress` types                      |
 | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | **Modify** | Show existing labels in panel, remove Export Labels button               |
 | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`   | **Modify** | Remove `exportLabels()`, wire selected RunTrack to LabelPanelView        |
 
 ## Testing Strategy
 
-1. **Unit tests** (`rlhf_test.go`):
+1. **Unit tests** (`hint_test.go`):
    - Duration indexing: verify wrap-around behaviour for short duration lists.
    - State machine transitions: idle → running_reference → awaiting_labels →
      running_sweep → running_reference → … → completed.
@@ -769,7 +769,7 @@ Update the page subtitle and add mode-specific descriptions:
    - Deadline expiry with insufficient labels → `"failed"` state.
 
 2. **Integration tests** (manual):
-   - Start RLHF with a short PCAP scene, 2 rounds, durations `[1, 1]`.
+   - Start HINT with a short PCAP scene, 2 rounds, durations `[1, 1]`.
    - Verify reference run appears in Runs page.
    - Verify browser notification fires on `awaiting_labels` transition.
    - Label < 90% of tracks, verify Continue is disabled/rejected.
@@ -783,8 +783,8 @@ Update the page subtitle and add mode-specific descriptions:
    - Verify final recommendation is applied.
 
 3. **Dashboard tests** (`sweep_dashboard.test.ts`):
-   - Mode switching to/from "rlhf" shows/hides correct cards.
-   - RLHF start request is built correctly from UI inputs.
+   - Mode switching to/from "hint" shows/hides correct cards.
+   - HINT start request is built correctly from UI inputs.
    - Continue button disabled when progress < 90%.
    - Continue request includes `next_sweep_duration_mins` and `add_round`.
    - Notification permission requested on mode switch.

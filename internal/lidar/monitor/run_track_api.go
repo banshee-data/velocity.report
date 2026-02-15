@@ -208,10 +208,10 @@ func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Reque
 		"labeler_id":       req.LabelerID,
 	})
 
-	// Notify RLHF runner so it can refresh label progress immediately
+	// Notify HINT runner so it can refresh label progress immediately
 	// instead of waiting for the next poll tick.
-	if ws.rlhfRunner != nil {
-		ws.rlhfRunner.NotifyLabelUpdate()
+	if ws.hintRunner != nil {
+		ws.hintRunner.NotifyLabelUpdate()
 	}
 }
 

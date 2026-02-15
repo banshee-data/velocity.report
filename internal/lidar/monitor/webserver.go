@@ -165,8 +165,8 @@ type WebServer struct {
 	// Auto-tune runner for web-triggered auto-tuning
 	autoTuneRunner AutoTuneRunner
 
-	// RLHF runner for human-in-the-loop parameter tuning
-	rlhfRunner RLHFRunner
+	// HINT runner for human-in-the-loop parameter tuning
+	hintRunner HINTRunner
 
 	// Sweep store for persisting sweep results
 	sweepStore *lidar.SweepStore
@@ -361,9 +361,9 @@ func (ws *WebServer) SetAutoTuneRunner(runner AutoTuneRunner) {
 	ws.autoTuneRunner = runner
 }
 
-// SetRLHFRunner sets the RLHF runner for human-in-the-loop parameter tuning.
-func (ws *WebServer) SetRLHFRunner(runner RLHFRunner) {
-	ws.rlhfRunner = runner
+// SetHINTRunner sets the HINT runner for human-in-the-loop parameter tuning.
+func (ws *WebServer) SetHINTRunner(runner HINTRunner) {
+	ws.hintRunner = runner
 }
 
 // SetSweepStore sets the sweep store for persisting sweep results.
@@ -1207,9 +1207,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
 	mux.HandleFunc("/api/lidar/sweep/auto", ws.handleAutoTune)
 	mux.HandleFunc("/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop)
-	mux.HandleFunc("/api/lidar/sweep/rlhf/continue", ws.handleRLHFContinue) // POST: signal labels done
-	mux.HandleFunc("/api/lidar/sweep/rlhf/stop", ws.handleRLHFStop)         // POST: cancel RLHF run
-	mux.HandleFunc("/api/lidar/sweep/rlhf", ws.handleRLHF)                  // POST: start, GET: status
+	mux.HandleFunc("/api/lidar/sweep/hint/continue", ws.handleHINTContinue) // POST: signal labels done
+	mux.HandleFunc("/api/lidar/sweep/hint/stop", ws.handleHINTStop)         // POST: cancel HINT run
+	mux.HandleFunc("/api/lidar/sweep/hint", ws.handleHINT)                  // POST: start, GET: status
 	mux.HandleFunc("/api/lidar/sweep/explain/", ws.handleSweepExplain)      // GET /api/lidar/sweep/explain/{sweep_id}
 	mux.HandleFunc("/api/lidar/sweeps/charts", ws.handleSweepCharts)        // PUT: save chart config
 	mux.HandleFunc("/api/lidar/sweeps/", ws.handleGetSweep)                 // GET /api/lidar/sweeps/{sweep_id}

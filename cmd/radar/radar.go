@@ -625,15 +625,15 @@ func main() {
 		}
 		autoTuner.SetGroundTruthScorer(groundTruthScorer)
 
-		// Set up RLHF tuner for human-in-the-loop parameter optimisation
-		rlhfTuner := sweep.NewRLHFTuner(autoTuner)
-		rlhfTuner.SetPersister(sweepStore)
-		rlhfTuner.SetGroundTruthScorer(groundTruthScorer)
-		rlhfTuner.SetSceneStore(sceneStore)
-		rlhfTuner.SetSceneGetter(&rlhfSceneAdapter{store: sceneStore})
-		rlhfTuner.SetLabelQuerier(&rlhfLabelAdapter{store: analysisRunStore})
-		rlhfTuner.SetRunCreator(&rlhfRunCreator{runner: sweepRunner})
-		lidarWebServer.SetRLHFRunner(rlhfTuner)
+		// Set up HINT tuner for human-in-the-loop parameter optimisation
+		hintTuner := sweep.NewHINTTuner(autoTuner)
+		hintTuner.SetPersister(sweepStore)
+		hintTuner.SetGroundTruthScorer(groundTruthScorer)
+		hintTuner.SetSceneStore(sceneStore)
+		hintTuner.SetSceneGetter(&hintSceneAdapter{store: sceneStore})
+		hintTuner.SetLabelQuerier(&hintLabelAdapter{store: analysisRunStore})
+		hintTuner.SetRunCreator(&hintRunCreator{runner: sweepRunner})
+		lidarWebServer.SetHINTRunner(hintTuner)
 
 		wg.Add(1)
 		go func() {
@@ -879,21 +879,21 @@ func (b *backgroundManagerBridge) GetBackgroundSequenceNumber() uint64 {
 	return b.mgr.GetBackgroundSequenceNumber()
 }
 
-// --- RLHF adapters ---
+// --- HINT adapters ---
 // These bridge the lidar package types to the sweep package interfaces
 // to avoid circular imports.
 
-// rlhfSceneAdapter bridges lidar.SceneStore to sweep.SceneGetter.
-type rlhfSceneAdapter struct {
+// hintSceneAdapter bridges lidar.SceneStore to sweep.SceneGetter.
+type hintSceneAdapter struct {
 	store *lidar.SceneStore
 }
 
-func (a *rlhfSceneAdapter) GetScene(sceneID string) (*sweep.RLHFScene, error) {
+func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
 	scene, err := a.store.GetScene(sceneID)
 	if err != nil {
 		return nil, err
 	}
-	return &sweep.RLHFScene{
+	return &sweep.HINTScene{
 		SceneID:           scene.SceneID,
 		SensorID:          scene.SensorID,
 		PCAPFile:          scene.PCAPFile,
@@ -904,27 +904,27 @@ func (a *rlhfSceneAdapter) GetScene(sceneID string) (*sweep.RLHFScene, error) {
 	}, nil
 }
 
-func (a *rlhfSceneAdapter) SetReferenceRun(sceneID, runID string) error {
+func (a *hintSceneAdapter) SetReferenceRun(sceneID, runID string) error {
 	return a.store.SetReferenceRun(sceneID, runID)
 }
 
-// rlhfLabelAdapter bridges lidar.AnalysisRunStore to sweep.LabelProgressQuerier.
-type rlhfLabelAdapter struct {
+// hintLabelAdapter bridges lidar.AnalysisRunStore to sweep.LabelProgressQuerier.
+type hintLabelAdapter struct {
 	store *lidar.AnalysisRunStore
 }
 
-func (a *rlhfLabelAdapter) GetLabelingProgress(runID string) (int, int, map[string]int, error) {
+func (a *hintLabelAdapter) GetLabelingProgress(runID string) (int, int, map[string]int, error) {
 	return a.store.GetLabelingProgress(runID)
 }
 
-func (a *rlhfLabelAdapter) GetRunTracks(runID string) ([]sweep.RLHFRunTrack, error) {
+func (a *hintLabelAdapter) GetRunTracks(runID string) ([]sweep.HINTRunTrack, error) {
 	tracks, err := a.store.GetRunTracks(runID)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]sweep.RLHFRunTrack, len(tracks))
+	result := make([]sweep.HINTRunTrack, len(tracks))
 	for i, t := range tracks {
-		result[i] = sweep.RLHFRunTrack{
+		result[i] = sweep.HINTRunTrack{
 			TrackID:        t.TrackID,
 			StartUnixNanos: t.StartUnixNanos,
 			EndUnixNanos:   t.EndUnixNanos,
@@ -935,18 +935,18 @@ func (a *rlhfLabelAdapter) GetRunTracks(runID string) ([]sweep.RLHFRunTrack, err
 	return result, nil
 }
 
-func (a *rlhfLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
+func (a *hintLabelAdapter) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
 	return a.store.UpdateTrackLabel(runID, trackID, userLabel, qualityLabel, confidence, labelerID, labelSource)
 }
 
-// rlhfRunCreator bridges the sweep.Runner to sweep.ReferenceRunCreator.
+// hintRunCreator bridges the sweep.Runner to sweep.ReferenceRunCreator.
 // It creates a single-combo sweep run to generate a reference run with given params.
-type rlhfRunCreator struct {
+type hintRunCreator struct {
 	runner *sweep.Runner
 }
 
-func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
-	// For RLHF reference runs, we start a single-combo sweep with the given params.
+func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
+	// For HINT reference runs, we start a single-combo sweep with the given params.
 	// Parse paramsJSON into a single-combination sweep: one SweepParam per key with a single fixed value.
 	var sweepParams []sweep.SweepParam
 	if len(paramsJSON) > 0 && string(paramsJSON) != "null" {

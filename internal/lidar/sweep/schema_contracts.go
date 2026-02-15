@@ -8,8 +8,8 @@ package sweep
 const SchemaVersion = "1"
 
 // RoundRecordSchemaVersion identifies the schema version of round_results JSON.
-// The round_results column in lidar_sweeps stores a JSON array of RLHFRound objects.
-// Each RLHFRound follows the schema defined by the RLHFRound struct.
+// The round_results column in lidar_sweeps stores a JSON array of HINTRound objects.
+// Each HINTRound follows the schema defined by the HINTRound struct.
 const RoundRecordSchemaVersion = "1"
 
 // ObjectiveComponentSchemaVersion identifies the schema version of score_components_json.

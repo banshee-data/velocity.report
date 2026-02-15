@@ -26,13 +26,13 @@ type AutoTuneRunner interface {
 	Stop()
 }
 
-// RLHFRunner defines the interface for RLHF sweep operations.
-type RLHFRunner interface {
+// HINTRunner defines the interface for HINT sweep operations.
+type HINTRunner interface {
 	Start(ctx context.Context, req interface{}) error
 	GetState() interface{}
 	Stop()
 	ContinueFromLabels(nextDurationMins int, addRound bool) error
-	// WaitForChange blocks until the RLHF status differs from lastStatus
+	// WaitForChange blocks until the HINT status differs from lastStatus
 	// or the context is cancelled. Returns the new state.
 	WaitForChange(ctx context.Context, lastStatus string) interface{}
 	// NotifyLabelUpdate wakes the label-wait loop when a track is labelled.
@@ -174,21 +174,21 @@ func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
 }
 
-// handleRLHF handles both starting (POST) and getting status (GET) for RLHF sweep.
-func (ws *WebServer) handleRLHF(w http.ResponseWriter, r *http.Request) {
+// handleHINT handles both starting (POST) and getting status (GET) for HINT sweep.
+func (ws *WebServer) handleHINT(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		ws.handleRLHFStart(w, r)
+		ws.handleHINTStart(w, r)
 	} else if r.Method == http.MethodGet {
-		ws.handleRLHFStatus(w, r)
+		ws.handleHINTStatus(w, r)
 	} else {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
-// handleRLHFStart starts an RLHF sweep.
-func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
-	if ws.rlhfRunner == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+// handleHINTStart starts an HINT sweep.
+func (ws *WebServer) handleHINTStart(w http.ResponseWriter, r *http.Request) {
+	if ws.hintRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "HINT runner not configured")
 		return
 	}
 
@@ -198,8 +198,8 @@ func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use context.Background so the RLHF goroutine outlives the HTTP request.
-	if err := ws.rlhfRunner.Start(context.Background(), req); err != nil {
+	// Use context.Background so the HINT goroutine outlives the HTTP request.
+	if err := ws.hintRunner.Start(context.Background(), req); err != nil {
 		if strings.Contains(err.Error(), "already in progress") {
 			ws.writeJSONError(w, http.StatusConflict, err.Error())
 		} else {
@@ -212,38 +212,38 @@ func (ws *WebServer) handleRLHFStart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
 }
 
-// handleRLHFStatus returns the current RLHF state.
+// handleHINTStatus returns the current HINT state.
 // With ?wait_for_change=<status>, the handler blocks until the status differs
 // from the supplied value — replacing 5-second polling with long-polling.
-func (ws *WebServer) handleRLHFStatus(w http.ResponseWriter, r *http.Request) {
-	if ws.rlhfRunner == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+func (ws *WebServer) handleHINTStatus(w http.ResponseWriter, r *http.Request) {
+	if ws.hintRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "HINT runner not configured")
 		return
 	}
 
 	var state interface{}
 	if lastStatus := r.URL.Query().Get("wait_for_change"); lastStatus != "" {
-		state = ws.rlhfRunner.WaitForChange(r.Context(), lastStatus)
+		state = ws.hintRunner.WaitForChange(r.Context(), lastStatus)
 		if r.Context().Err() != nil {
 			return // client disconnected
 		}
 	} else {
-		state = ws.rlhfRunner.GetState()
+		state = ws.hintRunner.GetState()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(state)
 }
 
-// handleRLHFContinue signals the RLHF tuner to proceed from labels to sweep.
-func (ws *WebServer) handleRLHFContinue(w http.ResponseWriter, r *http.Request) {
+// handleHINTContinue signals the HINT tuner to proceed from labels to sweep.
+func (ws *WebServer) handleHINTContinue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	if ws.rlhfRunner == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+	if ws.hintRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "HINT runner not configured")
 		return
 	}
 
@@ -261,7 +261,7 @@ func (ws *WebServer) handleRLHFContinue(w http.ResponseWriter, r *http.Request) 
 		body.AddRound = false
 	}
 
-	if err := ws.rlhfRunner.ContinueFromLabels(body.NextSweepDurationMins, body.AddRound); err != nil {
+	if err := ws.hintRunner.ContinueFromLabels(body.NextSweepDurationMins, body.AddRound); err != nil {
 		if strings.Contains(err.Error(), "threshold") {
 			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
 		} else if strings.Contains(err.Error(), "not in awaiting_labels") {
@@ -276,19 +276,19 @@ func (ws *WebServer) handleRLHFContinue(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(map[string]string{"status": "continued"})
 }
 
-// handleRLHFStop cancels a running RLHF sweep.
-func (ws *WebServer) handleRLHFStop(w http.ResponseWriter, r *http.Request) {
+// handleHINTStop cancels a running HINT sweep.
+func (ws *WebServer) handleHINTStop(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	if ws.rlhfRunner == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "RLHF runner not configured")
+	if ws.hintRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "HINT runner not configured")
 		return
 	}
 
-	ws.rlhfRunner.Stop()
+	ws.hintRunner.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
 }
