@@ -509,25 +509,25 @@ _Beyond 9.1–9.4, the following Phase A items remain:_
 
 ### Phase B backlog — Transform + Objective Platform (§5 Phase B)
 
-- [ ] Implement Sweep Transform Pipeline engine (§2.2 — config-driven sequence of metric transforms before scoring)
-  - [ ] Define `Transform` interface with `Apply(metrics) → metrics`
-  - [ ] Implement standard transforms: normalisation, clipping, log scaling, class weighting
-  - [ ] Add round-dependent modifier transforms for HINT
-  - [ ] Wire pipeline into `auto.go` and `hint.go` scoring paths
-- [ ] Refactor objective implementations into registry-driven modules (§3.2 item 3)
-  - [ ] Define `ObjectiveDefinition` struct with name, version, formula, expected input features
-  - [ ] Register built-in objectives: `weighted`, `acceptance`, `ground_truth`
-  - [ ] Add `GET /api/lidar/sweep/objectives` endpoint (§6.2)
-- [ ] Add `GET /api/lidar/sweep/transforms` endpoint listing pipeline presets + versions (§6.2)
-- [ ] Add objective/transform version stamps in run artefacts
+- [x] Implement Sweep Transform Pipeline engine (§2.2 — config-driven sequence of metric transforms before scoring)
+  - [x] Define `Transform` interface with `Apply(metrics) → metrics`
+  - [x] Implement standard transforms: normalisation, clipping, log scaling, class weighting
+  - [x] Add round-dependent modifier transforms for HINT
+  - [x] Wire pipeline into `auto.go` and `hint.go` scoring paths
+- [x] Refactor objective implementations into registry-driven modules (§3.2 item 3)
+  - [x] Define `ObjectiveDefinition` struct with name, version, formula, expected input features
+  - [x] Register built-in objectives: `weighted`, `acceptance`, `ground_truth`
+  - [x] Add `GET /api/lidar/sweep/objectives` endpoint (§6.2)
+- [x] Add `GET /api/lidar/sweep/transforms` endpoint listing pipeline presets + versions (§6.2)
+- [x] Add objective/transform version stamps in run artefacts
 
 ### Phase C backlog — HINT Quality and Explainability (§5 Phase C)
 
 _Beyond 9.3–9.4:_
 
-- [ ] Expose round-over-round delta explanations (§4.3 — "what changed vs previous best")
-- [ ] Add agreement consistency checks where multiple labellers exist (§4.2)
-- [ ] Add label-coverage confidence penalty to scoring (§2.3)
+- [x] Expose round-over-round delta explanations (§4.3 — "what changed vs previous best")
+- [x] Add agreement consistency checks where multiple labellers exist (§4.2)
+- [x] Add label-coverage confidence penalty to scoring (§2.3)
 
 ### Phase D backlog — Adaptive Search Expansion (§5 Phase D)
 
@@ -548,9 +548,9 @@ _Beyond 9.3–9.4:_
 
 ### API additions backlog (§6.2)
 
-- [ ] `GET /api/lidar/sweep/{id}/explain` — score decomposition and parameter rationale (covered by 9.2/9.4)
-- [ ] `GET /api/lidar/sweep/objectives` — list available objective modules + versions (Phase B)
-- [ ] `GET /api/lidar/sweep/transforms` — list transform pipeline presets + versions (Phase B)
+- [x] `GET /api/lidar/sweep/{id}/explain` — score decomposition and parameter rationale (covered by 9.2/9.4)
+- [x] `GET /api/lidar/sweep/objectives` — list available objective modules + versions (Phase B)
+- [x] `GET /api/lidar/sweep/transforms` — list transform pipeline presets + versions (Phase B)
 
 ### Risk mitigations to track (§7)
 
@@ -576,6 +576,18 @@ _Beyond 9.3–9.4:_
 | **9.2** Score component breakdown | New structs + scorer refactor + API                | `score_explain.go` (new), `objective.go`, `auto.go`, `hint.go`, `sweep_handlers.go`                       |
 | **9.3** Class/time coverage gates | HINT request/state extension + continue validation | `hint.go`, `hint_test.go`, `sweep_dashboard.js`, `sweep_dashboard.html`                                   |
 | **9.4** Explanation rendering     | Dashboard + Svelte UI                              | `sweep_dashboard.html`, `sweep_dashboard.js`, `sweep_dashboard.css`, `+page.svelte`, `api.ts`, `lidar.ts` |
+
+### Work summary for Phase B + C backlog
+
+| Item                               | Scope                                               | Key files                                                                          |
+| ---------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Phase B** Transform pipeline     | Config-driven metric transforms before scoring       | `transform.go` (new), `transform_test.go` (new)                                   |
+| **Phase B** Objective registry     | Pluggable objective definitions                      | `objective_registry.go` (new), `objective_registry_test.go` (new)                  |
+| **Phase B** API endpoints          | List objectives + transforms                         | `sweep_handlers.go`, `webserver.go`, `api.ts`, `lidar.ts`                          |
+| **Phase B** Version stamps         | Pipeline name/version in artefacts                   | `auto.go`, `hint.go`                                                               |
+| **Phase C** Delta explanations     | Round-over-round score deltas                        | `hint.go` (`DeltaVsPrevious` field on `HINTRound`)                                 |
+| **Phase C** Agreement checks       | Inter-labeller consistency                           | `label_agreement.go` (new), `label_agreement_test.go` (new)                        |
+| **Phase C** Coverage penalty       | Label-coverage confidence penalty                    | `label_penalty.go` (new), `label_penalty_test.go` (new)                            |
 
 These actions preserve existing behaviour while laying platform foundations for
 scalable, interpretable, human-guided optimisation.

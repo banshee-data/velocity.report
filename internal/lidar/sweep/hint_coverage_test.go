@@ -1058,3 +1058,17 @@ func TestRun_SetOptimalParamsError(t *testing.T) {
 		t.Fatalf("expected completed, got %s (error: %s)", state.Status, state.Error)
 	}
 }
+
+// --- Phase B setter coverage ---
+
+func TestHINTTuner_SetTransformPipeline(t *testing.T) {
+	tuner := NewHINTTuner(nil)
+	if tuner.transformPipeline != nil {
+		t.Fatal("expected nil transform pipeline initially")
+	}
+	pipeline := DefaultTransformPipeline()
+	tuner.SetTransformPipeline(pipeline)
+	if tuner.transformPipeline != pipeline {
+		t.Error("SetTransformPipeline did not set pipeline")
+	}
+}

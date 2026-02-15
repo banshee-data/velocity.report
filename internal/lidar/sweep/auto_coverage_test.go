@@ -758,10 +758,12 @@ func TestAutoTuner_Start_GroundTruth_DefaultWeights(t *testing.T) {
 // --- Helper mocks ---
 
 type mockPersister struct {
-	mu             sync.Mutex
-	startCalled    bool
-	completeCalled bool
-	completeStatus string
+	mu                sync.Mutex
+	startCalled       bool
+	completeCalled    bool
+	completeStatus    string
+	completeTPName    string
+	completeTPVersion string
 }
 
 func (m *mockPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
@@ -776,6 +778,8 @@ func (m *mockPersister) SaveSweepComplete(sweepID, status string, results, recom
 	defer m.mu.Unlock()
 	m.completeCalled = true
 	m.completeStatus = status
+	m.completeTPName = transformPipelineName
+	m.completeTPVersion = transformPipelineVersion
 	return nil
 }
 
@@ -1754,4 +1758,51 @@ type failingSceneStore struct{}
 
 func (s *failingSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
 	return fmt.Errorf("simulated scene store failure")
+}
+
+// --- Phase B setter coverage ---
+
+func TestAutoTuner_SetTransformPipeline(t *testing.T) {
+	at := NewAutoTuner(nil)
+	if at.transformPipeline != nil {
+		t.Fatal("expected nil transform pipeline initially")
+	}
+	pipeline := DefaultTransformPipeline()
+	at.SetTransformPipeline(pipeline)
+	if at.transformPipeline != pipeline {
+		t.Error("SetTransformPipeline did not set pipeline")
+	}
+}
+
+func TestAutoTuner_SetGroundTruthScorerDetailed(t *testing.T) {
+	at := NewAutoTuner(nil)
+	if at.groundTruthScorerDetailed != nil {
+		t.Fatal("expected nil detailed scorer initially")
+	}
+	scorer := func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error) {
+		return 1.0, nil, nil
+	}
+	at.SetGroundTruthScorerDetailed(scorer)
+	if at.groundTruthScorerDetailed == nil {
+		t.Error("SetGroundTruthScorerDetailed did not set scorer")
+	}
+}
+
+func TestAutoTuner_PersistCompleteWithPipeline(t *testing.T) {
+	mp := &mockPersister{}
+	at := NewAutoTuner(nil)
+	at.SetLogger(discardAutoLogger())
+	at.SetPersister(mp)
+	at.sweepID = "test-sweep"
+	pipeline := NewTransformPipeline("ground_truth", "v1")
+	at.SetTransformPipeline(pipeline)
+
+	at.persistComplete("complete", nil, nil, nil)
+
+	if mp.completeTPName != "ground_truth" {
+		t.Errorf("expected transform pipeline name 'ground_truth', got %q", mp.completeTPName)
+	}
+	if mp.completeTPVersion != "v1" {
+		t.Errorf("expected transform pipeline version 'v1', got %q", mp.completeTPVersion)
+	}
 }

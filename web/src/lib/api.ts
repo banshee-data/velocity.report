@@ -833,6 +833,26 @@ export async function getSweepExplanation(sweepId: string): Promise<SweepExplana
 	}
 }
 
+import type { ObjectiveInfo, TransformPipelineInfo } from './types/lidar';
+
+/**
+ * List available objective modules and their versions.
+ */
+export async function getSweepObjectives(): Promise<ObjectiveInfo[]> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/objectives`);
+	if (!res.ok) throw new Error(`Failed to fetch objectives: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * List available transform pipeline presets and their versions.
+ */
+export async function getSweepTransforms(): Promise<TransformPipelineInfo[]> {
+	const res = await fetch(`${API_BASE}/lidar/sweep/transforms`);
+	if (!res.ok) throw new Error(`Failed to fetch transforms: ${res.status}`);
+	return res.json();
+}
+
 /**
  * Get the current LiDAR tuning parameters.
  * @param sensorId - Sensor identifier

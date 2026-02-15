@@ -320,3 +320,26 @@ export interface ScoreComponents {
 	top_contributors?: string[];
 	label_coverage_confidence?: number;
 }
+
+/** Objective module definition as returned by the objectives endpoint */
+export interface ObjectiveInfo {
+	name: string;
+	version: string;
+	description: string;
+	input_features: string[];
+}
+
+/** Transform pipeline preset as returned by the transforms endpoint */
+export interface TransformPipelineInfo {
+	name: string;
+	version: string;
+	transforms: string[];
+}
+
+/** Labeller agreement statistics for inter-labeller consistency */
+export interface LabellerAgreement {
+	total_tracks: number;
+	multi_labelled_count: number;
+	agreement_rate: number;
+	disagreement_count: number;
+}

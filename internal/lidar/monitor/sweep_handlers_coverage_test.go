@@ -241,3 +241,71 @@ func TestHINTHandlers_StopNotConfigured(t *testing.T) {
 		t.Fatalf("expected 503, got %d", w.Code)
 	}
 }
+
+// --- Phase B API endpoint tests ---
+
+func TestSweepHandlers_Objectives_GET(t *testing.T) {
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/objectives", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleSweepObjectives(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected application/json, got %s", ct)
+	}
+	// Should return a JSON array
+	var result []json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if len(result) < 3 {
+		t.Fatalf("expected at least 3 objectives, got %d", len(result))
+	}
+}
+
+func TestSweepHandlers_Objectives_MethodNotAllowed(t *testing.T) {
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/objectives", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleSweepObjectives(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestSweepHandlers_Transforms_GET(t *testing.T) {
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/transforms", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleSweepTransforms(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected application/json, got %s", ct)
+	}
+	// Should return a JSON array
+	var result []json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if len(result) < 2 {
+		t.Fatalf("expected at least 2 transform presets, got %d", len(result))
+	}
+}
+
+func TestSweepHandlers_Transforms_MethodNotAllowed(t *testing.T) {
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/transforms", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleSweepTransforms(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", w.Code)
+	}
+}
