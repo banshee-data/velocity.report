@@ -14,12 +14,12 @@ installation adds ~800 MB uncompressed to the Pi image. This is the single
 largest dependency. The PDF generator only uses a small subset of that
 installation:
 
-| Used today                          | Not needed on Pi              |
-| ----------------------------------- | ----------------------------- |
-| XeTeX engine binary (`xelatex`)     | tlmgr, texdoc, other engines |
-| ~10 `.sty` packages (see § 2)      | Thousands of unused packages  |
+| Used today                            | Not needed on Pi             |
+| ------------------------------------- | ---------------------------- |
+| XeTeX engine binary (`xelatex`)       | tlmgr, texdoc, other engines |
+| ~10 `.sty` packages (see § 2)         | Thousands of unused packages |
 | Atkinson Hyperlegible fonts (bundled) | System-wide TeX fonts        |
-| fontspec, hyperref support files    | Full CTAN mirror              |
+| fontspec, hyperref support files      | Full CTAN mirror             |
 
 ## Current Architecture
 
@@ -50,18 +50,18 @@ speed distributions) are rendered by matplotlib/seaborn as PDF figures that get
 
 Loaded by `DocumentBuilder.add_packages()`:
 
-| Package        | Purpose                                 |
-| -------------- | --------------------------------------- |
-| `fancyhdr`     | Page headers and footers                |
-| `graphicx`     | `\includegraphics` for chart PDFs       |
-| `amsmath`      | `\tfrac` and math formatting            |
-| `titlesec`     | Section heading customisation           |
-| `hyperref`     | Clickable URLs in header/footer         |
-| `fontspec`     | Atkinson Hyperlegible font loading      |
-| `caption`      | Bold, sans-serif captions               |
-| `supertabular` | Tables that break across columns        |
-| `float`        | `[H]` float placement                   |
-| `array`        | Column-spec modifiers `>{...}`, `<{...}`|
+| Package        | Purpose                                     |
+| -------------- | ------------------------------------------- |
+| `fancyhdr`     | Page headers and footers                    |
+| `graphicx`     | `\includegraphics` for chart PDFs           |
+| `amsmath`      | `\tfrac` and math formatting                |
+| `titlesec`     | Section heading customisation               |
+| `hyperref`     | Clickable URLs in header/footer             |
+| `fontspec`     | Atkinson Hyperlegible font loading          |
+| `caption`      | Bold, sans-serif captions                   |
+| `supertabular` | Tables that break across columns            |
+| `float`        | `[H]` float placement                       |
+| `array`        | Column-spec modifiers `>{...}`, `<{...}`    |
 | `geometry`     | Page margins (loaded implicitly by PyLaTeX) |
 
 Plus implicit dependencies pulled in by these packages (e.g. `l3kernel`,
@@ -72,13 +72,13 @@ files).
 
 ### Two Modes of Operation
 
-| Mode            | When used                           | TeX source                   |
-| --------------- | ----------------------------------- | ---------------------------- |
-| **Development** | Iterating on report layout/design   | Full `texlive-xetex` install |
-| **Production**  | Deployed Pi running headless        | Minimal vendored TeX tree    |
+| Mode            | When used                         | TeX source                   |
+| --------------- | --------------------------------- | ---------------------------- |
+| **Development** | Iterating on report layout/design | Full `texlive-xetex` install |
+| **Production**  | Deployed Pi running headless      | Minimal vendored TeX tree    |
 
 The pdf-generator must work identically in both modes. The only difference is
-*where* the TeX engine and support files come from.
+_where_ the TeX engine and support files come from.
 
 ### Mode Detection
 
@@ -88,10 +88,10 @@ A single environment variable controls which mode is active:
 VELOCITY_TEX_ROOT=/opt/velocity-report/texlive-minimal
 ```
 
-| `VELOCITY_TEX_ROOT`       | Behaviour                                      |
-| ------------------------- | ---------------------------------------------- |
-| **unset / empty**         | Development mode — use system `xelatex`        |
-| **set to directory path** | Production mode — use vendored minimal tree     |
+| `VELOCITY_TEX_ROOT`       | Behaviour                                   |
+| ------------------------- | ------------------------------------------- |
+| **unset / empty**         | Development mode — use system `xelatex`     |
+| **set to directory path** | Production mode — use vendored minimal tree |
 
 When `VELOCITY_TEX_ROOT` is set, the pdf-generator:
 
@@ -167,7 +167,7 @@ This produces `velocity-report.fmt`. At runtime, `xelatex -fmt=velocity-report`
 loads this format and the `.tex` file need not contain `\usepackage` lines for
 these packages (they are already loaded).
 
-**Important**: Using a precompiled format is an *optimisation*, not a
+**Important**: Using a precompiled format is an _optimisation_, not a
 requirement. The minimal tree works without it — packages are still present as
 `.sty` files. The `.fmt` provides:
 
@@ -359,6 +359,7 @@ The compiler invocation changes to:
 4. In production mode, skip the lualatex/pdflatex fallback chain
 
 The fallback chain becomes:
+
 - **Production mode**: only `env.compiler` (no fallback — the minimal tree is
   the only option)
 - **Development mode**: unchanged (`xelatex` → `lualatex` → `pdflatex`)
@@ -378,19 +379,19 @@ and whether the minimal tree is healthy.
 
 **New targets:**
 
-| Target                      | Purpose                                            |
-| --------------------------- | -------------------------------------------------- |
-| `build-texlive-minimal`     | Build the minimal TeX tree from system TeX Live     |
-| `build-tex-fmt`             | Compile `velocity-report.fmt` inside the tree       |
+| Target                         | Purpose                                            |
+| ------------------------------ | -------------------------------------------------- |
+| `build-texlive-minimal`        | Build the minimal TeX tree from system TeX Live    |
+| `build-tex-fmt`                | Compile `velocity-report.fmt` inside the tree      |
 | `deploy-install-latex-minimal` | Copy minimal tree to Pi at `/opt/velocity-report/` |
-| `validate-tex-minimal`      | Generate a test PDF and compare against reference   |
+| `validate-tex-minimal`         | Generate a test PDF and compare against reference  |
 
 **Updated targets:**
 
-| Target                 | Change                                                      |
-| ---------------------- | ----------------------------------------------------------- |
-| `deploy-install-latex` | Add conditional: use minimal tree if available, else apt    |
-| `pdf-report`           | No change needed — mode detected via environment variable   |
+| Target                 | Change                                                    |
+| ---------------------- | --------------------------------------------------------- |
+| `deploy-install-latex` | Add conditional: use minimal tree if available, else apt  |
+| `pdf-report`           | No change needed — mode detected via environment variable |
 
 ### Phase 6: Validation & Testing
 
@@ -415,11 +416,11 @@ A Makefile target (`validate-tex-minimal`) that:
 
 Record before/after in the plan:
 
-| Metric                           | Before          | After (target) |
-| -------------------------------- | --------------- | -------------- |
-| TeX install size (uncompressed)  | ~800 MB         | < 60 MB        |
-| TeX install size (xz compressed) | ~250 MB         | < 15 MB        |
-| PDF compilation time (Pi 4)      | baseline        | ≤ baseline     |
+| Metric                           | Before   | After (target) |
+| -------------------------------- | -------- | -------------- |
+| TeX install size (uncompressed)  | ~800 MB  | < 60 MB        |
+| TeX install size (xz compressed) | ~250 MB  | < 15 MB        |
+| PDF compilation time (Pi 4)      | baseline | ≤ baseline     |
 
 ### Phase 7: pi-gen Integration
 
@@ -433,12 +434,12 @@ Update the pi-gen stage (out of scope for this PR, documented for completeness):
 
 ## Risks & Mitigations
 
-| Risk                                        | Mitigation                                      |
-| ------------------------------------------- | ----------------------------------------------- |
-| Missing transitive `.sty` dependency        | `strace` audit captures all file accesses       |
-| `.fmt` incompatible after TeX engine update | `.fmt` rebuilt by same engine that ships in tree |
-| Shared library mismatch on Pi               | Link `xelatex` statically or bundle `.so` files |
-| Report layout changes break format          | CI generates PDF in both modes and compares      |
+| Risk                                        | Mitigation                                          |
+| ------------------------------------------- | --------------------------------------------------- |
+| Missing transitive `.sty` dependency        | `strace` audit captures all file accesses           |
+| `.fmt` incompatible after TeX engine update | `.fmt` rebuilt by same engine that ships in tree    |
+| Shared library mismatch on Pi               | Link `xelatex` statically or bundle `.so` files     |
+| Report layout changes break format          | CI generates PDF in both modes and compares         |
 | Developer forgets to audit after adding pkg | CI lint step checks `.ini` matches `add_packages()` |
 
 ## Migration Path to Option C
@@ -458,14 +459,14 @@ the tree is hand-curated or TinyTeX-managed.
 
 1. **Static vs dynamic xelatex binary** — Should we statically compile XeTeX for
    ARM64, or bundle the required `.so` files alongside the binary? Static is
-   simpler but may be harder to build. *Recommendation*: start with copying the
+   simpler but may be harder to build. _Recommendation_: start with copying the
    system binary + `ldd`-resolved libraries; switch to static if library
    versioning becomes painful.
 
 2. **Font caching** — XeTeX uses `fontconfig` to discover fonts. The bundled
    Atkinson Hyperlegible fonts are loaded via absolute path in `fontspec`, so
    `fontconfig` is only needed for fallback fonts. Should we ship a minimal
-   `fonts.conf`? *Recommendation*: test without it first; our fonts use explicit
+   `fonts.conf`? _Recommendation_: test without it first; our fonts use explicit
    `Path=` so fontconfig may not be needed.
 
 3. **PyLaTeX `compiler_args` support** — PyLaTeX's `generate_pdf()` does not
@@ -475,7 +476,7 @@ the tree is hand-curated or TinyTeX-managed.
    - Set `TEXFORMATS` environment variable so the engine finds the `.fmt`
      automatically by name
 
-   *Recommendation*: Use the `TEXFORMATS` environment variable approach — it
+   _Recommendation_: Use the `TEXFORMATS` environment variable approach — it
    requires no PyLaTeX changes and the engine picks up the format by matching
    the format name to the engine name. Alternatively, a thin wrapper script at
    `$VELOCITY_TEX_ROOT/bin/xelatex` that passes `-fmt=velocity-report` to the

@@ -23,7 +23,7 @@ velocity.report currently consists of multiple CLI applications with overlapping
 
 - **1 main application** (radar) - production service with optional lidar integration
 - **4 utility applications** - deployment, sweep testing, backfill, and tools
-- **59 Makefile targets** - build, test, deploy, and development tasks
+- **101 Makefile targets** - build, test, deploy, and development tasks
 - **Multiple HTTP APIs** - radar API (`:8080`), lidar monitor (`:8081`), admin routes (`/debug/`)
 
 This document provides both a complete reference for the current CLI structure and a detailed plan for improving it while maintaining the single executable model and backward compatibility.
@@ -357,7 +357,7 @@ backfill_ring_elevations --db sensor_data.db
 
 ---
 
-### Makefile Targets (59 total)
+### Makefile Targets (101 total)
 
 **Build Targets (15):**
 
@@ -584,7 +584,7 @@ make plot-multisweep INPUT=sweep-results.csv
    - **Impact:** API consumers face unpredictable interfaces
 
 5. **Makefile Target Naming** (Priority: Low)
-   - **Issue:** 59 targets with no consistent naming convention
+   - **Issue:** 101 targets with no consistent naming convention
    - **Impact:** Users can't predict target names, poor discoverability
 
 6. **Configuration Complexity** (Priority: Low)

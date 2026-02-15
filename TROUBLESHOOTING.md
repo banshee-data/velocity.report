@@ -332,7 +332,7 @@ cd /path/to/velocity.report
 curl http://192.168.1.100:8080/api/config
 
 # For PDF generator, it uses localhost:8080 by default
-# Check internal/report/query_data/api_client.py for API_BASE_URL
+# Check tools/pdf-generator/pdf_generator/core/api_client.py for API_BASE_URL
 ```
 
 ---
@@ -413,7 +413,7 @@ curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h&unit
 sqlite3 sensor_data.db "SELECT DATE(MIN(timestamp)), DATE(MAX(timestamp)) FROM radar_data;"
 
 # Test with that date range
-.venv/bin/python internal/report/query_data/get_stats.py \
+.venv/bin/python -m pdf_generator.core.get_stats \
   --start-date 2025-06-01 \
   --end-date 2025-06-07 \
   --file-prefix test \
@@ -845,7 +845,7 @@ go tool pprof heap.prof
 
 ```bash
 # Enable debug mode to see timing
-.venv/bin/python internal/report/query_data/get_stats.py --debug ...
+.venv/bin/python -m pdf_generator.core.get_stats --debug ...
 
 # Check API response time
 time curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h&compute_histogram=true"

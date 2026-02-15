@@ -173,21 +173,38 @@ make dev-docs                 # Start docs dev server
 ```
 velocity.report/
 ├── cmd/                      # Go CLI applications
-│   ├── radar/                # Radar sensor integration
-│   ├── sweep/                # Background sweep utilities
-│   └── tools/                # Go utility tools
+│   ├── deploy/               # Deployment management tool
+│   ├── radar/                # Radar/LiDAR sensor integration
+│   ├── sweep/                # Parameter sweep utilities
+│   ├── tools/                # Go utility tools
+│   └── transit-backfill/     # Transit data backfill tool
 ├── internal/                 # Go server internals (private packages)
 │   ├── api/                  # HTTP API endpoints
-│   ├── db/                   # SQLite database layer
+│   ├── config/               # Tuning configuration
+│   ├── db/                   # SQLite database layer + migrations
+│   ├── deploy/               # Deployment command/SSH
+│   ├── fsutil/               # Filesystem utilities
+│   ├── httputil/             # HTTP client/response helpers
+│   ├── lidar/                # LiDAR sensor logic + tracking
+│   ├── monitoring/           # System monitoring
 │   ├── radar/                # Radar sensor logic
-│   ├── lidar/                # LIDAR sensor logic
-│   └── monitoring/           # System monitoring
+│   ├── security/             # Path validation
+│   ├── serialmux/            # Serial port multiplexer
+│   ├── testutil/             # Test utilities
+│   ├── timeutil/             # Clock utilities
+│   ├── units/                # Timezone, velocity conversions
+│   └── version/              # Version information
 ├── web/                      # Svelte web frontend
 │   ├── src/                  # Frontend source code
 │   └── static/               # Static assets
-├── tools/                    # Python tooling
-│   └── pdf-generator/        # PDF report generation
-├── docs/                     # Documentation site (Eleventy)
+├── tools/                    # Python tooling and native apps
+│   ├── grid-heatmap/         # Grid heatmap plotting (Python)
+│   ├── pdf-generator/        # PDF report generation (Python)
+│   └── visualiser-macos/     # macOS LiDAR visualiser (Swift/Metal)
+├── config/                   # LiDAR tuning configuration files
+├── docs/                     # Internal project documentation
+├── public_html/              # Public documentation site (Eleventy)
+├── proto/                    # Protobuf definitions
 ├── data/                     # Test data and fixtures
 └── scripts/                  # Utility scripts
 ```
@@ -199,7 +216,7 @@ velocity.report/
 - Main `README.md`
 - Component READMEs: `cmd/radar/README.md`, `tools/pdf-generator/README.md`, `web/README.md`
 - `ARCHITECTURE.md` for system design changes
-- `docs/src/guides/setup.md` for user-facing setup instructions
+- `public_html/src/guides/setup.md` for user-facing setup instructions
 
 ## Active Migrations
 
@@ -220,7 +237,7 @@ The project uses `modernc.org/sqlite v1.44.3`, a pure-Go SQLite driver bundling 
 
 **Makefile pattern:** `<action>-<subsystem>[-<variant>]`
 
-- 59 documented targets available
+- 101 documented targets available
 - Cross-compilation for ARM64 (Raspberry Pi 4)
 - See `make help` for all targets
 
