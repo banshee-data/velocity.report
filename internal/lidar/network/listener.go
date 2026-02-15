@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -166,8 +167,12 @@ func (l *UDPListener) Start(ctx context.Context) error {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 					continue // Continue on timeout to check context
 				}
-				if ctx.Err() != nil {
-					return ctx.Err()
+				// Connection closed or context cancelled — clean shutdown.
+				if ctx.Err() != nil || errors.Is(err, net.ErrClosed) {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
+					return nil
 				}
 				log.Printf("UDP read error: %v", err)
 				continue
@@ -258,11 +263,13 @@ func (l *UDPListener) GetConn() UDPSocket {
 	return l.conn
 }
 
-// Close closes the UDP listener and releases resources
+// Close closes the UDP listener and releases resources.
+// It is safe to call Close multiple times.
 func (l *UDPListener) Close() error {
-	l.connMu.RLock()
+	l.connMu.Lock()
 	conn := l.conn
-	l.connMu.RUnlock()
+	l.conn = nil
+	l.connMu.Unlock()
 	if conn != nil {
 		return conn.Close()
 	}
