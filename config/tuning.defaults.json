@@ -15,7 +15,7 @@
   "min_frame_points": 1000,
   "flush_interval": "60s",
   "background_flush": false,
-  "gating_distance_squared": 9.21,
+  "gating_distance_squared": 36.0,
   "process_noise_pos": 1.0,
   "process_noise_vel": 5.0,
   "measurement_noise": 0.3,

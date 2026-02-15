@@ -345,12 +345,25 @@ func TestPublisher_VRLogReplay_SeekWhilePaused(t *testing.T) {
 	}
 	defer pub.StopVRLogReplay()
 
-	// Let a couple of frames publish so the loop is running
-	time.Sleep(200 * time.Millisecond)
+	// Wait for the replay loop to consume at least one frame before pausing.
+	deadline := time.Now().Add(2 * time.Second)
+	for reader.CurrentFrame() < 1 {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for replay loop to start consuming frames")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
-	// Pause playback
+	// Pause playback and wait for the loop to observe the pause by confirming
+	// the frame pointer stops advancing.
 	pub.SetVRLogPaused(true)
+	time.Sleep(50 * time.Millisecond)
+	snapshot := reader.CurrentFrame()
 	time.Sleep(100 * time.Millisecond)
+	if reader.CurrentFrame() != snapshot {
+		// Loop hasn't settled into paused state yet; give it one more chance.
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Seek to frame 7 while paused
 	currentFrame, err := pub.SeekVRLog(7)
@@ -362,12 +375,13 @@ func TestPublisher_VRLogReplay_SeekWhilePaused(t *testing.T) {
 	}
 
 	// The replay loop should deliver one frame despite being paused.
-	// Give it time to process.
-	time.Sleep(200 * time.Millisecond)
-
-	// After delivering one frame, the reader should have advanced to frame 8.
-	if reader.CurrentFrame() != 8 {
-		t.Errorf("expected reader at frame 8 (after reading seeked frame), got %d", reader.CurrentFrame())
+	// Poll until the reader advances past the seeked frame, with a timeout.
+	deadline = time.Now().Add(2 * time.Second)
+	for reader.CurrentFrame() != 8 {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for reader to advance to frame 8, got %d", reader.CurrentFrame())
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

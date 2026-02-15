@@ -163,8 +163,8 @@ func TestDefaultsFileComplete(t *testing.T) {
 	if *cfg.WarmupMinFrames != 100 {
 		t.Errorf("WarmupMinFrames = %v, want 100", *cfg.WarmupMinFrames)
 	}
-	if *cfg.GatingDistanceSquared != 9.21 {
-		t.Errorf("GatingDistanceSquared = %v, want 9.21", *cfg.GatingDistanceSquared)
+	if *cfg.GatingDistanceSquared != 36.0 {
+		t.Errorf("GatingDistanceSquared = %v, want 36.0", *cfg.GatingDistanceSquared)
 	}
 	if *cfg.ProcessNoisePos != 1.0 {
 		t.Errorf("ProcessNoisePos = %v, want 1.0 (dt-normalised)", *cfg.ProcessNoisePos)
@@ -212,7 +212,7 @@ func TestLoadTuningConfig(t *testing.T) {
   "min_frame_points": 500,
   "flush_interval": "120s",
   "background_flush": true,
-  "gating_distance_squared": 9.21,
+  "gating_distance_squared": 36.0,
   "process_noise_pos": 1.0,
   "process_noise_vel": 5.0,
   "measurement_noise": 0.3,

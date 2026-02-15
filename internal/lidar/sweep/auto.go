@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"sort"
@@ -138,17 +139,31 @@ type AutoTuner struct {
 
 	// Phase 5: Scene store for saving optimal params when ground truth mode completes
 	sceneStore SceneStoreSaver
+
+	logger *log.Logger
 }
 
 // NewAutoTuner creates a new AutoTuner wrapping the given Runner.
 func NewAutoTuner(runner *Runner) *AutoTuner {
 	return &AutoTuner{
 		runner: runner,
+		logger: log.Default(),
 		state: AutoTuneState{
 			Status: SweepStatusIdle,
 			Mode:   "auto",
 		},
 	}
+}
+
+// SetLogger sets the logger for the AutoTuner. Use log.New(io.Discard, "", 0)
+// in tests to suppress expected error-path log output.
+func (at *AutoTuner) SetLogger(l *log.Logger) {
+	at.logger = l
+}
+
+// discardAutoLogger returns a logger that discards all output.
+func discardAutoLogger() *log.Logger {
+	return log.New(io.Discard, "", 0)
 }
 
 // SetPersister sets the database persister for saving auto-tune results.
@@ -310,7 +325,7 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 	if at.persister != nil {
 		reqJSON, err := json.Marshal(req)
 		if err != nil {
-			log.Printf("[sweep] WARNING: Failed to marshal auto-tune request for persistence (sweepID=%s): %v", at.sweepID, err)
+			at.logger.Printf("[sweep] WARNING: Failed to marshal auto-tune request for persistence (sweepID=%s): %v", at.sweepID, err)
 			reqJSON = []byte("{}")
 		}
 		sensorID := ""
@@ -318,7 +333,7 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 			sensorID = at.runner.backend.SensorID()
 		}
 		if err := at.persister.SaveSweepStart(at.sweepID, sensorID, "auto", reqJSON, now, req.Objective, ObjectiveVersion); err != nil {
-			log.Printf("[sweep] WARNING: Failed to persist auto-tune start: %v", err)
+			at.logger.Printf("[sweep] WARNING: Failed to persist auto-tune start: %v", err)
 		}
 	}
 
@@ -386,7 +401,7 @@ func (at *AutoTuner) Stop() {
 
 // run executes the auto-tuning algorithm.
 func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
-	log.Printf("[sweep] Auto-tuner started: %d rounds, %d values/param, top %d", req.MaxRounds, req.ValuesPerParam, req.TopK)
+	at.logger.Printf("[sweep] Auto-tuner started: %d rounds, %d values/param, top %d", req.MaxRounds, req.ValuesPerParam, req.TopK)
 
 	// Set up objective weights
 	var weights ObjectiveWeights
@@ -423,7 +438,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		default:
 		}
 
-		log.Printf("[sweep] Auto-tune round %d/%d", round, req.MaxRounds)
+		at.logger.Printf("[sweep] Auto-tune round %d/%d", round, req.MaxRounds)
 
 		at.mu.Lock()
 		at.state.Round = round
@@ -532,14 +547,14 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 				// Then evaluate score
 				if result.RunID == "" {
 					// No run ID - log warning and give score 0
-					log.Printf("[sweep] WARNING: combo %d has no RunID; cannot evaluate with ground truth. Assigning score 0.", i)
+					at.logger.Printf("[sweep] WARNING: combo %d has no RunID; cannot evaluate with ground truth. Assigning score 0.", i)
 					scored[i].Score = 0.0
 				} else {
 					// Try detailed scorer first, fall back to simple scorer
 					if at.groundTruthScorerDetailed != nil {
 						score, components, err := at.groundTruthScorerDetailed(req.SceneID, result.RunID, *req.GroundTruthWeights)
 						if err != nil {
-							log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
+							at.logger.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
 							scored[i].Score = 0.0
 						} else {
 							scored[i].Score = score
@@ -549,7 +564,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 						// Call ground truth scorer with per-request weights
 						score, err := at.groundTruthScorer(req.SceneID, result.RunID, *req.GroundTruthWeights)
 						if err != nil {
-							log.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
+							at.logger.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
 							scored[i].Score = 0.0
 						} else {
 							scored[i].Score = score
@@ -608,7 +623,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 				currentBounds[p.Name] = [2]float64{start, end}
 			}
 
-			log.Printf("[sweep] Narrowed bounds for round %d: %v", round+1, currentBounds)
+			at.logger.Printf("[sweep] Narrowed bounds for round %d: %v", round+1, currentBounds)
 		}
 	}
 
@@ -639,7 +654,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 	at.state.Results = allResults
 	at.mu.Unlock()
 
-	log.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
+	at.logger.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
 
 	// Phase 5: Save optimal params to scene when ground truth mode is enabled
 	if req.SceneID != "" && req.Objective == "ground_truth" && overallBest != nil && at.sceneStore != nil {
@@ -651,12 +666,12 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 
 		paramsJSON, err := json.Marshal(optimalParams)
 		if err != nil {
-			log.Printf("[sweep] Error marshalling optimal params for scene %s: %v", req.SceneID, err)
+			at.logger.Printf("[sweep] Error marshalling optimal params for scene %s: %v", req.SceneID, err)
 		} else {
 			if err := at.sceneStore.SetOptimalParams(req.SceneID, paramsJSON); err != nil {
-				log.Printf("[sweep] Error saving optimal params for scene %s: %v", req.SceneID, err)
+				at.logger.Printf("[sweep] Error saving optimal params for scene %s: %v", req.SceneID, err)
 			} else {
-				log.Printf("[sweep] Saved optimal params for scene %s: %s", req.SceneID, string(paramsJSON))
+				at.logger.Printf("[sweep] Saved optimal params for scene %s: %s", req.SceneID, string(paramsJSON))
 			}
 		}
 	}
@@ -699,7 +714,7 @@ func (at *AutoTuner) waitForSweepComplete(ctx context.Context) error {
 
 // setError sets an error state and marks the auto-tune as failed.
 func (at *AutoTuner) setError(msg string) {
-	log.Printf("[sweep] Auto-tune error: %s", msg)
+	at.logger.Printf("[sweep] Auto-tune error: %s", msg)
 	now := time.Now()
 	at.mu.Lock()
 	at.state.Status = SweepStatusError
@@ -719,14 +734,14 @@ func (at *AutoTuner) persistComplete(status string, results []ComboResult, recom
 
 	resultsJSON, err := json.Marshal(results)
 	if err != nil {
-		log.Printf("[sweep] WARNING: Failed to marshal auto-tune results for persistence (sweepID=%s): %v", at.sweepID, err)
+		at.logger.Printf("[sweep] WARNING: Failed to marshal auto-tune results for persistence (sweepID=%s): %v", at.sweepID, err)
 		resultsJSON = []byte("[]")
 	}
 	var recJSON json.RawMessage
 	if recommendation != nil {
 		recJSON, err = json.Marshal(recommendation)
 		if err != nil {
-			log.Printf("[sweep] WARNING: Failed to marshal auto-tune recommendation for persistence (sweepID=%s): %v", at.sweepID, err)
+			at.logger.Printf("[sweep] WARNING: Failed to marshal auto-tune recommendation for persistence (sweepID=%s): %v", at.sweepID, err)
 		}
 	}
 
@@ -735,7 +750,7 @@ func (at *AutoTuner) persistComplete(status string, results []ComboResult, recom
 	if len(at.state.RoundResults) > 0 {
 		roundResultsJSON, err = json.Marshal(at.state.RoundResults)
 		if err != nil {
-			log.Printf("[sweep] WARNING: Failed to marshal auto-tune round results for persistence (sweepID=%s): %v", at.sweepID, err)
+			at.logger.Printf("[sweep] WARNING: Failed to marshal auto-tune round results for persistence (sweepID=%s): %v", at.sweepID, err)
 		}
 	}
 	at.mu.RUnlock()
@@ -746,7 +761,7 @@ func (at *AutoTuner) persistComplete(status string, results []ComboResult, recom
 	}
 	now := time.Now()
 	if err := at.persister.SaveSweepComplete(at.sweepID, status, resultsJSON, recJSON, roundResultsJSON, now, errStr, nil, nil, nil, "", ""); err != nil {
-		log.Printf("[sweep] WARNING: Failed to persist auto-tune completion: %v", err)
+		at.logger.Printf("[sweep] WARNING: Failed to persist auto-tune completion: %v", err)
 	}
 }
 

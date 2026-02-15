@@ -33,8 +33,8 @@ func TestDefaultTrackerConfig(t *testing.T) {
 	if config.HitsToConfirm != 3 {
 		t.Errorf("expected HitsToConfirm=3, got %d", config.HitsToConfirm)
 	}
-	if config.GatingDistanceSquared != 9.21 {
-		t.Errorf("expected GatingDistanceSquared=9.21, got %v", config.GatingDistanceSquared)
+	if config.GatingDistanceSquared != 36.0 {
+		t.Errorf("expected GatingDistanceSquared=36.0, got %v", config.GatingDistanceSquared)
 	}
 }
 

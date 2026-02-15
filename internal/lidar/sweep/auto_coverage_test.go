@@ -11,6 +11,14 @@ import (
 	"time"
 )
 
+// newQuietAutoTuner creates an AutoTuner with a discard logger so that
+// expected error-path log messages don't pollute CI output.
+func newQuietAutoTuner(runner *Runner) *AutoTuner {
+	at := NewAutoTuner(runner)
+	at.SetLogger(discardAutoLogger())
+	return at
+}
+
 // mockBackend implements SweepBackend for testing. Each method can be
 // overridden by setting the corresponding function field; the zero value
 // provides sensible defaults that never error.
@@ -149,7 +157,7 @@ func sweepMockBackend() *mockBackend {
 // --- AutoTuner accessor tests ---
 
 func TestAutoTuner_SetPersister(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mock := &mockPersister{}
 	at.SetPersister(mock)
 	if at.persister != mock {
@@ -158,14 +166,14 @@ func TestAutoTuner_SetPersister(t *testing.T) {
 }
 
 func TestAutoTuner_GetSweepID_Empty(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	if id := at.GetSweepID(); id != "" {
 		t.Errorf("GetSweepID = %q, want empty", id)
 	}
 }
 
 func TestAutoTuner_SetGroundTruthScorer(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	scorer := func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 1.0, nil
 	}
@@ -176,7 +184,7 @@ func TestAutoTuner_SetGroundTruthScorer(t *testing.T) {
 }
 
 func TestAutoTuner_SetSceneStore(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mock := &mockSceneStore{}
 	at.SetSceneStore(mock)
 	if at.sceneStore != mock {
@@ -185,7 +193,7 @@ func TestAutoTuner_SetSceneStore(t *testing.T) {
 }
 
 func TestAutoTuner_GetAutoTuneState_Initial(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	state := at.GetAutoTuneState()
 	if state.Status != SweepStatusIdle {
 		t.Errorf("initial status = %q, want idle", state.Status)
@@ -196,7 +204,7 @@ func TestAutoTuner_GetAutoTuneState_Initial(t *testing.T) {
 }
 
 func TestAutoTuner_GetState_ReturnsAutoTuneState(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	state := at.GetState()
 	ats, ok := state.(AutoTuneState)
 	if !ok {
@@ -208,12 +216,12 @@ func TestAutoTuner_GetState_ReturnsAutoTuneState(t *testing.T) {
 }
 
 func TestAutoTuner_Stop_NilCancel(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.Stop() // should not panic
 }
 
 func TestAutoTuner_Stop_WithCancel(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	_, cancel := context.WithCancel(context.Background())
 	at.cancel = cancel
 	at.Stop() // should not panic
@@ -222,7 +230,7 @@ func TestAutoTuner_Stop_WithCancel(t *testing.T) {
 // --- Start validation tests ---
 
 func TestAutoTuner_Start_NilRunner(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	err := at.Start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
@@ -233,8 +241,8 @@ func TestAutoTuner_Start_NilRunner(t *testing.T) {
 }
 
 func TestAutoTuner_Start_InvalidRequestType(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.Start(context.Background(), 42) // invalid type
 	if err == nil {
 		t.Error("expected error for invalid request type")
@@ -242,8 +250,8 @@ func TestAutoTuner_Start_InvalidRequestType(t *testing.T) {
 }
 
 func TestAutoTuner_Start_MapRequest(t *testing.T) {
-	runner := NewRunner(defaultMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(defaultMockBackend())
+	at := newQuietAutoTuner(runner)
 	m := map[string]interface{}{
 		"params": []interface{}{
 			map[string]interface{}{"name": "p", "type": "float64", "start": 0.0, "end": 1.0},
@@ -260,8 +268,8 @@ func TestAutoTuner_Start_MapRequest(t *testing.T) {
 }
 
 func TestAutoTuner_Start_MaxRoundsExceedsLimit(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		MaxRounds:      11,
@@ -273,8 +281,8 @@ func TestAutoTuner_Start_MaxRoundsExceedsLimit(t *testing.T) {
 }
 
 func TestAutoTuner_Start_ValuesPerParamTooLow(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 1,
@@ -285,8 +293,8 @@ func TestAutoTuner_Start_ValuesPerParamTooLow(t *testing.T) {
 }
 
 func TestAutoTuner_Start_ValuesPerParamTooHigh(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 21,
@@ -297,8 +305,8 @@ func TestAutoTuner_Start_ValuesPerParamTooHigh(t *testing.T) {
 }
 
 func TestAutoTuner_Start_TopKTooHigh(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
@@ -310,8 +318,8 @@ func TestAutoTuner_Start_TopKTooHigh(t *testing.T) {
 }
 
 func TestAutoTuner_Start_NoParams(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         nil,
 		ValuesPerParam: 3,
@@ -322,8 +330,8 @@ func TestAutoTuner_Start_NoParams(t *testing.T) {
 }
 
 func TestAutoTuner_Start_TooManyParams(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	params := make([]SweepParam, 11)
 	for i := range params {
 		params[i] = SweepParam{Name: "p" + string(rune('a'+i)), Type: "float64", Start: 0, End: 1}
@@ -338,8 +346,8 @@ func TestAutoTuner_Start_TooManyParams(t *testing.T) {
 }
 
 func TestAutoTuner_Start_InvalidParamBounds(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 5, End: 1}},
 		ValuesPerParam: 3,
@@ -350,8 +358,8 @@ func TestAutoTuner_Start_InvalidParamBounds(t *testing.T) {
 }
 
 func TestAutoTuner_Start_UnsupportedParamType(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "string", Start: 0, End: 1}},
 		ValuesPerParam: 3,
@@ -362,8 +370,8 @@ func TestAutoTuner_Start_UnsupportedParamType(t *testing.T) {
 }
 
 func TestAutoTuner_Start_GroundTruth_NoSceneID(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
@@ -375,8 +383,8 @@ func TestAutoTuner_Start_GroundTruth_NoSceneID(t *testing.T) {
 }
 
 func TestAutoTuner_Start_GroundTruth_NoScorer(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
@@ -389,8 +397,8 @@ func TestAutoTuner_Start_GroundTruth_NoScorer(t *testing.T) {
 }
 
 func TestAutoTuner_Start_AlreadyRunning(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	at.mu.Lock()
 	at.state.Status = SweepStatusRunning
 	at.mu.Unlock()
@@ -405,8 +413,8 @@ func TestAutoTuner_Start_AlreadyRunning(t *testing.T) {
 }
 
 func TestAutoTuner_Start_IntParams(t *testing.T) {
-	runner := NewRunner(defaultMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(defaultMockBackend())
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "int", Start: 0, End: 10}},
 		ValuesPerParam: 3,
@@ -421,8 +429,8 @@ func TestAutoTuner_Start_IntParams(t *testing.T) {
 }
 
 func TestAutoTuner_Start_Int64Params(t *testing.T) {
-	runner := NewRunner(defaultMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(defaultMockBackend())
+	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "int64", Start: 0, End: 100}},
 		ValuesPerParam: 3,
@@ -437,8 +445,8 @@ func TestAutoTuner_Start_Int64Params(t *testing.T) {
 // --- waitForSweepComplete tests ---
 
 func TestAutoTuner_WaitForSweepComplete_Cancelled(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	err := at.waitForSweepComplete(ctx)
@@ -448,12 +456,12 @@ func TestAutoTuner_WaitForSweepComplete_Cancelled(t *testing.T) {
 }
 
 func TestAutoTuner_WaitForSweepComplete_Complete(t *testing.T) {
-	runner := NewRunner(nil)
+	runner := newQuietRunner(nil)
 	runner.mu.Lock()
 	runner.state.Status = SweepStatusComplete
 	runner.mu.Unlock()
 
-	at := NewAutoTuner(runner)
+	at := newQuietAutoTuner(runner)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -464,13 +472,13 @@ func TestAutoTuner_WaitForSweepComplete_Complete(t *testing.T) {
 }
 
 func TestAutoTuner_WaitForSweepComplete_Error(t *testing.T) {
-	runner := NewRunner(nil)
+	runner := newQuietRunner(nil)
 	runner.mu.Lock()
 	runner.state.Status = SweepStatusError
 	runner.state.Error = "test error"
 	runner.mu.Unlock()
 
-	at := NewAutoTuner(runner)
+	at := newQuietAutoTuner(runner)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -481,12 +489,12 @@ func TestAutoTuner_WaitForSweepComplete_Error(t *testing.T) {
 }
 
 func TestAutoTuner_WaitForSweepComplete_UnexpectedStatus(t *testing.T) {
-	runner := NewRunner(nil)
+	runner := newQuietRunner(nil)
 	runner.mu.Lock()
 	runner.state.Status = SweepStatus("unknown")
 	runner.mu.Unlock()
 
-	at := NewAutoTuner(runner)
+	at := newQuietAutoTuner(runner)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -499,7 +507,7 @@ func TestAutoTuner_WaitForSweepComplete_UnexpectedStatus(t *testing.T) {
 // --- setError tests ---
 
 func TestAutoTuner_SetError(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.setError("test failure")
 	state := at.GetAutoTuneState()
 	if state.Status != SweepStatusError {
@@ -514,7 +522,7 @@ func TestAutoTuner_SetError(t *testing.T) {
 }
 
 func TestAutoTuner_SetError_WithPersister(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 	at.sweepID = "test-sweep-123"
@@ -530,18 +538,18 @@ func TestAutoTuner_SetError_WithPersister(t *testing.T) {
 // --- persistComplete tests ---
 
 func TestAutoTuner_PersistComplete_NoPersister(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.persistComplete("complete", nil, nil, nil) // should not panic
 }
 
 func TestAutoTuner_PersistComplete_NoSweepID(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.persister = &mockPersister{}
 	at.persistComplete("complete", nil, nil, nil) // should not panic
 }
 
 func TestAutoTuner_PersistComplete_WithData(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 	at.sweepID = "test-123"
@@ -557,7 +565,7 @@ func TestAutoTuner_PersistComplete_WithData(t *testing.T) {
 }
 
 func TestAutoTuner_PersistComplete_WithRoundResults(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 	at.sweepID = "test-456"
@@ -642,7 +650,7 @@ func TestCopyParamValues_NilInput(t *testing.T) {
 // --- GetAutoTuneState deep copy test ---
 
 func TestAutoTuner_GetAutoTuneState_DeepCopy(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.mu.Lock()
 	at.state.RoundResults = []RoundSummary{{
 		Round:      1,
@@ -686,8 +694,8 @@ func TestAutoTuner_GetAutoTuneState_DeepCopy(t *testing.T) {
 // --- Start with persister ---
 
 func TestAutoTuner_Start_WithPersister(t *testing.T) {
-	runner := NewRunner(defaultMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(defaultMockBackend())
+	at := newQuietAutoTuner(runner)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 
@@ -713,8 +721,8 @@ func TestAutoTuner_Start_WithPersister(t *testing.T) {
 }
 
 func TestAutoTuner_Start_NilContext(t *testing.T) {
-	runner := NewRunner(defaultMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(defaultMockBackend())
+	at := newQuietAutoTuner(runner)
 	//nolint:staticcheck
 	err := at.start(nil, AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
@@ -728,8 +736,8 @@ func TestAutoTuner_Start_NilContext(t *testing.T) {
 }
 
 func TestAutoTuner_Start_GroundTruth_DefaultWeights(t *testing.T) {
-	runner := NewRunner(defaultMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(defaultMockBackend())
+	at := newQuietAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.9, nil
 	})
@@ -801,8 +809,8 @@ func waitForAutoTuneStatus(t *testing.T, at *AutoTuner, timeout time.Duration, t
 // TestAutoCov2_RunFullExecution starts an auto-tune with a tiny 1-round,
 // 2-value sweep and verifies the run() goroutine completes successfully.
 func TestAutoCov2_RunFullExecution(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -840,8 +848,8 @@ func TestAutoCov2_RunFullExecution(t *testing.T) {
 
 // TestAutoCov2_RunMultipleRounds tests the narrowing logic across multiple rounds.
 func TestAutoCov2_RunMultipleRounds(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -869,8 +877,8 @@ func TestAutoCov2_RunMultipleRounds(t *testing.T) {
 
 // TestAutoCov2_RunWithIntParams exercises the int grid path in run().
 func TestAutoCov2_RunWithIntParams(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -895,8 +903,8 @@ func TestAutoCov2_RunWithIntParams(t *testing.T) {
 
 // TestAutoCov2_RunWithInt64Params exercises the int64 grid path in run().
 func TestAutoCov2_RunWithInt64Params(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -944,8 +952,8 @@ func TestAutoCov2_RunCancelledMidway(t *testing.T) {
 			return map[string]interface{}{"background_count": float64(42)}, nil
 		},
 	}
-	runner := NewRunner(backend)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(backend)
+	at := newQuietAutoTuner(runner)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -979,8 +987,8 @@ func TestAutoCov2_RunCancelledMidway(t *testing.T) {
 
 // TestAutoCov2_RunWithPersister ensures run() calls the persister on completion.
 func TestAutoCov2_RunWithPersister(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 
@@ -1023,8 +1031,8 @@ func TestAutoCov2_RunWithPersister(t *testing.T) {
 
 // TestAutoCov2_RunWithPersisterError ensures run() handles persister errors gracefully.
 func TestAutoCov2_RunWithPersisterError(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 	mp := &failingPersister{}
 	at.SetPersister(mp)
 
@@ -1054,8 +1062,8 @@ func TestAutoCov2_RunWithPersisterError(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruth exercises the ground truth scoring path in run().
 func TestAutoCov2_RunGroundTruth(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	var scorerCalls int32
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
@@ -1095,8 +1103,8 @@ func TestAutoCov2_RunGroundTruth(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruthWithSceneStore tests scene store saving on completion.
 func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.9, nil
@@ -1142,8 +1150,8 @@ func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruthScorerError tests the path where ground truth scorer returns errors.
 func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0, fmt.Errorf("scoring failed")
@@ -1175,8 +1183,8 @@ func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
 
 // TestAutoCov2_RunGroundTruthSceneStoreError tests graceful handling of scene store errors.
 func TestAutoCov2_RunGroundTruthSceneStoreError(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.8, nil
@@ -1213,8 +1221,8 @@ func TestAutoCov2_RunGroundTruthSceneStoreError(t *testing.T) {
 
 // TestAutoCov2_RunWeightedObjective exercises the weighted objective path in run().
 func TestAutoCov2_RunWeightedObjective(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1240,8 +1248,8 @@ func TestAutoCov2_RunWeightedObjective(t *testing.T) {
 
 // TestAutoCov2_RunCustomWeights exercises the custom weights path in run().
 func TestAutoCov2_RunCustomWeights(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1288,8 +1296,8 @@ func TestAutoCov2_RunSweepStartFailure(t *testing.T) {
 	backend.SetTuningParamsFn = func(params map[string]interface{}) error {
 		return fmt.Errorf("server crashed")
 	}
-	runner := NewRunner(backend)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(backend)
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1314,8 +1322,8 @@ func TestAutoCov2_RunSweepStartFailure(t *testing.T) {
 
 // TestAutoCov2_RunMultiParam exercises the multi-parameter Cartesian product path.
 func TestAutoCov2_RunMultiParam(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1349,8 +1357,8 @@ func TestAutoCov2_RunMultiParam(t *testing.T) {
 // TestAutoCov2_StartViaMapWithPersister tests Start() with a map request and persister,
 // exercising the JSON marshal/unmarshal + persisterSaveStart path.
 func TestAutoCov2_StartViaMapWithPersister(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 
@@ -1387,8 +1395,8 @@ func TestAutoCov2_StartViaMapWithPersister(t *testing.T) {
 
 // TestAutoCov2_StartMapBadJSON tests Start() with a map containing an unmarshalable value.
 func TestAutoCov2_StartMapBadJSON(t *testing.T) {
-	runner := NewRunner(nil)
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(nil)
+	at := newQuietAutoTuner(runner)
 	// Channels can't be marshalled to JSON
 	m := map[string]interface{}{
 		"params": make(chan int),
@@ -1454,7 +1462,7 @@ func TestAutoCov2_GenerateIntGridNegative(t *testing.T) {
 // ---- persistComplete edge cases ----
 
 func TestAutoCov2_PersistComplete_NilRecommendation(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 	at.sweepID = "persist-nil-rec"
@@ -1465,7 +1473,7 @@ func TestAutoCov2_PersistComplete_NilRecommendation(t *testing.T) {
 }
 
 func TestAutoCov2_PersistComplete_NilErrMsg(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 	at.sweepID = "persist-nil-err"
@@ -1479,7 +1487,7 @@ func TestAutoCov2_PersistComplete_NilErrMsg(t *testing.T) {
 // ---- setError with persister that also fails ----
 
 func TestAutoCov2_SetErrorWithFailingPersister(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	mp := &failingPersister{}
 	at.SetPersister(mp)
 	at.sweepID = "fail-persist-err"
@@ -1495,8 +1503,8 @@ func TestAutoCov2_SetErrorWithFailingPersister(t *testing.T) {
 // TestAutoCov2_RecommendationContainsAllFields verifies that the recommendation
 // built by run() includes all expected metric fields.
 func TestAutoCov2_RecommendationContainsAllFields(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1538,8 +1546,8 @@ func TestAutoCov2_RecommendationContainsAllFields(t *testing.T) {
 // TestAutoCov2_BoundsNarrowingClampedToOriginal verifies that narrowed bounds are
 // clamped to the original parameter range.
 func TestAutoCov2_BoundsNarrowingClampedToOriginal(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1569,8 +1577,8 @@ func TestAutoCov2_BoundsNarrowingClampedToOriginal(t *testing.T) {
 // ---- Start with AcceptanceCriteria ----
 
 func TestAutoCov2_RunWithAcceptanceCriteria(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	maxFrag := 0.5
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -1600,8 +1608,8 @@ func TestAutoCov2_RunWithAcceptanceCriteria(t *testing.T) {
 // ---- Start with GroundTruth + custom weights ----
 
 func TestAutoCov2_RunGroundTruthCustomWeights(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		// Verify custom weights are passed through
@@ -1642,8 +1650,8 @@ func TestAutoCov2_RunGroundTruthCustomWeights(t *testing.T) {
 // ---- TopK larger than results ----
 
 func TestAutoCov2_RunTopKLargerThanResults(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1692,7 +1700,7 @@ func TestAutoCov2_ApplyDefaultsPreservesExplicit(t *testing.T) {
 // ---- GetAutoTuneState empty slices ----
 
 func TestAutoCov2_GetAutoTuneState_EmptySlices(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.mu.Lock()
 	at.state.RoundResults = []RoundSummary{}
 	at.state.Results = []ComboResult{}

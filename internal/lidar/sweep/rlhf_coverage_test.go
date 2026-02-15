@@ -13,6 +13,14 @@ type errForTest string
 
 func (e errForTest) Error() string { return string(e) }
 
+// newQuietRLHFTuner creates an RLHFTuner with a discard logger so that
+// expected error-path log messages don't pollute CI output.
+func newQuietRLHFTuner(at *AutoTuner) *RLHFTuner {
+	rt := NewRLHFTuner(at)
+	rt.SetLogger(discardLogger())
+	return rt
+}
+
 // initRunState sets up the tuner state as Start() would before calling run().
 func initRunState(tuner *RLHFTuner, numRounds int) {
 	tuner.mu.Lock()
@@ -26,7 +34,7 @@ func initRunState(tuner *RLHFTuner, numRounds int) {
 
 // TestRun_SceneGetterNil tests run() when sceneGetter is nil.
 func TestRun_SceneGetterNil(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.sweepID = "test-nil-getter"
 	initRunState(tuner, 1)
@@ -42,7 +50,7 @@ func TestRun_SceneGetterNil(t *testing.T) {
 
 // TestRun_SceneNotFound tests run() when scene lookup fails.
 func TestRun_SceneNotFound(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("scene not found")})
 	tuner.sweepID = "test-scene-notfound"
@@ -56,7 +64,7 @@ func TestRun_SceneNotFound(t *testing.T) {
 
 // TestRun_RunCreatorNil tests runRound when run creator is nil.
 func TestRun_RunCreatorNil(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
@@ -75,7 +83,7 @@ func TestRun_RunCreatorNil(t *testing.T) {
 
 // TestRun_RunCreatorFails tests run when CreateSweepRun fails.
 func TestRun_RunCreatorFails(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
@@ -95,7 +103,7 @@ func TestRun_RunCreatorFails(t *testing.T) {
 
 // TestRun_ContextCancelledDuringLabels tests cancellation during label wait.
 func TestRun_ContextCancelledDuringLabels(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
@@ -121,7 +129,7 @@ func TestRun_ContextCancelledDuringLabels(t *testing.T) {
 
 // TestRun_AutoTunerNil tests run when autoTuner is nil after labels complete.
 func TestRun_AutoTunerNil(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
@@ -149,7 +157,7 @@ func TestRun_AutoTunerNil(t *testing.T) {
 
 // TestRun_WithExistingOptimalParams tests run with valid pre-existing optimal params.
 func TestRun_WithExistingOptimalParams(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{
@@ -173,7 +181,7 @@ func TestRun_WithExistingOptimalParams(t *testing.T) {
 
 // TestGetRLHFState_DeepCopy_MinClassCoverage tests deep copy.
 func TestGetRLHFState_DeepCopy_MinClassCoverage(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.mu.Lock()
 	tuner.state.MinClassCoverage = map[string]int{"car": 5, "pedestrian": 3}
 	tuner.state.Recommendation = map[string]interface{}{"eps": 0.5}
@@ -194,7 +202,7 @@ func TestGetRLHFState_DeepCopy_MinClassCoverage(t *testing.T) {
 
 // TestGetRLHFState_DeepCopy_LabelDeadline tests deep copy of LabelDeadline.
 func TestGetRLHFState_DeepCopy_LabelDeadline(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	now := time.Now()
 	tuner.mu.Lock()
 	tuner.state.LabelDeadline = &now
@@ -207,7 +215,7 @@ func TestGetRLHFState_DeepCopy_LabelDeadline(t *testing.T) {
 
 // TestStop_WithoutStart tests Stop() when nothing is running.
 func TestStop_WithoutStart(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.Stop()
 	if tuner.GetRLHFState().Status != "idle" {
 		t.Fatal("expected idle after stop")
@@ -229,7 +237,7 @@ func TestTemporalIoU_LargeValues(t *testing.T) {
 
 // TestContinueFromLabels_TemporalSpreadFail tests temporal spread gate failure.
 func TestContinueFromLabels_TemporalSpreadFail(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.mu.Lock()
 	tuner.state.Status = "awaiting_labels"
 	tuner.state.ReferenceRunID = "run-1"
@@ -270,7 +278,7 @@ func TestContinueFromLabels_TemporalSpreadFail(t *testing.T) {
 
 // TestContinueFromLabels_ClassCoverageFail tests class coverage gate failure.
 func TestContinueFromLabels_ClassCoverageFail(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.mu.Lock()
 	tuner.state.Status = "awaiting_labels"
 	tuner.state.ReferenceRunID = "run-1"
@@ -295,7 +303,7 @@ func TestContinueFromLabels_ClassCoverageFail(t *testing.T) {
 
 // TestContinueFromLabels_AddRoundAndDuration tests addRound and duration update.
 func TestContinueFromLabels_AddRoundAndDuration(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.mu.Lock()
 	tuner.state.Status = "awaiting_labels"
 	tuner.state.ReferenceRunID = "run-1"
@@ -324,7 +332,7 @@ func TestContinueFromLabels_AddRoundAndDuration(t *testing.T) {
 
 // TestContinueFromLabels_LabelQuerierError tests error from label querier.
 func TestContinueFromLabels_LabelQuerierError(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.mu.Lock()
 	tuner.state.Status = "awaiting_labels"
 	tuner.state.ReferenceRunID = "run-1"
@@ -340,7 +348,7 @@ func TestContinueFromLabels_LabelQuerierError(t *testing.T) {
 
 // TestFailWithError_NoPersister tests failWithError without persister.
 func TestFailWithError_NoPersister(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.failWithError("test error")
 	state := tuner.GetRLHFState()
 	if state.Status != "failed" || state.Error != "test error" {
@@ -351,15 +359,15 @@ func TestFailWithError_NoPersister(t *testing.T) {
 // TestRun_FullSuccessPath exercises the complete success path through run().
 func TestRun_FullSuccessPath(t *testing.T) {
 	// Use a mock backend so the auto-tuner's runner can complete.
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
 	persister := &mockRLHFPersister{}
 	sceneSaver := &mockSceneSaver{}
-	tuner := NewRLHFTuner(at)
+	tuner := newQuietRLHFTuner(at)
 	tuner.SetPersister(persister)
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{
@@ -405,13 +413,13 @@ func TestRun_FullSuccessPath(t *testing.T) {
 
 // TestRun_MultipleRounds exercises run() with 2 rounds using a mock backend.
 func TestRun_MultipleRounds(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
-	tuner := NewRLHFTuner(at)
+	tuner := newQuietRLHFTuner(at)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{
@@ -461,7 +469,7 @@ func TestRun_MultipleRounds(t *testing.T) {
 
 // TestCarryOverLabels_Success tests label carry-over between rounds.
 func TestCarryOverLabels_Success(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	querier := &mockLabelQuerier{
 		total:    10,
 		labelled: 10,
@@ -491,7 +499,7 @@ func TestCarryOverLabels_Success(t *testing.T) {
 
 // TestCarryOverLabels_NilQuerier tests carry-over with no querier.
 func TestCarryOverLabels_NilQuerier(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	carried, err := tuner.carryOverLabels("prev", "new")
 	if err == nil {
 		t.Fatal("expected error")
@@ -514,7 +522,7 @@ func (p *panicSceneGetter) SetReferenceRun(sceneID, runID string) error {
 
 // TestRun_PanicRecovery tests that run() recovers from panics.
 func TestRun_PanicRecovery(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&panicSceneGetter{})
 	tuner.sweepID = "test-panic"
@@ -534,7 +542,7 @@ func TestRun_PanicRecovery(t *testing.T) {
 
 // TestStart_MapRequest tests Start() with a map[string]interface{} request.
 func TestStart_MapRequest(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
@@ -558,7 +566,7 @@ func TestStart_MapRequest(t *testing.T) {
 
 // TestStart_InvalidRequestType tests Start() with invalid type.
 func TestStart_InvalidRequestType(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	err := tuner.Start(context.Background(), 42)
 	if err == nil {
 		t.Fatal("expected error for invalid request type")
@@ -567,7 +575,7 @@ func TestStart_InvalidRequestType(t *testing.T) {
 
 // TestStart_PersisterStartError tests Start with persister that fails SaveSweepStart.
 func TestStart_PersisterStartError(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{startErr: errForTest("persist fail")})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
@@ -602,7 +610,7 @@ stop:
 
 // TestGetRLHFState_WithAutoTuneState tests deep copy with AutoTuneState.
 func TestGetRLHFState_WithAutoTuneState(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.mu.Lock()
 	ats := AutoTuneState{Status: SweepStatusRunning, Error: "test"}
 	tuner.state.AutoTuneState = &ats
@@ -628,7 +636,7 @@ func TestGetRLHFState_WithAutoTuneState(t *testing.T) {
 
 // TestStart_BadMapRequest tests Start() with an invalid map request.
 func TestStart_BadMapRequest(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	// Map with non-serializable value causes marshal error
 	req := map[string]interface{}{
 		"scene_id": make(chan int), // channels can't be marshaled
@@ -641,7 +649,7 @@ func TestStart_BadMapRequest(t *testing.T) {
 
 // TestStart_AlreadyRunning tests Start() when already running.
 func TestStart_AlreadyRunning(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.mu.Lock()
 	tuner.state.Status = "running_reference"
 	tuner.mu.Unlock()
@@ -657,7 +665,7 @@ func TestStart_AlreadyRunning(t *testing.T) {
 
 // TestStart_ValidationErrors tests various validation failures in Start.
 func TestStart_ValidationErrors(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tests := []struct {
 		name string
 		req  RLHFSweepRequest
@@ -679,7 +687,7 @@ func TestStart_ValidationErrors(t *testing.T) {
 
 // TestBuildAutoTuneRequest tests the auto-tune request builder.
 func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	bounds := map[string][2]float64{"eps": {0.1, 1.0}, "minpts": {2, 10}}
 	req := RLHFSweepRequest{
 		SceneID:        "s1",
@@ -711,7 +719,7 @@ func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
 
 // TestFailWithError_WithPersister tests failWithError when persister is configured.
 func TestFailWithError_WithPersister(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	persister := &mockRLHFPersister{}
 	tuner.SetPersister(persister)
 	tuner.sweepID = "test-persist-fail"
@@ -729,7 +737,7 @@ func TestFailWithError_WithPersister(t *testing.T) {
 
 // TestFailWithError_PersisterError tests failWithError when persister returns error.
 func TestFailWithError_PersisterError(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetPersister(&mockRLHFPersister{completeErr: errForTest("persist error")})
 	tuner.sweepID = "test-persist-err"
 
@@ -744,8 +752,8 @@ func TestFailWithError_PersisterError(t *testing.T) {
 
 // TestStop_WithAutoTuner tests Stop() when autoTuner is configured.
 func TestStop_WithAutoTuner(t *testing.T) {
-	at := NewAutoTuner(nil)
-	tuner := NewRLHFTuner(at)
+	at := newQuietAutoTuner(nil)
+	tuner := newQuietRLHFTuner(at)
 	ctx, cancel := context.WithCancel(context.Background())
 	tuner.mu.Lock()
 	tuner.cancel = cancel
@@ -764,7 +772,7 @@ func TestStop_WithAutoTuner(t *testing.T) {
 // With nil querier, the ticker case skips progress refresh.
 // The only way out is context cancellation.
 func TestWaitForLabels_NilQuerier(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	// No label querier set
 	tuner.pollInterval = 1 * time.Millisecond
 
@@ -779,7 +787,7 @@ func TestWaitForLabels_NilQuerier(t *testing.T) {
 
 // TestWaitForLabels_ContinueSignal tests the continue channel path.
 func TestWaitForLabels_ContinueSignal(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.pollInterval = 100 * time.Second // very long to avoid ticker
 
 	// Use a buffered channel so the signal is available immediately
@@ -802,7 +810,7 @@ func TestWaitForLabels_ContinueSignal(t *testing.T) {
 // When querier errors, the ticker case logs and continues.
 // Use context timeout to break out.
 func TestWaitForLabels_LabelQuerierError(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetLabelQuerier(&mockLabelQuerier{err: errForTest("label error")})
 	tuner.pollInterval = 1 * time.Millisecond
 
@@ -817,7 +825,7 @@ func TestWaitForLabels_LabelQuerierError(t *testing.T) {
 
 // TestWaitForLabels_LabelUpdateChannel tests the labelUpdateCh path.
 func TestWaitForLabels_LabelUpdateChannel(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.pollInterval = 100 * time.Second // very long to avoid ticker
 	tuner.SetLabelQuerier(&mockLabelQuerier{
 		total: 10, labelled: 8, byClass: map[string]int{"car": 8},
@@ -846,7 +854,7 @@ func TestWaitForLabels_LabelUpdateChannel(t *testing.T) {
 
 // TestNotifyLabelUpdate tests the non-blocking send on labelUpdateCh.
 func TestNotifyLabelUpdate(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 
 	// First notify should succeed (channel has buffer of 1).
 	tuner.NotifyLabelUpdate()
@@ -865,7 +873,7 @@ func TestNotifyLabelUpdate(t *testing.T) {
 
 // TestCarryOverLabels_GetRunTracksError tests carryOverLabels when GetRunTracks fails.
 func TestCarryOverLabels_GetRunTracksError(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetLabelQuerier(&mockLabelQuerier{err: errForTest("tracks error")})
 
 	carried, err := tuner.carryOverLabels("prev", "new")
@@ -879,7 +887,7 @@ func TestCarryOverLabels_GetRunTracksError(t *testing.T) {
 
 // TestCarryOverLabels_UpdateTrackLabelError tests label carry-over when update fails.
 func TestCarryOverLabels_UpdateTrackLabelError(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietRLHFTuner(nil)
 	tuner.SetLabelQuerier(&mockLabelQuerier{
 		prevTracks: []RLHFRunTrack{
 			{TrackID: "t1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car", QualityLabel: "good"},
@@ -902,12 +910,12 @@ func TestCarryOverLabels_UpdateTrackLabelError(t *testing.T) {
 
 // TestWaitForAutoTuneComplete_Deadline tests deadline path in waitForAutoTuneComplete.
 func TestWaitForAutoTuneComplete_Deadline(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.mu.Lock()
 	at.state.Status = SweepStatusRunning
 	at.mu.Unlock()
 
-	tuner := NewRLHFTuner(at)
+	tuner := newQuietRLHFTuner(at)
 	tuner.pollInterval = 1 * time.Millisecond
 
 	// Deadline already passed
@@ -922,13 +930,13 @@ func TestWaitForAutoTuneComplete_Deadline(t *testing.T) {
 
 // TestWaitForAutoTuneComplete_Error tests error status in waitForAutoTuneComplete.
 func TestWaitForAutoTuneComplete_Error(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.mu.Lock()
 	at.state.Status = SweepStatusError
 	at.state.Error = "something broke"
 	at.mu.Unlock()
 
-	tuner := NewRLHFTuner(at)
+	tuner := newQuietRLHFTuner(at)
 	tuner.pollInterval = 1 * time.Millisecond
 
 	_, err := tuner.waitForAutoTuneComplete(context.Background(), time.Now().Add(5*time.Second))
@@ -942,12 +950,12 @@ func TestWaitForAutoTuneComplete_Error(t *testing.T) {
 
 // TestWaitForAutoTuneComplete_ContextCancelled tests context cancellation.
 func TestWaitForAutoTuneComplete_ContextCancelled(t *testing.T) {
-	at := NewAutoTuner(nil)
+	at := newQuietAutoTuner(nil)
 	at.mu.Lock()
 	at.state.Status = SweepStatusRunning
 	at.mu.Unlock()
 
-	tuner := NewRLHFTuner(at)
+	tuner := newQuietRLHFTuner(at)
 	tuner.pollInterval = 1 * time.Millisecond
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -962,13 +970,13 @@ func TestWaitForAutoTuneComplete_ContextCancelled(t *testing.T) {
 // TestRun_FullSuccessWithPersisterErrors tests the run() success path when
 // persister SaveSweepStart and marshal both have coverage.
 func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
-	tuner := NewRLHFTuner(at)
+	tuner := newQuietRLHFTuner(at)
 	tuner.SetPersister(&mockRLHFPersister{startErr: errForTest("start persist fail")})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{
@@ -1007,13 +1015,13 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 
 // TestRun_SetOptimalParamsError tests run completion when scene store fails.
 func TestRun_SetOptimalParamsError(t *testing.T) {
-	runner := NewRunner(sweepMockBackend())
-	at := NewAutoTuner(runner)
+	runner := newQuietRunner(sweepMockBackend())
+	at := newQuietAutoTuner(runner)
 	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
-	tuner := NewRLHFTuner(at)
+	tuner := newQuietRLHFTuner(at)
 	tuner.SetPersister(&mockRLHFPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &RLHFScene{
