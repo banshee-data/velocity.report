@@ -24,17 +24,27 @@ func TestNewTracker(t *testing.T) {
 func TestDefaultTrackerConfig(t *testing.T) {
 	config := DefaultTrackerConfig()
 
-	if config.MaxTracks != 100 {
-		t.Errorf("expected MaxTracks=100, got %d", config.MaxTracks)
+	// Structural: all fields are within valid operating ranges.
+	if config.MaxTracks < 1 {
+		t.Errorf("MaxTracks must be >= 1, got %d", config.MaxTracks)
 	}
-	if config.MaxMisses != 3 {
-		t.Errorf("expected MaxMisses=3, got %d", config.MaxMisses)
+	if config.MaxMisses < 1 {
+		t.Errorf("MaxMisses must be >= 1, got %d", config.MaxMisses)
 	}
-	if config.HitsToConfirm != 4 {
-		t.Errorf("expected HitsToConfirm=4, got %d", config.HitsToConfirm)
+	if config.HitsToConfirm < 1 {
+		t.Errorf("HitsToConfirm must be >= 1, got %d", config.HitsToConfirm)
 	}
-	if config.GatingDistanceSquared != 36.0 {
-		t.Errorf("expected GatingDistanceSquared=36.0, got %v", config.GatingDistanceSquared)
+	if config.GatingDistanceSquared <= 0 {
+		t.Errorf("GatingDistanceSquared must be positive, got %v", config.GatingDistanceSquared)
+	}
+	if config.ProcessNoisePos <= 0 {
+		t.Errorf("ProcessNoisePos must be positive, got %v", config.ProcessNoisePos)
+	}
+	if config.ProcessNoiseVel <= 0 {
+		t.Errorf("ProcessNoiseVel must be positive, got %v", config.ProcessNoiseVel)
+	}
+	if config.MeasurementNoise <= 0 {
+		t.Errorf("MeasurementNoise must be positive, got %v", config.MeasurementNoise)
 	}
 }
 

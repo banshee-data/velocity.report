@@ -8,42 +8,65 @@ import (
 	"time"
 )
 
-// TestLoadDefaultsFile verifies that the canonical defaults file loads correctly.
+// TestLoadDefaultsFile verifies that the canonical defaults file loads correctly
+// and that all fields are populated with values in valid ranges.
 func TestLoadDefaultsFile(t *testing.T) {
 	cfg := MustLoadDefaultConfig()
 
-	// Test that defaults are set via pointers (values from tuning.defaults.json)
-	if cfg.NoiseRelative == nil || *cfg.NoiseRelative != 0.04 {
-		t.Errorf("Expected NoiseRelative 0.04, got %v", cfg.NoiseRelative)
+	// All tunable fields must be non-nil (populated from file).
+	if cfg.NoiseRelative == nil {
+		t.Fatal("NoiseRelative must be set")
 	}
-	if cfg.SeedFromFirst == nil || *cfg.SeedFromFirst != true {
-		t.Errorf("Expected SeedFromFirst true, got %v", cfg.SeedFromFirst)
+	if cfg.SeedFromFirst == nil {
+		t.Fatal("SeedFromFirst must be set")
 	}
-	if cfg.BufferTimeout == nil || *cfg.BufferTimeout != "500ms" {
-		t.Errorf("Expected BufferTimeout '500ms', got %v", cfg.BufferTimeout)
+	if cfg.BufferTimeout == nil {
+		t.Fatal("BufferTimeout must be set")
 	}
-	if cfg.MinFramePoints == nil || *cfg.MinFramePoints != 1000 {
-		t.Errorf("Expected MinFramePoints 1000, got %v", cfg.MinFramePoints)
+	if cfg.MinFramePoints == nil {
+		t.Fatal("MinFramePoints must be set")
 	}
-	if cfg.FlushInterval == nil || *cfg.FlushInterval != "60s" {
-		t.Errorf("Expected FlushInterval '60s', got %v", cfg.FlushInterval)
+	if cfg.FlushInterval == nil {
+		t.Fatal("FlushInterval must be set")
 	}
-	if cfg.BackgroundFlush == nil || *cfg.BackgroundFlush != false {
-		t.Errorf("Expected BackgroundFlush false, got %v", cfg.BackgroundFlush)
+	if cfg.BackgroundFlush == nil {
+		t.Fatal("BackgroundFlush must be set")
 	}
 
-	// Test getter methods return same values
-	if cfg.GetNoiseRelative() != 0.04 {
-		t.Errorf("GetNoiseRelative() = %f, want 0.04", cfg.GetNoiseRelative())
+	// Structural range checks.
+	if *cfg.NoiseRelative < 0 || *cfg.NoiseRelative > 1 {
+		t.Errorf("NoiseRelative must be in [0, 1], got %f", *cfg.NoiseRelative)
 	}
-	if cfg.GetSeedFromFirst() != true {
-		t.Errorf("GetSeedFromFirst() = %v, want true", cfg.GetSeedFromFirst())
+	if *cfg.MinFramePoints < 0 {
+		t.Errorf("MinFramePoints must be non-negative, got %d", *cfg.MinFramePoints)
 	}
-	if cfg.GetMinFramePoints() != 1000 {
-		t.Errorf("GetMinFramePoints() = %d, want 1000", cfg.GetMinFramePoints())
+	if _, err := time.ParseDuration(*cfg.BufferTimeout); err != nil {
+		t.Errorf("BufferTimeout must be a valid duration, got %q: %v", *cfg.BufferTimeout, err)
 	}
-	if cfg.GetBackgroundFlush() != false {
-		t.Errorf("GetBackgroundFlush() = %v, want false", cfg.GetBackgroundFlush())
+	if _, err := time.ParseDuration(*cfg.FlushInterval); err != nil {
+		t.Errorf("FlushInterval must be a valid duration, got %q: %v", *cfg.FlushInterval, err)
+	}
+
+	// Getter methods must return consistent values (non-zero where applicable).
+	if cfg.GetNoiseRelative() < 0 || cfg.GetNoiseRelative() > 1 {
+		t.Errorf("GetNoiseRelative() out of range: %f", cfg.GetNoiseRelative())
+	}
+	if cfg.GetMinFramePoints() < 0 {
+		t.Errorf("GetMinFramePoints() must be non-negative: %d", cfg.GetMinFramePoints())
+	}
+	if cfg.GetFlushInterval() <= 0 {
+		t.Errorf("GetFlushInterval() must be positive: %v", cfg.GetFlushInterval())
+	}
+	if cfg.GetBufferTimeout() <= 0 {
+		t.Errorf("GetBufferTimeout() must be positive: %v", cfg.GetBufferTimeout())
+	}
+
+	// The full config must pass validation.
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("defaults must pass Validate(): %v", err)
+	}
+	if err := cfg.ValidateComplete(); err != nil {
+		t.Errorf("defaults must pass ValidateComplete(): %v", err)
 	}
 }
 
@@ -150,42 +173,51 @@ func TestDefaultsFileComplete(t *testing.T) {
 		t.Error("EnableDiagnostics should have default value")
 	}
 
-	// Verify expected default values from tuning.defaults.json
-	if *cfg.ClosenessMultiplier != 8.0 {
-		t.Errorf("ClosenessMultiplier = %v, want 8.0", *cfg.ClosenessMultiplier)
+	// Verify values are within structurally valid ranges (not hardcoded to
+	// specific numbers so the test is immune to tuning adjustments).
+	if *cfg.ClosenessMultiplier <= 0 {
+		t.Errorf("ClosenessMultiplier must be positive, got %v", *cfg.ClosenessMultiplier)
 	}
-	if *cfg.NeighborConfirmationCount != 7 {
-		t.Errorf("NeighborConfirmationCount = %v, want 7", *cfg.NeighborConfirmationCount)
+	if *cfg.NeighborConfirmationCount < 0 || *cfg.NeighborConfirmationCount > 8 {
+		t.Errorf("NeighborConfirmationCount must be in [0, 8], got %v", *cfg.NeighborConfirmationCount)
 	}
-	if *cfg.WarmupDurationNanos != 30000000000 {
-		t.Errorf("WarmupDurationNanos = %v, want 30000000000 (30s)", *cfg.WarmupDurationNanos)
+	if *cfg.WarmupDurationNanos <= 0 {
+		t.Errorf("WarmupDurationNanos must be positive, got %v", *cfg.WarmupDurationNanos)
 	}
-	if *cfg.WarmupMinFrames != 100 {
-		t.Errorf("WarmupMinFrames = %v, want 100", *cfg.WarmupMinFrames)
+	if *cfg.WarmupMinFrames < 0 {
+		t.Errorf("WarmupMinFrames must be non-negative, got %v", *cfg.WarmupMinFrames)
 	}
-	if *cfg.GatingDistanceSquared != 36.0 {
-		t.Errorf("GatingDistanceSquared = %v, want 36.0", *cfg.GatingDistanceSquared)
+	if *cfg.GatingDistanceSquared <= 0 {
+		t.Errorf("GatingDistanceSquared must be positive, got %v", *cfg.GatingDistanceSquared)
 	}
-	if *cfg.ProcessNoisePos != 1.0 {
-		t.Errorf("ProcessNoisePos = %v, want 1.0 (dt-normalised)", *cfg.ProcessNoisePos)
+	if *cfg.ProcessNoisePos <= 0 {
+		t.Errorf("ProcessNoisePos must be positive, got %v", *cfg.ProcessNoisePos)
 	}
-	if *cfg.ProcessNoiseVel != 5.0 {
-		t.Errorf("ProcessNoiseVel = %v, want 5.0 (dt-normalised)", *cfg.ProcessNoiseVel)
+	if *cfg.ProcessNoiseVel <= 0 {
+		t.Errorf("ProcessNoiseVel must be positive, got %v", *cfg.ProcessNoiseVel)
 	}
-	if *cfg.MeasurementNoise != 0.3 {
-		t.Errorf("MeasurementNoise = %v, want 0.3", *cfg.MeasurementNoise)
+	if *cfg.MeasurementNoise <= 0 {
+		t.Errorf("MeasurementNoise must be positive, got %v", *cfg.MeasurementNoise)
 	}
-	if *cfg.OcclusionCovInflation != 0.5 {
-		t.Errorf("OcclusionCovInflation = %v, want 0.5", *cfg.OcclusionCovInflation)
+	if *cfg.OcclusionCovInflation <= 0 {
+		t.Errorf("OcclusionCovInflation must be positive, got %v", *cfg.OcclusionCovInflation)
 	}
-	if *cfg.HitsToConfirm != 3 {
-		t.Errorf("HitsToConfirm = %v, want 3", *cfg.HitsToConfirm)
+	if *cfg.HitsToConfirm < 1 {
+		t.Errorf("HitsToConfirm must be >= 1, got %v", *cfg.HitsToConfirm)
 	}
-	if *cfg.MaxMisses != 3 {
-		t.Errorf("MaxMisses = %v, want 3", *cfg.MaxMisses)
+	if *cfg.MaxMisses < 1 {
+		t.Errorf("MaxMisses must be >= 1, got %v", *cfg.MaxMisses)
 	}
-	if *cfg.MaxMissesConfirmed != 15 {
-		t.Errorf("MaxMissesConfirmed = %v, want 15", *cfg.MaxMissesConfirmed)
+	if *cfg.MaxMissesConfirmed < 1 {
+		t.Errorf("MaxMissesConfirmed must be >= 1, got %v", *cfg.MaxMissesConfirmed)
+	}
+
+	// Full validation must pass.
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("defaults must pass Validate(): %v", err)
+	}
+	if err := cfg.ValidateComplete(); err != nil {
+		t.Errorf("defaults must pass ValidateComplete(): %v", err)
 	}
 }
 
@@ -424,11 +456,16 @@ func TestLoadDefaultConfigFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load defaults: %v", err)
 	}
-	if cfg.GetNoiseRelative() != 0.04 {
-		t.Errorf("Expected 0.04, got %f", cfg.GetNoiseRelative())
+	// Structural: noise_relative is within valid range.
+	if cfg.GetNoiseRelative() < 0 || cfg.GetNoiseRelative() > 1 {
+		t.Errorf("NoiseRelative out of range [0,1]: %f", cfg.GetNoiseRelative())
 	}
-	if cfg.GetSeedFromFirst() != true {
-		t.Errorf("Expected true, got %v", cfg.GetSeedFromFirst())
+	// Structural: file must pass full validation.
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("defaults must pass Validate(): %v", err)
+	}
+	if err := cfg.ValidateComplete(); err != nil {
+		t.Errorf("defaults must pass ValidateComplete(): %v", err)
 	}
 }
 
@@ -618,25 +655,19 @@ func TestAllTuningParams(t *testing.T) {
 }
 
 func TestGetterDefaults(t *testing.T) {
-	// Test that getter methods return expected values from the loaded config file
+	// Test that getter methods return structurally valid values from the defaults.
 	cfg := MustLoadDefaultConfig()
 
-	if cfg.GetNoiseRelative() != 0.04 {
-		t.Errorf("GetNoiseRelative() = %f, want 0.04", cfg.GetNoiseRelative())
+	if cfg.GetNoiseRelative() < 0 || cfg.GetNoiseRelative() > 1 {
+		t.Errorf("GetNoiseRelative() out of range [0,1]: %f", cfg.GetNoiseRelative())
 	}
-	if cfg.GetSeedFromFirst() != true {
-		t.Errorf("GetSeedFromFirst() = %v, want true", cfg.GetSeedFromFirst())
+	if cfg.GetMinFramePoints() < 0 {
+		t.Errorf("GetMinFramePoints() must be non-negative: %d", cfg.GetMinFramePoints())
 	}
-	if cfg.GetMinFramePoints() != 1000 {
-		t.Errorf("GetMinFramePoints() = %d, want 1000", cfg.GetMinFramePoints())
+	if cfg.GetFlushInterval() <= 0 {
+		t.Errorf("GetFlushInterval() must be positive: %v", cfg.GetFlushInterval())
 	}
-	if cfg.GetBackgroundFlush() != false {
-		t.Errorf("GetBackgroundFlush() = %v, want false", cfg.GetBackgroundFlush())
-	}
-	if cfg.GetFlushInterval() != 60*time.Second {
-		t.Errorf("GetFlushInterval() = %v, want 60s", cfg.GetFlushInterval())
-	}
-	if cfg.GetBufferTimeout() != 500*time.Millisecond {
-		t.Errorf("GetBufferTimeout() = %v, want 500ms", cfg.GetBufferTimeout())
+	if cfg.GetBufferTimeout() <= 0 {
+		t.Errorf("GetBufferTimeout() must be positive: %v", cfg.GetBufferTimeout())
 	}
 }

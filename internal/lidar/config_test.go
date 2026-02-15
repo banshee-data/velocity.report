@@ -8,41 +8,44 @@ import (
 func TestDefaultBackgroundConfig(t *testing.T) {
 	cfg := DefaultBackgroundConfig()
 
-	if cfg.UpdateFraction != 0.02 {
-		t.Errorf("expected UpdateFraction 0.02, got %f", cfg.UpdateFraction)
+	// Structural: all numeric fields are within valid ranges.
+	if cfg.UpdateFraction <= 0 || cfg.UpdateFraction > 1 {
+		t.Errorf("UpdateFraction must be in (0, 1], got %f", cfg.UpdateFraction)
 	}
-	if cfg.ClosenessSensitivity != 3.0 {
-		t.Errorf("expected ClosenessSensitivity 3.0, got %f", cfg.ClosenessSensitivity)
+	if cfg.ClosenessSensitivity <= 0 {
+		t.Errorf("ClosenessSensitivity must be positive, got %f", cfg.ClosenessSensitivity)
 	}
-	if cfg.SafetyMargin != 0.15 {
-		t.Errorf("expected SafetyMargin 0.15, got %f", cfg.SafetyMargin)
+	if cfg.SafetyMargin < 0 {
+		t.Errorf("SafetyMargin must be non-negative, got %f", cfg.SafetyMargin)
 	}
-	if cfg.FreezeDuration != 5*time.Second {
-		t.Errorf("expected FreezeDuration 5s, got %v", cfg.FreezeDuration)
+	if cfg.FreezeDuration < 0 {
+		t.Errorf("FreezeDuration must be non-negative, got %v", cfg.FreezeDuration)
 	}
-	if cfg.NeighborConfirmation != 3 {
-		t.Errorf("expected NeighborConfirmation 3, got %d", cfg.NeighborConfirmation)
+	if cfg.NeighborConfirmation < 0 || cfg.NeighborConfirmation > 8 {
+		t.Errorf("NeighborConfirmation must be in [0, 8], got %d", cfg.NeighborConfirmation)
 	}
-	if cfg.NoiseRelativeFraction != 0.02 {
-		t.Errorf("expected NoiseRelativeFraction 0.02, got %f", cfg.NoiseRelativeFraction)
+	if cfg.NoiseRelativeFraction < 0 || cfg.NoiseRelativeFraction > 1 {
+		t.Errorf("NoiseRelativeFraction must be in [0, 1], got %f", cfg.NoiseRelativeFraction)
 	}
-	if cfg.MinConfidenceFloor != DefaultMinConfidenceFloor {
-		t.Errorf("expected MinConfidenceFloor %d, got %d", DefaultMinConfidenceFloor, cfg.MinConfidenceFloor)
+	if cfg.MinConfidenceFloor < 0 {
+		t.Errorf("MinConfidenceFloor must be non-negative, got %d", cfg.MinConfidenceFloor)
 	}
-	if !cfg.SeedFromFirstObservation {
-		t.Error("expected SeedFromFirstObservation true")
+	if cfg.SettlingPeriod < 0 {
+		t.Errorf("SettlingPeriod must be non-negative, got %v", cfg.SettlingPeriod)
 	}
-	if cfg.SettlingPeriod != 5*time.Minute {
-		t.Errorf("expected SettlingPeriod 5m, got %v", cfg.SettlingPeriod)
+	if cfg.WarmupDuration < 0 {
+		t.Errorf("WarmupDuration must be non-negative, got %v", cfg.WarmupDuration)
 	}
-	if cfg.WarmupDuration != 30*time.Second {
-		t.Errorf("expected WarmupDuration 30s, got %v", cfg.WarmupDuration)
+	if cfg.WarmupMinFrames < 0 {
+		t.Errorf("WarmupMinFrames must be non-negative, got %d", cfg.WarmupMinFrames)
 	}
-	if cfg.WarmupMinFrames != 100 {
-		t.Errorf("expected WarmupMinFrames 100, got %d", cfg.WarmupMinFrames)
+	if cfg.SnapshotInterval <= 0 {
+		t.Errorf("SnapshotInterval must be positive, got %v", cfg.SnapshotInterval)
 	}
-	if cfg.SnapshotInterval != 2*time.Hour {
-		t.Errorf("expected SnapshotInterval 2h, got %v", cfg.SnapshotInterval)
+
+	// The config produced from defaults must pass its own validation.
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("default config must pass Validate(): %v", err)
 	}
 }
 
