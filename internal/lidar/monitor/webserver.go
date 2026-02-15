@@ -1211,6 +1211,8 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/hint/stop", ws.handleHINTStop)         // POST: cancel HINT run
 	mux.HandleFunc("/api/lidar/sweep/hint", ws.handleHINT)                  // POST: start, GET: status
 	mux.HandleFunc("/api/lidar/sweep/explain/", ws.handleSweepExplain)      // GET /api/lidar/sweep/explain/{sweep_id}
+	mux.HandleFunc("/api/lidar/sweep/objectives", ws.handleSweepObjectives) // GET: list available objectives
+	mux.HandleFunc("/api/lidar/sweep/transforms", ws.handleSweepTransforms) // GET: list available transform pipelines
 	mux.HandleFunc("/api/lidar/sweeps/charts", ws.handleSweepCharts)        // PUT: save chart config
 	mux.HandleFunc("/api/lidar/sweeps/", ws.handleGetSweep)                 // GET /api/lidar/sweeps/{sweep_id}
 	mux.HandleFunc("/api/lidar/sweeps", ws.handleListSweeps)                // GET ?sensor_id=...&limit=20

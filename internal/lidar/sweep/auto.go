@@ -140,6 +140,9 @@ type AutoTuner struct {
 	// Phase 5: Scene store for saving optimal params when ground truth mode completes
 	sceneStore SceneStoreSaver
 
+	// Phase B: Transform pipeline applied before scoring.
+	transformPipeline *TransformPipeline
+
 	logger *log.Logger
 }
 
@@ -203,6 +206,13 @@ func (at *AutoTuner) SetSceneStore(store SceneStoreSaver) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 	at.sceneStore = store
+}
+
+// SetTransformPipeline sets the transform pipeline applied before scoring.
+func (at *AutoTuner) SetTransformPipeline(pipeline *TransformPipeline) {
+	at.mu.Lock()
+	defer at.mu.Unlock()
+	at.transformPipeline = pipeline
 }
 
 // Start begins an auto-tuning run. Implements the AutoTuneRunner interface.
@@ -759,8 +769,16 @@ func (at *AutoTuner) persistComplete(status string, results []ComboResult, recom
 	if errMsg != nil {
 		errStr = *errMsg
 	}
+
+	// Include transform pipeline version stamps if available.
+	tpName, tpVersion := "", ""
+	if at.transformPipeline != nil {
+		tpName = at.transformPipeline.Name
+		tpVersion = at.transformPipeline.Version
+	}
+
 	now := time.Now()
-	if err := at.persister.SaveSweepComplete(at.sweepID, status, resultsJSON, recJSON, roundResultsJSON, now, errStr, nil, nil, nil, "", ""); err != nil {
+	if err := at.persister.SaveSweepComplete(at.sweepID, status, resultsJSON, recJSON, roundResultsJSON, now, errStr, nil, nil, nil, tpName, tpVersion); err != nil {
 		at.logger.Printf("[sweep] WARNING: Failed to persist auto-tune completion: %v", err)
 	}
 }

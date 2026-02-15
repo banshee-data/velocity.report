@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
 // SweepRunner defines the interface for parameter sweep operations.
@@ -461,4 +463,28 @@ func (ws *WebServer) handleSweepExplain(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// handleSweepObjectives returns the list of available objective modules.
+func (ws *WebServer) handleSweepObjectives(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	registry := sweep.DefaultObjectiveRegistry()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(registry.List())
+}
+
+// handleSweepTransforms returns the list of available transform pipeline presets.
+func (ws *WebServer) handleSweepTransforms(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	registry := sweep.DefaultTransformRegistry()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(registry.List())
 }

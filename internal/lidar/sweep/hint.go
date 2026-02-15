@@ -120,6 +120,7 @@ type HINTRound struct {
 	BestScore           float64            `json:"best_score"`
 	BestParams          map[string]float64 `json:"best_params,omitempty"`
 	BestScoreComponents *ScoreComponents   `json:"best_score_components,omitempty"`
+	DeltaVsPrevious     *ScoreComponents   `json:"delta_vs_previous,omitempty"`
 }
 
 // defaultHINTParams returns the default set of sweep parameters for HINT
@@ -163,6 +164,9 @@ type HINTTuner struct {
 	runCreator        ReferenceRunCreator
 	persister         SweepPersister
 	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
+
+	// Phase B: Transform pipeline applied before scoring.
+	transformPipeline *TransformPipeline
 
 	// Internal coordination
 	continueCh    chan continueSignal
@@ -249,6 +253,13 @@ func (rt *HINTTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID st
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.groundTruthScorer = scorer
+}
+
+// SetTransformPipeline sets the transform pipeline applied before scoring.
+func (rt *HINTTuner) SetTransformPipeline(pipeline *TransformPipeline) {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	rt.transformPipeline = pipeline
 }
 
 // Start initiates an HINT tuning session.
@@ -775,8 +786,16 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 			rt.logger.Printf("[hint] Failed to marshal round history: %v", err)
 			roundJSON = []byte("[]")
 		}
+
+		// Include transform pipeline version stamps if available.
+		tpName, tpVersion := "", ""
+		if rt.transformPipeline != nil {
+			tpName = rt.transformPipeline.Name
+			tpVersion = rt.transformPipeline.Version
+		}
+
 		now := time.Now()
-		if err := rt.persister.SaveSweepComplete(rt.sweepID, "completed", nil, recJSON, roundJSON, now, "", nil, nil, nil, "", ""); err != nil {
+		if err := rt.persister.SaveSweepComplete(rt.sweepID, "completed", nil, recJSON, roundJSON, now, "", nil, nil, nil, tpName, tpVersion); err != nil {
 			rt.logger.Printf("[hint] Failed to persist sweep completion: %v", err)
 		}
 	}
