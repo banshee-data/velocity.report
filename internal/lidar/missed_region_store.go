@@ -48,7 +48,7 @@ func (s *MissedRegionStore) Insert(region *MissedRegion) error {
 		region.RadiusM = 3.0
 	}
 	if region.ExpectedLabel == "" {
-		region.ExpectedLabel = "good_vehicle"
+		region.ExpectedLabel = "car"
 	}
 
 	query := `

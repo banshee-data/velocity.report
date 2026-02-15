@@ -16,8 +16,8 @@ type mockLabelQuerier struct {
 	total          int
 	labelled       int
 	byClass        map[string]int
-	prevTracks     []RLHFRunTrack // tracks returned for first call
-	newTracks      []RLHFRunTrack // tracks returned for second call
+	prevTracks     []HINTRunTrack // tracks returned for first call
+	newTracks      []HINTRunTrack // tracks returned for second call
 	err            error
 	updateErr      error
 	labelCalls     int
@@ -29,7 +29,7 @@ func (m *mockLabelQuerier) GetLabelingProgress(runID string) (int, int, map[stri
 	return m.total, m.labelled, m.byClass, m.err
 }
 
-func (m *mockLabelQuerier) GetRunTracks(runID string) ([]RLHFRunTrack, error) {
+func (m *mockLabelQuerier) GetRunTracks(runID string) ([]HINTRunTrack, error) {
 	m.callCount++
 	if m.onGetRunTracks != nil {
 		m.onGetRunTracks()
@@ -46,12 +46,12 @@ func (m *mockLabelQuerier) UpdateTrackLabel(runID, trackID, userLabel, qualityLa
 }
 
 type mockSceneGetter struct {
-	scene       *RLHFScene
+	scene       *HINTScene
 	err         error
 	refRunCalls int
 }
 
-func (m *mockSceneGetter) GetScene(sceneID string) (*RLHFScene, error) {
+func (m *mockSceneGetter) GetScene(sceneID string) (*HINTScene, error) {
 	return m.scene, m.err
 }
 
@@ -66,7 +66,7 @@ type mockRunCreator struct {
 	calls int
 }
 
-func (m *mockRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error) {
+func (m *mockRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
 	m.calls++
 	return m.runID, m.err
 }
@@ -83,54 +83,24 @@ func (m *mockSceneSaver) SetOptimalParams(sceneID string, paramsJSON json.RawMes
 	return m.err
 }
 
-type mockRLHFPersister struct {
+type mockHINTPersister struct {
 	startCalls    int
 	completeCalls int
 	startErr      error
 	completeErr   error
 }
 
-func (m *mockRLHFPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
+func (m *mockHINTPersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
 	m.startCalls++
 	return m.startErr
 }
 
-func (m *mockRLHFPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
+func (m *mockHINTPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	m.completeCalls++
 	return m.completeErr
 }
 
-// --- Test 1: getDuration ---
-
-func TestGetDuration(t *testing.T) {
-	tests := []struct {
-		name      string
-		durations []int
-		index     int
-		want      int
-	}{
-		{"empty durations returns default 60", []int{}, 0, 60},
-		{"single value index 0", []int{60}, 0, 60},
-		{"single value wraps for index 1", []int{60}, 1, 60},
-		{"single value wraps for index 5", []int{60}, 5, 60},
-		{"multiple values index 0", []int{30, 60, 120}, 0, 30},
-		{"multiple values index 1", []int{30, 60, 120}, 1, 60},
-		{"multiple values index 2", []int{30, 60, 120}, 2, 120},
-		{"index beyond length returns last", []int{30, 60, 120}, 3, 120},
-		{"index well beyond length returns last", []int{30, 60, 120}, 10, 120},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getDuration(tt.durations, tt.index)
-			if got != tt.want {
-				t.Errorf("getDuration(%v, %d) = %d, want %d", tt.durations, tt.index, got, tt.want)
-			}
-		})
-	}
-}
-
-// --- Test 2: temporalIoU ---
+// --- Test 1: temporalIoU ---
 
 func TestTemporalIoU(t *testing.T) {
 	tests := []struct {
@@ -159,39 +129,39 @@ func TestTemporalIoU(t *testing.T) {
 	}
 }
 
-// --- Test 3: NewRLHFTuner ---
+// --- Test 3: NewHINTTuner ---
 
-func TestRLHFTunerNewCreation(t *testing.T) {
+func TestHINTTunerNewCreation(t *testing.T) {
 	t.Run("initial status is idle", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		state := tuner.GetRLHFState()
+		tuner := newQuietHINTTuner(nil)
+		state := tuner.GetHINTState()
 		if state.Status != "idle" {
 			t.Errorf("initial status = %q, want %q", state.Status, "idle")
 		}
 	})
 
-	t.Run("mode is rlhf", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		state := tuner.GetRLHFState()
-		if state.Mode != "rlhf" {
-			t.Errorf("mode = %q, want %q", state.Mode, "rlhf")
+	t.Run("mode is hint", func(t *testing.T) {
+		tuner := newQuietHINTTuner(nil)
+		state := tuner.GetHINTState()
+		if state.Mode != "hint" {
+			t.Errorf("mode = %q, want %q", state.Mode, "hint")
 		}
 	})
 
-	t.Run("default poll interval is 10s", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		if tuner.pollInterval != 10*time.Second {
-			t.Errorf("pollInterval = %v, want %v", tuner.pollInterval, 10*time.Second)
+	t.Run("default poll interval is 60s", func(t *testing.T) {
+		tuner := newQuietHINTTuner(nil)
+		if tuner.pollInterval != 60*time.Second {
+			t.Errorf("pollInterval = %v, want %v", tuner.pollInterval, 60*time.Second)
 		}
 	})
 }
 
 // --- Test 4: Start validation ---
 
-func TestRLHFTunerStartValidation(t *testing.T) {
+func TestHINTTunerStartValidation(t *testing.T) {
 	t.Run("missing scene_id returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		err := tuner.Start(context.Background(), RLHFSweepRequest{
+		tuner := newQuietHINTTuner(nil)
+		err := tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:   "",
 			NumRounds: 1,
 			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -202,8 +172,8 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 	})
 
 	t.Run("num_rounds < 1 returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		err := tuner.Start(context.Background(), RLHFSweepRequest{
+		tuner := newQuietHINTTuner(nil)
+		err := tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:   "scene1",
 			NumRounds: 0,
 			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -214,8 +184,8 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 	})
 
 	t.Run("num_rounds > 10 returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		err := tuner.Start(context.Background(), RLHFSweepRequest{
+		tuner := newQuietHINTTuner(nil)
+		err := tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:   "scene1",
 			NumRounds: 11,
 			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -225,25 +195,27 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("empty params returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		err := tuner.Start(context.Background(), RLHFSweepRequest{
+	t.Run("empty params auto-populates defaults", func(t *testing.T) {
+		tuner := newQuietHINTTuner(nil)
+		err := tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:   "scene1",
 			NumRounds: 1,
 			Params:    []SweepParam{},
 		})
-		if err == nil || !strings.Contains(err.Error(), "params") {
-			t.Errorf("expected params error, got %v", err)
+		// Should NOT error — defaults are auto-populated.
+		// It may fail later (e.g. no scene getter) but not on param validation.
+		if err != nil && strings.Contains(err.Error(), "params cannot be empty") {
+			t.Errorf("empty params should auto-populate, got error: %v", err)
 		}
 	})
 
 	t.Run("too many params returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		params := make([]SweepParam, 21)
 		for i := range params {
 			params[i] = SweepParam{Name: "p", Type: "float64", Start: 0, End: 1}
 		}
-		err := tuner.Start(context.Background(), RLHFSweepRequest{
+		err := tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:   "scene1",
 			NumRounds: 1,
 			Params:    params,
@@ -254,14 +226,14 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 	})
 
 	t.Run("default threshold applied when 0", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetSceneGetter(&mockSceneGetter{
-			scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+			scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 		})
 		tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
 
 		// Start will launch background goroutine - it will fail but threshold is applied
-		_ = tuner.Start(context.Background(), RLHFSweepRequest{
+		_ = tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:           "scene1",
 			NumRounds:         1,
 			MinLabelThreshold: 0,
@@ -269,7 +241,7 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 		})
 
 		// The default should have been applied
-		state := tuner.GetRLHFState()
+		state := tuner.GetHINTState()
 		if state.MinLabelThreshold != 0.9 {
 			t.Errorf("default MinLabelThreshold = %f, want 0.9", state.MinLabelThreshold)
 		}
@@ -277,12 +249,12 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 	})
 
 	t.Run("cannot start when already running", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.mu.Lock()
 		tuner.state.Status = "running_reference"
 		tuner.mu.Unlock()
 
-		err := tuner.Start(context.Background(), RLHFSweepRequest{
+		err := tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:   "scene1",
 			NumRounds: 1,
 			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -293,7 +265,7 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 	})
 
 	t.Run("Start accepts map[string]interface{}", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		reqMap := map[string]interface{}{
 			"scene_id":   "scene1",
 			"num_rounds": 1,
@@ -310,7 +282,7 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 	})
 
 	t.Run("invalid request type returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		err := tuner.Start(context.Background(), "invalid")
 		if err == nil || !strings.Contains(err.Error(), "unsupported request type") {
 			t.Errorf("expected unsupported type error, got %v", err)
@@ -322,7 +294,7 @@ func TestRLHFTunerStartValidation(t *testing.T) {
 
 func TestContinueFromLabels(t *testing.T) {
 	t.Run("error if not awaiting_labels", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		err := tuner.ContinueFromLabels(60, false)
 		if err == nil || !strings.Contains(err.Error(), "not in awaiting_labels") {
 			t.Errorf("expected awaiting_labels error, got %v", err)
@@ -330,7 +302,7 @@ func TestContinueFromLabels(t *testing.T) {
 	})
 
 	t.Run("error if threshold not met", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 3})
 		tuner.mu.Lock()
 		tuner.state.Status = "awaiting_labels"
@@ -348,7 +320,7 @@ func TestContinueFromLabels(t *testing.T) {
 	})
 
 	t.Run("succeeds when threshold met", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 9})
 		tuner.mu.Lock()
 		tuner.state.Status = "awaiting_labels"
@@ -373,7 +345,7 @@ func TestContinueFromLabels(t *testing.T) {
 	})
 
 	t.Run("nextDuration updates state", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10})
 		tuner.mu.Lock()
 		tuner.state.Status = "awaiting_labels"
@@ -383,7 +355,7 @@ func TestContinueFromLabels(t *testing.T) {
 
 		_ = tuner.ContinueFromLabels(120, false)
 
-		state := tuner.GetRLHFState()
+		state := tuner.GetHINTState()
 		if state.NextSweepDuration != 120 {
 			t.Errorf("NextSweepDuration = %d, want 120", state.NextSweepDuration)
 		}
@@ -392,7 +364,7 @@ func TestContinueFromLabels(t *testing.T) {
 	})
 
 	t.Run("addRound increments TotalRounds", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10})
 		tuner.mu.Lock()
 		tuner.state.Status = "awaiting_labels"
@@ -403,7 +375,7 @@ func TestContinueFromLabels(t *testing.T) {
 
 		_ = tuner.ContinueFromLabels(60, true)
 
-		state := tuner.GetRLHFState()
+		state := tuner.GetHINTState()
 		if state.TotalRounds != 4 {
 			t.Errorf("TotalRounds = %d, want 4", state.TotalRounds)
 		}
@@ -417,15 +389,15 @@ func TestContinueFromLabels(t *testing.T) {
 func TestCarryOverLabels(t *testing.T) {
 	t.Run("carries labels with IoU >= 0.5", func(t *testing.T) {
 		lq := &mockLabelQuerier{
-			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle", QualityLabel: "perfect"},
+			prevTracks: []HINTRunTrack{
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car", QualityLabel: "good"},
 			},
-			newTracks: []RLHFRunTrack{
+			newTracks: []HINTRunTrack{
 				{TrackID: "n1", StartUnixNanos: 0, EndUnixNanos: 100}, // perfect match IoU=1.0
 			},
 		}
 
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(lq)
 
 		count, err := tuner.carryOverLabels("prev_run", "new_run")
@@ -442,15 +414,15 @@ func TestCarryOverLabels(t *testing.T) {
 
 	t.Run("does not carry labels with IoU < 0.5", func(t *testing.T) {
 		lq := &mockLabelQuerier{
-			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+			prevTracks: []HINTRunTrack{
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 			},
-			newTracks: []RLHFRunTrack{
+			newTracks: []HINTRunTrack{
 				{TrackID: "n1", StartUnixNanos: 200, EndUnixNanos: 300}, // no overlap
 			},
 		}
 
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(lq)
 
 		count, err := tuner.carryOverLabels("prev_run", "new_run")
@@ -464,17 +436,17 @@ func TestCarryOverLabels(t *testing.T) {
 
 	t.Run("only labelled tracks are considered", func(t *testing.T) {
 		lq := &mockLabelQuerier{
-			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+			prevTracks: []HINTRunTrack{
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 				{TrackID: "t2", StartUnixNanos: 200, EndUnixNanos: 300, UserLabel: ""}, // not labelled
 			},
-			newTracks: []RLHFRunTrack{
+			newTracks: []HINTRunTrack{
 				{TrackID: "n1", StartUnixNanos: 0, EndUnixNanos: 100},
 				{TrackID: "n2", StartUnixNanos: 200, EndUnixNanos: 300},
 			},
 		}
 
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(lq)
 
 		count, err := tuner.carryOverLabels("prev_run", "new_run")
@@ -488,16 +460,16 @@ func TestCarryOverLabels(t *testing.T) {
 
 	t.Run("selects best IoU match", func(t *testing.T) {
 		lq := &mockLabelQuerier{
-			prevTracks: []RLHFRunTrack{
-				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+			prevTracks: []HINTRunTrack{
+				{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 			},
-			newTracks: []RLHFRunTrack{
+			newTracks: []HINTRunTrack{
 				{TrackID: "n1", StartUnixNanos: 30, EndUnixNanos: 130}, // IoU = 70/130 ≈ 0.538
 				{TrackID: "n2", StartUnixNanos: 0, EndUnixNanos: 100},  // IoU = 1.0 (best)
 			},
 		}
 
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(lq)
 
 		count, err := tuner.carryOverLabels("prev_run", "new_run")
@@ -511,11 +483,11 @@ func TestCarryOverLabels(t *testing.T) {
 
 	t.Run("empty tracks returns 0", func(t *testing.T) {
 		lq := &mockLabelQuerier{
-			prevTracks: []RLHFRunTrack{},
-			newTracks:  []RLHFRunTrack{},
+			prevTracks: []HINTRunTrack{},
+			newTracks:  []HINTRunTrack{},
 		}
 
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetLabelQuerier(lq)
 
 		count, err := tuner.carryOverLabels("prev_run", "new_run")
@@ -528,7 +500,7 @@ func TestCarryOverLabels(t *testing.T) {
 	})
 
 	t.Run("no label querier returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 
 		_, err := tuner.carryOverLabels("prev_run", "new_run")
 		if err == nil {
@@ -540,11 +512,11 @@ func TestCarryOverLabels(t *testing.T) {
 // --- Test 7: buildAutoTuneRequest ---
 
 func TestBuildAutoTuneRequest(t *testing.T) {
-	scene := &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"}
+	scene := &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"}
 
 	t.Run("round 1 adjusts weights", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		req := RLHFSweepRequest{
+		tuner := newQuietHINTTuner(nil)
+		req := HINTSweepRequest{
 			SceneID:        "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
@@ -564,8 +536,8 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	})
 
 	t.Run("round 2 uses default weights", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		req := RLHFSweepRequest{
+		tuner := newQuietHINTTuner(nil)
+		req := HINTSweepRequest{
 			SceneID:        "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
@@ -582,8 +554,8 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	})
 
 	t.Run("bounds are applied correctly", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		req := RLHFSweepRequest{
+		tuner := newQuietHINTTuner(nil)
+		req := HINTSweepRequest{
 			SceneID:        "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
@@ -614,8 +586,8 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	})
 
 	t.Run("objective is ground_truth", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		req := RLHFSweepRequest{
+		tuner := newQuietHINTTuner(nil)
+		req := HINTSweepRequest{
 			SceneID:        "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
@@ -636,25 +608,25 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	})
 }
 
-// --- Test 8: waitForLabelsOrDeadline ---
+// --- Test 8: waitForLabels ---
 
-func TestWaitForLabelsOrDeadline(t *testing.T) {
+func TestWaitForLabels(t *testing.T) {
 	t.Run("context cancellation returns error", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.pollInterval = 10 * time.Millisecond
 		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 5})
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // cancel immediately
 
-		err := tuner.waitForLabelsOrDeadline(ctx, "run1", 60, 0.9)
+		err := tuner.waitForLabels(ctx, "run1", 0.9)
 		if err == nil {
 			t.Error("expected context cancelled error")
 		}
 	})
 
 	t.Run("continue signal unblocks wait", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 		tuner.pollInterval = 10 * time.Millisecond
 		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10})
 
@@ -664,29 +636,45 @@ func TestWaitForLabelsOrDeadline(t *testing.T) {
 			tuner.continueCh <- continueSignal{NextSweepDurationMins: 120}
 		}()
 
-		err := tuner.waitForLabelsOrDeadline(context.Background(), "run1", 60, 0.9)
+		err := tuner.waitForLabels(context.Background(), "run1", 0.9)
 		if err != nil {
 			t.Errorf("expected nil error, got %v", err)
 		}
 	})
 
-	t.Run("deadline with threshold met proceeds", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
-		tuner.pollInterval = 10 * time.Millisecond
-		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10})
+	t.Run("label update channel refreshes progress", func(t *testing.T) {
+		tuner := newQuietHINTTuner(nil)
+		tuner.pollInterval = 100 * time.Second // very long to avoid ticker
+		tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10, byClass: map[string]int{"car": 10}})
 
-		// Use 0 minute duration so deadline is immediately past
-		err := tuner.waitForLabelsOrDeadline(context.Background(), "run1", 0, 0.9)
+		// Send a label update then a continue signal so the test exits
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+			tuner.NotifyLabelUpdate()
+			time.Sleep(20 * time.Millisecond)
+			tuner.continueCh <- continueSignal{}
+		}()
+
+		err := tuner.waitForLabels(context.Background(), "run1", 0.9)
 		if err != nil {
-			t.Errorf("expected nil error (threshold met at deadline), got %v", err)
+			t.Errorf("expected nil error, got %v", err)
+		}
+
+		// Verify progress was refreshed by the label update
+		state := tuner.GetHINTState()
+		if state.LabelProgress == nil {
+			t.Fatal("expected label progress to be set")
+		}
+		if state.LabelProgress.Total != 10 {
+			t.Errorf("expected total=10, got %d", state.LabelProgress.Total)
 		}
 	})
 }
 
-// --- Test 9: GetRLHFState deep copy ---
+// --- Test 9: GetHINTState deep copy ---
 
-func TestRLHFTunerGetState(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+func TestHINTTunerGetState(t *testing.T) {
+	tuner := newQuietHINTTuner(nil)
 
 	// Set up some state
 	now := time.Now()
@@ -698,9 +686,9 @@ func TestRLHFTunerGetState(t *testing.T) {
 		Total:    20,
 		Labelled: 15,
 		Pct:      75.0,
-		ByClass:  map[string]int{"good_vehicle": 10, "noise": 5},
+		ByClass:  map[string]int{"car": 10, "noise": 5},
 	}
-	tuner.state.RoundHistory = []RLHFRound{
+	tuner.state.RoundHistory = []HINTRound{
 		{
 			Round:          1,
 			ReferenceRunID: "run1",
@@ -713,14 +701,14 @@ func TestRLHFTunerGetState(t *testing.T) {
 	tuner.mu.Unlock()
 
 	// Get state and mutate it
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	state.LabelProgress.Total = 999
 	state.RoundHistory[0].BestScore = 999.0
 	state.Recommendation["eps"] = 999.0
-	state.LabelProgress.ByClass["good_vehicle"] = 999
+	state.LabelProgress.ByClass["car"] = 999
 
 	// Verify original is unchanged
-	original := tuner.GetRLHFState()
+	original := tuner.GetHINTState()
 	if original.LabelProgress.Total != 20 {
 		t.Errorf("original LabelProgress.Total mutated to %d", original.LabelProgress.Total)
 	}
@@ -730,16 +718,16 @@ func TestRLHFTunerGetState(t *testing.T) {
 	if original.Recommendation["eps"] != 0.3 {
 		t.Errorf("original Recommendation mutated to %v", original.Recommendation["eps"])
 	}
-	if original.LabelProgress.ByClass["good_vehicle"] != 10 {
-		t.Errorf("original ByClass mutated to %d", original.LabelProgress.ByClass["good_vehicle"])
+	if original.LabelProgress.ByClass["car"] != 10 {
+		t.Errorf("original ByClass mutated to %d", original.LabelProgress.ByClass["car"])
 	}
 }
 
 // --- Test 10: Stop behaviour ---
 
-func TestRLHFTunerStop(t *testing.T) {
+func TestHINTTunerStop(t *testing.T) {
 	t.Run("stop cancels context", func(t *testing.T) {
-		tuner := NewRLHFTuner(nil)
+		tuner := newQuietHINTTuner(nil)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		tuner.mu.Lock()
@@ -759,8 +747,8 @@ func TestRLHFTunerStop(t *testing.T) {
 
 // --- Test 11: Setter methods ---
 
-func TestRLHFTunerSetters(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+func TestHINTTunerSetters(t *testing.T) {
+	tuner := newQuietHINTTuner(nil)
 
 	lq := &mockLabelQuerier{}
 	tuner.SetLabelQuerier(lq)
@@ -786,7 +774,7 @@ func TestRLHFTunerSetters(t *testing.T) {
 		t.Error("SetRunCreator did not set runCreator")
 	}
 
-	p := &mockRLHFPersister{}
+	p := &mockHINTPersister{}
 	tuner.SetPersister(p)
 	if tuner.persister != p {
 		t.Error("SetPersister did not set persister")
@@ -803,16 +791,16 @@ func TestRLHFTunerSetters(t *testing.T) {
 
 // --- Test 12: Persistence calls ---
 
-func TestRLHFTunerPersistence(t *testing.T) {
+func TestHINTTunerPersistence(t *testing.T) {
 	t.Run("persist start is called", func(t *testing.T) {
-		p := &mockRLHFPersister{}
-		tuner := NewRLHFTuner(nil)
+		p := &mockHINTPersister{}
+		tuner := newQuietHINTTuner(nil)
 		tuner.SetPersister(p)
 		tuner.SetSceneGetter(&mockSceneGetter{
-			scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+			scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 		})
 
-		_ = tuner.Start(context.Background(), RLHFSweepRequest{
+		_ = tuner.Start(context.Background(), HINTSweepRequest{
 			SceneID:   "scene1",
 			NumRounds: 1,
 			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -831,14 +819,14 @@ func TestRLHFTunerPersistence(t *testing.T) {
 // --- Test 13: failWithError ---
 
 func TestFailWithError(t *testing.T) {
-	p := &mockRLHFPersister{}
-	tuner := NewRLHFTuner(nil)
+	p := &mockHINTPersister{}
+	tuner := newQuietHINTTuner(nil)
 	tuner.sweepID = "test-sweep-id"
 	tuner.SetPersister(p)
 
 	tuner.failWithError("something went wrong")
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q", state.Status, "failed")
 	}
@@ -853,18 +841,18 @@ func TestFailWithError(t *testing.T) {
 // --- Test 14: GetState returns interface ---
 
 func TestGetStateInterface(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	got := tuner.GetState()
-	_, ok := got.(RLHFState)
+	_, ok := got.(HINTState)
 	if !ok {
-		t.Errorf("GetState() returned %T, want RLHFState", got)
+		t.Errorf("GetState() returned %T, want HINTState", got)
 	}
 }
 
-// --- Test 15: GetRLHFState deep copy with sweep deadline ---
+// --- Test 15: GetHINTState deep copy with sweep deadline ---
 
-func TestGetRLHFState_SweepDeadline(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+func TestGetHINTState_SweepDeadline(t *testing.T) {
+	tuner := newQuietHINTTuner(nil)
 	now := time.Now()
 	tuner.mu.Lock()
 	tuner.state.SweepDeadline = &now
@@ -872,7 +860,7 @@ func TestGetRLHFState_SweepDeadline(t *testing.T) {
 	tuner.state.AutoTuneState = &ats
 	tuner.mu.Unlock()
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.SweepDeadline == nil {
 		t.Fatal("SweepDeadline should not be nil")
 	}
@@ -885,7 +873,7 @@ func TestGetRLHFState_SweepDeadline(t *testing.T) {
 	state.SweepDeadline = &newTime
 
 	// Original should be unchanged
-	original := tuner.GetRLHFState()
+	original := tuner.GetHINTState()
 	if !original.SweepDeadline.Equal(now) {
 		t.Error("SweepDeadline was mutated through copy")
 	}
@@ -894,10 +882,10 @@ func TestGetRLHFState_SweepDeadline(t *testing.T) {
 // --- Test 16: run() fails when sceneGetter is nil ---
 
 func TestRunFailsWithoutSceneGetter(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "s1",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -909,7 +897,7 @@ func TestRunFailsWithoutSceneGetter(t *testing.T) {
 	// Wait for run goroutine to fail
 	time.Sleep(100 * time.Millisecond)
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q", state.Status, "failed")
 	}
@@ -921,11 +909,11 @@ func TestRunFailsWithoutSceneGetter(t *testing.T) {
 // --- Test 17: run() fails when scene not found ---
 
 func TestRunFailsWhenSceneNotFound(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{err: fmt.Errorf("scene not found")})
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "missing",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -936,7 +924,7 @@ func TestRunFailsWhenSceneNotFound(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q", state.Status, "failed")
 	}
@@ -945,13 +933,13 @@ func TestRunFailsWhenSceneNotFound(t *testing.T) {
 // --- Test 18: run() fails when runCreator not configured ---
 
 func TestRunFailsWithoutRunCreator(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "s1",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -962,7 +950,7 @@ func TestRunFailsWithoutRunCreator(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q", state.Status, "failed")
 	}
@@ -971,16 +959,16 @@ func TestRunFailsWithoutRunCreator(t *testing.T) {
 // --- Test 19: run() context cancellation ---
 
 func TestRunCancelledByContext(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
 	tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 5})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	err := tuner.Start(ctx, RLHFSweepRequest{
+	err := tuner.Start(ctx, HINTSweepRequest{
 		SceneID:           "s1",
 		NumRounds:         1,
 		RoundDurations:    []int{60}, // long wait
@@ -996,7 +984,7 @@ func TestRunCancelledByContext(t *testing.T) {
 	cancel()
 	time.Sleep(100 * time.Millisecond)
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q (context cancelled)", state.Status, "failed")
 	}
@@ -1005,10 +993,10 @@ func TestRunCancelledByContext(t *testing.T) {
 // --- Test 20: run() uses midpoints when no optimal params ---
 
 func TestRunUsesMidpointsForParams(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{
+		scene: &HINTScene{
 			SceneID:  "s1",
 			SensorID: "sensor1",
 			PCAPFile: "test.pcap",
@@ -1017,7 +1005,7 @@ func TestRunUsesMidpointsForParams(t *testing.T) {
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "s1",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.2, End: 0.8}},
@@ -1033,7 +1021,7 @@ func TestRunUsesMidpointsForParams(t *testing.T) {
 // --- Test 21: ContinueFromLabels with no label querier succeeds ---
 
 func TestContinueFromLabelsNoQuerier(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.mu.Lock()
 	tuner.state.Status = "awaiting_labels"
 	tuner.state.MinLabelThreshold = 0.9
@@ -1048,29 +1036,14 @@ func TestContinueFromLabelsNoQuerier(t *testing.T) {
 	<-tuner.continueCh
 }
 
-// --- Test 22: waitForLabelsOrDeadline deadline expired insufficient labels ---
-
-func TestWaitForLabelsDeadlineExpired(t *testing.T) {
-	lq := &mockLabelQuerier{total: 10, labelled: 3} // 30% < 90% threshold
-	tuner := NewRLHFTuner(nil)
-	tuner.pollInterval = 10 * time.Millisecond
-	tuner.SetLabelQuerier(lq)
-
-	// Use 0 minute duration so deadline is immediately past
-	err := tuner.waitForLabelsOrDeadline(context.Background(), "run1", 0, 0.9)
-	if err == nil {
-		t.Error("expected deadline expired error")
-	}
-}
-
-// --- Test 23: failWithError without persister ---
+// --- Test 22: failWithError without persister ---
 
 func TestFailWithErrorNoPersister(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	// No persister set - should not panic
 	tuner.failWithError("test error")
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q", state.Status, "failed")
 	}
@@ -1080,10 +1053,10 @@ func TestFailWithErrorNoPersister(t *testing.T) {
 
 func TestRunLoadsOptimalParams(t *testing.T) {
 	optimalParams := `{"eps": 0.5, "noise": 0.02}`
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{
+		scene: &HINTScene{
 			SceneID:           "s1",
 			SensorID:          "sensor1",
 			PCAPFile:          "test.pcap",
@@ -1091,7 +1064,7 @@ func TestRunLoadsOptimalParams(t *testing.T) {
 		},
 	})
 	// No run creator → will fail after loading params but exercises the path
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "s1",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -1103,7 +1076,7 @@ func TestRunLoadsOptimalParams(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Should fail because no run creator, but params should have been loaded
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q", state.Status, "failed")
 	}
@@ -1112,10 +1085,10 @@ func TestRunLoadsOptimalParams(t *testing.T) {
 // --- Test 25: run() with invalid optimal params JSON ---
 
 func TestRunInvalidOptimalParamsJSON(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{
+		scene: &HINTScene{
 			SceneID:           "s1",
 			SensorID:          "sensor1",
 			PCAPFile:          "test.pcap",
@@ -1124,7 +1097,7 @@ func TestRunInvalidOptimalParamsJSON(t *testing.T) {
 	})
 	// No run creator → will fail after loading params but exercises the parse error path
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "s1",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -1136,7 +1109,7 @@ func TestRunInvalidOptimalParamsJSON(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Should still have started (falls back to midpoints)
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q (falls back to midpoints, then fails on run creator)", state.Status, "failed")
 	}
@@ -1145,14 +1118,14 @@ func TestRunInvalidOptimalParamsJSON(t *testing.T) {
 // --- Test 26: run() with runCreator error ---
 
 func TestRunRunCreatorError(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{err: fmt.Errorf("pcap not found")})
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "s1",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -1163,7 +1136,7 @@ func TestRunRunCreatorError(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Errorf("status = %q, want %q", state.Status, "failed")
 	}
@@ -1175,16 +1148,16 @@ func TestRunRunCreatorError(t *testing.T) {
 // --- Test 27: run() with persist failure on start ---
 
 func TestRunPersistStartFailure(t *testing.T) {
-	p := &mockRLHFPersister{startErr: fmt.Errorf("db error")}
-	tuner := NewRLHFTuner(nil)
+	p := &mockHINTPersister{startErr: fmt.Errorf("db error")}
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetPersister(p)
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:   "s1",
 		NumRounds: 1,
 		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -1205,11 +1178,11 @@ func TestRunPersistStartFailure(t *testing.T) {
 // --- Test 28: Stop when not running ---
 
 func TestStopWhenIdle(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	// Should not panic when stopping an idle tuner
 	tuner.Stop()
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status != "idle" {
 		t.Errorf("status = %q, want %q", state.Status, "idle")
 	}
@@ -1218,20 +1191,19 @@ func TestStopWhenIdle(t *testing.T) {
 // --- Test 29: run() with roundHistory recording after runCreator succeeds ---
 
 func TestRunRecordsRound(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-abc"})
 	tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	err := tuner.Start(ctx, RLHFSweepRequest{
+	err := tuner.Start(ctx, HINTSweepRequest{
 		SceneID:           "s1",
 		NumRounds:         1,
 		MinLabelThreshold: 0.0,
-		RoundDurations:    []int{0}, // immediate deadline
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
@@ -1241,7 +1213,7 @@ func TestRunRecordsRound(t *testing.T) {
 	// Let it reach awaiting_labels and pass threshold check
 	time.Sleep(200 * time.Millisecond)
 
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	// Verify reference run ID was set
 	if state.ReferenceRunID != "run-abc" {
 		t.Errorf("ReferenceRunID = %q, want %q", state.ReferenceRunID, "run-abc")
@@ -1254,8 +1226,8 @@ func TestRunRecordsRound(t *testing.T) {
 // --- Test 30: waitForAutoTuneComplete returns on completion ---
 
 func TestWaitForAutoTuneComplete(t *testing.T) {
-	at := NewAutoTuner(nil)
-	tuner := NewRLHFTuner(at)
+	at := newQuietAutoTuner(nil)
+	tuner := newQuietHINTTuner(at)
 	tuner.pollInterval = 10 * time.Millisecond
 
 	// Set auto-tuner state to complete after a brief delay
@@ -1280,8 +1252,8 @@ func TestWaitForAutoTuneComplete(t *testing.T) {
 // --- Test 31: waitForAutoTuneComplete returns error on failure ---
 
 func TestWaitForAutoTuneCompleteError(t *testing.T) {
-	at := NewAutoTuner(nil)
-	tuner := NewRLHFTuner(at)
+	at := newQuietAutoTuner(nil)
+	tuner := newQuietHINTTuner(at)
 	tuner.pollInterval = 10 * time.Millisecond
 
 	// Set auto-tuner to error
@@ -1306,8 +1278,8 @@ func TestWaitForAutoTuneCompleteError(t *testing.T) {
 // --- Test 32: waitForAutoTuneComplete deadline exceeded ---
 
 func TestWaitForAutoTuneCompleteDeadline(t *testing.T) {
-	at := NewAutoTuner(nil)
-	tuner := NewRLHFTuner(at)
+	at := newQuietAutoTuner(nil)
+	tuner := newQuietHINTTuner(at)
 	tuner.pollInterval = 10 * time.Millisecond
 
 	// Auto-tuner stays idle (never completes)
@@ -1324,8 +1296,8 @@ func TestWaitForAutoTuneCompleteDeadline(t *testing.T) {
 // --- Test 33: waitForAutoTuneComplete context cancellation ---
 
 func TestWaitForAutoTuneCompleteContextCancel(t *testing.T) {
-	at := NewAutoTuner(nil)
-	tuner := NewRLHFTuner(at)
+	at := newQuietAutoTuner(nil)
+	tuner := newQuietHINTTuner(at)
 	tuner.pollInterval = 10 * time.Millisecond
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1344,42 +1316,45 @@ func TestRunRoundWithCarryOver(t *testing.T) {
 	lq := &mockLabelQuerier{
 		total:    10,
 		labelled: 10,
-		prevTracks: []RLHFRunTrack{
-			{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "good_vehicle"},
+		prevTracks: []HINTRunTrack{
+			{TrackID: "t1", StartUnixNanos: 0, EndUnixNanos: 100, UserLabel: "car"},
 		},
-		newTracks: []RLHFRunTrack{
+		newTracks: []HINTRunTrack{
 			{TrackID: "n1", StartUnixNanos: 0, EndUnixNanos: 100},
 		},
 	}
 
-	at := NewAutoTuner(nil)
-	tuner := NewRLHFTuner(at)
+	at := newQuietAutoTuner(nil)
+	tuner := newQuietHINTTuner(at)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-test"})
 	tuner.SetLabelQuerier(lq)
 
 	// Set up state as if round 1 was already completed
 	tuner.mu.Lock()
-	tuner.state.RoundHistory = []RLHFRound{
+	tuner.state.RoundHistory = []HINTRound{
 		{Round: 1, ReferenceRunID: "prev-run"},
 	}
 	tuner.mu.Unlock()
 
-	scene := &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"}
+	scene := &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"}
 	currentParams := map[string]float64{"eps": 0.5}
 	bounds := map[string][2]float64{"eps": {0.1, 1.0}}
 
-	req := RLHFSweepRequest{
+	req := HINTSweepRequest{
 		SceneID:           "s1",
 		NumRounds:         2,
 		MinLabelThreshold: 0.0,
-		RoundDurations:    []int{0}, // immediate
 		CarryOverLabels:   true,
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	}
+
+	// Pre-fill continue signal so waitForLabels returns immediately.
+	tuner.continueCh = make(chan continueSignal, 1)
+	tuner.continueCh <- continueSignal{}
 
 	// Set auto-tuner to error immediately to end the round
 	go func() {
@@ -1405,12 +1380,12 @@ func TestRunRoundWithCarryOver(t *testing.T) {
 // --- Test 35: Start with default values_per_param ---
 
 func TestStartDefaultValuesPerParam(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &RLHFScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 
-	err := tuner.Start(context.Background(), RLHFSweepRequest{
+	err := tuner.Start(context.Background(), HINTSweepRequest{
 		SceneID:        "s1",
 		NumRounds:      1,
 		ValuesPerParam: 0, // should get default
@@ -1422,7 +1397,7 @@ func TestStartDefaultValuesPerParam(t *testing.T) {
 	}
 
 	// Should have started OK with defaults applied internally
-	state := tuner.GetRLHFState()
+	state := tuner.GetHINTState()
 	if state.Status == "idle" {
 		t.Error("status should not be idle after start")
 	}
@@ -1432,7 +1407,7 @@ func TestStartDefaultValuesPerParam(t *testing.T) {
 // --- Test 36: ContinueFromLabels class coverage gate ---
 
 func TestContinueFromLabels_ClassCoverageGate(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	querier := &mockLabelQuerier{
 		total:    10,
 		labelled: 9,
@@ -1480,14 +1455,14 @@ func TestContinueFromLabels_ClassCoverageGate(t *testing.T) {
 // --- Test 37: ContinueFromLabels temporal spread gate ---
 
 func TestContinueFromLabels_TemporalSpreadGate(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 
 	// Tracks spanning 5 seconds (labelled ones)
 	querier := &mockLabelQuerier{
 		total:    10,
 		labelled: 9,
 		byClass:  map[string]int{"vehicle": 9},
-		prevTracks: []RLHFRunTrack{
+		prevTracks: []HINTRunTrack{
 			{TrackID: "t1", StartUnixNanos: 1_000_000_000, EndUnixNanos: 2_000_000_000, UserLabel: "vehicle"},
 			{TrackID: "t2", StartUnixNanos: 3_000_000_000, EndUnixNanos: 6_000_000_000, UserLabel: "vehicle"},
 			{TrackID: "t3", StartUnixNanos: 4_000_000_000, EndUnixNanos: 5_000_000_000, UserLabel: ""}, // unlabelled
@@ -1536,7 +1511,7 @@ func TestContinueFromLabels_TemporalSpreadGate(t *testing.T) {
 // --- Test 38: ContinueFromLabels gates disabled ---
 
 func TestContinueFromLabels_GatesDisabled(t *testing.T) {
-	tuner := NewRLHFTuner(nil)
+	tuner := newQuietHINTTuner(nil)
 	querier := &mockLabelQuerier{
 		total:    10,
 		labelled: 9,

@@ -72,14 +72,15 @@ type Publisher struct {
 	recorderMu sync.RWMutex
 
 	// VRLOG replay state (Phase 2.1)
-	vrlogReader     FrameReader
-	vrlogStopCh     chan struct{}
-	vrlogMu         sync.RWMutex
-	vrlogPaused     bool
-	vrlogRate       float32
-	vrlogSeekSignal chan struct{}
-	vrlogActive     bool
-	vrlogWg         sync.WaitGroup
+	vrlogReader       FrameReader
+	vrlogStopCh       chan struct{}
+	vrlogMu           sync.RWMutex
+	vrlogPaused       bool
+	vrlogRate         float32
+	vrlogSeekSignal   chan struct{}
+	vrlogSendOneFrame bool // Send one frame after seek-while-paused
+	vrlogActive       bool
+	vrlogWg           sync.WaitGroup
 
 	// Stats
 	frameCount     atomic.Uint64
@@ -162,6 +163,7 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogSeekSignal = make(chan struct{}, 1)
 	p.vrlogPaused = false
 	p.vrlogRate = 1.0
+	p.vrlogSendOneFrame = false
 	p.vrlogActive = true
 
 	p.vrlogWg.Add(1)
@@ -244,6 +246,11 @@ func (p *Publisher) SeekVRLog(frameIdx uint64) (uint64, error) {
 
 	currentFrame := p.vrlogReader.CurrentFrame()
 
+	// If paused, send one frame so the UI updates to the seeked position
+	if p.vrlogPaused {
+		p.vrlogSendOneFrame = true
+	}
+
 	// Signal the replay loop to reset timing
 	select {
 	case p.vrlogSeekSignal <- struct{}{}:
@@ -269,6 +276,11 @@ func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
 
 	currentFrame := p.vrlogReader.CurrentFrame()
 
+	// If paused, send one frame so the UI updates to the seeked position
+	if p.vrlogPaused {
+		p.vrlogSendOneFrame = true
+	}
+
 	// Signal the replay loop to reset timing
 	select {
 	case p.vrlogSeekSignal <- struct{}{}:
@@ -293,17 +305,19 @@ func (p *Publisher) vrlogReplayLoop() {
 			// Reset timing after seek
 			lastFrameTime = 0
 			lastWallTime = time.Time{}
-			continue
+			// Fall through to check sendOneFrame (don't continue)
 		default:
 		}
 
-		p.vrlogMu.RLock()
+		p.vrlogMu.Lock()
 		isPaused := p.vrlogPaused
 		rate := p.vrlogRate
 		reader := p.vrlogReader
-		p.vrlogMu.RUnlock()
+		sendOne := p.vrlogSendOneFrame
+		p.vrlogSendOneFrame = false
+		p.vrlogMu.Unlock()
 
-		if isPaused || reader == nil {
+		if (isPaused && !sendOne) || reader == nil {
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}

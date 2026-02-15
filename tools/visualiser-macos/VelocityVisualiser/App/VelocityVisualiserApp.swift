@@ -77,6 +77,10 @@ struct AppCommands: Commands {
                 isOn: Binding(get: { appState.showVelocity }, set: { appState.showVelocity = $0 })
             ).keyboardShortcut("v", modifiers: [])
 
+            Toggle(
+                "Grid", isOn: Binding(get: { appState.showGrid }, set: { appState.showGrid = $0 })
+            ).keyboardShortcut("g", modifiers: [])
+
             Divider()
 
             Toggle(
@@ -92,8 +96,11 @@ struct AppCommands: Commands {
 
             Divider()
 
-            Button("Export Labels...") { appState.exportLabels() }.keyboardShortcut(
-                "e", modifiers: .command)
+            ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
+                index, entry in
+                Button("Classify: \(entry.name)") { appState.assignLabel(entry.name) }
+                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [])
+            }
         }
     }
 }

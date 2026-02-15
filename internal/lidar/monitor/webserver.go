@@ -104,13 +104,15 @@ type WebServer struct {
 	baseCtx           context.Context
 
 	// PCAP replay state
-	pcapMu           sync.Mutex
-	pcapInProgress   bool
-	pcapCancel       context.CancelFunc
-	pcapDone         chan struct{}
-	pcapAnalysisMode bool // When true, preserve grid after PCAP completion
-	pcapSpeedMode    string
-	pcapSpeedRatio   float64
+	pcapMu               sync.Mutex
+	pcapInProgress       bool
+	pcapCancel           context.CancelFunc
+	pcapDone             chan struct{}
+	pcapAnalysisMode     bool // When true, preserve grid after PCAP completion
+	pcapDisableRecording bool // When true, skip VRLOG recording during PCAP replay
+	pcapSpeedMode        string
+	pcapSpeedRatio       float64
+	pcapLastRunID        string // Last analysis run ID from PCAP replay (protected by pcapMu)
 
 	// PCAP progress tracking (protected by pcapMu)
 	pcapCurrentPacket uint64 // 0-based index of current packet
@@ -163,8 +165,8 @@ type WebServer struct {
 	// Auto-tune runner for web-triggered auto-tuning
 	autoTuneRunner AutoTuneRunner
 
-	// RLHF runner for human-in-the-loop parameter tuning
-	rlhfRunner RLHFRunner
+	// HINT runner for human-in-the-loop parameter tuning
+	hintRunner HINTRunner
 
 	// Sweep store for persisting sweep results
 	sweepStore *lidar.SweepStore
@@ -359,9 +361,9 @@ func (ws *WebServer) SetAutoTuneRunner(runner AutoTuneRunner) {
 	ws.autoTuneRunner = runner
 }
 
-// SetRLHFRunner sets the RLHF runner for human-in-the-loop parameter tuning.
-func (ws *WebServer) SetRLHFRunner(runner RLHFRunner) {
-	ws.rlhfRunner = runner
+// SetHINTRunner sets the HINT runner for human-in-the-loop parameter tuning.
+func (ws *WebServer) SetHINTRunner(runner HINTRunner) {
+	ws.hintRunner = runner
 }
 
 // SetSweepStore sets the sweep store for persisting sweep results.
@@ -479,6 +481,148 @@ func (ws *WebServer) StopPCAPInternal() {
 	if done != nil {
 		<-done
 	}
+}
+
+// --- Exported helpers for DirectBackend (in-process sweep) ---
+
+// StartPCAPForSweep starts a PCAP replay suitable for sweep use.
+// It stops the live listener, resets all state (grid, frame builder, tracker),
+// and begins the replay. It retries on conflict (another PCAP in progress)
+// up to maxRetries times with 5-second delays.
+func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMode string,
+	startSeconds, durationSeconds float64, maxRetries int, disableRecording bool) error {
+
+	if maxRetries <= 0 {
+		maxRetries = 60
+	}
+
+	for retry := 0; retry < maxRetries; retry++ {
+		ws.dataSourceMu.Lock()
+
+		if ws.currentSource == DataSourcePCAP || ws.currentSource == DataSourcePCAPAnalysis {
+			ws.dataSourceMu.Unlock()
+			if retry == 0 {
+				log.Printf("PCAP replay in progress, waiting...")
+			}
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		ws.stopLiveListenerLocked()
+
+		if err := ws.resetAllState(); err != nil {
+			// Try to restart live listener on failure
+			_ = ws.startLiveListenerLocked()
+			ws.dataSourceMu.Unlock()
+			return fmt.Errorf("reset state: %w", err)
+		}
+
+		// Set source path on BackgroundManager for region restoration
+		if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+			mgr.SetSourcePath(pcapFile)
+		}
+
+		if err := ws.startPCAPLocked(pcapFile, speedMode, 1.0, startSeconds, durationSeconds,
+			0, 0, 0, 0, false, false); err != nil {
+			_ = ws.startLiveListenerLocked()
+			ws.dataSourceMu.Unlock()
+			return fmt.Errorf("start PCAP: %w", err)
+		}
+
+		ws.pcapMu.Lock()
+		ws.pcapAnalysisMode = analysisMode
+		ws.pcapDisableRecording = disableRecording
+		ws.pcapMu.Unlock()
+
+		ws.currentSource = DataSourcePCAP
+		ws.dataSourceMu.Unlock()
+
+		if ws.onPCAPStarted != nil {
+			ws.onPCAPStarted()
+		}
+		return nil
+	}
+	return fmt.Errorf("timeout waiting for PCAP replay slot")
+}
+
+// StopPCAPForSweep cancels any running PCAP replay and restores live mode.
+func (ws *WebServer) StopPCAPForSweep() error {
+	ws.dataSourceMu.Lock()
+	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
+		ws.dataSourceMu.Unlock()
+		return nil // not in PCAP mode — nothing to do
+	}
+
+	ws.pcapMu.Lock()
+	cancel := ws.pcapCancel
+	done := ws.pcapDone
+	ws.pcapCancel = nil
+	ws.pcapDone = nil
+	ws.pcapMu.Unlock()
+
+	// Unlock before waiting so PCAP goroutine can finish
+	ws.dataSourceMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+
+	ws.dataSourceMu.Lock()
+	defer ws.dataSourceMu.Unlock()
+
+	ws.pcapMu.Lock()
+	analysisMode := ws.pcapAnalysisMode
+	ws.pcapAnalysisMode = false
+	ws.pcapMu.Unlock()
+
+	if !analysisMode {
+		if err := ws.resetAllState(); err != nil {
+			return fmt.Errorf("reset state after stop: %w", err)
+		}
+	} else {
+		ws.resetFrameBuilder()
+	}
+
+	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		mgr.SetSourcePath("")
+	}
+
+	if err := ws.startLiveListenerLocked(); err != nil {
+		return fmt.Errorf("restart live listener: %w", err)
+	}
+
+	ws.currentSource = DataSourceLive
+	ws.currentPCAPFile = ""
+
+	if ws.onPCAPStopped != nil {
+		ws.onPCAPStopped()
+	}
+	return nil
+}
+
+// PCAPDone returns a channel that is closed when the current PCAP replay
+// finishes, or nil if no replay is in progress. The caller must not close
+// the returned channel.
+func (ws *WebServer) PCAPDone() <-chan struct{} {
+	ws.pcapMu.Lock()
+	defer ws.pcapMu.Unlock()
+	return ws.pcapDone
+}
+
+// LastAnalysisRunID returns the run ID set during the most recent PCAP
+// replay in analysis mode.
+func (ws *WebServer) LastAnalysisRunID() string {
+	ws.pcapMu.Lock()
+	defer ws.pcapMu.Unlock()
+	return ws.pcapLastRunID
+}
+
+// ResetAllStateDirect exposes the internal resetAllState for in-process callers.
+func (ws *WebServer) ResetAllStateDirect() error {
+	return ws.resetAllState()
 }
 
 // BaseContext returns the base context for operations.
@@ -644,6 +788,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 	ws.pcapCancel = cancel
 	ws.pcapDone = done
 	ws.plotsEnabled = enablePlots
+	ws.pcapLastRunID = "" // Clear previous run ID before starting new PCAP
 	ws.pcapMu.Unlock()
 
 	// Initialize grid plotter if enabled
@@ -673,6 +818,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		// Check if we should start an analysis run (only in analysis mode)
 		ws.pcapMu.Lock()
 		isAnalysisMode := ws.pcapAnalysisMode
+		disableRecording := ws.pcapDisableRecording
 		ws.pcapMu.Unlock()
 
 		var runID string
@@ -688,9 +834,16 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
 			if startErr != nil {
 				log.Printf("Warning: Failed to start analysis run: %v", startErr)
-			} else if runID != "" && ws.onRecordingStart != nil {
-				ws.onRecordingStart(runID)
-				recordingStarted = true
+			} else if runID != "" {
+				// Store the run ID so the sweep runner can retrieve it
+				ws.pcapMu.Lock()
+				ws.pcapLastRunID = runID
+				ws.pcapMu.Unlock()
+
+				if !disableRecording && ws.onRecordingStart != nil {
+					ws.onRecordingStart(runID)
+					recordingStarted = true
+				}
 			}
 		}
 
@@ -703,6 +856,12 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				log.Printf("Restoring parser to TimestampModeSystemTime after PCAP replay")
 				p.SetTimestampMode(parse.TimestampModeSystemTime)
 			}()
+		}
+
+		// Belt-and-braces: ensure replay mode is set before any frames are
+		// produced, even if the handler's onPCAPStarted call raced with us.
+		if ws.onPCAPStarted != nil {
+			ws.onPCAPStarted()
 		}
 
 		// Start the packet forwarder for PCAP replay.
@@ -1048,9 +1207,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
 	mux.HandleFunc("/api/lidar/sweep/auto", ws.handleAutoTune)
 	mux.HandleFunc("/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop)
-	mux.HandleFunc("/api/lidar/sweep/rlhf/continue", ws.handleRLHFContinue) // POST: signal labels done
-	mux.HandleFunc("/api/lidar/sweep/rlhf/stop", ws.handleRLHFStop)         // POST: cancel RLHF run
-	mux.HandleFunc("/api/lidar/sweep/rlhf", ws.handleRLHF)                  // POST: start, GET: status
+	mux.HandleFunc("/api/lidar/sweep/hint/continue", ws.handleHINTContinue) // POST: signal labels done
+	mux.HandleFunc("/api/lidar/sweep/hint/stop", ws.handleHINTStop)         // POST: cancel HINT run
+	mux.HandleFunc("/api/lidar/sweep/hint", ws.handleHINT)                  // POST: start, GET: status
 	mux.HandleFunc("/api/lidar/sweep/explain/", ws.handleSweepExplain)      // GET /api/lidar/sweep/explain/{sweep_id}
 	mux.HandleFunc("/api/lidar/sweeps/charts", ws.handleSweepCharts)        // PUT: save chart config
 	mux.HandleFunc("/api/lidar/sweeps/", ws.handleGetSweep)                 // GET /api/lidar/sweeps/{sweep_id}
@@ -1177,6 +1336,8 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			"post_settle_update_fraction":   params.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
+			"background_update_fraction":    params.BackgroundUpdateFraction,
+			"safety_margin_meters":          params.SafetyMarginMeters,
 		}
 
 		// Include tracker config if tracker is available
@@ -1219,6 +1380,8 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
 			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
 			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
+			BackgroundUpdateFraction   *float64 `json:"background_update_fraction"`
+			SafetyMarginMeters         *float64 `json:"safety_margin_meters"`
 			// Tracker params
 			GatingDistanceSquared *float64 `json:"gating_distance_squared"`
 			ProcessNoisePos       *float64 `json:"process_noise_pos"`
@@ -1311,6 +1474,22 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		}
+		if body.BackgroundUpdateFraction != nil {
+			p := bm.GetParams()
+			p.BackgroundUpdateFraction = float32(*body.BackgroundUpdateFraction)
+			if err := bm.SetParams(p); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.SafetyMarginMeters != nil {
+			p := bm.GetParams()
+			p.SafetyMarginMeters = float32(*body.SafetyMarginMeters)
+			if err := bm.SetParams(p); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
 
 		// Apply tracker config changes if tracker is available
 		if ws.tracker != nil {
@@ -1369,6 +1548,8 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			"post_settle_update_fraction":   cur.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": cur.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         cur.ForegroundDBSCANEps,
+			"background_update_fraction":    cur.BackgroundUpdateFraction,
+			"safety_margin_meters":          cur.SafetyMarginMeters,
 		}
 
 		// Include tracker config in response if tracker is available
@@ -1559,6 +1740,26 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Long-poll support: if wait_for_done=true and PCAP is in progress,
+	// block until PCAP completes or the request context is cancelled.
+	// This replaces the 500ms polling loop in Client.WaitForPCAPComplete.
+	if r.URL.Query().Get("wait_for_done") == "true" {
+		ws.pcapMu.Lock()
+		done := ws.pcapDone
+		inProgress := ws.pcapInProgress
+		ws.pcapMu.Unlock()
+
+		if inProgress && done != nil {
+			select {
+			case <-done:
+				// PCAP finished — fall through to return current state
+			case <-r.Context().Done():
+				// Client disconnected or request timeout
+				return
+			}
+		}
+	}
+
 	ws.dataSourceMu.RLock()
 	currentSource := ws.currentSource
 	currentPCAPFile := ws.currentPCAPFile
@@ -1567,6 +1768,7 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 	ws.pcapMu.Lock()
 	pcapInProgress := ws.pcapInProgress
 	analysisMode := ws.pcapAnalysisMode
+	lastRunID := ws.pcapLastRunID
 	ws.pcapMu.Unlock()
 
 	response := map[string]interface{}{
@@ -1575,6 +1777,7 @@ func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		"pcap_file":        currentPCAPFile,
 		"pcap_in_progress": pcapInProgress,
 		"analysis_mode":    analysisMode,
+		"last_run_id":      lastRunID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -2938,7 +3141,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pcapFile string
-	var analysisMode bool
+	analysisMode := true // Default: always create analysis run + VRLOG
 	var speedMode string
 	var speedRatio float64 = 1.0
 	var startSeconds float64 = 0
@@ -3074,6 +3277,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		mgr.SetSourcePath(pcapFile)
 	}
 
+	// Set analysis mode BEFORE startPCAPLocked so the goroutine inside can
+	// read it immediately without a race.
+	ws.pcapMu.Lock()
+	ws.pcapAnalysisMode = analysisMode
+	ws.pcapMu.Unlock()
+
 	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
@@ -3087,10 +3296,6 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.pcapMu.Lock()
-	ws.pcapAnalysisMode = analysisMode
-	ws.pcapMu.Unlock()
-
 	ws.currentSource = DataSourcePCAP
 	currentFile := ws.currentPCAPFile
 
@@ -3100,7 +3305,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
 
-	// Notify visualiser gRPC server that we are now replaying
+	// Notify visualiser gRPC server that we are now replaying.
+	// NOTE: This must happen before the goroutine produces any frames so that
+	// the gRPC server injects PlaybackInfo into streamed frames. The goroutine
+	// won't emit frames until after pre-counting completes (which takes measurable
+	// time), so this call races are unlikely in practice. However, the goroutine
+	// also calls onPCAPStarted internally as a belt-and-braces guard.
 	if ws.onPCAPStarted != nil {
 		ws.onPCAPStarted()
 	}

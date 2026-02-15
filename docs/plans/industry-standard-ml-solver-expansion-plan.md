@@ -2,7 +2,7 @@
 
 ## Document Intent
 
-This document translates practices from an industry standard ML solver into a concrete expansion path for Velocity Report’s LiDAR tuning and human-feedback stack. It focuses on current-state reality, near-term opportunities around RLHF sweep mode, and a phased implementation sequence that improves experimentation speed, model trust, and operational reproducibility.
+This document translates practices from an industry standard ML solver into a concrete expansion path for Velocity Report’s LiDAR tuning and human-feedback stack. It focuses on current-state reality, near-term opportunities around HINT sweep mode, and a phased implementation sequence that improves experimentation speed, model trust, and operational reproducibility.
 
 ---
 
@@ -23,29 +23,29 @@ Velocity Report already has an unusually strong foundation for parameter optimis
 - **Scene abstraction exists and is strategically important.**
   - Scene-backed evaluation enables deterministic replay and brings repeatability to tuning.
 - **Run/track labelling infrastructure exists on the backend and in the macOS toolchain.**
-  - This is the critical prerequisite for RLHF and closed-loop human-in-the-loop optimisation.
+  - This is the critical prerequisite for HINT and closed-loop human-in-the-loop optimisation.
 
 ### 1.2 Architectural inflection point
 
-Velocity Report is transitioning from **proxy-metric optimisation** (acceptance/alignment/fragmentation heuristics) to **human-validated optimisation** (ground truth and RLHF).
+Velocity Report is transitioning from **proxy-metric optimisation** (acceptance/alignment/fragmentation heuristics) to **human-validated optimisation** (ground truth and HINT).
 
 That transition creates a new requirement:
 
 > The system must support fast iteration and deep interpretability at the same time.
 
-Current architecture supports this partially (results + metrics + dashboard), but the RLHF plan implies a need for richer abstractions:
+Current architecture supports this partially (results + metrics + dashboard), but the HINT plan implies a need for richer abstractions:
 
 - Label provenance and carry-over confidence.
 - Round-to-round explainability (“why this parameter set improved”).
 - Better separation between feature engineering, scoring rules, and optimisation strategy.
 - Stronger experiment reproducibility contracts.
 
-### 1.3 RLHF plan status assessment (`docs/plans/rlhf-sweep-mode.md`)
+### 1.3 HINT plan status assessment (`docs/plans/hint-sweep-mode.md`)
 
-The RLHF plan is comprehensive and implementation-ready at design level. It already specifies:
+The HINT plan is comprehensive and implementation-ready at design level. It already specifies:
 
 - New request/state structures.
-- A round-based RLHF state machine.
+- A round-based HINT state machine.
 - API surface (`start`, `status`, `continue`, `stop`).
 - Dashboard UX contract for round progress, thresholds, and continuation controls.
 - Label carry-over and human gating behaviour.
@@ -53,13 +53,13 @@ The RLHF plan is comprehensive and implementation-ready at design level. It alre
 However, the plan currently behaves mostly as a **feature plan**, not yet a **platform plan**. The gap is not correctness; the gap is **long-term scalability of experimentation**. Specifically:
 
 1. **Scoring logic risks growing monolithic.**
-   As more RLHF-specific scoring and weighting heuristics are added, objective code can become difficult to audit and compare over time.
+   As more HINT-specific scoring and weighting heuristics are added, objective code can become difficult to audit and compare over time.
 2. **Feature transformations are implicit.**
    There is no explicit transform layer for derived signals used by objective/scoring (e.g., round-normalized metrics, class imbalance corrections, uncertainty penalties).
 3. **Explainability is currently output-oriented, not decomposition-oriented.**
    The system can show aggregate scores, but needs score component decomposition and “top contributing factors” to improve operator trust and labelling quality.
 4. **Experiment schema versioning is under-specified.**
-   RLHF creates longitudinal experiments; reproducibility requires explicit versioning of transforms, scoring formulas, weight sets, and eligibility filters.
+   HINT creates longitudinal experiments; reproducibility requires explicit versioning of transforms, scoring formulas, weight sets, and eligibility filters.
 5. **Search strategy is primarily grid narrowing.**
    This is good for deterministic coverage but should be complemented with low-cost stochastic or adaptive search to reduce compute and improve early-round exploration.
 
@@ -74,7 +74,7 @@ A major strength is using typed example/model schema contracts that stay stable 
 **Relevance for Velocity Report:**
 
 - Define explicit schemas for:
-  - RLHF round records.
+  - HINT round records.
   - Label provenance and confidence.
   - Objective component vectors.
   - Recommendation rationale payloads.
@@ -96,7 +96,7 @@ Benefits:
 
 - Faster experimentation.
 - Better testability.
-- Cleaner RLHF heuristics (round-aware behaviour becomes data-driven config, not ad hoc code branches).
+- Cleaner HINT heuristics (round-aware behaviour becomes data-driven config, not ad hoc code branches).
 
 ### 2.3 First-class model/score debugging
 
@@ -118,7 +118,7 @@ Another strong pattern is treating train/eval/calibrate as explicit pipeline sta
 
 **Relevance for Velocity Report:**
 
-Mirror this with RLHF lifecycle stages:
+Mirror this with HINT lifecycle stages:
 
 1. Reference generation.
 2. Human labelling.
@@ -146,7 +146,7 @@ This aligns well with current auto-tune behaviour and suggests extending with:
 
 ### 3.1 Strategic goal
 
-Evolve sweep/auto/RLHF from a feature set into a reusable **Optimisation Platform** with the following properties:
+Evolve sweep/auto/HINT from a feature set into a reusable **Optimisation Platform** with the following properties:
 
 - Deterministic when needed.
 - Exploratory when beneficial.
@@ -164,7 +164,7 @@ Evolve sweep/auto/RLHF from a feature set into a reusable **Optimisation Platfor
    - Round-aware and label-coverage-aware transforms.
 
 3. **Objective Registry**
-   - Pluggable objective definitions (`weighted`, `acceptance`, `ground_truth`, `rlhf_composite_v2`, etc.).
+   - Pluggable objective definitions (`weighted`, `acceptance`, `ground_truth`, `hint_composite_v2`, etc.).
    - Objective metadata includes formula version and expected input features.
 
 4. **Explanation Engine**
@@ -183,7 +183,7 @@ Evolve sweep/auto/RLHF from a feature set into a reusable **Optimisation Platfor
 
 ---
 
-## 4) RLHF-Specific Enhancements to Prioritise
+## 4) HINT-Specific Enhancements to Prioritise
 
 ### 4.1 Label provenance and confidence contract
 
@@ -227,7 +227,7 @@ Persist explicit fields in sweep records:
 
 This makes longitudinal comparisons trustworthy.
 
-### 4.5 Hybrid search mode for RLHF rounds
+### 4.5 Hybrid search mode for HINT rounds
 
 Recommended default pattern:
 
@@ -252,10 +252,10 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 - Refactor objective implementations into registry-driven modules.
 - Add objective/transform version stamps in run artifacts.
 
-### Phase C — RLHF Quality and Explainability
+### Phase C — HINT Quality and Explainability
 
 - Add class/time coverage gates to `continue` validation.
-- Add RLHF explanation card in dashboard and Svelte sweeps UI.
+- Add HINT explanation card in dashboard and Svelte sweeps UI.
 - Expose round-over-round delta explanations.
 
 ### Phase D — Adaptive Search Expansion
@@ -304,7 +304,7 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 3. **Risk: Score drift across versions.**
    - Mitigation: strict version stamping and back-compat replay tooling.
 
-4. **Risk: RLHF throughput bottleneck (human labelling time).**
+4. **Risk: HINT throughput bottleneck (human labelling time).**
    - Mitigation: carry-over confidence + priority labelling queues + label quality gates.
 
 ---
@@ -324,19 +324,19 @@ Define success as measurable deltas:
 
 This section contains a comprehensive checklist for **all** action items identified
 in this document. Items are organised by the phase they belong to (A–E from §5),
-cross-referenced to the transferable learnings (§2), RLHF enhancements (§4), and
+cross-referenced to the transferable learnings (§2), HINT enhancements (§4), and
 data model proposals (§6). Immediate implementation targets (9.1–9.4) are called
 out first, followed by the full backlog.
 
 ### Current state (what already exists)
 
-The RLHF sweep mode is fully implemented (Phase 1–6 of the RLHF plan):
+The HINT sweep mode is fully implemented (Phase 1–6 of the HINT plan):
 
-- [x] `RLHFTuner` engine with round orchestration (`internal/lidar/sweep/rlhf.go`)
-- [x] API endpoints: `POST/GET /api/lidar/sweep/rlhf`, `/rlhf/continue`, `/rlhf/stop` (`sweep_handlers.go`)
-- [x] Dashboard UI: mode toggle, RLHF config card, progress card, round history (`sweep_dashboard.html`, `.js`, `.css`)
-- [x] Svelte sweeps page: RLHF mode badge, round history panel, API functions (`+page.svelte`, `api.ts`)
-- [x] Label carry-over via temporal IoU matching (≥ 0.5 threshold, `labelerID="rlhf-carryover"`, `confidence=1.0`)
+- [x] `HINTTuner` engine with round orchestration (`internal/lidar/sweep/hint.go`)
+- [x] API endpoints: `POST/GET /api/lidar/sweep/hint`, `/hint/continue`, `/hint/stop` (`sweep_handlers.go`)
+- [x] Dashboard UI: mode toggle, HINT config card, progress card, round history (`sweep_dashboard.html`, `.js`, `.css`)
+- [x] Svelte sweeps page: HINT mode badge, round history panel, API functions (`+page.svelte`, `api.ts`)
+- [x] Label carry-over via temporal IoU matching (≥ 0.5 threshold, `labelerID="hint-carryover"`, `confidence=1.0`)
 - [x] Ground truth scoring with `GroundTruthWeights` (8 metrics: detection rate, fragmentation, FP, velocity, quality, truncation, noise, stopped recovery)
 - [x] Early-round weight adjustments (round 1: DetectionRate ×1.5, FalsePositives ×0.5)
 - [x] `lidar_sweeps` persistence: `sweep_id`, `sensor_id`, `mode`, `status`, `request`, `results`, `charts`, `recommendation`, `round_results`, `error`, `started_at`, `completed_at`
@@ -382,13 +382,13 @@ and corresponding changes to the persistence layer and Go structs.
 **Struct population at sweep start**
 
 - [x] `AutoTuner.start()`: stamp `objective_name` (e.g. `"weighted"`, `"acceptance"`, `"ground_truth"`) and `objective_version` (e.g. `"v1"`) into persisted sweep record
-- [x] `RLHFTuner.run()`: stamp `objective_name="ground_truth"`, `objective_version="v1"` into persisted sweep record
+- [x] `HINTTuner.run()`: stamp `objective_name="ground_truth"`, `objective_version="v1"` into persisted sweep record
 - [x] `Runner` (manual sweep): stamp `objective_name` if available (default `"manual"`)
 
 **Struct population at sweep completion**
 
 - [ ] On `SaveSweepComplete`, marshal `score_components_json` from the best result's metric vector _(deferred to Phase B — requires integration with active scorer during live runs)_
-- [ ] On `SaveSweepComplete`, build and persist `label_provenance_summary_json` (counts by source: `human_manual`, `rlhf-carryover`, unlabelled) _(deferred to Phase B)_
+- [ ] On `SaveSweepComplete`, build and persist `label_provenance_summary_json` (counts by source: `human_manual`, `hint-carryover`, unlabelled) _(deferred to Phase B)_
 - [ ] On `SaveSweepComplete`, build and persist `recommendation_explanation_json` (top contributing factors from score decomposition) _(deferred to Phase B)_
 
 ### 9.2 — Score component breakdown in objective code paths
@@ -416,29 +416,29 @@ surfaced in API responses or stored in the database.
 
 - [x] Add a parallel `groundTruthScorerDetailed` callback that returns `(float64, *ScoreComponents, error)` alongside the existing `groundTruthScorer` (keep the original signature for backward compatibility; the detailed variant is called when component storage is needed)
 - [x] Populate component breakdown during scoring in `auto.go` where objective is `"ground_truth"`
-- [ ] Populate component breakdown during RLHF scoring in `rlhf.go` _(deferred — requires live integration testing)_
+- [ ] Populate component breakdown during HINT scoring in `hint.go` _(deferred — requires live integration testing)_
 
 **API response changes**
 
-- [x] Include `score_components` in `GET /api/lidar/sweep/rlhf` state response (within `RLHFRound` history entries via `BestScoreComponents` field)
+- [x] Include `score_components` in `GET /api/lidar/sweep/hint` state response (within `HINTRound` history entries via `BestScoreComponents` field)
 - [x] Include `score_components` in sweep result records returned by `GET /api/lidar/sweeps/{id}` (via `SweepRecord.ScoreComponents` field)
 - [x] Add new endpoint `GET /api/lidar/sweep/explain/{sweep_id}`:
   - Returns score explanation for the sweep
   - Includes component vector, objective name/version, label provenance
 
-### 9.3 — Extend RLHF continue validation with class/time coverage checks
+### 9.3 — Extend HINT continue validation with class/time coverage checks
 
-_Phase C — RLHF Quality and Explainability. Refs: §4.2._
+_Phase C — HINT Quality and Explainability. Refs: §4.2._
 
 Currently `ContinueFromLabels` only enforces a percentage threshold. Add optional
 quality gates that check class diversity and temporal spread.
 
-**Backend (`internal/lidar/sweep/rlhf.go`)**
+**Backend (`internal/lidar/sweep/hint.go`)**
 
-- [x] Add optional fields to `RLHFSweepRequest`:
+- [x] Add optional fields to `HINTSweepRequest`:
   - `MinClassCoverage map[string]int` — minimum labelled count per class (e.g. `{"vehicle": 3, "pedestrian": 1}`)
   - `MinTemporalSpreadSecs float64` — minimum time span covered by labelled tracks
-- [x] Store these in `RLHFState` so they survive across rounds
+- [x] Store these in `HINTState` so they survive across rounds
 - [x] In `ContinueFromLabels`, after the percentage check, add:
   - Class coverage gate: verify `byClass` meets each key in `MinClassCoverage`; return descriptive error if not (e.g. `"class coverage not met: pedestrian has 0, need 1"`)
   - Temporal spread gate: query min/max timestamps of labelled tracks; check `(max - min) >= MinTemporalSpreadSecs`; return descriptive error if not
@@ -446,11 +446,11 @@ quality gates that check class diversity and temporal spread.
 
 **Dashboard UI (`sweep_dashboard.html`, `sweep_dashboard.js`)**
 
-- [x] Add optional fields to RLHF config card:
+- [x] Add optional fields to HINT config card:
   - Class coverage minimums (JSON input or simple key-value pairs)
   - Temporal spread minimum (numeric input, seconds)
-- [x] Include these fields in the `handleStartRLHF()` request payload
-- [x] Show gate status in the RLHF progress card (which gates are met/unmet)
+- [x] Include these fields in the `handleStartHINT()` request payload
+- [x] Show gate status in the HINT progress card (which gates are met/unmet)
 
 _(Dashboard UI for gates deferred — backend validation is complete; dashboard inputs can be added when the gates are tested in production.)_
 
@@ -463,17 +463,17 @@ _(Dashboard UI for gates deferred — backend validation is complete; dashboard 
 
 ### 9.4 — Explanation payload rendering in dashboard and Svelte sweeps page
 
-_Phase C — RLHF Quality and Explainability. Refs: §2.3, §4.3._
+_Phase C — HINT Quality and Explainability. Refs: §2.3, §4.3._
 
 Surface the score decomposition and recommendation explanation in both UIs.
 
 **Sweep dashboard (`internal/lidar/monitor/html/sweep_dashboard.html`, `assets/sweep_dashboard.js`)**
 
-- [x] Add an "Explanation" card (visible in auto-tune and RLHF modes after completion):
+- [x] Add an "Explanation" card (visible in auto-tune and HINT modes after completion):
   - Composite score with component table
   - Top 3 contributing factors highlighted
   - Label coverage confidence indicator
-- [ ] In RLHF progress card, show per-round score decomposition in round history entries _(deferred — requires live data to verify rendering)_
+- [ ] In HINT progress card, show per-round score decomposition in round history entries _(deferred — requires live data to verify rendering)_
 - [x] In recommendation card, add expandable "Why this recommendation?" section showing:
   - Component breakdown table
   - Delta vs previous round best (if available)
@@ -485,7 +485,7 @@ Surface the score decomposition and recommendation explanation in both UIs.
   - Table of component names + values + weights
   - Visual indicator for top contributors
   - Label coverage confidence badge
-- [ ] In RLHF round history, show per-round `best_score` with expandable component detail _(deferred — requires live data)_
+- [ ] In HINT round history, show per-round `best_score` with expandable component detail _(deferred — requires live data)_
 - [ ] Add `recommendation_explanation` display in the recommendation section (if present) _(deferred — requires live data)_
 
 **Types (`web/src/lib/types/lidar.ts`)**
@@ -502,7 +502,7 @@ _Beyond 9.1–9.4, the following Phase A items remain:_
 
 - [x] Add provenance markers for carried-over labels (§4.1 — augment `label_confidence` with explicit `source` enum: `human_manual`, `carried_over`, `auto_suggested`)
 - [x] Persist confidence scores for carry-over matches (previously hardcoded `1.0`; now uses actual IoU)
-- [x] Define explicit schema contract for RLHF round records (§2.1 — typed, versioned JSON) — `schema_contracts.go`
+- [x] Define explicit schema contract for HINT round records (§2.1 — typed, versioned JSON) — `schema_contracts.go`
 - [x] Define explicit schema contract for objective component vectors (§2.1) — `schema_contracts.go`
 - [x] Define explicit schema contract for recommendation rationale payloads (§2.1) — `schema_contracts.go`
 - [ ] Persist schema version with every sweep (§2.1 — `schema_version` field on sweep record)
@@ -512,8 +512,8 @@ _Beyond 9.1–9.4, the following Phase A items remain:_
 - [ ] Implement Sweep Transform Pipeline engine (§2.2 — config-driven sequence of metric transforms before scoring)
   - [ ] Define `Transform` interface with `Apply(metrics) → metrics`
   - [ ] Implement standard transforms: normalisation, clipping, log scaling, class weighting
-  - [ ] Add round-dependent modifier transforms for RLHF
-  - [ ] Wire pipeline into `auto.go` and `rlhf.go` scoring paths
+  - [ ] Add round-dependent modifier transforms for HINT
+  - [ ] Wire pipeline into `auto.go` and `hint.go` scoring paths
 - [ ] Refactor objective implementations into registry-driven modules (§3.2 item 3)
   - [ ] Define `ObjectiveDefinition` struct with name, version, formula, expected input features
   - [ ] Register built-in objectives: `weighted`, `acceptance`, `ground_truth`
@@ -521,7 +521,7 @@ _Beyond 9.1–9.4, the following Phase A items remain:_
 - [ ] Add `GET /api/lidar/sweep/transforms` endpoint listing pipeline presets + versions (§6.2)
 - [ ] Add objective/transform version stamps in run artefacts
 
-### Phase C backlog — RLHF Quality and Explainability (§5 Phase C)
+### Phase C backlog — HINT Quality and Explainability (§5 Phase C)
 
 _Beyond 9.3–9.4:_
 
@@ -557,12 +557,12 @@ _Beyond 9.3–9.4:_
 - [ ] Enforce module boundaries between transform/objective/search to contain complexity (§7.1)
 - [ ] Implement progressive disclosure in UI — summary first, detail on demand (§7.2)
 - [ ] Add strict version stamping and back-compat replay tooling for score drift (§7.3)
-- [ ] Add priority labelling queues and label quality gates for RLHF throughput (§7.4)
+- [ ] Add priority labelling queues and label quality gates for HINT throughput (§7.4)
 
 ### Success criteria to measure (§8)
 
 - [ ] Instrument optimisation efficiency: track number of combos evaluated to reach target quality
-- [ ] Instrument human efficiency: track labelling time per useful RLHF round
+- [ ] Instrument human efficiency: track labelling time per useful HINT round
 - [ ] Instrument trust: track operator acceptance rate of recommendations
 - [ ] Add replay tooling: ability to re-score historical sweeps with a different objective version
 
@@ -572,9 +572,9 @@ _Beyond 9.3–9.4:_
 
 | Item                              | Scope                                              | Key files                                                                                                 |
 | --------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **9.1** Schema/version stamps     | DB migration + persistence + struct population     | `migrations/000024_*.sql`, `sweep_store.go`, `auto.go`, `rlhf.go`, `runner.go`                            |
-| **9.2** Score component breakdown | New structs + scorer refactor + API                | `score_explain.go` (new), `objective.go`, `auto.go`, `rlhf.go`, `sweep_handlers.go`                       |
-| **9.3** Class/time coverage gates | RLHF request/state extension + continue validation | `rlhf.go`, `rlhf_test.go`, `sweep_dashboard.js`, `sweep_dashboard.html`                                   |
+| **9.1** Schema/version stamps     | DB migration + persistence + struct population     | `migrations/000024_*.sql`, `sweep_store.go`, `auto.go`, `hint.go`, `runner.go`                            |
+| **9.2** Score component breakdown | New structs + scorer refactor + API                | `score_explain.go` (new), `objective.go`, `auto.go`, `hint.go`, `sweep_handlers.go`                       |
+| **9.3** Class/time coverage gates | HINT request/state extension + continue validation | `hint.go`, `hint_test.go`, `sweep_dashboard.js`, `sweep_dashboard.html`                                   |
 | **9.4** Explanation rendering     | Dashboard + Svelte UI                              | `sweep_dashboard.html`, `sweep_dashboard.js`, `sweep_dashboard.css`, `+page.svelte`, `api.ts`, `lidar.ts` |
 
 These actions preserve existing behaviour while laying platform foundations for

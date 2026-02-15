@@ -5,6 +5,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 // TrackState represents the lifecycle state of a track.
@@ -52,18 +54,28 @@ type TrackerConfig struct {
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
 }
 
-// DefaultTrackerConfig returns default tracker configuration.
+// DefaultTrackerConfig returns tracker configuration loaded from the
+// canonical tuning defaults file (config/tuning.defaults.json).
+// Panics if the file cannot be found — intended for tests and binaries
+// that have already validated config availability.
 func DefaultTrackerConfig() TrackerConfig {
+	cfg := config.MustLoadDefaultConfig()
+	return TrackerConfigFromTuning(cfg)
+}
+
+// TrackerConfigFromTuning builds a TrackerConfig from a loaded TuningConfig.
+// Use this in production code where the TuningConfig is already loaded.
+func TrackerConfigFromTuning(cfg *config.TuningConfig) TrackerConfig {
 	return TrackerConfig{
-		MaxTracks:               100,
-		MaxMisses:               3,
-		MaxMissesConfirmed:      15,   // Confirmed tracks coast through occlusion (~1.5s at 10Hz)
-		HitsToConfirm:           3,    // Require 3 consecutive hits for confirmation
-		GatingDistanceSquared:   36.0, // 6.0 metres squared — wider gate for re-association
-		ProcessNoisePos:         0.1,
-		ProcessNoiseVel:         0.5,
-		MeasurementNoise:        0.2,
-		OcclusionCovInflation:   0.5, // Widen gating gate during occlusion
+		MaxTracks:               cfg.GetMaxTracks(),
+		MaxMisses:               cfg.GetMaxMisses(),
+		MaxMissesConfirmed:      cfg.GetMaxMissesConfirmed(),
+		HitsToConfirm:           cfg.GetHitsToConfirm(),
+		GatingDistanceSquared:   float32(cfg.GetGatingDistanceSquared()),
+		ProcessNoisePos:         float32(cfg.GetProcessNoisePos()),
+		ProcessNoiseVel:         float32(cfg.GetProcessNoiseVel()),
+		MeasurementNoise:        float32(cfg.GetMeasurementNoise()),
+		OcclusionCovInflation:   float32(cfg.GetOcclusionCovInflation()),
 		DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
 	}
 }
@@ -447,12 +459,12 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 		track.P[i*4+3] = FP[i*4+3]
 	}
 
-	// Add process noise Q
-	// Q = diag([σ_pos², σ_pos², σ_vel², σ_vel²])
-	track.P[0*4+0] += t.Config.ProcessNoisePos
-	track.P[1*4+1] += t.Config.ProcessNoisePos
-	track.P[2*4+2] += t.Config.ProcessNoiseVel
-	track.P[3*4+3] += t.Config.ProcessNoiseVel
+	// Add process noise Q, scaled by dt for correct uncertainty growth
+	// regardless of frame rate. Values in Config are dt-normalised.
+	track.P[0*4+0] += t.Config.ProcessNoisePos * dt
+	track.P[1*4+1] += t.Config.ProcessNoisePos * dt
+	track.P[2*4+2] += t.Config.ProcessNoiseVel * dt
+	track.P[3*4+3] += t.Config.ProcessNoiseVel * dt
 }
 
 // associate performs cluster-to-track association using the Hungarian
@@ -499,7 +511,7 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 		for tj, trackID := range activeTrackIDs {
 			track := t.Tracks[trackID]
 			dist2 := t.mahalanobisDistanceSquared(track, clusters[ci], dt)
-			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) {
+			if dist2 >= SingularDistanceRejection || dist2 >= float32(hungarianlnf) || dist2 > t.Config.GatingDistanceSquared {
 				costMatrix[ci][tj] = float32(hungarianlnf)
 			} else {
 				costMatrix[ci][tj] = dist2

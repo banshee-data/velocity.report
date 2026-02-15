@@ -594,9 +594,9 @@ func TestSweepHandlers_SweepCharts(t *testing.T) {
 	})
 }
 
-// --- RLHF Handler Tests ---
+// --- HINT Handler Tests ---
 
-type mockRLHFRunner struct {
+type mockHINTRunner struct {
 	startErr      error
 	startCalls    int
 	stopCalls     int
@@ -608,44 +608,50 @@ type mockRLHFRunner struct {
 	lastAddRound  bool
 }
 
-func (m *mockRLHFRunner) Start(_ context.Context, req interface{}) error {
+func (m *mockHINTRunner) Start(_ context.Context, req interface{}) error {
 	m.startCalls++
 	m.lastReq = req
 	return m.startErr
 }
 
-func (m *mockRLHFRunner) GetState() interface{} {
+func (m *mockHINTRunner) GetState() interface{} {
 	return m.state
 }
 
-func (m *mockRLHFRunner) Stop() {
+func (m *mockHINTRunner) WaitForChange(_ context.Context, _ string) interface{} {
+	return m.state
+}
+
+func (m *mockHINTRunner) Stop() {
 	m.stopCalls++
 }
 
-func (m *mockRLHFRunner) ContinueFromLabels(nextDurationMins int, addRound bool) error {
+func (m *mockHINTRunner) ContinueFromLabels(nextDurationMins int, addRound bool) error {
 	m.continueCalls++
 	m.lastDuration = nextDurationMins
 	m.lastAddRound = addRound
 	return m.continueErr
 }
 
-func TestWebServer_SetRLHFRunner(t *testing.T) {
+func (m *mockHINTRunner) NotifyLabelUpdate() {}
+
+func TestWebServer_SetHINTRunner(t *testing.T) {
 	ws := &WebServer{}
-	runner := &mockRLHFRunner{}
-	ws.SetRLHFRunner(runner)
-	if ws.rlhfRunner != runner {
-		t.Fatal("SetRLHFRunner did not assign runner")
+	runner := &mockHINTRunner{}
+	ws.SetHINTRunner(runner)
+	if ws.hintRunner != runner {
+		t.Fatal("SetHINTRunner did not assign runner")
 	}
 }
 
-func TestRLHFHandlers_Start(t *testing.T) {
+func TestHINTHandlers_Start(t *testing.T) {
 	t.Run("method not allowed on DELETE", func(t *testing.T) {
-		runner := &mockRLHFRunner{}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodDelete, "/api/lidar/sweep/rlhf", nil)
+		runner := &mockHINTRunner{}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodDelete, "/api/lidar/sweep/hint", nil)
 		w := httptest.NewRecorder()
 
-		ws.handleRLHF(w, req)
+		ws.handleHINT(w, req)
 		if w.Code != http.StatusMethodNotAllowed {
 			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
 		}
@@ -653,50 +659,50 @@ func TestRLHFHandlers_Start(t *testing.T) {
 
 	t.Run("not configured returns 503", func(t *testing.T) {
 		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf",
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
 			strings.NewReader(`{"scene_id":"s1"}`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHF(w, req)
+		ws.handleHINT(w, req)
 		if w.Code != http.StatusServiceUnavailable {
 			t.Fatalf("expected %d got %d", http.StatusServiceUnavailable, w.Code)
 		}
 	})
 
 	t.Run("invalid JSON returns 400", func(t *testing.T) {
-		runner := &mockRLHFRunner{}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf",
+		runner := &mockHINTRunner{}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
 			strings.NewReader(`not json`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHF(w, req)
+		ws.handleHINT(w, req)
 		if w.Code != http.StatusBadRequest {
 			t.Fatalf("expected %d got %d body=%s", http.StatusBadRequest, w.Code, w.Body.String())
 		}
 	})
 
 	t.Run("already running returns 409", func(t *testing.T) {
-		runner := &mockRLHFRunner{startErr: errors.New("sweep already in progress")}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf",
+		runner := &mockHINTRunner{startErr: errors.New("sweep already in progress")}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
 			strings.NewReader(`{"scene_id":"s1"}`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHF(w, req)
+		ws.handleHINT(w, req)
 		if w.Code != http.StatusConflict {
 			t.Fatalf("expected %d got %d body=%s", http.StatusConflict, w.Code, w.Body.String())
 		}
 	})
 
 	t.Run("success returns started", func(t *testing.T) {
-		runner := &mockRLHFRunner{}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf",
+		runner := &mockHINTRunner{}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
 			strings.NewReader(`{"scene_id":"s1","num_rounds":2}`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHF(w, req)
+		ws.handleHINT(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
 		}
@@ -711,16 +717,16 @@ func TestRLHFHandlers_Start(t *testing.T) {
 	})
 }
 
-func TestRLHFHandlers_Status(t *testing.T) {
+func TestHINTHandlers_Status(t *testing.T) {
 	t.Run("returns current state", func(t *testing.T) {
-		runner := &mockRLHFRunner{
-			state: map[string]interface{}{"status": "awaiting_labels", "mode": "rlhf"},
+		runner := &mockHINTRunner{
+			state: map[string]interface{}{"status": "awaiting_labels", "mode": "hint"},
 		}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/rlhf", nil)
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/hint", nil)
 		w := httptest.NewRecorder()
 
-		ws.handleRLHF(w, req)
+		ws.handleHINT(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected %d got %d", http.StatusOK, w.Code)
 		}
@@ -733,13 +739,13 @@ func TestRLHFHandlers_Status(t *testing.T) {
 	})
 }
 
-func TestRLHFHandlers_Continue(t *testing.T) {
+func TestHINTHandlers_Continue(t *testing.T) {
 	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{rlhfRunner: &mockRLHFRunner{}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/rlhf/continue", nil)
+		ws := &WebServer{hintRunner: &mockHINTRunner{}}
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/hint/continue", nil)
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFContinue(w, req)
+		ws.handleHINTContinue(w, req)
 		if w.Code != http.StatusMethodNotAllowed {
 			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
 		}
@@ -747,50 +753,50 @@ func TestRLHFHandlers_Continue(t *testing.T) {
 
 	t.Run("not configured returns 503", func(t *testing.T) {
 		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf/continue",
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(`{}`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFContinue(w, req)
+		ws.handleHINTContinue(w, req)
 		if w.Code != http.StatusServiceUnavailable {
 			t.Fatalf("expected %d got %d", http.StatusServiceUnavailable, w.Code)
 		}
 	})
 
 	t.Run("threshold not met returns 400", func(t *testing.T) {
-		runner := &mockRLHFRunner{continueErr: errors.New("label threshold not met: 30.0% < 90.0%")}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf/continue",
+		runner := &mockHINTRunner{continueErr: errors.New("label threshold not met: 30.0% < 90.0%")}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(`{}`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFContinue(w, req)
+		ws.handleHINTContinue(w, req)
 		if w.Code != http.StatusBadRequest {
 			t.Fatalf("expected %d got %d body=%s", http.StatusBadRequest, w.Code, w.Body.String())
 		}
 	})
 
 	t.Run("not awaiting labels returns 409", func(t *testing.T) {
-		runner := &mockRLHFRunner{continueErr: errors.New("not in awaiting_labels state")}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf/continue",
+		runner := &mockHINTRunner{continueErr: errors.New("not in awaiting_labels state")}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(`{}`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFContinue(w, req)
+		ws.handleHINTContinue(w, req)
 		if w.Code != http.StatusConflict {
 			t.Fatalf("expected %d got %d body=%s", http.StatusConflict, w.Code, w.Body.String())
 		}
 	})
 
 	t.Run("success with duration and add_round", func(t *testing.T) {
-		runner := &mockRLHFRunner{}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf/continue",
+		runner := &mockHINTRunner{}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(`{"next_sweep_duration_mins":120,"add_round":true}`))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFContinue(w, req)
+		ws.handleHINTContinue(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
 		}
@@ -806,13 +812,13 @@ func TestRLHFHandlers_Continue(t *testing.T) {
 	})
 
 	t.Run("empty body uses defaults", func(t *testing.T) {
-		runner := &mockRLHFRunner{}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf/continue",
+		runner := &mockHINTRunner{}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
 			strings.NewReader(``))
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFContinue(w, req)
+		ws.handleHINTContinue(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected %d got %d body=%s", http.StatusOK, w.Code, w.Body.String())
 		}
@@ -825,25 +831,25 @@ func TestRLHFHandlers_Continue(t *testing.T) {
 	})
 }
 
-func TestRLHFHandlers_Stop(t *testing.T) {
+func TestHINTHandlers_Stop(t *testing.T) {
 	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{rlhfRunner: &mockRLHFRunner{}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/rlhf/stop", nil)
+		ws := &WebServer{hintRunner: &mockHINTRunner{}}
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/hint/stop", nil)
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFStop(w, req)
+		ws.handleHINTStop(w, req)
 		if w.Code != http.StatusMethodNotAllowed {
 			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
 		}
 	})
 
 	t.Run("success", func(t *testing.T) {
-		runner := &mockRLHFRunner{}
-		ws := &WebServer{rlhfRunner: runner}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/rlhf/stop", nil)
+		runner := &mockHINTRunner{}
+		ws := &WebServer{hintRunner: runner}
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/stop", nil)
 		w := httptest.NewRecorder()
 
-		ws.handleRLHFStop(w, req)
+		ws.handleHINTStop(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected %d got %d", http.StatusOK, w.Code)
 		}

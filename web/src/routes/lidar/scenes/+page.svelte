@@ -176,7 +176,7 @@
 		selectedFiles = new SvelteSet();
 		try {
 			const result = await scanPcapFiles();
-			pcapFiles = result.files;
+			pcapFiles = Array.isArray(result.files) ? result.files : [];
 			pcapDir = result.pcap_dir;
 			showScanPanel = true;
 		} catch (e) {

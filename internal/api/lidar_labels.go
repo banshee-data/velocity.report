@@ -16,25 +16,24 @@ import (
 // Clients can use time-based filtering for pagination.
 const maxLabelsPerQuery = 1000
 
-// Valid user labels for track-level ground truth (detection correctness)
+// Valid user labels for track classification (what is the object?)
 var validUserLabels = map[string]bool{
-	"good_vehicle":    true,
-	"good_pedestrian": true,
-	"good_other":      true,
-	"noise":           true,
-	"noise_flora":     true,
-	"split":           true,
-	"merge":           true,
-	"missed":          true,
+	"car":        true,
+	"ped":        true,
+	"noise":      true,
+	"impossible": true,
 }
 
-// Valid quality labels for track measurement quality
+// Valid quality flags for track quality attributes (multi-select, comma-separated).
+// These describe properties of the track rather than what the object is.
 var validQualityLabels = map[string]bool{
-	"perfect":           true,
-	"good":              true,
-	"truncated":         true,
-	"noisy_velocity":    true,
-	"stopped_recovered": true,
+	"good":            true,
+	"noisy":           true,
+	"jitter_velocity": true,
+	"merge":           true,
+	"split":           true,
+	"truncated":       true,
+	"disconnected":    true,
 }
 
 // ValidateUserLabel checks if a user label is valid according to the enum.
@@ -45,12 +44,22 @@ func ValidateUserLabel(label string) bool {
 	return validUserLabels[label]
 }
 
-// ValidateQualityLabel checks if a quality label is valid according to the enum.
-// Returns false for empty strings (not in the valid map).
-// Note: Empty strings may still be acceptable as optional values in the database,
-// but they are not considered valid enum values.
+// ValidateQualityLabel checks if a quality label string is valid.
+// Supports both single labels and comma-separated multi-select flags.
+// Returns false for empty strings.
 func ValidateQualityLabel(label string) bool {
-	return validQualityLabels[label]
+	if label == "" {
+		return false
+	}
+	// Support comma-separated flags for multi-select
+	parts := strings.Split(label, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" || !validQualityLabels[part] {
+			return false
+		}
+	}
+	return true
 }
 
 // LidarLabel represents a manual label applied to a track for training/validation.
@@ -107,9 +116,9 @@ func (api *LidarLabelAPI) handleListLabels(w http.ResponseWriter, r *http.Reques
 	endNs := query.Get("end_ns")
 
 	// Build query with filters
-	sqlQuery := `SELECT label_id, track_id, class_label, start_timestamp_ns, 
-	               end_timestamp_ns, confidence, created_by, created_at_ns, 
-	               updated_at_ns, notes, scene_id, source_file 
+	sqlQuery := `SELECT label_id, track_id, class_label, start_timestamp_ns,
+	               end_timestamp_ns, confidence, created_by, created_at_ns,
+	               updated_at_ns, notes, scene_id, source_file
 	        FROM lidar_labels WHERE 1=1`
 	args := []interface{}{}
 
@@ -259,9 +268,9 @@ func (api *LidarLabelAPI) handleLabelByID(w http.ResponseWriter, r *http.Request
 
 // handleGetLabel retrieves a specific label by ID.
 func (api *LidarLabelAPI) handleGetLabel(w http.ResponseWriter, r *http.Request, labelID string) {
-	query := `SELECT label_id, track_id, class_label, start_timestamp_ns, 
-	                 end_timestamp_ns, confidence, created_by, created_at_ns, 
-	                 updated_at_ns, notes, scene_id, source_file 
+	query := `SELECT label_id, track_id, class_label, start_timestamp_ns,
+	                 end_timestamp_ns, confidence, created_by, created_at_ns,
+	                 updated_at_ns, notes, scene_id, source_file
 	          FROM lidar_labels WHERE label_id = ?`
 
 	var label LidarLabel
@@ -387,10 +396,10 @@ func (api *LidarLabelAPI) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT label_id, track_id, class_label, start_timestamp_ns, 
-	                 end_timestamp_ns, confidence, created_by, created_at_ns, 
-	                 updated_at_ns, notes, scene_id, source_file 
-	          FROM lidar_labels 
+	query := `SELECT label_id, track_id, class_label, start_timestamp_ns,
+	                 end_timestamp_ns, confidence, created_by, created_at_ns,
+	                 updated_at_ns, notes, scene_id, source_file
+	          FROM lidar_labels
 	          ORDER BY start_timestamp_ns ASC`
 
 	rows, err := api.db.Query(query)

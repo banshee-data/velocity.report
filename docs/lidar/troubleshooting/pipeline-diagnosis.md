@@ -475,7 +475,13 @@ If further refinement needed, run auto-tuning sweep:
 ```json
 {
   "params": [
-    { "name": "foreground_dbscan_eps", "type": "float64", "start": 0.5, "end": 0.9, "step": 0.1 },
+    {
+      "name": "foreground_dbscan_eps",
+      "type": "float64",
+      "start": 0.5,
+      "end": 0.9,
+      "step": 0.1
+    },
     {
       "name": "gating_distance_squared",
       "type": "float64",
@@ -483,8 +489,20 @@ If further refinement needed, run auto-tuning sweep:
       "end": 36.0,
       "step": 4.0
     },
-    { "name": "measurement_noise", "type": "float64", "start": 0.1, "end": 0.25, "step": 0.05 },
-    { "name": "process_noise_vel", "type": "float64", "start": 0.2, "end": 0.5, "step": 0.1 }
+    {
+      "name": "measurement_noise",
+      "type": "float64",
+      "start": 0.1,
+      "end": 0.25,
+      "step": 0.05
+    },
+    {
+      "name": "process_noise_vel",
+      "type": "float64",
+      "start": 0.2,
+      "end": 0.5,
+      "step": 0.1
+    }
   ],
   "objective": "weighted",
   "weights": {

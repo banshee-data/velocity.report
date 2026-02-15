@@ -96,6 +96,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // MARK: - Settings
 
     var showPoints: Bool = true
+    var showBackground: Bool = true  // Background grid points toggle
     var showBoxes: Bool = true
     var showClusters: Bool = true  // M4: Toggle for cluster rendering
     var showTrails: Bool = true
@@ -103,8 +104,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var showGating: Bool = false  // M6: Gating ellipses
     var showAssociation: Bool = false  // M6: Association lines
     var showResiduals: Bool = false  // M6: Residual vectors
+    var showGrid: Bool = true  // Ground reference grid
     var pointSize: Float = 5.0
     var backgroundColor: MTLClearColor = MTLClearColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 1.0)
+
+    // Ground grid buffer (generated once)
+    var gridVertices: MTLBuffer?
+    var gridVertexCount: Int = 0
 
     // M7: Track selection
     var selectedTrackID: String?
@@ -140,6 +146,59 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // M3.5: Initialise composite renderer
         compositeRenderer = CompositePointCloudRenderer(device: device)
+
+        // Generate ground reference grid
+        buildGridGeometry()
+    }
+
+    // MARK: - Ground Grid
+
+    /// Generates a ground-plane reference grid on z=0 spanning ±gridExtent metres
+    /// with lines every gridStep metres.  Uses the debugLineVertex format (7 floats
+    /// per vertex: x, y, z, r, g, b, a).
+    private func buildGridGeometry() {
+        let gridExtent: Float = 50  // ±50 m
+        let gridStep: Float = 5  // line every 5 m
+        let majorStep: Float = 10  // every 10 m slightly brighter
+
+        var verts: [Float] = []
+
+        // Grid lines parallel to X axis (varying Y)
+        var y: Float = -gridExtent
+        while y <= gridExtent {
+            let isMajor = abs(y.remainder(dividingBy: majorStep)) < 0.01
+            let alpha: Float = isMajor ? 0.25 : 0.12
+            let grey: Float = isMajor ? 0.5 : 0.35
+            // Start vertex
+            verts.append(contentsOf: [-gridExtent, y, 0, grey, grey, grey, alpha])
+            // End vertex
+            verts.append(contentsOf: [gridExtent, y, 0, grey, grey, grey, alpha])
+            y += gridStep
+        }
+
+        // Grid lines parallel to Y axis (varying X)
+        var x: Float = -gridExtent
+        while x <= gridExtent {
+            let isMajor = abs(x.remainder(dividingBy: majorStep)) < 0.01
+            let alpha: Float = isMajor ? 0.25 : 0.12
+            let grey: Float = isMajor ? 0.5 : 0.35
+            verts.append(contentsOf: [x, -gridExtent, 0, grey, grey, grey, alpha])
+            verts.append(contentsOf: [x, gridExtent, 0, grey, grey, grey, alpha])
+            x += gridStep
+        }
+
+        // Origin axes (slightly coloured)
+        // X axis (red)
+        verts.append(contentsOf: [-gridExtent, 0, 0, 0.6, 0.2, 0.2, 0.4])
+        verts.append(contentsOf: [gridExtent, 0, 0, 0.6, 0.2, 0.2, 0.4])
+        // Y axis (green)
+        verts.append(contentsOf: [0, -gridExtent, 0, 0.2, 0.6, 0.2, 0.4])
+        verts.append(contentsOf: [0, gridExtent, 0, 0.2, 0.6, 0.2, 0.4])
+
+        gridVertexCount = verts.count / 7
+        let bufferSize = verts.count * MemoryLayout<Float>.stride
+        gridVertices = device.makeBuffer(
+            bytes: verts, length: bufferSize, options: .storageModeShared)
     }
 
     // MARK: - Pipeline Setup
@@ -734,12 +793,22 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         encoder.setDepthStencilState(depthStencilState)
 
+        // Draw ground grid first (behind everything)
+        if showGrid, let pipeline = linePipeline, let gridBuf = gridVertices, gridVertexCount > 0 {
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(gridBuf, offset: 0, index: 0)
+            encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: gridVertexCount)
+        }
+
         // Draw point cloud
-        if showPoints, let pipeline = pointCloudPipeline {
+        if showPoints || showBackground, let pipeline = pointCloudPipeline {
             // M3.5: Use composite renderer if available
             if let composite = compositeRenderer {
-                composite.render(encoder: encoder, pipeline: pipeline, uniforms: &uniforms)
-            } else if let buffer = pointBuffer, pointCount > 0 {
+                composite.render(
+                    encoder: encoder, pipeline: pipeline, uniforms: &uniforms,
+                    drawBackground: showBackground, drawForeground: showPoints)
+            } else if showPoints, let buffer = pointBuffer, pointCount > 0 {
                 // Legacy path: single buffer
                 encoder.setRenderPipelineState(pipeline)
                 encoder.setVertexBuffer(buffer, offset: 0, index: 0)
@@ -834,12 +903,16 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// Handle mouse/trackpad drag for camera orbit or pan.
     func handleMouseDrag(deltaX: CGFloat, deltaY: CGFloat, isRightButton: Bool, shiftHeld: Bool) {
         if isRightButton || shiftHeld {
-            // Pan: move camera and target together
+            // Pan: move camera and target together in screen space
             let sensitivity: Float = 0.05
-            let right = normalize(cross(camera.up, camera.position - camera.target))
-            let up = camera.up
+            let viewDir = normalize(camera.position - camera.target)
+            let right = normalize(cross(camera.up, viewDir))
+            // Compute screen-space up (perpendicular to both view direction and right)
+            // rather than using world up, so vertical drag pans vertically on screen
+            let screenUp = normalize(cross(viewDir, right))
 
-            let offset = right * Float(-deltaX) * sensitivity + up * Float(deltaY) * sensitivity
+            let offset =
+                right * Float(-deltaX) * sensitivity + screenUp * Float(deltaY) * sensitivity
             camera.position += offset
             camera.target += offset
         } else {

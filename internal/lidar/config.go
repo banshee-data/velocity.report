@@ -4,6 +4,8 @@ package lidar
 import (
 	"fmt"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 // BackgroundConfig provides a configuration builder for BackgroundParams.
@@ -40,26 +42,40 @@ type BackgroundConfig struct {
 	ForegroundDBSCANEps        float32 // DBSCAN epsilon (default: 0)
 }
 
-// DefaultBackgroundConfig returns a BackgroundConfig with sensible defaults.
-// These defaults are tuned for typical traffic monitoring scenarios.
+// DefaultBackgroundConfig returns a BackgroundConfig loaded from the
+// canonical tuning defaults file (config/tuning.defaults.json).
+// Panics if the file cannot be found — intended for tests and binaries
+// that have already validated config availability.
 func DefaultBackgroundConfig() *BackgroundConfig {
+	cfg := config.MustLoadDefaultConfig()
+	return BackgroundConfigFromTuning(cfg)
+}
+
+// BackgroundConfigFromTuning builds a BackgroundConfig from a loaded TuningConfig.
+// Use this in production code where the TuningConfig is already loaded.
+// Fields not present in TuningConfig (FreezeDuration, SettlingPeriod, etc.)
+// use fixed operational defaults that are not user-tunable.
+func BackgroundConfigFromTuning(cfg *config.TuningConfig) *BackgroundConfig {
 	return &BackgroundConfig{
-		UpdateFraction:               0.02,
-		ClosenessSensitivity:         8.0,
-		SafetyMargin:                 0.4,
+		UpdateFraction:               float32(cfg.GetBackgroundUpdateFraction()),
+		ClosenessSensitivity:         float32(cfg.GetClosenessMultiplier()),
+		SafetyMargin:                 float32(cfg.GetSafetyMarginMeters()),
 		FreezeDuration:               5 * time.Second,
-		NeighborConfirmation:         7,
-		NoiseRelativeFraction:        0.04,
+		NeighborConfirmation:         cfg.GetNeighborConfirmationCount(),
+		NoiseRelativeFraction:        float32(cfg.GetNoiseRelative()),
 		MinConfidenceFloor:           DefaultMinConfidenceFloor,
-		SeedFromFirstObservation:     true,
+		SeedFromFirstObservation:     cfg.GetSeedFromFirst(),
 		SettlingPeriod:               5 * time.Minute,
-		WarmupDuration:               30 * time.Second,
-		WarmupMinFrames:              100,
+		WarmupDuration:               time.Duration(cfg.GetWarmupDurationNanos()),
+		WarmupMinFrames:              cfg.GetWarmupMinFrames(),
 		SnapshotInterval:             2 * time.Hour,
 		ChangeThresholdSnapshot:      100,
 		ReacquisitionBoostMultiplier: 5.0,
 		LockedBaselineThreshold:      50,
 		LockedBaselineMultiplier:     4.0,
+
+		ForegroundMinClusterPoints: cfg.GetForegroundMinClusterPoints(),
+		ForegroundDBSCANEps:        float32(cfg.GetForegroundDBSCANEps()),
 	}
 }
 
@@ -196,5 +212,17 @@ func (c *BackgroundConfig) WithSnapshotInterval(d time.Duration) *BackgroundConf
 // WithChangeThresholdSnapshot sets the minimum changed cells for snapshot.
 func (c *BackgroundConfig) WithChangeThresholdSnapshot(n int) *BackgroundConfig {
 	c.ChangeThresholdSnapshot = n
+	return c
+}
+
+// WithForegroundMinClusterPoints sets the minimum points for a foreground cluster.
+func (c *BackgroundConfig) WithForegroundMinClusterPoints(n int) *BackgroundConfig {
+	c.ForegroundMinClusterPoints = n
+	return c
+}
+
+// WithForegroundDBSCANEps sets the DBSCAN epsilon for foreground clustering.
+func (c *BackgroundConfig) WithForegroundDBSCANEps(eps float32) *BackgroundConfig {
+	c.ForegroundDBSCANEps = eps
 	return c
 }

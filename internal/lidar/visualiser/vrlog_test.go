@@ -317,6 +317,74 @@ func TestPublisher_VRLogReplay_SeekErrors(t *testing.T) {
 	}
 }
 
+// TestPublisher_VRLogReplay_SeekWhilePaused verifies that seeking while paused
+// delivers exactly one frame to connected subscribers (sendOneFrame semantics).
+func TestPublisher_VRLogReplay_SeekWhilePaused(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	baseTime := time.Now().UnixNano()
+	frames := make([]*FrameBundle, 10)
+	for i := range frames {
+		frames[i] = &FrameBundle{
+			FrameID:        uint64(i + 1),
+			TimestampNanos: baseTime + int64(i)*int64(time.Second),
+			SensorID:       "test-sensor",
+		}
+	}
+	reader := newMockFrameReader(frames)
+
+	if err := pub.StartVRLogReplay(reader); err != nil {
+		t.Fatalf("StartVRLogReplay failed: %v", err)
+	}
+	defer pub.StopVRLogReplay()
+
+	// Wait for the replay loop to consume at least one frame before pausing.
+	deadline := time.Now().Add(2 * time.Second)
+	for reader.CurrentFrame() < 1 {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for replay loop to start consuming frames")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Pause playback and wait for the loop to observe the pause by confirming
+	// the frame pointer stops advancing.
+	pub.SetVRLogPaused(true)
+	time.Sleep(50 * time.Millisecond)
+	snapshot := reader.CurrentFrame()
+	time.Sleep(100 * time.Millisecond)
+	if reader.CurrentFrame() != snapshot {
+		// Loop hasn't settled into paused state yet; give it one more chance.
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Seek to frame 7 while paused
+	currentFrame, err := pub.SeekVRLog(7)
+	if err != nil {
+		t.Fatalf("SeekVRLog failed: %v", err)
+	}
+	if currentFrame != 7 {
+		t.Errorf("expected currentFrame=7, got %d", currentFrame)
+	}
+
+	// The replay loop should deliver one frame despite being paused.
+	// Poll until the reader advances past the seeked frame, with a timeout.
+	deadline = time.Now().Add(2 * time.Second)
+	for reader.CurrentFrame() != 8 {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for reader to advance to frame 8, got %d", reader.CurrentFrame())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // TestPublisher_VRLogReader tests VRLogReader accessor.
 func TestPublisher_VRLogReader(t *testing.T) {
 	cfg := DefaultConfig()

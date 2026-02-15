@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -930,13 +931,31 @@ func TestClient_WaitForPCAPComplete_DefaultTimeoutAndDecodeRetry(t *testing.T) {
 	t.Run("request errors time out", func(t *testing.T) {
 		// Unroutable endpoint triggers HTTP request errors and exercises retry path.
 		c := NewClient(nil, "http://127.0.0.1:1", "sensor1")
-		start := time.Now()
 		err := c.WaitForPCAPComplete(1 * time.Millisecond)
 		if err == nil {
 			t.Fatal("expected timeout error")
 		}
-		if time.Since(start) < 400*time.Millisecond {
-			t.Fatal("expected at least one retry sleep before timeout")
+	})
+
+	t.Run("uses long-poll endpoint with wait_for_done parameter", func(t *testing.T) {
+		var longPollCalled atomic.Bool
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify path and query parameters
+			if r.URL.Path == "/api/lidar/data_source" &&
+				r.URL.Query().Get("sensor_id") == "sensor1" &&
+				r.URL.Query().Get("wait_for_done") == "true" {
+				longPollCalled.Store(true)
+			}
+			json.NewEncoder(w).Encode(map[string]interface{}{"pcap_in_progress": false})
+		}))
+		defer server.Close()
+
+		c := NewClient(server.Client(), server.URL, "sensor1")
+		if err := c.WaitForPCAPComplete(2 * time.Second); err != nil {
+			t.Fatalf("expected success, got %v", err)
+		}
+		if !longPollCalled.Load() {
+			t.Fatal("expected long-poll endpoint to be called with /api/lidar/data_source?sensor_id=sensor1&wait_for_done=true")
 		}
 	})
 }

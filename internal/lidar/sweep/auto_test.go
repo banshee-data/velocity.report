@@ -181,7 +181,7 @@ func TestGenerateIntGridSingle(t *testing.T) {
 }
 
 func TestNilRunnerValidation(t *testing.T) {
-	tuner := NewAutoTuner(nil)
+	tuner := newQuietAutoTuner(nil)
 	err := tuner.Start(nil, AutoTuneRequest{
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
@@ -197,7 +197,7 @@ func TestNilRunnerValidation(t *testing.T) {
 
 func TestValuesPerParamMinimum(t *testing.T) {
 	// values_per_param must be at least 2 for meaningful grid generation
-	tuner := NewAutoTuner(&Runner{})
+	tuner := newQuietAutoTuner(&Runner{})
 	err := tuner.Start(nil, AutoTuneRequest{
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
@@ -401,7 +401,7 @@ func TestAutoTuneValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use a non-nil runner so we reach parameter validation
-			tuner := NewAutoTuner(&Runner{})
+			tuner := newQuietAutoTuner(&Runner{})
 			err := tuner.Start(nil, tt.req)
 			if err == nil {
 				t.Fatal("expected error, got nil")
@@ -445,7 +445,7 @@ func TestGroundTruthObjectiveValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tuner := NewAutoTuner(&Runner{})
+			tuner := newQuietAutoTuner(&Runner{})
 			err := tuner.Start(nil, tt.req)
 			if err == nil {
 				t.Fatal("expected error, got nil")

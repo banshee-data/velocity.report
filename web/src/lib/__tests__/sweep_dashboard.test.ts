@@ -102,14 +102,12 @@ const {
 	applyPastedParams,
 	loadCurrentIntoEditor,
 	renderDynamicCharts,
-	handleStartRLHF,
-	startRLHFPolling,
-	stopRLHFPolling,
-	pollRLHFStatus,
-	renderRLHFState,
-	handleRLHFContinue,
-	populateRLHFScenes,
-	onRLHFSceneSelected,
+	handleStartHINT,
+	startHINTPolling,
+	stopHINTPolling,
+	pollHINTStatus,
+	renderHINTState,
+	handleHINTContinue,
 	requestNotificationPermission,
 	fireNotification,
 	fetchSweepExplanation,
@@ -229,36 +227,36 @@ function setupDOM(): void {
 		'<textarea id="paste-params-json"></textarea>',
 		'<span id="paste-apply-status"></span>',
 		'<button id="btn-paste-apply">Apply</button>',
-		// RLHF elements
-		'<button id="mode-rlhf"></button>',
-		'<select id="rlhf_scene_select"><option value="">-- Select Scene --</option></select>',
-		'<input id="rlhf_rounds" type="number" value="3" />',
-		'<input id="rlhf_durations" type="text" value="60" />',
-		'<input id="rlhf_threshold" type="number" value="90" />',
-		'<input id="rlhf_carryover" type="checkbox" checked />',
-		'<input id="rlhf_class_coverage" type="text" />',
-		'<input id="rlhf_temporal_spread" type="number" />',
-		'<div id="rlhf-progress-card" style="display:none">',
-		'  <div id="rlhf-status-text"></div>',
-		'  <div id="rlhf-label-progress" style="display:none">',
-		'    <span id="rlhf-label-count"></span>',
-		'    <span id="rlhf-label-pct"></span>',
-		'    <div id="rlhf-label-bar" style="width:0%"></div>',
-		'    <div id="rlhf-threshold-marker"></div>',
-		'    <span id="rlhf-countdown"></span>',
-		'    <span id="rlhf-carried-count"></span>',
-		'    <div id="rlhf-gate-status" style="display:none"></div>',
-		'    <a id="rlhf-tracks-link" href="#"></a>',
-		'    <button id="rlhf-continue-btn" disabled>Continue</button>',
-		'    <input id="rlhf-next-duration" type="number" value="0" />',
-		'    <input id="rlhf-add-round" type="checkbox" />',
+		// HINT elements
+		'<button id="mode-hint"></button>',
+		'<input id="hint_rounds" type="number" value="3" />',
+		'<input id="hint_durations" type="text" value="60" />',
+		'<input id="hint_threshold" type="number" value="90" />',
+		'<input id="hint_carryover" type="checkbox" checked />',
+		'<input id="hint_tune_background" type="checkbox" />',
+		'<input id="hint_class_coverage" type="text" />',
+		'<input id="hint_temporal_spread" type="number" />',
+		'<div id="hint-progress-card" style="display:none">',
+		'  <div id="hint-status-text"></div>',
+		'  <div id="hint-label-progress" style="display:none">',
+		'    <span id="hint-label-count"></span>',
+		'    <span id="hint-label-pct"></span>',
+		'    <div id="hint-label-bar" style="width:0%"></div>',
+		'    <div id="hint-threshold-marker"></div>',
+		'    <span id="hint-countdown"></span>',
+		'    <span id="hint-carried-count"></span>',
+		'    <div id="hint-gate-status" style="display:none"></div>',
+		'    <a id="hint-tracks-link" href="#"></a>',
+		'    <button id="hint-continue-btn" disabled>Continue</button>',
+		'    <input id="hint-next-duration" type="number" value="0" />',
+		'    <input id="hint-add-round" type="checkbox" />',
 		'  </div>',
-		'  <div id="rlhf-sweep-progress" style="display:none">',
-		'    <span id="rlhf-sweep-info"></span>',
+		'  <div id="hint-sweep-progress" style="display:none">',
+		'    <span id="hint-sweep-info"></span>',
 		'  </div>',
 		'</div>',
-		'<div id="rlhf-round-history" style="display:none">',
-		'  <div id="rlhf-rounds-list"></div>',
+		'<div id="hint-round-history" style="display:none">',
+		'  <div id="hint-rounds-list"></div>',
 		'</div>',
 		// Explanation elements
 		'<div id="explanation-card" style="display:none">',
@@ -3619,10 +3617,10 @@ describe('loadHistoricalSweep branches', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RLHF Functions
+// HINT Functions
 // ---------------------------------------------------------------------------
 
-describe('RLHF Functions', () => {
+describe('HINT Functions', () => {
 	beforeEach(() => {
 		setupDOM();
 		jest.useFakeTimers();
@@ -3631,45 +3629,54 @@ describe('RLHF Functions', () => {
 	afterEach(() => {
 		jest.useRealTimers();
 		jest.restoreAllMocks();
-		stopRLHFPolling();
+		stopHINTPolling();
 	});
 
-	// handleStartRLHF
-	describe('handleStartRLHF', () => {
+	// handleStartHINT
+	describe('handleStartHINT', () => {
 		it('shows error when no scene selected', () => {
-			handleStartRLHF();
+			handleStartHINT();
 			expect(document.getElementById('error-box')!.textContent).toContain('Select a scene');
 		});
 
-		it('shows error when no params', () => {
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+		it('auto-populates default params when none added', () => {
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			opt.textContent = 'Scene 1';
 			sel.appendChild(opt);
 			sel.value = 'scene-1';
-			handleStartRLHF();
-			expect(document.getElementById('error-box')!.textContent).toContain(
+
+			global.fetch = jest.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ status: 'running' })
+			});
+
+			handleStartHINT();
+			// Should NOT show param error — auto-populates defaults and proceeds
+			expect(document.getElementById('error-box')!.textContent).not.toContain(
 				'Add at least one parameter'
 			);
+			expect(global.fetch).toHaveBeenCalled();
 		});
 
 		it('sends POST request with correct payload', async () => {
 			// Add scene selection
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			sel.appendChild(opt);
 			sel.value = 'scene-1';
 
-			// Create a parameter row with the classes handleStartRLHF expects
+			// Create a parameter row matching addParamRow() ID-based structure
 			const paramRows = document.getElementById('param-rows')!;
 			const row = document.createElement('div');
+			row.className = 'param-row';
+			row.id = 'param-row-99';
 			row.innerHTML = [
-				'<select class="param-name"><option value="noise" selected>Noise</option></select>',
-				'<select class="param-type"><option value="float64" selected>float64</option></select>',
-				'<input class="param-start" value="0.1" />',
-				'<input class="param-end" value="0.5" />'
+				'<label class="param-name"><span>Parameter</span><select id="pname-99"><option value="noise_relative" selected>Noise Relative</option></select></label>',
+				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-99" type="number" value="0.1" /></label>',
+				'<label class="param-field"><span>End</span><input id="pend-99" type="number" value="0.5" /></label></div>'
 			].join('');
 			paramRows.appendChild(row);
 
@@ -3678,11 +3685,11 @@ describe('RLHF Functions', () => {
 				json: () => Promise.resolve({ status: 'running' })
 			});
 
-			handleStartRLHF();
+			handleStartHINT();
 			await flushPromises();
 
 			expect(global.fetch).toHaveBeenCalledWith(
-				'/api/lidar/sweep/rlhf',
+				'/api/lidar/sweep/hint',
 				expect.objectContaining({
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' }
@@ -3692,14 +3699,14 @@ describe('RLHF Functions', () => {
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
 			expect(body.scene_id).toBe('scene-1');
 			expect(body.params).toHaveLength(1);
-			expect(body.params[0].name).toBe('noise');
+			expect(body.params[0].name).toBe('noise_relative');
 			expect(body.num_rounds).toBe(3);
 			expect(body.min_label_threshold).toBeCloseTo(0.9);
 			expect(body.carry_over_labels).toBe(true);
 		});
 
 		it('shows error on fetch failure', async () => {
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			sel.appendChild(opt);
@@ -3707,10 +3714,12 @@ describe('RLHF Functions', () => {
 
 			const paramRows = document.getElementById('param-rows')!;
 			const row = document.createElement('div');
+			row.className = 'param-row';
+			row.id = 'param-row-98';
 			row.innerHTML = [
-				'<select class="param-name"><option value="x" selected>X</option></select>',
-				'<input class="param-start" value="0" />',
-				'<input class="param-end" value="1" />'
+				'<label class="param-name"><span>Parameter</span><select id="pname-98"><option value="noise_relative" selected>X</option></select></label>',
+				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-98" type="number" value="0" /></label>',
+				'<label class="param-field"><span>End</span><input id="pend-98" type="number" value="1" /></label></div>'
 			].join('');
 			paramRows.appendChild(row);
 
@@ -3719,7 +3728,7 @@ describe('RLHF Functions', () => {
 				json: () => Promise.resolve({ error: 'Server error' })
 			});
 
-			handleStartRLHF();
+			handleStartHINT();
 			await flushPromises();
 
 			expect(document.getElementById('error-box')!.textContent).toContain('Server error');
@@ -3727,38 +3736,41 @@ describe('RLHF Functions', () => {
 		});
 
 		it('shows error for invalid class coverage JSON', () => {
+			const paramRows = document.getElementById('param-rows')!;
 			const paramRow = document.createElement('div');
-			paramRow.innerHTML =
-				'<input class="param-name" value="test" />' +
-				'<input class="param-type" value="float64" />' +
-				'<input class="param-start" value="0" />' +
-				'<input class="param-end" value="1" />';
-			document.getElementById('param-rows')!.appendChild(paramRow);
-			const sel = document.getElementById('rlhf_scene_select') as HTMLSelectElement;
+			paramRow.className = 'param-row';
+			paramRow.id = 'param-row-97';
+			paramRow.innerHTML = [
+				'<label class="param-name"><span>Parameter</span><select id="pname-97"><option value="noise_relative" selected>Test</option></select></label>',
+				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-97" type="number" value="0" /></label>',
+				'<label class="param-field"><span>End</span><input id="pend-97" type="number" value="1" /></label></div>'
+			].join('');
+			paramRows.appendChild(paramRow);
+			const sel = document.getElementById('scene_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'scene-1';
 			opt.text = 'Test Scene';
 			sel.appendChild(opt);
 			sel.value = 'scene-1';
-			(document.getElementById('rlhf_class_coverage') as HTMLInputElement).value = 'not valid json';
-			handleStartRLHF();
+			(document.getElementById('hint_class_coverage') as HTMLInputElement).value = 'not valid json';
+			handleStartHINT();
 			expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
 		});
 	});
 
 	// Polling functions
-	describe('startRLHFPolling / stopRLHFPolling', () => {
+	describe('startHINTPolling / stopHINTPolling', () => {
 		it('starts and stops polling intervals', () => {
 			global.fetch = jest.fn().mockResolvedValue({
 				ok: true,
 				json: () => Promise.resolve({ status: 'running_sweep', current_round: 1, total_rounds: 3 })
 			});
 
-			startRLHFPolling();
-			// Should call pollRLHFStatus immediately
-			expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/rlhf');
+			startHINTPolling();
+			// Should call pollHINTStatus immediately
+			expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/hint');
 
-			stopRLHFPolling();
+			stopHINTPolling();
 			// After stop, advancing timers should not trigger more fetches
 			const callCount = (global.fetch as jest.Mock).mock.calls.length;
 			jest.advanceTimersByTime(10000);
@@ -3766,7 +3778,7 @@ describe('RLHF Functions', () => {
 		});
 	});
 
-	describe('pollRLHFStatus', () => {
+	describe('pollHINTStatus', () => {
 		it('fetches state and renders it', async () => {
 			global.fetch = jest.fn().mockResolvedValue({
 				ok: true,
@@ -3779,11 +3791,11 @@ describe('RLHF Functions', () => {
 					})
 			});
 
-			pollRLHFStatus();
+			pollHINTStatus();
 			await flushPromises();
 
-			expect(document.getElementById('rlhf-progress-card')!.style.display).toBe('block');
-			expect(document.getElementById('rlhf-sweep-info')!.textContent).toContain('5/10');
+			expect(document.getElementById('hint-progress-card')!.style.display).toBe('block');
+			expect(document.getElementById('hint-sweep-info')!.textContent).toContain('5/10');
 		});
 
 		it('fires notification on phase transition to awaiting_labels', async () => {
@@ -3803,7 +3815,7 @@ describe('RLHF Functions', () => {
 					})
 			});
 
-			pollRLHFStatus();
+			pollHINTStatus();
 			await flushPromises();
 
 			expect(mockNotification).toHaveBeenCalledWith(
@@ -3824,7 +3836,7 @@ describe('RLHF Functions', () => {
 					})
 			});
 
-			startRLHFPolling();
+			startHINTPolling();
 			await flushPromises();
 
 			expect(document.getElementById('btn-start')!.style.display).toBe('block');
@@ -3843,7 +3855,7 @@ describe('RLHF Functions', () => {
 					})
 			});
 
-			startRLHFPolling();
+			startHINTPolling();
 			await flushPromises();
 
 			expect(document.getElementById('btn-start')!.style.display).toBe('block');
@@ -3852,17 +3864,17 @@ describe('RLHF Functions', () => {
 		it('handles fetch errors gracefully', async () => {
 			global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
-			pollRLHFStatus();
+			pollHINTStatus();
 			await flushPromises();
 			// Should not throw
 		});
 	});
 
-	// renderRLHFState
-	describe('renderRLHFState', () => {
+	// renderHINTState
+	describe('renderHINTState', () => {
 		it('renders awaiting_labels state with label progress', () => {
 			const deadline = new Date(Date.now() + 120000).toISOString();
-			renderRLHFState({
+			renderHINTState({
 				status: 'awaiting_labels',
 				current_round: 2,
 				total_rounds: 4,
@@ -3873,20 +3885,19 @@ describe('RLHF Functions', () => {
 				reference_run_id: 'run-abc'
 			});
 
-			expect(document.getElementById('rlhf-label-progress')!.style.display).toBe('block');
-			expect(document.getElementById('rlhf-label-count')!.textContent).toContain('8/10');
-			expect(document.getElementById('rlhf-label-pct')!.textContent).toContain('80');
-			expect(document.getElementById('rlhf-label-bar')!.style.width).toBe('80%');
-			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(false);
-			expect(document.getElementById('rlhf-countdown')!.textContent).toContain('remaining');
-			expect(document.getElementById('rlhf-carried-count')!.textContent).toContain('3');
-			expect(document.getElementById('rlhf-tracks-link')!.getAttribute('href')).toContain(
+			expect(document.getElementById('hint-label-progress')!.style.display).toBe('block');
+			expect(document.getElementById('hint-label-count')!.textContent).toContain('8/10');
+			expect(document.getElementById('hint-label-pct')!.textContent).toContain('80');
+			expect(document.getElementById('hint-label-bar')!.style.width).toBe('80%');
+			expect(document.getElementById('hint-continue-btn')!.disabled).toBe(false);
+			expect(document.getElementById('hint-carried-count')!.textContent).toContain('3');
+			expect(document.getElementById('hint-tracks-link')!.getAttribute('href')).toContain(
 				'run-abc'
 			);
 		});
 
 		it('renders gate status when class coverage and temporal spread are set', () => {
-			renderRLHFState({
+			renderHINTState({
 				status: 'awaiting_labels',
 				current_round: 1,
 				total_rounds: 3,
@@ -3901,7 +3912,7 @@ describe('RLHF Functions', () => {
 				min_temporal_spread_secs: 30
 			});
 
-			const gateEl = document.getElementById('rlhf-gate-status')!;
+			const gateEl = document.getElementById('hint-gate-status')!;
 			expect(gateEl.style.display).toBe('block');
 			expect(gateEl.textContent).toContain('Threshold');
 			expect(gateEl.textContent).toContain('vehicle');
@@ -3910,7 +3921,7 @@ describe('RLHF Functions', () => {
 		});
 
 		it('disables continue button when below threshold', () => {
-			renderRLHFState({
+			renderHINTState({
 				status: 'awaiting_labels',
 				current_round: 1,
 				total_rounds: 3,
@@ -3918,30 +3929,30 @@ describe('RLHF Functions', () => {
 				label_progress: { labelled: 2, total: 10, progress_pct: 20 }
 			});
 
-			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(true);
+			expect(document.getElementById('hint-continue-btn')!.disabled).toBe(true);
 		});
 
 		it('renders running_sweep state with auto-tune info', () => {
-			renderRLHFState({
+			renderHINTState({
 				status: 'running_sweep',
 				current_round: 1,
 				total_rounds: 3,
 				auto_tune_state: { completed_combos: 3, total_combos: 8, round: 1, total_rounds: 2 }
 			});
 
-			expect(document.getElementById('rlhf-label-progress')!.style.display).toBe('none');
-			expect(document.getElementById('rlhf-sweep-progress')!.style.display).toBe('block');
-			expect(document.getElementById('rlhf-sweep-info')!.textContent).toContain('3/8');
+			expect(document.getElementById('hint-label-progress')!.style.display).toBe('none');
+			expect(document.getElementById('hint-sweep-progress')!.style.display).toBe('block');
+			expect(document.getElementById('hint-sweep-info')!.textContent).toContain('3/8');
 		});
 
 		it('renders running_reference state', () => {
-			renderRLHFState({
+			renderHINTState({
 				status: 'running_reference',
 				current_round: 1,
 				total_rounds: 3
 			});
 
-			expect(document.getElementById('rlhf-sweep-info')!.textContent).toContain('reference');
+			expect(document.getElementById('hint-sweep-info')!.textContent).toContain('reference');
 		});
 
 		it('renders completed state with recommendation', async () => {
@@ -3950,7 +3961,7 @@ describe('RLHF Functions', () => {
 				json: () => Promise.resolve([{ sweep_id: 'sw-latest' }])
 			});
 
-			renderRLHFState({
+			renderHINTState({
 				status: 'completed',
 				current_round: 3,
 				total_rounds: 3,
@@ -3961,24 +3972,24 @@ describe('RLHF Functions', () => {
 			expect(document.getElementById('recommendation-content')!.innerHTML).toContain(
 				'noise_relative'
 			);
-			expect(document.getElementById('rlhf-status-text')!.innerHTML).toContain('complete');
+			expect(document.getElementById('hint-status-text')!.innerHTML).toContain('complete');
 		});
 
 		it('renders failed state with error', () => {
-			renderRLHFState({
+			renderHINTState({
 				status: 'failed',
 				current_round: 1,
 				total_rounds: 3,
 				error: 'Sensor disconnected'
 			});
 
-			expect(document.getElementById('rlhf-status-text')!.innerHTML).toContain(
+			expect(document.getElementById('hint-status-text')!.innerHTML).toContain(
 				'Sensor disconnected'
 			);
 		});
 
 		it('renders round history', () => {
-			renderRLHFState({
+			renderHINTState({
 				status: 'running_sweep',
 				current_round: 2,
 				total_rounds: 3,
@@ -3988,8 +3999,8 @@ describe('RLHF Functions', () => {
 				]
 			});
 
-			expect(document.getElementById('rlhf-round-history')!.style.display).toBe('block');
-			const list = document.getElementById('rlhf-rounds-list')!;
+			expect(document.getElementById('hint-round-history')!.style.display).toBe('block');
+			const list = document.getElementById('hint-rounds-list')!;
 			expect(list.innerHTML).toContain('Round 1');
 			expect(list.innerHTML).toContain('0.8765');
 			expect(list.innerHTML).toContain('Round 2');
@@ -3997,22 +4008,22 @@ describe('RLHF Functions', () => {
 		});
 	});
 
-	// handleRLHFContinue
-	describe('handleRLHFContinue', () => {
+	// handleHINTContinue
+	describe('handleHINTContinue', () => {
 		it('sends POST request', async () => {
 			global.fetch = jest.fn().mockResolvedValue({
 				ok: true,
 				json: () => Promise.resolve({ status: 'ok' })
 			});
 
-			handleRLHFContinue();
+			handleHINTContinue();
 			await flushPromises();
 
 			expect(global.fetch).toHaveBeenCalledWith(
-				'/api/lidar/sweep/rlhf/continue',
+				'/api/lidar/sweep/hint/continue',
 				expect.objectContaining({ method: 'POST' })
 			);
-			expect(document.getElementById('rlhf-continue-btn')!.disabled).toBe(true);
+			expect(document.getElementById('hint-continue-btn')!.disabled).toBe(true);
 		});
 
 		it('shows error on failure', async () => {
@@ -4021,71 +4032,10 @@ describe('RLHF Functions', () => {
 				json: () => Promise.resolve({ error: 'Not enough labels' })
 			});
 
-			handleRLHFContinue();
+			handleHINTContinue();
 			await flushPromises();
 
 			expect(document.getElementById('error-box')!.textContent).toContain('Not enough labels');
-		});
-	});
-
-	// populateRLHFScenes
-	describe('populateRLHFScenes', () => {
-		it('copies options from main scene select', () => {
-			const mainSel = document.getElementById('scene_select')!;
-			const opt = document.createElement('option');
-			opt.value = 'sc-1';
-			opt.textContent = 'Test Scene';
-			mainSel.appendChild(opt);
-
-			populateRLHFScenes();
-
-			const rlhfSel = document.getElementById('rlhf_scene_select')!;
-			expect(rlhfSel.innerHTML).toContain('Test Scene');
-		});
-
-		it('fetches scenes from API when main select missing', async () => {
-			// Remove the main scene_select from DOM
-			const mainSel = document.getElementById('scene_select');
-			if (mainSel) mainSel.remove();
-
-			global.fetch = jest.fn().mockResolvedValue({
-				ok: true,
-				json: () =>
-					Promise.resolve([
-						{ scene_id: 'sc-1', description: 'First' },
-						{ scene_id: 'sc-2', description: '' }
-					])
-			});
-
-			populateRLHFScenes();
-			await flushPromises();
-
-			const sel = document.getElementById('rlhf_scene_select')!;
-			expect(sel.innerHTML).toContain('sc-1');
-			expect(sel.innerHTML).toContain('First');
-		});
-
-		it('handles fetch error gracefully', async () => {
-			const mainSel = document.getElementById('scene_select');
-			if (mainSel) mainSel.remove();
-
-			global.fetch = jest.fn().mockRejectedValue(new Error('Offline'));
-			populateRLHFScenes();
-			await flushPromises();
-			// Should not throw
-		});
-
-		it('returns early when no select element', () => {
-			const sel = document.getElementById('rlhf_scene_select');
-			if (sel) sel.remove();
-			populateRLHFScenes(); // Should not throw
-		});
-	});
-
-	// onRLHFSceneSelected
-	describe('onRLHFSceneSelected', () => {
-		it('is a no-op function that does not throw', () => {
-			expect(() => onRLHFSceneSelected()).not.toThrow();
 		});
 	});
 
