@@ -11,20 +11,20 @@ func TestDefaultBackgroundConfig(t *testing.T) {
 	if cfg.UpdateFraction != 0.02 {
 		t.Errorf("expected UpdateFraction 0.02, got %f", cfg.UpdateFraction)
 	}
-	if cfg.ClosenessSensitivity != 8.0 {
-		t.Errorf("expected ClosenessSensitivity 8.0, got %f", cfg.ClosenessSensitivity)
+	if cfg.ClosenessSensitivity != 3.0 {
+		t.Errorf("expected ClosenessSensitivity 3.0, got %f", cfg.ClosenessSensitivity)
 	}
-	if cfg.SafetyMargin != 0.4 {
-		t.Errorf("expected SafetyMargin 0.4, got %f", cfg.SafetyMargin)
+	if cfg.SafetyMargin != 0.15 {
+		t.Errorf("expected SafetyMargin 0.15, got %f", cfg.SafetyMargin)
 	}
 	if cfg.FreezeDuration != 5*time.Second {
 		t.Errorf("expected FreezeDuration 5s, got %v", cfg.FreezeDuration)
 	}
-	if cfg.NeighborConfirmation != 7 {
-		t.Errorf("expected NeighborConfirmation 7, got %d", cfg.NeighborConfirmation)
+	if cfg.NeighborConfirmation != 3 {
+		t.Errorf("expected NeighborConfirmation 3, got %d", cfg.NeighborConfirmation)
 	}
-	if cfg.NoiseRelativeFraction != 0.04 {
-		t.Errorf("expected NoiseRelativeFraction 0.04, got %f", cfg.NoiseRelativeFraction)
+	if cfg.NoiseRelativeFraction != 0.02 {
+		t.Errorf("expected NoiseRelativeFraction 0.02, got %f", cfg.NoiseRelativeFraction)
 	}
 	if cfg.MinConfidenceFloor != DefaultMinConfidenceFloor {
 		t.Errorf("expected MinConfidenceFloor %d, got %d", DefaultMinConfidenceFloor, cfg.MinConfidenceFloor)
