@@ -87,6 +87,12 @@ type SweepRequest struct {
 
 	// Seed control
 	Seed string `json:"seed"` // "true", "false", or "toggle"
+
+	// EnableRecording enables VRLOG recording during PCAP replays.
+	// Only RLHF tuning runs and manual replays should set this to true;
+	// regular multi-combo sweeps leave it false to avoid generating a
+	// VRLOG file per combination.
+	EnableRecording bool `json:"enable_recording,omitempty"`
 }
 
 // ComboResult holds the summary result for one parameter combination
@@ -584,12 +590,13 @@ func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closene
 					// ForegroundForwarder, warmup) runs — "fastest" mode skips foreground extraction
 					// and produces 0 tracks.
 					if err := r.backend.StartPCAPReplayWithConfig(PCAPReplayConfig{
-						PCAPFile:        req.PCAPFile,
-						StartSeconds:    req.PCAPStartSecs,
-						DurationSeconds: req.PCAPDurationSecs,
-						MaxRetries:      30,
-						AnalysisMode:    true,
-						SpeedMode:       "realtime",
+						PCAPFile:         req.PCAPFile,
+						StartSeconds:     req.PCAPStartSecs,
+						DurationSeconds:  req.PCAPDurationSecs,
+						MaxRetries:       30,
+						AnalysisMode:     true,
+						SpeedMode:        "realtime",
+						DisableRecording: !req.EnableRecording,
 					}); err != nil {
 						r.logger.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum, err)
 						r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum, err))
@@ -763,12 +770,13 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 			// ForegroundForwarder, warmup) runs — "fastest" mode skips foreground extraction
 			// and produces 0 tracks.
 			if err := r.backend.StartPCAPReplayWithConfig(PCAPReplayConfig{
-				PCAPFile:        req.PCAPFile,
-				StartSeconds:    req.PCAPStartSecs,
-				DurationSeconds: req.PCAPDurationSecs,
-				MaxRetries:      30,
-				AnalysisMode:    true,
-				SpeedMode:       "realtime",
+				PCAPFile:         req.PCAPFile,
+				StartSeconds:     req.PCAPStartSecs,
+				DurationSeconds:  req.PCAPDurationSecs,
+				MaxRetries:       30,
+				AnalysisMode:     true,
+				SpeedMode:        "realtime",
+				DisableRecording: !req.EnableRecording,
 			}); err != nil {
 				r.logger.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum+1, err)
 				r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum+1, err))

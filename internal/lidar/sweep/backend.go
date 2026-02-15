@@ -70,12 +70,13 @@ type SweepBackend interface {
 // This duplicates monitor.PCAPReplayConfig so the sweep package does not
 // import monitor. The monitor package converts between the two.
 type PCAPReplayConfig struct {
-	PCAPFile        string
-	StartSeconds    float64
-	DurationSeconds float64
-	MaxRetries      int
-	AnalysisMode    bool   // When true, preserve grid after PCAP completion
-	SpeedMode       string // "fastest", "realtime", or "ratio"
+	PCAPFile         string
+	StartSeconds     float64
+	DurationSeconds  float64
+	MaxRetries       int
+	AnalysisMode     bool   // When true, preserve grid after PCAP completion
+	SpeedMode        string // "fastest", "realtime", or "ratio"
+	DisableRecording bool   // When true, skip VRLOG recording for this replay
 }
 
 // WaitForPCAPDone blocks on a channel until it is closed or ctx is cancelled.

@@ -104,14 +104,15 @@ type WebServer struct {
 	baseCtx           context.Context
 
 	// PCAP replay state
-	pcapMu           sync.Mutex
-	pcapInProgress   bool
-	pcapCancel       context.CancelFunc
-	pcapDone         chan struct{}
-	pcapAnalysisMode bool // When true, preserve grid after PCAP completion
-	pcapSpeedMode    string
-	pcapSpeedRatio   float64
-	pcapLastRunID    string // Last analysis run ID from PCAP replay (protected by pcapMu)
+	pcapMu               sync.Mutex
+	pcapInProgress       bool
+	pcapCancel           context.CancelFunc
+	pcapDone             chan struct{}
+	pcapAnalysisMode     bool // When true, preserve grid after PCAP completion
+	pcapDisableRecording bool // When true, skip VRLOG recording during PCAP replay
+	pcapSpeedMode        string
+	pcapSpeedRatio       float64
+	pcapLastRunID        string // Last analysis run ID from PCAP replay (protected by pcapMu)
 
 	// PCAP progress tracking (protected by pcapMu)
 	pcapCurrentPacket uint64 // 0-based index of current packet
@@ -489,7 +490,7 @@ func (ws *WebServer) StopPCAPInternal() {
 // and begins the replay. It retries on conflict (another PCAP in progress)
 // up to maxRetries times with 5-second delays.
 func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMode string,
-	startSeconds, durationSeconds float64, maxRetries int) error {
+	startSeconds, durationSeconds float64, maxRetries int, disableRecording bool) error {
 
 	if maxRetries <= 0 {
 		maxRetries = 60
@@ -530,6 +531,7 @@ func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speed
 
 		ws.pcapMu.Lock()
 		ws.pcapAnalysisMode = analysisMode
+		ws.pcapDisableRecording = disableRecording
 		ws.pcapMu.Unlock()
 
 		ws.currentSource = DataSourcePCAP
@@ -816,6 +818,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		// Check if we should start an analysis run (only in analysis mode)
 		ws.pcapMu.Lock()
 		isAnalysisMode := ws.pcapAnalysisMode
+		disableRecording := ws.pcapDisableRecording
 		ws.pcapMu.Unlock()
 
 		var runID string
@@ -837,7 +840,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				ws.pcapLastRunID = runID
 				ws.pcapMu.Unlock()
 
-				if ws.onRecordingStart != nil {
+				if !disableRecording && ws.onRecordingStart != nil {
 					ws.onRecordingStart(runID)
 					recordingStarted = true
 				}

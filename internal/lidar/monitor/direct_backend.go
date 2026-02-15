@@ -358,7 +358,8 @@ func (d *DirectBackend) StartPCAPReplayWithConfig(cfg sweep.PCAPReplayConfig) er
 	}
 	return d.ws.StartPCAPForSweep(
 		cfg.PCAPFile, cfg.AnalysisMode, speedMode,
-		cfg.StartSeconds, cfg.DurationSeconds, cfg.MaxRetries)
+		cfg.StartSeconds, cfg.DurationSeconds, cfg.MaxRetries,
+		cfg.DisableRecording)
 }
 
 // StopPCAPReplay cancels the running PCAP replay and restores live mode.

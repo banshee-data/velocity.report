@@ -979,6 +979,7 @@ func (a *rlhfRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 		PCAPStartSecs:    pcapStartSecs,
 		PCAPDurationSecs: pcapDurationSecs,
 		Params:           sweepParams,
+		EnableRecording:  true,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
