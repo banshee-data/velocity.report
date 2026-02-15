@@ -89,11 +89,13 @@ If all three stages succeed, deploy the complete `tuning.optimised.json` configu
 To apply the optimised configuration:
 
 ```bash
-# Copy optimised config to active location
-cp config/tuning.optimised.json config/tuning.active.json
+# Use the optimised config with the velocity-report binary
+velocity-report --config config/tuning.optimised.json
 
-# Or specify directly in sweep/test command
---config-file config/tuning.optimised.json
+# Or trigger via the monitor API for runtime parameter updates
+curl -X POST http://localhost:8080/api/lidar/params \
+  -H 'Content-Type: application/json' \
+  -d @config/tuning.optimised.json
 ```
 
 ## Reverting Changes
@@ -101,8 +103,8 @@ cp config/tuning.optimised.json config/tuning.active.json
 If the optimised parameters cause unexpected issues, revert to defaults:
 
 ```bash
-# Restore defaults
-cp config/tuning.defaults.json config/tuning.active.json
+# Restore defaults by using the default config
+velocity-report --config config/tuning.defaults.json
 ```
 
 ## Further Tuning
@@ -112,14 +114,15 @@ If the optimised configuration still shows quality issues, use auto-tuning to re
 ```json
 {
   "params": [
-    { "name": "foreground_dbscan_eps", "min": 0.5, "max": 0.9, "step": 0.1 },
+    { "name": "foreground_dbscan_eps", "type": "float64", "start": 0.5, "end": 0.9, "step": 0.1 },
     {
       "name": "gating_distance_squared",
-      "min": 16.0,
-      "max": 36.0,
+      "type": "float64",
+      "start": 16.0,
+      "end": 36.0,
       "step": 4.0
     },
-    { "name": "measurement_noise", "min": 0.1, "max": 0.25, "step": 0.05 }
+    { "name": "measurement_noise", "type": "float64", "start": 0.1, "end": 0.25, "step": 0.05 }
   ],
   "objective": "weighted",
   "weights": {

@@ -1,4 +1,10 @@
 {
+  "_comment": "Optimised tuning parameters for reducing jitter, fragmentation, misalignment, and empty boxes.",
+  "_note": "This file matches the TuningConfig schema in internal/config/tuning.go and can be used with:",
+  "_usage_1": "velocity-report --config config/tuning.optimised.json",
+  "_usage_2": "curl -X POST http://localhost:8080/api/lidar/params -H 'Content-Type: application/json' -d @config/tuning.optimised.json",
+  "_compatibility": "The following parameters are NOT part of TuningConfig and are silently ignored: background_update_fraction, safety_margin_meters, enable_diagnostics, max_tracks",
+
   "noise_relative": 0.02,
   "closeness_multiplier": 3.0,
   "neighbor_confirmation_count": 3,
@@ -6,9 +12,6 @@
   "warmup_duration_nanos": 30000000000,
   "warmup_min_frames": 100,
   "post_settle_update_fraction": 0,
-  "background_update_fraction": 0.02,
-  "safety_margin_meters": 0.15,
-  "enable_diagnostics": false,
   "foreground_min_cluster_points": 5,
   "foreground_dbscan_eps": 0.7,
   "buffer_timeout": "500ms",
@@ -22,6 +25,5 @@
   "occlusion_cov_inflation": 0.5,
   "hits_to_confirm": 4,
   "max_misses": 3,
-  "max_misses_confirmed": 15,
-  "max_tracks": 100
+  "max_misses_confirmed": 15
 }

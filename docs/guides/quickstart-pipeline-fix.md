@@ -28,20 +28,27 @@
 ### Option 1: Use Optimised Configuration (Recommended)
 
 ```bash
-# Apply the optimised configuration
-cp config/tuning.optimised.json /path/to/your/active/config.json
+# Apply the optimised configuration with the velocity-report binary
+velocity-report --config config/tuning.optimised.json
 
-# Or specify in command line
-./velocity-report --config config/tuning.optimised.json
+# Or update parameters at runtime via the monitor API
+curl -X POST http://localhost:8080/api/lidar/params \
+  -H 'Content-Type: application/json' \
+  -d @config/tuning.optimised.json
 ```
 
 ### Option 2: Run Auto-Tuning Sweep
 
-If you want to refine parameters further:
+If you want to refine parameters further, trigger auto-tuning via the monitor API:
 
 ```bash
-# Run the quality-tuning sweep (takes ~3 hours)
-./sweep --config config/sweep-quality-tuning.json --pcap your-capture.pcap
+# Trigger an auto-tuning sweep via the monitor API (may take several hours)
+curl -X POST http://localhost:8080/api/lidar/sweep/auto \
+  -H 'Content-Type: application/json' \
+  -d @config/sweep-quality-tuning.json
+
+# For PCAP-based tuning, add pcap_file to the config JSON
+# Adjust fields according to the AutoTuneRequest definition
 ```
 
 ---

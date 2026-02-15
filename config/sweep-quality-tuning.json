@@ -3,50 +3,57 @@
   "params": [
     {
       "name": "foreground_dbscan_eps",
-      "min": 0.5,
-      "max": 0.9,
+      "type": "float64",
+      "start": 0.5,
+      "end": 0.9,
       "step": 0.1,
       "description": "Clustering radius for foreground points. Affects fragmentation."
     },
     {
       "name": "foreground_min_cluster_points",
-      "min": 3,
-      "max": 8,
+      "type": "int",
+      "start": 3,
+      "end": 8,
       "step": 1,
       "description": "Minimum points per cluster. Affects noise rejection vs. detection."
     },
     {
       "name": "gating_distance_squared",
-      "min": 16.0,
-      "max": 36.0,
+      "type": "float64",
+      "start": 16.0,
+      "end": 36.0,
       "step": 4.0,
       "description": "Association gate radius squared. Affects fragmentation and re-association."
     },
     {
       "name": "measurement_noise",
-      "min": 0.1,
-      "max": 0.25,
+      "type": "float64",
+      "start": 0.1,
+      "end": 0.25,
       "step": 0.05,
       "description": "Observation uncertainty. Affects heading jitter and position responsiveness."
     },
     {
       "name": "process_noise_vel",
-      "min": 0.2,
-      "max": 0.5,
+      "type": "float64",
+      "start": 0.2,
+      "end": 0.5,
       "step": 0.1,
       "description": "Velocity process noise. Affects speed jitter and velocity-trail alignment."
     },
     {
       "name": "closeness_multiplier",
-      "min": 2.5,
-      "max": 4.0,
+      "type": "float64",
+      "start": 2.5,
+      "end": 4.0,
       "step": 0.5,
       "description": "Background acceptance bandwidth. Affects empty boxes and foreground capture."
     },
     {
       "name": "safety_margin_meters",
-      "min": 0.1,
-      "max": 0.3,
+      "type": "float64",
+      "start": 0.1,
+      "end": 0.3,
       "step": 0.05,
       "description": "Fixed margin for background classification. Affects edge point capture."
     }
@@ -75,7 +82,7 @@
   "settle_time": "10s",
   "interval": "100ms",
   "settle_mode": "warmup",
-  "data_source": "pcap",
+  "data_source": "live",
   "notes": [
     "This sweep configuration targets the key parameters affecting:",
     "- Jitter: measurement_noise, process_noise_vel",
