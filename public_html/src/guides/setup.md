@@ -5,7 +5,7 @@ description: Build a professional traffic radar with Raspberry Pi and weatherpro
 section: guides
 difficulty: intermediate
 time: 4-6 hours
-cost: $350-450
+cost: $563-596
 date: 2026-01-25
 tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 ---
@@ -22,7 +22,7 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 Measuring vehicle speeds is the first step toward safer streets. Without data, convincing city officials to address speeding can be challenging.
 
-This guid will show you how to build your own privacy-first traffic radar using open-source software and off-the-shelf Doppler technology (the same sensors municipalaties use). No cameras, no license plates, just local speed data that produces professional traffic reports.
+This guide will show you how to build your own privacy-first traffic radar using open-source software and off-the-shelf Doppler technology (the same sensors municipalities use). No cameras, no license plates, just local speed data that produces professional traffic reports.
 
 This weatherproof infrastructure deployment gives community advocates, parents, and civic-minded makers the evidence they need to drive change, with professional-grade hardware designed for permanent outdoor installations.
 

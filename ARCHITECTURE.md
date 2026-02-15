@@ -407,7 +407,7 @@ service VisualiserService {
 
 **Location**: `/data/`, managed by `internal/db/`
 
-**Database**: SQLite 3.x
+**Database**: SQLite 3.51.2 (via `modernc.org/sqlite v1.44.3`)
 
 **Schema Design**:
 
@@ -573,8 +573,8 @@ Synthetic Mode (Testing):
 
 | Component  | Technology              | Version | Purpose                 |
 | ---------- | ----------------------- | ------- | ----------------------- |
-| Language   | Go                      | 1.21+   | High-performance server |
-| Database   | SQLite                  | 3.x     | Data storage            |
+| Language   | Go                      | 1.25+   | High-performance server |
+| Database   | SQLite                  | 3.51    | Data storage            |
 | HTTP       | net/http (stdlib)       | -       | API server              |
 | gRPC       | google.golang.org/grpc  | 1.60+   | Visualiser streaming    |
 | Protobuf   | google.golang.org/proto | 1.32+   | Data serialisation      |
@@ -586,7 +586,7 @@ Synthetic Mode (Testing):
 
 | Component      | Technology | Version | Purpose             |
 | -------------- | ---------- | ------- | ------------------- |
-| Language       | Python     | 3.9+    | Report generation   |
+| Language       | Python     | 3.11+   | Report generation   |
 | Charts         | matplotlib | 3.9+    | Data visualisation  |
 | LaTeX          | PyLaTeX    | 1.4+    | Document generation |
 | HTTP           | requests   | 2.32+   | API client          |

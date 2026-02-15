@@ -274,24 +274,24 @@ This sets the migration version without re-running migrations.
 
 ### Step 1: Determine Next Version
 
-The next migration should be **000009** (current latest is 000008).
+The next migration should be **000026** (current latest is 000025).
 
 ```bash
 ls -1 internal/db/migrations/*.up.sql | tail -1
-# Shows: 000008_add_velocity_report_prefix.up.sql
-# Next: 000009
+# Shows: 000025_add_label_source.up.sql
+# Next: 000026
 ```
 
 ### Step 2: Create Migration Files
 
 ```bash
-touch internal/db/migrations/000009_your_change.up.sql
-touch internal/db/migrations/000009_your_change.down.sql
+touch internal/db/migrations/000026_your_change.up.sql
+touch internal/db/migrations/000026_your_change.down.sql
 ```
 
 ### Step 3: Write the SQL
 
-**000009_your_change.up.sql:**
+**000026_your_change.up.sql:**
 
 ```sql
 -- Migration: Brief description
@@ -310,7 +310,7 @@ CREATE TABLE IF NOT EXISTS new_table (
 CREATE INDEX IF NOT EXISTS idx_new_table_name ON new_table(name);
 ```
 
-**000009_your_change.down.sql:**
+**000026_your_change.down.sql:**
 
 ```sql
 -- Rollback: Remove new_table
@@ -351,7 +351,7 @@ Update the [Migration History](#migration-history) table in this README.
 ### Step 6: Commit Both Files
 
 ```bash
-git add internal/db/migrations/000009_your_change.*.sql
+git add internal/db/migrations/000026_your_change.*.sql
 git commit -m "[sql] add migration: your_change"
 ```
 
@@ -363,8 +363,8 @@ Every migration needs both forward and rollback SQL:
 
 ```bash
 # Always create BOTH files
-touch internal/db/migrations/000009_change.up.sql
-touch internal/db/migrations/000009_change.down.sql
+touch internal/db/migrations/000026_change.up.sql
+touch internal/db/migrations/000026_change.down.sql
 ```
 
 ### 2. Backup Before Production Migrations
@@ -430,8 +430,8 @@ One logical change per migration - don't combine unrelated schema changes.
 
 **Good:**
 
-- `000009_add_user_email.up.sql` - adds email column
-- `000010_create_notifications_table.up.sql` - new table
+- `000026_add_user_email.up.sql` - adds email column
+- `000027_create_notifications_table.up.sql` - new table
 
 **Bad:**
 
@@ -535,8 +535,8 @@ Dirty: true
 2. **Create migration to formalize change:**
 
    ```bash
-   touch internal/db/migrations/000009_fix_schema_drift.up.sql
-   touch internal/db/migrations/000009_fix_schema_drift.down.sql
+   touch internal/db/migrations/000026_fix_schema_drift.up.sql
+   touch internal/db/migrations/000026_fix_schema_drift.down.sql
    # Add SQL to match current state
    ```
 

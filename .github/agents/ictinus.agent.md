@@ -158,7 +158,7 @@ Sensors → Go Server → SQLite → (Web Frontend | PDF Generator)
 
 - Makefile-driven: `<action>-<subsystem>[-<variant>]`
 - Cross-compilation for ARM64
-- 59 documented targets
+- 101 documented targets
 
 **Testing Strategy:**
 

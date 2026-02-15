@@ -512,7 +512,7 @@ with a different release cadence, contributor profile, and CI requirement.
 Placing it in the monorepo would:
 
 - Slow down CI for every Go/Python/Web contributor
-- Complicate the already-large Makefile (59 targets)
+- Complicate the already-large Makefile (101 targets)
 - Create confusion about which issues and PRs relate to which component
 - Make upstream sync with `raspberrypi/rpi-imager` unnecessarily difficult
 
