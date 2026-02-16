@@ -13,8 +13,8 @@ Date: 2026-02-16
 
 `track_id` is generated as `track_<counter>` with the counter reset to 1 on tracker reset/startup, so IDs are not globally unique. `InsertTrack` then upserts only on `track_id`, which merges unrelated trajectories into one logical track row over time.
 
-- ID generation + reset behavior: `NextTrackID` starts at 1 and `initTrack` emits `track_%d`. `Reset()` also resets `NextTrackID` to 1.
-- DB key/upsert behavior: `lidar_tracks.track_id` is the primary key and writes use `ON CONFLICT(track_id) DO UPDATE`.
+- ID generation + reset behaviour: `NextTrackID` starts at 1 and `initTrack` emits `track_%d`. `Reset()` also resets `NextTrackID` to 1.
+- DB key/upsert behaviour: `lidar_tracks.track_id` is the primary key and writes use `ON CONFLICT(track_id) DO UPDATE`.
 
 **Why this creates spaghetti:** different real objects/runs reusing `track_1`, `track_2`, etc. become one "track" in persistence/history views.
 
@@ -56,7 +56,7 @@ Run-mode filtering creates `Set(runTrack.track_id)` and filters global `tracks` 
 
 **Why this creates spaghetti in run view:** unrelated historical tracks can appear when selecting one run.
 
-## Pipeline/visualization behaviors that amplify bad data
+## Pipeline/visualisation behaviours that amplify bad data
 
 ### 7) Coasting points are appended during misses
 
@@ -76,7 +76,7 @@ Foreground observations are loaded for the entire selected range with limit 4000
 
 **Risk:** heavy truncation/sampling bias can make overlay points appear inconsistent with track trails, making bad tracks seem even more "garbage" and harder to diagnose.
 
-## Prioritized remediation plan
+## Prioritised remediation plan
 
 1. **Make track identity globally unique in persistence**
    - Replace `track_<counter>` with UUID/ULID, or make DB keys composite (`sensor_id`, `track_id`) and include run/session namespace.
