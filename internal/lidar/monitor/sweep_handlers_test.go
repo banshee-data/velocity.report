@@ -15,11 +15,15 @@ import (
 )
 
 type mockSweepHandlerRunner struct {
-	startErr   error
-	startCalls int
-	stopCalls  int
-	lastReq    interface{}
-	state      interface{}
+	startErr     error
+	startCalls   int
+	stopCalls    int
+	suspendCalls int
+	resumeCalls  int
+	suspendErr   error
+	resumeErr    error
+	lastReq      interface{}
+	state        interface{}
 }
 
 func (m *mockSweepHandlerRunner) Start(_ context.Context, req interface{}) error {
@@ -34,6 +38,16 @@ func (m *mockSweepHandlerRunner) GetState() interface{} {
 
 func (m *mockSweepHandlerRunner) Stop() {
 	m.stopCalls++
+}
+
+func (m *mockSweepHandlerRunner) Suspend() error {
+	m.suspendCalls++
+	return m.suspendErr
+}
+
+func (m *mockSweepHandlerRunner) Resume(_ context.Context) error {
+	m.resumeCalls++
+	return m.resumeErr
 }
 
 func TestWebServer_SetSweepAndAutoTuneRunner(t *testing.T) {

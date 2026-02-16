@@ -50,6 +50,7 @@ type Server struct {
 	playbackRate float32
 	replayMode   bool // True when replaying a PCAP or log (not live sensor)
 	vrlogMode    bool // True when replaying a VRLOG (seekable replay)
+	seekPending  bool // True after a seek; allows one frame through even while paused
 	playbackMu   sync.RWMutex
 
 	// PCAP progress tracking (updated by WebServer progress callback)
@@ -271,16 +272,24 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				clientID, framesSent, droppedFrames, slowSends, float64(totalSendTimeNs)/float64(max(framesSent, 1))/1e6)
 			return ctx.Err()
 		case frame := <-frameCh:
-			// Respect pause state — drop frames silently while paused.
+			// Respect pause state — drop frames silently while paused,
+			// UNLESS a seek is pending (deliver the seeked frame).
 			// M7: Release the retained reference since we won't process this frame.
 			s.playbackMu.RLock()
 			paused := s.paused
+			seekPending := s.seekPending
 			s.playbackMu.RUnlock()
-			if paused {
+			if paused && !seekPending {
 				if frame.PointCloud != nil {
 					frame.PointCloud.Release()
 				}
 				continue
+			}
+			// Clear seek pending after delivering the seeked frame
+			if seekPending {
+				s.playbackMu.Lock()
+				s.seekPending = false
+				s.playbackMu.Unlock()
 			}
 
 			// Skip frames if we're falling behind (keep only latest)
@@ -637,6 +646,11 @@ func (s *Server) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.PlaybackSta
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "seek failed: %v", err)
 		}
+
+		// Mark seek pending so the frame is delivered even while paused
+		s.playbackMu.Lock()
+		s.seekPending = true
+		s.playbackMu.Unlock()
 
 		return &pb.PlaybackStatus{
 			Paused:         paused,

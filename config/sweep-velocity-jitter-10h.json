@@ -1,0 +1,80 @@
+{
+  "_comment": "10-hour overnight sweep targeting velocity/heading jitter, unbounded points, and track smoothness.",
+  "_note": "Assumes good bg/fg separation already. Focuses on Kalman filter, gating, and clustering params that affect track smoothness.",
+  "_timing": "2 rounds × 243 combos × 72s/combo ≈ 9.7h → fits 10h window.",
+  "_rationale": [
+    "process_noise_vel: primary driver of velocity jitter. Lower = smoother but slower to react.",
+    "process_noise_pos: affects position stability. Lower = less position drift.",
+    "measurement_noise: observation trust. Higher = more smoothing, lower = more responsive.",
+    "occlusion_cov_inflation: covariance growth during misses. Affects re-association jitter.",
+    "foreground_dbscan_eps: cluster cohesion. Tighter = fewer unbounded points but risks fragmentation."
+  ],
+  "params": [
+    {
+      "name": "process_noise_vel",
+      "type": "float64",
+      "start": 0.05,
+      "end": 0.5,
+      "step": 0.225,
+      "description": "Velocity process noise. Current default 0.2. Lower = smoother velocity estimates."
+    },
+    {
+      "name": "process_noise_pos",
+      "type": "float64",
+      "start": 0.01,
+      "end": 0.15,
+      "step": 0.07,
+      "description": "Position process noise. Current default 0.05. Lower = less positional jitter."
+    },
+    {
+      "name": "measurement_noise",
+      "type": "float64",
+      "start": 0.02,
+      "end": 0.2,
+      "step": 0.09,
+      "description": "Observation uncertainty. Current default 0.05. Higher = more smoothing."
+    },
+    {
+      "name": "occlusion_cov_inflation",
+      "type": "float64",
+      "start": 0.1,
+      "end": 1.0,
+      "step": 0.45,
+      "description": "Covariance inflation during occlusion. Current default 0.5. Lower = less jitter on reacquisition."
+    },
+    {
+      "name": "foreground_dbscan_eps",
+      "type": "float64",
+      "start": 0.5,
+      "end": 0.9,
+      "step": 0.2,
+      "description": "Clustering radius. Current default 0.8. Affects unbounded point ratio."
+    }
+  ],
+  "max_rounds": 2,
+  "values_per_param": 3,
+  "top_k": 10,
+  "objective": "weighted",
+  "weights": {
+    "acceptance": 0.5,
+    "misalignment": -0.3,
+    "alignment": -0.01,
+    "nonzero_cells": 0.05,
+    "active_tracks": 0.2,
+    "foreground_capture": 0.8,
+    "empty_boxes": -2.0,
+    "fragmentation": -3.0,
+    "heading_jitter": -5.0,
+    "speed_jitter": -5.0
+  },
+  "acceptance_criteria": {
+    "max_fragmentation_ratio": 0.2,
+    "max_empty_box_ratio": 0.15,
+    "max_unbounded_point_ratio": 0.3
+  },
+  "iterations": 35,
+  "settle_time": "2s",
+  "settle_mode": "warmup",
+  "data_source": "pcap",
+  "pcap_file": "static/kirk0.pcapng"
+}

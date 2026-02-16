@@ -100,6 +100,14 @@ func (m *mockHINTPersister) SaveSweepComplete(sweepID, status string, results, r
 	return m.completeErr
 }
 
+func (m *mockHINTPersister) SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
+	return nil
+}
+
+func (m *mockHINTPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessage, json.RawMessage, json.RawMessage, error) {
+	return 0, nil, nil, nil, fmt.Errorf("no checkpoint")
+}
+
 // --- Test 1: temporalIoU ---
 
 func TestTemporalIoU(t *testing.T) {

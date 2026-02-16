@@ -167,6 +167,15 @@ select {
   color: #fff;
 }
 
+.btn-warning {
+  background: #e6a817;
+  color: #fff;
+}
+
+.btn-warning:hover {
+  background: #cc9415;
+}
+
 .btn-group {
   display: flex;
   gap: 8px;
@@ -219,6 +228,11 @@ th {
 .status-error {
   background: var(--error-bg);
   color: var(--error-fg);
+}
+
+.status-suspended {
+  background: #fff3cd;
+  color: #856404;
 }
 
 .status-idle {

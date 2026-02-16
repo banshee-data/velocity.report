@@ -779,6 +779,14 @@ func (m *mockPersister) SaveSweepComplete(sweepID, status string, results, recom
 	return nil
 }
 
+func (m *mockPersister) SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
+	return nil
+}
+
+func (m *mockPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessage, json.RawMessage, json.RawMessage, error) {
+	return 0, nil, nil, nil, fmt.Errorf("no checkpoint")
+}
+
 type mockSceneStore struct{}
 
 func (m *mockSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
@@ -1730,6 +1738,14 @@ func (fp *failingPersister) SaveSweepStart(sweepID, sensorID, mode string, reque
 
 func (fp *failingPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	return fmt.Errorf("simulated complete persistence failure")
+}
+
+func (fp *failingPersister) SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
+	return fmt.Errorf("simulated checkpoint persistence failure")
+}
+
+func (fp *failingPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessage, json.RawMessage, json.RawMessage, error) {
+	return 0, nil, nil, nil, fmt.Errorf("simulated load checkpoint failure")
 }
 
 // trackingSceneStore tracks calls to SetOptimalParams.

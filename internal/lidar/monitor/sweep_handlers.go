@@ -24,6 +24,8 @@ type AutoTuneRunner interface {
 	Start(ctx context.Context, req interface{}) error
 	GetState() interface{}
 	Stop()
+	Suspend() error
+	Resume(ctx context.Context) error
 }
 
 // HINTRunner defines the interface for HINT sweep operations.
@@ -172,6 +174,52 @@ func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) 
 	ws.autoTuneRunner.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+// handleAutoTuneSuspend suspends a running auto-tune, saving a checkpoint to the database.
+func (ws *WebServer) handleAutoTuneSuspend(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.autoTuneRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
+		return
+	}
+
+	if err := ws.autoTuneRunner.Suspend(); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "suspended"})
+}
+
+// handleAutoTuneResume resumes a suspended auto-tune from its checkpoint.
+func (ws *WebServer) handleAutoTuneResume(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.autoTuneRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
+		return
+	}
+
+	if err := ws.autoTuneRunner.Resume(context.Background()); err != nil {
+		if strings.Contains(err.Error(), "already in progress") {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "resumed"})
 }
 
 // handleHINT handles both starting (POST) and getting status (GET) for HINT sweep.
