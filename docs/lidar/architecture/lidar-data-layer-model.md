@@ -20,15 +20,15 @@ Required artefacts in scope:
 
 This rubric groups by **what the data is** at each abstraction level.
 
-| Layer        | Name                       | Canonical forms in this repo                                                            | Why it exists                                            |
-| ------------ | -------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| A1 (lowest)  | Transport packet layer     | Raw Hesai UDP payloads, PCAP packets                                                    | Capture and replay exact sensor wire format              |
-| A2           | Packet decode layer        | Parsed `PointPolar` streams with timing/calibration                                     | Convert bytes into physically meaningful returns         |
-| A3           | Geometry layer             | Cartesian `Point`/`PointCloudFrame`, polar `BackgroundGrid` metadata, ASC export points | Represent spatial geometry for processing and tooling    |
-| A4           | Session/log layer          | `.vrlog` chunks + index + header                                                        | Deterministic replay of higher-level frame bundles       |
-| A5           | Primitive perception layer | `WorldCluster`, `TrackObservation`                                                      | Per-frame object primitives (spatial + temporal samples) |
-| A6           | Object continuity layer    | `TrackedObject`/visualiser `TrackSet`                                                   | Multi-frame identity, motion state, lifecycle            |
-| A7 (highest) | Semantic/dataset layer     | Local classes (`car`, `pedestrian`, `bird`, `other`) and AV 28-class target taxonomy    | Human/ML semantics and future dataset interoperability   |
+| Layer        | Name       | Canonical forms in this repo                                                            | Why it exists                                            |
+| ------------ | ---------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| A1 (lowest)  | Transport  | Raw Hesai UDP payloads, PCAP packets                                                    | Capture and replay exact sensor wire format              |
+| A2           | Decoding   | Parsed `PointPolar` streams with timing/calibration                                     | Convert bytes into physically meaningful returns         |
+| A3           | Geometry   | Cartesian `Point`/`PointCloudFrame`, polar `BackgroundGrid` metadata, ASC export points | Represent spatial geometry for processing and tooling    |
+| A4           | Logging    | `.vrlog` chunks + index + header                                                        | Deterministic replay of higher-level frame bundles       |
+| A5           | Primitives | `WorldCluster`, `TrackObservation`                                                      | Per-frame object primitives (spatial + temporal samples) |
+| A6           | Tracking   | `TrackedObject`/visualiser `TrackSet`                                                   | Multi-frame identity, motion state, lifecycle            |
+| A7 (highest) | Semantics  | Local classes (`car`, `pedestrian`, `bird`, `other`) and AV 28-class target taxonomy    | Human/ML semantics and future dataset interoperability   |
 
 ### Where required artefacts fit (Rubric A)
 
