@@ -118,6 +118,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // Track filtering: tracks in this set are hidden from rendering
     var hiddenTrackIDs: Set<String> = []
 
+    // When true, foreground points not inside any visible track bounding box are hidden
+    var filterOnlyInBox: Bool = false
+
     // MARK: - Initialisation
 
     init?(metalView: MTKView) {
@@ -326,6 +329,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         frameUpdateCount += 1
 
         // M3.5: Use composite renderer for split streaming
+        compositeRenderer?.foregroundPointFilter =
+            filterOnlyInBox
+            ? { [weak self] x, y in self?.isPointInsideAnyBox(px: x, py: y) ?? false } : nil
         compositeRenderer?.processFrame(frame)
 
         // Legacy path: Update point cloud buffer directly for full frames
@@ -399,24 +405,56 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             }
         }
 
-        // Copy data into buffer
+        // Copy data into buffer, optionally filtering foreground points outside boxes
         guard let buffer = pointBuffer else { return }
         let ptr = buffer.contents().bindMemory(to: Float.self, capacity: neededVertices)
 
+        var outputCount = 0
         for i in 0..<count {
-            ptr[i * 5 + 0] = pointCloud.x[i]
-            ptr[i * 5 + 1] = pointCloud.y[i]
-            ptr[i * 5 + 2] = pointCloud.z[i]
-            ptr[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
-            // Classification: 0=background, 1=foreground, 2=ground
             var classification: Float = 0.0
             if i < pointCloud.classification.count {
                 classification = Float(pointCloud.classification[i])
             }
-            ptr[i * 5 + 4] = classification
+
+            // When filterOnlyInBox is active, skip foreground points (classification=1)
+            // that are not inside any visible track bounding box
+            if filterOnlyInBox && classification == 1.0 {
+                let px = pointCloud.x[i]
+                let py = pointCloud.y[i]
+                if !isPointInsideAnyBox(px: px, py: py) { continue }
+            }
+
+            ptr[outputCount * 5 + 0] = pointCloud.x[i]
+            ptr[outputCount * 5 + 1] = pointCloud.y[i]
+            ptr[outputCount * 5 + 2] = pointCloud.z[i]
+            ptr[outputCount * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
+            ptr[outputCount * 5 + 4] = classification
+            outputCount += 1
         }
 
-        pointCount = count
+        pointCount = outputCount
+    }
+
+    /// Check if a 2D point (x,y) falls inside any visible track's bounding box.
+    /// Uses the last known tracks (from updateBoxInstances) and respects hiddenTrackIDs.
+    private func isPointInsideAnyBox(px: Float, py: Float) -> Bool {
+        guard let tracks = _lastTracks else { return false }
+        for track in tracks {
+            let halfL = (track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0) * 0.5
+            let halfW = (track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0) * 0.5
+            let heading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
+
+            // Transform point into box-local coordinates (rotate by -heading)
+            let dx = px - track.x
+            let dy = py - track.y
+            let cosH = cos(-heading)
+            let sinH = sin(-heading)
+            let localX = dx * cosH - dy * sinH
+            let localY = dx * sinH + dy * cosH
+
+            if abs(localX) <= halfL && abs(localY) <= halfW { return true }
+        }
+        return false
     }
 
     private func updateBoxInstances(_ trackSet: TrackSet) {

@@ -14,6 +14,9 @@ struct ContentView: View {
             // Toolbar always at the top, spanning full width
             ToolbarView()
 
+            // Filter bar below toolbar
+            if appState.showFilterPane { FilterBarView() }
+
             // Main content below toolbar
             HSplitView {
                 // Main 3D view
@@ -44,9 +47,6 @@ struct ContentView: View {
                                 }
                         }.allowsHitTesting(false)
                     }.frame(minWidth: 400, minHeight: 300)
-
-                    // Playback controls
-                    PlaybackControlsView()
                 }.frame(minWidth: 600)
 
                 // Side panel
@@ -54,9 +54,10 @@ struct ContentView: View {
                     SidePanelView().frame(width: 520)
                 }
 
-                // Filter pane (separate right panel)
-                if appState.showFilterPane { FilterPaneView().frame(width: 200) }
             }
+
+            // Playback controls span full width below the split view
+            PlaybackControlsView()
         }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
             .onKeyPress(.space) {
                 appState.togglePlayPause()
@@ -173,11 +174,6 @@ struct ToolbarView: View {
                     Label("Clear", systemImage: "xmark.circle")
                 }.help("Clear all except background grid")
             }
-
-            Spacer()
-
-            // Stats (only render when connected)
-            StatsDisplayView()
 
             Spacer()
 
@@ -1130,105 +1126,98 @@ struct FlagToggleButton: View {
 
 /// Standalone filter pane shown as a separate right-side panel.
 /// Controls which tracks are visible in the 3D view and track list.
-struct FilterPaneView: View {
+struct FilterBarView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Filters").font(.headline)
-                    Spacer()
-                    Button(action: { appState.showFilterPane = false }) {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                    }.buttonStyle(.plain)
-                }
+        HStack(spacing: 16) {
+            // Only points in boxes toggle
+            Toggle("In boxes", isOn: $appState.filterOnlyInBox).font(.caption).toggleStyle(
+                .checkbox
+            ).help("Hide foreground points that are not inside any bounding box")
 
-                // Filter: only show points inside bounding boxes
-                Toggle("Only points in boxes", isOn: $appState.filterOnlyInBox).font(.caption)
-                    .toggleStyle(.checkbox).help(
-                        "Hide foreground points that are not inside any bounding box")
+            Divider().frame(height: 20)
 
-                Divider()
+            // Hits range (min–max)
+            HStack(spacing: 4) {
+                Text("Hits").font(.caption).foregroundColor(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.filterMinHits) },
+                        set: { appState.filterMinHits = Int($0) }), in: 0...50, step: 1
+                ).frame(width: 80).help("Minimum hits")
+                Text("\(appState.filterMinHits)").font(.system(.caption, design: .monospaced))
+                    .frame(width: 22, alignment: .trailing)
+                Text("–").font(.caption).foregroundColor(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.filterMaxHits) },
+                        set: { appState.filterMaxHits = Int($0) }), in: 0...50, step: 1
+                ).frame(width: 80).help("Maximum hits (0 = no limit)")
+                Text("\(appState.filterMaxHits)").font(.system(.caption, design: .monospaced))
+                    .frame(width: 22, alignment: .trailing)
+            }
 
-                // Filter: minimum hits (frames)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("Min hits").font(.caption).foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(appState.filterMinHits)").font(
-                            .system(.caption, design: .monospaced))
-                    }
-                    Slider(
-                        value: Binding(
-                            get: { Double(appState.filterMinHits) },
-                            set: { appState.filterMinHits = Int($0) }), in: 0...50, step: 1
-                    ).help("Minimum number of frames a track must be observed in")
-                }
+            Divider().frame(height: 20)
 
-                Divider()
+            // Points/frame range (min–max)
+            HStack(spacing: 4) {
+                Text("Pts/frm").font(.caption).foregroundColor(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.filterMinPointsPerFrame) },
+                        set: { appState.filterMinPointsPerFrame = Int($0) }), in: 0...100, step: 1
+                ).frame(width: 80).help("Minimum points per frame")
+                Text("\(appState.filterMinPointsPerFrame)").font(
+                    .system(.caption, design: .monospaced)
+                ).frame(width: 26, alignment: .trailing)
+                Text("–").font(.caption).foregroundColor(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.filterMaxPointsPerFrame) },
+                        set: { appState.filterMaxPointsPerFrame = Int($0) }), in: 0...100, step: 1
+                ).frame(width: 80).help("Maximum points per frame (0 = no limit)")
+                Text("\(appState.filterMaxPointsPerFrame)").font(
+                    .system(.caption, design: .monospaced)
+                ).frame(width: 26, alignment: .trailing)
+            }
 
-                // Filter: minimum observation count
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("Min points/frame").font(.caption).foregroundColor(.secondary)
-                        Spacer()
-                        Text("\(appState.filterMinPointsPerFrame)").font(
-                            .system(.caption, design: .monospaced))
-                    }
-                    Slider(
-                        value: Binding(
-                            get: { Double(appState.filterMinPointsPerFrame) },
-                            set: { appState.filterMinPointsPerFrame = Int($0) }), in: 0...100,
-                        step: 1
-                    ).help("Minimum observation count per frame")
-                }
+            Divider().frame(height: 20)
 
-                Divider()
+            // Active filter summary
+            if appState.hasActiveFilters {
+                let total = appState.currentFrame?.tracks?.tracks.count ?? 0
+                let filtered = appState.filteredTracks.count
+                Text("\(filtered)/\(total)").font(.caption).foregroundColor(.orange)
+            }
 
-                // Filter: minimum confidence
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("Min confidence").font(.caption).foregroundColor(.secondary)
-                        Spacer()
-                        Text(String(format: "%.0f%%", appState.filterMinConfidence * 100)).font(
-                            .system(.caption, design: .monospaced))
-                    }
-                    Slider(value: $appState.filterMinConfidence, in: 0...1, step: 0.05).help(
-                        "Minimum track confidence threshold")
-                }
+            // Reset button
+            if appState.hasActiveFilters {
+                Button(action: {
+                    appState.filterOnlyInBox = false
+                    appState.filterMinHits = 0
+                    appState.filterMaxHits = 0
+                    appState.filterMinPointsPerFrame = 0
+                    appState.filterMaxPointsPerFrame = 0
+                    appState.resetAdmittedTracks()
+                }) { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plain)
+                    .foregroundColor(.accentColor).help("Reset all filters")
+            }
 
-                Divider()
+            Spacer()
 
-                // Active filter summary
-                if appState.hasActiveFilters {
-                    let total = appState.currentFrame?.tracks?.tracks.count ?? 0
-                    let filtered = appState.filteredTracks.count
-                    HStack {
-                        Text("\(filtered)/\(total) tracks visible").font(.caption).foregroundColor(
-                            .orange)
-                        Spacer()
-                    }
-                }
-
-                // Reset button
-                if appState.hasActiveFilters {
-                    Button(action: {
-                        appState.filterOnlyInBox = false
-                        appState.filterMinHits = 0
-                        appState.filterMinPointsPerFrame = 0
-                        appState.filterMinConfidence = 0
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.counterclockwise")
-                            Text("Reset all filters")
-                        }.font(.caption)
-                    }.buttonStyle(.plain).foregroundColor(.accentColor)
-                }
-
-                Spacer()
-            }.padding()
-        }.scrollIndicators(.never).background(Color(nsColor: .controlBackgroundColor))
+            // Close button
+            Button(action: { appState.showFilterPane = false }) {
+                Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+            }.buttonStyle(.plain)
+        }.padding(.horizontal, 12).padding(.vertical, 6).background(
+            Color(nsColor: .controlBackgroundColor)
+        ).onChange(of: appState.filterMinHits) { _, _ in appState.resetAdmittedTracks() }.onChange(
+            of: appState.filterMaxHits
+        ) { _, _ in appState.resetAdmittedTracks() }.onChange(of: appState.filterMinPointsPerFrame)
+        { _, _ in appState.resetAdmittedTracks() }.onChange(of: appState.filterMaxPointsPerFrame) {
+            _, _ in appState.resetAdmittedTracks()
+        }.onChange(of: appState.filterOnlyInBox) { _, _ in appState.resetAdmittedTracks() }
     }
 }
 

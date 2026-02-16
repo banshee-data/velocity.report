@@ -87,20 +87,49 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     @Published var filterOnlyInBox: Bool = false  // Only show foreground points inside bounding boxes
     @Published var filterMinHits: Int = 0  // Minimum number of frames (hits) for a track
+    @Published var filterMaxHits: Int = 0  // Maximum hits (0 = no limit)
     @Published var filterMinPointsPerFrame: Int = 0  // Minimum observation count per frame
-    @Published var filterMinConfidence: Float = 0.0  // Minimum confidence threshold [0,1]
+    @Published var filterMaxPointsPerFrame: Int = 0  // Maximum observation count (0 = no limit)
 
-    /// Tracks from the current frame that pass all active filters.
+    /// Track IDs that have been admitted by the filter at least once.
+    /// Once a track passes the filter criteria, it stays visible for its entire lifetime.
+    /// This set is cleared when filter parameters change, forcing re-evaluation.
+    private(set) var admittedTrackIDs: Set<String> = []
+
+    /// Evaluate whether a track passes the current filter criteria.
+    private func trackPassesFilter(_ track: Track) -> Bool {
+        if filterMinHits > 0 && track.hits < filterMinHits { return false }
+        if filterMaxHits > 0 && track.hits > filterMaxHits { return false }
+        if filterMinPointsPerFrame > 0 && track.observationCount < filterMinPointsPerFrame {
+            return false
+        }
+        if filterMaxPointsPerFrame > 0 && track.observationCount > filterMaxPointsPerFrame {
+            return false
+        }
+        return true
+    }
+
+    /// Update admitted tracks based on current frame.
+    /// Tracks that pass filters are permanently admitted until filters change.
+    func updateAdmittedTracks() {
+        guard let trackSet = currentFrame?.tracks else { return }
+        for track in trackSet.tracks {
+            if trackPassesFilter(track) { admittedTrackIDs.insert(track.trackID) }
+        }
+    }
+
+    /// Reset admitted tracks — called when filter parameters change.
+    func resetAdmittedTracks() {
+        admittedTrackIDs.removeAll()
+        // Re-evaluate current frame immediately
+        updateAdmittedTracks()
+    }
+
+    /// Tracks from the current frame that are admitted (passed filters at some point).
     var filteredTracks: [Track] {
         guard let trackSet = currentFrame?.tracks else { return [] }
-        return trackSet.tracks.filter { track in
-            if filterMinHits > 0 && track.hits < filterMinHits { return false }
-            if filterMinPointsPerFrame > 0 && track.observationCount < filterMinPointsPerFrame {
-                return false
-            }
-            if filterMinConfidence > 0 && track.confidence < filterMinConfidence { return false }
-            return true
-        }
+        guard hasActiveFilters else { return trackSet.tracks }
+        return trackSet.tracks.filter { admittedTrackIDs.contains($0.trackID) }
     }
 
     /// Set of track IDs that pass the current filters.
@@ -108,8 +137,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     /// Whether any filter is actively narrowing the track set.
     var hasActiveFilters: Bool {
-        filterOnlyInBox || filterMinHits > 0 || filterMinPointsPerFrame > 0
-            || filterMinConfidence > 0
+        filterOnlyInBox || filterMinHits > 0 || filterMaxHits > 0 || filterMinPointsPerFrame > 0
+            || filterMaxPointsPerFrame > 0
     }
 
     // MARK: - Track History (for velocity/heading graphs)
@@ -592,6 +621,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         renderer?.showAssociation = showAssociation  // M6: Association lines
         renderer?.showResiduals = showResiduals  // M6: Residual vectors
         renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
+        renderer?.filterOnlyInBox = filterOnlyInBox  // Filter foreground points outside boxes
+
+        // Apply persistent track filters — admit tracks that pass criteria
+        updateAdmittedTracks()
 
         // Apply track filters to renderer — compute hidden track IDs
         if hasActiveFilters {
