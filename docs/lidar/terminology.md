@@ -13,6 +13,10 @@ Core terms used across the LiDAR tracking system.
 | **Sweep**              | A batch execution that varies parameter combinations, running one analysis per combination and collecting metrics for comparison.                            |
 | **Auto-Tune**          | An iterative sweep that narrows parameter bounds across rounds, converging on optimal parameters via objective scoring.                                      |
 
+## Related Architecture Models
+
+- [LiDAR Data Layer Model (OSI-Style)](architecture/lidar-data-layer-model.md) — layered model for packets, geometry, VRLOG, clusters, observations, tracks, and semantic classes.
+
 ## Label Taxonomy
 
 Labels are applied by human reviewers to tracks within an analysis run. The same taxonomy is used across all platforms (Go backend, Svelte web frontend, macOS app).
