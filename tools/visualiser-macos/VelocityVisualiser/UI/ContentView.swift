@@ -10,46 +10,52 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        HSplitView {
-            // Main 3D view
-            VStack(spacing: 0) {
-                // Toolbar
-                ToolbarView()
+        VStack(spacing: 0) {
+            // Toolbar always at the top, spanning full width
+            ToolbarView()
 
-                // Metal view - frames are delivered directly to renderer via AppState
-                ZStack {
-                    MetalViewRepresentable(
-                        showPoints: appState.showPoints, showBackground: appState.showBackground,
-                        showBoxes: appState.showBoxes, showClusters: appState.showClusters,
-                        showTrails: appState.showTrails, showDebug: appState.showDebug,
-                        showGrid: appState.showGrid, pointSize: appState.pointSize,
-                        onRendererCreated: { renderer in appState.registerRenderer(renderer) },
-                        onTrackSelected: { trackID in appState.selectTrack(trackID) },
-                        onCameraChanged: { appState.reprojectLabels() })
+            // Main content below toolbar
+            HSplitView {
+                // Main 3D view
+                VStack(spacing: 0) {
+                    // Metal view - frames are delivered directly to renderer via AppState
+                    ZStack {
+                        MetalViewRepresentable(
+                            showPoints: appState.showPoints,
+                            showBackground: appState.showBackground, showBoxes: appState.showBoxes,
+                            showClusters: appState.showClusters, showTrails: appState.showTrails,
+                            showDebug: appState.showDebug, showGrid: appState.showGrid,
+                            pointSize: appState.pointSize,
+                            onRendererCreated: { renderer in appState.registerRenderer(renderer) },
+                            onTrackSelected: { trackID in appState.selectTrack(trackID) },
+                            onCameraChanged: { appState.reprojectLabels() })
 
-                    // Track label overlay (SwiftUI text positioned over 3D tracks)
-                    if appState.showTrackLabels {
-                        TrackLabelOverlay(labels: appState.trackLabels).allowsHitTesting(false)
-                    }
-
-                    // Capture Metal view size for label projection
-                    GeometryReader { geometry in
-                        Color.clear.onAppear { appState.metalViewSize = geometry.size }.onChange(
-                            of: geometry.size
-                        ) { _, newSize in
-                            // Defer to next run loop to avoid AttributeGraph cycle
-                            Task { @MainActor in appState.metalViewSize = newSize }
+                        // Track label overlay (SwiftUI text positioned over 3D tracks)
+                        if appState.showTrackLabels {
+                            TrackLabelOverlay(labels: appState.trackLabels).allowsHitTesting(false)
                         }
-                    }.allowsHitTesting(false)
-                }.frame(minWidth: 400, minHeight: 300)
 
-                // Playback controls
-                PlaybackControlsView()
-            }.frame(minWidth: 600)
+                        // Capture Metal view size for label projection
+                        GeometryReader { geometry in
+                            Color.clear.onAppear { appState.metalViewSize = geometry.size }
+                                .onChange(of: geometry.size) { _, newSize in
+                                    // Defer to next run loop to avoid AttributeGraph cycle
+                                    Task { @MainActor in appState.metalViewSize = newSize }
+                                }
+                        }.allowsHitTesting(false)
+                    }.frame(minWidth: 400, minHeight: 300)
 
-            // Side panel
-            if appState.showSidePanel || appState.selectedTrackID != nil {
-                SidePanelView().frame(width: 520)
+                    // Playback controls
+                    PlaybackControlsView()
+                }.frame(minWidth: 600)
+
+                // Side panel
+                if appState.showSidePanel || appState.selectedTrackID != nil {
+                    SidePanelView().frame(width: 520)
+                }
+
+                // Filter pane (separate right panel)
+                if appState.showFilterPane { FilterPaneView().frame(width: 200) }
             }
         }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
             .onKeyPress(.space) {
@@ -157,6 +163,12 @@ struct ToolbarView: View {
                 }.help("Toggle track inspector")
 
                 Divider().frame(height: 20)
+                Button(action: { appState.showFilterPane.toggle() }) {
+                    Label("Filters", systemImage: "line.3.horizontal.decrease.circle")
+                }.help("Toggle track filter pane").foregroundColor(
+                    appState.hasActiveFilters ? .orange : nil)
+
+                Divider().frame(height: 20)
                 Button(action: { appState.clearAll() }) {
                     Label("Clear", systemImage: "xmark.circle")
                 }.help("Clear all except background grid")
@@ -203,13 +215,8 @@ struct ConnectionStatusView: View {
         let errorMessage = appState.connectionError
         let hasError = errorMessage != nil
 
-        HStack(spacing: 4) {
-            Circle().fill(isConnected ? .green : (hasError ? .red : .gray)).frame(
-                width: 8, height: 8)
-            Text(errorMessage ?? (isConnected ? appState.serverAddress : "Disconnected")).font(
-                .caption
-            ).foregroundColor(hasError ? .red : .secondary)
-        }
+        Circle().fill(isConnected ? .green : (hasError ? .red : .gray)).frame(width: 8, height: 8)
+            .help(errorMessage ?? (isConnected ? appState.serverAddress : "Disconnected"))
     }
 }
 
@@ -483,7 +490,7 @@ struct SidePanelView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             // Left column: inspector + labels (scrolls independently)
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     // Track info
                     if let trackID = appState.selectedTrackID {
@@ -502,17 +509,17 @@ struct SidePanelView: View {
 
                     Spacer()
                 }.padding()
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            }.scrollIndicators(.never).frame(maxWidth: .infinity, alignment: .leading)
 
             Divider()
 
             // Right column: track list (scrolls independently)
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     TrackListView()
                     Spacer()
                 }.padding()
-            }.frame(width: 220, alignment: .leading)
+            }.scrollIndicators(.never).frame(width: 160, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -600,6 +607,9 @@ struct TrackInspectorView: View {
                         if !t.classLabel.isEmpty { DetailRow(label: "Class", value: t.classLabel) }
                     }
                 }
+
+                // Velocity & Heading graph
+                TrackHistoryGraphView(trackID: trackID)
             } else {
                 Text("Track data unavailable").font(.caption).foregroundColor(.secondary)
             }
@@ -621,6 +631,77 @@ struct TrackInspectorView: View {
         case .tentative: return .yellow
         case .confirmed: return .green
         case .deleted: return .red
+        }
+    }
+}
+
+// MARK: - Track History Graph
+
+/// Inline sparkline graph showing velocity (m/s) and heading (°) over recent frames.
+struct TrackHistoryGraphView: View {
+    let trackID: String
+    @EnvironmentObject var appState: AppState
+
+    private var samples: [AppState.TrackSample] { appState.trackHistory[trackID] ?? [] }
+
+    var body: some View {
+        if samples.count >= 2 {
+            GroupBox(label: Text("History").font(.caption2)) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Velocity sparkline
+                    SparklineView(
+                        values: samples.map { CGFloat($0.speedMps) }, colour: .cyan,
+                        label: "Velocity (m/s)")
+
+                    // Heading sparkline
+                    SparklineView(
+                        values: samples.map { CGFloat($0.headingDeg) }, colour: .orange,
+                        label: "Heading (°)")
+                }
+            }
+        }
+    }
+}
+
+/// A minimal sparkline chart drawn with a SwiftUI Path.
+struct SparklineView: View {
+    let values: [CGFloat]
+    let colour: Color
+    let label: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(label).font(.system(size: 9)).foregroundColor(.secondary)
+                Spacer()
+                if let last = values.last {
+                    Text(String(format: "%.1f", last)).font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(colour)
+                }
+            }
+            GeometryReader { geo in sparklinePath(in: geo.size).stroke(colour, lineWidth: 1.5) }
+                .frame(height: 40)
+        }
+    }
+
+    private func sparklinePath(in size: CGSize) -> Path {
+        guard values.count >= 2 else { return Path() }
+
+        let minVal = values.min() ?? 0
+        let maxVal = values.max() ?? 1
+        let range = maxVal - minVal
+        let effectiveRange = range < 0.001 ? 1.0 : range
+
+        return Path { path in
+            for (index, value) in values.enumerated() {
+                let x = size.width * CGFloat(index) / CGFloat(values.count - 1)
+                let y = size.height - (size.height * (value - minVal) / effectiveRange)
+                if index == 0 {
+                    path.move(to: CGPoint(x: x, y: y))
+                } else {
+                    path.addLine(to: CGPoint(x: x, y: y))
+                }
+            }
         }
     }
 }
@@ -651,9 +732,12 @@ struct TrackListView: View {
     @State private var isFetchingRunTracks = false
 
     /// Tracks visible in the current frame (live mode or as supplementary info).
+    /// Uses filtered tracks when filters are active.
     private var frameTracks: [Track] {
-        guard let trackSet = appState.currentFrame?.tracks else { return [] }
-        return trackSet.tracks.sorted { $0.trackID < $1.trackID }
+        let tracks =
+            appState.hasActiveFilters
+            ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+        return tracks.sorted { $0.trackID < $1.trackID }
     }
 
     /// Track lookup for determining in-view state and colours.
@@ -745,7 +829,7 @@ struct TrackListView: View {
                     }.padding(.vertical, 2).padding(.horizontal, 4).background(
                         track.trackId == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
-                    ).cornerRadius(4)
+                    ).cornerRadius(4).contentShape(Rectangle())
                 }.buttonStyle(.plain)
             }
         }
@@ -780,7 +864,7 @@ struct TrackListView: View {
                     }.padding(.vertical, 2).padding(.horizontal, 4).background(
                         track.trackID == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
-                    ).cornerRadius(4)
+                    ).cornerRadius(4).contentShape(Rectangle())
                 }.buttonStyle(.plain)
             }
         }
@@ -887,8 +971,18 @@ struct LabelPanelView: View {
                         }
                     }
                 }
+
+                // Bulk label: apply to all visible (filtered) tracks
+                Divider().padding(.vertical, 4)
+                BulkLabelView()
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
+
+                // Bulk label available even without selection
+                if appState.filteredTracks.count > 0 {
+                    Divider().padding(.vertical, 4)
+                    BulkLabelView()
+                }
             }
         }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
@@ -917,6 +1011,45 @@ struct LabelPanelView: View {
                         // Silently ignore — track may not exist in API yet
                     }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Bulk Label
+
+/// Apply a classification label to all visible (filtered) tracks at once.
+struct BulkLabelView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var bulkLabelApplied: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            let count = appState.filteredTracks.count
+            Text("Label All Visible (\(count))").font(.caption).foregroundColor(.secondary)
+
+            ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
+                _, entry in
+                Button(action: {
+                    appState.assignLabelToAllVisible(entry.name)
+                    withAnimation(.easeOut(duration: 0.3)) { bulkLabelApplied = entry.name }
+                    // Clear feedback after 2 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        if bulkLabelApplied == entry.name { bulkLabelApplied = nil }
+                    }
+                }) {
+                    HStack {
+                        Text(entry.name).font(.callout)
+                        Spacer()
+                        if bulkLabelApplied == entry.name {
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(.green).font(
+                                .caption)
+                        }
+                    }.padding(.vertical, 2).padding(.horizontal, 6).background(
+                        bulkLabelApplied == entry.name ? Color.green.opacity(0.15) : Color.clear
+                    ).cornerRadius(4)
+                }.buttonStyle(.plain).help("Apply '\(entry.name)' to all \(count) visible tracks")
+                    .disabled(count == 0)
             }
         }
     }
@@ -990,6 +1123,112 @@ struct FlagToggleButton: View {
     /// Convert snake_case label to a readable display name.
     private func displayName(_ label: String) -> String {
         label.replacingOccurrences(of: "_", with: " ")
+    }
+}
+
+// MARK: - Filter Pane
+
+/// Standalone filter pane shown as a separate right-side panel.
+/// Controls which tracks are visible in the 3D view and track list.
+struct FilterPaneView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Filters").font(.headline)
+                    Spacer()
+                    Button(action: { appState.showFilterPane = false }) {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                    }.buttonStyle(.plain)
+                }
+
+                // Filter: only show points inside bounding boxes
+                Toggle("Only points in boxes", isOn: $appState.filterOnlyInBox).font(.caption)
+                    .toggleStyle(.checkbox).help(
+                        "Hide foreground points that are not inside any bounding box")
+
+                Divider()
+
+                // Filter: minimum hits (frames)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("Min hits").font(.caption).foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(appState.filterMinHits)").font(
+                            .system(.caption, design: .monospaced))
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(appState.filterMinHits) },
+                            set: { appState.filterMinHits = Int($0) }), in: 0...50, step: 1
+                    ).help("Minimum number of frames a track must be observed in")
+                }
+
+                Divider()
+
+                // Filter: minimum observation count
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("Min points/frame").font(.caption).foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(appState.filterMinPointsPerFrame)").font(
+                            .system(.caption, design: .monospaced))
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(appState.filterMinPointsPerFrame) },
+                            set: { appState.filterMinPointsPerFrame = Int($0) }), in: 0...100,
+                        step: 1
+                    ).help("Minimum observation count per frame")
+                }
+
+                Divider()
+
+                // Filter: minimum confidence
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("Min confidence").font(.caption).foregroundColor(.secondary)
+                        Spacer()
+                        Text(String(format: "%.0f%%", appState.filterMinConfidence * 100)).font(
+                            .system(.caption, design: .monospaced))
+                    }
+                    Slider(value: $appState.filterMinConfidence, in: 0...1, step: 0.05).help(
+                        "Minimum track confidence threshold")
+                }
+
+                Divider()
+
+                // Active filter summary
+                if appState.hasActiveFilters {
+                    let total = appState.currentFrame?.tracks?.tracks.count ?? 0
+                    let filtered = appState.filteredTracks.count
+                    HStack {
+                        Text("\(filtered)/\(total) tracks visible").font(.caption).foregroundColor(
+                            .orange)
+                        Spacer()
+                    }
+                }
+
+                // Reset button
+                if appState.hasActiveFilters {
+                    Button(action: {
+                        appState.filterOnlyInBox = false
+                        appState.filterMinHits = 0
+                        appState.filterMinPointsPerFrame = 0
+                        appState.filterMinConfidence = 0
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Reset all filters")
+                        }.font(.caption)
+                    }.buttonStyle(.plain).foregroundColor(.accentColor)
+                }
+
+                Spacer()
+            }.padding()
+        }.scrollIndicators(.never).background(Color(nsColor: .controlBackgroundColor))
     }
 }
 
@@ -1222,13 +1461,13 @@ class InteractiveMetalView: MTKView {
 // MARK: - Track ID Helpers
 
 extension String {
-    /// Returns a short 3-character hex suffix from a track ID (e.g. "trk_a1b2c3d4" → "3d4").
+    /// Returns a short 4-character hex suffix from a track ID (e.g. "trk_a1b2c3d4" → "c3d4").
     var shortTrackID: String {
-        // Track IDs use the format "trk_XXXXXXXX". Extract the last 3 hex characters.
+        // Track IDs use the format "trk_XXXXXXXX". Extract the last 4 hex characters.
         if let underscoreIndex = lastIndex(of: "_") {
             let hex = self[index(after: underscoreIndex)...]
-            return String(hex.suffix(3))
+            return String(hex.suffix(4))
         }
-        return String(suffix(3))
+        return String(suffix(4))
     }
 }

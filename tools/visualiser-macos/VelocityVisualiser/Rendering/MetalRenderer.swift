@@ -115,6 +115,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // M7: Track selection
     var selectedTrackID: String?
 
+    // Track filtering: tracks in this set are hidden from rendering
+    var hiddenTrackIDs: Set<String> = []
+
     // MARK: - Initialisation
 
     init?(metalView: MTKView) {
@@ -417,13 +420,15 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     private func updateBoxInstances(_ trackSet: TrackSet) {
-        // Cache tracks for hit testing
-        _lastTracks = trackSet.tracks
+        // Cache tracks for hit testing (only visible ones)
+        _lastTracks = trackSet.tracks.filter { !hiddenTrackIDs.contains($0.trackID) }
 
         // Each box instance: [transform matrix (16 floats) + colour (4 floats)]
         var instances = [Float]()
 
         for track in trackSet.tracks {
+            // Skip filtered-out tracks
+            if hiddenTrackIDs.contains(track.trackID) { continue }
             // Build transform matrix
             let scale = simd_float4x4(
                 diagonal: simd_float4(
@@ -462,7 +467,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let bufferSize = instances.count * MemoryLayout<Float>.stride
             boxInstances = device.makeBuffer(
                 bytes: instances, length: bufferSize, options: .storageModeShared)
-            boxInstanceCount = trackSet.tracks.count
+            boxInstanceCount = instances.count / 20  // 20 floats per instance (16 transform + 4 colour)
         } else {
             boxInstanceCount = 0
         }
@@ -528,6 +533,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         var segments: [(start: Int, count: Int)] = []
 
         for trail in trackSet.trails {
+            // Skip filtered-out tracks
+            if hiddenTrackIDs.contains(trail.trackID) { continue }
             let pointCount = trail.points.count
             guard pointCount >= 2 else { continue }
 
@@ -567,6 +574,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // Track heading arrows (green)
         if let trackSet = tracks {
             for track in trackSet.tracks {
+                if hiddenTrackIDs.contains(track.trackID) { continue }
                 guard track.bboxHeadingRad != 0 || track.headingRad != 0 else { continue }
                 // Prefer velocity-based heading (direction of travel) over PCA heading
                 // for track arrows. PCA heading (bboxHeadingRad) is used for box rotation
@@ -1084,6 +1092,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         var labels: [TrackScreenLabel] = []
 
         for track in tracks {
+            // Skip hidden (filtered-out) tracks
+            if hiddenTrackIDs.contains(track.trackID) { continue }
             // Only label confirmed/tentative tracks
             if track.state == .deleted || track.state == .unknown { continue }
 

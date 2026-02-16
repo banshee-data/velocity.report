@@ -64,6 +64,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var selectedTrackID: String?
     @Published var showLabelPanel: Bool = false
     @Published var showSidePanel: Bool = false
+    @Published var showFilterPane: Bool = false  // Separate filter pane on the right
 
     // MARK: - Frame Data
 
@@ -81,6 +82,48 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
     @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
     @Published var metalViewSize: CGSize = .zero  // Metal view drawable size
+
+    // MARK: - Track Filters
+
+    @Published var filterOnlyInBox: Bool = false  // Only show foreground points inside bounding boxes
+    @Published var filterMinHits: Int = 0  // Minimum number of frames (hits) for a track
+    @Published var filterMinPointsPerFrame: Int = 0  // Minimum observation count per frame
+    @Published var filterMinConfidence: Float = 0.0  // Minimum confidence threshold [0,1]
+
+    /// Tracks from the current frame that pass all active filters.
+    var filteredTracks: [Track] {
+        guard let trackSet = currentFrame?.tracks else { return [] }
+        return trackSet.tracks.filter { track in
+            if filterMinHits > 0 && track.hits < filterMinHits { return false }
+            if filterMinPointsPerFrame > 0 && track.observationCount < filterMinPointsPerFrame {
+                return false
+            }
+            if filterMinConfidence > 0 && track.confidence < filterMinConfidence { return false }
+            return true
+        }
+    }
+
+    /// Set of track IDs that pass the current filters.
+    var filteredTrackIDs: Set<String> { Set(filteredTracks.map { $0.trackID }) }
+
+    /// Whether any filter is actively narrowing the track set.
+    var hasActiveFilters: Bool {
+        filterOnlyInBox || filterMinHits > 0 || filterMinPointsPerFrame > 0
+            || filterMinConfidence > 0
+    }
+
+    // MARK: - Track History (for velocity/heading graphs)
+
+    /// Per-track history of velocity and heading samples.
+    struct TrackSample {
+        let frameIndex: UInt64
+        let speedMps: Float
+        let headingDeg: Float
+    }
+
+    /// Ring buffer of recent samples per track (keyed by trackID).
+    private(set) var trackHistory: [String: [TrackSample]] = [:]
+    private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     // MARK: - Renderer
 
@@ -217,6 +260,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         clusterCount = 0
         trackCount = 0
         cacheStatus = ""
+        trackHistory = [:]
         renderer?.clearTransientData()
     }
 
@@ -424,6 +468,38 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         }
     }
 
+    /// Assign a label to all tracks that pass the current filters.
+    func assignLabelToAllVisible(_ label: String) {
+        let tracks = filteredTracks
+        guard !tracks.isEmpty else { return }
+        logger.info("Assigning label '\(label)' to \(tracks.count) visible tracks")
+
+        Task {
+            var succeeded = 0
+            var failed = 0
+            for track in tracks {
+                do {
+                    if let runID = currentRunID {
+                        _ = try await runTrackLabelClient.updateLabel(
+                            runID: runID, trackID: track.trackID, userLabel: label)
+                    } else {
+                        _ = try await labelClient.createLabel(
+                            trackID: track.trackID, classLabel: label,
+                            startTimestampNs: currentTimestamp)
+                    }
+                    succeeded += 1
+                } catch {
+                    failed += 1
+                    logger.error(
+                        "Failed to label track \(track.trackID): \(error.localizedDescription)")
+                }
+            }
+            logger.info(
+                "Bulk label complete: \(succeeded) succeeded, \(failed) failed out of \(tracks.count)"
+            )
+        }
+    }
+
     /// Assign quality rating to the selected track (Phase 4.2).
     func assignQuality(_ quality: String) {
         guard let trackID = selectedTrackID, let runID = currentRunID else { return }
@@ -517,6 +593,15 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         renderer?.showResiduals = showResiduals  // M6: Residual vectors
         renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
 
+        // Apply track filters to renderer — compute hidden track IDs
+        if hasActiveFilters {
+            let visibleIDs = filteredTrackIDs
+            let allIDs = Set(frame.tracks?.tracks.map { $0.trackID } ?? [])
+            renderer?.hiddenTrackIDs = allIDs.subtracting(visibleIDs)
+        } else {
+            renderer?.hiddenTrackIDs = []
+        }
+
         // Pre-compute values for deferred UI update
         let now = Date()
         let deltaTime = now.timeIntervalSince(lastFrameTime)
@@ -582,6 +667,21 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         pointCount = frame.pointCloud?.pointCount ?? 0
         clusterCount = frame.clusters?.clusters.count ?? 0
         trackCount = frame.tracks?.tracks.count ?? 0
+
+        // Accumulate velocity/heading history for each track
+        if let tracks = frame.tracks?.tracks {
+            for track in tracks {
+                let sample = TrackSample(
+                    frameIndex: currentFrameIndex, speedMps: track.speedMps,
+                    headingDeg: track.headingRad * 180 / .pi)
+                var samples = trackHistory[track.trackID] ?? []
+                samples.append(sample)
+                if samples.count > Self.maxHistorySamples {
+                    samples.removeFirst(samples.count - Self.maxHistorySamples)
+                }
+                trackHistory[track.trackID] = samples
+            }
+        }
 
         // M3.5: Update cache status
         cacheStatus = newCacheStatus
