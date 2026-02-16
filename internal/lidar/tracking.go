@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/google/uuid"
 )
 
 // TrackState represents the lifecycle state of a track.
@@ -38,6 +39,17 @@ const (
 	// MaxPositionJumpMeters is the maximum allowed position jump between consecutive observations
 	// Observations beyond this distance are rejected as likely false associations
 	MaxPositionJumpMeters = 5.0
+
+	// MaxPredictDt is the maximum dt (seconds) allowed in a single predict step.
+	// Larger gaps are clamped to prevent covariance explosion from quadratic growth
+	// in the F*P*F^T computation. At 0.5 s this allows ~5 missed frames at 10 Hz
+	// before clamping kicks in.
+	MaxPredictDt float32 = 0.5
+
+	// MaxCovarianceDiag is the maximum allowed diagonal element of the
+	// covariance matrix P. Prevents unbounded gating ellipse growth during
+	// long coasting or large dt gaps.
+	MaxCovarianceDiag float32 = 100.0
 )
 
 // TrackerConfig holds configuration parameters for the tracker.
@@ -360,9 +372,17 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 			// Inflate covariance during occlusion so the gating
 			// ellipse grows and re-association becomes easier.
+			// Capped at MaxCovarianceDiag to prevent unbounded growth
+			// over long coasting periods (e.g. 15 frames × 0.5 = +7.5).
 			if t.Config.OcclusionCovInflation > 0 {
 				track.P[0*4+0] += t.Config.OcclusionCovInflation
 				track.P[1*4+1] += t.Config.OcclusionCovInflation
+				if track.P[0*4+0] > MaxCovarianceDiag {
+					track.P[0*4+0] = MaxCovarianceDiag
+				}
+				if track.P[1*4+1] > MaxCovarianceDiag {
+					track.P[1*4+1] = MaxCovarianceDiag
+				}
 			}
 
 			// Append predicted (coasted) position to history
@@ -415,6 +435,13 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 // predict applies the Kalman prediction step using constant velocity model.
 func (t *Tracker) predict(track *TrackedObject, dt float32) {
+	// Clamp dt to prevent covariance explosion on frame gaps.
+	// Large dt values (e.g. from throttled frames or PCAP catch-up) cause
+	// F*P*F^T to grow quadratically, ballooning the gating ellipse.
+	if dt > MaxPredictDt {
+		dt = MaxPredictDt
+	}
+
 	// State transition matrix F for constant velocity model:
 	// F = [1  0  dt  0 ]
 	//     [0  1  0   dt]
@@ -465,6 +492,14 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	track.P[1*4+1] += t.Config.ProcessNoisePos * dt
 	track.P[2*4+2] += t.Config.ProcessNoiseVel * dt
 	track.P[3*4+3] += t.Config.ProcessNoiseVel * dt
+
+	// Cap covariance diagonal elements to prevent unbounded gating ellipse
+	// growth from accumulated prediction steps and occlusion inflation.
+	for i := 0; i < 4; i++ {
+		if track.P[i*4+i] > MaxCovarianceDiag {
+			track.P[i*4+i] = MaxCovarianceDiag
+		}
+	}
 }
 
 // associate performs cluster-to-track association using the Hungarian
@@ -851,8 +886,10 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 }
 
 // initTrack creates a new track from an unassociated cluster.
+// Track IDs are globally unique using a UUID prefix to prevent collisions
+// across tracker resets and server restarts.
 func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject {
-	trackID := fmt.Sprintf("track_%d", t.NextTrackID)
+	trackID := fmt.Sprintf("trk_%s", uuid.New().String()[:8])
 	t.NextTrackID++
 
 	track := &TrackedObject{
@@ -956,6 +993,10 @@ func (t *Tracker) GetActiveTracks() []*TrackedObject {
 }
 
 // GetConfirmedTracks returns only confirmed tracks.
+// Each returned TrackedObject is a shallow copy with deep-copied slices,
+// making it safe for callers to read without holding the tracker lock.
+// This prevents data races between the persistence pipeline (reading fields)
+// and the tracker Update() goroutine (modifying them).
 func (t *Tracker) GetConfirmedTracks() []*TrackedObject {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -963,7 +1004,18 @@ func (t *Tracker) GetConfirmedTracks() []*TrackedObject {
 	confirmed := make([]*TrackedObject, 0)
 	for _, track := range t.Tracks {
 		if track.State == TrackConfirmed {
-			confirmed = append(confirmed, track)
+			// Shallow copy the struct to snapshot scalar fields
+			copied := *track
+			// Deep copy slices to avoid race with concurrent Update() appends
+			if len(track.History) > 0 {
+				copied.History = make([]TrackPoint, len(track.History))
+				copy(copied.History, track.History)
+			}
+			if len(track.speedHistory) > 0 {
+				copied.speedHistory = make([]float32, len(track.speedHistory))
+				copy(copied.speedHistory, track.speedHistory)
+			}
+			confirmed = append(confirmed, &copied)
 		}
 	}
 	return confirmed

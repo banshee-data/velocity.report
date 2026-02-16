@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -401,12 +402,16 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 
 	sensorID := "sensor-history-test"
 
+	// Use recent timestamps so observations fall within the 60 s recency
+	// window used by GetActiveTracks.
+	baseNanos := time.Now().Add(-10 * time.Second).UnixNano()
+
 	// Insert track
 	track := &TrackedObject{
 		TrackID:        "track-history",
 		SensorID:       sensorID,
 		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
+		FirstUnixNanos: baseNanos,
 		speedHistory:   []float32{5.0},
 	}
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -417,7 +422,7 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		obs := &TrackObservation{
 			TrackID:     "track-history",
-			TSUnixNanos: int64(1000 + i*100),
+			TSUnixNanos: baseNanos + int64(i)*int64(100*time.Millisecond),
 			WorldFrame:  "site/main",
 			X:           float32(i),
 			Y:           float32(i * 2),

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 )
 
 // TrackStore defines the interface for track persistence operations.
@@ -476,23 +477,26 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 		return nil, fmt.Errorf("iterate tracks: %w", err)
 	}
 
-	// Populate history for each track
+	// Populate history for each track, scoped to a recency window to avoid
+	// pulling observations from unrelated sessions with reused track IDs.
+	nowNanos := time.Now().UnixNano()
+	recencyWindow := int64(60 * time.Second) // 60 s of recent history
+	obsStart := nowNanos - recencyWindow
 	for _, track := range tracks {
-		// Fetch recent observations (limit 1000 to capture full history for typical tracks)
-		obs, err := GetTrackObservations(db, track.TrackID, 1000)
+		// Use the track's own lifetime if it falls within the recency window
+		if track.FirstUnixNanos > obsStart {
+			obsStart = track.FirstUnixNanos
+		}
+		obs, err := GetTrackObservationsInRange(db, sensorID, obsStart, nowNanos, 1000, track.TrackID)
 		if err != nil {
 			// Log error but continue, returning track without history is better than failing
 			continue
 		}
 
-		// Convert observations to TrackPoint history
-		// GetTrackObservations returns DESC (newest first), so we prepend or reverse
-		// Pre-allocate history slice
+		// GetTrackObservationsInRange returns ASC (oldest first)
 		track.History = make([]TrackPoint, len(obs))
 		for i, o := range obs {
-			// Store in reverse order (oldest first) for chronological history
-			idx := len(obs) - 1 - i
-			track.History[idx] = TrackPoint{
+			track.History[i] = TrackPoint{
 				X:         o.X,
 				Y:         o.Y,
 				Timestamp: o.TSUnixNanos,
@@ -600,15 +604,18 @@ func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, end
 	}
 
 	for _, track := range tracks {
-		obs, err := GetTrackObservations(db, track.TrackID, 1000)
+		// Use time-scoped observation query to ensure history stays within
+		// the requested window. This prevents cross-session contamination
+		// when track IDs have been reused across resets.
+		obs, err := GetTrackObservationsInRange(db, sensorID, startNanos, endNanos, 1000, track.TrackID)
 		if err != nil {
 			continue
 		}
 
+		// GetTrackObservationsInRange returns ASC (oldest first)
 		track.History = make([]TrackPoint, len(obs))
 		for i, o := range obs {
-			idx := len(obs) - 1 - i
-			track.History[idx] = TrackPoint{
+			track.History[i] = TrackPoint{
 				X:         o.X,
 				Y:         o.Y,
 				Timestamp: o.TSUnixNanos,

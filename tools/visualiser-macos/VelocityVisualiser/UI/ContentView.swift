@@ -717,9 +717,8 @@ struct TrackListView: View {
                         Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
                             width: 8, height: 8)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(track.trackId.truncated(12)).font(
-                                .system(.caption, design: .monospaced)
-                            ).lineLimit(1)
+                            Text(track.trackId).font(.system(.caption, design: .monospaced))
+                                .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                             HStack(spacing: 4) {
                                 if let speed = track.avgSpeedMps {
                                     Text(String(format: "%.1f m/s", speed)).font(.caption2)
@@ -757,9 +756,8 @@ struct TrackListView: View {
                     HStack(spacing: 6) {
                         Circle().fill(trackStateColour(track.state)).frame(width: 8, height: 8)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(track.trackID.truncated(12)).font(
-                                .system(.caption, design: .monospaced)
-                            ).lineLimit(1)
+                            Text(track.trackID).font(.system(.caption, design: .monospaced))
+                                .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                             HStack(spacing: 4) {
                                 Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
                                 if !track.classLabel.isEmpty {
@@ -840,7 +838,7 @@ struct LabelPanelView: View {
             Text("Label Track").font(.headline)
 
             if let trackID = appState.selectedTrackID {
-                Text("Track: \(trackID.truncated(12))").font(.caption).foregroundColor(.secondary)
+                Text("Track: \(trackID)").font(.caption).foregroundColor(.secondary)
 
                 // Run context indicator (Phase 4.3)
                 if let runID = appState.currentRunID {
@@ -1037,14 +1035,13 @@ struct TrackLabelOverlay: View {
     }
 }
 
-/// A single track label pill: monospaced track ID prefix + class label.
+/// A single track label pill: full monospaced track ID + class label.
 struct TrackLabelPill: View {
     let label: MetalRenderer.TrackScreenLabel
 
     var body: some View {
         HStack(spacing: 3) {
-            Text(String(label.id.prefix(8))).font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.white)
+            Text(label.id).font(.system(size: 10, design: .monospaced)).foregroundColor(.white)
 
             if !label.classLabel.isEmpty {
                 Text(label.classLabel).font(.system(size: 10)).foregroundColor(.yellow)

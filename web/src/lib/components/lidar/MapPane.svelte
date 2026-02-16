@@ -501,6 +501,13 @@
 				: sortedHistory;
 
 			let firstPointDrawn = false;
+			let prevPt: { x: number; y: number; timestamp?: string | number } | null = null;
+
+			// Gap thresholds for breaking polylines to avoid spaghetti lines.
+			// Temporal: 1 second gap suggests the track was lost and re-acquired.
+			// Spatial: 2 metre jump suggests ID reuse or tracker teleportation.
+			const GAP_TIME_MS = 1000;
+			const GAP_DISTANCE_M = 2.0;
 
 			// Helper to check if point is valid
 			const isValid = (pt: { x: number; y: number }) =>
@@ -518,8 +525,40 @@
 					ctx.moveTo(x, y);
 					firstPointDrawn = true;
 				} else {
-					ctx.lineTo(x, y);
+					// Check for temporal or spatial gaps that indicate a discontinuity.
+					// Break the polyline with moveTo instead of lineTo to avoid
+					// drawing long diagonal "spaghetti" lines across the map.
+					let hasGap = false;
+					if (prevPt) {
+						// Temporal gap check
+						if (pt.timestamp && prevPt.timestamp) {
+							const tCur =
+								typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+							const tPrev =
+								typeof prevPt.timestamp === 'number'
+									? prevPt.timestamp
+									: new Date(prevPt.timestamp).getTime();
+							if (Math.abs(tCur - tPrev) > GAP_TIME_MS) {
+								hasGap = true;
+							}
+						}
+						// Spatial gap check
+						if (!hasGap) {
+							const dx = pt.x - prevPt.x;
+							const dy = pt.y - prevPt.y;
+							if (Math.sqrt(dx * dx + dy * dy) > GAP_DISTANCE_M) {
+								hasGap = true;
+							}
+						}
+					}
+
+					if (hasGap) {
+						ctx.moveTo(x, y);
+					} else {
+						ctx.lineTo(x, y);
+					}
 				}
+				prevPt = pt;
 			}
 
 			// If we drew path, stroke it
