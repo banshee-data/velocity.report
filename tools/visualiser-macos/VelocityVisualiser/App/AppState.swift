@@ -207,6 +207,19 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         logger.debug("Disconnected")
     }
 
+    /// Clear all transient visualisation data while preserving the background grid and connection.
+    func clearAll() {
+        logger.info("clearAll() called — clearing transient data")
+        currentFrame = nil
+        selectedTrackID = nil
+        trackLabels = []
+        pointCount = 0
+        clusterCount = 0
+        trackCount = 0
+        cacheStatus = ""
+        renderer?.clearTransientData()
+    }
+
     // MARK: - Playback Control
 
     func togglePlayPause() {

@@ -966,6 +966,45 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         camera.up = simd_float3(0, 0, 1)
     }
 
+    /// Clear all transient data (clusters, tracks, boxes, trails, points) while preserving the grid.
+    func clearTransientData() {
+        // Point cloud
+        compositeRenderer?.clearCache()
+        pointBuffer = nil
+        pointCount = 0
+        pointBufferCapacity = 0
+
+        // Boxes
+        boxVertices = nil
+        boxVertexCount = 0
+        boxInstances = nil
+        boxInstanceCount = 0
+
+        // Clusters
+        clusterInstances = nil
+        clusterInstanceCount = 0
+
+        // Trails
+        trailVertices = nil
+        trailVertexCount = 0
+        trailSegments = []
+
+        // Heading arrows
+        headingArrowVertices = nil
+        headingArrowVertexCount = 0
+
+        // Debug overlays
+        debugLineVertices = nil
+        debugLineVertexCount = 0
+        ellipseVertices = nil
+        ellipseVertexCount = 0
+        ellipseSegments = []
+
+        // Track selection
+        selectedTrackID = nil
+        _lastTracks = nil
+    }
+
     /// M3.5: Get background cache status for UI display.
     func getCacheStatus() -> String {
         compositeRenderer?.cacheStatus ?? "Not using split streaming"

@@ -155,6 +155,11 @@ struct ToolbarView: View {
                 Button(action: { appState.showSidePanel.toggle() }) {
                     Label("Inspector", systemImage: "sidebar.trailing")
                 }.help("Toggle track inspector")
+
+                Divider().frame(height: 20)
+                Button(action: { appState.clearAll() }) {
+                    Label("Clear", systemImage: "xmark.circle")
+                }.help("Clear all except background grid")
             }
 
             Spacer()
@@ -717,8 +722,9 @@ struct TrackListView: View {
                         Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
                             width: 8, height: 8)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(track.trackId).font(.system(.caption, design: .monospaced))
-                                .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                            Text(track.trackId.shortTrackID).font(
+                                .system(.caption, design: .monospaced)
+                            ).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                             HStack(spacing: 4) {
                                 if let speed = track.avgSpeedMps {
                                     Text(String(format: "%.1f m/s", speed)).font(.caption2)
@@ -756,8 +762,9 @@ struct TrackListView: View {
                     HStack(spacing: 6) {
                         Circle().fill(trackStateColour(track.state)).frame(width: 8, height: 8)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(track.trackID).font(.system(.caption, design: .monospaced))
-                                .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                            Text(track.trackID.shortTrackID).font(
+                                .system(.caption, design: .monospaced)
+                            ).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                             HStack(spacing: 4) {
                                 Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
                                 if !track.classLabel.isEmpty {
@@ -1035,13 +1042,14 @@ struct TrackLabelOverlay: View {
     }
 }
 
-/// A single track label pill: full monospaced track ID + class label.
+/// A single track label pill: short 3-char hex suffix + class label.
 struct TrackLabelPill: View {
     let label: MetalRenderer.TrackScreenLabel
 
     var body: some View {
         HStack(spacing: 3) {
-            Text(label.id).font(.system(size: 10, design: .monospaced)).foregroundColor(.white)
+            Text(label.id.shortTrackID).font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.white)
 
             if !label.classLabel.isEmpty {
                 Text(label.classLabel).font(.system(size: 10)).foregroundColor(.yellow)
@@ -1210,3 +1218,17 @@ class InteractiveMetalView: MTKView {
 // MARK: - Preview
 
 #Preview { ContentView().environmentObject(AppState()) }
+
+// MARK: - Track ID Helpers
+
+extension String {
+    /// Returns a short 3-character hex suffix from a track ID (e.g. "trk_a1b2c3d4" → "3d4").
+    var shortTrackID: String {
+        // Track IDs use the format "trk_XXXXXXXX". Extract the last 3 hex characters.
+        if let underscoreIndex = lastIndex(of: "_") {
+            let hex = self[index(after: underscoreIndex)...]
+            return String(hex.suffix(3))
+        }
+        return String(suffix(3))
+    }
+}
