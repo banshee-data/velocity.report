@@ -579,15 +579,15 @@ _Beyond 9.3–9.4:_
 
 ### Work summary for Phase B + C backlog
 
-| Item                               | Scope                                               | Key files                                                                          |
-| ---------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Phase B** Transform pipeline     | Config-driven metric transforms before scoring       | `transform.go` (new), `transform_test.go` (new)                                   |
-| **Phase B** Objective registry     | Pluggable objective definitions                      | `objective_registry.go` (new), `objective_registry_test.go` (new)                  |
-| **Phase B** API endpoints          | List objectives + transforms                         | `sweep_handlers.go`, `webserver.go`, `api.ts`, `lidar.ts`                          |
-| **Phase B** Version stamps         | Pipeline name/version in artefacts                   | `auto.go`, `hint.go`                                                               |
-| **Phase C** Delta explanations     | Round-over-round score deltas                        | `hint.go` (`DeltaVsPrevious` field on `HINTRound`)                                 |
-| **Phase C** Agreement checks       | Inter-labeller consistency                           | `label_agreement.go` (new), `label_agreement_test.go` (new)                        |
-| **Phase C** Coverage penalty       | Label-coverage confidence penalty                    | `label_penalty.go` (new), `label_penalty_test.go` (new)                            |
+| Item                           | Scope                                          | Key files                                                         |
+| ------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------- |
+| **Phase B** Transform pipeline | Config-driven metric transforms before scoring | `transform.go` (new), `transform_test.go` (new)                   |
+| **Phase B** Objective registry | Pluggable objective definitions                | `objective_registry.go` (new), `objective_registry_test.go` (new) |
+| **Phase B** API endpoints      | List objectives + transforms                   | `sweep_handlers.go`, `webserver.go`, `api.ts`, `lidar.ts`         |
+| **Phase B** Version stamps     | Pipeline name/version in artefacts             | `auto.go`, `hint.go`                                              |
+| **Phase C** Delta explanations | Round-over-round score deltas                  | `hint.go` (`DeltaVsPrevious` field on `HINTRound`)                |
+| **Phase C** Agreement checks   | Inter-labeller consistency                     | `label_agreement.go` (new), `label_agreement_test.go` (new)       |
+| **Phase C** Coverage penalty   | Label-coverage confidence penalty              | `label_penalty.go` (new), `label_penalty_test.go` (new)           |
 
 These actions preserve existing behaviour while laying platform foundations for
 scalable, interpretable, human-guided optimisation.
