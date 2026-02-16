@@ -76,6 +76,21 @@ type TrackingPipelineConfig struct {
 	// ML training data collection. The callback receives the track's
 	// extracted features and the current classification result.
 	FeatureExportFunc func(trackID string, features TrackFeatures, class string, confidence float32)
+
+	// HeightBandFloor is the lower bound (metres) for the vertical height
+	// band filter. Values are in the same frame as the points passed to
+	// FilterVertical — typically sensor frame where Z=0 is the sensor's
+	// horizontal plane. Default: −2.8 (≈ 0.2 m above road for a ~3 m mount).
+	HeightBandFloor float64
+
+	// HeightBandCeiling is the upper bound (metres) for the vertical height
+	// band filter. Default: +1.5 (allows tall trucks above sensor height).
+	HeightBandCeiling float64
+
+	// RemoveGround, when true (the default), enables the height band filter
+	// that removes ground-plane and overhead-structure returns before
+	// clustering. Set to false to disable ground removal entirely.
+	RemoveGround bool
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -248,13 +263,24 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 
 		// Phase 2.5: Ground removal (vertical filtering)
 		// Remove ground plane and overhead structure returns to reduce false clusters.
-		// This uses a height band filter (0.2m - 3.0m) suitable for street scenes.
-		groundFilter := DefaultHeightBandFilter()
-		filteredPoints := groundFilter.FilterVertical(worldPoints)
-		if cfg.DebugMode {
-			proc, kept, below, above := groundFilter.Stats()
-			Debugf("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
-				proc, kept, below, above)
+		// Bounds are in sensor frame (identity pose): Z=0 is the sensor's horizontal
+		// plane, ground is at approximately −3.0 m for a ~3 m mount height.
+		filteredPoints := worldPoints
+		if cfg.RemoveGround {
+			var groundFilter *HeightBandFilter
+			if cfg.HeightBandFloor != 0 || cfg.HeightBandCeiling != 0 {
+				groundFilter = NewHeightBandFilter(cfg.HeightBandFloor, cfg.HeightBandCeiling)
+			} else {
+				groundFilter = DefaultHeightBandFilter()
+			}
+			filteredPoints = groundFilter.FilterVertical(worldPoints)
+			if cfg.DebugMode {
+				proc, kept, below, above := groundFilter.Stats()
+				Debugf("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+					proc, kept, below, above)
+			}
+		} else if cfg.DebugMode {
+			Debugf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
 		}
 
 		if len(filteredPoints) == 0 {

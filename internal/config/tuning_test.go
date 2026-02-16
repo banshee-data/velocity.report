@@ -252,7 +252,10 @@ func TestLoadTuningConfig(t *testing.T) {
   "hits_to_confirm": 3,
   "max_misses": 3,
   "max_misses_confirmed": 15,
-  "max_tracks": 100
+  "max_tracks": 100,
+  "height_band_floor": -2.8,
+  "height_band_ceiling": 1.5,
+  "remove_ground": true
 }`
 	if err := os.WriteFile(configPath, []byte(testJSON), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -565,7 +568,10 @@ func TestAllTuningParams(t *testing.T) {
   "hits_to_confirm": 3,
   "max_misses": 5,
   "max_misses_confirmed": 10,
-  "max_tracks": 200
+  "max_tracks": 200,
+  "height_band_floor": -3.5,
+  "height_band_ceiling": 2.0,
+  "remove_ground": true
 }`
 	if err := os.WriteFile(configPath, []byte(allParamsJSON), 0644); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)

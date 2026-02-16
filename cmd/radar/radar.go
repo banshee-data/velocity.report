@@ -386,6 +386,9 @@ func main() {
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
 				MaxFrameRate:        12, // Prevent PCAP catch-up bursts from flooding the pipeline
+				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
+				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
+				RemoveGround:        tuningCfg.GetRemoveGround(),
 			}
 			callback := pipelineConfig.NewFrameCallback()
 

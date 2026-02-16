@@ -4,28 +4,30 @@ This document provides a quick reference showing the parameter changes between t
 
 ## Side-by-Side Comparison
 
-| Parameter                            | Current (tuning.defaults.json) | Optimised (tuning.optimised.json) | Change | Impact                                                      |
-| ------------------------------------ | ------------------------------ | --------------------------------- | ------ | ----------------------------------------------------------- |
-| **Background/Foreground Extraction** |                                |                                   |        |                                                             |
-| `noise_relative`                     | 0.04                           | 0.02                              | ↓ 50%  | Tighter background acceptance → more foreground capture     |
-| `closeness_multiplier`               | 8.0                            | 3.0                               | ↓ 62%  | **Major:** Reduces false negatives, captures vehicle edges  |
-| `neighbor_confirmation_count`        | 7                              | 3                                 | ↓ 57%  | Easier foreground voting → fewer suppressed points          |
-| `safety_margin_meters`               | 0.4                            | 0.15                              | ↓ 62%  | **Major:** Reduces edge-point suppression                   |
-| **Clustering**                       |                                |                                   |        |                                                             |
-| `foreground_min_cluster_points`      | 2                              | 5                                 | ↑ 150% | Rejects noise fragments → cleaner clusters                  |
-| `foreground_dbscan_eps`              | 0.3                            | 0.7                               | ↑ 133% | **Major:** Merges sub-clusters → reduces fragmentation      |
-| **Tracking/Association**             |                                |                                   |        |                                                             |
-| `gating_distance_squared`            | 4.0                            | 25.0                              | ↑ 525% | **Major:** Allows re-association across gaps (2m→5m radius) |
-| `process_noise_vel`                  | 0.5                            | 0.3                               | ↓ 40%  | Constrains velocity drift → reduces speed jitter            |
-| `measurement_noise`                  | 0.3                            | 0.15                              | ↓ 50%  | **Major:** Trusts observations → reduces heading jitter     |
-| `hits_to_confirm`                    | 3                              | 4                                 | ↑ 33%  | Delays confirmation → allows cluster merging                |
-| **Unchanged (Already Optimal)**      |                                |                                   |        |                                                             |
-| `background_update_fraction`         | 0.02                           | 0.02                              | -      | Stable background learning rate                             |
-| `process_noise_pos`                  | 0.1                            | 0.1                               | -      | Position uncertainty already well-calibrated                |
-| `occlusion_cov_inflation`            | 0.5                            | 0.5                               | -      | Covariance growth during occlusion balanced                 |
-| `max_misses`                         | 3                              | 3                                 | -      | Tentative track lifetime appropriate                        |
-| `max_misses_confirmed`               | 15                             | 15                                | -      | Confirmed track coasting (1.5s at 10Hz) reasonable          |
-| `max_tracks`                         | 100                            | 100                               | -      | Capacity sufficient for typical scenes                      |
+| Parameter                            | Current (tuning.defaults.json) | Optimised (tuning.optimised.json) | Change | Impact                                                       |
+| ------------------------------------ | ------------------------------ | --------------------------------- | ------ | ------------------------------------------------------------ |
+| **Background/Foreground Extraction** |                                |                                   |        |                                                              |
+| `noise_relative`                     | 0.04                           | 0.02                              | ↓ 50%  | Tighter background acceptance → more foreground capture      |
+| `closeness_multiplier`               | 8.0                            | 3.0                               | ↓ 62%  | **Major:** Reduces false negatives, captures vehicle edges   |
+| `neighbor_confirmation_count`        | 7                              | 3                                 | ↓ 57%  | Easier foreground voting → fewer suppressed points           |
+| `safety_margin_meters`               | 0.4                            | 0.15                              | ↓ 62%  | **Major:** Reduces edge-point suppression                    |
+| **Clustering**                       |                                |                                   |        |                                                              |
+| `foreground_min_cluster_points`      | 2                              | 5                                 | ↑ 150% | Rejects noise fragments → cleaner clusters                   |
+| `foreground_dbscan_eps`              | 0.3                            | 0.7                               | ↑ 133% | **Major:** Merges sub-clusters → reduces fragmentation       |
+| **Tracking/Association**             |                                |                                   |        |                                                              |
+| `gating_distance_squared`            | 4.0                            | 25.0                              | ↑ 525% | **Major:** Allows re-association across gaps (2m→5m radius)  |
+| `process_noise_vel`                  | 0.5                            | 0.3                               | ↓ 40%  | Constrains velocity drift → reduces speed jitter             |
+| `measurement_noise`                  | 0.3                            | 0.15                              | ↓ 50%  | **Major:** Trusts observations → reduces heading jitter      |
+| `hits_to_confirm`                    | 3                              | 4                                 | ↑ 33%  | Delays confirmation → allows cluster merging                 |
+| **Unchanged (Already Optimal)**      |                                |                                   |        |                                                              |
+| `background_update_fraction`         | 0.02                           | 0.02                              | -      | Stable background learning rate                              |
+| `process_noise_pos`                  | 0.1                            | 0.1                               | -      | Position uncertainty already well-calibrated                 |
+| `occlusion_cov_inflation`            | 0.5                            | 0.5                               | -      | Covariance growth during occlusion balanced                  |
+| `max_misses`                         | 3                              | 3                                 | -      | Tentative track lifetime appropriate                         |
+| `max_misses_confirmed`               | 15                             | 15                                | -      | Confirmed track coasting (1.5s at 10Hz) reasonable           |
+| `max_tracks`                         | 100                            | 100                               | -      | Capacity sufficient for typical scenes                       |
+| `height_band_floor`                  | −2.8                           | −2.8                              | -      | Sensor-frame floor (≈ 0.2 m above road for 3 m mount)        |
+| `height_band_ceiling`                | 1.5                            | 1.5                               | -      | Sensor-frame ceiling (tall trucks up to ~1.5 m above sensor) |
 
 ## Critical Changes (Highest Impact)
 

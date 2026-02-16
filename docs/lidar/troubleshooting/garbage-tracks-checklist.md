@@ -3,20 +3,27 @@
 This is the canonical document for garbage-track remediation.
 It combines the original review and checklist into one maintained source.
 
-Updated: 2026-02-15
+Updated: 2026-02-16
 
 ---
 
 ## Scope and context
 
-- Reviewed layers: LiDAR tracking/persistence pipeline and Svelte tracks rendering flow.
-- Goal: remove trajectory contamination, avoid spaghetti artefacts, and harden pipeline determinism.
+- Reviewed layers: full LiDAR pipeline (foreground → transform → ground filter → clustering → tracking → persistence → rendering).
+- Goal: remove trajectory contamination, avoid spaghetti artefacts, fix missing detections, and harden pipeline determinism.
 - Canonical reference files:
+  - [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
   - [tracking.go](../../../internal/lidar/tracking.go)
+  - [ground.go](../../../internal/lidar/ground.go)
+  - [transform.go](../../../internal/lidar/transform.go)
+  - [obb.go](../../../internal/lidar/obb.go)
+  - [clustering.go](../../../internal/lidar/clustering.go)
   - [track_store.go](../../../internal/lidar/track_store.go)
   - [frame_builder.go](../../../internal/lidar/frame_builder.go)
-  - [api.ts](../../../web/src/lib/api.ts)
+  - [adapter.go](../../../internal/lidar/visualiser/adapter.go)
+  - [track_api.go](../../../internal/lidar/monitor/track_api.go)
   - [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
+  - [api.ts](../../../web/src/lib/api.ts)
 
 ---
 
@@ -44,6 +51,48 @@ Updated: 2026-02-15
 ---
 
 ## Remaining backlog (reprioritised)
+
+### P0 — Critical pipeline bugs (new findings 2026-02-16)
+
+#### 8.1 Height band filter operates in sensor frame (CRITICAL)
+
+- **Severity:** P0 — causes loss of nearly all foreground detections
+- **Symptom:** Many foreground cars not identified; objects below the sensor rejected.
+- **Root cause:** `DefaultHeightBandFilter(floor=0.2, ceiling=3.0)` assumes Z=0 is ground level. However, `TransformToWorld` is called with a nil pose (identity transform), so Z=0 is the sensor's horizontal plane (~3m above ground). All LiDAR beams pointing below horizontal produce negative Z values via `z = distance × sin(elevation)`. The floor=0.2m check rejects every point with Z < 0.2, which includes **all objects at or below sensor height** — i.e. virtually everything of interest (cars, pedestrians, cyclists).
+- **Numerical proof:** Pandar40P elevation channels range from approximately −25° to +15°. At 10m range with −5° elevation: Z = −0.87m → rejected. At 20m with −10°: Z = −3.47m → rejected. Only the few channels pointing above horizontal (+5° to +15°) at short range pass the filter, and those see sky/walls, not road-level objects.
+- **Files:** [ground.go](../../../internal/lidar/ground.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go) (line 247–253), [transform.go](../../../internal/lidar/transform.go)
+- **Fix options:**
+  1. **(Preferred)** Adjust the height band to sensor-frame coordinates: set floor ≈ −3.5m (ground surface relative to sensor) and ceiling ≈ 0.3m (nothing of interest above sensor height). This correctly passes objects between ground and sensor.
+  2. Supply a real sensor→world pose to `TransformToWorld` so Z=0 becomes ground level, then the existing [0.2, 3.0] band would work as designed.
+  3. Disable the height filter entirely and rely on DBSCAN clustering to reject ground-plane noise.
+- **Validation:** replay a pcap capture; confirm the foreground cluster count is dramatically higher after the fix. Compare before/after in the macOS visualiser.
+
+#### 8.2 OBB heading not sent to web REST API — Svelte has no bounding boxes
+
+- **Severity:** P0 — Svelte tracks view shows **no bounding boxes** at all
+- **Symptom:** Bounding boxes completely absent in the Svelte tracks view. (Note: the _macOS_ visualiser does show boxes but they rotate/split — that is a separate PCA instability issue, see 8.4.)
+- **Root cause:** `trackToResponse()` in [track_api.go](../../../internal/lidar/monitor/track_api.go) computes heading via `headingFromVelocity(velX, velY)` → `atan2(VY, VX)`. It does **not** include the PCA-derived `OBBHeadingRad`. The gRPC path (macOS app) correctly sends `BBoxHeadingRad: t.OBBHeadingRad` via [adapter.go](../../../internal/lidar/visualiser/adapter.go). Svelte's [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte) uses `track.heading_rad` for rotation — which is velocity-derived and potentially zero/NaN for stationary objects.
+- **Files:** [track_api.go](../../../internal/lidar/monitor/track_api.go) (line ~940), [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte) (line ~581)
+- **Fix:** Add `obb_heading_rad` field to the REST API track response. In `MapPane.svelte`, prefer `obb_heading_rad` over velocity heading for bounding box rendering.
+- **Validation:** confirm bounding boxes appear in the Svelte tracks view with correct orientation matching macOS.
+
+#### 8.3 Per-frame OBB dimensions not persisted — averaged dimensions used
+
+- **Severity:** P0/P1 — bounding boxes use stale running averages, not per-frame measurements
+- **Symptom:** Boxes in both macOS and Svelte views don't tightly hug clusters; they lag behind shape changes.
+- **Root cause:** `EstimateOBBFromCluster` computes per-frame length/width/height but these values are folded into `BoundingBoxLengthAvg/WidthAvg/HeightAvg` running averages in the tracker. Both gRPC (`adaptTracks`) and REST API (`trackToResponse`) send only these averaged values. Persistence in `InsertTrackObservation` also stores averages.
+- **Files:** [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go) (line ~369), [tracking.go](../../../internal/lidar/tracking.go) (update method), [track_store.go](../../../internal/lidar/track_store.go)
+- **Fix:** Persist and transmit both instantaneous OBB dimensions (for real-time rendering) and averaged dimensions (for classification/reporting). Add `obb_length`, `obb_width`, `obb_height` fields alongside the existing `*_avg` fields.
+- **Validation:** bounding boxes should visually snap to cluster shape each frame.
+
+#### 8.4 OBB heading jitter in macOS view (PCA instability)
+
+- **Severity:** Medium — macOS visualiser only
+- **Symptom:** Bounding boxes in the macOS visualiser rotate rapidly and sometimes split into smaller boxes on symmetric or small clusters.
+- **Root cause:** PCA on small/symmetric point clouds has a 180° heading ambiguity. The velocity-based disambiguation (in `SmoothOBBHeading`) only works when speed > 0.5 m/s. The smoothing factor α=0.15 may be too aggressive for noisy heading estimates.
+- **Files:** [obb.go](../../../internal/lidar/obb.go), [tracking.go](../../../internal/lidar/tracking.go)
+- **Fix:** Increase heading smoothing (reduce α), add a minimum-points threshold for PCA, and consider locking heading when the cluster aspect ratio is near 1:1 (ambiguous).
+- **Validation:** stationary or slow-moving vehicles should maintain stable box orientation.
 
 ### R1 — Next high-impact items
 
@@ -151,11 +200,12 @@ Updated: 2026-02-15
 
 ---
 
-## Delivery order from today
+## Delivery order
 
-1. **R1 batch:** 2.5, 6.4, 2.4, 2.3
-2. **R2 batch:** 3.1, 3.3, 4.3, 5.2, 7.1
-3. **R3 batch:** 1.3, 6.2, 6.3, 6.5, 7.2, 3.2
+1. **P0 batch:** 8.1 (height filter — critical, most impact), 8.2 (OBB heading to web API), 8.3 (per-frame OBB dims)
+2. **R1 batch:** 2.5, 6.4, 2.4, 2.3
+3. **R2 batch:** 3.1, 3.3, 4.3, 5.2, 7.1, 8.4
+4. **R3 batch:** 1.3, 6.2, 6.3, 6.5, 7.2, 3.2
 
 ---
 

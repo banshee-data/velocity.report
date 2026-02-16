@@ -52,6 +52,11 @@ type TuningConfig struct {
 	MaxMisses             *int     `json:"max_misses,omitempty"`
 	MaxMissesConfirmed    *int     `json:"max_misses_confirmed,omitempty"`
 	MaxTracks             *int     `json:"max_tracks,omitempty"`
+
+	// Height band filter params (sensor-frame Z coordinates)
+	HeightBandFloor   *float64 `json:"height_band_floor,omitempty"`
+	HeightBandCeiling *float64 `json:"height_band_ceiling,omitempty"`
+	RemoveGround      *bool    `json:"remove_ground,omitempty"`
 }
 
 // Helper functions to create pointers
@@ -233,6 +238,15 @@ func (c *TuningConfig) ValidateComplete() error {
 	if c.MaxTracks == nil {
 		missing = append(missing, "max_tracks")
 	}
+	if c.HeightBandFloor == nil {
+		missing = append(missing, "height_band_floor")
+	}
+	if c.HeightBandCeiling == nil {
+		missing = append(missing, "height_band_ceiling")
+	}
+	if c.RemoveGround == nil {
+		missing = append(missing, "remove_ground")
+	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required keys: %v", missing)
 	}
@@ -324,3 +338,12 @@ func (c *TuningConfig) GetSafetyMarginMeters() float64 { return *c.SafetyMarginM
 
 // GetEnableDiagnostics returns the enable_diagnostics value.
 func (c *TuningConfig) GetEnableDiagnostics() bool { return *c.EnableDiagnostics }
+
+// GetHeightBandFloor returns the height_band_floor value (metres, sensor-frame Z).
+func (c *TuningConfig) GetHeightBandFloor() float64 { return *c.HeightBandFloor }
+
+// GetHeightBandCeiling returns the height_band_ceiling value (metres, sensor-frame Z).
+func (c *TuningConfig) GetHeightBandCeiling() float64 { return *c.HeightBandCeiling }
+
+// GetRemoveGround returns the remove_ground value.
+func (c *TuningConfig) GetRemoveGround() bool { return *c.RemoveGround }

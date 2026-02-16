@@ -305,7 +305,10 @@ Based on analysis, here's a balanced configuration for **urban street scenarios*
   "hits_to_confirm": 4,
   "max_misses": 3,
   "max_misses_confirmed": 15,
-  "max_tracks": 100
+  "max_tracks": 100,
+  "height_band_floor": -2.8,
+  "height_band_ceiling": 1.5,
+  "remove_ground": true
 }
 ```
 

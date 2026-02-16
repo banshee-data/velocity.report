@@ -417,7 +417,7 @@ func TestNewFrameCallback_ProcessError(t *testing.T) {
 // Geometry:
 //   - 40×1800 background grid at 10 m baseline (testBackgroundManager).
 //   - distance=5 m → clearly foreground vs 10 m baseline.
-//   - elevation=6° → z ≈ 0.52 m → passes default height band [0.2, 3.0].
+//   - elevation=6° → z ≈ 0.52 m → passes default height band [−2.8, 1.5].
 //   - azimuths 180°..189° in 1° steps → XY spread ≈ 0.78 m < Eps=0.8 m.
 //   - 10 points ≥ foreground_min_cluster_points (5).
 func clusterFrame() *LiDARFrame {
