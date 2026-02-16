@@ -68,6 +68,7 @@ Design documentation for the macOS-native 3D visualiser.
 - **API contracts** (protobuf schema, gRPC service)
 - **Architecture** (Track A visualiser, Track B pipeline refactor)
 - **Implementation plan** (incremental milestones)
+- **Labelling + QC enhancements** (quality scoring, event timeline, repairs, queueing, dashboard)
 
 ### `refactor/`
 
@@ -86,6 +87,7 @@ Tracking pipeline refactor and upgrade proposals.
 | Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                     |
 | **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md)       |
 | **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                                 |
+| **Labelling + QC Plan** | [visualiser/06-labelling-qc-enhancements-overview.md](visualiser/06-labelling-qc-enhancements-overview.md) |
 | **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                             |
 | **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                           |
 | **Track Labelling**     | [future/track-labeling-auto-aware-tuning.md](future/track-labeling-auto-aware-tuning.md)         |
