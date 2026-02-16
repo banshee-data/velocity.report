@@ -613,8 +613,20 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
 
-        // Forward frame directly to renderer (bypasses SwiftUI)
-        renderer?.updateFrame(frame)
+        // Apply persistent track filters BEFORE rendering so filtered tracks
+        // never appear even briefly.
+        updateAdmittedTracks()
+
+        // Compute hidden track IDs before forwarding to renderer
+        if hasActiveFilters {
+            let visibleIDs = filteredTrackIDs
+            let allIDs = Set(frame.tracks?.tracks.map { $0.trackID } ?? [])
+            renderer?.hiddenTrackIDs = allIDs.subtracting(visibleIDs)
+        } else {
+            renderer?.hiddenTrackIDs = []
+        }
+
+        // Set renderer flags before updateFrame so filtering is applied during rendering
         renderer?.showClusters = showClusters  // M4: Update cluster toggle
         renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
         renderer?.showGating = showGating  // M6: Gating ellipses
@@ -623,17 +635,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
         renderer?.filterOnlyInBox = filterOnlyInBox  // Filter foreground points outside boxes
 
-        // Apply persistent track filters — admit tracks that pass criteria
-        updateAdmittedTracks()
-
-        // Apply track filters to renderer — compute hidden track IDs
-        if hasActiveFilters {
-            let visibleIDs = filteredTrackIDs
-            let allIDs = Set(frame.tracks?.tracks.map { $0.trackID } ?? [])
-            renderer?.hiddenTrackIDs = allIDs.subtracting(visibleIDs)
-        } else {
-            renderer?.hiddenTrackIDs = []
-        }
+        // Forward frame to renderer (uses hiddenTrackIDs already set above)
+        renderer?.updateFrame(frame)
 
         // Pre-compute values for deferred UI update
         let now = Date()

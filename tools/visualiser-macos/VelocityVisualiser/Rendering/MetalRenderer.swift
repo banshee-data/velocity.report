@@ -1057,50 +1057,112 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     /// M6: Hit test tracks at a screen position.
-    /// Projects each track position to screen space and finds the nearest within a tolerance.
+    /// First checks if the click is inside a projected bounding box, then falls back
+    /// to nearest-centre-point proximity test.
     func hitTestTrack(at point: CGPoint, viewSize: CGSize) -> String? {
-        guard let frame = lastFrameData else { return nil }
-        guard !frame.isEmpty else { return nil }
+        guard let tracks = _lastTracks, !tracks.isEmpty else { return nil }
 
         let mvp = camera.projectionMatrix * camera.viewMatrix
         let halfWidth = Float(viewSize.width) * 0.5
         let halfHeight = Float(viewSize.height) * 0.5
-        let tolerance: Float = 20.0  // pixels
 
+        // Helper: project a world point to screen coordinates
+        func projectToScreen(_ worldPos: simd_float3) -> (x: Float, y: Float, visible: Bool) {
+            let clip = mvp * simd_float4(worldPos.x, worldPos.y, worldPos.z, 1.0)
+            guard clip.w > 0 else { return (0, 0, false) }
+            let sx = (clip.x / clip.w + 1.0) * halfWidth
+            let sy = (clip.y / clip.w + 1.0) * halfHeight
+            return (sx, sy, true)
+        }
+
+        let clickX = Float(point.x)
+        let clickY = Float(point.y)
+
+        // Pass 1: Check if click is inside any projected bounding box
+        for track in tracks {
+            let boxHeading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
+            let halfL = (track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0) * 0.5
+            let halfW = (track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0) * 0.5
+            let cosH = cos(boxHeading)
+            let sinH = sin(boxHeading)
+
+            // 4 corners of the box base in world space
+            let corners: [simd_float3] = [
+                simd_float3(
+                    track.x + cosH * halfL - sinH * halfW, track.y + sinH * halfL + cosH * halfW,
+                    track.z),
+                simd_float3(
+                    track.x + cosH * halfL + sinH * halfW, track.y + sinH * halfL - cosH * halfW,
+                    track.z),
+                simd_float3(
+                    track.x - cosH * halfL + sinH * halfW, track.y - sinH * halfL - cosH * halfW,
+                    track.z),
+                simd_float3(
+                    track.x - cosH * halfL - sinH * halfW, track.y - sinH * halfL + cosH * halfW,
+                    track.z),
+            ]
+
+            // Project corners to screen
+            var screenCorners = [(Float, Float)]()
+            var allVisible = true
+            for c in corners {
+                let p = projectToScreen(c)
+                if !p.visible {
+                    allVisible = false
+                    break
+                }
+                screenCorners.append((p.x, p.y))
+            }
+            guard allVisible, screenCorners.count == 4 else { continue }
+
+            // Point-in-polygon test (convex quad)
+            if pointInConvexPolygon(px: clickX, py: clickY, vertices: screenCorners) {
+                return track.trackID
+            }
+        }
+
+        // Pass 2: Fall back to nearest centre point
+        let tolerance: Float = 20.0
         var bestTrackID: String?
         var bestDistance: Float = tolerance
 
-        for (trackID, pos) in frame {
-            // Project world position to clip space
-            let clip = mvp * simd_float4(pos.x, pos.y, pos.z, 1.0)
-            guard clip.w > 0 else { continue }
+        for track in tracks {
+            let p = projectToScreen(simd_float3(track.x, track.y, track.z))
+            guard p.visible else { continue }
 
-            // NDC to screen
-            let ndcX = clip.x / clip.w
-            let ndcY = clip.y / clip.w
-            let screenX = (ndcX + 1.0) * halfWidth
-            let screenY = (ndcY + 1.0) * halfHeight  // Metal Y is bottom-up like NSView
-
-            let dx = screenX - Float(point.x)
-            let dy = screenY - Float(point.y)
+            let dx = p.x - clickX
+            let dy = p.y - clickY
             let distance = sqrt(dx * dx + dy * dy)
 
             if distance < bestDistance {
                 bestDistance = distance
-                bestTrackID = trackID
+                bestTrackID = track.trackID
             }
         }
 
         return bestTrackID
     }
 
-    /// Cache of track positions for hit testing (updated per frame).
-    private var lastFrameData: [String: simd_float3]? {
-        guard let tracks = _lastTracks else { return nil }
-        var result = [String: simd_float3]()
-        for track in tracks { result[track.trackID] = simd_float3(track.x, track.y, track.z) }
-        return result
+    /// Test if a point is inside a convex polygon using cross-product winding.
+    private func pointInConvexPolygon(px: Float, py: Float, vertices: [(Float, Float)]) -> Bool {
+        let n = vertices.count
+        guard n >= 3 else { return false }
+        var sign: Float = 0
+        for i in 0..<n {
+            let (ax, ay) = vertices[i]
+            let (bx, by) = vertices[(i + 1) % n]
+            let cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax)
+            if cross != 0 {
+                if sign == 0 {
+                    sign = cross > 0 ? 1 : -1
+                } else if (cross > 0 ? 1 : -1) != Int(sign) {
+                    return false
+                }
+            }
+        }
+        return true
     }
+
     private var _lastTracks: [Track]?
 
     /// M3.5: Get point cloud statistics.

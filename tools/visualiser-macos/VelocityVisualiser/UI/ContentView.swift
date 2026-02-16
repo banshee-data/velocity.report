@@ -1138,48 +1138,41 @@ struct FilterBarView: View {
 
             Divider().frame(height: 20)
 
-            // Hits range (min–max)
+            // Hits range slider
             HStack(spacing: 4) {
                 Text("Hits").font(.caption).foregroundColor(.secondary)
-                Slider(
-                    value: Binding(
+                RangeSliderView(
+                    low: Binding(
                         get: { Double(appState.filterMinHits) },
-                        set: { appState.filterMinHits = Int($0) }), in: 0...50, step: 1
-                ).frame(width: 80).help("Minimum hits")
-                Text("\(appState.filterMinHits)").font(.system(.caption, design: .monospaced))
-                    .frame(width: 22, alignment: .trailing)
-                Text("–").font(.caption).foregroundColor(.secondary)
-                Slider(
-                    value: Binding(
+                        set: { appState.filterMinHits = Int($0) }),
+                    high: Binding(
                         get: { Double(appState.filterMaxHits) },
-                        set: { appState.filterMaxHits = Int($0) }), in: 0...50, step: 1
-                ).frame(width: 80).help("Maximum hits (0 = no limit)")
-                Text("\(appState.filterMaxHits)").font(.system(.caption, design: .monospaced))
-                    .frame(width: 22, alignment: .trailing)
+                        set: { appState.filterMaxHits = Int($0) }), range: 0...50, step: 1
+                ).frame(width: 140).help("Hits range (min–max)")
+                Text(
+                    "\(appState.filterMinHits)–\(appState.filterMaxHits == 0 ? "∞" : "\(appState.filterMaxHits)")"
+                ).font(.system(.caption, design: .monospaced)).frame(
+                    width: 40, alignment: .trailing)
             }
 
             Divider().frame(height: 20)
 
-            // Points/frame range (min–max)
+            // Points/frame range slider
             HStack(spacing: 4) {
                 Text("Pts/frm").font(.caption).foregroundColor(.secondary)
-                Slider(
-                    value: Binding(
+                RangeSliderView(
+                    low: Binding(
                         get: { Double(appState.filterMinPointsPerFrame) },
-                        set: { appState.filterMinPointsPerFrame = Int($0) }), in: 0...100, step: 1
-                ).frame(width: 80).help("Minimum points per frame")
-                Text("\(appState.filterMinPointsPerFrame)").font(
-                    .system(.caption, design: .monospaced)
-                ).frame(width: 26, alignment: .trailing)
-                Text("–").font(.caption).foregroundColor(.secondary)
-                Slider(
-                    value: Binding(
+                        set: { appState.filterMinPointsPerFrame = Int($0) }),
+                    high: Binding(
                         get: { Double(appState.filterMaxPointsPerFrame) },
-                        set: { appState.filterMaxPointsPerFrame = Int($0) }), in: 0...100, step: 1
-                ).frame(width: 80).help("Maximum points per frame (0 = no limit)")
-                Text("\(appState.filterMaxPointsPerFrame)").font(
-                    .system(.caption, design: .monospaced)
-                ).frame(width: 26, alignment: .trailing)
+                        set: { appState.filterMaxPointsPerFrame = Int($0) }), range: 0...100,
+                    step: 1
+                ).frame(width: 140).help("Points per frame range (min–max)")
+                Text(
+                    "\(appState.filterMinPointsPerFrame)–\(appState.filterMaxPointsPerFrame == 0 ? "∞" : "\(appState.filterMaxPointsPerFrame)")"
+                ).font(.system(.caption, design: .monospaced)).frame(
+                    width: 40, alignment: .trailing)
             }
 
             Divider().frame(height: 20)
@@ -1218,6 +1211,74 @@ struct FilterBarView: View {
         { _, _ in appState.resetAdmittedTracks() }.onChange(of: appState.filterMaxPointsPerFrame) {
             _, _ in appState.resetAdmittedTracks()
         }.onChange(of: appState.filterOnlyInBox) { _, _ in appState.resetAdmittedTracks() }
+    }
+}
+
+/// A dual-handle range slider. The low handle cannot exceed the high handle
+/// and vice versa. When high is at the maximum value it represents "no limit" (0 in AppState).
+struct RangeSliderView: View {
+    @Binding var low: Double
+    @Binding var high: Double
+    let range: ClosedRange<Double>
+    var step: Double = 1
+
+    @State private var trackWidth: CGFloat = 100
+
+    private let thumbRadius: CGFloat = 6
+    private let trackHeight: CGFloat = 4
+
+    /// The effective high value: 0 means "no limit" → use range max for display.
+    private var effectiveHigh: Double { high <= 0 ? range.upperBound : high }
+
+    private func xPosition(for value: Double) -> CGFloat {
+        let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+        return CGFloat(fraction) * trackWidth
+    }
+
+    private func valueForX(_ x: CGFloat) -> Double {
+        let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
+        let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+        return (raw / step).rounded() * step
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width - thumbRadius * 2
+            ZStack(alignment: .leading) {
+                // Track background
+                RoundedRectangle(cornerRadius: trackHeight / 2).fill(Color.gray.opacity(0.3)).frame(
+                    height: trackHeight
+                ).padding(.horizontal, thumbRadius)
+
+                // Active range highlight
+                let lowX = xPosition(for: low) + thumbRadius
+                let highX = xPosition(for: effectiveHigh) + thumbRadius
+                RoundedRectangle(cornerRadius: trackHeight / 2).fill(Color.accentColor.opacity(0.5))
+                    .frame(width: max(0, highX - lowX), height: trackHeight).offset(x: lowX)
+
+                // Low thumb
+                Circle().fill(Color.accentColor).frame(
+                    width: thumbRadius * 2, height: thumbRadius * 2
+                ).offset(x: xPosition(for: low)).gesture(
+                    DragGesture(minimumDistance: 0).onChanged { drag in
+                        let newVal = min(valueForX(drag.location.x - thumbRadius), effectiveHigh)
+                        low = max(range.lowerBound, newVal)
+                    })
+
+                // High thumb
+                Circle().fill(Color.accentColor).frame(
+                    width: thumbRadius * 2, height: thumbRadius * 2
+                ).offset(x: xPosition(for: effectiveHigh)).gesture(
+                    DragGesture(minimumDistance: 0).onChanged { drag in
+                        let newVal = max(valueForX(drag.location.x - thumbRadius), low)
+                        let clamped = min(range.upperBound, newVal)
+                        // If dragged to the max, set to 0 (no limit)
+                        high = clamped >= range.upperBound ? 0 : clamped
+                    })
+            }.onAppear { trackWidth = w }.onChange(of: geo.size.width) { _, newW in
+                trackWidth = newW - thumbRadius * 2
+            }
+        }.frame(height: thumbRadius * 2 + 4)
     }
 }
 
