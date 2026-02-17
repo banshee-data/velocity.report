@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
@@ -506,7 +505,7 @@ func TestBuildPacket_AllBlocks(t *testing.T) {
 	// Create points for all 10 blocks
 	var points []l4perception.PointPolar
 	for blockID := 0; blockID < 10; blockID++ {
-		points = append(points, lidar.PointPolar{
+		points = append(points, l4perception.PointPolar{
 			Channel:         1,
 			Distance:        float64(10 + blockID),
 			Intensity:       uint8(100 + blockID),
@@ -545,7 +544,7 @@ func BenchmarkEncodePointsAsPackets(b *testing.B) {
 	now := time.Now().UnixNano()
 	points := make([]l4perception.PointPolar, 400) // Typical foreground frame size
 	for i := 0; i < len(points); i++ {
-		points[i] = lidar.PointPolar{
+		points[i] = l4perception.PointPolar{
 			Channel:   (i % 40) + 1,
 			Distance:  float64(10 + i%100),
 			Intensity: uint8(100 + i%100),
@@ -570,7 +569,7 @@ func BenchmarkBuildPacket(b *testing.B) {
 	now := time.Now().UnixNano()
 	points := make([]l4perception.PointPolar, 40)
 	for i := 0; i < len(points); i++ {
-		points[i] = lidar.PointPolar{
+		points[i] = l4perception.PointPolar{
 			Channel:   i + 1,
 			Distance:  float64(10 + i),
 			Intensity: uint8(100 + i),

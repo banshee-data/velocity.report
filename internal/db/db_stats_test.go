@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // TestGetDatabaseStats tests the GetDatabaseStats function
@@ -106,7 +106,7 @@ func TestFindDuplicateBgSnapshots_NoDuplicates(t *testing.T) {
 	sensorID := "test-sensor-1"
 
 	// Insert unique snapshots
-	snap1 := &lidar.BgSnapshot{
+	snap1 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano(),
 		Rings:          16,
@@ -116,7 +116,7 @@ func TestFindDuplicateBgSnapshots_NoDuplicates(t *testing.T) {
 		SnapshotReason: "test",
 	}
 
-	snap2 := &lidar.BgSnapshot{
+	snap2 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano() + 1000,
 		Rings:          16,
@@ -157,7 +157,7 @@ func TestFindDuplicateBgSnapshots_WithDuplicates(t *testing.T) {
 	// Insert snapshots with duplicate blob data
 	duplicateBlob := []byte("duplicate-data")
 
-	snap1 := &lidar.BgSnapshot{
+	snap1 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano(),
 		Rings:          16,
@@ -167,7 +167,7 @@ func TestFindDuplicateBgSnapshots_WithDuplicates(t *testing.T) {
 		SnapshotReason: "test",
 	}
 
-	snap2 := &lidar.BgSnapshot{
+	snap2 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano() + 1000,
 		Rings:          16,
@@ -177,7 +177,7 @@ func TestFindDuplicateBgSnapshots_WithDuplicates(t *testing.T) {
 		SnapshotReason: "test",
 	}
 
-	snap3 := &lidar.BgSnapshot{
+	snap3 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano() + 2000,
 		Rings:          16,
@@ -247,7 +247,7 @@ func TestFindDuplicateBgSnapshots_DifferentSensors(t *testing.T) {
 	duplicateBlob := []byte("duplicate-data")
 
 	// Insert same blob for different sensors
-	snap1 := &lidar.BgSnapshot{
+	snap1 := &l3grid.BgSnapshot{
 		SensorID:       "sensor-a",
 		TakenUnixNanos: time.Now().UnixNano(),
 		Rings:          16,
@@ -257,7 +257,7 @@ func TestFindDuplicateBgSnapshots_DifferentSensors(t *testing.T) {
 		SnapshotReason: "test",
 	}
 
-	snap2 := &lidar.BgSnapshot{
+	snap2 := &l3grid.BgSnapshot{
 		SensorID:       "sensor-b",
 		TakenUnixNanos: time.Now().UnixNano() + 1000,
 		Rings:          16,
@@ -306,7 +306,7 @@ func TestDeleteBgSnapshots(t *testing.T) {
 	sensorID := "test-sensor-delete"
 
 	// Insert test snapshots
-	snap1 := &lidar.BgSnapshot{
+	snap1 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano(),
 		Rings:          16,
@@ -316,7 +316,7 @@ func TestDeleteBgSnapshots(t *testing.T) {
 		SnapshotReason: "test",
 	}
 
-	snap2 := &lidar.BgSnapshot{
+	snap2 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano() + 1000,
 		Rings:          16,
@@ -326,7 +326,7 @@ func TestDeleteBgSnapshots(t *testing.T) {
 		SnapshotReason: "test",
 	}
 
-	snap3 := &lidar.BgSnapshot{
+	snap3 := &l3grid.BgSnapshot{
 		SensorID:       sensorID,
 		TakenUnixNanos: time.Now().UnixNano() + 2000,
 		Rings:          16,

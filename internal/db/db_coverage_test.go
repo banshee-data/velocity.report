@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // TestAttachAdminRoutes_DBStatsSuccess tests the db-stats endpoint success path
@@ -368,7 +368,7 @@ func TestInsertBgSnapshot_ErrorPath(t *testing.T) {
 		}
 		db.Close()
 
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:       "test",
 			TakenUnixNanos: time.Now().UnixNano(),
 			Rings:          16,
@@ -415,7 +415,7 @@ func TestInsertRegionSnapshot_ErrorPaths(t *testing.T) {
 		}
 		db.Close()
 
-		snap := &lidar.RegionSnapshot{
+		snap := &l3grid.RegionSnapshot{
 			SnapshotID:       1,
 			SensorID:         "test",
 			CreatedUnixNanos: time.Now().UnixNano(),
@@ -439,7 +439,7 @@ func TestInsertRegionSnapshot_ErrorPaths(t *testing.T) {
 		}
 		defer db.Close()
 
-		snap := &lidar.RegionSnapshot{
+		snap := &l3grid.RegionSnapshot{
 			SnapshotID:       1,
 			SensorID:         "test-sensor",
 			CreatedUnixNanos: time.Now().UnixNano(),
@@ -854,7 +854,7 @@ func TestDeleteDuplicateBgSnapshots_Success(t *testing.T) {
 
 	// Insert duplicate snapshots
 	for i := 0; i < 3; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:       sensorID,
 			TakenUnixNanos: time.Now().UnixNano() + int64(i),
 			Rings:          16,
