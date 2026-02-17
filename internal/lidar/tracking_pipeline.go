@@ -43,6 +43,58 @@ func isNilInterface(i interface{}) bool {
 	return false
 }
 
+// ---------------------------------------------------------------------------
+// Stage interfaces — layer-aligned contracts for the tracking pipeline.
+//
+// These interfaces define the boundaries between processing stages as
+// described in docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md.
+// Current code still uses the monolithic callback below; these contracts
+// exist to guide incremental extraction of each stage into its own package.
+// ---------------------------------------------------------------------------
+
+// ForegroundStage extracts foreground (moving) points from a frame using
+// the learned background model (L3 Grid).
+type ForegroundStage interface {
+	// ExtractForeground returns a boolean mask where true indicates a foreground point.
+	ExtractForeground(polar []PointPolar) (mask []bool, err error)
+}
+
+// PerceptionStage transforms foreground points into world coordinates,
+// applies ground removal, and clusters them (L4 Perception).
+type PerceptionStage interface {
+	// Perceive takes foreground points and returns world-frame clusters.
+	Perceive(foreground []PointPolar, sensorID string) ([]WorldCluster, error)
+}
+
+// TrackingStage updates the tracker state with new cluster observations
+// and returns confirmed tracks (L5 Tracks).
+type TrackingStage interface {
+	// UpdateTracks feeds clusters into the tracker and returns confirmed tracks.
+	UpdateTracks(clusters []WorldCluster, frameTime time.Time) ([]*TrackedObject, error)
+}
+
+// ObjectStage classifies confirmed tracks and attaches semantic labels (L6 Objects).
+type ObjectStage interface {
+	// Classify assigns or updates object class labels on each track.
+	Classify(tracks []*TrackedObject)
+}
+
+// PersistenceSink writes pipeline outputs (tracks, observations) to storage.
+// It is an adapter — not a domain layer — so implementations live outside
+// L3-L6 packages (e.g. internal/lidar/storage/sqlite).
+type PersistenceSink interface {
+	// PersistTrack writes or updates a track record.
+	PersistTrack(track *TrackedObject, worldFrame string) error
+	// PersistObservation writes a single observation for a track.
+	PersistObservation(obs *TrackObservation) error
+}
+
+// PublishSink sends pipeline outputs to external consumers (visualiser, gRPC).
+type PublishSink interface {
+	// PublishFrame sends a processed frame to external subscribers.
+	PublishFrame(frame *LiDARFrame, mask []bool, clusters []WorldCluster, tracker TrackerInterface)
+}
+
 // TrackingPipelineConfig holds dependencies for the tracking pipeline callback.
 type TrackingPipelineConfig struct {
 	BackgroundManager   *BackgroundManager
