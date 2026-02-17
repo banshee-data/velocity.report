@@ -108,7 +108,6 @@ func TestExtractTrackFeatures_Basic(t *testing.T) {
 		TrackDurationSecs:    10.0,
 		TrackLengthMeters:    85.0,
 		OcclusionCount:       2,
-		speedHistory:         []float32{7.0, 8.0, 8.5, 9.0, 10.0, 11.0, 12.0, 8.0, 7.5, 9.5},
 		History: []TrackPoint{
 			{X: 0, Y: 0},
 			{X: 1, Y: 0},
@@ -117,6 +116,7 @@ func TestExtractTrackFeatures_Basic(t *testing.T) {
 			{X: 4, Y: 2},
 		},
 	}
+	track.SetSpeedHistory([]float32{7.0, 8.0, 8.5, 9.0, 10.0, 11.0, 12.0, 8.0, 7.5, 9.5})
 
 	f := ExtractTrackFeatures(track)
 
