@@ -1,4 +1,4 @@
-package lidar
+package sqlite
 
 import (
 	"errors"

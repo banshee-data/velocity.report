@@ -1,4 +1,4 @@
-package lidar
+package sqlite
 
 import (
 	"database/sql"
@@ -40,7 +40,7 @@ func setupTestDBWithSchema(t *testing.T) (*sql.DB, func()) {
 	}
 
 	// Read and execute schema.sql from the db package
-	schemaPath := filepath.Join("..", "db", "schema.sql")
+	schemaPath := filepath.Join("..", "..", "..", "db", "schema.sql")
 	schemaSQL, err := os.ReadFile(schemaPath)
 	if err != nil {
 		db.Close()
