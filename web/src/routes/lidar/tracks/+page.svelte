@@ -520,7 +520,7 @@
 				error instanceof Error ? error.message : 'Failed to load foreground observations';
 			foregroundObservations = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {
-			foregroundLoading = false;
+			foregroundLoading = false; // eslint-disable-line svelte/infinite-reactive-loop
 		}
 	}
 
