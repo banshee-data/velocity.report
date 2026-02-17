@@ -3,7 +3,8 @@
 // this package to reference types without fully-qualified imports.
 //
 // New code should import from the canonical layer packages directly:
-//   l2frames, l3grid, l4perception, l5tracks, l6objects, pipeline, storage/sqlite, adapters
+//
+//	l2frames, l3grid, l4perception, l5tracks, l6objects, pipeline, storage/sqlite, adapters
 package lidar
 
 import (
@@ -81,4 +82,3 @@ var InsertTrack = sqlite.InsertTrack
 var InsertTrackObservation = sqlite.InsertTrackObservation
 var NewAnalysisRunManager = sqlite.NewAnalysisRunManager
 var RegisterAnalysisRunManager = sqlite.RegisterAnalysisRunManager
-

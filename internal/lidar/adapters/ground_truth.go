@@ -51,7 +51,7 @@ type GroundTruthWeights struct {
 func DefaultGroundTruthWeights() GroundTruthWeights {
 	return GroundTruthWeights{
 		DetectionRate:     1.0,
-		Fragmentation:    5.0,
+		Fragmentation:     5.0,
 		FalsePositives:    2.0,
 		VelocityCoverage:  0.5,
 		QualityPremium:    0.3,

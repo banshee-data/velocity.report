@@ -638,4 +638,3 @@ func TestGetRegionForCell_ViaRegionManager(t *testing.T) {
 	region = rm.GetRegionForCell(0)
 	t.Logf("GetRegionForCell(0) returned: %v", region)
 }
-

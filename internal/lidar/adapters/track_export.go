@@ -44,9 +44,9 @@ func DefaultPandar40PConfig() *SensorConfig {
 // TrackPointCloudFrame represents a single frame of point cloud data for a track.
 // Points are stored in polar coordinates (sensor frame) for compatibility with parsers.
 type TrackPointCloudFrame struct {
-	TrackID     string                   // Track identifier
-	FrameIndex  int                      // Frame sequence number within track
-	Timestamp   time.Time                // Frame timestamp
+	TrackID     string                    // Track identifier
+	FrameIndex  int                       // Frame sequence number within track
+	Timestamp   time.Time                 // Frame timestamp
 	PolarPoints []l4perception.PointPolar // Points in polar coordinates
 }
 

@@ -109,8 +109,8 @@ type PublishSink interface {
 // TrackingPipelineConfig holds dependencies for the tracking pipeline callback.
 type TrackingPipelineConfig struct {
 	BackgroundManager   *l3grid.BackgroundManager
-	FgForwarder         ForegroundForwarder        // Use interface to avoid import cycle
-	Tracker             l5tracks.TrackerInterface   // Use interface for dependency injection and testing
+	FgForwarder         ForegroundForwarder       // Use interface to avoid import cycle
+	Tracker             l5tracks.TrackerInterface // Use interface for dependency injection and testing
 	Classifier          *l6objects.TrackClassifier
 	DB                  *sql.DB // Use standard sql.DB to avoid import cycle with db package
 	SensorID            string
