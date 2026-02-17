@@ -3,17 +3,7 @@ package lidar
 import (
 	"sync"
 	"time"
-
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
-
-// Point represents a single 3D LiDAR measurement point in Cartesian coordinates.
-// This is an alias to l4perception.Point for consistency across the codebase.
-type Point = l4perception.Point
-
-// FrameID is an alias to l3grid.FrameID for backward compatibility.
-type FrameID = l3grid.FrameID
 
 // Pose is a rigid transform (sensor -> world) with versioning.
 // T is 4x4 row-major (m00..m03, m10..m13, m20..m23, m30..m33).
@@ -35,20 +25,6 @@ type PoseCache struct {
 	WorldFrame FrameID // canonical site frame (e.g., "site/main-st-001")
 	// TODO: add mutex for thread-safe operations when implementing concurrent access
 }
-
-// Type aliases for L3 grid types that were previously defined here.
-// These have been migrated to internal/lidar/l3grid.
-
-// BgSnapshot exactly matches schema lidar_bg_snapshot table structure.
-type BgSnapshot = l3grid.BgSnapshot
-
-// RegionSnapshot matches schema lidar_bg_regions table structure for persisting
-// region identification data. Used to skip settling time when scene hash matches.
-type RegionSnapshot = l3grid.RegionSnapshot
-
-// RegionData is the serialisable form of a Region for JSON persistence.
-// CellMask is omitted as it can be reconstructed from CellList.
-type RegionData = l3grid.RegionData
 
 // Ring buffer implementation for efficient memory management at 100-track scale
 type RingBuffer[T any] struct {
@@ -147,7 +123,6 @@ type RetentionConfig struct {
 // WorldCluster is an alias for l4perception.WorldCluster.
 // It matches schema lidar_clusters table structure exactly.
 // Use l4perception.WorldCluster directly in new code.
-type WorldCluster = l4perception.WorldCluster
 
 // TrackSummary for HTTP API responses - streamlined view of track state
 type TrackSummary struct {

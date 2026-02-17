@@ -1,12 +1,14 @@
-package lidar
+package adapters
 
 import (
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 func TestExportForegroundFrame(t *testing.T) {
-	polarPoints := []PointPolar{
+	polarPoints := []l4perception.PointPolar{
 		{Distance: 10, Azimuth: 0, Elevation: 0},
 		{Distance: 15, Azimuth: 90, Elevation: 5},
 		{Distance: 20, Azimuth: 180, Elevation: -5},
@@ -44,7 +46,7 @@ func TestForegroundFrame_ForegroundFraction(t *testing.T) {
 	for _, tt := range tests {
 		frame := &ForegroundFrame{
 			TotalPoints:      tt.total,
-			ForegroundPoints: make([]PointPolar, tt.fg),
+			ForegroundPoints: make([]l4perception.PointPolar, tt.fg),
 		}
 		fraction := frame.ForegroundFraction()
 		if fraction != tt.expected {
@@ -54,7 +56,7 @@ func TestForegroundFrame_ForegroundFraction(t *testing.T) {
 }
 
 func TestEncodeForegroundBlob(t *testing.T) {
-	points := []PointPolar{
+	points := []l4perception.PointPolar{
 		{Distance: 10.5, Azimuth: 45.25, Elevation: -5.5, Intensity: 200, Channel: 5},
 		{Distance: 100.0, Azimuth: 180.0, Elevation: 10.0, Intensity: 100, Channel: 20},
 	}
@@ -118,7 +120,7 @@ func TestDecodeForegroundBlob_Empty(t *testing.T) {
 
 func TestEncodeForegroundBlob_NegativeElevation(t *testing.T) {
 	// Test negative elevation handling
-	points := []PointPolar{
+	points := []l4perception.PointPolar{
 		{Distance: 5.0, Azimuth: 0, Elevation: -15.0, Intensity: 100, Channel: 1},
 	}
 

@@ -1,9 +1,13 @@
-package lidar
+package adapters
 
 import (
 	"encoding/binary"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 func TestDefaultPandar40PConfig(t *testing.T) {
@@ -31,12 +35,12 @@ func TestDefaultPandar40PConfig(t *testing.T) {
 }
 
 func TestExportTrackPointCloud(t *testing.T) {
-	track := &TrackedObject{
+	track := &l5tracks.TrackedObject{
 		TrackID:  "track-001",
 		SensorID: "test-sensor",
 	}
 
-	observations := []*TrackObservation{
+	observations := []*sqlite.TrackObservation{
 		{
 			TSUnixNanos: time.Now().UnixNano(),
 			X:           10.0,
@@ -61,12 +65,12 @@ func TestExportTrackPointCloud(t *testing.T) {
 }
 
 func TestExportTrackPointCloudNoObservations(t *testing.T) {
-	track := &TrackedObject{
+	track := &l5tracks.TrackedObject{
 		TrackID:  "track-001",
 		SensorID: "test-sensor",
 	}
 
-	_, err := ExportTrackPointCloud(track, []*TrackObservation{})
+	_, err := ExportTrackPointCloud(track, []*sqlite.TrackObservation{})
 	if err == nil {
 		t.Error("Expected error for empty observations")
 	}
@@ -75,7 +79,7 @@ func TestExportTrackPointCloudNoObservations(t *testing.T) {
 func TestEncodePandar40PPacketBasic(t *testing.T) {
 	config := DefaultPandar40PConfig()
 
-	points := []PointPolar{
+	points := []l2frames.PointPolar{
 		{Azimuth: 0.0, Elevation: 0.0, Distance: 10.0, Intensity: 100, Channel: 1},
 	}
 
@@ -102,7 +106,7 @@ func TestEncodePandar40PPacketBasic(t *testing.T) {
 func TestEncodePandar40PPacketEmptyPoints(t *testing.T) {
 	config := DefaultPandar40PConfig()
 
-	packet, err := EncodePandar40PPacket([]PointPolar{}, 0.0, config)
+	packet, err := EncodePandar40PPacket([]l2frames.PointPolar{}, 0.0, config)
 	if err != nil {
 		t.Fatalf("EncodePandar40PPacket failed for empty points: %v", err)
 	}
@@ -129,7 +133,7 @@ func TestEncodePandar40PPacketDistanceEncoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			points := []PointPolar{
+			points := []l2frames.PointPolar{
 				{Azimuth: 0.0, Elevation: 0.0, Distance: tt.distance, Intensity: 100, Channel: 1},
 			}
 
@@ -177,7 +181,7 @@ func TestWriteNetworkStream(t *testing.T) {
 
 func TestExtractMetadata(t *testing.T) {
 	now := time.Now()
-	track := &TrackedObject{
+	track := &l5tracks.TrackedObject{
 		TrackID:           "track-001",
 		SensorID:          "test-sensor",
 		FirstUnixNanos:    now.UnixNano(),
@@ -194,7 +198,7 @@ func TestExtractMetadata(t *testing.T) {
 			TrackID:    "track-001",
 			FrameIndex: 0,
 			Timestamp:  now,
-			PolarPoints: []PointPolar{
+			PolarPoints: []l2frames.PointPolar{
 				{Azimuth: 0.0, Distance: 10.0, Channel: 1},
 			},
 		},
