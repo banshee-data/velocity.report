@@ -12,24 +12,24 @@ import (
 // Evaluation represents a persisted ground truth evaluation result comparing
 // a candidate analysis run against a reference run for a given scene.
 type Evaluation struct {
-	EvaluationID      string          `json:"evaluation_id"`
-	SceneID           string          `json:"scene_id"`
-	ReferenceRunID    string          `json:"reference_run_id"`
-	CandidateRunID    string          `json:"candidate_run_id"`
-	DetectionRate     float64         `json:"detection_rate"`
-	Fragmentation     float64         `json:"fragmentation"`
-	FalsePositiveRate float64         `json:"false_positive_rate"`
-	VelocityCoverage  float64         `json:"velocity_coverage"`
-	QualityPremium    float64         `json:"quality_premium"`
-	TruncationRate    float64         `json:"truncation_rate"`
-	VelocityNoiseRate float64         `json:"velocity_noise_rate"`
-	StoppedRecoveryRate float64       `json:"stopped_recovery_rate"`
-	CompositeScore    float64         `json:"composite_score"`
-	MatchedCount      int             `json:"matched_count"`
-	ReferenceCount    int             `json:"reference_count"`
-	CandidateCount    int             `json:"candidate_count"`
-	ParamsJSON        json.RawMessage `json:"params_json,omitempty"`
-	CreatedAt         int64           `json:"created_at"`
+	EvaluationID        string          `json:"evaluation_id"`
+	SceneID             string          `json:"scene_id"`
+	ReferenceRunID      string          `json:"reference_run_id"`
+	CandidateRunID      string          `json:"candidate_run_id"`
+	DetectionRate       float64         `json:"detection_rate"`
+	Fragmentation       float64         `json:"fragmentation"`
+	FalsePositiveRate   float64         `json:"false_positive_rate"`
+	VelocityCoverage    float64         `json:"velocity_coverage"`
+	QualityPremium      float64         `json:"quality_premium"`
+	TruncationRate      float64         `json:"truncation_rate"`
+	VelocityNoiseRate   float64         `json:"velocity_noise_rate"`
+	StoppedRecoveryRate float64         `json:"stopped_recovery_rate"`
+	CompositeScore      float64         `json:"composite_score"`
+	MatchedCount        int             `json:"matched_count"`
+	ReferenceCount      int             `json:"reference_count"`
+	CandidateCount      int             `json:"candidate_count"`
+	ParamsJSON          json.RawMessage `json:"params_json,omitempty"`
+	CreatedAt           int64           `json:"created_at"`
 }
 
 // EvaluationStore provides persistence for ground truth evaluation results.

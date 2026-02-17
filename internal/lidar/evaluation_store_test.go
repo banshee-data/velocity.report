@@ -95,22 +95,22 @@ func TestEvaluationStore_InsertAndGet(t *testing.T) {
 	store := NewEvaluationStore(db)
 
 	eval := &Evaluation{
-		SceneID:           "scene-1",
-		ReferenceRunID:    "ref-run-1",
-		CandidateRunID:    "cand-run-1",
-		DetectionRate:     0.92,
-		Fragmentation:     0.05,
-		FalsePositiveRate: 0.03,
-		VelocityCoverage:  0.87,
-		QualityPremium:    0.82,
-		TruncationRate:    0.1,
-		VelocityNoiseRate: 0.08,
+		SceneID:             "scene-1",
+		ReferenceRunID:      "ref-run-1",
+		CandidateRunID:      "cand-run-1",
+		DetectionRate:       0.92,
+		Fragmentation:       0.05,
+		FalsePositiveRate:   0.03,
+		VelocityCoverage:    0.87,
+		QualityPremium:      0.82,
+		TruncationRate:      0.1,
+		VelocityNoiseRate:   0.08,
 		StoppedRecoveryRate: 0.6,
-		CompositeScore:    0.874,
-		MatchedCount:      12,
-		ReferenceCount:    13,
-		CandidateCount:    15,
-		ParamsJSON:        json.RawMessage(`{"dist": 2.5}`),
+		CompositeScore:      0.874,
+		MatchedCount:        12,
+		ReferenceCount:      13,
+		CandidateCount:      15,
+		ParamsJSON:          json.RawMessage(`{"dist": 2.5}`),
 	}
 
 	err := store.Insert(eval)
