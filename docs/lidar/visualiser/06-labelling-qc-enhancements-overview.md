@@ -51,7 +51,7 @@ Planned schema additions across features:
 - `lidar_run_track_quality_history` (versioned score snapshots)
 - `lidar_run_track_violations` (physics violations)
 - `lidar_run_track_repairs` (split/merge operations and state)
-- `lidar_review_queue_items` (prioritized QC tasks)
+- `lidar_review_queue_items` (prioritised QC tasks)
 - `lidar_qc_audit_log` (append-only action log)
 
 Denormalized columns to add on `lidar_run_tracks` for fast UI filtering/sorting:

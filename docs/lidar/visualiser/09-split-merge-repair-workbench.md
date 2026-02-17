@@ -201,7 +201,7 @@ Add optional review-repair tools for parity and remote reviewers.
 ### Documentation
 
 - [ ] Document merge/split semantics and operator playbook
-- [ ] Document rollback behavior and conflict resolution policy
+- [ ] Document rollback behaviour and conflict resolution policy
 
 ## Acceptance Criteria
 

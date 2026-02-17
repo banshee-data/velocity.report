@@ -4,17 +4,17 @@
 
 ## Objective
 
-Replace linear review order with a prioritized queue so reviewers address the most uncertain and impactful tracks first.
+Replace linear review order with a prioritised queue so reviewers address the most uncertain and impactful tracks first.
 
 ## Goals
 
-- Maximize labeling/QC value per reviewer minute.
+- Maximise labelling/QC value per reviewer minute.
 - Reduce time-to-resolution for high-risk tracks.
 - Support multi-reviewer claiming and progress tracking.
 
 ## Non-Goals
 
-- Workforce scheduling or staffing optimization.
+- Workforce scheduling or staffing optimisation.
 - Replacing full run browsing.
 
 ## Priority Scoring
@@ -51,7 +51,7 @@ Add table `lidar_review_queue_items`:
 
 Constraints and indexes:
 
-- unique `(run_id, track_id)` for active item
+- partial unique index on `(run_id, track_id)` for active items, e.g. `CREATE UNIQUE INDEX ... WHERE status IN ('OPEN','CLAIMED')`
 - index `(run_id, status, priority_score DESC)`
 - index `(assignee, status)`
 
@@ -144,7 +144,7 @@ Add optional queue mode and claim/resolve actions.
 - [ ] Add queue item models and API methods
 - [ ] Add queue panel and filters
 - [ ] Add claim/release/resolve controls
-- [ ] Add jump-to-segment behavior from queue item
+- [ ] Add jump-to-segment behaviour from queue item
 - [ ] Add UI tests for queue workflows
 
 ### Web

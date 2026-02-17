@@ -21,7 +21,7 @@ Add an event lane to replay controls so reviewers can jump directly to critical 
 ## Non-Goals
 
 - Full anomaly detection system.
-- Replacing current timeline scrub behavior.
+- Replacing current timeline scrub behaviour.
 
 ## Event Taxonomy
 

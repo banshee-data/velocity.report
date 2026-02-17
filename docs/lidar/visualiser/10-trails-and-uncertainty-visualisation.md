@@ -36,7 +36,7 @@ Improve motion interpretability during review by rendering:
 
 - Derive principal axes from velocity covariance (or position covariance fallback).
 - Render cone/frustum aligned with heading.
-- Color by uncertainty magnitude:
+- Colour by uncertainty magnitude:
   - green: low
   - amber: medium
   - red: high

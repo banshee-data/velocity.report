@@ -4,7 +4,7 @@
 
 ## Objective
 
-Automatically detect physically implausible track behavior and block manual "confirmed" review state until violations are resolved or explicitly overridden.
+Automatically detect physically implausible track behaviour and block manual "confirmed" review state until violations are resolved or explicitly overridden.
 
 ## Goals
 
@@ -42,7 +42,7 @@ Violation types:
 Add run-track review fields:
 
 - `review_state`: `PENDING|BLOCKED|CONFIRMED|OVERRIDDEN`
-- `blocked_by_violations`: bool
+- `blocked_by_violations`: INTEGER (0/1 boolean flag)
 - `override_reason`: string
 - `reviewed_by`: string
 - `reviewed_at_ns`: int64
