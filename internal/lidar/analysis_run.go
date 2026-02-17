@@ -11,7 +11,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/config"
 )
 
-// Phase 3.7: Analysis Run Infrastructure
+// Analysis Run Infrastructure
 // This file implements the analysis run system that allows:
 // - Versioned parameter configurations stored as JSON
 // - Run comparison to detect parameter impacts

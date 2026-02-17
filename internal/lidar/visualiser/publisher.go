@@ -67,11 +67,11 @@ type Publisher struct {
 	lastBackgroundSeq  uint64
 	lastBackgroundSent time.Time
 
-	// Frame recording (Phase 1.1)
+	// Frame recording
 	recorder   FrameRecorder
 	recorderMu sync.RWMutex
 
-	// VRLOG replay state (Phase 2.1)
+	// VRLOG replay state
 	vrlogReader       FrameReader
 	vrlogStopCh       chan struct{}
 	vrlogMu           sync.RWMutex
@@ -133,7 +133,7 @@ func (p *Publisher) SetBackgroundManager(mgr BackgroundManagerInterface) {
 	p.backgroundMgr = mgr
 }
 
-// SetRecorder sets the frame recorder for VRLOG recording (Phase 1.1).
+// SetRecorder sets the frame recorder for VRLOG recording.
 // The recorder will receive all frames published via Publish().
 func (p *Publisher) SetRecorder(rec FrameRecorder) {
 	p.recorderMu.Lock()
@@ -370,7 +370,7 @@ func (p *Publisher) shouldSendBackground() bool {
 		return false // No background manager configured
 	}
 
-	// Phase 2.1: Suppress background snapshots during VRLOG replay
+	// Suppress background snapshots during VRLOG replay
 	// The recorded frames already have background data embedded
 	if p.IsVRLogActive() {
 		return false
@@ -432,7 +432,7 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 		BackgroundSeq:  snapshot.SequenceNumber,
 	}
 
-	// Phase 1.1: Record background snapshot if recorder is set
+	// Record background snapshot if recorder is set
 	p.recorderMu.RLock()
 	rec := p.recorder
 	p.recorderMu.RUnlock()
@@ -556,7 +556,7 @@ func (p *Publisher) Publish(frame interface{}) {
 		frameBundle.BackgroundSeq = p.backgroundMgr.GetBackgroundSequenceNumber()
 	}
 
-	// Phase 1.1: Record frame if recorder is set
+	// Record frame if recorder is set
 	p.recorderMu.RLock()
 	rec := p.recorder
 	p.recorderMu.RUnlock()

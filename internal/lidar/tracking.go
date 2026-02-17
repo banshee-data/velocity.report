@@ -159,12 +159,12 @@ type TrackedObject struct {
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
 
-	// Classification (Phase 3.4)
+	// Classification
 	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "other"
 	ObjectConfidence    float32 // Classification confidence [0, 1]
 	ClassificationModel string  // Model version used for classification
 
-	// Phase 1: Track Quality Metrics
+	// Track quality metrics
 	TrackLengthMeters  float32 // Total distance traveled (meters)
 	TrackDurationSecs  float32 // Total lifetime (seconds)
 	OcclusionCount     int     // Number of missed frames (gaps)
@@ -1333,7 +1333,7 @@ func (track *TrackedObject) SpeedHistory() []float32 {
 	return result
 }
 
-// ComputeQualityMetrics calculates track quality metrics for Phase 1.
+// ComputeQualityMetrics calculates track quality metrics.
 // This should be called when a track is finalized (state changes to deleted or when exporting).
 func (track *TrackedObject) ComputeQualityMetrics() {
 	// Track length: Sum of Euclidean distances between consecutive positions

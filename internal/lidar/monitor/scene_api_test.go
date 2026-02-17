@@ -410,7 +410,7 @@ func TestSceneAPI_ReplayScene(t *testing.T) {
 
 	ws.handleSceneByID(w, req)
 
-	// Should return 202 Accepted (Phase 2.4 implemented - creates run and starts PCAP replay)
+	// Should return 202 Accepted (creates run and starts PCAP replay)
 	// Note: PCAP replay will fail without pcap build tag, but run creation should succeed
 	if w.Code != http.StatusAccepted && w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d or %d (PCAP replay may fail without build tag)",

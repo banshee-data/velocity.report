@@ -312,7 +312,7 @@ type TrackObs struct {
 }
 
 //
-// 4) Future expansion hooks (deferred for Phase 2+)
+// 4) Future expansion hooks (deferred)
 //    Note: Radar and fusion data structures have been removed to match
 //    the simplified LiDAR-only schema. These can be re-added when
 //    radar/fusion tables are restored to the schema.

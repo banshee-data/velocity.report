@@ -685,7 +685,7 @@ func TestPipelineCov2_NoClustersRecordStats(t *testing.T) {
 }
 
 // TestPipelineCov2_NilTrackerAfterClusters covers the early return at
-// "Phase 4: Track update" when cfg.Tracker is nil but DBSCAN produced clusters.
+// Track update when cfg.Tracker is nil but DBSCAN produced clusters.
 func TestPipelineCov2_NilTrackerAfterClusters(t *testing.T) {
 	bm := testBackgroundManager(t)
 

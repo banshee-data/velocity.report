@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Phase 4: Ground Truth Evaluation Engine
+// Ground Truth Evaluation Engine
 //
 // This module implements track comparison for ground truth evaluation:
 // - Match candidate tracks against labelled reference tracks using temporal IoU

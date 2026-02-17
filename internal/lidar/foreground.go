@@ -38,7 +38,7 @@ const (
 
 // ProcessFramePolarWithMask classifies each point as foreground/background in polar coordinates.
 // Returns a mask where true indicates foreground (object), false indicates background (static).
-// This is Phase 2.9 of the foreground tracking pipeline.
+// Foreground extraction stage of the tracking pipeline.
 //
 // Unlike ProcessFramePolar which aggregates points per cell, this operates per-point
 // for finer-grained foreground detection suitable for downstream clustering.

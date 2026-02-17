@@ -16,7 +16,7 @@ const EstimatedPointsPerCell = 4
 var IdentityTransform4x4 = [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
 // WorldPoint represents a point in Cartesian world coordinates (site frame).
-// This is the output of the polar → world transformation (Phase 3.0).
+// This is the output of the polar → world transformation.
 type WorldPoint struct {
 	X, Y, Z   float64   // World frame position (meters)
 	Intensity uint8     // Laser return intensity
@@ -25,7 +25,7 @@ type WorldPoint struct {
 }
 
 // TransformToWorld converts foreground polar points to world frame coordinates.
-// This is Phase 3.0 of the foreground tracking pipeline.
+// Polar-to-world coordinate transformation stage.
 //
 // Steps:
 // 1. Polar → Sensor Cartesian using spherical to Cartesian conversion
@@ -97,7 +97,7 @@ func TransformPointsToWorld(points []Point, pose *Pose) []WorldPoint {
 }
 
 // =============================================================================
-// Phase 3.1: DBSCAN Clustering with Spatial Index (World Frame)
+// DBSCAN Clustering with Spatial Index (World Frame)
 // =============================================================================
 
 // SpatialIndex provides efficient nearest neighbor queries using a regular grid.

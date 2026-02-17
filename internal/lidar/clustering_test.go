@@ -21,7 +21,7 @@ func testDBSCANParams(eps float64, minPts int) DBSCANParams {
 }
 
 // =============================================================================
-// Phase 3.0 Tests: Polar → World Transform
+// Tests: Polar → World Transform
 // =============================================================================
 
 func TestTransformToWorld_IdentityPose(t *testing.T) {
@@ -131,7 +131,7 @@ func TestTransformToWorld_WithElevation(t *testing.T) {
 }
 
 // =============================================================================
-// Phase 3.1 Tests: DBSCAN Clustering
+// Tests: DBSCAN Clustering
 // =============================================================================
 
 func TestSpatialIndex_Build(t *testing.T) {

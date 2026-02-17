@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Phase 2 (Revised): Training Data Preparation
+// Training Data Preparation
 // This module focuses on exporting track point clouds for ML training data preparation.
 // Goal: Extract isolated track point clouds in formats that can be inspected in LidarView.
 
@@ -224,7 +224,7 @@ type TrackPointCloudMetadata struct {
 	TotalPoints      int       `json:"total_points"`
 	ObjectClass      string    `json:"object_class,omitempty"`
 	ObjectConfidence float32   `json:"object_confidence,omitempty"`
-	// Phase 1 quality metrics
+	// Quality metrics
 	TrackLength    float32 `json:"track_length_meters"`
 	Duration       float32 `json:"duration_secs"`
 	OcclusionCount int     `json:"occlusion_count"`
@@ -238,7 +238,7 @@ func ExtractMetadata(track *TrackedObject, frames []*TrackPointCloudFrame) *Trac
 		totalPoints += len(frame.PolarPoints)
 	}
 
-	// Compute quality score using Phase 1 metrics
+	// Compute quality score using quality metrics
 	qualityMetrics := ComputeTrackQualityMetrics(track)
 
 	return &TrackPointCloudMetadata{

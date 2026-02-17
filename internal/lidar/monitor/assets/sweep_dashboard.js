@@ -1090,7 +1090,7 @@ function handleStartAutoTune() {
     req.pcap_duration_secs = numVal("pcap_duration_secs");
   }
 
-  // Phase 5.4: Include scene_id for ground truth evaluation
+  // Include scene_id for ground truth evaluation
   if (ds === "scene") {
     var sceneId = val("scene_select");
     if (sceneId) {
@@ -2525,7 +2525,7 @@ function renderTable(results) {
     paramKeys = ["noise", "closeness", "neighbour"];
   }
 
-  // Check if we have ground truth scores (Phase 5.4)
+  // Check if we have ground truth scores
   var hasGroundTruth =
     results[0] &&
     (results[0].detection_rate !== undefined ||
@@ -2540,7 +2540,7 @@ function renderTable(results) {
   });
 
   if (hasGroundTruth) {
-    // Phase 5.4: Ground truth columns
+    // Ground truth columns
     headerHtml += "<th>GT Score</th>";
     headerHtml += "<th>Detection %</th>";
     headerHtml += "<th>Frag.</th>";
@@ -2583,7 +2583,7 @@ function renderTable(results) {
     });
 
     if (hasGroundTruth) {
-      // Phase 5.4: Ground truth score columns
+      // Ground truth score columns
       html +=
         '<td class="mono">' +
         escapeHTML(

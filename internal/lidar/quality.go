@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
-// Phase 3: Track Quality Analysis & Training Data Curation
+// Track Quality Analysis & Training Data Curation
 // This module provides quality metrics for curating high-quality training datasets.
 // Focus: Identifying tracks suitable for ML training and exporting them for labeling.
 
@@ -205,7 +205,7 @@ func ComputeTrackQualityMetrics(track *TrackedObject) *TrackQualityMetrics {
 }
 
 // NoiseCoverageMetrics quantifies "unknown" classification coverage.
-// Phase 3: Scaffolding for coverage analysis.
+// Scaffolding for coverage analysis.
 type NoiseCoverageMetrics struct {
 	TotalTracks         int                `json:"total_tracks"`
 	TracksWithHighNoise int                `json:"tracks_with_high_noise"`       // noise_ratio > 0.3
@@ -217,7 +217,7 @@ type NoiseCoverageMetrics struct {
 }
 
 // ComputeNoiseCoverageMetrics calculates coverage metrics for a set of tracks.
-// Phase 3: Placeholder implementation.
+// Placeholder implementation.
 func ComputeNoiseCoverageMetrics(tracks []*TrackedObject) *NoiseCoverageMetrics {
 	metrics := &NoiseCoverageMetrics{
 		TotalTracks:         len(tracks),
@@ -226,7 +226,7 @@ func ComputeNoiseCoverageMetrics(tracks []*TrackedObject) *NoiseCoverageMetrics 
 		NoiseRatioHistogram: make([]int, 10), // 10 bins: [0-0.1, 0.1-0.2, ..., 0.9-1.0]
 	}
 
-	// TODO Phase 3: Implement full noise coverage analysis
+	// TODO: Implement full noise coverage analysis
 	// For now, just count high-noise and unknown tracks
 	for _, track := range tracks {
 		if track.NoisePointRatio > 0.3 {
