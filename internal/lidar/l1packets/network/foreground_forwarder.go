@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // ForegroundForwarder handles forwarding of foreground-only point clouds as UDP packets.
 // Points are encoded as Pandar40P-compatible packets on a separate port (default 2370).
 type ForegroundForwarder struct {
 	conn         *net.UDPConn
-	channel      chan []lidar.PointPolar
+	channel      chan []l4perception.PointPolar
 	address      string
 	port         int
 	sensorConfig *SensorConfig
@@ -58,7 +59,7 @@ func NewForegroundForwarder(addr string, port int, config *SensorConfig) (*Foreg
 
 	return &ForegroundForwarder{
 		conn:         conn,
-		channel:      make(chan []lidar.PointPolar, 100), // Buffer 100 point cloud frames
+		channel:      make(chan []l4perception.PointPolar, 100), // Buffer 100 point cloud frames
 		address:      forwardAddress,
 		port:         port,
 		sensorConfig: config,
@@ -114,13 +115,13 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 }
 
 // ForwardForeground queues foreground points for forwarding.
-func (f *ForegroundForwarder) ForwardForeground(points []lidar.PointPolar) {
+func (f *ForegroundForwarder) ForwardForeground(points []l4perception.PointPolar) {
 	if len(points) == 0 {
 		return
 	}
 
 	// Make a copy to avoid data races
-	pointsCopy := make([]lidar.PointPolar, len(points))
+	pointsCopy := make([]l4perception.PointPolar, len(points))
 	copy(pointsCopy, points)
 
 	// Non-blocking send
@@ -143,7 +144,7 @@ func (f *ForegroundForwarder) ForwardForeground(points []lidar.PointPolar) {
 // encodePointsAsPackets encodes foreground points into Pandar40P-compatible UDP packets.
 // It reconstructs the original packet structure using UDPSequence and BlockID to ensure
 // azimuths are preserved exactly as they were received.
-func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) ([][]byte, error) {
+func (f *ForegroundForwarder) encodePointsAsPackets(points []l4perception.PointPolar) ([][]byte, error) {
 	if len(points) == 0 {
 		return nil, nil
 	}
@@ -164,7 +165,7 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 
 	// Group points into packets
 	type PacketBatch struct {
-		Points      []lidar.PointPolar
+		Points      []l4perception.PointPolar
 		HasSequence bool
 		Sequence    uint32
 	}
@@ -209,7 +210,7 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 
 			// Start new batch
 			currentBatch = &PacketBatch{
-				Points:      []lidar.PointPolar{p},
+				Points:      []l4perception.PointPolar{p},
 				HasSequence: p.UDPSequence != 0,
 				Sequence:    p.UDPSequence,
 			}
@@ -232,7 +233,7 @@ func (f *ForegroundForwarder) encodePointsAsPackets(points []lidar.PointPolar) (
 	return packets, nil
 }
 
-func (f *ForegroundForwarder) buildPacket(points []lidar.PointPolar, hasSequence bool, sequence uint32) ([]byte, error) {
+func (f *ForegroundForwarder) buildPacket(points []l4perception.PointPolar, hasSequence bool, sequence uint32) ([]byte, error) {
 	size := 1262
 	if hasSequence {
 		size = 1266
@@ -240,7 +241,7 @@ func (f *ForegroundForwarder) buildPacket(points []lidar.PointPolar, hasSequence
 	packet := make([]byte, size)
 
 	// Group points by BlockID
-	blocks := make(map[int][]lidar.PointPolar)
+	blocks := make(map[int][]l4perception.PointPolar)
 	for _, p := range points {
 		blocks[p.BlockID] = append(blocks[p.BlockID], p)
 	}

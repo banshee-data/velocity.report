@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 const samplePCAPPath = "../testdata/lidar_20Hz.pcapng"
@@ -210,7 +212,7 @@ func TestReadPCAPFileRealtime_WithTag_Success(t *testing.T) {
 			OnProgress: func(_, _ uint64) {
 				progressCalls++
 			},
-			OnFrameCallback: func(_ *lidar.BackgroundManager, _ []lidar.PointPolar) {
+			OnFrameCallback: func(_ *l3grid.BackgroundManager, _ []lidar.PointPolar) {
 				frameCallbacks++
 			},
 		},

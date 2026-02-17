@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 func TestNewForegroundForwarder_Success(t *testing.T) {
@@ -104,7 +105,7 @@ func TestForegroundForwarder_ForwardForeground_EmptySlice(t *testing.T) {
 
 	// Should return early without queueing
 	ff.ForwardForeground(nil)
-	ff.ForwardForeground([]lidar.PointPolar{})
+	ff.ForwardForeground([]l4perception.PointPolar{})
 
 	// Channel should be empty
 	select {
@@ -122,7 +123,7 @@ func TestForegroundForwarder_ForwardForeground_QueuePoints(t *testing.T) {
 	}
 	defer ff.Close()
 
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, Azimuth: 45.0, Intensity: 100},
 		{Channel: 2, Distance: 15.0, Azimuth: 90.0, Intensity: 150},
 	}
@@ -152,7 +153,7 @@ func TestForegroundForwarder_ForwardForeground_BufferFull(t *testing.T) {
 	defer ff.Close()
 
 	// Fill the buffer (capacity is 100)
-	points := []lidar.PointPolar{{Channel: 1, Distance: 10.0}}
+	points := []l4perception.PointPolar{{Channel: 1, Distance: 10.0}}
 	for i := 0; i < 100; i++ {
 		ff.ForwardForeground(points)
 	}
@@ -199,7 +200,7 @@ func TestForegroundForwarder_StartAndForward(t *testing.T) {
 	ff.Start(ctx)
 
 	// Send points
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, Azimuth: 45.0, Intensity: 100, BlockID: 0},
 	}
 	ff.ForwardForeground(points)
@@ -251,7 +252,7 @@ func TestEncodePointsAsPackets_Empty(t *testing.T) {
 		t.Errorf("Expected nil packets for empty input, got %v", packets)
 	}
 
-	packets, err = ff.encodePointsAsPackets([]lidar.PointPolar{})
+	packets, err = ff.encodePointsAsPackets([]l4perception.PointPolar{})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -268,7 +269,7 @@ func TestEncodePointsAsPackets_SinglePacket(t *testing.T) {
 	defer ff.Close()
 
 	now := time.Now().UnixNano()
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, Azimuth: 45.0, Intensity: 100, BlockID: 0, Timestamp: now, RawBlockAzimuth: 4500},
 		{Channel: 2, Distance: 15.0, Azimuth: 45.0, Intensity: 150, BlockID: 0, Timestamp: now, RawBlockAzimuth: 4500},
 		{Channel: 1, Distance: 12.0, Azimuth: 46.0, Intensity: 120, BlockID: 1, Timestamp: now + 1000, RawBlockAzimuth: 4600},
@@ -294,7 +295,7 @@ func TestEncodePointsAsPackets_WithSequence(t *testing.T) {
 	defer ff.Close()
 
 	now := time.Now().UnixNano()
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, BlockID: 0, Timestamp: now, UDPSequence: 1},
 		{Channel: 2, Distance: 15.0, BlockID: 0, Timestamp: now, UDPSequence: 1},
 	}
@@ -320,7 +321,7 @@ func TestEncodePointsAsPackets_MultiplePackets(t *testing.T) {
 	defer ff.Close()
 
 	now := time.Now().UnixNano()
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		// First packet (sequence 1)
 		{Channel: 1, Distance: 10.0, BlockID: 0, Timestamp: now, UDPSequence: 1},
 		{Channel: 2, Distance: 15.0, BlockID: 1, Timestamp: now + 1000, UDPSequence: 1},
@@ -347,7 +348,7 @@ func TestEncodePointsAsPackets_TimestampGap(t *testing.T) {
 
 	now := time.Now().UnixNano()
 	// Points with large timestamp gap (>200us) should be in separate packets
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, BlockID: 0, Timestamp: now},
 		{Channel: 1, Distance: 20.0, BlockID: 1, Timestamp: now + 300000}, // 300us gap
 	}
@@ -370,7 +371,7 @@ func TestEncodePointsAsPackets_BlockIDReset(t *testing.T) {
 
 	now := time.Now().UnixNano()
 	// BlockID reset (9 -> 0) should trigger new packet
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, BlockID: 9, Timestamp: now},
 		{Channel: 1, Distance: 20.0, BlockID: 0, Timestamp: now + 1000}, // Reset to 0
 	}
@@ -392,7 +393,7 @@ func TestBuildPacket_Basic(t *testing.T) {
 	defer ff.Close()
 
 	now := time.Now().UnixNano()
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, Intensity: 100, BlockID: 0, Timestamp: now, RawBlockAzimuth: 4500},
 	}
 
@@ -419,7 +420,7 @@ func TestBuildPacket_WithSequence(t *testing.T) {
 	defer ff.Close()
 
 	now := time.Now().UnixNano()
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 1, Distance: 10.0, BlockID: 0, Timestamp: now, UDPSequence: 42},
 	}
 
@@ -441,7 +442,7 @@ func TestBuildPacket_InvalidChannel(t *testing.T) {
 
 	now := time.Now().UnixNano()
 	// Invalid channels (0, 41) should be skipped
-	points := []lidar.PointPolar{
+	points := []l4perception.PointPolar{
 		{Channel: 0, Distance: 10.0, BlockID: 0, Timestamp: now},
 		{Channel: 41, Distance: 10.0, BlockID: 0, Timestamp: now},
 		{Channel: 1, Distance: 10.0, BlockID: 0, Timestamp: now},
@@ -478,7 +479,7 @@ func TestBuildPacket_DistanceEdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			points := []lidar.PointPolar{
+			points := []l4perception.PointPolar{
 				{Channel: 1, Distance: tc.distance, BlockID: 0, Timestamp: now},
 			}
 
@@ -503,7 +504,7 @@ func TestBuildPacket_AllBlocks(t *testing.T) {
 	now := time.Now().UnixNano()
 
 	// Create points for all 10 blocks
-	var points []lidar.PointPolar
+	var points []l4perception.PointPolar
 	for blockID := 0; blockID < 10; blockID++ {
 		points = append(points, lidar.PointPolar{
 			Channel:         1,
@@ -542,7 +543,7 @@ func BenchmarkEncodePointsAsPackets(b *testing.B) {
 	defer ff.Close()
 
 	now := time.Now().UnixNano()
-	points := make([]lidar.PointPolar, 400) // Typical foreground frame size
+	points := make([]l4perception.PointPolar, 400) // Typical foreground frame size
 	for i := 0; i < len(points); i++ {
 		points[i] = lidar.PointPolar{
 			Channel:   (i % 40) + 1,
@@ -567,7 +568,7 @@ func BenchmarkBuildPacket(b *testing.B) {
 	defer ff.Close()
 
 	now := time.Now().UnixNano()
-	points := make([]lidar.PointPolar, 40)
+	points := make([]l4perception.PointPolar, 40)
 	for i := 0; i < len(points); i++ {
 		points[i] = lidar.PointPolar{
 			Channel:   i + 1,

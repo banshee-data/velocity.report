@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // PacketStatsInterface provides packet statistics management
@@ -23,13 +23,13 @@ type PacketStatsInterface interface {
 
 // Parser interface for parsing LiDAR packets
 type Parser interface {
-	ParsePacket(packet []byte) ([]lidar.PointPolar, error)
+	ParsePacket(packet []byte) ([]l4perception.PointPolar, error)
 	GetLastMotorSpeed() uint16 // Get motor speed from last parsed packet
 }
 
 // FrameBuilder interface for building LiDAR frames
 type FrameBuilder interface {
-	AddPointsPolar(points []lidar.PointPolar)
+	AddPointsPolar(points []l4perception.PointPolar)
 	SetMotorSpeed(rpm uint16) // Update expected frame duration based on motor speed
 }
 

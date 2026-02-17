@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 /*
@@ -279,7 +279,7 @@ func (p *Pandar40PParser) GetLastMotorSpeed() uint16 {
 // The packet must contain valid data blocks and timestamp information.
 // Returns up to 400 points (10 blocks × 40 channels, excluding invalid measurements).
 // Motor speed from packet tail is cached for frame builder time-based detection.
-func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.PointPolar, error) {
+func (p *Pandar40PParser) ParsePacket(data []byte) ([]l4perception.PointPolar, error) {
 	// Increment packet counter for debugging and diagnostic tracking
 	p.packetCount++
 
@@ -343,7 +343,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]lidar.PointPolar, error) {
 	// Process all 10 data blocks in the packet
 	// Block preambles (0xFFEE) start immediately at the beginning of the UDP payload
 	// Each block contains measurements from all 40 channels at a specific azimuth angle
-	var points []lidar.PointPolar
+	var points []l4perception.PointPolar
 	dataOffset := 0 // Preambles are at the start of UDP payload data (no header offset)
 
 	// Track non-zero channel counts per block for diagnostics when parsing yields no points
@@ -531,9 +531,9 @@ func (p *Pandar40PParser) resolvePacketTime(tail *PacketTail) time.Time {
 // Applies sensor-specific calibrations, motor speed compensation, and coordinate transformation.
 // Each block can produce up to 40 points (one per channel), excluding invalid measurements.
 // Uses actual motor speed from packet tail for precise firetime-based azimuth corrections.
-func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail, packetTime time.Time) []lidar.PointPolar {
+func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *PacketTail, packetTime time.Time) []l4perception.PointPolar {
 	// Pre-allocate slice with capacity for maximum possible points to avoid reallocations
-	points := make([]lidar.PointPolar, 0, CHANNELS_PER_BLOCK)
+	points := make([]l4perception.PointPolar, 0, CHANNELS_PER_BLOCK)
 
 	// Extract base azimuth angle from block data (in 0.01-degree units, range 0-35999)
 	baseAzimuth := float64(block.Azimuth) * AZIMUTH_RESOLUTION
@@ -602,7 +602,7 @@ func (p *Pandar40PParser) blockToPoints(block *DataBlock, blockIdx int, tail *Pa
 		pointTime := packetTime.Add(firetimeOffset)
 
 		// Create polar point (sensor-frame) - conversion to Cartesian will be done in frame builder
-		point := lidar.PointPolar{
+		point := l4perception.PointPolar{
 			Channel:         channelNum,
 			Azimuth:         azimuth,
 			Elevation:       elevation,

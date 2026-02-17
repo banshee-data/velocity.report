@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // Test constants - defined locally to avoid dependency on implementation details
@@ -97,7 +97,7 @@ func TestPacketParsingWithMockData(t *testing.T) {
 			t.Errorf("Invalid azimuth: %f", p.Azimuth)
 		}
 
-		x, y, z := lidar.SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
+		x, y, z := l4perception.SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
 		t.Logf("First point: X=%.3f, Y=%.3f, Z=%.3f, Distance=%.3f, Azimuth=%.1f, Channel=%d",
 			x, y, z, p.Distance, p.Azimuth, p.Channel)
 	}

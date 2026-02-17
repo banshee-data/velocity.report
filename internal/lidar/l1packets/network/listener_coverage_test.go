@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // --- custom mock types for coverage-specific scenarios ---
@@ -196,7 +196,7 @@ func TestListenerCov_Start_ReadErrorCtxCancelled(t *testing.T) {
 func TestListenerCov_HandlePacket_ParserNoFrameBuilder(t *testing.T) {
 	stats := &MockFullPacketStats{}
 	parser := &MockParser{
-		points:     []lidar.PointPolar{{Distance: 5.0, Azimuth: 90.0}},
+		points:     []l4perception.PointPolar{{Distance: 5.0, Azimuth: 90.0}},
 		motorSpeed: 600,
 	}
 

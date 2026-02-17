@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // MockFullPacketStats implements PacketStatsInterface for testing
@@ -77,13 +77,13 @@ func (m *MockFullPacketStats) GetLogCalls() int {
 
 // MockParser implements Parser interface for testing
 type MockParser struct {
-	points      []lidar.PointPolar
+	points      []l4perception.PointPolar
 	motorSpeed  uint16
 	parseErr    error
 	parseCalled int
 }
 
-func (m *MockParser) ParsePacket(packet []byte) ([]lidar.PointPolar, error) {
+func (m *MockParser) ParsePacket(packet []byte) ([]l4perception.PointPolar, error) {
 	m.parseCalled++
 	if m.parseErr != nil {
 		return nil, m.parseErr
@@ -97,13 +97,13 @@ func (m *MockParser) GetLastMotorSpeed() uint16 {
 
 // MockFrameBuilder implements FrameBuilder interface for testing
 type MockFrameBuilder struct {
-	points      []lidar.PointPolar
+	points      []l4perception.PointPolar
 	motorSpeed  uint16
 	addCalled   int
 	speedCalled int
 }
 
-func (m *MockFrameBuilder) AddPointsPolar(points []lidar.PointPolar) {
+func (m *MockFrameBuilder) AddPointsPolar(points []l4perception.PointPolar) {
 	m.addCalled++
 	m.points = append(m.points, points...)
 }
@@ -161,7 +161,7 @@ func TestNewUDPListener_WithStats(t *testing.T) {
 
 func TestNewUDPListener_WithParser(t *testing.T) {
 	parser := &MockParser{
-		points:     []lidar.PointPolar{{Distance: 10.0}},
+		points:     []l4perception.PointPolar{{Distance: 10.0}},
 		motorSpeed: 600,
 	}
 
@@ -295,7 +295,7 @@ func TestForegroundForwarder_ForwardForeground_Empty(t *testing.T) {
 
 	// Should not panic or block
 	ff.ForwardForeground(nil)
-	ff.ForwardForeground([]lidar.PointPolar{})
+	ff.ForwardForeground([]l4perception.PointPolar{})
 }
 
 // TestForegroundForwarder_NewWithNilConfig tests creation with nil config
@@ -366,7 +366,7 @@ func TestUDPListener_HandlePacket(t *testing.T) {
 func TestUDPListener_HandlePacket_WithParser(t *testing.T) {
 	stats := &MockFullPacketStats{}
 	parser := &MockParser{
-		points:     []lidar.PointPolar{{Distance: 10.0}, {Distance: 20.0}},
+		points:     []l4perception.PointPolar{{Distance: 10.0}, {Distance: 20.0}},
 		motorSpeed: 600,
 	}
 	frameBuilder := &MockFrameBuilder{}
@@ -406,7 +406,7 @@ func TestUDPListener_HandlePacket_WithParser(t *testing.T) {
 func TestUDPListener_HandlePacket_ParsingDisabled(t *testing.T) {
 	stats := &MockFullPacketStats{}
 	parser := &MockParser{
-		points:     []lidar.PointPolar{{Distance: 10.0}},
+		points:     []l4perception.PointPolar{{Distance: 10.0}},
 		motorSpeed: 600,
 	}
 
@@ -479,7 +479,7 @@ func TestUDPListener_HandlePacket_WithForwarder(t *testing.T) {
 func TestUDPListener_HandlePacket_MotorSpeedZero(t *testing.T) {
 	stats := &MockFullPacketStats{}
 	parser := &MockParser{
-		points:     []lidar.PointPolar{{Distance: 10.0}},
+		points:     []l4perception.PointPolar{{Distance: 10.0}},
 		motorSpeed: 0, // Zero motor speed
 	}
 	frameBuilder := &MockFrameBuilder{}
@@ -507,7 +507,7 @@ func TestUDPListener_HandlePacket_MotorSpeedZero(t *testing.T) {
 func TestUDPListener_HandlePacket_EmptyPoints(t *testing.T) {
 	stats := &MockFullPacketStats{}
 	parser := &MockParser{
-		points:     []lidar.PointPolar{}, // Empty points
+		points:     []l4perception.PointPolar{}, // Empty points
 		motorSpeed: 600,
 	}
 	frameBuilder := &MockFrameBuilder{}
@@ -788,14 +788,14 @@ func TestUDPListener_HandlePacket_ParserError(t *testing.T) {
 // LegacyFrameBuilder is a mock that does NOT implement AddPointsPolar directly
 // to test the fallback cartesian conversion path
 type LegacyFrameBuilder struct {
-	points      []lidar.PointPolar
+	points      []l4perception.PointPolar
 	motorSpeed  uint16
 	addCalled   int
 	speedCalled int
 }
 
 // AddPointsPolar satisfies the FrameBuilder interface but we'll use it to capture calls
-func (m *LegacyFrameBuilder) AddPointsPolar(points []lidar.PointPolar) {
+func (m *LegacyFrameBuilder) AddPointsPolar(points []l4perception.PointPolar) {
 	m.addCalled++
 	m.points = append(m.points, points...)
 }
@@ -809,7 +809,7 @@ func (m *LegacyFrameBuilder) SetMotorSpeed(rpm uint16) {
 func TestUDPListener_HandlePacket_FallbackConversion(t *testing.T) {
 	stats := &MockFullPacketStats{}
 	parser := &MockParser{
-		points: []lidar.PointPolar{
+		points: []l4perception.PointPolar{
 			{Channel: 1, Distance: 10.0, Azimuth: 45.0, Elevation: 5.0, Intensity: 100, Timestamp: 12345},
 		},
 		motorSpeed: 600,
@@ -844,7 +844,7 @@ func TestUDPListener_HandlePacket_FallbackConversion(t *testing.T) {
 func TestUDPListener_NoopStatsWithParser(t *testing.T) {
 	// No custom stats - uses noopStats
 	parser := &MockParser{
-		points:     []lidar.PointPolar{{Distance: 10.0}, {Distance: 20.0}},
+		points:     []l4perception.PointPolar{{Distance: 10.0}, {Distance: 20.0}},
 		motorSpeed: 600,
 	}
 	frameBuilder := &MockFrameBuilder{}
