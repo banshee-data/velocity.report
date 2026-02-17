@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Phase 2.3: REST API for scene management
+// REST API for scene management
 // These handlers manage LiDAR evaluation scenes (PCAP + sensor + params).
 //
 // Routes:
@@ -22,7 +22,7 @@ import (
 // - GET /api/lidar/scenes/{scene_id} — get scene details
 // - PUT /api/lidar/scenes/{scene_id} — update scene
 // - DELETE /api/lidar/scenes/{scene_id} — delete scene
-// - POST /api/lidar/scenes/{scene_id}/replay — replay scene (placeholder for Phase 2.4/5)
+// - POST /api/lidar/scenes/{scene_id}/replay — replay scene
 
 // handleScenes handles /api/lidar/scenes (list and create).
 func (ws *WebServer) handleScenes(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +268,7 @@ func (ws *WebServer) handleDeleteScene(w http.ResponseWriter, r *http.Request, s
 }
 
 // handleReplayScene handles PCAP replay for a scene.
-// Phase 2.4: Replays the scene's PCAP file, creates an analysis run, and returns the run_id.
+// Replays the scene's PCAP file, creates an analysis run, and returns the run_id.
 func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, sceneID string) {
 	store := lidar.NewSceneStore(ws.db.DB)
 	scene, err := store.GetScene(sceneID)

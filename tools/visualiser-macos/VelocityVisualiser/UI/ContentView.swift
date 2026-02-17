@@ -129,7 +129,7 @@ struct ContentView: View {
             }.onKeyPress("d") {
                 appState.toggleDebug()
                 return .handled
-            }  // Run browser sheet (Phase 4.1)
+            }  // Run browser sheet
             .sheet(isPresented: $appState.showRunBrowser) {
                 RunBrowserView().environmentObject(appState)
             }
@@ -151,7 +151,7 @@ struct ToolbarView: View {
             // Connection status
             ConnectionStatusView()
 
-            // Run browser button (Phase 4.1)
+            // Run browser button
             if appState.isConnected {
                 Divider().frame(height: 20)
                 Button(action: { appState.showRunBrowser = true }) {
@@ -927,7 +927,7 @@ struct LabelPanelView: View {
             if let trackID = appState.selectedTrackID {
                 Text("Track: \(trackID)").font(.caption).foregroundColor(.secondary)
 
-                // Run context indicator (Phase 4.3)
+                // Run context indicator
                 if let runID = appState.currentRunID {
                     Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
                 }

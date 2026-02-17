@@ -566,7 +566,7 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 	return res.json();
 }
 
-// LiDAR Scene and Run Labelling API (Phase 3: track labelling UI)
+// LiDAR Scene and Run Labelling API
 // Uses API_BASE for consistency with other LiDAR endpoints.
 
 export async function getLidarScenes(sensorId?: string): Promise<LidarScene[]> {
@@ -711,7 +711,7 @@ export async function getLabellingProgress(runId: string): Promise<LabellingProg
 	return res.json();
 }
 
-// LiDAR Missed Regions API (Phase 7: identifying missed objects)
+// LiDAR Missed Regions API
 
 export async function getMissedRegions(runId: string): Promise<MissedRegion[]> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`);

@@ -16,8 +16,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// Phase 1.6: REST API endpoints for lidar_run_tracks labelling
-// Phase 1.7: REST API for analysis run management
+// REST API endpoints for lidar_run_tracks labelling
+// REST API for analysis run management
 //
 // These handlers are methods on WebServer since it already has access to
 // the AnalysisRunManager and db. Routes are registered in RegisterRoutes().
@@ -61,13 +61,13 @@ func (ws *WebServer) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle /api/lidar/runs/{run_id}/evaluate (Phase 4.5)
+	// Handle /api/lidar/runs/{run_id}/evaluate
 	if subPath == "evaluate" {
 		ws.handleEvaluateRun(w, r, runID)
 		return
 	}
 
-	// Handle /api/lidar/runs/{run_id}/missed-regions (Phase 7)
+	// Handle /api/lidar/runs/{run_id}/missed-regions
 	if subPath == "missed-regions" {
 		ws.handleMissedRegions(w, r, runID)
 		return
@@ -149,7 +149,7 @@ func parseTrackPath(path string) (trackID string, action string) {
 	return
 }
 
-// Phase 1.6 Handlers
+// Track Labelling Handlers
 
 // handleUpdateTrackLabel updates the user label and quality label for a track.
 // PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label
@@ -411,7 +411,7 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// Phase 1.7 Handlers
+// Analysis Run Management Handlers
 
 // handleListRuns lists analysis runs with optional filters.
 // GET /api/lidar/runs?limit=50&sensor_id=sensor1&status=completed

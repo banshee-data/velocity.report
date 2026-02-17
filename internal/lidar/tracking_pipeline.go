@@ -173,7 +173,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
 		}
 
-		// Phase 1: Foreground extraction
+		// Stage 1: Foreground extraction
 		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
 		if err != nil || mask == nil {
 			if cfg.DebugMode {
@@ -268,10 +268,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		// Always log foreground extraction for tracking debugging
 		Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
-		// Phase 2: Transform to world coordinates
+		// Stage 2: Transform to world coordinates
 		worldPoints := TransformToWorld(foregroundPoints, nil, cfg.SensorID)
 
-		// Phase 2.5: Ground removal (vertical filtering)
+		// Stage 2b: Ground removal (vertical filtering)
 		// Remove ground plane and overhead structure returns to reduce false clusters.
 		// Bounds are in sensor frame (identity pose): Z=0 is the sensor's horizontal
 		// plane, ground is at approximately −3.0 m for a ~3 m mount height.
@@ -297,7 +297,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			return
 		}
 
-		// Phase 2.7: Voxel grid downsampling (optional).
+		// Stage 2c: Voxel grid downsampling (optional).
 		// Reduces point density while preserving spatial structure, which
 		// tightens cluster boundaries and speeds up DBSCAN.
 		if cfg.VoxelLeafSize > 0 {
@@ -307,7 +307,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				before, len(filteredPoints), cfg.VoxelLeafSize)
 		}
 
-		// Phase 3: Clustering (runtime-tunable via background params)
+		// Stage 3: Clustering (runtime-tunable via background params)
 		dbscanParams := DefaultDBSCANParams()
 		params := cfg.BackgroundManager.GetParams()
 		if params.ForegroundMinClusterPoints > 0 {
@@ -344,14 +344,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		// Always log clustering for tracking debugging
 		Debugf("[Tracking] Clustered into %d objects", len(clusters))
 
-		// Phase 4: Track update
+		// Stage 4: Track update
 		if cfg.Tracker == nil {
 			return
 		}
 
 		cfg.Tracker.Update(clusters, frame.StartTimestamp)
 
-		// Phase 5: Classify and persist confirmed tracks
+		// Stage 5: Classify and persist confirmed tracks
 		confirmedTracks := cfg.Tracker.GetConfirmedTracks()
 		Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
 
@@ -436,7 +436,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			Debugf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
 		}
 
-		// Phase 6: Publish to visualiser (if enabled)
+		// Stage 6: Publish to visualiser (if enabled)
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
 			// Adapt frame to FrameBundle
 			// Note: Debug collector is integrated in Tracker but requires explicit enablement
@@ -459,7 +459,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			cfg.LidarViewAdapter.PublishFrameBundle(nil, foregroundPoints)
 		}
 
-		// Phase 7: Periodic DB pruning of deleted tracks (task 1.3).
+		// Stage 7: Periodic DB pruning of deleted tracks.
 		// Runs at most once per pruneInterval to avoid contention.
 		if cfg.DB != nil {
 			now := time.Now()

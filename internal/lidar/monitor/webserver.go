@@ -148,11 +148,11 @@ type WebServer struct {
 	onPCAPProgress   func(currentPacket, totalPackets uint64)
 	onPCAPTimestamps func(startNs, endNs int64)
 
-	// Recording lifecycle callbacks (Phase 1.3)
+	// Recording lifecycle callbacks
 	onRecordingStart func(runID string)
 	onRecordingStop  func(runID string) string
 
-	// Playback control callbacks (Phase 3)
+	// Playback control callbacks
 	onPlaybackPause   func()
 	onPlaybackPlay    func()
 	onPlaybackSeek    func(timestampNs int64) error
@@ -237,7 +237,7 @@ type WebServerConfig struct {
 	// The callback receives the run ID and should return the path to the recorded VRLOG.
 	OnRecordingStop func(runID string) string
 
-	// Playback control callbacks (Phase 3)
+	// Playback control callbacks
 	OnPlaybackPause   func()
 	OnPlaybackPlay    func()
 	OnPlaybackSeek    func(timestampNs int64) error
@@ -1281,18 +1281,18 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		labelAPI.RegisterRoutes(mux)
 	}
 
-	// Run track API routes (Phase 1.6 & 1.7: analysis run management and track labelling)
+	// Run track API routes (analysis run management and track labelling)
 	if ws.db != nil {
 		mux.HandleFunc("/api/lidar/runs/", ws.handleRunTrackAPI)
 	}
 
-	// Scene API routes (Phase 2.3: scene management for track labelling and auto-tuning)
+	// Scene API routes (scene management for track labelling and auto-tuning)
 	if ws.db != nil {
 		mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
 		mux.HandleFunc("/api/lidar/scenes/", ws.handleSceneByID)
 	}
 
-	// Playback API routes (Phase 3: VRLOG replay control)
+	// Playback API routes (VRLOG replay control)
 	mux.HandleFunc("/api/lidar/playback/status", ws.handlePlaybackStatus)
 	mux.HandleFunc("/api/lidar/playback/pause", ws.handlePlaybackPause)
 	mux.HandleFunc("/api/lidar/playback/play", ws.handlePlaybackPlay)

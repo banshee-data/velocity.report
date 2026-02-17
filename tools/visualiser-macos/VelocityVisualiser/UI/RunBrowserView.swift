@@ -1,5 +1,5 @@
 // RunBrowserView.swift
-// UI for browsing and loading analysis runs (Phase 4.1).
+// UI for browsing and loading analysis runs.
 //
 // This view displays a list of available runs with VRLOG files
 // and allows the user to load a run for replay and labelling.

@@ -18,15 +18,15 @@
 	// Callback to notify parent when paginated tracks change
 	export let onPaginatedTracksChange: ((tracks: Track[]) => void) | null = null;
 
-	// Phase 3: Labelling workflow props
+	// Labelling workflow props
 	export let runId: string | null = null;
 	export let runTracks: RunTrack[] = [];
 	export let labellingProgress: LabellingProgress | null = null;
 
-	// Phase 3.4: Bulk selection state
+	// Bulk selection state
 	let bulkSelectedTrackIds = new SvelteSet<string>();
 
-	// Phase 3.5: Link mode state
+	// Link mode state
 	let linkMode = false;
 	let linkSource: string | null = null;
 
@@ -52,7 +52,7 @@
 	// Filter and sort options
 	let classFilter: string = 'all';
 	let stateFilter: string = 'all';
-	let labelFilter: string = 'all'; // Phase 3: filter by label
+	let labelFilter: string = 'all'; // filter by label
 	let sortBy: 'time' | 'speed' | 'duration' = 'time';
 	let minObservations: number = 5; // Filter out tracks with fewer observations
 
@@ -79,7 +79,7 @@
 			if (classFilter !== 'all' && track.object_class !== classFilter) return false;
 			if (stateFilter !== 'all' && track.state !== stateFilter) return false;
 
-			// Phase 3: Filter by label status
+			// Filter by label status
 			if (runId && labelFilter !== 'all') {
 				const runTrack = runTrackMap.get(track.track_id);
 				if (labelFilter === 'unlabelled' && runTrack?.user_label) return false;
@@ -121,7 +121,7 @@
 		currentPage = Math.max(0, Math.min(page, totalPages - 1));
 	}
 
-	// Phase 3: Apply detection label
+	// Apply detection label
 	async function applyDetectionLabel(trackId: string, label: DetectionLabel) {
 		if (!runId) return;
 
@@ -150,7 +150,7 @@
 		}
 	}
 
-	// Phase 3: Toggle quality flag (multi-select)
+	// Toggle quality flag (multi-select)
 	async function applyQualityLabel(trackId: string, label: QualityLabel) {
 		if (!runId) return;
 
@@ -195,7 +195,7 @@
 		}
 	}
 
-	// Phase 3.4: Apply bulk detection label
+	// Apply bulk detection label
 	async function applyBulkDetectionLabel(label: DetectionLabel) {
 		if (!runId || bulkSelectedTrackIds.size === 0) return;
 
@@ -238,7 +238,7 @@
 		}
 	}
 
-	// Phase 3.4: Apply bulk quality label
+	// Apply bulk quality label
 	async function applyBulkQualityLabel(label: QualityLabel) {
 		if (!runId || bulkSelectedTrackIds.size === 0) return;
 
@@ -281,7 +281,7 @@
 		}
 	}
 
-	// Phase 3.5: Link two tracks
+	// Link two tracks
 	async function linkTracks(trackId1: string, trackId2: string) {
 		if (!runId) return;
 
@@ -323,7 +323,7 @@
 		}
 	}
 
-	// Phase 3.5: Unlink a track
+	// Unlink a track
 	async function unlinkTrack(trackId: string) {
 		if (!runId) return;
 
@@ -370,14 +370,14 @@
 		}
 	}
 
-	// Phase 3.4/3.5: Handle track click (with shift-click for multi-select and link mode)
+	// Handle track click (with shift-click for multi-select and link mode)
 	function handleTrackClick(trackId: string, event: MouseEvent) {
 		if (!runId) {
 			onTrackSelect(trackId);
 			return;
 		}
 
-		// Phase 3.5: Link mode - clicking a track links it to the source
+		// Link mode - clicking a track links it to the source
 		if (linkMode) {
 			if (!linkSource) {
 				linkSource = trackId;
@@ -392,7 +392,7 @@
 			return;
 		}
 
-		// Phase 3.4: Shift-click for multi-select
+		// Shift-click for multi-select
 		if (event.shiftKey) {
 			event.preventDefault();
 			if (bulkSelectedTrackIds.has(trackId)) {
@@ -407,7 +407,7 @@
 		onTrackSelect(trackId);
 	}
 
-	// Phase 3: Keyboard shortcuts for labelling
+	// Keyboard shortcuts for labelling
 	function handleKeyPress(event: KeyboardEvent) {
 		// Don't trigger if user is typing in an input field
 		if (
@@ -419,7 +419,7 @@
 			return;
 		}
 
-		// Phase 3.4: Escape to clear multi-selection
+		// Escape to clear multi-selection
 		if (event.key === 'Escape') {
 			if (bulkSelectedTrackIds.size > 0) {
 				event.preventDefault();
@@ -477,7 +477,7 @@
 		}
 	}
 
-	// Phase 3: Get label badge colour
+	// Get label badge colour
 	function getLabelColor(label: string): string {
 		if (label === 'car') return 'bg-blue-100 text-blue-800';
 		if (label === 'ped') return 'bg-green-100 text-green-800';
@@ -486,7 +486,7 @@
 		return 'bg-gray-100 text-gray-800';
 	}
 
-	// Phase 3: Get quality badge colour
+	// Get quality badge colour
 	function getQualityColor(label: string): string {
 		if (label === 'good') return 'bg-green-100 text-green-800';
 		if (label === 'noisy') return 'bg-orange-100 text-orange-800';
@@ -513,7 +513,7 @@
 	<div class="border-surface-content/10 border-b px-4 py-3">
 		<h3 class="text-surface-content font-semibold">Tracks ({filteredTracks.length})</h3>
 
-		<!-- Phase 3.5: Link Mode Toggle -->
+		<!-- Link Mode Toggle -->
 		{#if runId}
 			<div class="mt-2 flex items-center gap-2">
 				<Button
@@ -538,7 +538,7 @@
 			</div>
 		{/if}
 
-		<!-- Phase 3: Labelling Progress Bar -->
+		<!-- Labelling Progress Bar -->
 		{#if labellingProgress}
 			<div class="mt-2">
 				<div class="text-surface-content/70 mb-1 flex items-center justify-between text-xs">
@@ -558,7 +558,7 @@
 			</div>
 		{/if}
 
-		<!-- Phase 3: Label error display -->
+		<!-- Label error display -->
 		{#if labelError}
 			<div class="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-600">
 				{labelError}
@@ -602,7 +602,7 @@
 			</select>
 		</div>
 
-		<!-- Phase 3: Label Filter (only show when in labelling mode) -->
+		<!-- Label Filter (only show when in labelling mode) -->
 		{#if runId}
 			<div>
 				<label for="label-filter" class="text-surface-content/70 mb-1 block text-xs font-medium"
@@ -686,7 +686,7 @@
 						: ''}"
 			>
 				<div class="flex items-start gap-3">
-					<!-- Multi-select checkbox (Phase 3.4) -->
+					<!-- Multi-select checkbox -->
 					{#if runId && !linkMode}
 						<div class="flex-shrink-0">
 							<input
@@ -717,7 +717,7 @@
 							class="text-surface-content flex items-center gap-2 truncate font-mono text-sm font-medium"
 						>
 							{track.track_id}
-							<!-- Phase 3.5: Linked track indicator -->
+							<!-- Linked track indicator -->
 							{#if runTrack?.linked_track_ids && runTrack.linked_track_ids.length > 0}
 								<span
 									class="text-xs"
@@ -742,7 +742,7 @@
 							</div>
 						{/if}
 
-						<!-- Phase 3: Label Badges -->
+						<!-- Label Badges -->
 						{#if runTrack}
 							<div class="mt-2 flex flex-wrap gap-1">
 								{#if runTrack.user_label}
@@ -807,7 +807,7 @@
 		{/if}
 	</div>
 
-	<!-- Phase 3: Labelling Controls (shown when track is selected in labelling mode) -->
+	<!-- Labelling Controls (shown when track is selected in labelling mode) -->
 	{#if !runId}
 		<div class="border-surface-content/10 border-t px-4 py-3">
 			<div class="text-surface-content/50 text-xs">
@@ -818,7 +818,7 @@
 			</div>
 		</div>
 	{:else if bulkSelectedTrackIds.size > 0}
-		<!-- Phase 3.4: Bulk Labelling Panel -->
+		<!-- Bulk Labelling Panel -->
 		<div class="border-surface-content/10 space-y-3 border-t bg-blue-50 px-4 py-3 dark:bg-blue-950">
 			<div class="flex items-center justify-between">
 				<h4 class="text-surface-content text-sm font-semibold">
@@ -885,7 +885,7 @@
 		<div class="border-surface-content/10 space-y-3 border-t px-4 py-3">
 			<div class="flex items-center justify-between">
 				<h4 class="text-surface-content text-sm font-semibold">Label Track</h4>
-				<!-- Phase 3.5: Unlink button -->
+				<!-- Unlink button -->
 				{#if selectedRunTrack.linked_track_ids && selectedRunTrack.linked_track_ids.length > 0}
 					<Button
 						size="sm"
