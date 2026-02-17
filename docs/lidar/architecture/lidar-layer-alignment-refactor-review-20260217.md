@@ -236,18 +236,21 @@ Outcome:
 
 ### Remaining
 
-6. **L1 Packets migration** — move `network/` and `parse/` into `l1packets/`:
-   - Move `internal/lidar/network/` → `internal/lidar/l1packets/network/`
-   - Move `internal/lidar/parse/` → `internal/lidar/l1packets/parse/`
-   - Update all callers (6-7 files)
+6. **L1 Packets migration** — move `network/` and `parse/` into `l1packets/`: ✅
+   - Moved `internal/lidar/network/` → `internal/lidar/l1packets/network/`
+   - Moved `internal/lidar/parse/` → `internal/lidar/l1packets/parse/`
+   - Updated all callers (cmd/radar, cmd/tools, monitor)
 
-7. **Pipeline migration** — move `tracking_pipeline.go` → `pipeline/`:
-   - Move orchestration logic to `pipeline/tracking_pipeline.go`
-   - Replace parent with aliases
+7. **Pipeline migration** — move `tracking_pipeline.go` → `pipeline/`: ✅
+   - Moved orchestration logic to `pipeline/tracking_pipeline.go` (canonical)
+   - Pipeline imports directly from l2frames, l3grid, l4perception, l5tracks, l6objects, storage/sqlite
+   - Parent replaced with backward-compatible type aliases
 
-8. **Adapters migration** — move export/training/ground-truth to `adapters/`:
-   - `track_export.go`, `training_data.go`, `ground_truth.go` → `adapters/`
-   - Replace parent with aliases
+8. **Adapters migration** — move export/training/ground-truth to `adapters/`: ✅
+   - `track_export.go` → `adapters/track_export.go` (canonical)
+   - `training_data.go` → `adapters/training_data.go` (canonical)
+   - `ground_truth.go` → `adapters/ground_truth.go` (canonical)
+   - Parent files replaced with backward-compatible type aliases
 
 9. **Routing enhancements** (future):
    - Add HTTP method prefixes to route patterns (`"GET /path"`)
