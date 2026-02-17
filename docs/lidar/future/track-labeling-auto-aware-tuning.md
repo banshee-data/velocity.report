@@ -1,6 +1,6 @@
 # Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
 
-**Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) designed. Remaining: 6.x (deferred), 7.x, 8.x, 9.x.
+**Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
 
 **Next blocker:** None for Phases 1-5. Phase 6 (transit promotion) is deferred pending design. Phase 9 (profile comparison) is next priority.
 
@@ -415,10 +415,10 @@ Once sweep creates analysis runs per combo (Phase 2.5), evaluation scores can be
 
 #### Checklist
 
-- [ ] **9.1** Create `lidar_evaluations` table (new migration)
-- [ ] **9.2** Add `EvaluationStore` with Insert, ListByScene, Get, Delete
-- [ ] **9.3** Modify `POST /api/lidar/runs/{run_id}/evaluate` to persist results
-- [ ] **9.4** Implement `GET /api/lidar/scenes/{scene_id}/evaluations` (replace 501 stub)
+- [x] **9.1** Create `lidar_evaluations` table (new migration)
+- [x] **9.2** Add `EvaluationStore` with Insert, ListByScene, Get, Delete
+- [x] **9.3** Modify `POST /api/lidar/runs/{run_id}/evaluate` to persist results
+- [x] **9.4** Implement `GET /api/lidar/scenes/{scene_id}/evaluations` (replace 501 stub)
 - [ ] **9.5** Add score comparison table to scenes page
 - [ ] **9.6** Add parameter diff view (select two runs to compare)
 - [ ] **9.7** Visual multi-run overlay on map (future)
