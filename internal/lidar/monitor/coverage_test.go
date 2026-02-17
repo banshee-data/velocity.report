@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
-	"github.com/banshee-data/velocity.report/internal/lidar/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 )
 
 // ====== TrackAPI handleListObservations coverage tests (DB-backed) ======

@@ -1,8 +1,8 @@
 package l1packets
 
 import (
-	"github.com/banshee-data/velocity.report/internal/lidar/network"
-	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 )
 
 // Type aliases re-export packet ingestion and parsing types from
