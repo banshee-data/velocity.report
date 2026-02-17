@@ -4297,6 +4297,74 @@ func TestWebServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	}
 }
 
+func TestWebServer_HandleTuningParams_POST_InvalidDeletedTrackGracePeriod(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "params-invalid-grace")
+	defer cleanup()
+
+	stats := NewPacketStats()
+	server := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "params-invalid-grace",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+
+	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	server.SetTracker(tracker)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/lidar/params?sensor_id=params-invalid-grace",
+		strings.NewReader(`{"deleted_track_grace_period":"not-a-duration"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	server.handleTuningParams(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestWebServer_HandleTuningParams_POST_UpdatesClassifierMinObservations(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "params-classifier-minobs")
+	defer cleanup()
+
+	stats := NewPacketStats()
+	server := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "params-classifier-minobs",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+
+	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	classifier := lidar.NewTrackClassifierWithMinObservations(5)
+	server.SetTracker(tracker)
+	server.SetClassifier(classifier)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/lidar/params?sensor_id=params-classifier-minobs",
+		strings.NewReader(`{"min_observations_for_classification":9}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	server.handleTuningParams(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if tracker.Config.MinObservationsForClassification != 9 {
+		t.Fatalf("tracker min observations = %d, want 9", tracker.Config.MinObservationsForClassification)
+	}
+	if classifier.MinObservations != 9 {
+		t.Fatalf("classifier min observations = %d, want 9", classifier.MinObservations)
+	}
+}
+
 // ====== handleChartClustersJSON tests ======
 
 func TestWebServer_HandleChartClustersJSON_NoTrackAPI(t *testing.T) {

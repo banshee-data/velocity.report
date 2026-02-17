@@ -333,7 +333,7 @@ func TestGoldenReplay_TrackIDStability(t *testing.T) {
 		t.Fatalf("different track counts: run1=%d, run2=%d", len(run1), len(run2))
 	}
 
-	// Track IDs should follow the UUID-based format (trk_<hex8>)
+	// Track IDs should follow the UUID-based format (trk_<uuid>)
 	for _, track := range run1 {
 		if len(track.TrackID) < 4 || track.TrackID[:4] != "trk_" {
 			t.Errorf("unexpected track ID format: got %s, expected trk_<hex>", track.TrackID)

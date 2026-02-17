@@ -33,7 +33,7 @@ Updated: 2026-02-17
 
 | Item                                   | Status  | Implemented behaviour                                                                                          |
 | -------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| 1.1 globally unique track identity     | ✅ Done | `initTrack` now emits UUID-based IDs (`trk_<hex8>`), preventing reset/restart ID collisions.                   |
+| 1.1 globally unique track identity     | ✅ Done | `initTrack` now emits UUID-based IDs (`trk_<uuid>`), preventing reset/restart ID collisions.                   |
 | 1.2 scoped observation/history queries | ✅ Done | `GetTracksInRange` and `GetActiveTracks` now use `GetTrackObservationsInRange` (time-bounded + sensor-scoped). |
 | 2.1 dt clamp in predict                | ✅ Done | `predict()` clamps dt to `MaxPredictDt=0.5s`.                                                                  |
 | 2.2 covariance inflation cap           | ✅ Done | covariance diagonal is capped (`MaxCovarianceDiag=100`) in predict and occlusion paths.                        |

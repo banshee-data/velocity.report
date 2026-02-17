@@ -123,6 +123,8 @@ type WebServer struct {
 
 	// In-memory tracker for real-time config access (optional)
 	tracker *lidar.Tracker
+	// Optional classifier reference for live threshold updates.
+	classifier *lidar.TrackClassifier
 
 	// Analysis run manager for PCAP analysis mode
 	analysisRunManager *lidar.AnalysisRunManager
@@ -199,6 +201,7 @@ type WebServerConfig struct {
 	SensorID          string
 	Parser            network.Parser
 	FrameBuilder      network.FrameBuilder
+	Classifier        *lidar.TrackClassifier
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
 	VRLogSafeDir      string // Safe directory for VRLOG file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
@@ -285,6 +288,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		sensorID:          config.SensorID,
 		parser:            config.Parser,
 		frameBuilder:      config.FrameBuilder,
+		classifier:        config.Classifier,
 		pcapSafeDir:       config.PCAPSafeDir,
 		vrlogSafeDir:      vrlogSafeDir,
 		packetForwarder:   config.PacketForwarder,
@@ -349,6 +353,12 @@ func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
 	if ws.trackAPI != nil {
 		ws.trackAPI.SetTracker(tracker)
 	}
+}
+
+// SetClassifier sets the classifier reference used by the tracking pipeline.
+// This allows live updates of classification thresholds through /api/lidar/params.
+func (ws *WebServer) SetClassifier(classifier *lidar.TrackClassifier) {
+	ws.classifier = classifier
 }
 
 // SetSweepRunner sets the sweep runner for web-triggered parameter sweeps.
@@ -1581,12 +1591,18 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 				ws.tracker.Config.SplitSizeRatio = float32(*body.SplitSizeRatio)
 			}
 			if body.DeletedTrackGracePeriod != nil {
-				if d, err := time.ParseDuration(*body.DeletedTrackGracePeriod); err == nil {
-					ws.tracker.Config.DeletedTrackGracePeriod = d
+				d, err := time.ParseDuration(*body.DeletedTrackGracePeriod)
+				if err != nil {
+					ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid deleted_track_grace_period: %v", err))
+					return
 				}
+				ws.tracker.Config.DeletedTrackGracePeriod = d
 			}
 			if body.MinObservationsForClassification != nil {
 				ws.tracker.Config.MinObservationsForClassification = *body.MinObservationsForClassification
+				if ws.classifier != nil {
+					ws.classifier.MinObservations = *body.MinObservationsForClassification
+				}
 			}
 		}
 

@@ -92,9 +92,18 @@ type TrackClassifier struct {
 // NewTrackClassifier creates a new track classifier.
 func NewTrackClassifier() *TrackClassifier {
 	cfg := config.MustLoadDefaultConfig()
+	return NewTrackClassifierWithMinObservations(cfg.GetMinObservationsForClassification())
+}
+
+// NewTrackClassifierWithMinObservations creates a new classifier with an
+// explicit minimum-observation threshold.
+func NewTrackClassifierWithMinObservations(minObservations int) *TrackClassifier {
+	if minObservations <= 0 {
+		minObservations = 1
+	}
 	return &TrackClassifier{
 		ModelVersion:    "rule-based-v1.0",
-		MinObservations: cfg.GetMinObservationsForClassification(),
+		MinObservations: minObservations,
 	}
 }
 

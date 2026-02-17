@@ -1,10 +1,41 @@
 package sweep
 
 import (
+	"encoding/json"
 	"math"
 	"strings"
 	"testing"
+	"time"
 )
+
+type checkpointCapturePersister struct {
+	round  int
+	bounds json.RawMessage
+	called bool
+}
+
+func (p *checkpointCapturePersister) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
+	return nil
+}
+
+func (p *checkpointCapturePersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
+	return nil
+}
+
+func (p *checkpointCapturePersister) SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
+	p.round = round
+	p.bounds = bounds
+	p.called = true
+	return nil
+}
+
+func (p *checkpointCapturePersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessage, json.RawMessage, json.RawMessage, error) {
+	return 0, nil, nil, nil, nil
+}
+
+func (p *checkpointCapturePersister) GetSuspendedSweep() (string, int, error) {
+	return "", 0, nil
+}
 
 func TestNarrowBounds(t *testing.T) {
 	topK := []ScoredResult{
@@ -280,6 +311,97 @@ func TestGenerateGridNegative(t *testing.T) {
 		if math.Abs(grid[i]-v) > 0.0001 {
 			t.Errorf("grid[%d]: expected %v, got %v", i, v, grid[i])
 		}
+	}
+}
+
+func TestCheckpointRoundForSuspend(t *testing.T) {
+	tests := []struct {
+		name  string
+		state AutoTuneState
+		want  int
+	}{
+		{
+			name: "mid round resumes same round",
+			state: AutoTuneState{
+				Round:           3,
+				TotalRounds:     5,
+				CompletedCombos: 4,
+				TotalCombos:     10,
+			},
+			want: 3,
+		},
+		{
+			name: "completed round resumes next round",
+			state: AutoTuneState{
+				Round:           3,
+				TotalRounds:     5,
+				CompletedCombos: 10,
+				TotalCombos:     10,
+			},
+			want: 4,
+		},
+		{
+			name: "zero round clamps to one",
+			state: AutoTuneState{
+				Round:           0,
+				TotalRounds:     3,
+				CompletedCombos: 0,
+				TotalCombos:     0,
+			},
+			want: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := checkpointRoundForSuspend(tc.state)
+			if got != tc.want {
+				t.Fatalf("checkpointRoundForSuspend() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSuspendSavesCheckpointBounds(t *testing.T) {
+	at := newQuietAutoTuner(nil)
+	p := &checkpointCapturePersister{}
+	at.SetPersister(p)
+
+	at.mu.Lock()
+	at.sweepID = "sweep-1"
+	at.state = AutoTuneState{
+		Status:       SweepStatusRunning,
+		Round:        2,
+		TotalRounds:  4,
+		TotalCombos:  10,
+		RoundResults: nil,
+		Results: []ComboResult{
+			{ParamValues: map[string]interface{}{"noise_relative": 0.02}},
+		},
+	}
+	at.currentBounds = map[string][2]float64{
+		"noise_relative": {0.01, 0.05},
+	}
+	at.lastRequest = &AutoTuneRequest{MaxRounds: 4}
+	at.mu.Unlock()
+
+	if err := at.Suspend(); err != nil {
+		t.Fatalf("Suspend() failed: %v", err)
+	}
+
+	if !p.called {
+		t.Fatal("expected SaveSweepCheckpoint to be called")
+	}
+	if p.round != 2 {
+		t.Fatalf("checkpoint round = %d, want 2", p.round)
+	}
+
+	var bounds map[string][2]float64
+	if err := json.Unmarshal(p.bounds, &bounds); err != nil {
+		t.Fatalf("unmarshal checkpoint bounds: %v", err)
+	}
+	if got, ok := bounds["noise_relative"]; !ok || got != [2]float64{0.01, 0.05} {
+		t.Fatalf("checkpoint bounds missing/incorrect: %#v", bounds)
 	}
 }
 

@@ -1049,10 +1049,10 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 }
 
 // initTrack creates a new track from an unassociated cluster.
-// Track IDs are globally unique using a UUID prefix to prevent collisions
-// across tracker resets and server restarts.
+// Track IDs are globally unique UUIDs to prevent collisions across tracker
+// resets, server restarts, and long-running deployments.
 func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject {
-	trackID := fmt.Sprintf("trk_%s", uuid.New().String()[:8])
+	trackID := fmt.Sprintf("trk_%s", uuid.NewString())
 	t.NextTrackID++
 
 	track := &TrackedObject{

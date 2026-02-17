@@ -531,8 +531,8 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 	// pulling observations from unrelated sessions with reused track IDs.
 	nowNanos := time.Now().UnixNano()
 	recencyWindow := int64(60 * time.Second) // 60 s of recent history
-	obsStart := nowNanos - recencyWindow
 	for _, track := range tracks {
+		obsStart := nowNanos - recencyWindow
 		// Use the track's own lifetime if it falls within the recency window
 		if track.FirstUnixNanos > obsStart {
 			obsStart = track.FirstUnixNanos
