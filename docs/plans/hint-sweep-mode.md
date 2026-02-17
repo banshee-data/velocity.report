@@ -1,6 +1,8 @@
 # HINT Sweep Mode — Human-Involved Numerical Tuning
 
-**Status**: Implemented ✅ (Phase 1–6 complete)
+**Status**: Implemented ✅ (Core functionality complete: 46/57 items)
+
+**Summary**: HINT sweep mode is fully functional with backend, API, dashboard UI, and notifications implemented. Remaining 11 items are polish tasks: macOS visualiser label UX improvements (P1: 4 sub-items, P2: 2 sub-items), TypeScript type definitions, page subtitle, and inline continue button in Svelte page.
 
 ## Summary
 
@@ -662,76 +664,76 @@ Update the page subtitle and add mode-specific descriptions:
 - [ ] **P2** — Remove Export Labels button
   - [ ] Remove "Export Labels" button from `SidePanelView`
   - [ ] Remove `exportLabels()` from `AppState`
-- [ ] **P3** — Confirm auto-save on click works (no changes needed)
+- [x] **P3** — Confirm auto-save on click works (no changes needed)
 
 ### Phase 1: Backend — `HINTTuner` Engine
 
-- [ ] Define `HINTSweepRequest` struct (scene ID, rounds, durations, threshold, carryover flag)
-- [ ] Define `HINTState` struct (phase, round, deadlines, label progress, carried-over count)
-- [ ] Implement `HINTTuner` struct with dependency injection
-- [ ] Implement `run(ctx, req)` core loop (reference → labels → sweep → narrow → repeat)
-- [ ] Implement `waitForLabelsOrDeadline` with 10s polling, threshold enforcement, deadline expiry
-- [ ] Implement `continueFromLabels(nextDuration, addRound)` with threshold validation
-- [ ] Implement `carryOverLabels(prevRunID, newRunID)` with temporal IoU matching (≥ 0.5)
-- [ ] Implement scoring weight adjustments for early rounds
-- [ ] Write unit tests (`hint_test.go`)
+- [x] Define `HINTSweepRequest` struct (scene ID, rounds, durations, threshold, carryover flag)
+- [x] Define `HINTState` struct (phase, round, deadlines, label progress, carried-over count)
+- [x] Implement `HINTTuner` struct with dependency injection
+- [x] Implement `run(ctx, req)` core loop (reference → labels → sweep → narrow → repeat)
+- [x] Implement `waitForLabelsOrDeadline` with 10s polling, threshold enforcement, deadline expiry
+- [x] Implement `continueFromLabels(nextDuration, addRound)` with threshold validation
+- [x] Implement `carryOverLabels(prevRunID, newRunID)` with temporal IoU matching (≥ 0.5)
+- [x] Implement scoring weight adjustments for early rounds
+- [x] Write unit tests (`hint_test.go`)
 
 ### Phase 2: Backend — API Endpoints
 
-- [ ] `POST /api/lidar/sweep/hint` — start HINT sweep
-- [ ] `GET /api/lidar/sweep/hint` — poll current `HINTState`
-- [ ] `POST /api/lidar/sweep/hint/continue` — signal labels done (with threshold check)
-- [ ] `POST /api/lidar/sweep/hint/stop` — cancel HINT run
-- [ ] Wire `hintTuner` into `WebServer` and `cmd/radar/radar.go`
-- [ ] Write API handler tests
+- [x] `POST /api/lidar/sweep/hint` — start HINT sweep
+- [x] `GET /api/lidar/sweep/hint` — poll current `HINTState`
+- [x] `POST /api/lidar/sweep/hint/continue` — signal labels done (with threshold check)
+- [x] `POST /api/lidar/sweep/hint/stop` — cancel HINT run
+- [x] Wire `hintTuner` into `WebServer` and `cmd/radar/radar.go`
+- [x] Write API handler tests
 
 ### Phase 3: Dashboard UI — Third Mode
 
-- [ ] **3a** — Add "Human-in-the-Loop" mode toggle button
-- [ ] Update `setMode()` for three-way switching + CSS body classes
-- [ ] **3b** — HINT config card (scene dropdown, rounds, durations input)
-- [ ] **3c** — HINT progress card
-  - [ ] Label progress bar with 90% threshold marker
-  - [ ] Countdown timer (from `label_deadline`)
-  - [ ] Carried-over label count display
-  - [ ] Link to Tracks page for labelling
-  - [ ] Editable next-sweep-duration field
-  - [ ] "Add extra round" checkbox
-  - [ ] "Continue to Sweep" button (disabled until ≥ 90%)
-  - [ ] Sweep progress display during `running_sweep` phase
-- [ ] **3d** — Round history (collapsible list of completed rounds)
-- [ ] Write dashboard tests (`sweep_dashboard.test.ts`)
+- [x] **3a** — Add "Human-in-the-Loop" mode toggle button
+- [x] Update `setMode()` for three-way switching + CSS body classes
+- [x] **3b** — HINT config card (scene dropdown, rounds, durations input)
+- [x] **3c** — HINT progress card
+  - [x] Label progress bar with 90% threshold marker
+  - [x] Countdown timer (from `label_deadline`)
+  - [x] Carried-over label count display
+  - [x] Link to Tracks page for labelling
+  - [x] Editable next-sweep-duration field
+  - [x] "Add extra round" checkbox
+  - [x] "Continue to Sweep" button (disabled until ≥ 90%)
+  - [x] Sweep progress display during `running_sweep` phase
+- [x] **3d** — Round history (collapsible list of completed rounds)
+- [x] Write dashboard tests (`sweep_dashboard.test.ts`)
 
 ### Phase 4: Dashboard Polling
 
-- [ ] Implement `pollHINTStatus()` or extend `pollAutoTuneStatus()`
-- [ ] Handle `awaiting_labels` phase (5s poll, progress bar, countdown, continue button)
-- [ ] Handle `running_sweep` phase (combo progress, intermediate results)
-- [ ] Handle `running_reference` phase (spinner)
-- [ ] Handle `completed` phase (recommendation + apply button + round history)
-- [ ] Handle `failed` phase (error message)
+- [x] Implement `pollHINTStatus()` or extend `pollAutoTuneStatus()`
+- [x] Handle `awaiting_labels` phase (5s poll, progress bar, countdown, continue button)
+- [x] Handle `running_sweep` phase (combo progress, intermediate results)
+- [x] Handle `running_reference` phase (spinner)
+- [x] Handle `completed` phase (recommendation + apply button + round history)
+- [x] Handle `failed` phase (error message)
 
 ### Phase 4b: Browser Notifications
 
-- [ ] Request `Notification.requestPermission()` on HINT mode selection
-- [ ] Fire "Labels needed — Round N" notification on `awaiting_labels` transition
-- [ ] Fire "HINT Sweep Complete" notification on `completed` transition
-- [ ] Bring dashboard tab to front on notification click
+- [x] Request `Notification.requestPermission()` on HINT mode selection
+- [x] Fire "Labels needed — Round N" notification on `awaiting_labels` transition
+- [x] Fire "HINT Sweep Complete" notification on `completed` transition
+- [x] Bring dashboard tab to front on notification click
 
 ### Phase 5: Svelte Sweeps Page Updates
 
-- [ ] Show HINT sweeps with distinct `mode = "hint"` badge
-- [ ] HINT detail panel: round history with links to reference run tracks
-- [ ] HINT detail panel: label progress and ground truth scores per round
+- [x] Show HINT sweeps with distinct `mode = "hint"` badge
+- [x] HINT detail panel: round history with links to reference run tracks
+- [x] HINT detail panel: label progress and ground truth scores per round
 - [ ] Inline "Continue" button for `awaiting_labels` state
-- [ ] Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT` to `api.ts`
+- [x] Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT` to `api.ts`
 - [ ] Add `HINTState`, `HINTRound`, `LabelProgress` types to `lidar.ts`
 
 ### Phase 6: Mode Description Updates
 
 - [ ] Add page subtitle shared across modes
-- [ ] Add Auto-Tune description text (`.auto-only`)
-- [ ] Add HINT description text (`.hint-only`)
+- [x] Add Auto-Tune description text (`.auto-only`)
+- [x] Add HINT description text (`.hint-only`)
 
 ## File Manifest
 
