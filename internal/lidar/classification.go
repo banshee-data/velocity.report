@@ -165,8 +165,8 @@ func (tc *TrackClassifier) extractFeatures(track *TrackedObject) ClassificationF
 	}
 
 	// Compute speed percentiles from history using shared function
-	if len(track.speedHistory) > 0 {
-		features.P50Speed, features.P85Speed, features.P95Speed = ComputeSpeedPercentiles(track.speedHistory)
+	if len(track.SpeedHistory()) > 0 {
+		features.P50Speed, features.P85Speed, features.P95Speed = ComputeSpeedPercentiles(track.SpeedHistory())
 	}
 
 	// Compute duration

@@ -650,8 +650,8 @@ func TestRunTrackFromTrackedObject_EmptySpeedHistory(t *testing.T) {
 		LastUnixNanos:    2000,
 		ObservationCount: 5,
 		AvgSpeedMps:      5.0,
-		speedHistory:     []float32{}, // Empty
 	}
+	track.SetSpeedHistory([]float32{}) // Empty
 
 	runTrack := RunTrackFromTrackedObject("run-1", track)
 

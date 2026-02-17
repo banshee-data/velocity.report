@@ -1,4 +1,4 @@
-package lidar
+package l5tracks
 
 import (
 	"testing"
@@ -90,9 +90,9 @@ func TestGetAllTracks_IncludesDeleted(t *testing.T) {
 // TestSpeedHistory tests the SpeedHistory method.
 func TestSpeedHistory(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:      "track-speed-history",
-		speedHistory: []float32{5.0, 6.0, 7.0, 8.0, 9.0},
+		TrackID: "track-speed-history",
 	}
+	track.SetSpeedHistory([]float32{5.0, 6.0, 7.0, 8.0, 9.0})
 
 	history := track.SpeedHistory()
 
@@ -109,7 +109,7 @@ func TestSpeedHistory(t *testing.T) {
 
 	// Verify it's a copy (modifying returned slice doesn't affect original)
 	history[0] = 99.0
-	if track.speedHistory[0] == 99.0 {
+	if track.SpeedHistory()[0] == 99.0 {
 		t.Error("SpeedHistory should return a copy, not the original slice")
 	}
 }
@@ -117,9 +117,9 @@ func TestSpeedHistory(t *testing.T) {
 // TestSpeedHistory_Nil tests SpeedHistory with nil history.
 func TestSpeedHistory_Nil(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:      "track-nil-history",
-		speedHistory: nil,
+		TrackID: "track-nil-history",
 	}
+	track.SetSpeedHistory(nil)
 
 	history := track.SpeedHistory()
 

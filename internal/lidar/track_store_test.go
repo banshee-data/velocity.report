@@ -144,8 +144,8 @@ func TestInsertAndGetTrack(t *testing.T) {
 		ObjectClass:          "car",
 		ObjectConfidence:     0.85,
 		ClassificationModel:  "rule-based-v1.0",
-		speedHistory:         []float32{7, 8, 9, 8, 9, 10, 8, 9, 8, 9},
 	}
+	track.SetSpeedHistory([]float32{7, 8, 9, 8, 9, 10, 8, 9, 8, 9})
 
 	err := InsertTrack(db, track, "site/main")
 	if err != nil {
@@ -186,8 +186,8 @@ func TestUpdateTrack(t *testing.T) {
 		FirstUnixNanos:   1234567890000000000,
 		ObservationCount: 3,
 		AvgSpeedMps:      5.0,
-		speedHistory:     []float32{4, 5, 6},
 	}
+	track.SetSpeedHistory([]float32{4, 5, 6})
 
 	err := InsertTrack(db, track, "site/main")
 	if err != nil {
@@ -200,7 +200,7 @@ func TestUpdateTrack(t *testing.T) {
 	track.AvgSpeedMps = 8.0
 	track.ObjectClass = "pedestrian"
 	track.ObjectConfidence = 0.75
-	track.speedHistory = []float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7}
+	track.SetSpeedHistory([]float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7})
 
 	err = UpdateTrack(db, track, "site/main")
 	if err != nil {
@@ -239,8 +239,8 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 		SensorID:       "sensor-001",
 		State:          TrackConfirmed,
 		FirstUnixNanos: 1234567890000000000,
-		speedHistory:   []float32{5.0},
 	}
+	track.SetSpeedHistory([]float32{5.0})
 
 	err := InsertTrack(db, track, "site/main")
 	if err != nil {
@@ -317,12 +317,13 @@ func TestGetActiveTracksFilterByState(t *testing.T) {
 
 	// Insert tracks with different states
 	tracks := []*TrackedObject{
-		{TrackID: "track-1", SensorID: "sensor-001", State: TrackTentative, FirstUnixNanos: 1, speedHistory: []float32{}},
-		{TrackID: "track-2", SensorID: "sensor-001", State: TrackConfirmed, FirstUnixNanos: 2, speedHistory: []float32{}},
-		{TrackID: "track-3", SensorID: "sensor-001", State: TrackDeleted, FirstUnixNanos: 3, LastUnixNanos: 4, speedHistory: []float32{}},
+		{TrackID: "track-1", SensorID: "sensor-001", State: TrackTentative, FirstUnixNanos: 1},
+		{TrackID: "track-2", SensorID: "sensor-001", State: TrackConfirmed, FirstUnixNanos: 2},
+		{TrackID: "track-3", SensorID: "sensor-001", State: TrackDeleted, FirstUnixNanos: 3, LastUnixNanos: 4},
 	}
 
 	for _, track := range tracks {
+		track.SetSpeedHistory([]float32{})
 		if err := InsertTrack(db, track, "site/main"); err != nil {
 			t.Fatalf("InsertTrack failed: %v", err)
 		}

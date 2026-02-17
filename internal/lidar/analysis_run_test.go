@@ -153,8 +153,8 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 		ObjectClass:          "pedestrian",
 		ObjectConfidence:     0.85,
 		ClassificationModel:  "rule-based-v1.0",
-		speedHistory:         []float32{4.0, 5.0, 6.0, 5.5, 5.0},
 	}
+	track.SetSpeedHistory([]float32{4.0, 5.0, 6.0, 5.5, 5.0})
 
 	runTrack := RunTrackFromTrackedObject("run_123", track)
 

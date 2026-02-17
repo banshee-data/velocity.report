@@ -139,9 +139,9 @@ func ExtractTrackFeatures(track *TrackedObject) TrackFeatures {
 	}
 
 	// Speed percentiles and variance
-	if len(track.speedHistory) > 0 {
-		f.SpeedP50, f.SpeedP85, f.SpeedP95 = ComputeSpeedPercentiles(track.speedHistory)
-		f.SpeedVariance = computeVariance(track.speedHistory)
+	if len(track.SpeedHistory()) > 0 {
+		f.SpeedP50, f.SpeedP85, f.SpeedP95 = ComputeSpeedPercentiles(track.SpeedHistory())
+		f.SpeedVariance = computeVariance(track.SpeedHistory())
 	}
 
 	// Heading variance from history

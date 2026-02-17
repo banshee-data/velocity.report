@@ -98,8 +98,8 @@ func TestClearTracks(t *testing.T) {
 		SensorID:       sensorID,
 		State:          TrackConfirmed,
 		FirstUnixNanos: 1000,
-		speedHistory:   []float32{5.0},
 	}
+	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}
@@ -180,8 +180,8 @@ func TestGetTrackObservationsInRange(t *testing.T) {
 		SensorID:       sensorID,
 		State:          TrackConfirmed,
 		FirstUnixNanos: 1000,
-		speedHistory:   []float32{5.0},
 	}
+	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}
@@ -230,8 +230,8 @@ func TestGetTrackObservationsInRange_WithTrackIDFilter(t *testing.T) {
 			SensorID:       sensorID,
 			State:          TrackConfirmed,
 			FirstUnixNanos: 1000,
-			speedHistory:   []float32{5.0},
 		}
+		track.SetSpeedHistory([]float32{5.0})
 		if err := InsertTrack(db, track, "site/main"); err != nil {
 			t.Fatalf("InsertTrack failed: %v", err)
 		}
@@ -293,8 +293,8 @@ func TestGetTracksInRange(t *testing.T) {
 			State:          TrackConfirmed,
 			FirstUnixNanos: tr.start,
 			LastUnixNanos:  tr.end,
-			speedHistory:   []float32{5.0},
 		}
+		track.SetSpeedHistory([]float32{5.0})
 		if err := InsertTrack(db, track, "site/main"); err != nil {
 			t.Fatalf("InsertTrack failed: %v", err)
 		}
@@ -412,8 +412,8 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 		SensorID:       sensorID,
 		State:          TrackConfirmed,
 		FirstUnixNanos: baseNanos,
-		speedHistory:   []float32{5.0},
 	}
+	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}
@@ -470,8 +470,8 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 		SensorID:       sensorID,
 		State:          TrackConfirmed,
 		FirstUnixNanos: recentBase,
-		speedHistory:   []float32{1},
 	}
+	recent.SetSpeedHistory([]float32{1})
 	if err := InsertTrack(db, recent, "site/main"); err != nil {
 		t.Fatalf("InsertTrack recent failed: %v", err)
 	}
@@ -481,8 +481,8 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 		SensorID:       sensorID,
 		State:          TrackConfirmed,
 		FirstUnixNanos: oldBase,
-		speedHistory:   []float32{1},
 	}
+	old.SetSpeedHistory([]float32{1})
 	if err := InsertTrack(db, old, "site/main"); err != nil {
 		t.Fatalf("InsertTrack old failed: %v", err)
 	}
@@ -545,8 +545,8 @@ func TestGetTracksInRange_DefaultLimit(t *testing.T) {
 		State:          TrackConfirmed,
 		FirstUnixNanos: 1000,
 		LastUnixNanos:  2000,
-		speedHistory:   []float32{5.0},
 	}
+	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}
@@ -578,8 +578,8 @@ func TestGetTracksInRange_NullEndNanos(t *testing.T) {
 		State:          TrackTentative,
 		FirstUnixNanos: 5000,
 		LastUnixNanos:  7000, // Use a valid end time for this test
-		speedHistory:   []float32{5.0},
 	}
+	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
 		t.Fatalf("InsertTrack failed: %v", err)
 	}

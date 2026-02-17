@@ -16,8 +16,8 @@ func TestTrackClassifier_Classify_Bird(t *testing.T) {
 		BoundingBoxWidthAvg:  0.3,
 		AvgSpeedMps:          0.5, // Low speed
 		PeakSpeedMps:         0.8,
-		speedHistory:         []float32{0.3, 0.5, 0.4, 0.6, 0.5, 0.4, 0.5, 0.6, 0.5, 0.4},
 	}
+	track.SetSpeedHistory([]float32{0.3, 0.5, 0.4, 0.6, 0.5, 0.4, 0.5, 0.6, 0.5, 0.4})
 
 	result := classifier.Classify(track)
 
@@ -44,13 +44,14 @@ func TestTrackClassifier_Classify_Vehicle(t *testing.T) {
 		BoundingBoxWidthAvg:  2.0,  // Typical car width
 		AvgSpeedMps:          10.0, // ~36 km/h
 		PeakSpeedMps:         15.0,
-		speedHistory:         make([]float32, 20),
 	}
 
 	// Fill speed history
-	for i := range track.speedHistory {
-		track.speedHistory[i] = float32(8 + i%5)
+	speeds := make([]float32, 20)
+	for i := range speeds {
+		speeds[i] = float32(8 + i%5)
 	}
+	track.SetSpeedHistory(speeds)
 
 	result := classifier.Classify(track)
 
@@ -74,13 +75,14 @@ func TestTrackClassifier_Classify_Pedestrian(t *testing.T) {
 		BoundingBoxWidthAvg:  0.5,
 		AvgSpeedMps:          1.5, // Walking speed ~5.4 km/h
 		PeakSpeedMps:         2.5,
-		speedHistory:         make([]float32, 15),
 	}
 
 	// Fill speed history
-	for i := range track.speedHistory {
-		track.speedHistory[i] = float32(1.2 + float32(i%5)*0.1)
+	speeds := make([]float32, 15)
+	for i := range speeds {
+		speeds[i] = float32(1.2 + float32(i%5)*0.1)
 	}
+	track.SetSpeedHistory(speeds)
 
 	result := classifier.Classify(track)
 
@@ -104,8 +106,8 @@ func TestTrackClassifier_Classify_Other(t *testing.T) {
 		BoundingBoxWidthAvg:  1.0,
 		AvgSpeedMps:          4.0, // Too fast for pedestrian, too slow for car
 		PeakSpeedMps:         5.0,
-		speedHistory:         []float32{3.5, 4.0, 4.2, 3.8, 4.0, 4.5, 4.0, 3.8, 4.2, 4.0},
 	}
+	track.SetSpeedHistory([]float32{3.5, 4.0, 4.2, 3.8, 4.0, 4.5, 4.0, 3.8, 4.2, 4.0})
 
 	result := classifier.Classify(track)
 
@@ -125,8 +127,8 @@ func TestTrackClassifier_Classify_InsufficientObservations(t *testing.T) {
 		BoundingBoxLengthAvg: 0.5,
 		BoundingBoxWidthAvg:  0.5,
 		AvgSpeedMps:          1.5,
-		speedHistory:         []float32{1.5, 1.6},
 	}
+	track.SetSpeedHistory([]float32{1.5, 1.6})
 
 	result := classifier.Classify(track)
 
@@ -149,12 +151,13 @@ func TestTrackClassifier_ClassifyAndUpdate(t *testing.T) {
 		BoundingBoxWidthAvg:  2.0,
 		AvgSpeedMps:          12.0,
 		PeakSpeedMps:         18.0,
-		speedHistory:         make([]float32, 20),
 	}
 
-	for i := range track.speedHistory {
-		track.speedHistory[i] = float32(10 + i%5)
+	speeds := make([]float32, 20)
+	for i := range speeds {
+		speeds[i] = float32(10 + i%5)
 	}
+	track.SetSpeedHistory(speeds)
 
 	classifier.ClassifyAndUpdate(track)
 

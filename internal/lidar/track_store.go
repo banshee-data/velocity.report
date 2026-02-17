@@ -85,7 +85,7 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 // InsertTrack inserts a new track into the database.
 func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// Compute speed percentiles
-	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
+	p50, p85, p95 := ComputeSpeedPercentiles(track.SpeedHistory())
 
 	// Use ON CONFLICT DO UPDATE to avoid cascade deleting observations
 	// (INSERT OR REPLACE would delete the row first, triggering cascade delete on lidar_track_obs)
@@ -154,7 +154,7 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 // UpdateTrack updates an existing track in the database.
 func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// Compute speed percentiles
-	p50, p85, p95 := ComputeSpeedPercentiles(track.speedHistory)
+	p50, p85, p95 := ComputeSpeedPercentiles(track.SpeedHistory())
 
 	query := `
 		UPDATE lidar_tracks SET

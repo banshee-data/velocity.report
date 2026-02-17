@@ -222,7 +222,7 @@ type RunTrack struct {
 
 // RunTrackFromTrackedObject creates a RunTrack from a TrackedObject.
 func RunTrackFromTrackedObject(runID string, t *TrackedObject) *RunTrack {
-	p50, p85, p95 := ComputeSpeedPercentiles(t.speedHistory)
+	p50, p85, p95 := ComputeSpeedPercentiles(t.SpeedHistory())
 	return &RunTrack{
 		RunID:                runID,
 		TrackID:              t.TrackID,
