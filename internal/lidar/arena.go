@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
@@ -11,8 +12,8 @@ import (
 // This is an alias to l4perception.Point for consistency across the codebase.
 type Point = l4perception.Point
 
-// FrameID is a human-readable name like "sensor/hesai-01" or "site/main-st-001".
-type FrameID string
+// FrameID is an alias to l3grid.FrameID for backward compatibility.
+type FrameID = l3grid.FrameID
 
 // Pose is a rigid transform (sensor -> world) with versioning.
 // T is 4x4 row-major (m00..m03, m10..m13, m20..m23, m30..m33).
@@ -35,44 +36,19 @@ type PoseCache struct {
 	// TODO: add mutex for thread-safe operations when implementing concurrent access
 }
 
-// BgSnapshot exactly matches schema lidar_bg_snapshot table structure
-type BgSnapshot struct {
-	SnapshotID         *int64 // will be set by database after insert
-	SensorID           string // matches sensor_id TEXT NOT NULL
-	TakenUnixNanos     int64  // matches taken_unix_nanos INTEGER NOT NULL
-	Rings              int    // matches rings INTEGER NOT NULL
-	AzimuthBins        int    // matches azimuth_bins INTEGER NOT NULL
-	ParamsJSON         string // matches params_json TEXT NOT NULL
-	RingElevationsJSON string // matches ring_elevations_json TEXT NULL - optional per-ring elevation JSON
-	GridBlob           []byte // matches grid_blob BLOB NOT NULL (compressed BackgroundCell data)
-	ChangedCellsCount  int    // matches changed_cells_count INTEGER
-	SnapshotReason     string // matches snapshot_reason TEXT ('settling_complete', 'periodic_update', 'manual')
-}
+// Type aliases for L3 grid types that were previously defined here.
+// These have been migrated to internal/lidar/l3grid.
+
+// BgSnapshot exactly matches schema lidar_bg_snapshot table structure.
+type BgSnapshot = l3grid.BgSnapshot
 
 // RegionSnapshot matches schema lidar_bg_regions table structure for persisting
 // region identification data. Used to skip settling time when scene hash matches.
-type RegionSnapshot struct {
-	RegionSetID      *int64 // will be set by database after insert
-	SnapshotID       int64  // references lidar_bg_snapshot(snapshot_id)
-	SensorID         string // matches sensor_id TEXT NOT NULL
-	CreatedUnixNanos int64  // matches created_unix_nanos INTEGER NOT NULL
-	RegionCount      int    // matches region_count INTEGER NOT NULL
-	RegionsJSON      string // matches regions_json TEXT NOT NULL - serialised RegionData slice
-	VarianceDataJSON string // matches variance_data_json TEXT - optional settling metrics
-	SettlingFrames   int    // matches settling_frames INTEGER
-	SceneHash        string // matches scene_hash TEXT - for scene similarity detection
-	SourcePath       string // matches source_path TEXT - PCAP filename for exact match restoration
-}
+type RegionSnapshot = l3grid.RegionSnapshot
 
 // RegionData is the serialisable form of a Region for JSON persistence.
 // CellMask is omitted as it can be reconstructed from CellList.
-type RegionData struct {
-	ID           int          `json:"id"`
-	Params       RegionParams `json:"params"`
-	CellList     []int        `json:"cell_list"`
-	MeanVariance float64      `json:"mean_variance"`
-	CellCount    int          `json:"cell_count"`
-}
+type RegionData = l3grid.RegionData
 
 // Ring buffer implementation for efficient memory management at 100-track scale
 type RingBuffer[T any] struct {

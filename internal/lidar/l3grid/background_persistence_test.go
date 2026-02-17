@@ -1,4 +1,4 @@
-package lidar
+package l3grid
 
 import (
 	"testing"
