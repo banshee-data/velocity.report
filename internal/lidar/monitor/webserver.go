@@ -1189,6 +1189,12 @@ func (ws *WebServer) Start(ctx context.Context) error {
 	return nil
 }
 
+// route defines a single HTTP route with pattern and handler.
+type route struct {
+	pattern string
+	handler http.HandlerFunc
+}
+
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	assetsFS, err := fs.Sub(EchartsAssets, "assets")
@@ -1197,77 +1203,134 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		assetsFS = nil
 	}
 
-	mux.HandleFunc("/health", ws.handleHealth)
-	mux.HandleFunc("/api/lidar/monitor", ws.handleStatus)
-	mux.HandleFunc("/api/lidar/status", ws.handleLidarStatus)
-	mux.HandleFunc("/api/lidar/persist", ws.handleLidarPersist)
-	mux.HandleFunc("/api/lidar/snapshot", ws.handleLidarSnapshot)
-	mux.HandleFunc("/api/lidar/snapshots", ws.handleLidarSnapshots)
-	mux.HandleFunc("/api/lidar/snapshots/cleanup", ws.handleLidarSnapshotsCleanup)
-	mux.HandleFunc("/api/lidar/export_snapshot", ws.handleExportSnapshotASC)
-	mux.HandleFunc("/api/lidar/export_next_frame", ws.handleExportNextFrameASC)
-	mux.HandleFunc("/api/lidar/export_frame_sequence", ws.handleExportFrameSequenceASC)
-	mux.HandleFunc("/api/lidar/export_foreground", ws.handleExportForegroundASC)
-	mux.HandleFunc("/api/lidar/traffic", ws.handleTrafficStats)
-	mux.HandleFunc("/api/lidar/acceptance", ws.handleAcceptanceMetrics)
-	mux.HandleFunc("/api/lidar/acceptance/reset", ws.handleAcceptanceReset)
-	mux.HandleFunc("/api/lidar/params", ws.handleTuningParams)
-	mux.HandleFunc("/api/lidar/sweep/start", ws.handleSweepStart)
-	mux.HandleFunc("/api/lidar/sweep/status", ws.handleSweepStatus)
-	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
-	mux.HandleFunc("/api/lidar/sweep/auto", ws.handleAutoTune)
-	mux.HandleFunc("/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop)
-	mux.HandleFunc("/api/lidar/sweep/auto/suspend", ws.handleAutoTuneSuspend)
-	mux.HandleFunc("/api/lidar/sweep/auto/resume", ws.handleAutoTuneResume)
-	mux.HandleFunc("/api/lidar/sweep/auto/suspended", ws.handleAutoTuneSuspended)
-	mux.HandleFunc("/api/lidar/sweep/hint/continue", ws.handleHINTContinue) // POST: signal labels done
-	mux.HandleFunc("/api/lidar/sweep/hint/stop", ws.handleHINTStop)         // POST: cancel HINT run
-	mux.HandleFunc("/api/lidar/sweep/hint", ws.handleHINT)                  // POST: start, GET: status
-	mux.HandleFunc("/api/lidar/sweep/explain/", ws.handleSweepExplain)      // GET /api/lidar/sweep/explain/{sweep_id}
-	mux.HandleFunc("/api/lidar/sweeps/charts", ws.handleSweepCharts)        // PUT: save chart config
-	mux.HandleFunc("/api/lidar/sweeps/", ws.handleGetSweep)                 // GET /api/lidar/sweeps/{sweep_id}
-	mux.HandleFunc("/api/lidar/sweeps", ws.handleListSweeps)                // GET ?sensor_id=...&limit=20
-	mux.HandleFunc("/debug/lidar/sweep", ws.handleSweepDashboard)
-	mux.HandleFunc("/api/lidar/grid_status", ws.handleGridStatus)
-	mux.HandleFunc("/api/lidar/grid_reset", ws.handleGridReset)
-	mux.HandleFunc("/api/lidar/grid_heatmap", ws.handleGridHeatmap)
-	mux.HandleFunc("/api/lidar/background/grid", ws.handleBackgroundGrid)                            // Full background grid
-	mux.HandleFunc("/debug/lidar/background/regions", ws.handleBackgroundRegions)                    // Region debug info
-	mux.HandleFunc("/debug/lidar/background/regions/dashboard", ws.handleBackgroundRegionsDashboard) // Region visualization
+	// Core status and health routes
+	coreRoutes := []route{
+		{"/health", ws.handleHealth},
+		{"/api/lidar/monitor", ws.handleStatus},
+		{"/api/lidar/status", ws.handleLidarStatus},
+		{"/api/lidar/persist", ws.handleLidarPersist},
+	}
+
+	// Snapshot and export routes
+	snapshotRoutes := []route{
+		{"/api/lidar/snapshot", ws.handleLidarSnapshot},
+		{"/api/lidar/snapshots", ws.handleLidarSnapshots},
+		{"/api/lidar/snapshots/cleanup", ws.handleLidarSnapshotsCleanup},
+		{"/api/lidar/export_snapshot", ws.handleExportSnapshotASC},
+		{"/api/lidar/export_next_frame", ws.handleExportNextFrameASC},
+		{"/api/lidar/export_frame_sequence", ws.handleExportFrameSequenceASC},
+		{"/api/lidar/export_foreground", ws.handleExportForegroundASC},
+	}
+
+	// Traffic and acceptance metrics routes
+	metricsRoutes := []route{
+		{"/api/lidar/traffic", ws.handleTrafficStats},
+		{"/api/lidar/acceptance", ws.handleAcceptanceMetrics},
+		{"/api/lidar/acceptance/reset", ws.handleAcceptanceReset},
+		{"/api/lidar/params", ws.handleTuningParams},
+	}
+
+	// Sweep and auto-tune routes
+	sweepRoutes := []route{
+		{"/api/lidar/sweep/start", ws.handleSweepStart},
+		{"/api/lidar/sweep/status", ws.handleSweepStatus},
+		{"/api/lidar/sweep/stop", ws.handleSweepStop},
+		{"/api/lidar/sweep/auto", ws.handleAutoTune},
+		{"/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop},
+		{"/api/lidar/sweep/auto/suspend", ws.handleAutoTuneSuspend},
+		{"/api/lidar/sweep/auto/resume", ws.handleAutoTuneResume},
+		{"/api/lidar/sweep/auto/suspended", ws.handleAutoTuneSuspended},
+		{"/api/lidar/sweep/hint/continue", ws.handleHINTContinue},
+		{"/api/lidar/sweep/hint/stop", ws.handleHINTStop},
+		{"/api/lidar/sweep/hint", ws.handleHINT},
+		{"/api/lidar/sweep/explain/", ws.handleSweepExplain},
+		{"/api/lidar/sweeps/charts", ws.handleSweepCharts},
+		{"/api/lidar/sweeps/", ws.handleGetSweep},
+		{"/api/lidar/sweeps", ws.handleListSweeps},
+	}
+
+	// Background grid and region routes
+	gridRoutes := []route{
+		{"/api/lidar/grid_status", ws.handleGridStatus},
+		{"/api/lidar/grid_reset", ws.handleGridReset},
+		{"/api/lidar/grid_heatmap", ws.handleGridHeatmap},
+		{"/api/lidar/background/grid", ws.handleBackgroundGrid},
+	}
+
+	// Data source and PCAP replay routes
+	pcapRoutes := []route{
+		{"/api/lidar/data_source", ws.handleDataSource},
+		{"/api/lidar/pcap/start", ws.handlePCAPStart},
+		{"/api/lidar/pcap/stop", ws.handlePCAPStop},
+		{"/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
+		{"/api/lidar/pcap/files", ws.handleListPCAPFiles},
+	}
+
+	// Chart API routes (structured JSON data for frontend charts)
+	chartRoutes := []route{
+		{"/api/lidar/chart/polar", ws.handleChartPolarJSON},
+		{"/api/lidar/chart/heatmap", ws.handleChartHeatmapJSON},
+		{"/api/lidar/chart/foreground", ws.handleChartForegroundJSON},
+		{"/api/lidar/chart/clusters", ws.handleChartClustersJSON},
+		{"/api/lidar/chart/traffic", ws.handleChartTrafficJSON},
+	}
+
+	// Debug dashboard and visualisation routes
+	debugRoutes := []route{
+		{"/debug/lidar/sweep", ws.handleSweepDashboard},
+		{"/debug/lidar/background/regions", ws.handleBackgroundRegions},
+		{"/debug/lidar/background/regions/dashboard", ws.handleBackgroundRegionsDashboard},
+		{"/debug/lidar", ws.handleLidarDebugDashboard},
+		{"/debug/lidar/background/polar", ws.handleBackgroundGridPolar},
+		{"/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart},
+		{"/debug/lidar/foreground", ws.handleForegroundFrameChart},
+		{"/debug/lidar/traffic", ws.handleTrafficChart},
+		{"/debug/lidar/clusters", ws.handleClustersChart},
+		{"/debug/lidar/tracks", ws.handleTracksChart},
+	}
+
+	// Playback API routes (VRLOG replay control)
+	playbackRoutes := []route{
+		{"/api/lidar/playback/status", ws.handlePlaybackStatus},
+		{"/api/lidar/playback/pause", ws.handlePlaybackPause},
+		{"/api/lidar/playback/play", ws.handlePlaybackPlay},
+		{"/api/lidar/playback/seek", ws.handlePlaybackSeek},
+		{"/api/lidar/playback/rate", ws.handlePlaybackRate},
+		{"/api/lidar/vrlog/load", ws.handleVRLogLoad},
+		{"/api/lidar/vrlog/stop", ws.handleVRLogStop},
+	}
+
+	// Register all route groups
+	for _, group := range [][]route{
+		coreRoutes, snapshotRoutes, metricsRoutes, sweepRoutes,
+		gridRoutes, pcapRoutes, chartRoutes, debugRoutes, playbackRoutes,
+	} {
+		for _, r := range group {
+			mux.HandleFunc(r.pattern, r.handler)
+		}
+	}
+
+	// ECharts assets (static file serving)
 	if assetsFS != nil {
 		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
 	}
-	mux.HandleFunc("/debug/lidar", ws.handleLidarDebugDashboard)
-	mux.HandleFunc("/debug/lidar/background/polar", ws.handleBackgroundGridPolar)
-	mux.HandleFunc("/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart)
-	mux.HandleFunc("/debug/lidar/foreground", ws.handleForegroundFrameChart)
-	mux.HandleFunc("/debug/lidar/traffic", ws.handleTrafficChart)
-	mux.HandleFunc("/debug/lidar/clusters", ws.handleClustersChart)
-	mux.HandleFunc("/debug/lidar/tracks", ws.handleTracksChart)
-	mux.HandleFunc("/api/lidar/data_source", ws.handleDataSource)
-	mux.HandleFunc("/api/lidar/pcap/start", ws.handlePCAPStart)
-	mux.HandleFunc("/api/lidar/pcap/stop", ws.handlePCAPStop)
-	mux.HandleFunc("/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive)
-	mux.HandleFunc("/api/lidar/pcap/files", ws.handleListPCAPFiles)
-
-	// Chart API routes (structured JSON data for frontend charts)
-	mux.HandleFunc("/api/lidar/chart/polar", ws.handleChartPolarJSON)
-	mux.HandleFunc("/api/lidar/chart/heatmap", ws.handleChartHeatmapJSON)
-	mux.HandleFunc("/api/lidar/chart/foreground", ws.handleChartForegroundJSON)
-	mux.HandleFunc("/api/lidar/chart/clusters", ws.handleChartClustersJSON)
-	mux.HandleFunc("/api/lidar/chart/traffic", ws.handleChartTrafficJSON)
 
 	// Track API routes (delegate to TrackAPI handlers)
 	if ws.trackAPI != nil {
-		mux.HandleFunc("/api/lidar/tracks", ws.trackAPI.handleListTracks)
-		mux.HandleFunc("/api/lidar/tracks/history", ws.trackAPI.handleListTracks)
-		mux.HandleFunc("/api/lidar/tracks/active", ws.trackAPI.handleActiveTracks)
-		mux.HandleFunc("/api/lidar/tracks/metrics", ws.trackAPI.handleTrackingMetrics)
-		mux.HandleFunc("/api/lidar/tracks/", ws.trackAPI.handleTrackByID)
-		mux.HandleFunc("/api/lidar/tracks/summary", ws.trackAPI.handleTrackSummary)
-		mux.HandleFunc("/api/lidar/clusters", ws.trackAPI.handleListClusters)
-		mux.HandleFunc("/api/lidar/observations", ws.trackAPI.handleListObservations)
-		mux.HandleFunc("/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks)
+		trackRoutes := []route{
+			{"/api/lidar/tracks", ws.trackAPI.handleListTracks},
+			{"/api/lidar/tracks/history", ws.trackAPI.handleListTracks},
+			{"/api/lidar/tracks/active", ws.trackAPI.handleActiveTracks},
+			{"/api/lidar/tracks/metrics", ws.trackAPI.handleTrackingMetrics},
+			{"/api/lidar/tracks/", ws.trackAPI.handleTrackByID},
+			{"/api/lidar/tracks/summary", ws.trackAPI.handleTrackSummary},
+			{"/api/lidar/clusters", ws.trackAPI.handleListClusters},
+			{"/api/lidar/observations", ws.trackAPI.handleListObservations},
+			{"/api/lidar/tracks/clear", ws.trackAPI.handleClearTracks},
+		}
+		for _, r := range trackRoutes {
+			mux.HandleFunc(r.pattern, r.handler)
+		}
 
 		// Highly destructive endpoint: only register when explicitly enabled for development/debug use.
 		if os.Getenv("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API") == "1" {
@@ -1291,15 +1354,6 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
 		mux.HandleFunc("/api/lidar/scenes/", ws.handleSceneByID)
 	}
-
-	// Playback API routes (VRLOG replay control)
-	mux.HandleFunc("/api/lidar/playback/status", ws.handlePlaybackStatus)
-	mux.HandleFunc("/api/lidar/playback/pause", ws.handlePlaybackPause)
-	mux.HandleFunc("/api/lidar/playback/play", ws.handlePlaybackPlay)
-	mux.HandleFunc("/api/lidar/playback/seek", ws.handlePlaybackSeek)
-	mux.HandleFunc("/api/lidar/playback/rate", ws.handlePlaybackRate)
-	mux.HandleFunc("/api/lidar/vrlog/load", ws.handleVRLogLoad)
-	mux.HandleFunc("/api/lidar/vrlog/stop", ws.handleVRLogStop)
 
 }
 
