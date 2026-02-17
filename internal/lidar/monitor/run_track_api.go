@@ -530,7 +530,16 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 	}
 
 	// Create a new analysis run
-	newRunID := fmt.Sprintf("reprocess-%s-%s", runID[:8], uuid.New().String()[:8])
+	runIDPrefix := runID
+	if len(runIDPrefix) > 8 {
+		runIDPrefix = runIDPrefix[:8]
+	}
+	uuidStr := uuid.New().String()
+	uuidPrefix := uuidStr
+	if len(uuidPrefix) > 8 {
+		uuidPrefix = uuidPrefix[:8]
+	}
+	newRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
 	newRun := &lidar.AnalysisRun{
 		RunID:       newRunID,
 		SourceType:  "pcap",
