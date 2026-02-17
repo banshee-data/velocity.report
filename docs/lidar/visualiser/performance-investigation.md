@@ -453,7 +453,7 @@ Inserted between M3 (Canonical Model) and M4 (Tracking Refactor):
 - [x] Add `BackgroundSnapshot` message to protobuf
 - [x] Implement `GenerateBackgroundPointCloud()` on BackgroundManager
 - [x] Add background snapshot scheduling to Publisher (30s interval)
-- [ ] Add `--vis-background-interval` CLI flag *(uses default 30s config; explicit flag not added)*
+- [ ] Add `--vis-background-interval` CLI flag _(uses default 30s config; explicit flag not added)_
 - [x] Implement foreground-only frame adaptation in FrameAdapter (works for both 10Hz/20Hz)
 - [x] Add sensor movement detection (`CheckForSensorMovement`)
 - [x] Add background drift detection (`CheckBackgroundDrift`)
@@ -469,13 +469,13 @@ Inserted between M3 (Canonical Model) and M4 (Tracking Refactor):
 - [x] Handle `FrameType.foreground` → render FG over cached BG
 - [x] Request background refresh when `backgroundSeq` mismatches
 - [x] Add UI indicator for "Background: Cached" vs "Refreshing"
-- [ ] Performance test: verify 3 Mbps bandwidth achieved *(claimed in code comments, not formally tested)*
+- [ ] Performance test: verify 3 Mbps bandwidth achieved _(claimed in code comments, not formally tested)_
 
 **Acceptance Criteria:**
 
 - [x] Background snapshot sent every 30s (configurable)
 - [x] Foreground frames contain only moving points + metadata
-- [x] Bandwidth reduced from ~80 Mbps to <5 Mbps *(claimed ~3 Mbps in code; not formally tested)*
+- [x] Bandwidth reduced from ~80 Mbps to <5 Mbps _(claimed ~3 Mbps in code; not formally tested)_
 - [x] No visual difference from full-frame mode
 - [x] Sensor movement triggers background refresh
 - [x] Client handles reconnect with stale cache gracefully
