@@ -13,6 +13,7 @@ from pdf_generator.core.pdf_generator import (
     _explain_latex_failure,
     generate_pdf_report,
 )
+from pdf_generator.core.tex_environment import TexEnvironment
 
 
 class TestLatexLogHelpers(unittest.TestCase):
@@ -82,6 +83,65 @@ class TestLatexLogHelpers(unittest.TestCase):
 class TestLatexFailureIntegration(unittest.TestCase):
     """Integration-style tests for LaTeX failure reporting in generate_pdf_report."""
 
+    def test_generate_pdf_report_uses_precompiled_fmt_argument(self):
+        """Precompiled mode should invoke xelatex with -fmt=velocity-report."""
+
+        with TemporaryDirectory() as tmp_dir, patch(
+            "pdf_generator.core.pdf_generator.DocumentBuilder"
+        ) as mock_builder, patch(
+            "pdf_generator.core.pdf_generator.chart_exists", return_value=False
+        ), patch(
+            "pdf_generator.core.pdf_generator.MapProcessor"
+        ), patch(
+            "pdf_generator.core.pdf_generator.resolve_tex_environment"
+        ) as mock_tex_env:
+            mock_tex_env.return_value = TexEnvironment(
+                mode="production",
+                tex_root="/opt/velocity-report/texlive-minimal",
+                compiler="/opt/velocity-report/texlive-minimal/bin/xelatex",
+                fmt_name="velocity-report",
+                env_vars={},
+            )
+            mock_doc = MagicMock()
+            builder_inst = mock_builder.return_value
+            builder_inst.build.return_value = mock_doc
+            mock_doc.generate_pdf.return_value = None
+
+            output_pdf = str((Path(tmp_dir) / "precompiled_report").with_suffix(".pdf"))
+            generate_pdf_report(
+                output_path=output_pdf,
+                start_iso="2025-06-01T00:00:00-07:00",
+                end_iso="2025-06-02T00:00:00-07:00",
+                group="1h",
+                units="mph",
+                timezone_display="US/Pacific",
+                min_speed_str="5.0 mph",
+                location="Precompiled Test Site",
+                overall_metrics=[
+                    {
+                        "count": 10,
+                        "p50": 20.0,
+                        "p85": 28.0,
+                        "p98": 35.0,
+                        "max_speed": 42.0,
+                    }
+                ],
+                daily_metrics=None,
+                granular_metrics=[],
+                histogram=None,
+                tz_name="UTC",
+                charts_prefix=os.path.join(tmp_dir, "missing_charts"),
+                include_map=False,
+            )
+
+            self.assertEqual(mock_doc.generate_pdf.call_count, 1)
+            _, kwargs = mock_doc.generate_pdf.call_args
+            self.assertEqual(
+                kwargs.get("compiler"),
+                "/opt/velocity-report/texlive-minimal/bin/xelatex",
+            )
+            self.assertIn("-fmt=velocity-report", kwargs.get("compiler_args", []))
+
     def test_generate_pdf_report_surfaces_latex_diagnostics(self):
         """Simulate repeated LaTeX failures and ensure diagnostics bubble up."""
 
@@ -91,7 +151,16 @@ class TestLatexFailureIntegration(unittest.TestCase):
             "pdf_generator.core.pdf_generator.chart_exists", return_value=False
         ), patch(
             "pdf_generator.core.pdf_generator.MapProcessor"
-        ):
+        ), patch(
+            "pdf_generator.core.pdf_generator.resolve_tex_environment"
+        ) as mock_tex_env:
+            mock_tex_env.return_value = TexEnvironment(
+                mode="development",
+                tex_root=None,
+                compiler="xelatex",
+                fmt_name=None,
+                env_vars={},
+            )
             mock_doc = MagicMock()
             builder_inst = mock_builder.return_value
             builder_inst.build.return_value = mock_doc

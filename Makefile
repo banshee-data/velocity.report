@@ -32,15 +32,21 @@ help:
 	@echo ""
 	@echo "INSTALLATION:"
 	@echo "  install-python       Set up Python PDF generator (venv + deps)"
+	@echo "  build-texlive-minimal Build local minimal TeX tree for production mode"
+	@echo "  build-tex-fmt        Rebuild velocity-report.fmt in local minimal TeX tree"
+	@echo "  install-texlive-minimal Install local minimal TeX tree to /opt/velocity-report"
 	@echo "  deploy-install-latex Install LaTeX on remote target (for PDF generation)"
+	@echo "  deploy-install-latex-minimal Copy local minimal TeX tree to remote target"
+	@echo "  validate-tex-minimal Compare report output between full and minimal TeX"
 	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target"
 	@echo "  install-web          Install web dependencies (pnpm/npm)"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
-	@echo "  dev-go               Start Go server (radar disabled)"
-	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (gRPC mode)"
-	@echo "  dev-go-lidar-both    Start Go server with LiDAR (both gRPC and 2370 forward)"
+	@echo "  dev-go               Start Go server (radar disabled, precompiled LaTeX)"
+	@echo "  dev-go-latex-full    Start Go server (radar disabled, full system LaTeX)"
+	@echo "  dev-go-lidar         Start Go server with LiDAR enabled (gRPC mode, precompiled LaTeX)"
+	@echo "  dev-go-lidar-both    Start Go server with LiDAR (both gRPC and 2370 forward, precompiled LaTeX)"
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
@@ -90,6 +96,7 @@ help:
 	@echo "  lint-web             Check web formatting"
 	@echo ""
 	@echo "PDF GENERATOR:"
+	@echo "  pdf-check-latex-parity Verify package parity between document builder and format ini"
 	@echo "  pdf-report           Generate PDF from config (CONFIG=file.json)"
 	@echo "  pdf-config           Create example configuration"
 	@echo "  pdf-demo             Run configuration demo"
@@ -344,7 +351,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs deploy-install-latex deploy-update-deps
+.PHONY: install-python install-web install-docs build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -352,7 +359,50 @@ VENV_PYTHON = $(VENV_DIR)/bin/python3
 VENV_PIP = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 PDF_DIR = tools/pdf-generator
+PDF_OUTPUT_DIR ?= $(PDF_DIR)/output
 PYTHON_VERSION = 3.12
+TEX_MINIMAL_DIR ?= build/texlive-minimal
+
+# Build: Local minimal TeX tree
+build-texlive-minimal:
+	@echo "Building minimal TeX tree at $(TEX_MINIMAL_DIR)..."
+	@OUTPUT_DIR="$(TEX_MINIMAL_DIR)" ./scripts/build-minimal-texlive.sh
+
+# Build: Rebuild velocity-report.fmt in existing minimal tree
+build-tex-fmt:
+	@if [ ! -x "$(TEX_MINIMAL_DIR)/bin/xelatex" ]; then \
+		echo "Error: $(TEX_MINIMAL_DIR)/bin/xelatex not found."; \
+		echo "Run 'make build-texlive-minimal' first."; \
+		exit 1; \
+	fi
+	@echo "Rebuilding velocity-report.fmt in $(TEX_MINIMAL_DIR)..."
+	@OUTPUT_DIR="$(TEX_MINIMAL_DIR)" FMT_ONLY=1 ./scripts/build-minimal-texlive.sh
+
+# Install: Copy local minimal TeX tree to /opt/velocity-report
+install-texlive-minimal:
+	@if [ ! -d "$(TEX_MINIMAL_DIR)" ]; then \
+		echo "Error: Minimal TeX tree not found at $(TEX_MINIMAL_DIR)"; \
+		echo "Run 'make build-texlive-minimal' first."; \
+		exit 1; \
+	fi
+	@echo "Installing minimal TeX tree from $(TEX_MINIMAL_DIR) to /opt/velocity-report/texlive-minimal..."
+	@SOURCE_DIR="$(abspath $(TEX_MINIMAL_DIR))" ./scripts/install-minimal-texlive.sh
+
+# Deploy: Install local minimal TeX tree on remote target
+deploy-install-latex-minimal:
+	@if [ -z "$(TARGET)" ]; then \
+		echo "Error: TARGET not set. Usage: make deploy-install-latex-minimal TARGET=radar-ts"; \
+		exit 1; \
+	fi
+	@if [ ! -d "$(TEX_MINIMAL_DIR)" ]; then \
+		echo "Error: Minimal TeX tree not found at $(TEX_MINIMAL_DIR)"; \
+		echo "Run 'make build-texlive-minimal' first."; \
+		exit 1; \
+	fi
+	@echo "Deploying minimal TeX tree to $(TARGET):/opt/velocity-report/texlive-minimal..."
+	@scp -r "$(TEX_MINIMAL_DIR)" "$(TARGET):/tmp/velocity-report-texlive-minimal"
+	@ssh "$(TARGET)" "sudo mkdir -p /opt/velocity-report && sudo rm -rf /opt/velocity-report/texlive-minimal && sudo mv /tmp/velocity-report-texlive-minimal /opt/velocity-report/texlive-minimal && sudo chmod -R a+rX /opt/velocity-report/texlive-minimal"
+	@echo "✓ Minimal TeX tree deployed to $(TARGET)"
 
 # Deploy: Install LaTeX on remote target
 deploy-install-latex:
@@ -360,12 +410,17 @@ deploy-install-latex:
 		echo "Error: TARGET not set. Usage: make deploy-install-latex TARGET=radar-ts"; \
 		exit 1; \
 	fi
-	@echo "Installing LaTeX on $(TARGET)..."
-	@ssh $(TARGET) "if ! command -v pdflatex >/dev/null 2>&1; then \
-		sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
+	@if [ -d "$(TEX_MINIMAL_DIR)" ]; then \
+		echo "Found local minimal TeX tree at $(TEX_MINIMAL_DIR); deploying vendored tree."; \
+		$(MAKE) deploy-install-latex-minimal TARGET="$(TARGET)"; \
 	else \
-		echo 'LaTeX already installed'; \
-	fi"
+		echo "No local minimal TeX tree found; installing TeX Live via apt on $(TARGET)..."; \
+		ssh "$(TARGET)" "if ! command -v pdflatex >/dev/null 2>&1; then \
+			sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
+		else \
+			echo 'LaTeX already installed'; \
+		fi"; \
+	fi
 
 # Deploy: Update dependencies on remote target
 deploy-update-deps:
@@ -377,9 +432,7 @@ deploy-update-deps:
 	@echo "  → Updating source code..."
 	@ssh $(TARGET) "test -d /opt/velocity-report/.git && cd /opt/velocity-report && sudo git pull || echo 'No git repo found'"
 	@echo "  → Ensuring LaTeX is installed..."
-	@ssh $(TARGET) "if ! command -v pdflatex >/dev/null 2>&1; then \
-		sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
-	fi"
+	@$(MAKE) --no-print-directory deploy-install-latex TARGET="$(TARGET)"
 	@echo "  → Updating Python dependencies..."
 	@ssh $(TARGET) "test -d /opt/velocity-report && cd /opt/velocity-report && sudo make install-python || echo 'Source not found'"
 	@echo "  → Fixing ownership..."
@@ -460,7 +513,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -478,10 +531,23 @@ define run_dev_go
 	echo "Building velocity-report-local..."; \
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
-	if command -v code >/dev/null 2>&1; then code "$$logfile"; fi; \
 	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
 	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
+endef
+
+define run_dev_go_require_precompiled_root
+	tex_root="$(abspath $(TEX_MINIMAL_DIR))"; \
+	if [ ! -x "$$tex_root/bin/xelatex" ]; then \
+		echo "Error: precompiled TeX flow requested but $$tex_root/bin/xelatex not found."; \
+		echo "Run 'make build-texlive-minimal' first, or use 'make dev-go-latex-full'."; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$$tex_root/texmf-dist/web2c/xelatex/xelatex.fmt" ]; then \
+		echo "Error: precompiled TeX flow requested but $$tex_root/texmf-dist/web2c/xelatex/xelatex.fmt not found."; \
+		echo "Run 'make build-tex-fmt' (or rebuild via 'make build-texlive-minimal'), or use 'make dev-go-latex-full'."; \
+		exit 1; \
+	fi
 endef
 
 define run_dev_go_kill_server
@@ -506,14 +572,23 @@ define run_dev_go_kill_server
 	fi
 endef
 
+DEV_GO_LATEX_PRECOMPILED_FLAGS := --pdf-latex-flow=precompiled --pdf-tex-root="$(abspath $(TEX_MINIMAL_DIR))"
+DEV_GO_LATEX_FULL_FLAGS := --pdf-latex-flow=full
+
 dev-go:
-	@$(call run_dev_go)
+	@$(call run_dev_go_require_precompiled_root)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS))
+
+dev-go-latex-full:
+	@$(call run_dev_go,$(DEV_GO_LATEX_FULL_FLAGS))
 
 dev-go-lidar:
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc)
+	@$(call run_dev_go_require_precompiled_root)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc)
 
 dev-go-lidar-both:
-	@$(call run_dev_go,--enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both)
+	@$(call run_dev_go_require_precompiled_root)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
@@ -920,11 +995,121 @@ lint-web:
 # PDF GENERATOR
 # =============================================================================
 
-.PHONY: pdf-test pdf-report pdf-config pdf-demo pdf clean-python
+.PHONY: pdf-check-latex-parity pdf-test validate-tex-minimal pdf-report pdf-config pdf-demo pdf clean-python
 
-pdf-test:
+pdf-check-latex-parity:
+	@echo "Checking LaTeX package parity..."
+	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) scripts/check_latex_package_parity.py
+
+pdf-test: pdf-check-latex-parity
 	@echo "Running PDF generator tests..."
 	cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTEST) pdf_generator/tests/
+
+validate-tex-minimal:
+	@config_value="$(CONFIG)"; \
+	if [ -z "$$config_value" ]; then \
+		config_value="$(PDF_DIR)/config.minimal.json"; \
+		echo "CONFIG not set; defaulting to $$config_value"; \
+	fi; \
+	if [ -f "$$config_value" ]; then \
+		config_path="$$(cd "$$(dirname "$$config_value")" && pwd)/$$(basename "$$config_value")"; \
+	elif [ -f "$(PDF_DIR)/$$config_value" ]; then \
+		config_path="$$(cd "$(PDF_DIR)" && pwd)/$$config_value"; \
+	else \
+		echo "Error: Config file not found: $$config_value"; \
+		echo "Usage: make validate-tex-minimal CONFIG=config.json"; \
+		exit 1; \
+	fi; \
+	if [ ! -d "$(TEX_MINIMAL_DIR)" ]; then \
+		echo "Error: Minimal TeX tree not found at $(TEX_MINIMAL_DIR)"; \
+		echo "Run 'make build-texlive-minimal' first."; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$(TEX_MINIMAL_DIR)/texmf-dist/web2c/xelatex/xelatex.fmt" ]; then \
+		echo "Error: precompiled flow requested but $(TEX_MINIMAL_DIR)/texmf-dist/web2c/xelatex/xelatex.fmt not found."; \
+		echo "Run 'make build-tex-fmt' (or rebuild via 'make build-texlive-minimal')."; \
+		exit 1; \
+	fi; \
+	api_base="$${API_BASE_URL:-http://localhost:8080}"; \
+	if command -v curl >/dev/null 2>&1; then \
+		if ! curl -fsS --max-time 5 "$$api_base/health" >/dev/null 2>&1; then \
+			echo "Error: API health check failed at $$api_base/health"; \
+			echo "Start the backend first (precompiled: make dev-go, full TeX: make dev-go-latex-full)."; \
+			echo "Or set API_BASE_URL to a reachable instance."; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Warning: curl not found; skipping API health check"; \
+	fi; \
+	tmp_dir=$$(mktemp -d); \
+	ref_pdf="$$tmp_dir/reference.pdf"; \
+	min_pdf="$$tmp_dir/minimal.pdf"; \
+	ref_stamp="$$tmp_dir/reference.stamp"; \
+	min_stamp="$$tmp_dir/minimal.stamp"; \
+	touch "$$ref_stamp"; \
+	echo "Generating reference report (development mode)..."; \
+	if ! $(MAKE) --no-print-directory pdf-report CONFIG="$$config_path"; then \
+		echo "Error: reference report generation failed."; \
+		echo "Artifacts kept in $$tmp_dir"; \
+		exit 1; \
+	fi; \
+	ref_candidates="$$(find "$(PDF_DIR)" -type f -name '*_report.pdf' -newer "$$ref_stamp" 2>/dev/null)"; \
+	if [ -z "$$ref_candidates" ]; then \
+		echo "Error: No new *_report.pdf found under $(PDF_DIR) for the reference run."; \
+		echo "Artifacts kept in $$tmp_dir"; \
+		exit 1; \
+	fi; \
+	ref_latest=$$(printf '%s\n' "$$ref_candidates" | head -n1); \
+	cp "$$ref_latest" "$$ref_pdf"; \
+	touch "$$min_stamp"; \
+	echo "Generating report using minimal TeX tree (production mode)..."; \
+	if ! VELOCITY_TEX_ROOT="$$(cd "$(TEX_MINIMAL_DIR)" && pwd)" $(MAKE) --no-print-directory pdf-report CONFIG="$$config_path"; then \
+		echo "Error: minimal-tree report generation failed."; \
+		echo "Artifacts kept in $$tmp_dir"; \
+		exit 1; \
+	fi; \
+	min_candidates="$$(find "$(PDF_DIR)" -type f -name '*_report.pdf' -newer "$$min_stamp" 2>/dev/null)"; \
+	if [ -z "$$min_candidates" ]; then \
+		echo "Error: No new *_report.pdf found under $(PDF_DIR) for the minimal run."; \
+		echo "Artifacts kept in $$tmp_dir"; \
+		exit 1; \
+	fi; \
+	min_latest=$$(printf '%s\n' "$$min_candidates" | head -n1); \
+	cp "$$min_latest" "$$min_pdf"; \
+	if command -v pdfinfo >/dev/null 2>&1; then \
+		ref_pages=$$(pdfinfo "$$ref_pdf" | awk -F: '/^Pages:/ {gsub(/ /, "", $$2); print $$2}'); \
+		min_pages=$$(pdfinfo "$$min_pdf" | awk -F: '/^Pages:/ {gsub(/ /, "", $$2); print $$2}'); \
+		if [ "$$ref_pages" != "$$min_pages" ]; then \
+			echo "Error: Page count mismatch (reference=$$ref_pages, minimal=$$min_pages)"; \
+			echo "Artifacts kept in $$tmp_dir"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Warning: pdfinfo not found; skipping page count check"; \
+	fi; \
+	if command -v pdftotext >/dev/null 2>&1; then \
+		pdftotext "$$ref_pdf" "$$tmp_dir/reference.txt"; \
+		pdftotext "$$min_pdf" "$$tmp_dir/minimal.txt"; \
+		if ! diff -u "$$tmp_dir/reference.txt" "$$tmp_dir/minimal.txt" > "$$tmp_dir/text.diff"; then \
+			echo "Error: Extracted text differs (see $$tmp_dir/text.diff)"; \
+			echo "Artifacts kept in $$tmp_dir"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Warning: pdftotext not found; skipping text diff"; \
+	fi; \
+	if command -v diff-pdf >/dev/null 2>&1; then \
+		if ! diff-pdf "$$ref_pdf" "$$min_pdf" >/dev/null 2>&1; then \
+			echo "Error: Visual PDF diff detected"; \
+			diff-pdf --output-diff="$$tmp_dir/visual-diff.pdf" "$$ref_pdf" "$$min_pdf" >/dev/null 2>&1 || true; \
+			echo "Artifacts kept in $$tmp_dir"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Warning: diff-pdf not found; skipping visual comparison"; \
+	fi; \
+	echo "✓ Minimal TeX validation passed"; \
+	rm -rf "$$tmp_dir"
 
 pdf-report:
 	@if [ -z "$(CONFIG)" ]; then \

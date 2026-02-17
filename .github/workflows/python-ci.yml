@@ -100,6 +100,9 @@ jobs:
       - name: Add venv to PATH
         run: echo "${{ github.workspace }}/.venv/bin" >> $GITHUB_PATH
 
+      - name: Check LaTeX package parity
+        run: python tools/pdf-generator/scripts/check_latex_package_parity.py
+
       - name: Run tests with coverage
         working-directory: tools/pdf-generator
         env:

@@ -15,6 +15,8 @@ import subprocess
 import sys
 from typing import List, Tuple, Optional
 
+from pdf_generator.core.tex_environment import resolve_tex_environment
+
 
 class DependencyCheckResult:
     """Results of a dependency check."""
@@ -66,6 +68,9 @@ class DependencyChecker:
         # Check optional packages
         self._check_python_package("cairosvg", "SVG to PDF conversion", critical=False)
         self._check_python_package("requests", "HTTP API requests", critical=True)
+
+        # Check TeX environment
+        self._check_tex_environment()
 
         # Check LaTeX installation
         self._check_latex()
@@ -161,8 +166,90 @@ class DependencyChecker:
             DependencyCheckResult(package_name, available, details, critical)
         )
 
+    def _check_tex_environment(self):
+        """Check TeX mode and basic minimal-tree health."""
+        env = resolve_tex_environment()
+
+        if env.mode == "development":
+            self.results.append(
+                DependencyCheckResult(
+                    "TeX Environment",
+                    True,
+                    "Development mode (system TeX via PATH)",
+                    critical=False,
+                )
+            )
+            return
+
+        issues: List[str] = []
+        tex_root = env.tex_root or ""
+        if not tex_root or not os.path.isdir(tex_root):
+            issues.append(f"missing tex root: {tex_root or '(unset)'}")
+
+        if not os.path.isdir(os.path.join(tex_root, "texmf-dist")):
+            issues.append("missing texmf-dist directory")
+
+        if not os.path.isdir(os.path.join(tex_root, "texmf-var")):
+            issues.append("missing texmf-var directory")
+
+        if issues:
+            details = (
+                "Production mode via VELOCITY_TEX_ROOT; " + "; ".join(issues) + "."
+            )
+            self.results.append(
+                DependencyCheckResult("TeX Environment", False, details, critical=True)
+            )
+            return
+
+        fmt_status = (
+            "velocity-report.fmt detected"
+            if env.fmt_name
+            else "velocity-report.fmt not found"
+        )
+        details = f"Production mode via VELOCITY_TEX_ROOT={tex_root} ({fmt_status})"
+        self.results.append(
+            DependencyCheckResult("TeX Environment", True, details, critical=True)
+        )
+
     def _check_latex(self):
         """Check if LaTeX (xelatex) is available."""
+        env = resolve_tex_environment()
+
+        if env.mode == "production":
+            compiler_path = env.compiler
+            if not os.path.isfile(compiler_path) or not os.access(
+                compiler_path, os.X_OK
+            ):
+                self.results.append(
+                    DependencyCheckResult(
+                        "xelatex (LaTeX)",
+                        False,
+                        f"Production compiler missing or not executable: {compiler_path}",
+                        critical=True,
+                    )
+                )
+                return
+
+            fmt_path = os.path.join(
+                env.tex_root or "",
+                "texmf-dist",
+                "web2c",
+                "xelatex",
+                "velocity-report.fmt",
+            )
+            details = f"Using vendored compiler at {compiler_path}"
+            if os.path.isfile(fmt_path):
+                details += " (velocity-report.fmt present)"
+            else:
+                details += (
+                    " (velocity-report.fmt missing; .sty runtime loading enabled)"
+                )
+
+            self.results.append(
+                DependencyCheckResult("xelatex (LaTeX)", True, details, critical=True)
+            )
+            return
+
         xelatex_path = shutil.which("xelatex")
 
         if xelatex_path:

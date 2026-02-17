@@ -20,25 +20,25 @@ This reduces readability and makes model ownership ambiguous.
 
 Counts below are usages in `internal/lidar` excluding `arena.go` and arena-only tests.
 
-| Symbol | Usage count | Action | Target layer |
-| --- | ---: | --- | --- |
-| `Point` | 156 | Keep | L2 Frames |
-| `FrameID` | 261 | Keep | L2 Frames |
-| `Pose` | 8 | Keep | L2 Frames / L4 transform boundary |
-| `BgSnapshot` | 35 | Keep | L3 Grid |
-| `RegionSnapshot` | 34 | Keep | L3 Grid |
-| `RegionData` | 3 | Keep | L3 Grid |
-| `WorldCluster` | 160 | Keep | L4 Perception |
-| `PoseCache` | 0 | Remove (or move only if future use is concrete) | N/A |
-| `RingBuffer` | 0 | Remove | N/A |
-| `TrackState2D` | 0 | Remove | N/A |
-| `Track` (arena variant) | 0 | Remove | N/A |
-| `TrackObs` | 0 | Remove | N/A |
-| `TrackSummary` | 0 | Remove | N/A |
-| `SidecarState` | 0 | Remove | N/A |
-| `SystemEvent` (arena variant) | 0 | Remove | N/A |
-| `RetentionConfig` | 0 | Remove | N/A |
-| `Event` + helper constructors | 0 | Remove | N/A |
+| Symbol                        | Usage count | Action                                          | Target layer                      |
+| ----------------------------- | ----------: | ----------------------------------------------- | --------------------------------- |
+| `Point`                       |         156 | Keep                                            | L2 Frames                         |
+| `FrameID`                     |         261 | Keep                                            | L2 Frames                         |
+| `Pose`                        |           8 | Keep                                            | L2 Frames / L4 transform boundary |
+| `BgSnapshot`                  |          35 | Keep                                            | L3 Grid                           |
+| `RegionSnapshot`              |          34 | Keep                                            | L3 Grid                           |
+| `RegionData`                  |           3 | Keep                                            | L3 Grid                           |
+| `WorldCluster`                |         160 | Keep                                            | L4 Perception                     |
+| `PoseCache`                   |           0 | Remove (or move only if future use is concrete) | N/A                               |
+| `RingBuffer`                  |           0 | Remove                                          | N/A                               |
+| `TrackState2D`                |           0 | Remove                                          | N/A                               |
+| `Track` (arena variant)       |           0 | Remove                                          | N/A                               |
+| `TrackObs`                    |           0 | Remove                                          | N/A                               |
+| `TrackSummary`                |           0 | Remove                                          | N/A                               |
+| `SidecarState`                |           0 | Remove                                          | N/A                               |
+| `SystemEvent` (arena variant) |           0 | Remove                                          | N/A                               |
+| `RetentionConfig`             |           0 | Remove                                          | N/A                               |
+| `Event` + helper constructors |           0 | Remove                                          | N/A                               |
 
 ## Target File Layout (Same package, clear layer ownership)
 

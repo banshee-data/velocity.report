@@ -5,12 +5,14 @@ import unittest
 from unittest.mock import patch, MagicMock
 import sys
 import os
+import tempfile
 
 from pdf_generator.core.dependency_checker import (
     DependencyChecker,
     DependencyCheckResult,
     check_dependencies,
 )
+from pdf_generator.core.tex_environment import TexEnvironment
 
 
 class TestDependencyCheckResult(unittest.TestCase):
@@ -107,7 +109,16 @@ class TestDependencyChecker(unittest.TestCase):
         """Test LaTeX check when xelatex is available."""
         checker = DependencyChecker()
 
-        with patch("shutil.which") as mock_which:
+        with patch(
+            "pdf_generator.core.dependency_checker.resolve_tex_environment"
+        ) as mock_env, patch("shutil.which") as mock_which:
+            mock_env.return_value = TexEnvironment(
+                mode="development",
+                tex_root=None,
+                compiler="xelatex",
+                fmt_name=None,
+                env_vars={},
+            )
             mock_which.return_value = "/usr/bin/xelatex"
 
             with patch("subprocess.run") as mock_run:
@@ -126,7 +137,16 @@ class TestDependencyChecker(unittest.TestCase):
         """Test LaTeX check when xelatex is not available."""
         checker = DependencyChecker()
 
-        with patch("shutil.which") as mock_which:
+        with patch(
+            "pdf_generator.core.dependency_checker.resolve_tex_environment"
+        ) as mock_env, patch("shutil.which") as mock_which:
+            mock_env.return_value = TexEnvironment(
+                mode="development",
+                tex_root=None,
+                compiler="xelatex",
+                fmt_name=None,
+                env_vars={},
+            )
             mock_which.return_value = None
 
             checker._check_latex()
@@ -137,6 +157,112 @@ class TestDependencyChecker(unittest.TestCase):
         self.assertFalse(result.available)
         self.assertTrue(result.critical)
         self.assertIn("Install", result.details)
+
+    def test_check_tex_environment_development(self):
+        """Test TeX environment check in development mode."""
+        checker = DependencyChecker()
+
+        with patch(
+            "pdf_generator.core.dependency_checker.resolve_tex_environment"
+        ) as mock_env:
+            mock_env.return_value = TexEnvironment(
+                mode="development",
+                tex_root=None,
+                compiler="xelatex",
+                fmt_name=None,
+                env_vars={},
+            )
+            checker._check_tex_environment()
+
+        self.assertEqual(len(checker.results), 1)
+        result = checker.results[0]
+        self.assertEqual(result.name, "TeX Environment")
+        self.assertTrue(result.available)
+        self.assertIn("Development mode", result.details)
+
+    def test_check_tex_environment_production_missing_tree(self):
+        """Test TeX environment check catches missing production tree."""
+        checker = DependencyChecker()
+        missing_root = "/tmp/definitely-missing-velocity-tex-root"
+
+        with patch(
+            "pdf_generator.core.dependency_checker.resolve_tex_environment"
+        ) as mock_env:
+            mock_env.return_value = TexEnvironment(
+                mode="production",
+                tex_root=missing_root,
+                compiler=os.path.join(missing_root, "bin", "xelatex"),
+                fmt_name=None,
+                env_vars={},
+            )
+            checker._check_tex_environment()
+
+        self.assertEqual(len(checker.results), 1)
+        result = checker.results[0]
+        self.assertEqual(result.name, "TeX Environment")
+        self.assertFalse(result.available)
+        self.assertTrue(result.critical)
+        self.assertIn("missing tex root", result.details)
+
+    def test_check_latex_production_available(self):
+        """Test production LaTeX check when vendored compiler exists."""
+        checker = DependencyChecker()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            bin_dir = os.path.join(tmp_dir, "bin")
+            fmt_dir = os.path.join(tmp_dir, "texmf-dist", "web2c", "xelatex")
+            os.makedirs(bin_dir, exist_ok=True)
+            os.makedirs(fmt_dir, exist_ok=True)
+            compiler = os.path.join(bin_dir, "xelatex")
+            with open(compiler, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\nexit 0\n")
+            os.chmod(compiler, 0o755)
+            with open(
+                os.path.join(fmt_dir, "velocity-report.fmt"), "w", encoding="utf-8"
+            ) as handle:
+                handle.write("fmt\n")
+
+            with patch(
+                "pdf_generator.core.dependency_checker.resolve_tex_environment"
+            ) as mock_env:
+                mock_env.return_value = TexEnvironment(
+                    mode="production",
+                    tex_root=tmp_dir,
+                    compiler=compiler,
+                    fmt_name="velocity-report",
+                    env_vars={},
+                )
+                checker._check_latex()
+
+        self.assertEqual(len(checker.results), 1)
+        result = checker.results[0]
+        self.assertEqual(result.name, "xelatex (LaTeX)")
+        self.assertTrue(result.available)
+        self.assertIn("vendored compiler", result.details)
+
+    def test_check_latex_production_missing_compiler(self):
+        """Test production LaTeX check fails when compiler is missing."""
+        checker = DependencyChecker()
+        missing_root = "/tmp/velocity-tex-missing"
+        missing_compiler = os.path.join(missing_root, "bin", "xelatex")
+
+        with patch(
+            "pdf_generator.core.dependency_checker.resolve_tex_environment"
+        ) as mock_env:
+            mock_env.return_value = TexEnvironment(
+                mode="production",
+                tex_root=missing_root,
+                compiler=missing_compiler,
+                fmt_name=None,
+                env_vars={},
+            )
+            checker._check_latex()
+
+        self.assertEqual(len(checker.results), 1)
+        result = checker.results[0]
+        self.assertEqual(result.name, "xelatex (LaTeX)")
+        self.assertFalse(result.available)
+        self.assertIn("missing or not executable", result.details)
 
     def test_check_system_command_available(self):
         """Test system command check when command exists."""

@@ -197,16 +197,11 @@ class TestConfigIntegration(unittest.TestCase):
         mock_builder_inst.build.assert_called_once()
         call_args = mock_builder_inst.build.call_args
 
-        # Check positional or keyword args depending on how it was called
-        if call_args[1]:  # keyword args
-            self.assertEqual(call_args[1]["surveyor"], "Test Surveyor Beta")
-            self.assertEqual(call_args[1]["contact"], "test@example.com")
-            self.assertEqual(call_args[1]["location"], "Test Location Alpha")
-        else:  # positional args
-            # builder.build(start_iso, end_iso, location, surveyor, contact)
-            self.assertEqual(call_args[0][2], "Test Location Alpha")
-            self.assertEqual(call_args[0][3], "Test Surveyor Beta")
-            self.assertEqual(call_args[0][4], "test@example.com")
+        # builder.build(start_iso, end_iso, location, surveyor, contact, ...)
+        self.assertEqual(call_args[0][2], "Test Location Alpha")
+        self.assertEqual(call_args[0][3], "Test Surveyor Beta")
+        self.assertEqual(call_args[0][4], "test@example.com")
+        self.assertIn("tex_environment", call_args[1])
 
     @patch("pdf_generator.core.pdf_generator.DocumentBuilder")
     @patch("pdf_generator.core.pdf_generator.chart_exists")

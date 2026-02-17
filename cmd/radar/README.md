@@ -31,6 +31,12 @@ go build ./cmd/lidar
 # Run in debug mode with a mocked serial port (useful for development):
 ./radar --debug
 
+# Force precompiled PDF LaTeX flow (minimal TeX tree):
+./radar --disable-radar --pdf-latex-flow precompiled --pdf-tex-root /opt/velocity-report/texlive-minimal
+
+# Force full system LaTeX flow (unset VELOCITY_TEX_ROOT):
+./radar --disable-radar --pdf-latex-flow full
+
 # Enable in-process LiDAR components (UDP listener + forwarder):
 ./radar --enable-lidar --lidar-udp-port 2369 --lidar-listen :8081
 ```
@@ -47,6 +53,11 @@ The radar binary exposes several CLI flags (see `cmd/radar/radar.go` for exact d
 - `--units` (string) — Display units (mps, mph, kmph). Default: `mph`.
 - `--timezone` (string) — Timezone for display (default: `UTC`).
 - `--disable-radar` (bool) — Disable radar serial I/O; useful when running without radar hardware. The HTTP server and DB remain active.
+- `--pdf-latex-flow` (string) — PDF LaTeX mode: `inherit` (default), `precompiled`, or `full`.
+  - `inherit`: leave `VELOCITY_TEX_ROOT` unchanged unless `--pdf-tex-root` is provided.
+  - `precompiled`: validate and set `VELOCITY_TEX_ROOT` to the minimal TeX tree.
+  - `full`: unset `VELOCITY_TEX_ROOT` and force full system TeX.
+- `--pdf-tex-root` (string) — TeX root directory used by `precompiled` flow (expects `bin/xelatex` inside). In `inherit` mode, this can be used as an explicit override.
 - `--listen` and `--port` must be set sensibly; the binary validates units/timezone on startup.
 
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):

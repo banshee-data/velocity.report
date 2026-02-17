@@ -9,10 +9,10 @@ This document defines the shared architecture for the following feature designs:
 1. Track quality score with reason codes
 2. Timeline event bar for lifecycle and quality events
 3. One-click split/merge repair with suggestions
-5. Ghost trails and velocity uncertainty cones
-7. Automatic physics checks with confirmation gates
-8. Priority review queue
-10. Session-level QC dashboard and audit export
+4. Ghost trails and velocity uncertainty cones
+5. Automatic physics checks with confirmation gates
+6. Priority review queue
+7. Session-level QC dashboard and audit export
 
 Feature-specific designs are in:
 

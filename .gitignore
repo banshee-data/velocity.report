@@ -13,6 +13,7 @@ Thumbs.db
 # =============================================================================
 _site/
 .build/
+/build/
 .cache/
 .gocache/
 .gomodcache/
@@ -98,6 +99,21 @@ tools/pdf-generator/.coverage
 *_velocity.report_*.zip
 *_velocity.report_*.tex
 histogram_*.png
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+
+# PDF generator outputs when config.output_dir is "." or "./reports"
+tools/pdf-generator/reports/
+tools/pdf-generator/*_daily.pdf
+tools/pdf-generator/*_histogram.pdf
+tools/pdf-generator/*_report.pdf
+tools/pdf-generator/*_report.tex
+tools/pdf-generator/*_stats.pdf
 
 # =============================================================================
 # Web Frontend (SvelteKit)

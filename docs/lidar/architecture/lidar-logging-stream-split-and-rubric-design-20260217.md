@@ -18,11 +18,11 @@ This makes operations hard because high-volume lines drown actionable events.
 
 Three stream model:
 
-| Stream | Purpose | Typical volume | Retention |
-| --- | --- | --- | --- |
-| `ops` | Actionable warnings/errors and significant lifecycle events | Low | Longest |
-| `debug` | Day-to-day diagnostics for troubleshooting and tuning | Medium | Medium |
-| `trace` | High-frequency packet/frame telemetry and loop-level details | High | Shortest |
+| Stream  | Purpose                                                      | Typical volume | Retention |
+| ------- | ------------------------------------------------------------ | -------------- | --------- |
+| `ops`   | Actionable warnings/errors and significant lifecycle events  | Low            | Longest   |
+| `debug` | Day-to-day diagnostics for troubleshooting and tuning        | Medium         | Medium    |
+| `trace` | High-frequency packet/frame telemetry and loop-level details | High           | Shortest  |
 
 ## Proposed API Surface
 
@@ -46,11 +46,11 @@ Use this rubric for each log line.
 
 ### Detailed rubric matrix
 
-| Signal | Route | Rationale |
-| --- | --- | --- |
-| Error, failed operation, dropped data, timeout, repeated disconnect | `ops` | Must be visible immediately |
+| Signal                                                                                              | Route   | Rationale                                |
+| --------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------- |
+| Error, failed operation, dropped data, timeout, repeated disconnect                                 | `ops`   | Must be visible immediately              |
 | Per-packet parse messages, replay progress, queue depth every frame, FPS/bandwidth stats each cycle | `trace` | High volume; useful for deep diagnostics |
-| Cluster counts, track counts, lifecycle transitions, occasional state snapshots | `debug` | Useful context without flooding ops logs |
+| Cluster counts, track counts, lifecycle transitions, occasional state snapshots                     | `debug` | Useful context without flooding ops logs |
 
 ### Keyword guidance (for classifier fallback)
 
@@ -62,14 +62,14 @@ Classifier is a migration helper, not a permanent substitute for explicit `Opsf/
 
 ## Example Mapping from Existing LiDAR Logs
 
-| Existing line pattern | Stream |
-| --- | --- |
-| `Error forwarding foreground packet: ...` | `ops` |
-| `[PacketForwarder] Dropped ... forwarded packets ...` | `ops` |
-| `PCAP parsed points: packet=..., points_this_packet=...` | `trace` |
-| `PCAP real-time replay progress: ...` | `trace` |
-| `[Tracking] Clustered into %d objects` | `debug` |
-| `[Tracking] %d confirmed tracks active` | `debug` |
+| Existing line pattern                                                      | Stream  |
+| -------------------------------------------------------------------------- | ------- |
+| `Error forwarding foreground packet: ...`                                  | `ops`   |
+| `[PacketForwarder] Dropped ... forwarded packets ...`                      | `ops`   |
+| `PCAP parsed points: packet=..., points_this_packet=...`                   | `trace` |
+| `PCAP real-time replay progress: ...`                                      | `trace` |
+| `[Tracking] Clustered into %d objects`                                     | `debug` |
+| `[Tracking] %d confirmed tracks active`                                    | `debug` |
 | `[Visualiser] Stats: fps=... bandwidth_mbps=...` (if emitted continuously) | `trace` |
 
 ## Runtime Configuration Design

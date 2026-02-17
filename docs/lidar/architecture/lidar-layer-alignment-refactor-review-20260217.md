@@ -55,14 +55,14 @@ This review focuses on:
 
 Use layer-first package ownership inside `internal/lidar`:
 
-| Layer | Current anchors | Proposed package ownership |
-| --- | --- | --- |
-| L1 Packets | `internal/lidar/network/*`, `internal/lidar/parse/*` | `internal/lidar/l1packets/{ingest,pcap,parse}` |
-| L2 Frames | `internal/lidar/frame_builder.go`, parts of `transform.go` | `internal/lidar/l2frames/{framebuilder,geometry,export}` |
-| L3 Grid | `internal/lidar/background.go`, `internal/lidar/foreground.go` | `internal/lidar/l3grid/{background,foreground,regions}` |
-| L4 Perception | `internal/lidar/clustering.go`, `ground.go`, `voxel.go` | `internal/lidar/l4perception/{transform,cluster,ground,voxel,obs}` |
-| L5 Tracks | `internal/lidar/tracking.go`, `hungarian.go` | `internal/lidar/l5tracks/{tracker,association,lifecycle}` |
-| L6 Objects | `internal/lidar/classification.go`, `quality.go` | `internal/lidar/l6objects/{classification,quality,taxonomy}` |
+| Layer         | Current anchors                                                | Proposed package ownership                                         |
+| ------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
+| L1 Packets    | `internal/lidar/network/*`, `internal/lidar/parse/*`           | `internal/lidar/l1packets/{ingest,pcap,parse}`                     |
+| L2 Frames     | `internal/lidar/frame_builder.go`, parts of `transform.go`     | `internal/lidar/l2frames/{framebuilder,geometry,export}`           |
+| L3 Grid       | `internal/lidar/background.go`, `internal/lidar/foreground.go` | `internal/lidar/l3grid/{background,foreground,regions}`            |
+| L4 Perception | `internal/lidar/clustering.go`, `ground.go`, `voxel.go`        | `internal/lidar/l4perception/{transform,cluster,ground,voxel,obs}` |
+| L5 Tracks     | `internal/lidar/tracking.go`, `hungarian.go`                   | `internal/lidar/l5tracks/{tracker,association,lifecycle}`          |
+| L6 Objects    | `internal/lidar/classification.go`, `quality.go`               | `internal/lidar/l6objects/{classification,quality,taxonomy}`       |
 
 Cross-cutting packages:
 
