@@ -204,27 +204,65 @@ Outcome:
 
 - More legible logic boundaries and easier feature iteration.
 
-## Recommended Execution Order
+## Current Implementation Progress
 
-1. **Layer contract pass (no behavior change):**
-   - Create package skeleton and interface contracts.
-   - Add dependency rules in `AGENTS.md`/contributor docs.
-2. **Pipeline extraction:**
-   - Move persistence/publish out of domain callback.
-3. **Routing simplification:**
-   - Introduce route tables + wrappers.
-   - Remove string-based path parsing where method patterns can replace it.
-4. **Registry reduction:**
-   - Move to explicit runtime wiring.
-5. **Phase-comment cleanup:**
-   - Sweep `internal/`, `web/src/`, `tools/visualiser-macos/`.
-6. **Frontend decomposition:**
-   - Split tracks page and TrackList logic.
+### Completed
+
+1. **Layer contract pass** — package skeleton, interface contracts, dependency rules: ✅
+   - Layer packages created: `l1packets/`, `l2frames/`, `l3grid/`, `l4perception/`, `l5tracks/`, `l6objects/`
+   - Cross-cutting packages: `pipeline/`, `storage/sqlite/`, `adapters/`
+   - Stage interfaces defined: `ForegroundStage`, `PerceptionStage`, `TrackingStage`, `ObjectStage`, `PersistenceSink`, `PublishSink`
+   - CI guardrail for "Phase [0-9]" in runtime code
+
+2. **Phase-comment cleanup** — all roadmap-phase comments removed: ✅
+   - Go runtime code (18 files), Svelte/TypeScript, Swift files
+   - Replaced with capability-oriented descriptions
+
+3. **Route table conversion** — grouped `[]route` slices: ✅
+   - `RegisterRoutes` refactored into `coreRoutes`, `snapshotRoutes`, `metricsRoutes`, `sweepRoutes`, `gridRoutes`, `pcapRoutes`, `chartRoutes`, `debugRoutes`, `playbackRoutes`, `trackRoutes`
+
+4. **501 stub replacement** — evaluation and reprocess endpoints: ✅
+   - `lidar_evaluations` table (migration 000028) with `EvaluationStore`
+   - `handleCreateSceneEvaluation`, `handleListSceneEvaluations`, `handleReprocessRun` implemented
+
+5. **Implementation migration to layer packages**: ✅
+   - **L2 Frames** → `l2frames/`: `frame_builder.go` (914 lines), `export.go`, `geometry.go`, `debug.go`
+   - **L3 Grid** → `l3grid/`: `background.go` (2608 lines), `foreground.go`, `config.go`, `background_flusher.go`, `foreground_snapshot.go`, `types.go` (BgSnapshot, RegionSnapshot, RegionData)
+   - **L4 Perception** → `l4perception/`: `clustering.go`, `dbscan_clusterer.go`, `obb.go`, `ground.go`, `voxel.go`, `types.go` (WorldPoint, PointPolar)
+   - **L5 Tracks** → `l5tracks/`: `tracking.go` (1487 lines), `tracker_interface.go`, `hungarian.go`, `types.go` (TrackedObject, TrackState)
+   - **L6 Objects** → `l6objects/`: `classification.go`, `features.go`, `quality.go`, `types.go`
+   - **Storage** → `storage/sqlite/`: `scene_store.go`, `track_store.go`, `evaluation_store.go`, `sweep_store.go`, `missed_region_store.go`, `analysis_run.go` (1342 lines), `analysis_run_manager.go`
+   - Parent files replaced with backward-compatible type aliases
+
+### Remaining
+
+6. **L1 Packets migration** — move `network/` and `parse/` into `l1packets/`:
+   - Move `internal/lidar/network/` → `internal/lidar/l1packets/network/`
+   - Move `internal/lidar/parse/` → `internal/lidar/l1packets/parse/`
+   - Update all callers (6-7 files)
+
+7. **Pipeline migration** — move `tracking_pipeline.go` → `pipeline/`:
+   - Move orchestration logic to `pipeline/tracking_pipeline.go`
+   - Replace parent with aliases
+
+8. **Adapters migration** — move export/training/ground-truth to `adapters/`:
+   - `track_export.go`, `training_data.go`, `ground_truth.go` → `adapters/`
+   - Replace parent with aliases
+
+9. **Routing enhancements** (future):
+   - Add HTTP method prefixes to route patterns (`"GET /path"`)
+   - Add `withDB`/`method`/`featureGate` middleware wrappers
+   - Inline run/scene path dispatch into route tables
+
+10. **Registry reduction** (future):
+    - Move to explicit runtime wiring via dependency injection
+
+11. **Frontend decomposition** (future):
+    - Extract `tracksStore`, `runsStore`, `missedRegionStore`
+    - Keep components presentational
 
 ## Quick Wins (Low Risk, High Readability)
 
-- Replace phase-labeled placeholder response text in:
-  - `internal/lidar/monitor/run_track_api.go:500`
-  - `internal/lidar/monitor/scene_api.go:370`
-- Convert `RegisterRoutes` into grouped slices first (no handler logic changes) in `internal/lidar/monitor/webserver.go:1183`.
-- Add a doc-only "layer ownership matrix" to package headers as migration guidance.
+- ~~Replace phase-labeled placeholder response text~~ ✅ Done
+- ~~Convert `RegisterRoutes` into grouped slices~~ ✅ Done
+- ~~Add a doc-only "layer ownership matrix" to package headers~~ ✅ Done (doc.go files)
