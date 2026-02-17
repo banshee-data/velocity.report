@@ -7,27 +7,9 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
-// Point represents a single 3D LiDAR measurement point in Cartesian coordinates
-// Each point contains both the processed 3D coordinates and raw measurement data
-type Point struct {
-	// 3D Cartesian coordinates (computed from spherical measurements)
-	X float64 `json:"x"` // X coordinate in meters (forward direction from sensor)
-	Y float64 `json:"y"` // Y coordinate in meters (right direction from sensor)
-	Z float64 `json:"z"` // Z coordinate in meters (upward direction from sensor)
-
-	// Measurement metadata
-	Intensity uint8     `json:"intensity"` // Laser return intensity/reflectivity (0-255)
-	Distance  float64   `json:"distance"`  // Radial distance from sensor in meters
-	Azimuth   float64   `json:"azimuth"`   // Horizontal angle in degrees (0-360, corrected)
-	Elevation float64   `json:"elevation"` // Vertical angle in degrees (corrected for channel)
-	Channel   int       `json:"channel"`   // Laser channel number (1-40)
-	Timestamp time.Time `json:"timestamp"` // Point acquisition time (with firetime correction)
-	BlockID   int       `json:"block_id"`  // Data block index within packet (0-9)
-
-	// Packet tracking for completeness validation
-	UDPSequence     uint32 `json:"udp_sequence"`      // UDP sequence number for gap detection
-	RawBlockAzimuth uint16 `json:"raw_block_azimuth"` // Original block azimuth from packet (0.01 deg units)
-}
+// Point represents a single 3D LiDAR measurement point in Cartesian coordinates.
+// This is an alias to l4perception.Point for consistency across the codebase.
+type Point = l4perception.Point
 
 // FrameID is a human-readable name like "sensor/hesai-01" or "site/main-st-001".
 type FrameID string

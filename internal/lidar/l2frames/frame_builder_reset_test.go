@@ -1,4 +1,4 @@
-package lidar
+package l2frames
 
 import (
 	"testing"
