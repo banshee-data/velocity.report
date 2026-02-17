@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -377,27 +376,37 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 					}
 				}
 
-				// Insert observation
-				obs := &TrackObservation{
-					TrackID:           track.TrackID,
-					TSUnixNanos:       frame.StartTimestamp.UnixNano(),
-					WorldFrame:        worldFrame,
-					X:                 track.X,
-					Y:                 track.Y,
-					Z:                 0, // TrackedObject doesn't have Z
-					VelocityX:         track.VX,
-					VelocityY:         track.VY,
-					SpeedMps:          track.AvgSpeedMps,
-					HeadingRad:        float32(math.Atan2(float64(track.VY), float64(track.VX))),
-					BoundingBoxLength: track.BoundingBoxLengthAvg,
-					BoundingBoxWidth:  track.BoundingBoxWidthAvg,
-					BoundingBoxHeight: track.BoundingBoxHeightAvg,
-					HeightP95:         track.HeightP95Max,
-					IntensityMean:     track.IntensityMeanAvg,
-				}
-				if err := InsertTrackObservation(cfg.DB, obs); err != nil {
-					if cfg.DebugMode {
-						log.Printf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
+				// Only persist observations for tracks that were matched to a
+				// cluster this frame (Misses == 0).  Coasting tracks have
+				// Misses > 0 and their position is a Kalman prediction, not a
+				// real measurement — persisting those creates phantom straight
+				// segments and contaminates quality metrics.
+				if track.Misses == 0 {
+					// Insert observation — use per-frame OBB dimensions (not running
+					// averages) so each observation faithfully records the cluster
+					// shape at this instant. The averaged values are stored on the
+					// track record itself for classification/reporting.
+					obs := &TrackObservation{
+						TrackID:           track.TrackID,
+						TSUnixNanos:       frame.StartTimestamp.UnixNano(),
+						WorldFrame:        worldFrame,
+						X:                 track.X,
+						Y:                 track.Y,
+						Z:                 track.LatestZ,
+						VelocityX:         track.VX,
+						VelocityY:         track.VY,
+						SpeedMps:          track.AvgSpeedMps,
+						HeadingRad:        track.OBBHeadingRad,
+						BoundingBoxLength: track.OBBLength,
+						BoundingBoxWidth:  track.OBBWidth,
+						BoundingBoxHeight: track.OBBHeight,
+						HeightP95:         track.HeightP95Max,
+						IntensityMean:     track.IntensityMeanAvg,
+					}
+					if err := InsertTrackObservation(cfg.DB, obs); err != nil {
+						if cfg.DebugMode {
+							log.Printf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
+						}
 					}
 				}
 			}

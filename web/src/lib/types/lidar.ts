@@ -34,7 +34,9 @@ export interface Track {
 	avg_speed_mps: number;
 	/** Peak speed observed (meters/second) */
 	peak_speed_mps: number;
-	/** Average bounding box dimensions (meters) */
+	/** PCA-derived oriented bounding box heading (radians) */
+	obb_heading_rad: number;
+	/** Bounding box dimensions (meters) */
 	bounding_box: {
 		/** Average length (meters) */
 		length_avg: number;
@@ -42,6 +44,12 @@ export interface Track {
 		width_avg: number;
 		/** Average height (meters) */
 		height_avg: number;
+		/** Per-frame length (meters) */
+		length: number;
+		/** Per-frame width (meters) */
+		width: number;
+		/** Per-frame height (meters) */
+		height: number;
 	};
 	/** ISO 8601 timestamp when track was first seen */
 	first_seen: string;

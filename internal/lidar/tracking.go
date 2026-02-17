@@ -50,6 +50,24 @@ const (
 	// covariance matrix P. Prevents unbounded gating ellipse growth during
 	// long coasting or large dt gaps.
 	MaxCovarianceDiag float32 = 100.0
+
+	// MinPointsForPCA is the minimum number of cluster points required for
+	// a reliable PCA heading estimate. Below this threshold the OBB heading
+	// is kept at its previous smoothed value to avoid jitter from degenerate
+	// eigenvector solutions.
+	MinPointsForPCA = 4
+
+	// OBBHeadingSmoothingAlpha is the EMA smoothing factor for OBB heading
+	// updates. Lower values provide heavier smoothing, reducing PCA jitter
+	// at the cost of slower response to genuine rotation. 0.08 is suitable
+	// for typical 10 Hz LiDAR frame rates.
+	OBBHeadingSmoothingAlpha float32 = 0.08
+
+	// OBBAspectRatioLockThreshold controls when the OBB heading is locked
+	// (not updated) because the cluster's aspect ratio is too close to 1:1.
+	// When |length − width| / max(length, width) < this threshold, PCA has
+	// no dominant axis and the heading is inherently ambiguous.
+	OBBAspectRatioLockThreshold float32 = 0.25
 )
 
 // TrackerConfig holds configuration parameters for the tracker.
@@ -141,6 +159,11 @@ type TrackedObject struct {
 
 	// OBB heading (smoothed via exponential moving average)
 	OBBHeadingRad float32 // Smoothed heading from oriented bounding box
+
+	// Latest per-frame OBB dimensions (instantaneous, for real-time rendering)
+	OBBLength float32 // Latest frame bounding box length (metres)
+	OBBWidth  float32 // Latest frame bounding box width (metres)
+	OBBHeight float32 // Latest frame bounding box height (metres)
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
@@ -433,6 +456,44 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	t.cleanupDeletedTracks(nowNanos)
 }
 
+// isFiniteState returns true if every element of the Kalman state vector
+// (X, Y, VX, VY) and the covariance matrix diagonal is finite (not NaN
+// or ±Inf). Used as a post-predict/update guard against numerical
+// instability from singular covariance inversions or degenerate inputs.
+func isFiniteState(track *TrackedObject) bool {
+	if math.IsNaN(float64(track.X)) || math.IsInf(float64(track.X), 0) {
+		return false
+	}
+	if math.IsNaN(float64(track.Y)) || math.IsInf(float64(track.Y), 0) {
+		return false
+	}
+	if math.IsNaN(float64(track.VX)) || math.IsInf(float64(track.VX), 0) {
+		return false
+	}
+	if math.IsNaN(float64(track.VY)) || math.IsInf(float64(track.VY), 0) {
+		return false
+	}
+	for i := 0; i < 4; i++ {
+		v := float64(track.P[i*4+i])
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return false
+		}
+	}
+	return true
+}
+
+// clampVelocity scales VX/VY proportionally so the speed magnitude does not
+// exceed MaxReasonableSpeedMps. This prevents teleport-like extrapolation
+// from noisy Kalman updates or degenerate associations.
+func clampVelocity(track *TrackedObject) {
+	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
+	if speed > MaxReasonableSpeedMps {
+		scale := MaxReasonableSpeedMps / speed
+		track.VX *= scale
+		track.VY *= scale
+	}
+}
+
 // predict applies the Kalman prediction step using constant velocity model.
 func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	// Clamp dt to prevent covariance explosion on frame gaps.
@@ -500,6 +561,25 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 			track.P[i*4+i] = MaxCovarianceDiag
 		}
 	}
+
+	// Guard: reset state if prediction produced NaN/Inf (task 2.4).
+	if !isFiniteState(track) {
+		track.X = 0
+		track.Y = 0
+		track.VX = 0
+		track.VY = 0
+		track.P = [16]float32{
+			10, 0, 0, 0,
+			0, 10, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		}
+		track.State = TrackDeleted
+		return
+	}
+
+	// Clamp velocity magnitude after prediction (task 2.3).
+	clampVelocity(track)
 }
 
 // associate performs cluster-to-track association using the Hungarian
@@ -743,6 +823,25 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	}
 	track.P = newP
 
+	// Guard: reset state if update produced NaN/Inf (task 2.4).
+	if !isFiniteState(track) {
+		track.X = 0
+		track.Y = 0
+		track.VX = 0
+		track.VY = 0
+		track.P = [16]float32{
+			10, 0, 0, 0,
+			0, 10, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1,
+		}
+		track.State = TrackDeleted
+		return
+	}
+
+	// Clamp velocity magnitude after update (task 2.3).
+	clampVelocity(track)
+
 	// Update timestamp
 	track.LastUnixNanos = nowNanos
 
@@ -831,56 +930,86 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	}
 
 	// Update OBB heading with temporal smoothing.
-	// Alpha = 0.15 provides strong smoothing to reduce PCA jitter while still
-	// tracking genuine orientation changes. PCA heading can flip between
-	// frames when the point cloud is sparse or the visible surface changes,
-	// so heavier smoothing prevents the bounding box from spinning erratically.
-	// Note: OBBHeadingRad is initialised in initTrack if cluster has OBB,
-	// so subsequent updates here always apply smoothing.
+	// Guards:
+	//   1. Skip heading update when cluster has too few points for reliable PCA.
+	//   2. Lock heading when aspect ratio ≈ 1:1 (ambiguous principal axis).
+	//   3. EMA α = OBBHeadingSmoothingAlpha (0.08) provides heavy smoothing.
+	// Per-frame OBB dimensions are always updated regardless of heading lock.
 	if cluster.OBB != nil {
-		newOBBHeading := cluster.OBB.HeadingRad
+		updateHeading := true
 
-		// Disambiguate PCA heading using velocity direction.
-		// PCA gives the axis of maximum variance but has 180° ambiguity.
-		// If the track has sufficient velocity, flip the PCA heading
-		// to align with the direction of travel.
-		speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
-		if speed > 0.5 { // Only disambiguate when moving (>0.5 m/s)
-			velHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
-			// Compute angular difference between PCA heading and velocity heading
-			diff := newOBBHeading - velHeading
-			// Normalise to [-π, π]
-			for diff > math.Pi {
-				diff -= 2 * math.Pi
+		// Guard 1: minimum point count for reliable PCA
+		if cluster.PointsCount < MinPointsForPCA {
+			updateHeading = false
+		}
+
+		// Guard 2: near-square aspect ratio → heading ambiguous
+		if updateHeading {
+			maxDim := cluster.OBB.Length
+			if cluster.OBB.Width > maxDim {
+				maxDim = cluster.OBB.Width
 			}
-			for diff < -math.Pi {
-				diff += 2 * math.Pi
-			}
-			// If PCA heading opposes velocity (diff > 90°), flip it by π
-			if diff > math.Pi/2 || diff < -math.Pi/2 {
-				newOBBHeading += math.Pi
-				if newOBBHeading > math.Pi {
-					newOBBHeading -= 2 * math.Pi
+			if maxDim > 0 {
+				aspectDiff := cluster.OBB.Length - cluster.OBB.Width
+				if aspectDiff < 0 {
+					aspectDiff = -aspectDiff
+				}
+				if aspectDiff/maxDim < OBBAspectRatioLockThreshold {
+					updateHeading = false
 				}
 			}
 		}
 
-		// Track heading jitter before smoothing: measure angular change between
-		// the previous smoothed heading and the new raw heading.
-		if track.ObservationCount > 1 { // Skip first observation (no previous heading)
-			headingDelta := float64(newOBBHeading - track.OBBHeadingRad)
-			// Normalise to [-π, π]
-			for headingDelta > math.Pi {
-				headingDelta -= 2 * math.Pi
+		if updateHeading {
+			newOBBHeading := cluster.OBB.HeadingRad
+
+			// Disambiguate PCA heading using velocity direction.
+			// PCA gives the axis of maximum variance but has 180° ambiguity.
+			// If the track has sufficient velocity, flip the PCA heading
+			// to align with the direction of travel.
+			speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
+			if speed > 0.5 { // Only disambiguate when moving (>0.5 m/s)
+				velHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
+				// Compute angular difference between PCA heading and velocity heading
+				diff := newOBBHeading - velHeading
+				// Normalise to [-π, π]
+				for diff > math.Pi {
+					diff -= 2 * math.Pi
+				}
+				for diff < -math.Pi {
+					diff += 2 * math.Pi
+				}
+				// If PCA heading opposes velocity (diff > 90°), flip it by π
+				if diff > math.Pi/2 || diff < -math.Pi/2 {
+					newOBBHeading += math.Pi
+					if newOBBHeading > math.Pi {
+						newOBBHeading -= 2 * math.Pi
+					}
+				}
 			}
-			for headingDelta < -math.Pi {
-				headingDelta += 2 * math.Pi
+
+			// Track heading jitter before smoothing: measure angular change between
+			// the previous smoothed heading and the new raw heading.
+			if track.ObservationCount > 1 { // Skip first observation (no previous heading)
+				headingDelta := float64(newOBBHeading - track.OBBHeadingRad)
+				// Normalise to [-π, π]
+				for headingDelta > math.Pi {
+					headingDelta -= 2 * math.Pi
+				}
+				for headingDelta < -math.Pi {
+					headingDelta += 2 * math.Pi
+				}
+				track.HeadingJitterSumSq += headingDelta * headingDelta
+				track.HeadingJitterCount++
 			}
-			track.HeadingJitterSumSq += headingDelta * headingDelta
-			track.HeadingJitterCount++
+
+			track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, OBBHeadingSmoothingAlpha)
 		}
 
-		track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, 0.15)
+		// Always update per-frame OBB dimensions regardless of heading lock
+		track.OBBLength = cluster.OBB.Length
+		track.OBBWidth = cluster.OBB.Width
+		track.OBBHeight = cluster.OBB.Height
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 }
@@ -934,9 +1063,12 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		speedHistory: make([]float32, 0, MaxSpeedHistoryLength),
 	}
 
-	// Initialise OBB heading from cluster if available
+	// Initialise OBB heading and per-frame dimensions from cluster if available
 	if cluster.OBB != nil {
 		track.OBBHeadingRad = cluster.OBB.HeadingRad
+		track.OBBLength = cluster.OBB.Length
+		track.OBBWidth = cluster.OBB.Width
+		track.OBBHeight = cluster.OBB.Height
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 

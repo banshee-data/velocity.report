@@ -3,7 +3,7 @@
 This is the canonical document for garbage-track remediation.
 It combines the original review and checklist into one maintained source.
 
-Updated: 2026-02-16
+Updated: 2026-02-17
 
 ---
 
@@ -54,79 +54,51 @@ Updated: 2026-02-16
 
 ### P0 — Critical pipeline bugs (new findings 2026-02-16)
 
-#### 8.1 Height band filter operates in sensor frame (CRITICAL)
+#### 8.1 Height band filter operates in sensor frame ~~(CRITICAL)~~ ✅ Done
 
-- **Severity:** P0 — causes loss of nearly all foreground detections
-- **Symptom:** Many foreground cars not identified; objects below the sensor rejected.
-- **Root cause:** `DefaultHeightBandFilter(floor=0.2, ceiling=3.0)` assumes Z=0 is ground level. However, `TransformToWorld` is called with a nil pose (identity transform), so Z=0 is the sensor's horizontal plane (~3m above ground). All LiDAR beams pointing below horizontal produce negative Z values via `z = distance × sin(elevation)`. The floor=0.2m check rejects every point with Z < 0.2, which includes **all objects at or below sensor height** — i.e. virtually everything of interest (cars, pedestrians, cyclists).
-- **Numerical proof:** Pandar40P elevation channels range from approximately −25° to +15°. At 10m range with −5° elevation: Z = −0.87m → rejected. At 20m with −10°: Z = −3.47m → rejected. Only the few channels pointing above horizontal (+5° to +15°) at short range pass the filter, and those see sky/walls, not road-level objects.
-- **Files:** [ground.go](../../../internal/lidar/ground.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go) (line 247–253), [transform.go](../../../internal/lidar/transform.go)
-- **Fix options:**
-  1. **(Preferred)** Adjust the height band to sensor-frame coordinates: set floor ≈ −3.5m (ground surface relative to sensor) and ceiling ≈ 0.3m (nothing of interest above sensor height). This correctly passes objects between ground and sensor.
-  2. Supply a real sensor→world pose to `TransformToWorld` so Z=0 becomes ground level, then the existing [0.2, 3.0] band would work as designed.
-  3. Disable the height filter entirely and rely on DBSCAN clustering to reject ground-plane noise.
-- **Validation:** replay a pcap capture; confirm the foreground cluster count is dramatically higher after the fix. Compare before/after in the macOS visualiser.
+- **Severity:** P0 — ~~causes loss of nearly all foreground detections~~ **Fixed**
+- **Implemented behaviour:** `DefaultHeightBandFilter()` now returns floor=−2.8m, ceiling=+1.5m (sensor-frame coordinates). Documentation and comments updated to reflect sensor-frame semantics.
 
-#### 8.2 OBB heading not sent to web REST API — Svelte has no bounding boxes
+#### 8.2 OBB heading not sent to web REST API ~~— Svelte has no bounding boxes~~ ✅ Done
 
-- **Severity:** P0 — Svelte tracks view shows **no bounding boxes** at all
-- **Symptom:** Bounding boxes completely absent in the Svelte tracks view. (Note: the _macOS_ visualiser does show boxes but they rotate/split — that is a separate PCA instability issue, see 8.4.)
-- **Root cause:** `trackToResponse()` in [track_api.go](../../../internal/lidar/monitor/track_api.go) computes heading via `headingFromVelocity(velX, velY)` → `atan2(VY, VX)`. It does **not** include the PCA-derived `OBBHeadingRad`. The gRPC path (macOS app) correctly sends `BBoxHeadingRad: t.OBBHeadingRad` via [adapter.go](../../../internal/lidar/visualiser/adapter.go). Svelte's [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte) uses `track.heading_rad` for rotation — which is velocity-derived and potentially zero/NaN for stationary objects.
-- **Files:** [track_api.go](../../../internal/lidar/monitor/track_api.go) (line ~940), [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte) (line ~581)
-- **Fix:** Add `obb_heading_rad` field to the REST API track response. In `MapPane.svelte`, prefer `obb_heading_rad` over velocity heading for bounding box rendering.
-- **Validation:** confirm bounding boxes appear in the Svelte tracks view with correct orientation matching macOS.
+- **Severity:** P0 — **Fixed**
+- **Implemented behaviour:** `trackToResponse()` now includes `obb_heading_rad` field sourced from `track.OBBHeadingRad`. `BBox` struct extended with per-frame `length`, `width`, `height` alongside existing `*_avg` fields. `MapPane.svelte` now uses `track.obb_heading_rad` (with `heading_rad` fallback) for bounding box rotation, and prefers per-frame dimensions over averages for rendering. TypeScript `Track` interface updated with `obb_heading_rad` and per-frame bbox fields.
 
-#### 8.3 Per-frame OBB dimensions not persisted — averaged dimensions used
+#### 8.3 Per-frame OBB dimensions not persisted ~~— averaged dimensions used~~ ✅ Done
 
-- **Severity:** P0/P1 — bounding boxes use stale running averages, not per-frame measurements
-- **Symptom:** Boxes in both macOS and Svelte views don't tightly hug clusters; they lag behind shape changes.
-- **Root cause:** `EstimateOBBFromCluster` computes per-frame length/width/height but these values are folded into `BoundingBoxLengthAvg/WidthAvg/HeightAvg` running averages in the tracker. Both gRPC (`adaptTracks`) and REST API (`trackToResponse`) send only these averaged values. Persistence in `InsertTrackObservation` also stores averages.
-- **Files:** [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go) (line ~369), [tracking.go](../../../internal/lidar/tracking.go) (update method), [track_store.go](../../../internal/lidar/track_store.go)
-- **Fix:** Persist and transmit both instantaneous OBB dimensions (for real-time rendering) and averaged dimensions (for classification/reporting). Add `obb_length`, `obb_width`, `obb_height` fields alongside the existing `*_avg` fields.
-- **Validation:** bounding boxes should visually snap to cluster shape each frame.
+- **Severity:** P0/P1 — **Fixed**
+- **Implemented behaviour:** `TrackedObject` now stores per-frame `OBBLength`, `OBBWidth`, `OBBHeight` fields updated every frame from the cluster OBB. Both gRPC adapter (`adaptTracks`) and REST API (`trackToResponse`) transmit per-frame and averaged dimensions. `InsertTrackObservation` in the tracking pipeline now persists per-frame OBB dimensions and OBB heading instead of running averages. `MapPane.svelte` prefers per-frame `bbox.length` over `bbox.length_avg` for rendering.
 
-#### 8.4 OBB heading jitter in macOS view (PCA instability)
+#### 8.4 OBB heading jitter in macOS view (PCA instability) ✅ Done
 
-- **Severity:** Medium — macOS visualiser only
-- **Symptom:** Bounding boxes in the macOS visualiser rotate rapidly and sometimes split into smaller boxes on symmetric or small clusters.
-- **Root cause:** PCA on small/symmetric point clouds has a 180° heading ambiguity. The velocity-based disambiguation (in `SmoothOBBHeading`) only works when speed > 0.5 m/s. The smoothing factor α=0.15 may be too aggressive for noisy heading estimates.
-- **Files:** [obb.go](../../../internal/lidar/obb.go), [tracking.go](../../../internal/lidar/tracking.go)
-- **Fix:** Increase heading smoothing (reduce α), add a minimum-points threshold for PCA, and consider locking heading when the cluster aspect ratio is near 1:1 (ambiguous).
-- **Validation:** stationary or slow-moving vehicles should maintain stable box orientation.
+- **Severity:** Medium — macOS visualiser only — **Fixed**
+- **Implemented behaviour:** Three guards added to `update()` in tracking.go:
+  1. **Min-points threshold:** clusters with fewer than `MinPointsForPCA` (4) points skip heading update, retaining the previous smoothed heading.
+  2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (0.25), the heading is locked because the principal axis is ambiguous.
+  3. **Reduced smoothing α:** `OBBHeadingSmoothingAlpha` lowered from 0.15 to 0.08 for heavier EMA smoothing.
+  Per-frame OBB dimensions are always updated regardless of heading lock.
 
 ### R1 — Next high-impact items
 
-#### 2.5 Coasted points persisted as real observations
+#### 2.5 Coasted points persisted as real observations ✅ Done
 
-- **Severity:** Medium
-- **Why next:** still creates phantom straight segments and can contaminate quality metrics.
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
-- **Fix:** either skip persisting coasted points or persist with explicit `is_predicted` flag.
-- **Validation:** coast for N frames and verify predicted points are absent or explicitly flagged.
+- **Severity:** Medium — **Fixed**
+- **Implemented behaviour:** The persistence loop in `tracking_pipeline.go` now checks `track.Misses == 0` before calling `InsertTrackObservation`. Coasting tracks (Misses > 0) still have their track record updated via `InsertTrack`, but predicted Kalman positions are no longer persisted as observations. This eliminates phantom straight segments from coasted positions.
 
-#### 6.4 Full-epoch default query window
+#### 6.4 Full-epoch default query window ✅ Done
 
-- **Severity:** Medium
-- **Why next:** maximally exposes historical artefacts and increases UI clutter/load.
-- **Files:** [+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte)
-- **Fix:** default to bounded window (for example last 1 hour) and expand explicitly.
-- **Validation:** initial load query must not use epoch-to-now.
+- **Severity:** Medium — **Fixed**
+- **Implemented behaviour:** `loadHistoricalData()` in `+page.svelte` now defaults `startTime` to `(Date.now() - 3_600_000) * 1e6` (last 1 hour in nanoseconds) instead of epoch (0). This bounds the initial query to recent data, reducing load time and eliminating exposure to old artefacts.
 
-#### 2.4 NaN/Inf guards after Kalman predict/update
+#### 2.4 NaN/Inf guards after Kalman predict/update ✅ Done
 
-- **Severity:** Medium
-- **Why next:** protects against singular/inversion edge cases causing permanent track corruption.
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go)
-- **Fix:** add finite checks and reinitialise/delete on invalid state.
-- **Validation:** inject near-singular covariance and assert no NaN/Inf escapes.
+- **Severity:** Medium — **Fixed**
+- **Implemented behaviour:** `isFiniteState()` helper checks X, Y, VX, VY and covariance diagonal for NaN/Inf. Called at the end of both `predict()` and `update()` in tracking.go. If any value is non-finite, the state is reset to defaults and the track is marked `TrackDeleted` to prevent corruption from propagating.
 
-#### 2.3 Velocity clamp on Kalman state
+#### 2.3 Velocity clamp on Kalman state ✅ Done
 
-- **Severity:** Medium
-- **Why next:** reduces teleport-like extrapolation from noisy updates.
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go)
-- **Fix:** clamp VX/VY (or speed magnitude) to configurable limit.
-- **Validation:** outlier update should not push speed beyond cap.
+- **Severity:** Medium — **Fixed**
+- **Implemented behaviour:** `clampVelocity()` helper scales VX/VY proportionally so speed magnitude never exceeds `MaxReasonableSpeedMps` (30 m/s ≈ 108 km/h). Called at the end of both `predict()` and `update()` in tracking.go. This prevents teleport-like extrapolation from noisy Kalman updates.
 
 ### R2 — Medium-term hardening
 
@@ -202,9 +174,9 @@ Updated: 2026-02-16
 
 ## Delivery order
 
-1. **P0 batch:** 8.1 (height filter — critical, most impact), 8.2 (OBB heading to web API), 8.3 (per-frame OBB dims)
-2. **R1 batch:** 2.5, 6.4, 2.4, 2.3
-3. **R2 batch:** 3.1, 3.3, 4.3, 5.2, 7.1, 8.4
+1. **P0 batch:** 8.1 (height filter — critical, most impact), 8.2 (OBB heading to web API), 8.3 (per-frame OBB dims) ✅
+2. **R1 batch + 8.4:** 8.4, 2.5, 6.4, 2.4, 2.3 ✅
+3. **R2 batch:** 3.1, 3.3, 4.3, 5.2, 7.1
 4. **R3 batch:** 1.3, 6.2, 6.3, 6.5, 7.2, 3.2
 
 ---

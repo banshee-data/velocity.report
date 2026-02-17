@@ -572,13 +572,14 @@
 
 		// Only render bounding box / heading if we are using the current valid position
 		if (useCurrentPos) {
-			// Draw bounding box
+			// Draw bounding box using per-frame OBB dimensions and PCA heading
 			const bbox = track.bounding_box;
-			const length = bbox.length_avg * scale;
-			const width = bbox.width_avg * scale;
+			const length = (bbox.length || bbox.length_avg) * scale;
+			const width = (bbox.width || bbox.width_avg) * scale;
+			const boxHeading = track.obb_heading_rad ?? track.heading_rad;
 
 			ctx.translate(screenX, screenY);
-			ctx.rotate(-track.heading_rad); // Negative because Y is flipped
+			ctx.rotate(-boxHeading); // Negative because Y is flipped
 
 			// Fill bounding box
 			ctx.fillStyle = `${color}33`; // 20% opacity

@@ -138,9 +138,11 @@
 	async function loadHistoricalData() {
 		console.log('[TrackHistory] Starting data load for sensor:', sensorId);
 		try {
-			// Query ALL historical data (use very wide time range)
+			// Query last 1 hour of historical data (bounded window).
+			// Using epoch (startTime = 0) would load ALL data, causing excessive
+			// load times, UI clutter, and exposure to historical artefacts.
 			const endTime = Date.now() * 1e6; // Convert to nanoseconds
-			const startTime = 0; // Start from epoch to capture all historical data
+			const startTime = (Date.now() - 3_600_000) * 1e6; // Last 1 hour in nanoseconds
 
 			console.log(
 				'[TrackHistory] Querying tracks from',

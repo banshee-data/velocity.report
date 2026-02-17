@@ -239,6 +239,11 @@ type Track struct {
 	BBoxHeightAvg  float32
 	BBoxHeadingRad float32
 
+	// Bounding box (per-frame, instantaneous)
+	BBoxLength float32
+	BBoxWidth  float32
+	BBoxHeight float32
+
 	// Features
 	HeightP95Max     float32
 	IntensityMeanAvg float32
