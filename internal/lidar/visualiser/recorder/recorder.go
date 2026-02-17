@@ -438,8 +438,9 @@ func (r *Replayer) loadChunk(chunkIdx int) error {
 		return fmt.Errorf("failed to stat chunk: %w", err)
 	}
 
-	// Limit chunk size to 100MB to prevent DoS via malicious chunk files.
-	const maxChunkSize = 100 * 1024 * 1024
+	// Limit chunk size to 200MB to prevent DoS via malicious chunk files.
+	// Dense LiDAR frames (17k+ foreground points) can produce chunks > 100MB.
+	const maxChunkSize = 200 * 1024 * 1024
 	if info.Size() > maxChunkSize {
 		return fmt.Errorf("chunk file too large: %d bytes (max %d)", info.Size(), maxChunkSize)
 	}

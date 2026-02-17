@@ -64,6 +64,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var selectedTrackID: String?
     @Published var showLabelPanel: Bool = false
     @Published var showSidePanel: Bool = false
+    @Published var showFilterPane: Bool = false  // Separate filter pane on the right
 
     // MARK: - Frame Data
 
@@ -81,6 +82,77 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
     @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
     @Published var metalViewSize: CGSize = .zero  // Metal view drawable size
+
+    // MARK: - Track Filters
+
+    @Published var filterOnlyInBox: Bool = false  // Only show foreground points inside bounding boxes
+    @Published var filterMinHits: Int = 0  // Minimum number of frames (hits) for a track
+    @Published var filterMaxHits: Int = 0  // Maximum hits (0 = no limit)
+    @Published var filterMinPointsPerFrame: Int = 0  // Minimum observation count per frame
+    @Published var filterMaxPointsPerFrame: Int = 0  // Maximum observation count (0 = no limit)
+
+    /// Track IDs that have been admitted by the filter at least once.
+    /// Once a track passes the filter criteria, it stays visible for its entire lifetime.
+    /// This set is cleared when filter parameters change, forcing re-evaluation.
+    private(set) var admittedTrackIDs: Set<String> = []
+
+    /// Evaluate whether a track passes the current filter criteria.
+    private func trackPassesFilter(_ track: Track) -> Bool {
+        if filterMinHits > 0 && track.hits < filterMinHits { return false }
+        if filterMaxHits > 0 && track.hits > filterMaxHits { return false }
+        if filterMinPointsPerFrame > 0 && track.observationCount < filterMinPointsPerFrame {
+            return false
+        }
+        if filterMaxPointsPerFrame > 0 && track.observationCount > filterMaxPointsPerFrame {
+            return false
+        }
+        return true
+    }
+
+    /// Update admitted tracks based on current frame.
+    /// Tracks that pass filters are permanently admitted until filters change.
+    func updateAdmittedTracks() {
+        guard let trackSet = currentFrame?.tracks else { return }
+        for track in trackSet.tracks {
+            if trackPassesFilter(track) { admittedTrackIDs.insert(track.trackID) }
+        }
+    }
+
+    /// Reset admitted tracks — called when filter parameters change.
+    func resetAdmittedTracks() {
+        admittedTrackIDs.removeAll()
+        // Re-evaluate current frame immediately
+        updateAdmittedTracks()
+    }
+
+    /// Tracks from the current frame that are admitted (passed filters at some point).
+    var filteredTracks: [Track] {
+        guard let trackSet = currentFrame?.tracks else { return [] }
+        guard hasActiveFilters else { return trackSet.tracks }
+        return trackSet.tracks.filter { admittedTrackIDs.contains($0.trackID) }
+    }
+
+    /// Set of track IDs that pass the current filters.
+    var filteredTrackIDs: Set<String> { Set(filteredTracks.map { $0.trackID }) }
+
+    /// Whether any filter is actively narrowing the track set.
+    var hasActiveFilters: Bool {
+        filterOnlyInBox || filterMinHits > 0 || filterMaxHits > 0 || filterMinPointsPerFrame > 0
+            || filterMaxPointsPerFrame > 0
+    }
+
+    // MARK: - Track History (for velocity/heading graphs)
+
+    /// Per-track history of velocity and heading samples.
+    struct TrackSample {
+        let frameIndex: UInt64
+        let speedMps: Float
+        let headingDeg: Float
+    }
+
+    /// Ring buffer of recent samples per track (keyed by trackID).
+    private(set) var trackHistory: [String: [TrackSample]] = [:]
+    private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     // MARK: - Renderer
 
@@ -205,6 +277,20 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         replayProgress = 0
         frameCount = 0
         logger.debug("Disconnected")
+    }
+
+    /// Clear all transient visualisation data while preserving the background grid and connection.
+    func clearAll() {
+        logger.info("clearAll() called — clearing transient data")
+        currentFrame = nil
+        selectedTrackID = nil
+        trackLabels = []
+        pointCount = 0
+        clusterCount = 0
+        trackCount = 0
+        cacheStatus = ""
+        trackHistory = [:]
+        renderer?.clearTransientData()
     }
 
     // MARK: - Playback Control
@@ -411,6 +497,38 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         }
     }
 
+    /// Assign a label to all tracks that pass the current filters.
+    func assignLabelToAllVisible(_ label: String) {
+        let tracks = filteredTracks
+        guard !tracks.isEmpty else { return }
+        logger.info("Assigning label '\(label)' to \(tracks.count) visible tracks")
+
+        Task {
+            var succeeded = 0
+            var failed = 0
+            for track in tracks {
+                do {
+                    if let runID = currentRunID {
+                        _ = try await runTrackLabelClient.updateLabel(
+                            runID: runID, trackID: track.trackID, userLabel: label)
+                    } else {
+                        _ = try await labelClient.createLabel(
+                            trackID: track.trackID, classLabel: label,
+                            startTimestampNs: currentTimestamp)
+                    }
+                    succeeded += 1
+                } catch {
+                    failed += 1
+                    logger.error(
+                        "Failed to label track \(track.trackID): \(error.localizedDescription)")
+                }
+            }
+            logger.info(
+                "Bulk label complete: \(succeeded) succeeded, \(failed) failed out of \(tracks.count)"
+            )
+        }
+    }
+
     /// Assign quality rating to the selected track (Phase 4.2).
     func assignQuality(_ quality: String) {
         guard let trackID = selectedTrackID, let runID = currentRunID else { return }
@@ -495,14 +613,30 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
 
-        // Forward frame directly to renderer (bypasses SwiftUI)
-        renderer?.updateFrame(frame)
+        // Apply persistent track filters BEFORE rendering so filtered tracks
+        // never appear even briefly.
+        updateAdmittedTracks()
+
+        // Compute hidden track IDs before forwarding to renderer
+        if hasActiveFilters {
+            let visibleIDs = filteredTrackIDs
+            let allIDs = Set(frame.tracks?.tracks.map { $0.trackID } ?? [])
+            renderer?.hiddenTrackIDs = allIDs.subtracting(visibleIDs)
+        } else {
+            renderer?.hiddenTrackIDs = []
+        }
+
+        // Set renderer flags before updateFrame so filtering is applied during rendering
         renderer?.showClusters = showClusters  // M4: Update cluster toggle
         renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
         renderer?.showGating = showGating  // M6: Gating ellipses
         renderer?.showAssociation = showAssociation  // M6: Association lines
         renderer?.showResiduals = showResiduals  // M6: Residual vectors
         renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
+        renderer?.filterOnlyInBox = filterOnlyInBox  // Filter foreground points outside boxes
+
+        // Forward frame to renderer (uses hiddenTrackIDs already set above)
+        renderer?.updateFrame(frame)
 
         // Pre-compute values for deferred UI update
         let now = Date()
@@ -569,6 +703,21 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         pointCount = frame.pointCloud?.pointCount ?? 0
         clusterCount = frame.clusters?.clusters.count ?? 0
         trackCount = frame.tracks?.tracks.count ?? 0
+
+        // Accumulate velocity/heading history for each track
+        if let tracks = frame.tracks?.tracks {
+            for track in tracks {
+                let sample = TrackSample(
+                    frameIndex: currentFrameIndex, speedMps: track.speedMps,
+                    headingDeg: track.headingRad * 180 / .pi)
+                var samples = trackHistory[track.trackID] ?? []
+                samples.append(sample)
+                if samples.count > Self.maxHistorySamples {
+                    samples.removeFirst(samples.count - Self.maxHistorySamples)
+                }
+                trackHistory[track.trackID] = samples
+            }
+        }
 
         // M3.5: Update cache status
         cacheStatus = newCacheStatus

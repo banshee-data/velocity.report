@@ -18,10 +18,11 @@ import (
 type SweepStatus string
 
 const (
-	SweepStatusIdle     SweepStatus = "idle"
-	SweepStatusRunning  SweepStatus = "running"
-	SweepStatusComplete SweepStatus = "complete"
-	SweepStatusError    SweepStatus = "error"
+	SweepStatusIdle      SweepStatus = "idle"
+	SweepStatusRunning   SweepStatus = "running"
+	SweepStatusComplete  SweepStatus = "complete"
+	SweepStatusError     SweepStatus = "error"
+	SweepStatusSuspended SweepStatus = "suspended"
 
 	// ObjectiveVersion is the current version of the objective/scoring system
 	ObjectiveVersion = "v1"
@@ -148,6 +149,10 @@ type AnalysisRunCreator interface {
 type SweepPersister interface {
 	SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error
 	SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error
+	SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error
+	LoadSweepCheckpoint(sweepID string) (round int, bounds, results, request json.RawMessage, err error)
+	// GetSuspendedSweep returns the most recent suspended sweep info, or nil.
+	GetSuspendedSweep() (sweepID string, checkpointRound int, err error)
 }
 
 // SweepState holds the current state and results of a sweep

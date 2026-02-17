@@ -1656,3 +1656,15 @@ func (m *runnerMockPersister) SaveSweepStart(sweepID, sensorID, mode string, req
 func (m *runnerMockPersister) SaveSweepComplete(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	return m.completeErr
 }
+
+func (m *runnerMockPersister) SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
+	return nil
+}
+
+func (m *runnerMockPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessage, json.RawMessage, json.RawMessage, error) {
+	return 0, nil, nil, nil, fmt.Errorf("no checkpoint")
+}
+
+func (m *runnerMockPersister) GetSuspendedSweep() (string, int, error) {
+	return "", 0, nil
+}

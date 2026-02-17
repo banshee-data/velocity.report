@@ -8,11 +8,11 @@ import (
 func TestDefaultHeightBandFilter(t *testing.T) {
 	filter := DefaultHeightBandFilter()
 
-	if filter.FloorHeightM != 0.2 {
-		t.Errorf("Expected FloorHeightM=0.2, got %f", filter.FloorHeightM)
+	if filter.FloorHeightM != -2.8 {
+		t.Errorf("Expected FloorHeightM=-2.8, got %f", filter.FloorHeightM)
 	}
-	if filter.CeilingHeightM != 3.0 {
-		t.Errorf("Expected CeilingHeightM=3.0, got %f", filter.CeilingHeightM)
+	if filter.CeilingHeightM != 1.5 {
+		t.Errorf("Expected CeilingHeightM=1.5, got %f", filter.CeilingHeightM)
 	}
 }
 

@@ -251,14 +251,42 @@ func TestTracker_Predict(t *testing.T) {
 	internalTrack.VY = 0.0
 	tracker.mu.Unlock()
 
-	// Update with no clusters (miss) after 1 second
-	now = now.Add(1 * time.Second)
+	// Update with no clusters (miss) after 0.4 second (within MaxPredictDt)
+	now = now.Add(400 * time.Millisecond)
 	tracker.Update([]WorldCluster{}, now)
 
-	// Track should have predicted to X=1.0
+	// Track should have predicted to X≈0.4 (VX=1.0 * dt=0.4)
 	updatedTrack := tracker.GetTrack(trackID)
-	if math.Abs(float64(updatedTrack.X)-1.0) > 0.1 {
-		t.Errorf("expected X≈1.0 after prediction, got %v", updatedTrack.X)
+	if math.Abs(float64(updatedTrack.X)-0.4) > 0.1 {
+		t.Errorf("expected X≈0.4 after prediction, got %v", updatedTrack.X)
+	}
+}
+
+func TestTracker_Predict_DtClamped(t *testing.T) {
+	// Verify that large dt values are clamped to MaxPredictDt
+	tracker := NewTracker(DefaultTrackerConfig())
+	now := time.Now()
+
+	cluster := WorldCluster{CentroidX: 0.0, CentroidY: 0.0, SensorID: "test"}
+	tracker.Update([]WorldCluster{cluster}, now)
+
+	tracks := tracker.GetActiveTracks()
+	trackID := tracks[0].TrackID
+
+	tracker.mu.Lock()
+	internalTrack := tracker.Tracks[trackID]
+	internalTrack.VX = 1.0
+	internalTrack.VY = 0.0
+	tracker.mu.Unlock()
+
+	// Update with a 5-second gap — dt should be clamped to MaxPredictDt (0.5)
+	now = now.Add(5 * time.Second)
+	tracker.Update([]WorldCluster{}, now)
+
+	updatedTrack := tracker.GetTrack(trackID)
+	// With clamping, X should be ~0.5 (VX=1.0 * MaxPredictDt=0.5), not 5.0
+	if float64(updatedTrack.X) > 1.0 {
+		t.Errorf("dt should be clamped: expected X≤1.0, got %v", updatedTrack.X)
 	}
 }
 
@@ -479,9 +507,9 @@ func TestMahalanobisDistanceSquared(t *testing.T) {
 			P: [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
 		}
 
-		// Cluster very far away, exceeding MaxPositionJumpMeters
+		// Cluster very far away, exceeding config max_position_jump_meters
 		cluster := WorldCluster{
-			CentroidX: MaxPositionJumpMeters + 10, // way beyond limit
+			CentroidX: tracker.Config.MaxPositionJumpMeters + 10, // way beyond limit
 			CentroidY: 0,
 		}
 

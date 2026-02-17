@@ -287,6 +287,50 @@ func (s *SweepStore) SaveSweepComplete(sweepID, status string, results, recommen
 	return s.UpdateSweepResults(sweepID, status, results, recommendation, roundResults, &completedAt, errMsg, scoreComponents, recommendationExplanation, labelProvenanceSummary, transformPipelineName, transformPipelineVersion)
 }
 
+// SaveSweepCheckpoint persists a mid-run checkpoint so a suspended auto-tune can be resumed.
+func (s *SweepStore) SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
+	query := `
+		UPDATE lidar_sweeps
+		SET status = 'suspended',
+		    checkpoint_round = ?,
+		    checkpoint_bounds = ?,
+		    checkpoint_results = ?,
+		    checkpoint_request = ?
+		WHERE sweep_id = ?
+	`
+	err := retryOnBusy(func() error {
+		_, err := s.db.Exec(query, round, nullJSON(bounds), nullJSON(results), nullJSON(request), sweepID)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("saving checkpoint for sweep %s: %w", sweepID, err)
+	}
+	return nil
+}
+
+// LoadSweepCheckpoint loads a checkpoint for resuming a suspended auto-tune.
+func (s *SweepStore) LoadSweepCheckpoint(sweepID string) (round int, bounds, results, request json.RawMessage, err error) {
+	query := `
+		SELECT checkpoint_round, checkpoint_bounds, checkpoint_results, checkpoint_request
+		FROM lidar_sweeps
+		WHERE sweep_id = ? AND status = 'suspended'
+	`
+	var (
+		roundVal   sql.NullInt64
+		boundsStr  sql.NullString
+		resultsStr sql.NullString
+		requestStr sql.NullString
+	)
+	row := s.db.QueryRow(query, sweepID)
+	if err = row.Scan(&roundVal, &boundsStr, &resultsStr, &requestStr); err != nil {
+		return 0, nil, nil, nil, fmt.Errorf("loading checkpoint for sweep %s: %w", sweepID, err)
+	}
+	if !roundVal.Valid {
+		return 0, nil, nil, nil, fmt.Errorf("no checkpoint found for sweep %s", sweepID)
+	}
+	return int(roundVal.Int64), jsonOrNil(boundsStr), jsonOrNil(resultsStr), jsonOrNil(requestStr), nil
+}
+
 // nullJSON returns a sql.NullString for a JSON value, treating nil or empty as NULL.
 func nullJSON(data json.RawMessage) *string {
 	if len(data) == 0 {
@@ -294,6 +338,56 @@ func nullJSON(data json.RawMessage) *string {
 	}
 	s := string(data)
 	return &s
+}
+
+// SuspendedSweepInfo is a lightweight summary of a suspended sweep for the
+// resume UI. It omits large JSON blobs to keep the response compact.
+type SuspendedSweepInfo struct {
+	SweepID         string    `json:"sweep_id"`
+	SensorID        string    `json:"sensor_id"`
+	CheckpointRound int       `json:"checkpoint_round"`
+	StartedAt       time.Time `json:"started_at"`
+}
+
+// GetSuspendedSweep implements sweep.SweepPersister. It returns the most
+// recent suspended sweep's ID and checkpoint round, or ("", 0, nil) when none
+// exists.
+func (s *SweepStore) GetSuspendedSweep() (string, int, error) {
+	info, err := s.GetSuspendedSweepInfo()
+	if err != nil {
+		return "", 0, err
+	}
+	if info == nil {
+		return "", 0, nil
+	}
+	return info.SweepID, info.CheckpointRound, nil
+}
+
+// GetSuspendedSweepInfo returns full suspended sweep info for the HTTP handler.
+// Returns nil when no suspended sweep exists.
+func (s *SweepStore) GetSuspendedSweepInfo() (*SuspendedSweepInfo, error) {
+	query := `
+		SELECT sweep_id, sensor_id, COALESCE(checkpoint_round, 0), started_at
+		FROM lidar_sweeps
+		WHERE status = 'suspended'
+		ORDER BY started_at DESC
+		LIMIT 1
+	`
+	var info SuspendedSweepInfo
+	var startedAtStr string
+	err := s.db.QueryRow(query).Scan(&info.SweepID, &info.SensorID, &info.CheckpointRound, &startedAtStr)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying suspended sweeps: %w", err)
+	}
+	t, err := time.Parse(time.RFC3339, startedAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("parsing started_at for suspended sweep %s: %w", info.SweepID, err)
+	}
+	info.StartedAt = t
+	return &info, nil
 }
 
 // nullStr returns nil for empty strings, pointer to string otherwise.

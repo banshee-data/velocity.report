@@ -34,7 +34,9 @@ export interface Track {
 	avg_speed_mps: number;
 	/** Peak speed observed (meters/second) */
 	peak_speed_mps: number;
-	/** Average bounding box dimensions (meters) */
+	/** PCA-derived oriented bounding box heading (radians) */
+	obb_heading_rad: number;
+	/** Bounding box dimensions (meters) */
 	bounding_box: {
 		/** Average length (meters) */
 		length_avg: number;
@@ -42,6 +44,12 @@ export interface Track {
 		width_avg: number;
 		/** Average height (meters) */
 		height_avg: number;
+		/** Per-frame length (meters) */
+		length: number;
+		/** Per-frame width (meters) */
+		width: number;
+		/** Per-frame height (meters) */
+		height: number;
 	};
 	/** ISO 8601 timestamp when track was first seen */
 	first_seen: string;
@@ -175,6 +183,63 @@ export const TRACK_COLORS = {
 	tentative: '#FF9800', // Orange (unconfirmed)
 	deleted: '#F44336' // Red (just deleted)
 } as const;
+
+/**
+ * Deterministic per-track colour variation within the class palette (task 6.2).
+ * Hashes the track_id to shift the base class hue by ±25° so individual
+ * tracks of the same class are visually distinguishable on the map.
+ */
+export function trackColour(trackId: string, objectClass?: string, state?: string): string {
+	// State colours are fixed — no per-track variation
+	if (state === 'tentative') return TRACK_COLORS.tentative;
+	if (state === 'deleted') return TRACK_COLORS.deleted;
+
+	const base =
+		objectClass && objectClass in TRACK_COLORS
+			? TRACK_COLORS[objectClass as keyof typeof TRACK_COLORS]
+			: TRACK_COLORS.other;
+
+	// Simple string hash → deterministic hue offset
+	let hash = 0;
+	for (let i = 0; i < trackId.length; i++) {
+		hash = (hash * 31 + trackId.charCodeAt(i)) | 0;
+	}
+	const hueShift = (hash % 51) - 25; // −25 to +25 degrees
+
+	// Parse hex → HSL → shift hue → return hex
+	const r = parseInt(base.slice(1, 3), 16) / 255;
+	const g = parseInt(base.slice(3, 5), 16) / 255;
+	const b = parseInt(base.slice(5, 7), 16) / 255;
+	const max = Math.max(r, g, b),
+		min = Math.min(r, g, b);
+	const l = (max + min) / 2;
+	let h = 0,
+		s = 0;
+	if (max !== min) {
+		const d = max - min;
+		s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+		if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+		else if (max === g) h = ((b - r) / d + 2) * 60;
+		else h = ((r - g) / d + 4) * 60;
+	}
+	h = (h + hueShift + 360) % 360;
+
+	// HSL → hex
+	const hue2rgb = (p: number, q: number, t: number) => {
+		if (t < 0) t += 1;
+		if (t > 1) t -= 1;
+		if (t < 1 / 6) return p + (q - p) * 6 * t;
+		if (t < 1 / 2) return q;
+		if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+		return p;
+	};
+	const q2 = l < 0.5 ? l * (1 + s) : l + s - l * s;
+	const p2 = 2 * l - q2;
+	const rr = Math.round(hue2rgb(p2, q2, h / 360 + 1 / 3) * 255);
+	const gg = Math.round(hue2rgb(p2, q2, h / 360) * 255);
+	const bb = Math.round(hue2rgb(p2, q2, h / 360 - 1 / 3) * 255);
+	return `#${((1 << 24) | (rr << 16) | (gg << 8) | bb).toString(16).slice(1)}`;
+}
 
 /** Classification labels for track identity (single-select: what is the object?) */
 export type DetectionLabel = 'car' | 'ped' | 'noise' | 'impossible';

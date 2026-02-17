@@ -81,6 +81,10 @@
 	let foregroundLoading = false;
 	let foregroundError: string | null = null;
 	let showForeground = true;
+	// Foreground observation viewport tracking (task 6.5).
+	// When selectedTime drifts outside the last-queried window, reload.
+	let fgWindowCentre = 0;
+	const FG_RELOAD_DRIFT_MS = 20_000; // reload when playback drifts >20 s from centre
 	let foregroundOffsetX = 0;
 	let foregroundOffsetY = 0;
 	let foregroundOffset = { x: 0, y: 0 };
@@ -138,9 +142,11 @@
 	async function loadHistoricalData() {
 		console.log('[TrackHistory] Starting data load for sensor:', sensorId);
 		try {
-			// Query ALL historical data (use very wide time range)
+			// Query last 1 hour of historical data (bounded window).
+			// Using epoch (startTime = 0) would load ALL data, causing excessive
+			// load times, UI clutter, and exposure to historical artefacts.
 			const endTime = Date.now() * 1e6; // Convert to nanoseconds
-			const startTime = 0; // Start from epoch to capture all historical data
+			const startTime = (Date.now() - 3_600_000) * 1e6; // Last 1 hour in nanoseconds
 
 			console.log(
 				'[TrackHistory] Querying tracks from',
@@ -319,25 +325,36 @@
 		}
 	}
 
-	// Run-scoped track filtering: when a run is selected, only show its tracks
-	$: runTrackIds =
-		selectedRunId && runTracks.length > 0 ? new Set(runTracks.map((rt) => rt.track_id)) : null;
+	// Run-scoped track filtering: when a run is selected, build a Map keyed by
+	// track_id so we can filter by both identity AND the run's own time window
+	// (task 5.2). This avoids false positives from global ID membership alone.
+	let runTrackMap: Map<string, RunTrack> | null = null;
+	$: runTrackMap =
+		selectedRunId && runTracks.length > 0
+			? new Map(runTracks.map((rt) => [rt.track_id, rt]))
+			: null;
 
 	// Get tracks visible at current time, filtered by run if selected
 	$: visibleTracks = tracks.filter((track) => {
-		if (runTrackIds && !runTrackIds.has(track.track_id)) return false;
+		if (runTrackMap) {
+			const rt = runTrackMap.get(track.track_id);
+			if (!rt) return false;
+			// Use the run-track's own nanosecond time window for scoping
+			const selectedTimeNs = selectedTime * 1e6;
+			return selectedTimeNs >= rt.start_unix_nanos && selectedTimeNs <= rt.end_unix_nanos;
+		}
 		const firstSeen = new Date(track.first_seen).getTime();
 		const lastSeen = new Date(track.last_seen).getTime();
 		return selectedTime >= firstSeen && selectedTime <= lastSeen;
 	});
 
 	// Run-scoped foreground observations
-	$: visibleForeground = runTrackIds
-		? foregroundObservations.filter((obs) => runTrackIds.has(obs.track_id))
+	$: visibleForeground = runTrackMap
+		? foregroundObservations.filter((obs) => runTrackMap.has(obs.track_id))
 		: foregroundObservations;
 
 	// Run-scoped tracks for TrackList sidebar
-	$: listTracks = runTrackIds ? tracks.filter((t) => runTrackIds.has(t.track_id)) : tracks;
+	$: listTracks = runTrackMap ? tracks.filter((t) => runTrackMap.has(t.track_id)) : tracks;
 
 	// Debug visible tracks changes
 	let lastVisibleCount = -1;
@@ -477,8 +494,15 @@
 	async function loadForegroundObservations(startMs?: number, endMs?: number) {
 		if (!timeRange && (!startMs || !endMs)) return;
 
-		const windowStart = startMs ?? timeRange!.start;
-		const windowEnd = endMs ?? timeRange!.end;
+		// Scope the query to a ±30-second window around the current playback
+		// position (task 6.5). This avoids sampling bias where a fixed limit
+		// of 4 000 observations spread over the full time range under-
+		// represents the visible viewport.
+		const FG_WINDOW_MS = 30_000;
+		const centre = selectedTime || ((startMs ?? timeRange!.start) + (endMs ?? timeRange!.end)) / 2;
+		const windowStart = Math.max(startMs ?? timeRange!.start, centre - FG_WINDOW_MS);
+		const windowEnd = Math.min(endMs ?? timeRange!.end, centre + FG_WINDOW_MS);
+		fgWindowCentre = centre;
 
 		foregroundLoading = true;
 		foregroundError = null;
@@ -496,8 +520,18 @@
 				error instanceof Error ? error.message : 'Failed to load foreground observations';
 			foregroundObservations = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {
-			foregroundLoading = false;
+			foregroundLoading = false; // eslint-disable-line svelte/infinite-reactive-loop
 		}
+	}
+
+	// Reactive foreground reload when playback drifts outside queried window (task 6.5)
+	$: if (
+		showForeground &&
+		!foregroundLoading &&
+		fgWindowCentre > 0 &&
+		Math.abs(selectedTime - fgWindowCentre) > FG_RELOAD_DRIFT_MS
+	) {
+		loadForegroundObservations(); // eslint-disable-line svelte/infinite-reactive-loop
 	}
 
 	function handleTrackSelect(trackId: string) {

@@ -35,6 +35,7 @@ var chartInstances = {};
 var chartConfigCounter = 0;
 var currentSweepId = null;
 var viewingHistorical = false;
+var pendingResumeSweepId = null; // sweep_id from DB for resume after restart
 
 // Detect dark mode for ECharts (guarded for test environments)
 var isDark =
@@ -1162,6 +1163,87 @@ function handleStop() {
   });
 }
 
+function handleSuspend() {
+  fetch("/api/lidar/sweep/auto/suspend", { method: "POST" })
+    .then(function (r) {
+      if (!r.ok)
+        return r.text().then(function (t) {
+          throw new Error(t);
+        });
+    })
+    .catch(function (e) {
+      showError(e.message);
+    });
+}
+
+function handleResume() {
+  var body = pendingResumeSweepId
+    ? JSON.stringify({ sweep_id: pendingResumeSweepId })
+    : "{}";
+  fetch("/api/lidar/sweep/auto/resume", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body,
+  })
+    .then(function (r) {
+      if (!r.ok)
+        return r.text().then(function (t) {
+          throw new Error(t);
+        });
+      pendingResumeSweepId = null;
+      var banner = document.getElementById("suspended-sweep-banner");
+      if (banner) banner.style.display = "none";
+      setMode("auto");
+      startPolling();
+    })
+    .catch(function (e) {
+      showError(e.message);
+    });
+}
+
+// checkSuspendedSweep queries the database for a previously suspended sweep
+// and shows a resume banner if one is found. This covers the case where the
+// server was restarted after suspending — the in-memory state is lost but the
+// database still has the checkpoint.
+function checkSuspendedSweep() {
+  fetch("/api/lidar/sweep/auto/suspended")
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (data) {
+      if (!data.found) return;
+      pendingResumeSweepId = data.sweep_id;
+      var banner = document.getElementById("suspended-sweep-banner");
+      if (banner) {
+        var startedAt = data.started_at
+          ? new Date(data.started_at).toLocaleString()
+          : "unknown";
+        banner.innerHTML =
+          "<strong>Suspended sweep found</strong> — started " +
+          escapeHTML(startedAt) +
+          ", completed round " +
+          data.checkpoint_round +
+          ". ";
+        var resumeLink = document.createElement("a");
+        resumeLink.href = "#";
+        resumeLink.textContent = "Resume";
+        resumeLink.style.fontWeight = "bold";
+        resumeLink.onclick = function (e) {
+          e.preventDefault();
+          handleResume();
+        };
+        banner.appendChild(resumeLink);
+        banner.style.display = "";
+      }
+      // Also show the resume button
+      document.getElementById("btn-resume").style.display = "";
+      document.getElementById("btn-start").style.display = "none";
+    })
+    .catch(function () {
+      // Endpoint not available or error; silently ignore
+    });
+}
+
 function startPolling() {
   stopPolling();
   pollTimer = setInterval(pollStatus, 3000);
@@ -1230,13 +1312,20 @@ function pollStatus() {
         // Stop has been requested but sweep is still finishing current combination
         document.getElementById("btn-start").style.display = "none";
         document.getElementById("btn-stop").style.display = "none";
+        document.getElementById("btn-running-actions").style.display = "none";
+        document.getElementById("btn-suspend").style.display = "none";
+        document.getElementById("btn-resume").style.display = "none";
         document.getElementById("stopping-indicator").style.display = "block";
       } else {
         stopRequested = false;
         document.getElementById("btn-start").style.display =
           st.status === "running" ? "none" : "";
+        document.getElementById("btn-running-actions").style.display =
+          st.status === "running" ? "flex" : "none";
         document.getElementById("btn-stop").style.display =
           st.status === "running" ? "" : "none";
+        document.getElementById("btn-suspend").style.display = "none";
+        document.getElementById("btn-resume").style.display = "none";
         document.getElementById("stopping-indicator").style.display = "none";
       }
 
@@ -1306,28 +1395,59 @@ function pollAutoTuneStatus() {
       badge.textContent = st.status;
       badge.className = "status-badge status-" + st.status;
 
-      // Show round progress
+      // Show round progress + ETA
       var roundInfo = "";
       if (st.total_rounds > 0) {
         roundInfo = "Round " + (st.round || 1) + "/" + st.total_rounds + " — ";
       }
-      document.getElementById("combo-count").textContent =
+      var comboText =
         roundInfo +
         (st.completed_combos || 0) +
         " / " +
         (st.total_combos || 0) +
         " combinations";
 
+      // Compute ETA from cumulative tracking
+      if (
+        st.status === "running" &&
+        st.started_at &&
+        st.cumulative_completed > 0 &&
+        st.cumulative_total > 0
+      ) {
+        var elapsed = (Date.now() - new Date(st.started_at).getTime()) / 1000;
+        var perCombo = elapsed / st.cumulative_completed;
+        var remaining =
+          perCombo * (st.cumulative_total - st.cumulative_completed);
+        if (remaining > 0 && isFinite(remaining)) {
+          comboText += " — ~" + formatDuration(remaining) + " remaining";
+        }
+      }
+      document.getElementById("combo-count").textContent = comboText;
+
       if (st.status === "running" && stopRequested) {
         document.getElementById("btn-start").style.display = "none";
+        document.getElementById("btn-running-actions").style.display = "none";
         document.getElementById("btn-stop").style.display = "none";
+        document.getElementById("btn-suspend").style.display = "none";
+        document.getElementById("btn-resume").style.display = "none";
         document.getElementById("stopping-indicator").style.display = "block";
       } else {
         stopRequested = false;
+        var isRunning = st.status === "running";
+        var isSuspended = st.status === "suspended";
         document.getElementById("btn-start").style.display =
-          st.status === "running" ? "none" : "";
-        document.getElementById("btn-stop").style.display =
-          st.status === "running" ? "" : "none";
+          isRunning || isSuspended ? "none" : "";
+        document.getElementById("btn-running-actions").style.display = isRunning
+          ? "flex"
+          : "none";
+        document.getElementById("btn-stop").style.display = isRunning
+          ? ""
+          : "none";
+        document.getElementById("btn-suspend").style.display =
+          isRunning && sweepMode === "auto" ? "" : "none";
+        document.getElementById("btn-resume").style.display = isSuspended
+          ? ""
+          : "none";
         document.getElementById("stopping-indicator").style.display = "none";
       }
 
@@ -1341,7 +1461,7 @@ function pollAutoTuneStatus() {
         var lastRound = st.round_results[st.round_results.length - 1];
         cc.innerHTML =
           '<div class="auto-progress">Last round best score: <strong>' +
-          escapeHTML((lastRound.best_score || 0).toFixed(4)) +
+          escapeHTML(formatScore(lastRound.best_score)) +
           "</strong>" +
           " — " +
           escapeHTML(formatParamValues(lastRound.best_params)) +
@@ -1390,6 +1510,12 @@ function pollAutoTuneStatus() {
       }
     })
     .catch(function () {});
+}
+
+// Format a score for display, guarding against -MaxFloat64 sentinel and null.
+function formatScore(score) {
+  if (score == null || !isFinite(score) || score <= -1e300) return "N/A";
+  return score.toFixed(4);
 }
 
 function formatParamValues(params) {
@@ -1528,7 +1654,7 @@ function renderRecommendation(rec, roundResults) {
         ": " +
         escapeHTML(rs.num_combos) +
         " combos, best score=" +
-        escapeHTML((rs.best_score || 0).toFixed(4)) +
+        escapeHTML(formatScore(rs.best_score)) +
         "<br/>" +
         boundsStr +
         "</div>";
@@ -3002,6 +3128,9 @@ if (typeof module !== "undefined" && module.exports) {
     handleStartManualSweep: handleStartManualSweep,
     handleStartAutoTune: handleStartAutoTune,
     handleStop: handleStop,
+    handleSuspend: handleSuspend,
+    handleResume: handleResume,
+    checkSuspendedSweep: checkSuspendedSweep,
     startPolling: startPolling,
     stopPolling: stopPolling,
     pollStatus: pollStatus,
@@ -3067,6 +3196,7 @@ function init() {
   chartConfigCounter = 0;
   currentSweepId = null;
   viewingHistorical = false;
+  pendingResumeSweepId = null;
 
   sensorId = document.querySelector('meta[name="sensor-id"]').content;
 
@@ -3129,6 +3259,9 @@ function init() {
             }
           })
           .catch(function () {});
+
+        // Check for a suspended sweep in the database (survives server restart)
+        checkSuspendedSweep();
       }
     })
     .catch(function () {
@@ -3576,8 +3709,8 @@ function renderHINTState(st) {
       historyHtml +=
         '<div style="padding: 6px 0; border-bottom: 1px solid var(--card-border)">';
       historyHtml += "<strong>Round " + rnd.round + "</strong>";
-      if (rnd.best_score)
-        historyHtml += " — Score: " + rnd.best_score.toFixed(4);
+      if (rnd.best_score != null)
+        historyHtml += " — Score: " + formatScore(rnd.best_score);
       if (rnd.labels_carried_over > 0)
         historyHtml += " (↻ " + rnd.labels_carried_over + " labels)";
       if (rnd.reference_run_id) {

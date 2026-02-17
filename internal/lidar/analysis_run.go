@@ -122,7 +122,7 @@ func RunParamsFromTuning(cfg *config.TuningConfig) RunParams {
 			ProcessNoisePos:         float32(cfg.GetProcessNoisePos()),
 			ProcessNoiseVel:         float32(cfg.GetProcessNoiseVel()),
 			MeasurementNoise:        float32(cfg.GetMeasurementNoise()),
-			DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
+			DeletedTrackGracePeriod: cfg.GetDeletedTrackGracePeriod(),
 		},
 		Classification: ClassificationParamsExport{
 			ModelType: "rule_based",

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -76,6 +75,21 @@ type TrackingPipelineConfig struct {
 	// ML training data collection. The callback receives the track's
 	// extracted features and the current classification result.
 	FeatureExportFunc func(trackID string, features TrackFeatures, class string, confidence float32)
+
+	// HeightBandFloor is the lower bound (metres) for the vertical height
+	// band filter. Values are in the same frame as the points passed to
+	// FilterVertical — typically sensor frame where Z=0 is the sensor's
+	// horizontal plane. Default: −2.8 (≈ 0.2 m above road for a ~3 m mount).
+	HeightBandFloor float64
+
+	// HeightBandCeiling is the upper bound (metres) for the vertical height
+	// band filter. Default: +1.5 (allows tall trucks above sensor height).
+	HeightBandCeiling float64
+
+	// RemoveGround, when true (the default), enables the height band filter
+	// that removes ground-plane and overhead-structure returns before
+	// clustering. Set to false to disable ground removal entirely.
+	RemoveGround bool
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -105,6 +119,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 		minFrameInterval = time.Duration(float64(time.Second) / cfg.MaxFrameRate)
 	}
 	var throttledFrames atomic.Uint64
+
+	// Periodic DB pruning state.  Prune deleted tracks once per minute to
+	// avoid unbounded storage growth from short-lived spurious tracks.
+	const deletedTrackTTL = 5 * time.Minute
+	const pruneInterval = 1 * time.Minute
+	var lastPruneTime time.Time
 
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
@@ -211,6 +231,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				if count%50 == 0 {
 					debugf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
+				// Advance miss counters so tracks aren't artificially kept
+				// alive by throttle-induced gaps (task 7.2).
+				if cfg.Tracker != nil {
+					cfg.Tracker.AdvanceMisses(frame.StartTimestamp)
+				}
 				return
 			}
 			lastProcessedTime = now
@@ -248,13 +273,24 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 
 		// Phase 2.5: Ground removal (vertical filtering)
 		// Remove ground plane and overhead structure returns to reduce false clusters.
-		// This uses a height band filter (0.2m - 3.0m) suitable for street scenes.
-		groundFilter := DefaultHeightBandFilter()
-		filteredPoints := groundFilter.FilterVertical(worldPoints)
-		if cfg.DebugMode {
-			proc, kept, below, above := groundFilter.Stats()
-			Debugf("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
-				proc, kept, below, above)
+		// Bounds are in sensor frame (identity pose): Z=0 is the sensor's horizontal
+		// plane, ground is at approximately −3.0 m for a ~3 m mount height.
+		filteredPoints := worldPoints
+		if cfg.RemoveGround {
+			var groundFilter *HeightBandFilter
+			if cfg.HeightBandFloor != 0 || cfg.HeightBandCeiling != 0 {
+				groundFilter = NewHeightBandFilter(cfg.HeightBandFloor, cfg.HeightBandCeiling)
+			} else {
+				groundFilter = DefaultHeightBandFilter()
+			}
+			filteredPoints = groundFilter.FilterVertical(worldPoints)
+			if cfg.DebugMode {
+				proc, kept, below, above := groundFilter.Stats()
+				Debugf("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+					proc, kept, below, above)
+			}
+		} else if cfg.DebugMode {
+			Debugf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
 		}
 
 		if len(filteredPoints) == 0 {
@@ -323,16 +359,25 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			// Re-classify periodically as more observations accumulate.
 			// Run every 5 observations after the initial classification
 			// so the label improves as kinematic history grows.
-			if cfg.Classifier != nil && track.ObservationCount >= MinObservationsForClassification {
+			if cfg.Classifier != nil && track.ObservationCount >= cfg.Classifier.MinObservations {
 				needsClassify := track.ObjectClass == "" ||
 					(track.ObservationCount%5 == 0)
 				if needsClassify {
 					cfg.Classifier.ClassifyAndUpdate(track)
+					// Write classification back to the live track under the
+					// tracker lock so subsequent snapshots carry the label
+					// and concurrent readers see consistent state (task 4.3).
+					cfg.Tracker.UpdateClassification(
+						track.TrackID,
+						track.ObjectClass,
+						track.ObjectConfidence,
+						track.ClassificationModel,
+					)
 				}
 			}
 
 			// Export feature vector via hook (for ML training data)
-			if cfg.FeatureExportFunc != nil && track.ObservationCount >= MinObservationsForClassification {
+			if cfg.FeatureExportFunc != nil && cfg.Classifier != nil && track.ObservationCount >= cfg.Classifier.MinObservations {
 				features := ExtractTrackFeatures(track)
 				cfg.FeatureExportFunc(track.TrackID, features, track.ObjectClass, track.ObjectConfidence)
 			}
@@ -351,27 +396,37 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 					}
 				}
 
-				// Insert observation
-				obs := &TrackObservation{
-					TrackID:           track.TrackID,
-					TSUnixNanos:       frame.StartTimestamp.UnixNano(),
-					WorldFrame:        worldFrame,
-					X:                 track.X,
-					Y:                 track.Y,
-					Z:                 0, // TrackedObject doesn't have Z
-					VelocityX:         track.VX,
-					VelocityY:         track.VY,
-					SpeedMps:          track.AvgSpeedMps,
-					HeadingRad:        float32(math.Atan2(float64(track.VY), float64(track.VX))),
-					BoundingBoxLength: track.BoundingBoxLengthAvg,
-					BoundingBoxWidth:  track.BoundingBoxWidthAvg,
-					BoundingBoxHeight: track.BoundingBoxHeightAvg,
-					HeightP95:         track.HeightP95Max,
-					IntensityMean:     track.IntensityMeanAvg,
-				}
-				if err := InsertTrackObservation(cfg.DB, obs); err != nil {
-					if cfg.DebugMode {
-						log.Printf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
+				// Only persist observations for tracks that were matched to a
+				// cluster this frame (Misses == 0).  Coasting tracks have
+				// Misses > 0 and their position is a Kalman prediction, not a
+				// real measurement — persisting those creates phantom straight
+				// segments and contaminates quality metrics.
+				if track.Misses == 0 {
+					// Insert observation — use per-frame OBB dimensions (not running
+					// averages) so each observation faithfully records the cluster
+					// shape at this instant. The averaged values are stored on the
+					// track record itself for classification/reporting.
+					obs := &TrackObservation{
+						TrackID:           track.TrackID,
+						TSUnixNanos:       frame.StartTimestamp.UnixNano(),
+						WorldFrame:        worldFrame,
+						X:                 track.X,
+						Y:                 track.Y,
+						Z:                 track.LatestZ,
+						VelocityX:         track.VX,
+						VelocityY:         track.VY,
+						SpeedMps:          track.AvgSpeedMps,
+						HeadingRad:        track.OBBHeadingRad,
+						BoundingBoxLength: track.OBBLength,
+						BoundingBoxWidth:  track.OBBWidth,
+						BoundingBoxHeight: track.OBBHeight,
+						HeightP95:         track.HeightP95Max,
+						IntensityMean:     track.IntensityMeanAvg,
+					}
+					if err := InsertTrackObservation(cfg.DB, obs); err != nil {
+						if cfg.DebugMode {
+							log.Printf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
+						}
 					}
 				}
 			}
@@ -402,6 +457,22 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			// Create a minimal bundle just for LidarView forwarding
 			// This preserves the existing behavior when gRPC is disabled
 			cfg.LidarViewAdapter.PublishFrameBundle(nil, foregroundPoints)
+		}
+
+		// Phase 7: Periodic DB pruning of deleted tracks (task 1.3).
+		// Runs at most once per pruneInterval to avoid contention.
+		if cfg.DB != nil {
+			now := time.Now()
+			if lastPruneTime.IsZero() || now.Sub(lastPruneTime) >= pruneInterval {
+				lastPruneTime = now
+				if pruned, err := PruneDeletedTracks(cfg.DB, cfg.SensorID, deletedTrackTTL); err != nil {
+					if cfg.DebugMode {
+						log.Printf("[Tracking] Prune deleted tracks failed: %v", err)
+					}
+				} else if pruned > 0 {
+					Debugf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
+				}
+			}
 		}
 	}
 }

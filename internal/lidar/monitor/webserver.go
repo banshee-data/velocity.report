@@ -123,6 +123,8 @@ type WebServer struct {
 
 	// In-memory tracker for real-time config access (optional)
 	tracker *lidar.Tracker
+	// Optional classifier reference for live threshold updates.
+	classifier *lidar.TrackClassifier
 
 	// Analysis run manager for PCAP analysis mode
 	analysisRunManager *lidar.AnalysisRunManager
@@ -199,6 +201,7 @@ type WebServerConfig struct {
 	SensorID          string
 	Parser            network.Parser
 	FrameBuilder      network.FrameBuilder
+	Classifier        *lidar.TrackClassifier
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
 	VRLogSafeDir      string // Safe directory for VRLOG file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
@@ -285,6 +288,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		sensorID:          config.SensorID,
 		parser:            config.Parser,
 		frameBuilder:      config.FrameBuilder,
+		classifier:        config.Classifier,
 		pcapSafeDir:       config.PCAPSafeDir,
 		vrlogSafeDir:      vrlogSafeDir,
 		packetForwarder:   config.PacketForwarder,
@@ -349,6 +353,12 @@ func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
 	if ws.trackAPI != nil {
 		ws.trackAPI.SetTracker(tracker)
 	}
+}
+
+// SetClassifier sets the classifier reference used by the tracking pipeline.
+// This allows live updates of classification thresholds through /api/lidar/params.
+func (ws *WebServer) SetClassifier(classifier *lidar.TrackClassifier) {
+	ws.classifier = classifier
 }
 
 // SetSweepRunner sets the sweep runner for web-triggered parameter sweeps.
@@ -1207,6 +1217,9 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/stop", ws.handleSweepStop)
 	mux.HandleFunc("/api/lidar/sweep/auto", ws.handleAutoTune)
 	mux.HandleFunc("/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop)
+	mux.HandleFunc("/api/lidar/sweep/auto/suspend", ws.handleAutoTuneSuspend)
+	mux.HandleFunc("/api/lidar/sweep/auto/resume", ws.handleAutoTuneResume)
+	mux.HandleFunc("/api/lidar/sweep/auto/suspended", ws.handleAutoTuneSuspended)
 	mux.HandleFunc("/api/lidar/sweep/hint/continue", ws.handleHINTContinue) // POST: signal labels done
 	mux.HandleFunc("/api/lidar/sweep/hint/stop", ws.handleHINTStop)         // POST: cancel HINT run
 	mux.HandleFunc("/api/lidar/sweep/hint", ws.handleHINT)                  // POST: start, GET: status
@@ -1352,6 +1365,19 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			resp["max_misses"] = cfg.MaxMisses
 			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
 			resp["max_tracks"] = cfg.MaxTracks
+			resp["max_reasonable_speed_mps"] = cfg.MaxReasonableSpeedMps
+			resp["max_position_jump_meters"] = cfg.MaxPositionJumpMeters
+			resp["max_predict_dt"] = cfg.MaxPredictDt
+			resp["max_covariance_diag"] = cfg.MaxCovarianceDiag
+			resp["min_points_for_pca"] = cfg.MinPointsForPCA
+			resp["obb_heading_smoothing_alpha"] = cfg.OBBHeadingSmoothingAlpha
+			resp["obb_aspect_ratio_lock_threshold"] = cfg.OBBAspectRatioLockThreshold
+			resp["max_track_history_length"] = cfg.MaxTrackHistoryLength
+			resp["max_speed_history_length"] = cfg.MaxSpeedHistoryLength
+			resp["merge_size_ratio"] = cfg.MergeSizeRatio
+			resp["split_size_ratio"] = cfg.SplitSizeRatio
+			resp["deleted_track_grace_period"] = cfg.DeletedTrackGracePeriod.String()
+			resp["min_observations_for_classification"] = cfg.MinObservationsForClassification
 		}
 
 		if r.URL.Query().Get("format") == "pretty" {
@@ -1391,6 +1417,20 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			HitsToConfirm         *int     `json:"hits_to_confirm"`
 			MaxMisses             *int     `json:"max_misses"`
 			MaxMissesConfirmed    *int     `json:"max_misses_confirmed"`
+			// Extended tracker params
+			MaxReasonableSpeedMps            *float64 `json:"max_reasonable_speed_mps"`
+			MaxPositionJumpMeters            *float64 `json:"max_position_jump_meters"`
+			MaxPredictDt                     *float64 `json:"max_predict_dt"`
+			MaxCovarianceDiag                *float64 `json:"max_covariance_diag"`
+			MinPointsForPCA                  *int     `json:"min_points_for_pca"`
+			OBBHeadingSmoothingAlpha         *float64 `json:"obb_heading_smoothing_alpha"`
+			OBBAspectRatioLockThreshold      *float64 `json:"obb_aspect_ratio_lock_threshold"`
+			MaxTrackHistoryLength            *int     `json:"max_track_history_length"`
+			MaxSpeedHistoryLength            *int     `json:"max_speed_history_length"`
+			MergeSizeRatio                   *float64 `json:"merge_size_ratio"`
+			SplitSizeRatio                   *float64 `json:"split_size_ratio"`
+			DeletedTrackGracePeriod          *string  `json:"deleted_track_grace_period"`
+			MinObservationsForClassification *int     `json:"min_observations_for_classification"`
 		}
 
 		// Check if this is a form submission from the status page
@@ -1517,6 +1557,53 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			if body.MaxMissesConfirmed != nil {
 				ws.tracker.Config.MaxMissesConfirmed = *body.MaxMissesConfirmed
 			}
+			if body.MaxReasonableSpeedMps != nil {
+				ws.tracker.Config.MaxReasonableSpeedMps = float32(*body.MaxReasonableSpeedMps)
+			}
+			if body.MaxPositionJumpMeters != nil {
+				ws.tracker.Config.MaxPositionJumpMeters = float32(*body.MaxPositionJumpMeters)
+			}
+			if body.MaxPredictDt != nil {
+				ws.tracker.Config.MaxPredictDt = float32(*body.MaxPredictDt)
+			}
+			if body.MaxCovarianceDiag != nil {
+				ws.tracker.Config.MaxCovarianceDiag = float32(*body.MaxCovarianceDiag)
+			}
+			if body.MinPointsForPCA != nil {
+				ws.tracker.Config.MinPointsForPCA = *body.MinPointsForPCA
+			}
+			if body.OBBHeadingSmoothingAlpha != nil {
+				ws.tracker.Config.OBBHeadingSmoothingAlpha = float32(*body.OBBHeadingSmoothingAlpha)
+			}
+			if body.OBBAspectRatioLockThreshold != nil {
+				ws.tracker.Config.OBBAspectRatioLockThreshold = float32(*body.OBBAspectRatioLockThreshold)
+			}
+			if body.MaxTrackHistoryLength != nil {
+				ws.tracker.Config.MaxTrackHistoryLength = *body.MaxTrackHistoryLength
+			}
+			if body.MaxSpeedHistoryLength != nil {
+				ws.tracker.Config.MaxSpeedHistoryLength = *body.MaxSpeedHistoryLength
+			}
+			if body.MergeSizeRatio != nil {
+				ws.tracker.Config.MergeSizeRatio = float32(*body.MergeSizeRatio)
+			}
+			if body.SplitSizeRatio != nil {
+				ws.tracker.Config.SplitSizeRatio = float32(*body.SplitSizeRatio)
+			}
+			if body.DeletedTrackGracePeriod != nil {
+				d, err := time.ParseDuration(*body.DeletedTrackGracePeriod)
+				if err != nil {
+					ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid deleted_track_grace_period: %v", err))
+					return
+				}
+				ws.tracker.Config.DeletedTrackGracePeriod = d
+			}
+			if body.MinObservationsForClassification != nil {
+				ws.tracker.Config.MinObservationsForClassification = *body.MinObservationsForClassification
+				if ws.classifier != nil {
+					ws.classifier.MinObservations = *body.MinObservationsForClassification
+				}
+			}
 		}
 
 		// Read back current params for confirmation
@@ -1564,6 +1651,19 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			resp["max_misses"] = cfg.MaxMisses
 			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
 			resp["max_tracks"] = cfg.MaxTracks
+			resp["max_reasonable_speed_mps"] = cfg.MaxReasonableSpeedMps
+			resp["max_position_jump_meters"] = cfg.MaxPositionJumpMeters
+			resp["max_predict_dt"] = cfg.MaxPredictDt
+			resp["max_covariance_diag"] = cfg.MaxCovarianceDiag
+			resp["min_points_for_pca"] = cfg.MinPointsForPCA
+			resp["obb_heading_smoothing_alpha"] = cfg.OBBHeadingSmoothingAlpha
+			resp["obb_aspect_ratio_lock_threshold"] = cfg.OBBAspectRatioLockThreshold
+			resp["max_track_history_length"] = cfg.MaxTrackHistoryLength
+			resp["max_speed_history_length"] = cfg.MaxSpeedHistoryLength
+			resp["merge_size_ratio"] = cfg.MergeSizeRatio
+			resp["split_size_ratio"] = cfg.SplitSizeRatio
+			resp["deleted_track_grace_period"] = cfg.DeletedTrackGracePeriod.String()
+			resp["min_observations_for_classification"] = cfg.MinObservationsForClassification
 		}
 
 		w.Header().Set("Content-Type", "application/json")

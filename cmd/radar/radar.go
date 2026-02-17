@@ -302,7 +302,9 @@ func main() {
 			// Initialise tracking components from tuning config
 			trackerCfg := lidar.TrackerConfigFromTuning(tuningCfg)
 			tracker = lidar.NewTracker(trackerCfg)
-			classifier = lidar.NewTrackClassifier()
+			classifier = lidar.NewTrackClassifierWithMinObservations(
+				tuningCfg.GetMinObservationsForClassification(),
+			)
 			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
 
 			// Wire per-ring elevation corrections from parser config into BackgroundManager
@@ -386,6 +388,9 @@ func main() {
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
 				MaxFrameRate:        12, // Prevent PCAP catch-up bursts from flooding the pipeline
+				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
+				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
+				RemoveGround:        tuningCfg.GetRemoveGround(),
 			}
 			callback := pipelineConfig.NewFrameCallback()
 
@@ -574,6 +579,9 @@ func main() {
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {
 			lidarWebServer.SetTracker(tracker)
+		}
+		if classifier != nil {
+			lidarWebServer.SetClassifier(classifier)
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.

@@ -3,6 +3,8 @@ package lidar
 import (
 	"math"
 	"sort"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 // ObjectClass represents the classification of a tracked object.
@@ -39,9 +41,6 @@ const (
 	HighConfidence   = 0.85
 	MediumConfidence = 0.70
 	LowConfidence    = 0.50
-
-	// Minimum observations for classification
-	MinObservationsForClassification = 5
 )
 
 // ClassificationResult holds the result of track classification.
@@ -86,13 +85,25 @@ func clampConfidence(value, min, max float32) float32 {
 // TrackClassifier performs rule-based classification of tracked objects.
 // This can be replaced with an ML model in future iterations.
 type TrackClassifier struct {
-	ModelVersion string
+	ModelVersion    string
+	MinObservations int // Minimum observations before classification
 }
 
 // NewTrackClassifier creates a new track classifier.
 func NewTrackClassifier() *TrackClassifier {
+	cfg := config.MustLoadDefaultConfig()
+	return NewTrackClassifierWithMinObservations(cfg.GetMinObservationsForClassification())
+}
+
+// NewTrackClassifierWithMinObservations creates a new classifier with an
+// explicit minimum-observation threshold.
+func NewTrackClassifierWithMinObservations(minObservations int) *TrackClassifier {
+	if minObservations <= 0 {
+		minObservations = 1
+	}
 	return &TrackClassifier{
-		ModelVersion: "rule-based-v1.0",
+		ModelVersion:    "rule-based-v1.0",
+		MinObservations: minObservations,
 	}
 }
 
@@ -107,7 +118,7 @@ func (tc *TrackClassifier) Classify(track *TrackedObject) ClassificationResult {
 	}
 
 	// Not enough observations for reliable classification
-	if features.ObservationCount < MinObservationsForClassification {
+	if features.ObservationCount < tc.MinObservations {
 		result.Class = ClassOther
 		result.Confidence = LowConfidence * 0.5 // Very low confidence
 		return result

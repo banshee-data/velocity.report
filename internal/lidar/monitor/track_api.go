@@ -123,6 +123,7 @@ type TrackResponse struct {
 	AvgSpeedMps         float32              `json:"avg_speed_mps"`
 	PeakSpeedMps        float32              `json:"peak_speed_mps"`
 	BoundingBox         BBox                 `json:"bounding_box"`
+	OBBHeadingRad       float32              `json:"obb_heading_rad"`
 	FirstSeen           string               `json:"first_seen"`
 	LastSeen            string               `json:"last_seen"`
 	History             []TrackPointResponse `json:"history,omitempty"`
@@ -148,11 +149,14 @@ type Velocity struct {
 	VY float32 `json:"vy"`
 }
 
-// BBox represents average bounding box dimensions.
+// BBox represents bounding box dimensions (both per-frame and averaged).
 type BBox struct {
 	LengthAvg float32 `json:"length_avg"`
 	WidthAvg  float32 `json:"width_avg"`
 	HeightAvg float32 `json:"height_avg"`
+	Length    float32 `json:"length"`
+	Width     float32 `json:"width"`
+	Height    float32 `json:"height"`
 }
 
 // ClusterResponse represents a cluster in JSON API responses.
@@ -998,10 +1002,14 @@ func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
 			LengthAvg: track.BoundingBoxLengthAvg,
 			WidthAvg:  track.BoundingBoxWidthAvg,
 			HeightAvg: track.BoundingBoxHeightAvg,
+			Length:    track.OBBLength,
+			Width:     track.OBBWidth,
+			Height:    track.OBBHeight,
 		},
-		FirstSeen: time.Unix(0, first).UTC().Format(time.RFC3339Nano),
-		LastSeen:  time.Unix(0, last).UTC().Format(time.RFC3339Nano),
-		History:   history,
+		OBBHeadingRad: track.OBBHeadingRad,
+		FirstSeen:     time.Unix(0, first).UTC().Format(time.RFC3339Nano),
+		LastSeen:      time.Unix(0, last).UTC().Format(time.RFC3339Nano),
+		History:       history,
 	}
 }
 

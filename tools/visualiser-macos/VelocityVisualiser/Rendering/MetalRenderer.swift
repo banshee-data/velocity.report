@@ -115,6 +115,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // M7: Track selection
     var selectedTrackID: String?
 
+    // Track filtering: tracks in this set are hidden from rendering
+    var hiddenTrackIDs: Set<String> = []
+
+    // When true, foreground points not inside any visible track bounding box are hidden
+    var filterOnlyInBox: Bool = false
+
     // MARK: - Initialisation
 
     init?(metalView: MTKView) {
@@ -323,6 +329,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         frameUpdateCount += 1
 
         // M3.5: Use composite renderer for split streaming
+        compositeRenderer?.foregroundPointFilter =
+            filterOnlyInBox
+            ? { [weak self] x, y in self?.isPointInsideAnyBox(px: x, py: y) ?? false } : nil
         compositeRenderer?.processFrame(frame)
 
         // Legacy path: Update point cloud buffer directly for full frames
@@ -396,34 +405,68 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             }
         }
 
-        // Copy data into buffer
+        // Copy data into buffer, optionally filtering foreground points outside boxes
         guard let buffer = pointBuffer else { return }
         let ptr = buffer.contents().bindMemory(to: Float.self, capacity: neededVertices)
 
+        var outputCount = 0
         for i in 0..<count {
-            ptr[i * 5 + 0] = pointCloud.x[i]
-            ptr[i * 5 + 1] = pointCloud.y[i]
-            ptr[i * 5 + 2] = pointCloud.z[i]
-            ptr[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
-            // Classification: 0=background, 1=foreground, 2=ground
             var classification: Float = 0.0
             if i < pointCloud.classification.count {
                 classification = Float(pointCloud.classification[i])
             }
-            ptr[i * 5 + 4] = classification
+
+            // When filterOnlyInBox is active, skip foreground points (classification=1)
+            // that are not inside any visible track bounding box
+            if filterOnlyInBox && classification == 1.0 {
+                let px = pointCloud.x[i]
+                let py = pointCloud.y[i]
+                if !isPointInsideAnyBox(px: px, py: py) { continue }
+            }
+
+            ptr[outputCount * 5 + 0] = pointCloud.x[i]
+            ptr[outputCount * 5 + 1] = pointCloud.y[i]
+            ptr[outputCount * 5 + 2] = pointCloud.z[i]
+            ptr[outputCount * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
+            ptr[outputCount * 5 + 4] = classification
+            outputCount += 1
         }
 
-        pointCount = count
+        pointCount = outputCount
+    }
+
+    /// Check if a 2D point (x,y) falls inside any visible track's bounding box.
+    /// Uses the last known tracks (from updateBoxInstances) and respects hiddenTrackIDs.
+    private func isPointInsideAnyBox(px: Float, py: Float) -> Bool {
+        guard let tracks = _lastTracks else { return false }
+        for track in tracks {
+            let halfL = (track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0) * 0.5
+            let halfW = (track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0) * 0.5
+            let heading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
+
+            // Transform point into box-local coordinates (rotate by -heading)
+            let dx = px - track.x
+            let dy = py - track.y
+            let cosH = cos(-heading)
+            let sinH = sin(-heading)
+            let localX = dx * cosH - dy * sinH
+            let localY = dx * sinH + dy * cosH
+
+            if abs(localX) <= halfL && abs(localY) <= halfW { return true }
+        }
+        return false
     }
 
     private func updateBoxInstances(_ trackSet: TrackSet) {
-        // Cache tracks for hit testing
-        _lastTracks = trackSet.tracks
+        // Cache tracks for hit testing (only visible ones)
+        _lastTracks = trackSet.tracks.filter { !hiddenTrackIDs.contains($0.trackID) }
 
         // Each box instance: [transform matrix (16 floats) + colour (4 floats)]
         var instances = [Float]()
 
         for track in trackSet.tracks {
+            // Skip filtered-out tracks
+            if hiddenTrackIDs.contains(track.trackID) { continue }
             // Build transform matrix
             let scale = simd_float4x4(
                 diagonal: simd_float4(
@@ -462,7 +505,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let bufferSize = instances.count * MemoryLayout<Float>.stride
             boxInstances = device.makeBuffer(
                 bytes: instances, length: bufferSize, options: .storageModeShared)
-            boxInstanceCount = trackSet.tracks.count
+            boxInstanceCount = instances.count / 20  // 20 floats per instance (16 transform + 4 colour)
         } else {
             boxInstanceCount = 0
         }
@@ -528,6 +571,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         var segments: [(start: Int, count: Int)] = []
 
         for trail in trackSet.trails {
+            // Skip filtered-out tracks
+            if hiddenTrackIDs.contains(trail.trackID) { continue }
             let pointCount = trail.points.count
             guard pointCount >= 2 else { continue }
 
@@ -567,6 +612,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // Track heading arrows (green)
         if let trackSet = tracks {
             for track in trackSet.tracks {
+                if hiddenTrackIDs.contains(track.trackID) { continue }
                 guard track.bboxHeadingRad != 0 || track.headingRad != 0 else { continue }
                 // Prefer velocity-based heading (direction of travel) over PCA heading
                 // for track arrows. PCA heading (bboxHeadingRad) is used for box rotation
@@ -966,56 +1012,157 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         camera.up = simd_float3(0, 0, 1)
     }
 
+    /// Clear all transient data (clusters, tracks, boxes, trails, points) while preserving the grid.
+    func clearTransientData() {
+        // Point cloud
+        compositeRenderer?.clearCache()
+        pointBuffer = nil
+        pointCount = 0
+        pointBufferCapacity = 0
+
+        // Boxes
+        boxVertices = nil
+        boxVertexCount = 0
+        boxInstances = nil
+        boxInstanceCount = 0
+
+        // Clusters
+        clusterInstances = nil
+        clusterInstanceCount = 0
+
+        // Trails
+        trailVertices = nil
+        trailVertexCount = 0
+        trailSegments = []
+
+        // Heading arrows
+        headingArrowVertices = nil
+        headingArrowVertexCount = 0
+
+        // Debug overlays
+        debugLineVertices = nil
+        debugLineVertexCount = 0
+        ellipseVertices = nil
+        ellipseVertexCount = 0
+        ellipseSegments = []
+
+        // Track selection
+        selectedTrackID = nil
+        _lastTracks = nil
+    }
+
     /// M3.5: Get background cache status for UI display.
     func getCacheStatus() -> String {
         compositeRenderer?.cacheStatus ?? "Not using split streaming"
     }
 
     /// M6: Hit test tracks at a screen position.
-    /// Projects each track position to screen space and finds the nearest within a tolerance.
+    /// First checks if the click is inside a projected bounding box, then falls back
+    /// to nearest-centre-point proximity test.
     func hitTestTrack(at point: CGPoint, viewSize: CGSize) -> String? {
-        guard let frame = lastFrameData else { return nil }
-        guard !frame.isEmpty else { return nil }
+        guard let tracks = _lastTracks, !tracks.isEmpty else { return nil }
 
         let mvp = camera.projectionMatrix * camera.viewMatrix
         let halfWidth = Float(viewSize.width) * 0.5
         let halfHeight = Float(viewSize.height) * 0.5
-        let tolerance: Float = 20.0  // pixels
 
+        // Helper: project a world point to screen coordinates
+        func projectToScreen(_ worldPos: simd_float3) -> (x: Float, y: Float, visible: Bool) {
+            let clip = mvp * simd_float4(worldPos.x, worldPos.y, worldPos.z, 1.0)
+            guard clip.w > 0 else { return (0, 0, false) }
+            let sx = (clip.x / clip.w + 1.0) * halfWidth
+            let sy = (clip.y / clip.w + 1.0) * halfHeight
+            return (sx, sy, true)
+        }
+
+        let clickX = Float(point.x)
+        let clickY = Float(point.y)
+
+        // Pass 1: Check if click is inside any projected bounding box
+        for track in tracks {
+            let boxHeading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
+            let halfL = (track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0) * 0.5
+            let halfW = (track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0) * 0.5
+            let cosH = cos(boxHeading)
+            let sinH = sin(boxHeading)
+
+            // 4 corners of the box base in world space
+            let corners: [simd_float3] = [
+                simd_float3(
+                    track.x + cosH * halfL - sinH * halfW, track.y + sinH * halfL + cosH * halfW,
+                    track.z),
+                simd_float3(
+                    track.x + cosH * halfL + sinH * halfW, track.y + sinH * halfL - cosH * halfW,
+                    track.z),
+                simd_float3(
+                    track.x - cosH * halfL + sinH * halfW, track.y - sinH * halfL - cosH * halfW,
+                    track.z),
+                simd_float3(
+                    track.x - cosH * halfL - sinH * halfW, track.y - sinH * halfL + cosH * halfW,
+                    track.z),
+            ]
+
+            // Project corners to screen
+            var screenCorners = [(Float, Float)]()
+            var allVisible = true
+            for c in corners {
+                let p = projectToScreen(c)
+                if !p.visible {
+                    allVisible = false
+                    break
+                }
+                screenCorners.append((p.x, p.y))
+            }
+            guard allVisible, screenCorners.count == 4 else { continue }
+
+            // Point-in-polygon test (convex quad)
+            if pointInConvexPolygon(px: clickX, py: clickY, vertices: screenCorners) {
+                return track.trackID
+            }
+        }
+
+        // Pass 2: Fall back to nearest centre point
+        let tolerance: Float = 20.0
         var bestTrackID: String?
         var bestDistance: Float = tolerance
 
-        for (trackID, pos) in frame {
-            // Project world position to clip space
-            let clip = mvp * simd_float4(pos.x, pos.y, pos.z, 1.0)
-            guard clip.w > 0 else { continue }
+        for track in tracks {
+            let p = projectToScreen(simd_float3(track.x, track.y, track.z))
+            guard p.visible else { continue }
 
-            // NDC to screen
-            let ndcX = clip.x / clip.w
-            let ndcY = clip.y / clip.w
-            let screenX = (ndcX + 1.0) * halfWidth
-            let screenY = (ndcY + 1.0) * halfHeight  // Metal Y is bottom-up like NSView
-
-            let dx = screenX - Float(point.x)
-            let dy = screenY - Float(point.y)
+            let dx = p.x - clickX
+            let dy = p.y - clickY
             let distance = sqrt(dx * dx + dy * dy)
 
             if distance < bestDistance {
                 bestDistance = distance
-                bestTrackID = trackID
+                bestTrackID = track.trackID
             }
         }
 
         return bestTrackID
     }
 
-    /// Cache of track positions for hit testing (updated per frame).
-    private var lastFrameData: [String: simd_float3]? {
-        guard let tracks = _lastTracks else { return nil }
-        var result = [String: simd_float3]()
-        for track in tracks { result[track.trackID] = simd_float3(track.x, track.y, track.z) }
-        return result
+    /// Test if a point is inside a convex polygon using cross-product winding.
+    private func pointInConvexPolygon(px: Float, py: Float, vertices: [(Float, Float)]) -> Bool {
+        let n = vertices.count
+        guard n >= 3 else { return false }
+        var sign: Float = 0
+        for i in 0..<n {
+            let (ax, ay) = vertices[i]
+            let (bx, by) = vertices[(i + 1) % n]
+            let cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax)
+            if cross != 0 {
+                if sign == 0 {
+                    sign = cross > 0 ? 1 : -1
+                } else if (cross > 0 ? 1 : -1) != Int(sign) {
+                    return false
+                }
+            }
+        }
+        return true
     }
+
     private var _lastTracks: [Track]?
 
     /// M3.5: Get point cloud statistics.
@@ -1045,6 +1192,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         var labels: [TrackScreenLabel] = []
 
         for track in tracks {
+            // Skip hidden (filtered-out) tracks
+            if hiddenTrackIDs.contains(track.trackID) { continue }
             // Only label confirmed/tentative tracks
             if track.state == .deleted || track.state == .unknown { continue }
 

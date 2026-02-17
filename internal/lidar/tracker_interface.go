@@ -49,6 +49,21 @@ type TrackerInterface interface {
 	// produced by DBSCAN. The difference represents noise points that were
 	// not captured by any bounding box.
 	RecordFrameStats(totalForegroundPoints, clusteredPoints int)
+
+	// UpdateClassification writes classification results back to the live
+	// track under the tracker lock. Call this after ClassifyAndUpdate on a
+	// snapshot to propagate the label to in-memory state. Safe for
+	// concurrent readers (task 4.3).
+	UpdateClassification(trackID, objectClass string, confidence float32, model string)
+
+	// AdvanceMisses increments the miss counter for all active tracks by one.
+	// Called on throttled (skipped) frames so tracks are not artificially
+	// kept alive when no clusters are delivered (task 7.2).
+	AdvanceMisses(timestamp time.Time)
+
+	// GetDeletedTrackGracePeriod returns the configured grace period for
+	// deleted track fade-out rendering.
+	GetDeletedTrackGracePeriod() time.Duration
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.

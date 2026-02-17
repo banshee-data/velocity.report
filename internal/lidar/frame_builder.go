@@ -73,6 +73,8 @@ type LiDARFrame struct {
 type FrameBuilder struct {
 	sensorID            string            // sensor identifier
 	frameCallback       func(*LiDARFrame) // callback when frame is complete
+	frameCh             chan *LiDARFrame  // serialises frame callback invocations
+	frameDone           chan struct{}     // closed when frameCallbackWorker exits
 	exportNextFrameASC  bool              // flag to export next completed frame
 	exportBatchCount    int               // number of frames to export in batch
 	exportBatchExported int               // number of frames already exported in current batch
@@ -177,10 +179,39 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
 	fb.mu.Unlock()
 
+	// Start serialised frame callback worker. The channel ensures that
+	// only one frame callback runs at a time, preventing concurrent
+	// tracker Update() and persistence operations that cause data races.
+	if fb.frameCallback != nil {
+		fb.frameCh = make(chan *LiDARFrame, 8)
+		fb.frameDone = make(chan struct{})
+		go fb.frameCallbackWorker()
+	}
+
 	// Register FrameBuilder instance
 	RegisterFrameBuilder(config.SensorID, fb)
 
 	return fb
+}
+
+// frameCallbackWorker processes frames sequentially from the frameCh channel.
+// This ensures that only one frame callback runs at a time, preventing
+// concurrent tracker Update() and persistence operations.
+func (fb *FrameBuilder) frameCallbackWorker() {
+	defer close(fb.frameDone)
+	for frame := range fb.frameCh {
+		fb.frameCallback(frame)
+	}
+}
+
+// Close shuts down the frame callback worker and waits for it to drain.
+// Must be called when the FrameBuilder is no longer needed to avoid
+// goroutine leaks.
+func (fb *FrameBuilder) Close() {
+	if fb.frameCh != nil {
+		close(fb.frameCh)
+		<-fb.frameDone
+	}
 }
 
 // Reset clears all buffered frame state. This should be called when switching
@@ -692,15 +723,22 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			}
 		}
 	}
-	// Call callback if provided (in separate goroutine to avoid blocking)
-	if fb.frameCallback != nil {
+	// Call callback if provided (via serialised channel to avoid concurrent pipeline runs)
+	if fb.frameCallback != nil && fb.frameCh != nil {
 		// Add explicit log when invoking the frame callback so we can trace delivery
 		// but only emit this in debug mode to avoid noisy logs during normal runs.
 		if fb.debug {
 			debugf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
 				frame.FrameID, frame.PointCount, frame.SensorID)
 		}
-		go fb.frameCallback(frame)
+		select {
+		case fb.frameCh <- frame:
+		default:
+			// Channel full — drop frame to avoid blocking frame assembly.
+			// This handles back-pressure when the tracking pipeline cannot
+			// keep up with frame arrival rate.
+			debugf("[FrameBuilder] Dropped frame %s: callback queue full", frame.FrameID)
+		}
 	}
 }
 

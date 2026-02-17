@@ -1584,7 +1584,7 @@ describe('api', () => {
 
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => mockObservations
+					json: async () => ({ observations: mockObservations })
 				});
 
 				const result = await getTrackObservations('track-789');

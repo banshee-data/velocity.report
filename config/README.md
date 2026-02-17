@@ -46,7 +46,10 @@ The configuration uses a flat JSON schema. **All keys are required** — the fil
   "hits_to_confirm": 3,
   "max_misses": 3,
   "max_misses_confirmed": 15,
-  "max_tracks": 100
+  "max_tracks": 100,
+  "height_band_floor": -2.8,
+  "height_band_ceiling": 1.5,
+  "remove_ground": true
 }
 ```
 
@@ -107,6 +110,16 @@ Constant-velocity Kalman filter with 2D state [x, y, vx, vy]. Cluster centroids 
 | `max_misses`              | int     | 3       | Consecutive missed associations before a **tentative** track is deleted.                                                                                                                                 |
 | `max_misses_confirmed`    | int     | 15      | Consecutive missed associations before a **confirmed** track is deleted. Higher values allow coasting through brief occlusions. At 10 Hz: 15 frames = 1.5 s.                                             |
 | `max_tracks`              | int     | 100     | Maximum number of concurrent tracked objects.                                                                                                                                                            |
+
+#### Height Band Filter
+
+Vertical (Z-axis) band filter applied after foreground extraction to remove ground-plane and overhead-structure returns before clustering. Bounds are expressed in the **input coordinate frame** — when no sensor→world pose transform is applied (identity pose), Z=0 is the sensor's horizontal plane. For a sensor mounted ≈ 3 m above road level, ground sits at approximately Z = −3.0 m.
+
+| Key                   | Type    | Default | Description                                                                                                                                                       |
+| --------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `height_band_floor`   | float64 | −2.8    | Lower Z bound (metres, sensor frame). Points below this are assumed to be road surface returns. −2.8 ≈ 0.2 m above ground for a 3 m mount. Range: (−∞, 0].        |
+| `height_band_ceiling` | float64 | 1.5     | Upper Z bound (metres, sensor frame). Points above this are assumed to be overhead structures. +1.5 allows objects extending ≈ 1.5 m above sensor. Range: [0, ∞). |
+| `remove_ground`       | bool    | true    | Master switch for vertical height band filtering. When false, all points pass through to clustering regardless of Z value.                                        |
 
 ### Creating Custom Configurations
 

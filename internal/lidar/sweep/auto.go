@@ -114,14 +114,21 @@ type AutoTuneState struct {
 	Error           string                 `json:"error,omitempty"`
 	StartedAt       *time.Time             `json:"started_at,omitempty"`
 	CompletedAt     *time.Time             `json:"completed_at,omitempty"`
+
+	// Cumulative combo tracking for ETA calculation (across all rounds).
+	CumulativeCompleted int `json:"cumulative_completed"`
+	CumulativeTotal     int `json:"cumulative_total"`
 }
 
 // AutoTuner orchestrates iterative parameter sweep rounds.
 type AutoTuner struct {
-	runner *Runner
-	mu     sync.RWMutex
-	state  AutoTuneState
-	cancel context.CancelFunc
+	runner         *Runner
+	mu             sync.RWMutex
+	state          AutoTuneState
+	cancel         context.CancelFunc
+	cumulativeBase int              // combos completed in prior rounds (for ETA tracking)
+	lastRequest    *AutoTuneRequest // stored for suspend/resume
+	currentBounds  map[string][2]float64
 
 	// Persistence
 	persister SweepPersister
@@ -308,6 +315,8 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 
 	now := time.Now()
 	at.sweepID = uuid.New().String()
+	at.cumulativeBase = 0
+	at.lastRequest = &req
 	at.state = AutoTuneState{
 		Status:       SweepStatusRunning,
 		Mode:         "auto",
@@ -316,6 +325,7 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 		RoundResults: make([]RoundSummary, 0, req.MaxRounds),
 		Results:      make([]ComboResult, 0),
 	}
+	at.currentBounds = boundsFromParams(req.Params)
 
 	runCtx, cancel := context.WithCancel(ctx)
 	at.cancel = cancel
@@ -399,9 +409,199 @@ func (at *AutoTuner) Stop() {
 	at.mu.Unlock()
 }
 
-// run executes the auto-tuning algorithm.
+// Suspend cancels a running auto-tune and saves a checkpoint to the database
+// so it can later be resumed with Resume(). The sweep status is set to "suspended".
+func (at *AutoTuner) Suspend() error {
+	at.mu.Lock()
+	if at.state.Status != SweepStatusRunning {
+		at.mu.Unlock()
+		return fmt.Errorf("cannot suspend: sweep is not running (status=%s)", at.state.Status)
+	}
+
+	// Capture checkpoint data under lock
+	round := checkpointRoundForSuspend(at.state)
+	results := make([]ComboResult, len(at.state.Results))
+	copy(results, at.state.Results)
+	bounds := copyBounds(at.currentBounds)
+
+	// Cancel the running goroutine
+	if at.cancel != nil {
+		at.cancel()
+	}
+	at.mu.Unlock()
+
+	// Wait briefly for the run goroutine to process cancellation
+	// and set its own error state; we'll override with suspended.
+	time.Sleep(200 * time.Millisecond)
+
+	// Persist checkpoint to database
+	if at.persister != nil && at.sweepID != "" {
+		boundsJSON, err := json.Marshal(bounds)
+		if err != nil {
+			at.logger.Printf("[sweep] WARNING: Failed to marshal bounds for checkpoint: %v", err)
+			boundsJSON = []byte("{}")
+		}
+
+		resultsJSON, err := json.Marshal(results)
+		if err != nil {
+			at.logger.Printf("[sweep] WARNING: Failed to marshal results for checkpoint: %v", err)
+			resultsJSON = []byte("[]")
+		}
+
+		var reqJSON json.RawMessage
+		if at.lastRequest != nil {
+			reqJSON, err = json.Marshal(at.lastRequest)
+			if err != nil {
+				at.logger.Printf("[sweep] WARNING: Failed to marshal request for checkpoint: %v", err)
+			}
+		}
+
+		if err := at.persister.SaveSweepCheckpoint(at.sweepID, round, boundsJSON, resultsJSON, reqJSON); err != nil {
+			at.logger.Printf("[sweep] WARNING: Failed to save checkpoint: %v", err)
+			return fmt.Errorf("failed to save checkpoint: %w", err)
+		}
+	}
+
+	// Override the error status set by cancellation with suspended
+	at.mu.Lock()
+	at.state.Status = SweepStatusSuspended
+	at.state.Error = ""
+	at.mu.Unlock()
+
+	at.logger.Printf("[sweep] Auto-tune suspended at round %d with %d results", round, len(results))
+	return nil
+}
+
+// GetSuspendedSweepID returns the sweep ID if the current state is suspended,
+// or empty string otherwise. Used by the HTTP handler to pass the sweep ID to Resume.
+func (at *AutoTuner) GetSuspendedSweepID() string {
+	at.mu.RLock()
+	defer at.mu.RUnlock()
+	if at.state.Status == SweepStatusSuspended {
+		return at.sweepID
+	}
+	return ""
+}
+
+// Resume restores a suspended auto-tune from its database checkpoint and
+// re-runs the remaining rounds. If sweepID is non-empty it is used to look up
+// the checkpoint (allowing resume after a server restart when in-memory state
+// has been lost). If sweepID is empty the in-memory suspended sweep ID is
+// used instead.
+func (at *AutoTuner) Resume(ctx context.Context, sweepID string) error {
+	at.mu.Lock()
+	if at.state.Status == SweepStatusRunning {
+		at.mu.Unlock()
+		return ErrSweepAlreadyRunning
+	}
+
+	// Prefer an explicit sweepID (from the DB). Fall back to in-memory state.
+	if sweepID == "" {
+		sweepID = at.sweepID
+	}
+	if sweepID == "" {
+		at.mu.Unlock()
+		return fmt.Errorf("no suspended sweep to resume")
+	}
+	at.mu.Unlock()
+
+	if at.persister == nil {
+		return fmt.Errorf("cannot resume: no persister configured")
+	}
+
+	// Load checkpoint from database
+	checkpointRound, boundsJSON, resultsJSON, reqJSON, err := at.persister.LoadSweepCheckpoint(sweepID)
+	if err != nil {
+		return fmt.Errorf("failed to load checkpoint: %w", err)
+	}
+
+	// Deserialise the original request
+	var req AutoTuneRequest
+	if len(reqJSON) > 0 {
+		if err := json.Unmarshal(reqJSON, &req); err != nil {
+			return fmt.Errorf("failed to unmarshal checkpoint request: %w", err)
+		}
+	} else if at.lastRequest != nil {
+		req = *at.lastRequest
+	} else {
+		return fmt.Errorf("no request found in checkpoint; cannot resume")
+	}
+
+	// Deserialise accumulated results
+	var priorResults []ComboResult
+	if len(resultsJSON) > 0 {
+		if err := json.Unmarshal(resultsJSON, &priorResults); err != nil {
+			return fmt.Errorf("failed to unmarshal checkpoint results: %w", err)
+		}
+	}
+
+	// Deserialize checkpoint bounds (for resuming mid-round with narrowed bounds).
+	var checkpointBounds map[string][2]float64
+	if len(boundsJSON) > 0 {
+		if err := json.Unmarshal(boundsJSON, &checkpointBounds); err != nil {
+			return fmt.Errorf("failed to unmarshal checkpoint bounds: %w", err)
+		}
+	}
+
+	// Apply defaults
+	req = applyAutoTuneDefaults(req)
+
+	startRound := checkpointRound
+	if startRound <= 0 {
+		startRound = 1
+	}
+	if startRound > req.MaxRounds {
+		return fmt.Errorf("checkpoint round %d > max rounds %d; nothing to resume", startRound, req.MaxRounds)
+	}
+
+	at.mu.Lock()
+	now := time.Now()
+	at.sweepID = sweepID
+	at.cumulativeBase = len(priorResults)
+	at.lastRequest = &req
+	at.state = AutoTuneState{
+		Status:              SweepStatusRunning,
+		Mode:                "auto",
+		StartedAt:           &now,
+		Round:               startRound,
+		TotalRounds:         req.MaxRounds,
+		Results:             priorResults,
+		RoundResults:        make([]RoundSummary, 0),
+		CumulativeCompleted: len(priorResults),
+	}
+	if len(checkpointBounds) > 0 {
+		at.currentBounds = copyBounds(checkpointBounds)
+	} else {
+		at.currentBounds = boundsFromParams(req.Params)
+	}
+
+	runCtx, cancel := context.WithCancel(ctx)
+	at.cancel = cancel
+	at.mu.Unlock()
+
+	at.logger.Printf("[sweep] Auto-tune resuming from round %d with %d prior results (sweepID=%s)", startRound, len(priorResults), sweepID)
+
+	// Run remaining rounds in background
+	go at.runFromRound(runCtx, req, startRound, priorResults, checkpointBounds)
+
+	return nil
+}
+
+// run executes the auto-tuning algorithm from round 1.
 func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
-	at.logger.Printf("[sweep] Auto-tuner started: %d rounds, %d values/param, top %d", req.MaxRounds, req.ValuesPerParam, req.TopK)
+	at.runFromRound(ctx, req, 1, nil, nil)
+}
+
+// runFromRound executes the auto-tuning algorithm starting from the given round,
+// optionally seeded with prior results from a checkpoint.
+func (at *AutoTuner) runFromRound(
+	ctx context.Context,
+	req AutoTuneRequest,
+	startRound int,
+	priorResults []ComboResult,
+	startBounds map[string][2]float64,
+) {
+	at.logger.Printf("[sweep] Auto-tuner started: rounds %d–%d, %d values/param, top %d", startRound, req.MaxRounds, req.ValuesPerParam, req.TopK)
 
 	// Set up objective weights
 	var weights ObjectiveWeights
@@ -421,16 +621,21 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		weights = DefaultObjectiveWeights()
 	}
 
-	// Track current bounds for each parameter (start with initial bounds from request)
-	currentBounds := make(map[string][2]float64)
-	for _, p := range req.Params {
-		currentBounds[p.Name] = [2]float64{p.Start, p.End}
+	// Track current bounds for each parameter.
+	currentBounds := boundsFromParams(req.Params)
+	if len(startBounds) > 0 {
+		currentBounds = copyBounds(startBounds)
 	}
 
+	// Seed with prior results from a checkpoint, if any.
 	var allResults []ComboResult
+	if len(priorResults) > 0 {
+		allResults = make([]ComboResult, len(priorResults))
+		copy(allResults, priorResults)
+	}
 	var overallBest *ScoredResult
 
-	for round := 1; round <= req.MaxRounds; round++ {
+	for round := startRound; round <= req.MaxRounds; round++ {
 		select {
 		case <-ctx.Done():
 			at.setError("auto-tune cancelled")
@@ -442,6 +647,7 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 
 		at.mu.Lock()
 		at.state.Round = round
+		at.currentBounds = copyBounds(currentBounds)
 		at.mu.Unlock()
 
 		// Generate parameter grid from current bounds
@@ -488,6 +694,16 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		at.mu.Lock()
 		at.state.TotalCombos = totalCombos
 		at.state.CompletedCombos = 0
+		// Accumulate cumulative total: previous rounds' actual combos
+		// plus this round's combos plus estimated future rounds.
+		completedRounds := round - 1
+		remainingRounds := req.MaxRounds - round
+		at.state.CumulativeTotal = at.cumulativeBase + totalCombos + remainingRounds*totalCombos
+		// If this is not the first round, recalculate using average combos per completed round.
+		if completedRounds > 0 {
+			avgPerRound := at.cumulativeBase / completedRounds
+			at.state.CumulativeTotal = at.cumulativeBase + totalCombos + remainingRounds*avgPerRound
+		}
 		at.mu.Unlock()
 
 		// Build a SweepRequest for this round
@@ -590,11 +806,16 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 			topK = scored[:req.TopK]
 		}
 
-		// Store round summary
+		// Store round summary — guard against -MaxFloat64 sentinel
+		// which indicates all combos failed acceptance criteria.
+		bestScore := scored[0].Score
+		if bestScore == -math.MaxFloat64 {
+			bestScore = 0
+		}
 		roundSummary := RoundSummary{
 			Round:      round,
 			Bounds:     copyBounds(currentBounds),
-			BestScore:  scored[0].Score,
+			BestScore:  bestScore,
 			BestParams: scored[0].ParamValues,
 			NumCombos:  len(roundResults),
 			TopK:       topK,
@@ -605,6 +826,16 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 		at.mu.Unlock()
 
 		allResults = append(allResults, roundResults...)
+
+		// Update cumulative base for next round's ETA tracking
+		at.cumulativeBase = len(allResults)
+
+		// Update state with incremental results so charts can render during sweep
+		at.mu.Lock()
+		at.state.Results = make([]ComboResult, len(allResults))
+		copy(at.state.Results, allResults)
+		at.state.CumulativeCompleted = at.cumulativeBase
+		at.mu.Unlock()
 
 		// Narrow bounds for next round (unless this is the last round)
 		if round < req.MaxRounds {
@@ -622,6 +853,10 @@ func (at *AutoTuner) run(ctx context.Context, req AutoTuneRequest) {
 
 				currentBounds[p.Name] = [2]float64{start, end}
 			}
+
+			at.mu.Lock()
+			at.currentBounds = copyBounds(currentBounds)
+			at.mu.Unlock()
 
 			at.logger.Printf("[sweep] Narrowed bounds for round %d: %v", round+1, currentBounds)
 		}
@@ -692,9 +927,10 @@ func (at *AutoTuner) waitForSweepComplete(ctx context.Context) error {
 		case <-ticker.C:
 			state := at.runner.GetSweepState()
 
-			// Update progress
+			// Update per-round and cumulative progress
 			at.mu.Lock()
 			at.state.CompletedCombos = state.CompletedCombos
+			at.state.CumulativeCompleted = at.cumulativeBase + state.CompletedCombos
 			at.mu.Unlock()
 
 			switch state.Status {
@@ -851,6 +1087,31 @@ func generateGrid(start, end float64, n int) []float64 {
 		grid[i] = start + step*float64(i)
 	}
 	return grid
+}
+
+// boundsFromParams builds a bounds map from request parameter definitions.
+func boundsFromParams(params []SweepParam) map[string][2]float64 {
+	bounds := make(map[string][2]float64, len(params))
+	for _, p := range params {
+		bounds[p.Name] = [2]float64{p.Start, p.End}
+	}
+	return bounds
+}
+
+// checkpointRoundForSuspend computes the round to resume from when a running
+// auto-tune is suspended. If the current round has already fully completed,
+// resume from the next round; otherwise resume the current round.
+func checkpointRoundForSuspend(state AutoTuneState) int {
+	round := state.Round
+	if round <= 0 {
+		round = 1
+	}
+	if state.TotalCombos > 0 &&
+		state.CompletedCombos >= state.TotalCombos &&
+		round < state.TotalRounds {
+		return round + 1
+	}
+	return round
 }
 
 // copyBounds creates a deep copy of a bounds map.

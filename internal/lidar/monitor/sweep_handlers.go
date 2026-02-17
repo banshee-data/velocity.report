@@ -24,6 +24,8 @@ type AutoTuneRunner interface {
 	Start(ctx context.Context, req interface{}) error
 	GetState() interface{}
 	Stop()
+	Suspend() error
+	Resume(ctx context.Context, sweepID string) error
 }
 
 // HINTRunner defines the interface for HINT sweep operations.
@@ -172,6 +174,96 @@ func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) 
 	ws.autoTuneRunner.Stop()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+// handleAutoTuneSuspend suspends a running auto-tune, saving a checkpoint to the database.
+func (ws *WebServer) handleAutoTuneSuspend(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.autoTuneRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
+		return
+	}
+
+	if err := ws.autoTuneRunner.Suspend(); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "suspended"})
+}
+
+// handleAutoTuneResume resumes a suspended auto-tune from its checkpoint.
+// The request body may include {"sweep_id":"..."} to resume a specific
+// sweep from the database (e.g. after a server restart).
+func (ws *WebServer) handleAutoTuneResume(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.autoTuneRunner == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
+		return
+	}
+
+	// Read optional sweep_id from request body.
+	var body struct {
+		SweepID string `json:"sweep_id"`
+	}
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&body) // ignore decode errors for backwards compat
+	}
+
+	if err := ws.autoTuneRunner.Resume(context.Background(), body.SweepID); err != nil {
+		if strings.Contains(err.Error(), "already in progress") {
+			ws.writeJSONError(w, http.StatusConflict, err.Error())
+		} else {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "resumed"})
+}
+
+// handleAutoTuneSuspended returns the most recent suspended sweep from the
+// database, if any. Used by the dashboard to offer a "resume" option after
+// a server restart when in-memory state has been lost.
+func (ws *WebServer) handleAutoTuneSuspended(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if ws.sweepStore == nil {
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
+		return
+	}
+
+	info, err := ws.sweepStore.GetSuspendedSweepInfo()
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if info == nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"found": false})
+	} else {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"found":            true,
+			"sweep_id":         info.SweepID,
+			"sensor_id":        info.SensorID,
+			"checkpoint_round": info.CheckpointRound,
+			"started_at":       info.StartedAt,
+		})
+	}
 }
 
 // handleHINT handles both starting (POST) and getting status (GET) for HINT sweep.

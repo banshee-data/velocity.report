@@ -486,7 +486,10 @@ export async function getTrackById(trackId: string): Promise<Track> {
 export async function getTrackObservations(trackId: string): Promise<TrackObservation[]> {
 	const res = await fetch(`${API_BASE}/lidar/tracks/${trackId}/observations`);
 	if (!res.ok) throw new Error(`Failed to fetch track observations: ${res.status}`);
-	return res.json();
+	const data = await res.json();
+	// Backend returns an envelope { track_id, observations, count, timestamp }.
+	// Extract the inner observations array.
+	return data.observations ?? [];
 }
 
 /**

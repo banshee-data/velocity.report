@@ -149,6 +149,10 @@ CREATE TABLE lidar_analysis_runs (
         , score_components_json TEXT
         , recommendation_explanation_json TEXT
         , label_provenance_summary_json TEXT
+        , checkpoint_round INTEGER
+        , checkpoint_bounds TEXT
+        , checkpoint_results TEXT
+        , checkpoint_request TEXT
           );
 
    CREATE TABLE lidar_tracks (

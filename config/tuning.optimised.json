@@ -3,7 +3,6 @@
   "_note": "This file matches the TuningConfig schema in internal/config/tuning.go and can be used with:",
   "_usage_1": "velocity-report --config config/tuning.optimised.json",
   "_usage_2": "curl -X POST http://localhost:8080/api/lidar/params -H 'Content-Type: application/json' -d @config/tuning.optimised.json",
-  "_compatibility": "The following parameters are NOT part of TuningConfig and are silently ignored: background_update_fraction, safety_margin_meters, enable_diagnostics, max_tracks",
 
   "noise_relative": 0.02,
   "closeness_multiplier": 3.0,
@@ -25,5 +24,30 @@
   "occlusion_cov_inflation": 0.5,
   "hits_to_confirm": 4,
   "max_misses": 3,
-  "max_misses_confirmed": 15
+  "max_misses_confirmed": 15,
+  "height_band_floor": -2.8,
+  "height_band_ceiling": 1.5,
+  "remove_ground": true,
+
+  "background_update_fraction": 0.02,
+  "safety_margin_meters": 0.4,
+  "enable_diagnostics": false,
+  "max_tracks": 100,
+
+  "max_cluster_diameter": 12.0,
+  "min_cluster_diameter": 0.05,
+  "max_cluster_aspect_ratio": 15.0,
+  "max_reasonable_speed_mps": 30.0,
+  "max_position_jump_meters": 5.0,
+  "max_predict_dt": 0.5,
+  "max_covariance_diag": 100.0,
+  "min_points_for_pca": 4,
+  "obb_heading_smoothing_alpha": 0.08,
+  "obb_aspect_ratio_lock_threshold": 0.25,
+  "max_track_history_length": 200,
+  "max_speed_history_length": 100,
+  "merge_size_ratio": 2.5,
+  "split_size_ratio": 0.3,
+  "deleted_track_grace_period": "5s",
+  "min_observations_for_classification": 5
 }

@@ -79,6 +79,11 @@ class CompositePointCloudRenderer {
     /// Human-readable cache status for UI display.
     var cacheStatus: String { cacheState.description }
 
+    /// Optional closure to test if a foreground point should be included.
+    /// When set, foreground points are skipped unless the closure returns true.
+    /// Parameters: (x: Float, y: Float) -> Bool
+    var foregroundPointFilter: ((Float, Float) -> Bool)?
+
     // MARK: - Initialisation
 
     init(device: MTLDevice) { self.device = device }
@@ -215,24 +220,38 @@ class CompositePointCloudRenderer {
             }
         }
 
-        // Copy data into buffer
+        // Copy data into buffer, optionally filtering points
         guard let buffer = foregroundBuffer else { return }
         let ptr = buffer.contents().bindMemory(to: Float.self, capacity: neededVertices)
 
+        var outputCount = 0
         for i in 0..<count {
-            ptr[i * 5 + 0] = pointCloud.x[i]
-            ptr[i * 5 + 1] = pointCloud.y[i]
-            ptr[i * 5 + 2] = pointCloud.z[i]
-            ptr[i * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
+            // Apply foreground point filter if set
+            if let filter = foregroundPointFilter {
+                let px = pointCloud.x[i]
+                let py = pointCloud.y[i]
+                var classification: Float = 1.0
+                if i < pointCloud.classification.count {
+                    classification = Float(pointCloud.classification[i])
+                }
+                // Only filter foreground points (classification=1), pass background/ground through
+                if classification == 1.0 && !filter(px, py) { continue }
+            }
+
+            ptr[outputCount * 5 + 0] = pointCloud.x[i]
+            ptr[outputCount * 5 + 1] = pointCloud.y[i]
+            ptr[outputCount * 5 + 2] = pointCloud.z[i]
+            ptr[outputCount * 5 + 3] = Float(pointCloud.intensity[i]) / 255.0
             // Classification: 0=background, 1=foreground, 2=ground
             var classification: Float = 1.0  // Default to foreground
             if i < pointCloud.classification.count {
                 classification = Float(pointCloud.classification[i])
             }
-            ptr[i * 5 + 4] = classification
+            ptr[outputCount * 5 + 4] = classification
+            outputCount += 1
         }
 
-        foregroundPointCount = count
+        foregroundPointCount = outputCount
     }
 
     // MARK: - Rendering

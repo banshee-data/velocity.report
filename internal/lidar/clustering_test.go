@@ -8,6 +8,18 @@ import (
 	"github.com/banshee-data/velocity.report/internal/config"
 )
 
+// testDBSCANParams returns a DBSCANParams suitable for unit tests,
+// with generous filter thresholds that won't reject normal test clusters.
+func testDBSCANParams(eps float64, minPts int) DBSCANParams {
+	return DBSCANParams{
+		Eps:                   eps,
+		MinPts:                minPts,
+		MaxClusterDiameter:    100.0,
+		MinClusterDiameter:    0.0,
+		MaxClusterAspectRatio: 100.0,
+	}
+}
+
 // =============================================================================
 // Phase 3.0 Tests: Polar → World Transform
 // =============================================================================
@@ -179,7 +191,7 @@ func TestDBSCAN_TwoSeparateClusters(t *testing.T) {
 		points = append(points, WorldPoint{X: x, Y: y, Z: 0, Intensity: 100, Timestamp: time.Now(), SensorID: "test"})
 	}
 
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN(points, params)
 
 	if len(clusters) != 2 {
@@ -208,7 +220,7 @@ func TestDBSCAN_NoisePoints(t *testing.T) {
 		{X: 20.0, Y: 0.0, Z: 0.0},
 	}
 
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN(points, params)
 
 	if len(clusters) != 0 {
@@ -217,7 +229,7 @@ func TestDBSCAN_NoisePoints(t *testing.T) {
 }
 
 func TestDBSCAN_EmptyInput(t *testing.T) {
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN([]WorldPoint{}, params)
 
 	if clusters != nil {
@@ -240,7 +252,7 @@ func TestDBSCAN_SingleDenseCluster(t *testing.T) {
 		}
 	}
 
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN(points, params)
 
 	if len(clusters) != 1 {
@@ -251,11 +263,13 @@ func TestDBSCAN_SingleDenseCluster(t *testing.T) {
 		t.Errorf("expected 50 points in cluster, got %d", clusters[0].PointsCount)
 	}
 
-	// Verify centroid is near origin
-	if math.Abs(float64(clusters[0].CentroidX)) > 0.1 {
+	// Verify centroid is near origin. With medoid computation (task 3.2) the
+	// centroid is an actual cluster point, not the arithmetic mean, so
+	// tolerance is relaxed to the ring's radius (0.3m).
+	if math.Abs(float64(clusters[0].CentroidX)) > 0.35 {
 		t.Errorf("expected centroid X near 0, got %v", clusters[0].CentroidX)
 	}
-	if math.Abs(float64(clusters[0].CentroidY)) > 0.1 {
+	if math.Abs(float64(clusters[0].CentroidY)) > 0.35 {
 		t.Errorf("expected centroid Y near 0, got %v", clusters[0].CentroidY)
 	}
 }

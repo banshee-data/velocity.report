@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -401,12 +402,16 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 
 	sensorID := "sensor-history-test"
 
+	// Use recent timestamps so observations fall within the 60 s recency
+	// window used by GetActiveTracks.
+	baseNanos := time.Now().Add(-10 * time.Second).UnixNano()
+
 	// Insert track
 	track := &TrackedObject{
 		TrackID:        "track-history",
 		SensorID:       sensorID,
 		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
+		FirstUnixNanos: baseNanos,
 		speedHistory:   []float32{5.0},
 	}
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -417,7 +422,7 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		obs := &TrackObservation{
 			TrackID:     "track-history",
-			TSUnixNanos: int64(1000 + i*100),
+			TSUnixNanos: baseNanos + int64(i)*int64(100*time.Millisecond),
 			WorldFrame:  "site/main",
 			X:           float32(i),
 			Y:           float32(i * 2),
@@ -447,6 +452,82 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 		if tracks[0].History[0].Timestamp > tracks[0].History[1].Timestamp {
 			t.Error("History should be in chronological order (oldest first)")
 		}
+	}
+}
+
+func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
+	db, cleanup := setupTestDBWithSchema(t)
+	defer cleanup()
+
+	sensorID := "sensor-history-window-test"
+	now := time.Now()
+
+	recentBase := now.Add(-5 * time.Second).UnixNano()
+	oldBase := now.Add(-50 * time.Second).UnixNano()
+
+	recent := &TrackedObject{
+		TrackID:        "track-recent",
+		SensorID:       sensorID,
+		State:          TrackConfirmed,
+		FirstUnixNanos: recentBase,
+		speedHistory:   []float32{1},
+	}
+	if err := InsertTrack(db, recent, "site/main"); err != nil {
+		t.Fatalf("InsertTrack recent failed: %v", err)
+	}
+
+	old := &TrackedObject{
+		TrackID:        "track-old",
+		SensorID:       sensorID,
+		State:          TrackConfirmed,
+		FirstUnixNanos: oldBase,
+		speedHistory:   []float32{1},
+	}
+	if err := InsertTrack(db, old, "site/main"); err != nil {
+		t.Fatalf("InsertTrack old failed: %v", err)
+	}
+
+	// Recent observation for recent track.
+	if err := InsertTrackObservation(db, &TrackObservation{
+		TrackID:     recent.TrackID,
+		TSUnixNanos: recentBase + int64(time.Second),
+		WorldFrame:  "site/main",
+		X:           1.0,
+		Y:           1.0,
+	}); err != nil {
+		t.Fatalf("InsertTrackObservation recent failed: %v", err)
+	}
+
+	// Old observations should still be returned for old track (within 60s recency window).
+	for i := 0; i < 2; i++ {
+		if err := InsertTrackObservation(db, &TrackObservation{
+			TrackID:     old.TrackID,
+			TSUnixNanos: oldBase + int64(i)*int64(500*time.Millisecond),
+			WorldFrame:  "site/main",
+			X:           float32(i),
+			Y:           float32(i),
+		}); err != nil {
+			t.Fatalf("InsertTrackObservation old failed: %v", err)
+		}
+	}
+
+	tracks, err := GetActiveTracks(db, sensorID, "")
+	if err != nil {
+		t.Fatalf("GetActiveTracks failed: %v", err)
+	}
+
+	var oldTrack *TrackedObject
+	for _, tr := range tracks {
+		if tr.TrackID == old.TrackID {
+			oldTrack = tr
+			break
+		}
+	}
+	if oldTrack == nil {
+		t.Fatalf("old track not returned; tracks=%d", len(tracks))
+	}
+	if len(oldTrack.History) != 2 {
+		t.Fatalf("old track history = %d, want 2", len(oldTrack.History))
 	}
 }
 

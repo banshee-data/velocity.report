@@ -589,6 +589,9 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
 			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
 			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
+			BBoxLength:        t.OBBLength,
+			BBoxWidth:         t.OBBWidth,
+			BBoxHeight:        t.OBBHeight,
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
 			AvgSpeedMps:       t.AvgSpeedMps,
@@ -633,7 +636,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 	// clusters of stale red boxes around active objects.
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := tracker.GetRecentlyDeletedTracks(nowNanos)
-	gracePeriodNanos := float64(5 * time.Second) // Match DefaultDeletedTrackGracePeriod
+	gracePeriodNanos := float64(tracker.GetDeletedTrackGracePeriod())
 
 	for _, t := range deletedTracks {
 		// Skip tracks that never reached confirmed state.
@@ -668,6 +671,9 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
 			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
 			BBoxHeadingRad:    t.OBBHeadingRad,
+			BBoxLength:        t.OBBLength,
+			BBoxWidth:         t.OBBWidth,
+			BBoxHeight:        t.OBBHeight,
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
 			AvgSpeedMps:       t.AvgSpeedMps,

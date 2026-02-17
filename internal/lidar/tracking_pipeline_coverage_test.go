@@ -4,7 +4,15 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
+
+// minObsForClassification loads the default min_observations_for_classification
+// from the tuning config, used by tests that need the threshold.
+func minObsForClassification() int {
+	return config.MustLoadDefaultConfig().GetMinObservationsForClassification()
+}
 
 // ---- mock types for coverage tests ----
 
@@ -71,6 +79,14 @@ func (m *mockTrackerCov) RecordFrameStats(totalFg, clustered int) {
 	m.frameStatsCalls++
 	m.lastForeground = totalFg
 	m.lastClustered = clustered
+}
+func (m *mockTrackerCov) UpdateClassification(trackID, objectClass string, confidence float32, model string) {
+}
+func (m *mockTrackerCov) AdvanceMisses(timestamp time.Time) {
+}
+
+func (m *mockTrackerCov) GetDeletedTrackGracePeriod() time.Duration {
+	return 5 * time.Second
 }
 
 // --- test helpers ---
@@ -243,7 +259,7 @@ func TestNewFrameCallback_FeatureExportFunc(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "t1",
-				ObservationCount: MinObservationsForClassification + 1,
+				ObservationCount: minObsForClassification() + 1,
 				AvgSpeedMps:      5.0,
 				ObjectClass:      "vehicle",
 			},
@@ -256,6 +272,7 @@ func TestNewFrameCallback_FeatureExportFunc(t *testing.T) {
 		FeatureExportFunc: func(trackID string, features TrackFeatures, class string, confidence float32) {
 			exported.Add(1)
 		},
+		Classifier: NewTrackClassifier(),
 	}
 
 	callback := cfg.NewFrameCallback()
@@ -269,7 +286,7 @@ func TestNewFrameCallback_ClassifierReclassify(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "t1",
-				ObservationCount: MinObservationsForClassification,
+				ObservationCount: minObsForClassification(),
 				AvgSpeedMps:      5.0,
 				ObjectClass:      "", // needs initial classification
 			},
@@ -417,7 +434,7 @@ func TestNewFrameCallback_ProcessError(t *testing.T) {
 // Geometry:
 //   - 40×1800 background grid at 10 m baseline (testBackgroundManager).
 //   - distance=5 m → clearly foreground vs 10 m baseline.
-//   - elevation=6° → z ≈ 0.52 m → passes default height band [0.2, 3.0].
+//   - elevation=6° → z ≈ 0.52 m → passes default height band [−2.8, 1.5].
 //   - azimuths 180°..189° in 1° steps → XY spread ≈ 0.78 m < Eps=0.8 m.
 //   - 10 points ≥ foreground_min_cluster_points (5).
 func clusterFrame() *LiDARFrame {
@@ -466,7 +483,7 @@ func TestPipelineCov2_AnalysisRunManager(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "arm-t1",
-				ObservationCount: MinObservationsForClassification + 1,
+				ObservationCount: minObsForClassification() + 1,
 				AvgSpeedMps:      5.0,
 				ObjectClass:      "vehicle",
 			},
@@ -509,7 +526,7 @@ func TestPipelineCov2_AnalysisRunManagerRecordTrack(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "rt-t1",
-				ObservationCount: MinObservationsForClassification,
+				ObservationCount: minObsForClassification(),
 				AvgSpeedMps:      3.0,
 				ObjectClass:      "", // triggers classify
 			},
@@ -782,7 +799,7 @@ func TestPipelineCov2_FeatureExportWithRunManager(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "fe-t1",
-				ObservationCount: MinObservationsForClassification + 5,
+				ObservationCount: minObsForClassification() + 5,
 				AvgSpeedMps:      6.0,
 				ObjectClass:      "vehicle",
 				ObjectConfidence: 0.9,

@@ -10,8 +10,9 @@ h1 {
   gap: 20px;
   align-items: start;
   margin: 0 auto;
-  max-width: 500px;
   width: 100%;
+  padding: 0 12px;
+  box-sizing: border-box;
 }
 
 @media (min-width: 1060px) {

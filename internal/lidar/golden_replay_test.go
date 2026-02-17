@@ -1,7 +1,6 @@
 package lidar
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -29,15 +28,12 @@ func TestGoldenReplay_Determinism(t *testing.T) {
 
 	t.Logf("Both runs produced %d tracks", len(run1Results))
 
-	// Compare each track between runs
+	// Compare each track between runs (sorted by creation time + X position).
+	// TrackIDs are UUID-based and intentionally differ between runs, so we
+	// compare only the deterministic state properties.
 	for i := range run1Results {
 		track1 := run1Results[i]
 		track2 := run2Results[i]
-
-		// Track IDs should be identical (deterministic ID generation)
-		if track1.TrackID != track2.TrackID {
-			t.Errorf("track %d: ID mismatch: run1=%s, run2=%s", i, track1.TrackID, track2.TrackID)
-		}
 
 		// State should be identical
 		if track1.State != track2.State {
@@ -157,15 +153,19 @@ func TestGoldenReplay_MultiTrackDeterminism(t *testing.T) {
 
 	t.Logf("Testing determinism with %d tracks", len(run1))
 
-	// Verify all tracks match
+	// Verify all tracks match (sorted by creation time + X position).
+	// TrackIDs are UUID-based and differ between runs — compare only
+	// deterministic properties.
 	for i := range run1 {
-		if run1[i].TrackID != run2[i].TrackID {
-			t.Errorf("track %d: ID mismatch: run1=%s, run2=%s",
-				i, run1[i].TrackID, run2[i].TrackID)
-		}
 		if run1[i].State != run2[i].State {
 			t.Errorf("track %d: state mismatch: run1=%s, run2=%s",
 				i, run1[i].State, run2[i].State)
+		}
+		if !floatNearlyEqual(run1[i].X, run2[i].X, 0.02) {
+			t.Errorf("track %d: X mismatch: run1=%f, run2=%f", i, run1[i].X, run2[i].X)
+		}
+		if !floatNearlyEqual(run1[i].Y, run2[i].Y, 0.02) {
+			t.Errorf("track %d: Y mismatch: run1=%f, run2=%f", i, run1[i].Y, run2[i].Y)
 		}
 	}
 
@@ -293,11 +293,16 @@ func runTrackingPipeline(t *testing.T, frameData [][]WorldCluster) []*TrackedObj
 		tracker.Update(clusters, timestamp)
 	}
 
-	// Return all tracks (including tentative and deleted), sorted by ID
-	// for deterministic comparison (map iteration order is not guaranteed).
+	// Return all tracks (including tentative and deleted), sorted by
+	// creation time then initial X position for deterministic comparison.
+	// TrackID cannot be used as sort key because UUID-based IDs differ
+	// between runs by design.
 	tracks := tracker.GetAllTracks()
 	sort.Slice(tracks, func(i, j int) bool {
-		return tracks[i].TrackID < tracks[j].TrackID
+		if tracks[i].FirstUnixNanos != tracks[j].FirstUnixNanos {
+			return tracks[i].FirstUnixNanos < tracks[j].FirstUnixNanos
+		}
+		return tracks[i].X < tracks[j].X
 	})
 	return tracks
 }
@@ -311,7 +316,8 @@ func floatNearlyEqual(a, b float32, tolerance float32) bool {
 	return diff < tolerance
 }
 
-// TestGoldenReplay_TrackIDStability verifies that track IDs are stable across replay.
+// TestGoldenReplay_TrackIDStability verifies that track IDs use the expected
+// UUID-based format and that the same number of tracks are created across runs.
 func TestGoldenReplay_TrackIDStability(t *testing.T) {
 	testData := generateSyntheticTrackingData()
 
@@ -322,20 +328,26 @@ func TestGoldenReplay_TrackIDStability(t *testing.T) {
 		t.Fatal("no tracks created")
 	}
 
-	// Track IDs should be identical
-	for i := range run1 {
-		if run1[i].TrackID != run2[i].TrackID {
-			t.Errorf("track ID not stable: run1=%s, run2=%s",
-				run1[i].TrackID, run2[i].TrackID)
+	// Same number of tracks should be created in both runs
+	if len(run1) != len(run2) {
+		t.Fatalf("different track counts: run1=%d, run2=%d", len(run1), len(run2))
+	}
+
+	// Track IDs should follow the UUID-based format (trk_<uuid>)
+	for _, track := range run1 {
+		if len(track.TrackID) < 4 || track.TrackID[:4] != "trk_" {
+			t.Errorf("unexpected track ID format: got %s, expected trk_<hex>", track.TrackID)
 		}
 	}
 
-	// Track IDs should follow the expected format
-	for i, track := range run1 {
-		expected := fmt.Sprintf("track_%d", i+1)
-		if track.TrackID != expected {
-			t.Errorf("unexpected track ID format: got %s, expected %s",
-				track.TrackID, expected)
+	// Track IDs should be globally unique (no reuse across runs)
+	allIDs := make(map[string]bool)
+	for _, track := range run1 {
+		allIDs[track.TrackID] = true
+	}
+	for _, track := range run2 {
+		if allIDs[track.TrackID] {
+			t.Errorf("track ID %s reused across runs — expected globally unique IDs", track.TrackID)
 		}
 	}
 

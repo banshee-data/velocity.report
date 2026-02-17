@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { BackgroundGrid, MissedRegion, Track, TrackObservation } from '$lib/types/lidar';
-	import { TRACK_COLORS } from '$lib/types/lidar';
+	import { TRACK_COLORS, trackColour } from '$lib/types/lidar';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
 	// Rendering constants
@@ -465,22 +465,13 @@
 
 		const [screenX, screenY] = worldToScreen(pos.x, pos.y);
 
-		// Get color based on classification or state
-		let color: string = TRACK_COLORS.other;
-		if (track.state === 'tentative') {
-			color = TRACK_COLORS.tentative;
-		} else if (track.state === 'deleted') {
-			color = TRACK_COLORS.deleted;
-		} else if (track.object_class && track.object_class in TRACK_COLORS) {
-			color = TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS];
-		}
+		// Get color based on classification or state, with per-track hue variation (task 6.2)
+		let color: string = trackColour(track.track_id, track.object_class ?? undefined, track.state);
 
-		// Draw history path
+		// Draw history path with temporal fade (task 6.3)
 		if (showHistory && track.history && track.history.length > 1) {
-			ctx.beginPath();
 			ctx.strokeStyle = color;
 			ctx.lineWidth = isSelected ? 2 : 1;
-			ctx.globalAlpha = 0.5;
 
 			// Sort history by timestamp to ensure coherent lines
 			const sortedHistory = [...track.history].sort((a, b) => {
@@ -500,7 +491,32 @@
 					})
 				: sortedHistory;
 
-			let firstPointDrawn = false;
+			// Compute the trail time window for alpha interpolation (task 6.3).
+			// Recent segments are drawn at alpha 0.8, oldest at 0.1.
+			const TRAIL_ALPHA_MAX = 0.8;
+			const TRAIL_ALPHA_MIN = 0.1;
+			let trailStartMs = 0;
+			let trailEndMs = 0;
+			for (const pt of visibleHistory) {
+				if (pt.timestamp) {
+					const t =
+						typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+					if (t > 0) {
+						if (trailStartMs === 0 || t < trailStartMs) trailStartMs = t;
+						if (t > trailEndMs) trailEndMs = t;
+					}
+				}
+			}
+			const trailSpanMs = trailEndMs - trailStartMs;
+
+			let prevPt: { x: number; y: number; timestamp?: string | number } | null = null;
+			let prevScreen: [number, number] | null = null;
+
+			// Gap thresholds for breaking polylines to avoid spaghetti lines.
+			// Temporal: 1 second gap suggests the track was lost and re-acquired.
+			// Spatial: 2 metre jump suggests ID reuse or tracker teleportation.
+			const GAP_TIME_MS = 1000;
+			const GAP_DISTANCE_M = 2.0;
 
 			// Helper to check if point is valid
 			const isValid = (pt: { x: number; y: number }) =>
@@ -514,18 +530,48 @@
 
 				const [x, y] = worldToScreen(pt.x, pt.y);
 
-				if (!firstPointDrawn) {
-					ctx.moveTo(x, y);
-					firstPointDrawn = true;
-				} else {
-					ctx.lineTo(x, y);
+				if (prevPt && prevScreen) {
+					// Check for temporal or spatial gaps that indicate a discontinuity.
+					let hasGap = false;
+					if (pt.timestamp && prevPt.timestamp) {
+						const tCur =
+							typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+						const tPrev =
+							typeof prevPt.timestamp === 'number'
+								? prevPt.timestamp
+								: new Date(prevPt.timestamp).getTime();
+						if (Math.abs(tCur - tPrev) > GAP_TIME_MS) {
+							hasGap = true;
+						}
+					}
+					if (!hasGap) {
+						const dx = pt.x - prevPt.x;
+						const dy = pt.y - prevPt.y;
+						if (Math.sqrt(dx * dx + dy * dy) > GAP_DISTANCE_M) {
+							hasGap = true;
+						}
+					}
+
+					if (!hasGap) {
+						// Compute age-based alpha for this segment
+						let alpha = 0.5;
+						if (trailSpanMs > 0 && pt.timestamp) {
+							const tPt =
+								typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+							const age = (tPt - trailStartMs) / trailSpanMs; // 0 = oldest, 1 = newest
+							alpha = TRAIL_ALPHA_MIN + (TRAIL_ALPHA_MAX - TRAIL_ALPHA_MIN) * age;
+						}
+						ctx.globalAlpha = alpha;
+						ctx.beginPath();
+						ctx.moveTo(prevScreen[0], prevScreen[1]);
+						ctx.lineTo(x, y);
+						ctx.stroke();
+					}
 				}
+				prevPt = pt;
+				prevScreen = [x, y];
 			}
 
-			// If we drew path, stroke it
-			if (firstPointDrawn) {
-				ctx.stroke();
-			}
 			ctx.globalAlpha = 1.0;
 		}
 
@@ -533,13 +579,14 @@
 
 		// Only render bounding box / heading if we are using the current valid position
 		if (useCurrentPos) {
-			// Draw bounding box
+			// Draw bounding box using per-frame OBB dimensions and PCA heading
 			const bbox = track.bounding_box;
-			const length = bbox.length_avg * scale;
-			const width = bbox.width_avg * scale;
+			const length = (bbox.length || bbox.length_avg) * scale;
+			const width = (bbox.width || bbox.width_avg) * scale;
+			const boxHeading = track.obb_heading_rad ?? track.heading_rad;
 
 			ctx.translate(screenX, screenY);
-			ctx.rotate(-track.heading_rad); // Negative because Y is flipped
+			ctx.rotate(-boxHeading); // Negative because Y is flipped
 
 			// Fill bounding box
 			ctx.fillStyle = `${color}33`; // 20% opacity
