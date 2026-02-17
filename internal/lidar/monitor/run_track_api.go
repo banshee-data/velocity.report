@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/google/uuid"
 )
 
 // Phase 1.6: REST API endpoints for lidar_run_tracks labelling
@@ -483,28 +485,97 @@ func (ws *WebServer) handleGetRun(w http.ResponseWriter, r *http.Request, runID 
 	json.NewEncoder(w).Encode(run)
 }
 
-// handleReprocessRun re-runs analysis on a PCAP file (placeholder).
+// handleReprocessRun re-runs analysis on a PCAP file with optional parameter overrides.
 // POST /api/lidar/runs/{run_id}/reprocess
+// Request body: {"params_json": {...}} (optional — uses original run params if omitted)
 func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use POST")
 		return
 	}
 
-	// Phase 2 implementation: connect to PCAP replay
-	// For now, return 501 Not Implemented
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"error":   "not_implemented",
-		"message": "Reprocessing not yet implemented. This will be connected to PCAP replay in Phase 2.",
-		"run_id":  runID,
+	// Get the original run to find source PCAP and params
+	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
+	originalRun, err := runStore.GetRun(runID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			ws.writeJSONError(w, http.StatusNotFound, "run not found")
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run: %v", err))
+		}
+		return
+	}
+
+	if originalRun.SourceType != "pcap" || originalRun.SourcePath == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "run has no PCAP source; only PCAP-based runs can be reprocessed")
+		return
+	}
+
+	// Parse optional params override from request body
+	var req struct {
+		ParamsJSON json.RawMessage `json:"params_json,omitempty"`
+	}
+	if r.Body != nil {
+		defer r.Body.Close()
+		if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil && decErr.Error() != "EOF" {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", decErr))
+			return
+		}
+	}
+
+	// Use provided params or fall back to original run params
+	paramsJSON := req.ParamsJSON
+	if paramsJSON == nil {
+		paramsJSON = originalRun.ParamsJSON
+	}
+
+	// Create a new analysis run
+	newRunID := fmt.Sprintf("reprocess-%s-%s", runID[:8], uuid.New().String()[:8])
+	newRun := &lidar.AnalysisRun{
+		RunID:       newRunID,
+		SourceType:  "pcap",
+		SourcePath:  originalRun.SourcePath,
+		SensorID:    originalRun.SensorID,
+		Status:      "running",
+		CreatedAt:   time.Now(),
+		ParamsJSON:  paramsJSON,
+		ParentRunID: runID,
+	}
+
+	if err := runStore.InsertRun(newRun); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create analysis run: %v", err))
+		return
+	}
+
+	// Reset tracker and background grid for deterministic analysis
+	if ws.tracker != nil {
+		ws.tracker.Reset()
+	}
+	if err := ws.resetBackgroundGrid(); err != nil {
+		log.Printf("Warning: failed to reset background grid before reprocess: %v", err)
+	}
+
+	config := ReplayConfig{
+		AnalysisMode: true,
+	}
+	if err := ws.StartPCAPInternal(originalRun.SourcePath, config); err != nil {
+		if updateErr := runStore.UpdateRunStatus(newRunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
+			log.Printf("failed to update run status: %v", updateErr)
+		}
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
+		return
+	}
+
+	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
+		"run_id":        newRunID,
+		"parent_run_id": runID,
+		"status":        "running",
+		"message":       "PCAP replay initiated; new analysis run created",
 	})
 }
 
-// Phase 4.5: Ground Truth Evaluation Endpoint
-
-// handleEvaluateRun compares a candidate run against a reference run and returns ground truth scores.
+// handleEvaluateRun compares a candidate run against a reference run, persists
+// the result to lidar_evaluations, and returns ground truth scores.
 // POST /api/lidar/runs/{run_id}/evaluate
 // Request body: {"reference_run_id": "..."} or auto-detect from scene
 func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, candidateRunID string) {
@@ -523,6 +594,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 	}
 
 	referenceRunID := req.ReferenceRunID
+	var matchedSceneID string
 
 	// If no reference run specified, try to auto-detect from scene
 	if referenceRunID == "" {
@@ -535,7 +607,6 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		}
 
 		// Try to find a scene for this sensor that has a reference run
-		// Match by sensor ID and optionally source path
 		sceneStore := lidar.NewSceneStore(ws.db.DB)
 		scenes, err := sceneStore.ListScenes(candidateRun.SensorID)
 		if err != nil {
@@ -543,23 +614,23 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 			return
 		}
 
-		// Find scene matching sensor and source path (if available)
-		// First pass: try to match both sensor and source path
+		// First pass: match sensor and source path
 		if candidateRun.SourcePath != "" {
 			for _, scene := range scenes {
 				if scene.ReferenceRunID != "" && scene.PCAPFile == candidateRun.SourcePath {
 					referenceRunID = scene.ReferenceRunID
+					matchedSceneID = scene.SceneID
 					break
 				}
 			}
 		}
 
-		// Second pass: if no exact match, fall back to first scene with reference for this sensor
-		// This is a reasonable heuristic when source path matching isn't possible
+		// Second pass: fall back to first scene with reference for this sensor
 		if referenceRunID == "" {
 			for _, scene := range scenes {
 				if scene.ReferenceRunID != "" {
 					referenceRunID = scene.ReferenceRunID
+					matchedSceneID = scene.SceneID
 					break
 				}
 			}
@@ -581,18 +652,55 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	// Persist evaluation result if a scene was identified
+	var evaluationID string
+	if matchedSceneID != "" {
+		candidateRun, _ := runStore.GetRun(candidateRunID)
+		eval := &lidar.Evaluation{
+			SceneID:             matchedSceneID,
+			ReferenceRunID:      referenceRunID,
+			CandidateRunID:      candidateRunID,
+			DetectionRate:       score.DetectionRate,
+			Fragmentation:       score.Fragmentation,
+			FalsePositiveRate:   score.FalsePositiveRate,
+			VelocityCoverage:    score.VelocityCoverage,
+			QualityPremium:      score.QualityPremium,
+			TruncationRate:      score.TruncationRate,
+			VelocityNoiseRate:   score.VelocityNoiseRate,
+			StoppedRecoveryRate: score.StoppedRecoveryRate,
+			CompositeScore:      score.CompositeScore,
+			MatchedCount:        score.MatchedCount,
+			ReferenceCount:      score.ReferenceCount,
+			CandidateCount:      score.CandidateCount,
+		}
+		if candidateRun != nil && len(candidateRun.ParamsJSON) > 0 {
+			eval.ParamsJSON = candidateRun.ParamsJSON
+		}
+
+		evalStore := lidar.NewEvaluationStore(ws.db.DB)
+		if err := evalStore.Insert(eval); err != nil {
+			log.Printf("Warning: failed to persist evaluation: %v", err)
+		} else {
+			evaluationID = eval.EvaluationID
+		}
+	}
+
+	response := map[string]interface{}{
 		"reference_run_id": referenceRunID,
 		"candidate_run_id": candidateRunID,
 		"score":            score,
-	}); err != nil {
-		// Headers already sent - log error only, don't write to response body
+	}
+	if evaluationID != "" {
+		response["evaluation_id"] = evaluationID
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("Error encoding evaluation response: %v", err)
 	}
 }
 
-// Phase 7: Missed Regions Handlers
+// Missed Regions Handlers
 
 // handleMissedRegions handles GET (list) and POST (create) for missed regions.
 // GET/POST /api/lidar/runs/{run_id}/missed-regions

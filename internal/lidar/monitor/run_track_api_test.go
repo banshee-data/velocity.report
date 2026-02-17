@@ -452,6 +452,8 @@ func TestReprocessRun(t *testing.T) {
 	testDB := &db.DB{DB: sqlDB}
 	ws := &WebServer{db: testDB}
 
+	// Without a data source manager, reprocess will fail at PCAP replay start.
+	// Verify it gets past validation and creates a new analysis run.
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/test-run-006/reprocess", nil)
 	w := httptest.NewRecorder()
 
@@ -460,17 +462,49 @@ func TestReprocessRun(t *testing.T) {
 	resp := w.Result()
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNotImplemented {
-		t.Errorf("expected status 501, got %d", resp.StatusCode)
+	// Expect 500 because PCAP replay cannot start in test environment
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected status 500 (PCAP replay unavailable), got %d", resp.StatusCode)
 	}
+}
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
+func TestReprocessRun_NotFound(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	testDB := &db.DB{DB: sqlDB}
+	ws := &WebServer{db: testDB}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/nonexistent/reprocess", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleReprocessRun(w, req, "nonexistent")
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", resp.StatusCode)
 	}
+}
 
-	if result["error"] != "not_implemented" {
-		t.Errorf("expected error not_implemented, got %v", result["error"])
+func TestReprocessRun_WrongMethod(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	testDB := &db.DB{DB: sqlDB}
+	ws := &WebServer{db: testDB}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/test-run/reprocess", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleReprocessRun(w, req, "test-run")
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", resp.StatusCode)
 	}
 }
 

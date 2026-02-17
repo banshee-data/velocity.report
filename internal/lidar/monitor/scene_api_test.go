@@ -53,6 +53,37 @@ func setupTestSceneAPIDB(t *testing.T) *db.DB {
 		t.Fatalf("failed to create lidar_scenes table: %v", err)
 	}
 
+	// Create lidar_evaluations table
+	_, err = sqlDB.Exec(`
+		CREATE TABLE IF NOT EXISTS lidar_evaluations (
+			evaluation_id TEXT PRIMARY KEY,
+			scene_id TEXT NOT NULL,
+			reference_run_id TEXT NOT NULL,
+			candidate_run_id TEXT NOT NULL,
+			detection_rate REAL,
+			fragmentation REAL,
+			false_positive_rate REAL,
+			velocity_coverage REAL,
+			quality_premium REAL,
+			truncation_rate REAL,
+			velocity_noise_rate REAL,
+			stopped_recovery_rate REAL,
+			composite_score REAL,
+			matched_count INTEGER,
+			reference_count INTEGER,
+			candidate_count INTEGER,
+			params_json TEXT,
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY (scene_id) REFERENCES lidar_scenes(scene_id) ON DELETE CASCADE,
+			FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id),
+			FOREIGN KEY (candidate_run_id) REFERENCES lidar_analysis_runs(run_id)
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_pair ON lidar_evaluations(reference_run_id, candidate_run_id);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create lidar_evaluations table: %v", err)
+	}
+
 	return &db.DB{DB: sqlDB}
 }
 
@@ -485,7 +516,7 @@ func TestParseScenePath(t *testing.T) {
 	}
 }
 
-func TestSceneAPI_ListSceneEvaluations_NotImplemented(t *testing.T) {
+func TestSceneAPI_ListSceneEvaluations(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
@@ -493,11 +524,14 @@ func TestSceneAPI_ListSceneEvaluations_NotImplemented(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleSceneByID(w, req)
 
-	if w.Code != http.StatusNotImplemented {
-		t.Fatalf("status = %d, want %d body=%s", w.Code, http.StatusNotImplemented, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", w.Code, http.StatusOK, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "not_implemented") {
-		t.Fatalf("expected not_implemented marker in body, got %s", w.Body.String())
+	if !strings.Contains(w.Body.String(), "scene-xyz") {
+		t.Fatalf("expected scene_id in response, got %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "evaluations") {
+		t.Fatalf("expected evaluations key in response, got %s", w.Body.String())
 	}
 }
 

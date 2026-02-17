@@ -222,7 +222,8 @@ func TestCov_HandleListSceneEvaluations_WrongMethod(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/scene-1/evaluations", nil)
+	// PUT is not supported for evaluations (GET and POST are)
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/scene-1/evaluations", nil)
 	w := httptest.NewRecorder()
 	ws.handleSceneByID(w, req)
 
@@ -466,8 +467,8 @@ func TestCov_HandleListSceneEvaluations_GET(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleSceneByID(w, req)
 
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
 	if !strings.Contains(w.Body.String(), "scene-1") {
 		t.Errorf("expected scene_id in response, got: %s", w.Body.String())

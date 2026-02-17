@@ -75,10 +75,13 @@ func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	case "evaluations":
-		// /api/lidar/scenes/{scene_id}/evaluations (Phase 4.5)
-		if r.Method == http.MethodGet {
+		// /api/lidar/scenes/{scene_id}/evaluations
+		switch r.Method {
+		case http.MethodGet:
 			ws.handleListSceneEvaluations(w, r, sceneID)
-		} else {
+		case http.MethodPost:
+			ws.handleCreateSceneEvaluation(w, r, sceneID)
+		default:
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	default:
@@ -359,16 +362,98 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 	})
 }
 
-// handleListSceneEvaluations lists all ground truth evaluation scores for a scene.
+// handleListSceneEvaluations lists all persisted ground truth evaluation scores for a scene.
 // GET /api/lidar/scenes/{scene_id}/evaluations
-// Placeholder for Phase 4.5 — would need a separate evaluations table to persist scores.
 func (ws *WebServer) handleListSceneEvaluations(w http.ResponseWriter, r *http.Request, sceneID string) {
-	// TODO(Phase 4.5+): Create lidar_scene_evaluations table to persist ground truth scores
-	// For now, return 501 Not Implemented with a message explaining the future implementation
-	ws.writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
-		"error":    "not_implemented",
-		"message":  "Scene evaluations listing not yet implemented. Future implementation will store evaluation results in a dedicated table.",
-		"scene_id": sceneID,
-		"note":     "Use POST /api/lidar/runs/{run_id}/evaluate to evaluate a specific run against the scene's reference run.",
+	evalStore := lidar.NewEvaluationStore(ws.db.DB)
+	evals, err := evalStore.ListByScene(sceneID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list evaluations: %v", err))
+		return
+	}
+	if evals == nil {
+		evals = []*lidar.Evaluation{}
+	}
+	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"scene_id":    sceneID,
+		"evaluations": evals,
 	})
+}
+
+// handleCreateSceneEvaluation evaluates a candidate run against the scene's reference run
+// and persists the result.
+// POST /api/lidar/scenes/{scene_id}/evaluations
+// Request body: {"candidate_run_id": "..."}
+func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Request, sceneID string) {
+	sceneStore := lidar.NewSceneStore(ws.db.DB)
+	scene, err := sceneStore.GetScene(sceneID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			ws.writeJSONError(w, http.StatusNotFound, "scene not found")
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load scene: %v", err))
+		}
+		return
+	}
+
+	if scene.ReferenceRunID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "scene has no reference run; set reference_run_id first")
+		return
+	}
+
+	var req struct {
+		CandidateRunID string `json:"candidate_run_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		return
+	}
+	if req.CandidateRunID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "candidate_run_id is required")
+		return
+	}
+
+	// Run evaluation
+	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
+	evaluator := lidar.NewGroundTruthEvaluator(runStore, lidar.DefaultGroundTruthWeights())
+	score, err := evaluator.Evaluate(scene.ReferenceRunID, req.CandidateRunID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("evaluation failed: %v", err))
+		return
+	}
+
+	// Get candidate run params for snapshot
+	candidateRun, err := runStore.GetRun(req.CandidateRunID)
+	if err != nil {
+		log.Printf("Warning: failed to get candidate run params: %v", err)
+	}
+
+	eval := &lidar.Evaluation{
+		SceneID:             sceneID,
+		ReferenceRunID:      scene.ReferenceRunID,
+		CandidateRunID:      req.CandidateRunID,
+		DetectionRate:       score.DetectionRate,
+		Fragmentation:       score.Fragmentation,
+		FalsePositiveRate:   score.FalsePositiveRate,
+		VelocityCoverage:    score.VelocityCoverage,
+		QualityPremium:      score.QualityPremium,
+		TruncationRate:      score.TruncationRate,
+		VelocityNoiseRate:   score.VelocityNoiseRate,
+		StoppedRecoveryRate: score.StoppedRecoveryRate,
+		CompositeScore:      score.CompositeScore,
+		MatchedCount:        score.MatchedCount,
+		ReferenceCount:      score.ReferenceCount,
+		CandidateCount:      score.CandidateCount,
+	}
+	if candidateRun != nil && len(candidateRun.ParamsJSON) > 0 {
+		eval.ParamsJSON = candidateRun.ParamsJSON
+	}
+
+	evalStore := lidar.NewEvaluationStore(ws.db.DB)
+	if err := evalStore.Insert(eval); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to persist evaluation: %v", err))
+		return
+	}
+
+	ws.writeJSON(w, http.StatusCreated, eval)
 }

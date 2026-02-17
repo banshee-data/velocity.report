@@ -180,8 +180,9 @@ func TestCov_HandleRunTrackAPI_Reprocess(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleRunTrackAPI(w, req)
 
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	// Reprocess now attempts PCAP replay; without a data source manager it returns 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
@@ -902,12 +903,16 @@ func TestCov_HandleReprocessRun_Success(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/run-1/reprocess", nil)
-	w := httptest.NewRecorder()
-	ws.handleReprocessRun(w, req, "run-1")
+	// Insert a run so it can be found
+	runID := covInsertRun(t, ws, "reproc-direct")
 
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	// Reprocess now attempts PCAP replay; without a data source manager it returns 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
