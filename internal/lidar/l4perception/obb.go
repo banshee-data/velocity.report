@@ -1,4 +1,4 @@
-package lidar
+package l4perception
 
 import (
 	"math"
@@ -8,25 +8,6 @@ import (
 // covariance matrix operations during OBB estimation. Values below this are
 // considered effectively zero for purposes of eigenvalue computation.
 const obbCovarianceEpsilon = 1e-9
-
-// OrientedBoundingBox represents a 7-DOF (7 Degrees of Freedom) 3D bounding box.
-// This format conforms to the AV industry standard specification.
-//
-// 7-DOF parameters:
-//   - CenterX/Y/Z: Centre position (metres, world frame)
-//   - Length: Box extent along heading direction (metres)
-//   - Width: Box extent perpendicular to heading (metres)
-//   - Height: Box extent along Z-axis (metres)
-//   - HeadingRad: Yaw angle around Z-axis (radians, [-π, π])
-type OrientedBoundingBox struct {
-	CenterX    float32
-	CenterY    float32
-	CenterZ    float32
-	Length     float32 // Extent along principal axis
-	Width      float32 // Extent perpendicular to principal axis
-	Height     float32 // Extent along Z
-	HeadingRad float32 // Rotation around Z-axis
-}
 
 // EstimateOBBFromCluster computes an oriented bounding box for a cluster using
 // PCA (Principal Component Analysis) on the X-Y plane to determine the principal

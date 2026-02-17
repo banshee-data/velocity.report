@@ -3,6 +3,8 @@ package lidar
 import (
 	"sync"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // Point represents a single 3D LiDAR measurement point in Cartesian coordinates
@@ -184,30 +186,10 @@ type RetentionConfig struct {
 //    Enhanced to match schema lidar_clusters table exactly
 //
 
-// WorldCluster matches schema lidar_clusters table structure exactly
-type WorldCluster struct {
-	ClusterID         int64   // matches lidar_cluster_id INTEGER PRIMARY KEY
-	SensorID          string  // matches sensor_id TEXT NOT NULL
-	WorldFrame        FrameID // matches world_frame TEXT NOT NULL
-	TSUnixNanos       int64   // matches ts_unix_nanos INTEGER NOT NULL
-	CentroidX         float32 // matches centroid_x REAL
-	CentroidY         float32 // matches centroid_y REAL
-	CentroidZ         float32 // matches centroid_z REAL
-	BoundingBoxLength float32 // matches bounding_box_length REAL
-	BoundingBoxWidth  float32 // matches bounding_box_width REAL
-	BoundingBoxHeight float32 // matches bounding_box_height REAL
-	PointsCount       int     // matches points_count INTEGER
-	HeightP95         float32 // matches height_p95 REAL
-	IntensityMean     float32 // matches intensity_mean REAL
-
-	// Debug hints matching schema optional fields
-	SensorRingHint  *int     // matches sensor_ring_hint INTEGER
-	SensorAzDegHint *float32 // matches sensor_azimuth_deg_hint REAL
-
-	// Optional in-memory only fields (not persisted to schema)
-	SamplePoints [][3]float32         // for debugging/thumbnails
-	OBB          *OrientedBoundingBox // Oriented bounding box (computed via PCA)
-}
+// WorldCluster is an alias for l4perception.WorldCluster.
+// It matches schema lidar_clusters table structure exactly.
+// Use l4perception.WorldCluster directly in new code.
+type WorldCluster = l4perception.WorldCluster
 
 // TrackSummary for HTTP API responses - streamlined view of track state
 type TrackSummary struct {
