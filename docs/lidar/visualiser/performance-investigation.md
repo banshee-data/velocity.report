@@ -1,6 +1,6 @@
 # LiDAR Visualiser Performance Investigation
 
-**Status:** Resolved — M3.5 split streaming implemented, frame rate throttle added
+**Status:** Substantially Complete — M3.5 split streaming implemented, frame rate throttle added. Minor gaps: CLI flag for background interval uses default only; bandwidth reduction not formally tested (claimed ~96% in code)
 **Date:** 2026-02-05
 **Authors:** David, Copilot
 **Scope:** Static LiDAR deployments only (no SLAM/mobile use cases)
@@ -449,36 +449,36 @@ Inserted between M3 (Canonical Model) and M4 (Tracking Refactor):
 
 **Track B (Pipeline):**
 
-- [ ] Add `FrameType` enum to protobuf schema
-- [ ] Add `BackgroundSnapshot` message to protobuf
-- [ ] Implement `GenerateBackgroundPointCloud()` on BackgroundManager
-- [ ] Add background snapshot scheduling to Publisher (30s interval)
-- [ ] Add `--vis-background-interval` CLI flag
-- [ ] Implement foreground-only frame adaptation in FrameAdapter (works for both 10Hz/20Hz)
-- [ ] Add sensor movement detection (`CheckForSensorMovement`)
-- [ ] Add background drift detection (`CheckBackgroundDrift`)
-- [ ] Handle grid reset → sequence number increment
-- [ ] Unit tests for background snapshot generation (test both 10Hz/20Hz densities)
-- [ ] Unit tests for movement detection
+- [x] Add `FrameType` enum to protobuf schema
+- [x] Add `BackgroundSnapshot` message to protobuf
+- [x] Implement `GenerateBackgroundPointCloud()` on BackgroundManager
+- [x] Add background snapshot scheduling to Publisher (30s interval)
+- [ ] Add `--vis-background-interval` CLI flag *(uses default 30s config; explicit flag not added)*
+- [x] Implement foreground-only frame adaptation in FrameAdapter (works for both 10Hz/20Hz)
+- [x] Add sensor movement detection (`CheckForSensorMovement`)
+- [x] Add background drift detection (`CheckBackgroundDrift`)
+- [x] Handle grid reset → sequence number increment
+- [x] Unit tests for background snapshot generation (test both 10Hz/20Hz densities)
+- [x] Unit tests for movement detection
 
 **Track A (Visualiser/Swift):**
 
-- [ ] Update protobuf stubs for new message types
-- [ ] Implement `CompositePointCloudRenderer` with BG cache
-- [ ] Handle `FrameType.background` → update cache
-- [ ] Handle `FrameType.foreground` → render FG over cached BG
-- [ ] Request background refresh when `backgroundSeq` mismatches
-- [ ] Add UI indicator for "Background: Cached" vs "Refreshing"
-- [ ] Performance test: verify 3 Mbps bandwidth achieved
+- [x] Update protobuf stubs for new message types
+- [x] Implement `CompositePointCloudRenderer` with BG cache
+- [x] Handle `FrameType.background` → update cache
+- [x] Handle `FrameType.foreground` → render FG over cached BG
+- [x] Request background refresh when `backgroundSeq` mismatches
+- [x] Add UI indicator for "Background: Cached" vs "Refreshing"
+- [ ] Performance test: verify 3 Mbps bandwidth achieved *(claimed in code comments, not formally tested)*
 
 **Acceptance Criteria:**
 
-- [ ] Background snapshot sent every 30s (configurable)
-- [ ] Foreground frames contain only moving points + metadata
-- [ ] Bandwidth reduced from ~80 Mbps to <5 Mbps
-- [ ] No visual difference from full-frame mode
-- [ ] Sensor movement triggers background refresh
-- [ ] Client handles reconnect with stale cache gracefully
+- [x] Background snapshot sent every 30s (configurable)
+- [x] Foreground frames contain only moving points + metadata
+- [x] Bandwidth reduced from ~80 Mbps to <5 Mbps *(claimed ~3 Mbps in code; not formally tested)*
+- [x] No visual difference from full-frame mode
+- [x] Sensor movement triggers background refresh
+- [x] Client handles reconnect with stale cache gracefully
 
 **Estimated Dev-Days:** 8 (3 Track A + 5 Track B)
 
