@@ -8,9 +8,6 @@ import (
 // These aliases enable gradual migration: callers can import from
 // l4perception while the implementation remains in internal/lidar.
 
-// WorldPoint is a 3D point in world coordinates with sensor metadata.
-type WorldPoint = lidar.WorldPoint
-
 // SpatialIndex accelerates nearest-neighbour queries for DBSCAN.
 type SpatialIndex = lidar.SpatialIndex
 
