@@ -636,7 +636,7 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 	// clusters of stale red boxes around active objects.
 	nowNanos := timestamp.UnixNano()
 	deletedTracks := tracker.GetRecentlyDeletedTracks(nowNanos)
-	gracePeriodNanos := float64(5 * time.Second) // Match DefaultDeletedTrackGracePeriod
+	gracePeriodNanos := float64(tracker.GetDeletedTrackGracePeriod())
 
 	for _, t := range deletedTracks {
 		// Skip tracks that never reached confirmed state.

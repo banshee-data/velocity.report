@@ -19,55 +19,12 @@ const (
 	TrackDeleted   TrackState = "deleted"   // Track marked for removal
 )
 
-// Constants for tracker configuration
+// Internal numerical stability constants — not user-tunable.
 const (
 	// MinDeterminantThreshold is the minimum determinant for covariance matrix inversion
 	MinDeterminantThreshold = 1e-6
 	// SingularDistanceRejection is the distance returned when covariance is singular
 	SingularDistanceRejection = 1e9
-	// MaxSpeedHistoryLength is the maximum number of speed samples kept for percentile computation
-	MaxSpeedHistoryLength = 100
-	// MaxTrackHistoryLength is the maximum number of position samples kept for trail rendering.
-	// At 10 Hz this gives ~20 seconds of trail. Capping prevents unbounded memory growth
-	// and reduces serialisation cost in the visualiser adapter.
-	MaxTrackHistoryLength = 200
-	// DefaultDeletedTrackGracePeriod is how long to keep deleted tracks before cleanup
-	DefaultDeletedTrackGracePeriod = 5 * time.Second
-	// MaxReasonableSpeedMps is the maximum reasonable speed for any tracked object (m/s)
-	// Used to reject spurious associations that would imply impossible velocities
-	MaxReasonableSpeedMps = 30.0 // ~108 km/h, ~67 mph
-	// MaxPositionJumpMeters is the maximum allowed position jump between consecutive observations
-	// Observations beyond this distance are rejected as likely false associations
-	MaxPositionJumpMeters = 5.0
-
-	// MaxPredictDt is the maximum dt (seconds) allowed in a single predict step.
-	// Larger gaps are clamped to prevent covariance explosion from quadratic growth
-	// in the F*P*F^T computation. At 0.5 s this allows ~5 missed frames at 10 Hz
-	// before clamping kicks in.
-	MaxPredictDt float32 = 0.5
-
-	// MaxCovarianceDiag is the maximum allowed diagonal element of the
-	// covariance matrix P. Prevents unbounded gating ellipse growth during
-	// long coasting or large dt gaps.
-	MaxCovarianceDiag float32 = 100.0
-
-	// MinPointsForPCA is the minimum number of cluster points required for
-	// a reliable PCA heading estimate. Below this threshold the OBB heading
-	// is kept at its previous smoothed value to avoid jitter from degenerate
-	// eigenvector solutions.
-	MinPointsForPCA = 4
-
-	// OBBHeadingSmoothingAlpha is the EMA smoothing factor for OBB heading
-	// updates. Lower values provide heavier smoothing, reducing PCA jitter
-	// at the cost of slower response to genuine rotation. 0.08 is suitable
-	// for typical 10 Hz LiDAR frame rates.
-	OBBHeadingSmoothingAlpha float32 = 0.08
-
-	// OBBAspectRatioLockThreshold controls when the OBB heading is locked
-	// (not updated) because the cluster's aspect ratio is too close to 1:1.
-	// When |length − width| / max(length, width) < this threshold, PCA has
-	// no dominant axis and the heading is inherently ambiguous.
-	OBBAspectRatioLockThreshold float32 = 0.25
 )
 
 // TrackerConfig holds configuration parameters for the tracker.
@@ -82,6 +39,28 @@ type TrackerConfig struct {
 	MeasurementNoise        float32       // Measurement noise (σ²)
 	OcclusionCovInflation   float32       // Extra covariance inflation per occluded frame
 	DeletedTrackGracePeriod time.Duration // How long to keep deleted tracks before cleanup
+
+	// Kinematics/physics limits
+	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
+	MaxPositionJumpMeters float32 // Maximum position jump between observations (metres)
+	MaxPredictDt          float32 // Maximum dt (seconds) per predict step
+	MaxCovarianceDiag     float32 // Maximum covariance diagonal element
+
+	// OBB heading params
+	MinPointsForPCA             int     // Minimum cluster points for PCA heading
+	OBBHeadingSmoothingAlpha    float32 // EMA smoothing factor for OBB heading [0,1]
+	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
+
+	// History limits
+	MaxTrackHistoryLength int // Maximum position trail length
+	MaxSpeedHistoryLength int // Maximum speed history samples
+
+	// Merge/split detection
+	MergeSizeRatio float32 // Cluster area ratio above which → merge candidate
+	SplitSizeRatio float32 // Cluster area ratio below which → split candidate
+
+	// Classification
+	MinObservationsForClassification int // Minimum observations before classification
 }
 
 // DefaultTrackerConfig returns tracker configuration loaded from the
@@ -97,16 +76,28 @@ func DefaultTrackerConfig() TrackerConfig {
 // Use this in production code where the TuningConfig is already loaded.
 func TrackerConfigFromTuning(cfg *config.TuningConfig) TrackerConfig {
 	return TrackerConfig{
-		MaxTracks:               cfg.GetMaxTracks(),
-		MaxMisses:               cfg.GetMaxMisses(),
-		MaxMissesConfirmed:      cfg.GetMaxMissesConfirmed(),
-		HitsToConfirm:           cfg.GetHitsToConfirm(),
-		GatingDistanceSquared:   float32(cfg.GetGatingDistanceSquared()),
-		ProcessNoisePos:         float32(cfg.GetProcessNoisePos()),
-		ProcessNoiseVel:         float32(cfg.GetProcessNoiseVel()),
-		MeasurementNoise:        float32(cfg.GetMeasurementNoise()),
-		OcclusionCovInflation:   float32(cfg.GetOcclusionCovInflation()),
-		DeletedTrackGracePeriod: DefaultDeletedTrackGracePeriod,
+		MaxTracks:                        cfg.GetMaxTracks(),
+		MaxMisses:                        cfg.GetMaxMisses(),
+		MaxMissesConfirmed:               cfg.GetMaxMissesConfirmed(),
+		HitsToConfirm:                    cfg.GetHitsToConfirm(),
+		GatingDistanceSquared:            float32(cfg.GetGatingDistanceSquared()),
+		ProcessNoisePos:                  float32(cfg.GetProcessNoisePos()),
+		ProcessNoiseVel:                  float32(cfg.GetProcessNoiseVel()),
+		MeasurementNoise:                 float32(cfg.GetMeasurementNoise()),
+		OcclusionCovInflation:            float32(cfg.GetOcclusionCovInflation()),
+		DeletedTrackGracePeriod:          cfg.GetDeletedTrackGracePeriod(),
+		MaxReasonableSpeedMps:            float32(cfg.GetMaxReasonableSpeedMps()),
+		MaxPositionJumpMeters:            float32(cfg.GetMaxPositionJumpMeters()),
+		MaxPredictDt:                     float32(cfg.GetMaxPredictDt()),
+		MaxCovarianceDiag:                float32(cfg.GetMaxCovarianceDiag()),
+		MinPointsForPCA:                  cfg.GetMinPointsForPCA(),
+		OBBHeadingSmoothingAlpha:         float32(cfg.GetOBBHeadingSmoothingAlpha()),
+		OBBAspectRatioLockThreshold:      float32(cfg.GetOBBAspectRatioLockThreshold()),
+		MaxTrackHistoryLength:            cfg.GetMaxTrackHistoryLength(),
+		MaxSpeedHistoryLength:            cfg.GetMaxSpeedHistoryLength(),
+		MergeSizeRatio:                   float32(cfg.GetMergeSizeRatio()),
+		SplitSizeRatio:                   float32(cfg.GetSplitSizeRatio()),
+		MinObservationsForClassification: cfg.GetMinObservationsForClassification(),
 	}
 }
 
@@ -362,8 +353,8 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// Predict() also clamps independently, but the raw dt flows into
 	// associate() where it affects implied-speed plausibility checks
 	// (task 7.1).
-	if dt > MaxPredictDt {
-		dt = MaxPredictDt
+	if dt > t.Config.MaxPredictDt {
+		dt = t.Config.MaxPredictDt
 	}
 	t.LastUpdateNanos = nowNanos
 
@@ -401,8 +392,8 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// deviate significantly from their historical averages. A cluster
 	// much larger than the track's average suggests a merge; much smaller
 	// suggests a split. These flags are advisory for quality metrics.
-	const mergeSizeRatio = 2.5 // cluster area > 2.5× historical → merge candidate
-	const splitSizeRatio = 0.3 // cluster area < 0.3× historical → split candidate
+	mergeSizeRatio := float64(t.Config.MergeSizeRatio)
+	splitSizeRatio := float64(t.Config.SplitSizeRatio)
 	for clusterIdx, trackID := range associations {
 		if trackID == "" {
 			continue
@@ -443,11 +434,11 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			if t.Config.OcclusionCovInflation > 0 {
 				track.P[0*4+0] += t.Config.OcclusionCovInflation
 				track.P[1*4+1] += t.Config.OcclusionCovInflation
-				if track.P[0*4+0] > MaxCovarianceDiag {
-					track.P[0*4+0] = MaxCovarianceDiag
+				if track.P[0*4+0] > t.Config.MaxCovarianceDiag {
+					track.P[0*4+0] = t.Config.MaxCovarianceDiag
 				}
-				if track.P[1*4+1] > MaxCovarianceDiag {
-					track.P[1*4+1] = MaxCovarianceDiag
+				if track.P[1*4+1] > t.Config.MaxCovarianceDiag {
+					track.P[1*4+1] = t.Config.MaxCovarianceDiag
 				}
 			}
 
@@ -459,8 +450,8 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 					Y:         track.Y,
 					Timestamp: nowNanos,
 				})
-				if len(track.History) > MaxTrackHistoryLength {
-					track.History = track.History[len(track.History)-MaxTrackHistoryLength:]
+				if len(track.History) > t.Config.MaxTrackHistoryLength {
+					track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 				}
 			}
 
@@ -528,10 +519,10 @@ func isFiniteState(track *TrackedObject) bool {
 // clampVelocity scales VX/VY proportionally so the speed magnitude does not
 // exceed MaxReasonableSpeedMps. This prevents teleport-like extrapolation
 // from noisy Kalman updates or degenerate associations.
-func clampVelocity(track *TrackedObject) {
+func (t *Tracker) clampVelocity(track *TrackedObject) {
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
-	if speed > MaxReasonableSpeedMps {
-		scale := MaxReasonableSpeedMps / speed
+	if speed > t.Config.MaxReasonableSpeedMps {
+		scale := t.Config.MaxReasonableSpeedMps / speed
 		track.VX *= scale
 		track.VY *= scale
 	}
@@ -542,8 +533,8 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	// Clamp dt to prevent covariance explosion on frame gaps.
 	// Large dt values (e.g. from throttled frames or PCAP catch-up) cause
 	// F*P*F^T to grow quadratically, ballooning the gating ellipse.
-	if dt > MaxPredictDt {
-		dt = MaxPredictDt
+	if dt > t.Config.MaxPredictDt {
+		dt = t.Config.MaxPredictDt
 	}
 
 	// State transition matrix F for constant velocity model:
@@ -600,8 +591,8 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	// Cap covariance diagonal elements to prevent unbounded gating ellipse
 	// growth from accumulated prediction steps and occlusion inflation.
 	for i := 0; i < 4; i++ {
-		if track.P[i*4+i] > MaxCovarianceDiag {
-			track.P[i*4+i] = MaxCovarianceDiag
+		if track.P[i*4+i] > t.Config.MaxCovarianceDiag {
+			track.P[i*4+i] = t.Config.MaxCovarianceDiag
 		}
 	}
 
@@ -622,7 +613,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 	}
 
 	// Clamp velocity magnitude after prediction (task 2.3).
-	clampVelocity(track)
+	t.clampVelocity(track)
 }
 
 // associate performs cluster-to-track association using the Hungarian
@@ -712,14 +703,14 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 
 	// Physical plausibility check: reject if position jump is too large
 	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-	if euclideanDist > MaxPositionJumpMeters {
+	if euclideanDist > t.Config.MaxPositionJumpMeters {
 		return SingularDistanceRejection
 	}
 
 	// Check if implied velocity would be unreasonable
 	if dt > 0 {
 		impliedSpeed := euclideanDist / dt
-		if impliedSpeed > MaxReasonableSpeedMps {
+		if impliedSpeed > t.Config.MaxReasonableSpeedMps {
 			return SingularDistanceRejection
 		}
 	}
@@ -883,7 +874,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	}
 
 	// Clamp velocity magnitude after update (task 2.3).
-	clampVelocity(track)
+	t.clampVelocity(track)
 
 	// Update timestamp
 	track.LastUnixNanos = nowNanos
@@ -927,14 +918,14 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			Y:         track.Y,
 			Timestamp: nowNanos,
 		})
-		if len(track.History) > MaxTrackHistoryLength {
-			track.History = track.History[len(track.History)-MaxTrackHistoryLength:]
+		if len(track.History) > t.Config.MaxTrackHistoryLength {
+			track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 		}
 	}
 
 	// Store speed history for percentile computation
 	track.speedHistory = append(track.speedHistory, speed)
-	if len(track.speedHistory) > MaxSpeedHistoryLength {
+	if len(track.speedHistory) > t.Config.MaxSpeedHistoryLength {
 		track.speedHistory = track.speedHistory[1:]
 	}
 
@@ -982,7 +973,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		updateHeading := true
 
 		// Guard 1: minimum point count for reliable PCA
-		if cluster.PointsCount < MinPointsForPCA {
+		if cluster.PointsCount < t.Config.MinPointsForPCA {
 			updateHeading = false
 		}
 
@@ -997,7 +988,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				if aspectDiff < 0 {
 					aspectDiff = -aspectDiff
 				}
-				if aspectDiff/maxDim < OBBAspectRatioLockThreshold {
+				if aspectDiff/maxDim < t.Config.OBBAspectRatioLockThreshold {
 					updateHeading = false
 				}
 			}
@@ -1046,7 +1037,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				track.HeadingJitterCount++
 			}
 
-			track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, OBBHeadingSmoothingAlpha)
+			track.OBBHeadingRad = SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, t.Config.OBBHeadingSmoothingAlpha)
 		}
 
 		// Always update per-frame OBB dimensions regardless of heading lock
@@ -1103,7 +1094,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 			Timestamp: nowNanos,
 		}},
 
-		speedHistory: make([]float32, 0, MaxSpeedHistoryLength),
+		speedHistory: make([]float32, 0, t.Config.MaxSpeedHistoryLength),
 	}
 
 	// Initialise OBB heading and per-frame dimensions from cluster if available
@@ -1123,9 +1114,6 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 // cleanupDeletedTracks removes tracks that have been deleted for a grace period.
 func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 	gracePeriod := t.Config.DeletedTrackGracePeriod
-	if gracePeriod == 0 {
-		gracePeriod = DefaultDeletedTrackGracePeriod
-	}
 	gracePeriodNanos := int64(gracePeriod)
 
 	toRemove := make([]string, 0)
@@ -1181,6 +1169,11 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 			track.LastUnixNanos = nowNanos
 		}
 	}
+}
+
+// GetDeletedTrackGracePeriod returns the configured deleted-track grace period.
+func (t *Tracker) GetDeletedTrackGracePeriod() time.Duration {
+	return t.Config.DeletedTrackGracePeriod
 }
 
 // GetActiveTracks returns a slice of currently active (non-deleted) tracks.
@@ -1284,9 +1277,6 @@ func (t *Tracker) GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject {
 	defer t.mu.RUnlock()
 
 	gracePeriod := t.Config.DeletedTrackGracePeriod
-	if gracePeriod == 0 {
-		gracePeriod = DefaultDeletedTrackGracePeriod
-	}
 	gracePeriodNanos := int64(gracePeriod)
 
 	deleted := make([]*TrackedObject, 0)

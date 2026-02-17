@@ -36,11 +36,11 @@ func (c *DBSCANClusterer) Cluster(points []WorldPoint, sensorID string, timestam
 		return nil
 	}
 
-	// Convert ClusteringParams to DBSCANParams for the existing DBSCAN function
-	dbscanParams := DBSCANParams{
-		Eps:    c.params.Eps,
-		MinPts: c.params.MinPts,
-	}
+	// Build full DBSCANParams from defaults (includes filter thresholds)
+	// and override eps/minPts from runtime config.
+	dbscanParams := DefaultDBSCANParams()
+	dbscanParams.Eps = c.params.Eps
+	dbscanParams.MinPts = c.params.MinPts
 
 	// Run DBSCAN clustering
 	clusters := DBSCAN(points, dbscanParams)

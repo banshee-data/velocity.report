@@ -60,6 +60,10 @@ type TrackerInterface interface {
 	// Called on throttled (skipped) frames so tracks are not artificially
 	// kept alive when no clusters are delivered (task 7.2).
 	AdvanceMisses(timestamp time.Time)
+
+	// GetDeletedTrackGracePeriod returns the configured grace period for
+	// deleted track fade-out rendering.
+	GetDeletedTrackGracePeriod() time.Duration
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.

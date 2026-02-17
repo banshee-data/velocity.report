@@ -8,27 +8,8 @@ import (
 	"github.com/banshee-data/velocity.report/internal/config"
 )
 
-// Constants for clustering configuration.
-const (
-	// EstimatedPointsPerCell is used for initial spatial index capacity estimation
-	EstimatedPointsPerCell = 4
-
-	// MaxClusterDiameter is the upper bound (metres) for the longest OBB
-	// dimension of a valid cluster. Clusters larger than this are rejected
-	// as environmental artefacts (e.g. hedgerows, fences picked up as a
-	// single connected component).
-	MaxClusterDiameter = 12.0
-
-	// MinClusterDiameter is the lower bound (metres) for the longest OBB
-	// dimension. Very tiny clusters are usually noise speckle that happened
-	// to meet the DBSCAN MinPts threshold.
-	MinClusterDiameter = 0.05
-
-	// MaxClusterAspectRatio is the maximum ratio of length to width. Very
-	// elongated clusters (e.g. fence lines, walls) are unlikely to be
-	// vehicles or pedestrians.
-	MaxClusterAspectRatio = 15.0
-)
+// EstimatedPointsPerCell is used for initial spatial index capacity estimation.
+const EstimatedPointsPerCell = 4
 
 // IdentityTransform4x4 is a 4x4 identity matrix for pose transforms.
 // T is row-major: [m00,m01,m02,m03, m10,m11,m12,m13, m20,m21,m22,m23, m30,m31,m32,m33]
@@ -232,8 +213,11 @@ func (si *SpatialIndex) RegionQuery(points []WorldPoint, idx int, eps float64) [
 
 // DBSCANParams contains parameters for the DBSCAN clustering algorithm.
 type DBSCANParams struct {
-	Eps    float64 // Neighborhood radius in meters
-	MinPts int     // Minimum points to form a cluster
+	Eps                   float64 // Neighbourhood radius in metres
+	MinPts                int     // Minimum points to form a cluster
+	MaxClusterDiameter    float64 // Upper bound (metres) for longest OBB dimension
+	MinClusterDiameter    float64 // Lower bound (metres) for longest OBB dimension
+	MaxClusterAspectRatio float64 // Maximum length/width ratio
 }
 
 // DefaultDBSCANParams returns DBSCAN parameters loaded from the canonical
@@ -242,8 +226,11 @@ type DBSCANParams struct {
 func DefaultDBSCANParams() DBSCANParams {
 	cfg := config.MustLoadDefaultConfig()
 	return DBSCANParams{
-		Eps:    cfg.GetForegroundDBSCANEps(),
-		MinPts: cfg.GetForegroundMinClusterPoints(),
+		Eps:                   cfg.GetForegroundDBSCANEps(),
+		MinPts:                cfg.GetForegroundMinClusterPoints(),
+		MaxClusterDiameter:    cfg.GetMaxClusterDiameter(),
+		MinClusterDiameter:    cfg.GetMinClusterDiameter(),
+		MaxClusterAspectRatio: cfg.GetMaxClusterAspectRatio(),
 	}
 }
 
@@ -279,7 +266,7 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 		expandCluster(points, spatialIndex, labels, i, neighbors, clusterID, params.Eps, params.MinPts)
 	}
 
-	return buildClusters(points, labels, clusterID)
+	return buildClusters(points, labels, clusterID, params)
 }
 
 // expandCluster expands a cluster from a core point.
@@ -313,7 +300,7 @@ func expandCluster(points []WorldPoint, si *SpatialIndex, labels []int,
 // buildClusters creates WorldCluster objects from clustering results.
 // Uses a single pass over labels to bucket points by cluster ID,
 // avoiding repeated O(n) scans per cluster.
-func buildClusters(points []WorldPoint, labels []int, maxClusterID int) []WorldCluster {
+func buildClusters(points []WorldPoint, labels []int, maxClusterID int, params DBSCANParams) []WorldCluster {
 	// Single pass: bucket points by cluster ID
 	buckets := make([][]WorldPoint, maxClusterID+1)
 	for i, label := range labels {
@@ -340,7 +327,7 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int) []WorldC
 		if cluster.BoundingBoxLength < shortest {
 			shortest = cluster.BoundingBoxLength
 		}
-		if float64(longest) > MaxClusterDiameter || float64(longest) < MinClusterDiameter {
+		if float64(longest) > params.MaxClusterDiameter || float64(longest) < params.MinClusterDiameter {
 			continue
 		}
 		// Only enforce aspect ratio when the shortest axis is above the
@@ -348,7 +335,7 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int) []WorldC
 		// along a radial arc are legitimate detections; their OBB width
 		// is near-zero due to LiDAR angular resolution, not because they
 		// are environmental artefacts.
-		if float64(shortest) > 0.03 && float64(longest)/float64(shortest) > MaxClusterAspectRatio {
+		if float64(shortest) > 0.03 && float64(longest)/float64(shortest) > params.MaxClusterAspectRatio {
 			continue
 		}
 

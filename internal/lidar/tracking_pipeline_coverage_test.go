@@ -4,7 +4,15 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
+
+// minObsForClassification loads the default min_observations_for_classification
+// from the tuning config, used by tests that need the threshold.
+func minObsForClassification() int {
+	return config.MustLoadDefaultConfig().GetMinObservationsForClassification()
+}
 
 // ---- mock types for coverage tests ----
 
@@ -75,6 +83,10 @@ func (m *mockTrackerCov) RecordFrameStats(totalFg, clustered int) {
 func (m *mockTrackerCov) UpdateClassification(trackID, objectClass string, confidence float32, model string) {
 }
 func (m *mockTrackerCov) AdvanceMisses(timestamp time.Time) {
+}
+
+func (m *mockTrackerCov) GetDeletedTrackGracePeriod() time.Duration {
+	return 5 * time.Second
 }
 
 // --- test helpers ---
@@ -247,7 +259,7 @@ func TestNewFrameCallback_FeatureExportFunc(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "t1",
-				ObservationCount: MinObservationsForClassification + 1,
+				ObservationCount: minObsForClassification() + 1,
 				AvgSpeedMps:      5.0,
 				ObjectClass:      "vehicle",
 			},
@@ -260,6 +272,7 @@ func TestNewFrameCallback_FeatureExportFunc(t *testing.T) {
 		FeatureExportFunc: func(trackID string, features TrackFeatures, class string, confidence float32) {
 			exported.Add(1)
 		},
+		Classifier: NewTrackClassifier(),
 	}
 
 	callback := cfg.NewFrameCallback()
@@ -273,7 +286,7 @@ func TestNewFrameCallback_ClassifierReclassify(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "t1",
-				ObservationCount: MinObservationsForClassification,
+				ObservationCount: minObsForClassification(),
 				AvgSpeedMps:      5.0,
 				ObjectClass:      "", // needs initial classification
 			},
@@ -470,7 +483,7 @@ func TestPipelineCov2_AnalysisRunManager(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "arm-t1",
-				ObservationCount: MinObservationsForClassification + 1,
+				ObservationCount: minObsForClassification() + 1,
 				AvgSpeedMps:      5.0,
 				ObjectClass:      "vehicle",
 			},
@@ -513,7 +526,7 @@ func TestPipelineCov2_AnalysisRunManagerRecordTrack(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "rt-t1",
-				ObservationCount: MinObservationsForClassification,
+				ObservationCount: minObsForClassification(),
 				AvgSpeedMps:      3.0,
 				ObjectClass:      "", // triggers classify
 			},
@@ -786,7 +799,7 @@ func TestPipelineCov2_FeatureExportWithRunManager(t *testing.T) {
 		confirmedTracks: []*TrackedObject{
 			{
 				TrackID:          "fe-t1",
-				ObservationCount: MinObservationsForClassification + 5,
+				ObservationCount: minObsForClassification() + 5,
 				AvgSpeedMps:      6.0,
 				ObjectClass:      "vehicle",
 				ObjectConfidence: 0.9,

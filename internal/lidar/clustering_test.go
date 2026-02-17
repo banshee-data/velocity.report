@@ -8,6 +8,18 @@ import (
 	"github.com/banshee-data/velocity.report/internal/config"
 )
 
+// testDBSCANParams returns a DBSCANParams suitable for unit tests,
+// with generous filter thresholds that won't reject normal test clusters.
+func testDBSCANParams(eps float64, minPts int) DBSCANParams {
+	return DBSCANParams{
+		Eps:                   eps,
+		MinPts:                minPts,
+		MaxClusterDiameter:    100.0,
+		MinClusterDiameter:    0.0,
+		MaxClusterAspectRatio: 100.0,
+	}
+}
+
 // =============================================================================
 // Phase 3.0 Tests: Polar → World Transform
 // =============================================================================
@@ -179,7 +191,7 @@ func TestDBSCAN_TwoSeparateClusters(t *testing.T) {
 		points = append(points, WorldPoint{X: x, Y: y, Z: 0, Intensity: 100, Timestamp: time.Now(), SensorID: "test"})
 	}
 
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN(points, params)
 
 	if len(clusters) != 2 {
@@ -208,7 +220,7 @@ func TestDBSCAN_NoisePoints(t *testing.T) {
 		{X: 20.0, Y: 0.0, Z: 0.0},
 	}
 
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN(points, params)
 
 	if len(clusters) != 0 {
@@ -217,7 +229,7 @@ func TestDBSCAN_NoisePoints(t *testing.T) {
 }
 
 func TestDBSCAN_EmptyInput(t *testing.T) {
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN([]WorldPoint{}, params)
 
 	if clusters != nil {
@@ -240,7 +252,7 @@ func TestDBSCAN_SingleDenseCluster(t *testing.T) {
 		}
 	}
 
-	params := DBSCANParams{Eps: 0.6, MinPts: 5}
+	params := testDBSCANParams(0.6, 5)
 	clusters := DBSCAN(points, params)
 
 	if len(clusters) != 1 {

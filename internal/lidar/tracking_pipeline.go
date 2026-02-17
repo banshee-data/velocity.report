@@ -359,7 +359,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			// Re-classify periodically as more observations accumulate.
 			// Run every 5 observations after the initial classification
 			// so the label improves as kinematic history grows.
-			if cfg.Classifier != nil && track.ObservationCount >= MinObservationsForClassification {
+			if cfg.Classifier != nil && track.ObservationCount >= cfg.Classifier.MinObservations {
 				needsClassify := track.ObjectClass == "" ||
 					(track.ObservationCount%5 == 0)
 				if needsClassify {
@@ -377,7 +377,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			}
 
 			// Export feature vector via hook (for ML training data)
-			if cfg.FeatureExportFunc != nil && track.ObservationCount >= MinObservationsForClassification {
+			if cfg.FeatureExportFunc != nil && cfg.Classifier != nil && track.ObservationCount >= cfg.Classifier.MinObservations {
 				features := ExtractTrackFeatures(track)
 				cfg.FeatureExportFunc(track.TrackID, features, track.ObjectClass, track.ObjectConfidence)
 			}
