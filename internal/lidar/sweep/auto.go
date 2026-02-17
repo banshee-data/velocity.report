@@ -475,16 +475,22 @@ func (at *AutoTuner) GetSuspendedSweepID() string {
 }
 
 // Resume restores a suspended auto-tune from its database checkpoint and
-// re-runs the remaining rounds. If the checkpoint includes the original
-// request, it is used; otherwise, the auto-tuner returns an error.
-func (at *AutoTuner) Resume(ctx context.Context) error {
+// re-runs the remaining rounds. If sweepID is non-empty it is used to look up
+// the checkpoint (allowing resume after a server restart when in-memory state
+// has been lost). If sweepID is empty the in-memory suspended sweep ID is
+// used instead.
+func (at *AutoTuner) Resume(ctx context.Context, sweepID string) error {
 	at.mu.Lock()
-	sweepID := at.sweepID
 	if at.state.Status == SweepStatusRunning {
 		at.mu.Unlock()
 		return ErrSweepAlreadyRunning
 	}
-	if at.state.Status != SweepStatusSuspended || sweepID == "" {
+
+	// Prefer an explicit sweepID (from the DB). Fall back to in-memory state.
+	if sweepID == "" {
+		sweepID = at.sweepID
+	}
+	if sweepID == "" {
 		at.mu.Unlock()
 		return fmt.Errorf("no suspended sweep to resume")
 	}

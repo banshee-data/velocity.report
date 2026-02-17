@@ -1664,3 +1664,7 @@ func (m *runnerMockPersister) SaveSweepCheckpoint(sweepID string, round int, bou
 func (m *runnerMockPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessage, json.RawMessage, json.RawMessage, error) {
 	return 0, nil, nil, nil, fmt.Errorf("no checkpoint")
 }
+
+func (m *runnerMockPersister) GetSuspendedSweep() (string, int, error) {
+	return "", 0, nil
+}

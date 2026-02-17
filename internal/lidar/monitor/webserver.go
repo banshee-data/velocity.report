@@ -1209,6 +1209,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop)
 	mux.HandleFunc("/api/lidar/sweep/auto/suspend", ws.handleAutoTuneSuspend)
 	mux.HandleFunc("/api/lidar/sweep/auto/resume", ws.handleAutoTuneResume)
+	mux.HandleFunc("/api/lidar/sweep/auto/suspended", ws.handleAutoTuneSuspended)
 	mux.HandleFunc("/api/lidar/sweep/hint/continue", ws.handleHINTContinue) // POST: signal labels done
 	mux.HandleFunc("/api/lidar/sweep/hint/stop", ws.handleHINTStop)         // POST: cancel HINT run
 	mux.HandleFunc("/api/lidar/sweep/hint", ws.handleHINT)                  // POST: start, GET: status

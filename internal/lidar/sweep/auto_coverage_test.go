@@ -787,6 +787,10 @@ func (m *mockPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessag
 	return 0, nil, nil, nil, fmt.Errorf("no checkpoint")
 }
 
+func (m *mockPersister) GetSuspendedSweep() (string, int, error) {
+	return "", 0, nil
+}
+
 type mockSceneStore struct{}
 
 func (m *mockSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
@@ -1746,6 +1750,10 @@ func (fp *failingPersister) SaveSweepCheckpoint(sweepID string, round int, bound
 
 func (fp *failingPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMessage, json.RawMessage, json.RawMessage, error) {
 	return 0, nil, nil, nil, fmt.Errorf("simulated load checkpoint failure")
+}
+
+func (fp *failingPersister) GetSuspendedSweep() (string, int, error) {
+	return "", 0, nil
 }
 
 // trackingSceneStore tracks calls to SetOptimalParams.

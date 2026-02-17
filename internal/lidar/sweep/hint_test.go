@@ -108,6 +108,10 @@ func (m *mockHINTPersister) LoadSweepCheckpoint(sweepID string) (int, json.RawMe
 	return 0, nil, nil, nil, fmt.Errorf("no checkpoint")
 }
 
+func (m *mockHINTPersister) GetSuspendedSweep() (string, int, error) {
+	return "", 0, nil
+}
+
 // --- Test 1: temporalIoU ---
 
 func TestTemporalIoU(t *testing.T) {

@@ -45,7 +45,7 @@ func (m *mockSweepHandlerRunner) Suspend() error {
 	return m.suspendErr
 }
 
-func (m *mockSweepHandlerRunner) Resume(_ context.Context) error {
+func (m *mockSweepHandlerRunner) Resume(_ context.Context, _ string) error {
 	m.resumeCalls++
 	return m.resumeErr
 }

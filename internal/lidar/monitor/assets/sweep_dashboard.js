@@ -35,6 +35,7 @@ var chartInstances = {};
 var chartConfigCounter = 0;
 var currentSweepId = null;
 var viewingHistorical = false;
+var pendingResumeSweepId = null; // sweep_id from DB for resume after restart
 
 // Detect dark mode for ECharts (guarded for test environments)
 var isDark =
@@ -1176,16 +1177,70 @@ function handleSuspend() {
 }
 
 function handleResume() {
-  fetch("/api/lidar/sweep/auto/resume", { method: "POST" })
+  var body = pendingResumeSweepId
+    ? JSON.stringify({ sweep_id: pendingResumeSweepId })
+    : "{}";
+  fetch("/api/lidar/sweep/auto/resume", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body,
+  })
     .then(function (r) {
       if (!r.ok)
         return r.text().then(function (t) {
           throw new Error(t);
         });
+      pendingResumeSweepId = null;
+      var banner = document.getElementById("suspended-sweep-banner");
+      if (banner) banner.style.display = "none";
+      setMode("auto");
       startPolling();
     })
     .catch(function (e) {
       showError(e.message);
+    });
+}
+
+// checkSuspendedSweep queries the database for a previously suspended sweep
+// and shows a resume banner if one is found. This covers the case where the
+// server was restarted after suspending — the in-memory state is lost but the
+// database still has the checkpoint.
+function checkSuspendedSweep() {
+  fetch("/api/lidar/sweep/auto/suspended")
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (data) {
+      if (!data.found) return;
+      pendingResumeSweepId = data.sweep_id;
+      var banner = document.getElementById("suspended-sweep-banner");
+      if (banner) {
+        var startedAt = data.started_at
+          ? new Date(data.started_at).toLocaleString()
+          : "unknown";
+        banner.innerHTML =
+          "<strong>Suspended sweep found</strong> — started " +
+          escapeHTML(startedAt) +
+          ", completed round " +
+          data.checkpoint_round +
+          ". ";
+        var resumeLink = document.createElement("a");
+        resumeLink.href = "#";
+        resumeLink.textContent = "Resume";
+        resumeLink.style.fontWeight = "bold";
+        resumeLink.onclick = function (e) {
+          e.preventDefault();
+          handleResume();
+        };
+        banner.appendChild(resumeLink);
+        banner.style.display = "";
+      }
+      // Also show the resume button
+      document.getElementById("btn-resume").style.display = "";
+      document.getElementById("btn-start").style.display = "none";
+    })
+    .catch(function () {
+      // Endpoint not available or error; silently ignore
     });
 }
 
@@ -3075,6 +3130,7 @@ if (typeof module !== "undefined" && module.exports) {
     handleStop: handleStop,
     handleSuspend: handleSuspend,
     handleResume: handleResume,
+    checkSuspendedSweep: checkSuspendedSweep,
     startPolling: startPolling,
     stopPolling: stopPolling,
     pollStatus: pollStatus,
@@ -3140,6 +3196,7 @@ function init() {
   chartConfigCounter = 0;
   currentSweepId = null;
   viewingHistorical = false;
+  pendingResumeSweepId = null;
 
   sensorId = document.querySelector('meta[name="sensor-id"]').content;
 
@@ -3202,6 +3259,9 @@ function init() {
             }
           })
           .catch(function () {});
+
+        // Check for a suspended sweep in the database (survives server restart)
+        checkSuspendedSweep();
       }
     })
     .catch(function () {

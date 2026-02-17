@@ -76,7 +76,7 @@ Updated: 2026-02-17
   1. **Min-points threshold:** clusters with fewer than `MinPointsForPCA` (4) points skip heading update, retaining the previous smoothed heading.
   2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (0.25), the heading is locked because the principal axis is ambiguous.
   3. **Reduced smoothing α:** `OBBHeadingSmoothingAlpha` lowered from 0.15 to 0.08 for heavier EMA smoothing.
-  Per-frame OBB dimensions are always updated regardless of heading lock.
+     Per-frame OBB dimensions are always updated regardless of heading lock.
 
 ### R1 — Next high-impact items
 
