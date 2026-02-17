@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 func TestHandleListPCAPFiles_MethodNotAllowed(t *testing.T) {
@@ -90,13 +90,13 @@ func TestHandleListPCAPFiles_SuccessAndInUseFlags(t *testing.T) {
 	defer testDB.DB.Close()
 
 	// Mark both PCAP files as in use: one via relative path, one via absolute path.
-	store := lidar.NewSceneStore(testDB.DB)
-	sceneRel := &lidar.Scene{SensorID: "sensor-1", PCAPFile: "a.pcap"}
+	store := sqlite.NewSceneStore(testDB.DB)
+	sceneRel := &sqlite.Scene{SensorID: "sensor-1", PCAPFile: "a.pcap"}
 	if err := store.InsertScene(sceneRel); err != nil {
 		t.Fatalf("insert relative-path scene: %v", err)
 	}
 
-	sceneAbs := &lidar.Scene{SensorID: "sensor-1", PCAPFile: fileB}
+	sceneAbs := &sqlite.Scene{SensorID: "sensor-1", PCAPFile: fileB}
 	if err := store.InsertScene(sceneAbs); err != nil {
 		t.Fatalf("insert absolute-path scene: %v", err)
 	}

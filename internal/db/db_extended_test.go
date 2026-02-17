@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // TestRecordRadarObject_EmptyJSON tests error handling for empty JSON
@@ -76,7 +76,7 @@ func TestInsertBgSnapshot_ValidSnapshot(t *testing.T) {
 	}
 	defer db.Close()
 
-	snap := &lidar.BgSnapshot{
+	snap := &l3grid.BgSnapshot{
 		SensorID:           "test-sensor",
 		TakenUnixNanos:     time.Now().UnixNano(),
 		Rings:              40,
@@ -146,7 +146,7 @@ func TestDeleteBgSnapshots_ValidIDs(t *testing.T) {
 	// Insert 3 snapshots
 	var ids []int64
 	for i := 0; i < 3; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          "test-sensor",
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,
@@ -204,7 +204,7 @@ func TestFindDuplicateBgSnapshots(t *testing.T) {
 	}
 
 	for i, blob := range blobs {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          sensorID,
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,
@@ -258,7 +258,7 @@ func TestFindDuplicateBgSnapshots_UniqueBlobsOnly(t *testing.T) {
 
 	// Insert unique snapshots
 	for i := 0; i < 3; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          sensorID,
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,
@@ -1010,7 +1010,7 @@ func TestListRecentBgSnapshots_WithData(t *testing.T) {
 
 	// Insert multiple snapshots
 	for i := 0; i < 5; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          "test-sensor",
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,
@@ -1048,7 +1048,7 @@ func TestCountUniqueBgSnapshotHashes_Extended(t *testing.T) {
 
 	// Insert snapshots with same blob (will create duplicates)
 	for i := 0; i < 5; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          "test-sensor",
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,
@@ -1086,7 +1086,7 @@ func TestDeleteDuplicateBgSnapshots_Extended(t *testing.T) {
 
 	// Insert snapshots with same blob
 	for i := 0; i < 5; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          "test-sensor",
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,

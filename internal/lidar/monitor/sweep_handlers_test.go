@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -342,7 +342,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 }
 
 // setupTestSweepStoreForHandlers creates an in-memory database and SweepStore for handler testing
-func setupTestSweepStoreForHandlers(t *testing.T) (*sql.DB, *lidar.SweepStore) {
+func setupTestSweepStoreForHandlers(t *testing.T) (*sql.DB, *sqlite.SweepStore) {
 	t.Helper()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -371,7 +371,7 @@ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		t.Fatalf("failed to create lidar_sweeps table: %v", err)
 	}
 
-	return db, lidar.NewSweepStore(db)
+	return db, sqlite.NewSweepStore(db)
 }
 
 func TestSweepHandlers_ListSweeps(t *testing.T) {

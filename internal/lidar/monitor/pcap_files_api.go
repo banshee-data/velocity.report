@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // PcapFileInfo describes a single PCAP file found in the safe directory.
@@ -45,7 +45,7 @@ func (ws *WebServer) handleListPCAPFiles(w http.ResponseWriter, r *http.Request)
 	// Normalise paths to cleaned relative form for consistent comparison.
 	usedFiles := make(map[string]bool)
 	if ws.db != nil {
-		store := lidar.NewSceneStore(ws.db.DB)
+		store := sqlite.NewSceneStore(ws.db.DB)
 		scenes, err := store.ListScenes("")
 		if err == nil {
 			for _, s := range scenes {

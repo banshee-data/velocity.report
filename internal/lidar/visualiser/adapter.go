@@ -9,8 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/debug"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // pointSlicePool reduces allocations by reusing large float32 slices.
@@ -93,10 +95,10 @@ func NewFrameAdapter(sensorID string) *FrameAdapter {
 // AdaptFrame converts a LiDARFrame and tracking outputs to a FrameBundle.
 // debugFrame is optional debug data from the tracking algorithm.
 func (a *FrameAdapter) AdaptFrame(
-	frame *lidar.LiDARFrame,
+	frame *l2frames.LiDARFrame,
 	foregroundMask []bool,
-	clusters []lidar.WorldCluster,
-	tracker lidar.TrackerInterface,
+	clusters []l4perception.WorldCluster,
+	tracker l5tracks.TrackerInterface,
 	debugFrame interface{}, // *debug.DebugFrame or nil
 ) interface{} {
 	startTime := time.Now()
@@ -166,7 +168,7 @@ func (a *FrameAdapter) AdaptFrame(
 
 // adaptPointCloud converts a LiDARFrame to a PointCloudFrame.
 // Uses sync.Pool for slice allocation to reduce GC pressure.
-func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *PointCloudFrame {
+func (a *FrameAdapter) adaptPointCloud(frame *l2frames.LiDARFrame, mask []bool) *PointCloudFrame {
 	// When split streaming is active, emit only foreground points.
 	// Background is delivered via BackgroundSnapshot every 30s, so
 	// including it here wastes allocation, copy, and serialisation
@@ -209,7 +211,7 @@ func (a *FrameAdapter) adaptPointCloud(frame *lidar.LiDARFrame, mask []bool) *Po
 // adaptForegroundOnly builds a PointCloudFrame containing only foreground-
 // classified points. This avoids allocating and copying ~67k background
 // points that would be stripped by the publisher anyway.
-func (a *FrameAdapter) adaptForegroundOnly(frame *lidar.LiDARFrame, mask []bool) *PointCloudFrame {
+func (a *FrameAdapter) adaptForegroundOnly(frame *l2frames.LiDARFrame, mask []bool) *PointCloudFrame {
 	// Count foreground points for precise allocation
 	fgCount := 0
 	for _, fg := range mask {
@@ -478,7 +480,7 @@ func (pc *PointCloudFrame) applyVoxelDecimation(leafSize float32) {
 // indexed by cluster index and contains the matched trackID or "" for
 // unassociated clusters. Only unassociated clusters are included so that
 // the track's bounding box is the sole representation of a tracked object.
-func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []lidar.WorldCluster, associations []string, timestamp time.Time) *ClusterSet {
+func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []l4perception.WorldCluster, associations []string, timestamp time.Time) *ClusterSet {
 	cs := &ClusterSet{
 		FrameID:        a.frameID,
 		TimestampNanos: timestamp.UnixNano(),
@@ -528,7 +530,7 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []lidar.WorldClus
 }
 
 // adaptClusters converts WorldClusters to the canonical Cluster format.
-func (a *FrameAdapter) adaptClusters(worldClusters []lidar.WorldCluster, timestamp time.Time) *ClusterSet {
+func (a *FrameAdapter) adaptClusters(worldClusters []l4perception.WorldCluster, timestamp time.Time) *ClusterSet {
 	cs := &ClusterSet{
 		FrameID:        a.frameID,
 		TimestampNanos: timestamp.UnixNano(),
@@ -557,7 +559,7 @@ func (a *FrameAdapter) adaptClusters(worldClusters []lidar.WorldCluster, timesta
 }
 
 // adaptTracks converts TrackedObjects to the canonical Track format.
-func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp time.Time) *TrackSet {
+func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp time.Time) *TrackSet {
 	activeTracks := tracker.GetActiveTracks()
 
 	ts := &TrackSet{
@@ -708,14 +710,14 @@ func (a *FrameAdapter) adaptTracks(tracker lidar.TrackerInterface, timestamp tim
 	return ts
 }
 
-// adaptTrackState converts lidar.TrackState to visualiser.TrackState.
-func adaptTrackState(state lidar.TrackState) TrackState {
+// adaptTrackState converts l5tracks.TrackState to visualiser.TrackState.
+func adaptTrackState(state l5tracks.TrackState) TrackState {
 	switch state {
-	case lidar.TrackTentative:
+	case l5tracks.TrackTentative:
 		return TrackStateTentative
-	case lidar.TrackConfirmed:
+	case l5tracks.TrackConfirmed:
 		return TrackStateConfirmed
-	case lidar.TrackDeleted:
+	case l5tracks.TrackDeleted:
 		return TrackStateDeleted
 	default:
 		return TrackStateUnknown

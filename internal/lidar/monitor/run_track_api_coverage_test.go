@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // covSetupWS creates a WebServer wrapping the shared setupTestDB helper.
@@ -23,8 +23,8 @@ func covSetupWS(t *testing.T) (*WebServer, func()) {
 // covInsertRun inserts an analysis run and returns its ID.
 func covInsertRun(t *testing.T, ws *WebServer, suffix string) string {
 	t.Helper()
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
-	run := &lidar.AnalysisRun{
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
 		RunID:      "cov-run-" + suffix,
 		SourceType: "pcap",
 		SourcePath: "/test/file.pcap",
@@ -40,8 +40,8 @@ func covInsertRun(t *testing.T, ws *WebServer, suffix string) string {
 // covInsertTrack inserts a run track.
 func covInsertTrack(t *testing.T, ws *WebServer, runID, trackID string) {
 	t.Helper()
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
-	track := &lidar.RunTrack{
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	track := &sqlite.RunTrack{
 		RunID:            runID,
 		TrackID:          trackID,
 		SensorID:         "test-sensor",
@@ -782,8 +782,8 @@ func TestCov_HandleEvaluateRun_AutoDetectFromScene(t *testing.T) {
 	candRunID := covInsertRun(t, ws, "eval-scene-cand")
 
 	// Insert a scene linking the sensor to the reference run
-	sceneStore := lidar.NewSceneStore(ws.db.DB)
-	scene := &lidar.Scene{
+	sceneStore := sqlite.NewSceneStore(ws.db.DB)
+	scene := &sqlite.Scene{
 		SensorID:       "test-sensor",
 		PCAPFile:       "/test/file.pcap",
 		ReferenceRunID: refRunID,
@@ -864,8 +864,8 @@ func TestCov_HandleDeleteMissedRegion_Success(t *testing.T) {
 	runID := covInsertRun(t, ws, "del-mr")
 
 	// Insert a missed region to delete
-	store := lidar.NewMissedRegionStore(ws.db.DB)
-	region := &lidar.MissedRegion{
+	store := sqlite.NewMissedRegionStore(ws.db.DB)
+	region := &sqlite.MissedRegion{
 		RunID:       runID,
 		CenterX:     1.0,
 		CenterY:     2.0,
@@ -1198,8 +1198,8 @@ func TestCov_HandleEvaluateRun_SceneNoMatchingSourcePath(t *testing.T) {
 	// Candidate has SourcePath="/test/file.pcap"; scene has PCAPFile="/different/path.pcap".
 	// First pass (exact source path match) will NOT find it; second pass (fallback by
 	// sensor + ReferenceRunID) will.
-	sceneStore := lidar.NewSceneStore(ws.db.DB)
-	scene := &lidar.Scene{
+	sceneStore := sqlite.NewSceneStore(ws.db.DB)
+	scene := &sqlite.Scene{
 		SensorID:       "test-sensor",
 		PCAPFile:       "/different/path.pcap",
 		ReferenceRunID: refRunID,
@@ -1311,8 +1311,8 @@ func TestCov_HandleReprocessRun_NoPcapSource(t *testing.T) {
 	defer cleanup()
 
 	// Insert a run with source_type != "pcap"
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
-	run := &lidar.AnalysisRun{
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
 		RunID:      "live-run-1",
 		SourceType: "live",
 		SensorID:   "test-sensor",
@@ -1373,8 +1373,8 @@ func TestCov_HandleReprocessRun_ShortRunID(t *testing.T) {
 	defer cleanup()
 
 	// Insert a run with very short ID
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
-	run := &lidar.AnalysisRun{
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
 		RunID:      "ab",
 		SourceType: "pcap",
 		SourcePath: "/test/short.pcap",
@@ -1402,14 +1402,14 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 
 	// Insert reference and candidate runs
-	refRun := &lidar.AnalysisRun{RunID: "auto-ref-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
+	refRun := &sqlite.AnalysisRun{RunID: "auto-ref-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
 	if err := store.InsertRun(refRun); err != nil {
 		t.Fatalf("InsertRun ref: %v", err)
 	}
-	candRun := &lidar.AnalysisRun{RunID: "auto-cand-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
+	candRun := &sqlite.AnalysisRun{RunID: "auto-cand-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
 	if err := store.InsertRun(candRun); err != nil {
 		t.Fatalf("InsertRun cand: %v", err)
 	}
@@ -1419,7 +1419,7 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 		{"auto-ref-1", "auto-ref-t1"},
 		{"auto-cand-1", "auto-cand-t1"},
 	} {
-		track := &lidar.RunTrack{
+		track := &sqlite.RunTrack{
 			RunID:            rt.runID,
 			TrackID:          rt.trackID,
 			SensorID:         "sensor-auto",
@@ -1434,8 +1434,8 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 	}
 
 	// Create a scene matching the source path
-	sceneStore := lidar.NewSceneStore(ws.db.DB)
-	scene := &lidar.Scene{
+	sceneStore := sqlite.NewSceneStore(ws.db.DB)
+	scene := &sqlite.Scene{
 		SensorID:       "sensor-auto",
 		PCAPFile:       "/test/auto.pcap",
 		ReferenceRunID: "auto-ref-1",

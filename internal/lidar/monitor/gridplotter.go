@@ -10,7 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -105,7 +106,7 @@ func (gp *GridPlotter) IsEnabled() bool {
 
 // Sample captures the current grid state for all cells in the configured range.
 // Call this once per frame during PCAP replay or live processing.
-func (gp *GridPlotter) Sample(mgr *lidar.BackgroundManager) {
+func (gp *GridPlotter) Sample(mgr *l3grid.BackgroundManager) {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -164,7 +165,7 @@ func (gp *GridPlotter) Sample(mgr *lidar.BackgroundManager) {
 
 // SampleWithObservation records both background state and a specific observation.
 // Use this when you have access to the current point being processed.
-func (gp *GridPlotter) SampleWithObservation(mgr *lidar.BackgroundManager, ring int, azDeg, obsDist float64, isBg bool) {
+func (gp *GridPlotter) SampleWithObservation(mgr *l3grid.BackgroundManager, ring int, azDeg, obsDist float64, isBg bool) {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -221,7 +222,7 @@ func (gp *GridPlotter) SampleWithObservation(mgr *lidar.BackgroundManager, ring 
 
 // SampleWithPoints captures grid state and actual observations from the points array.
 // This is called per-frame with the full point cloud after foreground extraction.
-func (gp *GridPlotter) SampleWithPoints(mgr *lidar.BackgroundManager, points []lidar.PointPolar) {
+func (gp *GridPlotter) SampleWithPoints(mgr *l3grid.BackgroundManager, points []l2frames.PointPolar) {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -379,7 +380,7 @@ func (gp *GridPlotter) generateRingPlot(ring int, azBins map[int][]GridSample) e
 	pFg.Y.Label.Text = "RecFg Count"
 
 	// Get grid resolution for azimuth labels
-	mgr := lidar.GetBackgroundManager(gp.sensorID)
+	mgr := l3grid.GetBackgroundManager(gp.sensorID)
 	azBinRes := 0.2 // default
 	if mgr != nil && mgr.Grid != nil {
 		azBinRes = 360.0 / float64(mgr.Grid.AzimuthBins)

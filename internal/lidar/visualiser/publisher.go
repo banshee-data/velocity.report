@@ -99,7 +99,7 @@ type Publisher struct {
 // BackgroundManagerInterface defines the interface for background management.
 // This avoids circular imports with the lidar package.
 type BackgroundManagerInterface interface {
-	GenerateBackgroundSnapshot() (interface{}, error) // Returns *lidar.BackgroundSnapshotData
+	GenerateBackgroundSnapshot() (interface{}, error) // Returns *l3grid.BackgroundSnapshotData
 	GetBackgroundSequenceNumber() uint64
 }
 

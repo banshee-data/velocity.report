@@ -5,8 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/debug"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // Helper function to safely cast interface{} to *FrameBundle in tests
@@ -37,10 +39,10 @@ func TestFrameAdapter_AdaptFrame_BasicFrame(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
@@ -62,10 +64,10 @@ func TestFrameAdapter_AdaptFrame_BasicFrame(t *testing.T) {
 func TestFrameAdapter_AdaptFrame_FrameIDIncrement(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	bundle1 := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
@@ -86,10 +88,10 @@ func TestFrameAdapter_AdaptFrame_FrameIDIncrement(t *testing.T) {
 func TestFrameAdapter_AdaptFrame_WithPointCloud(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150},
 			{X: 5.0, Y: 6.0, Z: 1.5, Intensity: 200},
@@ -136,13 +138,13 @@ func TestFrameAdapter_AdaptFrame_WithClusters(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
-	clusters := []lidar.WorldCluster{
+	clusters := []l4perception.WorldCluster{
 		{
 			ClusterID:         1,
 			SensorID:          "hesai-01",
@@ -207,18 +209,18 @@ func TestFrameAdapter_AdaptFrame_WithTracker(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	// Create a tracker with a track
-	trackerCfg := lidar.DefaultTrackerConfig()
-	tracker := lidar.NewTracker(trackerCfg)
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
 
 	// Add a cluster to create a track
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         5.0,
@@ -231,7 +233,7 @@ func TestFrameAdapter_AdaptFrame_WithTracker(t *testing.T) {
 		HeightP95:         1.8,
 		IntensityMean:     75.0,
 	}
-	tracker.Update([]lidar.WorldCluster{cluster}, now)
+	tracker.Update([]l4perception.WorldCluster{cluster}, now)
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
 
@@ -261,12 +263,12 @@ func TestFrameAdapter_AdaptFrame_WithTracker(t *testing.T) {
 
 func TestAdaptTrackState(t *testing.T) {
 	tests := []struct {
-		input    lidar.TrackState
+		input    l5tracks.TrackState
 		expected TrackState
 	}{
-		{lidar.TrackTentative, TrackStateTentative},
-		{lidar.TrackConfirmed, TrackStateConfirmed},
-		{lidar.TrackDeleted, TrackStateDeleted},
+		{l5tracks.TrackTentative, TrackStateTentative},
+		{l5tracks.TrackConfirmed, TrackStateConfirmed},
+		{l5tracks.TrackDeleted, TrackStateDeleted},
 		{"unknown_state", TrackStateUnknown},
 	}
 
@@ -281,10 +283,10 @@ func TestAdaptTrackState(t *testing.T) {
 func TestFrameAdapter_AdaptPointCloud_EmptyMask(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150},
 		},
@@ -308,10 +310,10 @@ func TestFrameAdapter_AdaptPointCloud_EmptyMask(t *testing.T) {
 func TestFrameAdapter_AdaptPointCloud_PartialMask(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150},
 			{X: 5.0, Y: 6.0, Z: 1.5, Intensity: 200},
@@ -343,13 +345,13 @@ func TestFrameAdapter_AdaptPointCloud_PartialMask(t *testing.T) {
 func TestFrameAdapter_AdaptClusters_Empty(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []lidar.WorldCluster{}, nil, nil))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []l4perception.WorldCluster{}, nil, nil))
 
 	// Empty clusters slice should result in nil Clusters
 	if bundle.Clusters != nil {
@@ -361,17 +363,17 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	// Create a tracker and update it multiple times to build history
-	trackerCfg := lidar.DefaultTrackerConfig()
-	tracker := lidar.NewTracker(trackerCfg)
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         5.0,
@@ -389,7 +391,7 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cluster.CentroidX = 5.0 + float32(i)*0.5
 		cluster.CentroidY = 10.0 + float32(i)*0.5
-		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
@@ -418,17 +420,17 @@ func TestFrameAdapter_AdaptTracks_HistoryLengthConsistency(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	// Create a tracker and build a significant history
-	trackerCfg := lidar.DefaultTrackerConfig()
-	tracker := lidar.NewTracker(trackerCfg)
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         5.0,
@@ -446,7 +448,7 @@ func TestFrameAdapter_AdaptTracks_HistoryLengthConsistency(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		cluster.CentroidX = 5.0 + float32(i)*0.1
 		cluster.CentroidY = 10.0 + float32(i)*0.1
-		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*10*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, now.Add(time.Duration(i)*10*time.Millisecond))
 	}
 
 	// This should not panic even with a long history
@@ -720,10 +722,10 @@ func TestFrameAdapter_SplitStreaming_ForegroundOnly(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	adapter.SplitStreaming = true
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100}, // foreground
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150}, // background
 			{X: 5.0, Y: 6.0, Z: 1.5, Intensity: 200}, // foreground
@@ -778,10 +780,10 @@ func TestFrameAdapter_SplitStreaming_AllForeground(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	adapter.SplitStreaming = true
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150},
 			{X: 5.0, Y: 6.0, Z: 1.5, Intensity: 200},
@@ -802,10 +804,10 @@ func TestFrameAdapter_SplitStreaming_NoForeground(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	adapter.SplitStreaming = true
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150},
 		},
@@ -825,10 +827,10 @@ func TestFrameAdapter_SplitStreaming_EmptyMask(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	adapter.SplitStreaming = true
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 		},
 	}
@@ -851,10 +853,10 @@ func TestFrameAdapter_SplitStreaming_PartialMask(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	adapter.SplitStreaming = true
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150},
 			{X: 5.0, Y: 6.0, Z: 1.5, Intensity: 200},
@@ -885,7 +887,7 @@ func TestAdaptClusters_Direct(t *testing.T) {
 	adapter.frameID = 42 // Set a known frame ID
 	now := time.Now()
 
-	clusters := []lidar.WorldCluster{
+	clusters := []l4perception.WorldCluster{
 		{
 			ClusterID:         1,
 			SensorID:          "hesai-01",
@@ -972,7 +974,7 @@ func TestAdaptClusters_Empty(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	cs := adapter.adaptClusters([]lidar.WorldCluster{}, now)
+	cs := adapter.adaptClusters([]l4perception.WorldCluster{}, now)
 
 	if cs == nil {
 		t.Fatal("expected non-nil ClusterSet")
@@ -1156,10 +1158,10 @@ func TestFrameAdapter_AdaptFrame_WithDebugFrame(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	df := &debug.DebugFrame{
@@ -1332,7 +1334,7 @@ func TestFrameAdapter_AdaptFrame_FrameWithNoPoints(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
 	// Frame with nil Points slice - should create bundle with nil PointCloud
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
 		Points:         nil, // No points
@@ -1348,10 +1350,10 @@ func TestFrameAdapter_AdaptFrame_FrameWithNoPoints(t *testing.T) {
 func TestFrameAdapter_AdaptFrame_EmptyFrame(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points:         []lidar.Point{}, // Empty points
+		Points:         []l2frames.Point{}, // Empty points
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, nil, nil))
@@ -1366,10 +1368,10 @@ func TestFrameAdapter_AdaptFrame_FullPipeline(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 			{X: 3.0, Y: 4.0, Z: 1.0, Intensity: 150},
 		},
@@ -1378,9 +1380,9 @@ func TestFrameAdapter_AdaptFrame_FullPipeline(t *testing.T) {
 	mask := []bool{true, false}
 
 	// Create tracker with a cluster
-	trackerCfg := lidar.DefaultTrackerConfig()
-	tracker := lidar.NewTracker(trackerCfg)
-	cluster := lidar.WorldCluster{
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         5.0,
@@ -1388,7 +1390,7 @@ func TestFrameAdapter_AdaptFrame_FullPipeline(t *testing.T) {
 		BoundingBoxLength: 4.5,
 		BoundingBoxWidth:  2.0,
 	}
-	tracker.Update([]lidar.WorldCluster{cluster}, now)
+	tracker.Update([]l4perception.WorldCluster{cluster}, now)
 
 	// Create debug frame
 	df := &debug.DebugFrame{
@@ -1398,7 +1400,7 @@ func TestFrameAdapter_AdaptFrame_FullPipeline(t *testing.T) {
 		},
 	}
 
-	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, []lidar.WorldCluster{cluster}, tracker, df))
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, mask, []l4perception.WorldCluster{cluster}, tracker, df))
 
 	// Verify all components are present
 	if bundle.PointCloud == nil {
@@ -1417,10 +1419,10 @@ func TestFrameAdapter_AdaptFrame_FullPipeline(t *testing.T) {
 func TestFrameAdapter_AdaptFrame_StatsLogging(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: time.Now(),
-		Points: []lidar.Point{
+		Points: []l2frames.Point{
 			{X: 1.0, Y: 2.0, Z: 0.5, Intensity: 100},
 		},
 	}
@@ -1447,17 +1449,17 @@ func TestFrameAdapter_AdaptTracks_WithCovariance(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	// Create tracker with multiple updates to populate covariance
-	trackerCfg := lidar.DefaultTrackerConfig()
-	tracker := lidar.NewTracker(trackerCfg)
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         5.0,
@@ -1472,7 +1474,7 @@ func TestFrameAdapter_AdaptTracks_WithCovariance(t *testing.T) {
 	// Multiple updates to build covariance matrix
 	for i := 0; i < 10; i++ {
 		cluster.CentroidX = 5.0 + float32(i)*0.5
-		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
@@ -1496,11 +1498,11 @@ func TestFrameAdapter_AdaptTracks_DeletedTracksFade(t *testing.T) {
 	now := time.Now()
 
 	// Create a tracker with short grace period for testing
-	trackerCfg := lidar.DefaultTrackerConfig()
+	trackerCfg := l5tracks.DefaultTrackerConfig()
 	trackerCfg.DeletedTrackGracePeriod = 5 * time.Second
-	tracker := lidar.NewTracker(trackerCfg)
+	tracker := l5tracks.NewTracker(trackerCfg)
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         5.0,
@@ -1518,7 +1520,7 @@ func TestFrameAdapter_AdaptTracks_DeletedTracksFade(t *testing.T) {
 	// HitsToConfirm is typically 3
 	for i := 0; i < 5; i++ {
 		cluster.CentroidX = 5.0 + float32(i)*0.5
-		tracker.Update([]lidar.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, now.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	// Verify track exists
@@ -1530,14 +1532,14 @@ func TestFrameAdapter_AdaptTracks_DeletedTracksFade(t *testing.T) {
 	// Now remove the cluster to trigger track deletion
 	// Need enough misses to delete the track
 	for i := 0; i < 10; i++ {
-		tracker.Update([]lidar.WorldCluster{}, now.Add(time.Duration(500+i*100)*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{}, now.Add(time.Duration(500+i*100)*time.Millisecond))
 	}
 
 	// Create frame with timestamp just after track deletion
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now.Add(2 * time.Second), // 2 seconds after start
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
@@ -1563,16 +1565,16 @@ func TestFrameAdapter_AdaptTracks_DeletedTracksAlphaCalculation(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
 	// Create tracker with short grace period
-	trackerCfg := lidar.DefaultTrackerConfig()
+	trackerCfg := l5tracks.DefaultTrackerConfig()
 	trackerCfg.DeletedTrackGracePeriod = 5 * time.Second
 	trackerCfg.HitsToConfirm = 3
 	trackerCfg.MaxMisses = 3
 	trackerCfg.MaxMissesConfirmed = 3 // Also set for confirmed tracks
-	tracker := lidar.NewTracker(trackerCfg)
+	tracker := l5tracks.NewTracker(trackerCfg)
 
 	baseTime := time.Now()
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         10.0,
@@ -1586,19 +1588,19 @@ func TestFrameAdapter_AdaptTracks_DeletedTracksAlphaCalculation(t *testing.T) {
 
 	// Create a confirmed track with at least 3 observations
 	for i := 0; i < 5; i++ {
-		tracker.Update([]lidar.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	// Force track deletion by removing the cluster (need MaxMissesConfirmed misses)
 	for i := 0; i < 5; i++ {
-		tracker.Update([]lidar.WorldCluster{}, baseTime.Add(time.Duration(500+i*100)*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{}, baseTime.Add(time.Duration(500+i*100)*time.Millisecond))
 	}
 
 	// Create frame at various times to test alpha calculation
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: baseTime.Add(1500 * time.Millisecond), // Shortly after deletion
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
@@ -1619,15 +1621,15 @@ func TestFrameAdapter_AdaptTracks_SkipsTentativeDeletedTracks(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
 	// Create tracker with high confirmation threshold
-	trackerCfg := lidar.DefaultTrackerConfig()
+	trackerCfg := l5tracks.DefaultTrackerConfig()
 	trackerCfg.DeletedTrackGracePeriod = 5 * time.Second
 	trackerCfg.HitsToConfirm = 10 // High threshold - track won't confirm
 	trackerCfg.MaxMisses = 2
-	tracker := lidar.NewTracker(trackerCfg)
+	tracker := l5tracks.NewTracker(trackerCfg)
 
 	baseTime := time.Now()
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         10.0,
@@ -1641,18 +1643,18 @@ func TestFrameAdapter_AdaptTracks_SkipsTentativeDeletedTracks(t *testing.T) {
 
 	// Create a tentative track with only 2 observations (< HitsToConfirm)
 	for i := 0; i < 2; i++ {
-		tracker.Update([]lidar.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	// Delete the track
 	for i := 0; i < 5; i++ {
-		tracker.Update([]lidar.WorldCluster{}, baseTime.Add(time.Duration(200+i*100)*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{}, baseTime.Add(time.Duration(200+i*100)*time.Millisecond))
 	}
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: baseTime.Add(1 * time.Second),
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
@@ -1673,16 +1675,16 @@ func TestFrameAdapter_AdaptTracks_SkipsTentativeDeletedTracks(t *testing.T) {
 func TestFrameAdapter_AdaptTracks_DeletedTrackWithTrail(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
-	trackerCfg := lidar.DefaultTrackerConfig()
+	trackerCfg := l5tracks.DefaultTrackerConfig()
 	trackerCfg.DeletedTrackGracePeriod = 5 * time.Second
 	trackerCfg.HitsToConfirm = 3
 	trackerCfg.MaxMisses = 3
 	trackerCfg.MaxMissesConfirmed = 3 // Also set for confirmed tracks
-	tracker := lidar.NewTracker(trackerCfg)
+	tracker := l5tracks.NewTracker(trackerCfg)
 
 	baseTime := time.Now()
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         10.0,
@@ -1698,18 +1700,18 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackWithTrail(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		cluster.CentroidX = 10.0 + float32(i)*0.5
 		cluster.CentroidY = 20.0 + float32(i)*0.3
-		tracker.Update([]lidar.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	// Delete the track (need MaxMissesConfirmed misses)
 	for i := 0; i < 5; i++ {
-		tracker.Update([]lidar.WorldCluster{}, baseTime.Add(time.Duration(1000+i*100)*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{}, baseTime.Add(time.Duration(1000+i*100)*time.Millisecond))
 	}
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: baseTime.Add(2 * time.Second),
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))
@@ -1737,13 +1739,13 @@ func TestFrameAdapter_AdaptClusters_WithOBB(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 	now := time.Now()
 
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: now,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
-	clusters := []lidar.WorldCluster{
+	clusters := []l4perception.WorldCluster{
 		{
 			ClusterID:         1,
 			SensorID:          "hesai-01",
@@ -1754,7 +1756,7 @@ func TestFrameAdapter_AdaptClusters_WithOBB(t *testing.T) {
 			BoundingBoxLength: 4.5,
 			BoundingBoxWidth:  2.0,
 			BoundingBoxHeight: 1.5,
-			OBB: &lidar.OrientedBoundingBox{
+			OBB: &l4perception.OrientedBoundingBox{
 				CenterX:    5.0,
 				CenterY:    10.0,
 				CenterZ:    1.0,
@@ -1793,16 +1795,16 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackProcessing(t *testing.T) {
 	adapter := NewFrameAdapter("hesai-01")
 
 	// Create tracker with specific configuration
-	trackerCfg := lidar.DefaultTrackerConfig()
+	trackerCfg := l5tracks.DefaultTrackerConfig()
 	trackerCfg.DeletedTrackGracePeriod = 10 * time.Second // Long grace period
 	trackerCfg.HitsToConfirm = 2
 	trackerCfg.MaxMisses = 2          // Misses to delete a tentative track
 	trackerCfg.MaxMissesConfirmed = 2 // Misses to delete a confirmed track
-	tracker := lidar.NewTracker(trackerCfg)
+	tracker := l5tracks.NewTracker(trackerCfg)
 
 	baseTime := time.Now()
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		ClusterID:         1,
 		SensorID:          "hesai-01",
 		CentroidX:         10.0,
@@ -1817,7 +1819,7 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackProcessing(t *testing.T) {
 	// Step 1: Create a confirmed track (>= HitsToConfirm observations)
 	for i := 0; i < 5; i++ {
 		t.Logf("Update %d: Adding cluster", i)
-		tracker.Update([]lidar.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{cluster}, baseTime.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	// Verify track is active and confirmed
@@ -1834,7 +1836,7 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackProcessing(t *testing.T) {
 	deletionTime := baseTime.Add(500 * time.Millisecond)
 	for i := 0; i < 3; i++ {
 		t.Logf("Update %d: No cluster (miss)", 5+i)
-		tracker.Update([]lidar.WorldCluster{}, deletionTime.Add(time.Duration(i)*100*time.Millisecond))
+		tracker.Update([]l4perception.WorldCluster{}, deletionTime.Add(time.Duration(i)*100*time.Millisecond))
 	}
 
 	// The track should now be deleted
@@ -1855,10 +1857,10 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackProcessing(t *testing.T) {
 	}
 
 	// Step 4: Run AdaptFrame with the query timestamp
-	frame := &lidar.LiDARFrame{
+	frame := &l2frames.LiDARFrame{
 		SensorID:       "hesai-01",
 		StartTimestamp: queryTime,
-		Points:         []lidar.Point{},
+		Points:         []l2frames.Point{},
 	}
 
 	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, nil, tracker, nil))

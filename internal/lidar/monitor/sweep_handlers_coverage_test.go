@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 // setupSweepStoreWithRecord creates a test sweep store with one record inserted.
-func setupSweepStoreWithRecord(t *testing.T) (*sql.DB, *lidar.SweepStore, string) {
+func setupSweepStoreWithRecord(t *testing.T) (*sql.DB, *sqlite.SweepStore, string) {
 	t.Helper()
 	db, store := setupTestSweepStoreForHandlers(t)
 

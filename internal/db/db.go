@@ -22,12 +22,12 @@ import (
 	_ "modernc.org/sqlite"
 	"tailscale.com/tsweb"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"gonum.org/v1/gonum/stat"
 )
 
-// compile-time assertion: ensure DB implements lidar.BgStore (InsertBgSnapshot)
-var _ lidar.BgStore = (*DB)(nil)
+// compile-time assertion: ensure DB implements l3grid.BgStore (InsertBgSnapshot)
+var _ l3grid.BgStore = (*DB)(nil)
 
 const (
 	// nearPerpendicularThreshold is the minimum absolute cosine value for a valid sensor angle.
@@ -46,7 +46,7 @@ type DB struct {
 }
 
 // ListRecentBgSnapshots returns the last N BgSnapshots for a sensor_id, ordered by most recent.
-func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnapshot, error) {
+func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*l3grid.BgSnapshot, error) {
 	q := `SELECT snapshot_id, sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, ring_elevations_json, grid_blob, changed_cells_count, snapshot_reason
 		  FROM lidar_bg_snapshot WHERE sensor_id = ? ORDER BY snapshot_id DESC LIMIT ?`
 	rows, err := db.Query(q, sensorID, limit)
@@ -54,7 +54,7 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 		return nil, err
 	}
 	defer rows.Close()
-	var snapshots []*lidar.BgSnapshot
+	var snapshots []*l3grid.BgSnapshot
 	for rows.Next() {
 		var snapID int64
 		var sensor string
@@ -69,7 +69,7 @@ func (db *DB) ListRecentBgSnapshots(sensorID string, limit int) ([]*lidar.BgSnap
 		if err := rows.Scan(&snapID, &sensor, &takenUnix, &rings, &azBins, &paramsJSON, &ringElevations, &blob, &changed, &reason); err != nil {
 			return nil, err
 		}
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SnapshotID:         &snapID,
 			SensorID:           sensor,
 			TakenUnixNanos:     takenUnix,
@@ -387,7 +387,7 @@ func (db *DB) RecordRadarObject(rawRadarJSON string) error {
 
 // InsertBgSnapshot persists a Background snapshot into the lidar_bg_snapshot table
 // and returns the new snapshot_id.
-func (db *DB) InsertBgSnapshot(s *lidar.BgSnapshot) (int64, error) {
+func (db *DB) InsertBgSnapshot(s *l3grid.BgSnapshot) (int64, error) {
 	if s == nil {
 		return 0, nil
 	}
@@ -401,7 +401,7 @@ func (db *DB) InsertBgSnapshot(s *lidar.BgSnapshot) (int64, error) {
 }
 
 // GetLatestBgSnapshot returns the most recent BgSnapshot for the given sensor_id, or nil if none.
-func (db *DB) GetLatestBgSnapshot(sensorID string) (*lidar.BgSnapshot, error) {
+func (db *DB) GetLatestBgSnapshot(sensorID string) (*l3grid.BgSnapshot, error) {
 	q := `SELECT snapshot_id, sensor_id, taken_unix_nanos, rings, azimuth_bins, params_json, ring_elevations_json, grid_blob, changed_cells_count, snapshot_reason
 		  FROM lidar_bg_snapshot WHERE sensor_id = ? ORDER BY snapshot_id DESC LIMIT 1` // nolint:lll
 
@@ -410,7 +410,7 @@ func (db *DB) GetLatestBgSnapshot(sensorID string) (*lidar.BgSnapshot, error) {
 }
 
 // GetBgSnapshotByID returns a BgSnapshot by its snapshot_id, or nil if not found.
-func (db *DB) GetBgSnapshotByID(snapshotID int64) (*lidar.BgSnapshot, error) {
+func (db *DB) GetBgSnapshotByID(snapshotID int64) (*l3grid.BgSnapshot, error) {
 	if snapshotID <= 0 {
 		return nil, nil
 	}
@@ -422,7 +422,7 @@ func (db *DB) GetBgSnapshotByID(snapshotID int64) (*lidar.BgSnapshot, error) {
 }
 
 // scanBgSnapshot scans a row into a BgSnapshot struct.
-func scanBgSnapshot(row *sql.Row) (*lidar.BgSnapshot, error) {
+func scanBgSnapshot(row *sql.Row) (*l3grid.BgSnapshot, error) {
 	var snapID int64
 	var sensor string
 	var takenUnix int64
@@ -441,7 +441,7 @@ func scanBgSnapshot(row *sql.Row) (*lidar.BgSnapshot, error) {
 		return nil, err
 	}
 
-	snap := &lidar.BgSnapshot{
+	snap := &l3grid.BgSnapshot{
 		SnapshotID:         &snapID,
 		SensorID:           sensor,
 		TakenUnixNanos:     takenUnix,
@@ -1285,7 +1285,7 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 
 // InsertRegionSnapshot persists a region snapshot into the lidar_bg_regions table
 // and returns the new region_set_id.
-func (db *DB) InsertRegionSnapshot(s *lidar.RegionSnapshot) (int64, error) {
+func (db *DB) InsertRegionSnapshot(s *l3grid.RegionSnapshot) (int64, error) {
 	if s == nil {
 		return 0, nil
 	}
@@ -1300,7 +1300,7 @@ func (db *DB) InsertRegionSnapshot(s *lidar.RegionSnapshot) (int64, error) {
 
 // GetRegionSnapshotBySceneHash returns a region snapshot matching the given scene hash, or nil if none.
 // This is used to restore regions when processing a PCAP that matches a previously seen scene.
-func (db *DB) GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*lidar.RegionSnapshot, error) {
+func (db *DB) GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*l3grid.RegionSnapshot, error) {
 	if sceneHash == "" {
 		return nil, nil
 	}
@@ -1313,7 +1313,7 @@ func (db *DB) GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*lidar.R
 
 // GetRegionSnapshotBySourcePath returns a region snapshot matching the given source path (e.g., PCAP filename), or nil if none.
 // This is the preferred method for PCAP restoration as source path matching is more reliable than scene hash during early settling.
-func (db *DB) GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*lidar.RegionSnapshot, error) {
+func (db *DB) GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*l3grid.RegionSnapshot, error) {
 	if sourcePath == "" {
 		return nil, nil
 	}
@@ -1325,7 +1325,7 @@ func (db *DB) GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*lidar
 }
 
 // GetLatestRegionSnapshot returns the most recent region snapshot for the given sensor_id, or nil if none.
-func (db *DB) GetLatestRegionSnapshot(sensorID string) (*lidar.RegionSnapshot, error) {
+func (db *DB) GetLatestRegionSnapshot(sensorID string) (*l3grid.RegionSnapshot, error) {
 	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path
 		  FROM lidar_bg_regions WHERE sensor_id = ? ORDER BY region_set_id DESC LIMIT 1`
 
@@ -1334,7 +1334,7 @@ func (db *DB) GetLatestRegionSnapshot(sensorID string) (*lidar.RegionSnapshot, e
 }
 
 // scanRegionSnapshot scans a row into a RegionSnapshot struct.
-func scanRegionSnapshot(row *sql.Row) (*lidar.RegionSnapshot, error) {
+func scanRegionSnapshot(row *sql.Row) (*l3grid.RegionSnapshot, error) {
 	var regionSetID int64
 	var snapshotID int64
 	var sensor string
@@ -1353,7 +1353,7 @@ func scanRegionSnapshot(row *sql.Row) (*lidar.RegionSnapshot, error) {
 		return nil, err
 	}
 
-	snap := &lidar.RegionSnapshot{
+	snap := &l3grid.RegionSnapshot{
 		RegionSetID:      &regionSetID,
 		SnapshotID:       snapshotID,
 		SensorID:         sensor,

@@ -12,7 +12,8 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/google/uuid"
 )
 
@@ -192,7 +193,7 @@ func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Update the track label
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	err := store.UpdateTrackLabel(runID, trackID, req.UserLabel, req.QualityLabel, req.LabelConfidence, req.LabelerID, labelSource)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track label: %v", err))
@@ -250,7 +251,7 @@ func (ws *WebServer) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Reque
 	isMerge := userLabel == "merge"
 
 	// Update the track quality flags
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	err := store.UpdateTrackQualityFlags(runID, trackID, isSplit, isMerge, req.LinkedTrackIDs)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track flags: %v", err))
@@ -276,7 +277,7 @@ func (ws *WebServer) handleGetRunTrack(w http.ResponseWriter, r *http.Request, r
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	track, err := store.GetRunTrack(runID, trackID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -341,7 +342,7 @@ func (ws *WebServer) handleDeleteRun(w http.ResponseWriter, r *http.Request, run
 	}
 
 	// Delete the run (CASCADE will delete lidar_run_tracks)
-	if err := lidar.DeleteRun(ws.db.DB, runID); err != nil {
+	if err := sqlite.DeleteRun(ws.db.DB, runID); err != nil {
 		if strings.Contains(err.Error(), "run not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
 			return
@@ -365,7 +366,7 @@ func (ws *WebServer) handleListRunTracks(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	tracks, err := store.GetRunTracks(runID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run tracks: %v", err))
@@ -388,7 +389,7 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	total, labelled, byClass, err := store.GetLabelingProgress(runID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get labelling progress: %v", err))
@@ -436,7 +437,7 @@ func (ws *WebServer) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch runs from database
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	runs, err := store.ListRuns(limit)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list runs: %v", err))
@@ -444,7 +445,7 @@ func (ws *WebServer) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply filters (sensor_id, status)
-	var filteredRuns []*lidar.AnalysisRun
+	var filteredRuns []*sqlite.AnalysisRun
 	for _, run := range runs {
 		if sensorID != "" && run.SensorID != sensorID {
 			continue
@@ -470,7 +471,7 @@ func (ws *WebServer) handleGetRun(w http.ResponseWriter, r *http.Request, runID 
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	run, err := store.GetRun(runID)
 	if errors.Is(err, sql.ErrNoRows) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
@@ -495,7 +496,7 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 	}
 
 	// Get the original run to find source PCAP and params
-	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
+	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
 	originalRun, err := runStore.GetRun(runID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -540,7 +541,7 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 		uuidPrefix = uuidPrefix[:8]
 	}
 	newRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
-	newRun := &lidar.AnalysisRun{
+	newRun := &sqlite.AnalysisRun{
 		RunID:       newRunID,
 		SourceType:  "pcap",
 		SourcePath:  originalRun.SourcePath,
@@ -608,7 +609,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 	// If no reference run specified, try to auto-detect from scene
 	if referenceRunID == "" {
 		// Get the candidate run to find its source path / scene
-		store := lidar.NewAnalysisRunStore(ws.db.DB)
+		store := sqlite.NewAnalysisRunStore(ws.db.DB)
 		candidateRun, err := store.GetRun(candidateRunID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get candidate run: %v", err))
@@ -616,7 +617,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		}
 
 		// Try to find a scene for this sensor that has a reference run
-		sceneStore := lidar.NewSceneStore(ws.db.DB)
+		sceneStore := sqlite.NewSceneStore(ws.db.DB)
 		scenes, err := sceneStore.ListScenes(candidateRun.SensorID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
@@ -652,8 +653,8 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 	}
 
 	// Perform ground truth evaluation
-	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
-	evaluator := lidar.NewGroundTruthEvaluator(runStore, lidar.DefaultGroundTruthWeights())
+	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	evaluator := adapters.NewGroundTruthEvaluator(runStore, adapters.DefaultGroundTruthWeights())
 
 	score, err := evaluator.Evaluate(referenceRunID, candidateRunID)
 	if err != nil {
@@ -665,7 +666,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 	var evaluationID string
 	if matchedSceneID != "" {
 		candidateRun, _ := runStore.GetRun(candidateRunID)
-		eval := &lidar.Evaluation{
+		eval := &sqlite.Evaluation{
 			SceneID:             matchedSceneID,
 			ReferenceRunID:      referenceRunID,
 			CandidateRunID:      candidateRunID,
@@ -686,7 +687,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 			eval.ParamsJSON = candidateRun.ParamsJSON
 		}
 
-		evalStore := lidar.NewEvaluationStore(ws.db.DB)
+		evalStore := sqlite.NewEvaluationStore(ws.db.DB)
 		if err := evalStore.Insert(eval); err != nil {
 			log.Printf("Warning: failed to persist evaluation: %v", err)
 		} else {
@@ -714,7 +715,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 // handleMissedRegions handles GET (list) and POST (create) for missed regions.
 // GET/POST /api/lidar/runs/{run_id}/missed-regions
 func (ws *WebServer) handleMissedRegions(w http.ResponseWriter, r *http.Request, runID string) {
-	store := lidar.NewMissedRegionStore(ws.db.DB)
+	store := sqlite.NewMissedRegionStore(ws.db.DB)
 
 	switch r.Method {
 	case http.MethodGet:
@@ -724,7 +725,7 @@ func (ws *WebServer) handleMissedRegions(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		if regions == nil {
-			regions = []*lidar.MissedRegion{}
+			regions = []*sqlite.MissedRegion{}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -734,7 +735,7 @@ func (ws *WebServer) handleMissedRegions(w http.ResponseWriter, r *http.Request,
 		})
 
 	case http.MethodPost:
-		var req lidar.MissedRegion
+		var req sqlite.MissedRegion
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 			return
@@ -776,7 +777,7 @@ func (ws *WebServer) handleDeleteMissedRegion(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	store := lidar.NewMissedRegionStore(ws.db.DB)
+	store := sqlite.NewMissedRegionStore(ws.db.DB)
 	err := store.Delete(regionID)
 	if errors.Is(err, sql.ErrNoRows) {
 		ws.writeJSONError(w, http.StatusNotFound, "missed region not found")

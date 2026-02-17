@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -173,7 +173,7 @@ func TestSceneAPI_CreateScene(t *testing.T) {
 			}
 
 			if w.Code == http.StatusCreated {
-				var resp lidar.Scene
+				var resp sqlite.Scene
 				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 					t.Errorf("failed to decode response: %v", err)
 				}
@@ -192,10 +192,10 @@ func TestSceneAPI_ListScenes(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 
 	// Insert test scenes
-	scenes := []*lidar.Scene{
+	scenes := []*sqlite.Scene{
 		{SensorID: "sensor-001", PCAPFile: "scene1.pcap"},
 		{SensorID: "sensor-001", PCAPFile: "scene2.pcap"},
 		{SensorID: "sensor-002", PCAPFile: "scene3.pcap"},
@@ -260,10 +260,10 @@ func TestSceneAPI_GetScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &lidar.Scene{
+	scene := &sqlite.Scene{
 		SensorID:    "sensor-001",
 		PCAPFile:    "test.pcap",
 		Description: "Test scene",
@@ -301,7 +301,7 @@ func TestSceneAPI_GetScene(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusOK {
-				var resp lidar.Scene
+				var resp sqlite.Scene
 				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 					t.Errorf("failed to decode response: %v", err)
 				}
@@ -317,10 +317,10 @@ func TestSceneAPI_UpdateScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &lidar.Scene{
+	scene := &sqlite.Scene{
 		SensorID:    "sensor-001",
 		PCAPFile:    "test.pcap",
 		Description: "Original",
@@ -363,10 +363,10 @@ func TestSceneAPI_DeleteScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &lidar.Scene{
+	scene := &sqlite.Scene{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -394,10 +394,10 @@ func TestSceneAPI_ReplayScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &lidar.Scene{
+	scene := &sqlite.Scene{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -549,8 +549,8 @@ func TestSceneAPI_ReplayScene_ErrorBranches(t *testing.T) {
 	})
 
 	t.Run("invalid json body", func(t *testing.T) {
-		store := lidar.NewSceneStore(ws.db.DB)
-		scene := &lidar.Scene{SensorID: "sensor-001", PCAPFile: "test.pcap"}
+		store := sqlite.NewSceneStore(ws.db.DB)
+		scene := &sqlite.Scene{SensorID: "sensor-001", PCAPFile: "test.pcap"}
 		if err := store.InsertScene(scene); err != nil {
 			t.Fatalf("failed to insert scene: %v", err)
 		}

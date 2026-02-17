@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 )
 
@@ -280,9 +280,9 @@ func TestFrameTiming_30fps(t *testing.T) {
 // --- Helper functions for benchmarks ---
 
 // generateBenchFrame creates a synthetic LiDARFrame with n points for benchmarking.
-func generateBenchFrame(n int, seed int) *lidar.LiDARFrame {
+func generateBenchFrame(n int, seed int) *l2frames.LiDARFrame {
 	now := time.Now().Add(time.Duration(seed) * 100 * time.Millisecond)
-	points := make([]lidar.Point, n)
+	points := make([]l2frames.Point, n)
 	for i := 0; i < n; i++ {
 		az := float64(i) / float64(n) * 360.0
 		el := float64(i%40)*0.5 - 10.0
@@ -290,7 +290,7 @@ func generateBenchFrame(n int, seed int) *lidar.LiDARFrame {
 		x := dist * math.Cos(az*math.Pi/180) * math.Cos(el*math.Pi/180)
 		y := dist * math.Sin(az*math.Pi/180) * math.Cos(el*math.Pi/180)
 		z := dist * math.Sin(el*math.Pi/180)
-		points[i] = lidar.Point{
+		points[i] = l2frames.Point{
 			X:         x,
 			Y:         y,
 			Z:         z,
@@ -302,7 +302,7 @@ func generateBenchFrame(n int, seed int) *lidar.LiDARFrame {
 			Timestamp: now,
 		}
 	}
-	return &lidar.LiDARFrame{
+	return &l2frames.LiDARFrame{
 		SensorID:       "bench-sensor",
 		StartTimestamp: now,
 		EndTimestamp:   now.Add(100 * time.Millisecond),

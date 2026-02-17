@@ -27,9 +27,13 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/version"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
@@ -122,12 +126,12 @@ type WebServer struct {
 	trackAPI *TrackAPI
 
 	// In-memory tracker for real-time config access (optional)
-	tracker *lidar.Tracker
+	tracker *l5tracks.Tracker
 	// Optional classifier reference for live threshold updates.
-	classifier *lidar.TrackClassifier
+	classifier *l6objects.TrackClassifier
 
 	// Analysis run manager for PCAP analysis mode
-	analysisRunManager *lidar.AnalysisRunManager
+	analysisRunManager *sqlite.AnalysisRunManager
 
 	// Grid plotter for visualization during PCAP replay
 	gridPlotter  *GridPlotter
@@ -171,7 +175,7 @@ type WebServer struct {
 	hintRunner HINTRunner
 
 	// Sweep store for persisting sweep results
-	sweepStore *lidar.SweepStore
+	sweepStore *sqlite.SweepStore
 }
 
 // PlaybackStatusInfo represents the current playback state for API responses.
@@ -201,7 +205,7 @@ type WebServerConfig struct {
 	SensorID          string
 	Parser            network.Parser
 	FrameBuilder      network.FrameBuilder
-	Classifier        *lidar.TrackClassifier
+	Classifier        *l6objects.TrackClassifier
 	PCAPSafeDir       string // Safe directory for PCAP file access (restricts path traversal)
 	VRLogSafeDir      string // Safe directory for VRLOG file access (restricts path traversal)
 	PacketForwarder   *network.PacketForwarder
@@ -322,8 +326,8 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	if config.DB != nil {
 		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
 		// Initialize AnalysisRunManager for PCAP analysis runs
-		ws.analysisRunManager = lidar.NewAnalysisRunManager(config.DB.DB, config.SensorID)
-		lidar.RegisterAnalysisRunManager(config.SensorID, ws.analysisRunManager)
+		ws.analysisRunManager = sqlite.NewAnalysisRunManager(config.DB.DB, config.SensorID)
+		sqlite.RegisterAnalysisRunManager(config.SensorID, ws.analysisRunManager)
 	}
 
 	ws.server = &http.Server{
@@ -348,7 +352,7 @@ func (ws *WebServer) baseContext() context.Context {
 
 // SetTracker sets the tracker reference for direct config access via /api/lidar/params.
 // Also propagates to trackAPI if available.
-func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
+func (ws *WebServer) SetTracker(tracker *l5tracks.Tracker) {
 	ws.tracker = tracker
 	if ws.trackAPI != nil {
 		ws.trackAPI.SetTracker(tracker)
@@ -357,7 +361,7 @@ func (ws *WebServer) SetTracker(tracker *lidar.Tracker) {
 
 // SetClassifier sets the classifier reference used by the tracking pipeline.
 // This allows live updates of classification thresholds through /api/lidar/params.
-func (ws *WebServer) SetClassifier(classifier *lidar.TrackClassifier) {
+func (ws *WebServer) SetClassifier(classifier *l6objects.TrackClassifier) {
 	ws.classifier = classifier
 }
 
@@ -377,7 +381,7 @@ func (ws *WebServer) SetHINTRunner(runner HINTRunner) {
 }
 
 // SetSweepStore sets the sweep store for persisting sweep results.
-func (ws *WebServer) SetSweepStore(store *lidar.SweepStore) {
+func (ws *WebServer) SetSweepStore(store *sqlite.SweepStore) {
 	ws.sweepStore = store
 }
 
@@ -394,7 +398,7 @@ func (ws *WebServer) updateLatestFgCounts(sensorID string) {
 		return
 	}
 
-	snap := lidar.GetForegroundSnapshot(sensorID)
+	snap := l3grid.GetForegroundSnapshot(sensorID)
 	if snap == nil {
 		return
 	}
@@ -528,7 +532,7 @@ func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speed
 		}
 
 		// Set source path on BackgroundManager for region restoration
-		if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+		if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 			mgr.SetSourcePath(pcapFile)
 		}
 
@@ -596,7 +600,7 @@ func (ws *WebServer) StopPCAPForSweep() error {
 		ws.resetFrameBuilder()
 	}
 
-	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		mgr.SetSourcePath("")
 	}
 
@@ -835,9 +839,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		var recordingStarted bool
 		if isAnalysisMode && ws.analysisRunManager != nil {
 			// Build run parameters from current background manager settings
-			runParams := lidar.DefaultRunParams()
-			if bgManager := lidar.GetBackgroundManager(ws.sensorID); bgManager != nil {
-				runParams.Background = lidar.FromBackgroundParams(bgManager.GetParams())
+			runParams := sqlite.DefaultRunParams()
+			if bgManager := l3grid.GetBackgroundManager(ws.sensorID); bgManager != nil {
+				runParams.Background = sqlite.FromBackgroundParams(bgManager.GetParams())
 			}
 
 			var startErr error
@@ -914,7 +918,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
-			if bgManager := lidar.GetBackgroundManager(ws.sensorID); bgManager != nil {
+			if bgManager := l3grid.GetBackgroundManager(ws.sensorID); bgManager != nil {
 				orig := bgManager.GetParams()
 				tuned := orig
 				tuned.SeedFromFirstObservation = true
@@ -948,7 +952,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				defer fgForwarder.Close()
 			}
 
-			bgManager := lidar.GetBackgroundManager(ws.sensorID)
+			bgManager := l3grid.GetBackgroundManager(ws.sensorID)
 
 			// Apply debug range parameters to background manager if specified
 			if bgManager != nil && (debugRingMin > 0 || debugRingMax > 0 || debugAzMin > 0 || debugAzMax > 0) {
@@ -968,10 +972,10 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}
 
 			// Create frame callback for grid plotting if enabled
-			var onFrameCallback func(*lidar.BackgroundManager, []lidar.PointPolar)
+			var onFrameCallback func(*l3grid.BackgroundManager, []l2frames.PointPolar)
 			if ws.gridPlotter != nil && ws.gridPlotter.IsEnabled() {
 				plotter := ws.gridPlotter // capture for closure
-				onFrameCallback = func(mgr *lidar.BackgroundManager, points []lidar.PointPolar) {
+				onFrameCallback = func(mgr *l3grid.BackgroundManager, points []l2frames.PointPolar) {
 					plotter.SampleWithPoints(mgr, points)
 				}
 			}
@@ -1019,7 +1023,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		if recordingStarted && ws.onRecordingStop != nil {
 			vrlogPath := ws.onRecordingStop(runID)
 			if vrlogPath != "" && ws.db != nil {
-				store := lidar.NewAnalysisRunStore(ws.db.DB)
+				store := sqlite.NewAnalysisRunStore(ws.db.DB)
 				if updateErr := store.UpdateRunVRLogPath(runID, vrlogPath); updateErr != nil {
 					log.Printf("Warning: Failed to update vrlog_path for run %s: %v", runID, updateErr)
 				}
@@ -1084,7 +1088,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 }
 
 func (ws *WebServer) resetBackgroundGrid() error {
-	mgr := lidar.GetBackgroundManager(ws.sensorID)
+	mgr := l3grid.GetBackgroundManager(ws.sensorID)
 	if mgr == nil {
 		return nil
 	}
@@ -1097,7 +1101,7 @@ func (ws *WebServer) resetBackgroundGrid() error {
 // resetFrameBuilder clears all buffered frame state to prevent stale data
 // from contaminating a new data source.
 func (ws *WebServer) resetFrameBuilder() {
-	fb := lidar.GetFrameBuilder(ws.sensorID)
+	fb := l2frames.GetFrameBuilder(ws.sensorID)
 	if fb != nil {
 		fb.Reset()
 	}
@@ -1383,7 +1387,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -1742,7 +1746,7 @@ func (ws *WebServer) handleGridStatus(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	mgr := lidar.GetBackgroundManager(sensorID)
+	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
 		return
@@ -1804,7 +1808,7 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	mgr := lidar.GetBackgroundManager(sensorID)
+	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
 		return
@@ -1814,7 +1818,7 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 	beforeNanos := time.Now().UnixNano()
 
 	// Reset frame builder to clear any buffered frames
-	fb := lidar.GetFrameBuilder(sensorID)
+	fb := l2frames.GetFrameBuilder(sensorID)
 	if fb != nil {
 		fb.Reset()
 	}
@@ -1857,7 +1861,7 @@ func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -1949,7 +1953,7 @@ func (ws *WebServer) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Re
 		sensorID = ws.sensorID
 	}
 
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -2126,7 +2130,7 @@ func (ws *WebServer) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *
 		sensorID = ws.sensorID
 	}
 
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -2270,7 +2274,7 @@ func (ws *WebServer) handleClustersChart(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	clusters, err := lidar.GetRecentClusters(ws.trackAPI.db, sensorID, startNanos, endNanos, limit)
+	clusters, err := sqlite.GetRecentClusters(ws.trackAPI.db, sensorID, startNanos, endNanos, limit)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get clusters: %v", err))
 		return
@@ -2339,7 +2343,7 @@ func (ws *WebServer) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state := r.URL.Query().Get("state")
-	tracks, err := lidar.GetActiveTracks(ws.trackAPI.db, sensorID, state)
+	tracks, err := sqlite.GetActiveTracks(ws.trackAPI.db, sensorID, state)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get tracks: %v", err))
 		return
@@ -2406,7 +2410,7 @@ func (ws *WebServer) handleForegroundFrameChart(w http.ResponseWriter, r *http.R
 		sensorID = ws.sensorID
 	}
 
-	snapshot := lidar.GetForegroundSnapshot(sensorID)
+	snapshot := l3grid.GetForegroundSnapshot(sensorID)
 	if snapshot == nil || (len(snapshot.ForegroundPoints) == 0 && len(snapshot.BackgroundPoints) == 0) {
 		ws.writeJSONError(w, http.StatusNotFound, "no foreground snapshot available")
 		return
@@ -2492,7 +2496,7 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	var snap *lidar.BgSnapshot
+	var snap *l3grid.BgSnapshot
 	snapID := r.URL.Query().Get("snapshot_id")
 	if snapID != "" {
 		// TODO: implement lookup by snapshot_id if needed
@@ -2520,7 +2524,7 @@ func (ws *WebServer) handleExportSnapshotASC(w http.ResponseWriter, r *http.Requ
 
 	// The export path is generated internally by ExportBgSnapshotToASC
 	// to prevent user-controlled data from flowing into file system operations.
-	if _, err := lidar.ExportBgSnapshotToASC(snap, elevs); err != nil {
+	if _, err := l3grid.ExportBgSnapshotToASC(snap, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
 		return
 	}
@@ -2538,7 +2542,7 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 		return
 	}
 
-	fb := lidar.GetFrameBuilder(sensorID)
+	fb := l2frames.GetFrameBuilder(sensorID)
 	if fb == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no FrameBuilder for sensor")
 		return
@@ -2561,7 +2565,7 @@ func (ws *WebServer) handleExportFrameSequenceASC(w http.ResponseWriter, r *http
 		}
 	}
 	// Export paths are generated internally by the export functions for security
-	if _, err := lidar.ExportBgSnapshotToASC(snap, elevs); err != nil {
+	if _, err := l3grid.ExportBgSnapshotToASC(snap, elevs); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("background export error: %v", err))
 		return
 	}
@@ -2589,7 +2593,7 @@ func (ws *WebServer) handleExportNextFrameASC(w http.ResponseWriter, r *http.Req
 		return
 	}
 	// Find FrameBuilder for sensorID (assume registry or global)
-	fb := lidar.GetFrameBuilder(sensorID)
+	fb := l2frames.GetFrameBuilder(sensorID)
 	if fb == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no FrameBuilder for sensor")
 		return
@@ -2611,14 +2615,14 @@ func (ws *WebServer) handleExportForegroundASC(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	snap := lidar.GetForegroundSnapshot(sensorID)
+	snap := l3grid.GetForegroundSnapshot(sensorID)
 	if snap == nil || len(snap.ForegroundPoints) == 0 {
 		ws.writeJSONError(w, http.StatusNotFound, "no foreground snapshot available")
 		return
 	}
 
 	// The export path is generated internally by ExportForegroundSnapshotToASC
-	if _, err := lidar.ExportForegroundSnapshotToASC(snap); err != nil {
+	if _, err := l3grid.ExportForegroundSnapshotToASC(snap); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("export error: %v", err))
 		return
 	}
@@ -2640,14 +2644,14 @@ func (ws *WebServer) exportForegroundSequenceInternal(sensorID string, count int
 	exported := 0
 
 	for exported < count && time.Now().Before(deadline) {
-		snap := lidar.GetForegroundSnapshot(sensorID)
+		snap := l3grid.GetForegroundSnapshot(sensorID)
 		if snap == nil || snap.Timestamp.IsZero() || len(snap.ForegroundPoints) == 0 || !snap.Timestamp.After(last) {
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 
 		// Export path is generated internally by ExportForegroundSnapshotToASC
-		if _, err := lidar.ExportForegroundSnapshotToASC(snap); err != nil {
+		if _, err := l3grid.ExportForegroundSnapshotToASC(snap); err != nil {
 			log.Printf("[ExportSequence] foreground export failed (%d/%d) sensor=%s: %v", exported+1, count, sensorID, err)
 		} else {
 			log.Printf("[ExportSequence] exported foreground %d/%d for sensor=%s", exported+1, count, sensorID)
@@ -2716,7 +2720,7 @@ func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request
 		if len(snap.GridBlob) > 0 {
 			gz, err := gzip.NewReader(bytes.NewReader(snap.GridBlob))
 			if err == nil {
-				var cells []lidar.BackgroundCell
+				var cells []l3grid.BackgroundCell
 				dec := gob.NewDecoder(gz)
 				if err := dec.Decode(&cells); err == nil {
 					total = len(cells)
@@ -2888,12 +2892,12 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	ws.pcapMu.Unlock()
 
 	// Get background manager to show current params
-	var bgParams *lidar.BackgroundParams
+	var bgParams *l3grid.BackgroundParams
 	var bgParamsJSON string
 	var bgParamDefs []ParamDef
 	var bgParamsJSONLines int
 
-	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		params := mgr.GetParams()
 		bgParams = &params
 
@@ -2965,7 +2969,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Uptime            string
 		Stats             *StatsSnapshot
 		SensorID          string
-		BGParams          *lidar.BackgroundParams
+		BGParams          *l3grid.BackgroundParams
 		BGParamsJSON      string
 		BGParamDefs       []ParamDef
 		BGParamsJSONLines int
@@ -3023,7 +3027,7 @@ func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	mgr := lidar.GetBackgroundManager(sensorID)
+	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil || mgr.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
 		return
@@ -3031,7 +3035,7 @@ func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) 
 
 	// If a PersistCallback is set, build a minimal snapshot object and call it.
 	if mgr.PersistCallback != nil {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          mgr.Grid.SensorID,
 			TakenUnixNanos:    time.Now().UnixNano(),
 			Rings:             mgr.Grid.Rings,
@@ -3127,7 +3131,7 @@ func (ws *WebServer) handleLidarSnapshot(w http.ResponseWriter, r *http.Request)
 	}
 	defer gz.Close()
 
-	var cells []lidar.BackgroundCell
+	var cells []l3grid.BackgroundCell
 	dec := gob.NewDecoder(gz)
 	if err := dec.Decode(&cells); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("gob decode: %v", err))
@@ -3178,14 +3182,14 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	mgr := lidar.GetBackgroundManager(sensorID)
+	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
 		return
 	}
 	metrics := mgr.GetAcceptanceMetrics()
 	if metrics == nil {
-		metrics = &lidar.AcceptanceMetrics{}
+		metrics = &l3grid.AcceptanceMetrics{}
 	}
 
 	// Build richer response including totals and computed rates for convenience
@@ -3263,7 +3267,7 @@ func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Reques
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	mgr := lidar.GetBackgroundManager(sensorID)
+	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
 		return
@@ -3427,7 +3431,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 	// Set source path on BackgroundManager for region restoration
 	// This allows skipping settling when replaying the same PCAP file
-	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		mgr.SetSourcePath(pcapFile)
 	}
 
@@ -3559,7 +3563,7 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clear source path since we're returning to live mode
-	if mgr := lidar.GetBackgroundManager(ws.sensorID); mgr != nil {
+	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		mgr.SetSourcePath("")
 	}
 
@@ -3679,7 +3683,7 @@ func (ws *WebServer) handleBackgroundGrid(w http.ResponseWriter, r *http.Request
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -3774,7 +3778,7 @@ func (ws *WebServer) handleBackgroundRegions(w http.ResponseWriter, r *http.Requ
 		sensorID = ws.sensorID
 	}
 
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -3990,7 +3994,7 @@ func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 			ws.writeJSONError(w, http.StatusInternalServerError, "database not configured")
 			return
 		}
-		store := lidar.NewAnalysisRunStore(ws.db.DB)
+		store := sqlite.NewAnalysisRunStore(ws.db.DB)
 		run, err := store.GetRun(body.RunID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("run not found: %v", err))

@@ -8,27 +8,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 func TestPrepareHeatmapFromBuckets(t *testing.T) {
 	tests := []struct {
 		name       string
-		buckets    []lidar.CoarseBucket
+		buckets    []l3grid.CoarseBucket
 		sensorID   string
 		wantPoints int
 		wantMaxVal float64
 	}{
 		{
 			name:       "empty buckets",
-			buckets:    []lidar.CoarseBucket{},
+			buckets:    []l3grid.CoarseBucket{},
 			sensorID:   "sensor-001",
 			wantPoints: 0,
 			wantMaxVal: 1.0,
 		},
 		{
 			name: "single bucket",
-			buckets: []lidar.CoarseBucket{
+			buckets: []l3grid.CoarseBucket{
 				{
 					Ring:            0,
 					AzimuthDegStart: 0,
@@ -44,7 +45,7 @@ func TestPrepareHeatmapFromBuckets(t *testing.T) {
 		},
 		{
 			name: "bucket with zero filled cells skipped",
-			buckets: []lidar.CoarseBucket{
+			buckets: []l3grid.CoarseBucket{
 				{FilledCells: 0, MeanTimesSeen: 5.0},
 				{FilledCells: 5, MeanTimesSeen: 10.0, MeanRangeMeters: 5.0},
 			},
@@ -54,7 +55,7 @@ func TestPrepareHeatmapFromBuckets(t *testing.T) {
 		},
 		{
 			name: "uses settled cells when mean times seen is zero",
-			buckets: []lidar.CoarseBucket{
+			buckets: []l3grid.CoarseBucket{
 				{FilledCells: 5, MeanTimesSeen: 0, SettledCells: 3, MeanRangeMeters: 5.0},
 			},
 			sensorID:   "sensor-001",
@@ -84,7 +85,7 @@ func TestPrepareHeatmapFromBuckets(t *testing.T) {
 
 func TestPrepareHeatmapFromBuckets_PolarToCartesian(t *testing.T) {
 	// Test that polar coordinates are correctly converted to cartesian
-	buckets := []lidar.CoarseBucket{
+	buckets := []l3grid.CoarseBucket{
 		{
 			AzimuthDegStart: 0,
 			AzimuthDegEnd:   6,
@@ -117,19 +118,19 @@ func TestPrepareHeatmapFromBuckets_PolarToCartesian(t *testing.T) {
 func TestPrepareForegroundChartData(t *testing.T) {
 	tests := []struct {
 		name     string
-		snapshot *lidar.ForegroundSnapshot
+		snapshot *l3grid.ForegroundSnapshot
 		sensorID string
 		wantFg   int
 		wantBg   int
 	}{
 		{
 			name: "mixed foreground and background",
-			snapshot: &lidar.ForegroundSnapshot{
-				ForegroundPoints: []lidar.ProjectedPoint{
+			snapshot: &l3grid.ForegroundSnapshot{
+				ForegroundPoints: []l3grid.ProjectedPoint{
 					{X: 1.0, Y: 2.0},
 					{X: 3.0, Y: 4.0},
 				},
-				BackgroundPoints: []lidar.ProjectedPoint{
+				BackgroundPoints: []l3grid.ProjectedPoint{
 					{X: 5.0, Y: 6.0},
 				},
 				ForegroundCount: 2,
@@ -143,9 +144,9 @@ func TestPrepareForegroundChartData(t *testing.T) {
 		},
 		{
 			name: "empty snapshot",
-			snapshot: &lidar.ForegroundSnapshot{
-				ForegroundPoints: []lidar.ProjectedPoint{},
-				BackgroundPoints: []lidar.ProjectedPoint{},
+			snapshot: &l3grid.ForegroundSnapshot{
+				ForegroundPoints: []l3grid.ProjectedPoint{},
+				BackgroundPoints: []l3grid.ProjectedPoint{},
 				Timestamp:        time.Now(),
 			},
 			sensorID: "sensor-001",
@@ -174,12 +175,12 @@ func TestPrepareForegroundChartData(t *testing.T) {
 }
 
 func TestPrepareForegroundChartData_MaxAbs(t *testing.T) {
-	snapshot := &lidar.ForegroundSnapshot{
-		ForegroundPoints: []lidar.ProjectedPoint{
+	snapshot := &l3grid.ForegroundSnapshot{
+		ForegroundPoints: []l3grid.ProjectedPoint{
 			{X: 10.0, Y: 5.0},
 			{X: -15.0, Y: 3.0},
 		},
-		BackgroundPoints: []lidar.ProjectedPoint{
+		BackgroundPoints: []l3grid.ProjectedPoint{
 			{X: 2.0, Y: -20.0},
 		},
 		ForegroundCount: 2,
@@ -198,9 +199,9 @@ func TestPrepareForegroundChartData_MaxAbs(t *testing.T) {
 }
 
 func TestPrepareForegroundChartData_ForegroundPercent(t *testing.T) {
-	snapshot := &lidar.ForegroundSnapshot{
-		ForegroundPoints: []lidar.ProjectedPoint{{X: 1, Y: 1}},
-		BackgroundPoints: []lidar.ProjectedPoint{{X: 2, Y: 2}, {X: 3, Y: 3}},
+	snapshot := &l3grid.ForegroundSnapshot{
+		ForegroundPoints: []l3grid.ProjectedPoint{{X: 1, Y: 1}},
+		BackgroundPoints: []l3grid.ProjectedPoint{{X: 2, Y: 2}, {X: 3, Y: 3}},
 		ForegroundCount:  1,
 		BackgroundCount:  2,
 		TotalPoints:      3,
@@ -218,21 +219,21 @@ func TestPrepareForegroundChartData_ForegroundPercent(t *testing.T) {
 func TestPrepareRecentClustersData(t *testing.T) {
 	tests := []struct {
 		name       string
-		clusters   []*lidar.WorldCluster
+		clusters   []*l4perception.WorldCluster
 		sensorID   string
 		wantNum    int
 		wantMaxPts int
 	}{
 		{
 			name:       "empty clusters",
-			clusters:   []*lidar.WorldCluster{},
+			clusters:   []*l4perception.WorldCluster{},
 			sensorID:   "sensor-001",
 			wantNum:    0,
 			wantMaxPts: 1,
 		},
 		{
 			name: "multiple clusters",
-			clusters: []*lidar.WorldCluster{
+			clusters: []*l4perception.WorldCluster{
 				{CentroidX: 1.0, CentroidY: 2.0, PointsCount: 5},
 				{CentroidX: 3.0, CentroidY: 4.0, PointsCount: 10},
 				{CentroidX: 5.0, CentroidY: 6.0, PointsCount: 3},
@@ -263,7 +264,7 @@ func TestPrepareRecentClustersData(t *testing.T) {
 }
 
 func TestPrepareRecentClustersData_MaxAbs(t *testing.T) {
-	clusters := []*lidar.WorldCluster{
+	clusters := []*l4perception.WorldCluster{
 		{CentroidX: 10.0, CentroidY: 5.0, PointsCount: 1},
 		{CentroidX: -25.0, CentroidY: 3.0, PointsCount: 1},
 	}
@@ -379,7 +380,7 @@ func TestHandleChartPolarJSON_WithBackgroundManager(t *testing.T) {
 	ws := &WebServer{sensorID: sensorID}
 
 	// Verify background manager is registered
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil {
 		t.Error("Expected non-nil background manager")
 		return

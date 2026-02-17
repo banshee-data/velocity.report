@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 func TestNewGridPlotter(t *testing.T) {
@@ -142,8 +143,8 @@ func TestGridPlotter_Sample_Disabled(t *testing.T) {
 	// Don't call Start - plotter is disabled
 
 	// Create a minimal background manager
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("test-sensor", 40, 1800, params, nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("test-sensor", 40, 1800, params, nil)
 
 	// Sample should be ignored when disabled
 	gp.Sample(mgr)
@@ -161,8 +162,8 @@ func TestGridPlotter_SampleWithObservation_OutOfRange(t *testing.T) {
 	}
 	defer gp.Stop()
 
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("test-sensor", 40, 1800, params, nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("test-sensor", 40, 1800, params, nil)
 
 	// Ring out of range (below min)
 	gp.SampleWithObservation(mgr, 2, 60.0, 10.0, true)
@@ -193,10 +194,10 @@ func TestGridPlotter_SampleWithPoints_Disabled(t *testing.T) {
 	gp := NewGridPlotter("test-sensor", 0, 39, 0.0, 360.0)
 	// Don't call Start - plotter is disabled
 
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("test-sensor", 40, 1800, params, nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("test-sensor", 40, 1800, params, nil)
 
-	points := []lidar.PointPolar{
+	points := []l2frames.PointPolar{
 		{Channel: 1, Azimuth: 45.0, Distance: 10.0},
 		{Channel: 5, Azimuth: 90.0, Distance: 15.0},
 	}
@@ -216,7 +217,7 @@ func TestGridPlotter_SampleWithPoints_NilManager(t *testing.T) {
 	}
 	defer gp.Stop()
 
-	points := []lidar.PointPolar{
+	points := []l2frames.PointPolar{
 		{Channel: 1, Azimuth: 45.0, Distance: 10.0},
 	}
 
@@ -564,9 +565,9 @@ func TestGridPlotter_Sample_WithManager(t *testing.T) {
 	defer gp.Stop()
 
 	// Create background manager with matching configuration
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("sample-test", 40, 1800, params, nil)
-	defer lidar.RegisterBackgroundManager("sample-test", nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("sample-test", 40, 1800, params, nil)
+	defer l3grid.RegisterBackgroundManager("sample-test", nil)
 
 	if mgr == nil {
 		t.Fatal("Failed to create BackgroundManager")
@@ -588,9 +589,9 @@ func TestGridPlotter_SampleWithObservation_InRange(t *testing.T) {
 	}
 	defer gp.Stop()
 
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("obs-test", 40, 1800, params, nil)
-	defer lidar.RegisterBackgroundManager("obs-test", nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("obs-test", 40, 1800, params, nil)
+	defer l3grid.RegisterBackgroundManager("obs-test", nil)
 
 	// Sample within range
 	gp.SampleWithObservation(mgr, 5, 45.0, 10.0, true)
@@ -610,11 +611,11 @@ func TestGridPlotter_SampleWithPoints_Enabled(t *testing.T) {
 	}
 	defer gp.Stop()
 
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("points-test", 40, 1800, params, nil)
-	defer lidar.RegisterBackgroundManager("points-test", nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("points-test", 40, 1800, params, nil)
+	defer l3grid.RegisterBackgroundManager("points-test", nil)
 
-	points := []lidar.PointPolar{
+	points := []l2frames.PointPolar{
 		{Channel: 1, Azimuth: 45.0, Distance: 10.0},
 		{Channel: 5, Azimuth: 90.0, Distance: 15.0},
 		{Channel: 10, Azimuth: 180.0, Distance: 20.0},
@@ -650,9 +651,9 @@ func TestGridPlotter_GeneratePlots_WithSamples(t *testing.T) {
 	}
 	defer gp.Stop()
 
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("gen-samples-test", 40, 1800, params, nil)
-	defer lidar.RegisterBackgroundManager("gen-samples-test", nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("gen-samples-test", 40, 1800, params, nil)
+	defer l3grid.RegisterBackgroundManager("gen-samples-test", nil)
 
 	// Add some samples
 	for i := 0; i < 10; i++ {
@@ -673,9 +674,9 @@ func TestGridPlotter_MultipleSamples_SameKey(t *testing.T) {
 	}
 	defer gp.Stop()
 
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("multi-sample-test", 40, 1800, params, nil)
-	defer lidar.RegisterBackgroundManager("multi-sample-test", nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("multi-sample-test", 40, 1800, params, nil)
+	defer l3grid.RegisterBackgroundManager("multi-sample-test", nil)
 
 	// Sample same cell multiple times
 	for i := 0; i < 5; i++ {
@@ -697,9 +698,9 @@ func TestGridPlotter_EdgeCases(t *testing.T) {
 	}
 	defer gp.Stop()
 
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager("edge-test", 40, 1800, params, nil)
-	defer lidar.RegisterBackgroundManager("edge-test", nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager("edge-test", 40, 1800, params, nil)
+	defer l3grid.RegisterBackgroundManager("edge-test", nil)
 
 	// Boundary values
 	gp.SampleWithObservation(mgr, 0, 0.0, 5.0, true)    // Min ring, min azimuth

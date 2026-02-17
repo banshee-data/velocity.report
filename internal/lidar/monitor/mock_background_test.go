@@ -3,7 +3,7 @@ package monitor
 import (
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // mockError implements error for testing
@@ -14,7 +14,7 @@ type mockError struct {
 func (e *mockError) Error() string { return e.msg }
 
 func TestMockBackgroundManager_GetGridCells(t *testing.T) {
-	cells := []lidar.ExportedCell{
+	cells := []l3grid.ExportedCell{
 		{AzimuthDeg: 0, Range: 10, TimesSeen: 5},
 		{AzimuthDeg: 90, Range: 20, TimesSeen: 10},
 	}
@@ -31,9 +31,9 @@ func TestMockBackgroundManager_GetGridCells(t *testing.T) {
 }
 
 func TestMockBackgroundManager_GetGridHeatmap(t *testing.T) {
-	heatmap := &lidar.GridHeatmap{
+	heatmap := &l3grid.GridHeatmap{
 		SensorID: "test-sensor",
-		Buckets: []lidar.CoarseBucket{
+		Buckets: []l3grid.CoarseBucket{
 			{Ring: 0, FilledCells: 10},
 		},
 	}
@@ -50,7 +50,7 @@ func TestMockBackgroundManager_GetGridHeatmap(t *testing.T) {
 }
 
 func TestMockBackgroundManager_GetParams(t *testing.T) {
-	params := lidar.BackgroundParams{
+	params := l3grid.BackgroundParams{
 		NoiseRelativeFraction: 0.5,
 	}
 
@@ -65,7 +65,7 @@ func TestMockBackgroundManager_GetParams(t *testing.T) {
 func TestMockBackgroundManager_SetParams(t *testing.T) {
 	mock := &MockBackgroundManager{}
 
-	newParams := lidar.BackgroundParams{NoiseRelativeFraction: 0.7}
+	newParams := l3grid.BackgroundParams{NoiseRelativeFraction: 0.7}
 	err := mock.SetParams(newParams)
 	if err != nil {
 		t.Errorf("SetParams returned error: %v", err)
@@ -84,7 +84,7 @@ func TestMockBackgroundManager_SetParamsError(t *testing.T) {
 		SetParamsErr: errMockError,
 	}
 
-	err := mock.SetParams(lidar.BackgroundParams{})
+	err := mock.SetParams(l3grid.BackgroundParams{})
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
@@ -145,7 +145,7 @@ func TestMockBackgroundManager_GetGrid(t *testing.T) {
 	}
 
 	// Test with non-nil grid
-	grid := &lidar.BackgroundGrid{}
+	grid := &l3grid.BackgroundGrid{}
 	mock.Grid = grid
 	if mock.GetGrid() != grid {
 		t.Error("expected same grid instance")
@@ -209,11 +209,11 @@ func TestBackgroundManagerWrapper_AllMethods(t *testing.T) {
 	sensorID := "test-wrapper-sensor-12345"
 
 	// Register a real background manager
-	bm := lidar.NewBackgroundManager(sensorID, 16, 360, lidar.BackgroundParams{}, nil)
+	bm := l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
 	if bm == nil {
 		t.Fatal("failed to create BackgroundManager")
 	}
-	defer lidar.RegisterBackgroundManager(sensorID, nil) // Clean up
+	defer l3grid.RegisterBackgroundManager(sensorID, nil) // Clean up
 
 	// Get the wrapper through the provider
 	provider := &DefaultBackgroundManagerProvider{}
@@ -237,7 +237,7 @@ func TestBackgroundManagerWrapper_AllMethods(t *testing.T) {
 	_ = params
 
 	// Test SetParams
-	newParams := lidar.BackgroundParams{
+	newParams := l3grid.BackgroundParams{
 		NoiseRelativeFraction: 0.5,
 	}
 	err := wrapper.SetParams(newParams)

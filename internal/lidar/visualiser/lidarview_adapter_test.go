@@ -4,16 +4,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
 // mockForwarder implements ForegroundForwarder for testing.
 type mockForwarder struct {
-	forwardedPoints []lidar.PointPolar
+	forwardedPoints []l2frames.PointPolar
 	callCount       int
 }
 
-func (m *mockForwarder) ForwardForeground(points []lidar.PointPolar) {
+func (m *mockForwarder) ForwardForeground(points []l2frames.PointPolar) {
 	m.forwardedPoints = append(m.forwardedPoints, points...)
 	m.callCount++
 }
@@ -33,7 +33,7 @@ func TestNewLidarViewAdapter(t *testing.T) {
 func TestPublishFrameBundle_NilForwarder(t *testing.T) {
 	adapter := NewLidarViewAdapter(nil)
 	bundle := NewFrameBundle(1, "test-sensor", time.Now())
-	points := []lidar.PointPolar{
+	points := []l2frames.PointPolar{
 		{Azimuth: 0, Distance: 10, Intensity: 100},
 	}
 
@@ -44,7 +44,7 @@ func TestPublishFrameBundle_NilForwarder(t *testing.T) {
 func TestPublishFrameBundle_NilBundle(t *testing.T) {
 	forwarder := &mockForwarder{}
 	adapter := NewLidarViewAdapter(forwarder)
-	points := []lidar.PointPolar{
+	points := []l2frames.PointPolar{
 		{Azimuth: 0, Distance: 10, Intensity: 100},
 	}
 
@@ -64,7 +64,7 @@ func TestPublishFrameBundle_EmptyPoints(t *testing.T) {
 	adapter := NewLidarViewAdapter(forwarder)
 	bundle := NewFrameBundle(1, "test-sensor", time.Now())
 
-	adapter.PublishFrameBundle(bundle, []lidar.PointPolar{})
+	adapter.PublishFrameBundle(bundle, []l2frames.PointPolar{})
 
 	if forwarder.callCount != 0 {
 		t.Error("Forwarder should not be called with empty points")
@@ -76,7 +76,7 @@ func TestPublishFrameBundle_ValidPoints(t *testing.T) {
 	adapter := NewLidarViewAdapter(forwarder)
 	bundle := NewFrameBundle(1, "test-sensor", time.Now())
 
-	points := []lidar.PointPolar{
+	points := []l2frames.PointPolar{
 		{Azimuth: 0, Distance: 10, Intensity: 100, Channel: 1},
 		{Azimuth: 1, Distance: 15, Intensity: 150, Channel: 2},
 		{Azimuth: 2, Distance: 20, Intensity: 200, Channel: 3},
@@ -114,12 +114,12 @@ func TestPublishFrameBundle_MultipleCallsAccumulate(t *testing.T) {
 	adapter := NewLidarViewAdapter(forwarder)
 
 	bundle1 := NewFrameBundle(1, "test-sensor", time.Now())
-	points1 := []lidar.PointPolar{
+	points1 := []l2frames.PointPolar{
 		{Azimuth: 0, Distance: 10, Intensity: 100},
 	}
 
 	bundle2 := NewFrameBundle(2, "test-sensor", time.Now())
-	points2 := []lidar.PointPolar{
+	points2 := []l2frames.PointPolar{
 		{Azimuth: 1, Distance: 15, Intensity: 150},
 		{Azimuth: 2, Distance: 20, Intensity: 200},
 	}

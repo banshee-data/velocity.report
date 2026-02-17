@@ -7,7 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
@@ -37,7 +38,7 @@ func (d *DirectBackend) SensorID() string { return d.sensorID }
 
 // FetchBuckets returns bucket boundary strings from the BackgroundManager.
 func (d *DirectBackend) FetchBuckets() []string {
-	mgr := lidar.GetBackgroundManager(d.sensorID)
+	mgr := l3grid.GetBackgroundManager(d.sensorID)
 	if mgr == nil {
 		log.Printf("WARNING: No background manager for %s (using default buckets)", d.sensorID)
 		return DefaultBuckets()
@@ -60,13 +61,13 @@ func (d *DirectBackend) FetchBuckets() []string {
 // FetchAcceptanceMetrics returns acceptance counters as a generic map,
 // matching the JSON shape the HTTP client produces.
 func (d *DirectBackend) FetchAcceptanceMetrics() (map[string]interface{}, error) {
-	mgr := lidar.GetBackgroundManager(d.sensorID)
+	mgr := l3grid.GetBackgroundManager(d.sensorID)
 	if mgr == nil {
 		return nil, fmt.Errorf("no background manager for sensor %q", d.sensorID)
 	}
 	metrics := mgr.GetAcceptanceMetrics()
 	if metrics == nil {
-		metrics = &lidar.AcceptanceMetrics{}
+		metrics = &l3grid.AcceptanceMetrics{}
 	}
 
 	totals := make([]int64, len(metrics.BucketsMeters))
@@ -98,7 +99,7 @@ func (d *DirectBackend) FetchAcceptanceMetrics() (map[string]interface{}, error)
 
 // ResetAcceptance zeroes the acceptance counters.
 func (d *DirectBackend) ResetAcceptance() error {
-	mgr := lidar.GetBackgroundManager(d.sensorID)
+	mgr := l3grid.GetBackgroundManager(d.sensorID)
 	if mgr == nil {
 		return fmt.Errorf("no background manager for sensor %q", d.sensorID)
 	}
@@ -109,7 +110,7 @@ func (d *DirectBackend) ResetAcceptance() error {
 
 // FetchGridStatus returns background grid statistics.
 func (d *DirectBackend) FetchGridStatus() (map[string]interface{}, error) {
-	mgr := lidar.GetBackgroundManager(d.sensorID)
+	mgr := l3grid.GetBackgroundManager(d.sensorID)
 	if mgr == nil {
 		return nil, fmt.Errorf("no background manager for sensor %q", d.sensorID)
 	}
@@ -122,13 +123,13 @@ func (d *DirectBackend) FetchGridStatus() (map[string]interface{}, error) {
 
 // ResetGrid resets the background grid, frame builder, and tracker.
 func (d *DirectBackend) ResetGrid() error {
-	mgr := lidar.GetBackgroundManager(d.sensorID)
+	mgr := l3grid.GetBackgroundManager(d.sensorID)
 	if mgr == nil {
 		return fmt.Errorf("no background manager for sensor %q", d.sensorID)
 	}
 
 	// Mirror webserver handleGridReset: frame builder → grid → tracker
-	fb := lidar.GetFrameBuilder(d.sensorID)
+	fb := l2frames.GetFrameBuilder(d.sensorID)
 	if fb != nil {
 		fb.Reset()
 	}
@@ -150,7 +151,7 @@ func (d *DirectBackend) WaitForGridSettle(timeout time.Duration) {
 	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		mgr := lidar.GetBackgroundManager(d.sensorID)
+		mgr := l3grid.GetBackgroundManager(d.sensorID)
 		if mgr != nil {
 			status := mgr.GridStatus()
 			if status != nil {
@@ -204,7 +205,7 @@ func (d *DirectBackend) FetchTrackingMetrics() (map[string]interface{}, error) {
 // SetTuningParams applies a partial tuning config update.
 // It mirrors the POST handler for /api/lidar/params.
 func (d *DirectBackend) SetTuningParams(params map[string]interface{}) error {
-	mgr := lidar.GetBackgroundManager(d.sensorID)
+	mgr := l3grid.GetBackgroundManager(d.sensorID)
 	if mgr == nil || mgr.Grid == nil {
 		return fmt.Errorf("no background manager for sensor %q", d.sensorID)
 	}

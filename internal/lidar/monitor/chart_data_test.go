@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 func TestPreparePolarChartData_Empty(t *testing.T) {
@@ -23,7 +23,7 @@ func TestPreparePolarChartData_Empty(t *testing.T) {
 }
 
 func TestPreparePolarChartData_SinglePoint(t *testing.T) {
-	cells := []lidar.ExportedCell{
+	cells := []l3grid.ExportedCell{
 		{AzimuthDeg: 0, Range: 10, TimesSeen: 5},
 	}
 
@@ -47,7 +47,7 @@ func TestPreparePolarChartData_SinglePoint(t *testing.T) {
 }
 
 func TestPreparePolarChartData_MultiplePoints(t *testing.T) {
-	cells := []lidar.ExportedCell{
+	cells := []l3grid.ExportedCell{
 		{AzimuthDeg: 0, Range: 10, TimesSeen: 1},
 		{AzimuthDeg: 90, Range: 10, TimesSeen: 2},
 		{AzimuthDeg: 180, Range: 10, TimesSeen: 3},
@@ -73,9 +73,9 @@ func TestPreparePolarChartData_MultiplePoints(t *testing.T) {
 
 func TestPreparePolarChartData_Downsampling(t *testing.T) {
 	// Create more points than maxPoints
-	cells := make([]lidar.ExportedCell, 100)
+	cells := make([]l3grid.ExportedCell, 100)
 	for i := range cells {
-		cells[i] = lidar.ExportedCell{AzimuthDeg: float32(i * 3), Range: 10, TimesSeen: uint32(i)}
+		cells[i] = l3grid.ExportedCell{AzimuthDeg: float32(i * 3), Range: 10, TimesSeen: uint32(i)}
 	}
 
 	result := PreparePolarChartData(cells, "sensor-1", 10)
@@ -106,7 +106,7 @@ func TestPreparePolarChartData_PolarToCartesian(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		cells := []lidar.ExportedCell{
+		cells := []l3grid.ExportedCell{
 			{AzimuthDeg: tc.azimuth, Range: tc.rangeM, TimesSeen: 1},
 		}
 		result := PreparePolarChartData(cells, "test", 1000)
@@ -126,7 +126,7 @@ func TestPreparePolarChartData_PolarToCartesian(t *testing.T) {
 }
 
 func TestPreparePolarChartData_ZeroMaxPoints(t *testing.T) {
-	cells := []lidar.ExportedCell{
+	cells := []l3grid.ExportedCell{
 		{AzimuthDeg: 0, Range: 10, TimesSeen: 1},
 	}
 
@@ -210,7 +210,7 @@ func TestPrepareClustersChartData_Empty(t *testing.T) {
 }
 
 func TestPrepareClustersChartData_MultipleClusters(t *testing.T) {
-	clusters := [][]lidar.ExportedCell{
+	clusters := [][]l3grid.ExportedCell{
 		{{AzimuthDeg: 0, Range: 5, TimesSeen: 1}},
 		{{AzimuthDeg: 90, Range: 10, TimesSeen: 1}, {AzimuthDeg: 91, Range: 10, TimesSeen: 1}},
 	}
@@ -273,7 +273,7 @@ func TestPrepareTrafficMetrics_WithData(t *testing.T) {
 }
 
 func TestPreparePolarChartData_MaxAbsPadding(t *testing.T) {
-	cells := []lidar.ExportedCell{
+	cells := []l3grid.ExportedCell{
 		{AzimuthDeg: 0, Range: 100, TimesSeen: 1},
 	}
 
@@ -287,7 +287,7 @@ func TestPreparePolarChartData_MaxAbsPadding(t *testing.T) {
 }
 
 func TestPreparePolarChartData_ZeroTimesSeen(t *testing.T) {
-	cells := []lidar.ExportedCell{
+	cells := []l3grid.ExportedCell{
 		{AzimuthDeg: 0, Range: 10, TimesSeen: 0},
 	}
 

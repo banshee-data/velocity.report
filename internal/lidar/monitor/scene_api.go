@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/google/uuid"
 )
 
@@ -111,7 +112,7 @@ func parseScenePath(path string) (sceneID string, action string) {
 func (ws *WebServer) handleListScenes(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 	scenes, err := store.ListScenes(sensorID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
@@ -120,7 +121,7 @@ func (ws *WebServer) handleListScenes(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure we return an empty array instead of null when no scenes
 	if scenes == nil {
-		scenes = []*lidar.Scene{}
+		scenes = []*sqlite.Scene{}
 	}
 
 	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -156,7 +157,7 @@ func (ws *WebServer) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scene := &lidar.Scene{
+	scene := &sqlite.Scene{
 		SensorID:         req.SensorID,
 		PCAPFile:         req.PCAPFile,
 		PCAPStartSecs:    req.PCAPStartSecs,
@@ -164,7 +165,7 @@ func (ws *WebServer) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		Description:      req.Description,
 	}
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 	if err := store.InsertScene(scene); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create scene: %v", err))
 		return
@@ -175,7 +176,7 @@ func (ws *WebServer) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 
 // handleGetScene retrieves a scene by ID.
 func (ws *WebServer) handleGetScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 	scene, err := store.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -212,7 +213,7 @@ func (ws *WebServer) handleUpdateScene(w http.ResponseWriter, r *http.Request, s
 		return
 	}
 
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 
 	// Get existing scene
 	scene, err := store.GetScene(sceneID)
@@ -252,7 +253,7 @@ func (ws *WebServer) handleUpdateScene(w http.ResponseWriter, r *http.Request, s
 
 // handleDeleteScene deletes a scene by ID.
 func (ws *WebServer) handleDeleteScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 	if err := store.DeleteScene(sceneID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
@@ -270,7 +271,7 @@ func (ws *WebServer) handleDeleteScene(w http.ResponseWriter, r *http.Request, s
 // handleReplayScene handles PCAP replay for a scene.
 // Replays the scene's PCAP file, creates an analysis run, and returns the run_id.
 func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := lidar.NewSceneStore(ws.db.DB)
+	store := sqlite.NewSceneStore(ws.db.DB)
 	scene, err := store.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -303,8 +304,8 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 	}
 
 	// Create analysis run with UUID for uniqueness
-	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
-	run := &lidar.AnalysisRun{
+	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
 		RunID:      fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8]),
 		SourceType: "pcap",
 		SourcePath: scene.PCAPFile,
@@ -365,14 +366,14 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 // handleListSceneEvaluations lists all persisted ground truth evaluation scores for a scene.
 // GET /api/lidar/scenes/{scene_id}/evaluations
 func (ws *WebServer) handleListSceneEvaluations(w http.ResponseWriter, r *http.Request, sceneID string) {
-	evalStore := lidar.NewEvaluationStore(ws.db.DB)
+	evalStore := sqlite.NewEvaluationStore(ws.db.DB)
 	evals, err := evalStore.ListByScene(sceneID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list evaluations: %v", err))
 		return
 	}
 	if evals == nil {
-		evals = []*lidar.Evaluation{}
+		evals = []*sqlite.Evaluation{}
 	}
 	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"scene_id":    sceneID,
@@ -385,7 +386,7 @@ func (ws *WebServer) handleListSceneEvaluations(w http.ResponseWriter, r *http.R
 // POST /api/lidar/scenes/{scene_id}/evaluations
 // Request body: {"candidate_run_id": "..."}
 func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Request, sceneID string) {
-	sceneStore := lidar.NewSceneStore(ws.db.DB)
+	sceneStore := sqlite.NewSceneStore(ws.db.DB)
 	scene, err := sceneStore.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -414,8 +415,8 @@ func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.
 	}
 
 	// Run evaluation
-	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
-	evaluator := lidar.NewGroundTruthEvaluator(runStore, lidar.DefaultGroundTruthWeights())
+	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	evaluator := adapters.NewGroundTruthEvaluator(runStore, adapters.DefaultGroundTruthWeights())
 	score, err := evaluator.Evaluate(scene.ReferenceRunID, req.CandidateRunID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("evaluation failed: %v", err))
@@ -428,7 +429,7 @@ func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.
 		log.Printf("Warning: failed to get candidate run params: %v", err)
 	}
 
-	eval := &lidar.Evaluation{
+	eval := &sqlite.Evaluation{
 		SceneID:             sceneID,
 		ReferenceRunID:      scene.ReferenceRunID,
 		CandidateRunID:      req.CandidateRunID,
@@ -449,7 +450,7 @@ func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.
 		eval.ParamsJSON = candidateRun.ParamsJSON
 	}
 
-	evalStore := lidar.NewEvaluationStore(ws.db.DB)
+	evalStore := sqlite.NewEvaluationStore(ws.db.DB)
 	if err := evalStore.Insert(eval); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to persist evaluation: %v", err))
 		return

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // TestListRecentBgSnapshots tests listing recent background snapshots
@@ -20,7 +20,7 @@ func TestListRecentBgSnapshots(t *testing.T) {
 
 	// Insert some background snapshots
 	for i := 0; i < 3; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:           "test-sensor",
 			TakenUnixNanos:     time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:              40,
@@ -67,7 +67,7 @@ func TestListRecentBgSnapshots_Limit(t *testing.T) {
 
 	// Insert 5 snapshots
 	for i := 0; i < 5; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          "test-sensor",
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,
@@ -122,7 +122,7 @@ func TestGetLatestBgSnapshot(t *testing.T) {
 
 	// Insert some snapshots
 	for i := 0; i < 3; i++ {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          "test-sensor",
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Minute).UnixNano(),
 			Rings:             40,
@@ -194,7 +194,7 @@ func TestCountUniqueBgSnapshotHashes(t *testing.T) {
 	}
 
 	for i, blob := range blobs {
-		snap := &lidar.BgSnapshot{
+		snap := &l3grid.BgSnapshot{
 			SensorID:          "test-sensor",
 			TakenUnixNanos:    time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
 			Rings:             40,
@@ -344,7 +344,7 @@ func TestGetBgSnapshotByID(t *testing.T) {
 	defer db.Close()
 
 	// Insert a snapshot
-	snap := &lidar.BgSnapshot{
+	snap := &l3grid.BgSnapshot{
 		SensorID:           "test-sensor",
 		TakenUnixNanos:     time.Now().UnixNano(),
 		Rings:              40,
@@ -463,7 +463,7 @@ func TestInsertRegionSnapshot(t *testing.T) {
 	defer db.Close()
 
 	// First insert a background snapshot (required foreign key reference)
-	bgSnap := &lidar.BgSnapshot{
+	bgSnap := &l3grid.BgSnapshot{
 		SensorID:          "test-sensor",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -478,7 +478,7 @@ func TestInsertRegionSnapshot(t *testing.T) {
 	}
 
 	// Insert a region snapshot
-	regionSnap := &lidar.RegionSnapshot{
+	regionSnap := &l3grid.RegionSnapshot{
 		SnapshotID:       bgID,
 		SensorID:         "test-sensor",
 		CreatedUnixNanos: time.Now().UnixNano(),
@@ -528,7 +528,7 @@ func TestGetRegionSnapshotBySceneHash(t *testing.T) {
 	defer db.Close()
 
 	// Insert background snapshot
-	bgID, err := db.InsertBgSnapshot(&lidar.BgSnapshot{
+	bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
 		SensorID:          "test-sensor",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -543,7 +543,7 @@ func TestGetRegionSnapshotBySceneHash(t *testing.T) {
 
 	// Insert region snapshot with a specific scene hash
 	sceneHash := "unique-scene-hash-12345"
-	regionSnap := &lidar.RegionSnapshot{
+	regionSnap := &l3grid.RegionSnapshot{
 		SnapshotID:       bgID,
 		SensorID:         "test-sensor",
 		CreatedUnixNanos: time.Now().UnixNano(),
@@ -630,7 +630,7 @@ func TestGetRegionSnapshotBySourcePath(t *testing.T) {
 	defer db.Close()
 
 	// Insert background snapshot
-	bgID, err := db.InsertBgSnapshot(&lidar.BgSnapshot{
+	bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
 		SensorID:          "test-sensor",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -645,7 +645,7 @@ func TestGetRegionSnapshotBySourcePath(t *testing.T) {
 
 	// Insert region snapshot with a specific source path
 	sourcePath := "/data/captures/test-capture-2025.pcap"
-	regionSnap := &lidar.RegionSnapshot{
+	regionSnap := &l3grid.RegionSnapshot{
 		SnapshotID:       bgID,
 		SensorID:         "test-sensor",
 		CreatedUnixNanos: time.Now().UnixNano(),
@@ -732,7 +732,7 @@ func TestGetLatestRegionSnapshot(t *testing.T) {
 	defer db.Close()
 
 	// Insert background snapshot
-	bgID, err := db.InsertBgSnapshot(&lidar.BgSnapshot{
+	bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
 		SensorID:          "test-sensor",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -747,7 +747,7 @@ func TestGetLatestRegionSnapshot(t *testing.T) {
 
 	// Insert multiple region snapshots
 	for i := 0; i < 5; i++ {
-		regionSnap := &lidar.RegionSnapshot{
+		regionSnap := &l3grid.RegionSnapshot{
 			SnapshotID:       bgID,
 			SensorID:         "test-sensor",
 			CreatedUnixNanos: time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
@@ -811,7 +811,7 @@ func TestGetRegionSnapshotBySceneHash_MostRecent(t *testing.T) {
 	defer db.Close()
 
 	// Insert background snapshot
-	bgID, err := db.InsertBgSnapshot(&lidar.BgSnapshot{
+	bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
 		SensorID:          "test-sensor",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -827,7 +827,7 @@ func TestGetRegionSnapshotBySceneHash_MostRecent(t *testing.T) {
 	// Insert multiple region snapshots with the same scene hash
 	sceneHash := "duplicate-hash"
 	for i := 0; i < 3; i++ {
-		regionSnap := &lidar.RegionSnapshot{
+		regionSnap := &l3grid.RegionSnapshot{
 			SnapshotID:       bgID,
 			SensorID:         "test-sensor",
 			CreatedUnixNanos: time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
@@ -869,7 +869,7 @@ func TestRegionSnapshotAllFields(t *testing.T) {
 	defer db.Close()
 
 	// Insert background snapshot
-	bgID, err := db.InsertBgSnapshot(&lidar.BgSnapshot{
+	bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
 		SensorID:          "sensor-xyz",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -883,7 +883,7 @@ func TestRegionSnapshotAllFields(t *testing.T) {
 	}
 
 	now := time.Now().UnixNano()
-	regionSnap := &lidar.RegionSnapshot{
+	regionSnap := &l3grid.RegionSnapshot{
 		SnapshotID:       bgID,
 		SensorID:         "sensor-xyz",
 		CreatedUnixNanos: now,
@@ -953,7 +953,7 @@ func TestRegionSnapshotNullableFields(t *testing.T) {
 	defer db.Close()
 
 	// Insert background snapshot
-	bgID, err := db.InsertBgSnapshot(&lidar.BgSnapshot{
+	bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
 		SensorID:          "test-sensor",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -967,7 +967,7 @@ func TestRegionSnapshotNullableFields(t *testing.T) {
 	}
 
 	// Insert region snapshot with minimal/empty optional fields
-	regionSnap := &lidar.RegionSnapshot{
+	regionSnap := &l3grid.RegionSnapshot{
 		SnapshotID:       bgID,
 		SensorID:         "test-sensor",
 		CreatedUnixNanos: time.Now().UnixNano(),
@@ -1016,7 +1016,7 @@ func TestGetRegionSnapshotBySourcePath_MostRecent(t *testing.T) {
 	defer db.Close()
 
 	// Insert background snapshot
-	bgID, err := db.InsertBgSnapshot(&lidar.BgSnapshot{
+	bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
 		SensorID:          "test-sensor",
 		TakenUnixNanos:    time.Now().UnixNano(),
 		Rings:             40,
@@ -1032,7 +1032,7 @@ func TestGetRegionSnapshotBySourcePath_MostRecent(t *testing.T) {
 	// Insert multiple region snapshots with the same source path
 	sourcePath := "/data/test.pcap"
 	for i := 0; i < 3; i++ {
-		regionSnap := &lidar.RegionSnapshot{
+		regionSnap := &l3grid.RegionSnapshot{
 			SnapshotID:       bgID,
 			SensorID:         "test-sensor",
 			CreatedUnixNanos: time.Now().Add(time.Duration(i) * time.Second).UnixNano(),
