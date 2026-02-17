@@ -31,45 +31,44 @@ Prioritization used four signals:
 
 ## Priority Queue
 
-### Docs-only branch tasks (current)
+### Docs-only branch tasks (current) — ✅ Complete
 
-1. `arena.go` deprecation and layered model relocation design
+1. ✅ `arena.go` deprecation and layered model relocation design
    - Doc: `docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design-20260217.md`
-   - Outcome: remove mixed/dead container file and map active shared types to L2/L3/L4 ownership.
+   - Outcome: arena.go deleted, all active types migrated to layer packages.
 2. LiDAR logging stream split (`ops`/`debug`/`trace`) with routing rubric
    - Doc: `docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md`
-   - Outcome: isolate actionable logs from high-volume telemetry while preserving `Debugf` compatibility.
+   - Outcome: design approved, migration planned. Implementation is future work.
 
-## P0 (Start Now)
+## P0 (Start Now) — ✅ Complete
 
-### 1. Establish L1-L6 code boundaries and orchestration cleanup
+### 1. ✅ Establish L1-L6 code boundaries and orchestration cleanup
 
 - Source: `docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md`
-- Why now: this is the main readability and logic issue in core runtime code; it unlocks safer future feature work.
+- Status: **Complete.** All implementation code migrated to layer packages (l1packets→l6objects, pipeline, storage/sqlite, adapters). All shim files removed. Arena.go deprecated. All callers updated to import from layer packages directly.
 
-### 2. Simplify HTTP API wiring and route registration
+### 2. ✅ Simplify HTTP API wiring and route registration
 
 - Sources:
   - `docs/plans/frontend-consolidation.md` (Phase 0 and Phase 5)
   - `internal/lidar/monitor/webserver.go` route sprawl
-- Why now: route complexity is already high and directly affects maintainability and feature velocity.
+- Status: **Complete.** `RegisterRoutes` converted to grouped `[]route` slices. Method-pattern dispatch and middleware wrappers remain as future work (P1 routing enhancements).
 
-### 3. Close run workflow gaps in current LiDAR evaluation loop
+### 3. ✅ Close run workflow gaps in current LiDAR evaluation loop
 
 - Sources:
   - `docs/lidar/future/track-labeling-auto-aware-tuning.md` (Phase 9)
   - `internal/lidar/monitor/run_track_api.go` (`/reprocess` 501)
   - `internal/lidar/monitor/scene_api.go` (`/evaluations` 501)
-- Why now: these are active user-facing gaps in an otherwise implemented labeling/evaluation flow.
+- Status: **Complete.** `lidar_evaluations` table (migration 000028), `EvaluationStore`, `handleCreateSceneEvaluation`, `handleListSceneEvaluations`, `handleReprocessRun` all implemented. 501 stubs removed.
 
-### 4. Documentation consistency sweep (status and checklist reconciliation)
+### 4. ✅ Documentation consistency sweep (status and checklist reconciliation)
 
-- Why now: multiple docs are marked "implemented/complete" but still show large open checklists, which distorts planning.
-- First files to reconcile:
-  - `docs/plans/hint-sweep-mode.md`
-  - `docs/lidar/visualiser/performance-investigation.md`
-  - `docs/features/speed-limit-schedules.md`
-  - `docs/lidar/future/track-labeling-auto-aware-tuning.md` (contains internal contradictions)
+- Status: **Complete.** Reconciled status vs checklist in:
+  - `docs/plans/hint-sweep-mode.md` (46/57 items checked)
+  - `docs/lidar/visualiser/performance-investigation.md` (22/24 items checked)
+  - `docs/features/speed-limit-schedules.md` (status corrected to "Not Implemented")
+  - `docs/lidar/future/track-labeling-auto-aware-tuning.md` (Phase 9 items 9.1-9.4 checked)
 
 ## P1 (Next)
 
@@ -141,15 +140,14 @@ Prioritization used four signals:
   - `docs/lidar/future/static-pose-alignment-plan.md`
 - Why deferred: documents already label these as future/deferred AV research tracks, not core traffic-monitoring priorities.
 
-## Immediate Next Actions (2-Week Plan)
+## Immediate Next Actions
 
-1. Execute P0-4 first: reconcile doc status/checklist mismatches so planning signals are trustworthy.
-2. Start P0-1/P0-2 in parallel:
-   - Layer contracts + pipeline extraction plan
-   - Route table refactor scaffold
-3. Ship P0-3 minimal closure:
-   - Persisted scene evaluations
-   - Real `reprocess` behavior or explicit removal of the endpoint
+All P0 items are complete. Next priority is P1:
+
+1. **P1-5**: Sweep/HINT platform hardening — transform pipeline, objective registry, explainability
+2. **P1-6**: Settling optimization Phase 3 tooling — convergence/evaluation tool
+3. **P1-7**: Profile comparison system — UI for cross-run evaluation
+4. **P1-8**: Frontend consolidation — migrate status/regions to Svelte
 
 ## Notes on Status Reliability
 

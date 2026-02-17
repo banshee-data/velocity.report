@@ -252,15 +252,30 @@ Outcome:
    - `ground_truth.go` → `adapters/ground_truth.go` (canonical)
    - Parent files replaced with backward-compatible type aliases
 
-9. **Routing enhancements** (future):
-   - Add HTTP method prefixes to route patterns (`"GET /path"`)
-   - Add `withDB`/`method`/`featureGate` middleware wrappers
-   - Inline run/scene path dispatch into route tables
+9. **Shim removal and caller update** — remove all backward-compat alias files: ✅
+   - Removed 27 individual shim files from `internal/lidar/`
+   - Updated all sub-package callers (l1packets, monitor, visualiser) to use layer imports
+   - Updated all external callers (cmd/radar, internal/db) to use layer imports
+   - Remaining `lidar.` imports are only for `Debugf`/`SetDebugLogger` (debug.go stays)
+   - `aliases.go` retained only for parent package's own integration tests
 
-10. **Registry reduction** (future):
+10. **Arena.go deprecation** — remove legacy types: ✅
+    - Removed `arena.go`, `arena_test.go`, `arena_extended_test.go`
+    - All legacy types deleted (RingBuffer, SidecarState, Track, TrackObs, etc.)
+    - Active types (Pose, Point, PointPolar, etc.) already migrated to layer packages
+    - See `arena-go-deprecation-and-layered-type-layout-design-20260217.md` for details
+
+### Future work
+
+11. **Routing enhancements**:
+    - Add HTTP method prefixes to route patterns (`"GET /path"`)
+    - Add `withDB`/`method`/`featureGate` middleware wrappers
+    - Inline run/scene path dispatch into route tables
+
+12. **Registry reduction**:
     - Move to explicit runtime wiring via dependency injection
 
-11. **Frontend decomposition** (future):
+13. **Frontend decomposition**:
     - Extract `tracksStore`, `runsStore`, `missedRegionStore`
     - Keep components presentational
 
