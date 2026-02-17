@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import type { BackgroundGrid, MissedRegion, Track, TrackObservation } from '$lib/types/lidar';
-	import { TRACK_COLORS } from '$lib/types/lidar';
+	import { TRACK_COLORS, trackColour } from '$lib/types/lidar';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
 	// Rendering constants
@@ -465,22 +465,13 @@
 
 		const [screenX, screenY] = worldToScreen(pos.x, pos.y);
 
-		// Get color based on classification or state
-		let color: string = TRACK_COLORS.other;
-		if (track.state === 'tentative') {
-			color = TRACK_COLORS.tentative;
-		} else if (track.state === 'deleted') {
-			color = TRACK_COLORS.deleted;
-		} else if (track.object_class && track.object_class in TRACK_COLORS) {
-			color = TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS];
-		}
+		// Get color based on classification or state, with per-track hue variation (task 6.2)
+		let color: string = trackColour(track.track_id, track.object_class ?? undefined, track.state);
 
-		// Draw history path
+		// Draw history path with temporal fade (task 6.3)
 		if (showHistory && track.history && track.history.length > 1) {
-			ctx.beginPath();
 			ctx.strokeStyle = color;
 			ctx.lineWidth = isSelected ? 2 : 1;
-			ctx.globalAlpha = 0.5;
 
 			// Sort history by timestamp to ensure coherent lines
 			const sortedHistory = [...track.history].sort((a, b) => {
@@ -500,8 +491,26 @@
 					})
 				: sortedHistory;
 
-			let firstPointDrawn = false;
+			// Compute the trail time window for alpha interpolation (task 6.3).
+			// Recent segments are drawn at alpha 0.8, oldest at 0.1.
+			const TRAIL_ALPHA_MAX = 0.8;
+			const TRAIL_ALPHA_MIN = 0.1;
+			let trailStartMs = 0;
+			let trailEndMs = 0;
+			for (const pt of visibleHistory) {
+				if (pt.timestamp) {
+					const t =
+						typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+					if (t > 0) {
+						if (trailStartMs === 0 || t < trailStartMs) trailStartMs = t;
+						if (t > trailEndMs) trailEndMs = t;
+					}
+				}
+			}
+			const trailSpanMs = trailEndMs - trailStartMs;
+
 			let prevPt: { x: number; y: number; timestamp?: string | number } | null = null;
+			let prevScreen: [number, number] | null = null;
 
 			// Gap thresholds for breaking polylines to avoid spaghetti lines.
 			// Temporal: 1 second gap suggests the track was lost and re-acquired.
@@ -521,50 +530,48 @@
 
 				const [x, y] = worldToScreen(pt.x, pt.y);
 
-				if (!firstPointDrawn) {
-					ctx.moveTo(x, y);
-					firstPointDrawn = true;
-				} else {
+				if (prevPt && prevScreen) {
 					// Check for temporal or spatial gaps that indicate a discontinuity.
-					// Break the polyline with moveTo instead of lineTo to avoid
-					// drawing long diagonal "spaghetti" lines across the map.
 					let hasGap = false;
-					if (prevPt) {
-						// Temporal gap check
-						if (pt.timestamp && prevPt.timestamp) {
-							const tCur =
-								typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
-							const tPrev =
-								typeof prevPt.timestamp === 'number'
-									? prevPt.timestamp
-									: new Date(prevPt.timestamp).getTime();
-							if (Math.abs(tCur - tPrev) > GAP_TIME_MS) {
-								hasGap = true;
-							}
+					if (pt.timestamp && prevPt.timestamp) {
+						const tCur =
+							typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+						const tPrev =
+							typeof prevPt.timestamp === 'number'
+								? prevPt.timestamp
+								: new Date(prevPt.timestamp).getTime();
+						if (Math.abs(tCur - tPrev) > GAP_TIME_MS) {
+							hasGap = true;
 						}
-						// Spatial gap check
-						if (!hasGap) {
-							const dx = pt.x - prevPt.x;
-							const dy = pt.y - prevPt.y;
-							if (Math.sqrt(dx * dx + dy * dy) > GAP_DISTANCE_M) {
-								hasGap = true;
-							}
+					}
+					if (!hasGap) {
+						const dx = pt.x - prevPt.x;
+						const dy = pt.y - prevPt.y;
+						if (Math.sqrt(dx * dx + dy * dy) > GAP_DISTANCE_M) {
+							hasGap = true;
 						}
 					}
 
-					if (hasGap) {
-						ctx.moveTo(x, y);
-					} else {
+					if (!hasGap) {
+						// Compute age-based alpha for this segment
+						let alpha = 0.5;
+						if (trailSpanMs > 0 && pt.timestamp) {
+							const tPt =
+								typeof pt.timestamp === 'number' ? pt.timestamp : new Date(pt.timestamp).getTime();
+							const age = (tPt - trailStartMs) / trailSpanMs; // 0 = oldest, 1 = newest
+							alpha = TRAIL_ALPHA_MIN + (TRAIL_ALPHA_MAX - TRAIL_ALPHA_MIN) * age;
+						}
+						ctx.globalAlpha = alpha;
+						ctx.beginPath();
+						ctx.moveTo(prevScreen[0], prevScreen[1]);
 						ctx.lineTo(x, y);
+						ctx.stroke();
 					}
 				}
 				prevPt = pt;
+				prevScreen = [x, y];
 			}
 
-			// If we drew path, stroke it
-			if (firstPointDrawn) {
-				ctx.stroke();
-			}
 			ctx.globalAlpha = 1.0;
 		}
 

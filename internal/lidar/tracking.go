@@ -200,6 +200,16 @@ type TrackedObject struct {
 	SpeedJitterSumSq float64 // Running sum of squared speed deltas ((m/s)²)
 	SpeedJitterCount int     // Number of speed delta samples
 	PrevSpeedMps     float32 // Previous frame speed for delta computation
+
+	// Merge/split coherence (task 3.3)
+	// When a cluster is significantly larger than the track's historical
+	// OBB, it may be a merge of two objects. When a confirmed track's
+	// cluster suddenly shrinks while a new track appears nearby, it is
+	// likely a split. These flags are advisory — used by quality metrics
+	// and labelling rather than hard rejection.
+	MergeCandidate bool   // true when current cluster area ≫ historical average
+	SplitCandidate bool   // true when current cluster area ≪ historical average while nearby new track appears
+	LinkedTrackID  string // if non-empty, the track this one was split from or merged with
 }
 
 // TrackingMetrics holds aggregate tracking quality metrics across all active tracks.
@@ -347,6 +357,14 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	} else {
 		dt = 0.1 // Default 100ms for first frame
 	}
+	// Clamp dt to MaxPredictDt so throttle-induced gaps (e.g. 250 ms at
+	// 12 fps cap) don't create an inflated time step for association gating.
+	// Predict() also clamps independently, but the raw dt flows into
+	// associate() where it affects implied-speed plausibility checks
+	// (task 7.1).
+	if dt > MaxPredictDt {
+		dt = MaxPredictDt
+	}
 	t.LastUpdateNanos = nowNanos
 
 	// Step 1: Predict all active tracks to current time
@@ -376,6 +394,31 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				t.TracksConfirmed++
 			}
 		}
+	}
+
+	// Step 3b: Merge/split coherence detection (task 3.3).
+	// After association, flag tracks whose associated cluster dimensions
+	// deviate significantly from their historical averages. A cluster
+	// much larger than the track's average suggests a merge; much smaller
+	// suggests a split. These flags are advisory for quality metrics.
+	const mergeSizeRatio = 2.5 // cluster area > 2.5× historical → merge candidate
+	const splitSizeRatio = 0.3 // cluster area < 0.3× historical → split candidate
+	for clusterIdx, trackID := range associations {
+		if trackID == "" {
+			continue
+		}
+		track := t.Tracks[trackID]
+		if track.ObservationCount < 3 {
+			continue // need history to compare against
+		}
+		clusterArea := float64(clusters[clusterIdx].BoundingBoxLength) * float64(clusters[clusterIdx].BoundingBoxWidth)
+		historicalArea := float64(track.BoundingBoxLengthAvg) * float64(track.BoundingBoxWidthAvg)
+		if historicalArea < 0.01 {
+			continue // avoid division by zero
+		}
+		ratio := clusterArea / historicalArea
+		track.MergeCandidate = ratio > mergeSizeRatio
+		track.SplitCandidate = ratio < splitSizeRatio
 	}
 
 	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
@@ -1096,6 +1139,47 @@ func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 
 	for _, id := range toRemove {
 		delete(t.Tracks, id)
+	}
+}
+
+// UpdateClassification writes classification results back to a live track
+// under the tracker lock. This ensures the in-memory track state is updated
+// atomically, preventing data races when the visualiser or other goroutines
+// read track fields concurrently (task 4.3).
+func (t *Tracker) UpdateClassification(trackID, objectClass string, confidence float32, model string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if track, ok := t.Tracks[trackID]; ok {
+		track.ObjectClass = objectClass
+		track.ObjectConfidence = confidence
+		track.ClassificationModel = model
+	}
+}
+
+// AdvanceMisses increments the miss counter for every active track by one
+// and deletes tracks that exceed their miss budget. This is called on
+// throttled frames where the full Update() is skipped so that tracks are
+// not artificially kept alive by the lack of cluster delivery (task 7.2).
+func (t *Tracker) AdvanceMisses(timestamp time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	nowNanos := timestamp.UnixNano()
+
+	for _, track := range t.Tracks {
+		if track.State == TrackDeleted {
+			continue
+		}
+		track.Misses++
+		track.Hits = 0
+
+		maxMisses := t.Config.MaxMisses
+		if track.State == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
+			maxMisses = t.Config.MaxMissesConfirmed
+		}
+		if track.Misses >= maxMisses {
+			track.State = TrackDeleted
+			track.LastUnixNanos = nowNanos
+		}
 	}
 }
 

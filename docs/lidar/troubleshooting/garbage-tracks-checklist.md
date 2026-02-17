@@ -102,73 +102,73 @@ Updated: 2026-02-17
 
 ### R2 — Medium-term hardening
 
-#### 3.1 Cluster size/aspect filtering
+#### 3.1 Cluster size/aspect filtering ✅ Done
 
 - **Severity:** Medium
 - **Files:** [clustering.go](../../../internal/lidar/clustering.go)
-- **Fix:** reject extreme-diameter and extreme-aspect clusters.
+- **Implemented behaviour:** `buildClusters()` now rejects clusters with longest OBB dimension > `MaxClusterDiameter` (12 m) or < `MinClusterDiameter` (0.05 m). Aspect ratio check (longest/shortest > `MaxClusterAspectRatio` = 15) is only applied when the shortest axis exceeds 0.03 m to avoid rejecting legitimate edge-on detections.
 
-#### 3.3 Merge/split temporal coherence
-
-- **Severity:** Medium
-- **Files:** [clustering.go](../../../internal/lidar/clustering.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
-- **Fix:** add merge/split continuity heuristics to preserve identities.
-
-#### 4.3 Classification mutation locking
+#### 3.3 Merge/split temporal coherence ✅ Done
 
 - **Severity:** Medium
-- **Files:** [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
-- **Fix:** classify under tracker lock or through protected write path.
+- **Files:** [tracking.go](../../../internal/lidar/tracking.go)
+- **Implemented behaviour:** After Hungarian association, Step 3b compares each matched cluster's area to the track's historical average OBB area. `MergeCandidate` is set when the cluster area exceeds 2.5× the average (indicating two objects merged), `SplitCandidate` is set when below 0.3× (indicating an object split). These advisory flags are available on `TrackedObject` for downstream filtering.
 
-#### 5.2 Run filter robustness
+#### 4.3 Classification mutation locking ✅ Done
+
+- **Severity:** Medium
+- **Files:** [tracking.go](../../../internal/lidar/tracking.go), [tracker_interface.go](../../../internal/lidar/tracker_interface.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
+- **Implemented behaviour:** `UpdateClassification()` method added to `TrackerInterface` and `Tracker`. After `ClassifyAndUpdate()` runs on a snapshot, the pipeline calls `cfg.Tracker.UpdateClassification()` to write the classification result back to the live track under the tracker's mutex. This prevents the previous bug where classification ran on snapshot copies that were never propagated to in-memory state.
+
+#### 5.2 Run filter robustness ✅ Done
 
 - **Severity:** Medium
 - **Files:** [+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte)
-- **Fix:** filter from run-scoped entities directly (not global membership by ID only).
+- **Implemented behaviour:** `runTrackIds: Set<string>` replaced with `runTrackMap: Map<string, RunTrack>`. `visibleTracks` filter now uses each `RunTrack`'s `start_unix_nanos`/`end_unix_nanos` for time scoping instead of the track's `first_seen`/`last_seen`. This prevents false positives from global ID membership where tracks straddle multiple runs.
 
-#### 7.1 Throttle-related dt spikes
+#### 7.1 Throttle-related dt spikes ✅ Done
 
 - **Severity:** Medium
-- **Files:** [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
-- **Fix:** keep dt bounded to frame-rate assumptions across throttled frames.
+- **Files:** [tracking.go](../../../internal/lidar/tracking.go)
+- **Implemented behaviour:** In `Update()`, `dt` is clamped to `MaxPredictDt` (0.5 s) before `LastUpdateNanos` is set. This prevents throttle-induced gaps from inflating the dt used for association gating's implied-speed check.
 
 ### R3 — UX/polish and housekeeping
 
-#### 1.3 Deleted-track DB pruning
+#### 1.3 Deleted-track DB pruning ✅ Done
 
 - **Severity:** Medium
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go), [track_store.go](../../../internal/lidar/track_store.go)
-- **Fix:** TTL/periodic prune for deleted tracks and observations.
+- **Files:** [track_store.go](../../../internal/lidar/track_store.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
+- **Implemented behaviour:** `PruneDeletedTracks(db, sensorID, ttl)` function deletes tracks in `state='deleted'` whose end timestamp is older than the TTL (5 minutes), along with their observations, in a single transaction. Called once per minute from the pipeline callback to prevent unbounded storage growth.
 
-#### 6.2 Per-track colour differentiation within class
+#### 6.2 Per-track colour differentiation within class ✅ Done
 
 - **Severity:** Medium
-- **Files:** [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte), [lidar.ts](../../../web/src/lib/types/lidar.ts)
-- **Fix:** deterministic track-ID hue variation inside class palette.
+- **Files:** [lidar.ts](../../../web/src/lib/types/lidar.ts), [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
+- **Implemented behaviour:** `trackColour(trackId, objectClass, state)` utility function computes a deterministic hue-shifted colour for each track ID (±25° around the class base hue) using a string hash → HSL conversion. `MapPane.svelte`'s `renderTrack()` now uses `trackColour()` instead of the static `TRACK_COLORS` lookup, making same-class tracks visually distinguishable.
 
-#### 6.3 Temporal fade on trails
+#### 6.3 Temporal fade on trails ✅ Done
 
 - **Severity:** Low
 - **Files:** [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
-- **Fix:** age-weighted alpha for trail segments.
+- **Implemented behaviour:** Trail rendering replaced from a single polyline stroke at fixed `globalAlpha=0.5` to per-segment drawing with age-based alpha interpolation. Oldest visible segments render at α=0.1, newest at α=0.8, linearly interpolated across the trail's time span.
 
-#### 6.5 Foreground observation sampling bias
+#### 6.5 Foreground observation sampling bias ✅ Done
 
 - **Severity:** Low
 - **Files:** [+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte)
-- **Fix:** visible-window-scoped query and/or pagination.
+- **Implemented behaviour:** `loadForegroundObservations()` now scopes the database query to a ±30-second window around the current `selectedTime` instead of the full time range. A reactive reload triggers when playback drifts more than 20 seconds from the last query centre, ensuring observation density stays representative of the visible viewport.
 
-#### 7.2 Miss accounting on throttled frames
+#### 7.2 Miss accounting on throttled frames ✅ Done
 
 - **Severity:** Low
-- **Files:** [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
-- **Fix:** lightweight miss advancement when frame is throttled.
+- **Files:** [tracking.go](../../../internal/lidar/tracking.go), [tracker_interface.go](../../../internal/lidar/tracker_interface.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
+- **Implemented behaviour:** `AdvanceMisses(timestamp)` method added to `TrackerInterface` and `Tracker`. Called in the pipeline's throttle path before `return`, incrementing `Misses` and resetting `Hits` for all active tracks. Tracks exceeding their miss budget are deleted. This prevents tracks from being artificially kept alive when frames are skipped.
 
-#### 3.2 Non-convex centroid stability
+#### 3.2 Non-convex centroid stability ✅ Done
 
 - **Severity:** Low
 - **Files:** [clustering.go](../../../internal/lidar/clustering.go)
-- **Fix:** medoid/weighted centroid or temporal smoothing.
+- **Implemented behaviour:** `computeClusterMetrics()` now uses the medoid (the actual cluster point closest to the arithmetic mean) instead of the arithmetic mean for the centroid. This ensures the centroid always lies on a real measurement point, preventing association instability for non-convex clusters (L-shapes, arcs).
 
 ---
 
@@ -176,8 +176,8 @@ Updated: 2026-02-17
 
 1. **P0 batch:** 8.1 (height filter — critical, most impact), 8.2 (OBB heading to web API), 8.3 (per-frame OBB dims) ✅
 2. **R1 batch + 8.4:** 8.4, 2.5, 6.4, 2.4, 2.3 ✅
-3. **R2 batch:** 3.1, 3.3, 4.3, 5.2, 7.1
-4. **R3 batch:** 1.3, 6.2, 6.3, 6.5, 7.2, 3.2
+3. **R2 batch:** 3.1, 3.3, 4.3, 5.2, 7.1 ✅
+4. **R3 batch:** 1.3, 6.2, 6.3, 6.5, 7.2, 3.2 ✅
 
 ---
 

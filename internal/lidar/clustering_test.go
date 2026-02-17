@@ -251,11 +251,13 @@ func TestDBSCAN_SingleDenseCluster(t *testing.T) {
 		t.Errorf("expected 50 points in cluster, got %d", clusters[0].PointsCount)
 	}
 
-	// Verify centroid is near origin
-	if math.Abs(float64(clusters[0].CentroidX)) > 0.1 {
+	// Verify centroid is near origin. With medoid computation (task 3.2) the
+	// centroid is an actual cluster point, not the arithmetic mean, so
+	// tolerance is relaxed to the ring's radius (0.3m).
+	if math.Abs(float64(clusters[0].CentroidX)) > 0.35 {
 		t.Errorf("expected centroid X near 0, got %v", clusters[0].CentroidX)
 	}
-	if math.Abs(float64(clusters[0].CentroidY)) > 0.1 {
+	if math.Abs(float64(clusters[0].CentroidY)) > 0.35 {
 		t.Errorf("expected centroid Y near 0, got %v", clusters[0].CentroidY)
 	}
 }

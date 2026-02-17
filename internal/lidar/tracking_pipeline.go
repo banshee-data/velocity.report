@@ -120,6 +120,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 	}
 	var throttledFrames atomic.Uint64
 
+	// Periodic DB pruning state.  Prune deleted tracks once per minute to
+	// avoid unbounded storage growth from short-lived spurious tracks.
+	const deletedTrackTTL = 5 * time.Minute
+	const pruneInterval = 1 * time.Minute
+	var lastPruneTime time.Time
+
 	return func(frame *LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -224,6 +230,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 				count := throttledFrames.Add(1)
 				if count%50 == 0 {
 					debugf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+				}
+				// Advance miss counters so tracks aren't artificially kept
+				// alive by throttle-induced gaps (task 7.2).
+				if cfg.Tracker != nil {
+					cfg.Tracker.AdvanceMisses(frame.StartTimestamp)
 				}
 				return
 			}
@@ -353,6 +364,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 					(track.ObservationCount%5 == 0)
 				if needsClassify {
 					cfg.Classifier.ClassifyAndUpdate(track)
+					// Write classification back to the live track under the
+					// tracker lock so subsequent snapshots carry the label
+					// and concurrent readers see consistent state (task 4.3).
+					cfg.Tracker.UpdateClassification(
+						track.TrackID,
+						track.ObjectClass,
+						track.ObjectConfidence,
+						track.ClassificationModel,
+					)
 				}
 			}
 
@@ -437,6 +457,22 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*LiDARFrame) {
 			// Create a minimal bundle just for LidarView forwarding
 			// This preserves the existing behavior when gRPC is disabled
 			cfg.LidarViewAdapter.PublishFrameBundle(nil, foregroundPoints)
+		}
+
+		// Phase 7: Periodic DB pruning of deleted tracks (task 1.3).
+		// Runs at most once per pruneInterval to avoid contention.
+		if cfg.DB != nil {
+			now := time.Now()
+			if lastPruneTime.IsZero() || now.Sub(lastPruneTime) >= pruneInterval {
+				lastPruneTime = now
+				if pruned, err := PruneDeletedTracks(cfg.DB, cfg.SensorID, deletedTrackTTL); err != nil {
+					if cfg.DebugMode {
+						log.Printf("[Tracking] Prune deleted tracks failed: %v", err)
+					}
+				} else if pruned > 0 {
+					Debugf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
+				}
+			}
 		}
 	}
 }

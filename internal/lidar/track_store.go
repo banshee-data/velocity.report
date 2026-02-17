@@ -233,6 +233,56 @@ func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
 	return nil
 }
 
+// PruneDeletedTracks removes tracks in the 'deleted' state (and their
+// observations) whose last update is older than the supplied TTL. This
+// prevents the database from growing unboundedly as the tracker
+// continuously creates and deletes short-lived spurious tracks.
+// Returns the number of tracks pruned and any error encountered.
+func PruneDeletedTracks(db *sql.DB, sensorID string, ttl time.Duration) (int64, error) {
+	if sensorID == "" {
+		return 0, fmt.Errorf("sensorID is required to prune deleted tracks")
+	}
+
+	cutoffNanos := time.Now().Add(-ttl).UnixNano()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin prune tx: %w", err)
+	}
+
+	// Delete orphaned observations first (foreign-key safe).
+	_, err = tx.Exec(`
+		DELETE FROM lidar_track_obs
+		WHERE track_id IN (
+			SELECT track_id FROM lidar_tracks
+			WHERE sensor_id = ? AND state = 'deleted'
+			  AND COALESCE(end_unix_nanos, start_unix_nanos) < ?
+		)`, sensorID, cutoffNanos)
+	if err != nil {
+		tx.Rollback()
+		return 0, fmt.Errorf("prune observations: %w", err)
+	}
+
+	// Delete the track rows themselves.
+	res, err := tx.Exec(`
+		DELETE FROM lidar_tracks
+		WHERE sensor_id = ? AND state = 'deleted'
+		  AND COALESCE(end_unix_nanos, start_unix_nanos) < ?`,
+		sensorID, cutoffNanos)
+	if err != nil {
+		tx.Rollback()
+		return 0, fmt.Errorf("prune tracks: %w", err)
+	}
+
+	pruned, _ := res.RowsAffected()
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit prune tx: %w", err)
+	}
+
+	return pruned, nil
+}
+
 // ClearTracks removes all tracks, observations, and clusters for a sensor.
 // This is intended for development/debug resets and should not be exposed in production without auth.
 func ClearTracks(db *sql.DB, sensorID string) error {

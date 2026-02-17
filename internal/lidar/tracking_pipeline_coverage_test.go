@@ -72,6 +72,10 @@ func (m *mockTrackerCov) RecordFrameStats(totalFg, clustered int) {
 	m.lastForeground = totalFg
 	m.lastClustered = clustered
 }
+func (m *mockTrackerCov) UpdateClassification(trackID, objectClass string, confidence float32, model string) {
+}
+func (m *mockTrackerCov) AdvanceMisses(timestamp time.Time) {
+}
 
 // --- test helpers ---
 

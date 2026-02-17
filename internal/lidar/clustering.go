@@ -12,6 +12,22 @@ import (
 const (
 	// EstimatedPointsPerCell is used for initial spatial index capacity estimation
 	EstimatedPointsPerCell = 4
+
+	// MaxClusterDiameter is the upper bound (metres) for the longest OBB
+	// dimension of a valid cluster. Clusters larger than this are rejected
+	// as environmental artefacts (e.g. hedgerows, fences picked up as a
+	// single connected component).
+	MaxClusterDiameter = 12.0
+
+	// MinClusterDiameter is the lower bound (metres) for the longest OBB
+	// dimension. Very tiny clusters are usually noise speckle that happened
+	// to meet the DBSCAN MinPts threshold.
+	MinClusterDiameter = 0.05
+
+	// MaxClusterAspectRatio is the maximum ratio of length to width. Very
+	// elongated clusters (e.g. fence lines, walls) are unlikely to be
+	// vehicles or pedestrians.
+	MaxClusterAspectRatio = 15.0
 )
 
 // IdentityTransform4x4 is a 4x4 identity matrix for pose transforms.
@@ -313,6 +329,29 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int) []WorldC
 			continue
 		}
 		cluster := computeClusterMetrics(clusterPoints, int64(cid))
+
+		// Reject extreme-size and extreme-aspect clusters to filter out
+		// environmental artefacts (walls, hedges, speckle noise).
+		longest := cluster.BoundingBoxLength
+		if cluster.BoundingBoxWidth > longest {
+			longest = cluster.BoundingBoxWidth
+		}
+		shortest := cluster.BoundingBoxWidth
+		if cluster.BoundingBoxLength < shortest {
+			shortest = cluster.BoundingBoxLength
+		}
+		if float64(longest) > MaxClusterDiameter || float64(longest) < MinClusterDiameter {
+			continue
+		}
+		// Only enforce aspect ratio when the shortest axis is above the
+		// noise floor (0.03 m). Ultra-thin clusters viewed edge-on or
+		// along a radial arc are legitimate detections; their OBB width
+		// is near-zero due to LiDAR angular resolution, not because they
+		// are environmental artefacts.
+		if float64(shortest) > 0.03 && float64(longest)/float64(shortest) > MaxClusterAspectRatio {
+			continue
+		}
+
 		clusters = append(clusters, cluster)
 	}
 
@@ -323,16 +362,35 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int) []WorldC
 func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 	n := float64(len(points))
 
-	// Compute centroid
+	// Compute centroid as medoid: the actual cluster point closest to the
+	// arithmetic mean (task 3.2). For non-convex clusters (L-shapes, arcs)
+	// the arithmetic mean can fall outside the point cloud, causing unstable
+	// association. The medoid is guaranteed to lie on a real measurement.
 	var sumX, sumY, sumZ float64
 	for _, p := range points {
 		sumX += p.X
 		sumY += p.Y
 		sumZ += p.Z
 	}
-	centroidX := float32(sumX / n)
-	centroidY := float32(sumY / n)
-	centroidZ := float32(sumZ / n)
+	meanX := sumX / n
+	meanY := sumY / n
+	meanZ := sumZ / n
+
+	bestIdx := 0
+	bestDist := math.MaxFloat64
+	for i, p := range points {
+		dx := p.X - meanX
+		dy := p.Y - meanY
+		dz := p.Z - meanZ
+		d := dx*dx + dy*dy + dz*dz
+		if d < bestDist {
+			bestDist = d
+			bestIdx = i
+		}
+	}
+	centroidX := float32(points[bestIdx].X)
+	centroidY := float32(points[bestIdx].Y)
+	centroidZ := float32(points[bestIdx].Z)
 
 	// Compute bounding box and other stats
 	minX, maxX := points[0].X, points[0].X
