@@ -279,6 +279,90 @@ Outcome:
     - Extract `tracksStore`, `runsStore`, `missedRegionStore`
     - Keep components presentational
 
+14. **Cross-layer placement fixes** (from complexity analysis above):
+    - Extract `CompareRuns`/`compareParams`/`computeTemporalIoU` from `storage/sqlite/analysis_run.go` to `l6objects/` or `analysis/`
+    - Split `l3grid/background.go` (2,610 → ~1,600 lines) by extracting persistence, export, and M3.5 drift
+    - Split `monitor/webserver.go` (4,067 → ~500 lines) by extracting datasource and playback handlers
+
+## Layer Complexity Analysis (Post-Migration)
+
+### Size distribution
+
+| Package | Source lines | Test lines | Largest file | Notes |
+|---------|-------------|-----------|-------------|-------|
+| **l1packets** | 3,510 | 5,039 | extract.go (621) | Well-distributed across network/ and parse/ sub-packages |
+| **l2frames** | 1,075 | 1,989 | frame_builder.go (913) | Clean single-responsibility; frame assembly + geometry |
+| **l3grid** | 3,866 | 6,046 | background.go (2,610) | ⚠️ Outsized — persistence, export, M3.5 sensor drift embedded |
+| **l4perception** | 1,078 | 1,442 | cluster.go (469) | Clean; DBSCAN, OBB, ground removal, voxel |
+| **l5tracks** | 1,738 | 1,849 | tracking.go (1,488) | Cohesive; Kalman tracker, lifecycle, metrics |
+| **l6objects** | 1,060 | 1,014 | quality.go (388) | Clean; classification, features, quality |
+| **pipeline** | 591 | 35 | tracking_pipeline.go (541) | Thin orchestrator — expected to be small |
+| **storage/sqlite** | 3,599 | 5,551 | analysis_run.go (1,383) | ⚠️ Contains domain logic (CompareRuns, temporal IoU) |
+| **adapters** | 815 | 772 | ground_truth.go (380) | Clean; export/training/ground-truth I/O |
+| **sweep** | 5,174 | 8,908 | auto.go (1,214) | Well-decoupled; no layer imports, uses interfaces only |
+| **monitor** | 10,154 | 21,468 | webserver.go (4,067) | ⚠️ Outsized — API handlers + data source + playback in one |
+
+**Total**: 32,660 source lines, 53,113 test lines across 11 packages.
+
+### Balance assessment
+
+The migration produced reasonably balanced layers for L1, L2, L4, L5, L6 (1,000–3,500 lines each). Three packages are outliers:
+
+1. **l3grid (3,866 lines)** — `background.go` alone is 2,610 lines, nearly 70% of the package. It contains grid processing (appropriate), but also database persistence, ASC export, heatmap visualisation, and M3.5 sensor-drift detection.
+
+2. **storage/sqlite (3,599 lines)** — `analysis_run.go` (1,383 lines) contains `CompareRuns()` (Hungarian-based track matching, split/merge detection, temporal IoU computation) which is domain/algorithm logic, not storage.
+
+3. **monitor (10,154 lines)** — `webserver.go` (4,067 lines) contains HTTP handlers, data source management, PCAP playback controls, and route registration in a single file. `track_api.go` (1,052 lines) and `run_track_api.go` (793 lines) add further handler complexity.
+
+### Recommended cross-layer moves
+
+#### Priority 1: Extract domain logic from storage
+
+`storage/sqlite/analysis_run.go` lines 1068–1383 contain:
+- `CompareRuns()` — Hungarian assignment of tracks between runs, split/merge detection
+- `compareParams()` — deep parameter diffing (background, clustering, tracking)
+- `computeTemporalIoU()` — temporal overlap metric for track matching
+
+**Recommendation**: Move to `l6objects/comparison.go` or a new `analysis/` package. These are reusable domain algorithms that should not live in a storage layer. The storage layer should provide data access; comparison logic should operate on domain types.
+
+#### Priority 2: Extract persistence and export from l3grid
+
+`l3grid/background.go` lines 1350–2610 contain:
+- **Persistence** (lines 1350–1631): `RestoreRegions()`, `TryRestoreRegionsBySceneHash()`, `Persist()`, serialisation/deserialisation — ~280 lines of database I/O
+- **M3.5 sensor drift** (lines 2377–2610): `CheckForSensorMovement()`, `CheckBackgroundDrift()`, `GenerateBackgroundSnapshot()` — ~230 lines of higher-level perception logic
+- **Export/visualisation** (lines 2181–2374): `ToASCPoints()`, `ExportBackgroundGridToASC()`, `GetGridHeatmap()`, `GetRegionDebugInfo()` — ~190 lines of API/export logic
+
+**Recommendation**: Split `background.go` into:
+- `background.go` — core grid processing, EMA updates, region management (~1,600 lines)
+- `background_persistence.go` — snapshot serialisation, database restore/persist (~280 lines)
+- `background_export.go` — heatmaps, ASC export, region debug info (~190 lines)
+- Move M3.5 drift detection to `l4perception/` or a dedicated `drift/` module (~230 lines)
+
+This reduces `background.go` from 2,610 to ~1,600 lines while keeping it in L3.
+
+#### Priority 3: Split monitor/webserver.go
+
+`monitor/webserver.go` at 4,067 lines combines:
+- Server initialisation and configuration (~300 lines)
+- Data source management (UDP/PCAP switching) (~400 lines)
+- PCAP playback controls (start/stop/pause/seek/rate) (~500 lines)
+- Route registration (~170 lines, already grouped)
+- 40+ HTTP handler functions (~2,500 lines)
+
+**Recommendation**: Extract to:
+- `webserver.go` — server init, route registration, common middleware (~500 lines)
+- `datasource_handlers.go` — UDP/PCAP data source management (~400 lines)
+- `playback_handlers.go` — PCAP playback controls (~500 lines)
+- Keep existing `chart_api.go`, `track_api.go`, `scene_api.go`, `run_track_api.go` as they are
+
+#### Not recommended to move
+
+- **l5tracks/tracking.go** (1,488 lines) — cohesive Kalman tracker; all methods serve tracking lifecycle. Well-bounded.
+- **sweep/** (5,174 lines) — fully decoupled, uses interfaces only, no layer imports. Clean design.
+- **l1packets/** (3,510 lines) — well-distributed across network/ and parse/ sub-packages. No cross-layer concerns.
+- **l2frames/frame_builder.go** (913 lines) — single-responsibility frame assembly. Clean.
+- **l4perception/** (1,078 lines) — small, focused clustering/segmentation. Clean.
+
 ## Quick Wins (Low Risk, High Readability)
 
 - ~~Replace phase-labeled placeholder response text~~ ✅ Done
