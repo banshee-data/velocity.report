@@ -37,7 +37,6 @@
 		lowSample: '#f7b32b'
 	};
 
-	const CHART_HEIGHT = 360;
 	const CHART_PADDING = { top: 16, right: 58, bottom: 42, left: 84 };
 	const COUNT_AXIS_SCALE = 1.6;
 	const LOW_SAMPLE_THRESHOLD = 50;

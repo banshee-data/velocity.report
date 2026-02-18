@@ -473,13 +473,19 @@
 				<label for="dashboard-site" class="text-surface-content/70 mb-1 block text-xs font-medium">
 					Site
 				</label>
+				<!-- Use on:change with parseInt to avoid HTML <select> coercing
+					 selectedSiteId from number to string. -->
 				<select
 					id="dashboard-site"
-					bind:value={selectedSiteId}
+					value={selectedSiteId}
+					on:change={(e) => {
+						const raw = e.currentTarget.value;
+						selectedSiteId = raw === '' ? null : parseInt(raw, 10);
+					}}
 					class="border-surface-300 bg-surface-100 w-full rounded border px-2 py-2 text-sm"
 				>
 					{#if siteOptions.length === 0}
-						<option value={null}>No sites</option>
+						<option value="">No sites</option>
 					{:else}
 						{#each siteOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
