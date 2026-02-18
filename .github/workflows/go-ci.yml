@@ -23,6 +23,10 @@ on:
       - "go.mod"
       - "go.sum"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -90,6 +94,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Download Go modules
+        run: go mod download
+
       - name: Build web stub for embed
         run: ./scripts/ensure-web-stub.sh
 
@@ -137,6 +144,9 @@ jobs:
 
       - name: Install system dependencies (libpcap)
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Download Go modules
+        run: go mod download
 
       - name: Build web stub for embed
         run: ./scripts/ensure-web-stub.sh
