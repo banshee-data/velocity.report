@@ -85,6 +85,24 @@
 	let cosineCorrectionLabel = '';
 	let lastStatsRequestKey = '';
 
+	function weightedMedian(values: Array<{ value: number; weight: number }>): number {
+		const filtered = values
+			.filter(
+				(item) => Number.isFinite(item.value) && Number.isFinite(item.weight) && item.weight > 0
+			)
+			.sort((a, b) => a.value - b.value);
+		if (filtered.length === 0) return 0;
+
+		const totalWeight = filtered.reduce((sum, item) => sum + item.weight, 0);
+		const midpoint = totalWeight / 2;
+		let cumulative = 0;
+		for (const item of filtered) {
+			cumulative += item.weight;
+			if (cumulative >= midpoint) return item.value;
+		}
+		return filtered[filtered.length - 1].value;
+	}
+
 	$: cosineCorrectionLabel =
 		cosineCorrectionAngles.length > 0
 			? cosineCorrectionAngles.map((angle) => `${angle}°`).join(', ')
@@ -244,8 +262,30 @@
 			stats = statsResp.metrics;
 			cosineCorrectionAngles = statsResp.cosineCorrection?.angles ?? [];
 			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
-			// Show P98 speed (aggregate percentile) in the summary card
-			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
+
+			// Use a dedicated aggregate query (group=all) for the headline P98 so the
+			// summary card and dashed reference line represent the true period aggregate.
+			const aggregateResp = await getRadarStats(
+				startUnix,
+				endUnix,
+				'all',
+				units,
+				$displayTimezone,
+				selectedSource,
+				selectedSiteId
+			);
+			const aggregateBucket = aggregateResp.metrics[0];
+			if (aggregateBucket && Number.isFinite(Number(aggregateBucket.p98))) {
+				p98Speed = Number(aggregateBucket.p98);
+			} else {
+				// Fallback for unexpected empty aggregate response.
+				p98Speed = weightedMedian(
+					stats.map((s) => ({
+						value: Number(s.p98 || 0),
+						weight: Math.max(0, Number(s.count || 0))
+					}))
+				);
+			}
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load stats'; // eslint-disable-line svelte/infinite-reactive-loop
 		}
@@ -310,7 +350,8 @@
 					max: Number(row.max || 0)
 				} as RadarStats;
 			})
-			.filter((row) => row.date instanceof Date && !Number.isNaN(row.date.getTime()));
+			.filter((row) => row.date instanceof Date && !Number.isNaN(row.date.getTime()))
+			.sort((a, b) => a.date.getTime() - b.date.getTime());
 	}
 
 	async function loadData() {
