@@ -56,6 +56,8 @@ type Config struct {
 	ExportTraining bool
 	Verbose        bool
 	FrameRate      float64 // Expected frame rate in Hz
+	Stats          bool    // Display concise capture statistics only
+	Stats10s       bool    // Display per-10s frame rate buckets (filterable)
 
 	// Benchmark settings
 	Benchmark           bool
@@ -84,6 +86,7 @@ type AnalysisResult struct {
 	ClassificationDist map[string]ClassStats `json:"classification_distribution"`
 	SpeedStats         SpeedStatistics       `json:"speed_statistics"`
 	TrainingFrames     int                   `json:"training_frames,omitempty"`
+	CaptureStats       *CaptureStats         `json:"capture_stats,omitempty"`
 }
 
 // TrackExport represents a track for export.
@@ -139,6 +142,32 @@ type TrainingFrame struct {
 	Clusters         int       `json:"clusters"`
 	ActiveTracks     int       `json:"active_tracks"`
 	ForegroundBlob   []byte    `json:"-"` // Binary blob not included in JSON
+}
+
+// CaptureStats holds concise capture-level metrics for the -stats flag.
+type CaptureStats struct {
+	File              string            `json:"file"`
+	DurationSecs      float64           `json:"duration_secs"`
+	TotalFrames       int               `json:"total_frames"`
+	TotalPackets      int               `json:"total_packets"`
+	TotalPoints       int               `json:"total_points"`
+	AvgFrameRateHz    float64           `json:"avg_frame_rate_hz"`
+	MinFrameRateHz    float64           `json:"min_frame_rate_hz"`
+	MaxFrameRateHz    float64           `json:"max_frame_rate_hz"`
+	MinRPM            uint16            `json:"min_rpm"`
+	MaxRPM            uint16            `json:"max_rpm"`
+	RPMChanges        int               `json:"rpm_changes"`
+	ConfirmedTracks   int               `json:"confirmed_tracks"`
+	ForegroundPct     float64           `json:"foreground_pct"`
+	AvgPointsPerFrame float64           `json:"avg_points_per_frame"`
+	FrameRate10s      []FrameRateBucket `json:"frame_rate_10s,omitempty"`
+}
+
+// FrameRateBucket holds frame-rate metrics for a 10-second window.
+type FrameRateBucket struct {
+	OffsetSecs float64 `json:"offset_secs"` // Bucket start relative to capture start
+	Frames     int     `json:"frames"`
+	Hz         float64 `json:"hz"`
 }
 
 // FrameTimeStats holds statistics for per-frame processing times.
@@ -237,6 +266,15 @@ func main() {
 		log.SetOutput(io.Discard) // Suppress all logging to avoid measurement interference
 	}
 
+	// In stats mode, suppress logging and disable exports
+	if config.Stats || config.Stats10s {
+		config.Verbose = false
+		config.ExportCSV = false
+		config.ExportJSON = false
+		config.ExportTraining = false
+		log.SetOutput(io.Discard)
+	}
+
 	// Run analysis with benchmark metrics collection
 	var benchMetrics *PerformanceMetrics
 	var result *AnalysisResult
@@ -249,6 +287,22 @@ func main() {
 	}
 	if err != nil {
 		log.Fatalf("Analysis failed: %v", err)
+	}
+
+	// Stats mode: print concise capture metrics and exit
+	if config.Stats {
+		if result.CaptureStats != nil {
+			printCaptureStats(*result.CaptureStats)
+		}
+		return
+	}
+
+	// Stats-10s mode: print per-10s frame rate buckets and exit
+	if config.Stats10s {
+		if result.CaptureStats != nil {
+			printStats10s(*result.CaptureStats)
+		}
+		return
 	}
 
 	// Print summary (unless in quiet mode)
@@ -281,6 +335,8 @@ func parseFlags() Config {
 	flag.BoolVar(&config.ExportTraining, "training", false, "Export training data (foreground blobs)")
 	flag.BoolVar(&config.Verbose, "v", false, "Verbose output")
 	flag.Float64Var(&config.FrameRate, "fps", 10.0, "Expected frame rate in Hz")
+	flag.BoolVar(&config.Stats, "stats", false, "Display concise capture statistics (frame rate, RPM, duration)")
+	flag.BoolVar(&config.Stats10s, "stats-10s", false, "Display per-10s frame rate buckets (grep-friendly)")
 
 	// Benchmark flags (short and long forms bind to same variable for convenience)
 	flag.BoolVar(&config.Benchmark, "benchmark", false, "Enable performance measurement mode")
@@ -389,6 +445,14 @@ type analysisFrameBuilder struct {
 	trackTimeNs    int64     // Cumulative tracking time
 	classifyTimeNs int64     // Cumulative classification time
 
+	// RPM tracking (always populated)
+	rpmValues  []uint16 // All RPM values received from SetMotorSpeed
+	lastRPM    uint16   // Most recent RPM value
+	rpmChanges int      // Number of RPM value changes
+
+	// Per-frame PCAP timestamps (always populated, used by -stats-10s)
+	frameTimestamps []time.Time
+
 	// Database connection for background/region persistence
 	dbConn *db.DB
 }
@@ -405,15 +469,24 @@ func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFra
 		}
 	}
 
+	// Avoid wrapping a nil *db.DB in a non-nil BgStore interface
+	// (Go nil-interface trap: typed nil pointer != untyped nil).
+	var store lidar.BgStore
+	if dbConn != nil {
+		store = dbConn
+	}
+
 	fb := &analysisFrameBuilder{
-		points:        make([]lidar.PointPolar, 0, 50000),
-		bgManager:     createBackgroundManager(config.SensorID, dbConn),
-		tracker:       lidar.NewTracker(lidar.DefaultTrackerConfig()),
-		classifier:    lidar.NewTrackClassifier(),
-		config:        config,
-		result:        result,
-		benchmarkMode: config.Benchmark,
-		dbConn:        dbConn,
+		points:          make([]lidar.PointPolar, 0, 50000),
+		bgManager:       createBackgroundManager(config.SensorID, store),
+		tracker:         lidar.NewTracker(lidar.DefaultTrackerConfig()),
+		classifier:      lidar.NewTrackClassifier(),
+		config:          config,
+		result:          result,
+		benchmarkMode:   config.Benchmark,
+		rpmValues:       make([]uint16, 0, 64),
+		frameTimestamps: make([]time.Time, 0, defaultFrameCapacity),
+		dbConn:          dbConn,
 	}
 	if config.Benchmark {
 		// Pre-allocate frame times array (estimate based on typical PCAP duration)
@@ -459,6 +532,11 @@ func (fb *analysisFrameBuilder) AddPointsPolar(points []lidar.PointPolar) {
 func (fb *analysisFrameBuilder) SetMotorSpeed(rpm uint16) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
+	if rpm != fb.lastRPM && fb.lastRPM != 0 {
+		fb.rpmChanges++
+	}
+	fb.lastRPM = rpm
+	fb.rpmValues = append(fb.rpmValues, rpm)
 	fb.motorSpeed = rpm
 }
 
@@ -486,6 +564,9 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	fb.result.TotalFrames++
 	fb.result.ForegroundPoints += foregroundCount
 	fb.result.BackgroundPoints += len(fb.points) - foregroundCount
+
+	// Record the PCAP-time of this frame for per-bucket stats
+	fb.frameTimestamps = append(fb.frameTimestamps, fb.frameStartTime)
 
 	if foregroundCount == 0 {
 		if fb.benchmarkMode {
@@ -596,6 +677,116 @@ func (fb *analysisFrameBuilder) getClassifier() *lidar.TrackClassifier {
 
 func (fb *analysisFrameBuilder) getTrainingFrames() []*TrainingFrame {
 	return fb.trainingFrames
+}
+
+// getCaptureStats computes concise capture-level metrics from collected data.
+func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureStats {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
+	stats := CaptureStats{
+		File:            result.PCAPFile,
+		DurationSecs:    result.DurationSecs,
+		TotalFrames:     result.TotalFrames,
+		TotalPackets:    result.TotalPackets,
+		TotalPoints:     result.TotalPoints,
+		ConfirmedTracks: result.ConfirmedTracks,
+	}
+
+	if result.TotalPoints > 0 {
+		stats.ForegroundPct = 100 * float64(result.ForegroundPoints) / float64(result.TotalPoints)
+	}
+	if result.TotalFrames > 0 {
+		stats.AvgPointsPerFrame = float64(result.TotalPoints) / float64(result.TotalFrames)
+	}
+
+	// RPM stats — derive frame rate (Hz) directly from RPM (RPM / 60).
+	// This is more accurate than inter-frame interval timing because the
+	// azimuth-wrap frame counter over-counts for multi-return sensors.
+	if len(fb.rpmValues) > 0 {
+		stats.MinRPM = fb.rpmValues[0]
+		stats.MaxRPM = fb.rpmValues[0]
+		for _, rpm := range fb.rpmValues[1:] {
+			if rpm > 0 && (rpm < stats.MinRPM || stats.MinRPM == 0) {
+				stats.MinRPM = rpm
+			}
+			if rpm > stats.MaxRPM {
+				stats.MaxRPM = rpm
+			}
+		}
+		stats.RPMChanges = fb.rpmChanges
+
+		// Hz = RPM / 60
+		if stats.MinRPM > 0 {
+			stats.MinFrameRateHz = float64(stats.MinRPM) / 60.0
+		}
+		if stats.MaxRPM > 0 {
+			stats.MaxFrameRateHz = float64(stats.MaxRPM) / 60.0
+		}
+		stats.AvgFrameRateHz = (stats.MinFrameRateHz + stats.MaxFrameRateHz) / 2.0
+	}
+
+	// Compute 10-second frame-rate buckets from per-frame PCAP timestamps
+	const bucketDuration = 10 * time.Second
+	if len(fb.frameTimestamps) > 1 {
+		t0 := fb.frameTimestamps[0]
+		var buckets []FrameRateBucket
+		bucketStart := t0
+		count := 0
+		for _, ts := range fb.frameTimestamps {
+			for ts.Sub(bucketStart) >= bucketDuration {
+				// Flush current bucket
+				offset := bucketStart.Sub(t0).Seconds()
+				hz := float64(count) / bucketDuration.Seconds()
+				buckets = append(buckets, FrameRateBucket{OffsetSecs: offset, Frames: count, Hz: hz})
+				bucketStart = bucketStart.Add(bucketDuration)
+				count = 0
+			}
+			count++
+		}
+		// Final partial bucket (only if it has frames)
+		if count > 0 {
+			offset := bucketStart.Sub(t0).Seconds()
+			elapsed := fb.frameTimestamps[len(fb.frameTimestamps)-1].Sub(bucketStart).Seconds()
+			if elapsed < 0.001 {
+				elapsed = bucketDuration.Seconds() // single-point bucket
+			}
+			hz := float64(count) / elapsed
+			buckets = append(buckets, FrameRateBucket{OffsetSecs: offset, Frames: count, Hz: hz})
+		}
+		stats.FrameRate10s = buckets
+	}
+
+	return stats
+}
+
+// printCaptureStats prints a concise one-file summary to stdout.
+func printCaptureStats(stats CaptureStats) {
+	fmt.Printf("\n── %s ──\n", filepath.Base(stats.File))
+	fmt.Printf("  Duration:    %.1fs (%.1f min)\n", stats.DurationSecs, stats.DurationSecs/60)
+	fmt.Printf("  Frames:      %d\n", stats.TotalFrames)
+	fmt.Printf("  Packets:     %d\n", stats.TotalPackets)
+	fmt.Printf("  Points:      %d (%.0f/frame, %.1f%% foreground)\n",
+		stats.TotalPoints, stats.AvgPointsPerFrame, stats.ForegroundPct)
+	fmt.Printf("  Frame rate:  avg %.1f Hz, min %.1f Hz, max %.1f Hz\n",
+		stats.AvgFrameRateHz, stats.MinFrameRateHz, stats.MaxFrameRateHz)
+	fmt.Printf("  RPM:         %d–%d", stats.MinRPM, stats.MaxRPM)
+	if stats.RPMChanges > 0 {
+		fmt.Printf(" (%d changes)", stats.RPMChanges)
+	}
+	fmt.Println()
+	fmt.Printf("  Tracks:      %d confirmed\n", stats.ConfirmedTracks)
+}
+
+// printStats10s prints one line per 10-second bucket in a grep-friendly format.
+// Format: [filename] (mmm:ss) frame_rate: XX.X Hz
+func printStats10s(stats CaptureStats) {
+	base := filepath.Base(stats.File)
+	for _, b := range stats.FrameRate10s {
+		min := int(b.OffsetSecs) / 60
+		sec := int(b.OffsetSecs) % 60
+		fmt.Printf("[%s] (%03d:%02d) frame_rate: %.1f Hz\n", base, min, sec, b.Hz)
+	}
 }
 
 // getBenchmarkData returns the collected benchmark timing data.
@@ -737,6 +928,10 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 			log.Printf("[WARN] Failed to close database connection: %v", err)
 		}
 	}
+
+	// Collect capture stats (always, used by -stats mode and JSON export)
+	cs := frameBuilder.getCaptureStats(result)
+	result.CaptureStats = &cs
 
 	return result, nil
 }

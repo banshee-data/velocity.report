@@ -124,6 +124,7 @@ help:
 	@echo "  plot-noise-buckets   Generate per-noise bar charts (FILE=data.csv)"
 	@echo "  stats-live           Capture live LiDAR snapshots"
 	@echo "  stats-pcap           Capture PCAP replay snapshots (PCAP=file.pcap)"
+	@echo "  run-pcap-stats       PCAP capture stats — frame rate, RPM (FILE=path)"
 	@echo ""
 	@echo "API SHORTCUTS (LiDAR HTTP API):"
 	@echo "  api-grid-status      Get grid status"
@@ -1278,7 +1279,7 @@ git-fs:
 # DATA VISUALIZATION
 # =============================================================================
 
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap run-pcap-stats run-pcap-stats-10s
 
 # Noise sweep line plot (neighbour=1, closeness=2.5 by default)
 plot-noise-sweep:
@@ -1317,6 +1318,67 @@ stats-pcap:
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
 	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
+
+# PCAP capture statistics — frame rate, RPM, duration, track counts
+# Accepts a single file or a directory (recursively finds .pcap/.pcapng)
+# Usage:
+#   make run-pcap-stats PCAP=capture.pcap
+#   make run-pcap-stats PCAP=./data/captures/
+run-pcap-stats:
+	@if [ -z "$(PCAP)" ]; then \
+		echo "Usage: make run-pcap-stats PCAP=<file-or-directory>"; \
+		echo ""; \
+		echo "  PCAP  Path to a .pcap/.pcapng file or a directory."; \
+		echo "        If a directory, recursively finds all .pcap/.pcapng files."; \
+		exit 1; \
+	fi
+	@if [ -d "$(PCAP)" ]; then \
+		files=$$(find "$(PCAP)" -type f \( -name '*.pcap' -o -name '*.pcapng' \) | sort); \
+		if [ -z "$$files" ]; then \
+			echo "No .pcap/.pcapng files found in $(PCAP)"; \
+			exit 1; \
+		fi; \
+		count=$$(echo "$$files" | wc -l | tr -d ' '); \
+		echo "Found $$count PCAP file(s) in $(PCAP)"; \
+		for f in $$files; do \
+			go run -tags=pcap ./cmd/tools/pcap-analyse -pcap "$$f" -stats || true; \
+		done; \
+	elif [ -f "$(PCAP)" ]; then \
+		go run -tags=pcap ./cmd/tools/pcap-analyse -pcap "$(PCAP)" -stats; \
+	else \
+		echo "Error: $(PCAP) not found"; \
+		exit 1; \
+	fi
+
+# PCAP per-10s frame rate — grep-friendly one-line-per-bucket output
+# Usage:
+#   make run-pcap-stats-10s PCAP=capture.pcap
+#   make run-pcap-stats-10s PCAP=./data/captures/
+run-pcap-stats-10s:
+	@if [ -z "$(PCAP)" ]; then \
+		echo "Usage: make run-pcap-stats-10s PCAP=<file-or-directory>"; \
+		echo ""; \
+		echo "  PCAP  Path to a .pcap/.pcapng file or a directory."; \
+		echo "        If a directory, recursively finds all .pcap/.pcapng files."; \
+		exit 1; \
+	fi
+	@if [ -d "$(PCAP)" ]; then \
+		files=$$(find "$(PCAP)" -type f \( -name '*.pcap' -o -name '*.pcapng' \) | sort); \
+		if [ -z "$$files" ]; then \
+			echo "No .pcap/.pcapng files found in $(PCAP)"; \
+			exit 1; \
+		fi; \
+		count=$$(echo "$$files" | wc -l | tr -d ' '); \
+		echo "Found $$count PCAP file(s) in $(PCAP)"; \
+		for f in $$files; do \
+			go run -tags=pcap ./cmd/tools/pcap-analyse -pcap "$$f" -stats-10s || true; \
+		done; \
+	elif [ -f "$(PCAP)" ]; then \
+		go run -tags=pcap ./cmd/tools/pcap-analyse -pcap "$(PCAP)" -stats-10s; \
+	else \
+		echo "Error: $(PCAP) not found"; \
+		exit 1; \
+	fi
 
 # =============================================================================
 # API SHORTCUTS (LiDAR HTTP API)
