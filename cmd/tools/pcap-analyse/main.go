@@ -27,6 +27,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
@@ -645,7 +646,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 			ForegroundPoints: foregroundCount,
 			Clusters:         len(clusters),
 			ActiveTracks:     len(fb.tracker.GetActiveTracks()),
-			ForegroundBlob:   l3grid.EncodeForegroundBlob(foregroundPoints),
+			ForegroundBlob:   adapters.EncodeForegroundBlob(foregroundPoints),
 		}
 		fb.trainingFrames = append(fb.trainingFrames, trainingFrame)
 	}
@@ -850,7 +851,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 		result.TracksByClass[class]++
 
 		// Export track data
-		p50, p85, p95 := l5tracks.ComputeSpeedPercentiles(track.SpeedHistory())
+		p50, p85, p95 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
 
 		trackExport := &TrackExport{
 			TrackID:      track.TrackID,
@@ -1135,7 +1136,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 	}
 
 	// Use the shared percentile computation from lidar package
-	p50, p85, p95 := l5tracks.ComputeSpeedPercentiles(samples)
+	p50, p85, p95 := l6objects.ComputeSpeedPercentiles(samples)
 
 	n := len(sorted)
 	return SpeedStatistics{
@@ -1371,7 +1372,7 @@ func computeFrameTimeStats(frameTimes []float64) FrameTimeStats {
 	}
 	avg := sum / float64(len(sorted))
 
-	// Compute percentiles using floor-based indexing (consistent with l5tracks.ComputeSpeedPercentiles)
+	// Compute percentiles using floor-based indexing (consistent with l6objects.ComputeSpeedPercentiles)
 	n := len(sorted)
 	p50Idx := int(float64(n) * 0.50)
 	p95Idx := int(float64(n) * 0.95)
