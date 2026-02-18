@@ -158,7 +158,7 @@ Create and reuse standard classes in shared CSS rather than repeating long utili
 
 Standards:
 
-- Shared class definitions live in web-level standards CSS (`web/src/app.css` and/or a dedicated shared stylesheet imported there).
+- Shared class definitions live in the web-level standards CSS (`web/src/routes/app.css`, which may import additional shared stylesheets as needed).
 - Extract repeated class patterns (containers, headers, control rows, stat grids, chart cards, pane shells) into named standard classes.
 - Route files should compose standard classes first, with minimal local overrides.
 - Do not copy-paste identical class bundles across multiple pages.
