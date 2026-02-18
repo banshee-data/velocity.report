@@ -693,6 +693,13 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 		ConfirmedTracks: result.ConfirmedTracks,
 	}
 
+	// Override wall-clock duration with actual PCAP capture span when available.
+	// analysisStats.getStats() measures processing time (time.Now()), not capture
+	// time — which is far too short when replaying a large file.
+	if len(fb.frameTimestamps) > 1 {
+		stats.DurationSecs = fb.frameTimestamps[len(fb.frameTimestamps)-1].Sub(fb.frameTimestamps[0]).Seconds()
+	}
+
 	if result.TotalPoints > 0 {
 		stats.ForegroundPct = 100 * float64(result.ForegroundPoints) / float64(result.TotalPoints)
 	}
