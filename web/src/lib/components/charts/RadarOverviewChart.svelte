@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { RadarStats } from '$lib/api';
-	import { Axis, Bars, Chart, Grid, Layer, Points, Rule, Spline, Voronoi } from 'layerchart';
 	import { scaleLinear } from 'd3-scale';
+	import type { TimeInterval } from 'd3-time';
+	import { Axis, Bars, Chart, Grid, Layer, Points, Rule, Spline, Voronoi } from 'layerchart';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	export let data: RadarStats[] = [];
 	export let group = '4h';
@@ -218,7 +220,7 @@
 	}
 
 	function buildDaySummaries(rows: ChartDatum[]): DaySummary[] {
-		const buckets = new Map<
+		const buckets = new SvelteMap<
 			string,
 			{
 				date: Date;
@@ -361,7 +363,7 @@
 	$: bandCount = clamp(Math.round((chartContainerWidth || 1400) / 130), 10, 15);
 	$: alternatingBands = buildAlternatingBands(xDomain, bandCount);
 	$: daySummaries = buildDaySummaries(chartData);
-	$: daySummaryByKey = new Map(daySummaries.map((summary) => [summary.dayKey, summary]));
+	$: daySummaryByKey = new SvelteMap(daySummaries.map((summary) => [summary.dayKey, summary]));
 	$: hoveredDaySummary = hoveredDayKey ? daySummaryByKey.get(hoveredDayKey) : undefined;
 	$: tooltipLeft = clamp(tooltipX, 8, Math.max(8, chartContainerWidth - 240));
 	$: tooltipTop = clamp(tooltipY, 8, Math.max(8, chartContainerHeight - 170));
@@ -387,7 +389,7 @@
 				data={chartData}
 				x="date"
 				{xDomain}
-				xInterval={xInterval as any}
+				xInterval={xInterval as unknown as TimeInterval}
 				y="p98"
 				yDomain={[speedAxisMin, speedAxisMax]}
 				yNice={false}
