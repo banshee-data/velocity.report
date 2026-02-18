@@ -71,6 +71,16 @@ For percentile charts, keep the same metric-to-colour mapping across chart stack
 - `count_bar`: `#2d1e2f`
 - `low_sample`: `#f7b32b`
 
+These hex values are the **canonical percentile palette** for all chart stacks (web LayerChart, macOS visualiser, and Python PDF generator). The current PDF configuration (`tools/pdf-generator/pdf_generator/core/config_manager.py`) already uses this mapping.
+
+**Current discrepancy (to be migrated):** the web UI speed percentile chart in `web/src/routes/+page.svelte` still uses an older palette:
+
+- `p50`: `#ece111`
+- `p85`: `#ed7648`
+- `p98`: `#d50734`
+- `max`: `#000000`
+
+That web implementation is **non-compliant** with this design contract and must be migrated to the canonical mapping above. Track and complete this migration via a follow-up issue in the web/frontend tracker, and update this document once the web palette is aligned.
 ## 4. Chart Alignment Rules (Required vs Allowed)
 
 ### 4.1 Required alignment
