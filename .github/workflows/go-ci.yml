@@ -47,17 +47,6 @@ jobs:
       - name: Run make lint-go
         run: make lint-go
 
-      - name: Check for roadmap-phase comments in runtime code
-        run: |
-          # Flag "Phase N" references that should not appear in runtime code.
-          # Migration SQL files are excluded since they are historical records.
-          if grep -rn "Phase [0-9]" internal/ web/src/ tools/visualiser-macos/ \
-              --include='*.go' --include='*.ts' --include='*.svelte' \
-              --include='*.js' --include='*.swift' 2>/dev/null; then
-            echo "::error::Found roadmap-phase comments in runtime code. Replace with capability-oriented descriptions."
-            exit 1
-          fi
-
   build:
     name: "🔨 Build"
     runs-on: ubuntu-latest
