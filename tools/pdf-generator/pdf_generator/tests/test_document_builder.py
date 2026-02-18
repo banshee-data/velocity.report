@@ -425,10 +425,10 @@ class TestDocumentBuilder(unittest.TestCase):
         )
 
         mock_create.assert_called_once_with(
-            page_numbers=False, use_geometry_options=True
+            page_numbers=False, use_geometry_options=False
         )
         mock_packages.assert_called_once_with(mock_doc, skip_preloaded=True)
-        mock_apply_geometry.assert_not_called()
+        mock_apply_geometry.assert_called_once_with(mock_doc)
 
     def test_font_path_resolution(self):
         """Test fonts directory path resolution."""

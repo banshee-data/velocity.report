@@ -348,8 +348,17 @@ class DocumentBuilder:
             contact = _site_to_dict(DEFAULT_SITE_CONFIG)["contact"]
 
         skip_preloaded = bool(tex_environment and tex_environment.fmt_name)
-        # Create base document
-        doc = self.create_document(page_numbers=False, use_geometry_options=True)
+        # Create base document — when using a preloaded format the geometry
+        # package is already loaded so we must not pass geometry_options to the
+        # Document constructor (which would emit \usepackage[...]{geometry}
+        # again).  Instead we call apply_geometry_options() afterwards to emit
+        # a bare \geometry{...} command that reconfigures the already-loaded
+        # package.
+        doc = self.create_document(
+            page_numbers=False, use_geometry_options=not skip_preloaded
+        )
+        if skip_preloaded:
+            self.apply_geometry_options(doc)
 
         # Add all packages
         self.add_packages(doc, skip_preloaded=skip_preloaded)
