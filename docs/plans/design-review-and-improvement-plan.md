@@ -186,7 +186,7 @@ The main dashboard does not show the current site name, data range, or sensor co
 
 ## 6. Architectural Debt (from ARCHITECTURE.md)
 
-### 6.1 webserver.go is 3,551 lines — High
+### 6.1 webserver.go is 4,009 lines — High
 
 **Location:** `internal/lidar/monitor/webserver.go`
 
@@ -204,11 +204,11 @@ Combines HTTP handler registration, PCAP replay control, live UDP listening, ECh
 
 **Effort:** 2–3 days (incremental, one extraction per PR)
 
-### 6.2 background.go is 2,308 lines — High
+### 6.2 background.go is 2,608 lines — High
 
-**Location:** `internal/lidar/l3grid/background.go`
+**Location:** `internal/lidar/background.go`
 
-Mixes persistence, export, drift detection, and spatial region management with core grid processing. This is flagged in the layer alignment review (Future Work item 14).
+Mixes persistence, export, drift detection, and spatial region management with core grid processing. This is flagged in the layer alignment review (Future Work item 14). The layer migration plan targets moving this into `l3grid/`, but the file currently resides in the parent `internal/lidar/` package.
 
 **Action:** Split into:
 - `background.go` — core EMA grid processing
@@ -218,11 +218,11 @@ Mixes persistence, export, drift detection, and spatial region management with c
 
 **Effort:** 1–2 days
 
-### 6.3 analysis_run.go is 1,216 lines with domain comparison logic — Medium
+### 6.3 analysis_run.go is 1,342 lines with domain comparison logic — Medium
 
-**Location:** `internal/lidar/storage/sqlite/analysis_run.go`
+**Location:** `internal/lidar/analysis_run.go`
 
-`CompareRuns()` and related domain logic is embedded in the SQLite storage layer. This violates separation of concerns (storage should not contain comparison algorithms).
+`CompareRuns()` and related domain logic is co-located with run persistence in the parent lidar package. Comparison algorithms should be separated from CRUD operations.
 
 **Action:** Extract `CompareRuns()` and parameter conversion functions to a dedicated `internal/lidar/evaluation/` package or into `l6objects/`. Keep only CRUD operations in the storage layer.
 
@@ -384,8 +384,8 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 | # | Finding | Severity | Effort |
 |---|---------|----------|--------|
 | 2.1 | No shared CSS standard classes | High | 1–2 days |
-| 6.1 | webserver.go 3,551 lines | High | 2–3 days |
-| 6.2 | background.go 2,308 lines | High | 1–2 days |
+| 6.1 | webserver.go 4,009 lines | High | 2–3 days |
+| 6.2 | background.go 2,608 lines | High | 1–2 days |
 | 8.2 | PR template lacks design checklist | Medium | 30 minutes |
 | 7.2 | No accessibility testing | Medium | 4–8 hours |
 
