@@ -730,7 +730,18 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 		if stats.MaxRPM > 0 {
 			stats.MaxFrameRateHz = float64(stats.MaxRPM) / 60.0
 		}
-		stats.AvgFrameRateHz = (stats.MinFrameRateHz + stats.MaxFrameRateHz) / 2.0
+		// Compute true average Hz from all recorded RPM samples.
+		var rpmSum float64
+		var rpmCount int
+		for _, rpm := range fb.rpmValues {
+			if rpm > 0 {
+				rpmSum += float64(rpm)
+				rpmCount++
+			}
+		}
+		if rpmCount > 0 {
+			stats.AvgFrameRateHz = (rpmSum / float64(rpmCount)) / 60.0
+		}
 	}
 
 	// Compute 10-second frame-rate buckets from per-frame PCAP timestamps
