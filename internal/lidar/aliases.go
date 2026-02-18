@@ -20,7 +20,10 @@ import (
 // ── L2 Frames ────────────────────────────────────────────────────────
 
 type FrameBuilder = l2frames.FrameBuilder
+type FrameBuilderConfig = l2frames.FrameBuilderConfig
 type LiDARFrame = l2frames.LiDARFrame
+
+var NewFrameBuilder = l2frames.NewFrameBuilder
 
 // ── L3 Grid ──────────────────────────────────────────────────────────
 
@@ -45,6 +48,7 @@ type WorldPoint = l4perception.WorldPoint
 
 var DBSCAN = l4perception.DBSCAN
 var NewDefaultDBSCANClusterer = l4perception.NewDefaultDBSCANClusterer
+var SphericalToCartesian = l4perception.SphericalToCartesian
 
 // ── L5 Tracks ────────────────────────────────────────────────────────
 
