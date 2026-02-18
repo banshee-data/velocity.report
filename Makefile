@@ -1060,7 +1060,7 @@ validate-tex-minimal:
 		echo "Artifacts kept in $$tmp_dir"; \
 		exit 1; \
 	fi; \
-	ref_latest=$$(printf '%s\n' "$$ref_candidates" | head -n1); \
+	ref_latest=$$(printf '%s\n' "$$ref_candidates" | xargs ls -t | head -n1); \
 	cp "$$ref_latest" "$$ref_pdf"; \
 	touch "$$min_stamp"; \
 	echo "Generating report using minimal TeX tree (production mode)..."; \
@@ -1075,7 +1075,7 @@ validate-tex-minimal:
 		echo "Artifacts kept in $$tmp_dir"; \
 		exit 1; \
 	fi; \
-	min_latest=$$(printf '%s\n' "$$min_candidates" | head -n1); \
+	min_latest=$$(printf '%s\n' "$$min_candidates" | xargs ls -t | head -n1); \
 	cp "$$min_latest" "$$min_pdf"; \
 	if command -v pdfinfo >/dev/null 2>&1; then \
 		ref_pages=$$(pdfinfo "$$ref_pdf" | awk -F: '/^Pages:/ {gsub(/ /, "", $$2); print $$2}'); \
