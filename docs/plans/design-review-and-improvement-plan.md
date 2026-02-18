@@ -114,7 +114,7 @@ DESIGN.md §4.1 requires explicit loading/empty/error states for charts. The das
 
 ### 3.2 Legend order not enforced in chart component — Medium
 
-**Location:** `web/src/routes/+page.svelte` line 493
+**Location:** `web/src/routes/+page.svelte` `cDomain` definition (currently around lines 495–496, after chart state)
 
 DESIGN.md §4.1 requires legend order `p50, p85, p98, max, then count/auxiliary`. The current `cDomain` array follows this order, but there is no programmatic enforcement or shared constant.
 
@@ -148,9 +148,9 @@ All route files import from `svelte-ux` for UI primitives (Button, Card, SelectF
 
 **Location:** `web/src/routes/+page.svelte`
 
-LayerChart is only used on the main dashboard. The lidar routes (`tracks`, `scenes`, `runs`, `sweeps`) do not yet render charts. This is not a violation, but as charts are added to lidar routes, the chart rendering policy (DESIGN.md §5.4) must be followed.
+LayerChart is only used on the main dashboard. The LiDAR routes (`tracks`, `scenes`, `runs`, `sweeps`) do not yet render charts. This is not a violation, but as charts are added to LiDAR routes, the chart rendering policy (DESIGN.md §5.4) must be followed.
 
-**Action:** No immediate work. Add to the frontend consolidation plan: all new charts in lidar routes must use LayerChart/d3-scale, not ad-hoc SVG.
+**Action:** No immediate work. Add to the frontend consolidation plan: all new charts in LiDAR routes must use LayerChart/d3-scale, not ad-hoc SVG.
 
 **Effort:** Deferred
 
@@ -186,7 +186,7 @@ The main dashboard does not show the current site name, data range, or sensor co
 
 ## 6. Architectural Debt (from ARCHITECTURE.md)
 
-### 6.1 webserver.go is 4,009 lines — High
+### 6.1 webserver.go is ~4,010 lines — High
 
 **Location:** `internal/lidar/monitor/webserver.go`
 
@@ -204,7 +204,7 @@ Combines HTTP handler registration, PCAP replay control, live UDP listening, ECh
 
 **Effort:** 2–3 days (incremental, one extraction per PR)
 
-### 6.2 background.go is 2,608 lines — High
+### 6.2 background.go is ~2,600 lines — High
 
 **Location:** `internal/lidar/background.go`
 
@@ -218,7 +218,7 @@ Mixes persistence, export, drift detection, and spatial region management with c
 
 **Effort:** 1–2 days
 
-### 6.3 analysis_run.go is 1,342 lines with domain comparison logic — Medium
+### 6.3 analysis_run.go is ≈1,343 lines with domain comparison logic — Medium
 
 **Location:** `internal/lidar/analysis_run.go`
 
