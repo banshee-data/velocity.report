@@ -6,8 +6,8 @@
 	 * - Top pane (60%): Canvas-based map with background grid overlay
 	 * - Bottom pane (40%): SVG timeline with playback controls
 	 *
-	 * Supports both historical playback (24-hour window) and live streaming (Phase 3).
-	 * Phase 3 additions: Scene/run selection and track labelling workflow.
+	 * Supports both historical playback (24-hour window) and live streaming.
+	 * Includes scene/run selection and track labelling workflow.
 	 */
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
@@ -52,7 +52,7 @@
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
 
-	// Phase 3: Scene and Run selection
+	// Scene and run selection
 	let scenes: LidarScene[] = [];
 	let selectedSceneId: string | null = null;
 	let runs: AnalysisRun[] = [];
@@ -74,7 +74,7 @@
 	let observationsByTrack: Record<string, TrackObservation[]> = {};
 	let selectedTrackObservations: TrackObservation[] = [];
 	let observationsRequestId = 0;
-	// Phase 3 TODO: Add observationsLoading:boolean and observationsError:string|null state variables.
+	// TODO: Add observationsLoading:boolean and observationsError:string|null state variables.
 	// Display loading indicator in TrackList component when observationsLoading is true.
 	// Show error banner above timeline when observationsError is set, with retry button.
 	let foregroundObservations: TrackObservation[] = [];
@@ -90,7 +90,7 @@
 	let foregroundOffset = { x: 0, y: 0 };
 	$: foregroundOffset = { x: foregroundOffsetX, y: foregroundOffsetY };
 
-	// Phase 7: Missed regions state
+	// Missed regions state
 	let missedRegions: MissedRegion[] = [];
 	let markMissedMode = false;
 
@@ -220,7 +220,7 @@
 		}
 	}
 
-	// Phase 3: Load scenes for selected sensor
+	// Load scenes for selected sensor
 	async function loadScenes() {
 		scenesLoading = true;
 		try {
@@ -232,7 +232,7 @@
 		}
 	}
 
-	// Phase 3: Load runs for selected scene's sensor
+	// Load runs for selected scene's sensor
 	async function loadRuns(scene: LidarScene) {
 		runsLoading = true;
 		try {
@@ -244,7 +244,7 @@
 		}
 	}
 
-	// Phase 3: Load tracks for selected run
+	// Load tracks for selected run
 	async function loadRunTracks() {
 		if (!selectedRunId) {
 			runTracks = [];
@@ -266,7 +266,7 @@
 		}
 	}
 
-	// Phase 3: Handle scene selection change
+	// Handle scene selection change
 	// Looks up the scene directly from scenes array rather than relying on
 	// derived $: selectedScene which may not have updated yet.
 	function handleSceneChange() {
@@ -287,7 +287,7 @@
 		}
 	}
 
-	// Phase 3: Handle run selection change
+	// Handle run selection change
 	function handleRunChange() {
 		if (selectedRunId !== null) {
 			loadRunTracks().then(() => {
@@ -475,7 +475,7 @@
 		} catch (error) {
 			// Only handle error if this request is still the latest
 			if (requestId === observationsRequestId) {
-				// Phase 3 TODO: Set observationsError to error.message and display as:
+				// TODO: Set observationsError to error.message and display as:
 				//   1. Error banner component above timeline with red background
 				//   2. Include "Retry" button that calls loadObservationsForTrack(trackId) again
 				//   3. Include "Dismiss" button that clears the error
@@ -485,8 +485,8 @@
 				selectedTrackObservations = [];
 			}
 		}
-		// Note: No finally block in Phase 1 & 2 - loading state cleanup will be added in Phase 3.
-		// Trade-off: Users won't see loading indicators for track observations during Phase 1 & 2.
+		// Note: No finally block - loading state cleanup to be added later.
+		// Trade-off: Users won't see loading indicators for track observations initially.
 		// This is acceptable as the observations load quickly and users have visual feedback
 		// from the track selection itself.
 	}
@@ -544,7 +544,7 @@
 		loadObservationsForTrack(trackId);
 	}
 
-	// Phase 7: Load missed regions for current run
+	// Load missed regions for current run
 	async function loadMissedRegions() {
 		if (!selectedRunId) {
 			missedRegions = [];
@@ -557,7 +557,7 @@
 		}
 	}
 
-	// Phase 7: Handle map click in mark-missed mode
+	// Handle map click in mark-missed mode
 	async function handleMapClick(worldX: number, worldY: number) {
 		if (!markMissedMode || !selectedRunId || !timeRange) return;
 
@@ -575,7 +575,7 @@
 		}
 	}
 
-	// Phase 7: Delete a missed region
+	// Delete a missed region
 	async function handleDeleteMissedRegion(regionId: string) {
 		if (!selectedRunId) return;
 		try {
@@ -612,7 +612,7 @@
 		loadHistoricalData();
 		loadBackgroundGrid();
 
-		// Phase 3: Load scenes and optionally pre-select from URL query params
+		// Load scenes and optionally pre-select from URL query params
 		await loadScenes();
 		const params = $page.url.searchParams;
 		const qsSceneId = params.get('scene_id');
@@ -665,7 +665,7 @@
 					disabled
 				/>
 
-				<!-- Phase 3: Scene Selection -->
+				<!-- Scene Selection -->
 				<SelectField
 					label="Scene"
 					bind:value={selectedSceneId}
@@ -682,7 +682,7 @@
 					class="w-56"
 				/>
 
-				<!-- Phase 3: Run Selection (only shown when scene selected) -->
+				<!-- Run Selection (only shown when scene selected) -->
 				{#if selectedScene}
 					<SelectField
 						label="Run"
@@ -701,7 +701,7 @@
 					/>
 				{/if}
 
-				<!-- Phase 7: Mark Missed button (visible when run is selected) -->
+				<!-- Mark Missed button (visible when run is selected) -->
 				{#if selectedRunId}
 					<button
 						on:click={() => (markMissedMode = !markMissedMode)}

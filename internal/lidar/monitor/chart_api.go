@@ -11,7 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // NOTE: Chart API route registration has been consolidated into
@@ -28,7 +30,7 @@ func (ws *WebServer) handleChartPolarJSON(w http.ResponseWriter, r *http.Request
 		sensorID = ws.sensorID
 	}
 
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -62,7 +64,7 @@ func (ws *WebServer) handleChartHeatmapJSON(w http.ResponseWriter, r *http.Reque
 		sensorID = ws.sensorID
 	}
 
-	bm := lidar.GetBackgroundManager(sensorID)
+	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
 		return
@@ -101,7 +103,7 @@ type HeatmapBucketData struct {
 }
 
 // PrepareHeatmapFromBuckets transforms grid heatmap buckets into chart-ready data.
-func PrepareHeatmapFromBuckets(buckets []lidar.CoarseBucket, sensorID string) *HeatmapBucketData {
+func PrepareHeatmapFromBuckets(buckets []l3grid.CoarseBucket, sensorID string) *HeatmapBucketData {
 	points := make([]ScatterPoint, 0, len(buckets))
 	maxVal := 0.0
 	maxAbs := 0.0
@@ -184,7 +186,7 @@ func (ws *WebServer) handleChartForegroundJSON(w http.ResponseWriter, r *http.Re
 		sensorID = ws.sensorID
 	}
 
-	snapshot := lidar.GetForegroundSnapshot(sensorID)
+	snapshot := l3grid.GetForegroundSnapshot(sensorID)
 	if snapshot == nil || (len(snapshot.ForegroundPoints) == 0 && len(snapshot.BackgroundPoints) == 0) {
 		ws.writeJSONError(w, http.StatusNotFound, "no foreground snapshot available")
 		return
@@ -195,7 +197,7 @@ func (ws *WebServer) handleChartForegroundJSON(w http.ResponseWriter, r *http.Re
 }
 
 // PrepareForegroundChartData transforms a foreground snapshot into chart-ready data.
-func PrepareForegroundChartData(snapshot *lidar.ForegroundSnapshot, sensorID string) *ForegroundChartData {
+func PrepareForegroundChartData(snapshot *l3grid.ForegroundSnapshot, sensorID string) *ForegroundChartData {
 	fgPts := make([]ScatterPoint, 0, len(snapshot.ForegroundPoints))
 	bgPts := make([]ScatterPoint, 0, len(snapshot.BackgroundPoints))
 	maxAbs := 0.0
@@ -280,7 +282,7 @@ func (ws *WebServer) handleChartClustersJSON(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	clusters, err := lidar.GetRecentClusters(ws.trackAPI.db, sensorID, startNanos, endNanos, limit)
+	clusters, err := sqlite.GetRecentClusters(ws.trackAPI.db, sensorID, startNanos, endNanos, limit)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get clusters: %v", err))
 		return
@@ -307,7 +309,7 @@ type ClusterCentroid struct {
 }
 
 // PrepareRecentClustersData transforms cluster records into chart-ready data.
-func PrepareRecentClustersData(clusters []*lidar.WorldCluster, sensorID string) *RecentClustersData {
+func PrepareRecentClustersData(clusters []*l4perception.WorldCluster, sensorID string) *RecentClustersData {
 	pts := make([]ClusterCentroid, 0, len(clusters))
 	maxPts := 1
 	maxAbs := 0.0

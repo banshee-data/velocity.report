@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // Test data constants
@@ -43,7 +43,7 @@ func TestDeleteDuplicateBgSnapshots(t *testing.T) {
 	gridBlob2 := []byte("grid_data_2")
 
 	// Insert 3 snapshots: 2 with same grid_blob, 1 unique
-	snap1 := &lidar.BgSnapshot{
+	snap1 := &l3grid.BgSnapshot{
 		SensorID:           sensorID,
 		TakenUnixNanos:     time.Now().UnixNano(),
 		Rings:              40,
@@ -58,7 +58,7 @@ func TestDeleteDuplicateBgSnapshots(t *testing.T) {
 		t.Fatalf("Failed to insert first snapshot: %v", err)
 	}
 
-	snap2 := &lidar.BgSnapshot{
+	snap2 := &l3grid.BgSnapshot{
 		SensorID:           sensorID,
 		TakenUnixNanos:     time.Now().Add(time.Second).UnixNano(),
 		Rings:              40,
@@ -73,7 +73,7 @@ func TestDeleteDuplicateBgSnapshots(t *testing.T) {
 		t.Fatalf("Failed to insert duplicate snapshot: %v", err)
 	}
 
-	snap3 := &lidar.BgSnapshot{
+	snap3 := &l3grid.BgSnapshot{
 		SensorID:           sensorID,
 		TakenUnixNanos:     time.Now().Add(2 * time.Second).UnixNano(),
 		Rings:              40,

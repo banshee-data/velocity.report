@@ -9,15 +9,15 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // setupTestRun creates a test run with tracks using the existing setupTestDB
-func setupTestRun(t *testing.T, store *lidar.AnalysisRunStore, runID string) {
+func setupTestRun(t *testing.T, store *sqlite.AnalysisRunStore, runID string) {
 	t.Helper()
 
 	// Create a test run
-	run := &lidar.AnalysisRun{
+	run := &sqlite.AnalysisRun{
 		RunID:           runID,
 		SensorID:        "test-sensor",
 		SourceType:      "pcap",
@@ -36,7 +36,7 @@ func setupTestRun(t *testing.T, store *lidar.AnalysisRunStore, runID string) {
 	}
 
 	// Insert some test tracks
-	tracks := []*lidar.RunTrack{
+	tracks := []*sqlite.RunTrack{
 		{
 			RunID:            runID,
 			TrackID:          "track-001",
@@ -85,7 +85,7 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-001"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -160,7 +160,7 @@ func TestUpdateTrackLabelInvalid(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-002"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -215,7 +215,7 @@ func TestUpdateTrackLabelClear(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-003"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	// First, set a label
@@ -272,7 +272,7 @@ func TestListRuns(t *testing.T) {
 	sqlDB, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 
 	// Create multiple test runs
 	runs := []string{"run-001", "run-002", "run-003"}
@@ -317,7 +317,7 @@ func TestLabellingProgress(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-004"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	// Label one track
@@ -383,7 +383,7 @@ func TestGetRun(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-005"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -402,7 +402,7 @@ func TestGetRun(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", resp.StatusCode, string(body))
 	}
 
-	var run lidar.AnalysisRun
+	var run sqlite.AnalysisRun
 	if err := json.NewDecoder(resp.Body).Decode(&run); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -446,12 +446,14 @@ func TestReprocessRun(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-006"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
 	ws := &WebServer{db: testDB}
 
+	// Without a data source manager, reprocess will fail at PCAP replay start.
+	// Verify it gets past validation and creates a new analysis run.
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/test-run-006/reprocess", nil)
 	w := httptest.NewRecorder()
 
@@ -460,17 +462,49 @@ func TestReprocessRun(t *testing.T) {
 	resp := w.Result()
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusNotImplemented {
-		t.Errorf("expected status 501, got %d", resp.StatusCode)
+	// Expect 500 because PCAP replay cannot start in test environment
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected status 500 (PCAP replay unavailable), got %d", resp.StatusCode)
 	}
+}
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
+func TestReprocessRun_NotFound(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	testDB := &db.DB{DB: sqlDB}
+	ws := &WebServer{db: testDB}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/nonexistent/reprocess", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleReprocessRun(w, req, "nonexistent")
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", resp.StatusCode)
 	}
+}
 
-	if result["error"] != "not_implemented" {
-		t.Errorf("expected error not_implemented, got %v", result["error"])
+func TestReprocessRun_WrongMethod(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	testDB := &db.DB{DB: sqlDB}
+	ws := &WebServer{db: testDB}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/test-run/reprocess", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleReprocessRun(w, req, "test-run")
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", resp.StatusCode)
 	}
 }
 
@@ -480,7 +514,7 @@ func TestUpdateTrackFlags(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-007"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -591,8 +625,8 @@ func TestWebServer_HandleDeleteRunTrack_Success(t *testing.T) {
 	ws := &WebServer{db: testDB}
 
 	// Create a test run and track
-	store := lidar.NewAnalysisRunStore(sqlDB)
-	run := &lidar.AnalysisRun{
+	store := sqlite.NewAnalysisRunStore(sqlDB)
+	run := &sqlite.AnalysisRun{
 		RunID:      "run-001",
 		SensorID:   "test-sensor",
 		SourceType: "pcap",
@@ -602,7 +636,7 @@ func TestWebServer_HandleDeleteRunTrack_Success(t *testing.T) {
 		t.Fatalf("failed to insert run: %v", err)
 	}
 
-	track := &lidar.RunTrack{
+	track := &sqlite.RunTrack{
 		RunID:            "run-001",
 		TrackID:          "track-001",
 		SensorID:         "test-sensor",
@@ -682,8 +716,8 @@ func TestWebServer_HandleDeleteRun_Success(t *testing.T) {
 	ws := &WebServer{db: testDB}
 
 	// Create a test run
-	store := lidar.NewAnalysisRunStore(sqlDB)
-	run := &lidar.AnalysisRun{
+	store := sqlite.NewAnalysisRunStore(sqlDB)
+	run := &sqlite.AnalysisRun{
 		RunID:      "run-001",
 		SensorID:   "test-sensor",
 		SourceType: "pcap",
@@ -816,7 +850,7 @@ func TestRunTrackAPI_MissedRegionsLifecycle(t *testing.T) {
 	defer cleanup()
 
 	runID := "run-missed-001"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	ws := &WebServer{db: &db.DB{DB: sqlDB}}
@@ -837,7 +871,7 @@ func TestRunTrackAPI_MissedRegionsLifecycle(t *testing.T) {
 		t.Fatalf("expected %d got %d body=%s", http.StatusCreated, w.Code, w.Body.String())
 	}
 
-	var created lidar.MissedRegion
+	var created sqlite.MissedRegion
 	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
 		t.Fatalf("decode created region: %v", err)
 	}
@@ -885,7 +919,7 @@ func TestRunTrackAPI_EvaluateRun(t *testing.T) {
 	defer cleanup()
 
 	runID := "eval-run"
-	store := lidar.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	ws := &WebServer{db: &db.DB{DB: sqlDB}}

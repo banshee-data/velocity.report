@@ -18,7 +18,10 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +35,7 @@ func TestCov_SetSweepStore(t *testing.T) {
 		t.Fatal("expected nil sweepStore initially")
 	}
 
-	store := &lidar.SweepStore{}
+	store := &sqlite.SweepStore{}
 	ws.SetSweepStore(store)
 
 	if ws.sweepStore != store {
@@ -449,8 +452,8 @@ func TestCov2_HandleTuningParams_NoManager(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_GET_WithManager(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-get", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-get", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-get", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-get", bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tuning-params?sensor_id=cov2-tuning-get", nil)
@@ -462,8 +465,8 @@ func TestCov2_HandleTuningParams_GET_WithManager(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_GET_PrettyFormat(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-pretty", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-pretty", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-pretty", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-pretty", bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tuning-params?sensor_id=cov2-tuning-pretty&format=pretty", nil)
@@ -475,10 +478,10 @@ func TestCov2_HandleTuningParams_GET_PrettyFormat(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_GET_WithTracker(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-tracker", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-tracker", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-tracker", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-tracker", bm)
 
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	ws := &WebServer{tracker: tracker}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tuning-params?sensor_id=cov2-tuning-tracker", nil)
 	w := httptest.NewRecorder()
@@ -489,10 +492,10 @@ func TestCov2_HandleTuningParams_GET_WithTracker(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_POST_JSONBody(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-post", 10, 36, lidar.BackgroundParams{
+	bm := l3grid.NewBackgroundManager("cov2-tuning-post", 10, 36, l3grid.BackgroundParams{
 		NoiseRelativeFraction: 0.5,
 	}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-post", bm)
+	l3grid.RegisterBackgroundManager("cov2-tuning-post", bm)
 
 	body, _ := json.Marshal(map[string]interface{}{
 		"noise_relative":                0.3,
@@ -517,8 +520,8 @@ func TestCov2_HandleTuningParams_POST_JSONBody(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_POST_InvalidJSON(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-badjson", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-badjson", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-badjson", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-badjson", bm)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-badjson", strings.NewReader("{bad"))
 	req.Header.Set("Content-Type", "application/json")
@@ -531,8 +534,8 @@ func TestCov2_HandleTuningParams_POST_InvalidJSON(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_POST_FormSubmission(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-form", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-form", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-form", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-form", bm)
 
 	form := url.Values{}
 	form.Set("config_json", `{"noise_relative": 0.2}`)
@@ -547,8 +550,8 @@ func TestCov2_HandleTuningParams_POST_FormSubmission(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_POST_BadFormJSON(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-badform", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-badform", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-badform", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-badform", bm)
 
 	form := url.Values{}
 	form.Set("config_json", "{invalid")
@@ -563,8 +566,8 @@ func TestCov2_HandleTuningParams_POST_BadFormJSON(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_POST_EmptyFormJSON(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-emptyform", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-emptyform", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-emptyform", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-emptyform", bm)
 
 	form := url.Values{}
 	form.Set("config_json", "")
@@ -579,10 +582,10 @@ func TestCov2_HandleTuningParams_POST_EmptyFormJSON(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_POST_WithTracker(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-track-post", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-track-post", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-track-post", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-track-post", bm)
 
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	ws := &WebServer{tracker: tracker}
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -605,8 +608,8 @@ func TestCov2_HandleTuningParams_POST_WithTracker(t *testing.T) {
 }
 
 func TestCov2_HandleTuningParams_MethodNotAllowed(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-tuning-delete", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-tuning-delete", bm)
+	bm := l3grid.NewBackgroundManager("cov2-tuning-delete", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-delete", bm)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/tuning-params?sensor_id=cov2-tuning-delete", nil)
 	w := httptest.NewRecorder()
@@ -674,8 +677,8 @@ func TestCov2_HandleGridReset_NoManager(t *testing.T) {
 }
 
 func TestCov2_HandleGridReset_Success(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-reset", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-reset", bm)
+	bm := l3grid.NewBackgroundManager("cov2-reset", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-reset", bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/grid/reset?sensor_id=cov2-reset", nil)
@@ -812,7 +815,7 @@ func TestCov2_HandleExportSnapshotASC_NoSnapshot(t *testing.T) {
 
 func TestCov2_HandleExportFrameSeqASC_NilDB(t *testing.T) {
 	ws := &WebServer{}
-	lidar.RegisterFrameBuilder("cov2-export-seq", &lidar.FrameBuilder{})
+	l2frames.RegisterFrameBuilder("cov2-export-seq", &l2frames.FrameBuilder{})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/export/frame-sequence-asc?sensor_id=cov2-export-seq", nil)
 	w := httptest.NewRecorder()
@@ -996,8 +999,8 @@ func TestCov2_HandleLidarPersist_NoManager(t *testing.T) {
 }
 
 func TestCov2_HandleLidarPersist_NoPersistCallback(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-persist-nocb", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-persist-nocb", bm)
+	bm := l3grid.NewBackgroundManager("cov2-persist-nocb", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-persist-nocb", bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?sensor_id=cov2-persist-nocb", nil)
@@ -1009,9 +1012,9 @@ func TestCov2_HandleLidarPersist_NoPersistCallback(t *testing.T) {
 }
 
 func TestCov2_HandleLidarPersist_WithCallback_Success(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-persist-ok", 10, 36, lidar.BackgroundParams{}, nil)
-	bm.PersistCallback = func(snap *lidar.BgSnapshot) error { return nil }
-	lidar.RegisterBackgroundManager("cov2-persist-ok", bm)
+	bm := l3grid.NewBackgroundManager("cov2-persist-ok", 10, 36, l3grid.BackgroundParams{}, nil)
+	bm.PersistCallback = func(snap *l3grid.BgSnapshot) error { return nil }
+	l3grid.RegisterBackgroundManager("cov2-persist-ok", bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?sensor_id=cov2-persist-ok", nil)
@@ -1264,8 +1267,8 @@ func TestCov2_HandleBackgroundGrid_NoManager(t *testing.T) {
 }
 
 func TestCov2_HandleBackgroundGrid_WithManager(t *testing.T) {
-	bm := lidar.NewBackgroundManager("cov2-grid", 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager("cov2-grid", bm)
+	bm := l3grid.NewBackgroundManager("cov2-grid", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-grid", bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid?sensor_id=cov2-grid", nil)
@@ -1756,7 +1759,7 @@ func setupCov3WebServer(t *testing.T) *WebServer {
 }
 
 // populateGridCell directly sets a cell in the BackgroundGrid.
-func populateGridCell(bm *lidar.BackgroundManager, ring, azBin int, avgRange float32, timesSeen uint32) {
+func populateGridCell(bm *l3grid.BackgroundManager, ring, azBin int, avgRange float32, timesSeen uint32) {
 	idx := bm.Grid.Idx(ring, azBin)
 	if idx >= 0 && idx < len(bm.Grid.Cells) {
 		bm.Grid.Cells[idx].AverageRangeMeters = avgRange
@@ -1765,7 +1768,7 @@ func populateGridCell(bm *lidar.BackgroundManager, ring, azBin int, avgRange flo
 }
 
 // makeGridBlob builds a gzipped gob-encoded slice of BackgroundCells for snapshot tests.
-func makeGridBlob(t *testing.T, cells []lidar.BackgroundCell) []byte {
+func makeGridBlob(t *testing.T, cells []l3grid.BackgroundCell) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
@@ -1850,7 +1853,7 @@ func TestCov3_HandleLidarSnapshot_EmptyBlob(t *testing.T) {
 
 func TestCov3_HandleLidarSnapshot_ValidBlob(t *testing.T) {
 	ws := setupCov3WebServer(t)
-	cells := []lidar.BackgroundCell{
+	cells := []l3grid.BackgroundCell{
 		{AverageRangeMeters: 5.0, TimesSeenCount: 10, RangeSpreadMeters: 0.1},
 		{AverageRangeMeters: 0, TimesSeenCount: 0},
 		{AverageRangeMeters: 3.0, TimesSeenCount: 5, RangeSpreadMeters: 0.05},
@@ -1906,7 +1909,7 @@ func TestCov3_HandleLidarSnapshot_InvalidGob(t *testing.T) {
 
 func TestCov3_HandleLidarSnapshots_WithBlobData(t *testing.T) {
 	ws := setupCov3WebServer(t)
-	cells := []lidar.BackgroundCell{
+	cells := []l3grid.BackgroundCell{
 		{AverageRangeMeters: 5.0, TimesSeenCount: 10, RangeSpreadMeters: 0.1},
 		{AverageRangeMeters: 0, TimesSeenCount: 0},
 	}
@@ -1936,7 +1939,7 @@ func TestCov3_HandleLidarSnapshots_LimitExceedsMax(t *testing.T) {
 func TestCov3_HandleLidarSnapshotsCleanup_Success(t *testing.T) {
 	ws := setupCov3WebServer(t)
 	// Insert duplicate snapshots (same blob)
-	blob := makeGridBlob(t, []lidar.BackgroundCell{{TimesSeenCount: 1}})
+	blob := makeGridBlob(t, []l3grid.BackgroundCell{{TimesSeenCount: 1}})
 	insertSnapshot(t, ws.db.DB, "cov3-sensor", 10, 36, blob)
 	insertSnapshot(t, ws.db.DB, "cov3-sensor", 10, 36, blob)
 
@@ -1979,8 +1982,8 @@ func TestCov3_HandleBackgroundGridPolar_NoManager(t *testing.T) {
 
 func TestCov3_HandleBackgroundGridPolar_WithManager(t *testing.T) {
 	sensorID := "cov3-polar-mgr"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 
 	// Populate grid with some data
 	populateGridCell(bm, 0, 0, 5.0, 1)
@@ -2001,8 +2004,8 @@ func TestCov3_HandleBackgroundGridPolar_WithManager(t *testing.T) {
 
 func TestCov3_HandleBackgroundGridPolar_MaxPointsParam(t *testing.T) {
 	sensorID := "cov3-polar-max"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	populateGridCell(bm, 0, 0, 5.0, 1)
 
 	ws := &WebServer{sensorID: sensorID}
@@ -2016,8 +2019,8 @@ func TestCov3_HandleBackgroundGridPolar_MaxPointsParam(t *testing.T) {
 
 func TestCov3_HandleBackgroundGridPolar_EmptyCells(t *testing.T) {
 	sensorID := "cov3-polar-empty"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	// Grid created but no cells populated
 
 	ws := &WebServer{sensorID: sensorID}
@@ -2034,8 +2037,8 @@ func TestCov3_HandleBackgroundGridPolar_EmptyCells(t *testing.T) {
 
 func TestCov3_HandleBgHeatmapChart_WithManager(t *testing.T) {
 	sensorID := "cov3-heatmap-mgr"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	// Populate enough cells to produce heatmap buckets
 	for ring := 0; ring < 10; ring++ {
 		for az := 0; az < 36; az++ {
@@ -2055,8 +2058,8 @@ func TestCov3_HandleBgHeatmapChart_WithManager(t *testing.T) {
 
 func TestCov3_HandleBgHeatmapChart_AzBucketParam(t *testing.T) {
 	sensorID := "cov3-heatmap-az"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	for ring := 0; ring < 10; ring++ {
 		for az := 0; az < 36; az++ {
 			populateGridCell(bm, ring, az, float32(ring+1), uint32(ring+1)*2)
@@ -2087,16 +2090,16 @@ func TestCov3_HandleForegroundFrameChart_NoSnapshot(t *testing.T) {
 func TestCov3_HandleForegroundFrameChart_WithSnapshot(t *testing.T) {
 	sensorID := "cov3-fg-snap"
 	// Register a foreground snapshot using StoreForegroundSnapshot
-	fgPoints := []lidar.PointPolar{
+	fgPoints := []l2frames.PointPolar{
 		{Channel: 0, Azimuth: 10, Distance: 2.24, Elevation: 0},
 		{Channel: 1, Azimuth: 20, Distance: 3.16, Elevation: 0},
 		{Channel: 2, Azimuth: 30, Distance: 0.71, Elevation: 0},
 	}
-	bgPoints := []lidar.PointPolar{
+	bgPoints := []l2frames.PointPolar{
 		{Channel: 0, Azimuth: 50, Distance: 6.4, Elevation: 0},
 		{Channel: 1, Azimuth: 60, Distance: 3.6, Elevation: 0},
 	}
-	lidar.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 5, 3)
+	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 5, 3)
 
 	ws := &WebServer{sensorID: sensorID}
 	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground?sensor_id="+sensorID, nil)
@@ -2112,10 +2115,10 @@ func TestCov3_HandleForegroundFrameChart_WithSnapshot(t *testing.T) {
 
 func TestCov3_HandleForegroundFrameChart_DefaultSensorID(t *testing.T) {
 	sensorID := "cov3-fg-default"
-	fgPoints := []lidar.PointPolar{
+	fgPoints := []l2frames.PointPolar{
 		{Channel: 0, Azimuth: 10, Distance: 2.24, Elevation: 0},
 	}
-	lidar.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, nil, 1, 1)
+	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, nil, 1, 1)
 
 	ws := &WebServer{sensorID: sensorID}
 	// No sensor_id param — should use ws.sensorID
@@ -2205,7 +2208,7 @@ func TestCov3_HandleTracksChart_WithStateParam(t *testing.T) {
 
 func TestCov3_HandleExportSnapshotASC_WithSnapshot(t *testing.T) {
 	ws := setupCov3WebServer(t)
-	cells := []lidar.BackgroundCell{{AverageRangeMeters: 5.0, TimesSeenCount: 3}}
+	cells := []l3grid.BackgroundCell{{AverageRangeMeters: 5.0, TimesSeenCount: 3}}
 	blob := makeGridBlob(t, cells)
 	insertSnapshot(t, ws.db.DB, "cov3-sensor", 10, 36, blob)
 
@@ -2222,8 +2225,8 @@ func TestCov3_HandleExportSnapshotASC_WithSnapshot(t *testing.T) {
 
 func TestCov3_HandleExportNextFrameASC_WithFrameBuilder(t *testing.T) {
 	sensorID := "cov3-export-fb"
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sensorID})
-	lidar.RegisterFrameBuilder(sensorID, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sensorID})
+	l2frames.RegisterFrameBuilder(sensorID, fb)
 
 	ws := &WebServer{sensorID: sensorID}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/export_next_frame?sensor_id="+sensorID, nil)
@@ -2238,10 +2241,10 @@ func TestCov3_HandleExportNextFrameASC_WithFrameBuilder(t *testing.T) {
 
 func TestCov3_HandleExportForegroundASC_WithSnapshot(t *testing.T) {
 	sensorID := "cov3-export-fg"
-	fgPoints := []lidar.PointPolar{
+	fgPoints := []l2frames.PointPolar{
 		{Channel: 0, Azimuth: 10, Distance: 2.24, Elevation: 0.5},
 	}
-	lidar.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, nil, 1, 1)
+	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, nil, 1, 1)
 
 	ws := &WebServer{sensorID: sensorID}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/export_foreground?sensor_id="+sensorID, nil)
@@ -2277,8 +2280,8 @@ func TestCov3_HandleExportFrameSequenceASC_NoFrameBuilder(t *testing.T) {
 
 func TestCov3_HandleExportFrameSequenceASC_NoSnapshot(t *testing.T) {
 	sensorID := "cov3-seq-nosnap"
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sensorID})
-	lidar.RegisterFrameBuilder(sensorID, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sensorID})
+	l2frames.RegisterFrameBuilder(sensorID, fb)
 
 	ws := setupCov3WebServer(t)
 	ws.sensorID = sensorID
@@ -2292,12 +2295,12 @@ func TestCov3_HandleExportFrameSequenceASC_NoSnapshot(t *testing.T) {
 
 func TestCov3_HandleExportFrameSequenceASC_WithData(t *testing.T) {
 	sensorID := "cov3-seq-data"
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sensorID})
-	lidar.RegisterFrameBuilder(sensorID, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sensorID})
+	l2frames.RegisterFrameBuilder(sensorID, fb)
 
 	ws := setupCov3WebServer(t)
 	ws.sensorID = sensorID
-	cells := []lidar.BackgroundCell{{AverageRangeMeters: 5.0, TimesSeenCount: 3}}
+	cells := []l3grid.BackgroundCell{{AverageRangeMeters: 5.0, TimesSeenCount: 3}}
 	blob := makeGridBlob(t, cells)
 	insertSnapshot(t, ws.db.DB, sensorID, 10, 36, blob)
 
@@ -2438,8 +2441,8 @@ func TestCov3_HandlePCAPResumeLive_FormValueSensorID(t *testing.T) {
 
 func TestCov3_HandleBackgroundGrid_WithPopulatedGrid(t *testing.T) {
 	sensorID := "cov3-bggrid-pop"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	for ring := 0; ring < 10; ring++ {
 		for az := 0; az < 36; az++ {
 			populateGridCell(bm, ring, az, float32(ring+1)*0.5, uint32(ring+1))
@@ -2467,8 +2470,8 @@ func TestCov3_HandleBackgroundGrid_WithPopulatedGrid(t *testing.T) {
 
 func TestCov3_HandleBackgroundRegions_WithManager(t *testing.T) {
 	sensorID := "cov3-regions-mgr"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	populateGridCell(bm, 0, 0, 5.0, 1)
 
 	ws := &WebServer{sensorID: sensorID}
@@ -2482,8 +2485,8 @@ func TestCov3_HandleBackgroundRegions_WithManager(t *testing.T) {
 
 func TestCov3_HandleBackgroundRegions_IncludeCells(t *testing.T) {
 	sensorID := "cov3-regions-cells"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	populateGridCell(bm, 0, 0, 5.0, 1)
 
 	ws := &WebServer{sensorID: sensorID}
@@ -2509,8 +2512,8 @@ func TestCov3_HandleGridHeatmap_WrongMethod(t *testing.T) {
 
 func TestCov3_HandleGridHeatmap_WithManager(t *testing.T) {
 	sensorID := "cov3-gheatmap-mgr"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	for ring := 0; ring < 10; ring++ {
 		for az := 0; az < 36; az++ {
 			populateGridCell(bm, ring, az, float32(ring+1)*0.5, uint32(ring+1))
@@ -2528,8 +2531,8 @@ func TestCov3_HandleGridHeatmap_WithManager(t *testing.T) {
 
 func TestCov3_HandleGridHeatmap_NilHeatmap(t *testing.T) {
 	sensorID := "cov3-gheatmap-nil"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 	// Don't populate any cells — heatmap may be nil
 
 	ws := &WebServer{sensorID: sensorID}
@@ -2693,8 +2696,8 @@ func TestCov3_ResolvePCAPPath_DirectoryTraversal(t *testing.T) {
 
 func TestCov3_ResetFrameBuilder_WithBuilder(t *testing.T) {
 	sensorID := "cov3-resetfb"
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sensorID})
-	lidar.RegisterFrameBuilder(sensorID, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sensorID})
+	l2frames.RegisterFrameBuilder(sensorID, fb)
 
 	ws := &WebServer{sensorID: sensorID}
 	ws.resetFrameBuilder() // should not panic
@@ -2703,7 +2706,7 @@ func TestCov3_ResetFrameBuilder_WithBuilder(t *testing.T) {
 func TestCov3_ResetAllState_WithTracker(t *testing.T) {
 	ws := &WebServer{
 		sensorID: "cov3-resetall-track",
-		tracker:  lidar.NewTracker(lidar.DefaultTrackerConfig()),
+		tracker:  l5tracks.NewTracker(l5tracks.DefaultTrackerConfig()),
 	}
 	err := ws.resetAllState()
 	if err != nil {
@@ -3081,15 +3084,15 @@ func TestCov3_Start_ContextCancel(t *testing.T) {
 
 func TestCov3_UpdateLatestFgCounts_WithSnapshot(t *testing.T) {
 	sensorID := "cov3-fgcounts-snap"
-	fgPoints := make([]lidar.PointPolar, 10)
-	bgPoints := make([]lidar.PointPolar, 20)
+	fgPoints := make([]l2frames.PointPolar, 10)
+	bgPoints := make([]l2frames.PointPolar, 20)
 	for i := range fgPoints {
-		fgPoints[i] = lidar.PointPolar{Channel: 0, Azimuth: float64(i), Distance: 1.0}
+		fgPoints[i] = l2frames.PointPolar{Channel: 0, Azimuth: float64(i), Distance: 1.0}
 	}
 	for i := range bgPoints {
-		bgPoints[i] = lidar.PointPolar{Channel: 0, Azimuth: float64(i), Distance: 2.0}
+		bgPoints[i] = l2frames.PointPolar{Channel: 0, Azimuth: float64(i), Distance: 2.0}
 	}
-	lidar.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 30, 10)
+	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 30, 10)
 
 	ws := &WebServer{latestFgCounts: map[string]int{"old": 99}}
 	ws.updateLatestFgCounts(sensorID)
@@ -3227,8 +3230,8 @@ func TestCov3_HandleAcceptanceMetrics_NoManager(t *testing.T) {
 
 func TestCov3_HandleAcceptanceMetrics_WithManager(t *testing.T) {
 	sensorID := "cov3-accept-mgr"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/acceptance?sensor_id="+sensorID, nil)
@@ -3253,8 +3256,8 @@ func TestCov3_HandleAcceptanceReset_NoManager(t *testing.T) {
 
 func TestCov3_HandleAcceptanceReset_WithManager(t *testing.T) {
 	sensorID := "cov3-accept-reset"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/acceptance/reset?sensor_id="+sensorID, nil)
@@ -3269,8 +3272,8 @@ func TestCov3_HandleAcceptanceReset_WithManager(t *testing.T) {
 
 func TestCov3_HandleGridStatus_GET(t *testing.T) {
 	sensorID := "cov3-gridstatus"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sensorID, bm)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
 
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid_status?sensor_id="+sensorID, nil)
@@ -3702,7 +3705,7 @@ func TestCov3_HandlePCAPResumeLive_NoSensorID(t *testing.T) {
 
 func TestCov3_HandleBackgroundRegions_WithIncludeCells(t *testing.T) {
 	sensorID := "cov3-regions-cells"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
 
 	ws := &WebServer{sensorID: sensorID}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sensorID+"&include_cells=true", nil)
@@ -3716,7 +3719,7 @@ func TestCov3_HandleBackgroundRegions_WithIncludeCells(t *testing.T) {
 
 func TestCov3_HandleBackgroundRegions_GetRegionInfoNil(t *testing.T) {
 	sensorID := "cov3-regions-nil"
-	bm := lidar.NewBackgroundManager(sensorID, 10, 36, lidar.BackgroundParams{}, nil)
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
 
 	ws := &WebServer{sensorID: sensorID}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sensorID, nil)
@@ -3767,16 +3770,16 @@ func TestCov3_HandleLidarSnapshotsCleanup_NilDB(t *testing.T) {
 
 func TestCov3_HandleForegroundFrameChart_WithBackgroundPoints(t *testing.T) {
 	sensorID := "cov3-fg-bg-pts"
-	fgPoints := []lidar.PointPolar{
+	fgPoints := []l2frames.PointPolar{
 		{Channel: 0, Azimuth: 45, Distance: 1.5, Elevation: 0},
 		{Channel: 1, Azimuth: 90, Distance: 2.0, Elevation: 5},
 	}
-	bgPoints := []lidar.PointPolar{
+	bgPoints := []l2frames.PointPolar{
 		{Channel: 0, Azimuth: 180, Distance: 5.0, Elevation: -5},
 		{Channel: 1, Azimuth: 270, Distance: 7.0, Elevation: 0},
 		{Channel: 2, Azimuth: 315, Distance: 3.0, Elevation: 10},
 	}
-	lidar.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 5, 2)
+	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 5, 2)
 
 	ws := &WebServer{sensorID: sensorID}
 	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground_frame_chart?sensor_id="+sensorID, nil)
@@ -4245,14 +4248,14 @@ func errorAs(err error, target interface{}) bool {
 
 func TestCov4_HandleGridReset_WithBGManagerAndFB(t *testing.T) {
 	sensorID := fmt.Sprintf("cov4-grid-reset-%d", time.Now().UnixNano())
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sensorID})
-	lidar.RegisterFrameBuilder(sensorID, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sensorID})
+	l2frames.RegisterFrameBuilder(sensorID, fb)
 
-	tracker := lidar.NewTracker(lidar.TrackerConfig{})
+	tracker := l5tracks.NewTracker(l5tracks.TrackerConfig{})
 	ws := &WebServer{
 		sensorID: sensorID,
 		tracker:  tracker,
@@ -4276,14 +4279,14 @@ func TestCov4_HandleGridReset_WithBGManagerAndFB(t *testing.T) {
 
 func TestCov4_ResetAllState_WithTracker(t *testing.T) {
 	sensorID := fmt.Sprintf("cov4-reset-%d", time.Now().UnixNano())
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sensorID})
-	lidar.RegisterFrameBuilder(sensorID, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sensorID})
+	l2frames.RegisterFrameBuilder(sensorID, fb)
 
-	tracker := lidar.NewTracker(lidar.TrackerConfig{})
+	tracker := l5tracks.NewTracker(l5tracks.TrackerConfig{})
 	ws := &WebServer{
 		sensorID: sensorID,
 		tracker:  tracker,
@@ -4298,9 +4301,9 @@ func TestCov4_ResetAllState_WithTracker(t *testing.T) {
 
 func TestCov4_HandleBackgroundRegions_WithBGManager(t *testing.T) {
 	sensorID := fmt.Sprintf("cov4-regions-%d", time.Now().UnixNano())
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
 
 	ws := &WebServer{sensorID: sensorID, stats: NewPacketStats()}
 
@@ -4314,9 +4317,9 @@ func TestCov4_HandleBackgroundRegions_WithBGManager(t *testing.T) {
 
 func TestCov4_HandleBackgroundRegions_IncludeCells(t *testing.T) {
 	sensorID := fmt.Sprintf("cov4-regions-cells-%d", time.Now().UnixNano())
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
 
 	ws := &WebServer{sensorID: sensorID, stats: NewPacketStats()}
 
@@ -4399,7 +4402,7 @@ func TestCov4_HandleLidarSnapshots_WithLimitParam(t *testing.T) {
 	ws := setupCov4WebServer(t)
 
 	now := time.Now().UnixNano()
-	blob := makeGridBlob(t, []lidar.BackgroundCell{
+	blob := makeGridBlob(t, []l3grid.BackgroundCell{
 		{AverageRangeMeters: 5.0, TimesSeenCount: 10},
 	})
 	for i := 0; i < 5; i++ {
@@ -4490,9 +4493,9 @@ func TestCov4_HandleBackgroundGridHeatmapChart_NoBGManager(t *testing.T) {
 
 func TestCov4_HandleBackgroundGridHeatmapChart_WithBGManager(t *testing.T) {
 	sensorID := fmt.Sprintf("cov4-heatmap-%d", time.Now().UnixNano())
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
 
 	// Populate some cells so heatmap has data
 	for i := 0; i < 5; i++ {
@@ -4635,11 +4638,11 @@ func TestCov4_HandleLidarStatus_WrongMethod(t *testing.T) {
 
 func TestCov4_HandleStatus_HTMLPage(t *testing.T) {
 	sensorID := fmt.Sprintf("cov4-status-html-%d", time.Now().UnixNano())
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
 
-	tracker := lidar.NewTracker(lidar.TrackerConfig{
+	tracker := l5tracks.NewTracker(l5tracks.TrackerConfig{
 		GatingDistanceSquared: 25.0,
 		HitsToConfirm:         3,
 		MaxMisses:             5,
@@ -4684,9 +4687,9 @@ func TestCov4_HandleStatus_WrongPath(t *testing.T) {
 
 func TestCov4_HandleGridHeatmap_WithBGManager(t *testing.T) {
 	sensorID := fmt.Sprintf("cov4-gridheatmap-%d", time.Now().UnixNano())
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
 
 	// Populate some cells
 	for i := 0; i < 10; i++ {
@@ -4888,8 +4891,8 @@ func TestCov5_HandleGridStatus_NilStatus(t *testing.T) {
 	ws, _ := setupCov5WebServer(t, sid)
 
 	// Register a real but empty BackgroundManager
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid_status?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -4906,14 +4909,14 @@ func TestCov5_HandleGridReset_WithTrackerAndFrameBuilder(t *testing.T) {
 	sid := fmt.Sprintf("cov5-gridreset-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
-	tc := lidar.DefaultTrackerConfig()
-	ws.tracker = lidar.NewTracker(tc)
+	tc := l5tracks.DefaultTrackerConfig()
+	ws.tracker = l5tracks.NewTracker(tc)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sid})
-	lidar.RegisterFrameBuilder(sid, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
+	l2frames.RegisterFrameBuilder(sid, fb)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/grid/reset?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -4930,8 +4933,8 @@ func TestCov5_HandleGridHeatmap_NilHeatmap(t *testing.T) {
 	ws, _ := setupCov5WebServer(t, sid)
 
 	// Register a fresh BackgroundManager (no cells, heatmap may be nil)
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid_heatmap?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -4948,14 +4951,14 @@ func TestCov5_ResetAllState_WithTracker(t *testing.T) {
 	sid := fmt.Sprintf("cov5-resetall-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	tc := lidar.DefaultTrackerConfig()
-	ws.tracker = lidar.NewTracker(tc)
+	tc := l5tracks.DefaultTrackerConfig()
+	ws.tracker = l5tracks.NewTracker(tc)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sid})
-	lidar.RegisterFrameBuilder(sid, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
+	l2frames.RegisterFrameBuilder(sid, fb)
 
 	err := ws.resetAllState()
 	if err != nil {
@@ -4968,8 +4971,8 @@ func TestCov5_HandleTuningParams_FormSubmission(t *testing.T) {
 	sid := fmt.Sprintf("cov5-tuning-form-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	configJSON := `{"noise_relative": 0.05, "enable_diagnostics": true}`
 	body := fmt.Sprintf("config_json=%s", configJSON)
@@ -4990,11 +4993,11 @@ func TestCov5_HandleTuningParams_AllParams(t *testing.T) {
 	sid := fmt.Sprintf("cov5-tuning-all-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
-	tc := lidar.DefaultTrackerConfig()
-	ws.tracker = lidar.NewTracker(tc)
+	tc := l5tracks.DefaultTrackerConfig()
+	ws.tracker = l5tracks.NewTracker(tc)
 
 	body := `{
 		"noise_relative": 0.05,
@@ -5032,8 +5035,8 @@ func TestCov5_HandleTuningParams_GetPretty(t *testing.T) {
 	sid := fmt.Sprintf("cov5-tuning-pretty-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tuning-params?sensor_id="+sid+"&format=pretty", nil)
 	rec := httptest.NewRecorder()
@@ -5054,8 +5057,8 @@ func TestCov5_HandleBackgroundGridPolar_WithBgManager(t *testing.T) {
 	sid := fmt.Sprintf("cov5-bgpolar-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid/polar?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -5072,8 +5075,8 @@ func TestCov5_HandleBackgroundGridPolar_WithRangeParams(t *testing.T) {
 	sid := fmt.Sprintf("cov5-bgpolar-range-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/lidar/grid/polar?sensor_id="+sid+"&ring_min=5&ring_max=50&az_min=10&az_max=350", nil)
@@ -5090,8 +5093,8 @@ func TestCov5_HandleBackgroundGrid_WithBgManager(t *testing.T) {
 	sid := fmt.Sprintf("cov5-bggrid-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/grid?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -5107,8 +5110,8 @@ func TestCov5_HandleBackgroundRegionsDashboard_WithBgManager(t *testing.T) {
 	sid := fmt.Sprintf("cov5-regionsdash-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions/dashboard?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -5189,14 +5192,14 @@ func TestCov5_HandleStatus_FullState(t *testing.T) {
 	sid := fmt.Sprintf("cov5-status-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
-	tc := lidar.DefaultTrackerConfig()
-	ws.tracker = lidar.NewTracker(tc)
+	tc := l5tracks.DefaultTrackerConfig()
+	ws.tracker = l5tracks.NewTracker(tc)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sid})
-	lidar.RegisterFrameBuilder(sid, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
+	l2frames.RegisterFrameBuilder(sid, fb)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/monitor?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -5224,8 +5227,8 @@ func TestCov5_HandleExportForegroundASC(t *testing.T) {
 	sid := fmt.Sprintf("cov5-expfg-%d", time.Now().UnixNano())
 	ws, _ := setupCov5WebServer(t, sid)
 
-	bm := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
-	lidar.RegisterBackgroundManager(sid, bm)
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/export/foreground?sensor_id="+sid, nil)
 	rec := httptest.NewRecorder()
@@ -5286,7 +5289,7 @@ func setupCov6WebServer(t *testing.T, sensorID string) (*WebServer, *sql.DB) {
 // encodeCov6GridBlob creates a valid gob+gzip encoded grid blob for the given dimensions.
 func encodeCov6GridBlob(t *testing.T, rings, azBins int) []byte {
 	t.Helper()
-	cells := make([]lidar.BackgroundCell, rings*azBins)
+	cells := make([]l3grid.BackgroundCell, rings*azBins)
 	// Populate a few cells so the grid is not entirely empty.
 	for i := 0; i < len(cells) && i < 10; i++ {
 		cells[i].AverageRangeMeters = float32(i+1) * 0.5
@@ -5317,7 +5320,7 @@ func TestCov6_HandleAcceptanceReset_Success(t *testing.T) {
 	sid := fmt.Sprintf("cov6-accept-reset-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/acceptance/reset?sensor_id="+sid, nil)
@@ -5337,9 +5340,9 @@ func TestCov6_HandleLidarPersist_Success(t *testing.T) {
 	sid := fmt.Sprintf("cov6-persist-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
-	mgr.PersistCallback = func(snap *lidar.BgSnapshot) error { return nil }
+	mgr.PersistCallback = func(snap *l3grid.BgSnapshot) error { return nil }
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()
@@ -5378,11 +5381,11 @@ func TestCov6_HandleExportForegroundASC_Success(t *testing.T) {
 	ws, _ := setupCov6WebServer(t, sid)
 
 	// Store a foreground snapshot with projected points.
-	lidar.StoreForegroundSnapshot(sid, time.Now(),
-		[]lidar.PointPolar{{Channel: 0, Azimuth: 10.0, Distance: 5.0}},
+	l3grid.StoreForegroundSnapshot(sid, time.Now(),
+		[]l2frames.PointPolar{{Channel: 0, Azimuth: 10.0, Distance: 5.0}},
 		nil, 1, 1)
 	// Force lazy projection by reading it back once.
-	snap := lidar.GetForegroundSnapshot(sid)
+	snap := l3grid.GetForegroundSnapshot(sid)
 	require.NotNil(t, snap)
 	require.NotEmpty(t, snap.ForegroundPoints)
 
@@ -5405,8 +5408,8 @@ func TestCov6_HandleExportFrameSequenceASC_Success(t *testing.T) {
 
 	insertCov6Snapshot(t, sqlDB, sid, 10, 36)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sid})
-	lidar.RegisterFrameBuilder(sid, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
+	l2frames.RegisterFrameBuilder(sid, fb)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/export_frame_sequence?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()
@@ -5439,7 +5442,7 @@ func TestCov6_HandleBackgroundGridHeatmapChart_WithParams(t *testing.T) {
 	sid := fmt.Sprintf("cov6-heatmap-params-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	req := httptest.NewRequest(http.MethodGet,
@@ -5463,11 +5466,11 @@ func TestCov6_HandlePCAPStop_AnalysisModePreservesGrid(t *testing.T) {
 	ws.setBaseContext(ctx)
 
 	// Register a BG manager so resetFrameBuilder can find it.
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sid})
-	lidar.RegisterFrameBuilder(sid, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
+	l2frames.RegisterFrameBuilder(sid, fb)
 
 	ws.dataSourceMu.Lock()
 	ws.currentSource = DataSourcePCAPAnalysis
@@ -5547,7 +5550,7 @@ func TestCov6_HandleAcceptanceMetrics_Debug(t *testing.T) {
 	sid := fmt.Sprintf("cov6-accept-debug-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/acceptance?sensor_id="+sid+"&debug=true", nil)
@@ -5570,11 +5573,11 @@ func TestCov6_HandleTuningParams_GetWithTracker(t *testing.T) {
 	sid := fmt.Sprintf("cov6-tuning-tracker-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
-	tc := lidar.DefaultTrackerConfig()
-	ws.tracker = lidar.NewTracker(tc)
+	tc := l5tracks.DefaultTrackerConfig()
+	ws.tracker = l5tracks.NewTracker(tc)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tuning-params?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()
@@ -5595,11 +5598,11 @@ func TestCov6_HandleTuningParams_PostWithTracker(t *testing.T) {
 	sid := fmt.Sprintf("cov6-tuning-post-tracker-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
-	tc := lidar.DefaultTrackerConfig()
-	ws.tracker = lidar.NewTracker(tc)
+	tc := l5tracks.DefaultTrackerConfig()
+	ws.tracker = l5tracks.NewTracker(tc)
 
 	body := `{"noise_relative": 0.03}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id="+sid,
@@ -5624,7 +5627,7 @@ func TestCov6_HandleBackgroundRegions_NilRegionInfo(t *testing.T) {
 	ws, _ := setupCov6WebServer(t, sid)
 
 	// Register a manager, then nil out the RegionMgr to force GetRegionDebugInfo → nil.
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 	mgr.Grid.RegionMgr = nil // Force nil
 
@@ -5702,9 +5705,9 @@ func TestCov6_HandleLidarPersist_CallbackError(t *testing.T) {
 	sid := fmt.Sprintf("cov6-persist-err-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
-	mgr.PersistCallback = func(snap *lidar.BgSnapshot) error {
+	mgr.PersistCallback = func(snap *l3grid.BgSnapshot) error {
 		return fmt.Errorf("simulated persist failure")
 	}
 
@@ -5722,7 +5725,7 @@ func TestCov6_HandleAcceptanceMetrics_WithData(t *testing.T) {
 	sid := fmt.Sprintf("cov6-accept-data-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	// Populate acceptance counters so the rate-computation branch is exercised.
@@ -5749,7 +5752,7 @@ func TestCov6_HandleLidarPersist_NoPersistCallback(t *testing.T) {
 	sid := fmt.Sprintf("cov6-persist-nocb-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 	// PersistCallback is nil by default when no store is provided.
 
@@ -5797,8 +5800,8 @@ func TestCov6_HandleExportFrameSequenceASC_NoDB(t *testing.T) {
 	sid := fmt.Sprintf("cov6-exseq-nodb-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	fb := lidar.NewFrameBuilder(lidar.FrameBuilderConfig{SensorID: sid})
-	lidar.RegisterFrameBuilder(sid, fb)
+	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
+	l2frames.RegisterFrameBuilder(sid, fb)
 
 	ws.db = nil
 
@@ -5816,7 +5819,7 @@ func TestCov6_HandleAcceptanceMetrics_DebugWithData(t *testing.T) {
 	sid := fmt.Sprintf("cov6-accept-dbgdata-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	mgr.Grid.AcceptByRangeBuckets[0] = 20
@@ -5841,7 +5844,7 @@ func TestCov6_HandleBackgroundGridPolar_PopulatedGrid(t *testing.T) {
 	sid := fmt.Sprintf("cov6-bgpolar-pop-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	// Populate several cells to make GetGridCells return non-empty data.
@@ -5870,7 +5873,7 @@ func TestCov6_HandleBackgroundGridHeatmapChart_PopulatedGrid(t *testing.T) {
 	sid := fmt.Sprintf("cov6-heatmap-pop-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 10, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	// Populate cells with data to produce non-empty heatmap buckets.
@@ -5898,15 +5901,15 @@ func TestCov6_HandleForegroundFrameChart_WithData(t *testing.T) {
 	ws, _ := setupCov6WebServer(t, sid)
 
 	// Store foreground + background points so the chart has data to render.
-	fg := make([]lidar.PointPolar, 5)
-	bg := make([]lidar.PointPolar, 10)
+	fg := make([]l2frames.PointPolar, 5)
+	bg := make([]l2frames.PointPolar, 10)
 	for i := range fg {
-		fg[i] = lidar.PointPolar{Channel: 0, Azimuth: float64(i) * 30.0, Distance: float64(i+1) * 2.0}
+		fg[i] = l2frames.PointPolar{Channel: 0, Azimuth: float64(i) * 30.0, Distance: float64(i+1) * 2.0}
 	}
 	for i := range bg {
-		bg[i] = lidar.PointPolar{Channel: 0, Azimuth: float64(i) * 36.0, Distance: float64(i+1) * 3.0}
+		bg[i] = l2frames.PointPolar{Channel: 0, Azimuth: float64(i) * 36.0, Distance: float64(i+1) * 3.0}
 	}
-	lidar.StoreForegroundSnapshot(sid, time.Now(), fg, bg, 15, 5)
+	l3grid.StoreForegroundSnapshot(sid, time.Now(), fg, bg, 15, 5)
 
 	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()
@@ -5924,7 +5927,7 @@ func TestCov6_HandleBackgroundGridPolar_YGreaterThanMaxAbs(t *testing.T) {
 	sid := fmt.Sprintf("cov6-polar-ymax-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 4, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 4, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	// Azimuth bin 9 → 90° (cos≈0, sin=1). Range>0, TimesSeen=0.
@@ -5949,7 +5952,7 @@ func TestCov6_HandleBackgroundGridPolar_PadZero(t *testing.T) {
 	sid := fmt.Sprintf("cov6-polar-pad0-%d", time.Now().UnixNano())
 	ws, _ := setupCov6WebServer(t, sid)
 
-	mgr := lidar.NewBackgroundManager(sid, 4, 36, lidar.BackgroundParams{}, nil)
+	mgr := l3grid.NewBackgroundManager(sid, 4, 36, l3grid.BackgroundParams{}, nil)
 	require.NotNil(t, mgr)
 
 	// Cell with Range=0 but TimesSeen>0 — included by GetGridCells, x=y=0.
@@ -5971,9 +5974,9 @@ func TestCov6_HandleForegroundFrameChart_PadZero(t *testing.T) {
 	ws, _ := setupCov6WebServer(t, sid)
 
 	// Store a snapshot with zero-distance points.
-	fg := []lidar.PointPolar{{Channel: 0, Azimuth: 0, Distance: 0}}
-	bg := []lidar.PointPolar{{Channel: 0, Azimuth: 0, Distance: 0}}
-	lidar.StoreForegroundSnapshot(sid, time.Now(), fg, bg, 2, 1)
+	fg := []l2frames.PointPolar{{Channel: 0, Azimuth: 0, Distance: 0}}
+	bg := []l2frames.PointPolar{{Channel: 0, Azimuth: 0, Distance: 0}}
+	l3grid.StoreForegroundSnapshot(sid, time.Now(), fg, bg, 2, 1)
 
 	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()

@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
-	"github.com/banshee-data/velocity.report/internal/lidar/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 
 	_ "modernc.org/sqlite"
 )
@@ -82,10 +84,10 @@ func setupTestDBWrapped(t *testing.T) (*db.DB, func()) {
 func setupTestBackgroundManager(t *testing.T, sensorID string) func() {
 	t.Helper()
 	// NewBackgroundManager automatically registers the manager
-	_ = lidar.NewBackgroundManager(sensorID, 128, 360, lidar.BackgroundParams{}, nil)
+	_ = l3grid.NewBackgroundManager(sensorID, 128, 360, l3grid.BackgroundParams{}, nil)
 	return func() {
 		// Deregister by setting to nil
-		lidar.RegisterBackgroundManager(sensorID, nil)
+		l3grid.RegisterBackgroundManager(sensorID, nil)
 	}
 }
 
@@ -4227,7 +4229,7 @@ func TestWebServer_SetTracker(t *testing.T) {
 	}
 
 	// Create and set a tracker
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	server.SetTracker(tracker)
 
 	if server.tracker != tracker {
@@ -4282,7 +4284,7 @@ func TestWebServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	server := NewWebServer(config)
 
 	// Set a tracker
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	server.SetTracker(tracker)
 
 	body := strings.NewReader(`{"gating_distance_squared": 25.0, "process_noise_pos": 0.5}`)
@@ -4309,7 +4311,7 @@ func TestWebServer_HandleTuningParams_POST_InvalidDeletedTrackGracePeriod(t *tes
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	})
 
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	server.SetTracker(tracker)
 
 	req := httptest.NewRequest(
@@ -4339,8 +4341,8 @@ func TestWebServer_HandleTuningParams_POST_UpdatesClassifierMinObservations(t *t
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	})
 
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
-	classifier := lidar.NewTrackClassifierWithMinObservations(5)
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
+	classifier := l6objects.NewTrackClassifierWithMinObservations(5)
 	server.SetTracker(tracker)
 	server.SetClassifier(classifier)
 
@@ -4519,7 +4521,7 @@ func TestWebServer_SetTracker_WithDB(t *testing.T) {
 	}
 
 	// Set tracker - should propagate to trackAPI
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	server.SetTracker(tracker)
 
 	if server.trackAPI.tracker != tracker {

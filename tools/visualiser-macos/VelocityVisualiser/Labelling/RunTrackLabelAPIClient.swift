@@ -1,5 +1,5 @@
 // RunTrackLabelAPIClient.swift
-// REST API client for run-track labels (Phase 4.2).
+// REST API client for run-track labels.
 //
 // This client interacts with the run-track label endpoints for analysis runs.
 // Unlike LabelAPIClient (which uses /api/lidar/labels for free-form events),

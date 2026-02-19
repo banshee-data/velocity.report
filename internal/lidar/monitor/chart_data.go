@@ -5,7 +5,7 @@ package monitor
 import (
 	"math"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // ScatterPoint represents a single point in an XY scatter chart.
@@ -69,7 +69,7 @@ type TrafficMetrics struct {
 
 // PreparePolarChartData transforms background grid cells into scatter chart data.
 // It handles coordinate conversion from polar to Cartesian and downsampling.
-func PreparePolarChartData(cells []lidar.ExportedCell, sensorID string, maxPoints int) *PolarChartData {
+func PreparePolarChartData(cells []l3grid.ExportedCell, sensorID string, maxPoints int) *PolarChartData {
 	if len(cells) == 0 {
 		return &PolarChartData{
 			Points:   []ScatterPoint{},
@@ -180,7 +180,7 @@ func PrepareHeatmapChartData(values [][]float64, xLabels, yLabels []string, sens
 }
 
 // PrepareClustersChartData transforms cluster data into chart-ready format.
-func PrepareClustersChartData(clusters [][]lidar.ExportedCell, sensorID string) *ClustersChartData {
+func PrepareClustersChartData(clusters [][]l3grid.ExportedCell, sensorID string) *ClustersChartData {
 	points := make([]ClusterPoint, 0)
 	maxAbs := 0.0
 

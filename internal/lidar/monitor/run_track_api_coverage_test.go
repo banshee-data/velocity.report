@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // covSetupWS creates a WebServer wrapping the shared setupTestDB helper.
@@ -22,8 +23,8 @@ func covSetupWS(t *testing.T) (*WebServer, func()) {
 // covInsertRun inserts an analysis run and returns its ID.
 func covInsertRun(t *testing.T, ws *WebServer, suffix string) string {
 	t.Helper()
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
-	run := &lidar.AnalysisRun{
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
 		RunID:      "cov-run-" + suffix,
 		SourceType: "pcap",
 		SourcePath: "/test/file.pcap",
@@ -39,8 +40,8 @@ func covInsertRun(t *testing.T, ws *WebServer, suffix string) string {
 // covInsertTrack inserts a run track.
 func covInsertTrack(t *testing.T, ws *WebServer, runID, trackID string) {
 	t.Helper()
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
-	track := &lidar.RunTrack{
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	track := &sqlite.RunTrack{
 		RunID:            runID,
 		TrackID:          trackID,
 		SensorID:         "test-sensor",
@@ -180,8 +181,9 @@ func TestCov_HandleRunTrackAPI_Reprocess(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleRunTrackAPI(w, req)
 
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	// Reprocess now attempts PCAP replay; without a data source manager it returns 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
@@ -780,8 +782,8 @@ func TestCov_HandleEvaluateRun_AutoDetectFromScene(t *testing.T) {
 	candRunID := covInsertRun(t, ws, "eval-scene-cand")
 
 	// Insert a scene linking the sensor to the reference run
-	sceneStore := lidar.NewSceneStore(ws.db.DB)
-	scene := &lidar.Scene{
+	sceneStore := sqlite.NewSceneStore(ws.db.DB)
+	scene := &sqlite.Scene{
 		SensorID:       "test-sensor",
 		PCAPFile:       "/test/file.pcap",
 		ReferenceRunID: refRunID,
@@ -862,8 +864,8 @@ func TestCov_HandleDeleteMissedRegion_Success(t *testing.T) {
 	runID := covInsertRun(t, ws, "del-mr")
 
 	// Insert a missed region to delete
-	store := lidar.NewMissedRegionStore(ws.db.DB)
-	region := &lidar.MissedRegion{
+	store := sqlite.NewMissedRegionStore(ws.db.DB)
+	region := &sqlite.MissedRegion{
 		RunID:       runID,
 		CenterX:     1.0,
 		CenterY:     2.0,
@@ -902,12 +904,16 @@ func TestCov_HandleReprocessRun_Success(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/run-1/reprocess", nil)
-	w := httptest.NewRecorder()
-	ws.handleReprocessRun(w, req, "run-1")
+	// Insert a run so it can be found
+	runID := covInsertRun(t, ws, "reproc-direct")
 
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	// Reprocess now attempts PCAP replay; without a data source manager it returns 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
@@ -1192,8 +1198,8 @@ func TestCov_HandleEvaluateRun_SceneNoMatchingSourcePath(t *testing.T) {
 	// Candidate has SourcePath="/test/file.pcap"; scene has PCAPFile="/different/path.pcap".
 	// First pass (exact source path match) will NOT find it; second pass (fallback by
 	// sensor + ReferenceRunID) will.
-	sceneStore := lidar.NewSceneStore(ws.db.DB)
-	scene := &lidar.Scene{
+	sceneStore := sqlite.NewSceneStore(ws.db.DB)
+	scene := &sqlite.Scene{
 		SensorID:       "test-sensor",
 		PCAPFile:       "/different/path.pcap",
 		ReferenceRunID: refRunID,
@@ -1295,5 +1301,164 @@ func TestCov_HandleRunTrackAPI_UnknownDeepSubPath(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+// --- handleReprocessRun additional coverage ---
+
+func TestCov_HandleReprocessRun_NoPcapSource(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	// Insert a run with source_type != "pcap"
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
+		RunID:      "live-run-1",
+		SourceType: "live",
+		SensorID:   "test-sensor",
+		Status:     "completed",
+	}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/live-run-1/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, "live-run-1")
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(w.Body.String(), "no PCAP source") {
+		t.Errorf("expected 'no PCAP source' in body, got: %s", w.Body.String())
+	}
+}
+
+func TestCov_HandleReprocessRun_WithParamsOverride(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "reproc-params")
+
+	body := `{"params_json": {"eps": 0.8}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess",
+		strings.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	// Reprocess creates a new run, then tries PCAP replay which fails without data source manager
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d (PCAP replay unavailable)", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleReprocessRun_InvalidJSON(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "reproc-bad-json")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess",
+		strings.NewReader("{invalid"))
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCov_HandleReprocessRun_ShortRunID(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	// Insert a run with very short ID
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
+		RunID:      "ab",
+		SourceType: "pcap",
+		SourcePath: "/test/short.pcap",
+		SensorID:   "test-sensor",
+		Status:     "completed",
+	}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/ab/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, "ab")
+
+	// Should not panic on short runID — the safe length check should handle it
+	// Will fail at PCAP replay (500), which is expected
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d (PCAP replay unavailable, but no panic)", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- handleEvaluateRun additional coverage (auto-persist path) ---
+
+func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+
+	// Insert reference and candidate runs
+	refRun := &sqlite.AnalysisRun{RunID: "auto-ref-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
+	if err := store.InsertRun(refRun); err != nil {
+		t.Fatalf("InsertRun ref: %v", err)
+	}
+	candRun := &sqlite.AnalysisRun{RunID: "auto-cand-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
+	if err := store.InsertRun(candRun); err != nil {
+		t.Fatalf("InsertRun cand: %v", err)
+	}
+
+	// Insert tracks for both
+	for _, rt := range []struct{ runID, trackID string }{
+		{"auto-ref-1", "auto-ref-t1"},
+		{"auto-cand-1", "auto-cand-t1"},
+	} {
+		track := &sqlite.RunTrack{
+			RunID:            rt.runID,
+			TrackID:          rt.trackID,
+			SensorID:         "sensor-auto",
+			TrackState:       "confirmed",
+			StartUnixNanos:   1000000000,
+			ObservationCount: 10,
+			AvgSpeedMps:      5.0,
+		}
+		if err := store.InsertRunTrack(track); err != nil {
+			t.Fatalf("InsertRunTrack %s: %v", rt.trackID, err)
+		}
+	}
+
+	// Create a scene matching the source path
+	sceneStore := sqlite.NewSceneStore(ws.db.DB)
+	scene := &sqlite.Scene{
+		SensorID:       "sensor-auto",
+		PCAPFile:       "/test/auto.pcap",
+		ReferenceRunID: "auto-ref-1",
+	}
+	if err := sceneStore.InsertScene(scene); err != nil {
+		t.Fatalf("InsertScene: %v", err)
+	}
+
+	// Evaluate without providing reference_run_id — should auto-detect
+	body := `{}`
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/auto-cand-1/evaluate",
+		strings.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleEvaluateRun(w, req, "auto-cand-1")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "auto-ref-1") {
+		t.Errorf("expected auto-detected reference_run_id in response, got: %s", w.Body.String())
+	}
+	// When scene is auto-matched, evaluation should be persisted
+	if !strings.Contains(w.Body.String(), "evaluation_id") {
+		t.Errorf("expected evaluation_id in response (auto-persisted), got: %s", w.Body.String())
 	}
 }

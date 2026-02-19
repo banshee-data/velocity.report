@@ -85,7 +85,7 @@ type AutoTuneRequest struct {
 	// Acceptance criteria: hard thresholds that reject combos before scoring
 	AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria,omitempty"`
 
-	// Phase 5: Ground truth evaluation support
+	// Ground truth evaluation support
 	SceneID            string              `json:"scene_id,omitempty"`             // When set, enables ground truth evaluation
 	GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights,omitempty"` // Weights for ground truth scoring
 }
@@ -134,7 +134,7 @@ type AutoTuner struct {
 	persister SweepPersister
 	sweepID   string // current auto-tune's unique ID
 
-	// Phase 5: Ground truth scoring support
+	// Ground truth scoring support
 	// When set, this function is called to score each combination's results using ground truth evaluation.
 	// The function receives the scene_id, candidate run_id, and ground truth weights,
 	// and returns the composite ground truth score.
@@ -144,7 +144,7 @@ type AutoTuner struct {
 	// When set, called instead of groundTruthScorer to populate score decomposition.
 	groundTruthScorerDetailed func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error)
 
-	// Phase 5: Scene store for saving optimal params when ground truth mode completes
+	// Scene store for saving optimal params when ground truth mode completes
 	sceneStore SceneStoreSaver
 
 	logger *log.Logger
@@ -251,7 +251,7 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 	// Validate and apply defaults
 	req = applyAutoTuneDefaults(req)
 
-	// Phase 5: Validate ground truth configuration
+	// Validate ground truth configuration
 	if req.Objective == "ground_truth" {
 		if req.SceneID == "" {
 			return fmt.Errorf("ground_truth objective requires scene_id to be set")
@@ -749,7 +749,7 @@ func (at *AutoTuner) runFromRound(
 		// Score and rank results
 		var scored []ScoredResult
 		if req.Objective == "ground_truth" {
-			// Phase 5: Ground truth evaluation mode
+			// Ground truth evaluation mode
 			// Each combo should have created an analysis run with ID stored in result.RunID
 			scored = make([]ScoredResult, len(roundResults))
 			for i, result := range roundResults {
@@ -891,7 +891,7 @@ func (at *AutoTuner) runFromRound(
 
 	at.logger.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
 
-	// Phase 5: Save optimal params to scene when ground truth mode is enabled
+	// Save optimal params to scene when ground truth mode is enabled
 	if req.SceneID != "" && req.Objective == "ground_truth" && overallBest != nil && at.sceneStore != nil {
 		// Extract just the parameter values (without score/metrics) for storage
 		optimalParams := make(map[string]interface{})

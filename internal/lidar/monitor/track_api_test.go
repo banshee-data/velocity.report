@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	_ "modernc.org/sqlite"
 )
 
@@ -122,10 +124,10 @@ func insertTestObservation(t *testing.T, db *sql.DB, trackID string, tsNanos int
 
 func TestTrackAPI_HandleActiveTracks_WithTracker(t *testing.T) {
 	// Create a tracker with some test tracks
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Add a test cluster to create a track
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "test-sensor",
 		CentroidX:         10.0,
 		CentroidY:         5.0,
@@ -143,7 +145,7 @@ func TestTrackAPI_HandleActiveTracks_WithTracker(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cluster.CentroidX = 10.0 + float32(i)*0.5
 		ts = ts.Add(100 * time.Millisecond)
-		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+		tracker.Update([]l4perception.WorldCluster{cluster}, ts)
 	}
 
 	// Create API with tracker
@@ -214,7 +216,7 @@ func TestTrackAPI_HandleTrackByID_MissingID(t *testing.T) {
 }
 
 func TestTrackAPI_HandleTrackByID_NotFound(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	api := NewTrackAPI(nil, "test-sensor")
 	api.SetTracker(tracker)
 
@@ -229,10 +231,10 @@ func TestTrackAPI_HandleTrackByID_NotFound(t *testing.T) {
 }
 
 func TestTrackAPI_HandleTrackSummary(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Add multiple clusters to create tracks
-	clusters := []lidar.WorldCluster{
+	clusters := []l4perception.WorldCluster{
 		{SensorID: "test-sensor", CentroidX: 10.0, CentroidY: 5.0, BoundingBoxLength: 4.0, BoundingBoxHeight: 1.5},
 		{SensorID: "test-sensor", CentroidX: 20.0, CentroidY: 15.0, BoundingBoxLength: 1.0, BoundingBoxHeight: 1.8},
 	}
@@ -494,10 +496,10 @@ func TestTrackAPI_HandleTrackObservations_NoDB(t *testing.T) {
 }
 
 func TestTrackAPI_HandleGetTrack_WithTracker(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Create a track by updating with clusters
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "test-sensor",
 		CentroidX:         10.0,
 		CentroidY:         5.0,
@@ -512,7 +514,7 @@ func TestTrackAPI_HandleGetTrack_WithTracker(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cluster.CentroidX = 10.0 + float32(i)*0.5
 		ts = ts.Add(100 * time.Millisecond)
-		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+		tracker.Update([]l4perception.WorldCluster{cluster}, ts)
 	}
 
 	// Get a track ID
@@ -545,10 +547,10 @@ func TestTrackAPI_HandleGetTrack_WithTracker(t *testing.T) {
 }
 
 func TestTrackAPI_HandleActiveTracks_FilterByState(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Create multiple tracks
-	clusters := []lidar.WorldCluster{
+	clusters := []l4perception.WorldCluster{
 		{SensorID: "test-sensor", CentroidX: 10.0, CentroidY: 5.0, BoundingBoxLength: 4.0},
 		{SensorID: "test-sensor", CentroidX: 20.0, CentroidY: 15.0, BoundingBoxLength: 1.5},
 	}
@@ -589,10 +591,10 @@ func TestTrackAPI_HandleActiveTracks_FilterByState(t *testing.T) {
 }
 
 func TestTrackAPI_HandleActiveTracks_FilterByTentative(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Create a new track (will be tentative initially)
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "test-sensor",
 		CentroidX:         10.0,
 		CentroidY:         5.0,
@@ -600,7 +602,7 @@ func TestTrackAPI_HandleActiveTracks_FilterByTentative(t *testing.T) {
 	}
 
 	// Only update once - track should remain tentative
-	tracker.Update([]lidar.WorldCluster{cluster}, time.Now())
+	tracker.Update([]l4perception.WorldCluster{cluster}, time.Now())
 
 	api := NewTrackAPI(nil, "test-sensor")
 	api.SetTracker(tracker)
@@ -786,10 +788,10 @@ func TestTrackAPI_TrackToResponse(t *testing.T) {
 	api := NewTrackAPI(nil, "test-sensor")
 
 	now := time.Now()
-	track := &lidar.TrackedObject{
+	track := &l5tracks.TrackedObject{
 		TrackID:              "test-track-001",
 		SensorID:             "test-sensor",
-		State:                lidar.TrackConfirmed,
+		State:                l5tracks.TrackConfirmed,
 		X:                    10.0,
 		Y:                    5.0,
 		VX:                   1.0,
@@ -805,7 +807,7 @@ func TestTrackAPI_TrackToResponse(t *testing.T) {
 		BoundingBoxLengthAvg: 4.5,
 		BoundingBoxWidthAvg:  2.0,
 		BoundingBoxHeightAvg: 1.5,
-		History: []lidar.TrackPoint{
+		History: []l5tracks.TrackPoint{
 			{X: 9.0, Y: 4.5, Timestamp: now.Add(-500 * time.Millisecond).UnixNano()},
 			{X: 10.0, Y: 5.0, Timestamp: now.UnixNano()},
 		},
@@ -1207,10 +1209,10 @@ func TestTrackAPI_HandleTrackingMetrics_NoTracker(t *testing.T) {
 }
 
 func TestTrackAPI_HandleTrackingMetrics_WithTracker(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Add some clusters to create tracks
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "test-sensor",
 		CentroidX:         10.0,
 		CentroidY:         5.0,
@@ -1225,7 +1227,7 @@ func TestTrackAPI_HandleTrackingMetrics_WithTracker(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cluster.CentroidX = 10.0 + float32(i)*0.5
 		ts = ts.Add(100 * time.Millisecond)
-		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+		tracker.Update([]l4perception.WorldCluster{cluster}, ts)
 	}
 
 	api := NewTrackAPI(nil, "test-sensor")
@@ -1253,10 +1255,10 @@ func TestTrackAPI_HandleTrackingMetrics_WithTracker(t *testing.T) {
 }
 
 func TestTrackAPI_HandleTrackingMetrics_WithPerTrack(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Add some clusters
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "test-sensor",
 		CentroidX:         10.0,
 		CentroidY:         5.0,
@@ -1271,7 +1273,7 @@ func TestTrackAPI_HandleTrackingMetrics_WithPerTrack(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cluster.CentroidX = 10.0 + float32(i)*0.5
 		ts = ts.Add(100 * time.Millisecond)
-		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+		tracker.Update([]l4perception.WorldCluster{cluster}, ts)
 	}
 
 	api := NewTrackAPI(nil, "test-sensor")
@@ -1340,8 +1342,8 @@ func TestTrackAPI_HandleClearRuns_Success(t *testing.T) {
 	api := NewTrackAPI(db, sensorID)
 
 	// Create some test runs
-	store := lidar.NewAnalysisRunStore(db)
-	run1 := &lidar.AnalysisRun{
+	store := sqlite.NewAnalysisRunStore(db)
+	run1 := &sqlite.AnalysisRun{
 		RunID:        "run-001",
 		SensorID:     sensorID,
 		SourceType:   "pcap",

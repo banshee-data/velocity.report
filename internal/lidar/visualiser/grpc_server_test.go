@@ -179,10 +179,10 @@ func TestServer_GetCapabilities(t *testing.T) {
 		t.Error("expected SupportsDebug=true")
 	}
 	if !caps.SupportsReplay {
-		t.Error("expected SupportsReplay=true (Phase 2 implementation)")
+		t.Error("expected SupportsReplay=true")
 	}
 	if !caps.SupportsRecording {
-		t.Error("expected SupportsRecording=true (Phase 1 implementation)")
+		t.Error("expected SupportsRecording=true")
 	}
 	if len(caps.AvailableSensors) != 1 || caps.AvailableSensors[0] != "hesai-test" {
 		t.Errorf("expected AvailableSensors=[hesai-test], got %v", caps.AvailableSensors)

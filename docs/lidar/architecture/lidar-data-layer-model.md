@@ -28,14 +28,24 @@ A single concise layer model for LiDAR data in velocity.report. OSI is only a re
 
 ## Current repository alignment
 
-| Layer         | Primary anchors in repo                                                                                   |
-| ------------- | --------------------------------------------------------------------------------------------------------- |
-| L1 Packets    | `internal/lidar/network/listener.go`, `internal/lidar/network/pcap.go`, `internal/lidar/parse/extract.go` |
-| L2 Frames     | `internal/lidar/frame_builder.go`, `internal/lidar/visualiser/lidarview_adapter.go`                       |
-| L3 Grid       | `internal/lidar/background.go`                                                                            |
-| L4 Perception | `internal/lidar/clustering.go`, `internal/lidar/track_store.go` (`TrackObservation`)                      |
-| L5 Tracks     | `internal/lidar/tracking.go`, `internal/lidar/visualiser/model.go` (`TrackSet`)                           |
-| L6 Objects    | `internal/lidar/classification.go`, `docs/lidar/future/av-lidar-integration-plan.md`                      |
+| Layer         | Canonical package              | Key files                                                              |
+| ------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)             |
+| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `export.go`, `geometry.go`                         |
+| L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `foreground.go`, `config.go`, `background_flusher.go` |
+| L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go` |
+| L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                  |
+| L6 Objects    | `internal/lidar/l6objects/`    | `classification.go`, `features.go`, `quality.go`                       |
+
+Cross-cutting packages:
+
+| Package                          | Purpose                                                                |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| `internal/lidar/pipeline/`       | Orchestration (stage interfaces)                                       |
+| `internal/lidar/storage/sqlite/` | DB repositories (scene, track, evaluation, sweep, analysis run stores) |
+| `internal/lidar/adapters/`       | Transport and IO boundaries                                            |
+
+Backward-compatible type aliases remain in the parent `internal/lidar/` package so existing callers continue to work.
 
 ## AV compatibility note
 

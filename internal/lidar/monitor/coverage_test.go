@@ -13,8 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
-	"github.com/banshee-data/velocity.report/internal/lidar/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 // ====== TrackAPI handleListObservations coverage tests (DB-backed) ======
@@ -189,10 +191,10 @@ func TestTrackAPI_HandleUpdateTrack_WithTrackerDB(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Create a track by updating tracker
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "sensor-A",
 		CentroidX:         10.0,
 		CentroidY:         5.0,
@@ -207,7 +209,7 @@ func TestTrackAPI_HandleUpdateTrack_WithTrackerDB(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cluster.CentroidX = 10.0 + float32(i)*0.5
 		ts = ts.Add(100 * time.Millisecond)
-		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+		tracker.Update([]l4perception.WorldCluster{cluster}, ts)
 	}
 
 	// Get track ID from tracker
@@ -308,9 +310,9 @@ func TestTrackAPI_HandleListClusters_LimitParamDB(t *testing.T) {
 // ====== TrackAPI handleActiveTracks coverage tests ======
 
 func TestTrackAPI_HandleActiveTracks_ConfirmedStateFilter(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "test-sensor",
 		CentroidX:         10.0,
 		CentroidY:         5.0,
@@ -322,7 +324,7 @@ func TestTrackAPI_HandleActiveTracks_ConfirmedStateFilter(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		cluster.CentroidX = 10.0 + float32(i)*0.5
 		ts = ts.Add(100 * time.Millisecond)
-		tracker.Update([]lidar.WorldCluster{cluster}, ts)
+		tracker.Update([]l4perception.WorldCluster{cluster}, ts)
 	}
 
 	api := NewTrackAPI(nil, "test-sensor")
@@ -339,10 +341,10 @@ func TestTrackAPI_HandleActiveTracks_ConfirmedStateFilter(t *testing.T) {
 }
 
 func TestTrackAPI_HandleActiveTracks_TentativeStateFilter(t *testing.T) {
-	tracker := lidar.NewTracker(lidar.DefaultTrackerConfig())
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 
 	// Create a tentative track (few observations)
-	cluster := lidar.WorldCluster{
+	cluster := l4perception.WorldCluster{
 		SensorID:          "test-sensor",
 		CentroidX:         30.0,
 		CentroidY:         20.0,
@@ -351,7 +353,7 @@ func TestTrackAPI_HandleActiveTracks_TentativeStateFilter(t *testing.T) {
 	}
 
 	ts := time.Now()
-	tracker.Update([]lidar.WorldCluster{cluster}, ts)
+	tracker.Update([]l4perception.WorldCluster{cluster}, ts)
 
 	api := NewTrackAPI(nil, "test-sensor")
 	api.SetTracker(tracker)
@@ -581,7 +583,7 @@ func TestClient_WaitForGridSettle_NoBackgroundCountField(t *testing.T) {
 
 func TestPrepareHeatmapFromBuckets_ZeroMeanRange(t *testing.T) {
 	// Test case where MeanRangeMeters is 0, should use fallback calculation
-	buckets := []lidar.CoarseBucket{
+	buckets := []l3grid.CoarseBucket{
 		{
 			AzimuthDegStart: 0,
 			AzimuthDegEnd:   6,
@@ -607,7 +609,7 @@ func TestPrepareHeatmapFromBuckets_ZeroMeanRange(t *testing.T) {
 }
 
 func TestPrepareHeatmapFromBuckets_AllZeroValues(t *testing.T) {
-	buckets := []lidar.CoarseBucket{
+	buckets := []l3grid.CoarseBucket{
 		{
 			FilledCells:   5,
 			MeanTimesSeen: 0,
@@ -624,7 +626,7 @@ func TestPrepareHeatmapFromBuckets_AllZeroValues(t *testing.T) {
 }
 
 func TestPrepareHeatmapFromBuckets_MaxAbsCalculation(t *testing.T) {
-	buckets := []lidar.CoarseBucket{
+	buckets := []l3grid.CoarseBucket{
 		{
 			AzimuthDegStart: 90, // Points primarily in Y direction
 			AzimuthDegEnd:   96,
@@ -781,7 +783,7 @@ func TestFormatWithCommas_LargeNumbers(t *testing.T) {
 // ====== Chart data coverage tests ======
 
 func TestPreparePolarChartData_NegativeMaxPoints(t *testing.T) {
-	cells := []lidar.ExportedCell{
+	cells := []l3grid.ExportedCell{
 		{AzimuthDeg: 0, Range: 10, TimesSeen: 1},
 	}
 
@@ -794,7 +796,7 @@ func TestPreparePolarChartData_NegativeMaxPoints(t *testing.T) {
 }
 
 func TestPrepareClustersChartData_SingleEmptyCluster(t *testing.T) {
-	clusters := [][]lidar.ExportedCell{
+	clusters := [][]l3grid.ExportedCell{
 		{}, // Empty cluster
 	}
 
@@ -813,7 +815,7 @@ func TestPrepareClustersChartData_SingleEmptyCluster(t *testing.T) {
 }
 
 func TestPrepareClustersChartData_ClusterIDsCorrect(t *testing.T) {
-	clusters := [][]lidar.ExportedCell{
+	clusters := [][]l3grid.ExportedCell{
 		{{AzimuthDeg: 0, Range: 5}},
 		{{AzimuthDeg: 90, Range: 10}},
 		{{AzimuthDeg: 180, Range: 15}},
@@ -840,10 +842,10 @@ func TestPrepareClustersChartData_ClusterIDsCorrect(t *testing.T) {
 func TestWebServer_HandleBackgroundGridPolar_EmptyCells(t *testing.T) {
 	// Test when background manager has no grid cells
 	sensorID := "polar-empty-" + time.Now().Format("150405")
-	params := lidar.BackgroundParams{}
-	mgr := lidar.NewBackgroundManager(sensorID, 40, 1800, params, nil)
-	lidar.RegisterBackgroundManager(sensorID, mgr)
-	defer lidar.RegisterBackgroundManager(sensorID, nil)
+	params := l3grid.BackgroundParams{}
+	mgr := l3grid.NewBackgroundManager(sensorID, 40, 1800, params, nil)
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
+	defer l3grid.RegisterBackgroundManager(sensorID, nil)
 
 	stats := NewPacketStats()
 	config := WebServerConfig{

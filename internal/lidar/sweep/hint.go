@@ -786,7 +786,7 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 
 // runRound executes a single HINT round.
 func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *HINTScene, round int, currentParams map[string]float64, bounds map[string][2]float64) (map[string]float64, float64, error) {
-	// Phase 1: Create reference run
+	// Step 1: Create reference run
 	rt.setStatus("running_reference")
 
 	rt.logger.Printf("[hint] Creating reference run with current params")
@@ -821,7 +821,7 @@ func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *
 	})
 	rt.mu.Unlock()
 
-	// Phase 2: Carry over labels if this is not the first round
+	// Step 2: Carry over labels if this is not the first round
 	carriedOver := 0
 	rt.mu.RLock()
 	prevRunID := ""
@@ -842,7 +842,7 @@ func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *
 		}
 	}
 
-	// Phase 3: Wait for labels
+	// Step 3: Wait for labels
 	rt.setStatus("awaiting_labels")
 
 	rt.logger.Printf("[hint] Awaiting labels (threshold: %.1f%%, no deadline — continue when ready)", req.MinLabelThreshold*100)
@@ -861,7 +861,7 @@ func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *
 	}
 	rt.mu.Unlock()
 
-	// Phase 4: Run auto-tune sweep
+	// Step 4: Run auto-tune sweep
 	rt.mu.Lock()
 	rt.state.Status = "running_sweep"
 	rt.mu.Unlock()

@@ -1,5 +1,5 @@
 // RunBrowserState.swift
-// State management for the run browser (Phase 4.1).
+// State management for the run browser.
 //
 // This manages the list of available runs and loading runs for replay.
 

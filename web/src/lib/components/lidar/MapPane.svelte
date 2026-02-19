@@ -24,7 +24,7 @@
 	export let foreground: TrackObservation[] = [];
 	export let foregroundEnabled = true;
 	export let foregroundOffset = { x: 0, y: 0 };
-	// Missed regions (Phase 7)
+	// Missed regions
 	export let missedRegions: MissedRegion[] = [];
 	export let markMissedMode = false;
 	export let onMapClick: ((worldX: number, worldY: number) => void) | null = null;
@@ -199,7 +199,7 @@
 			renderObservations();
 		}
 
-		// Draw missed regions (Phase 7)
+		// Draw missed regions
 		if (missedRegions.length > 0) {
 			renderMissedRegions();
 		}

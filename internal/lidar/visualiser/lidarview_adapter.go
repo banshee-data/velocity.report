@@ -4,13 +4,13 @@
 package visualiser
 
 import (
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
 // ForegroundForwarder is the interface for forwarding foreground points.
 // This matches the network.ForegroundForwarder interface but avoids import cycles.
 type ForegroundForwarder interface {
-	ForwardForeground(points []lidar.PointPolar)
+	ForwardForeground(points []l2frames.PointPolar)
 }
 
 // LidarViewAdapter consumes FrameBundle and forwards foreground points
@@ -29,7 +29,7 @@ func NewLidarViewAdapter(forwarder ForegroundForwarder) *LidarViewAdapter {
 // PublishFrameBundle extracts foreground points from a FrameBundle
 // and forwards them via the UDP forwarder.
 // This preserves the existing LidarView UDP forwarding behaviour.
-func (a *LidarViewAdapter) PublishFrameBundle(bundleInterface interface{}, foregroundPoints []lidar.PointPolar) {
+func (a *LidarViewAdapter) PublishFrameBundle(bundleInterface interface{}, foregroundPoints []l2frames.PointPolar) {
 	if a.forwarder == nil || len(foregroundPoints) == 0 {
 		return
 	}

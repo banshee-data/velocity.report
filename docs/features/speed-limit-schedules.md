@@ -1,6 +1,6 @@
 # Feature Specification: Time-Based Speed Limit Schedules
 
-**Status:** Implemented
+**Status:** Design Specification (Not Implemented)
 **Created:** 2025-12-01
 **Author:** Ictinus (Product Architect)
 **Issue:** Time-based speed limit schedules for sites
@@ -934,10 +934,10 @@ If issues arise after deployment:
 
 **Developer Documentation:**
 
-- [x] ARCHITECTURE.md - Reference schedule subsystem
-- [x] internal/db/README.md - Document speed_limit_schedule table
-- [x] internal/api/README.md - Document schedule endpoints
-- [x] web/README.md - Document SpeedLimitScheduleEditor component
+- [ ] ARCHITECTURE.md - Reference schedule subsystem
+- [ ] internal/db/README.md - Document speed_limit_schedule table
+- [ ] internal/api/README.md - Document schedule endpoints
+- [ ] web/README.md - Document SpeedLimitScheduleEditor component
 
 **API Documentation:**
 
@@ -1174,5 +1174,5 @@ CREATE TABLE IF NOT EXISTS site (
 
 **Document Version:** 1.0
 **Last Updated:** 2025-12-01
-**Implementation Status:** ✅ Fully Implemented (Database, API, UI)
-**Future Work Status:** 📋 Enhancement ideas documented, not scheduled
+**Implementation Status:** ❌ Not Implemented (Design Specification Only)
+**Future Work Status:** 📋 Ready for implementation when prioritized

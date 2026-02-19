@@ -1850,7 +1850,7 @@ describe('api', () => {
 		});
 	});
 
-	// Phase 3-6: LiDAR labelling and transit API tests
+	// LiDAR labelling and transit API tests
 	describe('LiDAR labelling API', () => {
 		describe('getLidarScenes', () => {
 			it('should fetch scenes without filter', async () => {

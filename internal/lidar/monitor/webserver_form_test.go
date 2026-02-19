@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 func TestHandleTuningParams_FormSubmission(t *testing.T) {
 	// Setup mock background manager
 	sensorID := "test-sensor"
-	params := lidar.BackgroundParams{
+	params := l3grid.BackgroundParams{
 		NoiseRelativeFraction: 0.01,
 	}
 
@@ -28,7 +28,7 @@ func TestHandleTuningParams_FormSubmission(t *testing.T) {
 	// However, we can try to register a dummy manager.
 
 	// Create a dummy manager
-	bm := lidar.NewBackgroundManager(sensorID, 1, 1, params, nil)
+	bm := l3grid.NewBackgroundManager(sensorID, 1, 1, params, nil)
 	if bm == nil {
 		t.Skip("Skipping test: could not create background manager")
 	}

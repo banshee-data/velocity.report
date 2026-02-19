@@ -1,5 +1,5 @@
 // Package visualiser provides gRPC streaming of LiDAR perception data.
-// This file contains tests for Phase 1 and Phase 2 of the track-labeling-ui-plan.
+// This file contains tests for VRLOG recording and replay.
 package visualiser
 
 import (

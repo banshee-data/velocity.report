@@ -9,13 +9,16 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/google/uuid"
 )
 
-// Phase 1.6: REST API endpoints for lidar_run_tracks labelling
-// Phase 1.7: REST API for analysis run management
+// REST API endpoints for lidar_run_tracks labelling
+// REST API for analysis run management
 //
 // These handlers are methods on WebServer since it already has access to
 // the AnalysisRunManager and db. Routes are registered in RegisterRoutes().
@@ -59,13 +62,13 @@ func (ws *WebServer) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle /api/lidar/runs/{run_id}/evaluate (Phase 4.5)
+	// Handle /api/lidar/runs/{run_id}/evaluate
 	if subPath == "evaluate" {
 		ws.handleEvaluateRun(w, r, runID)
 		return
 	}
 
-	// Handle /api/lidar/runs/{run_id}/missed-regions (Phase 7)
+	// Handle /api/lidar/runs/{run_id}/missed-regions
 	if subPath == "missed-regions" {
 		ws.handleMissedRegions(w, r, runID)
 		return
@@ -147,7 +150,7 @@ func parseTrackPath(path string) (trackID string, action string) {
 	return
 }
 
-// Phase 1.6 Handlers
+// Track Labelling Handlers
 
 // handleUpdateTrackLabel updates the user label and quality label for a track.
 // PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label
@@ -190,7 +193,7 @@ func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Update the track label
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	err := store.UpdateTrackLabel(runID, trackID, req.UserLabel, req.QualityLabel, req.LabelConfidence, req.LabelerID, labelSource)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track label: %v", err))
@@ -248,7 +251,7 @@ func (ws *WebServer) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Reque
 	isMerge := userLabel == "merge"
 
 	// Update the track quality flags
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	err := store.UpdateTrackQualityFlags(runID, trackID, isSplit, isMerge, req.LinkedTrackIDs)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track flags: %v", err))
@@ -274,7 +277,7 @@ func (ws *WebServer) handleGetRunTrack(w http.ResponseWriter, r *http.Request, r
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	track, err := store.GetRunTrack(runID, trackID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -339,7 +342,7 @@ func (ws *WebServer) handleDeleteRun(w http.ResponseWriter, r *http.Request, run
 	}
 
 	// Delete the run (CASCADE will delete lidar_run_tracks)
-	if err := lidar.DeleteRun(ws.db.DB, runID); err != nil {
+	if err := sqlite.DeleteRun(ws.db.DB, runID); err != nil {
 		if strings.Contains(err.Error(), "run not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
 			return
@@ -363,7 +366,7 @@ func (ws *WebServer) handleListRunTracks(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	tracks, err := store.GetRunTracks(runID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run tracks: %v", err))
@@ -386,7 +389,7 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	total, labelled, byClass, err := store.GetLabelingProgress(runID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get labelling progress: %v", err))
@@ -409,7 +412,7 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// Phase 1.7 Handlers
+// Analysis Run Management Handlers
 
 // handleListRuns lists analysis runs with optional filters.
 // GET /api/lidar/runs?limit=50&sensor_id=sensor1&status=completed
@@ -434,7 +437,7 @@ func (ws *WebServer) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch runs from database
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	runs, err := store.ListRuns(limit)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list runs: %v", err))
@@ -442,7 +445,7 @@ func (ws *WebServer) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply filters (sensor_id, status)
-	var filteredRuns []*lidar.AnalysisRun
+	var filteredRuns []*sqlite.AnalysisRun
 	for _, run := range runs {
 		if sensorID != "" && run.SensorID != sensorID {
 			continue
@@ -468,7 +471,7 @@ func (ws *WebServer) handleGetRun(w http.ResponseWriter, r *http.Request, runID 
 		return
 	}
 
-	store := lidar.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	run, err := store.GetRun(runID)
 	if errors.Is(err, sql.ErrNoRows) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
@@ -483,28 +486,106 @@ func (ws *WebServer) handleGetRun(w http.ResponseWriter, r *http.Request, runID 
 	json.NewEncoder(w).Encode(run)
 }
 
-// handleReprocessRun re-runs analysis on a PCAP file (placeholder).
+// handleReprocessRun re-runs analysis on a PCAP file with optional parameter overrides.
 // POST /api/lidar/runs/{run_id}/reprocess
+// Request body: {"params_json": {...}} (optional — uses original run params if omitted)
 func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use POST")
 		return
 	}
 
-	// Phase 2 implementation: connect to PCAP replay
-	// For now, return 501 Not Implemented
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"error":   "not_implemented",
-		"message": "Reprocessing not yet implemented. This will be connected to PCAP replay in Phase 2.",
-		"run_id":  runID,
+	// Get the original run to find source PCAP and params
+	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	originalRun, err := runStore.GetRun(runID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			ws.writeJSONError(w, http.StatusNotFound, "run not found")
+		} else {
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run: %v", err))
+		}
+		return
+	}
+
+	if originalRun.SourceType != "pcap" || originalRun.SourcePath == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "run has no PCAP source; only PCAP-based runs can be reprocessed")
+		return
+	}
+
+	// Parse optional params override from request body
+	var req struct {
+		ParamsJSON json.RawMessage `json:"params_json,omitempty"`
+	}
+	if r.Body != nil {
+		defer r.Body.Close()
+		if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil && decErr.Error() != "EOF" {
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", decErr))
+			return
+		}
+	}
+
+	// Use provided params or fall back to original run params
+	paramsJSON := req.ParamsJSON
+	if paramsJSON == nil {
+		paramsJSON = originalRun.ParamsJSON
+	}
+
+	// Create a new analysis run
+	runIDPrefix := runID
+	if len(runIDPrefix) > 8 {
+		runIDPrefix = runIDPrefix[:8]
+	}
+	uuidStr := uuid.New().String()
+	uuidPrefix := uuidStr
+	if len(uuidPrefix) > 8 {
+		uuidPrefix = uuidPrefix[:8]
+	}
+	newRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
+	newRun := &sqlite.AnalysisRun{
+		RunID:       newRunID,
+		SourceType:  "pcap",
+		SourcePath:  originalRun.SourcePath,
+		SensorID:    originalRun.SensorID,
+		Status:      "running",
+		CreatedAt:   time.Now(),
+		ParamsJSON:  paramsJSON,
+		ParentRunID: runID,
+	}
+
+	if err := runStore.InsertRun(newRun); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create analysis run: %v", err))
+		return
+	}
+
+	// Reset tracker and background grid for deterministic analysis
+	if ws.tracker != nil {
+		ws.tracker.Reset()
+	}
+	if err := ws.resetBackgroundGrid(); err != nil {
+		log.Printf("Warning: failed to reset background grid before reprocess: %v", err)
+	}
+
+	config := ReplayConfig{
+		AnalysisMode: true,
+	}
+	if err := ws.StartPCAPInternal(originalRun.SourcePath, config); err != nil {
+		if updateErr := runStore.UpdateRunStatus(newRunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
+			log.Printf("failed to update run status: %v", updateErr)
+		}
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
+		return
+	}
+
+	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
+		"run_id":        newRunID,
+		"parent_run_id": runID,
+		"status":        "running",
+		"message":       "PCAP replay initiated; new analysis run created",
 	})
 }
 
-// Phase 4.5: Ground Truth Evaluation Endpoint
-
-// handleEvaluateRun compares a candidate run against a reference run and returns ground truth scores.
+// handleEvaluateRun compares a candidate run against a reference run, persists
+// the result to lidar_evaluations, and returns ground truth scores.
 // POST /api/lidar/runs/{run_id}/evaluate
 // Request body: {"reference_run_id": "..."} or auto-detect from scene
 func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, candidateRunID string) {
@@ -523,11 +604,12 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 	}
 
 	referenceRunID := req.ReferenceRunID
+	var matchedSceneID string
 
 	// If no reference run specified, try to auto-detect from scene
 	if referenceRunID == "" {
 		// Get the candidate run to find its source path / scene
-		store := lidar.NewAnalysisRunStore(ws.db.DB)
+		store := sqlite.NewAnalysisRunStore(ws.db.DB)
 		candidateRun, err := store.GetRun(candidateRunID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get candidate run: %v", err))
@@ -535,31 +617,30 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		}
 
 		// Try to find a scene for this sensor that has a reference run
-		// Match by sensor ID and optionally source path
-		sceneStore := lidar.NewSceneStore(ws.db.DB)
+		sceneStore := sqlite.NewSceneStore(ws.db.DB)
 		scenes, err := sceneStore.ListScenes(candidateRun.SensorID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
 			return
 		}
 
-		// Find scene matching sensor and source path (if available)
-		// First pass: try to match both sensor and source path
+		// First pass: match sensor and source path
 		if candidateRun.SourcePath != "" {
 			for _, scene := range scenes {
 				if scene.ReferenceRunID != "" && scene.PCAPFile == candidateRun.SourcePath {
 					referenceRunID = scene.ReferenceRunID
+					matchedSceneID = scene.SceneID
 					break
 				}
 			}
 		}
 
-		// Second pass: if no exact match, fall back to first scene with reference for this sensor
-		// This is a reasonable heuristic when source path matching isn't possible
+		// Second pass: fall back to first scene with reference for this sensor
 		if referenceRunID == "" {
 			for _, scene := range scenes {
 				if scene.ReferenceRunID != "" {
 					referenceRunID = scene.ReferenceRunID
+					matchedSceneID = scene.SceneID
 					break
 				}
 			}
@@ -572,8 +653,8 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 	}
 
 	// Perform ground truth evaluation
-	runStore := lidar.NewAnalysisRunStore(ws.db.DB)
-	evaluator := lidar.NewGroundTruthEvaluator(runStore, lidar.DefaultGroundTruthWeights())
+	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	evaluator := adapters.NewGroundTruthEvaluator(runStore, adapters.DefaultGroundTruthWeights())
 
 	score, err := evaluator.Evaluate(referenceRunID, candidateRunID)
 	if err != nil {
@@ -581,23 +662,60 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	// Persist evaluation result if a scene was identified
+	var evaluationID string
+	if matchedSceneID != "" {
+		candidateRun, _ := runStore.GetRun(candidateRunID)
+		eval := &sqlite.Evaluation{
+			SceneID:             matchedSceneID,
+			ReferenceRunID:      referenceRunID,
+			CandidateRunID:      candidateRunID,
+			DetectionRate:       score.DetectionRate,
+			Fragmentation:       score.Fragmentation,
+			FalsePositiveRate:   score.FalsePositiveRate,
+			VelocityCoverage:    score.VelocityCoverage,
+			QualityPremium:      score.QualityPremium,
+			TruncationRate:      score.TruncationRate,
+			VelocityNoiseRate:   score.VelocityNoiseRate,
+			StoppedRecoveryRate: score.StoppedRecoveryRate,
+			CompositeScore:      score.CompositeScore,
+			MatchedCount:        score.MatchedCount,
+			ReferenceCount:      score.ReferenceCount,
+			CandidateCount:      score.CandidateCount,
+		}
+		if candidateRun != nil && len(candidateRun.ParamsJSON) > 0 {
+			eval.ParamsJSON = candidateRun.ParamsJSON
+		}
+
+		evalStore := sqlite.NewEvaluationStore(ws.db.DB)
+		if err := evalStore.Insert(eval); err != nil {
+			log.Printf("Warning: failed to persist evaluation: %v", err)
+		} else {
+			evaluationID = eval.EvaluationID
+		}
+	}
+
+	response := map[string]interface{}{
 		"reference_run_id": referenceRunID,
 		"candidate_run_id": candidateRunID,
 		"score":            score,
-	}); err != nil {
-		// Headers already sent - log error only, don't write to response body
+	}
+	if evaluationID != "" {
+		response["evaluation_id"] = evaluationID
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("Error encoding evaluation response: %v", err)
 	}
 }
 
-// Phase 7: Missed Regions Handlers
+// Missed Regions Handlers
 
 // handleMissedRegions handles GET (list) and POST (create) for missed regions.
 // GET/POST /api/lidar/runs/{run_id}/missed-regions
 func (ws *WebServer) handleMissedRegions(w http.ResponseWriter, r *http.Request, runID string) {
-	store := lidar.NewMissedRegionStore(ws.db.DB)
+	store := sqlite.NewMissedRegionStore(ws.db.DB)
 
 	switch r.Method {
 	case http.MethodGet:
@@ -607,7 +725,7 @@ func (ws *WebServer) handleMissedRegions(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		if regions == nil {
-			regions = []*lidar.MissedRegion{}
+			regions = []*sqlite.MissedRegion{}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -617,7 +735,7 @@ func (ws *WebServer) handleMissedRegions(w http.ResponseWriter, r *http.Request,
 		})
 
 	case http.MethodPost:
-		var req lidar.MissedRegion
+		var req sqlite.MissedRegion
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 			return
@@ -659,7 +777,7 @@ func (ws *WebServer) handleDeleteMissedRegion(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	store := lidar.NewMissedRegionStore(ws.db.DB)
+	store := sqlite.NewMissedRegionStore(ws.db.DB)
 	err := store.Delete(regionID)
 	if errors.Is(err, sql.ErrNoRows) {
 		ws.writeJSONError(w, http.StatusNotFound, "missed region not found")

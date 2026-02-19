@@ -26,9 +26,16 @@ import (
 
 	// optional lidar integration
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
-	"github.com/banshee-data/velocity.report/internal/lidar/network"
-	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
@@ -323,7 +330,7 @@ func main() {
 	// Lidar webserver instance (if enabled)
 	var lidarWebServer *monitor.WebServer
 	var foregroundForwarder *network.ForegroundForwarder
-	var bgFlusher *lidar.BackgroundFlusher
+	var bgFlusher *l3grid.BackgroundFlusher
 
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
@@ -338,9 +345,9 @@ func main() {
 
 		// Create BackgroundManager from TuningConfig. All tunable parameters
 		// come exclusively from the config file (single source of truth).
-		bgConfig := lidar.BackgroundConfigFromTuning(tuningCfg)
+		bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg)
 
-		backgroundManager := lidar.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
+		backgroundManager := l3grid.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
 			log.Printf("BackgroundManager created and registered for sensor %s", *lidarSensor)
 		}
@@ -348,7 +355,7 @@ func main() {
 		// Start periodic background grid flushing using BackgroundFlusher
 		// Skip if explicitly disabled (background_flush = false) or interval is zero
 		if backgroundManager != nil && bgFlushInterval > 0 && bgFlushEnable {
-			bgFlusher = lidar.NewBackgroundFlusher(lidar.BackgroundFlusherConfig{
+			bgFlusher = l3grid.NewBackgroundFlusher(l3grid.BackgroundFlusherConfig{
 				Manager:  backgroundManager,
 				Store:    lidarDB,
 				Interval: bgFlushInterval,
@@ -365,9 +372,9 @@ func main() {
 
 		// Lidar parser and frame builder (optional)
 		var parser *parse.Pandar40PParser
-		var frameBuilder *lidar.FrameBuilder
-		var tracker *lidar.Tracker
-		var classifier *lidar.TrackClassifier
+		var frameBuilder *l2frames.FrameBuilder
+		var tracker *l5tracks.Tracker
+		var classifier *l6objects.TrackClassifier
 		var visualiserServer *visualiser.Server       // Hoisted so WebServerConfig callbacks can reference it
 		var visualiserPublisher *visualiser.Publisher // Hoisted so OnVRLogLoad callback can reference it
 		var vrlogRecorderMu sync.Mutex
@@ -400,9 +407,9 @@ func main() {
 			parse.ConfigureTimestampMode(parser)
 
 			// Initialise tracking components from tuning config
-			trackerCfg := lidar.TrackerConfigFromTuning(tuningCfg)
-			tracker = lidar.NewTracker(trackerCfg)
-			classifier = lidar.NewTrackClassifierWithMinObservations(
+			trackerCfg := l5tracks.TrackerConfigFromTuning(tuningCfg)
+			tracker = l5tracks.NewTracker(trackerCfg)
+			classifier = l6objects.NewTrackClassifierWithMinObservations(
 				tuningCfg.GetMinObservationsForClassification(),
 			)
 			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
@@ -476,7 +483,7 @@ func main() {
 			}
 
 			// Create tracking pipeline callback with all necessary dependencies
-			pipelineConfig := &lidar.TrackingPipelineConfig{
+			pipelineConfig := &pipeline.TrackingPipelineConfig{
 				BackgroundManager:   backgroundManager,
 				FgForwarder:         foregroundForwarder,
 				Tracker:             tracker,
@@ -494,7 +501,7 @@ func main() {
 			}
 			callback := pipelineConfig.NewFrameCallback()
 
-			frameBuilder = lidar.NewFrameBuilder(lidar.FrameBuilderConfig{
+			frameBuilder = l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{
 				SensorID:      *lidarSensor,
 				FrameCallback: callback,
 				// Use CLI-configurable MinFramePoints and BufferTimeout so devs can tune
@@ -694,7 +701,7 @@ func main() {
 		lidarWebServer.SetAutoTuneRunner(autoTuner)
 
 		// Set up sweep persistence
-		sweepStore := lidar.NewSweepStore(lidarDB.DB)
+		sweepStore := sqlite.NewSweepStore(lidarDB.DB)
 		lidarWebServer.SetSweepStore(sweepStore)
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)
@@ -702,8 +709,8 @@ func main() {
 		// Wire ground truth scorer and scene store for label-aware auto-tuning.
 		// The scene store enables persisting optimal params after ground truth sweeps.
 		// The scorer closure resolves the scene's reference_run_id at evaluation time.
-		sceneStore := lidar.NewSceneStore(lidarDB.DB)
-		analysisRunStore := lidar.NewAnalysisRunStore(lidarDB.DB)
+		sceneStore := sqlite.NewSceneStore(lidarDB.DB)
+		analysisRunStore := sqlite.NewAnalysisRunStore(lidarDB.DB)
 		autoTuner.SetSceneStore(sceneStore)
 		groundTruthScorer := func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
 			scene, err := sceneStore.GetScene(sceneID)
@@ -714,7 +721,7 @@ func main() {
 				return 0, fmt.Errorf("scene %s has no reference_run_id set", sceneID)
 			}
 			// Convert sweep weights to lidar evaluator weights
-			lidarWeights := lidar.GroundTruthWeights{
+			lidarWeights := adapters.GroundTruthWeights{
 				DetectionRate:     weights.DetectionRate,
 				Fragmentation:     weights.Fragmentation,
 				FalsePositives:    weights.FalsePositives,
@@ -724,7 +731,7 @@ func main() {
 				VelocityNoiseRate: weights.VelocityNoiseRate,
 				StoppedRecovery:   weights.StoppedRecovery,
 			}
-			evaluator := lidar.NewGroundTruthEvaluator(analysisRunStore, lidarWeights)
+			evaluator := adapters.NewGroundTruthEvaluator(analysisRunStore, lidarWeights)
 			result, err := evaluator.Evaluate(scene.ReferenceRunID, candidateRunID)
 			if err != nil {
 				return 0, err
@@ -950,12 +957,12 @@ func runTransitsCommand(args []string) {
 	}
 }
 
-// backgroundManagerBridge adapts *lidar.BackgroundManager to satisfy
+// backgroundManagerBridge adapts *l3grid.BackgroundManager to satisfy
 // visualiser.BackgroundManagerInterface, converting between the two
 // package-specific snapshot types. This avoids a circular import between
 // the lidar and visualiser packages.
 type backgroundManagerBridge struct {
-	mgr *lidar.BackgroundManager
+	mgr *l3grid.BackgroundManager
 }
 
 func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, error) {
@@ -966,7 +973,7 @@ func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, err
 	if data == nil {
 		return nil, nil
 	}
-	// Convert *lidar.BackgroundSnapshotData → *visualiser.BackgroundSnapshot
+	// Convert *l3grid.BackgroundSnapshotData → *visualiser.BackgroundSnapshot
 	return &visualiser.BackgroundSnapshot{
 		SequenceNumber: data.SequenceNumber,
 		TimestampNanos: data.TimestampNanos,
@@ -991,9 +998,9 @@ func (b *backgroundManagerBridge) GetBackgroundSequenceNumber() uint64 {
 // These bridge the lidar package types to the sweep package interfaces
 // to avoid circular imports.
 
-// hintSceneAdapter bridges lidar.SceneStore to sweep.SceneGetter.
+// hintSceneAdapter bridges sqlite.SceneStore to sweep.SceneGetter.
 type hintSceneAdapter struct {
-	store *lidar.SceneStore
+	store *sqlite.SceneStore
 }
 
 func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
@@ -1016,9 +1023,9 @@ func (a *hintSceneAdapter) SetReferenceRun(sceneID, runID string) error {
 	return a.store.SetReferenceRun(sceneID, runID)
 }
 
-// hintLabelAdapter bridges lidar.AnalysisRunStore to sweep.LabelProgressQuerier.
+// hintLabelAdapter bridges sqlite.AnalysisRunStore to sweep.LabelProgressQuerier.
 type hintLabelAdapter struct {
-	store *lidar.AnalysisRunStore
+	store *sqlite.AnalysisRunStore
 }
 
 func (a *hintLabelAdapter) GetLabelingProgress(runID string) (int, int, map[string]int, error) {

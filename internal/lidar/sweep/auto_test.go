@@ -535,7 +535,7 @@ func TestAutoTuneValidation(t *testing.T) {
 	}
 }
 
-// Phase 5: Test ground truth objective validation
+// Test ground truth objective validation
 func TestGroundTruthObjectiveValidation(t *testing.T) {
 	tests := []struct {
 		name    string

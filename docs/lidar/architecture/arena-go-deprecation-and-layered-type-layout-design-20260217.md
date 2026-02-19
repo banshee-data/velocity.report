@@ -94,6 +94,20 @@ Primary regression risk is accidental field drift while copying structs. This is
 4. LiDAR tests pass with unchanged behavior.
 5. Documentation references to `arena.go` are updated to new file ownership.
 
-## Follow-on (Optional, separate change)
+## Completion Status (2026-02-17)
 
-After this deprecation, a second refactor can move layer files into subpackages (`l2frames`, `l3grid`, `l4perception`) once import churn and adapter boundaries are ready.
+**All acceptance criteria met. This work is complete.**
+
+### What was done:
+
+1. **arena.go deleted** — all legacy types removed (RingBuffer, SidecarState, Track, TrackObs, TrackState2D, TrackSummary, RetentionConfig, SystemEvent, Event, PoseCache, FrameStats + constructors).
+2. **arena_test.go and arena_extended_test.go deleted** — only tested removed legacy types.
+3. **Active types migrated to layer packages** (not flat files as originally planned — went further):
+   - `Point`, `PointPolar` → `l4perception/types.go`
+   - `FrameID` → `l3grid/types.go` and `l4perception/types.go`
+   - `Pose` → `l4perception/types.go`
+   - `BgSnapshot`, `RegionSnapshot`, `RegionData` → `l3grid/types.go`
+   - `WorldCluster`, `OrientedBoundingBox` → `l4perception/types.go`
+4. **All callers updated** — sub-packages (l1packets, monitor, visualiser, sweep) and external callers (cmd/radar, internal/db) import from layer packages directly.
+5. **CI guardrail active** — grep for "Phase [0-9]" in go-ci.yml lint job.
+6. **Follow-on completed** — layer files already in subpackages (`l2frames`, `l3grid`, `l4perception`, `l5tracks`, `l6objects`).

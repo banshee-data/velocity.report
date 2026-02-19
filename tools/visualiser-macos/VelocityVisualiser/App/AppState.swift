@@ -177,9 +177,9 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     private var lastFrameTime: Date = Date()
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
-    private let runTrackLabelClient = RunTrackLabelAPIClient()  // Phase 4.2: Run-track labels
+    private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
 
-    // MARK: - Run State (Phase 4.1)
+    // MARK: - Run State
 
     @Published var currentRunID: String?  // Current run being replayed
     @Published var showRunBrowser: Bool = false  // Show run browser sheet
@@ -481,7 +481,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         Task {
             do {
-                // Phase 4.3: Use run-track label API when in run replay mode
+                // Use run-track label API when in run replay mode
                 if let runID = currentRunID {
                     _ = try await runTrackLabelClient.updateLabel(
                         runID: runID, trackID: trackID, userLabel: label)
@@ -529,7 +529,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         }
     }
 
-    /// Assign quality rating to the selected track (Phase 4.2).
+    /// Assign quality rating to the selected track.
     func assignQuality(_ quality: String) {
         guard let trackID = selectedTrackID, let runID = currentRunID else { return }
         logger.info("Assigning quality '\(quality)' to track \(trackID)")
@@ -543,7 +543,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         }
     }
 
-    /// Mark track as split (Phase 4.2).
+    /// Mark track as split.
     /// Note: split/merge flags require additional API support in the backend.
     func markAsSplit(_ isSplit: Bool) {
         guard let trackID = selectedTrackID, let _ = currentRunID else { return }
@@ -551,7 +551,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         // TODO: Add split flag support to backend API when needed
     }
 
-    /// Mark track as merge (Phase 4.2).
+    /// Mark track as merge.
     /// Note: split/merge flags require additional API support in the backend.
     func markAsMerge(_ isMerge: Bool) {
         guard let trackID = selectedTrackID, let _ = currentRunID else { return }

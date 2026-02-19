@@ -7,7 +7,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	parsepkg "github.com/banshee-data/velocity.report/internal/lidar/parse"
+	parsepkg "github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 )
 
 func main() {

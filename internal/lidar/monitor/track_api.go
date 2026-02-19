@@ -10,7 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // TrackAPI provides HTTP handlers for track-related endpoints.
@@ -18,7 +19,7 @@ import (
 type TrackAPI struct {
 	db       *sql.DB
 	sensorID string
-	tracker  *lidar.Tracker // Optional: in-memory tracker for real-time queries
+	tracker  *l5tracks.Tracker // Optional: in-memory tracker for real-time queries
 }
 
 // NewTrackAPI creates a new TrackAPI instance.
@@ -30,7 +31,7 @@ func NewTrackAPI(db *sql.DB, sensorID string) *TrackAPI {
 }
 
 // SetTracker sets the in-memory tracker for real-time queries.
-func (api *TrackAPI) SetTracker(tracker *lidar.Tracker) {
+func (api *TrackAPI) SetTracker(tracker *l5tracks.Tracker) {
 	api.tracker = tracker
 }
 
@@ -60,7 +61,7 @@ func (api *TrackAPI) handleClearTracks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := lidar.ClearTracks(api.db, sensorID); err != nil {
+	if err := sqlite.ClearTracks(api.db, sensorID); err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear tracks: %v", err))
 		return
 	}
@@ -94,7 +95,7 @@ func (api *TrackAPI) handleClearRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := lidar.ClearRuns(api.db, sensorID); err != nil {
+	if err := sqlite.ClearRuns(api.db, sensorID); err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear runs: %v", err))
 		return
 	}
@@ -298,13 +299,13 @@ func (api *TrackAPI) handleListTracks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tracks []*lidar.TrackedObject
+	var tracks []*l5tracks.TrackedObject
 	var err error
 
 	if startParam != "" || endParam != "" {
-		tracks, err = lidar.GetTracksInRange(api.db, sensorID, state, startNanos, endNanos, limit)
+		tracks, err = sqlite.GetTracksInRange(api.db, sensorID, state, startNanos, endNanos, limit)
 	} else {
-		tracks, err = lidar.GetActiveTracks(api.db, sensorID, state)
+		tracks, err = sqlite.GetActiveTracks(api.db, sensorID, state)
 		if err == nil && len(tracks) > limit {
 			tracks = tracks[:limit]
 		}
@@ -388,7 +389,7 @@ func (api *TrackAPI) handleListObservations(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	observations, err := lidar.GetTrackObservationsInRange(api.db, sensorID, startNanos, endNanos, limit, trackID)
+	observations, err := sqlite.GetTrackObservationsInRange(api.db, sensorID, startNanos, endNanos, limit, trackID)
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))
 		return
@@ -453,7 +454,7 @@ func (api *TrackAPI) handleActiveTracks(w http.ResponseWriter, r *http.Request) 
 
 	state := r.URL.Query().Get("state")
 
-	var tracks []*lidar.TrackedObject
+	var tracks []*l5tracks.TrackedObject
 
 	// Prefer in-memory tracker for real-time data
 	if api.tracker != nil {
@@ -463,7 +464,7 @@ func (api *TrackAPI) handleActiveTracks(w http.ResponseWriter, r *http.Request) 
 		case "tentative":
 			allActive := api.tracker.GetActiveTracks()
 			for _, t := range allActive {
-				if t.State == lidar.TrackTentative {
+				if t.State == l5tracks.TrackTentative {
 					tracks = append(tracks, t)
 				}
 			}
@@ -472,7 +473,7 @@ func (api *TrackAPI) handleActiveTracks(w http.ResponseWriter, r *http.Request) 
 		}
 	} else if api.db != nil {
 		// Fall back to database
-		dbTracks, err := lidar.GetActiveTracks(api.db, sensorID, state)
+		dbTracks, err := sqlite.GetActiveTracks(api.db, sensorID, state)
 		if err != nil {
 			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get tracks: %v", err))
 			return
@@ -540,7 +541,7 @@ func (api *TrackAPI) handleTrackByID(w http.ResponseWriter, r *http.Request) {
 
 // handleGetTrack returns details for a specific track.
 func (api *TrackAPI) handleGetTrack(w http.ResponseWriter, r *http.Request, trackID string) {
-	var track *lidar.TrackedObject
+	var track *l5tracks.TrackedObject
 
 	// Try in-memory tracker first
 	if api.tracker != nil {
@@ -550,7 +551,7 @@ func (api *TrackAPI) handleGetTrack(w http.ResponseWriter, r *http.Request, trac
 	// Fall back to database if not found in memory
 	if track == nil && api.db != nil {
 		// For now, we search active tracks - could add a direct GetTrack query
-		tracks, err := lidar.GetActiveTracks(api.db, api.sensorID, "")
+		tracks, err := sqlite.GetActiveTracks(api.db, api.sensorID, "")
 		if err != nil {
 			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to query tracks: %v", err))
 			return
@@ -593,14 +594,14 @@ func (api *TrackAPI) handleUpdateTrack(w http.ResponseWriter, r *http.Request, t
 	}
 
 	// Find the track first (in-memory or database)
-	var track *lidar.TrackedObject
+	var track *l5tracks.TrackedObject
 	if api.tracker != nil {
 		track = api.tracker.GetTrack(trackID)
 	}
 
 	if track == nil {
 		// Try to find in database
-		tracks, err := lidar.GetActiveTracks(api.db, api.sensorID, "")
+		tracks, err := sqlite.GetActiveTracks(api.db, api.sensorID, "")
 		if err != nil {
 			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to query tracks: %v", err))
 			return
@@ -630,7 +631,7 @@ func (api *TrackAPI) handleUpdateTrack(w http.ResponseWriter, r *http.Request, t
 	}
 
 	// Persist to database
-	if err := lidar.UpdateTrack(api.db, track, "site"); err != nil {
+	if err := sqlite.UpdateTrack(api.db, track, "site"); err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track: %v", err))
 		return
 	}
@@ -654,7 +655,7 @@ func (api *TrackAPI) handleTrackObservations(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	observations, err := lidar.GetTrackObservations(api.db, trackID, limit)
+	observations, err := sqlite.GetTrackObservations(api.db, trackID, limit)
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))
 		return
@@ -742,20 +743,20 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		sensorID = api.sensorID
 	}
 
-	var tracks []*lidar.TrackedObject
+	var tracks []*l5tracks.TrackedObject
 
 	// Get tracks from in-memory tracker or database
 	if api.tracker != nil {
 		tracks = api.tracker.GetActiveTracks()
 		// Also include deleted tracks for summary
 		for _, t := range api.tracker.Tracks {
-			if t.State == lidar.TrackDeleted {
+			if t.State == l5tracks.TrackDeleted {
 				tracks = append(tracks, t)
 			}
 		}
 	} else if api.db != nil {
 		// Get all tracks including deleted for summary
-		allTracks, err := lidar.GetActiveTracks(api.db, sensorID, "")
+		allTracks, err := sqlite.GetActiveTracks(api.db, sensorID, "")
 		if err != nil {
 			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get tracks: %v", err))
 			return
@@ -890,7 +891,7 @@ func (api *TrackAPI) handleListClusters(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	clusters, err := lidar.GetRecentClusters(api.db, sensorID, startNanos, endNanos, limit)
+	clusters, err := sqlite.GetRecentClusters(api.db, sensorID, startNanos, endNanos, limit)
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get clusters: %v", err))
 		return
@@ -944,7 +945,7 @@ func headingFromVelocity(vx, vy float32) float32 {
 	return float32(math.Atan2(float64(vy), float64(vx)))
 }
 
-func (api *TrackAPI) trackToResponse(track *lidar.TrackedObject) TrackResponse {
+func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackResponse {
 	first := track.FirstUnixNanos
 	last := track.LastUnixNanos
 	if last == 0 {

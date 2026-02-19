@@ -27,8 +27,14 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar"
-	"github.com/banshee-data/velocity.report/internal/lidar/network"
-	"github.com/banshee-data/velocity.report/internal/lidar/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	_ "modernc.org/sqlite"
 )
 
@@ -422,16 +428,16 @@ func (s *analysisStats) getStats() (packets, points int, duration time.Duration)
 // analysisFrameBuilder implements network.FrameBuilder for collecting frames and processing.
 type analysisFrameBuilder struct {
 	mu             sync.Mutex
-	points         []lidar.PointPolar
+	points         []l2frames.PointPolar
 	lastAzimuth    float64
 	frameStartTime time.Time
 	frameCount     int
 	motorSpeed     uint16
 
 	// Processing components
-	bgManager  *lidar.BackgroundManager
-	tracker    *lidar.Tracker
-	classifier *lidar.TrackClassifier
+	bgManager  *l3grid.BackgroundManager
+	tracker    *l5tracks.Tracker
+	classifier *l6objects.TrackClassifier
 	config     Config
 
 	// Results
@@ -477,10 +483,10 @@ func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFra
 	}
 
 	fb := &analysisFrameBuilder{
-		points:          make([]lidar.PointPolar, 0, 50000),
+		points:          make([]l2frames.PointPolar, 0, 50000),
 		bgManager:       createBackgroundManager(config.SensorID, store),
-		tracker:         lidar.NewTracker(lidar.DefaultTrackerConfig()),
-		classifier:      lidar.NewTrackClassifier(),
+		tracker:         l5tracks.NewTracker(l5tracks.DefaultTrackerConfig()),
+		classifier:      l6objects.NewTrackClassifier(),
 		config:          config,
 		result:          result,
 		benchmarkMode:   config.Benchmark,
@@ -495,7 +501,7 @@ func newAnalysisFrameBuilder(config Config, result *AnalysisResult) *analysisFra
 	return fb
 }
 
-func (fb *analysisFrameBuilder) AddPointsPolar(points []lidar.PointPolar) {
+func (fb *analysisFrameBuilder) AddPointsPolar(points []l2frames.PointPolar) {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
@@ -558,7 +564,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 
 	// Extract foreground points
-	foregroundPoints := lidar.ExtractForegroundPoints(fb.points, mask)
+	foregroundPoints := l3grid.ExtractForegroundPoints(fb.points, mask)
 	foregroundCount := len(foregroundPoints)
 
 	fb.result.TotalFrames++
@@ -576,14 +582,14 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 
 	// Step 2: Transform to world frame
-	worldPoints := lidar.TransformToWorld(foregroundPoints, nil, fb.config.SensorID)
+	worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, fb.config.SensorID)
 
 	// Step 3: Cluster (respect runtime foreground clustering params)
 	var clusterStart time.Time
 	if fb.benchmarkMode {
 		clusterStart = time.Now()
 	}
-	dbscanParams := lidar.DefaultDBSCANParams()
+	dbscanParams := l4perception.DefaultDBSCANParams()
 	if fb.bgManager != nil {
 		p := fb.bgManager.GetParams()
 		if p.ForegroundMinClusterPoints > 0 {
@@ -593,7 +599,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 			dbscanParams.Eps = float64(p.ForegroundDBSCANEps)
 		}
 	}
-	clusters := lidar.DBSCAN(worldPoints, dbscanParams)
+	clusters := l4perception.DBSCAN(worldPoints, dbscanParams)
 	if fb.benchmarkMode {
 		atomic.AddInt64(&fb.clusterTimeNs, time.Since(clusterStart).Nanoseconds())
 	}
@@ -640,7 +646,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 			ForegroundPoints: foregroundCount,
 			Clusters:         len(clusters),
 			ActiveTracks:     len(fb.tracker.GetActiveTracks()),
-			ForegroundBlob:   lidar.EncodeForegroundBlob(foregroundPoints),
+			ForegroundBlob:   adapters.EncodeForegroundBlob(foregroundPoints),
 		}
 		fb.trainingFrames = append(fb.trainingFrames, trainingFrame)
 	}
@@ -667,11 +673,11 @@ func (fb *analysisFrameBuilder) finalise() {
 	}
 }
 
-func (fb *analysisFrameBuilder) getTracker() *lidar.Tracker {
+func (fb *analysisFrameBuilder) getTracker() *l5tracks.Tracker {
 	return fb.tracker
 }
 
-func (fb *analysisFrameBuilder) getClassifier() *lidar.TrackClassifier {
+func (fb *analysisFrameBuilder) getClassifier() *l6objects.TrackClassifier {
 	return fb.classifier
 }
 
@@ -818,7 +824,7 @@ func (fb *analysisFrameBuilder) getBenchmarkData() (frameTimes []float64, cluste
 
 // collectTrackResults processes tracks from the frame builder and populates the result.
 // Returns the list of all tracks for optional persistence.
-func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisResult) []*lidar.TrackedObject {
+func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisResult) []*l5tracks.TrackedObject {
 	tracker := frameBuilder.getTracker()
 	classifier := frameBuilder.getClassifier()
 	allTracks := tracker.GetAllTracks()
@@ -834,7 +840,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 			classifier.ClassifyAndUpdate(track)
 		}
 
-		if track.State == lidar.TrackConfirmed {
+		if track.State == l5tracks.TrackConfirmed {
 			result.ConfirmedTracks++
 		}
 
@@ -845,7 +851,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 		result.TracksByClass[class]++
 
 		// Export track data
-		p50, p85, p95 := lidar.ComputeSpeedPercentiles(track.SpeedHistory())
+		p50, p85, p95 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
 
 		trackExport := &TrackExport{
 			TrackID:      track.TrackID,
@@ -1065,10 +1071,10 @@ func analyzePCAPWithBenchmark(config Config) (*AnalysisResult, *PerformanceMetri
 	return result, metrics, nil
 }
 
-func createBackgroundManager(sensorID string, store lidar.BgStore) *lidar.BackgroundManager {
+func createBackgroundManager(sensorID string, store l3grid.BgStore) *l3grid.BackgroundManager {
 	// Use NewBackgroundManager to ensure proper initialization including
 	// region persistence/restoration when a store is provided.
-	params := lidar.BackgroundParams{
+	params := l3grid.BackgroundParams{
 		BackgroundUpdateFraction:       0.02,
 		ClosenessSensitivityMultiplier: 3.0,
 		SafetyMarginMeters:             0.5,
@@ -1083,7 +1089,7 @@ func createBackgroundManager(sensorID string, store lidar.BgStore) *lidar.Backgr
 
 	// NewBackgroundManager will wire up persistence if store is non-nil,
 	// enabling region restoration on subsequent PCAP runs from same location.
-	return lidar.NewBackgroundManager(sensorID, 40, 1800, params, store)
+	return l3grid.NewBackgroundManager(sensorID, 40, 1800, params, store)
 }
 
 func computeClassStats(tracks []*TrackExport) map[string]ClassStats {
@@ -1130,7 +1136,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 	}
 
 	// Use the shared percentile computation from lidar package
-	p50, p85, p95 := lidar.ComputeSpeedPercentiles(samples)
+	p50, p85, p95 := l6objects.ComputeSpeedPercentiles(samples)
 
 	n := len(sorted)
 	return SpeedStatistics{
@@ -1294,7 +1300,7 @@ func exportTrainingData(outputDir string, frames []*TrainingFrame) error {
 	return nil
 }
 
-func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*lidar.TrackedObject) error {
+func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks.TrackedObject) error {
 	// Use db.NewDB() to properly initialize the database with all migrations
 	database, err := db.NewDB(dbPath)
 	if err != nil {
@@ -1366,7 +1372,7 @@ func computeFrameTimeStats(frameTimes []float64) FrameTimeStats {
 	}
 	avg := sum / float64(len(sorted))
 
-	// Compute percentiles using floor-based indexing (consistent with lidar.ComputeSpeedPercentiles)
+	// Compute percentiles using floor-based indexing (consistent with l6objects.ComputeSpeedPercentiles)
 	n := len(sorted)
 	p50Idx := int(float64(n) * 0.50)
 	p95Idx := int(float64(n) * 0.95)
