@@ -13,7 +13,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
-const samplePCAPPath = "../perf/pcap/lidar_20Hz.pcapng"
+const samplePCAPPath = "../../perf/pcap/lidar_20Hz.pcapng"
 
 type replayTestParser struct {
 	parseCalls int
