@@ -1,5 +1,97 @@
 # Development Log
 
+## February 19, 2026 - LiDAR Layer Alignment & Architecture Review
+
+- Implemented LiDAR 6-layer alignment refactor: split `l3grid/background.go` into persistence, export, and drift files.
+- Split `monitor/webserver.go` into data-source and playback handler files.
+- Extracted domain comparison logic from `storage/sqlite` into `l6objects`.
+- Added HTTP method prefixes and middleware wrappers to route tables.
+- Fixed route conflict panic from duplicate route registrations.
+- Consolidated architecture docs, created `BACKLOG.md` for deferred work items.
+- Documented further opportunities to reduce library size and complexity.
+- Completed review items 11–14 and P1–P3 from LiDAR layer alignment review.
+- Removed redundant method-not-allowed tests (mux handles 405 via method-prefixed routes).
+
+## February 18, 2026 - Design System & TeX/Chart Updates
+
+- Created `DESIGN.md` with project-wide design principles and frontend design language.
+- Conducted comprehensive design review against `DESIGN.md`, producing improvement plan.
+- Updated Python PDF generator TeX configuration for minimal precompiled install.
+- Enhanced Svelte chart components (RadarOverviewChart).
+- Updated Go CI integration tests to use minimal TeX tree (`build-texlive-minimal`) instead of full TeX Live install.
+- Trimmed CI TeX Live packages: dropped `texlive-fonts-extra` (~500 MB) and `latexmk`; added `--no-install-recommends`.
+
+## February 15-16, 2026 - HINT Tuning System & LiDAR Track Improvements
+
+- Implemented Human-Involved Numerical Tuning (HINT) system (renamed from RLHF).
+- Replaced HTTP client with in-process `DirectBackend` for sweep runner, eliminating HTTP overhead.
+- Added long-polling for HINT status and PCAP completion.
+- Refactored label taxonomy: `good_vehicle`/`good_pedestrian` → `car`/`ped`; added `impossible` label.
+- Implemented suspend and resume functionality for auto-tune sweeps with checkpoint persistence.
+- Added per-frame OBB dimensions and improved heading handling in LiDAR tracking.
+- Enhanced cluster size filtering, track pruning, and classification updates.
+- Serialised frame callback processing in `frame_builder.go` to prevent data races.
+- Added gap detection in `MapPane.svelte` to prevent spaghetti lines in track visualisations.
+- Added height band filtering parameters to tuning configuration.
+- macOS visualiser: added ground reference grid toggle, background grid points toggle, track filtering with dual-handle range slider.
+- Refactored all default parameters to load from `tuning.defaults.json` instead of hardcoded values.
+- Bumped version to 0.5.0-pre8 and 0.5.0-pre9.
+- Created LiDAR 6-layer data model documentation (OSI-style).
+- Added LiDAR labelling QC enhancements plan.
+- Created LiDAR refactor plans for package restructuring.
+
+## February 14, 2026 - Sweep Schema Fixes & Documentation Updates
+
+- Fixed sweep parameter schema and config compatibility issues from PR review.
+- Updated documentation to reflect current code state: corrected Makefile target count (59→101), Go version (1.21+→1.25+), SQLite version (3.51.2), Python version (3.11+).
+- Fixed broken doc links and wrong paths in `TROUBLESHOOTING.md`.
+- Expanded repo structure in `copilot-instructions.md` (5→15 internal packages).
+- Fixed setup guide frontmatter cost and typos.
+- Dependency update: bumped `markdown-it` 14.1.0→14.1.1 in docs site.
+
+## February 12, 2026 - Precompiled LaTeX Plan & Test Expansion
+
+- Created design document for precompiled LaTeX `.fmt` support in PDF generator.
+- Expanded test coverage across Go, Python, and macOS components.
+
+## February 11, 2026 - RLHF Score Explainability & Label Provenance
+
+- Implemented `RLHFTuner` engine with RLHF API endpoints and handler tests.
+- Added RLHF mode to sweep dashboard UI and Svelte sweeps page.
+- Implemented score component breakdown: `ScoreComponents`, `ScoreExplanation`, and `/explain` API endpoint.
+- Added class/time coverage gates for RLHF continue validation.
+- Implemented `label_source` provenance tracking with IoU-based confidence.
+- Added schema/version stamp fields in sweep persistence (migration 9.1).
+- Fixed VRLog seek race condition; fixed int64 overflow in temporal spread calculation.
+- Boosted RLHF test coverage to 91.9%; web test coverage to 97%.
+- Created RLHF expansion plan with ML solver-inspired optimisation approach.
+- Designed `velocity.report-imager` (RPi Imager fork) for simplified deployment.
+- Added comprehensive Swift tests for macOS visualiser.
+- Expanded Go test coverage: Runner, sweep, tracking API, UDP listener, tracking pipeline.
+- Simplified packet handling by directly using polar points in `FrameBuilder`.
+- Bumped version to 0.5.0-pre7.
+
+## February 10-11, 2026 - VRLog Replay & Track Labelling
+
+- Implemented `.vrlog` recording and replay for track labelling workflow.
+- Added `FrameRecorder` interface, `vrlog_path` field, and playback API endpoints.
+- Implemented VRLOG replay in visualiser publisher and gRPC control delegation.
+- macOS visualiser: run browser, run-track labelling support, side panel for track selection.
+- Added VRLOG safe directory configuration with absolute path validation.
+- Implemented background snapshot sending during VRLOG replay.
+- Enhanced tuning parameters and acceptance metrics tracking in background processing.
+- Added label taxonomy and classification details for detection and quality in LiDAR terminology.
+- Bumped version to 0.5.0-pre6.
+
+## February 9-10, 2026 - Label-Aware Auto-Tuning & LiDAR Refinement
+
+- Implemented track label-aware auto-tuning: scoring incorporates human labels.
+- Enhanced LiDAR tuning refinement with updated parameters and thresholds.
+- Added PCAP analysis improvements for tune benchmarks.
+- Expanded Go unit test coverage across multiple packages.
+- Created frontend consolidation design document.
+- Designed Swift label plan for macOS visualiser track labelling workflow.
+
 ## February 8, 2026 - Documentation Audit & Roadmap
 
 - Comprehensive audit of all 29 LiDAR documentation files against actual codebase.
