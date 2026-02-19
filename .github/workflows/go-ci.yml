@@ -185,9 +185,22 @@ jobs:
       - name: Install system dependencies (libpcap)
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
 
-      - name: Install TeX Live for PDF generation tests
+      - name: Install TeX Live (source for minimal tree build)
         run: |
-          sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-fonts-extra latexmk
+          # Minimal set providing the .sty files and fonts listed in
+          # tools/pdf-generator/tex/dependency-manifest.txt:
+          #   texlive-xetex            → xelatex binary + base LaTeX
+          #   texlive-latex-recommended → fontspec, caption, fancyhdr, titlesec, ragged2e
+          #   texlive-latex-extra       → supertabular, float
+          #   texlive-fonts-recommended → Latin Modern, AMS fonts/metrics
+          sudo apt-get install -y --no-install-recommends \
+            texlive-xetex \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-fonts-recommended
+
+      - name: Build minimal TeX tree
+        run: make build-texlive-minimal
 
       - name: Setup pnpm and build web
         run: |
@@ -208,6 +221,8 @@ jobs:
         run: make install-python
 
       - name: Run API tests (includes E2E with Python PDF generator)
+        env:
+          VELOCITY_TEX_ROOT: ${{ github.workspace }}/build/texlive-minimal
         run: |
           go test -v -race -tags=pcap -coverprofile=coverage-api.out -covermode=atomic \
             ./internal/api/...
