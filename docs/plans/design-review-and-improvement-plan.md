@@ -1,12 +1,15 @@
 # Design Review and Improvement Plan
 
 Status: Draft
-Last reviewed: 2026-02-18
+Last reviewed: 2026-02-19
 Reference: [DESIGN.md](/DESIGN.md), [ARCHITECTURE.md](/ARCHITECTURE.md)
+Backlog: [BACKLOG.md](/BACKLOG.md) — P1 item 6
 
 ## Purpose
 
 Comprehensive audit of the repository against the design contract in DESIGN.md, identifying gaps, non-compliance, and areas for improvement. Each finding includes a severity, effort estimate, and recommended action.
+
+This document describes a single project (design contract compliance). The project-wide priority list lives in [BACKLOG.md](/BACKLOG.md).
 
 Severity levels: **Critical** (violates explicit DESIGN.md contract), **High** (undermines design goals), **Medium** (missed best practice), **Low** (polish/nice-to-have).
 
@@ -370,7 +373,9 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 
 ## Priority Summary
 
-### Immediate (this sprint)
+Implementation priority for findings in this document:
+
+### Immediate
 
 | # | Finding | Severity | Effort |
 |---|---------|----------|--------|
@@ -379,23 +384,23 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 | 8.1 | DESIGN.md not referenced in CONTRIBUTING/README | High | 30 minutes |
 | 1.3 | No shared palette module | Medium | 2–4 hours |
 
-### Short-term (next 2 sprints)
+### Short-term
 
 | # | Finding | Severity | Effort |
 |---|---------|----------|--------|
 | 2.1 | No shared CSS standard classes | High | 1–2 days |
-| 6.1 | webserver.go 4,009 lines | High | 2–3 days |
-| 6.2 | background.go 2,608 lines | High | 1–2 days |
+| 6.1 | webserver.go split | High | ✅ Done (datasource_handlers.go, playback_handlers.go) |
+| 6.2 | background.go split | High | ✅ Done (background_persistence.go, background_export.go, background_drift.go) |
 | 8.2 | PR template lacks design checklist | Medium | 30 minutes |
 | 7.2 | No accessibility testing | Medium | 4–8 hours |
 
-### Medium-term (next quarter)
+### Medium-term
 
 | # | Finding | Severity | Effort |
 |---|---------|----------|--------|
 | 7.1 | No visual regression testing | Medium | 1–2 days |
 | 7.3 | No E2E test infrastructure | Medium | 1–2 days |
-| 6.3 | CompareRuns in storage layer | Medium | 1 day |
+| 6.3 | CompareRuns in storage layer | Medium | ✅ Done (l6objects/comparison.go) |
 | 2.2 | No widescreen containment | Medium | 2–4 hours |
 | 3.3 | ECharts palette not cross-referenced | High | Phase 3 of frontend consolidation |
 
@@ -407,24 +412,5 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 | 4.2 | LayerChart in lidar routes | Medium | When charts needed |
 | 10.1 | LAN-only authentication | Low | If deployment model changes |
 | 7.5 | Coverage thresholds | Low | After coverage improves |
-
----
-
-## Relationship to Existing Plans
-
-This review overlaps with and supplements these existing plans:
-
-| Existing plan | Overlap | This plan adds |
-|---|---|---|
-| `prioritized-upcoming-work-from-docs-20260217.md` (P0-1) | Layer code boundaries | Specific file-split targets for webserver.go and background.go |
-| `prioritized-upcoming-work-from-docs-20260217.md` (P0-2) | Route table refactor | File-level extraction plan for webserver.go |
-| `frontend-consolidation.md` (Phase 3) | ECharts → LayerChart | Palette alignment requirement during migration |
-| `frontend-consolidation.md` (Phase 0) | Capabilities API | Context header improvement for dashboard |
-
-Items unique to this review (not in existing plans):
-- Palette compliance fix (§1.1, §1.3)
-- CSS DRY standard classes (§2.1)
-- Chart empty-state placeholders (§3.1)
-- DESIGN.md documentation references (§8.1, §8.2)
 - Testing infrastructure (§7.1–§7.5)
 - Python version documentation alignment (§11.2)

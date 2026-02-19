@@ -30,14 +30,13 @@ A single concise layer model for LiDAR data in velocity.report. OSI is only a re
 
 ## Current repository alignment
 
-| Layer         | Canonical package              | Key files                                                              |
-| ------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)             |
-| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `export.go`, `geometry.go`                         |
-| L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `foreground.go`, `config.go`, `background_flusher.go` |
+| ------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                   |
+| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `export.go`, `geometry.go`                                               |
+| L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go` |
 | L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned) |
-| L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                  |
-| L6 Objects    | `internal/lidar/l6objects/`    | `classification.go`, `features.go`, `quality.go`                       |
+| L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                        |
+| L6 Objects    | `internal/lidar/l6objects/`    | `classification.go`, `features.go`, `quality.go`, `comparison.go`                            |
 
 Cross-cutting packages:
 

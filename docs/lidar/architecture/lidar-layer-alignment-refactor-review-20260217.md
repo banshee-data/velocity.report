@@ -265,24 +265,26 @@ Outcome:
     - Active types (Pose, Point, PointPolar, etc.) already migrated to layer packages
     - See `arena-go-deprecation-and-layered-type-layout-design-20260217.md` for details
 
+11. **Routing enhancements**: ✅
+    - Added Go 1.22+ HTTP method prefixes to 40+ route patterns (`"GET /path"`, `"POST /path"`)
+    - Added `withDB` and `featureGate` middleware wrappers
+    - Removed ~30 redundant method guard blocks from handlers
+
+12. **Registry reduction**: ✅
+    - Added `SensorRuntime` DI container in `pipeline/runtime.go`
+    - Added `NewFrameBuilderDI`, `NewBackgroundManagerDI`, `NewAnalysisRunManagerDI` constructors
+    - Global registries retained for backward compatibility; new code uses explicit wiring
+
 ### Future work
-
-11. **Routing enhancements**:
-    - Add HTTP method prefixes to route patterns (`"GET /path"`)
-    - Add `withDB`/`method`/`featureGate` middleware wrappers
-    - Inline run/scene path dispatch into route tables
-
-12. **Registry reduction**:
-    - Move to explicit runtime wiring via dependency injection
 
 13. **Frontend decomposition**:
     - Extract `tracksStore`, `runsStore`, `missedRegionStore`
     - Keep components presentational
 
-14. **Cross-layer placement fixes** (from complexity analysis above):
-    - Extract `CompareRuns`/`compareParams`/`computeTemporalIoU` from `storage/sqlite/analysis_run.go` to `l6objects/` or `analysis/`
-    - Split `l3grid/background.go` (2,610 → ~1,600 lines) by extracting persistence, export, and M3.5 drift
-    - Split `monitor/webserver.go` (4,067 → ~500 lines) by extracting datasource and playback handlers
+14. **Cross-layer placement fixes**: ✅
+    - Extracted `ComputeTemporalIoU` and comparison types to `l6objects/comparison.go`; duplicated code in `adapters/ground_truth.go` removed
+    - Split `l3grid/background.go` (2,610 → 1,628 lines) into `background_persistence.go` (450), `background_export.go` (350), `background_drift.go` (245)
+    - Split `monitor/webserver.go` (4,067 → 2,749 lines) into `datasource_handlers.go` (682), `playback_handlers.go` (589)
 
 ## Layer Complexity Analysis (Post-Migration)
 
