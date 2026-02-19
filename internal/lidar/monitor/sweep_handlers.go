@@ -400,11 +400,6 @@ func (ws *WebServer) handleGetSweep(w http.ResponseWriter, r *http.Request) {
 
 // handleSweepCharts saves chart configuration for a sweep.
 func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepStore == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
 		return

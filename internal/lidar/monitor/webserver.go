@@ -422,7 +422,6 @@ func (ws *WebServer) getLatestFgCounts() map[string]int {
 	return copyMap
 }
 
-
 func (ws *WebServer) resetBackgroundGrid() error {
 	mgr := l3grid.GetBackgroundManager(ws.sensorID)
 	if mgr == nil {
@@ -610,7 +609,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/sweep/hint/stop", ws.handleHINTStop},
 		{"/api/lidar/sweep/hint", ws.handleHINT},
 		{"GET /api/lidar/sweep/explain/", ws.handleSweepExplain},
-		{"/api/lidar/sweeps/charts", ws.handleSweepCharts},
+		{"PUT /api/lidar/sweeps/charts", ws.handleSweepCharts},
 		{"GET /api/lidar/sweeps/", ws.handleGetSweep},
 		{"GET /api/lidar/sweeps", ws.handleListSweeps},
 	}
@@ -2581,7 +2580,6 @@ func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
 }
 
-
 // Close shuts down the web server
 func (ws *WebServer) Close() error {
 	ws.dataSourceMu.Lock()
@@ -2746,4 +2744,3 @@ func (ws *WebServer) handleBackgroundRegionsDashboard(w http.ResponseWriter, r *
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(doc))
 }
-

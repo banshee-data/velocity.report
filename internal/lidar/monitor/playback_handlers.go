@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // handlePCAPStart switches the data source to PCAP replay and starts ingestion.
