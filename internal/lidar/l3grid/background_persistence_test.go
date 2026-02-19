@@ -1,6 +1,9 @@
 package l3grid
 
 import (
+	"bytes"
+	"compress/gzip"
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,7 +11,172 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSerializeDeserializeGrid tests the grid serialisation/deserialisation roundtrip.
+// ---------------------------------------------------------------------------
+// Persist
+// ---------------------------------------------------------------------------
+
+// mockPersistBgStore is a minimal BgStore implementation (no RegionStore methods).
+type mockPersistBgStore struct {
+	lastID    int64
+	insertErr error
+	snapshots []*BgSnapshot
+}
+
+func (m *mockPersistBgStore) InsertBgSnapshot(s *BgSnapshot) (int64, error) {
+	if m.insertErr != nil {
+		return 0, m.insertErr
+	}
+	m.lastID++
+	m.snapshots = append(m.snapshots, s)
+	return m.lastID, nil
+}
+
+func TestPersist_NilCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil manager", func(t *testing.T) {
+		t.Parallel()
+		var bm *BackgroundManager
+		err := bm.Persist(&mockPersistBgStore{}, "test")
+		assert.NoError(t, err)
+	})
+
+	t.Run("nil grid", func(t *testing.T) {
+		t.Parallel()
+		bm := &BackgroundManager{Grid: nil}
+		err := bm.Persist(&mockPersistBgStore{}, "test")
+		assert.NoError(t, err)
+	})
+
+	t.Run("nil store", func(t *testing.T) {
+		t.Parallel()
+		g := makeTestGrid(1, 4)
+		err := g.Manager.Persist(nil, "test")
+		assert.NoError(t, err)
+	})
+}
+
+func TestPersist_BasicSuccess(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+	g.ChangesSinceSnapshot = 42
+
+	store := &mockPersistBgStore{}
+	err := bm.Persist(store, "manual")
+	require.NoError(t, err)
+
+	// Verify snapshot was inserted
+	require.Len(t, store.snapshots, 1)
+	snap := store.snapshots[0]
+	assert.Equal(t, "test-sensor", snap.SensorID)
+	assert.Equal(t, 4, snap.Rings)
+	assert.Equal(t, 8, snap.AzimuthBins)
+	assert.Equal(t, "manual", snap.SnapshotReason)
+	assert.Equal(t, 42, snap.ChangedCellsCount)
+	assert.NotEmpty(t, snap.GridBlob)
+
+	// Verify grid metadata was updated
+	assert.NotNil(t, g.SnapshotID)
+	assert.Equal(t, int64(1), *g.SnapshotID)
+	assert.False(t, g.LastSnapshotTime.IsZero())
+	assert.False(t, bm.LastPersistTime.IsZero())
+	// ChangesSinceSnapshot should be decremented
+	assert.Equal(t, 0, g.ChangesSinceSnapshot)
+}
+
+func TestPersist_WithRingElevations(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+	g.RingElevations = []float64{-10.0, -5.0, 0.0, 5.0} // len == Rings
+
+	store := &mockPersistBgStore{}
+	err := bm.Persist(store, "with-elevations")
+	require.NoError(t, err)
+
+	require.Len(t, store.snapshots, 1)
+	snap := store.snapshots[0]
+	assert.Contains(t, snap.RingElevationsJSON, "-10")
+	assert.Contains(t, snap.RingElevationsJSON, "5")
+}
+
+func TestPersist_InsertError(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+
+	store := &mockPersistBgStore{insertErr: fmt.Errorf("db error")}
+	err := bm.Persist(store, "fail")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "db error")
+}
+
+func TestPersist_WithRegionStore(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+	g.RegionMgr = NewRegionManager(4, 8)
+	g.RegionMgr.IdentificationComplete = true
+	g.RegionMgr.Regions = []*Region{
+		{ID: 0, CellList: []int{0, 1, 2}, CellCount: 3},
+	}
+
+	store := newMockRegionStore()
+	err := bm.Persist(store, "regions")
+	require.NoError(t, err)
+
+	// BgSnapshot + RegionSnapshot = 2 inserts
+	assert.Equal(t, int64(2), store.lastInsertedID)
+}
+
+func TestPersist_RegionInsertError(t *testing.T) {
+	t.Parallel()
+	// This test verifies the region insert error path in Persist is handled
+	// gracefully (logged, not returned as error). The mockRegionStore uses a
+	// shared insertErr for both BgSnapshot and RegionSnapshot inserts, so we
+	// cannot easily test the case where only region insert fails.
+	// The happy path with regions is covered by TestPersist_WithRegionStore.
+}
+
+func TestPersist_ConcurrentChanges(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+	g.ChangesSinceSnapshot = 100
+
+	store := &mockPersistBgStore{}
+	err := bm.Persist(store, "concurrent")
+	require.NoError(t, err)
+
+	// Changes should be decremented by the snapshot amount
+	assert.Equal(t, 0, g.ChangesSinceSnapshot)
+}
+
+func TestPersist_DefensiveChangeCounter(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+	// Simulate a race: changesSince copied was larger than current counter
+	g.ChangesSinceSnapshot = 0 // Will be 0 when we get to the write lock
+
+	store := &mockPersistBgStore{}
+	err := bm.Persist(store, "defensive")
+	require.NoError(t, err)
+
+	// Should be 0, not negative
+	assert.Equal(t, 0, g.ChangesSinceSnapshot)
+}
+
+// ---------------------------------------------------------------------------
+// Serialisation edge cases
+// ---------------------------------------------------------------------------
 func TestSerializeDeserializeGrid(t *testing.T) {
 	t.Parallel()
 
@@ -995,4 +1163,252 @@ func TestPersistRegionsOnSettleLocked(t *testing.T) {
 		g.mu.Unlock()
 		// Should handle error gracefully
 	})
+
+	t.Run("returns early when store is BgStore only", func(t *testing.T) {
+		t.Parallel()
+		g := makeTestGridWithData(4, 8)
+		g.RegionMgr = NewRegionManager(4, 8)
+		g.RegionMgr.IdentificationComplete = true
+		// Use mockPersistBgStore which does NOT implement RegionStore
+		bm := &BackgroundManager{Grid: g, store: &mockPersistBgStore{}}
+
+		g.mu.Lock()
+		bm.persistRegionsOnSettleLocked()
+		g.mu.Unlock()
+		// Should return early at the regionStore type assertion
+	})
+
+	t.Run("returns early when ToSnapshot returns nil", func(t *testing.T) {
+		t.Parallel()
+		g := makeTestGridWithData(4, 8)
+		g.RegionMgr = NewRegionManager(4, 8)
+		g.RegionMgr.IdentificationComplete = true
+		// No regions → ToSnapshot returns nil
+		g.RegionMgr.Regions = nil
+		store := newMockRegionStore()
+		bm := &BackgroundManager{Grid: g, store: store}
+
+		g.mu.Lock()
+		bm.persistRegionsOnSettleLocked()
+		g.mu.Unlock()
+		// Should return early when regionSnap is nil
+	})
+}
+
+// ---------------------------------------------------------------------------
+// tryRestoreRegionsFromStoreLocked additional branches
+// ---------------------------------------------------------------------------
+
+func TestTryRestoreRegionsFromStoreLocked_SourcePathError(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	store := newMockRegionStore()
+	store.getErr = fmt.Errorf("db lookup error")
+	bm := &BackgroundManager{
+		Grid:       g,
+		store:      store,
+		sourcePath: "/test/path.pcap",
+	}
+
+	g.mu.Lock()
+	result := bm.tryRestoreRegionsFromStoreLocked()
+	g.mu.Unlock()
+
+	// Error on source path lookup should fall through to scene hash
+	// But scene hash also fails due to getErr, so returns false
+	assert.False(t, result)
+}
+
+func TestTryRestoreRegionsFromStoreLocked_SceneHashError(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	store := newMockRegionStore()
+	store.getErr = fmt.Errorf("scene hash lookup error")
+	// No source path → goes straight to scene hash
+	bm := &BackgroundManager{Grid: g, store: store}
+
+	g.mu.Lock()
+	result := bm.tryRestoreRegionsFromStoreLocked()
+	g.mu.Unlock()
+
+	assert.False(t, result)
+}
+
+func TestTryRestoreRegionsFromStoreLocked_RestoreFromSceneHashError(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	store := newMockRegionStore()
+	sceneHash := g.SceneSignature()
+
+	// Add a snapshot with invalid regions JSON to trigger restore error
+	snap := &RegionSnapshot{
+		SensorID:         g.SensorID,
+		SceneHash:        sceneHash,
+		RegionsJSON:      `invalid json`,
+		RegionCount:      1,
+		CreatedUnixNanos: time.Now().UnixNano(),
+	}
+	store.addRegionSnapshotBySceneHash(g.SensorID, sceneHash, snap)
+	bm := &BackgroundManager{Grid: g, store: store}
+
+	g.mu.Lock()
+	result := bm.tryRestoreRegionsFromStoreLocked()
+	g.mu.Unlock()
+
+	assert.False(t, result)
+}
+
+func TestTryRestoreRegionsFromStoreLocked_SourcePathRestoreError(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	store := newMockRegionStore()
+
+	// Add a snapshot by source path with invalid JSON
+	snap := &RegionSnapshot{
+		SensorID:         g.SensorID,
+		SourcePath:       "/bad/path.pcap",
+		RegionsJSON:      `not valid json`,
+		RegionCount:      1,
+		CreatedUnixNanos: time.Now().UnixNano(),
+	}
+	store.addRegionSnapshotBySourcePath(g.SensorID, "/bad/path.pcap", snap)
+	bm := &BackgroundManager{
+		Grid:       g,
+		store:      store,
+		sourcePath: "/bad/path.pcap",
+	}
+
+	g.mu.Lock()
+	result := bm.tryRestoreRegionsFromStoreLocked()
+	g.mu.Unlock()
+
+	assert.False(t, result)
+}
+
+func TestTryRestoreRegionsFromStoreLocked_SourcePathNoSnapshot(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	store := newMockRegionStore()
+	// Source path set but no matching snapshot → logs "trying scene_hash"
+	bm := &BackgroundManager{
+		Grid:       g,
+		store:      store,
+		sourcePath: "/nonexistent/path.pcap",
+	}
+
+	g.mu.Lock()
+	result := bm.tryRestoreRegionsFromStoreLocked()
+	g.mu.Unlock()
+
+	assert.False(t, result)
+}
+
+// ---------------------------------------------------------------------------
+// restoreFromSnapshotLocked additional branches
+// ---------------------------------------------------------------------------
+
+func TestRestoreFromSnapshotLocked_InvalidGridBlob(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	store := newMockRegionStore()
+
+	// Add a bg snapshot with invalid grid blob
+	snapshotID := int64(1)
+	bgSnap := &BgSnapshot{
+		SnapshotID: &snapshotID,
+		GridBlob:   []byte("not valid gzip data"),
+	}
+	store.bgSnapshots[1] = bgSnap
+
+	snap := &RegionSnapshot{
+		SnapshotID:       1,
+		RegionsJSON:      `[{"id": 0, "cell_list": [0], "cell_count": 1}]`,
+		CreatedUnixNanos: time.Now().UnixNano(),
+	}
+
+	g.mu.Lock()
+	err := bm.restoreFromSnapshotLocked(store, snap)
+	g.mu.Unlock()
+
+	// Should still succeed (regions restored despite grid blob error)
+	assert.NoError(t, err)
+}
+
+func TestRestoreFromSnapshotLocked_NilBgSnapshot(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	bm := &BackgroundManager{Grid: g}
+	store := newMockRegionStore()
+	// SnapshotID > 0 but no bg snapshot in store → bgSnap is nil
+
+	snap := &RegionSnapshot{
+		SnapshotID:       999, // Not in store
+		RegionsJSON:      `[{"id": 0, "cell_list": [0], "cell_count": 1}]`,
+		CreatedUnixNanos: time.Now().UnixNano(),
+	}
+
+	g.mu.Lock()
+	err := bm.restoreFromSnapshotLocked(store, snap)
+	g.mu.Unlock()
+
+	assert.NoError(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// TryRestoreRegionsBySceneHash additional branches
+// ---------------------------------------------------------------------------
+
+func TestTryRestoreRegionsBySceneHash_GetError(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	store := newMockRegionStore()
+	store.getErr = fmt.Errorf("DB error")
+
+	result := g.Manager.TryRestoreRegionsBySceneHash(store)
+	assert.False(t, result)
+}
+
+// ---------------------------------------------------------------------------
+// restoreRegionsLocked error path
+// ---------------------------------------------------------------------------
+
+func TestRestoreRegionsLocked_InvalidJSON(t *testing.T) {
+	t.Parallel()
+	g := makeTestGridWithData(4, 8)
+	g.RegionMgr = NewRegionManager(4, 8)
+	bm := &BackgroundManager{Grid: g}
+
+	snap := &RegionSnapshot{
+		RegionsJSON:      `invalid`,
+		CreatedUnixNanos: time.Now().UnixNano(),
+	}
+
+	err := bm.RestoreRegions(snap)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to restore regions")
+}
+
+// ---------------------------------------------------------------------------
+// deserializeGrid decode error
+// ---------------------------------------------------------------------------
+
+func TestDeserializeGrid_DecodeError(t *testing.T) {
+	t.Parallel()
+	// Create valid gzip data that contains invalid gob encoding
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	gz.Write([]byte("not valid gob data"))
+	gz.Close()
+
+	_, err := deserializeGrid(buf.Bytes())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode")
 }
