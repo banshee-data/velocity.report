@@ -19,56 +19,23 @@ import (
 
 // TestHesaiLiDAR_PCAPIntegration is the comprehensive integration test that:
 // 1. Parses real PCAP data using gopacket
-// 2. Uses the production Hesai parser to extract points
-// 3. Builds complete frames using the frame builder
-// 4. Validates the entire pipeline works end-to-end
+// 2. Streams packets directly into the frame builder (no unbounded memory)
+// 3. Validates the entire pipeline works end-to-end
+//
+// This test MUST stream data through the frame builder rather than collecting
+// all points into a slice. The 99MB 20Hz PCAP produces ~26.7M points; with
+// race instrumentation the accumulated slice would consume multi-GB and OOM
+// CI runners. Streaming matches the production data flow.
 func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
-	// Path to the PCAP file (in testdata directory)
 	pcapPath := filepath.Join("perf", "pcap", "lidar_20Hz.pcapng")
 
-	// Step 1: Set up Hesai parser with realistic configuration
+	// Step 1: Set up Hesai parser
 	config := createTestHesaiParserConfig()
 	parser := parse.NewPandar40PParser(config)
 	parser.SetTimestampMode(parse.TimestampModeSystemTime)
 	parser.SetDebug(false)
 
-	// Step 2: Extract real PCAP data using gopacket (replaces tshark)
-	t.Log("Extracting LiDAR data from PCAP using gopacket...")
-	allPoints, err := extractPCAPDataUsingGopacket(pcapPath, parser)
-	if err != nil {
-		t.Fatalf("Failed to extract PCAP data: %v", err)
-	}
-
-	if len(allPoints) == 0 {
-		t.Fatal("No LiDAR points extracted from PCAP")
-	}
-
-	t.Logf("Successfully extracted %d LiDAR points from PCAP using gopacket", len(allPoints))
-
-	// Step 3: Analyse extracted data for frame building validation
-	minAzimuth, maxAzimuth := 360.0, 0.0
-	startTime, endTime := allPoints[0].Timestamp, allPoints[0].Timestamp
-
-	for _, point := range allPoints {
-		if point.Azimuth < minAzimuth {
-			minAzimuth = point.Azimuth
-		}
-		if point.Azimuth > maxAzimuth {
-			maxAzimuth = point.Azimuth
-		}
-		if point.Timestamp.Before(startTime) {
-			startTime = point.Timestamp
-		}
-		if point.Timestamp.After(endTime) {
-			endTime = point.Timestamp
-		}
-	}
-
-	totalDuration := endTime.Sub(startTime)
-	t.Logf("PCAP data analysis: %.1f° - %.1f° azimuth range, %v total duration",
-		minAzimuth, maxAzimuth, totalDuration)
-
-	// Step 4: Set up frame builder to process the extracted points
+	// Step 2: Set up frame builder with callback
 	var (
 		completedFrames []*lidar.LiDARFrame
 		completedMu     sync.Mutex
@@ -79,45 +46,34 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 			completedMu.Lock()
 			completedFrames = append(completedFrames, frame)
 			completedMu.Unlock()
-			t.Logf("Frame completed: %s, %d points, %.1f° - %.1f° azimuth, %v duration",
+			t.Logf("Frame completed: %s, %d points, %.1f°-%.1f° azimuth, %v duration",
 				frame.FrameID, frame.PointCount, frame.MinAzimuth, frame.MaxAzimuth,
 				frame.EndTimestamp.Sub(frame.StartTimestamp))
 		},
-		EnableTimeBased:       false,                  // Start with traditional azimuth-based detection
-		ExpectedFrameDuration: 17 * time.Millisecond,  // Based on PCAP analysis: 16.5ms total
-		MinFramePoints:        1000,                   // Lower threshold for real data
-		BufferTimeout:         100 * time.Millisecond, // Shorter timeout
-		CleanupInterval:       50 * time.Millisecond,  // Faster cleanup
+		EnableTimeBased:       false,
+		ExpectedFrameDuration: 17 * time.Millisecond,
+		MinFramePoints:        1000,
+		BufferTimeout:         100 * time.Millisecond,
+		CleanupInterval:       50 * time.Millisecond,
 	}
-
 	frameBuilder := lidar.NewFrameBuilder(frameConfig)
 
-	// Step 5: Process all extracted points through the frame builder (polar-first)
-	t.Log("Processing points through frame builder...")
-	// Convert cartesian points back to polar form for the polar-first API
-	toPolar := func(points []lidar.Point) []lidar.PointPolar {
-		out := make([]lidar.PointPolar, 0, len(points))
-		for _, p := range points {
-			out = append(out, lidar.PointPolar{
-				Channel:     p.Channel,
-				Azimuth:     p.Azimuth,
-				Elevation:   p.Elevation,
-				Distance:    p.Distance,
-				Intensity:   p.Intensity,
-				Timestamp:   p.Timestamp.UnixNano(),
-				BlockID:     p.BlockID,
-				UDPSequence: p.UDPSequence,
-			})
-		}
-		return out
+	// Step 3: Stream PCAP packets directly into the frame builder
+	t.Log("Streaming PCAP packets into frame builder...")
+	totalPoints, err := streamPCAPIntoFrameBuilder(pcapPath, parser, frameBuilder)
+	if err != nil {
+		t.Fatalf("Failed to stream PCAP data: %v", err)
 	}
 
-	frameBuilder.AddPointsPolar(toPolar(allPoints))
+	if totalPoints == 0 {
+		t.Fatal("No LiDAR points extracted from PCAP")
+	}
+	t.Logf("Streamed %d points from PCAP into frame builder", totalPoints)
 
-	// Step 6: Wait for frame processing to complete
+	// Step 4: Wait for frame processing to complete
 	time.Sleep(500 * time.Millisecond)
 
-	// Step 7: Validate the integration results
+	// Step 5: Validate the integration results
 	completedMu.Lock()
 	framesCopy := append([]*lidar.LiDARFrame(nil), completedFrames...)
 	completedMu.Unlock()
@@ -128,45 +84,41 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 
 	t.Logf("Successfully built %d complete frames from PCAP data", len(framesCopy))
 
-	// Validate frame quality
+	totalFramePoints := 0
 	for i, frame := range framesCopy {
 		if frame.PointCount == 0 {
 			t.Errorf("Frame %d has no points", i)
 			continue
 		}
+		totalFramePoints += frame.PointCount
 
 		azimuthSpan := frame.MaxAzimuth - frame.MinAzimuth
 		if azimuthSpan < 0 {
 			azimuthSpan += 360
 		}
-
 		frameDuration := frame.EndTimestamp.Sub(frame.StartTimestamp)
 		t.Logf("Frame %d: %d points, %.1f° coverage, %v duration",
 			i, frame.PointCount, azimuthSpan, frameDuration)
 	}
 
-	// Step 8: Final integration validation
-	totalFramePoints := 0
-	for _, frame := range completedFrames {
-		totalFramePoints += frame.PointCount
-	}
-
-	pointsUsedRatio := float64(totalFramePoints) / float64(len(allPoints))
+	pointsUsedRatio := float64(totalFramePoints) / float64(totalPoints)
 	t.Logf("Integration efficiency: %d/%d points used in frames (%.1f%%)",
-		totalFramePoints, len(allPoints), pointsUsedRatio*100)
+		totalFramePoints, totalPoints, pointsUsedRatio*100)
 
-	t.Log("INTEGRATION TEST PASSED: PCAP parsing + Frame building working correctly!")
+	t.Log("INTEGRATION TEST PASSED: PCAP streaming + Frame building working correctly!")
 }
 
-// extractPCAPDataUsingGopacket extracts PCAP data using gopacket instead of tshark
-func extractPCAPDataUsingGopacket(pcapPath string, parser *parse.Pandar40PParser) ([]lidar.Point, error) {
+// streamPCAPIntoFrameBuilder streams PCAP packets directly into the frame
+// builder without accumulating points. This keeps memory bounded regardless
+// of PCAP file size.
+func streamPCAPIntoFrameBuilder(pcapPath string, parser *parse.Pandar40PParser, fb *lidar.FrameBuilder) (int, error) {
 	handle, err := pcap.OpenOffline(pcapPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open PCAP file: %v", err)
+		return 0, fmt.Errorf("failed to open PCAP file: %v", err)
 	}
 	defer handle.Close()
 
-	var allPoints []lidar.Point
+	totalPoints := 0
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 
 	for packet := range packetSource.Packets() {
@@ -174,40 +126,25 @@ func extractPCAPDataUsingGopacket(pcapPath string, parser *parse.Pandar40PParser
 		if udpLayer == nil {
 			continue
 		}
-
 		udp := udpLayer.(*layers.UDP)
-
 		if udp.DstPort != 2369 && udp.SrcPort != 2369 {
 			continue
 		}
-
-		lidarData := udp.Payload
-		if len(lidarData) == 0 {
+		if len(udp.Payload) == 0 {
 			continue
 		}
 
-		parsedPoints, err := parser.ParsePacket(lidarData)
-		if err == nil && len(parsedPoints) > 0 {
-			// Convert parsed polar points to lidar.Point (cartesian) for analysis
-			for _, p := range parsedPoints {
-				x, y, z := lidar.SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
-				lidarPoint := lidar.Point{
-					X:         x,
-					Y:         y,
-					Z:         z,
-					Intensity: p.Intensity,
-					Azimuth:   p.Azimuth,
-					Elevation: p.Elevation,
-					Distance:  p.Distance,
-					Timestamp: time.Unix(0, p.Timestamp),
-					Channel:   p.Channel,
-				}
-				allPoints = append(allPoints, lidarPoint)
-			}
+		parsedPoints, err := parser.ParsePacket(udp.Payload)
+		if err != nil || len(parsedPoints) == 0 {
+			continue
 		}
+
+		// Feed directly to frame builder — no intermediate storage
+		fb.AddPointsPolar(parsedPoints)
+		totalPoints += len(parsedPoints)
 	}
 
-	return allPoints, nil
+	return totalPoints, nil
 }
 
 // createTestHesaiParserConfig creates a test configuration for the Hesai parser
