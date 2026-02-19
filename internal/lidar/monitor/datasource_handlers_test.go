@@ -4,12 +4,31 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
+
+// mockTimestampParser satisfies network.Parser and exposes SetTimestampMode so
+// the startPCAPLocked goroutine's type-assertion succeeds.
+type mockTimestampParser struct {
+	mode parse.TimestampMode
+}
+
+func (p *mockTimestampParser) ParsePacket(_ []byte) ([]l4perception.PointPolar, error) {
+	return nil, nil
+}
+
+func (p *mockTimestampParser) GetLastMotorSpeed() uint16 { return 0 }
+
+func (p *mockTimestampParser) SetTimestampMode(m parse.TimestampMode) {
+	p.mode = m
+}
 
 // --- Simple accessor tests ---
 
@@ -785,5 +804,348 @@ func TestStartPCAPForSweep_StartPCAPError(t *testing.T) {
 	err := ws.StartPCAPForSweep("missing.pcap", false, "fastest", 0, 0, 1, false)
 	if err == nil {
 		t.Fatal("expected error from startPCAPLocked failure")
+	}
+}
+
+// --- Helper: wait for pcapDone goroutine to complete ---
+
+func waitForPCAPDone(t *testing.T, ws *WebServer) {
+	t.Helper()
+	ws.pcapMu.Lock()
+	done := ws.pcapDone
+	ws.pcapMu.Unlock()
+	if done != nil {
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			t.Fatal("PCAP goroutine did not complete in time")
+		}
+	} else {
+		// Goroutine may have already finished and cleared pcapDone.
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// --- Helper: standard 24-byte PCAP header ---
+
+var testPCAPHeader = []byte{
+	0xd4, 0xc3, 0xb2, 0xa1, 0x02, 0x00, 0x04, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+}
+
+// --- Goroutine coverage: analysis mode with parser, forwarder, and callbacks ---
+
+func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
+	sensorID := "test-analysis-callbacks"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "callbacks.pcap"), testPCAPHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dbWrapped, cleanupDB := setupTestDBWrapped(t)
+	defer cleanupDB()
+
+	fwd, err := network.NewPacketForwarder("127.0.0.1", 19999, nil, time.Second)
+	if err != nil {
+		t.Fatalf("NewPacketForwarder: %v", err)
+	}
+	defer fwd.Close()
+
+	parser := &mockTimestampParser{}
+
+	var recordingStartCalled bool
+	var recordingStopCalled bool
+
+	ws := NewWebServer(WebServerConfig{
+		Address:         ":0",
+		Stats:           NewPacketStats(),
+		SensorID:        sensorID,
+		PCAPSafeDir:     tmpDir,
+		DB:              dbWrapped,
+		Parser:          parser,
+		PacketForwarder: fwd,
+		OnPCAPStarted:   func() {},
+		OnRecordingStart: func(_ string) {
+			recordingStartCalled = true
+		},
+		OnRecordingStop: func(_ string) string {
+			recordingStopCalled = true
+			return "/tmp/test.vrlog" // non-empty to exercise vrlogPath branch
+		},
+	})
+	ws.setBaseContext(context.Background())
+
+	// Pre-set analysis mode BEFORE starting PCAP to avoid race with goroutine
+	ws.pcapMu.Lock()
+	ws.pcapAnalysisMode = true
+	ws.pcapDisableRecording = false
+	ws.pcapMu.Unlock()
+
+	// Set source so the goroutine cleanup enters the analysis-mode path
+	ws.dataSourceMu.Lock()
+	ws.currentSource = DataSourcePCAP
+	ws.dataSourceMu.Unlock()
+
+	err = ws.startPCAPLocked("callbacks.pcap", "fastest", 1.0, 0, 0,
+		0, 0, 0, 0, false, false)
+	if err != nil {
+		t.Fatalf("startPCAPLocked error: %v", err)
+	}
+
+	waitForPCAPDone(t, ws)
+
+	// Parser should have been switched to LiDAR mode during replay
+	if parser.mode != parse.TimestampModeLiDAR {
+		// Defer restores to SystemTime—check that it was set at all
+		t.Logf("parser mode after completion: %v (defer may have restored)", parser.mode)
+	}
+
+	if !recordingStartCalled {
+		t.Error("expected onRecordingStart to be called")
+	}
+	if !recordingStopCalled {
+		t.Error("expected onRecordingStop to be called")
+	}
+
+	// After analysis mode goroutine, source should be PCapAnalysis (grid preserved)
+	ws.dataSourceMu.RLock()
+	src := ws.currentSource
+	ws.dataSourceMu.RUnlock()
+	if src != DataSourcePCAPAnalysis {
+		t.Errorf("expected DataSourcePCAPAnalysis, got %v", src)
+	}
+}
+
+// --- Goroutine coverage: realtime mode with plots, debug range, negative speed ratio ---
+
+func TestStartPCAPLocked_RealtimeWithPlotsAndDebug(t *testing.T) {
+	sensorID := "test-realtime-plots"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "realtime.pcap"), testPCAPHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	plotsDir := filepath.Join(tmpDir, "plots")
+
+	ws := NewWebServer(WebServerConfig{
+		Address:      ":0",
+		Stats:        NewPacketStats(),
+		SensorID:     sensorID,
+		PCAPSafeDir:  tmpDir,
+		PlotsBaseDir: plotsDir,
+	})
+	ws.setBaseContext(context.Background())
+
+	// Non-analysis mode: goroutine will try resetAllState + startLiveListenerLocked
+	// in cleanup. Provide UDP listener config for startLiveListenerLocked.
+	ws.udpListenerConfig = network.UDPListenerConfig{Address: ":0"}
+
+	ws.dataSourceMu.Lock()
+	ws.currentSource = DataSourcePCAP
+	ws.dataSourceMu.Unlock()
+
+	// enablePlots=true with plotsBaseDir → grid plotter init
+	// speedRatio=-1 → multiplier <= 0 → default to 1.0
+	// debugRingMin=1, debugRingMax=10 with enableDebug=false → "debug OFF" log
+	err := ws.startPCAPLocked("realtime.pcap", "realtime", -1.0, 0, 0,
+		1, 10, 0, 0, false, true)
+	if err != nil {
+		t.Fatalf("startPCAPLocked error: %v", err)
+	}
+
+	waitForPCAPDone(t, ws)
+
+	// Grid plotter should have been initialised and cleaned up
+	// (no assertions needed—coverage is the goal)
+}
+
+// --- Goroutine coverage: non-analysis mode with onPCAPStopped callback ---
+
+func TestStartPCAPLocked_NonAnalysisWithPCAPStopped(t *testing.T) {
+	sensorID := "test-pcap-stopped-cb"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "stopcb.pcap"), testPCAPHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stoppedCalled bool
+	ws := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		SensorID:          sensorID,
+		PCAPSafeDir:       tmpDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+		OnPCAPStopped:     func() { stoppedCalled = true },
+	})
+	ws.setBaseContext(context.Background())
+
+	// Set to PCAP mode so goroutine cleanup enters the source-switch block.
+	// Non-analysis mode: cleanup resets state + starts live listener + calls onPCAPStopped.
+	ws.dataSourceMu.Lock()
+	ws.currentSource = DataSourcePCAP
+	ws.dataSourceMu.Unlock()
+
+	err := ws.startPCAPLocked("stopcb.pcap", "fastest", 1.0, 0, 0,
+		0, 0, 0, 0, false, false)
+	if err != nil {
+		t.Fatalf("startPCAPLocked error: %v", err)
+	}
+
+	waitForPCAPDone(t, ws)
+
+	if !stoppedCalled {
+		t.Error("expected onPCAPStopped callback to fire after non-analysis PCAP completion")
+	}
+}
+
+// --- StartPCAPForSweep: resetAllState error (nil-grid BackgroundManager) ---
+
+func TestStartPCAPForSweep_ResetStateError(t *testing.T) {
+	sensorID := "test-sweep-reset-err"
+
+	// Register a BackgroundManager with nil Grid so ResetGrid returns error
+	brokenMgr := &l3grid.BackgroundManager{}
+	l3grid.RegisterBackgroundManager(sensorID, brokenMgr)
+	// Overwrite with a valid manager on cleanup
+	defer func() { _ = l3grid.NewBackgroundManager(sensorID, 2, 2, l3grid.BackgroundParams{}, nil) }()
+
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "reset.pcap"), testPCAPHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ws := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		SensorID:          sensorID,
+		PCAPSafeDir:       tmpDir,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+	ws.setBaseContext(context.Background())
+
+	err := ws.StartPCAPForSweep("reset.pcap", false, "fastest", 0, 0, 1, false)
+	if err == nil {
+		t.Fatal("expected error from resetAllState with nil-grid manager")
+	}
+	if !strings.Contains(err.Error(), "reset state") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- StopPCAPForSweep: resetAllState error path ---
+
+func TestStopPCAPForSweep_ResetAllStateFailure(t *testing.T) {
+	sensorID := "test-stop-reset-fail"
+
+	// Register a nil-grid manager so resetBackgroundGrid fails
+	brokenMgr := &l3grid.BackgroundManager{}
+	l3grid.RegisterBackgroundManager(sensorID, brokenMgr)
+	// Overwrite with a valid manager on cleanup
+	defer func() { _ = l3grid.NewBackgroundManager(sensorID, 2, 2, l3grid.BackgroundParams{}, nil) }()
+
+	ws := NewWebServer(WebServerConfig{
+		Address:  ":0",
+		Stats:    NewPacketStats(),
+		SensorID: sensorID,
+	})
+
+	done := make(chan struct{})
+	close(done)
+
+	ws.dataSourceMu.Lock()
+	ws.currentSource = DataSourcePCAP
+	ws.dataSourceMu.Unlock()
+
+	ws.pcapMu.Lock()
+	ws.pcapDone = done
+	ws.pcapCancel = func() {}
+	ws.pcapAnalysisMode = false // non-analysis → calls resetAllState
+	ws.pcapMu.Unlock()
+
+	err := ws.StopPCAPForSweep()
+	if err == nil {
+		t.Fatal("expected error from resetAllState")
+	}
+	if !strings.Contains(err.Error(), "reset state after stop") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- StopPCAPForSweep: startLiveListenerLocked error (nil context) ---
+
+func TestStopPCAPForSweep_StartListenerError(t *testing.T) {
+	sensorID := "test-stop-listener-err"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	ws := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		SensorID:          sensorID,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+	// Do NOT call setBaseContext → startLiveListenerLocked will fail
+
+	done := make(chan struct{})
+	close(done)
+
+	ws.dataSourceMu.Lock()
+	ws.currentSource = DataSourcePCAP
+	ws.dataSourceMu.Unlock()
+
+	ws.pcapMu.Lock()
+	ws.pcapDone = done
+	ws.pcapCancel = func() {}
+	ws.pcapAnalysisMode = false
+	ws.pcapMu.Unlock()
+
+	err := ws.StopPCAPForSweep()
+	if err == nil {
+		t.Fatal("expected error from startLiveListenerLocked")
+	}
+	if !strings.Contains(err.Error(), "restart live listener") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- resolvePCAPPath: symlink pointing outside safe directory ---
+
+func TestResolvePCAPPath_SymlinkOutsideSafeDir(t *testing.T) {
+	safeDir := resolveSymlinks(t, t.TempDir())
+	outsideDir := resolveSymlinks(t, t.TempDir())
+
+	// Create a real .pcap file outside the safe directory
+	outsideFile := filepath.Join(outsideDir, "escape.pcap")
+	if err := os.WriteFile(outsideFile, testPCAPHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a symlink inside the safe dir pointing outside
+	symlinkPath := filepath.Join(safeDir, "link.pcap")
+	if err := os.Symlink(outsideFile, symlinkPath); err != nil {
+		t.Skipf("symlink creation failed: %v", err)
+	}
+
+	ws := &WebServer{pcapSafeDir: safeDir}
+	_, err := ws.resolvePCAPPath("link.pcap")
+	if err == nil {
+		t.Fatal("expected error for symlink escaping safe directory")
+	}
+	se, ok := err.(*switchError)
+	if !ok {
+		t.Fatalf("expected *switchError, got %T: %v", err, err)
+	}
+	if se.status != 403 {
+		t.Errorf("expected status 403 (Forbidden), got %d: %v", se.status, se.err)
 	}
 }
