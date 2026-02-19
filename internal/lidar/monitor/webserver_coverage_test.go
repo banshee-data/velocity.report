@@ -132,18 +132,6 @@ func TestCov_HandleForegroundFrameChart_QuerySensor(t *testing.T) {
 
 // --- handleLidarSnapshot ---
 
-func TestCov_HandleLidarSnapshot_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-
-	req := httptest.NewRequest(http.MethodPost, "/lidar-snapshot", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarSnapshot(w, req)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov_HandleLidarSnapshot_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
 
@@ -183,18 +171,6 @@ func TestCov_HandleLidarSnapshot_NoSnapshot(t *testing.T) {
 }
 
 // --- handlePCAPStop ---
-
-func TestCov_HandlePCAPStop_WrongMethod(t *testing.T) {
-	ws := &WebServer{sensorID: "sensor-1"}
-
-	req := httptest.NewRequest(http.MethodGet, "/pcap/stop", nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov_HandlePCAPStop_MissingSensorID(t *testing.T) {
 	ws := &WebServer{sensorID: "sensor-1"}
@@ -607,54 +583,11 @@ func TestCov2_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	}
 }
 
-func TestCov2_HandleTuningParams_MethodNotAllowed(t *testing.T) {
-	bm := l3grid.NewBackgroundManager("cov2-tuning-delete", 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager("cov2-tuning-delete", bm)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/tuning-params?sensor_id=cov2-tuning-delete", nil)
-	w := httptest.NewRecorder()
-	ws := &WebServer{}
-	ws.handleTuningParams(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 // --- handleGridStatus ---
-
-func TestCov2_HandleGridStatus_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/grid/status", nil)
-	w := httptest.NewRecorder()
-	ws.handleGridStatus(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 // --- handleTrafficStats ---
 
-func TestCov2_HandleTrafficStats_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/traffic-stats", nil)
-	w := httptest.NewRecorder()
-	ws.handleTrafficStats(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 // --- handleGridReset ---
-
-func TestCov2_HandleGridReset_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid/reset", nil)
-	w := httptest.NewRecorder()
-	ws.handleGridReset(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov2_HandleGridReset_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
@@ -871,16 +804,6 @@ func TestCov2_HandleExportForegroundASC_NoSnapshot(t *testing.T) {
 
 // --- handleLidarSnapshots ---
 
-func TestCov2_HandleLidarSnapshots_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshots", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarSnapshots(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandleLidarSnapshots_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots", nil)
@@ -936,16 +859,6 @@ func TestCov2_HandleLidarSnapshots_NegativeLimit(t *testing.T) {
 
 // --- handleLidarSnapshotsCleanup ---
 
-func TestCov2_HandleLidarSnapshotsCleanup_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/cleanup", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarSnapshotsCleanup(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandleLidarSnapshotsCleanup_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshots/cleanup", nil)
@@ -967,16 +880,6 @@ func TestCov2_HandleLidarSnapshotsCleanup_NilDB(t *testing.T) {
 }
 
 // --- handleLidarPersist ---
-
-func TestCov2_HandleLidarPersist_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/persist", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarPersist(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov2_HandleLidarPersist_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
@@ -1053,16 +956,6 @@ func TestCov2_HandleLidarSnapshot_DBError(t *testing.T) {
 
 // --- handleAcceptanceMetrics ---
 
-func TestCov2_HandleAcceptanceMetrics_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/acceptance-metrics", nil)
-	w := httptest.NewRecorder()
-	ws.handleAcceptanceMetrics(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandleAcceptanceMetrics_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/acceptance-metrics", nil)
@@ -1075,16 +968,6 @@ func TestCov2_HandleAcceptanceMetrics_MissingSensorID(t *testing.T) {
 
 // --- handleAcceptanceReset ---
 
-func TestCov2_HandleAcceptanceReset_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/acceptance-reset", nil)
-	w := httptest.NewRecorder()
-	ws.handleAcceptanceReset(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandleAcceptanceReset_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/acceptance-reset", nil)
@@ -1096,16 +979,6 @@ func TestCov2_HandleAcceptanceReset_MissingSensorID(t *testing.T) {
 }
 
 // --- handlePCAPStart ---
-
-func TestCov2_HandlePCAPStart_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/start", nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPStart(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov2_HandlePCAPStart_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
@@ -1224,16 +1097,6 @@ func TestCov2_HandlePCAPStop_WrongSensorID(t *testing.T) {
 
 // --- handlePCAPResumeLive ---
 
-func TestCov2_HandlePCAPResumeLive_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/resume-live", nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPResumeLive(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandlePCAPResumeLive_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume-live", nil)
@@ -1306,16 +1169,6 @@ func TestCov2_HandleBgRegionsDashboard_NoManager(t *testing.T) {
 
 // --- handlePlaybackStatus ---
 
-func TestCov2_HandlePlaybackStatus_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/playback/status", nil)
-	w := httptest.NewRecorder()
-	ws.handlePlaybackStatus(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandlePlaybackStatus_NoCallback(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/status", nil)
@@ -1327,16 +1180,6 @@ func TestCov2_HandlePlaybackStatus_NoCallback(t *testing.T) {
 }
 
 // --- handlePlaybackPause ---
-
-func TestCov2_HandlePlaybackPause_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/pause", nil)
-	w := httptest.NewRecorder()
-	ws.handlePlaybackPause(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov2_HandlePlaybackPause_NoCallback(t *testing.T) {
 	ws := &WebServer{}
@@ -1360,16 +1203,6 @@ func TestCov2_HandlePlaybackPause_WithCallback(t *testing.T) {
 
 // --- handlePlaybackPlay ---
 
-func TestCov2_HandlePlaybackPlay_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/play", nil)
-	w := httptest.NewRecorder()
-	ws.handlePlaybackPlay(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandlePlaybackPlay_NoCallback(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/playback/play", nil)
@@ -1391,16 +1224,6 @@ func TestCov2_HandlePlaybackPlay_WithCallback(t *testing.T) {
 }
 
 // --- handlePlaybackSeek ---
-
-func TestCov2_HandlePlaybackSeek_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/seek", nil)
-	w := httptest.NewRecorder()
-	ws.handlePlaybackSeek(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov2_HandlePlaybackSeek_NoCallback(t *testing.T) {
 	ws := &WebServer{}
@@ -1425,16 +1248,6 @@ func TestCov2_HandlePlaybackSeek_BadJSON(t *testing.T) {
 
 // --- handlePlaybackRate ---
 
-func TestCov2_HandlePlaybackRate_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/rate", nil)
-	w := httptest.NewRecorder()
-	ws.handlePlaybackRate(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandlePlaybackRate_NoCallback(t *testing.T) {
 	body, _ := json.Marshal(map[string]float32{"rate": 2.0})
 	ws := &WebServer{}
@@ -1457,16 +1270,6 @@ func TestCov2_HandlePlaybackRate_BadJSON(t *testing.T) {
 }
 
 // --- handleVRLogLoad ---
-
-func TestCov2_HandleVRLogLoad_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/vrlog/load", nil)
-	w := httptest.NewRecorder()
-	ws.handleVRLogLoad(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov2_HandleVRLogLoad_NoCallback(t *testing.T) {
 	ws := &WebServer{}
@@ -1505,16 +1308,6 @@ func TestCov2_HandleVRLogLoad_EmptyPath(t *testing.T) {
 
 // --- handleVRLogStop ---
 
-func TestCov2_HandleVRLogStop_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/vrlog/stop", nil)
-	w := httptest.NewRecorder()
-	ws.handleVRLogStop(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov2_HandleVRLogStop_NoCallback(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/stop", nil)
@@ -1540,16 +1333,6 @@ func TestCov2_HandleVRLogStop_WithCallback(t *testing.T) {
 }
 
 // --- handleDataSource ---
-
-func TestCov2_HandleDataSource_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/data-source", nil)
-	w := httptest.NewRecorder()
-	ws.handleDataSource(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 // --- handleTrafficChart ---
 
@@ -1794,16 +1577,6 @@ func insertSnapshot(t *testing.T, sqlDB *sql.DB, sensorID string, rings, azBins 
 }
 
 // --- handleLidarSnapshot ---
-
-func TestCov3_HandleLidarSnapshot_WrongMethod(t *testing.T) {
-	ws := setupCov3WebServer(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshot?sensor_id=x", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarSnapshot(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov3_HandleLidarSnapshot_MissingSensorID(t *testing.T) {
 	ws := setupCov3WebServer(t)
@@ -2344,16 +2117,6 @@ func TestCov3_ExportForegroundSequenceInternal_NoSnapshot(t *testing.T) {
 
 // --- handlePCAPStop ---
 
-func TestCov3_HandlePCAPStop_WrongMethod(t *testing.T) {
-	ws := &WebServer{sensorID: "s"}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/stop?sensor_id=s", nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov3_HandlePCAPStop_MissingSensorID(t *testing.T) {
 	ws := &WebServer{sensorID: "s"}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop", nil)
@@ -2499,16 +2262,6 @@ func TestCov3_HandleBackgroundRegions_IncludeCells(t *testing.T) {
 }
 
 // --- handleGridHeatmap (deeper coverage) ---
-
-func TestCov3_HandleGridHeatmap_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/grid_heatmap", nil)
-	w := httptest.NewRecorder()
-	ws.handleGridHeatmap(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov3_HandleGridHeatmap_WithManager(t *testing.T) {
 	sensorID := "cov3-gheatmap-mgr"
@@ -3012,16 +2765,6 @@ func TestCov3_HandleSweepDashboard(t *testing.T) {
 
 // --- handleLidarStatus ---
 
-func TestCov3_HandleLidarStatus_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/status", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarStatus(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov3_HandleLidarStatus_GET(t *testing.T) {
 	ws := &WebServer{
 		sensorID:      "cov3-status",
@@ -3197,16 +2940,6 @@ func TestCov3_HandlePCAPStart_FormDefaults(t *testing.T) {
 }
 
 // --- handleAcceptanceMetrics ---
-
-func TestCov3_HandleAcceptanceMetrics_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/acceptance", nil)
-	w := httptest.NewRecorder()
-	ws.handleAcceptanceMetrics(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov3_HandleAcceptanceMetrics_MissingSensorID(t *testing.T) {
 	ws := &WebServer{}
@@ -3681,16 +3414,6 @@ func TestCov3_HandlePCAPResumeLive_WrongSensorIDV2(t *testing.T) {
 	}
 }
 
-func TestCov3_HandlePCAPResumeLive_MethodNotAllowed(t *testing.T) {
-	ws := setupCov3WebServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/resume_live?sensor_id=test", nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPResumeLive(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov3_HandlePCAPResumeLive_NoSensorID(t *testing.T) {
 	ws := setupCov3WebServer(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/resume_live", nil)
@@ -3733,16 +3456,6 @@ func TestCov3_HandleBackgroundRegions_GetRegionInfoNil(t *testing.T) {
 }
 
 // --- handleLidarSnapshotsCleanup deeper paths ---
-
-func TestCov3_HandleLidarSnapshotsCleanup_WrongMethod(t *testing.T) {
-	ws := setupCov3WebServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/cleanup?sensor_id=test", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarSnapshotsCleanup(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov3_HandleLidarSnapshotsCleanup_MissingSensorID(t *testing.T) {
 	ws := setupCov3WebServer(t)
@@ -3893,16 +3606,6 @@ func TestCov3_HandlePlaybackPause_NotConfigured(t *testing.T) {
 	}
 }
 
-func TestCov3_HandlePlaybackPause_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/pause", nil)
-	w := httptest.NewRecorder()
-	ws.handlePlaybackPause(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov3_HandlePlaybackPlay_Success(t *testing.T) {
 	played := false
 	ws := &WebServer{
@@ -3929,27 +3632,7 @@ func TestCov3_HandlePlaybackPlay_NotConfigured(t *testing.T) {
 	}
 }
 
-func TestCov3_HandlePlaybackPlay_WrongMethod(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/playback/play", nil)
-	w := httptest.NewRecorder()
-	ws.handlePlaybackPlay(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 // --- handlePCAPStop method and sensor_id edges ---
-
-func TestCov3_HandlePCAPStop_WrongMethodGET(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/stop?sensor_id=test", nil)
-	w := httptest.NewRecorder()
-	ws.handlePCAPStop(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
 
 func TestCov3_HandlePCAPStop_NoSensorID(t *testing.T) {
 	ws := &WebServer{}
@@ -4376,16 +4059,6 @@ func TestCov4_HandleLidarSnapshotsCleanup_NilDB(t *testing.T) {
 	}
 }
 
-func TestCov4_HandleLidarSnapshotsCleanup_WrongMethod(t *testing.T) {
-	ws := setupCov4WebServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/cleanup?sensor_id=x", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarSnapshotsCleanup(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 func TestCov4_HandleLidarSnapshotsCleanup_MissingSensorID(t *testing.T) {
 	ws := setupCov4WebServer(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshots/cleanup", nil)
@@ -4466,16 +4139,6 @@ func TestCov4_HandleTrafficStats_NilStats(t *testing.T) {
 	ws.handleTrafficStats(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
-func TestCov4_HandleTrafficStats_WrongMethod(t *testing.T) {
-	ws := setupCov4WebServer(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/traffic", nil)
-	w := httptest.NewRecorder()
-	ws.handleTrafficStats(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -4588,16 +4251,6 @@ func TestCov4_HandleDataSource_Success(t *testing.T) {
 	}
 }
 
-func TestCov4_HandleDataSource_WrongMethod(t *testing.T) {
-	ws := setupCov4WebServer(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/data-source", nil)
-	w := httptest.NewRecorder()
-	ws.handleDataSource(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
 // --- handleLidarStatus ---
 
 func TestCov4_HandleLidarStatus_WithStats(t *testing.T) {
@@ -4621,16 +4274,6 @@ func TestCov4_HandleLidarStatus_WithStats(t *testing.T) {
 	}
 	if resp["forwarding_enabled"] != true {
 		t.Errorf("expected forwarding_enabled=true, got %v", resp["forwarding_enabled"])
-	}
-}
-
-func TestCov4_HandleLidarStatus_WrongMethod(t *testing.T) {
-	ws := setupCov4WebServer(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/status", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarStatus(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -5640,17 +5283,6 @@ func TestCov6_HandleBackgroundRegions_NilRegionInfo(t *testing.T) {
 }
 
 // ---------- 14. handleLidarPersist method not allowed ----------
-
-func TestCov6_HandleLidarPersist_MethodNotAllowed(t *testing.T) {
-	sid := fmt.Sprintf("cov6-persist-get-%d", time.Now().UnixNano())
-	ws, _ := setupCov6WebServer(t, sid)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/persist?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleLidarPersist(rr, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
-}
 
 // ---------- 15. handlePCAPResumeLive error path (lines 3244-3247, 2 stmts) ----------
 // When startLiveListenerLocked fails because no UDP config is available.

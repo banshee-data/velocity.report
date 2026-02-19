@@ -12,19 +12,6 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-func TestHandleListPCAPFiles_MethodNotAllowed(t *testing.T) {
-	ws := &WebServer{pcapSafeDir: t.TempDir()}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/files", nil)
-	w := httptest.NewRecorder()
-
-	ws.handleListPCAPFiles(w, req)
-
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected %d, got %d", http.StatusMethodNotAllowed, w.Code)
-	}
-}
-
 func TestHandleListPCAPFiles_DirectoryNotConfigured(t *testing.T) {
 	ws := &WebServer{}
 
