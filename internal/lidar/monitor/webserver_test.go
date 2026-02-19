@@ -2963,7 +2963,6 @@ func TestWebServer_HandleLidarSnapshots_ListSaved(t *testing.T) {
 	t.Logf("handleLidarSnapshots (saved) returned status %d", rec.Code)
 }
 
-
 func TestWebServer_HandleExportFrameSequenceASC(t *testing.T) {
 	sensorID := "test-export-frame-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
