@@ -459,3 +459,131 @@ func TestExportFrameToASCInternal_WriteDirNotExist(t *testing.T) {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
+
+// --- NewFrameBuilderDI tests ---
+
+func TestNewFrameBuilderDI_DefaultConfig(t *testing.T) {
+	var mu sync.Mutex
+	var frames []*LiDARFrame
+
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID: "test-di",
+		FrameCallback: func(f *LiDARFrame) {
+			mu.Lock()
+			defer mu.Unlock()
+			frames = append(frames, f)
+		},
+	})
+	if fb == nil {
+		t.Fatal("NewFrameBuilderDI returned nil")
+	}
+	defer fb.Close()
+
+	// Verify defaults are applied
+	if fb.sensorID != "test-di" {
+		t.Errorf("sensorID = %q, want %q", fb.sensorID, "test-di")
+	}
+	if fb.frameBufferSize != 10 {
+		t.Errorf("frameBufferSize = %d, want 10", fb.frameBufferSize)
+	}
+	if fb.azimuthTolerance != 10.0 {
+		t.Errorf("azimuthTolerance = %f, want 10.0", fb.azimuthTolerance)
+	}
+	if fb.minFramePoints != 1000 {
+		t.Errorf("minFramePoints = %d, want 1000", fb.minFramePoints)
+	}
+	if fb.maxBackfillDelay != 100*time.Millisecond {
+		t.Errorf("maxBackfillDelay = %v, want 100ms", fb.maxBackfillDelay)
+	}
+	if fb.bufferTimeout != 1000*time.Millisecond {
+		t.Errorf("bufferTimeout = %v, want 1000ms", fb.bufferTimeout)
+	}
+	if fb.cleanupInterval != 250*time.Millisecond {
+		t.Errorf("cleanupInterval = %v, want 250ms", fb.cleanupInterval)
+	}
+
+	// Verify NOT registered in global registry
+	got := GetFrameBuilder("test-di")
+	if got != nil {
+		t.Error("expected NewFrameBuilderDI NOT to register in global registry")
+	}
+}
+
+func TestNewFrameBuilderDI_CustomConfig(t *testing.T) {
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:              "test-di-custom",
+		FrameBufferSize:       20,
+		AzimuthTolerance:      5.0,
+		MinFramePoints:        500,
+		MaxBackfillDelay:      50 * time.Millisecond,
+		BufferTimeout:         2 * time.Second,
+		CleanupInterval:       500 * time.Millisecond,
+		ExpectedFrameDuration: 100 * time.Millisecond,
+		EnableTimeBased:       true,
+	})
+	if fb == nil {
+		t.Fatal("NewFrameBuilderDI returned nil")
+	}
+	defer fb.Close()
+
+	if fb.frameBufferSize != 20 {
+		t.Errorf("frameBufferSize = %d, want 20", fb.frameBufferSize)
+	}
+	if fb.azimuthTolerance != 5.0 {
+		t.Errorf("azimuthTolerance = %f, want 5.0", fb.azimuthTolerance)
+	}
+	if fb.enableTimeBased != true {
+		t.Error("enableTimeBased should be true")
+	}
+}
+
+func TestNewFrameBuilderDI_NilCallback(t *testing.T) {
+	// Without a callback, frameCh should be nil
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID: "test-di-nil-cb",
+	})
+	if fb == nil {
+		t.Fatal("NewFrameBuilderDI returned nil")
+	}
+
+	if fb.frameCh != nil {
+		t.Error("frameCh should be nil when no callback is provided")
+	}
+
+	// Close should be safe even with nil channel
+	fb.Close()
+}
+
+func TestClose_WithCallback(t *testing.T) {
+	var mu sync.Mutex
+	var processed int
+
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID: "test-close",
+		FrameCallback: func(f *LiDARFrame) {
+			mu.Lock()
+			defer mu.Unlock()
+			processed++
+		},
+	})
+
+	// Send a frame through the channel
+	fb.frameCh <- &LiDARFrame{FrameID: "test"}
+
+	// Close should wait for the frame to be processed
+	fb.Close()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if processed != 1 {
+		t.Errorf("expected 1 processed frame, got %d", processed)
+	}
+}
+
+func TestClose_NilChannel(t *testing.T) {
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID: "test-close-nil",
+	})
+	// Should not panic
+	fb.Close()
+}
