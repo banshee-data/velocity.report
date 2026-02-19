@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { isoDate } from '$lib/dateUtils';
+	import RadarOverviewChart from '$lib/components/charts/RadarOverviewChart.svelte';
 	import { PeriodType } from '@layerstack/utils';
-	import { scaleOrdinal, scaleTime } from 'd3-scale';
 	import { format } from 'date-fns';
-	import { Axis, Chart, Highlight, Spline, Svg, Text } from 'layerchart';
 	import { onMount } from 'svelte';
-	import { Button, Card, DateRangeField, Grid, Header, SelectField } from 'svelte-ux';
+	import { Button, Card, DateRangeField, Header } from 'svelte-ux';
 	import {
 		generateReport,
 		getConfig,
@@ -42,19 +41,16 @@
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
-	let chartData: Array<{ date: Date; metric: string; value: number }> = [];
 	let graphData: RadarStats[] = [];
 	let selectedSource: string = 'radar_objects';
-
-	// color map mirrors the cDomain/cRange used by the chart so we don't need
-	// to capture cScale via a `let:` slot (which conflicts with internal
-	// components that use `let:` themselves and triggers Svelte's
-	// invalid_default_snippet error).
-	const colorMap: Record<string, string> = {
-		p50: '#ece111',
-		p85: '#ed7648',
-		p98: '#d50734',
-		max: '#000000'
+	const REPORT_SETTINGS_KEY = 'reportSettings';
+	type StoredReportSettings = {
+		dateRange?: {
+			from?: string;
+			to?: string;
+			periodType?: PeriodType;
+		};
+		[key: string]: unknown;
 	};
 
 	const groupOptions = [
@@ -72,7 +68,6 @@
 		'14d',
 		'28d'
 	];
-	const options = groupOptions.map((o) => ({ value: o, label: o }));
 
 	// Reload behavior: react to dateRange, units, group, or source changes.
 	// - If dateRange, units, or source changed -> reload both stats and chart.
@@ -89,6 +84,24 @@
 	let cosineCorrectionAngles: number[] = [];
 	let cosineCorrectionLabel = '';
 	let lastStatsRequestKey = '';
+
+	function weightedMedian(values: Array<{ value: number; weight: number }>): number {
+		const filtered = values
+			.filter(
+				(item) => Number.isFinite(item.value) && Number.isFinite(item.weight) && item.weight > 0
+			)
+			.sort((a, b) => a.value - b.value);
+		if (filtered.length === 0) return 0;
+
+		const totalWeight = filtered.reduce((sum, item) => sum + item.weight, 0);
+		const midpoint = totalWeight / 2;
+		let cumulative = 0;
+		for (const item of filtered) {
+			cumulative += item.weight;
+			if (cumulative >= midpoint) return item.value;
+		}
+		return filtered[filtered.length - 1].value;
+	}
 
 	$: cosineCorrectionLabel =
 		cosineCorrectionAngles.length > 0
@@ -113,6 +126,9 @@
 			lastGroup = group;
 			lastSource = selectedSource;
 			lastSiteId = selectedSiteId;
+			if (dateChanged) {
+				saveReportDateRangeSettings();
+			}
 
 			loading = true;
 			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
@@ -174,6 +190,51 @@
 		localStorage.setItem('selectedSiteId', selectedSiteId.toString());
 	}
 
+	function loadReportDateRangeSettings() {
+		if (!browser) return;
+		try {
+			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
+			if (!saved) return;
+
+			const settings = JSON.parse(saved) as StoredReportSettings;
+			const from = settings?.dateRange?.from ? new Date(settings.dateRange.from) : null;
+			const to = settings?.dateRange?.to ? new Date(settings.dateRange.to) : null;
+			if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return;
+
+			dateRange = {
+				from,
+				to,
+				periodType: settings?.dateRange?.periodType ?? PeriodType.Day
+			};
+		} catch (e) {
+			console.warn('Failed to load report date range settings:', e);
+		}
+	}
+
+	function saveReportDateRangeSettings() {
+		if (!browser || !dateRange.from || !dateRange.to) return;
+		try {
+			let settings: StoredReportSettings = {};
+			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
+			if (saved) {
+				const parsed = JSON.parse(saved) as StoredReportSettings;
+				if (parsed && typeof parsed === 'object') {
+					settings = parsed;
+				}
+			}
+
+			settings.dateRange = {
+				from: dateRange.from.toISOString(),
+				to: dateRange.to.toISOString(),
+				periodType: dateRange.periodType
+			};
+
+			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
+		} catch (e) {
+			console.warn('Failed to save report date range settings:', e);
+		}
+	}
+
 	async function loadStats(units: Unit) {
 		try {
 			if (!dateRange.from || !dateRange.to) {
@@ -201,8 +262,30 @@
 			stats = statsResp.metrics;
 			cosineCorrectionAngles = statsResp.cosineCorrection?.angles ?? [];
 			totalCount = stats.reduce((sum, s) => sum + (s.count || 0), 0);
-			// Show P98 speed (aggregate percentile) in the summary card
-			p98Speed = stats.length > 0 ? Math.max(...stats.map((s) => s.p98 || 0)) : 0;
+
+			// Use a dedicated aggregate query (group=all) for the headline P98 so the
+			// summary card and dashed reference line represent the true period aggregate.
+			const aggregateResp = await getRadarStats(
+				startUnix,
+				endUnix,
+				'all',
+				units,
+				$displayTimezone,
+				selectedSource,
+				selectedSiteId
+			);
+			const aggregateBucket = aggregateResp.metrics[0];
+			if (aggregateBucket && Number.isFinite(Number(aggregateBucket.p98))) {
+				p98Speed = Number(aggregateBucket.p98);
+			} else {
+				// Fallback for unexpected empty aggregate response.
+				p98Speed = weightedMedian(
+					stats.map((s) => ({
+						value: Number(s.p98 || 0),
+						weight: Math.max(0, Number(s.count || 0))
+					}))
+				);
+			}
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Failed to load stats'; // eslint-disable-line svelte/infinite-reactive-loop
 		}
@@ -211,7 +294,7 @@
 	// load chart data for the selected date range and group
 	async function loadChart() {
 		if (!dateRange.from || !dateRange.to) {
-			chartData = [];
+			graphData = [];
 			return;
 		}
 		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
@@ -253,23 +336,22 @@
 			console.debug('[dashboard] dropped rows with invalid date', arr.length - validRows.length);
 		}
 
-		// prepare graphData for BarChart/LineChart (single-point-per-x series)
-		// the API already returns RadarStats shape (date,count,p50,p85,p98,max) so pass through
-		graphData = validRows as RadarStats[];
-
-		// transform to multi-series flat data: for each valid row create points for p50, p85, p98, max
-		const rows: Array<{ date: Date; metric: string; value: number }> = [];
-		for (const r of validRows) {
-			const dt = r.date instanceof Date ? (r.date as Date) : new Date(r.date);
-			rows.push({ date: dt, metric: 'p50', value: r.p50 || 0 });
-			rows.push({ date: dt, metric: 'p85', value: r.p85 || 0 });
-			rows.push({ date: dt, metric: 'p98', value: r.p98 || 0 });
-			rows.push({ date: dt, metric: 'max', value: r.max || 0 });
-		}
-		chartData = rows;
-
-		// debug: log a sample to inspect types/values used by BarChart/legend
-		// if (browser) console.debug('[dashboard] graphData sample ->', graphData.slice(0, 3));
+		// normalize data types so chart math never receives strings/invalid values
+		graphData = validRows
+			.map((row) => {
+				const dt = row.date instanceof Date ? row.date : new Date(row.date);
+				return {
+					...row,
+					date: dt,
+					count: Number(row.count || 0),
+					p50: Number(row.p50 || 0),
+					p85: Number(row.p85 || 0),
+					p98: Number(row.p98 || 0),
+					max: Number(row.max || 0)
+				} as RadarStats;
+			})
+			.filter((row) => row.date instanceof Date && !Number.isNaN(row.date.getTime()))
+			.sort((a, b) => a.date.getTime() - b.date.getTime());
 	}
 
 	async function loadData() {
@@ -278,6 +360,7 @@
 		try {
 			await loadConfig();
 			await loadSites();
+			loadReportDateRangeSettings();
 			// establish last-known values so the reactive watcher doesn't think things changed
 			lastFrom = dateRange.from.getTime();
 			lastTo = dateRange.to.getTime();
@@ -365,23 +448,50 @@
 			{error}
 		</div>
 	{:else}
-		<div class="flex flex-wrap items-end gap-2">
+		<div class="flex flex-wrap items-end gap-3">
 			<div class="w-70">
 				<DateRangeField bind:value={dateRange} periodTypes={[PeriodType.Day]} stepper />
 			</div>
 			<div class="w-24">
-				<SelectField bind:value={group} label="Group" {options} clearable={false} />
+				<label for="dashboard-group" class="text-surface-content/70 mb-1 block text-xs font-medium">
+					Group
+				</label>
+				<select
+					id="dashboard-group"
+					bind:value={group}
+					class="border-surface-300 bg-surface-100 w-full rounded border px-2 py-2 text-sm"
+				>
+					{#each groupOptions as option (option)}
+						<option value={option}>{option}</option>
+					{/each}
+				</select>
 			</div>
 			<div class="w-24">
 				<DataSourceSelector bind:value={selectedSource} />
 			</div>
 			<div class="w-38">
-				<SelectField
-					bind:value={selectedSiteId}
-					label="Site"
-					options={siteOptions}
-					clearable={false}
-				/>
+				<label for="dashboard-site" class="text-surface-content/70 mb-1 block text-xs font-medium">
+					Site
+				</label>
+				<!-- Use on:change with parseInt to avoid HTML <select> coercing
+					 selectedSiteId from number to string. -->
+				<select
+					id="dashboard-site"
+					value={selectedSiteId}
+					on:change={(e) => {
+						const raw = e.currentTarget.value;
+						selectedSiteId = raw === '' ? null : parseInt(raw, 10);
+					}}
+					class="border-surface-300 bg-surface-100 w-full rounded border px-2 py-2 text-sm"
+				>
+					{#if siteOptions.length === 0}
+						<option value="">No sites</option>
+					{:else}
+						{#each siteOptions as option (option.value)}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					{/if}
+				</select>
 			</div>
 			<div class="w-18">
 				<Button
@@ -446,7 +556,11 @@
 			</div>
 		{/if}
 
-		<Grid autoColumns="14em" gap={8} role="region" aria-label="Traffic statistics summary">
+		<div
+			class="grid grid-cols-1 gap-4 md:grid-cols-2"
+			role="region"
+			aria-label="Traffic statistics summary"
+		>
 			<Card title="Vehicle Count" role="article">
 				<div class="pt-0 pr-4 pb-4 pl-4">
 					<p class="text-3xl font-bold text-blue-600" aria-label="Total vehicle count">
@@ -463,7 +577,7 @@
 					</p>
 				</div>
 			</Card>
-		</Grid>
+		</div>
 
 		{#if cosineCorrectionLabel}
 			<p class="text-surface-600-300-token text-xs">
@@ -472,59 +586,13 @@
 			</p>
 		{/if}
 
-		{#if chartData.length > 0}
-			<!-- @TODO the chart needs:
-				* go to zero when no data
-				* hour on the x-axis when zoomed in (Timezone aligned)
-				* Tooltip for multiple metrics
-				-->
-			<div
-				class="mb-4 h-[300px] rounded border p-4"
-				role="img"
-				aria-label="Speed distribution over time showing P50, P85, P98, and maximum speeds for the selected date range"
-			>
-				<Chart
-					data={chartData}
-					x="date"
-					xScale={scaleTime()}
-					y="value"
-					yDomain={[0, null]}
-					yNice
-					c="metric"
-					cScale={scaleOrdinal()}
-					cDomain={['p50', 'p85', 'p98', 'max']}
-					cRange={['#2563eb', '#16a34a', '#f59e0b', '#ef4444']}
-					padding={{ left: 16, bottom: 24, right: 8 }}
-					tooltip={{ mode: 'voronoi' }}
-				>
-					<Svg>
-						<Axis placement="left" grid rule />
-						<Axis
-							placement="bottom"
-							format={(d) => `${format(d, 'MMM d')}\n${format(d, 'HH:mm')}`}
-							rule
-							tickSpacing={100}
-							tickMultiline
-						/>
-						{#each ['p50', 'p85', 'p98', 'max'] as metric (metric)}
-							{@const data = chartData.filter((p) => p.metric === metric)}
-							{@const color = colorMap[metric]}
-							<Spline {data} class="stroke-2" stroke={color}>
-								<circle r={4} fill={color} />
-								<Text
-									value={metric}
-									verticalAnchor="middle"
-									dx={6}
-									dy={-2}
-									class="text-xs"
-									fill={color}
-								/>
-							</Spline>
-						{/each}
-						<Highlight points lines />
-					</Svg>
-				</Chart>
-			</div>
+		{#if graphData.length > 0}
+			<RadarOverviewChart
+				data={graphData}
+				{group}
+				speedUnits={getUnitLabel($displayUnits)}
+				p98Reference={p98Speed}
+			/>
 
 			<!-- Accessible data table fallback -->
 			<details class="rounded border p-4">

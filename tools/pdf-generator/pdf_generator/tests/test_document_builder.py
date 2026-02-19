@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from pdf_generator.core.document_builder import DocumentBuilder
+from pdf_generator.core.tex_environment import TexEnvironment
 
 
 class TestDocumentBuilder(unittest.TestCase):
@@ -50,6 +51,17 @@ class TestDocumentBuilder(unittest.TestCase):
 
         call_kwargs = mock_doc_class.call_args[1]
         self.assertTrue(call_kwargs["page_numbers"])
+
+    @patch("pdf_generator.core.document_builder.Document")
+    def test_create_document_without_geometry_options(self, mock_doc_class):
+        """Preloaded mode should skip PyLaTeX geometry package emission."""
+        mock_doc = MagicMock()
+        mock_doc_class.return_value = mock_doc
+
+        _ = self.builder.create_document(page_numbers=False, use_geometry_options=False)
+
+        call_kwargs = mock_doc_class.call_args[1]
+        self.assertNotIn("geometry_options", call_kwargs)
 
     @patch("pdf_generator.core.document_builder.Package")
     def test_add_packages(self, mock_package):
@@ -97,6 +109,18 @@ class TestDocumentBuilder(unittest.TestCase):
         self.assertGreater(len(caption_calls), 0)
         # Verify options were passed
         self.assertIn("options", caption_calls[0][1])
+
+    @patch("pdf_generator.core.document_builder.Package")
+    def test_add_packages_skip_preloaded(self, mock_package):
+        """Precompiled mode should inject runtime-only packages."""
+        mock_doc = MagicMock()
+        mock_doc.packages = []
+
+        self.builder.add_packages(mock_doc, skip_preloaded=True)
+
+        self.assertEqual(mock_package.call_count, 1)
+        self.assertEqual(mock_package.call_args[0][0], "fontspec")
+        self.assertEqual(len(mock_doc.packages), 1)
 
     @patch("pdf_generator.core.document_builder.NoEscape")
     def test_setup_preamble(self, mock_noescape):
@@ -278,6 +302,7 @@ class TestDocumentBuilder(unittest.TestCase):
     @patch("pdf_generator.core.document_builder.DocumentBuilder.create_document")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.add_packages")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_preamble")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.apply_geometry_options")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_fonts")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_header")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.begin_twocolumn_layout")
@@ -286,6 +311,7 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_twocolumn,
         mock_header,
         mock_fonts,
+        mock_apply_geometry,
         mock_preamble,
         mock_packages,
         mock_create,
@@ -303,9 +329,12 @@ class TestDocumentBuilder(unittest.TestCase):
         result = self.builder.build(start_iso, end_iso, location, surveyor, contact)
 
         # Verify all steps were called
-        mock_create.assert_called_once_with(page_numbers=False)
-        mock_packages.assert_called_once_with(mock_doc)
+        mock_create.assert_called_once_with(
+            page_numbers=False, use_geometry_options=True
+        )
+        mock_packages.assert_called_once_with(mock_doc, skip_preloaded=False)
         mock_preamble.assert_called_once_with(mock_doc)
+        mock_apply_geometry.assert_not_called()
         mock_fonts.assert_called_once()
         mock_header.assert_called_once_with(
             mock_doc, start_iso, end_iso, location, None, None, None, None, None, None
@@ -318,6 +347,7 @@ class TestDocumentBuilder(unittest.TestCase):
     @patch("pdf_generator.core.document_builder.DocumentBuilder.create_document")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.add_packages")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_preamble")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.apply_geometry_options")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_fonts")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_header")
     @patch("pdf_generator.core.document_builder.DocumentBuilder.begin_twocolumn_layout")
@@ -326,6 +356,7 @@ class TestDocumentBuilder(unittest.TestCase):
         mock_twocolumn,
         mock_header,
         mock_fonts,
+        _mock_apply_geometry,
         mock_preamble,
         mock_packages,
         mock_create,
@@ -355,6 +386,49 @@ class TestDocumentBuilder(unittest.TestCase):
             call_args = mock_twocolumn.call_args[0]
             self.assertEqual(call_args[2], "Default Surveyor")
             self.assertEqual(call_args[3], "default@example.com")
+
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.create_document")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.add_packages")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_preamble")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.apply_geometry_options")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_fonts")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.setup_header")
+    @patch("pdf_generator.core.document_builder.DocumentBuilder.begin_twocolumn_layout")
+    def test_build_skips_packages_when_format_is_preloaded(
+        self,
+        mock_twocolumn,
+        mock_header,
+        mock_fonts,
+        mock_apply_geometry,
+        mock_preamble,
+        mock_packages,
+        mock_create,
+    ):
+        """Test build() skips package injection when precompiled format is present."""
+        mock_doc = MagicMock()
+        mock_create.return_value = mock_doc
+        tex_env = TexEnvironment(
+            mode="production",
+            tex_root="/opt/velocity-report/texlive-minimal",
+            compiler="/opt/velocity-report/texlive-minimal/bin/xelatex",
+            fmt_name="velocity-report",
+            env_vars={},
+        )
+
+        _ = self.builder.build(
+            "2025-01-13T00:00:00Z",
+            "2025-01-19T23:59:59Z",
+            "Test St",
+            "Jane Smith",
+            "jane@test.com",
+            tex_environment=tex_env,
+        )
+
+        mock_create.assert_called_once_with(
+            page_numbers=False, use_geometry_options=False
+        )
+        mock_packages.assert_called_once_with(mock_doc, skip_preloaded=True)
+        mock_apply_geometry.assert_called_once_with(mock_doc)
 
     def test_font_path_resolution(self):
         """Test fonts directory path resolution."""

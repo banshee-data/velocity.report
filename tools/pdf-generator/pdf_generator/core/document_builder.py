@@ -6,7 +6,7 @@ setup, providing a clean API for creating properly configured PyLaTeX documents.
 """
 
 import os
-from typing import Dict, Optional, Any
+from typing import TYPE_CHECKING, Dict, Optional, Any
 
 try:
     from pylatex import Document, Package, NoEscape
@@ -52,6 +52,9 @@ from pdf_generator.core.config_manager import (
     _site_to_dict,
 )
 
+if TYPE_CHECKING:
+    from pdf_generator.core.tex_environment import TexEnvironment
+
 
 class DocumentBuilder:
     """Builds PyLaTeX Document with custom configuration.
@@ -72,23 +75,51 @@ class DocumentBuilder:
         """
         self.config = config or _pdf_to_dict(DEFAULT_PDF_CONFIG)
 
-    def create_document(self, page_numbers: bool = False) -> Document:
+    def create_document(
+        self, page_numbers: bool = False, use_geometry_options: bool = True
+    ) -> Document:
         """Create base Document with geometry.
 
         Args:
             page_numbers: Whether to show page numbers
+            use_geometry_options: Let PyLaTeX emit \\usepackage[...]{geometry}
 
         Returns:
             Document instance with geometry configured
         """
         geometry_options = self.config.get("geometry", {})
-        return Document(geometry_options=geometry_options, page_numbers=page_numbers)
+        kwargs = {
+            "page_numbers": page_numbers,
+            "fontenc": None,
+            "inputenc": None,
+            "lmodern": False,
+            "textcomp": False,
+        }
+        if use_geometry_options:
+            kwargs["geometry_options"] = geometry_options
 
-    def add_packages(self, doc: Document) -> None:
+        # XeLaTeX handles Unicode/font loading via fontspec; disable PyLaTeX's
+        # legacy font packages to keep the TeX dependency surface minimal.
+        return Document(**kwargs)
+
+    def apply_geometry_options(self, doc: Document) -> None:
+        """Apply geometry settings in preamble when geometry is preloaded."""
+        geometry_options = self.config.get("geometry", {})
+        if not geometry_options:
+            return
+
+        rendered = ",".join(
+            f"{key}={value}" if value is not None else str(key)
+            for key, value in geometry_options.items()
+        )
+        doc.preamble.append(NoEscape(f"\\geometry{{{rendered}}}"))
+
+    def add_packages(self, doc: Document, skip_preloaded: bool = False) -> None:
         """Add all required LaTeX packages.
 
         Args:
             doc: Document instance to add packages to
+            skip_preloaded: Inject only runtime-only packages in precompiled mode
         """
         # Package list in order of dependency
         packages = [
@@ -103,6 +134,9 @@ class DocumentBuilder:
             ("float", None),  # H position for floats
             ("array", None),  # Column spec modifiers (>{...}, <{...})
         ]
+        if skip_preloaded:
+            # velocity-report.fmt preloads all package macros except fontspec.
+            packages = [pkg for pkg in packages if pkg[0] == "fontspec"]
 
         for package_name, options in packages:
             if options:
@@ -286,6 +320,7 @@ class DocumentBuilder:
         end_date: Optional[str] = None,
         compare_start_date: Optional[str] = None,
         compare_end_date: Optional[str] = None,
+        tex_environment: Optional["TexEnvironment"] = None,
     ) -> Document:
         """Build complete configured document (convenience method).
 
@@ -301,6 +336,7 @@ class DocumentBuilder:
             end_date: Original end date string for display (if None, uses end_iso[:10])
             compare_start_date: Original comparison start date string for display
             compare_end_date: Original comparison end date string for display
+            tex_environment: Optional TeX environment for package-loading control
 
         Returns:
             Fully configured Document ready for content addition
@@ -311,11 +347,21 @@ class DocumentBuilder:
         if contact is None:
             contact = _site_to_dict(DEFAULT_SITE_CONFIG)["contact"]
 
-        # Create base document
-        doc = self.create_document(page_numbers=False)
+        skip_preloaded = bool(tex_environment and tex_environment.fmt_name)
+        # Create base document — when using a preloaded format the geometry
+        # package is already loaded so we must not pass geometry_options to the
+        # Document constructor (which would emit \usepackage[...]{geometry}
+        # again).  Instead we call apply_geometry_options() afterwards to emit
+        # a bare \geometry{...} command that reconfigures the already-loaded
+        # package.
+        doc = self.create_document(
+            page_numbers=False, use_geometry_options=not skip_preloaded
+        )
+        if skip_preloaded:
+            self.apply_geometry_options(doc)
 
         # Add all packages
-        self.add_packages(doc)
+        self.add_packages(doc, skip_preloaded=skip_preloaded)
 
         # Setup preamble
         self.setup_preamble(doc)

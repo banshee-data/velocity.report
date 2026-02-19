@@ -7,6 +7,7 @@ complete PDF reports including statistics tables, charts, and science sections.
 """
 
 import os
+from contextlib import contextmanager
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
@@ -94,6 +95,7 @@ from pdf_generator.core.report_sections import (
     add_survey_parameters,
 )
 from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
+from pdf_generator.core.tex_environment import resolve_tex_environment
 from pdf_generator.core.data_transformers import (
     extract_start_time_from_row,
 )
@@ -133,11 +135,12 @@ def _suggest_latex_fixes(engine: str, message: str, excerpt: list[str]) -> list[
     hints: list[str] = []
     lower_message = message.lower()
     combined_text = " ".join(excerpt).lower()
+    engine_name = os.path.basename(engine)
 
     if (
         isinstance(message, str)
         and "not found" in lower_message
-        and engine
+        and engine_name
         in (
             "xelatex",
             "lualatex",
@@ -146,7 +149,7 @@ def _suggest_latex_fixes(engine: str, message: str, excerpt: list[str]) -> list[
     ):
         hints.append(
             "The LaTeX engine '{}' is missing. Install TeX Live or MacTeX (macOS) or `sudo apt-get install texlive-xetex`.".format(
-                engine
+                engine_name
             )
         )
 
@@ -210,6 +213,51 @@ def _explain_latex_failure(engine: str, base_path: Path, exc: Exception) -> str:
     details.append(f"  - Log file: {base_path.with_suffix('.log')}")
     details.append(f"  - TeX file: {base_path.with_suffix('.tex')}")
     return "\n".join(details)
+
+
+@contextmanager
+def _temporary_environ(overrides: Dict[str, str]):
+    """Temporarily apply environment variable overrides."""
+
+    if not overrides:
+        yield
+        return
+
+    previous: Dict[str, Optional[str]] = {}
+    try:
+        for key, value in overrides.items():
+            previous[key] = os.environ.get(key)
+            os.environ[key] = value
+        yield
+    finally:
+        for key, old_value in previous.items():
+            if old_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old_value
+
+
+def _build_engine_chain(primary_engine: str, production_mode: bool) -> tuple[str, ...]:
+    """Build ordered LaTeX engine candidates for compilation."""
+
+    if production_mode:
+        return (primary_engine,)
+
+    engines: list[str] = [primary_engine, "lualatex", "pdflatex"]
+    deduped: list[str] = []
+    for engine in engines:
+        if engine not in deduped:
+            deduped.append(engine)
+    return tuple(deduped)
+
+
+def _build_compiler_args(engine: str, fmt_name: Optional[str]) -> list[str]:
+    """Build compiler args for a specific LaTeX engine invocation."""
+
+    args: list[str] = []
+    if fmt_name and os.path.basename(engine) == "xelatex":
+        args.append(f"-fmt={fmt_name}")
+    return args
 
 
 def generate_pdf_report(
@@ -288,6 +336,8 @@ def generate_pdf_report(
     # Convert map config dataclass to dict for use in this function
     map_config_dict = _map_to_dict(DEFAULT_MAP_CONFIG)
 
+    tex_environment = resolve_tex_environment()
+
     # Build document with all configuration
     builder = DocumentBuilder()
     doc = builder.build(
@@ -302,6 +352,7 @@ def generate_pdf_report(
         end_date,
         compare_start_date,
         compare_end_date,
+        tex_environment=tex_environment,
     )
 
     # Add science section content using helper function
@@ -685,16 +736,24 @@ def generate_pdf_report(
         print("Map generation DISABLED (include_map=False)")
     print("=== END MAP DEBUG ===\n")
 
-    engines = ("xelatex", "lualatex", "pdflatex")
+    engines = _build_engine_chain(
+        tex_environment.compiler,
+        production_mode=(tex_environment.mode == "production"),
+    )
     generated = False
     last_exc: Optional[Exception] = None
     last_failure_message = ""
     base_prefix_path = Path(output_path).with_suffix("")
     for engine in engines:
         try:
-            doc.generate_pdf(
-                output_path.replace(".pdf", ""), clean_tex=False, compiler=engine
-            )
+            with _temporary_environ(tex_environment.env_vars):
+                compiler_args = _build_compiler_args(engine, tex_environment.fmt_name)
+                doc.generate_pdf(
+                    output_path.replace(".pdf", ""),
+                    clean_tex=False,
+                    compiler=engine,
+                    compiler_args=compiler_args,
+                )
             print(f"Generated PDF: {output_path} (engine={engine})")
             generated = True
             break
