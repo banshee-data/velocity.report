@@ -70,8 +70,10 @@ Post-migration file sizes:
 | `l3grid/background_persistence.go` | 450 | Snapshot serialisation, DB restore/persist |
 | `l3grid/background_export.go` | 350 | Heatmaps, ASC export, region debug info |
 | `l3grid/background_drift.go` | 245 | M3.5 sensor movement and drift detection |
-| `monitor/webserver.go` | 2,749 | Server init, routes, handlers (split from 4,067) |
+| `monitor/webserver.go` | 2,746 | Server init, routes, handlers (split from 4,067) |
 | `monitor/datasource_handlers.go` | 682 | UDP/PCAP data source management |
 | `monitor/playback_handlers.go` | 589 | PCAP/VRLOG playback controls |
 | `storage/sqlite/analysis_run.go` | 1,325 | Run CRUD (domain logic moved to l6objects) |
 | `l6objects/comparison.go` | 81 | ComputeTemporalIoU, comparison types |
+
+Further size/complexity reduction opportunities are documented in the [review doc's "Further Opportunities" section](lidar-layer-alignment-refactor-review-20260217.md#further-opportunities-to-reduce-size-and-complexity), covering ECharts handler extraction, sweep file splits, Go-embedded dashboard retirement, and visualiser codec consolidation.

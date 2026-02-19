@@ -40,16 +40,20 @@ All P0 items have been delivered:
 | 14 | HINT sweep polish | [docs/plans/hint-sweep-mode.md](docs/plans/hint-sweep-mode.md) | 11 remaining polish items |
 | 15 | Precompiled LaTeX | [docs/plans/precompiled-latex-plan.md](docs/plans/precompiled-latex-plan.md) | Faster PDF report generation |
 | 16 | Python venv consolidation | [docs/plans/python-venv-consolidation-plan.md](docs/plans/python-venv-consolidation-plan.md) | Unify to single .venv/ at root |
+| 17 | LiDAR monitor file splits | [review doc §Further Opportunities 1–2](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md) | Extract ECharts + export handlers from webserver.go |
+| 18 | Sweep file splits | [review doc §Further Opportunities 3–5](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md) | Split hint.go, auto.go, runner.go |
 
 ## P3 — Deferred / Research
 
 | # | Task | Design doc | Notes |
 |---|------|-----------|-------|
-| 17 | AV dataset integration | [docs/lidar/future/av-lidar-integration-plan.md](docs/lidar/future/av-lidar-integration-plan.md) | 28-class taxonomy, Parquet ingestion |
-| 18 | Motion capture architecture | [docs/lidar/future/motion-capture-architecture.md](docs/lidar/future/motion-capture-architecture.md) | Moving sensor support |
-| 19 | Static pose alignment | [docs/lidar/future/static-pose-alignment-plan.md](docs/lidar/future/static-pose-alignment-plan.md) | 7-DOF tracking |
-| 20 | AV range image format | [docs/lidar/architecture/av-range-image-format-alignment.md](docs/lidar/architecture/av-range-image-format-alignment.md) | Dual-return support |
-| 21 | Dynamic algorithm selection | [docs/lidar/architecture/dynamic-algorithm-selection.md](docs/lidar/architecture/dynamic-algorithm-selection.md) | Runtime algorithm switching |
-| 22 | Velocity-coherent extraction | [docs/lidar/future/velocity-coherent-foreground-extraction.md](docs/lidar/future/velocity-coherent-foreground-extraction.md) | 6D DBSCAN alternative |
-| 23 | Visual regression testing | [docs/plans/design-review-and-improvement-plan.md](docs/plans/design-review-and-improvement-plan.md) | Playwright baseline screenshots |
-| 24 | E2E test infrastructure | [docs/plans/design-review-and-improvement-plan.md](docs/plans/design-review-and-improvement-plan.md) | Playwright smoke tests |
+| 19 | AV dataset integration | [docs/lidar/future/av-lidar-integration-plan.md](docs/lidar/future/av-lidar-integration-plan.md) | 28-class taxonomy, Parquet ingestion |
+| 20 | Motion capture architecture | [docs/lidar/future/motion-capture-architecture.md](docs/lidar/future/motion-capture-architecture.md) | Moving sensor support |
+| 21 | Static pose alignment | [docs/lidar/future/static-pose-alignment-plan.md](docs/lidar/future/static-pose-alignment-plan.md) | 7-DOF tracking |
+| 22 | AV range image format | [docs/lidar/architecture/av-range-image-format-alignment.md](docs/lidar/architecture/av-range-image-format-alignment.md) | Dual-return support |
+| 23 | Dynamic algorithm selection | [docs/lidar/architecture/dynamic-algorithm-selection.md](docs/lidar/architecture/dynamic-algorithm-selection.md) | Runtime algorithm switching |
+| 24 | Velocity-coherent extraction | [docs/lidar/future/velocity-coherent-foreground-extraction.md](docs/lidar/future/velocity-coherent-foreground-extraction.md) | 6D DBSCAN alternative |
+| 25 | Visual regression testing | [docs/plans/design-review-and-improvement-plan.md](docs/plans/design-review-and-improvement-plan.md) | Playwright baseline screenshots |
+| 26 | E2E test infrastructure | [docs/plans/design-review-and-improvement-plan.md](docs/plans/design-review-and-improvement-plan.md) | Playwright smoke tests |
+| 27 | Retire Go-embedded dashboards | [review doc §Further Opportunity 7](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md) | ~2,000 lines removed from monitor once Svelte dashboards replace ECharts |
+| 28 | Visualiser codec extraction | [review doc §Further Opportunity 8](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md) | Consolidate frame encoding across adapter/publisher |
