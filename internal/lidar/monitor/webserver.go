@@ -535,6 +535,32 @@ type route struct {
 	handler http.HandlerFunc
 }
 
+// withDB wraps a handler and returns 503 Service Unavailable if the
+// WebServer's database connection is nil. This replaces conditional route
+// registration that checked ws.db != nil.
+func (ws *WebServer) withDB(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if ws.db == nil {
+			ws.writeJSONError(w, http.StatusServiceUnavailable, "database not available")
+			return
+		}
+		next(w, r)
+	}
+}
+
+// featureGate wraps a handler and returns 404 Not Found unless the specified
+// environment variable is set to "1". Use for destructive or experimental
+// endpoints that should only be available during development.
+func featureGate(envVar string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if os.Getenv(envVar) != "1" {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
+}
+
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	assetsFS, err := fs.Sub(EchartsAssets, "assets")
@@ -547,15 +573,15 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	coreRoutes := []route{
 		{"/health", ws.handleHealth},
 		{"/api/lidar/monitor", ws.handleStatus},
-		{"/api/lidar/status", ws.handleLidarStatus},
-		{"/api/lidar/persist", ws.handleLidarPersist},
+		{"GET /api/lidar/status", ws.handleLidarStatus},
+		{"POST /api/lidar/persist", ws.handleLidarPersist},
 	}
 
 	// Snapshot and export routes
 	snapshotRoutes := []route{
-		{"/api/lidar/snapshot", ws.handleLidarSnapshot},
-		{"/api/lidar/snapshots", ws.handleLidarSnapshots},
-		{"/api/lidar/snapshots/cleanup", ws.handleLidarSnapshotsCleanup},
+		{"GET /api/lidar/snapshot", ws.handleLidarSnapshot},
+		{"GET /api/lidar/snapshots", ws.handleLidarSnapshots},
+		{"POST /api/lidar/snapshots/cleanup", ws.handleLidarSnapshotsCleanup},
 		{"/api/lidar/export_snapshot", ws.handleExportSnapshotASC},
 		{"/api/lidar/export_next_frame", ws.handleExportNextFrameASC},
 		{"/api/lidar/export_frame_sequence", ws.handleExportFrameSequenceASC},
@@ -564,46 +590,46 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 
 	// Traffic and acceptance metrics routes
 	metricsRoutes := []route{
-		{"/api/lidar/traffic", ws.handleTrafficStats},
-		{"/api/lidar/acceptance", ws.handleAcceptanceMetrics},
-		{"/api/lidar/acceptance/reset", ws.handleAcceptanceReset},
+		{"GET /api/lidar/traffic", ws.handleTrafficStats},
+		{"GET /api/lidar/acceptance", ws.handleAcceptanceMetrics},
+		{"POST /api/lidar/acceptance/reset", ws.handleAcceptanceReset},
 		{"/api/lidar/params", ws.handleTuningParams},
 	}
 
 	// Sweep and auto-tune routes
 	sweepRoutes := []route{
-		{"/api/lidar/sweep/start", ws.handleSweepStart},
-		{"/api/lidar/sweep/status", ws.handleSweepStatus},
-		{"/api/lidar/sweep/stop", ws.handleSweepStop},
+		{"POST /api/lidar/sweep/start", ws.handleSweepStart},
+		{"GET /api/lidar/sweep/status", ws.handleSweepStatus},
+		{"POST /api/lidar/sweep/stop", ws.handleSweepStop},
 		{"/api/lidar/sweep/auto", ws.handleAutoTune},
-		{"/api/lidar/sweep/auto/stop", ws.handleAutoTuneStop},
-		{"/api/lidar/sweep/auto/suspend", ws.handleAutoTuneSuspend},
-		{"/api/lidar/sweep/auto/resume", ws.handleAutoTuneResume},
-		{"/api/lidar/sweep/auto/suspended", ws.handleAutoTuneSuspended},
-		{"/api/lidar/sweep/hint/continue", ws.handleHINTContinue},
-		{"/api/lidar/sweep/hint/stop", ws.handleHINTStop},
+		{"POST /api/lidar/sweep/auto/stop", ws.handleAutoTuneStop},
+		{"POST /api/lidar/sweep/auto/suspend", ws.handleAutoTuneSuspend},
+		{"POST /api/lidar/sweep/auto/resume", ws.handleAutoTuneResume},
+		{"GET /api/lidar/sweep/auto/suspended", ws.handleAutoTuneSuspended},
+		{"POST /api/lidar/sweep/hint/continue", ws.handleHINTContinue},
+		{"POST /api/lidar/sweep/hint/stop", ws.handleHINTStop},
 		{"/api/lidar/sweep/hint", ws.handleHINT},
-		{"/api/lidar/sweep/explain/", ws.handleSweepExplain},
+		{"GET /api/lidar/sweep/explain/", ws.handleSweepExplain},
 		{"/api/lidar/sweeps/charts", ws.handleSweepCharts},
-		{"/api/lidar/sweeps/", ws.handleGetSweep},
-		{"/api/lidar/sweeps", ws.handleListSweeps},
+		{"GET /api/lidar/sweeps/", ws.handleGetSweep},
+		{"GET /api/lidar/sweeps", ws.handleListSweeps},
 	}
 
 	// Background grid and region routes
 	gridRoutes := []route{
-		{"/api/lidar/grid_status", ws.handleGridStatus},
-		{"/api/lidar/grid_reset", ws.handleGridReset},
-		{"/api/lidar/grid_heatmap", ws.handleGridHeatmap},
+		{"GET /api/lidar/grid_status", ws.handleGridStatus},
+		{"POST /api/lidar/grid_reset", ws.handleGridReset},
+		{"GET /api/lidar/grid_heatmap", ws.handleGridHeatmap},
 		{"/api/lidar/background/grid", ws.handleBackgroundGrid},
 	}
 
 	// Data source and PCAP replay routes
 	pcapRoutes := []route{
-		{"/api/lidar/data_source", ws.handleDataSource},
-		{"/api/lidar/pcap/start", ws.handlePCAPStart},
-		{"/api/lidar/pcap/stop", ws.handlePCAPStop},
-		{"/api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
-		{"/api/lidar/pcap/files", ws.handleListPCAPFiles},
+		{"GET /api/lidar/data_source", ws.handleDataSource},
+		{"POST /api/lidar/pcap/start", ws.handlePCAPStart},
+		{"POST /api/lidar/pcap/stop", ws.handlePCAPStop},
+		{"POST /api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
+		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
 	}
 
 	// Chart API routes (structured JSON data for frontend charts)
@@ -631,13 +657,13 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 
 	// Playback API routes (VRLOG replay control)
 	playbackRoutes := []route{
-		{"/api/lidar/playback/status", ws.handlePlaybackStatus},
-		{"/api/lidar/playback/pause", ws.handlePlaybackPause},
-		{"/api/lidar/playback/play", ws.handlePlaybackPlay},
-		{"/api/lidar/playback/seek", ws.handlePlaybackSeek},
-		{"/api/lidar/playback/rate", ws.handlePlaybackRate},
-		{"/api/lidar/vrlog/load", ws.handleVRLogLoad},
-		{"/api/lidar/vrlog/stop", ws.handleVRLogStop},
+		{"GET /api/lidar/playback/status", ws.handlePlaybackStatus},
+		{"POST /api/lidar/playback/pause", ws.handlePlaybackPause},
+		{"POST /api/lidar/playback/play", ws.handlePlaybackPlay},
+		{"POST /api/lidar/playback/seek", ws.handlePlaybackSeek},
+		{"POST /api/lidar/playback/rate", ws.handlePlaybackRate},
+		{"POST /api/lidar/vrlog/load", ws.handleVRLogLoad},
+		{"POST /api/lidar/vrlog/stop", ws.handleVRLogStop},
 	}
 
 	// Register all route groups
@@ -673,9 +699,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		}
 
 		// Highly destructive endpoint: only register when explicitly enabled for development/debug use.
-		if os.Getenv("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API") == "1" {
-			mux.HandleFunc("/api/lidar/runs/clear", ws.trackAPI.handleClearRuns)
-		}
+		mux.HandleFunc("/api/lidar/runs/clear", featureGate("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API", ws.trackAPI.handleClearRuns))
 	}
 
 	// Label API routes (delegate to LidarLabelAPI handlers)
@@ -685,15 +709,11 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	}
 
 	// Run track API routes (analysis run management and track labelling)
-	if ws.db != nil {
-		mux.HandleFunc("/api/lidar/runs/", ws.handleRunTrackAPI)
-	}
+	mux.HandleFunc("/api/lidar/runs/", ws.withDB(ws.handleRunTrackAPI))
 
 	// Scene API routes (scene management for track labelling and auto-tuning)
-	if ws.db != nil {
-		mux.HandleFunc("/api/lidar/scenes", ws.handleScenes)
-		mux.HandleFunc("/api/lidar/scenes/", ws.handleSceneByID)
-	}
+	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
+	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
 
 }
 
@@ -1073,10 +1093,6 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 // for a sensor: distribution of TimesSeenCount, number of frozen cells, and totals.
 // Query params: sensor_id (required)
 func (ws *WebServer) handleGridStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -1100,11 +1116,6 @@ func (ws *WebServer) handleGridStatus(w http.ResponseWriter, r *http.Request) {
 // handleTrafficStats returns the latest packet/point throughput snapshot.
 // Query params: sensor_id (optional; defaults to configured sensor)
 func (ws *WebServer) handleTrafficStats(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	if ws.stats == nil {
 		ws.writeJSONError(w, http.StatusNotFound, "no packet stats available")
 		return
@@ -1134,11 +1145,6 @@ func (ws *WebServer) handleTrafficStats(w http.ResponseWriter, r *http.Request) 
 // and acceptance counters. This is intended only for testing A/B sweeps.
 // Method: POST. Query params: sensor_id (required)
 func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -1186,11 +1192,6 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 //   - azimuth_bucket_deg (optional, default 3.0)
 //   - settled_threshold (optional, default 5)
 func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "only GET supported")
-		return
-	}
-
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -1229,11 +1230,6 @@ func (ws *WebServer) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebServer) handleDataSource(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
-		return
-	}
-
 	// Long-poll support: if wait_for_done=true and PCAP is in progress,
 	// block until PCAP completes or the request context is cancelled.
 	// This replaces the 500ms polling loop in Client.WaitForPCAPComplete.
@@ -2008,10 +2004,6 @@ func (ws *WebServer) exportForegroundSequenceInternal(sensorID string, count int
 //	sensor_id (required)
 //	limit (optional, default 10)
 func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -2085,10 +2077,6 @@ func (ws *WebServer) handleLidarSnapshots(w http.ResponseWriter, r *http.Request
 }
 
 func (ws *WebServer) handleLidarSnapshotsCleanup(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 	// Parse form to get sensor_id if needed, or query param
 	if err := r.ParseForm(); err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, "invalid form data")
@@ -2130,11 +2118,6 @@ func (ws *WebServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebServer) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	ws.dataSourceMu.RLock()
 	currentSource := ws.currentSource
 	currentPCAPFile := ws.currentPCAPFile
@@ -2347,11 +2330,6 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 // handleLidarPersist triggers manual persistence of a BackgroundGrid snapshot.
 // Expects POST with form value or query param `sensor_id`.
 func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
-		return
-	}
-
 	// Support both query params and form data for sensor_id
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -2400,11 +2378,6 @@ func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) 
 //	sensor_id (required)
 //	db (optional) - path to sqlite DB (defaults to data/sensor_data.db)
 func (ws *WebServer) handleLidarSnapshot(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -2509,10 +2482,6 @@ func (ws *WebServer) handleLidarSnapshot(w http.ResponseWriter, r *http.Request)
 // handleAcceptanceMetrics returns the range-bucketed acceptance/rejection metrics
 // for a given sensor. Query params: sensor_id (required)
 func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -2591,10 +2560,6 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 // handleAcceptanceReset zeros the accept/reject counters for a given sensor_id.
 // Method: POST. Query param: sensor_id (required)
 func (ws *WebServer) handleAcceptanceReset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
-		return
-	}
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		sensorID = r.FormValue("sensor_id")

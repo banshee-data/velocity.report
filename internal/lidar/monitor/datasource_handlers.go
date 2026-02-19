@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -320,35 +321,35 @@ func (ws *WebServer) stopLiveListenerLocked() {
 
 func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
 	if candidate == "" {
-		return "", &switchError{status: 400, err: errors.New("missing 'pcap_file' in request body")}
+		return "", &switchError{status: http.StatusBadRequest, err: errors.New("missing 'pcap_file' parameter")}
 	}
 	if ws.pcapSafeDir == "" {
-		return "", &switchError{status: 500, err: errors.New("pcap safe directory not configured")}
+		return "", &switchError{status: http.StatusInternalServerError, err: errors.New("pcap safe directory not configured")}
 	}
 
 	safeDirAbs, err := filepath.Abs(ws.pcapSafeDir)
 	if err != nil {
-		return "", &switchError{status: 500, err: fmt.Errorf("invalid PCAP safe directory configuration: %w", err)}
+		return "", &switchError{status: http.StatusInternalServerError, err: fmt.Errorf("invalid PCAP safe directory configuration: %w", err)}
 	}
 
 	candidatePath := filepath.Join(safeDirAbs, candidate)
 	resolvedPath, err := filepath.Abs(candidatePath)
 	if err != nil {
-		return "", &switchError{status: 400, err: fmt.Errorf("invalid pcap_file path: %w", err)}
+		return "", &switchError{status: http.StatusBadRequest, err: fmt.Errorf("invalid pcap_file path: %w", err)}
 	}
 
 	canonicalPath, err := filepath.EvalSymlinks(resolvedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", &switchError{status: 404, err: errors.New("pcap file not found")}
+			return "", &switchError{status: http.StatusNotFound, err: errors.New("pcap file not found")}
 		}
-		return "", &switchError{status: 400, err: fmt.Errorf("cannot resolve PCAP file path: %w", err)}
+		return "", &switchError{status: http.StatusBadRequest, err: fmt.Errorf("cannot resolve PCAP file path: %w", err)}
 	}
 
 	relPath, err := filepath.Rel(safeDirAbs, canonicalPath)
 	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
 		return "", &switchError{
-			status: 403,
+			status: http.StatusForbidden,
 			err:    fmt.Errorf("access denied: pcap_file must be within safe directory (%s)", ws.pcapSafeDir),
 		}
 	}
@@ -356,18 +357,18 @@ func (ws *WebServer) resolvePCAPPath(candidate string) (string, error) {
 	fileInfo, err := os.Stat(canonicalPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", &switchError{status: 404, err: errors.New("pcap file not found")}
+			return "", &switchError{status: http.StatusNotFound, err: errors.New("pcap file not found")}
 		}
-		return "", &switchError{status: 400, err: fmt.Errorf("cannot access PCAP file: %w", err)}
+		return "", &switchError{status: http.StatusBadRequest, err: fmt.Errorf("cannot access PCAP file: %w", err)}
 	}
 
 	if !fileInfo.Mode().IsRegular() {
-		return "", &switchError{status: 400, err: errors.New("pcap_file must be a regular file")}
+		return "", &switchError{status: http.StatusBadRequest, err: errors.New("pcap_file must be a regular file")}
 	}
 
 	ext := strings.ToLower(filepath.Ext(canonicalPath))
 	if ext != ".pcap" && ext != ".pcapng" {
-		return "", &switchError{status: 400, err: errors.New("pcap_file must have .pcap or .pcapng extension")}
+		return "", &switchError{status: http.StatusBadRequest, err: errors.New("pcap_file must have .pcap or .pcapng extension")}
 	}
 
 	return canonicalPath, nil
@@ -381,13 +382,13 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 	baseCtx := ws.baseContext()
 	if baseCtx == nil {
-		return &switchError{status: 500, err: errors.New("webserver base context not initialized")}
+		return &switchError{status: http.StatusInternalServerError, err: errors.New("webserver base context not initialized")}
 	}
 
 	ws.pcapMu.Lock()
 	if ws.pcapInProgress {
 		ws.pcapMu.Unlock()
-		return &switchError{status: 409, err: errors.New("pcap replay already in progress")}
+		return &switchError{status: http.StatusConflict, err: errors.New("pcap replay already in progress")}
 	}
 	ctx, cancel := context.WithCancel(baseCtx)
 	done := make(chan struct{})

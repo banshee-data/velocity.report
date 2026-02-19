@@ -19,11 +19,6 @@ import (
 // handlePCAPStart switches the data source to PCAP replay and starts ingestion.
 // Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
-		return
-	}
-
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
@@ -222,11 +217,6 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 // handlePCAPStop cancels any active PCAP replay and returns to live UDP.
 // Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
-		return
-	}
-
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		sensorID = r.FormValue("sensor_id")
@@ -330,11 +320,6 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 // This allows overlaying live data on top of PCAP-analyzed background.
 // Method: POST. Query param: sensor_id (required to match configured sensor).
 func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed; use POST")
-		return
-	}
-
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
 		sensorID = r.FormValue("sensor_id")
@@ -388,11 +373,6 @@ func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request
 // handlePlaybackStatus returns the current playback state.
 // GET /api/lidar/playback/status
 func (ws *WebServer) handlePlaybackStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.getPlaybackStatus == nil {
 		// Return default live status when no playback callback is configured
 		status := &PlaybackStatusInfo{
@@ -423,11 +403,6 @@ func (ws *WebServer) handlePlaybackStatus(w http.ResponseWriter, r *http.Request
 // handlePlaybackPause pauses playback.
 // POST /api/lidar/playback/pause
 func (ws *WebServer) handlePlaybackPause(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.onPlaybackPause == nil {
 		ws.writeJSONError(w, http.StatusNotImplemented, "playback pause not configured")
 		return
@@ -445,11 +420,6 @@ func (ws *WebServer) handlePlaybackPause(w http.ResponseWriter, r *http.Request)
 // handlePlaybackPlay resumes playback.
 // POST /api/lidar/playback/play
 func (ws *WebServer) handlePlaybackPlay(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.onPlaybackPlay == nil {
 		ws.writeJSONError(w, http.StatusNotImplemented, "playback play not configured")
 		return
@@ -468,11 +438,6 @@ func (ws *WebServer) handlePlaybackPlay(w http.ResponseWriter, r *http.Request) 
 // POST /api/lidar/playback/seek
 // Body: {"timestamp_ns": 1234567890}
 func (ws *WebServer) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.onPlaybackSeek == nil {
 		ws.writeJSONError(w, http.StatusNotImplemented, "playback seek not configured")
 		return
@@ -502,11 +467,6 @@ func (ws *WebServer) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) 
 // POST /api/lidar/playback/rate
 // Body: {"rate": 1.5}
 func (ws *WebServer) handlePlaybackRate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.onPlaybackRate == nil {
 		ws.writeJSONError(w, http.StatusNotImplemented, "playback rate not configured")
 		return
@@ -538,10 +498,6 @@ func (ws *WebServer) handlePlaybackRate(w http.ResponseWriter, r *http.Request) 
 // POST /api/lidar/vrlog/load
 // Body: {"run_id": "abc123"} or {"vrlog_path": "/path/to/vrlog"}
 func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
 
 	if ws.onVRLogLoad == nil {
 		ws.writeJSONError(w, http.StatusNotImplemented, "vrlog load not configured")
@@ -619,11 +575,6 @@ func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 // handleVRLogStop stops VRLOG replay and returns to live mode.
 // POST /api/lidar/vrlog/stop
 func (ws *WebServer) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.onVRLogStop == nil {
 		ws.writeJSONError(w, http.StatusNotImplemented, "vrlog stop not configured")
 		return
