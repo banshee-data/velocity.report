@@ -4,17 +4,6 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 
 Last updated: 2026-02-19
 
-## P0 — Complete ✅
-
-All P0 items have been delivered:
-
-1. ✅ L1–L6 layer alignment and code migration — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
-2. ✅ Route table conversion and HTTP method prefixes — same review doc, items 3 and 11
-3. ✅ 501 stub replacement (evaluation and reprocess endpoints) — same review doc, item 4
-4. ✅ Arena.go deprecation — [design doc](docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design-20260217.md)
-5. ✅ Documentation consistency sweep — reconciled status vs checklists across docs/
-6. ✅ Cross-layer placement fixes (background.go split, webserver.go split, CompareRuns extraction) — review doc, item 14
-
 ## P1 — Next
 
 | #   | Task                                                       | Design doc                                                                                                                                                           | Notes                                                  |
@@ -57,3 +46,12 @@ All P0 items have been delivered:
 | 26  | E2E test infrastructure       | [docs/plans/design-review-and-improvement-plan.md](docs/plans/design-review-and-improvement-plan.md)                         | Playwright smoke tests                                                   |
 | 27  | Retire Go-embedded dashboards | [review doc §Further Opportunity 7](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | ~2,000 lines removed from monitor once Svelte dashboards replace ECharts |
 | 28  | Visualiser codec extraction   | [review doc §Further Opportunity 8](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | Consolidate frame encoding across adapter/publisher                      |
+
+## Complete
+
+1. L1–L6 layer alignment and code migration — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
+2. Route table conversion and HTTP method prefixes — same review doc, items 3 and 11
+3. 501 stub replacement (evaluation and reprocess endpoints) — same review doc, item 4
+4. Arena.go deprecation — [design doc](docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design-20260217.md)
+5. Documentation consistency sweep — reconciled status vs checklists across docs/
+6. Cross-layer placement fixes (background.go split, webserver.go split, CompareRuns extraction) — review doc, item 14
