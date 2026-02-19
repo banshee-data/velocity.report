@@ -952,9 +952,9 @@ func TestStartPCAPLocked_RealtimeWithPlotsAndDebug(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	// enablePlots=true with plotsBaseDir → grid plotter init
-	// speedRatio=-1 → multiplier <= 0 → default to 1.0
+	// speedRatio=-1 with speedMode="fixed" → multiplier <= 0 → default to 1.0
 	// debugRingMin=1, debugRingMax=10 with enableDebug=false → "debug OFF" log
-	err := ws.startPCAPLocked("realtime.pcap", "realtime", -1.0, 0, 0,
+	err := ws.startPCAPLocked("realtime.pcap", "fixed", -1.0, 0, 0,
 		1, 10, 0, 0, false, true)
 	if err != nil {
 		t.Fatalf("startPCAPLocked error: %v", err)
@@ -1148,4 +1148,92 @@ func TestResolvePCAPPath_SymlinkOutsideSafeDir(t *testing.T) {
 	if se.status != 403 {
 		t.Errorf("expected status 403 (Forbidden), got %d: %v", se.status, se.err)
 	}
+}
+
+// --- Grid plotter Start() error path ---
+
+func TestStartPCAPLocked_GridPlotterStartError(t *testing.T) {
+	sensorID := "test-plotter-err"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "ploterr.pcap"), testPCAPHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a regular file where the plots subdirectory should be created,
+	// so MkdirAll fails (can't create directory under a file).
+	plotsBlocker := filepath.Join(tmpDir, "plots")
+	if err := os.WriteFile(plotsBlocker, []byte("block"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ws := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		SensorID:          sensorID,
+		PCAPSafeDir:       tmpDir,
+		PlotsBaseDir:      plotsBlocker, // a file, not a dir → MkdirAll will fail
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+	ws.setBaseContext(context.Background())
+
+	ws.dataSourceMu.Lock()
+	ws.currentSource = DataSourcePCAP
+	ws.dataSourceMu.Unlock()
+
+	// enablePlots=true → gridPlotter.Start fails → gridPlotter set to nil
+	err := ws.startPCAPLocked("ploterr.pcap", "fastest", 1.0, 0, 0,
+		0, 0, 0, 0, false, true)
+	if err != nil {
+		t.Fatalf("startPCAPLocked error: %v", err)
+	}
+
+	waitForPCAPDone(t, ws)
+}
+
+// --- Analysis run StartRun error path ---
+
+func TestStartPCAPLocked_StartRunError(t *testing.T) {
+	sensorID := "test-startrun-err"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "runerr.pcap"), testPCAPHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dbWrapped, cleanupDB := setupTestDBWrapped(t)
+	// Close the database BEFORE the goroutine runs, so StartRun fails
+	dbWrapped.DB.Close()
+	defer cleanupDB()
+
+	ws := NewWebServer(WebServerConfig{
+		Address:     ":0",
+		Stats:       NewPacketStats(),
+		SensorID:    sensorID,
+		PCAPSafeDir: tmpDir,
+		DB:          dbWrapped,
+	})
+	ws.setBaseContext(context.Background())
+
+	// Pre-set analysis mode so the goroutine attempts StartRun
+	ws.pcapMu.Lock()
+	ws.pcapAnalysisMode = true
+	ws.pcapMu.Unlock()
+
+	ws.dataSourceMu.Lock()
+	ws.currentSource = DataSourcePCAP
+	ws.dataSourceMu.Unlock()
+
+	err := ws.startPCAPLocked("runerr.pcap", "fastest", 1.0, 0, 0,
+		0, 0, 0, 0, false, false)
+	if err != nil {
+		t.Fatalf("startPCAPLocked error: %v", err)
+	}
+
+	waitForPCAPDone(t, ws)
+	// Goroutine should log "Warning: Failed to start analysis run" and continue
 }
