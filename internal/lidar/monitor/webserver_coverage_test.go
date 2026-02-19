@@ -21,6 +21,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -5647,4 +5648,85 @@ func TestCov6_HandleBackgroundRegionsDashboard_DefaultSensorID(t *testing.T) {
 	// Dashboard returns HTML regardless of whether a manager exists.
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Header().Get("Content-Type"), "text/html")
+}
+
+// ---------- 33. HandleTuningParams POST with extended tracker fields ----------
+// Covers L963-L995 (11 extended tracker config assignments) + L1002 (valid
+// DeletedTrackGracePeriod) + L1004-L1007 (MinObservationsForClassification
+// with classifier).
+
+func TestCov7_HandleTuningParams_POST_ExtendedTrackerFields(t *testing.T) {
+	sid := fmt.Sprintf("cov7-ext-track-%d", time.Now().UnixNano())
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
+	t.Cleanup(func() { l3grid.RegisterBackgroundManager(sid, nil) })
+
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
+	classifier := l6objects.NewTrackClassifier()
+	ws := &WebServer{tracker: tracker, classifier: classifier}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"max_reasonable_speed_mps":            50.0,
+		"max_position_jump_meters":            5.0,
+		"max_predict_dt":                      0.5,
+		"max_covariance_diag":                 100.0,
+		"min_points_for_pca":                  3,
+		"obb_heading_smoothing_alpha":         0.8,
+		"obb_aspect_ratio_lock_threshold":     1.5,
+		"max_track_history_length":            200,
+		"max_speed_history_length":            100,
+		"merge_size_ratio":                    0.5,
+		"split_size_ratio":                    2.0,
+		"deleted_track_grace_period":          "5s",
+		"min_observations_for_classification": 10,
+	})
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/lidar/tuning-params?sensor_id="+sid, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws.handleTuningParams(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Verify a few fields were applied
+	assert.Equal(t, float32(50.0), ws.tracker.Config.MaxReasonableSpeedMps)
+	assert.Equal(t, 200, ws.tracker.Config.MaxTrackHistoryLength)
+	assert.Equal(t, 5*time.Second, ws.tracker.Config.DeletedTrackGracePeriod)
+	assert.Equal(t, 10, ws.classifier.MinObservations)
+}
+
+// ---------- 34. featureGate pass-through when env var is set ----------
+// Covers L531-L536 (featureGate enabled path).
+
+func TestCov7_FeatureGate_Enabled(t *testing.T) {
+	t.Setenv("VR_TEST_FEATURE_GATE", "1")
+	called := false
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := featureGate("VR_TEST_FEATURE_GATE", inner)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	assert.True(t, called)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// ---------- 35. HandleTuningParams method not allowed ----------
+// Covers L1075-L1077 (default: method not allowed branch).
+
+func TestCov7_HandleTuningParams_MethodNotAllowed(t *testing.T) {
+	sid := fmt.Sprintf("cov7-method-%d", time.Now().UnixNano())
+	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sid, bm)
+	t.Cleanup(func() { l3grid.RegisterBackgroundManager(sid, nil) })
+
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodDelete,
+		"/api/lidar/tuning-params?sensor_id="+sid, nil)
+	w := httptest.NewRecorder()
+	ws.handleTuningParams(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
 }
