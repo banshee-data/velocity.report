@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 )
 
 // Analysis Run Infrastructure
@@ -258,41 +259,17 @@ type AnalysisStats struct {
 }
 
 // RunComparison shows differences between two analysis runs.
-type RunComparison struct {
-	Run1ID          string         `json:"run1_id"`
-	Run2ID          string         `json:"run2_id"`
-	ParamDiff       map[string]any `json:"param_diff,omitempty"`
-	TracksOnlyRun1  []string       `json:"tracks_only_run1,omitempty"`
-	TracksOnlyRun2  []string       `json:"tracks_only_run2,omitempty"`
-	SplitCandidates []TrackSplit   `json:"split_candidates,omitempty"`
-	MergeCandidates []TrackMerge   `json:"merge_candidates,omitempty"`
-	MatchedTracks   []TrackMatch   `json:"matched_tracks,omitempty"`
-}
+// Canonical type is in l6objects; this alias preserves backward compatibility.
+type RunComparison = l6objects.RunComparison
 
 // TrackSplit represents a suspected track split between runs.
-type TrackSplit struct {
-	OriginalTrack string   `json:"original_track"`
-	SplitTracks   []string `json:"split_tracks"`
-	SplitX        float32  `json:"split_x"`
-	SplitY        float32  `json:"split_y"`
-	Confidence    float32  `json:"confidence"`
-}
+type TrackSplit = l6objects.TrackSplit
 
 // TrackMerge represents a suspected track merge between runs.
-type TrackMerge struct {
-	MergedTrack  string   `json:"merged_track"`
-	SourceTracks []string `json:"source_tracks"`
-	MergeX       float32  `json:"merge_x"`
-	MergeY       float32  `json:"merge_y"`
-	Confidence   float32  `json:"confidence"`
-}
+type TrackMerge = l6objects.TrackMerge
 
 // TrackMatch represents a matched track between two runs.
-type TrackMatch struct {
-	Track1ID   string  `json:"track1_id"`
-	Track2ID   string  `json:"track2_id"`
-	OverlapPct float32 `json:"overlap_pct"`
-}
+type TrackMatch = l6objects.TrackMatch
 
 // AnalysisRunStore provides persistence for analysis runs.
 type AnalysisRunStore struct {
@@ -1341,43 +1318,8 @@ func compareParams(p1, p2 *RunParams) map[string]any {
 	return diff
 }
 
-// computeTemporalIoU calculates the temporal intersection-over-union for two tracks.
-// This measures how much their time ranges overlap relative to their total time span.
+// computeTemporalIoU calculates temporal IoU for two tracks.
+// Delegates to l6objects.ComputeTemporalIoU for the core algorithm.
 func computeTemporalIoU(ref, cand *RunTrack) float64 {
-	// Calculate intersection: max(starts) to min(ends)
-	intersectionStart := ref.StartUnixNanos
-	if cand.StartUnixNanos > intersectionStart {
-		intersectionStart = cand.StartUnixNanos
-	}
-
-	intersectionEnd := ref.EndUnixNanos
-	if cand.EndUnixNanos < intersectionEnd {
-		intersectionEnd = cand.EndUnixNanos
-	}
-
-	// If no overlap, IoU is 0
-	if intersectionStart >= intersectionEnd {
-		return 0.0
-	}
-
-	intersection := float64(intersectionEnd - intersectionStart)
-
-	// Calculate union: min(starts) to max(ends)
-	unionStart := ref.StartUnixNanos
-	if cand.StartUnixNanos < unionStart {
-		unionStart = cand.StartUnixNanos
-	}
-
-	unionEnd := ref.EndUnixNanos
-	if cand.EndUnixNanos > unionEnd {
-		unionEnd = cand.EndUnixNanos
-	}
-
-	union := float64(unionEnd - unionStart)
-
-	if union <= 0 {
-		return 0.0
-	}
-
-	return intersection / union
+	return l6objects.ComputeTemporalIoU(ref.StartUnixNanos, ref.EndUnixNanos, cand.StartUnixNanos, cand.EndUnixNanos)
 }

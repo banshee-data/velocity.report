@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -87,46 +88,10 @@ type TrackMatchResult struct {
 	SpatialDistance  float64 `json:"spatial_distance"`   // Approximate spatial distance (not yet implemented)
 }
 
-// computeTemporalIoU calculates the temporal intersection-over-union for two tracks.
-// IoU = intersection / union of time ranges [StartUnixNanos, EndUnixNanos].
-// Returns a value in [0, 1] where 1 means perfect temporal alignment.
+// computeTemporalIoU calculates temporal IoU for two tracks.
+// Delegates to l6objects.ComputeTemporalIoU for the core algorithm.
 func computeTemporalIoU(ref, cand *sqlite.RunTrack) float64 {
-	// Calculate intersection: max(starts) to min(ends)
-	intersectionStart := ref.StartUnixNanos
-	if cand.StartUnixNanos > intersectionStart {
-		intersectionStart = cand.StartUnixNanos
-	}
-
-	intersectionEnd := ref.EndUnixNanos
-	if cand.EndUnixNanos < intersectionEnd {
-		intersectionEnd = cand.EndUnixNanos
-	}
-
-	// If no overlap, IoU is 0
-	if intersectionStart >= intersectionEnd {
-		return 0.0
-	}
-
-	intersection := float64(intersectionEnd - intersectionStart)
-
-	// Calculate union: min(starts) to max(ends)
-	unionStart := ref.StartUnixNanos
-	if cand.StartUnixNanos < unionStart {
-		unionStart = cand.StartUnixNanos
-	}
-
-	unionEnd := ref.EndUnixNanos
-	if cand.EndUnixNanos > unionEnd {
-		unionEnd = cand.EndUnixNanos
-	}
-
-	union := float64(unionEnd - unionStart)
-
-	if union <= 0 {
-		return 0.0
-	}
-
-	return intersection / union
+	return l6objects.ComputeTemporalIoU(ref.StartUnixNanos, ref.EndUnixNanos, cand.StartUnixNanos, cand.EndUnixNanos)
 }
 
 // matchTracks performs optimal bipartite matching between reference and candidate tracks
@@ -370,10 +335,6 @@ func (e *GroundTruthEvaluator) Evaluate(referenceRunID, candidateRunID string) (
 	score := EvaluateGroundTruth(referenceTracks, candidateTracks, e.weights)
 	return score, nil
 }
-
-// ComputeTemporalIoU is the exported version of computeTemporalIoU for
-// backward-compatible test code in the parent package.
-var ComputeTemporalIoU = computeTemporalIoU
 
 // MatchTracks is the exported version of matchTracks for backward-compatible
 // test code in the parent package.
