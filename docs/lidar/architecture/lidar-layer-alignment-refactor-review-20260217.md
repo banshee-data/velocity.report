@@ -290,20 +290,20 @@ Outcome:
 
 ### Size distribution (current)
 
-| Package            | Source lines | Test lines | Largest file                  | Notes                                                         |
-| ------------------ | ------------ | ---------- | ----------------------------- | ------------------------------------------------------------- |
-| **l1packets**      | 3,510        | 5,039      | extract.go (621)              | Well-distributed across network/ and parse/ sub-packages      |
-| **l2frames**       | 1,135        | 1,989      | frame_builder.go (973)        | Clean single-responsibility; frame assembly + geometry        |
-| **l3grid**         | 3,929        | 5,646      | background.go (1,628)         | ✅ Split done — persistence, export, drift in separate files  |
-| **l4perception**   | 1,078        | 1,442      | cluster.go (469)              | Clean; DBSCAN, OBB, ground removal, voxel                     |
-| **l5tracks**       | 1,738        | 1,849      | tracking.go (1,488)           | Cohesive; Kalman tracker, lifecycle, metrics                  |
-| **l6objects**      | 1,141        | 1,014      | quality.go (388)              | Clean; classification, features, quality, comparison          |
-| **pipeline**       | 608          | 35         | tracking_pipeline.go (541)    | Thin orchestrator — expected to be small                      |
-| **storage/sqlite** | 3,552        | 5,551      | analysis_run.go (1,325)       | ✅ Domain logic extracted to l6objects/comparison.go           |
-| **adapters**       | 776          | 772        | ground_truth.go (380)         | Clean; export/training/ground-truth I/O                       |
-| **sweep**          | 4,974        | 9,008      | hint.go (1,222)               | Well-decoupled; no layer imports, uses interfaces only        |
-| **monitor**        | 10,040       | 23,646     | webserver.go (2,746)          | ✅ Split done — datasource and playback handlers extracted    |
-| **visualiser**     | 3,286        | 7,319      | adapter.go (790)              | Clean; gRPC server, publisher, adapter                        |
+| Package            | Source lines | Test lines | Largest file               | Notes                                                        |
+| ------------------ | ------------ | ---------- | -------------------------- | ------------------------------------------------------------ |
+| **l1packets**      | 3,510        | 5,039      | extract.go (621)           | Well-distributed across network/ and parse/ sub-packages     |
+| **l2frames**       | 1,135        | 1,989      | frame_builder.go (973)     | Clean single-responsibility; frame assembly + geometry       |
+| **l3grid**         | 3,929        | 5,646      | background.go (1,628)      | ✅ Split done — persistence, export, drift in separate files |
+| **l4perception**   | 1,078        | 1,442      | cluster.go (469)           | Clean; DBSCAN, OBB, ground removal, voxel                    |
+| **l5tracks**       | 1,738        | 1,849      | tracking.go (1,488)        | Cohesive; Kalman tracker, lifecycle, metrics                 |
+| **l6objects**      | 1,141        | 1,014      | quality.go (388)           | Clean; classification, features, quality, comparison         |
+| **pipeline**       | 608          | 35         | tracking_pipeline.go (541) | Thin orchestrator — expected to be small                     |
+| **storage/sqlite** | 3,552        | 5,551      | analysis_run.go (1,325)    | ✅ Domain logic extracted to l6objects/comparison.go         |
+| **adapters**       | 776          | 772        | ground_truth.go (380)      | Clean; export/training/ground-truth I/O                      |
+| **sweep**          | 4,974        | 9,008      | hint.go (1,222)            | Well-decoupled; no layer imports, uses interfaces only       |
+| **monitor**        | 10,040       | 23,646     | webserver.go (2,746)       | ✅ Split done — datasource and playback handlers extracted   |
+| **visualiser**     | 3,286        | 7,319      | adapter.go (790)           | Clean; gRPC server, publisher, adapter                       |
 
 **Total**: 35,767 source lines, 63,310 test lines across 12 packages (incl. visualiser).
 

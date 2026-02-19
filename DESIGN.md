@@ -81,6 +81,7 @@ These hex values are the **canonical percentile palette** for all chart stacks (
 - `max`: `#000000`
 
 That web implementation is **non-compliant** with this design contract and must be migrated to the canonical mapping above. Track and complete this migration via a follow-up issue in the web/frontend tracker, and update this document once the web palette is aligned.
+
 ## 4. Chart Alignment Rules (Required vs Allowed)
 
 ### 4.1 Required alignment
