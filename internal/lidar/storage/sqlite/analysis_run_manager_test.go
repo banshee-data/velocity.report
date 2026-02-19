@@ -97,6 +97,43 @@ func TestNewAnalysisRunManager(t *testing.T) {
 	}
 }
 
+func TestNewAnalysisRunManagerDI(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	// Clear registry for test isolation
+	armMu.Lock()
+	armRegistry = make(map[string]*AnalysisRunManager)
+	armMu.Unlock()
+
+	manager := NewAnalysisRunManagerDI(db, "sensor-di")
+	if manager == nil {
+		t.Fatal("NewAnalysisRunManagerDI returned nil")
+	}
+
+	if manager.sensorID != "sensor-di" {
+		t.Errorf("Expected sensorID 'sensor-di', got %s", manager.sensorID)
+	}
+
+	if manager.store == nil {
+		t.Error("Expected store to be initialised")
+	}
+
+	if manager.tracksSeen == nil {
+		t.Error("Expected tracksSeen map to be initialised")
+	}
+
+	if manager.currentRun != nil {
+		t.Error("Expected currentRun to be nil initially")
+	}
+
+	// Verify DI constructor does NOT register in global registry
+	retrieved := GetAnalysisRunManager("sensor-di")
+	if retrieved != nil {
+		t.Error("Expected DI constructor NOT to register in global registry")
+	}
+}
+
 func TestAnalysisRunManagerRegistry(t *testing.T) {
 	db, cleanup := setupAnalysisRunDB(t)
 	defer cleanup()
@@ -445,5 +482,42 @@ func TestGetCurrentRunParams(t *testing.T) {
 	if retrievedParams.Background.BackgroundUpdateFraction != 0.123 {
 		t.Errorf("Expected BackgroundUpdateFraction 0.123, got %f",
 			retrievedParams.Background.BackgroundUpdateFraction)
+	}
+}
+
+func TestRecordTrack_NoActiveRun(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	// No StartRun → currentRun is nil
+	track := &TrackedObject{TrackID: "track-1"}
+	result := manager.RecordTrack(track)
+	if result {
+		t.Error("Expected RecordTrack to return false with no active run")
+	}
+}
+
+func TestCompleteRun_NoActiveRun(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	// No StartRun → currentRun is nil
+	err := manager.CompleteRun()
+	if err != nil {
+		t.Errorf("Expected CompleteRun to return nil with no active run, got: %v", err)
+	}
+}
+
+func TestFailRun_NoActiveRun(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	// No StartRun → currentRun is nil
+	err := manager.FailRun("some error")
+	if err != nil {
+		t.Errorf("Expected FailRun to return nil with no active run, got: %v", err)
 	}
 }
