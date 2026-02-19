@@ -352,85 +352,43 @@ Split `webserver.go` into:
 
 These are lower-priority improvements that would further improve readability and maintainability but are not blocking current development.
 
-### Opportunity 1: Extract ECharts handlers from monitor/webserver.go
+### Opportunity 1: Extract ECharts handlers from monitor/webserver.go ✅
 
-**Current state**: `webserver.go` still contains ~1,200 lines of Go-embedded ECharts chart handlers (`handleBackgroundGridPolar`, `handleLidarDebugDashboard`, `handleSweepDashboard`, `handleTrafficChart`, `handleBackgroundGridHeatmapChart`, `handleClustersChart`, `handleTracksChart`, `handleForegroundFrameChart`, etc.) that construct Go HTML template responses with inline JavaScript.
+**Completed**: Extracted 9 chart/dashboard handlers into `echarts_handlers.go` (580 lines). `webserver.go` reduced from 2,746 to 1,775 lines.
 
-**Opportunity**: Extract chart/dashboard handlers into `echarts_handlers.go` (~1,200 lines). These will eventually be replaced by the Svelte frontend (frontend consolidation Phases 1–5), making them a natural isolation boundary.
+### Opportunity 2: Extract export handlers from monitor/webserver.go ✅
 
-**Impact**: `webserver.go` drops from 2,746 to ~1,500 lines. Chart handlers are easier to retire piecemeal during frontend migration.
+**Completed**: Extracted 8 export/snapshot handlers into `export_handlers.go` (391 lines). `webserver.go` further reduced to 1,775 lines.
 
-**Risk**: Low — pure handler extraction, no logic change.
+### Opportunity 3: Split sweep/hint.go (1,222 lines) ✅
 
-### Opportunity 2: Extract export handlers from monitor/webserver.go
+**Completed**: Extracted progress tracking into `hint_progress.go` (153 lines) and notification/utility functions into `hint_notifications.go` (84 lines). `hint.go` reduced to 998 lines.
 
-**Current state**: `webserver.go` contains ~300 lines of ASC/snapshot export handlers (`handleExportSnapshotASC`, `handleExportNextFrameASC`, `handleExportFrameSequenceASC`, `handleExportForegroundASC`, `handleLidarSnapshots`, `handleLidarSnapshotsCleanup`, `handleLidarSnapshot`).
+### Opportunity 4: Split sweep/auto.go (1,214 lines) ✅
 
-**Opportunity**: Move to `export_handlers.go`. Export logic is self-contained and orthogonal to the core server lifecycle.
+**Completed**: Extracted grid narrowing, bounds computation, and utility functions into `auto_narrowing.go` (227 lines). `auto.go` reduced to 993 lines.
 
-**Impact**: Further reduces `webserver.go` by ~300 lines to ~1,200 lines (server init, routes, status, config, grid, acceptance, health).
+### Opportunity 5: Split sweep/runner.go (1,195 lines) ✅
 
-**Risk**: Low.
+**Completed**: Extracted parameter generation and combination logic into `sweep_params.go` (242 lines). `runner.go` reduced to 953 lines.
 
-### Opportunity 3: Split sweep/hint.go (1,222 lines)
+### Opportunity 6: Reduce storage/sqlite/analysis_run.go (1,325 lines) ✅
 
-**Current state**: `hint.go` combines HINT state machine, notification formatting, progress tracking, and step scheduling in one file.
-
-**Opportunity**: Extract notification formatting (~200 lines) and progress/step tracking (~300 lines) into `hint_notifications.go` and `hint_progress.go`.
-
-**Impact**: Reduces `hint.go` to ~700 lines focused on state machine logic.
-
-**Risk**: Low — the sweep package has strong test coverage (9,008 test lines, 89.3% coverage).
-
-### Opportunity 4: Split sweep/auto.go (1,214 lines)
-
-**Current state**: `auto.go` combines the auto-tuner state machine, grid narrowing logic, result evaluation, and iteration scheduling.
-
-**Opportunity**: Extract grid narrowing and result evaluation (~400 lines) into `auto_narrowing.go`.
-
-**Impact**: Reduces `auto.go` to ~800 lines.
-
-**Risk**: Low.
-
-### Opportunity 5: Split sweep/runner.go (1,195 lines)
-
-**Current state**: `runner.go` combines sweep execution, parameter generation, scoring, and settling logic.
-
-**Opportunity**: Parameter generation and combination logic (~300 lines) could move to a separate `sweep_params.go`.
-
-**Impact**: Reduces `runner.go` to ~900 lines.
-
-**Risk**: Low.
-
-### Opportunity 6: Reduce storage/sqlite/analysis_run.go (1,325 lines)
-
-**Current state**: Still contains `compareParams()` (~100 lines of deep diffing on Background, Clustering, Tracking params) and 27 functions for CRUD + complex queries.
-
-**Opportunity**: Extract `compareParams` to `l6objects/comparison.go` alongside `ComputeTemporalIoU`. This requires decoupling `RunParams` serialisation from the store — moderate refactoring.
-
-**Impact**: Marginal line reduction (~100 lines). Primary value is completing the domain/storage separation for comparison logic.
-
-**Risk**: Medium — `compareParams` operates on `RunParams` which is defined in the storage package.
+**Completed**: Extracted `compareParams` and `computeTemporalIoU` into `analysis_run_compare.go` (112 lines). `analysis_run.go` reduced to 1,216 lines. RunParams types remain in the storage package to avoid circular imports; full domain extraction deferred to a future PR.
 
 ### Opportunity 7: Retire Go-embedded HTML dashboards
 
-**Current state**: monitor package contains 5 `go:embed` directives and ~600 lines of Go HTML templates plus 12+ ECharts JavaScript chart handlers. These are the legacy debug dashboards scheduled for replacement.
+**Status**: Deferred — requires corresponding Svelte dashboard implementation first (frontend consolidation Phases 1–5).
 
-**Opportunity**: As frontend consolidation Phases 1–5 progresses, each legacy dashboard can be removed entirely. The monitor package would shrink from 10,040 to ~8,000 lines once all ECharts dashboards are migrated to Svelte.
+**Current state**: monitor package contains 5 `go:embed` directives and ~600 lines of Go HTML templates plus 12+ ECharts JavaScript chart handlers. These are the legacy debug dashboards scheduled for replacement.
 
 **Impact**: ~2,000 lines removed from monitor. Eliminates Go template injection surface.
 
 **Risk**: Medium — requires corresponding Svelte dashboard implementation first.
 
-### Opportunity 8: Consolidate visualiser adapter/publisher (790+740 lines)
+### Opportunity 8: Consolidate visualiser adapter/publisher (790+740 lines) ✅
 
-**Current state**: `adapter.go` (790 lines) bridges the pipeline to gRPC while `publisher.go` (740 lines) manages client connections and frame broadcasting. Both share the same lifecycle and could benefit from clearer responsibility boundaries.
-
-**Opportunity**: Extract the frame encoding/serialisation logic (~200 lines shared between adapter and publisher) into a `frame_codec.go`. This deduplicates protobuf marshalling and snapshot handling.
-
-**Impact**: ~200 lines deduplicated. Clearer separation between protocol encoding and connection management.
-
-**Risk**: Low — visualiser has 91.9% test coverage.
+**Completed**: Extracted point cloud memory pool (sync.Pool) and decimation codec (Release, ApplyDecimation, uniform/foreground/voxel decimation) into `frame_codec.go` (280 lines). `adapter.go` reduced from 790 to 519 lines.
 
 ## Quick Wins (Low Risk, High Readability)
 

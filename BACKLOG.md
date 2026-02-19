@@ -29,8 +29,8 @@ Last updated: 2026-02-19
 | 14  | HINT sweep polish                | [docs/plans/hint-sweep-mode.md](docs/plans/hint-sweep-mode.md)                                                                   | 11 remaining polish items                           |
 | 15  | Precompiled LaTeX                | [docs/plans/precompiled-latex-plan.md](docs/plans/precompiled-latex-plan.md)                                                     | Faster PDF report generation                        |
 | 16  | Python venv consolidation        | [docs/plans/python-venv-consolidation-plan.md](docs/plans/python-venv-consolidation-plan.md)                                     | Unify to single .venv/ at root                      |
-| 17  | LiDAR monitor file splits        | [review doc §Further Opportunities 1–2](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | Extract ECharts + export handlers from webserver.go |
-| 18  | Sweep file splits                | [review doc §Further Opportunities 3–5](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | Split hint.go, auto.go, runner.go                   |
+| 17  | ~~LiDAR monitor file splits~~        | [review doc §Further Opportunities 1–2](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | ✅ Done — echarts_handlers.go + export_handlers.go |
+| 18  | ~~Sweep file splits~~                | [review doc §Further Opportunities 3–5](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | ✅ Done — hint/auto/runner splits                   |
 
 ## P3 — Deferred / Research
 
@@ -45,7 +45,7 @@ Last updated: 2026-02-19
 | 25  | Visual regression testing     | [docs/plans/design-review-and-improvement-plan.md](docs/plans/design-review-and-improvement-plan.md)                         | Playwright baseline screenshots                                          |
 | 26  | E2E test infrastructure       | [docs/plans/design-review-and-improvement-plan.md](docs/plans/design-review-and-improvement-plan.md)                         | Playwright smoke tests                                                   |
 | 27  | Retire Go-embedded dashboards | [review doc §Further Opportunity 7](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | ~2,000 lines removed from monitor once Svelte dashboards replace ECharts |
-| 28  | Visualiser codec extraction   | [review doc §Further Opportunity 8](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | Consolidate frame encoding across adapter/publisher                      |
+| 28  | ~~Visualiser codec extraction~~   | [review doc §Further Opportunity 8](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)               | ✅ Done — frame_codec.go extracted from adapter.go                       |
 
 ## Complete
 
@@ -55,3 +55,7 @@ Last updated: 2026-02-19
 4. Arena.go deprecation — [design doc](docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design-20260217.md)
 5. Documentation consistency sweep — reconciled status vs checklists across docs/
 6. Cross-layer placement fixes (background.go split, webserver.go split, CompareRuns extraction) — review doc, item 14
+7. LiDAR monitor file splits — review doc §Further Opportunities 1–2 (echarts_handlers.go, export_handlers.go)
+8. Sweep file splits — review doc §Further Opportunities 3–5 (hint_progress/notifications.go, auto_narrowing.go, sweep_params.go)
+9. Storage compareParams extraction — review doc §Further Opportunity 6 (analysis_run_compare.go)
+10. Visualiser frame codec extraction — review doc §Further Opportunity 8 (frame_codec.go)
