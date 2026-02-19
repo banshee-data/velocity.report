@@ -1175,6 +1175,45 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 	return mgr
 }
 
+// NewBackgroundManagerDI creates a BackgroundManager without registering it
+// in the global registry. Prefer this constructor when wiring dependencies
+// explicitly via pipeline.SensorRuntime.
+func NewBackgroundManagerDI(sensorID string, rings, azBins int, params BackgroundParams, store BgStore) *BackgroundManager {
+	if sensorID == "" || rings <= 0 || azBins <= 0 {
+		return nil
+	}
+	cells := make([]BackgroundCell, rings*azBins)
+	grid := &BackgroundGrid{
+		SensorID:    sensorID,
+		SensorFrame: FrameID(sensorID),
+		Rings:       rings,
+		AzimuthBins: azBins,
+		Cells:       cells,
+		Params:      params,
+		RegionMgr:   NewRegionManager(rings, azBins),
+	}
+	mgr := &BackgroundManager{Grid: grid, store: store}
+	grid.Manager = mgr
+
+	grid.AcceptanceBucketsMeters = []float64{1, 2, 4, 8, 10, 12, 16, 20, 50, 100, 200}
+	grid.AcceptByRangeBuckets = make([]int64, len(grid.AcceptanceBucketsMeters))
+	grid.RejectByRangeBuckets = make([]int64, len(grid.AcceptanceBucketsMeters))
+
+	if store != nil {
+		mgr.PersistCallback = func(s *BgSnapshot) error {
+			reason := "manual"
+			if s != nil && s.SnapshotReason != "" {
+				reason = s.SnapshotReason
+			}
+			return mgr.Persist(store, reason)
+		}
+	} else {
+		log.Printf("BackgroundManager for sensor '%s' created without a BgStore: persistence disabled", sensorID)
+	}
+
+	return mgr
+}
+
 // SetRingElevations sets per-ring elevation angles (degrees) on the BackgroundGrid.
 // The provided slice must have length equal to the grid's Rings; values are copied.
 func (bm *BackgroundManager) SetRingElevations(elevations []float64) error {

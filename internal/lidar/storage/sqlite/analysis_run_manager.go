@@ -40,6 +40,17 @@ func NewAnalysisRunManager(db *sql.DB, sensorID string) *AnalysisRunManager {
 	}
 }
 
+// NewAnalysisRunManagerDI creates a new manager without registering it in the
+// global registry. Prefer this constructor when wiring dependencies
+// explicitly via pipeline.SensorRuntime.
+func NewAnalysisRunManagerDI(db *sql.DB, sensorID string) *AnalysisRunManager {
+	return &AnalysisRunManager{
+		store:      NewAnalysisRunStore(db),
+		sensorID:   sensorID,
+		tracksSeen: make(map[string]bool),
+	}
+}
+
 // RegisterAnalysisRunManager registers a manager for a sensor ID.
 func RegisterAnalysisRunManager(sensorID string, manager *AnalysisRunManager) {
 	armMu.Lock()
