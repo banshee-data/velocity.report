@@ -1,0 +1,9 @@
+{
+  "_label": "7/10 — Ultra-fast confirm",
+  "_description": "Single-hit confirm, quick drop. Tighter gating (16 vs 36) to prevent wild associations.",
+  "hits_to_confirm": 1,
+  "max_misses": 2,
+  "max_misses_confirmed": 6,
+  "max_tracks": 75,
+  "gating_distance_squared": 16.0
+}

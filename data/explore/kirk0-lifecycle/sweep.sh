@@ -15,7 +15,11 @@
 #   1. Server running with LiDAR:  make dev-go-lidar
 #   2. (Optional) macOS visualiser connected for live observation
 #
-# Usage: ./data/explore/kirk0-lifecycle/sweep.sh [base_url]
+# Usage: ./data/explore/kirk0-lifecycle/sweep.sh [--start-from N] [base_url]
+#
+#   --start-from N   Skip to permutation N (1-indexed), bypassing Phase 0
+#                    settling (assumes grid snapshot already in SQLite).
+#                    Example: ./sweep.sh --start-from 6
 #
 # Output: data/explore/kirk0-lifecycle/results/<timestamp>/
 #   ├── 0-settling/
@@ -37,6 +41,24 @@
 #   └── summary.json             # combined summary of all permutations
 set -euo pipefail
 
+# ── CLI argument parsing ──────────────────────────────────────────────────────
+START_FROM=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --start-from|-s)
+      START_FROM="${2:?--start-from requires a permutation number (1-indexed)}"
+      shift 2
+      ;;
+    -s[0-9]*)
+      START_FROM="${1#-s}"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 BASE_URL="${1:-http://127.0.0.1:8081}"
 SENSOR_ID="hesai-pandar40p"
 PCAP_FILE="static/kirk0.pcapng"
@@ -57,6 +79,11 @@ CONFIGS=(
   "kirk0-lifecycle-3-strict-confirm.json"
   "kirk0-lifecycle-4-persistent.json"
   "kirk0-lifecycle-5-aggressive-cleanup.json"
+  "kirk0-lifecycle-6-fast-confirm.json"
+  "kirk0-lifecycle-7-ultra-fast.json"
+  "kirk0-lifecycle-8-max-churn.json"
+  "kirk0-lifecycle-9-max-churn-tight.json"
+  "kirk0-lifecycle-10-max-churn-tightest.json"
 )
 
 # Short names for result directories
@@ -66,6 +93,11 @@ DIR_NAMES=(
   "3-strict-confirm"
   "4-persistent"
   "5-aggressive-cleanup"
+  "6-fast-confirm"
+  "7-ultra-fast"
+  "8-max-churn"
+  "9-max-churn-tight"
+  "10-max-churn-tightest"
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -176,57 +208,67 @@ capture_state() {
 echo "═══════════════════════════════════════════════════════════"
 echo "  kirk0 lifecycle sweep — ${#CONFIGS[@]} permutations"
 echo "  server: ${BASE_URL}  sensor: ${SENSOR_ID}"
+if [ "$START_FROM" -gt 1 ]; then
+  echo "  start-from: permutation ${START_FROM} (skipping Phase 0)"
+fi
 echo "  output: ${RESULTS_DIR}"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "───────────────────────────────────────────────────────────"
-echo "  Phase 0 — Region settling (full 30s warmup)"
-echo "  Populates background grid + regions in SQLite so"
-echo "  subsequent runs can restore in ~10 frames."
-echo "───────────────────────────────────────────────────────────"
-echo ""
 
-SETTLE_DIR="${RESULTS_DIR}/0-settling"
-SETTLE_CFG="${SCRIPT_DIR}/${CONFIGS[0]}"  # Use baseline config for settling
+if [ "$START_FROM" -le 1 ]; then
+  # ── Phase 0: Region settling run ────────────────────────────────────────
+  echo "───────────────────────────────────────────────────────────"
+  echo "  Phase 0 — Region settling (full 30s warmup)"
+  echo "  Populates background grid + regions in SQLite so"
+  echo "  subsequent runs can restore in ~10 frames."
+  echo "───────────────────────────────────────────────────────────"
+  echo ""
 
-# 1. Stop any running pcap
-stop_pcap
+  SETTLE_DIR="${RESULTS_DIR}/0-settling"
+  SETTLE_CFG="${SCRIPT_DIR}/${CONFIGS[0]}"  # Use baseline config for settling
 
-# 2. Apply baseline params (with default 30s warmup — no overrides)
-set_params "$SETTLE_CFG"
+  # 1. Stop any running pcap
+  stop_pcap
 
-# 3. Reset grid for clean start
-reset_grid
+  # 2. Apply baseline params (with default 30s warmup — no overrides)
+  set_params "$SETTLE_CFG"
 
-# 4. Brief pause for reset
-sleep 1
+  # 3. Reset grid for clean start
+  reset_grid
 
-# 5. Start pcap replay at fastest speed (just need the grid to settle)
-start_pcap_fastest
+  # 4. Brief pause for reset
+  sleep 1
 
-# 6. Wait for replay to complete
-wait_for_pcap_complete || true
+  # 5. Start pcap replay at fastest speed (just need the grid to settle)
+  start_pcap_fastest
 
-# 7. Capture settling state
-mkdir -p "${SETTLE_DIR}"
-cp "${SETTLE_CFG}" "${SETTLE_DIR}/config.json"
-api_get "/api/lidar/grid_status" | jq . > "${SETTLE_DIR}/grid-status.json"
-api_get "/api/lidar/params"      | jq . > "${SETTLE_DIR}/params.json"
-api_get "/api/lidar/data_source"  | jq . > "${SETTLE_DIR}/data-source.json"
+  # 6. Wait for replay to complete
+  wait_for_pcap_complete || true
 
-# Verify settling completed and snapshot was persisted
-settle_complete=$(jq -r '.settling_complete // false' "${SETTLE_DIR}/grid-status.json" 2>/dev/null || echo "unknown")
-bg_count=$(jq -r '.background_count // 0' "${SETTLE_DIR}/grid-status.json" 2>/dev/null || echo "0")
-echo ""
-echo "  → Settling complete: ${settle_complete}"
-echo "  → Background cells: ${bg_count}"
-echo ""
+  # 7. Capture settling state
+  mkdir -p "${SETTLE_DIR}"
+  cp "${SETTLE_CFG}" "${SETTLE_DIR}/config.json"
+  api_get "/api/lidar/grid_status" | jq . > "${SETTLE_DIR}/grid-status.json"
+  api_get "/api/lidar/params"      | jq . > "${SETTLE_DIR}/params.json"
+  api_get "/api/lidar/data_source"  | jq . > "${SETTLE_DIR}/data-source.json"
 
-echo "  Phase 0 done — grid snapshot should now be persisted in SQLite."
-echo "  Subsequent runs will attempt region restore from DB."
-echo ""
-echo "  ▶ Press Enter to start Phase 1 (permutation sweep)..."
-read -r
+  # Verify settling completed and snapshot was persisted
+  settle_complete=$(jq -r '.settling_complete // false' "${SETTLE_DIR}/grid-status.json" 2>/dev/null || echo "unknown")
+  bg_count=$(jq -r '.background_count // 0' "${SETTLE_DIR}/grid-status.json" 2>/dev/null || echo "0")
+  echo ""
+  echo "  → Settling complete: ${settle_complete}"
+  echo "  → Background cells: ${bg_count}"
+  echo ""
+
+  echo "  Phase 0 done — grid snapshot should now be persisted in SQLite."
+  echo "  Subsequent runs will attempt region restore from DB."
+  echo ""
+  echo "  ▶ Press Enter to start Phase 1 (permutation sweep)..."
+  read -r
+else
+  echo "  Skipping Phase 0 (--start-from ${START_FROM}), assuming grid snapshot exists."
+  echo ""
+fi
 
 # ── Phase 1: Permutation sweep (with region restore) ────────────────────────
 
@@ -242,11 +284,17 @@ echo ""
 SUMMARY_ITEMS=()
 
 for i in "${!CONFIGS[@]}"; do
+  n=$((i + 1))
+
+  # Skip permutations before START_FROM
+  if [ "$n" -lt "$START_FROM" ]; then
+    continue
+  fi
+
   cfg="${CONFIGS[$i]}"
   cfg_path="${SCRIPT_DIR}/${cfg}"
   dir_name="${DIR_NAMES[$i]}"
   out_dir="${RESULTS_DIR}/${dir_name}"
-  n=$((i + 1))
 
   label=$(jq -r '._label // "unknown"' "$cfg_path")
 
