@@ -245,10 +245,11 @@ propagation). The proposal's linear `R(τ)` is inconsistent with Kalman
 covariance dynamics and is less conservative—it under-predicts uncertainty at
 longer horizons.
 
-For a constant-velocity model with process noise σ_a on acceleration:
+For a constant-velocity model with process noise σ_a on acceleration, the
+full covariance propagation gives (neglecting O(τ³) and higher terms):
 
 ```
-σ²_pos(τ) = σ²_pos(0) + 2·σ²_vel(0)·τ + σ²_a·τ² + ...
+σ²_pos(τ) = σ²_pos(0) + 2·σ²_vel(0)·τ + σ²_a·τ²
 ```
 
 Position variance grows at least quadratically in τ, not linearly. Using linear
