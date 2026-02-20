@@ -766,3 +766,294 @@ func TestListSweeps_WithCompletedAt(t *testing.T) {
 		t.Error("expected non-nil CompletedAt")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// GetLabelingProgress — with labelled tracks (covers byClass loop)
+// ---------------------------------------------------------------------------
+
+func TestGetLabelingProgress_WithLabels(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	run := &AnalysisRun{RunID: "lp-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun: %v", err)
+	}
+
+	// Insert labelled tracks.
+	for _, tc := range []struct {
+		trackID string
+		label   string
+	}{
+		{"lp-t1", "car"},
+		{"lp-t2", "car"},
+		{"lp-t3", "pedestrian"},
+		{"lp-t4", ""}, // unlabelled
+	} {
+		tr := &RunTrack{
+			RunID:            "lp-run",
+			TrackID:          tc.trackID,
+			SensorID:         "s1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   1000,
+			ObservationCount: 5,
+			UserLabel:        tc.label,
+		}
+		if err := store.InsertRunTrack(tr); err != nil {
+			t.Fatalf("InsertRunTrack %s: %v", tc.trackID, err)
+		}
+	}
+
+	total, labeled, byClass, err := store.GetLabelingProgress("lp-run")
+	if err != nil {
+		t.Fatalf("GetLabelingProgress: %v", err)
+	}
+	if total != 4 {
+		t.Errorf("total = %d, want 4", total)
+	}
+	if labeled != 3 {
+		t.Errorf("labeled = %d, want 3", labeled)
+	}
+	if byClass["car"] != 2 {
+		t.Errorf("byClass[car] = %d, want 2", byClass["car"])
+	}
+	if byClass["pedestrian"] != 1 {
+		t.Errorf("byClass[pedestrian] = %d, want 1", byClass["pedestrian"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateTrackLabel — cover the happy path (label + quality)
+// ---------------------------------------------------------------------------
+
+func TestUpdateTrackLabel_HappyPath(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	run := &AnalysisRun{RunID: "utl-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun: %v", err)
+	}
+
+	track := &RunTrack{RunID: "utl-run", TrackID: "utl-t1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, ObservationCount: 5}
+	if err := store.InsertRunTrack(track); err != nil {
+		t.Fatalf("InsertRunTrack: %v", err)
+	}
+
+	// Apply a label.
+	if err := store.UpdateTrackLabel("utl-run", "utl-t1", "car", "good", 0.95, "user-1", "human_manual"); err != nil {
+		t.Fatalf("UpdateTrackLabel: %v", err)
+	}
+
+	// Verify via GetRunTrack.
+	got, err := store.GetRunTrack("utl-run", "utl-t1")
+	if err != nil {
+		t.Fatalf("GetRunTrack: %v", err)
+	}
+	if got.UserLabel != "car" {
+		t.Errorf("UserLabel = %q, want %q", got.UserLabel, "car")
+	}
+	if got.QualityLabel != "good" {
+		t.Errorf("QualityLabel = %q, want %q", got.QualityLabel, "good")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListByScene with evaluations — covers scanEvaluation paramsJSON.Valid branch
+// ---------------------------------------------------------------------------
+
+func TestListByScene_WithParams(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	evalStore := NewEvaluationStore(db)
+	runStore := NewAnalysisRunStore(db)
+
+	// Insert prerequisite runs.
+	for _, rid := range []string{"ref-run", "cand-run"} {
+		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}); err != nil {
+			t.Fatalf("InsertRun %s: %v", rid, err)
+		}
+	}
+	// Insert prerequisite scene.
+	if _, err := db.Exec(`INSERT INTO lidar_scenes (scene_id, sensor_id, pcap_file, created_at_ns) VALUES ('scene-1', 's1', '/test.pcap', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("Insert scene: %v", err)
+	}
+
+	// Insert an evaluation with paramsJSON.
+	eval := &Evaluation{
+		EvaluationID:   "eval-1",
+		SceneID:        "scene-1",
+		ReferenceRunID: "ref-run",
+		CandidateRunID: "cand-run",
+		DetectionRate:  0.95,
+		CompositeScore: 0.88,
+		MatchedCount:   10,
+		ReferenceCount: 12,
+		CandidateCount: 11,
+		ParamsJSON:     json.RawMessage(`{"version":"1.0"}`),
+	}
+	if err := evalStore.Insert(eval); err != nil {
+		t.Fatalf("Insert evaluation: %v", err)
+	}
+
+	evals, err := evalStore.ListByScene("scene-1")
+	if err != nil {
+		t.Fatalf("ListByScene: %v", err)
+	}
+	if len(evals) != 1 {
+		t.Fatalf("got %d evaluations, want 1", len(evals))
+	}
+	if string(evals[0].ParamsJSON) != `{"version":"1.0"}` {
+		t.Errorf("ParamsJSON = %s, want %s", evals[0].ParamsJSON, `{"version":"1.0"}`)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetTracksInRange with observations — covers history-building loop
+// ---------------------------------------------------------------------------
+
+func TestGetTracksInRange_WithObservations(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	nowNanos := time.Now().UnixNano()
+
+	// Insert a track.
+	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
+		start_unix_nanos, end_unix_nanos, observation_count,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+		height_p95_max, intensity_mean_avg)
+		VALUES ('obs-range-t1', 'obs-range-s', 'world', 'confirmed', ?, ?, 2, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0)`,
+		nowNanos-1e9, nowNanos)
+	if err != nil {
+		t.Fatalf("insert track: %v", err)
+	}
+
+	// Insert observations within the time range.
+	for _, tsOff := range []int64{-500000000, -200000000} {
+		_, err = db.Exec(`INSERT INTO lidar_track_obs (track_id, ts_unix_nanos, world_frame,
+			x, y, z, velocity_x, velocity_y, speed_mps, heading_rad,
+			bounding_box_length, bounding_box_width, bounding_box_height,
+			height_p95, intensity_mean)
+			VALUES ('obs-range-t1', ?, 'world', 1.0, 2.0, 0.5, 0.1, 0.2, 3.5, 0.3, 0.4, 0.3, 0.2, 0.1, 50.0)`,
+			nowNanos+tsOff)
+		if err != nil {
+			t.Fatalf("insert observation: %v", err)
+		}
+	}
+
+	tracks, err := GetTracksInRange(db, "obs-range-s", "", nowNanos-2e9, nowNanos+1e9, 10)
+	if err != nil {
+		t.Fatalf("GetTracksInRange: %v", err)
+	}
+	if len(tracks) != 1 {
+		t.Fatalf("got %d tracks, want 1", len(tracks))
+	}
+	if len(tracks[0].History) != 2 {
+		t.Errorf("History len = %d, want 2", len(tracks[0].History))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Evaluation Delete — cover happy path
+// ---------------------------------------------------------------------------
+
+func TestEvaluationDelete_HappyPath(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	evalStore := NewEvaluationStore(db)
+	runStore := NewAnalysisRunStore(db)
+
+	// Insert prerequisite runs.
+	for _, rid := range []string{"ref", "cand"} {
+		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}); err != nil {
+			t.Fatalf("InsertRun %s: %v", rid, err)
+		}
+	}
+	// Insert prerequisite scene.
+	if _, err := db.Exec(`INSERT INTO lidar_scenes (scene_id, sensor_id, pcap_file, created_at_ns) VALUES ('scene-d', 's1', '/test.pcap', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("Insert scene: %v", err)
+	}
+
+	eval := &Evaluation{
+		EvaluationID:   "eval-del-1",
+		SceneID:        "scene-d",
+		ReferenceRunID: "ref",
+		CandidateRunID: "cand",
+		CompositeScore: 0.5,
+	}
+	if err := evalStore.Insert(eval); err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+
+	if err := evalStore.Delete("eval-del-1"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+
+	// Verify it's gone.
+	_, err := evalStore.Get("eval-del-1")
+	if err == nil {
+		t.Error("expected error after deletion")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// compareParams with SafetyMargin, NeighbourCount, GatingDistance differences
+// ---------------------------------------------------------------------------
+
+func TestCompareParams_AdditionalBranches(t *testing.T) {
+	p1 := &RunParams{
+		Background: BackgroundParamsExport{
+			BackgroundUpdateFraction:       0.05,
+			ClosenessSensitivityMultiplier: 1.5,
+			SafetyMarginMeters:             0.3,
+			NeighborConfirmationCount:      2,
+			NoiseRelativeFraction:          0.1,
+		},
+		Tracking: TrackingParamsExport{
+			MaxTracks:             100,
+			GatingDistanceSquared: 4.0,
+		},
+	}
+	p2 := &RunParams{
+		Background: BackgroundParamsExport{
+			BackgroundUpdateFraction:       0.05,
+			ClosenessSensitivityMultiplier: 1.5,
+			SafetyMarginMeters:             0.5, // different
+			NeighborConfirmationCount:      3,   // different
+			NoiseRelativeFraction:          0.1,
+		},
+		Tracking: TrackingParamsExport{
+			MaxTracks:             100,
+			GatingDistanceSquared: 9.0, // different
+		},
+	}
+
+	diff := compareParams(p1, p2)
+
+	bgDiff, ok := diff["background"].(map[string]any)
+	if !ok {
+		t.Fatal("expected 'background' key in diff")
+	}
+	if _, ok := bgDiff["safety_margin_meters"]; !ok {
+		t.Error("expected safety_margin_meters in diff")
+	}
+	if _, ok := bgDiff["neighbor_confirmation_count"]; !ok {
+		t.Error("expected neighbor_confirmation_count in diff")
+	}
+
+	trDiff, ok := diff["tracking"].(map[string]any)
+	if !ok {
+		t.Fatal("expected 'tracking' key in diff")
+	}
+	if _, ok := trDiff["gating_distance_squared"]; !ok {
+		t.Error("expected gating_distance_squared in diff")
+	}
+}
