@@ -60,13 +60,6 @@ func SetLogWriter(level LogLevel, w io.Writer) {
 	}
 }
 
-// SetLegacyLogger is the backward-compatible shim that routes all three streams
-// to a single writer. Used by the VELOCITY_DEBUG_LOG fallback.
-// Pass nil to disable all logging.
-func SetLegacyLogger(w io.Writer) {
-	SetLogWriters(LogWriters{Ops: w, Diag: w, Trace: w})
-}
-
 // newLogger creates a *log.Logger for a given writer, or returns nil if w is nil.
 func newLogger(prefix string, w io.Writer) *log.Logger {
 	if w == nil {

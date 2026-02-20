@@ -193,8 +193,6 @@ func main() {
 	log.SetOutput(os.Stdout)
 
 	// Three-stream LiDAR logging: VELOCITY_LIDAR_{OPS,DIAG,TRACE}_LOG env vars.
-	// Falls back to legacy VELOCITY_DEBUG_LOG (all streams to one file) when
-	// the new vars are not set.
 	var logFiles []*os.File
 	opsPath := os.Getenv("VELOCITY_LIDAR_OPS_LOG")
 	diagPath := os.Getenv("VELOCITY_LIDAR_DIAG_LOG")
@@ -246,22 +244,6 @@ func main() {
 		l2frames.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 		l3grid.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 		pipeline.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
-	} else if debugPath := os.Getenv("VELOCITY_DEBUG_LOG"); debugPath != "" {
-		// Legacy: route all three streams to a single file.
-		if err := os.MkdirAll(filepath.Dir(debugPath), 0o755); err == nil {
-			if f, err := os.OpenFile(debugPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
-				logFiles = append(logFiles, f)
-				lidar.SetLegacyLogger(f)
-				// Wire sub-package loggers to the same single writer.
-				l2frames.SetLegacyLogger(f)
-				l3grid.SetLegacyLogger(f)
-				pipeline.SetLegacyLogger(f)
-			} else {
-				log.Printf("warning: failed to open debug log %s: %v", debugPath, err)
-			}
-		} else {
-			log.Printf("warning: failed to create debug log directory for %s", debugPath)
-		}
 	}
 	defer func() {
 		for _, f := range logFiles {

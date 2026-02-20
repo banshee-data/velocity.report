@@ -22,9 +22,8 @@ Three stream model:
 - `Opsf(...)` / `opsf(...)`
 - `Diagf(...)` / `diagf(...)`
 - `Tracef(...)` / `tracef(...)`
-- `SetLegacyLogger(io.Writer)` — backward-compatible shim for `VELOCITY_DEBUG_LOG` fallback
 
-`Debugf` and the keyword classifier have been removed. All call sites use explicit stream functions.
+`Debugf`, the keyword classifier, and the legacy `SetDebugLogger`/`SetLegacyLogger` shims have been removed. All call sites use explicit stream functions.
 
 ## Routing Rubric (Severity + Volume)
 
@@ -47,10 +46,6 @@ Env vars:
 - `VELOCITY_LIDAR_OPS_LOG`
 - `VELOCITY_LIDAR_DIAG_LOG`
 - `VELOCITY_LIDAR_TRACE_LOG`
-
-Compatibility fallback:
-
-- If only legacy `VELOCITY_DEBUG_LOG` is set, route all streams to that file.
 
 Operational defaults:
 

@@ -7,64 +7,6 @@ import (
 	"testing"
 )
 
-// TestSetLegacyLogger tests the backward-compatible shim that routes all streams
-// to a single writer.
-func TestSetLegacyLogger(t *testing.T) {
-	defer resetLoggers()
-
-	var buf bytes.Buffer
-	SetLegacyLogger(&buf)
-
-	mu.RLock()
-	hasOps := opsLogger != nil
-	hasDiag := diagLogger != nil
-	hasTrace := traceLogger != nil
-	mu.RUnlock()
-
-	if !hasOps || !hasDiag || !hasTrace {
-		t.Error("SetLegacyLogger() should configure all three streams")
-	}
-
-	// Test logging with each stream
-	Opsf("ops message: %d", 1)
-	Diagf("diag message: %d", 2)
-	Tracef("trace message: %d", 3)
-
-	output := buf.String()
-	if !strings.Contains(output, "ops message: 1") {
-		t.Errorf("SetLegacyLogger output missing ops message, got: %q", output)
-	}
-	if !strings.Contains(output, "diag message: 2") {
-		t.Errorf("SetLegacyLogger output missing diag message, got: %q", output)
-	}
-	if !strings.Contains(output, "trace message: 3") {
-		t.Errorf("SetLegacyLogger output missing trace message, got: %q", output)
-	}
-
-	// Test setting to nil (disable logging)
-	SetLegacyLogger(nil)
-
-	mu.RLock()
-	nilOps := opsLogger == nil
-	nilDiag := diagLogger == nil
-	nilTrace := traceLogger == nil
-	mu.RUnlock()
-
-	if !nilOps || !nilDiag || !nilTrace {
-		t.Error("SetLegacyLogger(nil) should clear all three streams")
-	}
-
-	// Test logging when disabled (should not panic)
-	buf.Reset()
-	Opsf("should not appear")
-	Diagf("should not appear")
-	Tracef("should not appear")
-
-	if buf.Len() > 0 {
-		t.Errorf("Output after disabling = %q, want empty", buf.String())
-	}
-}
-
 // TestExplicitStreams tests that Opsf, Diagf, Tracef route to correct streams.
 func TestExplicitStreams(t *testing.T) {
 	defer resetLoggers()
@@ -125,9 +67,9 @@ func TestExplicitStreams(t *testing.T) {
 			var buf bytes.Buffer
 
 			if tt.setupLogger {
-				SetLegacyLogger(&buf)
+				SetLogWriters(LogWriters{Ops: &buf, Diag: &buf, Trace: &buf})
 			} else {
-				SetLegacyLogger(nil)
+				SetLogWriters(LogWriters{})
 			}
 
 			tt.logFunc(tt.format, tt.args...)
@@ -219,7 +161,7 @@ func TestFormattingEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			SetLegacyLogger(&buf)
+			SetLogWriters(LogWriters{Ops: &buf, Diag: &buf, Trace: &buf})
 
 			Diagf(tt.format, tt.args...)
 
