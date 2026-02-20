@@ -4,23 +4,21 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 
 ## P1 — Next
 
-- LiDAR logging stream split — ops/debug/trace streams with routing rubric — [design doc](docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- (#210) Raspberry Pi imager pipeline — custom flashing UX, depends on packaging — [design doc](docs/plans/rpi-imager-fork-design.md)
 - Sweep/HINT platform hardening — transform pipeline, objective registry, explainability — [design doc](docs/plans/industry-standard-ml-solver-expansion-plan.md)
 - Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](docs/lidar/operations/settling-time-optimization.md)
-- Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](docs/lidar/future/track-labeling-auto-aware-tuning.md)
-- (#252) Frontend consolidation Phases 1–3 — migrate status/regions/sweep to Svelte — [design doc](docs/plans/frontend-consolidation.md)
-- Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 
 ## P2 — Later
 
+- Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](docs/lidar/future/track-labeling-auto-aware-tuning.md)
 - Distribution and packaging — Debian packaging, update mechanism — [design doc](docs/plans/distribution-packaging-plan.md)
-- (#210) Raspberry Pi imager pipeline — custom flashing UX, depends on packaging — [design doc](docs/plans/rpi-imager-fork-design.md)
 - Time-partitioned raw data tables — major storage architecture change — [design doc](docs/features/time-partitioned-data-tables.md)
+- (#252) Frontend consolidation Phases 1–3 — migrate status/regions/sweep to Svelte — [design doc](docs/plans/frontend-consolidation.md)
+- Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 - Visualiser QC programme — features 1/2/3/5/7/8/10 — [design doc](docs/lidar/visualiser/06-labelling-qc-enhancements-overview.md)
 - Transit deduplication — duplicate transit record prevention — [design doc](docs/plans/transit-deduplication-plan.md)
 - Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](docs/plans/track-labeling-ui-plan.md)
 - HINT sweep polish — 11 remaining polish items — [design doc](docs/plans/hint-sweep-mode.md)
-- Precompiled LaTeX — faster PDF report generation — [design doc](docs/plans/precompiled-latex-plan.md)
 - Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/python-venv-consolidation-plan.md)
 - SQLite client standardization — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](docs/plans/sqlite-client-standardization-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](docs/plans/design-review-and-improvement-plan.md)
@@ -64,3 +62,5 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - [#286] Shared palette module — palette.ts exports PERCENTILE_COLOURS, LEGEND_ORDER with tests — [design doc §1.3](docs/plans/design-review-and-improvement-plan.md)
 - [#286] Shared CSS standard classes — vr-page, vr-toolbar, vr-stat-grid, vr-chart-card in app.css — [design doc §2.1](docs/plans/design-review-and-improvement-plan.md)
 - LiDAR logging stream split — explicit Opsf/Diagf/Tracef call sites replacing Debugf/classifier — [design doc](docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- LiDAR logging stream split — ops/debug/trace streams with routing rubric — [design doc](docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- Precompiled LaTeX — faster PDF report generation — [design doc](docs/plans/precompiled-latex-plan.md)
