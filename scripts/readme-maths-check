@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+"""Validate README.maths keys against tuning/docs/runtime key surfaces.
+
+Rules:
+- README.maths keys come from markdown list items with token pattern [a-z0-9_]+
+- List elements containing "." are excluded (treated as filenames/paths)
+- JSON keys beginning with "_" are ignored on non-maths surfaces
+"""
+
+from __future__ import annotations
+
+import argparse
+import glob
+import json
+import re
+import sys
+from pathlib import Path
+
+
+KEY_RE = re.compile(r"^[a-z0-9_]+$")
+JSON_TAG_RE = re.compile(r'`json:"([^",]+)')
+VALIDATE_COMPLETE_FN_RE = re.compile(
+    r"func\s+\(\s*\w+\s+\*TuningConfig\s*\)\s+ValidateComplete\(\)\s+error\s*\{"
+)
+HANDLE_TUNING_PARAMS_FN_RE = re.compile(
+    r"func\s+\(\s*\w+\s+\*WebServer\s*\)\s+handleTuningParams\([^)]*\)\s*\{"
+)
+POST_METHOD_CASE_RE = re.compile(r"case\s+http\.MethodPost\s*:")
+BODY_STRUCT_RE = re.compile(r"var\s+body\s+struct\s*\{")
+
+
+def is_valid_key(key: str, *, allow_private: bool) -> bool:
+    if "." in key:
+        return False
+    if not KEY_RE.fullmatch(key):
+        return False
+    if not allow_private and key.startswith("_"):
+        return False
+    return True
+
+
+def unique_preserve_order(keys: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for key in keys:
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def extract_maths_keys(path: Path) -> list[str]:
+    keys: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line.startswith("- "):
+            continue
+        body = line[2:].strip()
+
+        if body.startswith("`"):
+            end = body.find("`", 1)
+            if end <= 1:
+                continue
+            token = body[1:end].strip()
+        else:
+            token = body.strip().strip(",:")
+            if any(ch.isspace() for ch in token):
+                continue
+
+        if not is_valid_key(token, allow_private=True):
+            continue
+        keys.append(token)
+
+    keys = unique_preserve_order(keys)
+    if not keys:
+        raise ValueError(f"{path}: no matching key list elements found")
+    return keys
+
+
+def extract_json_blocks(path: Path) -> list[dict]:
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(r"```json[ \t]*\n(.*?)\n```", re.DOTALL)
+    blocks: list[dict] = []
+    for match in pattern.finditer(text):
+        raw = match.group(1)
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            # Fail fast on invalid JSON fences so documentation regressions are not hidden.
+            start_line = text[: match.start(1)].count("\n") + 1
+            raise ValueError(
+                f"{path}: invalid JSON in ```json``` block starting at line {start_line}: {exc}"
+            ) from exc
+        if isinstance(parsed, dict):
+            blocks.append(parsed)
+    return blocks
+
+
+def extract_json_keys(obj: dict) -> list[str]:
+    keys: list[str] = []
+    for key in obj.keys():
+        if not is_valid_key(str(key), allow_private=False):
+            continue
+        keys.append(str(key))
+    return unique_preserve_order(keys)
+
+
+def choose_target_blocks(blocks: list[dict], require_key: str) -> list[dict]:
+    return [block for block in blocks if require_key in block]
+
+
+def find_matching_brace(text: str, open_idx: int, source: Path) -> int:
+    if open_idx < 0 or open_idx >= len(text) or text[open_idx] != "{":
+        raise ValueError(f"{source}: expected '{{' at index {open_idx}")
+
+    depth = 0
+    in_string: str | None = None
+    in_line_comment = False
+    in_block_comment = False
+    escaped = False
+    i = open_idx
+
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ""
+
+        if in_line_comment:
+            if ch == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+
+        if in_block_comment:
+            if ch == "*" and nxt == "/":
+                in_block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+
+        if in_string is not None:
+            if in_string == "`":
+                if ch == "`":
+                    in_string = None
+                i += 1
+                continue
+            if escaped:
+                escaped = False
+                i += 1
+                continue
+            if ch == "\\":
+                escaped = True
+                i += 1
+                continue
+            if ch == in_string:
+                in_string = None
+            i += 1
+            continue
+
+        if ch == "/" and nxt == "/":
+            in_line_comment = True
+            i += 2
+            continue
+        if ch == "/" and nxt == "*":
+            in_block_comment = True
+            i += 2
+            continue
+        if ch in {"\"", "'", "`"}:
+            in_string = ch
+            i += 1
+            continue
+
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+            if depth < 0:
+                raise ValueError(f"{source}: encountered negative brace depth")
+
+        i += 1
+
+    raise ValueError(f"{source}: unmatched braces")
+
+
+def extract_validator_keys(path: Path) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    match = VALIDATE_COMPLETE_FN_RE.search(text)
+    if not match:
+        raise ValueError(f"{path}: ValidateComplete() not found")
+    open_idx = match.end() - 1
+    close_idx = find_matching_brace(text, open_idx, path)
+    body = text[open_idx + 1 : close_idx]
+
+    append_re = re.compile(r'missing\s*=\s*append\(\s*missing\s*,\s*"([^"]+)"\s*\)')
+    keys = [
+        key
+        for key in append_re.findall(body)
+        if is_valid_key(key, allow_private=False)
+    ]
+    keys = unique_preserve_order(keys)
+    if not keys:
+        raise ValueError(f"{path}: no ValidateComplete() key literals found")
+    return keys
+
+
+def extract_webserver_post_keys(path: Path) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    fn = HANDLE_TUNING_PARAMS_FN_RE.search(text)
+    if not fn:
+        raise ValueError(f"{path}: handleTuningParams() not found")
+
+    fn_open = fn.end() - 1
+    fn_close = find_matching_brace(text, fn_open, path)
+    fn_body = text[fn_open + 1 : fn_close]
+
+    post_case = POST_METHOD_CASE_RE.search(fn_body)
+    if not post_case:
+        raise ValueError(f"{path}: case http.MethodPost not found in handleTuningParams()")
+    post_body = fn_body[post_case.end() :]
+
+    body_struct = BODY_STRUCT_RE.search(post_body)
+    if not body_struct:
+        raise ValueError(f"{path}: POST body struct not found")
+    struct_open = body_struct.end() - 1
+    struct_close = find_matching_brace(post_body, struct_open, path)
+    struct_text = post_body[struct_open + 1 : struct_close]
+
+    keys = [
+        key
+        for key in JSON_TAG_RE.findall(struct_text)
+        if is_valid_key(key, allow_private=False)
+    ]
+    keys = unique_preserve_order(keys)
+    if not keys:
+        raise ValueError(f"{path}: no JSON tags found in POST body struct")
+    return keys
+
+
+def compare_key_sets(label: str, source_keys: list[str], maths_keys: list[str], mode: str) -> bool:
+    source_set = set(source_keys)
+    maths_set = set(maths_keys)
+
+    in_source_only = sorted(source_set - maths_set)
+    missing_from_source = sorted(maths_set - source_set)
+    failed = False
+
+    if in_source_only:
+        failed = True
+    if mode == "exact" and missing_from_source:
+        failed = True
+
+    if failed:
+        print(f"[FAIL] {label}: key mismatch")
+        if in_source_only:
+            print(f"  - present in source, missing in maths list: {', '.join(in_source_only)}")
+        if missing_from_source:
+            print(f"  - present in maths list, missing in source: {', '.join(missing_from_source)}")
+        return False
+
+    if mode == "subset" and missing_from_source:
+        print(
+            f"[OK] {label}: subset match ({len(source_keys)} keys; "
+            f"{len(missing_from_source)} maths keys not accepted by this source)"
+        )
+        return True
+
+    print(f"[OK] {label}: keys match ({len(source_keys)})")
+    return True
+
+
+def expand_globs(root: Path, patterns: list[str]) -> list[Path]:
+    out: list[Path] = []
+    seen: set[Path] = set()
+    for pattern in patterns:
+        glob_pattern = pattern if Path(pattern).is_absolute() else str(root / pattern)
+        for match in sorted(glob.glob(glob_pattern, recursive=True)):
+            path = Path(match).resolve()
+            if not path.is_file() or path in seen:
+                continue
+            seen.add(path)
+            out.append(path)
+    return out
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Check README.maths keys against docs, tuning JSON, and Go key surfaces"
+    )
+    parser.add_argument("--maths-md", default="config/README.maths.md", help="Markdown file containing maths key lists")
+    parser.add_argument(
+        "--doc-md",
+        action="append",
+        default=[],
+        help="Markdown doc containing fenced JSON block(s). Repeatable. Default: config/README.md",
+    )
+    parser.add_argument(
+        "--doc-glob",
+        action="append",
+        default=[],
+        help="Glob pattern(s) for additional markdown docs to check. Repeatable.",
+    )
+    parser.add_argument(
+        "--require-key",
+        default="background_update_fraction",
+        help="Only check JSON blocks containing this top-level key",
+    )
+    parser.add_argument(
+        "--tuning-json-glob",
+        action="append",
+        default=[],
+        help="Glob pattern(s) for tuning JSON files. Repeatable. Default: config/tuning*.json",
+    )
+    parser.add_argument(
+        "--validator-go",
+        default="internal/config/tuning.go",
+        help="Go file containing TuningConfig.ValidateComplete()",
+    )
+    parser.add_argument(
+        "--webserver-go",
+        default="internal/lidar/monitor/webserver.go",
+        help="Go file containing handleTuningParams() POST body schema",
+    )
+    parser.add_argument(
+        "--webserver-mode",
+        choices=["subset", "exact"],
+        # @TODO(config-parity): switch default to "exact" once
+        # handleTuningParams() POST schema reaches full canonical parity/order.
+        default="subset",
+        help="Match mode for webserver input keys vs maths list",
+    )
+    args = parser.parse_args()
+
+    root = Path.cwd().resolve()
+    maths_path = (root / args.maths_md).resolve()
+    validator_go = (root / args.validator_go).resolve()
+    webserver_go = (root / args.webserver_go).resolve()
+
+    doc_paths = [(root / p).resolve() for p in (args.doc_md or ["config/README.md"])]
+    for path in expand_globs(root, args.doc_glob):
+        if path not in doc_paths:
+            doc_paths.append(path)
+
+    tuning_globs = args.tuning_json_glob or ["config/tuning*.json"]
+    tuning_paths = expand_globs(root, tuning_globs)
+
+    try:
+        maths_keys = extract_maths_keys(maths_path)
+    except Exception as err:  # noqa: BLE001
+        print(f"[FAIL] {err}", file=sys.stderr)
+        return 1
+
+    print(f"[OK] {maths_path}: extracted {len(maths_keys)} maths keys")
+    failed = False
+
+    for doc_path in doc_paths:
+        if not doc_path.is_file():
+            print(f"[FAIL] {doc_path}: file not found")
+            failed = True
+            continue
+
+        blocks = extract_json_blocks(doc_path)
+        if not blocks:
+            print(f"[FAIL] {doc_path}: no parseable fenced JSON object blocks found")
+            failed = True
+            continue
+
+        selected = choose_target_blocks(blocks, args.require_key)
+        if not selected:
+            print(f"[FAIL] {doc_path}: no JSON block contains required key '{args.require_key}'")
+            failed = True
+            continue
+
+        for idx, block in enumerate(selected, start=1):
+            json_keys = extract_json_keys(block)
+            ok = compare_key_sets(f"{doc_path} block#{idx}", json_keys, maths_keys, mode="exact")
+            if not ok:
+                failed = True
+
+    if not tuning_paths:
+        print(f"[FAIL] no tuning JSON files matched: {', '.join(tuning_globs)}")
+        failed = True
+    else:
+        for tuning_path in tuning_paths:
+            try:
+                parsed = json.loads(tuning_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as err:
+                print(f"[FAIL] {tuning_path}: invalid JSON ({err})")
+                failed = True
+                continue
+            if not isinstance(parsed, dict):
+                print(f"[FAIL] {tuning_path}: expected top-level JSON object")
+                failed = True
+                continue
+            file_keys = extract_json_keys(parsed)
+            ok = compare_key_sets(str(tuning_path), file_keys, maths_keys, mode="exact")
+            if not ok:
+                failed = True
+
+    try:
+        validator_keys = extract_validator_keys(validator_go)
+        ok = compare_key_sets(f"{validator_go} ValidateComplete()", validator_keys, maths_keys, mode="exact")
+        if not ok:
+            failed = True
+    except Exception as err:  # noqa: BLE001
+        print(f"[FAIL] {err}")
+        failed = True
+
+    try:
+        webserver_keys = extract_webserver_post_keys(webserver_go)
+        ok = compare_key_sets(
+            f"{webserver_go} handleTuningParams() POST body",
+            webserver_keys,
+            maths_keys,
+            mode=args.webserver_mode,
+        )
+        if not ok:
+            failed = True
+    except Exception as err:  # noqa: BLE001
+        print(f"[FAIL] {err}")
+        failed = True
+
+    if failed:
+        return 1
+
+    print("README maths source checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

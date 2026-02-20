@@ -1,0 +1,46 @@
+name: ⚙️ Config Order CI
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "config/**"
+      - "docs/**"
+      - "internal/config/tuning.go"
+      - "internal/lidar/monitor/webserver.go"
+      - "scripts/config-order-sync"
+      - "scripts/readme-maths-check"
+      - "Makefile"
+      - ".github/workflows/config-order-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "config/**"
+      - "docs/**"
+      - "internal/config/tuning.go"
+      - "internal/lidar/monitor/webserver.go"
+      - "scripts/config-order-sync"
+      - "scripts/readme-maths-check"
+      - "Makefile"
+      - ".github/workflows/config-order-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check-config-order:
+    name: "🔍 Config Key Order"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run key-order check
+        run: make check-config-order
+
+      # @TODO(config-parity): remove continue-on-error once webserver POST input
+      # reaches full key + order parity with tuning defaults/schema.
+      - name: Run README.maths strict parity check (optional for now)
+        continue-on-error: true
+        run: make check-config-maths-strict

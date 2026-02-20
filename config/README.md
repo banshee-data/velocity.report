@@ -2,9 +2,16 @@
 
 This directory contains configuration files for tuning the velocity.report system.
 
+## Maths Cross-Reference
+
+For a direct mapping between config keys and the maths/algorithm docs, see:
+
+- [`README.maths.md`](README.maths.md)
+- [`../docs/maths/README.md`](../docs/maths/README.md)
+
 ## LiDAR Tuning Configuration
 
-`tuning.defaults.json` is the **single source of truth** for all tuning parameters. The Go binary **requires** a valid configuration file at startup — there are **no hardcoded fallback defaults** in the codebase. If the file cannot be loaded or is missing required keys, the process will not start.
+`tuning.defaults.json` is the **single source of truth** for all tuning parameters. The Go binary **requires** a valid configuration file at startup — there are **no hardcoded fallback defaults for tuning keys** in the codebase. If the file cannot be loaded or is missing required keys, the process will not start.
 
 ### Usage
 
@@ -49,8 +56,42 @@ The configuration uses a flat JSON schema. **All keys are required** — the fil
   "max_tracks": 100,
   "height_band_floor": -2.8,
   "height_band_ceiling": 1.5,
-  "remove_ground": true
+  "remove_ground": true,
+  "max_cluster_diameter": 12.0,
+  "min_cluster_diameter": 0.05,
+  "max_cluster_aspect_ratio": 15.0,
+  "max_reasonable_speed_mps": 30.0,
+  "max_position_jump_meters": 5.0,
+  "max_predict_dt": 0.5,
+  "max_covariance_diag": 100.0,
+  "min_points_for_pca": 4,
+  "obb_heading_smoothing_alpha": 0.08,
+  "obb_aspect_ratio_lock_threshold": 0.25,
+  "max_track_history_length": 200,
+  "max_speed_history_length": 100,
+  "merge_size_ratio": 2.5,
+  "split_size_ratio": 0.3,
+  "deleted_track_grace_period": "5s",
+  "min_observations_for_classification": 5
 }
+```
+
+### Key Order Consistency
+
+Key order is validated in CI across:
+
+- `internal/config/tuning.go` (`TuningConfig` JSON tag order)
+- `config/tuning*.json`
+- this README JSON example block
+
+Use:
+
+```bash
+# check only (CI)
+make config-order-check
+
+# rewrite targets to canonical order
+make config-order-sync
 ```
 
 ### Parameters
