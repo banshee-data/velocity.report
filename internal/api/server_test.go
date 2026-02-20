@@ -7,7 +7,6 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -700,10 +699,9 @@ func TestDebugModeInConfig(t *testing.T) {
 
 func setupTestServer(t *testing.T) (*Server, *db.DB) {
 	t.Helper()
-	fname := t.Name() + ".db"
-	_ = os.Remove(fname)
+	dbPath := cloneAPITestDB(t)
 
-	dbInst, err := db.NewDB(fname)
+	dbInst, err := db.OpenDB(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
 	}
@@ -716,11 +714,9 @@ func setupTestServer(t *testing.T) (*Server, *db.DB) {
 
 func cleanupTestServer(t *testing.T, dbInst *db.DB) {
 	t.Helper()
-	fname := t.Name() + ".db"
-	dbInst.Close()
-	_ = os.Remove(fname)
-	_ = os.Remove(fname + "-shm")
-	_ = os.Remove(fname + "-wal")
+	if err := dbInst.Close(); err != nil {
+		t.Errorf("failed to close test DB: %v", err)
+	}
 }
 
 // Helper function to create float64 pointers
