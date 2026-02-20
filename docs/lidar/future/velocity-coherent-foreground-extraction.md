@@ -8,6 +8,7 @@
 This document is now the implementation plan and execution checklist.
 
 The mathematical model, parameter tradeoffs, and expected benefits are documented in:
+
 - [`docs/lidar/future/velocity-coherent-foreground-extraction-math.md`](./velocity-coherent-foreground-extraction-math.md)
 
 ---
@@ -48,12 +49,14 @@ Build a velocity-coherent foreground extraction path that runs alongside the cur
 **Goal:** Establish repeatable evaluation before algorithm changes.
 
 Checklist:
+
 - [ ] Define evaluation datasets (PCAP segments: dense traffic, sparse/distant traffic, occlusion-heavy)
 - [ ] Add baseline metrics capture for current pipeline
 - [ ] Add benchmark harness for frame throughput and memory
 - [ ] Lock acceptance report format for side-by-side comparisons
 
 Exit criteria:
+
 - [ ] Reproducible baseline report generated from one command
 - [ ] Baseline includes precision/recall proxy, track duration, fragmentation rate, and throughput
 
@@ -62,6 +65,7 @@ Exit criteria:
 **Goal:** Compute velocity vectors and confidence for points with stable frame-to-frame correspondence.
 
 Checklist:
+
 - [ ] Create `internal/lidar/velocity_estimation.go`
 - [ ] Implement correspondence search with configurable radius and plausibility gates
 - [ ] Implement velocity confidence scoring
@@ -69,6 +73,7 @@ Checklist:
 - [ ] Add config wiring for velocity estimation parameters
 
 Exit criteria:
+
 - [ ] Velocity output generated for >95% of matchable points on validation segments
 - [ ] Implausible velocity rates bounded by configured threshold
 - [ ] Unit tests cover no-match, ambiguous-match, and high-noise cases
@@ -78,6 +83,7 @@ Exit criteria:
 **Goal:** Cluster points using position+velocity coherence and support `MinPts=3` mode.
 
 Checklist:
+
 - [ ] Create `internal/lidar/clustering_6d.go`
 - [ ] Implement 6D neighborhood metric (position + velocity weighting)
 - [ ] Implement minimum-point behavior with sparse guardrails
@@ -85,6 +91,7 @@ Checklist:
 - [ ] Validate cluster stability versus existing DBSCAN on replay data
 
 Exit criteria:
+
 - [ ] 3-point sparse clusters are accepted only with velocity coherence
 - [ ] False-positive growth stays within agreed threshold versus baseline
 - [ ] Runtime impact is measured and documented
@@ -94,6 +101,7 @@ Exit criteria:
 **Goal:** Extend track continuity at object entry and exit boundaries.
 
 Checklist:
+
 - [ ] Create `internal/lidar/long_tail.go`
 - [ ] Add pre-tail predicted entry association logic
 - [ ] Add post-tail prediction window and uncertainty growth logic
@@ -101,6 +109,7 @@ Checklist:
 - [ ] Add `internal/lidar/long_tail_test.go`
 
 Exit criteria:
+
 - [ ] Mean track duration increases on boundary-entry/exit scenarios
 - [ ] Recovery after brief occlusions improves without large precision drop
 - [ ] State machine transitions are fully test-covered
@@ -110,6 +119,7 @@ Exit criteria:
 **Goal:** Preserve track identity through low-point-count observations.
 
 Checklist:
+
 - [ ] Create `internal/lidar/sparse_continuation.go`
 - [ ] Implement adaptive tolerances by point count
 - [ ] Enforce confidence and variance gates for 3-5 point frames
@@ -117,6 +127,7 @@ Checklist:
 - [ ] Add targeted tests for 3-point continuation and failure boundaries
 
 Exit criteria:
+
 - [ ] Sparse tracks are maintained when motion is coherent
 - [ ] No significant increase in ID switches in sparse scenes
 - [ ] Parameter sensitivity documented for tuning
@@ -126,6 +137,7 @@ Exit criteria:
 **Goal:** Merge split track fragments when kinematics are consistent.
 
 Checklist:
+
 - [ ] Create `internal/lidar/track_merge.go`
 - [ ] Implement candidate generation using time/position/velocity gates
 - [ ] Implement merge scoring and deterministic tie-breaking
@@ -133,6 +145,7 @@ Checklist:
 - [ ] Record merge decisions for audit/debug
 
 Exit criteria:
+
 - [ ] Fragmentation rate decreases on occlusion-heavy validation runs
 - [ ] Incorrect merge rate remains below agreed threshold
 - [ ] Merge audit trail is queryable
@@ -142,6 +155,7 @@ Exit criteria:
 **Goal:** Run current and velocity-coherent paths in parallel and expose both results.
 
 Checklist:
+
 - [ ] Create `internal/lidar/velocity_coherent_tracker.go`
 - [ ] Create dual extraction orchestration path (parallel source processing)
 - [ ] Add storage schema for velocity-coherent clusters/tracks
@@ -149,6 +163,7 @@ Checklist:
 - [ ] Add migration and rollback notes
 
 Exit criteria:
+
 - [ ] Both sources can be queried independently and jointly
 - [ ] Dashboard comparison can be generated from stored results
 - [ ] No regression in existing source behavior
@@ -158,6 +173,7 @@ Exit criteria:
 **Goal:** Decide production readiness from measured outcomes.
 
 Checklist:
+
 - [ ] Run full replay evaluation across selected PCAP suites
 - [ ] Compare against baseline using agreed metrics
 - [ ] Document default parameter set and safe bounds
@@ -165,6 +181,7 @@ Checklist:
 - [ ] Stage rollout behind feature flag
 
 Exit criteria:
+
 - [ ] Acceptance thresholds met on continuity and sparse-object capture
 - [ ] Throughput and memory remain within service budget
 - [ ] Rollback path verified in staging
