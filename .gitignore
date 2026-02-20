@@ -155,3 +155,4 @@ data/**/*.sqlite
 data/**/*.csv
 data/**/*.json
 *.test
+web/build/
