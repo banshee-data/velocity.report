@@ -37,7 +37,7 @@ Build a velocity-coherent foreground extraction path that runs alongside the cur
 ## Baseline (Current System)
 
 - Active extractor: `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`
-- Active clustering: DBSCAN in `internal/lidar/clustering.go`
+- Active clustering: DBSCAN in l4perception layer (`internal/lidar/l4perception/cluster.go`, via `internal/lidar/aliases.go`)
 - No `VelocityCoherentTracker` implementation currently present
 
 ---
