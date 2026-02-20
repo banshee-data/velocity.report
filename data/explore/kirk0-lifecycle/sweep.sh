@@ -74,10 +74,10 @@ reset_grid() {
 }
 
 start_pcap() {
-  echo "  → Start pcap replay (analysis_mode=true)"
+  echo "  → Start pcap replay (analysis_mode=true, speed=realtime)"
   api_post "/api/lidar/pcap/start" \
     -H 'Content-Type: application/json' \
-    -d "{\"pcap_file\":\"${PCAP_FILE}\",\"analysis_mode\":true}" | jq -c . || true
+    -d "{\"pcap_file\":\"${PCAP_FILE}\",\"analysis_mode\":true,\"speed_mode\":\"realtime\",\"speed_ratio\":1.0}" | jq -c . || true
 }
 
 stop_pcap() {
