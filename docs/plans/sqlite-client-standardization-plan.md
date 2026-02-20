@@ -60,6 +60,7 @@ One DB-facing SQLite layer under `internal/db` with:
 ## Proposed Work Plan
 
 ### Phase 0: Baseline and Safety Nets
+
 Effort: 1 day
 
 - [ ] Add a short architecture note in `internal/db` documenting "single SQL boundary" rules.
@@ -68,6 +69,7 @@ Effort: 1 day
   - [ ] fail if new hardcoded migration version values appear outside `internal/db`
 
 ### Phase 1: Define Canonical Repository Contracts in `internal/db`
+
 Effort: 2-3 days
 
 - [ ] Add repository interfaces for LiDAR tables currently served by `internal/lidar/storage/sqlite` and `internal/api/lidar_labels.go`.
@@ -75,6 +77,7 @@ Effort: 2-3 days
 - [ ] Standardize "not found" semantics (single convention for all repos).
 
 ### Phase 2: Move Label SQL Out of `internal/api`
+
 Effort: 2 days
 
 - [ ] Create `internal/db` label repository methods for CRUD/list/export over `lidar_labels`.
@@ -83,6 +86,7 @@ Effort: 2 days
 - [ ] Keep endpoint behavior unchanged with regression tests.
 
 ### Phase 3: Consolidate LiDAR SQLite Implementations
+
 Effort: 4-6 days
 
 - [ ] Migrate `internal/lidar/storage/sqlite` SQL implementations to canonical `internal/db` repositories.
@@ -91,6 +95,7 @@ Effort: 4-6 days
 - [ ] Preserve retry-on-busy behavior as shared helper in canonical DB layer.
 
 ### Phase 4: Unify Test DB Setup
+
 Effort: 2-3 days
 
 - [ ] Provide one shared test DB factory using canonical schema + migration version discovery.
@@ -99,6 +104,7 @@ Effort: 2-3 days
 - [ ] Remove hardcoded `latestMigrationVersion := 15` patterns.
 
 ### Phase 5: Cleanup and Enforce
+
 Effort: 1-2 days
 
 - [ ] Remove deprecated wrappers after call sites are migrated.

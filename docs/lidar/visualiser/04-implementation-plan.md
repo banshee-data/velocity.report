@@ -587,19 +587,19 @@ frame.PointCloud.Release()
 
 ## 3. Task Breakdown Summary
 
-| Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status           |
-| ---------------------- | -------------- | -------------- | ------------ | ---------------- |
-| M0: Schema + Synthetic | 5              | 5              | 10           | ✅ Complete      |
-| M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete      |
-| M2: Real Points        | 2              | 4              | 6            | ✅ Complete      |
-| M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete      |
-| M3.5: Split Streaming  | 3              | 5              | 8            | ✅ Complete      |
-| M4: Tracking Refactor  | 2              | 6              | 8            | ✅ Complete      |
-| M5: Algorithm Upgrades | 2              | 10             | 12           | ✅ Complete (B)  |
-| M6: Debug + Labelling  | 8              | 4              | 12           | ✅ Complete (B)  |
-| M7: Performance        | 4              | 4              | 8            | ✅ Complete      |
-| M8: BG Debug Surfaces  | 4              | 4              | 8            | 📝 Planned       |
-| **Total**              | **34**         | **51**         | **85**       | **M8 pending**   |
+| Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status          |
+| ---------------------- | -------------- | -------------- | ------------ | --------------- |
+| M0: Schema + Synthetic | 5              | 5              | 10           | ✅ Complete     |
+| M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete     |
+| M2: Real Points        | 2              | 4              | 6            | ✅ Complete     |
+| M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete     |
+| M3.5: Split Streaming  | 3              | 5              | 8            | ✅ Complete     |
+| M4: Tracking Refactor  | 2              | 6              | 8            | ✅ Complete     |
+| M5: Algorithm Upgrades | 2              | 10             | 12           | ✅ Complete (B) |
+| M6: Debug + Labelling  | 8              | 4              | 12           | ✅ Complete (B) |
+| M7: Performance        | 4              | 4              | 8            | ✅ Complete     |
+| M8: BG Debug Surfaces  | 4              | 4              | 8            | 📝 Planned      |
+| **Total**              | **34**         | **51**         | **85**       | **M8 pending**  |
 
 ---
 
