@@ -16,7 +16,10 @@
         , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
         , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
         , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-        , CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
+        -- Note: Detailed sensor_model validation is performed in Go using the
+        -- SupportedSensorModels registry; this CHECK only enforces a basic
+        -- format to avoid requiring schema migrations when new models are added.
+        , CHECK (sensor_model LIKE 'ops243-%')
           );
 
 CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled ON radar_serial_config (enabled);

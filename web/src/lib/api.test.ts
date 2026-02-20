@@ -2442,4 +2442,387 @@ describe('api', () => {
 			});
 		});
 	});
+
+	describe('HINT Sweeps', () => {
+		describe('getSweepExplanation', () => {
+			it('should fetch sweep explanation', async () => {
+				const mockExplanation = { score_components: { a: 1 } };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockExplanation
+				});
+				const { getSweepExplanation } = await import('./api');
+				const result = await getSweepExplanation('sweep-1');
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/explain/sweep-1');
+				expect(result).toEqual(mockExplanation);
+			});
+
+			it('should return null on error response', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getSweepExplanation } = await import('./api');
+				const result = await getSweepExplanation('missing');
+				expect(result).toBeNull();
+			});
+
+			it('should return null on network error', async () => {
+				(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network'));
+				const { getSweepExplanation } = await import('./api');
+				const result = await getSweepExplanation('sweep-1');
+				expect(result).toBeNull();
+			});
+		});
+
+		describe('getHINTState', () => {
+			it('should get HINT state', async () => {
+				const mockState = { status: 'idle' };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockState
+				});
+				const { getHINTState } = await import('./api');
+				const result = await getHINTState();
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/hint');
+				expect(result).toEqual(mockState);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getHINTState } = await import('./api');
+				await expect(getHINTState()).rejects.toThrow('Failed to get HINT state: 500');
+			});
+		});
+
+		describe('startHINTSweep', () => {
+			it('should start a sweep', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { startHINTSweep } = await import('./api');
+				await startHINTSweep({ mode: 'auto' });
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/hint', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ mode: 'auto' })
+				});
+			});
+
+			it('should handle error with JSON body', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 400,
+					text: async () => JSON.stringify({ error: 'bad config' })
+				});
+				const { startHINTSweep } = await import('./api');
+				await expect(startHINTSweep({})).rejects.toThrow('bad config');
+			});
+
+			it('should handle error with text body', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					text: async () => 'Internal error'
+				});
+				const { startHINTSweep } = await import('./api');
+				await expect(startHINTSweep({})).rejects.toThrow('Internal error');
+			});
+		});
+
+		describe('continueHINT', () => {
+			it('should continue HINT with defaults', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { continueHINT } = await import('./api');
+				await continueHINT();
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/hint/continue', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ next_sweep_duration_mins: 0, add_round: false })
+				});
+			});
+
+			it('should handle error with JSON body', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 400,
+					text: async () => JSON.stringify({ error: 'not ready' })
+				});
+				const { continueHINT } = await import('./api');
+				await expect(continueHINT()).rejects.toThrow('not ready');
+			});
+
+			it('should handle error with text body', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					text: async () => 'Server error'
+				});
+				const { continueHINT } = await import('./api');
+				await expect(continueHINT()).rejects.toThrow('Server error');
+			});
+		});
+
+		describe('stopHINT', () => {
+			it('should stop HINT', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { stopHINT } = await import('./api');
+				await stopHINT();
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/hint/stop', {
+					method: 'POST'
+				});
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { stopHINT } = await import('./api');
+				await expect(stopHINT()).rejects.toThrow('Failed to stop HINT: 500');
+			});
+		});
+	});
+
+	describe('Serial Configuration', () => {
+		describe('getSerialConfigs', () => {
+			it('should fetch all serial configs', async () => {
+				const mockConfigs = [{ id: 1, name: 'HAT', port_path: '/dev/ttySC1' }];
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockConfigs
+				});
+				const { getSerialConfigs } = await import('./api');
+				const result = await getSerialConfigs();
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs');
+				expect(result).toEqual(mockConfigs);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getSerialConfigs } = await import('./api');
+				await expect(getSerialConfigs()).rejects.toThrow('Failed to fetch serial configs: 500');
+			});
+		});
+
+		describe('getSerialConfig', () => {
+			it('should fetch a single serial config', async () => {
+				const mockConfig = { id: 1, name: 'HAT', port_path: '/dev/ttySC1' };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockConfig
+				});
+				const { getSerialConfig } = await import('./api');
+				const result = await getSerialConfig(1);
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs/1');
+				expect(result).toEqual(mockConfig);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
+				const { getSerialConfig } = await import('./api');
+				await expect(getSerialConfig(99)).rejects.toThrow('Failed to fetch serial config: 404');
+			});
+		});
+
+		describe('createSerialConfig', () => {
+			it('should create a serial config', async () => {
+				const newConfig = {
+					name: 'USB',
+					port_path: '/dev/ttyUSB0',
+					baud_rate: 19200,
+					data_bits: 8,
+					stop_bits: 1,
+					parity: 'N',
+					enabled: true,
+					description: '',
+					sensor_model: 'ops243-a'
+				};
+				const created = { id: 2, ...newConfig };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => created
+				});
+				const { createSerialConfig } = await import('./api');
+				const result = await createSerialConfig(newConfig);
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(newConfig)
+				});
+				expect(result).toEqual(created);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					text: async () => 'Duplicate name'
+				});
+				const { createSerialConfig } = await import('./api');
+				await expect(
+					createSerialConfig({
+						name: 'dup',
+						port_path: '/dev/ttyUSB0',
+						baud_rate: 19200,
+						data_bits: 8,
+						stop_bits: 1,
+						parity: 'N',
+						enabled: true,
+						description: '',
+						sensor_model: 'ops243-a'
+					})
+				).rejects.toThrow('Failed to create serial config: Duplicate name');
+			});
+		});
+
+		describe('updateSerialConfig', () => {
+			it('should update a serial config', async () => {
+				const update = {
+					name: 'Updated',
+					port_path: '/dev/ttyUSB0',
+					baud_rate: 115200,
+					data_bits: 8,
+					stop_bits: 1,
+					parity: 'N',
+					enabled: false,
+					description: 'updated',
+					sensor_model: 'ops243-c'
+				};
+				const updated = { id: 1, ...update };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => updated
+				});
+				const { updateSerialConfig } = await import('./api');
+				const result = await updateSerialConfig(1, update);
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs/1', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(update)
+				});
+				expect(result).toEqual(updated);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					text: async () => 'Not found'
+				});
+				const { updateSerialConfig } = await import('./api');
+				await expect(
+					updateSerialConfig(99, {
+						name: 'x',
+						port_path: '/dev/ttyUSB0',
+						baud_rate: 19200,
+						data_bits: 8,
+						stop_bits: 1,
+						parity: 'N',
+						enabled: true,
+						description: '',
+						sensor_model: 'ops243-a'
+					})
+				).rejects.toThrow('Failed to update serial config: Not found');
+			});
+		});
+
+		describe('deleteSerialConfig', () => {
+			it('should delete a serial config', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { deleteSerialConfig } = await import('./api');
+				await deleteSerialConfig(1);
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/configs/1', {
+					method: 'DELETE'
+				});
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					text: async () => 'Not found'
+				});
+				const { deleteSerialConfig } = await import('./api');
+				await expect(deleteSerialConfig(99)).rejects.toThrow(
+					'Failed to delete serial config: Not found'
+				);
+			});
+		});
+
+		describe('getSensorModels', () => {
+			it('should fetch sensor models', async () => {
+				const mockModels = [{ slug: 'ops243-a', display_name: 'OPS243-A' }];
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockModels
+				});
+				const { getSensorModels } = await import('./api');
+				const result = await getSensorModels();
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/models');
+				expect(result).toEqual(mockModels);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getSensorModels } = await import('./api');
+				await expect(getSensorModels()).rejects.toThrow('Failed to fetch sensor models: 500');
+			});
+		});
+
+		describe('getSerialDevices', () => {
+			it('should fetch serial devices', async () => {
+				const mockDevices = [{ port_path: '/dev/ttyUSB0', friendly_name: 'USB' }];
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockDevices
+				});
+				const { getSerialDevices } = await import('./api');
+				const result = await getSerialDevices();
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/devices');
+				expect(result).toEqual(mockDevices);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
+				const { getSerialDevices } = await import('./api');
+				await expect(getSerialDevices()).rejects.toThrow('Failed to fetch serial devices: 500');
+			});
+		});
+
+		describe('testSerialPort', () => {
+			it('should test a serial port', async () => {
+				const request = {
+					port_path: '/dev/ttyUSB0',
+					baud_rate: 19200,
+					data_bits: 8,
+					stop_bits: 1,
+					parity: 'N',
+					timeout_seconds: 5,
+					auto_correct_baud: true
+				};
+				const mockResult = { success: true, message: 'OK', port_path: '/dev/ttyUSB0' };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => mockResult
+				});
+				const { testSerialPort } = await import('./api');
+				const result = await testSerialPort(request);
+				expect(global.fetch).toHaveBeenCalledWith('/api/serial/test', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(request)
+				});
+				expect(result).toEqual(mockResult);
+			});
+
+			it('should handle errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					text: async () => 'Bad request'
+				});
+				const { testSerialPort } = await import('./api');
+				await expect(
+					testSerialPort({
+						port_path: '',
+						baud_rate: 0,
+						data_bits: 0,
+						stop_bits: 0,
+						parity: '',
+						timeout_seconds: 0,
+						auto_correct_baud: false
+					})
+				).rejects.toThrow('Failed to test serial port: Bad request');
+			});
+		});
+	});
 });
