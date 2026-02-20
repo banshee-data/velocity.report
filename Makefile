@@ -94,6 +94,8 @@ help:
 	@echo "  lint-go              Check Go formatting"
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
+	@echo "  config-order-check   Validate tuning key order consistency"
+	@echo "  config-order-sync    Rewrite tuning sources to canonical key order"
 	@echo ""
 	@echo "PDF GENERATOR:"
 	@echo "  pdf-check-latex-parity Verify package parity between document builder and format ini"
@@ -946,6 +948,25 @@ format-sql:
 
 lint: lint-go lint-python lint-web
 	@echo "\nAll lint checks passed."
+
+.PHONY: config-order-check config-order-sync
+
+config-order-check:
+	@./scripts/config-order-sync \
+		--main-go-struct internal/config/tuning.go:TuningConfig \
+		--discover \
+		--md-target config/README.md \
+		--check
+
+config-order-sync:
+	@./scripts/config-order-sync \
+		--main-json config/tuning.defaults.json \
+		--discover \
+		--md-target config/README.md
+	@./scripts/config-order-sync \
+		--main-go-struct internal/config/tuning.go:TuningConfig \
+		--discover \
+		--md-target config/README.md
 
 lint-go:
 	@echo "Checking Go formatting (gofmt -l)..."

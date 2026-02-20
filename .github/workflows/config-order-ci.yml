@@ -1,0 +1,34 @@
+name: ⚙️ Config Order CI
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "config/**"
+      - "internal/config/tuning.go"
+      - "scripts/config-order-sync"
+      - "Makefile"
+      - ".github/workflows/config-order-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "config/**"
+      - "internal/config/tuning.go"
+      - "scripts/config-order-sync"
+      - "Makefile"
+      - ".github/workflows/config-order-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  config-order-check:
+    name: "🔍 Config Key Order"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run key-order check
+        run: make config-order-check
