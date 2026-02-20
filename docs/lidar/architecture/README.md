@@ -37,7 +37,7 @@ For the full layer model specification, see [lidar-data-layer-model.md](lidar-da
 | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical six-layer model with package mapping                                |
 | [lidar-layer-alignment-refactor-review-20260217.md](lidar-layer-alignment-refactor-review-20260217.md)               | Layer alignment review: completed migration, complexity analysis, file splits |
-| [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Implemented: ops/debug/trace logging streams with keyword classifier          |
+| [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams     |
 | [foreground_tracking.md](foreground_tracking.md)                                                                     | Foreground extraction and tracking pipeline design                            |
 | [lidar-background-grid-standards.md](lidar-background-grid-standards.md)                                             | Background grid format comparison with industry standards                     |
 | [hesai_packet_structure.md](hesai_packet_structure.md)                                                               | Hesai Pandar40P UDP packet format reference                                   |

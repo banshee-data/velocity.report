@@ -154,12 +154,12 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 
 				// Diagnostic: report parsed point counts to help debug empty backgrounds
 				if len(points) == 0 {
-					lidar.Debugf("PCAP packet %d parsed -> 0 points", packetCount)
+					lidar.Tracef("PCAP packet %d parsed -> 0 points", packetCount)
 				} else {
 					totalPoints += len(points)
 					// Debug-level: every 1000 packets
 					if packetCount%1000 == 0 {
-						lidar.Debugf("PCAP parsed points: packet=%d, points_this_packet=%d, total_parsed_points=%d",
+						lidar.Tracef("PCAP parsed points: packet=%d, points_this_packet=%d, total_parsed_points=%d",
 							packetCount, len(points), totalPoints)
 					}
 				}

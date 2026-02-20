@@ -264,7 +264,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				}
 
 				if len(points) == 0 {
-					lidar.Debugf("PCAP real-time replay: packet %d parsed -> 0 points", packetCount)
+					lidar.Tracef("PCAP real-time replay: packet %d parsed -> 0 points", packetCount)
 				} else {
 					totalPoints += len(points)
 
@@ -274,7 +274,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						originalDuration := captureTime.Sub(firstPacketTime)
 						compressionRatio := float64(originalDuration) / float64(elapsed)
 
-						lidar.Debugf("PCAP real-time replay: packet=%d, points=%d, total_points=%d, elapsed=%v, original_duration=%v, compression=%.1fx",
+						lidar.Tracef("PCAP real-time replay: packet=%d, points=%d, total_points=%d, elapsed=%v, original_duration=%v, compression=%.1fx",
 							packetCount, len(points), totalPoints, elapsed, originalDuration, compressionRatio)
 					}
 				}
@@ -339,7 +339,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 							if warmupRemaining > 0 {
 								warmupRemaining--
 								if len(foregroundPoints) > 0 && (warmupRemaining%100 == 0 || warmupRemaining < 5) {
-									lidar.Debugf("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
+									lidar.Tracef("[ForegroundForwarder] warmup skipping frame: remaining_packets=%d fg_points=%d total_points=%d", warmupRemaining, len(foregroundPoints), len(points))
 								}
 							} else if len(foregroundPoints) > 0 {
 								// Filter by debug range if configured
@@ -384,7 +384,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 
 								if packetCount%1000 == 0 {
 									fgRatio := float64(len(foregroundPoints)) / float64(len(points))
-									lidar.Debugf("Foreground extraction: %d/%d points (%.1f%%)",
+									lidar.Tracef("Foreground extraction: %d/%d points (%.1f%%)",
 										len(foregroundPoints), len(points), fgRatio*100)
 								}
 							}
@@ -401,7 +401,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// Log progress periodically
 			if packetCount%10000 == 0 {
 				elapsed := time.Since(startTime)
-				lidar.Debugf("PCAP real-time replay progress: %d packets in %v (%.0f pkt/s, speed: %.1fx)",
+				lidar.Tracef("PCAP real-time replay progress: %d packets in %v (%.0f pkt/s, speed: %.1fx)",
 					packetCount, elapsed, float64(packetCount)/elapsed.Seconds(), config.SpeedMultiplier)
 			}
 		}

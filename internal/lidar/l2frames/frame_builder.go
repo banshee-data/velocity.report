@@ -299,7 +299,7 @@ func (fb *FrameBuilder) Reset() {
 		delete(fb.pendingPackets, k)
 	}
 
-	Debugf("[FrameBuilder] Reset: cleared all buffered frames and state for sensor=%s", fb.sensorID)
+	diagf("[FrameBuilder] Reset: cleared all buffered frames and state for sensor=%s", fb.sensorID)
 }
 
 // SetMotorSpeed updates the expected frame duration based on motor speed (RPM)
@@ -384,7 +384,7 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		shouldStart, reason := fb.shouldStartNewFrame(point.Azimuth, point.Timestamp)
 		if shouldStart {
 			if fb.currentFrame != nil {
-				debugf("[FrameBuilder] Frame completion detected (%s): lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
+				tracef("[FrameBuilder] Frame completion detected (%s): lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
 					reason, fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
 			}
 			fb.finalizeCurrentFrame()
@@ -410,7 +410,7 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 		if fb.currentFrame != nil {
 			newCount = fb.currentFrame.PointCount
 		}
-		debugf("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
+		tracef("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
 			len(points), prevCount, newCount, fb.lastAzimuth)
 	}
 }
@@ -550,7 +550,7 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 
 	if fb.currentFrame.PointCount < fb.minFramePoints {
 		// Discard incomplete frame; log only in debug to reduce noise
-		debugf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
+		diagf("[FrameBuilder] Discarding incomplete frame %s: points=%d, min_required=%d",
 			fb.currentFrame.FrameID, fb.currentFrame.PointCount, fb.minFramePoints)
 		fb.currentFrame = nil // Discard incomplete frame
 		return
@@ -566,7 +566,7 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 	fb.frameBuffer[frame.FrameID] = frame
 
 	if fb.debug {
-		debugf("[FrameBuilder] Moved frame %s to buffer (points=%d); buffer_size=%d",
+		tracef("[FrameBuilder] Moved frame %s to buffer (points=%d); buffer_size=%d",
 			frame.FrameID, frame.PointCount, len(fb.frameBuffer))
 	}
 
@@ -589,7 +589,7 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 	}
 
 	if oldestFrame != nil {
-		debugf("[FrameBuilder] Evicting buffered frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
+		diagf("[FrameBuilder] Evicting buffered frame: ID=%s, Points=%d, Sensor=%s", oldestFrame.FrameID, oldestFrame.PointCount, oldestFrame.SensorID)
 		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
 		// Finalize the frame so the registered callback receives it.
@@ -643,7 +643,7 @@ func (fb *FrameBuilder) cleanupFrames() {
 	var frameIDsToFinalize []string
 
 	if fb.debug {
-		debugf("[FrameBuilder] cleanupFrames invoked: buffer_size=%d, now=%v", len(fb.frameBuffer), now)
+		tracef("[FrameBuilder] cleanupFrames invoked: buffer_size=%d, now=%v", len(fb.frameBuffer), now)
 	}
 
 	// Find frames that are old enough to finalize
@@ -692,7 +692,7 @@ func (fb *FrameBuilder) cleanupFrames() {
 		// the current frame when no recent points have arrived.
 		if age >= fb.bufferTimeout && fb.currentFrame.PointCount > 0 {
 			if fb.debug {
-				debugf("[FrameBuilder] Finalizing idle current frame ID=%s age=%v points=%d (bufferTimeout=%v)",
+				tracef("[FrameBuilder] Finalizing idle current frame ID=%s age=%v points=%d (bufferTimeout=%v)",
 					fb.currentFrame.FrameID, age, fb.currentFrame.PointCount, fb.bufferTimeout)
 			}
 			fb.finalizeCurrentFrame()
@@ -711,7 +711,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 
 	// lightweight debug logging for frame completion
 	if fb.debug {
-		debugf("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s, reason=%s",
+		tracef("[FrameBuilder] Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s, reason=%s",
 			frame.FrameID,
 			frame.PointCount,
 			frame.MinAzimuth,
@@ -728,7 +728,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 	coverageGap := 360.0 - coverage
 
 	if !spinComplete || frame.PacketGaps > 0 || coverageGap > 0.5 {
-		debugf("[FrameBuilder] Incomplete or gappy frame: id=%s sensor=%s reason=%s cov=%.1f° gap=%.1f° min=%.1f° pts=%d/%d gaps=%d completeness=%.3f duration=%v range=[%.1f,%.1f] start=%s end=%s spin_complete=%v",
+		diagf("[FrameBuilder] Incomplete or gappy frame: id=%s sensor=%s reason=%s cov=%.1f° gap=%.1f° min=%.1f° pts=%d/%d gaps=%d completeness=%.3f duration=%v range=[%.1f,%.1f] start=%s end=%s spin_complete=%v",
 			frame.FrameID,
 			frame.SensorID,
 			reason,
@@ -758,7 +758,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			if err := exportFrameToASCInternal(frame); err != nil {
 				log.Printf("[FrameBuilder] Failed to export next frame for sensor %s: %v", frame.SensorID, err)
 			} else {
-				debugf("[FrameBuilder] Exported next frame for sensor %s", frame.SensorID)
+				diagf("[FrameBuilder] Exported next frame for sensor %s", frame.SensorID)
 				fb.exportNextFrameASC = false
 			}
 		}
@@ -774,7 +774,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			if err := exportFrameToASCInternal(frame); err != nil {
 				log.Printf("[FrameBuilder] Failed to export batch frame %d/%d for sensor %s: %v", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID, err)
 			} else if fb.debug {
-				debugf("[FrameBuilder] Exported batch frame %d/%d for sensor %s", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID)
+				diagf("[FrameBuilder] Exported batch frame %d/%d for sensor %s", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID)
 			}
 			fb.exportBatchExported++
 			if fb.exportBatchExported >= fb.exportBatchCount {
@@ -788,7 +788,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 		// Add explicit log when invoking the frame callback so we can trace delivery
 		// but only emit this in debug mode to avoid noisy logs during normal runs.
 		if fb.debug {
-			debugf("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
+			tracef("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
 				frame.FrameID, frame.PointCount, frame.SensorID)
 		}
 		select {
@@ -797,7 +797,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			// Channel full — drop frame to avoid blocking frame assembly.
 			// This handles back-pressure when the tracking pipeline cannot
 			// keep up with frame arrival rate.
-			debugf("[FrameBuilder] Dropped frame %s: callback queue full", frame.FrameID)
+			opsf("[FrameBuilder] Dropped frame %s: callback queue full", frame.FrameID)
 		}
 	}
 }
@@ -883,7 +883,7 @@ func NewFrameBuilderWithDebugLoggingAndInterval(sensorID string, debug bool, log
 		var exportMutex sync.Mutex
 
 		callback = func(frame *LiDARFrame) {
-			debugf("Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
+			tracef("Frame completed - ID: %s, Points: %d, Azimuth: %.1f°-%.1f°, Duration: %v, Sensor: %s",
 				frame.FrameID,
 				frame.PointCount,
 				frame.MinAzimuth,
@@ -942,7 +942,7 @@ func exportFrameToASCInternal(frame *LiDARFrame) error {
 	}
 	if zNonZero == 0 {
 		// Recompute XYZ from Distance/Azimuth/Elevation
-		debugf("[FrameBuilder] all Z==0 for frame %s; recomputing XYZ from polar data before export", frame.FrameID)
+		diagf("[FrameBuilder] all Z==0 for frame %s; recomputing XYZ from polar data before export", frame.FrameID)
 		for i, p := range frame.Points {
 			x, y, z := SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
 			ascPoints[i] = PointASC{

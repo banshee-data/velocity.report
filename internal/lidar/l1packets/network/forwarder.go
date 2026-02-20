@@ -72,7 +72,7 @@ func (f *PacketForwarder) Start(ctx context.Context) {
 			case <-ticker.C:
 				// Only log if we have dropped packets in this interval
 				if droppedCount > 0 && lastError != nil {
-					lidar.Debugf("[PacketForwarder] Dropped %d forwarded packets due to errors (latest: %v)", droppedCount, lastError)
+					lidar.Opsf("[PacketForwarder] Dropped %d forwarded packets due to errors (latest: %v)", droppedCount, lastError)
 					droppedCount = 0 // Reset counter after logging
 					lastError = nil
 				}
@@ -80,7 +80,7 @@ func (f *PacketForwarder) Start(ctx context.Context) {
 		}
 	}()
 
-	lidar.Debugf("[PacketForwarder] Forwarding packets to %s", f.address)
+	lidar.Diagf("[PacketForwarder] Forwarding packets to %s", f.address)
 }
 
 // ForwardAsync sends a packet to the forwarding channel in a non-blocking manner

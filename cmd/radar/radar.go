@@ -235,12 +235,20 @@ func main() {
 			log.Printf("warning: %v", err)
 		}
 		lidar.SetLogWriters(writers)
+		// Wire sub-package loggers to the same streams.
+		l2frames.SetLogWriters(writers.Ops, writers.Debug, writers.Trace)
+		l3grid.SetLogWriters(writers.Ops, writers.Debug, writers.Trace)
+		pipeline.SetLogWriters(writers.Ops, writers.Debug, writers.Trace)
 	} else if debugPath := os.Getenv("VELOCITY_DEBUG_LOG"); debugPath != "" {
 		// Legacy: route all three streams to a single file.
 		if err := os.MkdirAll(filepath.Dir(debugPath), 0o755); err == nil {
 			if f, err := os.OpenFile(debugPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
 				logFiles = append(logFiles, f)
 				lidar.SetDebugLogger(f)
+				// Wire sub-package loggers to the same single writer.
+				l2frames.SetDebugLogger(f)
+				l3grid.SetDebugLogger(f)
+				pipeline.SetDebugLogger(f)
 			} else {
 				log.Printf("warning: failed to open debug log %s: %v", debugPath, err)
 			}

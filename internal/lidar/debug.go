@@ -3,7 +3,6 @@ package lidar
 import (
 	"io"
 	"log"
-	"strings"
 	"sync"
 )
 
@@ -31,13 +30,6 @@ var (
 	opsLogger   *log.Logger
 	debugLogger *log.Logger
 	traceLogger *log.Logger
-)
-
-// Keyword lists used by the classifier to route Debugf messages.
-// These are read-only after init; do not modify at runtime.
-var (
-	opsKeywords   = []string{"error", "failed", "fatal", "panic", "warn", "timeout", "dropped"}
-	traceKeywords = []string{"packet", "queued", "parsed", "progress", "fps=", "bandwidth", "frame="}
 )
 
 // SetLogWriters configures all three logging streams at once.
@@ -107,40 +99,4 @@ func Tracef(format string, args ...interface{}) {
 	if l != nil {
 		l.Printf(format, args...)
 	}
-}
-
-// Debugf routes through the keyword classifier for backward compatibility.
-// New call sites should prefer Opsf, Diagf, or Tracef directly.
-func Debugf(format string, args ...interface{}) {
-	debugf(format, args...)
-}
-
-// debugf applies the classifier and dispatches to the appropriate stream.
-func debugf(format string, args ...interface{}) {
-	level := classifyMessage(format)
-	switch level {
-	case LogOps:
-		Opsf(format, args...)
-	case LogTrace:
-		Tracef(format, args...)
-	default:
-		Diagf(format, args...)
-	}
-}
-
-// classifyMessage applies the keyword rubric to determine stream routing.
-// Ops keywords take priority, then trace; default is debug.
-func classifyMessage(format string) LogLevel {
-	lower := strings.ToLower(format)
-	for _, kw := range opsKeywords {
-		if strings.Contains(lower, kw) {
-			return LogOps
-		}
-	}
-	for _, kw := range traceKeywords {
-		if strings.Contains(lower, kw) {
-			return LogTrace
-		}
-	}
-	return LogDebug
 }
