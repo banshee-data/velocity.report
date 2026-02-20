@@ -53,11 +53,11 @@ In `ProcessFramePolarWithMask`, warmup sensitivity inflates tolerance for low-co
 
 This prevents early false foreground while spread is still under-learned.
 
-## 5. Neighbor Confirmation
+## 5. Neighbour Confirmation
 
-Same-ring neighbors vote for background consistency.
+Same-ring neighbours vote for background consistency.
 
-Neighbor `j` confirms if:
+Neighbour `j` confirms if:
 
 `|mu_j - r_obs| <= k_close * (s_j + k_noise * mu_j + 0.01)`
 

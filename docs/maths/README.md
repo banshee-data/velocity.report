@@ -53,11 +53,11 @@ The production pipeline uses four math-heavy layers:
 ## Detailed Documents
 
 - [Background Grid Settling Maths](background-grid-settling-maths.md)
-  - Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behavior, and confidence dynamics.
+  - Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behaviour, and confidence dynamics.
 - [Ground Plane Maths](ground-plane-maths.md)
   - Tile/region plane estimation, region-selection math, robust confidence/settlement criteria, curvature math, density constraints, and L3-L4 interaction.
 - [Clustering Maths](clustering-maths.md)
-  - Downsampling, neighborhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA), and complexity bounds.
+  - Downsampling, neighbourhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA), and complexity bounds.
 - [Tracking Maths](tracking-maths.md)
   - CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
 - [Unify L3/L4 Settling Proposal](proposal/20260219-unify-l3-l4-settling.md)

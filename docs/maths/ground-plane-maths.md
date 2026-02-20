@@ -102,7 +102,7 @@ Example aggregate:
 Require normal/offset stability across a sliding window:
 
 - `angle(n_t, n_{t-1}) < tau_n`
-- `|z_ground_t(center) - z_ground_{t-1}(center)| < tau_z`
+- `|z_ground_t(centre) - z_ground_{t-1}(centre)| < tau_z`
 
 Final settle condition:
 

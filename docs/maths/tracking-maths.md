@@ -12,7 +12,7 @@ Core mathematical components:
 
 1. constant-velocity Kalman filtering,
 2. Mahalanobis gating with physical plausibility guards,
-3. global assignment with Hungarian optimization,
+3. global assignment with Hungarian optimisation,
 4. lifecycle state transitions using hit/miss counters.
 
 ## 2. State-Space Model
@@ -131,7 +131,7 @@ These metrics are not primary filter states; they are diagnostics/tuning signals
 
 OBB heading has 180-degree ambiguity from PCA.
 
-Tracking resolves and stabilizes heading by:
+Tracking resolves and stabilises heading by:
 
 1. optional flip toward velocity direction when speed is sufficient,
 2. wrap-aware EMA smoothing:

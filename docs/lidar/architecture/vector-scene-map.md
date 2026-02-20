@@ -824,7 +824,7 @@ A vehicle-mounted sensor produces a stream of local scene maps along its route. 
 ### Internal Documents
 
 - **Ground Plane Extraction** — `docs/lidar/architecture/ground-plane-extraction.md` (tile-based ground model, Tier 1/2 design)
-- **Ground Plane Maths** — `docs/maths/ground-plane-maths.md` (algorithm tradeoffs, storage analysis)
+- **Ground Plane Maths** — `docs/maths/ground-plane-maths.md` (algorithm trade-offs)
 - **LiDAR Layer Model** — `docs/lidar/architecture/lidar-data-layer-model.md` (L1–L6 layer definitions)
 - **Background Grid Standards** — `docs/lidar/architecture/lidar-background-grid-standards.md` (VTK/PCD export)
 - **PCAP Export Tool** — `docs/plans/pcap-ground-plane-export-tool.md` (CLI flags, export formats)

@@ -62,7 +62,7 @@ Clusters are connected components grown from core points; noise points receive l
 
 A uniform grid with cell size near `eps` stores point indices.
 
-Neighborhood query checks only 3x3 adjacent cells around the seed cell, giving practical near-linear behavior in typical scenes.
+Neighborhood query checks only 3x3 adjacent cells around the seed cell, giving practical near-linear behaviour in typical scenes.
 
 ## 5. Cluster-Level Geometry
 

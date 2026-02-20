@@ -11,7 +11,7 @@ For a direct mapping between config keys and the maths/algorithm docs, see:
 
 ## LiDAR Tuning Configuration
 
-`tuning.defaults.json` is the **single source of truth** for all tuning parameters. The Go binary **requires** a valid configuration file at startup — there are **no hardcoded fallback defaults** in the codebase. If the file cannot be loaded or is missing required keys, the process will not start.
+`tuning.defaults.json` is the **single source of truth** for all tuning parameters. The Go binary **requires** a valid configuration file at startup — there are **no hardcoded fallback defaults for tuning keys** in the codebase. If the file cannot be loaded or is missing required keys, the process will not start.
 
 ### Usage
 
