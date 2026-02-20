@@ -23,6 +23,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - HINT sweep polish — 11 remaining polish items — [design doc](docs/plans/hint-sweep-mode.md)
 - Precompiled LaTeX — faster PDF report generation — [design doc](docs/plans/precompiled-latex-plan.md)
 - Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/python-venv-consolidation-plan.md)
+- SQLite client standardization — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](docs/plans/sqlite-client-standardization-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](docs/plans/design-review-and-improvement-plan.md)
 - Widescreen content containment — add vr-page max-width centering at ≥3000px — [design doc §2.2](docs/plans/design-review-and-improvement-plan.md)
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](docs/plans/design-review-and-improvement-plan.md)
