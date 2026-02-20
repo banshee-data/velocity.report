@@ -584,3 +584,185 @@ func TestDeleteRun_EmptyID(t *testing.T) {
 		t.Error("expected error for empty runID")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// GetTrackObservations — happy path (~4 stmts)
+// ---------------------------------------------------------------------------
+
+func TestGetTrackObservations_HappyPath(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Insert a track.
+	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
+		start_unix_nanos, end_unix_nanos, observation_count,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+		height_p95_max, intensity_mean_avg)
+		VALUES ('obs-t1', 'obs-sensor', 'world', 'confirmed', 1000, 2000, 2, 1.0, 2.0, 1.0, 1.5, 1.8, 0.1, 0.1, 0.1, 0.1, 0.1)`)
+	if err != nil {
+		t.Fatalf("insert track: %v", err)
+	}
+
+	// Insert observations.
+	_, err = db.Exec(`INSERT INTO lidar_track_obs (track_id, ts_unix_nanos, world_frame,
+		x, y, z, velocity_x, velocity_y, speed_mps, heading_rad,
+		bounding_box_length, bounding_box_width, bounding_box_height,
+		height_p95, intensity_mean)
+		VALUES ('obs-t1', 1000, 'world', 1.0, 2.0, 0.5, 0.1, 0.2, 1.5, 0.3, 0.4, 0.3, 0.2, 0.1, 50.0)`)
+	if err != nil {
+		t.Fatalf("insert observation: %v", err)
+	}
+
+	obs, err := GetTrackObservations(db, "obs-t1", 10)
+	if err != nil {
+		t.Fatalf("GetTrackObservations: %v", err)
+	}
+	if len(obs) != 1 {
+		t.Fatalf("got %d observations, want 1", len(obs))
+	}
+	if obs[0].SpeedMps != 1.5 {
+		t.Errorf("SpeedMps = %f, want 1.5", obs[0].SpeedMps)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetRecentClusters — happy path (~4 stmts)
+// ---------------------------------------------------------------------------
+
+func TestGetRecentClusters_HappyPath(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Insert a cluster (lidar_cluster_id is INTEGER PRIMARY KEY, auto-assigned).
+	_, err := db.Exec(`INSERT INTO lidar_clusters (sensor_id, world_frame, ts_unix_nanos,
+		centroid_x, centroid_y, centroid_z,
+		bounding_box_length, bounding_box_width, bounding_box_height,
+		points_count, height_p95, intensity_mean)
+		VALUES ('cl-sensor', 'world', 5000, 1.0, 2.0, 0.5, 0.4, 0.3, 0.2, 10, 0.1, 50.0)`)
+	if err != nil {
+		t.Fatalf("insert cluster: %v", err)
+	}
+
+	clusters, err := GetRecentClusters(db, "cl-sensor", 1000, 10000, 10)
+	if err != nil {
+		t.Fatalf("GetRecentClusters: %v", err)
+	}
+	if len(clusters) != 1 {
+		t.Fatalf("got %d clusters, want 1", len(clusters))
+	}
+	if clusters[0].PointsCount != 10 {
+		t.Errorf("PointsCount = %d, want 10", clusters[0].PointsCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetTracksInRange with state filter and optional fields (~5 stmts)
+// ---------------------------------------------------------------------------
+
+func TestGetTracksInRange_WithState(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	nowNanos := time.Now().UnixNano()
+
+	// Insert a confirmed track with optional fields.
+	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
+		start_unix_nanos, end_unix_nanos, observation_count,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+		height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model)
+		VALUES ('range-t1', 'range-sensor', 'world', 'confirmed', ?, ?, 5, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0, 'vehicle', 0.92, 'rule_based')`,
+		nowNanos-1e9, nowNanos)
+	if err != nil {
+		t.Fatalf("insert track: %v", err)
+	}
+
+	tracks, err := GetTracksInRange(db, "range-sensor", "confirmed", nowNanos-2e9, nowNanos+1e9, 10)
+	if err != nil {
+		t.Fatalf("GetTracksInRange: %v", err)
+	}
+	if len(tracks) != 1 {
+		t.Fatalf("got %d tracks, want 1", len(tracks))
+	}
+	if tracks[0].ObjectClass != "vehicle" {
+		t.Errorf("ObjectClass = %q, want %q", tracks[0].ObjectClass, "vehicle")
+	}
+	if tracks[0].ClassificationModel != "rule_based" {
+		t.Errorf("ClassificationModel = %q, want %q", tracks[0].ClassificationModel, "rule_based")
+	}
+}
+
+func TestGetTracksInRange_NoState(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	nowNanos := time.Now().UnixNano()
+
+	// Insert a confirmed track.
+	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
+		start_unix_nanos, end_unix_nanos, observation_count,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+		height_p95_max, intensity_mean_avg)
+		VALUES ('range-t2', 'range-sensor2', 'world', 'confirmed', ?, ?, 5, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0)`,
+		nowNanos-1e9, nowNanos)
+	if err != nil {
+		t.Fatalf("insert track: %v", err)
+	}
+
+	// Insert a deleted track — should be excluded when state is "".
+	_, err = db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
+		start_unix_nanos, end_unix_nanos, observation_count,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+		height_p95_max, intensity_mean_avg)
+		VALUES ('range-t3', 'range-sensor2', 'world', 'deleted', ?, ?, 5, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0)`,
+		nowNanos-1e9, nowNanos)
+	if err != nil {
+		t.Fatalf("insert deleted track: %v", err)
+	}
+
+	tracks, err := GetTracksInRange(db, "range-sensor2", "", nowNanos-2e9, nowNanos+1e9, 10)
+	if err != nil {
+		t.Fatalf("GetTracksInRange: %v", err)
+	}
+	if len(tracks) != 1 {
+		t.Fatalf("got %d tracks, want 1 (deleted should be excluded)", len(tracks))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListSweeps with completedAt — cover the completedAt parsing branch
+// ---------------------------------------------------------------------------
+
+func TestListSweeps_WithCompletedAt(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewSweepStore(db)
+
+	startedAt := time.Now().UTC().Truncate(time.Second)
+	req := json.RawMessage(`{"param":"test"}`)
+	if err := store.SaveSweepStart("sweep-ls-1", "sensor-ls", "manual", req, startedAt, "obj", "v1"); err != nil {
+		t.Fatalf("SaveSweepStart: %v", err)
+	}
+
+	completedAt := startedAt.Add(10 * time.Minute)
+	if err := store.SaveSweepComplete("sweep-ls-1", "completed",
+		json.RawMessage(`{}`), nil, nil, completedAt, "",
+		nil, nil, nil, "", ""); err != nil {
+		t.Fatalf("SaveSweepComplete: %v", err)
+	}
+
+	sweeps, err := store.ListSweeps("sensor-ls", 10)
+	if err != nil {
+		t.Fatalf("ListSweeps: %v", err)
+	}
+	if len(sweeps) != 1 {
+		t.Fatalf("got %d sweeps, want 1", len(sweeps))
+	}
+	if sweeps[0].CompletedAt == nil {
+		t.Error("expected non-nil CompletedAt")
+	}
+}
