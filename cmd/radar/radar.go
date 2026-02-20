@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -187,26 +188,70 @@ func configurePDFLaTeXFlow(flow, texRootFlag string) error {
 func main() {
 	flag.Parse()
 
-	// Configure logging: default to stdout; optionally tee to a debug log file via env.
+	// Configure logging: default to stdout; optionally tee to a log file via env.
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	log.SetOutput(os.Stdout)
 
-	var debugLogFile *os.File
-	if debugPath := os.Getenv("VELOCITY_DEBUG_LOG"); debugPath != "" {
-		if err := os.MkdirAll(filepath.Dir(debugPath), 0o755); err == nil {
-			if f, err := os.OpenFile(debugPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
-				debugLogFile = f
-				lidar.SetDebugLogger(f)
-			} else {
-				log.Printf("warning: failed to open debug log %s: %v", debugPath, err)
+	// Three-stream LiDAR logging: VELOCITY_LIDAR_{OPS,DIAG,TRACE}_LOG env vars.
+	var logFiles []*os.File
+	opsPath := os.Getenv("VELOCITY_LIDAR_OPS_LOG")
+	diagPath := os.Getenv("VELOCITY_LIDAR_DIAG_LOG")
+	tracePath := os.Getenv("VELOCITY_LIDAR_TRACE_LOG")
+
+	if opsPath != "" || diagPath != "" || tracePath != "" {
+		writers := lidar.LogWriters{}
+		// Determine a fallback writer: the first explicitly set path, so
+		// unspecified streams still produce output (design: avoid silent log loss).
+		fallbackPath := firstNonEmpty(opsPath, diagPath, tracePath)
+		// Dedup file descriptors: reuse the same *os.File when multiple
+		// streams resolve to the same path (after fallback expansion).
+		openedFiles := map[string]*os.File{}
+		openLog := func(path string) (io.Writer, error) {
+			if path == "" {
+				path = fallbackPath
 			}
-		} else {
-			log.Printf("warning: failed to create debug log directory for %s", debugPath)
+			if f, ok := openedFiles[path]; ok {
+				return f, nil
+			}
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return nil, fmt.Errorf("create directory for %s: %w", path, err)
+			}
+			f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+			if err != nil {
+				return nil, fmt.Errorf("open %s: %w", path, err)
+			}
+			openedFiles[path] = f
+			logFiles = append(logFiles, f)
+			return f, nil
 		}
+		if w, err := openLog(opsPath); err == nil {
+			writers.Ops = w
+		} else {
+			log.Printf("warning: %v", err)
+		}
+		if w, err := openLog(diagPath); err == nil {
+			writers.Diag = w
+		} else {
+			log.Printf("warning: %v", err)
+		}
+		if w, err := openLog(tracePath); err == nil {
+			writers.Trace = w
+		} else {
+			log.Printf("warning: %v", err)
+		}
+		lidar.SetLogWriters(writers)
+		// Wire sub-package loggers to the same streams.
+		l2frames.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+		l3grid.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+		pipeline.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	}
-	if debugLogFile != nil {
-		defer debugLogFile.Close()
-	}
+	defer func() {
+		for _, f := range logFiles {
+			if err := f.Close(); err != nil {
+				log.Printf("warning: failed to close log file: %v", err)
+			}
+		}
+	}()
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
@@ -1122,4 +1167,14 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 			}
 		}
 	}
+}
+
+// firstNonEmpty returns the first non-empty string from its arguments.
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
 }

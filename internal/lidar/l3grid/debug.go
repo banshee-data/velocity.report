@@ -5,26 +5,44 @@ import (
 	"log"
 )
 
-var debugLogger *log.Logger
+var (
+	opsLogger   *log.Logger
+	diagLogger  *log.Logger
+	traceLogger *log.Logger
+)
 
-// SetDebugLogger installs a debug logger that receives verbose LiDAR diagnostics.
-// Pass nil to disable debug logging.
-func SetDebugLogger(w io.Writer) {
+// SetLogWriters configures the three logging streams for the l3grid package.
+// Pass nil for any writer to disable that stream.
+func SetLogWriters(ops, diag, trace io.Writer) {
+	opsLogger = newLogger("[l3grid] ", ops)
+	diagLogger = newLogger("[l3grid] ", diag)
+	traceLogger = newLogger("[l3grid] ", trace)
+}
+
+func newLogger(prefix string, w io.Writer) *log.Logger {
 	if w == nil {
-		debugLogger = nil
-		return
+		return nil
 	}
-	debugLogger = log.New(w, "[l3grid] ", log.LstdFlags|log.Lmicroseconds)
+	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
 }
 
-// debugf logs formatted debug messages when a debug logger is configured.
-func debugf(format string, args ...interface{}) {
-	if debugLogger != nil {
-		debugLogger.Printf(format, args...)
+// opsf logs to the ops stream (actionable warnings, errors, data loss).
+func opsf(format string, args ...interface{}) {
+	if opsLogger != nil {
+		opsLogger.Printf(format, args...)
 	}
 }
 
-// Debugf is an exported helper for callers outside the l3grid package.
-func Debugf(format string, args ...interface{}) {
-	debugf(format, args...)
+// diagf logs to the diag stream (day-to-day diagnostics, tuning context).
+func diagf(format string, args ...interface{}) {
+	if diagLogger != nil {
+		diagLogger.Printf(format, args...)
+	}
+}
+
+// tracef logs to the trace stream (high-frequency packet/frame telemetry).
+func tracef(format string, args ...interface{}) {
+	if traceLogger != nil {
+		traceLogger.Printf(format, args...)
+	}
 }

@@ -194,8 +194,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
-		// Route frame completion to debug log to keep main log quiet during normal runs.
-		Debugf("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°",
+		// Route frame completion to trace log to keep main log quiet during normal runs.
+		tracef("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°",
 			frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 
 		// Convert frame points to polar coordinates using reusable buffer
@@ -292,7 +292,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
 				count := throttledFrames.Add(1)
 				if count%50 == 0 {
-					debugf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+					tracef("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
 				// Advance miss counters so tracks aren't artificially kept
 				// alive by throttle-induced gaps (task 7.2).
@@ -325,11 +325,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				cfg.FgForwarder.ForwardForeground(pointsToForward)
 			}
 		} else if cfg.DebugMode {
-			Debugf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
+			diagf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
 		}
 
 		// Always log foreground extraction for tracking debugging
-		Debugf("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
+		tracef("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 		// Stage 2: Transform to world coordinates
 		worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, cfg.SensorID)
@@ -349,11 +349,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			filteredPoints = groundFilter.FilterVertical(worldPoints)
 			if cfg.DebugMode {
 				proc, kept, below, above := groundFilter.Stats()
-				Debugf("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+				tracef("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
 					proc, kept, below, above)
 			}
 		} else if cfg.DebugMode {
-			Debugf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
+			diagf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
 		}
 
 		if len(filteredPoints) == 0 {
@@ -366,7 +366,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if cfg.VoxelLeafSize > 0 {
 			before := len(filteredPoints)
 			filteredPoints = l4perception.VoxelGrid(filteredPoints, cfg.VoxelLeafSize)
-			Debugf("[Tracking] Voxel downsample: %d → %d (leaf=%.3fm)",
+			tracef("[Tracking] Voxel downsample: %d → %d (leaf=%.3fm)",
 				before, len(filteredPoints), cfg.VoxelLeafSize)
 		}
 
@@ -405,7 +405,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		// Always log clustering for tracking debugging
-		Debugf("[Tracking] Clustered into %d objects", len(clusters))
+		tracef("[Tracking] Clustered into %d objects", len(clusters))
 
 		// Stage 4: Track update
 		if cfg.Tracker == nil {
@@ -416,7 +416,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		// Stage 5: Classify and persist confirmed tracks
 		confirmedTracks := cfg.Tracker.GetConfirmedTracks()
-		Debugf("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
+		tracef("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
 
 		for _, track := range confirmedTracks {
 			// Re-classify periodically as more observations accumulate.
@@ -496,7 +496,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		if cfg.DebugMode && len(confirmedTracks) > 0 {
-			Debugf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
+			diagf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
 		}
 
 		// Stage 6: Publish to visualiser (if enabled)
@@ -514,7 +514,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				cfg.LidarViewAdapter.PublishFrameBundle(frameBundle, foregroundPoints)
 			}
 
-			Debugf("[Visualiser] Published frame %s to gRPC", frame.FrameID)
+			tracef("[Visualiser] Published frame %s to gRPC", frame.FrameID)
 		} else if !isNilInterface(cfg.LidarViewAdapter) {
 			// LidarView-only mode (no gRPC)
 			// Create a minimal bundle just for LidarView forwarding
@@ -533,7 +533,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						log.Printf("[Tracking] Prune deleted tracks failed: %v", err)
 					}
 				} else if pruned > 0 {
-					Debugf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
+					diagf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
 				}
 			}
 		}

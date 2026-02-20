@@ -256,7 +256,7 @@ Outcome:
    - Removed 27 individual shim files from `internal/lidar/`
    - Updated all sub-package callers (l1packets, monitor, visualiser) to use layer imports
    - Updated all external callers (cmd/radar, internal/db) to use layer imports
-   - Remaining `lidar.` imports are only for `Debugf`/`SetDebugLogger` (debug.go stays)
+   - Remaining `lidar.` imports are only for logging (`Opsf`/`Diagf`/`Tracef`/`SetLogWriters` in debug.go)
    - `aliases.go` retained only for parent package's own integration tests
 
 10. **Arena.go deprecation** — remove legacy types: ✅

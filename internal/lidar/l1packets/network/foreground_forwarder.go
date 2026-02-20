@@ -75,7 +75,7 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				lidar.Debugf("Foreground forwarder stopping (sent %d packets)", f.packetCount.Load())
+				lidar.Diagf("Foreground forwarder stopping (sent %d packets)", f.packetCount.Load())
 				return
 			case points, ok := <-f.channel:
 				if !ok {
@@ -91,7 +91,7 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 				// Encode points as Pandar40P packets
 				packets, err := f.encodePointsAsPackets(points)
 				if err != nil {
-					lidar.Debugf("Error encoding foreground points: %v", err)
+					lidar.Opsf("Error encoding foreground points: %v", err)
 					continue
 				}
 
@@ -99,14 +99,14 @@ func (f *ForegroundForwarder) Start(ctx context.Context) {
 				for _, packet := range packets {
 					_, err := f.conn.Write(packet)
 					if err != nil {
-						lidar.Debugf("Error forwarding foreground packet: %v", err)
+						lidar.Opsf("Error forwarding foreground packet: %v", err)
 					} else {
 						f.packetCount.Add(1)
 					}
 				}
 
 				if frameNum <= 5 || frameNum%100 == 0 {
-					lidar.Debugf("[ForegroundForwarder] sent frame=%d packets=%d points=%d total_packets=%d dest=%s",
+					lidar.Tracef("[ForegroundForwarder] sent frame=%d packets=%d points=%d total_packets=%d dest=%s",
 						frameNum, len(packets), len(points), f.packetCount.Load(), f.address)
 				}
 			}
@@ -131,7 +131,7 @@ func (f *ForegroundForwarder) ForwardForeground(points []l4perception.PointPolar
 		// Note: frameCount is approximate since the worker increments it asynchronously
 		frameNum := f.frameCount.Load()
 		if frameNum < 5 {
-			lidar.Debugf("[ForegroundForwarder] queued %d points (approx frame %d)", len(points), frameNum+1)
+			lidar.Tracef("[ForegroundForwarder] queued %d points (approx frame %d)", len(points), frameNum+1)
 		}
 	default:
 		// Drop if buffer full (prevents blocking)

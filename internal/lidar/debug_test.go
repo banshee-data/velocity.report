@@ -3,82 +3,59 @@ package lidar
 import (
 	"bytes"
 	"strings"
+	"sync"
 	"testing"
 )
 
-// TestSetDebugLogger tests installing a debug logger
-func TestSetDebugLogger(t *testing.T) {
-	// Save original state
-	originalLogger := debugLogger
-	defer func() {
-		debugLogger = originalLogger
-	}()
-
-	// Test setting a debug logger
-	var buf bytes.Buffer
-	SetDebugLogger(&buf)
-
-	if debugLogger == nil {
-		t.Error("SetDebugLogger() failed to set debugLogger")
-	}
-
-	// Test logging with the installed logger
-	debugf("test message: %d", 42)
-
-	output := buf.String()
-	if !strings.Contains(output, "test message: 42") {
-		t.Errorf("Debug output = %q, want to contain 'test message: 42'", output)
-	}
-
-	// Test setting to nil (disable logging)
-	SetDebugLogger(nil)
-
-	if debugLogger != nil {
-		t.Error("SetDebugLogger(nil) failed to clear debugLogger")
-	}
-
-	// Test logging when disabled (should not panic)
-	buf.Reset()
-	debugf("should not appear")
-
-	if buf.Len() > 0 {
-		t.Errorf("Debug output after disabling = %q, want empty", buf.String())
-	}
-}
-
-// TestDebugf tests the internal debugf function
-func TestDebugf(t *testing.T) {
-	// Save original state
-	originalLogger := debugLogger
-	defer func() {
-		debugLogger = originalLogger
-	}()
+// TestExplicitStreams tests that Opsf, Diagf, Tracef route to correct streams.
+func TestExplicitStreams(t *testing.T) {
+	defer resetLoggers()
 
 	tests := []struct {
 		name         string
 		setupLogger  bool
+		logFunc      func(string, ...interface{})
 		format       string
 		args         []interface{}
 		wantContains string
 		wantEmpty    bool
 	}{
 		{
-			name:         "with logger enabled",
+			name:         "Opsf with logger enabled",
 			setupLogger:  true,
+			logFunc:      Opsf,
+			format:       "error: %s failed",
+			args:         []interface{}{"connection"},
+			wantContains: "error: connection failed",
+		},
+		{
+			name:         "Diagf with logger enabled",
+			setupLogger:  true,
+			logFunc:      Diagf,
 			format:       "processing frame %d with %d points",
 			args:         []interface{}{123, 45678},
 			wantContains: "processing frame 123 with 45678 points",
 		},
 		{
-			name:        "with logger disabled",
+			name:         "Tracef with logger enabled",
+			setupLogger:  true,
+			logFunc:      Tracef,
+			format:       "packet=%d parsed",
+			args:         []interface{}{42},
+			wantContains: "packet=42 parsed",
+		},
+		{
+			name:        "Opsf with logger disabled",
 			setupLogger: false,
+			logFunc:     Opsf,
 			format:      "this should not appear",
 			args:        []interface{}{},
 			wantEmpty:   true,
 		},
 		{
-			name:         "with special characters",
+			name:         "special characters",
 			setupLogger:  true,
+			logFunc:      Diagf,
 			format:       "sensor: %s, value: %f%%",
 			args:         []interface{}{"sensor-01", 95.5},
 			wantContains: "sensor: sensor-01, value: 95.5",
@@ -90,12 +67,12 @@ func TestDebugf(t *testing.T) {
 			var buf bytes.Buffer
 
 			if tt.setupLogger {
-				SetDebugLogger(&buf)
+				SetLogWriters(LogWriters{Ops: &buf, Diag: &buf, Trace: &buf})
 			} else {
-				SetDebugLogger(nil)
+				SetLogWriters(LogWriters{})
 			}
 
-			debugf(tt.format, tt.args...)
+			tt.logFunc(tt.format, tt.args...)
 
 			output := buf.String()
 
@@ -110,75 +87,50 @@ func TestDebugf(t *testing.T) {
 	}
 }
 
-// TestDebugf_Exported tests the exported Debugf function
-func TestDebugf_Exported(t *testing.T) {
-	// Save original state
-	originalLogger := debugLogger
-	defer func() {
-		debugLogger = originalLogger
-	}()
+// TestThreadSafety tests concurrent access to all three streams.
+func TestThreadSafety(t *testing.T) {
+	defer resetLoggers()
 
-	var buf bytes.Buffer
-	SetDebugLogger(&buf)
+	var ops, diag, trace bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &ops, Diag: &diag, Trace: &trace})
 
-	// Test exported Debugf function
-	Debugf("exported debug: %s = %d", "count", 999)
-
-	output := buf.String()
-	if !strings.Contains(output, "exported debug: count = 999") {
-		t.Errorf("Debugf() output = %q, want to contain 'exported debug: count = 999'", output)
-	}
-}
-
-// TestDebugLogger_ThreadSafety tests concurrent access to debug logger
-func TestDebugLogger_ThreadSafety(t *testing.T) {
-	// Save original state
-	originalLogger := debugLogger
-	defer func() {
-		debugLogger = originalLogger
-	}()
-
-	var buf bytes.Buffer
-	SetDebugLogger(&buf)
-
-	// Run concurrent logging operations
-	done := make(chan bool)
+	var wg sync.WaitGroup
 	numGoroutines := 10
 	messagesPerGoroutine := 50
 
 	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
 		go func(id int) {
+			defer wg.Done()
 			for j := 0; j < messagesPerGoroutine; j++ {
-				Debugf("goroutine %d message %d", id, j)
+				switch j % 3 {
+				case 0:
+					Opsf("goroutine %d ops %d", id, j)
+				case 1:
+					Diagf("goroutine %d diag %d", id, j)
+				case 2:
+					Tracef("goroutine %d trace %d", id, j)
+				}
 			}
-			done <- true
 		}(i)
 	}
 
-	// Wait for all goroutines to complete
-	for i := 0; i < numGoroutines; i++ {
-		<-done
-	}
+	wg.Wait()
 
-	// Verify we got output (exact content may vary due to concurrent writes)
-	output := buf.String()
-	if len(output) == 0 {
-		t.Error("Expected debug output from concurrent goroutines, got none")
+	if ops.Len() == 0 {
+		t.Error("Expected ops output from concurrent goroutines, got none")
 	}
-
-	// Verify some expected strings are present
-	if !strings.Contains(output, "goroutine") || !strings.Contains(output, "message") {
-		t.Errorf("Expected concurrent log output to contain 'goroutine' and 'message', got: %q", output)
+	if diag.Len() == 0 {
+		t.Error("Expected diag output from concurrent goroutines, got none")
+	}
+	if trace.Len() == 0 {
+		t.Error("Expected trace output from concurrent goroutines, got none")
 	}
 }
 
-// TestDebugLogger_FormattingEdgeCases tests edge cases in formatting
-func TestDebugLogger_FormattingEdgeCases(t *testing.T) {
-	// Save original state
-	originalLogger := debugLogger
-	defer func() {
-		debugLogger = originalLogger
-	}()
+// TestFormattingEdgeCases tests edge cases in formatting
+func TestFormattingEdgeCases(t *testing.T) {
+	defer resetLoggers()
 
 	tests := []struct {
 		name   string
@@ -209,14 +161,163 @@ func TestDebugLogger_FormattingEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			SetDebugLogger(&buf)
+			SetLogWriters(LogWriters{Ops: &buf, Diag: &buf, Trace: &buf})
 
-			debugf(tt.format, tt.args...)
+			Diagf(tt.format, tt.args...)
 
 			output := buf.String()
 			if !strings.Contains(output, tt.want) {
-				t.Errorf("debugf() output = %q, want to contain %q", output, tt.want)
+				t.Errorf("Diagf() output = %q, want to contain %q", output, tt.want)
 			}
 		})
 	}
+}
+
+// TestSetLogWriters tests configuring all three streams independently.
+func TestSetLogWriters(t *testing.T) {
+	defer resetLoggers()
+
+	var ops, diag, trace bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &ops, Diag: &diag, Trace: &trace})
+
+	Opsf("ops event: %s", "restart")
+	Diagf("diag event: %d", 42)
+	Tracef("trace event: fps=%.1f", 30.0)
+
+	if !strings.Contains(ops.String(), "ops event: restart") {
+		t.Errorf("Opsf output = %q, want to contain 'ops event: restart'", ops.String())
+	}
+	if !strings.Contains(diag.String(), "diag event: 42") {
+		t.Errorf("Diagf output = %q, want to contain 'diag event: 42'", diag.String())
+	}
+	if !strings.Contains(trace.String(), "trace event: fps=30.0") {
+		t.Errorf("Tracef output = %q, want to contain 'trace event: fps=30.0'", trace.String())
+	}
+
+	// Verify package prefix is present on every line
+	for _, line := range strings.Split(strings.TrimSpace(ops.String()), "\n") {
+		if !strings.Contains(line, "[lidar] ") {
+			t.Errorf("Ops line missing [lidar] prefix: %q", line)
+		}
+	}
+	for _, line := range strings.Split(strings.TrimSpace(diag.String()), "\n") {
+		if !strings.Contains(line, "[lidar] ") {
+			t.Errorf("Diag line missing [lidar] prefix: %q", line)
+		}
+	}
+	for _, line := range strings.Split(strings.TrimSpace(trace.String()), "\n") {
+		if !strings.Contains(line, "[lidar] ") {
+			t.Errorf("Trace line missing [lidar] prefix: %q", line)
+		}
+	}
+
+	// Verify no cross-contamination
+	if strings.Contains(ops.String(), "diag event") || strings.Contains(ops.String(), "trace event") {
+		t.Errorf("Ops stream received non-ops messages: %q", ops.String())
+	}
+	if strings.Contains(diag.String(), "ops event") || strings.Contains(diag.String(), "trace event") {
+		t.Errorf("Diag stream received non-diag messages: %q", diag.String())
+	}
+	if strings.Contains(trace.String(), "ops event") || strings.Contains(trace.String(), "diag event") {
+		t.Errorf("Trace stream received non-trace messages: %q", trace.String())
+	}
+}
+
+// TestSetLogWriter tests configuring individual streams.
+func TestSetLogWriter(t *testing.T) {
+	defer resetLoggers()
+
+	var ops bytes.Buffer
+	SetLogWriter(LogOps, &ops)
+
+	Opsf("ops only: %s", "alert")
+	Diagf("should be silent")
+	Tracef("should be silent too")
+
+	if !strings.Contains(ops.String(), "ops only: alert") {
+		t.Errorf("Opsf output = %q, want to contain 'ops only: alert'", ops.String())
+	}
+}
+
+// TestSetLogWriterInvalidLevel tests that an invalid LogLevel panics.
+func TestSetLogWriterInvalidLevel(t *testing.T) {
+	defer resetLoggers()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("SetLogWriter with invalid LogLevel should panic")
+		}
+	}()
+
+	var buf bytes.Buffer
+	SetLogWriter(LogLevel(99), &buf)
+}
+
+// TestNilWriterSafety tests that nil writers do not cause panics.
+func TestNilWriterSafety(t *testing.T) {
+	defer resetLoggers()
+
+	// All nil
+	SetLogWriters(LogWriters{})
+	Opsf("should not panic: %s", "nil ops")
+	Diagf("should not panic: %s", "nil diag")
+	Tracef("should not panic: %s", "nil trace")
+
+	// Partial nil
+	var buf bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &buf})
+	Opsf("ops ok")
+	Diagf("silent")
+	Tracef("silent")
+}
+
+// TestConcurrentStreamWrites tests concurrent writes across all three streams.
+func TestConcurrentStreamWrites(t *testing.T) {
+	defer resetLoggers()
+
+	var ops, diag, trace bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &ops, Diag: &diag, Trace: &trace})
+
+	var wg sync.WaitGroup
+	n := 50
+
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < n; i++ {
+			Opsf("ops %d", i)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < n; i++ {
+			Diagf("diag %d", i)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < n; i++ {
+			Tracef("trace %d", i)
+		}
+	}()
+
+	wg.Wait()
+
+	if ops.Len() == 0 {
+		t.Error("expected ops output from concurrent writes")
+	}
+	if diag.Len() == 0 {
+		t.Error("expected diag output from concurrent writes")
+	}
+	if trace.Len() == 0 {
+		t.Error("expected trace output from concurrent writes")
+	}
+}
+
+// resetLoggers clears all loggers to a clean state for test isolation.
+func resetLoggers() {
+	mu.Lock()
+	opsLogger = nil
+	diagLogger = nil
+	traceLogger = nil
+	mu.Unlock()
 }
