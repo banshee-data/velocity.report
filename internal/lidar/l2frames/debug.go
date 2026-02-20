@@ -46,3 +46,5 @@ func tracef(format string, args ...interface{}) {
 		traceLogger.Printf(format, args...)
 	}
 }
+
+// DO NOT add Debugf, that's an anti-pattern. match callsite needs to opsf,diagf,tracef
