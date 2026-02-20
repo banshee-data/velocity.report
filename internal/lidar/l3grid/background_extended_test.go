@@ -301,6 +301,7 @@ func TestResetGrid(t *testing.T) {
 		StartTime:  time.Now(),
 		HasSettled: true,
 	}
+	grid.RegionMgr = NewRegionManager(grid.Rings, grid.AzimuthBins)
 
 	// Reset the grid
 	err = bm.ResetGrid()

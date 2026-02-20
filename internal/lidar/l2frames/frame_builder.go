@@ -194,6 +194,66 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	return fb
 }
 
+// NewFrameBuilderDI creates a FrameBuilder without registering it in the
+// global registry. Prefer this constructor when wiring dependencies
+// explicitly via pipeline.SensorRuntime.
+func NewFrameBuilderDI(config FrameBuilderConfig) *FrameBuilder {
+	// Set reasonable defaults
+	if config.FrameBufferSize == 0 {
+		config.FrameBufferSize = 10 // buffer 10 frames for out-of-order processing
+	}
+	if config.AzimuthTolerance == 0 {
+		config.AzimuthTolerance = 10.0 // 10° tolerance for azimuth wrap detection
+	}
+	if config.MinFramePoints == 0 {
+		config.MinFramePoints = 1000 // minimum 1000 points for valid frame
+	}
+	if config.MaxBackfillDelay == 0 {
+		config.MaxBackfillDelay = 100 * time.Millisecond // wait 100ms for backfill
+	}
+	if config.BufferTimeout == 0 {
+		config.BufferTimeout = 1000 * time.Millisecond // wait 1s before finalizing
+	}
+	if config.CleanupInterval == 0 {
+		config.CleanupInterval = 250 * time.Millisecond // cleanup every 250ms
+	}
+
+	fb := &FrameBuilder{
+		sensorID:              config.SensorID,
+		frameCallback:         config.FrameCallback,
+		lastAzimuth:           -1.0, // invalid initial value to detect first point
+		azimuthTolerance:      config.AzimuthTolerance,
+		minFramePoints:        config.MinFramePoints,
+		sequenceGaps:          make(map[uint32]bool),
+		pendingPackets:        make(map[uint32][]Point),
+		maxBackfillDelay:      config.MaxBackfillDelay,
+		frameBuffer:           make(map[string]*LiDARFrame),
+		frameBufferSize:       config.FrameBufferSize,
+		bufferTimeout:         config.BufferTimeout,
+		cleanupInterval:       config.CleanupInterval,
+		expectedFrameDuration: config.ExpectedFrameDuration,
+		enableTimeBased:       config.EnableTimeBased,
+	}
+
+	// Start cleanup timer (protect with mutex to avoid race with timer callback)
+	fb.mu.Lock()
+	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
+	fb.mu.Unlock()
+
+	// Start serialised frame callback worker. The channel ensures that
+	// only one frame callback runs at a time, preventing concurrent
+	// tracker Update() and persistence operations that cause data races.
+	if fb.frameCallback != nil {
+		fb.frameCh = make(chan *LiDARFrame, 8)
+		fb.frameDone = make(chan struct{})
+		go fb.frameCallbackWorker()
+	}
+
+	// Note: Skip RegisterFrameBuilder call for DI version
+
+	return fb
+}
+
 // frameCallbackWorker processes frames sequentially from the frameCh channel.
 // This ensures that only one frame callback runs at a time, preventing
 // concurrent tracker Update() and persistence operations.

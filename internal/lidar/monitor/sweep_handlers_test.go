@@ -68,17 +68,6 @@ func TestWebServer_SetSweepAndAutoTuneRunner(t *testing.T) {
 }
 
 func TestSweepHandlers_SweepStart(t *testing.T) {
-	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/start", nil)
-		w := httptest.NewRecorder()
-
-		ws.handleSweepStart(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("runner not configured", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/start", strings.NewReader(`{}`))
@@ -150,16 +139,6 @@ func TestSweepHandlers_SweepStart(t *testing.T) {
 }
 
 func TestSweepHandlers_SweepStatusAndStop(t *testing.T) {
-	t.Run("status method not allowed", func(t *testing.T) {
-		ws := &WebServer{sweepRunner: &mockSweepHandlerRunner{}}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/status", nil)
-		w := httptest.NewRecorder()
-		ws.handleSweepStatus(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("status no runner", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/status", nil)
@@ -180,16 +159,6 @@ func TestSweepHandlers_SweepStatusAndStop(t *testing.T) {
 		}
 		if !strings.Contains(w.Body.String(), "running") {
 			t.Fatalf("expected body to contain running, got %q", w.Body.String())
-		}
-	})
-
-	t.Run("stop method not allowed", func(t *testing.T) {
-		ws := &WebServer{sweepRunner: &mockSweepHandlerRunner{}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/stop", nil)
-		w := httptest.NewRecorder()
-		ws.handleSweepStop(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
 		}
 	})
 
@@ -219,16 +188,6 @@ func TestSweepHandlers_SweepStatusAndStop(t *testing.T) {
 }
 
 func TestSweepHandlers_AutoTune(t *testing.T) {
-	t.Run("dispatcher method not allowed", func(t *testing.T) {
-		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweep/auto", nil)
-		w := httptest.NewRecorder()
-		ws.handleAutoTune(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("start no runner", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto", strings.NewReader(`{}`))
@@ -306,16 +265,6 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 		}
 	})
 
-	t.Run("stop method not allowed", func(t *testing.T) {
-		ws := &WebServer{autoTuneRunner: &mockSweepHandlerRunner{}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto/stop", nil)
-		w := httptest.NewRecorder()
-		ws.handleAutoTuneStop(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("stop no runner", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/stop", nil)
@@ -375,17 +324,6 @@ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 }
 
 func TestSweepHandlers_ListSweeps(t *testing.T) {
-	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweeps", nil)
-		w := httptest.NewRecorder()
-
-		ws.handleListSweeps(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("store not configured", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweeps", nil)
@@ -399,17 +337,6 @@ func TestSweepHandlers_ListSweeps(t *testing.T) {
 }
 
 func TestSweepHandlers_GetSweep(t *testing.T) {
-	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweeps/test-id", nil)
-		w := httptest.NewRecorder()
-
-		ws.handleGetSweep(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("store not configured", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweeps/test-id", nil)
@@ -436,17 +363,6 @@ func TestSweepHandlers_GetSweep(t *testing.T) {
 }
 
 func TestSweepHandlers_SweepCharts(t *testing.T) {
-	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweeps/charts", nil)
-		w := httptest.NewRecorder()
-
-		ws.handleSweepCharts(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("store not configured", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodPut, "/api/lidar/sweeps/charts", strings.NewReader(`{}`))
@@ -659,18 +575,6 @@ func TestWebServer_SetHINTRunner(t *testing.T) {
 }
 
 func TestHINTHandlers_Start(t *testing.T) {
-	t.Run("method not allowed on DELETE", func(t *testing.T) {
-		runner := &mockHINTRunner{}
-		ws := &WebServer{hintRunner: runner}
-		req := httptest.NewRequest(http.MethodDelete, "/api/lidar/sweep/hint", nil)
-		w := httptest.NewRecorder()
-
-		ws.handleHINT(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("not configured returns 503", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
@@ -754,17 +658,6 @@ func TestHINTHandlers_Status(t *testing.T) {
 }
 
 func TestHINTHandlers_Continue(t *testing.T) {
-	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{hintRunner: &mockHINTRunner{}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/hint/continue", nil)
-		w := httptest.NewRecorder()
-
-		ws.handleHINTContinue(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("not configured returns 503", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint/continue",
@@ -846,17 +739,6 @@ func TestHINTHandlers_Continue(t *testing.T) {
 }
 
 func TestHINTHandlers_Stop(t *testing.T) {
-	t.Run("method not allowed", func(t *testing.T) {
-		ws := &WebServer{hintRunner: &mockHINTRunner{}}
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/hint/stop", nil)
-		w := httptest.NewRecorder()
-
-		ws.handleHINTStop(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("success", func(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &WebServer{hintRunner: runner}

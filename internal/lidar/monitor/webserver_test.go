@@ -417,29 +417,6 @@ func TestWebServer_DataSourceStatus(t *testing.T) {
 	}
 }
 
-func TestWebServer_DataSourceStatus_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:        ":0",
-		Stats:          stats,
-		ParsingEnabled: true,
-		UDPPort:        2369,
-		UDPListenerConfig: network.UDPListenerConfig{
-			Address: ":0",
-		},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/data_source", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleDataSource(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected 405 MethodNotAllowed, got %d", rr.Code)
-	}
-}
-
 func BenchmarkWebServer_StatusHandler(b *testing.B) {
 	stats := NewPacketStats()
 
@@ -666,25 +643,6 @@ func TestWebServer_HandleGridStatus_MissingSensorID(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleGridStatus_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/grid_status?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleGridStatus(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandleGridStatus_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -719,25 +677,6 @@ func TestWebServer_HandleTrafficStats_NoStats(t *testing.T) {
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandleTrafficStats_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/traffic", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTrafficStats(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -795,25 +734,6 @@ func TestWebServer_HandleGridReset_MissingSensorID(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleGridReset_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid_reset?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleGridReset(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandleGridReset_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -849,25 +769,6 @@ func TestWebServer_HandleGridHeatmap_MissingSensorID(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandleGridHeatmap_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/grid_heatmap?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleGridHeatmap(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -1215,25 +1116,6 @@ func TestWebServer_HandleLidarSnapshots_MissingSensorID(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleLidarSnapshots_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshots?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarSnapshots(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandleLidarSnapshots_NoDB(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -1270,25 +1152,6 @@ func TestWebServer_HandleLidarSnapshotsCleanup_MissingSensorID(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandleLidarSnapshotsCleanup_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/cleanup?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarSnapshotsCleanup(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -1349,25 +1212,6 @@ func TestWebServer_HandleLidarStatus_Success(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleLidarStatus_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/status", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarStatus(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandleLidarPersist_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -1384,25 +1228,6 @@ func TestWebServer_HandleLidarPersist_MissingSensorID(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandleLidarPersist_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/persist?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarPersist(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -1441,25 +1266,6 @@ func TestWebServer_HandleLidarSnapshot_MissingSensorID(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandleLidarSnapshot_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshot?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarSnapshot(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -1502,25 +1308,6 @@ func TestWebServer_HandleAcceptanceMetrics_MissingSensorID(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleAcceptanceMetrics_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/acceptance?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleAcceptanceMetrics(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandleAcceptanceMetrics_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -1559,25 +1346,6 @@ func TestWebServer_HandleAcceptanceReset_MissingSensorID(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandleAcceptanceReset_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/acceptance/reset?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleAcceptanceReset(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandleAcceptanceReset_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -1594,26 +1362,6 @@ func TestWebServer_HandleAcceptanceReset_NoManager(t *testing.T) {
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandlePCAPStart_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/start?sensor_id=test-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handlePCAPStart(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -1678,26 +1426,6 @@ func TestWebServer_HandlePCAPStart_MissingPCAPFile(t *testing.T) {
 	}
 }
 
-func TestWebServer_HandlePCAPStop_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/stop?sensor_id=test-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handlePCAPStop(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandlePCAPStop_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -1735,26 +1463,6 @@ func TestWebServer_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 
 	if rr.Code != http.StatusConflict {
 		t.Errorf("expected 409, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandlePCAPResumeLive_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/resume_live?sensor_id=test-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handlePCAPResumeLive(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -1913,26 +1621,6 @@ func TestWebServer_HandleTuningParams_NoManager(t *testing.T) {
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestWebServer_HandleTuningParams_MethodNotAllowed(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/params?sensor_id=nonexistent", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTuningParams(rr, req)
-
-	// Handler checks sensor ID before method, so 404 may take precedence over 405
-	if rr.Code != http.StatusMethodNotAllowed && rr.Code != http.StatusNotFound {
-		t.Errorf("expected 405 or 404, got %d", rr.Code)
 	}
 }
 
@@ -2408,26 +2096,6 @@ func TestWebServer_HandleLidarSnapshotsCleanup_Additional(t *testing.T) {
 
 // Note: PCAP start/stop/resume tests are already defined earlier in this file
 
-func TestWebServer_HandlePCAPResumeLive_MethodNotAllowed_Simple(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "pcap-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/pcap/resume?sensor_id=pcap-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handlePCAPResumeLive(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
 func TestWebServer_HandlePCAPResumeLive_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := WebServerConfig{
@@ -2487,26 +2155,6 @@ func TestWebServer_HandleExportForegroundASC(t *testing.T) {
 	// May return various codes depending on state
 	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound && rr.Code != http.StatusInternalServerError {
 		t.Errorf("expected 200, 404, or 500, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestWebServer_HandleLidarSnapshot_MethodNotAllowed_Delete(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "snapshot-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/snapshot", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarSnapshot(rr, req)
-
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
 	}
 }
 
@@ -3313,27 +2961,6 @@ func TestWebServer_HandleLidarSnapshots_ListSaved(t *testing.T) {
 	server.handleLidarSnapshots(rec, req)
 
 	t.Logf("handleLidarSnapshots (saved) returned status %d", rec.Code)
-}
-
-func TestWebServer_HandleLidarSnapshots_MethodNotAllowed_POST(t *testing.T) {
-	stats := NewPacketStats()
-	config := WebServerConfig{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewWebServer(config)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/snapshots?sensor_id=test-sensor", nil)
-	rec := httptest.NewRecorder()
-
-	server.handleLidarSnapshots(rec, req)
-
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("got status %d, want %d", rec.Code, http.StatusMethodNotAllowed)
-	}
 }
 
 func TestWebServer_HandleExportFrameSequenceASC(t *testing.T) {

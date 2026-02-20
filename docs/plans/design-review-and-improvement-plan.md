@@ -1,12 +1,15 @@
 # Design Review and Improvement Plan
 
 Status: Draft
-Last reviewed: 2026-02-18
+Last reviewed: 2026-02-19
 Reference: [DESIGN.md](/DESIGN.md), [ARCHITECTURE.md](/ARCHITECTURE.md)
+Backlog: [BACKLOG.md](/BACKLOG.md) — P1 item 6
 
 ## Purpose
 
 Comprehensive audit of the repository against the design contract in DESIGN.md, identifying gaps, non-compliance, and areas for improvement. Each finding includes a severity, effort estimate, and recommended action.
+
+This document describes a single project (design contract compliance). The project-wide priority list lives in [BACKLOG.md](/BACKLOG.md).
 
 Severity levels: **Critical** (violates explicit DESIGN.md contract), **High** (undermines design goals), **Medium** (missed best practice), **Low** (polish/nice-to-have).
 
@@ -53,6 +56,7 @@ The macOS visualiser uses system/semantic colours only and currently renders no 
 ### 1.3 No single-source palette definition — Medium
 
 **Location:** Three independent definitions exist:
+
 - Python: `tools/pdf-generator/pdf_generator/core/config_manager.py` (canonical)
 - Web: `web/src/routes/+page.svelte` (non-compliant)
 - DESIGN.md §3.3 (specification)
@@ -74,11 +78,13 @@ There is no machine-readable single-source file that all platforms import or gen
 DESIGN.md §5.5 requires extracting repeated class bundles into named standard classes such as `vr-page`, `vr-toolbar`, `vr-control-row`, `vr-stat-grid`, and `vr-chart-card`. None of these exist.
 
 Current state:
+
 - `flex items-center` appears **40 times** across 13 files
 - `rounded` appears **61 times** across 13 files
 - Page layout, toolbar rows, stat grids, and card patterns are duplicated verbatim across lidar routes
 
 **Action:** Audit the four lidar route files (`tracks`, `scenes`, `runs`, `sweeps`) for repeated layout patterns. Extract at least:
+
 - `vr-page` (page container with standard padding/max-width)
 - `vr-toolbar` (control strip with flex row and gap)
 - `vr-stat-grid` (responsive stat cards grid)
@@ -165,6 +171,7 @@ Zero `<svg>` elements found in route-level `.svelte` files. **Compliant with DES
 ### 5.1 Lidar routes follow the four-tier hierarchy — No action
 
 The modern workspace routes (`tracks`, `scenes`, `runs`, `sweeps`) implement:
+
 1. Context header (page title, data source context)
 2. Control strip (filters, selectors)
 3. Primary workspace (data tables, track lists)
@@ -192,13 +199,13 @@ The main dashboard does not show the current site name, data range, or sensor co
 
 Combines HTTP handler registration, PCAP replay control, live UDP listening, ECharts chart generation, state management, and data source lifecycle in a single file. This is flagged in the existing plans but warrants a structured split:
 
-| Extracted file | Responsibility | Est. lines |
-|---|---|---|
-| `routes.go` | Route table registration | ~200 |
-| `data_source.go` | DataSourceManager lifecycle | ~400 |
-| `pcap_control.go` | PCAP replay start/stop/progress | ~500 |
-| `chart_handlers.go` | ECharts chart HTTP handlers | ~600 |
-| `grid_handlers.go` | Grid/heatmap HTTP handlers | ~400 |
+| Extracted file      | Responsibility                  | Est. lines |
+| ------------------- | ------------------------------- | ---------- |
+| `routes.go`         | Route table registration        | ~200       |
+| `data_source.go`    | DataSourceManager lifecycle     | ~400       |
+| `pcap_control.go`   | PCAP replay start/stop/progress | ~500       |
+| `chart_handlers.go` | ECharts chart HTTP handlers     | ~600       |
+| `grid_handlers.go`  | Grid/heatmap HTTP handlers      | ~400       |
 
 **Action:** Split incrementally. Start with extracting the route table (already uses grouped `[]route` slices per stored memory). This is covered in the existing prioritised work plan (P0-2) but lacks the specific file-level split targets above.
 
@@ -211,6 +218,7 @@ Combines HTTP handler registration, PCAP replay control, live UDP listening, ECh
 Mixes persistence, export, drift detection, and spatial region management with core grid processing. This is flagged in the layer alignment review (Future Work item 14). The layer migration plan targets moving this into `l3grid/`, but the file currently resides in the parent `internal/lidar/` package.
 
 **Action:** Split into:
+
 - `background.go` — core EMA grid processing
 - `background_persistence.go` — snapshot save/restore
 - `background_regions.go` — spatial region management
@@ -365,66 +373,3 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 **Action:** Align all documentation to the actual minimum version (3.12 per `tox.ini`). Update ARCHITECTURE.md and CONTRIBUTING.md accordingly.
 
 **Effort:** 15 minutes
-
----
-
-## Priority Summary
-
-### Immediate (this sprint)
-
-| # | Finding | Severity | Effort |
-|---|---------|----------|--------|
-| 1.1 | Web palette non-compliant | Critical | 1–2 hours |
-| 3.1 | Chart empty-state missing | Critical | 30 minutes |
-| 8.1 | DESIGN.md not referenced in CONTRIBUTING/README | High | 30 minutes |
-| 1.3 | No shared palette module | Medium | 2–4 hours |
-
-### Short-term (next 2 sprints)
-
-| # | Finding | Severity | Effort |
-|---|---------|----------|--------|
-| 2.1 | No shared CSS standard classes | High | 1–2 days |
-| 6.1 | webserver.go 4,009 lines | High | 2–3 days |
-| 6.2 | background.go 2,608 lines | High | 1–2 days |
-| 8.2 | PR template lacks design checklist | Medium | 30 minutes |
-| 7.2 | No accessibility testing | Medium | 4–8 hours |
-
-### Medium-term (next quarter)
-
-| # | Finding | Severity | Effort |
-|---|---------|----------|--------|
-| 7.1 | No visual regression testing | Medium | 1–2 days |
-| 7.3 | No E2E test infrastructure | Medium | 1–2 days |
-| 6.3 | CompareRuns in storage layer | Medium | 1 day |
-| 2.2 | No widescreen containment | Medium | 2–4 hours |
-| 3.3 | ECharts palette not cross-referenced | High | Phase 3 of frontend consolidation |
-
-### Deferred
-
-| # | Finding | Severity | Notes |
-|---|---------|----------|-------|
-| 1.2 | macOS palette | Low | When metric charts added |
-| 4.2 | LayerChart in lidar routes | Medium | When charts needed |
-| 10.1 | LAN-only authentication | Low | If deployment model changes |
-| 7.5 | Coverage thresholds | Low | After coverage improves |
-
----
-
-## Relationship to Existing Plans
-
-This review overlaps with and supplements these existing plans:
-
-| Existing plan | Overlap | This plan adds |
-|---|---|---|
-| `prioritized-upcoming-work-from-docs-20260217.md` (P0-1) | Layer code boundaries | Specific file-split targets for webserver.go and background.go |
-| `prioritized-upcoming-work-from-docs-20260217.md` (P0-2) | Route table refactor | File-level extraction plan for webserver.go |
-| `frontend-consolidation.md` (Phase 3) | ECharts → LayerChart | Palette alignment requirement during migration |
-| `frontend-consolidation.md` (Phase 0) | Capabilities API | Context header improvement for dashboard |
-
-Items unique to this review (not in existing plans):
-- Palette compliance fix (§1.1, §1.3)
-- CSS DRY standard classes (§2.1)
-- Chart empty-state placeholders (§3.1)
-- DESIGN.md documentation references (§8.1, §8.2)
-- Testing infrastructure (§7.1–§7.5)
-- Python version documentation alignment (§11.2)

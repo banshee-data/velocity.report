@@ -924,15 +924,6 @@ func TestRunTrackAPI_EvaluateRun(t *testing.T) {
 
 	ws := &WebServer{db: &db.DB{DB: sqlDB}}
 
-	t.Run("method not allowed", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/lidar/runs/"+runID+"/evaluate", nil)
-		w := httptest.NewRecorder()
-		ws.handleRunTrackAPI(w, req)
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("expected %d got %d", http.StatusMethodNotAllowed, w.Code)
-		}
-	})
-
 	t.Run("invalid json", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/evaluate", bytes.NewReader([]byte("{")))
 		w := httptest.NewRecorder()

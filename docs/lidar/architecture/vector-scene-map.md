@@ -1,8 +1,8 @@
 # 3D Vector Scene Map — Architecture Specification
 
-**Status:** Proposed  
-**Layer:** L4 Perception (extends `GroundSurface` interface)  
-**Related:** [ground-plane-extraction.md](ground-plane-extraction.md), [ground-plane-maths.md](ground-plane-maths.md), [lidar-data-layer-model.md](lidar-data-layer-model.md)  
+**Status:** Proposed
+**Layer:** L4 Perception (extends `GroundSurface` interface)
+**Related:** [ground-plane-extraction.md](ground-plane-extraction.md), [ground-plane-maths.md](ground-plane-maths.md), [lidar-data-layer-model.md](lidar-data-layer-model.md)
 **Date:** 2026-02
 
 ---
@@ -58,11 +58,11 @@ L1 Packets → L2 Frames → L3 Background Grid → L4 Perception → L5 Tracks 
 
 Every observable scene element falls into one of three geometric classes:
 
-| Class | Geometric Model | Typical Features | Primary Attribute |
-| ----- | --------------- | ---------------- | ----------------- |
-| **Ground** | Horizontal/sloped polygon + plane equation | Road surfaces, pavements, driveways, kerbs, crosswalks | Plane normal, elevation, planarity |
-| **Structure** | Vertical polygon(s) + height extent | Buildings, walls, fences, retaining walls, bridge piers | Wall-plane equation, height range, footprint |
-| **Volume** | 3D bounding shape (OBB, convex hull, or sphere) | Trees, hedges, awnings, overhanging signs, light poles | Approximate centre, bounding dimensions, density |
+| Class         | Geometric Model                                 | Typical Features                                        | Primary Attribute                                |
+| ------------- | ----------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------ |
+| **Ground**    | Horizontal/sloped polygon + plane equation      | Road surfaces, pavements, driveways, kerbs, crosswalks  | Plane normal, elevation, planarity               |
+| **Structure** | Vertical polygon(s) + height extent             | Buildings, walls, fences, retaining walls, bridge piers | Wall-plane equation, height range, footprint     |
+| **Volume**    | 3D bounding shape (OBB, convex hull, or sphere) | Trees, hedges, awnings, overhanging signs, light poles  | Approximate centre, bounding dimensions, density |
 
 ### 2.1 Ground Features
 
@@ -87,15 +87,15 @@ Ground features extend the existing `GroundTile` concept but replace the fixed g
 
 Each ground polygon stores:
 
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `Boundary` | `[][2]float64` | Ordered vertices defining polygon boundary (closed ring) |
-| `Normal` | `[3]float64` | Best-fit plane unit normal |
-| `Offset` | `float64` | Plane offset: **n** · **p** = d |
-| `Planarity` | `float32` | Eigenvalue-ratio confidence [0, 1] |
-| `PointCount` | `uint32` | Source point observations |
-| `Class` | `GroundClass` | `road`, `pavement`, `kerb`, `ramp`, `crosswalk`, `unknown` |
-| `LOD` | `uint8` | Level of detail (0 = coarsest, 3 = finest) |
+| Field        | Type           | Description                                                |
+| ------------ | -------------- | ---------------------------------------------------------- |
+| `Boundary`   | `[][2]float64` | Ordered vertices defining polygon boundary (closed ring)   |
+| `Normal`     | `[3]float64`   | Best-fit plane unit normal                                 |
+| `Offset`     | `float64`      | Plane offset: **n** · **p** = d                            |
+| `Planarity`  | `float32`      | Eigenvalue-ratio confidence [0, 1]                         |
+| `PointCount` | `uint32`       | Source point observations                                  |
+| `Class`      | `GroundClass`  | `road`, `pavement`, `kerb`, `ramp`, `crosswalk`, `unknown` |
+| `LOD`        | `uint8`        | Level of detail (0 = coarsest, 3 = finest)                 |
 
 **Key difference from tiles:** A single large polygon with 4–6 vertices replaces dozens of identical 1 m tiles for flat road segments. Corner positions are computed from the convex hull of contributing tile centres (or point clusters), giving **sub-tile positional accuracy** at polygon boundaries.
 
@@ -202,12 +202,12 @@ Storing all of this at maximum resolution everywhere is wasteful. Conversely, a 
 
 The vector scene map uses **four levels of detail (LOD 0–3)**, inspired by mapping conventions (zoom levels) and point cloud LOD systems:
 
-| LOD | Label | Typical Scale | Ground Resolution | Structure Resolution | Volume Resolution | Use Case |
-| --- | ----- | ------------- | ----------------- | -------------------- | ----------------- | -------- |
-| 0 | **Block** | > 50 m | Single polygon per road segment | Building footprint (rectangle) | Vegetation zone (bounding sphere) | Global map overview, neighbourhood context |
-| 1 | **Street** | 10–50 m | Polygon per lane or surface type | Simplified wall outlines (4–8 vertices) | Tree canopy OBBs | Street-level navigation, occlusion reasoning |
-| 2 | **Feature** | 2–10 m | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes with accurate corners | Trimmed convex hulls | Detailed mapping, GIS export, change detection |
-| 3 | **Survey** | < 2 m | Sub-metre polygons at high-accuracy zones | Wall planes with cm-level corner positions | Dense bounding volumes | Surveyed benchmarks, driveway dip profiles |
+| LOD | Label       | Typical Scale | Ground Resolution                              | Structure Resolution                         | Volume Resolution                 | Use Case                                       |
+| --- | ----------- | ------------- | ---------------------------------------------- | -------------------------------------------- | --------------------------------- | ---------------------------------------------- |
+| 0   | **Block**   | > 50 m        | Single polygon per road segment                | Building footprint (rectangle)               | Vegetation zone (bounding sphere) | Global map overview, neighbourhood context     |
+| 1   | **Street**  | 10–50 m       | Polygon per lane or surface type               | Simplified wall outlines (4–8 vertices)      | Tree canopy OBBs                  | Street-level navigation, occlusion reasoning   |
+| 2   | **Feature** | 2–10 m        | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes with accurate corners | Trimmed convex hulls              | Detailed mapping, GIS export, change detection |
+| 3   | **Survey**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes with cm-level corner positions   | Dense bounding volumes            | Surveyed benchmarks, driveway dip profiles     |
 
 ### LOD Hierarchy as a Tree
 
@@ -299,13 +299,13 @@ This produces LOD 0–1 ground polygons: large flat regions collapse into single
 
 LOD 2–3 features exist **only where justified** by one of:
 
-| Trigger | Description | Example |
-| ------- | ----------- | ------- |
-| **High curvature** | Adjacent LOD 1 polygons have plane normal difference > 5° | Kerb edges, driveway ramps, speed humps |
-| **Height discontinuity** | Z-offset jump > 10 cm at polygon boundary | Kerb step-ups, loading dock edges |
-| **High point density** | > 50 points/m² observed in a region | Near-field surfaces close to sensor |
-| **Explicit survey** | User or automated survey marks a region for detail | Driveway dip profile, intersection geometry |
-| **OSM anchor import** | Known geometric feature imported from OpenStreetMap | Crosswalk boundaries, stop lines |
+| Trigger                  | Description                                               | Example                                     |
+| ------------------------ | --------------------------------------------------------- | ------------------------------------------- |
+| **High curvature**       | Adjacent LOD 1 polygons have plane normal difference > 5° | Kerb edges, driveway ramps, speed humps     |
+| **Height discontinuity** | Z-offset jump > 10 cm at polygon boundary                 | Kerb step-ups, loading dock edges           |
+| **High point density**   | > 50 points/m² observed in a region                       | Near-field surfaces close to sensor         |
+| **Explicit survey**      | User or automated survey marks a region for detail        | Driveway dip profile, intersection geometry |
+| **OSM anchor import**    | Known geometric feature imported from OpenStreetMap       | Crosswalk boundaries, stop lines            |
 
 **Refinement process:**
 
@@ -330,14 +330,14 @@ The LOD 1 parent polygon is **preserved** — querying at LOD 1 still returns th
 
 **Pruning rules** prevent detail explosion:
 
-| Rule | Threshold | Effect |
-| ---- | --------- | ------ |
-| **Minimum polygon area** | > 0.25 m² (LOD 2), > 0.1 m² (LOD 3) | Prevents micro-polygons from noise |
-| **Minimum vertex count** | ≥ 3 (triangle minimum) | Degenerate geometries discarded |
-| **Maximum vertex count per polygon** | ≤ 32 (LOD 0–1), ≤ 64 (LOD 2–3) | Limits complex boundaries; simplify if exceeded |
-| **Planarity improvement threshold** | Splitting must improve planarity by ≥ 0.05 | Don't split if the children aren't meaningfully better |
-| **Confidence minimum** | ≥ 0.70 for any exported polygon | Low-confidence polygons stay at parent LOD |
-| **Stale timeout** | 120 s for LOD 2–3 features | Detailed features decay faster than coarse |
+| Rule                                 | Threshold                                  | Effect                                                 |
+| ------------------------------------ | ------------------------------------------ | ------------------------------------------------------ |
+| **Minimum polygon area**             | > 0.25 m² (LOD 2), > 0.1 m² (LOD 3)        | Prevents micro-polygons from noise                     |
+| **Minimum vertex count**             | ≥ 3 (triangle minimum)                     | Degenerate geometries discarded                        |
+| **Maximum vertex count per polygon** | ≤ 32 (LOD 0–1), ≤ 64 (LOD 2–3)             | Limits complex boundaries; simplify if exceeded        |
+| **Planarity improvement threshold**  | Splitting must improve planarity by ≥ 0.05 | Don't split if the children aren't meaningfully better |
+| **Confidence minimum**               | ≥ 0.70 for any exported polygon            | Low-confidence polygons stay at parent LOD             |
+| **Stale timeout**                    | 120 s for LOD 2–3 features                 | Detailed features decay faster than coarse             |
 
 **Vertex reduction (Douglas-Peucker):**
 
@@ -345,10 +345,10 @@ Polygon boundaries are simplified using the Douglas-Peucker algorithm with toler
 
 | LOD | Douglas-Peucker Tolerance | Typical Vertices per Polygon |
 | --- | ------------------------- | ---------------------------- |
-| 0 | 2.0 m | 4–6 |
-| 1 | 0.5 m | 6–12 |
-| 2 | 0.1 m | 8–24 |
-| 3 | 0.02 m | 12–48 |
+| 0   | 2.0 m                     | 4–6                          |
+| 1   | 0.5 m                     | 6–12                         |
+| 2   | 0.1 m                     | 8–24                         |
+| 3   | 0.02 m                    | 12–48                        |
 
 This ensures coarse polygons are extremely compact (4–6 vertices for a road block) while survey-grade detail can express sub-decimetre corner accuracy.
 
@@ -391,22 +391,22 @@ type VectorSceneMap struct {
 
 Compressed sizes assume gzip compression at ~4:1 ratio for tile grids (high redundancy in similar plane parameters) and ~3:1 for vector polygons (less redundancy due to variable geometry). These ratios are consistent with observed gzip performance on similar structured data (see `ground-plane-maths.md` §10.2).
 
-| Approach | Representation | Element Count | Per-Element Size | Total Raw | Total Compressed (~3–4:1) |
-| -------- | -------------- | ------------- | ---------------- | --------- | ------------------------- |
-| **Tiled grid (1 m)** | GroundTile | 10,000 | 128 bytes | 1.28 MB | ~320 KB (4:1) |
-| **Vector LOD 0** | Ground polygons | ~15 | ~100 bytes | ~1.5 KB | ~0.5 KB (3:1) |
-| **Vector LOD 0–1** | All polygons | ~50 | ~120 bytes | ~6 KB | ~2 KB (3:1) |
-| **Vector LOD 0–2** | All polygons | ~200 | ~140 bytes | ~28 KB | ~9 KB (3:1) |
-| **Vector LOD 0–3 (survey)** | All polygons | ~500 | ~180 bytes | ~90 KB | ~30 KB (3:1) |
+| Approach                    | Representation  | Element Count | Per-Element Size | Total Raw | Total Compressed (~3–4:1) |
+| --------------------------- | --------------- | ------------- | ---------------- | --------- | ------------------------- |
+| **Tiled grid (1 m)**        | GroundTile      | 10,000        | 128 bytes        | 1.28 MB   | ~320 KB (4:1)             |
+| **Vector LOD 0**            | Ground polygons | ~15           | ~100 bytes       | ~1.5 KB   | ~0.5 KB (3:1)             |
+| **Vector LOD 0–1**          | All polygons    | ~50           | ~120 bytes       | ~6 KB     | ~2 KB (3:1)               |
+| **Vector LOD 0–2**          | All polygons    | ~200          | ~140 bytes       | ~28 KB    | ~9 KB (3:1)               |
+| **Vector LOD 0–3 (survey)** | All polygons    | ~500          | ~180 bytes       | ~90 KB    | ~30 KB (3:1)              |
 
 Even at maximum detail (LOD 3 everywhere), the vector representation is **14× more compact** than the uniform tiled grid. In practice, LOD 3 is applied selectively to < 5% of the scene area, yielding typical storage around **10–30 KB compressed** for a full intersection.
 
 **Structure and volume features add modest overhead:**
 
-| Feature Type | Typical Count per Scene | Per-Feature Size | Total |
-| ------------ | ----------------------- | ---------------- | ----- |
-| Structure (building, wall) | 5–15 | ~200 bytes | ~3 KB |
-| Volume (tree, hedge) | 3–10 | ~120 bytes | ~1.2 KB |
+| Feature Type               | Typical Count per Scene | Per-Feature Size | Total   |
+| -------------------------- | ----------------------- | ---------------- | ------- |
+| Structure (building, wall) | 5–15                    | ~200 bytes       | ~3 KB   |
+| Volume (tree, hedge)       | 3–10                    | ~120 bytes       | ~1.2 KB |
 
 **Total scene budget (100 m × 100 m):** ~35 KB compressed (ground + structures + vegetation at mixed LOD).
 
@@ -446,12 +446,12 @@ CREATE TABLE IF NOT EXISTS vector_scene_snapshots (
 
 ### 5.4 Export Formats
 
-| Format | Use Case | Ground | Structures | Volumes |
-| ------ | -------- | ------ | ---------- | ------- |
-| **GeoJSON** | GIS tools (QGIS, Mapbox) | Polygon features with plane properties | Polygon features with height properties | Point features with bounding metadata |
-| **GeoPackage** | Offline GIS with multi-layer | Separate layer per class | Separate layer per class | Separate layer per class |
-| **VTK PolyData** | ParaView / LidarView | PolyData with cell normals | PolyData with wall planes | Glyph data (OBBs as boxes) |
-| **CityJSON** | 3D city modelling | Terrain surface | LOD 1–2 building shells | Vegetation objects |
+| Format           | Use Case                     | Ground                                 | Structures                              | Volumes                               |
+| ---------------- | ---------------------------- | -------------------------------------- | --------------------------------------- | ------------------------------------- |
+| **GeoJSON**      | GIS tools (QGIS, Mapbox)     | Polygon features with plane properties | Polygon features with height properties | Point features with bounding metadata |
+| **GeoPackage**   | Offline GIS with multi-layer | Separate layer per class               | Separate layer per class                | Separate layer per class              |
+| **VTK PolyData** | ParaView / LidarView         | PolyData with cell normals             | PolyData with wall planes               | Glyph data (OBBs as boxes)            |
+| **CityJSON**     | 3D city modelling            | Terrain surface                        | LOD 1–2 building shells                 | Vegetation objects                    |
 
 GeoJSON remains the default export, consistent with the ground plane export specification. Structure: one `FeatureCollection` per class, filtered by LOD:
 
@@ -571,6 +571,7 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 ### 6.4 Volume Extraction
 
 **Input:** L4 clusters that are:
+
 - Not classified as ground (height above ground > 0.5 m)
 - Not classified as structure (low planarity, scattered returns)
 - Persistent across multiple frames (static background objects)

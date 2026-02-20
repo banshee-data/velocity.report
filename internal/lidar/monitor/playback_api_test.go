@@ -58,12 +58,6 @@ func TestHandlePlaybackStatus(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:           "POST method not allowed",
-			method:         http.MethodPost,
-			getStatus:      nil,
-			expectedStatus: http.StatusMethodNotAllowed,
-		},
 	}
 
 	for _, tt := range tests {
@@ -112,12 +106,6 @@ func TestHandlePlaybackPause(t *testing.T) {
 			onPause:        func() {},
 			expectedStatus: http.StatusOK,
 		},
-		{
-			name:           "GET method not allowed",
-			method:         http.MethodGet,
-			onPause:        func() {},
-			expectedStatus: http.StatusMethodNotAllowed,
-		},
 	}
 
 	for _, tt := range tests {
@@ -157,12 +145,6 @@ func TestHandlePlaybackPlay(t *testing.T) {
 			method:         http.MethodPost,
 			onPlay:         func() {},
 			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "GET method not allowed",
-			method:         http.MethodGet,
-			onPlay:         func() {},
-			expectedStatus: http.StatusMethodNotAllowed,
 		},
 	}
 
@@ -220,13 +202,6 @@ func TestHandlePlaybackSeek(t *testing.T) {
 			body:           `invalid json`,
 			onSeek:         func(ts int64) error { return nil },
 			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "GET method not allowed",
-			method:         http.MethodGet,
-			body:           ``,
-			onSeek:         func(ts int64) error { return nil },
-			expectedStatus: http.StatusMethodNotAllowed,
 		},
 	}
 
@@ -298,13 +273,6 @@ func TestHandlePlaybackRate(t *testing.T) {
 			body:           `invalid json`,
 			onRate:         func(r float32) {},
 			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "GET method not allowed",
-			method:         http.MethodGet,
-			body:           ``,
-			onRate:         func(r float32) {},
-			expectedStatus: http.StatusMethodNotAllowed,
 		},
 	}
 
@@ -400,14 +368,6 @@ func TestHandleVRLogLoad(t *testing.T) {
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
-		{
-			name:           "GET method not allowed",
-			method:         http.MethodGet,
-			body:           ``,
-			onLoad:         func(path string) error { return nil },
-			vrlogSafeDir:   "/var/lib/velocity-report",
-			expectedStatus: http.StatusMethodNotAllowed,
-		},
 	}
 
 	for _, tt := range tests {
@@ -448,12 +408,6 @@ func TestHandleVRLogStop(t *testing.T) {
 			method:         http.MethodPost,
 			onStop:         func() {},
 			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "GET method not allowed",
-			method:         http.MethodGet,
-			onStop:         func() {},
-			expectedStatus: http.StatusMethodNotAllowed,
 		},
 	}
 

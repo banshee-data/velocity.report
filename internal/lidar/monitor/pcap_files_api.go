@@ -25,11 +25,6 @@ type PcapFileInfo struct {
 //
 // GET /api/lidar/pcap/files
 func (ws *WebServer) handleListPCAPFiles(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.pcapSafeDir == "" {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "PCAP directory not configured")
 		return

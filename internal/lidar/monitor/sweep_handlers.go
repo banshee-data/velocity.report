@@ -43,11 +43,6 @@ type HINTRunner interface {
 
 // handleSweepStart starts a parameter sweep
 func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep runner not configured")
 		return
@@ -77,11 +72,6 @@ func (ws *WebServer) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 
 // handleSweepStatus returns the current sweep state
 func (ws *WebServer) handleSweepStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep runner not configured")
 		return
@@ -94,11 +84,6 @@ func (ws *WebServer) handleSweepStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleSweepStop cancels a running sweep
 func (ws *WebServer) handleSweepStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep runner not configured")
 		return
@@ -161,11 +146,6 @@ func (ws *WebServer) handleAutoTuneStatus(w http.ResponseWriter, r *http.Request
 
 // handleAutoTuneStop cancels a running auto-tune
 func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.autoTuneRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
 		return
@@ -178,11 +158,6 @@ func (ws *WebServer) handleAutoTuneStop(w http.ResponseWriter, r *http.Request) 
 
 // handleAutoTuneSuspend suspends a running auto-tune, saving a checkpoint to the database.
 func (ws *WebServer) handleAutoTuneSuspend(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.autoTuneRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
 		return
@@ -201,11 +176,6 @@ func (ws *WebServer) handleAutoTuneSuspend(w http.ResponseWriter, r *http.Reques
 // The request body may include {"sweep_id":"..."} to resume a specific
 // sweep from the database (e.g. after a server restart).
 func (ws *WebServer) handleAutoTuneResume(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.autoTuneRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "auto-tune runner not configured")
 		return
@@ -236,11 +206,6 @@ func (ws *WebServer) handleAutoTuneResume(w http.ResponseWriter, r *http.Request
 // database, if any. Used by the dashboard to offer a "resume" option after
 // a server restart when in-memory state has been lost.
 func (ws *WebServer) handleAutoTuneSuspended(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepStore == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
 		return
@@ -329,11 +294,6 @@ func (ws *WebServer) handleHINTStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleHINTContinue signals the HINT tuner to proceed from labels to sweep.
 func (ws *WebServer) handleHINTContinue(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.hintRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "HINT runner not configured")
 		return
@@ -370,11 +330,6 @@ func (ws *WebServer) handleHINTContinue(w http.ResponseWriter, r *http.Request) 
 
 // handleHINTStop cancels a running HINT sweep.
 func (ws *WebServer) handleHINTStop(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.hintRunner == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "HINT runner not configured")
 		return
@@ -387,11 +342,6 @@ func (ws *WebServer) handleHINTStop(w http.ResponseWriter, r *http.Request) {
 
 // handleListSweeps returns a list of recent sweep records for the current sensor.
 func (ws *WebServer) handleListSweeps(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepStore == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
 		return
@@ -421,11 +371,6 @@ func (ws *WebServer) handleListSweeps(w http.ResponseWriter, r *http.Request) {
 
 // handleGetSweep returns a single sweep record with full results.
 func (ws *WebServer) handleGetSweep(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepStore == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
 		return
@@ -455,11 +400,6 @@ func (ws *WebServer) handleGetSweep(w http.ResponseWriter, r *http.Request) {
 
 // handleSweepCharts saves chart configuration for a sweep.
 func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepStore == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
 		return
@@ -507,11 +447,6 @@ func (ws *WebServer) handleSweepCharts(w http.ResponseWriter, r *http.Request) {
 
 // handleSweepExplain returns a score explanation for a sweep.
 func (ws *WebServer) handleSweepExplain(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	if ws.sweepStore == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "sweep store not configured")
 		return

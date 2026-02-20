@@ -107,17 +107,6 @@ func TestSweepHandlers_GetSweep_NotFound(t *testing.T) {
 	}
 }
 
-func TestSweepHandlers_SweepExplain_MethodNotAllowed(t *testing.T) {
-	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/explain/test", nil)
-	w := httptest.NewRecorder()
-
-	ws.handleSweepExplain(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected 405, got %d", w.Code)
-	}
-}
-
 func TestSweepHandlers_SweepExplain_StoreNotConfigured(t *testing.T) {
 	ws := &WebServer{}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/explain/test", nil)
@@ -217,17 +206,6 @@ func TestHINTHandlers_StopSuccess(t *testing.T) {
 	}
 	if runner.stopCalls != 1 {
 		t.Fatalf("expected 1 stop call, got %d", runner.stopCalls)
-	}
-}
-
-func TestHINTHandlers_StopMethodNotAllowed(t *testing.T) {
-	ws := &WebServer{hintRunner: &mockHINTRunner{}}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/hint/stop", nil)
-	w := httptest.NewRecorder()
-
-	ws.handleHINTStop(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected 405, got %d", w.Code)
 	}
 }
 

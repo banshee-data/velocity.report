@@ -6,12 +6,7 @@ Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P integrati
 
 ### `architecture/`
 
-Core system design and implementation specifications.
-
-- **Technical overview** of the LiDAR processing pipeline
-- **Foreground tracking pipeline** implementation (Phases 2.9–3.7)
-- **Background grid standards** comparison with industry formats
-- **AV range image format** design for dual-return support (future)
+Core system design and implementation specifications. See [architecture/README.md](architecture/README.md) for the consolidated architecture overview including the six-layer model and current package layout.
 
 ### `operations/`
 
@@ -113,10 +108,10 @@ Tracking pipeline refactor and upgrade proposals.
 
 #### Phase 3.8: Tracking Upgrades (Jan 2026)
 
-- ✅ Hungarian (Kuhn-Munkres) optimal assignment (`internal/lidar/hungarian.go`)
-- ✅ Height-based ground removal (`internal/lidar/ground.go`)
-- ✅ PCA-oriented bounding boxes with temporal smoothing (`internal/lidar/obb.go`)
-- ✅ Occlusion coasting — MaxMissesConfirmed=15 (`internal/lidar/tracking.go`)
+- ✅ Hungarian (Kuhn-Munkres) optimal assignment (`internal/lidar/l5tracks/hungarian.go`)
+- ✅ Height-based ground removal (`internal/lidar/l4perception/ground.go`)
+- ✅ PCA-oriented bounding boxes with temporal smoothing (`internal/lidar/l4perception/obb.go`)
+- ✅ Occlusion coasting — MaxMissesConfirmed=15 (`internal/lidar/l5tracks/tracking.go`)
 - ✅ Debug overlay emission via gRPC (`internal/lidar/debug/collector.go`)
 
 #### Phase 3.9: Adaptive Regions & Sweep System (Jan–Feb 2026)
@@ -169,47 +164,6 @@ See: [`docs/plans/track-labeling-ui-plan.md`](../plans/track-labeling-ui-plan.md
 - ✅ Port 2370 packet corruption (RawBlockAzimuth preservation)
 - ✅ recFg accumulation during freeze (reset on thaw)
 
-### Planned Work (Priority Order)
+### Planned Work
 
-#### P0: Track Labelling Enhancements (Remaining Phase 4.0)
-
-- Ground truth evaluation engine (temporal IoU, Hungarian matching)
-- Label-aware auto-tuning (composite scoring vs reference)
-- Web playback controls (optional parity with macOS visualiser)
-- `lidar_transits` table for dashboard/report integration
-
-#### P1: ML Classification Pipeline (Phase 4.1–4.3)
-
-- Feature extraction (spatial, kinematic, temporal, intensity)
-- Python training pipeline (scikit-learn / RandomForest)
-- ONNX model export for Go inference
-- Rule-based → ML classifier with fallback
-- See: [`roadmap/ml_pipeline_roadmap.md`](roadmap/ml_pipeline_roadmap.md)
-
-#### P2: Tracking Upgrades (Remaining)
-
-- Voxel grid preprocessing
-- Constant acceleration motion model
-- Feature extraction for ML training
-- See: [`refactor/01-tracking-upgrades.md`](refactor/01-tracking-upgrades.md)
-
-#### P2: Settling Time Optimisation (Phases 3–4)
-
-- Settling evaluation tool
-- Adaptive convergence-based settling
-- See: [`operations/settling-time-optimization.md`](operations/settling-time-optimization.md)
-
-#### P3: Velocity-Coherent Clustering (Design Only)
-
-- 6D DBSCAN (position + velocity space)
-- Long-tail tracking, sparse continuation, fragment merging
-- See: [`future/velocity-coherent-foreground-extraction.md`](future/velocity-coherent-foreground-extraction.md)
-
-### Deferred (Research / AV Integration)
-
-- AV dataset format alignment (7-DOF, 28-class taxonomy, Parquet)
-- Motion capture / moving sensor support (7-DOF pose, ego-motion)
-- Static pose alignment (3D Kalman, oriented boxes)
-- Background grid standard exports (VTK, PCD)
-
-See `roadmap/ml_pipeline_roadmap.md` for detailed Phase 4.0–4.3 planning.
+See [BACKLOG.md](/BACKLOG.md) for the project-wide priority list with links to design documents.
