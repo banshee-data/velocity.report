@@ -6,32 +6,32 @@ import (
 	"testing"
 )
 
-func TestSetDebugLogger_Enable(t *testing.T) {
+func TestSetLogWriters_Enable(t *testing.T) {
 	var buf bytes.Buffer
-	SetDebugLogger(&buf)
-	defer SetDebugLogger(nil)
+	SetLogWriters(&buf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
 
-	if debugLogger == nil {
-		t.Fatal("debugLogger should be non-nil after SetDebugLogger with a writer")
+	if opsLogger == nil {
+		t.Fatal("opsLogger should be non-nil after SetLogWriters with a writer")
 	}
 }
 
-func TestSetDebugLogger_Disable(t *testing.T) {
+func TestSetLogWriters_Disable(t *testing.T) {
 	var buf bytes.Buffer
-	SetDebugLogger(&buf)
-	SetDebugLogger(nil)
+	SetLogWriters(&buf, nil, nil)
+	SetLogWriters(nil, nil, nil)
 
-	if debugLogger != nil {
-		t.Fatal("debugLogger should be nil after SetDebugLogger(nil)")
+	if opsLogger != nil {
+		t.Fatal("opsLogger should be nil after SetLogWriters(nil, nil, nil)")
 	}
 }
 
-func TestDebugf_WithLogger(t *testing.T) {
+func TestOpsf_WithLogger(t *testing.T) {
 	var buf bytes.Buffer
-	SetDebugLogger(&buf)
-	defer SetDebugLogger(nil)
+	SetLogWriters(&buf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
 
-	Debugf("hello %s %d", "world", 42)
+	opsf("hello %s %d", "world", 42)
 
 	output := buf.String()
 	if !strings.Contains(output, "hello world 42") {
@@ -42,19 +42,19 @@ func TestDebugf_WithLogger(t *testing.T) {
 	}
 }
 
-func TestDebugf_WithoutLogger(t *testing.T) {
-	SetDebugLogger(nil)
+func TestOpsf_WithoutLogger(t *testing.T) {
+	SetLogWriters(nil, nil, nil)
 
 	// Should not panic when no logger is configured.
-	Debugf("this should be silently discarded: %d", 123)
+	opsf("this should be silently discarded: %d", 123)
 }
 
-func TestDebugf_Internal(t *testing.T) {
+func TestDiagf_WithLogger(t *testing.T) {
 	var buf bytes.Buffer
-	SetDebugLogger(&buf)
-	defer SetDebugLogger(nil)
+	SetLogWriters(nil, &buf, nil)
+	defer SetLogWriters(nil, nil, nil)
 
-	debugf("internal %s", "test")
+	diagf("internal %s", "test")
 
 	output := buf.String()
 	if !strings.Contains(output, "internal test") {
@@ -62,9 +62,29 @@ func TestDebugf_Internal(t *testing.T) {
 	}
 }
 
-func TestDebugf_Internal_NilLogger(t *testing.T) {
-	SetDebugLogger(nil)
+func TestDiagf_NilLogger(t *testing.T) {
+	SetLogWriters(nil, nil, nil)
 
 	// Should not panic.
-	debugf("no-op %d", 1)
+	diagf("no-op %d", 1)
+}
+
+func TestTracef_WithLogger(t *testing.T) {
+	var buf bytes.Buffer
+	SetLogWriters(nil, nil, &buf)
+	defer SetLogWriters(nil, nil, nil)
+
+	tracef("trace %s", "event")
+
+	output := buf.String()
+	if !strings.Contains(output, "trace event") {
+		t.Errorf("expected output to contain 'trace event', got %q", output)
+	}
+}
+
+func TestTracef_NilLogger(t *testing.T) {
+	SetLogWriters(nil, nil, nil)
+
+	// Should not panic.
+	tracef("no-op %d", 1)
 }
