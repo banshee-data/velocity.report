@@ -242,9 +242,9 @@
 	});
 </script>
 
-<main id="main-content" class="bg-surface-200 flex h-[calc(100vh-64px)] flex-col overflow-hidden">
+<main id="main-content" class="vr-page">
 	<!-- Header -->
-	<div class="border-surface-content/10 bg-surface-100 flex-none border-b px-6 py-4">
+	<div class="vr-toolbar">
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">LiDAR Scenes</h1>

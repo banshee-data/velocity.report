@@ -556,11 +556,7 @@
 			</div>
 		{/if}
 
-		<div
-			class="grid grid-cols-1 gap-4 md:grid-cols-2"
-			role="region"
-			aria-label="Traffic statistics summary"
-		>
+		<div class="vr-stat-grid" role="region" aria-label="Traffic statistics summary">
 			<Card title="Vehicle Count" role="article">
 				<div class="pt-0 pr-4 pb-4 pl-4">
 					<p class="text-3xl font-bold text-blue-600" aria-label="Total vehicle count">

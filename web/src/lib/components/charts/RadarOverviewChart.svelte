@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { RadarStats } from '$lib/api';
+	import { PERCENTILE_COLOURS } from '$lib/palette';
 	import { scaleLinear } from 'd3-scale';
 	import type { TimeInterval } from 'd3-time';
 	import { Axis, Bars, Chart, Grid, Layer, Points, Rule, Spline, Voronoi } from 'layerchart';
@@ -31,12 +32,12 @@
 	};
 
 	const COLORS = {
-		p50: '#fbd92f',
-		p85: '#f7b32b',
-		p98: '#f25f5c',
-		max: '#2d1e2f',
-		count: '#2d1e2f',
-		lowSample: '#f7b32b'
+		p50: PERCENTILE_COLOURS.p50,
+		p85: PERCENTILE_COLOURS.p85,
+		p98: PERCENTILE_COLOURS.p98,
+		max: PERCENTILE_COLOURS.max,
+		count: PERCENTILE_COLOURS.count_bar,
+		lowSample: PERCENTILE_COLOURS.low_sample
 	};
 
 	const CHART_PADDING = { top: 16, right: 58, bottom: 42, left: 84 };

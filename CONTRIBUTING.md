@@ -140,6 +140,19 @@ Prefix commit messages with the primary language or purpose:
 
 **Multiple tags:** When a commit affects multiple languages, include all relevant tags. Prefer splitting into separate commits when practical.
 
+## Design Language
+
+All UI and chart work must follow the design contract in **[DESIGN.md](DESIGN.md)**. Key requirements:
+
+- Use the **canonical percentile colour palette** (DESIGN.md §3.3) for all chart stacks.
+- Follow the **information hierarchy**: context header → control strip → primary workspace → detail/inspector.
+- Use **svelte-ux** components first; only fall back to native HTML with justification.
+- Use **LayerChart/d3-scale** for charts; avoid ad-hoc route-level SVG.
+- Extract repeated class bundles into **shared standard classes** (DESIGN.md §5.5).
+- Include explicit **loading/empty/error states** for charts.
+
+See DESIGN.md §9 for the full UI/chart PR checklist.
+
 ## Pull Request Process
 
 1. **Fork & branch** — Create a feature branch from `main`
