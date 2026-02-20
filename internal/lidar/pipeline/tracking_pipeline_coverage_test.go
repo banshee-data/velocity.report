@@ -205,8 +205,8 @@ func makeStableFrame(id string, ts time.Time, distance float64) *l2frames.LiDARF
 // makeForegroundFrame creates a frame with stable background + a tight cluster
 // of foreground points at a very different distance (closer). All foreground
 // points hit the SAME grid cell (fgChannel / fgAzimuth) that was seeded by
-// makeStableFrame. Because they share Cartesian coordinates, DBSCAN trivially
-// clusters them (minPts ≤ count).
+// makeStableFrame. Points are slightly spread in distance so the resulting world
+// cluster has a non-zero diameter (DBSCAN rejects diameter < 0.05 m).
 func makeForegroundFrame(id string, ts time.Time, bgDist, fgDist float64) *l2frames.LiDARFrame {
 	points := make([]l2frames.Point, 0, 60)
 	// Background points – same spread as seed frames
@@ -219,12 +219,16 @@ func makeForegroundFrame(id string, ts time.Time, bgDist, fgDist float64) *l2fra
 			Timestamp: ts,
 		})
 	}
-	// Foreground cluster: 20 points all in the seeded cell.
+	// Foreground cluster: 20 points all in the seeded cell but with slight
+	// distance spread (±0.05 m) so the world-space cluster exceeds the min
+	// diameter threshold (0.05 m). The distance variation stays well within
+	// the background delta so all points remain foreground.
 	for i := 0; i < 20; i++ {
+		d := fgDist + float64(i-10)*0.01 // ±0.1 m spread
 		points = append(points, l2frames.Point{
 			Channel:   fgChannel,
 			Azimuth:   fgAzimuth,
-			Distance:  fgDist,
+			Distance:  d,
 			Intensity: 200,
 			Timestamp: ts,
 		})
