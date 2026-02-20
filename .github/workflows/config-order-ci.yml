@@ -29,7 +29,7 @@ permissions:
   contents: read
 
 jobs:
-  config-order-check:
+  check-config-order:
     name: "🔍 Config Key Order"
     runs-on: ubuntu-latest
     steps:
@@ -37,10 +37,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run key-order check
-        run: make config-order-check
+        run: make check-config-order
 
       # @TODO(config-parity): remove continue-on-error once webserver POST input
       # reaches full key + order parity with tuning defaults/schema.
       - name: Run README.maths strict parity check (optional for now)
         continue-on-error: true
-        run: make readme-maths-check-strict
+        run: make check-config-maths-strict

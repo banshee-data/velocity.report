@@ -94,10 +94,10 @@ help:
 	@echo "  lint-go              Check Go formatting"
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
-	@echo "  config-order-check   Validate tuning key order consistency"
-	@echo "  config-order-sync    Rewrite tuning sources to canonical key order"
-	@echo "  readme-maths-check   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
-	@echo "  readme-maths-check-strict Validate README.maths keys with strict webserver parity"
+	@echo "  check-config-order   Validate tuning key order consistency"
+	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
+	@echo "  check-config-maths   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
+	@echo "  check-config-maths-strict Validate README.maths keys with strict webserver parity"
 	@echo ""
 	@echo "PDF GENERATOR:"
 	@echo "  pdf-check-latex-parity Verify package parity between document builder and format ini"
@@ -951,16 +951,16 @@ format-sql:
 lint: lint-go lint-python lint-web
 	@echo "\nAll lint checks passed."
 
-.PHONY: config-order-check config-order-sync
+.PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
-config-order-check:
+check-config-order:
 	@./scripts/config-order-sync \
 		--main-go-struct internal/config/tuning.go:TuningConfig \
 		--discover \
 		--md-target config/README.md \
 		--check
 
-config-order-sync:
+sync-config-order:
 	@./scripts/config-order-sync \
 		--main-json config/tuning.defaults.json \
 		--discover \
@@ -970,13 +970,21 @@ config-order-sync:
 		--discover \
 		--md-target config/README.md
 
-.PHONY: readme-maths-check readme-maths-check-strict
+config-order-check: check-config-order
 
-readme-maths-check:
+config-order-sync: sync-config-order
+
+.PHONY: check-config-maths check-config-maths-strict readme-maths-check readme-maths-check-strict
+
+check-config-maths:
 	@./scripts/readme-maths-check
 
-readme-maths-check-strict:
+check-config-maths-strict:
 	@./scripts/readme-maths-check --webserver-mode exact
+
+readme-maths-check: check-config-maths
+
+readme-maths-check-strict: check-config-maths-strict
 
 lint-go:
 	@echo "Checking Go formatting (gofmt -l)..."

@@ -8,7 +8,7 @@ Canonical order/source:
 
 - `config/tuning.defaults.json`
 - `internal/config/tuning.go` (`TuningConfig` JSON tag order)
-- strict verifier: `make readme-maths-check-strict`
+- strict verifier: `make check-config-maths-strict`
 
 ## Current Gap
 
@@ -36,11 +36,11 @@ Also, the POST body key declaration order is grouped by subsystem, not canonical
 4. Add/update endpoint tests to verify all canonical keys are accepted and applied.
 5. Flip CI check back to required strict mode:
    - remove `continue-on-error` in `.github/workflows/config-order-ci.yml`
-   - keep `make readme-maths-check-strict` as the enforced command
+   - keep `make check-config-maths-strict` as the enforced command
 
 ## Definition Of Done
 
-- `make readme-maths-check-strict` passes.
+- `make check-config-maths-strict` passes.
 - CI strict step is required (not optional).
 - POST input schema keys and order match canonical config order.
 

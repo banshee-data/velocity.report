@@ -59,4 +59,4 @@ Config/math coupling for this plan is canonical in:
 
 Downstream mapping docs must sync from that file via:
 
-- `make readme-maths-check`
+- `make check-config-maths`
