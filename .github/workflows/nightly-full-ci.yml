@@ -1,0 +1,425 @@
+name: 🌙 Nightly Full CI
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.25"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  go-core-race:
+    name: "🧪 Go Core (race)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build web stub for embed
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Run core tests with race detector
+        run: |
+          go test -race -tags=pcap \
+            ./internal/db/... \
+            ./internal/radar/... \
+            ./internal/serialmux/... \
+            ./internal/security/... \
+            ./internal/units/... \
+            ./internal/timeutil/... \
+            ./internal/httputil/... \
+            ./internal/testutil/... \
+            ./internal/fsutil/... \
+            ./internal/monitoring/... \
+            ./internal/deploy/... \
+            ./cmd/deploy/...
+
+  go-lidar-race:
+    name: "🧪 Go LiDAR (race)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Validate LFS files
+        run: ./scripts/validate-lfs-files.sh
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install system dependencies (libpcap)
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build web stub for embed
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Run LiDAR tests with race detector
+        run: |
+          go test -race -tags=pcap -p 2 \
+            ./internal/lidar/...
+
+  go-integration-race:
+    name: "🧪 Go Integration (race)"
+    runs-on: ubuntu-latest
+    needs: [go-core-race, go-lidar-race]
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Validate LFS files
+        run: ./scripts/validate-lfs-files.sh
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install system dependencies (libpcap)
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Install TeX Live
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            texlive-xetex \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-fonts-recommended
+
+      - name: Build minimal TeX tree
+        run: make build-texlive-minimal
+
+      - name: Setup pnpm and build web
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          cd web
+          pnpm install
+          pnpm run build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "requirements.txt"
+
+      - name: Install Python dependencies
+        run: make install-python
+
+      - name: Run API integration tests with race detector
+        env:
+          VELOCITY_TEX_ROOT: ${{ github.workspace }}/build/texlive-minimal
+        run: |
+          go test -race -tags=pcap ./internal/api/...
+
+  web-full:
+    name: "🌐 Web Full"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js with pnpm
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: web
+
+      - name: Run lint
+        run: pnpm run lint
+
+      - name: Run tests
+        run: pnpm run test:ci
+
+      - name: Build production bundle
+        run: pnpm run build
+
+  python-full:
+    name: "🐍 Python Full"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "requirements.txt"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check LaTeX package parity
+        run: python tools/pdf-generator/scripts/check_latex_package_parity.py
+
+      - name: Run Python test suite
+        working-directory: tools/pdf-generator
+        run: python -m pytest -v
+
+  docs-math-consistency:
+    name: "📚 Docs + Math Consistency"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js with pnpm (docs)
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: public_html
+
+      - name: Build docs
+        run: make build-docs
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build web stub for embed
+        run: ./scripts/ensure-web-stub.sh
+
+      - name: Run schema consistency check
+        run: go test ./internal/db -run '^TestSchemaConsistency$'
+
+      - name: Run math-focused Go checks
+        run: |
+          go test ./internal/units/...
+          go test -tags=pcap ./internal/api -run '^TestConvertEventAPISpeed$|^TestShowRadarObjectStats_CosineCorrection$'
+          go test ./internal/db -run '^TestRadarObjectRollupRangeCosineCorrection$|^TestRadarDataRollupRangeCosineCorrection$'
+
+  mac-setup:
+    name: "🍎 macOS Setup"
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache grpc-swift plugin
+        id: cache-grpc-swift
+        uses: actions/cache@v4
+        with:
+          path: /tmp/protoc-gen-grpc-swift
+          key: grpc-swift-protobuf-2.0.0-macos-15
+
+      - name: Build grpc-swift plugin from source
+        if: steps.cache-grpc-swift.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch 2.0.0 https://github.com/grpc/grpc-swift-protobuf.git /tmp/grpc-swift-protobuf
+          cd /tmp/grpc-swift-protobuf
+          swift build -c release --product protoc-gen-grpc-swift-2
+          cp .build/release/protoc-gen-grpc-swift-2 /tmp/protoc-gen-grpc-swift
+
+      - name: Upload grpc-swift plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-protoc-gen-grpc-swift-2
+          path: /tmp/protoc-gen-grpc-swift
+          retention-days: 1
+
+      - name: Install protobuf tools
+        run: brew install protobuf swift-protobuf
+
+      - name: Install grpc-swift plugin
+        run: sudo cp /tmp/protoc-gen-grpc-swift /usr/local/bin/protoc-gen-grpc-swift-2
+
+      - name: Generate protobuf stubs
+        run: make proto-gen-swift
+
+      - name: Upload generated protos
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+          retention-days: 1
+
+  mac-format:
+    name: "🍎 macOS Format"
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install swift-format
+        run: brew install swift-format
+
+      - name: Check Swift formatting
+        run: |
+          cd tools/visualiser-macos
+          swift-format lint --recursive Sources/ VelocityVisualiserTests/
+
+  mac-build:
+    name: "🍎 macOS Build"
+    runs-on: macos-15
+    needs: mac-setup
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+
+      - name: Build macOS visualiser
+        run: |
+          cd tools/visualiser-macos
+          xcodebuild clean build \
+            -scheme VelocityVisualiser \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+  mac-lint:
+    name: "🍎 macOS Lint"
+    runs-on: macos-15
+    needs: mac-setup
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+
+      - name: Lint with SwiftLint (if configured)
+        run: |
+          if command -v swiftlint >/dev/null 2>&1; then
+            cd tools/visualiser-macos
+            swiftlint lint --strict
+          else
+            echo "SwiftLint not installed, skipping"
+          fi
+
+  mac-test:
+    name: "🍎 macOS Test"
+    runs-on: macos-15
+    needs: [mac-setup, mac-build]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+
+      - name: Run tests with coverage
+        run: |
+          cd tools/visualiser-macos
+          xcodebuild test \
+            -scheme VelocityVisualiser \
+            -destination 'platform=macOS' \
+            -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Extract coverage report
+        run: |
+          cd tools/visualiser-macos
+          xcrun xccov view --report --json TestResults.xcresult > coverage.json
+
+      - name: Convert coverage to Codecov format
+        run: |
+          python3 scripts/xcode-coverage-to-lcov.py \
+            tools/visualiser-macos/coverage.json \
+            > tools/visualiser-macos/coverage.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./tools/visualiser-macos/coverage.info
+          flags: mac
+          name: mac-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  performance-regression:
+    name: "⚡ Performance Regression"
+    runs-on: ubuntu-latest
+    needs: go-lidar-race
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install libpcap
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Build pcap-analyse
+        run: go build -tags=pcap -o pcap-analyse ./cmd/tools/pcap-analyse
+
+      - name: Run performance benchmark
+        run: make test-perf
+        continue-on-error: true
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-benchmark-results
+          path: |
+            *_benchmark.json
+            internal/lidar/perf/baseline/*.json
