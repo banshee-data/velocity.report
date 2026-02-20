@@ -16,6 +16,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
@@ -128,6 +129,18 @@ var migrationsFS embed.FS
 // Set to true in development for hot-reloading, false in production.
 var DevMode = false
 
+var (
+	// Cache schema.sql consistency checks so repeated NewDB() calls (common in tests)
+	// don't replay all migrations for every fresh database.
+	prodSchemaConsistencyOnce sync.Once
+	prodSchemaConsistencyErr  error
+	prodLatestVersion         uint
+
+	devSchemaConsistencyOnce sync.Once
+	devSchemaConsistencyErr  error
+	devLatestVersion         uint
+)
+
 // getMigrationsFS returns the appropriate filesystem for migrations.
 // In dev mode, uses the local filesystem for hot-reloading.
 // In production, uses the embedded filesystem.
@@ -143,6 +156,66 @@ func getMigrationsFS() (fs.FS, error) {
 		return nil, fmt.Errorf("failed to create sub-filesystem for embedded migrations directory %q: %w", "migrations", err)
 	}
 	return subFS, nil
+}
+
+func getSchemaConsistencyResult(migrationsFS fs.FS) (uint, error) {
+	if DevMode {
+		devSchemaConsistencyOnce.Do(func() {
+			devLatestVersion, devSchemaConsistencyErr = validateSchemaSQLConsistency(migrationsFS)
+		})
+		return devLatestVersion, devSchemaConsistencyErr
+	}
+
+	prodSchemaConsistencyOnce.Do(func() {
+		prodLatestVersion, prodSchemaConsistencyErr = validateSchemaSQLConsistency(migrationsFS)
+	})
+	return prodLatestVersion, prodSchemaConsistencyErr
+}
+
+func validateSchemaSQLConsistency(migrationsFS fs.FS) (uint, error) {
+	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get latest migration version: %w", err)
+	}
+
+	// Validate consistency in an isolated temp database so we only pay this cost once.
+	tmpDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		return 0, fmt.Errorf("failed to create temp database for schema validation: %w", err)
+	}
+	defer tmpDB.Close()
+
+	if _, err := tmpDB.Exec(schemaSQL); err != nil {
+		return 0, fmt.Errorf("failed to initialize temp schema database: %w", err)
+	}
+
+	tmpWrapper := &DB{tmpDB}
+	schemaFromSQL, err := tmpWrapper.GetDatabaseSchema()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get schema from schema.sql: %w", err)
+	}
+
+	schemaFromMigrations, err := tmpWrapper.GetSchemaAtMigration(migrationsFS, latestVersion)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get schema at migration v%d: %w", latestVersion, err)
+	}
+
+	score, differences := CompareSchemas(schemaFromSQL, schemaFromMigrations)
+	if score != 100 {
+		log.Printf("⚠️  WARNING: schema.sql is out of sync with migrations!")
+		log.Printf("   Schema from schema.sql differs from migration v%d (similarity: %d%%)", latestVersion, score)
+		log.Printf("   Differences:")
+		for _, diff := range differences {
+			log.Printf("     %s", diff)
+		}
+		log.Printf("")
+		log.Printf("   This indicates that schema.sql needs to be updated to match the latest migrations.")
+		log.Printf("   Please run the schema consistency test or regenerate schema.sql from migrations.")
+		log.Printf("")
+		return 0, fmt.Errorf("schema.sql is out of sync with migration v%d (similarity: %d%%). Cannot baseline safely", latestVersion, score)
+	}
+
+	return latestVersion, nil
 }
 
 // applyPragmas applies essential SQLite PRAGMAs for performance and concurrency.
@@ -302,38 +375,10 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 
 	log.Println("ran database initialisation script")
 
-	// Get latest migration version
-	latestVersion, err := GetLatestMigrationVersion(migrationsFS)
+	// Verify schema.sql consistency once per process and reuse the result.
+	latestVersion, err := getSchemaConsistencyResult(migrationsFS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get latest migration version: %w", err)
-	}
-
-	// Verify that schema.sql is in sync with the latest migration version
-	// by comparing the schema we just created with what the migrations would produce.
-	// This prevents incorrect baselining if schema.sql is out of date.
-	schemaFromSQL, err := dbWrapper.GetDatabaseSchema()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get schema from schema.sql: %w", err)
-	}
-
-	schemaFromMigrations, err := dbWrapper.GetSchemaAtMigration(migrationsFS, latestVersion)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get schema at migration v%d: %w", latestVersion, err)
-	}
-
-	score, differences := CompareSchemas(schemaFromSQL, schemaFromMigrations)
-	if score != 100 {
-		log.Printf("⚠️  WARNING: schema.sql is out of sync with migrations!")
-		log.Printf("   Schema from schema.sql differs from migration v%d (similarity: %d%%)", latestVersion, score)
-		log.Printf("   Differences:")
-		for _, diff := range differences {
-			log.Printf("     %s", diff)
-		}
-		log.Printf("")
-		log.Printf("   This indicates that schema.sql needs to be updated to match the latest migrations.")
-		log.Printf("   Please run the schema consistency test or regenerate schema.sql from migrations.")
-		log.Printf("")
-		return nil, fmt.Errorf("schema.sql is out of sync with migration v%d (similarity: %d%%). Cannot baseline safely", latestVersion, score)
+		return nil, err
 	}
 
 	// Schema is consistent - safe to baseline at latest version
