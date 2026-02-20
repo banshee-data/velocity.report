@@ -16,7 +16,7 @@ Coverage: [![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/v
 
 </div>
 
-A privacy-focused traffic logging tool for neighborhood change-makers.
+A privacy-focused traffic logging tool for neighbourhood change-makers.
 
 Measure vehicle speeds, make streets safer.
 
@@ -55,7 +55,7 @@ Measure vehicle speeds, make streets safer.
 
 ## Overview
 
-**velocity.report** is a complete citizen radar system for neighborhood traffic monitoring. The system consists of four main components:
+**velocity.report** is a complete citizen radar system for neighbourhood traffic monitoring. The system consists of four main components:
 
 - **Go Server** - High-performance data collection and API server
 - **Python PDF Generator** - Professional PDF report generation with LaTeX
@@ -469,7 +469,7 @@ The project uses a consistent naming scheme for all make targets: `<action>-<sub
 
 - `action` should be an imperative verb (for example: `build`, `test`, `check`, `sync`).
 - `subsystem` should name the functional surface (for example: `go`, `web`, `config`).
-- `variant` is optional and narrows behavior (for example: `strict`, `cov`, `linux`).
+- `variant` is optional and narrows behaviour (for example: `strict`, `cov`, `linux`).
 
 For config consistency workflows, canonical targets are verb-first (`check-*`, `sync-*`). Legacy aliases are kept for compatibility.
 

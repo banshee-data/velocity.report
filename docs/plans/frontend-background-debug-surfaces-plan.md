@@ -41,13 +41,13 @@ toggles.
 
 ## 6. Non-Goals
 
-1. No algorithmic behavior changes to tracking/clustering.
+1. No algorithmic behaviour changes to tracking/clustering.
 2. No new tuning keys in this phase.
 3. No persistence format changes required for MVP debug mode.
 
 ## 7. Validation Criteria
 
-1. Debug mode off has no measurable behavior change in output pipeline.
+1. Debug mode off has no measurable behaviour change in output pipeline.
 2. Every rendered Cartesian debug point maps to a valid polar source cell.
 3. Region-map transitions are auditable frame-to-frame.
 
