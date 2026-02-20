@@ -61,4 +61,4 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - [#286] DESIGN.md references — Design Language section added to CONTRIBUTING.md; link added to README.md — [design doc §8.1](docs/plans/design-review-and-improvement-plan.md)
 - [#286] Shared palette module — palette.ts exports PERCENTILE_COLOURS, LEGEND_ORDER with tests — [design doc §1.3](docs/plans/design-review-and-improvement-plan.md)
 - [#286] Shared CSS standard classes — vr-page, vr-toolbar, vr-stat-grid, vr-chart-card in app.css — [design doc §2.1](docs/plans/design-review-and-improvement-plan.md)
-- LiDAR logging stream split — ops/debug/trace streams with keyword classifier routing — [design doc](docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- LiDAR logging stream split — explicit Opsf/Diagf/Tracef call sites replacing Debugf/classifier — [design doc](docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
