@@ -205,3 +205,262 @@ func TestSerialConfigInvalidSensorModel(t *testing.T) {
 		t.Error("Expected error when creating config with invalid sensor model, got nil")
 	}
 }
+
+func TestSerialConfigUpdateNotFound(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_update_nf_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	defer database.Close()
+
+	err = database.UpdateSerialConfig(&SerialConfig{
+		ID:          99999,
+		Name:        "Does Not Exist",
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     true,
+		SensorModel: "ops243-a",
+	})
+	if err == nil {
+		t.Error("Expected error updating non-existent config, got nil")
+	}
+}
+
+func TestSerialConfigDeleteNotFound(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_delete_nf_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	defer database.Close()
+
+	err = database.DeleteSerialConfig(99999)
+	if err == nil {
+		t.Error("Expected error deleting non-existent config, got nil")
+	}
+}
+
+func TestSerialConfigGetNonExistent(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_get_ne_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	defer database.Close()
+
+	cfg, err := database.GetSerialConfig(99999)
+	if err != nil {
+		t.Fatalf("Expected nil error for non-existent config, got %v", err)
+	}
+	if cfg != nil {
+		t.Errorf("Expected nil config for non-existent ID, got %+v", cfg)
+	}
+}
+
+func TestSerialConfigCreateDisabledFlag(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_disabled_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	defer database.Close()
+
+	// Create with Enabled=false
+	cfg := &SerialConfig{
+		Name:        "Disabled Config",
+		PortPath:    "/dev/ttyUSB0",
+		BaudRate:    19200,
+		DataBits:    8,
+		StopBits:    1,
+		Parity:      "N",
+		Enabled:     false,
+		SensorModel: "ops243-a",
+	}
+	id, err := database.CreateSerialConfig(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create disabled config: %v", err)
+	}
+
+	// GetEnabledSerialConfigs should not include it
+	enabled, err := database.GetEnabledSerialConfigs()
+	if err != nil {
+		t.Fatalf("Failed to get enabled configs: %v", err)
+	}
+	for _, c := range enabled {
+		if c.ID == int(id) {
+			t.Error("Disabled config should not appear in enabled list")
+		}
+	}
+
+	// But GetSerialConfigs should include it
+	all, err := database.GetSerialConfigs()
+	if err != nil {
+		t.Fatalf("Failed to get all configs: %v", err)
+	}
+	found := false
+	for _, c := range all {
+		if c.ID == int(id) {
+			found = true
+			if c.Enabled {
+				t.Error("Config should have Enabled=false")
+			}
+		}
+	}
+	if !found {
+		t.Error("Expected to find disabled config in all configs list")
+	}
+}
+
+func TestSerialConfigGetSerialConfigs_DBError(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_db_err_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	database.Close()
+
+	_, err = database.GetSerialConfigs()
+	if err == nil {
+		t.Error("Expected error from closed DB, got nil")
+	}
+}
+
+func TestSerialConfigGetSerialConfig_DBError(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_get_db_err_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	database.Close()
+
+	_, err = database.GetSerialConfig(1)
+	if err == nil {
+		t.Error("Expected error from closed DB, got nil")
+	}
+}
+
+func TestSerialConfigGetEnabledSerialConfigs_DBError(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_enabled_db_err_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	database.Close()
+
+	_, err = database.GetEnabledSerialConfigs()
+	if err == nil {
+		t.Error("Expected error from closed DB, got nil")
+	}
+}
+
+func TestSerialConfigUpdateSerialConfig_DBError(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_update_db_err_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	database.Close()
+
+	err = database.UpdateSerialConfig(&SerialConfig{
+		ID: 1, Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
+		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
+	})
+	if err == nil {
+		t.Error("Expected error from closed DB, got nil")
+	}
+}
+
+func TestSerialConfigDeleteSerialConfig_DBError(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_delete_db_err_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	database.Close()
+
+	err = database.DeleteSerialConfig(1)
+	if err == nil {
+		t.Error("Expected error from closed DB, got nil")
+	}
+}
+
+func TestSerialConfigCreateSerialConfig_DBError(t *testing.T) {
+	tmpDB, err := os.CreateTemp("", "test_serial_config_create_db_err_*.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+	tmpDB.Close()
+
+	database, err := NewDB(tmpDB.Name())
+	if err != nil {
+		t.Fatalf("Failed to create DB: %v", err)
+	}
+	database.Close()
+
+	_, err = database.CreateSerialConfig(&SerialConfig{
+		Name: "X", PortPath: "/dev/ttyUSB0", SensorModel: "ops243-a",
+		BaudRate: 19200, DataBits: 8, StopBits: 1, Parity: "N",
+	})
+	if err == nil {
+		t.Error("Expected error from closed DB, got nil")
+	}
+}
