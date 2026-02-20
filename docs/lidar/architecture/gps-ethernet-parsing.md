@@ -3,9 +3,15 @@
 **Status:** Proposed  
 **Author:** Architecture Team  
 **Created:** 2026  
-**Related:** `hesai_packet_structure.md`, Ground Plane Export Specification
+**Related:** `hesai_packet_structure.md`, `ground-plane-extraction.md`
 
 ## Overview & Motivation
+
+### Architecture Principle: GPS is Additive
+
+**All local PCAP observations are sensor-iterative.** The velocity.report system **must function with the LiDAR sensor alone, with no GPS**. GPS is strictly additive — it enriches the system with geographic coordinates but is never required for core perception, ground plane extraction, or height-above-ground measurements. Every algorithm in the pipeline operates in sensor-local coordinates by default.
+
+This document specifies how GPS data **may** be ingested over ethernet to enable optional geographic features when a GPS receiver is available.
 
 ### Current State
 
@@ -13,21 +19,31 @@ The velocity.report system currently stores site-level GPS coordinates in the da
 
 The L1 packet parsing layer (`internal/lidar/l1packets/parse/`) already handles Hesai Pandar40P UDP packets with multiple timestamp modes including `TimestampModePTP` and `TimestampModeGPS`. The `resolvePacketTime()` function supports PTP/GPS timestamps with static-detection fallback, but does not ingest GPS position data.
 
-### Need for GPS Ethernet Parsing
+### What GPS Enables (When Available)
 
-Geographic referencing of LiDAR data requires real-time GPS position ingestion:
+Geographic referencing of LiDAR data is **optional but valuable** for:
 
-1. **Ground Plane Geo-referencing**: Export ground plane tiles with latitude/longitude coordinates for GIS integration
+1. **Tier 2 Global Ground Grid**: Populate the persistent lat/long-aligned ground plane grid (see `ground-plane-extraction.md`) that accumulates across observation sessions
 2. **Multi-location PCAP Analysis**: Process captures from different deployment sites with absolute geographic context
-3. **Precise Sensor Location**: Automatically determine sensor position for each PCAP capture session
-4. **Sensor-to-World Transforms**: Compute WGS84-referenced coordinate transforms for point cloud data
-5. **Mobile Deployment Support**: Enable vehicle-mounted sensors with continuous GPS tracking (future)
+3. **GeoJSON Exports**: Export ground plane tiles and other data with lat/long coordinates for GIS tools
+4. **OSM Integration** (future): Anchor LiDAR observations to OpenStreetMap features for validation
+
+### What Works Without GPS (Primary Operating Mode)
+
+Without GPS, the system operates normally in sensor-local coordinates:
+
+- **L3 Background Grid**: Foreground/background separation — no GPS needed
+- **L4 Ground Plane (Tier 1)**: Local scene tiles settle from LiDAR returns in sensor frame — no GPS needed
+- **L4 Clustering**: Height-above-ground queries via `GroundSurface` interface — no GPS needed
+- **L5 Tracking / L6 Classification**: Multi-frame identity and object classes — no GPS needed
+- **All PCAP analysis**: Full pipeline replay with CSV/JSON/training exports — no GPS needed
 
 ### Design Goals
 
+- **Strictly additive**: System must work identically without GPS; GPS only adds geographic context
 - **Privacy-preserving**: GPS coordinates are site-level metadata, not per-vehicle tracking
 - **PCAP-compatible**: GPS packets captured alongside LiDAR packets in mixed network captures
-- **Fallback graceful**: Use database site config when no GPS available
+- **Fallback graceful**: Use database site config when no GPS hardware available
 - **Timestamp-correlated**: Associate GPS fixes with LiDAR frames by timestamp
 - **Local-only**: No external transmission (consistent with privacy-first architecture)
 
@@ -870,9 +886,14 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ---
 
 **Next Steps:**
+
+All GPS work is **additive** and should not modify any existing LiDAR-only code paths:
+
 1. Implement NMEA parser with checksum validation (`internal/gps/nmea/`)
 2. Create `GPSReceiver` for UDP ingestion (`internal/gps/receiver.go`)
-3. Extend L1 packet pipeline with GPS correlation (`internal/lidar/l1packets/`)
+3. Extend L1 packet pipeline with **optional** GPS correlation (`internal/lidar/l1packets/`)
 4. Add GPS schema to SQLite database (`internal/db/migrations/`)
-5. Implement PCAP replay with GPS extraction (`cmd/replay-server/`)
+5. Implement PCAP replay with GPS extraction (`cmd/tools/pcap-analyse/`)
 6. Document user-facing GPS configuration (`docs/src/guides/gps-setup.md`)
+
+**Design invariant:** Every feature must have a clean no-GPS fallback. If GPS is absent, disabled, or failing, the system operates identically to today's LiDAR-only pipeline.

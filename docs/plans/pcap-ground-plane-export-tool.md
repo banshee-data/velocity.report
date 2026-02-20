@@ -9,14 +9,17 @@
 
 ## Objective
 
-Extend the existing `pcap-analyse` command-line tool to compute and export ground plane geometry from static PCAP captures, with optional GPS geo-referencing. This enables:
+Extend the existing `pcap-analyse` command-line tool to compute and export ground plane geometry from static PCAP captures, with **optional** GPS geo-referencing. This enables:
 
 1. **Road surface reconstruction** — Export accurate road geometry for civil engineering analysis
-2. **GIS integration** — Generate geo-referenced ground plane data compatible with mapping tools
+2. **GIS integration** — Generate geo-referenced ground plane data compatible with mapping tools (GPS additive)
 3. **Offline processing** — Extract ground plane from archived PCAP files without real-time replay
 4. **Quality assurance** — Validate sensor placement and ground plane extraction algorithms
+5. **Global grid population** — Merge settled tiles into the persistent lat/long global grid (GPS additive)
 
-The ground plane extraction reuses the existing L1→L2→L3 background grid pipeline, adding post-processing to classify ground cells, fit planar tiles, and export to multiple formats with optional GPS coordinates.
+**Sensor-iterative principle:** Ground plane extraction **must work with LiDAR data alone**. GPS flags are strictly optional and only enable geographic export formats and Tier 2 global grid population. The core extraction pipeline operates in sensor-local coordinates.
+
+The ground plane extraction reuses the existing L1→L2→L3 background grid pipeline, with ground plane fitting within L4 Perception, exporting to multiple formats with optional GPS coordinates.
 
 ## Background
 
@@ -48,21 +51,25 @@ Add the following flags to `cmd/tools/pcap-analyse/main.go`:
 --ground-confidence-min Minimum confidence score for exported tiles (0.0-1.0, default: 0.5)
 ```
 
-### GPS Geo-Referencing
+### GPS Geo-Referencing (Optional — Additive Only)
 ```
 --gps-lat               Manual GPS latitude for geo-referencing (decimal degrees)
 --gps-lon               Manual GPS longitude for geo-referencing (decimal degrees)
 --gps-alt               Manual GPS altitude MSL in metres (default: 0.0)
 --gps-heading           Sensor heading in degrees clockwise from true north (default: 0.0)
 --gps-from-pcap         Extract GPS coordinates from PCAP packets (default: false)
+--global-grid-merge     Merge settled tiles into Tier 2 global grid file (default: false)
+--global-grid-file      Path to global grid file for load/merge (default: "")
 ```
 
 ### Flag Validation Rules
 - If `--ground-plane` is false, all other ground plane flags are ignored
 - `--ground-plane-format` accepts multiple comma-separated values: `--ground-plane-format geojson,csv,vtk`
+- **GPS flags are strictly optional.** If no GPS source is available, export in local Cartesian coordinates (sensor at origin). All core extraction works without GPS.
 - If `--gps-from-pcap` is true and no GPS packets found, fall back to manual coordinates
-- If neither GPS source is available, export in local Cartesian coordinates (sensor at origin)
+- If neither GPS source is available, GeoJSON export uses `coordinate_system: "Sensor-XY"` (local metres)
 - `--ground-confidence-min` filters tiles below threshold from all exports
+- `--global-grid-merge` requires either `--gps-lat/--gps-lon` or `--gps-from-pcap` (GPS is needed for global grid positioning)
 
 ## Processing Pipeline Extension
 
@@ -70,21 +77,21 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 
 ### Phase 1: Existing Pipeline (Unchanged)
 1. **L1**: Parse PCAP packets, decode LiDAR frames, extract GPS timestamps
-2. **L2**: Convert spherical coordinates to Cartesian, apply sensor corrections
+2. **L2**: Convert spherical coordinates to Cartesian (sensor-local frame), apply sensor corrections
 3. **L3**: Accumulate background grid, settle static points, classify foreground/background
 
-### Phase 2: Ground Plane Extraction (New)
+### Phase 2: Ground Plane Extraction (New — within L4 Perception)
 4. **Ground Classification**: After L3 grid settling (typically 5-10 seconds):
    - Classify ground cells using height-based threshold (Z < -1.8m from sensor)
    - Apply spatial coherence filter (ground cells must be contiguous)
    - Mark ground cells in background grid metadata
 
-5. **Tile Accumulation**: For each ground-classified cell:
+5. **Tile Accumulation** (Tier 1 local scene, sensor-local coordinates — no GPS required):
    - Map XYZ point to tile coordinates (tile_x, tile_y) based on `--ground-tile-size`
    - Accumulate incremental covariance for plane fitting (μ, Σ)
    - Track point count, height statistics, first/last observation timestamps
 
-6. **Continue Processing**: Foreground detection (L4→L5→L6) proceeds as normal for vehicle tracking
+6. **Continue Processing**: Foreground detection (L4 clustering → L5 → L6) proceeds as normal for vehicle tracking
 
 ### Phase 3: Plane Fitting and Export (New)
 7. **Final Plane Fitting**: After PCAP replay completes:
@@ -93,12 +100,18 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
    - Classify curvature: flat (λ_min < 0.01), cambered (0.01 ≤ λ_min < 0.05), rough (≥ 0.05)
    - Filter tiles below `--ground-confidence-min` threshold
 
-8. **GPS Transformation** (if coordinates available):
+8. **GPS Transformation** (optional — only if GPS coordinates available):
    - Construct ENU (East-North-Up) coordinate frame at GPS origin
    - Transform tile corners from sensor Cartesian to ENU to WGS84 (lat/long)
    - Rotate plane normals by sensor heading
 
-9. **Export to Formats**: Write files to output directory (see Output Structure)
+9. **Global Grid Merge** (optional — only if `--global-grid-merge` and GPS available):
+   - Load existing global grid from `--global-grid-file` (if exists)
+   - Diff settled local tiles against global tiles
+   - Merge consistent tiles; flag divergent tiles for review
+   - Write updated global grid back to file
+
+10. **Export to Formats**: Write files to output directory (see Output Structure)
 
 ## Export Formats
 
@@ -264,6 +277,8 @@ output/<run-id>/
     └── ...
 ```
 
+**Global grid file** (if `--global-grid-merge`): Written to path specified by `--global-grid-file`, outside the per-run output directory. This file accumulates across runs.
+
 **Naming Convention**: `ground-plane.<format>` for main export files
 
 **Metadata File** (`ground-plane-meta.json`): Always written when `--ground-plane` enabled:
@@ -271,9 +286,10 @@ output/<run-id>/
 {
   "extraction_timestamp": "2026-01-15T10:45:23Z",
   "pcap_file": "capture-2026-01-15.pcap",
-  "sensor_model": "Ouster OS1-64",
-  "gps_source": "manual",
-  "gps_origin": {"lat": 51.5074, "lon": -0.1278, "alt_msl": 10.0, "heading_deg": 45.0},
+  "sensor_model": "Hesai Pandar40P",
+  "coordinate_system": "Sensor-XY",
+  "gps_source": "none",
+  "gps_origin": null,
   "tile_size_m": 1.0,
   "range_max_m": 50.0,
   "confidence_min": 0.5,
@@ -281,9 +297,12 @@ output/<run-id>/
   "exported_tiles": 791,
   "filtered_tiles": 56,
   "processing_time_s": 12.4,
-  "formats": ["geojson", "csv"]
+  "formats": ["csv", "asc"],
+  "global_grid_merged": false
 }
 ```
+
+When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becomes `"manual"` or `"pcap"`, and `gps_origin` is populated.
 
 ## Implementation Phases
 
@@ -349,13 +368,13 @@ output/<run-id>/
 ## Testing Strategy
 
 ### Unit Tests
-- **Tile Fitting**: `internal/lidar/groundplane/tile_test.go`
+- **Tile Fitting**: `internal/lidar/l4perception/ground_plane_test.go`
   - Test plane fitting with known point clouds (flat, sloped, noisy)
   - Test confidence scoring with varying eigenvalue ratios
   - Test curvature classification thresholds
 
-- **Coordinate Transformation**: `internal/lidar/groundplane/gps_test.go`
-  - Test Cartesian → ENU → WGS84 round-trip accuracy
+- **Coordinate Transformation**: `internal/lidar/l4perception/gps_transform_test.go`
+  - Test Cartesian → ENU → WGS84 round-trip accuracy (GPS additive path)
   - Test heading rotation (0°, 90°, 180°, 270°)
   - Test edge cases (poles, antimeridian)
 
@@ -431,4 +450,7 @@ output/<run-id>/
 - **Automatic GPS from database**: Query site config for GPS coordinates if not provided via CLI
 - **Multi-PCAP batch processing**: Process entire directory of PCAP files with single command
 - **Ground plane texture mapping**: Export surface roughness or reflectivity as additional tile properties
+- **Global grid visualisation**: Web UI for browsing the persistent Tier 2 global ground grid
+- **OSM polyline import** (v2): Anchor ground plane tiles to kerb lines, crosswalks, and road edges from OpenStreetMap
+- **OSM write-back** (v2): Propose edits to OSM with more accurate geometry from LiDAR measurements (requires OSM API key)
 

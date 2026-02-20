@@ -1,21 +1,27 @@
 # Ground Plane Extraction: Mathematical Tradeoffs
 
 **Document Status:** Architecture Analysis  
-**Target Component:** LIDAR Ground Plane Filter  
+**Target Component:** L4 Perception Ground Plane  
 **Related:** [ground-plane-extraction.md](ground-plane-extraction.md), BackgroundGrid implementation  
 **Author:** Ictinus (Product Architecture)  
 **Date:** 2026
 
 ## Executive Summary
 
-This document analyses the mathematical tradeoffs in ground plane estimation for the Hesai Pandar40P LIDAR sensor on Raspberry Pi 4. We compare algorithm complexity, storage requirements, grid density constraints, and computational budgets to recommend an optimal approach for real-time streaming point cloud processing.
+This document analyses the mathematical tradeoffs in ground plane estimation for the Hesai Pandar40P LiDAR sensor on Raspberry Pi 4. We compare algorithm complexity, storage requirements, grid density constraints, and computational budgets to recommend an optimal approach for real-time streaming point cloud processing.
+
+The analysis covers **two tiers** of ground plane representation:
+
+- **Tier 1 (Local Scene)**: Per-observation-session tiles in sensor-local coordinates (1 m resolution, ~50 m radius). Operates with LiDAR only — no GPS required.
+- **Tier 2 (Global Published)**: Persistent lat/long-aligned tiles at 0.001 millidegree resolution (~111 m at equator, ~43.5 m at 67°N/S). Requires GPS. Accumulates across sessions.
 
 **Key Findings:**
-- Incremental covariance + PCA offers O(1) per-point complexity with ~1.1 MB storage for 100m × 100m coverage
+- Incremental covariance + PCA offers O(1) per-point complexity with ~1.1 MB storage for 100m × 100m coverage (Tier 1)
 - Point density limits confident plane fitting to ~35m range at 1m tile resolution (single revolution)
 - Per-frame processing budget: ~8ms (14.4M FLOPs) for 720K points at 10 Hz rotation
 - Settlement time: 0.1-0.5s for dense tiles, 1-3s for sparse (40-80m range)
 - Float64 required for covariance accumulation; float32 sufficient for plane output
+- Global grid (Tier 2): ~64 bytes per global tile, negligible storage for city-scale coverage
 
 ---
 
@@ -864,6 +870,88 @@ For outlier rejection, use RANSAC in post-processing (offline PCAP analysis) or 
 - Global ground map accumulation over hours/days
 - Localisation: Match current ground plane to historical map
 - Change detection: Identify new obstacles or road surface degradation
+- OSM polyline import for anchor constraints (kerbs, crosswalks, signs)
+
+---
+
+## 10. Tier 2 Global Grid: Sizing and Diff/Merge Analysis
+
+### 10.1 Global Tile Dimensions
+
+The Tier 2 global grid uses **0.001 millidegree** (0.001°) tile resolution, aligned to latitude/longitude. Tile dimensions vary with latitude:
+
+| Latitude | Longitude span (m) | Latitude span (m) | Tile area (m²) | Notes |
+|----------|--------------------|--------------------|-----------------|-------|
+| 0° (equator) | 111.32 m | 110.57 m | ~12,300 m² | Maximum tile size |
+| 30° | 96.39 m | 110.57 m | ~10,660 m² | Typical mid-latitude |
+| 37.77° (SF) | 88.02 m | 110.57 m | ~9,730 m² | San Francisco |
+| 45° | 78.71 m | 110.57 m | ~8,700 m² | |
+| 60° | 55.66 m | 110.57 m | ~6,150 m² | |
+| 67° | 43.52 m | 110.57 m | ~4,810 m² | Near Arctic Circle |
+
+Longitude span: `111,320 × cos(latitude)` metres per degree × 0.001 = `111.32 × cos(lat)` metres per millidegree.
+Latitude span: approximately constant at `110.57` metres per millidegree.
+
+### 10.2 Global Tile Storage
+
+Each `GlobalGroundTile` stores aggregate statistics:
+
+```
+MeanNormal     [3]float64  →  24 bytes
+MeanZOffset    float64     →   8 bytes
+SessionCount   uint32      →   4 bytes
+LastUpdated    int64        →   8 bytes
+Confidence     float32     →   4 bytes
+TotalPoints    uint64      →   8 bytes
+Index (lat/lon) 2×int32    →   8 bytes
+                            ──────────
+                Total:       64 bytes per tile
+```
+
+| Coverage | Tiles | Raw size | Compressed (~4×) |
+|----------|-------|----------|-------------------|
+| 1 km × 1 km (single intersection) | ~100 | 6.4 KB | ~1.6 KB |
+| 10 km × 10 km (neighbourhood) | ~10,000 | 640 KB | ~160 KB |
+| 50 km × 50 km (San Francisco metro) | ~250,000 | 16 MB | ~4 MB |
+| 100 km × 100 km (large metro area) | ~1,000,000 | 64 MB | ~16 MB |
+
+Storage is negligible for city-scale coverage. The entire SF metro global grid fits in 4 MB compressed.
+
+### 10.3 Local-to-Global Mapping
+
+Each Tier 1 local scene covers approximately 100 m × 100 m (50 m sensor radius). At San Francisco's latitude, a single 0.001° global tile spans ~88 m × ~111 m. A single local scene therefore typically overlaps **1–4 global tiles**.
+
+Mapping process:
+1. Transform each settled Tier 1 tile from sensor-local to WGS84 using GPS position + heading.
+2. Determine which global tile(s) the local tile falls within.
+3. Update the global tile's aggregate statistics (weighted by local tile confidence).
+
+### 10.4 Diff/Merge Algorithm
+
+When loading a global grid at session startup, or when merging settled local tiles into the global grid:
+
+**Loading (global → local prior):**
+1. Query global tiles that overlap the sensor's estimated coverage area (GPS position ± range).
+2. For each overlapping global tile, seed local tiles within that region with the global tile's plane estimate.
+3. Local tiles begin with the prior estimate instead of empty — enabling faster convergence.
+4. Mark seeded tiles as `prior_only` until validated by local LiDAR observations.
+
+**Merging (local → global):**
+1. For each settled local Tier 1 tile, compute its WGS84 position.
+2. Look up the corresponding Tier 2 global tile.
+3. If the global tile is empty, initialise it from the local tile.
+4. If the global tile exists, compute a **weighted merge**:
+   ```
+   w_new = local_tile.PointCount / (global_tile.TotalPoints + local_tile.PointCount)
+   global_tile.MeanNormal = (1 - w_new) * global_tile.MeanNormal + w_new * local_tile.Normal
+   global_tile.MeanZOffset = (1 - w_new) * global_tile.MeanZOffset + w_new * local_tile.ZOffset
+   global_tile.TotalPoints += local_tile.PointCount
+   global_tile.SessionCount += 1
+   global_tile.Confidence = max(global_tile.Confidence, local_tile.Planarity)
+   ```
+5. If the local tile **diverges significantly** (normal angle > 10° or Z-offset > 0.5 m from global), flag the global tile for review rather than merging blindly. This detects construction, seasonal changes, or sensor calibration drift.
+
+**Complexity:** O(settled_local_tiles) per merge — typically a few hundred tiles. Negligible cost.
 
 ---
 
