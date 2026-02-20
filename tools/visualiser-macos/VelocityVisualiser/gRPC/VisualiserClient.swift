@@ -53,10 +53,10 @@ enum VisualiserClientError: Error, LocalizedError {
     // MARK: - Properties
 
     let address: String
-    private let _isConnected = LockedState(false)
+    let _isConnected = LockedState(false)
     private let _streamTask = LockedState<Task<Void, Never>?>(nil)
     private let _clientTask = LockedState<Task<Void, Error>?>(nil)
-    private let _grpcClient = LockedState<GRPCClient<HTTP2ClientTransport.Posix>?>(nil)
+    let _grpcClient = LockedState<GRPCClient<HTTP2ClientTransport.Posix>?>(nil)
 
     weak var delegate: VisualiserClientDelegate?
 
