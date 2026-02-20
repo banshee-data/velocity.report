@@ -2,6 +2,15 @@
 # Run kirk0.pcapng through 5 track-lifecycle parameter permutations,
 # capturing JSON state snapshots after each replay completes.
 #
+# Phase 0 — Region settling: plays the PCAP once with default params and
+#            full 30s warmup so that background grid + regions are persisted
+#            to SQLite.  Subsequent permutation runs restore from DB in ~10
+#            frames, skipping the 30s settling period entirely.
+#
+# Phase 1 — Permutation sweep: each config is replayed with a shortened
+#            10s/50-frame warmup as a safety net (region restore should
+#            skip it), and state is captured after each replay.
+#
 # Prerequisites:
 #   1. Server running with LiDAR:  make dev-go-lidar
 #   2. (Optional) macOS visualiser connected for live observation
@@ -9,6 +18,11 @@
 # Usage: ./data/explore/kirk0-lifecycle/sweep.sh [base_url]
 #
 # Output: data/explore/kirk0-lifecycle/results/<timestamp>/
+#   ├── 0-settling/
+#   │   ├── config.json          # baseline params used for settling
+#   │   ├── grid-status.json     # background grid after full settle
+#   │   ├── data-source.json     # data source state + run ID
+#   │   └── params.json          # resolved params from server
 #   ├── 1-baseline/
 #   │   ├── config.json          # tuning params applied
 #   │   ├── tracks-active.json   # active tracks at capture time
@@ -26,6 +40,11 @@ set -euo pipefail
 BASE_URL="${1:-http://127.0.0.1:8081}"
 SENSOR_ID="hesai-pandar40p"
 PCAP_FILE="static/kirk0.pcapng"
+
+# Warmup overrides for sweep runs (region restore should skip this entirely;
+# the 10s/50-frame values are a safety net in case no snapshot is found).
+SWEEP_WARMUP_NANOS=10000000000   # 10 seconds
+SWEEP_WARMUP_FRAMES=50
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
@@ -64,8 +83,15 @@ api_post() {
 
 set_params() {
   local json_file="$1"
+  local extra_overrides="${2:-}"
   echo "  → Apply params"
-  api_post "/api/lidar/params" -H 'Content-Type: application/json' -d @"${json_file}" | jq -c . || true
+  if [ -n "$extra_overrides" ]; then
+    # Merge config file with runtime overrides (overrides win)
+    jq -s '.[0] * .[1]' "${json_file}" <(echo "$extra_overrides") \
+      | api_post "/api/lidar/params" -H 'Content-Type: application/json' -d @- | jq -c . || true
+  else
+    api_post "/api/lidar/params" -H 'Content-Type: application/json' -d @"${json_file}" | jq -c . || true
+  fi
 }
 
 reset_grid() {
@@ -78,6 +104,13 @@ start_pcap() {
   api_post "/api/lidar/pcap/start" \
     -H 'Content-Type: application/json' \
     -d "{\"pcap_file\":\"${PCAP_FILE}\",\"analysis_mode\":true,\"speed_mode\":\"realtime\",\"speed_ratio\":1.0}" | jq -c . || true
+}
+
+start_pcap_fastest() {
+  echo "  → Start pcap replay (analysis_mode=true, speed=fastest)"
+  api_post "/api/lidar/pcap/start" \
+    -H 'Content-Type: application/json' \
+    -d "{\"pcap_file\":\"${PCAP_FILE}\",\"analysis_mode\":true,\"speed_mode\":\"fastest\"}" | jq -c . || true
 }
 
 stop_pcap() {
@@ -138,13 +171,72 @@ capture_state() {
   echo "  → Captured 7 state files"
 }
 
-# ── main loop ────────────────────────────────────────────────────────────────
+# ── Phase 0: Region settling run ─────────────────────────────────────────────
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  kirk0 lifecycle sweep — ${#CONFIGS[@]} permutations"
 echo "  server: ${BASE_URL}  sensor: ${SENSOR_ID}"
 echo "  output: ${RESULTS_DIR}"
 echo "═══════════════════════════════════════════════════════════"
+echo ""
+echo "───────────────────────────────────────────────────────────"
+echo "  Phase 0 — Region settling (full 30s warmup)"
+echo "  Populates background grid + regions in SQLite so"
+echo "  subsequent runs can restore in ~10 frames."
+echo "───────────────────────────────────────────────────────────"
+echo ""
+
+SETTLE_DIR="${RESULTS_DIR}/0-settling"
+SETTLE_CFG="${SCRIPT_DIR}/${CONFIGS[0]}"  # Use baseline config for settling
+
+# 1. Stop any running pcap
+stop_pcap
+
+# 2. Apply baseline params (with default 30s warmup — no overrides)
+set_params "$SETTLE_CFG"
+
+# 3. Reset grid for clean start
+reset_grid
+
+# 4. Brief pause for reset
+sleep 1
+
+# 5. Start pcap replay at fastest speed (just need the grid to settle)
+start_pcap_fastest
+
+# 6. Wait for replay to complete
+wait_for_pcap_complete || true
+
+# 7. Capture settling state
+mkdir -p "${SETTLE_DIR}"
+cp "${SETTLE_CFG}" "${SETTLE_DIR}/config.json"
+api_get "/api/lidar/grid_status" | jq . > "${SETTLE_DIR}/grid-status.json"
+api_get "/api/lidar/params"      | jq . > "${SETTLE_DIR}/params.json"
+api_get "/api/lidar/data_source"  | jq . > "${SETTLE_DIR}/data-source.json"
+
+# Verify settling completed and snapshot was persisted
+settle_complete=$(jq -r '.settling_complete // false' "${SETTLE_DIR}/grid-status.json" 2>/dev/null || echo "unknown")
+bg_count=$(jq -r '.background_count // 0' "${SETTLE_DIR}/grid-status.json" 2>/dev/null || echo "0")
+echo ""
+echo "  → Settling complete: ${settle_complete}"
+echo "  → Background cells: ${bg_count}"
+echo ""
+
+echo "  Phase 0 done — grid snapshot should now be persisted in SQLite."
+echo "  Subsequent runs will attempt region restore from DB."
+echo ""
+echo "  ▶ Press Enter to start Phase 1 (permutation sweep)..."
+read -r
+
+# ── Phase 1: Permutation sweep (with region restore) ────────────────────────
+
+WARMUP_OVERRIDES="{\"warmup_duration_nanos\":${SWEEP_WARMUP_NANOS},\"warmup_min_frames\":${SWEEP_WARMUP_FRAMES}}"
+
+echo ""
+echo "───────────────────────────────────────────────────────────"
+echo "  Phase 1 — ${#CONFIGS[@]} permutations (10s warmup safety net)"
+echo "  Region restore should skip warmup after ~10 frames."
+echo "───────────────────────────────────────────────────────────"
 echo ""
 
 SUMMARY_ITEMS=()
@@ -166,15 +258,17 @@ for i in "${!CONFIGS[@]}"; do
 
   # Show tuning params (exclude metadata keys)
   jq 'with_entries(select(.key | startswith("_") | not))' "$cfg_path"
+  echo "  + warmup_duration_nanos: ${SWEEP_WARMUP_NANOS} (10s safety net)"
+  echo "  + warmup_min_frames: ${SWEEP_WARMUP_FRAMES}"
   echo ""
 
   # 1. Stop any running pcap
   stop_pcap
 
-  # 2. Apply params
-  set_params "$cfg_path"
+  # 2. Apply params with shortened warmup overrides
+  set_params "$cfg_path" "$WARMUP_OVERRIDES"
 
-  # 3. Reset grid
+  # 3. Reset grid (region restore will be attempted after ~10 frames)
   reset_grid
 
   # 4. Brief pause for reset
@@ -192,7 +286,11 @@ for i in "${!CONFIGS[@]}"; do
   # 8. Capture state
   capture_state "${out_dir}" "${cfg_path}"
 
-  # 9. Build summary entry
+  # 9. Check if region restore was used (settling_complete should be true very early)
+  settle_status=$(jq -r '.settling_complete // false' "${out_dir}/grid-status.json" 2>/dev/null || echo "unknown")
+  echo "  → Grid settling_complete: ${settle_status}"
+
+  # 10. Build summary entry
   track_count=$(jq '.total_tracks // .tracks // [] | if type == "array" then length else . end' "${out_dir}/tracks-active.json" 2>/dev/null || echo "0")
   SUMMARY_ITEMS+=("{\"permutation\":${n},\"label\":\"${label}\",\"dir\":\"${dir_name}\",\"tracks\":${track_count}}")
 
