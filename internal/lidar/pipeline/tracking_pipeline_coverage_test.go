@@ -125,7 +125,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_NoBackgroundManager(t *testing.
 
 	frame := &l2frames.LiDARFrame{
 		FrameID: "test-frame",
-		Points: []l2frames.LiDARPoint{
+		Points: []l2frames.Point{
 			{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: time.Now()},
 		},
 	}
@@ -154,7 +154,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_WithBackgroundManager(t *testin
 	frame := &l2frames.LiDARFrame{
 		FrameID:        "frame-1",
 		StartTimestamp: now,
-		Points: []l2frames.LiDARPoint{
+		Points: []l2frames.Point{
 			{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: now},
 			{Channel: 2, Azimuth: 91.0, Distance: 5.1, Intensity: 78, Timestamp: now},
 		},
@@ -174,7 +174,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_FullPipeline(t *testing.T) {
 	trackerCfg := l5tracks.DefaultTrackerConfig()
 	tracker := l5tracks.NewTracker(trackerCfg)
 
-	featureExportCalled := false
+	var featureExportCalled bool
 	cfg := &TrackingPipelineConfig{
 		SensorID:          sensorID,
 		BackgroundManager: bgMgr,
@@ -194,10 +194,10 @@ func TestTrackingPipelineConfig_NewFrameCallback_FullPipeline(t *testing.T) {
 	// Feed several frames to seed the background and generate foreground.
 	now := time.Now()
 	for i := 0; i < 5; i++ {
-		points := make([]l2frames.LiDARPoint, 50)
+		points := make([]l2frames.Point, 50)
 		for j := range points {
-			points[j] = l2frames.LiDARPoint{
-				Channel:   uint8(j%16 + 1),
+			points[j] = l2frames.Point{
+				Channel:   j%16 + 1,
 				Azimuth:   float64(j) * 7.2,
 				Distance:  10.0 + float64(j)*0.1,
 				Intensity: 80,
@@ -214,7 +214,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_FullPipeline(t *testing.T) {
 	}
 
 	_, _, confirmed, _ := tracker.GetTrackCount()
-	t.Logf("Background seeded, confirmed tracks: %d", confirmed)
+	t.Logf("Background seeded, confirmed tracks: %d, featureExportCalled=%v", confirmed, featureExportCalled)
 }
 
 // TestTrackingPipelineConfig_NewFrameCallback_Throttling tests frame rate throttling.
@@ -241,7 +241,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_Throttling(t *testing.T) {
 		frame := &l2frames.LiDARFrame{
 			FrameID:        "throttle-frame",
 			StartTimestamp: now.Add(time.Duration(i) * 10 * time.Millisecond),
-			Points: []l2frames.LiDARPoint{
+			Points: []l2frames.Point{
 				{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: now},
 			},
 		}
@@ -268,7 +268,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_DebugMode(t *testing.T) {
 	frame := &l2frames.LiDARFrame{
 		FrameID:        "debug-frame",
 		StartTimestamp: now,
-		Points: []l2frames.LiDARPoint{
+		Points: []l2frames.Point{
 			{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: now},
 		},
 	}
@@ -294,7 +294,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_NoGroundRemoval(t *testing.T) {
 	frame := &l2frames.LiDARFrame{
 		FrameID:        "no-ground-frame",
 		StartTimestamp: now,
-		Points: []l2frames.LiDARPoint{
+		Points: []l2frames.Point{
 			{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: now},
 		},
 	}
@@ -359,10 +359,10 @@ func TestTrackingPipelineConfig_WithFgForwarder(t *testing.T) {
 	now := time.Now()
 	// Feed enough frames to generate foreground points
 	for i := 0; i < 5; i++ {
-		points := make([]l2frames.LiDARPoint, 20)
+		points := make([]l2frames.Point, 20)
 		for j := range points {
-			points[j] = l2frames.LiDARPoint{
-				Channel:   uint8(j%16 + 1),
+			points[j] = l2frames.Point{
+				Channel:   j%16 + 1,
 				Azimuth:   float64(j) * 18.0,
 				Distance:  float64(5 + i),
 				Intensity: 80,
@@ -400,7 +400,7 @@ func TestTrackingPipelineConfig_WithNilFgForwarder(t *testing.T) {
 	frame := &l2frames.LiDARFrame{
 		FrameID:        "nil-fwd",
 		StartTimestamp: now,
-		Points: []l2frames.LiDARPoint{
+		Points: []l2frames.Point{
 			{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: now},
 		},
 	}
