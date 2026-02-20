@@ -7,6 +7,7 @@
 This document defines the mathematical model for velocity-coherent foreground extraction, with explicit algorithm tradeoffs and expected benefits.
 
 Implementation tasks and delivery sequencing live in:
+
 - [`docs/lidar/future/velocity-coherent-foreground-extraction.md`](./velocity-coherent-foreground-extraction.md)
 
 ---
@@ -63,6 +64,7 @@ D(u_i, u_j) = sqrt( α||Δx||_2^2 + β||Δv||_2^2 )
 ```
 
 with:
+
 - `Δx = (x_i-x_j, y_i-y_j, z_i-z_j)`
 - `Δv = (vx_i-vx_j, vy_i-vy_j, vz_i-vz_j)`
 - `α` position weight, `β` velocity weight.
@@ -133,13 +135,13 @@ S_merge >= S_min
 
 ## 5. Algorithm Tradeoffs
 
-| Parameter / Choice | Benefit | Cost / Risk | Practical Guidance |
-| --- | --- | --- | --- |
-| Higher `β` (velocity weight) | Better separation of nearby objects with different motion | Can split one object if velocity estimates are noisy | Raise `β` only when velocity confidence is stable |
-| Lower `MinPts` (to 3) | Recovers distant/sparse objects | More noise clusters | Require high confidence and low velocity variance for sparse clusters |
-| Larger `r_search` | Better correspondence recall under fast motion | More ambiguous matches | Use plausibility caps and neighborhood consistency checks |
-| Longer post-tail window | Better continuity across temporary dropouts | Ghost-track risk | Cap uncertainty radius and max prediction frames |
-| Aggressive merge threshold | Fewer fragmented tracks | Wrong merges create identity errors | Prefer conservative threshold, log merge evidence |
+| Parameter / Choice           | Benefit                                                   | Cost / Risk                                          | Practical Guidance                                                    |
+| ---------------------------- | --------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------- |
+| Higher `β` (velocity weight) | Better separation of nearby objects with different motion | Can split one object if velocity estimates are noisy | Raise `β` only when velocity confidence is stable                     |
+| Lower `MinPts` (to 3)        | Recovers distant/sparse objects                           | More noise clusters                                  | Require high confidence and low velocity variance for sparse clusters |
+| Larger `r_search`            | Better correspondence recall under fast motion            | More ambiguous matches                               | Use plausibility caps and neighborhood consistency checks             |
+| Longer post-tail window      | Better continuity across temporary dropouts               | Ghost-track risk                                     | Cap uncertainty radius and max prediction frames                      |
+| Aggressive merge threshold   | Fewer fragmented tracks                                   | Wrong merges create identity errors                  | Prefer conservative threshold, log merge evidence                     |
 
 ---
 
