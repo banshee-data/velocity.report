@@ -44,6 +44,7 @@ The production pipeline uses four math-heavy layers:
    - L3 confidence (`TimesSeenCount`, spread, freeze/locked state) gates which points are trusted for L4 fitting.
 2. **Ground plane to clustering/tracking:**
    - Height-above-ground and local surface orientation improve semantic stability and false-positive rejection.
+   - Region-selection confidence controls which surface model receives each point near boundaries.
 3. **Clustering to tracking:**
    - Cluster geometry uncertainty appears in association residuals, gating, and lifecycle stability.
 4. **Tracking to diagnostics/tuning:**
@@ -54,13 +55,13 @@ The production pipeline uses four math-heavy layers:
 - [Background Grid Settling Maths](background-grid-settling-maths.md)
   - Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behavior, and confidence dynamics.
 - [Ground Plane Maths](ground-plane-maths.md)
-  - Tile plane estimation, robust confidence/settlement criteria, curvature math, density constraints, and L3-L4 interaction.
+  - Tile/region plane estimation, region-selection math, robust confidence/settlement criteria, curvature math, density constraints, and L3-L4 interaction.
 - [Clustering Maths](clustering-maths.md)
   - Downsampling, neighborhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA), and complexity bounds.
 - [Tracking Maths](tracking-maths.md)
   - CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
-- [Unify L3/L4 Settling Proposal](../math/proposal/README.md)
-  - Overlap analysis, interference risks, and a proposed single-settlement architecture.
+- [Unify L3/L4 Settling Proposal](proposal/20260219-unify-l3-l4-settling.md)
+  - Overlap analysis, interference risks, and a single-settlement architecture updated for polygon/polyline region keys.
 
 ## Config Mapping
 
@@ -93,6 +94,7 @@ Note on naming: this repository does **not** contain a `config/tracking.json` fi
 - Effective upstream controls:
   - L3 settling keys above (input quality to L4)
   - `height_band_floor`, `height_band_ceiling`, `remove_ground`
+  - region-selection gates derived from `noise_relative`, `safety_margin_meters`, `closeness_multiplier`, and `neighbor_confirmation_count`
 - Runtime mapping:
   - `cmd/radar/radar.go` -> `internal/lidar/pipeline/tracking_pipeline.go` -> `internal/lidar/l4perception/ground.go`
 

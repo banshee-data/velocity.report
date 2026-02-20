@@ -2,7 +2,7 @@
 
 **Status:** Architecture + implementation math note
 **Layer:** L4 Perception
-**Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../lidar/architecture/ground-plane-extraction.md)
+**Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../lidar/architecture/vector-scene-map.md)
 
 ## 1. Scope and Design Intent
 
@@ -108,6 +108,60 @@ Final settle condition:
 
 `SETTLED if C_geom >= T_geom and C_density >= T_density and C_temporal >= T_temporal for K consecutive windows.`
 
+### 4.4 Region selection maths (what gets fitted and settled)
+
+Ground fitting should not consume all accepted points uniformly. Define candidate
+regions `R` as:
+
+1. local Cartesian tiles,
+2. region-grown tile components,
+3. prior vector-scene surfaces (ground polygons, boundary polylines).
+
+For point `p=(x,y,z)`, evaluate each candidate region with:
+
+`S_R(p) = w_xy * w_z * w_obs * w_geom * w_density * w_prior`
+
+with:
+
+- `w_xy = exp(-d_xy(p,R)^2 / (2*sigma_xy^2))`,
+- `w_z = exp(-d_z(p,R)^2 / (2*sigma_z^2))`,
+- `w_obs = C_obs(R)` from L3 confidence,
+- `w_geom = max(1 - |r_plane|/tau_plane, 0)` (point-to-plane residual gate),
+- `w_density = C_density(R)` to penalize under-observed regions,
+- `w_prior = C_prior(R)` from vector-scene/global-surface agreement.
+
+Assignment rule:
+
+`R* = argmax_R S_R(p)` and accept only if `S_R*(p) >= T_assign`.
+
+If no region passes `T_assign`, hold point in an unassigned pool; do not force
+fit into a low-confidence region.
+
+This prevents cross-surface contamination at kerbs, ramps, walls, and sparse
+zones where naive nearest-tile assignment is unstable.
+
+### 4.5 Coupling to current settling parameters (L3 and filter keys)
+
+Even before dedicated ground-plane config keys exist, region selection should
+derive gates from current tuning values:
+
+1. `noise_relative`, `safety_margin_meters`, `closeness_multiplier`
+   - define scale for `sigma_z` and residual gates.
+2. `neighbor_confirmation_count`
+   - controls neighborhood support requirement before region admission near seams.
+3. `warmup_duration_nanos`, `warmup_min_frames`
+   - define when `w_obs` is trusted enough to influence region locking.
+4. `post_settle_update_fraction`
+   - sets long-run adaptation rate after region lock.
+5. `height_band_floor`, `height_band_ceiling`, `remove_ground`
+   - pre-gates candidate points before region scoring.
+
+A practical coupling:
+
+`sigma_z(r) = k_close * (noise_relative*r + safety_margin_meters)`
+
+where `k_close = closeness_multiplier` and `r` is point range.
+
 ## 5. Density Model and Range Limits
 
 Do not assume isotropic `1/(4*pi*r^2)` coverage for ground settlement decisions.
@@ -181,6 +235,24 @@ Track persistent disagreement between L3 and L4 in stable regions:
 
 This avoids one-way authority and supports long-running static operation.
 
+### 7.3 Region-level coupling for vector scene map
+
+When polygon/polyline priors are available (`docs/lidar/architecture/vector-scene-map.md`):
+
+1. Use ground polygons as region seeds.
+2. Use boundary polylines as split constraints (do not blend across them).
+3. Use prior surface class (ground/structure/volume) to suppress invalid fits.
+
+Per-point fit weight becomes:
+
+`w_total = w_L3 * w_region * w_prior * w_residual`
+
+where `w_region` comes from Section 4.4 scoring and `w_prior` penalizes
+deviation from global-surface priors.
+
+This makes L3 EWA and L4 geometry complementary: L3 stabilizes observation
+trust, while region-aware L4 prevents over-smoothing across real boundaries.
+
 ## 8. Tier-2 Global Merge (Important Limits)
 
 Coarse geodetic tiles can erase meaningful local geometry.
@@ -197,6 +269,8 @@ Recommendations:
 1. **Single-plane per tile**
    - Simplifies fitting and memory.
    - Fails at curbs/ramps/compound surfaces crossing one tile.
+   - Region selection plus polygon/polyline splits are required to avoid
+     systematic seam errors.
 2. **Locally linear z(x,y)**
    - Works for non-vertical ground-like patches.
    - Not valid for vertical/overhang surfaces.
@@ -206,6 +280,7 @@ Recommendations:
 4. **Independent tile fitting**
    - Simple and parallel.
    - No intrinsic continuity constraints; seams must be handled explicitly.
+   - Vector-scene region constraints reduce, but do not eliminate, seam drift.
 5. **Thresholded settlement gates**
    - Operationally transparent.
    - Threshold tuning can be site-dependent and may need auto-calibration.

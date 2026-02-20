@@ -38,13 +38,18 @@ Code path:
 Math reference:
 
 - [`docs/maths/ground-plane-maths.md`](../docs/maths/ground-plane-maths.md)
-- Proposal: [`docs/math/proposal/README.md`](../docs/math/proposal/README.md)
+- Proposal: [`docs/maths/proposal/20260219-unify-l3-l4-settling.md`](../docs/maths/proposal/20260219-unify-l3-l4-settling.md)
 
 Keys:
 
 - `height_band_floor`
 - `height_band_ceiling`
 - `remove_ground`
+- region-selection coupling (derived from L3 keys):
+  - `noise_relative`
+  - `safety_margin_meters`
+  - `closeness_multiplier`
+  - `neighbor_confirmation_count`
 
 Code path:
 
