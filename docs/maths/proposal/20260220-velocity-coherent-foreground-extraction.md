@@ -45,7 +45,7 @@ Confidence for estimated velocity `v_i`:
 
 ```text
 q_i = exp(-d_pos / r_search)
-      * exp(-σ^2_neighbor / σ^2_ref)
+      * exp(-σ^2_neighbour / σ^2_ref)
       * I(||v_i|| <= v_max)
 ```
 
@@ -69,7 +69,7 @@ with:
 - `Δv = (vx_i-vx_j, vy_i-vy_j, vz_i-vz_j)`
 - `α` position weight, `β` velocity weight.
 
-Clustering uses DBSCAN-style neighborhoods over `D`, with reduced minimum points:
+Clustering uses DBSCAN-style neighbourhoods over `D`, with reduced minimum points:
 
 ```text
 MinPts = 3
@@ -139,7 +139,7 @@ S_merge >= S_min
 | ---------------------------- | --------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------- |
 | Higher `β` (velocity weight) | Better separation of nearby objects with different motion | Can split one object if velocity estimates are noisy | Raise `β` only when velocity confidence is stable                     |
 | Lower `MinPts` (to 3)        | Recovers distant/sparse objects                           | More noise clusters                                  | Require high confidence and low velocity variance for sparse clusters |
-| Larger `r_search`            | Better correspondence recall under fast motion            | More ambiguous matches                               | Use plausibility caps and neighborhood consistency checks             |
+| Larger `r_search`            | Better correspondence recall under fast motion            | More ambiguous matches                               | Use plausibility caps and neighbourhood consistency checks            |
 | Longer post-tail window      | Better continuity across temporary dropouts               | Ghost-track risk                                     | Cap uncertainty radius and max prediction frames                      |
 | Aggressive merge threshold   | Fewer fragmented tracks                                   | Wrong merges create identity errors                  | Prefer conservative threshold, log merge evidence                     |
 
@@ -167,8 +167,8 @@ Net expectation: continuity and sparse recall improve materially, while precisio
 
 For `N` points per frame:
 
-- Correspondence with indexed neighborhood search: approximately `O(N log N)` expected
-- DBSCAN-like clustering with local neighborhoods: data-dependent, typically near `O(N log N)` with spatial indexing
+- Correspondence with indexed neighbourhood search: approximately `O(N log N)` expected
+- DBSCAN-like clustering with local neighbourhoods: data-dependent, typically near `O(N log N)` with spatial indexing
 - Merge candidate search over `M` fragments: worst-case `O(M^2)`; bounded in practice by time-window pruning
 
 ---
@@ -176,7 +176,7 @@ For `N` points per frame:
 ## 8. Failure Modes and Guards
 
 - Velocity aliasing in dense scenes:
-  - Guard: require neighborhood consistency, not nearest-neighbor only
+  - Guard: require neighbourhood consistency, not nearest-neighbour only
 - Sparse false positives:
   - Guard: confidence and variance thresholds for `n <= 5`
 - Prediction drift:

@@ -85,7 +85,7 @@ Exit criteria:
 Checklist:
 
 - [ ] Create `internal/lidar/clustering_6d.go`
-- [ ] Implement 6D neighborhood metric (position + velocity weighting)
+- [ ] Implement 6D neighbourhood metric (position + velocity weighting)
 - [ ] Implement minimum-point behavior with sparse guardrails
 - [ ] Add `internal/lidar/clustering_6d_test.go`
 - [ ] Validate cluster stability versus existing DBSCAN on replay data
@@ -209,7 +209,7 @@ These targets are hypotheses to validate, not committed production guarantees.
 - Risk: Incorrect fragment merges
   - Mitigation: conservative merge threshold + auditable merge logs
 - Risk: Runtime overhead from added matching/clustering
-  - Mitigation: bounded neighborhood queries and benchmark gates in CI
+  - Mitigation: bounded neighbourhood queries and benchmark gates in CI
 
 ---
 
