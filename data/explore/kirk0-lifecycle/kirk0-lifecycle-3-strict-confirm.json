@@ -1,0 +1,8 @@
+{
+  "_label": "3/5 — Strict confirm",
+  "_description": "Require 6 hits before confirming. Fewer false tracks, but short-lived objects may be missed.",
+  "hits_to_confirm": 6,
+  "max_misses": 3,
+  "max_misses_confirmed": 15,
+  "max_tracks": 100
+}

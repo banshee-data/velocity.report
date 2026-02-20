@@ -1,0 +1,10 @@
+{
+  "_label": "8/10 — Max churn",
+  "_description": "Single-hit confirm, single-miss kill. Maximum track creation rate. Tighter gating + lower max speed to catch flyers.",
+  "hits_to_confirm": 1,
+  "max_misses": 1,
+  "max_misses_confirmed": 4,
+  "max_tracks": 50,
+  "gating_distance_squared": 16.0,
+  "max_reasonable_speed_mps": 25.0
+}

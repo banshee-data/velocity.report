@@ -1,0 +1,12 @@
+{
+  "_label": "10/10 — Max churn + tightest validation",
+  "_description": "Absolute maximum DBSCAN throughput with paranoid validation. Gating=4 (2m radius), max_speed=15 m/s (~54 km/h), max_jump=2m, max_covariance=25. Any surviving track is almost certainly real.",
+  "hits_to_confirm": 1,
+  "max_misses": 1,
+  "max_misses_confirmed": 2,
+  "max_tracks": 40,
+  "gating_distance_squared": 4.0,
+  "max_reasonable_speed_mps": 15.0,
+  "max_position_jump_meters": 2.0,
+  "max_covariance_diag": 25.0
+}

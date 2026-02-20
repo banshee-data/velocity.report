@@ -1,0 +1,8 @@
+{
+  "_label": "6/10 — Fast confirm",
+  "_description": "Confirm tracks in 2 hits, drop quickly. More DBSCAN boxes promoted to tracks vs baseline.",
+  "hits_to_confirm": 2,
+  "max_misses": 2,
+  "max_misses_confirmed": 8,
+  "max_tracks": 75
+}

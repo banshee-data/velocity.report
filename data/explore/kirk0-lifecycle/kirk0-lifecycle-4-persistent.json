@@ -1,0 +1,8 @@
+{
+  "_label": "4/5 — Persistent tracks",
+  "_description": "Tracks survive longer through occlusions: max_misses=5, max_misses_confirmed=25. Better continuity but may retain ghost tracks.",
+  "hits_to_confirm": 4,
+  "max_misses": 5,
+  "max_misses_confirmed": 25,
+  "max_tracks": 100
+}

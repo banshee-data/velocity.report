@@ -472,6 +472,83 @@ func TestFrameBundleToProto_WithClusters(t *testing.T) {
 	}
 }
 
+func TestFrameBundleToProto_ClusterOBB(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Clusters: &ClusterSet{
+			FrameID:        1,
+			TimestampNanos: time.Now().UnixNano(),
+			Clusters: []Cluster{
+				{
+					ClusterID: 1,
+					CentroidX: 10.0,
+					CentroidY: 20.0,
+					CentroidZ: 0.8,
+					OBB: &OrientedBoundingBox{
+						CenterX:    10.0,
+						CenterY:    20.0,
+						CenterZ:    0.8,
+						Length:     4.5,
+						Width:      1.8,
+						Height:     1.5,
+						HeadingRad: 0.785, // ~45 degrees
+					},
+				},
+				{
+					ClusterID: 2,
+					CentroidX: 30.0,
+					CentroidY: 40.0,
+					CentroidZ: 0.9,
+					// No OBB — should remain nil in proto
+				},
+			},
+			Method: ClusteringDBSCAN,
+		},
+	}
+
+	req := &pb.StreamRequest{
+		IncludePoints:   false,
+		IncludeClusters: true,
+		IncludeTracks:   false,
+	}
+
+	pbFrame := frameBundleToProto(frame, req)
+
+	if pbFrame.Clusters == nil {
+		t.Fatal("expected non-nil Clusters")
+	}
+
+	// Cluster with OBB should have it serialised
+	c0 := pbFrame.Clusters.Clusters[0]
+	if c0.Obb == nil {
+		t.Fatal("expected non-nil OBB on cluster 0")
+	}
+	if c0.Obb.Length != 4.5 {
+		t.Errorf("expected OBB Length=4.5, got %f", c0.Obb.Length)
+	}
+	if c0.Obb.Width != 1.8 {
+		t.Errorf("expected OBB Width=1.8, got %f", c0.Obb.Width)
+	}
+	if c0.Obb.HeadingRad != 0.785 {
+		t.Errorf("expected OBB HeadingRad=0.785, got %f", c0.Obb.HeadingRad)
+	}
+	if c0.Obb.CenterX != 10.0 {
+		t.Errorf("expected OBB CenterX=10.0, got %f", c0.Obb.CenterX)
+	}
+
+	// Cluster without OBB should have nil
+	c1 := pbFrame.Clusters.Clusters[1]
+	if c1.Obb != nil {
+		t.Errorf("expected nil OBB on cluster 1, got %+v", c1.Obb)
+	}
+}
+
 func TestFrameBundleToProto_WithTracks(t *testing.T) {
 	frame := &FrameBundle{
 		FrameID:        1,

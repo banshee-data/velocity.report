@@ -1,0 +1,11 @@
+{
+  "_label": "9/10 — Max churn + tight validation",
+  "_description": "Maximum aggressiveness with strictest sanity checks. Gating=9 (3m radius), max_speed=20 m/s (~72 km/h), max_jump=3m. Should expose any flying/impossible tracks immediately.",
+  "hits_to_confirm": 1,
+  "max_misses": 1,
+  "max_misses_confirmed": 3,
+  "max_tracks": 50,
+  "gating_distance_squared": 9.0,
+  "max_reasonable_speed_mps": 20.0,
+  "max_position_jump_meters": 3.0
+}
