@@ -411,12 +411,12 @@ Implementation priority for findings in this document:
 
 ### Deferred
 
-| #    | Finding                    | Severity | Notes                       |
-| ---- | -------------------------- | -------- | --------------------------- |
-| 1.2  | macOS palette              | Low      | When metric charts added    |
-| 4.2  | LayerChart in lidar routes | Medium   | When charts needed          |
-| 10.1 | LAN-only authentication    | Low      | If deployment model changes |
-| 7.5  | Coverage thresholds        | Low      | After coverage improves     |
+| #    | Finding                    | Severity | Notes                                                                                            |
+| ---- | -------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| 1.2  | macOS palette              | Low      | When metric charts added                                                                         |
+| 4.2  | LayerChart in lidar routes | Medium   | When charts needed                                                                               |
+| 10.1 | LAN-only authentication    | Medium   | See [networking design](../architecture/networking.md) — mitigated by Tailscale route segmentation |
+| 7.5  | Coverage thresholds        | Low      | After coverage improves                                                                          |
 
 - Testing infrastructure (§7.1–§7.5)
 - Python version documentation alignment (§11.2)

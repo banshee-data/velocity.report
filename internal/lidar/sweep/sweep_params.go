@@ -201,17 +201,20 @@ func cartesianProduct(params []SweepParam) ([]map[string]interface{}, error) {
 		return nil, nil
 	}
 
-	combos := make([]map[string]interface{}, total)
+	// Convert to int for slice allocation/indexing (safe: maxCombos fits in int).
+	n := int(total)
+
+	combos := make([]map[string]interface{}, n)
 	for i := range combos {
 		combos[i] = make(map[string]interface{}, len(params))
 	}
 
-	repeat := int64(1)
+	repeat := 1
 	for dim := len(params) - 1; dim >= 0; dim-- {
 		vals := params[dim].Values
 		name := params[dim].Name
-		cycle := int64(len(vals))
-		for i := int64(0); i < total; i++ {
+		cycle := len(vals)
+		for i := 0; i < n; i++ {
 			combos[i][name] = vals[(i/repeat)%cycle]
 		}
 		repeat *= cycle
