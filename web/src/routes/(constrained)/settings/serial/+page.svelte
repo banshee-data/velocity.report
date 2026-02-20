@@ -78,11 +78,11 @@
 			availableDevices = devicesData;
 
 			// Build comprehensive port options including all devices and existing configs
-			const portSet = new SvelteSet<string>();
-			devicesData.forEach((d) => portSet.add(d.port_path));
-			configsData.forEach((c) => portSet.add(c.port_path));
+			const uniquePortPaths = new SvelteSet<string>();
+			devicesData.forEach((d) => uniquePortPaths.add(d.port_path));
+			configsData.forEach((c) => uniquePortPaths.add(c.port_path));
 
-			portPathOptions = Array.from(portSet)
+			portPathOptions = Array.from(uniquePortPaths)
 				.sort()
 				.map((path) => ({
 					value: path,
