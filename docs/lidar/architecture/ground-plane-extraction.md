@@ -1124,6 +1124,7 @@ CREATE INDEX IF NOT EXISTS idx_ground_plane_timestamp ON ground_plane_snapshots(
 - [ ] Tier 2 global grid: diff/merge across observation sessions
 - [ ] OSM polyline import for anchor constraints (kerbs, crosswalks, signs)
 - [ ] OSM write-back workflow (v2, requires API key)
+- [ ] **Vector scene map** — Extend tile-based ground plane into polygon-based multi-feature representation with buildings, vegetation, and hierarchical LOD (see `docs/lidar/architecture/vector-scene-map.md`)
 
 ---
 
