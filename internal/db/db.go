@@ -135,10 +135,6 @@ var (
 	prodSchemaConsistencyOnce sync.Once
 	prodSchemaConsistencyErr  error
 	prodLatestVersion         uint
-
-	devSchemaConsistencyOnce sync.Once
-	devSchemaConsistencyErr  error
-	devLatestVersion         uint
 )
 
 // getMigrationsFS returns the appropriate filesystem for migrations.
@@ -160,10 +156,10 @@ func getMigrationsFS() (fs.FS, error) {
 
 func getSchemaConsistencyResult(migrationsFS fs.FS) (uint, error) {
 	if DevMode {
-		devSchemaConsistencyOnce.Do(func() {
-			devLatestVersion, devSchemaConsistencyErr = validateSchemaSQLConsistency(migrationsFS)
-		})
-		return devLatestVersion, devSchemaConsistencyErr
+		// Dev mode uses filesystem-backed migrations for hot-reload behavior.
+		// Re-check on each call so new/edited migration files are picked up
+		// without restarting the process.
+		return validateSchemaSQLConsistency(migrationsFS)
 	}
 
 	prodSchemaConsistencyOnce.Do(func() {
@@ -249,6 +245,12 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	closeOnError := true
+	defer func() {
+		if closeOnError {
+			_ = db.Close()
+		}
+	}()
 
 	dbWrapper := &DB{db}
 
@@ -287,6 +289,7 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 				return nil, err
 			}
 		}
+		closeOnError = false
 		return dbWrapper, nil
 	}
 
@@ -343,6 +346,7 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 			}
 
 			log.Printf("   Database is up to date!")
+			closeOnError = false
 			return dbWrapper, nil
 		}
 
@@ -375,7 +379,8 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 
 	log.Println("ran database initialisation script")
 
-	// Verify schema.sql consistency once per process and reuse the result.
+	// Verify schema.sql consistency.
+	// Production reuses a process-wide cached result; DevMode re-checks each call.
 	latestVersion, err := getSchemaConsistencyResult(migrationsFS)
 	if err != nil {
 		return nil, err
@@ -395,6 +400,7 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 		return nil, fmt.Errorf("baseline verification failed: expected version %d, got %d", latestVersion, currentVersion)
 	}
 
+	closeOnError = false
 	return dbWrapper, nil
 }
 
