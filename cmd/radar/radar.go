@@ -188,26 +188,32 @@ func configurePDFLaTeXFlow(flow, texRootFlag string) error {
 func main() {
 	flag.Parse()
 
-	// Configure logging: default to stdout; optionally tee to a debug log file via env.
+	// Configure logging: default to stdout; optionally tee to a log file via env.
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	log.SetOutput(os.Stdout)
 
-	// Three-stream LiDAR logging: VELOCITY_LIDAR_{OPS,DEBUG,TRACE}_LOG env vars.
+	// Three-stream LiDAR logging: VELOCITY_LIDAR_{OPS,DIAG,TRACE}_LOG env vars.
 	// Falls back to legacy VELOCITY_DEBUG_LOG (all streams to one file) when
 	// the new vars are not set.
 	var logFiles []*os.File
 	opsPath := os.Getenv("VELOCITY_LIDAR_OPS_LOG")
-	lidarDebugPath := os.Getenv("VELOCITY_LIDAR_DEBUG_LOG")
+	diagPath := os.Getenv("VELOCITY_LIDAR_DIAG_LOG")
 	tracePath := os.Getenv("VELOCITY_LIDAR_TRACE_LOG")
 
-	if opsPath != "" || lidarDebugPath != "" || tracePath != "" {
+	if opsPath != "" || diagPath != "" || tracePath != "" {
 		writers := lidar.LogWriters{}
 		// Determine a fallback writer: the first explicitly set path, so
 		// unspecified streams still produce output (design: avoid silent log loss).
-		fallbackPath := firstNonEmpty(opsPath, lidarDebugPath, tracePath)
+		fallbackPath := firstNonEmpty(opsPath, diagPath, tracePath)
+		// Dedup file descriptors: reuse the same *os.File when multiple
+		// streams resolve to the same path (after fallback expansion).
+		openedFiles := map[string]*os.File{}
 		openLog := func(path string) (io.Writer, error) {
 			if path == "" {
 				path = fallbackPath
+			}
+			if f, ok := openedFiles[path]; ok {
+				return f, nil
 			}
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return nil, fmt.Errorf("create directory for %s: %w", path, err)
@@ -216,6 +222,7 @@ func main() {
 			if err != nil {
 				return nil, fmt.Errorf("open %s: %w", path, err)
 			}
+			openedFiles[path] = f
 			logFiles = append(logFiles, f)
 			return f, nil
 		}
@@ -224,8 +231,8 @@ func main() {
 		} else {
 			log.Printf("warning: %v", err)
 		}
-		if w, err := openLog(lidarDebugPath); err == nil {
-			writers.Debug = w
+		if w, err := openLog(diagPath); err == nil {
+			writers.Diag = w
 		} else {
 			log.Printf("warning: %v", err)
 		}
@@ -236,19 +243,19 @@ func main() {
 		}
 		lidar.SetLogWriters(writers)
 		// Wire sub-package loggers to the same streams.
-		l2frames.SetLogWriters(writers.Ops, writers.Debug, writers.Trace)
-		l3grid.SetLogWriters(writers.Ops, writers.Debug, writers.Trace)
-		pipeline.SetLogWriters(writers.Ops, writers.Debug, writers.Trace)
+		l2frames.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+		l3grid.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+		pipeline.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	} else if debugPath := os.Getenv("VELOCITY_DEBUG_LOG"); debugPath != "" {
 		// Legacy: route all three streams to a single file.
 		if err := os.MkdirAll(filepath.Dir(debugPath), 0o755); err == nil {
 			if f, err := os.OpenFile(debugPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
 				logFiles = append(logFiles, f)
-				lidar.SetDebugLogger(f)
+				lidar.SetLegacyLogger(f)
 				// Wire sub-package loggers to the same single writer.
-				l2frames.SetDebugLogger(f)
-				l3grid.SetDebugLogger(f)
-				pipeline.SetDebugLogger(f)
+				l2frames.SetLegacyLogger(f)
+				l3grid.SetLegacyLogger(f)
+				pipeline.SetLegacyLogger(f)
 			} else {
 				log.Printf("warning: failed to open debug log %s: %v", debugPath, err)
 			}

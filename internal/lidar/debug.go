@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"sync"
@@ -12,8 +13,8 @@ type LogLevel int
 const (
 	// LogOps routes to the ops stream: actionable warnings/errors and lifecycle events.
 	LogOps LogLevel = iota
-	// LogDebug routes to the debug stream: day-to-day diagnostics for troubleshooting.
-	LogDebug
+	// LogDiag routes to the diag stream: day-to-day diagnostics for troubleshooting.
+	LogDiag
 	// LogTrace routes to the trace stream: high-frequency packet/frame telemetry.
 	LogTrace
 )
@@ -21,14 +22,14 @@ const (
 // LogWriters holds the io.Writers for each logging stream.
 type LogWriters struct {
 	Ops   io.Writer
-	Debug io.Writer
+	Diag  io.Writer
 	Trace io.Writer
 }
 
 var (
 	mu          sync.RWMutex
 	opsLogger   *log.Logger
-	debugLogger *log.Logger
+	diagLogger  *log.Logger
 	traceLogger *log.Logger
 )
 
@@ -38,7 +39,7 @@ func SetLogWriters(w LogWriters) {
 	mu.Lock()
 	defer mu.Unlock()
 	opsLogger = newLogger("[lidar] ", w.Ops)
-	debugLogger = newLogger("[lidar] ", w.Debug)
+	diagLogger = newLogger("[lidar] ", w.Diag)
 	traceLogger = newLogger("[lidar] ", w.Trace)
 }
 
@@ -50,17 +51,20 @@ func SetLogWriter(level LogLevel, w io.Writer) {
 	switch level {
 	case LogOps:
 		opsLogger = newLogger("[lidar] ", w)
-	case LogDebug:
-		debugLogger = newLogger("[lidar] ", w)
+	case LogDiag:
+		diagLogger = newLogger("[lidar] ", w)
 	case LogTrace:
 		traceLogger = newLogger("[lidar] ", w)
+	default:
+		panic(fmt.Sprintf("lidar.SetLogWriter: unknown LogLevel %d", level))
 	}
 }
 
-// SetDebugLogger is the backward-compatible shim that routes all three streams
-// to a single writer. Pass nil to disable all logging.
-func SetDebugLogger(w io.Writer) {
-	SetLogWriters(LogWriters{Ops: w, Debug: w, Trace: w})
+// SetLegacyLogger is the backward-compatible shim that routes all three streams
+// to a single writer. Used by the VELOCITY_DEBUG_LOG fallback.
+// Pass nil to disable all logging.
+func SetLegacyLogger(w io.Writer) {
+	SetLogWriters(LogWriters{Ops: w, Diag: w, Trace: w})
 }
 
 // newLogger creates a *log.Logger for a given writer, or returns nil if w is nil.
@@ -81,10 +85,10 @@ func Opsf(format string, args ...interface{}) {
 	}
 }
 
-// Diagf logs to the debug stream (day-to-day diagnostics, tuning context).
+// Diagf logs to the diag stream (day-to-day diagnostics, tuning context).
 func Diagf(format string, args ...interface{}) {
 	mu.RLock()
-	l := debugLogger
+	l := diagLogger
 	mu.RUnlock()
 	if l != nil {
 		l.Printf(format, args...)

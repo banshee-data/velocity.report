@@ -16,13 +16,13 @@ Three stream model:
 
 ## API Surface
 
-- `SetLogWriters(LogWriters{Ops, Debug, Trace io.Writer})` — root package
-- `SetLogWriter(level LogLevel, w io.Writer)` — root package
+- `SetLogWriters(LogWriters{Ops, Diag, Trace io.Writer})` — root package
+- `SetLogWriter(level LogLevel, w io.Writer)` — root package (panics on invalid level)
 - `SetLogWriters(ops, diag, trace io.Writer)` — sub-packages (l2frames, l3grid, pipeline)
 - `Opsf(...)` / `opsf(...)`
 - `Diagf(...)` / `diagf(...)`
 - `Tracef(...)` / `tracef(...)`
-- `SetDebugLogger(io.Writer)` — backward-compatible shim (all streams to one writer)
+- `SetLegacyLogger(io.Writer)` — backward-compatible shim for `VELOCITY_DEBUG_LOG` fallback
 
 `Debugf` and the keyword classifier have been removed. All call sites use explicit stream functions.
 
@@ -45,7 +45,7 @@ Three stream model:
 Env vars:
 
 - `VELOCITY_LIDAR_OPS_LOG`
-- `VELOCITY_LIDAR_DEBUG_LOG`
+- `VELOCITY_LIDAR_DIAG_LOG`
 - `VELOCITY_LIDAR_TRACE_LOG`
 
 Compatibility fallback:

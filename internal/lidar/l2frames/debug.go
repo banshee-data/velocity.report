@@ -19,9 +19,10 @@ func SetLogWriters(ops, diag, trace io.Writer) {
 	traceLogger = newLogger("[l2frames] ", trace)
 }
 
-// SetDebugLogger is the backward-compatible shim that routes all three streams
-// to a single writer. Pass nil to disable all logging.
-func SetDebugLogger(w io.Writer) {
+// SetLegacyLogger is the backward-compatible shim that routes all three streams
+// to a single writer. Used by the VELOCITY_DEBUG_LOG fallback.
+// Pass nil to disable all logging.
+func SetLegacyLogger(w io.Writer) {
 	SetLogWriters(w, w, w)
 }
 

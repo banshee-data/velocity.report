@@ -7,22 +7,22 @@ import (
 	"testing"
 )
 
-// TestSetDebugLogger tests the backward-compatible shim that routes all streams
+// TestSetLegacyLogger tests the backward-compatible shim that routes all streams
 // to a single writer.
-func TestSetDebugLogger(t *testing.T) {
+func TestSetLegacyLogger(t *testing.T) {
 	defer resetLoggers()
 
 	var buf bytes.Buffer
-	SetDebugLogger(&buf)
+	SetLegacyLogger(&buf)
 
 	mu.RLock()
 	hasOps := opsLogger != nil
-	hasDebug := debugLogger != nil
+	hasDiag := diagLogger != nil
 	hasTrace := traceLogger != nil
 	mu.RUnlock()
 
-	if !hasOps || !hasDebug || !hasTrace {
-		t.Error("SetDebugLogger() should configure all three streams")
+	if !hasOps || !hasDiag || !hasTrace {
+		t.Error("SetLegacyLogger() should configure all three streams")
 	}
 
 	// Test logging with each stream
@@ -32,26 +32,26 @@ func TestSetDebugLogger(t *testing.T) {
 
 	output := buf.String()
 	if !strings.Contains(output, "ops message: 1") {
-		t.Errorf("SetDebugLogger output missing ops message, got: %q", output)
+		t.Errorf("SetLegacyLogger output missing ops message, got: %q", output)
 	}
 	if !strings.Contains(output, "diag message: 2") {
-		t.Errorf("SetDebugLogger output missing diag message, got: %q", output)
+		t.Errorf("SetLegacyLogger output missing diag message, got: %q", output)
 	}
 	if !strings.Contains(output, "trace message: 3") {
-		t.Errorf("SetDebugLogger output missing trace message, got: %q", output)
+		t.Errorf("SetLegacyLogger output missing trace message, got: %q", output)
 	}
 
 	// Test setting to nil (disable logging)
-	SetDebugLogger(nil)
+	SetLegacyLogger(nil)
 
 	mu.RLock()
 	nilOps := opsLogger == nil
-	nilDebug := debugLogger == nil
+	nilDiag := diagLogger == nil
 	nilTrace := traceLogger == nil
 	mu.RUnlock()
 
-	if !nilOps || !nilDebug || !nilTrace {
-		t.Error("SetDebugLogger(nil) should clear all three streams")
+	if !nilOps || !nilDiag || !nilTrace {
+		t.Error("SetLegacyLogger(nil) should clear all three streams")
 	}
 
 	// Test logging when disabled (should not panic)
@@ -125,9 +125,9 @@ func TestExplicitStreams(t *testing.T) {
 			var buf bytes.Buffer
 
 			if tt.setupLogger {
-				SetDebugLogger(&buf)
+				SetLegacyLogger(&buf)
 			} else {
-				SetDebugLogger(nil)
+				SetLegacyLogger(nil)
 			}
 
 			tt.logFunc(tt.format, tt.args...)
@@ -149,8 +149,8 @@ func TestExplicitStreams(t *testing.T) {
 func TestThreadSafety(t *testing.T) {
 	defer resetLoggers()
 
-	var ops, dbg, trace bytes.Buffer
-	SetLogWriters(LogWriters{Ops: &ops, Debug: &dbg, Trace: &trace})
+	var ops, diag, trace bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &ops, Diag: &diag, Trace: &trace})
 
 	var wg sync.WaitGroup
 	numGoroutines := 10
@@ -178,7 +178,7 @@ func TestThreadSafety(t *testing.T) {
 	if ops.Len() == 0 {
 		t.Error("Expected ops output from concurrent goroutines, got none")
 	}
-	if dbg.Len() == 0 {
+	if diag.Len() == 0 {
 		t.Error("Expected diag output from concurrent goroutines, got none")
 	}
 	if trace.Len() == 0 {
@@ -219,7 +219,7 @@ func TestFormattingEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			SetDebugLogger(&buf)
+			SetLegacyLogger(&buf)
 
 			Diagf(tt.format, tt.args...)
 
@@ -235,8 +235,8 @@ func TestFormattingEdgeCases(t *testing.T) {
 func TestSetLogWriters(t *testing.T) {
 	defer resetLoggers()
 
-	var ops, dbg, trace bytes.Buffer
-	SetLogWriters(LogWriters{Ops: &ops, Debug: &dbg, Trace: &trace})
+	var ops, diag, trace bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &ops, Diag: &diag, Trace: &trace})
 
 	Opsf("ops event: %s", "restart")
 	Diagf("diag event: %d", 42)
@@ -245,8 +245,8 @@ func TestSetLogWriters(t *testing.T) {
 	if !strings.Contains(ops.String(), "ops event: restart") {
 		t.Errorf("Opsf output = %q, want to contain 'ops event: restart'", ops.String())
 	}
-	if !strings.Contains(dbg.String(), "diag event: 42") {
-		t.Errorf("Diagf output = %q, want to contain 'diag event: 42'", dbg.String())
+	if !strings.Contains(diag.String(), "diag event: 42") {
+		t.Errorf("Diagf output = %q, want to contain 'diag event: 42'", diag.String())
 	}
 	if !strings.Contains(trace.String(), "trace event: fps=30.0") {
 		t.Errorf("Tracef output = %q, want to contain 'trace event: fps=30.0'", trace.String())
@@ -258,9 +258,9 @@ func TestSetLogWriters(t *testing.T) {
 			t.Errorf("Ops line missing [lidar] prefix: %q", line)
 		}
 	}
-	for _, line := range strings.Split(strings.TrimSpace(dbg.String()), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(diag.String()), "\n") {
 		if !strings.Contains(line, "[lidar] ") {
-			t.Errorf("Debug line missing [lidar] prefix: %q", line)
+			t.Errorf("Diag line missing [lidar] prefix: %q", line)
 		}
 	}
 	for _, line := range strings.Split(strings.TrimSpace(trace.String()), "\n") {
@@ -273,8 +273,8 @@ func TestSetLogWriters(t *testing.T) {
 	if strings.Contains(ops.String(), "diag event") || strings.Contains(ops.String(), "trace event") {
 		t.Errorf("Ops stream received non-ops messages: %q", ops.String())
 	}
-	if strings.Contains(dbg.String(), "ops event") || strings.Contains(dbg.String(), "trace event") {
-		t.Errorf("Debug stream received non-debug messages: %q", dbg.String())
+	if strings.Contains(diag.String(), "ops event") || strings.Contains(diag.String(), "trace event") {
+		t.Errorf("Diag stream received non-diag messages: %q", diag.String())
 	}
 	if strings.Contains(trace.String(), "ops event") || strings.Contains(trace.String(), "diag event") {
 		t.Errorf("Trace stream received non-trace messages: %q", trace.String())
@@ -297,6 +297,19 @@ func TestSetLogWriter(t *testing.T) {
 	}
 }
 
+// TestSetLogWriterInvalidLevel tests that an invalid LogLevel panics.
+func TestSetLogWriterInvalidLevel(t *testing.T) {
+	defer resetLoggers()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("SetLogWriter with invalid LogLevel should panic")
+		}
+	}()
+
+	var buf bytes.Buffer
+	SetLogWriter(LogLevel(99), &buf)
+}
+
 // TestNilWriterSafety tests that nil writers do not cause panics.
 func TestNilWriterSafety(t *testing.T) {
 	defer resetLoggers()
@@ -304,7 +317,7 @@ func TestNilWriterSafety(t *testing.T) {
 	// All nil
 	SetLogWriters(LogWriters{})
 	Opsf("should not panic: %s", "nil ops")
-	Diagf("should not panic: %s", "nil debug")
+	Diagf("should not panic: %s", "nil diag")
 	Tracef("should not panic: %s", "nil trace")
 
 	// Partial nil
@@ -319,8 +332,8 @@ func TestNilWriterSafety(t *testing.T) {
 func TestConcurrentStreamWrites(t *testing.T) {
 	defer resetLoggers()
 
-	var ops, dbg, trace bytes.Buffer
-	SetLogWriters(LogWriters{Ops: &ops, Debug: &dbg, Trace: &trace})
+	var ops, diag, trace bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &ops, Diag: &diag, Trace: &trace})
 
 	var wg sync.WaitGroup
 	n := 50
@@ -350,8 +363,8 @@ func TestConcurrentStreamWrites(t *testing.T) {
 	if ops.Len() == 0 {
 		t.Error("expected ops output from concurrent writes")
 	}
-	if dbg.Len() == 0 {
-		t.Error("expected debug output from concurrent writes")
+	if diag.Len() == 0 {
+		t.Error("expected diag output from concurrent writes")
 	}
 	if trace.Len() == 0 {
 		t.Error("expected trace output from concurrent writes")
@@ -362,7 +375,7 @@ func TestConcurrentStreamWrites(t *testing.T) {
 func resetLoggers() {
 	mu.Lock()
 	opsLogger = nil
-	debugLogger = nil
+	diagLogger = nil
 	traceLogger = nil
 	mu.Unlock()
 }
