@@ -7,6 +7,7 @@ on:
       - "config/**"
       - "internal/config/tuning.go"
       - "scripts/config-order-sync"
+      - "scripts/readme-maths-check"
       - "Makefile"
       - ".github/workflows/config-order-ci.yml"
   push:
@@ -16,6 +17,7 @@ on:
       - "config/**"
       - "internal/config/tuning.go"
       - "scripts/config-order-sync"
+      - "scripts/readme-maths-check"
       - "Makefile"
       - ".github/workflows/config-order-ci.yml"
 
@@ -32,3 +34,6 @@ jobs:
 
       - name: Run key-order check
         run: make config-order-check
+
+      - name: Run README.maths key check
+        run: make readme-maths-check

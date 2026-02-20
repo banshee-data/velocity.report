@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Validate config-doc JSON keys against README.maths key lists.
+
+Rules:
+- Source keys come from markdown list items in README.maths where the list
+  element is a string matching: [a-z0-9_]+
+- List elements containing '.' are excluded (treated as filenames/paths)
+- Target keys come from top-level keys in fenced ```json blocks in docs
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+
+KEY_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def extract_maths_keys(path: Path) -> list[str]:
+    keys: list[str] = []
+    seen: set[str] = set()
+
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line.startswith("- "):
+            continue
+        body = line[2:].strip()
+
+        token = ""
+        if body.startswith("`"):
+            end = body.find("`", 1)
+            if end <= 1:
+                continue
+            token = body[1:end].strip()
+        else:
+            # Plain bullet only if the entire list element is a single token,
+            # e.g. "- background_update_fraction".
+            token = body.strip().strip(",:")
+            if any(ch.isspace() for ch in token):
+                continue
+
+        if "." in token:
+            continue
+        if not KEY_RE.fullmatch(token):
+            continue
+        if token not in seen:
+            seen.add(token)
+            keys.append(token)
+
+    if not keys:
+        raise ValueError(f"{path}: no matching key list elements found")
+    return keys
+
+
+def extract_json_blocks(path: Path) -> list[dict]:
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(r"```json[ \t]*\n(.*?)\n```", re.DOTALL)
+    blocks: list[dict] = []
+    for match in pattern.finditer(text):
+        raw = match.group(1)
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            blocks.append(parsed)
+    return blocks
+
+
+def extract_json_keys(obj: dict) -> list[str]:
+    keys: list[str] = []
+    for key in obj.keys():
+        if "." in key:
+            continue
+        if not KEY_RE.fullmatch(key):
+            continue
+        keys.append(key)
+    return keys
+
+
+def choose_target_blocks(blocks: list[dict], require_key: str) -> list[dict]:
+    selected: list[dict] = []
+    for block in blocks:
+        if require_key in block:
+            selected.append(block)
+    return selected
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Check docs JSON keys against README.maths key lists")
+    parser.add_argument("--maths-md", default="config/README.maths.md", help="Markdown file containing key lists")
+    parser.add_argument(
+        "--doc-md",
+        action="append",
+        default=[],
+        help="Markdown doc containing fenced JSON block(s). Repeatable. Default: config/README.md",
+    )
+    parser.add_argument(
+        "--require-key",
+        default="background_update_fraction",
+        help="Only check JSON blocks containing this top-level key",
+    )
+    args = parser.parse_args()
+
+    root = Path.cwd()
+    maths_path = (root / args.maths_md).resolve()
+    doc_paths = [(root / p).resolve() for p in (args.doc_md or ["config/README.md"])]
+
+    try:
+        maths_keys = extract_maths_keys(maths_path)
+    except Exception as err:  # noqa: BLE001
+        print(f"[FAIL] {err}", file=sys.stderr)
+        return 1
+
+    maths_set = set(maths_keys)
+    print(f"[OK] {maths_path}: extracted {len(maths_keys)} maths keys")
+
+    failed = False
+    for doc_path in doc_paths:
+        blocks = extract_json_blocks(doc_path)
+        if not blocks:
+            print(f"[FAIL] {doc_path}: no parseable fenced JSON object blocks found")
+            failed = True
+            continue
+
+        selected = choose_target_blocks(blocks, args.require_key)
+        if not selected:
+            print(f"[FAIL] {doc_path}: no JSON block contains required key '{args.require_key}'")
+            failed = True
+            continue
+
+        for idx, block in enumerate(selected, start=1):
+            json_keys = extract_json_keys(block)
+            json_set = set(json_keys)
+            missing_in_maths = sorted(json_set - maths_set)
+            missing_in_json = sorted(maths_set - json_set)
+            if missing_in_maths or missing_in_json:
+                failed = True
+                print(f"[FAIL] {doc_path} block#{idx}: key mismatch")
+                if missing_in_maths:
+                    print(f"  - present in JSON, missing in maths list: {', '.join(missing_in_maths)}")
+                if missing_in_json:
+                    print(f"  - present in maths list, missing in JSON: {', '.join(missing_in_json)}")
+            else:
+                print(f"[OK] {doc_path} block#{idx}: keys match ({len(json_keys)})")
+
+    if failed:
+        return 1
+
+    print("README maths/json key check passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
