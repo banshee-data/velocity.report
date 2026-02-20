@@ -300,6 +300,72 @@ message StatePrediction {
 }
 ```
 
+### 1.5.1 Planned: Background Debug Surfaces for Swift Frontend
+
+Status: **Planned (docs-only), not implemented in current protobuf/API yet**.
+
+Goal: let the Swift frontend inspect background model behavior directly in both
+native polar representation and Cartesian rendering form, including region map
+assignment state.
+
+Proposed debug payloads:
+
+```protobuf
+message BackgroundPointPolarDebug {
+  uint32 ring = 1;
+  uint32 azimuth_bin = 2;
+  float range_m = 3;
+  float spread_m = 4;
+  uint32 confidence = 5;   // TimesSeenCount-aligned
+  uint32 region_id = 6;    // optional, 0 = unassigned
+  string settle_state = 7; // learning/obs_stable/geom_stable/locked/frozen
+}
+
+message BackgroundPointCartesianDebug {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  uint32 confidence = 4;
+  uint32 source_ring = 5;
+  uint32 source_azimuth_bin = 6;
+  uint32 region_id = 7;    // optional, 0 = unassigned
+  string settle_state = 8;
+}
+
+message RegionMapCellDebug {
+  uint32 ring = 1;
+  uint32 azimuth_bin = 2;
+  uint32 region_id = 3;
+  string surface_class = 4; // ground/structure/volume/unknown
+  string settle_state = 5;
+}
+
+message BackgroundDebugBundle {
+  uint64 frame_id = 1;
+  int64 timestamp_ns = 2;
+  repeated BackgroundPointPolarDebug polar_points = 3;
+  repeated BackgroundPointCartesianDebug cartesian_points = 4;
+  repeated RegionMapCellDebug region_cells = 5;
+}
+```
+
+Proposed stream request toggles:
+
+```protobuf
+message StreamRequest {
+  // Existing fields...
+  bool include_bg_debug_polar = 20;
+  bool include_bg_debug_cartesian = 21;
+  bool include_bg_region_map = 22;
+}
+```
+
+Planned frontend modes:
+
+- `Polar`: ring/azimuth grid inspection for settling diagnostics
+- `Cartesian`: world/sensor-frame point overlay for geometric inspection
+- `Region Map`: colorized region IDs and lifecycle state overlay
+
 ### 1.6 Labels (User Annotations)
 
 Labels are created by the user in the visualiser and stored in the Go backend SQLite database via REST API.

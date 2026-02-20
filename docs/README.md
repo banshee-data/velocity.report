@@ -29,6 +29,7 @@ This directory contains internal project documentation for development and plann
   - [Python venv Consolidation Plan](plans/python-venv-consolidation-plan.md)
   - [Transit Deduplication Plan](plans/transit-deduplication-plan.md)
   - [Distribution and Packaging Plan](plans/DISTRIBUTION_AND_PACKAGING_PLAN.md)
+  - [Frontend Background Debug Surfaces Plan](plans/frontend-background-debug-surfaces-plan.md)
 
 ### Feature Specifications
 
