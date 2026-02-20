@@ -19,6 +19,14 @@ from pathlib import Path
 
 KEY_RE = re.compile(r"^[a-z0-9_]+$")
 JSON_TAG_RE = re.compile(r'`json:"([^",]+)')
+VALIDATE_COMPLETE_FN_RE = re.compile(
+    r"func\s+\(\s*\w+\s+\*TuningConfig\s*\)\s+ValidateComplete\(\)\s+error\s*\{"
+)
+HANDLE_TUNING_PARAMS_FN_RE = re.compile(
+    r"func\s+\(\s*\w+\s+\*WebServer\s*\)\s+handleTuningParams\([^)]*\)\s*\{"
+)
+POST_METHOD_CASE_RE = re.compile(r"case\s+http\.MethodPost\s*:")
+BODY_STRUCT_RE = re.compile(r"var\s+body\s+struct\s*\{")
 
 
 def is_valid_key(key: str, *, allow_private: bool) -> bool:
@@ -175,7 +183,7 @@ def find_matching_brace(text: str, open_idx: int, source: Path) -> int:
 
 def extract_validator_keys(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
-    match = re.search(r"func\s+\(c\s+\*TuningConfig\)\s+ValidateComplete\(\)\s+error\s*\{", text)
+    match = VALIDATE_COMPLETE_FN_RE.search(text)
     if not match:
         raise ValueError(f"{path}: ValidateComplete() not found")
     open_idx = match.end() - 1
@@ -196,7 +204,7 @@ def extract_validator_keys(path: Path) -> list[str]:
 
 def extract_webserver_post_keys(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
-    fn = re.search(r"func\s+\(ws\s+\*WebServer\)\s+handleTuningParams\([^)]*\)\s*\{", text)
+    fn = HANDLE_TUNING_PARAMS_FN_RE.search(text)
     if not fn:
         raise ValueError(f"{path}: handleTuningParams() not found")
 
@@ -204,12 +212,12 @@ def extract_webserver_post_keys(path: Path) -> list[str]:
     fn_close = find_matching_brace(text, fn_open, path)
     fn_body = text[fn_open + 1 : fn_close]
 
-    post_case = re.search(r"case\s+http\.MethodPost\s*:", fn_body)
+    post_case = POST_METHOD_CASE_RE.search(fn_body)
     if not post_case:
         raise ValueError(f"{path}: case http.MethodPost not found in handleTuningParams()")
     post_body = fn_body[post_case.end() :]
 
-    body_struct = re.search(r"var\s+body\s+struct\s*\{", post_body)
+    body_struct = BODY_STRUCT_RE.search(post_body)
     if not body_struct:
         raise ValueError(f"{path}: POST body struct not found")
     struct_open = body_struct.end() - 1
