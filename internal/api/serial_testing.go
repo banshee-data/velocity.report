@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/serialmux"
 	"go.bug.st/serial"
 )
 
@@ -97,6 +98,15 @@ func (s *Server) handleSerialTest(w http.ResponseWriter, r *http.Request) {
 	// Perform the serial port test
 	result := testSerialPort(req)
 
+	// Warn if the port is currently in use by the active SerialPortManager
+	if s.serialManager != nil {
+		snap := s.serialManager.Snapshot()
+		if snap.PortPath == req.PortPath {
+			result.Suggestion = "Warning: this port is currently in use by the active serial connection. " +
+				"Testing may temporarily disrupt the active connection. " + result.Suggestion
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	// Always return 200 OK, even for test failure (not an API error)
 	w.WriteHeader(http.StatusOK)
@@ -105,34 +115,42 @@ func (s *Server) handleSerialTest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// testSerialPort tests a serial port with the given configuration
+// testSerialPort tests a serial port with the given configuration.
+// It uses serialmux.PortOptions for validation and mode construction
+// to stay consistent with the production serial connection path.
 func testSerialPort(req SerialTestRequest) SerialTestResponse {
 	startTime := time.Now()
 
-	// Build serial port mode
-	mode := &serial.Mode{
+	// Build and validate options using the shared PortOptions type
+	opts := serialmux.PortOptions{
 		BaudRate: req.BaudRate,
 		DataBits: req.DataBits,
-		StopBits: serial.StopBits(req.StopBits),
+		StopBits: req.StopBits,
+		Parity:   req.Parity,
 	}
 
-	// Set parity
-	switch req.Parity {
-	case "N":
-		mode.Parity = serial.NoParity
-	case "E":
-		mode.Parity = serial.EvenParity
-	case "O":
-		mode.Parity = serial.OddParity
-	default:
+	normalised, err := opts.Normalise()
+	if err != nil {
 		return SerialTestResponse{
 			Success:        false,
 			PortPath:       req.PortPath,
 			BaudRate:       req.BaudRate,
 			TestDurationMS: time.Since(startTime).Milliseconds(),
-			Error:          fmt.Sprintf("Invalid parity: %s", req.Parity),
+			Error:          fmt.Sprintf("Invalid serial configuration: %v", err),
 			Message:        "Serial port test failed",
-			Suggestion:     "Parity must be one of: N (None), E (Even), O (Odd)",
+			Suggestion:     "Check baud rate, data bits, stop bits, and parity settings",
+		}
+	}
+
+	mode, err := normalised.SerialMode()
+	if err != nil {
+		return SerialTestResponse{
+			Success:        false,
+			PortPath:       req.PortPath,
+			BaudRate:       normalised.BaudRate,
+			TestDurationMS: time.Since(startTime).Milliseconds(),
+			Error:          fmt.Sprintf("Failed to build serial mode: %v", err),
+			Message:        "Serial port test failed",
 		}
 	}
 
@@ -143,7 +161,7 @@ func testSerialPort(req SerialTestRequest) SerialTestResponse {
 		return SerialTestResponse{
 			Success:        false,
 			PortPath:       req.PortPath,
-			BaudRate:       req.BaudRate,
+			BaudRate:       normalised.BaudRate,
 			TestDurationMS: time.Since(startTime).Milliseconds(),
 			Error:          fmt.Sprintf("Failed to open port: %v", err),
 			Message:        "Serial port test failed",
