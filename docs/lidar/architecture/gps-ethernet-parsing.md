@@ -1,8 +1,8 @@
 # GPS Ethernet Parsing Architecture
 
-**Status:** Proposed  
-**Author:** Architecture Team  
-**Created:** 2026  
+**Status:** Proposed
+**Author:** Architecture Team
+**Created:** 2026
 **Related:** `hesai_packet_structure.md`, `ground-plane-extraction.md`
 
 ## Overview & Motivation
@@ -54,16 +54,19 @@ Without GPS, the system operates normally in sensor-local coordinates:
 Most GPS receivers with ethernet capability support NMEA-0183 sentences broadcast over UDP:
 
 **Common Hardware:**
+
 - u-blox NEO-M8/ZED-F9P with ethernet bridge modules
 - Trimble timing receivers (SMT 360, RES SMT GG)
 - Garmin GPS 18x LVC with serial-to-ethernet converter
 
 **Network Configuration:**
+
 - Standard UDP broadcast to subnet (e.g., 192.168.1.255:10110)
 - Unicast to specific host (e.g., 192.168.100.50:10110)
 - Configurable ports (typical: 10110, 10001, 2947 for gpsd)
 
 **Advantages:**
+
 - Industry-standard NMEA sentences
 - Hardware-agnostic protocol
 - Mixed capture in PCAP alongside LiDAR packets
@@ -74,15 +77,18 @@ Most GPS receivers with ethernet capability support NMEA-0183 sentences broadcas
 Some Hesai LiDAR sensors include GPS receiver inputs:
 
 **Connection:**
+
 - Physical: PPS (pulse-per-second) + NMEA serial (RS-232)
 - Ethernet API: HTTP endpoint for GPS status (`/api/lidar/gps_info`)
 - Packet embedding: GPS metadata in extended packet formats (model-dependent)
 
 **Current Support:**
+
 - PTP/GPS timestamp modes already parsed in `resolvePacketTime()`
 - Position data not extracted (only time sync information)
 
 **Limitations:**
+
 - Requires physical GPS antenna connected to LiDAR sensor
 - HTTP polling adds latency vs. UDP broadcast
 - Packet embedding format varies by firmware version
@@ -92,15 +98,18 @@ Some Hesai LiDAR sensors include GPS receiver inputs:
 IEEE 1588 Precision Time Protocol (PTP) synchronised to GPS-disciplined grandmaster clock:
 
 **Architecture:**
+
 - Grandmaster clock receives GPS time (PPS + NMEA)
 - PTP distributes nanosecond-precision time to LiDAR sensor
 - GPS position obtained separately from grandmaster (not in PTP packets)
 
 **Current Support:**
+
 - `TimestampModePTP` already supported for time sync
 - Position data requires separate GPS receiver or manual config
 
 **Advantages:**
+
 - Sub-microsecond time accuracy
 - Standard for multi-sensor deployments
 
@@ -109,6 +118,7 @@ IEEE 1588 Precision Time Protocol (PTP) synchronised to GPS-disciplined grandmas
 External GPS receiver on same network segment as LiDAR sensor:
 
 **Configuration:**
+
 ```
 Network Segment: 192.168.100.x
 LiDAR Sensor:    192.168.100.201 (Hesai Pandar40P)
@@ -117,11 +127,13 @@ Data Collector:  192.168.100.1 (Raspberry Pi)
 ```
 
 **PCAP Capture:**
+
 - `tcpdump -i eth0 -w capture.pcap '(udp dst port 2368) or (udp dst port 10110)'`
 - Mixed capture: LiDAR packets (port 2368) + GPS packets (port 10110)
 - Single PCAP contains all geo-referenced data
 
 **Advantages:**
+
 - Independent of LiDAR hardware
 - GPS quality not limited by sensor integration
 - Easy to upgrade GPS receiver (e.g., RTK-capable units)
@@ -150,6 +162,7 @@ $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
 ```
 
 **Fields Required:**
+
 - Latitude, longitude (decimal degrees after conversion)
 - Fix quality (must be ≥1 for valid position)
 - HDOP (horizontal dilution of precision)
@@ -174,6 +187,7 @@ $GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
 ```
 
 **Fields Required:**
+
 - Date (for absolute timestamp construction)
 - Status (must be 'A' for valid fix)
 - Latitude, longitude (redundant with GGA, used for validation)
@@ -194,6 +208,7 @@ $GPGSA,A,3,04,05,09,12,24,,,,,,,,,2.5,1.3,2.1*39
 ```
 
 **Fields Required:**
+
 - HDOP (horizontal dilution of precision, <2.0 preferred)
 - PDOP (position dilution of precision, quality metric)
 - Fix type (require 3D fix for altitude)
@@ -212,26 +227,27 @@ Calculation: degrees + (minutes / 60)
 ```
 
 **Implementation:**
+
 ```go
 func parseNMEACoordinate(coord string, hemisphere string) (float64, error) {
     // coord format: "DDmm.mmmm" or "DDDmm.mmmm"
     // hemisphere: "N"/"S" or "E"/"W"
-    
+
     var degrees, minutes float64
     if len(coord) > 0 && strings.Contains(coord, ".") {
         dotIdx := strings.Index(coord, ".")
         minutesStart := dotIdx - 2
-        
+
         degrees, _ = strconv.ParseFloat(coord[:minutesStart], 64)
         minutes, _ = strconv.ParseFloat(coord[minutesStart:], 64)
     }
-    
+
     decimal := degrees + (minutes / 60.0)
-    
+
     if hemisphere == "S" || hemisphere == "W" {
         decimal = -decimal
     }
-    
+
     return decimal, nil
 }
 ```
@@ -247,26 +263,28 @@ $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
 ```
 
 **Algorithm:**
-1. XOR all characters between '$' and '*'
+
+1. XOR all characters between '$' and '\*'
 2. Compare with two-digit hex checksum
 3. Reject sentence if mismatch
 
 **Implementation:**
+
 ```go
 func validateNMEAChecksum(sentence string) bool {
     if !strings.HasPrefix(sentence, "$") || !strings.Contains(sentence, "*") {
         return false
     }
-    
+
     starIdx := strings.Index(sentence, "*")
     payload := sentence[1:starIdx]
     checksumStr := sentence[starIdx+1:]
-    
+
     var checksum byte
     for i := 0; i < len(payload); i++ {
         checksum ^= payload[i]
     }
-    
+
     expectedChecksum, _ := strconv.ParseUint(checksumStr, 16, 8)
     return checksum == byte(expectedChecksum)
 }
@@ -277,17 +295,20 @@ func validateNMEAChecksum(sentence string) bool {
 NMEA time must correlate with LiDAR timestamps:
 
 **NMEA Time Format:**
+
 - Time: `hhmmss.sss` (UTC, no date in GGA)
 - Date: `DDMMYY` (only in RMC)
 - Combined: `2026-03-23T12:35:19.000Z`
 
 **Correlation Strategy:**
+
 1. Construct absolute UTC timestamp from NMEA date+time
 2. Match to LiDAR packet timestamps via `resolvePacketTime()`
 3. Interpolate GPS position between fixes for high-frequency LiDAR frames
 4. Detect GPS time jumps (reconnection, leap seconds)
 
 **Challenges:**
+
 - NMEA update rate (1-10 Hz) vs. LiDAR rate (10-20 Hz)
 - Network jitter in UDP packet arrival
 - GPS receiver startup delay (no fix for 30-60 seconds)
@@ -389,6 +410,7 @@ All GPS coordinates use **WGS84 (World Geodetic System 1984)** datum:
 - Compatible with GIS tools (QGIS, ArcGIS), web mapping (Leaflet, OpenLayers)
 
 **Altitude References:**
+
 - **MSL (Mean Sea Level)**: Altitude relative to geoid (Earth's gravity equipotential surface)
 - **HAE (Height Above Ellipsoid)**: Altitude relative to WGS84 ellipsoid
 - **Relationship**: `HAE = MSL + GeoidSeparation` (from GPGGA sentence)
@@ -396,11 +418,13 @@ All GPS coordinates use **WGS84 (World Geodetic System 1984)** datum:
 ### Coordinate Precision Requirements
 
 **Ground Plane Tile Alignment:**
+
 - Requirement: <1 metre horizontal accuracy for tile georeferencing
 - Achievable with: GPS fix quality ≥1 (standalone GPS), HDOP <2.0
 - Preferred: DGPS (fix quality 2) or RTK (fix quality 4) for <10 cm accuracy
 
 **Precision by Fix Type:**
+
 - Standalone GPS (quality 1): 2-10 metres (sufficient for site-level georef)
 - DGPS (quality 2): 0.5-3 metres (good for ground plane tiles)
 - RTK Fixed (quality 4): 1-5 cm (high-precision surveying, future)
@@ -434,7 +458,7 @@ func (m *PacketMultiplexer) Dispatch(packet gopacket.Packet) {
     udpLayer := packet.Layer(layers.LayerTypeUDP)
     if udpLayer != nil {
         udp, _ := udpLayer.(*layers.UDP)
-        
+
         switch udp.DstPort {
         case 2368:
             m.lidarChan <- packet.Data()
@@ -460,21 +484,24 @@ go gpsReceiver.Listen(":10110")    // GPS packets
 Associate GPS fixes with LiDAR frames by timestamp:
 
 **Strategy 1: Nearest-Neighbour**
+
 - Find GPS fix closest in time to LiDAR frame timestamp
 - Suitable for stationary deployments (constant position)
 - Max time delta: 5 seconds (typical GPS update rate)
 
 **Strategy 2: Linear Interpolation**
+
 - Interpolate position between two GPS fixes
 - Suitable for mobile deployments (moving vehicle)
 - Requires GPS update rate ≥1 Hz
 
 **Implementation:**
+
 ```go
 func (r *GPSReceiver) GetFixAtTime(t time.Time) (*GPSFix, error) {
     r.mu.RLock()
     defer r.mu.RUnlock()
-    
+
     // Find bracketing fixes
     var before, after *GPSFix
     for i := range r.fixHistory {
@@ -486,17 +513,17 @@ func (r *GPSReceiver) GetFixAtTime(t time.Time) (*GPSFix, error) {
             break
         }
     }
-    
+
     // Stationary: return nearest fix
     if before != nil && after == nil {
         return before, nil
     }
-    
+
     // Mobile: interpolate position
     if before != nil && after != nil {
         return interpolateFix(before, after, t), nil
     }
-    
+
     return nil, ErrNoGPSFix
 }
 ```
@@ -506,17 +533,20 @@ func (r *GPSReceiver) GetFixAtTime(t time.Time) (*GPSFix, error) {
 Compute WGS84-referenced coordinate transform from GPS position:
 
 **Transform Chain:**
+
 ```
 Sensor Frame → Site Frame → Local ENU → ECEF → WGS84 Lat/Long
 ```
 
 **Components:**
+
 1. **Sensor mounting transform**: Rotation/translation from sensor to site anchor point
 2. **ENU (East-North-Up) frame**: Local tangent plane at GPS position
 3. **ECEF (Earth-Centred Earth-Fixed)**: 3D Cartesian coordinates
 4. **WGS84**: Geodetic latitude/longitude/altitude
 
 **For Ground Plane Export:**
+
 - Ground plane tiles aligned to local ENU frame
 - Tile origin specified in WGS84 coordinates
 - Normal vector: Z-axis in ENU frame (true vertical)
@@ -538,6 +568,7 @@ tcpdump -r capture_site_A.pcap -n 'udp dst port 10110' | wc -l # GPS count
 ```
 
 **PCAP Structure:**
+
 - Frame 1: LiDAR packet (1262 bytes, port 2368)
 - Frame 2: LiDAR packet (1262 bytes, port 2368)
 - Frame 3: GPS packet (82 bytes, port 10110) - NMEA sentence
@@ -557,6 +588,7 @@ tcpdump -r gps_only.pcap -A | grep '^\$GP'
 ```
 
 **In-code filtering:**
+
 ```go
 // BPF filter for packet capture
 filter := "udp and (dst port 2368 or dst port 10110)"
@@ -566,21 +598,25 @@ err := handle.SetBPFFilter(filter)
 ### Replay Considerations
 
 **GPS Position Extraction:**
+
 - Parse GPS packets during PCAP replay
 - Build GPS fix timeline before LiDAR processing
 - Associate fixes with LiDAR frames by packet timestamp
 
 **Static Captures:**
+
 - Stationary deployment: expect constant GPS position
 - Extract single representative fix (median of all fixes)
 - Apply to entire PCAP session
 
 **Mobile Captures:**
+
 - Moving vehicle: GPS position changes over time
 - Interpolate position for each LiDAR frame
 - Detect stationary periods (speed <0.5 m/s)
 
 **Handling Missing GPS:**
+
 - PCAP contains LiDAR packets but no GPS packets
 - Fallback to site config (manual lat/long from database)
 - Warn user about missing geo-reference
@@ -645,6 +681,7 @@ Graceful degradation when GPS unavailable:
 4. **Quaternary**: No geo-reference (sensor-local coordinates only)
 
 **Decision Logic:**
+
 ```go
 func (g *GeoReference) GetPosition(t time.Time) (*GPSFix, error) {
     // Attempt real-time GPS
@@ -653,7 +690,7 @@ func (g *GeoReference) GetPosition(t time.Time) (*GPSFix, error) {
             return fix, nil
         }
     }
-    
+
     // Fallback to site config
     if g.siteConfig != nil {
         return &GPSFix{
@@ -663,7 +700,7 @@ func (g *GeoReference) GetPosition(t time.Time) (*GPSFix, error) {
             FixQuality: 0, // Indicate manual config
         }, nil
     }
-    
+
     return nil, ErrNoGeoReference
 }
 ```
@@ -749,11 +786,13 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### GPS as Site-Level Metadata
 
 **Not Personally Identifiable Information:**
+
 - GPS coordinates identify sensor location, not individuals
 - No tracking of vehicle positions or routes
 - Site-level granularity (building/street level)
 
 **Privacy Alignment:**
+
 - Consistent with privacy-first design (no cameras, no license plates)
 - Local-only storage (SQLite database)
 - No external transmission of coordinates
@@ -761,11 +800,13 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### Local-Only Storage
 
 **Data Retention:**
+
 - GPS coordinates stored in local SQLite database
 - PCAP files remain on Raspberry Pi (`/var/lib/velocity-report/`)
 - No cloud synchronisation or external transmission
 
 **User Control:**
+
 - Users own all GPS data (same as LiDAR data)
 - Manual export for GIS integration (user-initiated)
 - Can disable GPS ingestion entirely (fallback to site config)
@@ -773,11 +814,13 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### Attack Surface
 
 **Network Exposure:**
+
 - UDP port 10110 open for GPS receiver (local network only)
 - No authentication required (read-only data source)
 - Vulnerable to spoofed GPS packets (mitigation: checksum validation)
 
 **Spoofing Mitigation:**
+
 - NMEA checksum validation (reject invalid sentences)
 - Fix quality checks (require ≥4 satellites, HDOP <5.0)
 - Consistency checks (detect position jumps >100 metres)
@@ -788,16 +831,19 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### IMU Integration for Sensor Orientation
 
 **Current State:**
+
 - GPS provides sensor position (latitude/longitude/altitude)
 - Sensor orientation unknown (roll, pitch, yaw)
 - Ground plane assumes level mounting
 
 **Future Enhancement:**
+
 - Integrate IMU (Inertial Measurement Unit) for 6DOF pose
 - MEMS IMU via I2C (e.g., Bosch BNO055, Adafruit LSM6DS33)
 - Sensor fusion: GPS + IMU for complete geo-referenced pose
 
 **Use Cases:**
+
 - Non-level sensor mounting (tilted pole, vehicle dashboard)
 - Sensor motion detection (vibration, rotation)
 - Accurate ground plane extraction on slopes
@@ -805,15 +851,18 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### RTK Corrections for Centimetre-Level Accuracy
 
 **Current State:**
+
 - Standalone GPS: 2-10 metre accuracy
 - Sufficient for site-level geo-referencing
 
 **RTK Enhancement:**
+
 - Real-Time Kinematic corrections via NTRIP (Networked Transport of RTCM via Internet Protocol)
 - Base station or CORS (Continuously Operating Reference Station)
 - Achieves 1-5 cm accuracy (high-precision surveying)
 
 **Challenges:**
+
 - Requires internet connection (conflicts with local-only design)
 - NTRIP client implementation (RTCM 3.x protocol)
 - Post-processing alternative: store raw observations, compute corrections offline
@@ -821,20 +870,24 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### Mobile Deployment (Vehicle-Mounted Sensor)
 
 **Current State:**
+
 - Stationary deployment assumed (fixed pole/building mount)
 - GPS position constant over capture session
 
 **Mobile Enhancement:**
+
 - Vehicle-mounted LiDAR + GPS
 - Continuous position updates (5-10 Hz GPS)
 - Speed and heading from GPRMC sentence
 
 **Use Cases:**
+
 - Street-level scanning (similar to Google Street View)
 - Mobile traffic monitoring (multiple neighbourhoods per day)
 - Before/after analysis (drive same route at different times)
 
 **Challenges:**
+
 - Vibration and motion blur
 - GPS accuracy in urban canyons (poor satellite visibility)
 - Data volume (TB-scale point clouds per day)
@@ -842,11 +895,13 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### Multi-Sensor Coordination
 
 **Future Vision:**
+
 - Multiple sensors at different locations
 - Aggregated ground plane (neighbourhood-scale coverage)
 - Privacy-preserving: no raw data sharing, only aggregate tiles
 
 **GPS Requirements:**
+
 - Common WGS84 reference frame
 - Time synchronisation (PTP or GPS time)
 - Coordinate transform validation
@@ -854,11 +909,13 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 ### GeoJSON Export for GIS Integration
 
 **Planned Feature:**
+
 - Export ground plane tiles as GeoJSON
 - Compatible with QGIS, ArcGIS, Leaflet
 - Include elevation (2.5D polygons)
 
 **Format Example:**
+
 ```json
 {
   "type": "FeatureCollection",

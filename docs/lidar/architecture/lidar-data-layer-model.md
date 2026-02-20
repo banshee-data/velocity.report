@@ -6,14 +6,14 @@ A single concise layer model for LiDAR data in velocity.report. OSI is only a re
 
 ## The six layers
 
-| Layer        | Label      | Scope                                              | Typical forms                                                                |
-| ------------ | ---------- | -------------------------------------------------- | ---------------------------------------------------------------------------- |
-| L1 (lowest)  | Packets    | Sensor-wire transport and capture                  | Hesai UDP payloads, PCAP packets                                             |
-| L2           | Frames     | Time-coherent frame assembly and geometry exports  | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export feed      |
-| L3           | Grid       | Background/foreground separation state             | `BackgroundGrid`, ring/azimuth bins, foreground mask                         |
+| Layer        | Label      | Scope                                              | Typical forms                                                                                                          |
+| ------------ | ---------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| L1 (lowest)  | Packets    | Sensor-wire transport and capture                  | Hesai UDP payloads, PCAP packets                                                                                       |
+| L2           | Frames     | Time-coherent frame assembly and geometry exports  | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export feed                                                |
+| L3           | Grid       | Background/foreground separation state             | `BackgroundGrid`, ring/azimuth bins, foreground mask                                                                   |
 | L4           | Perception | Per-frame object primitives and measurements       | Clusters and observations (`WorldCluster`, `TrackObservation`), ground plane surface model (`GroundSurface` interface) |
-| L5           | Tracks     | Multi-frame identity and motion continuity         | `TrackedObject`, `TrackSet`                                                  |
-| L6 (highest) | Objects    | Semantic object interpretation and dataset mapping | Local classes (`car`, `pedestrian`, `bird`, `other`) and AV taxonomy mapping |
+| L5           | Tracks     | Multi-frame identity and motion continuity         | `TrackedObject`, `TrackSet`                                                                                            |
+| L6 (highest) | Objects    | Semantic object interpretation and dataset mapping | Local classes (`car`, `pedestrian`, `bird`, `other`) and AV taxonomy mapping                                           |
 
 ## Artefact placement in this model
 

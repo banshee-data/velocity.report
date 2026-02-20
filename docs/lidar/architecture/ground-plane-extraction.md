@@ -120,13 +120,13 @@ When GPS coordinates are available, settled local tiles can be projected into a 
 
 Global tiles contain aggregate statistics from multiple observation sessions:
 
-| Field | Description |
-| ----- | ----------- |
+| Field             | Description                                         |
+| ----------------- | --------------------------------------------------- |
 | Mean plane normal | Weighted average of contributing local tile normals |
-| Mean Z-offset | Weighted average ground height |
-| Session count | Number of observation sessions contributing |
-| Last updated | Timestamp of most recent contribution |
-| Confidence | Combined planarity from all contributing sessions |
+| Mean Z-offset     | Weighted average ground height                      |
+| Session count     | Number of observation sessions contributing         |
+| Last updated      | Timestamp of most recent contribution               |
+| Confidence        | Combined planarity from all contributing sessions   |
 
 ### Lat/Long-Aligned Cartesian Grid (Tier 2)
 
@@ -152,9 +152,9 @@ Tile size trades off between:
 
 | Tile size | Use case                                                                 | Typical tile count |
 | --------- | ------------------------------------------------------------------------ | ------------------ |
-| 0.5 m     | High-resolution mapping; detect kerbs and small features                 | ~10,000 for 50 m² |
-| 1.0 m     | **Default** — Balance between detail and performance for urban streets   | ~2,500 for 50 m²  |
-| 2.0 m     | Coarse mapping; rapid convergence for low-point-density or sparse scenes | ~625 for 50 m²    |
+| 0.5 m     | High-resolution mapping; detect kerbs and small features                 | ~10,000 for 50 m²  |
+| 1.0 m     | **Default** — Balance between detail and performance for urban streets   | ~2,500 for 50 m²   |
+| 2.0 m     | Coarse mapping; rapid convergence for low-point-density or sparse scenes | ~625 for 50 m²     |
 
 For velocity.report's traffic monitoring use case, **1.0 m × 1.0 m tiles** are recommended: sufficient resolution to model road curvature and kerbs without excessive tile proliferation.
 
@@ -195,15 +195,15 @@ The ground plane subsystem **can optionally** integrate with GPS/PTP parsing (se
 
 The L3 `BackgroundGrid` and L4 ground plane serve complementary roles:
 
-| Aspect           | L3 Background Grid (polar)                          | L4 Ground Plane (Cartesian)                        |
-| ---------------- | --------------------------------------------------- | -------------------------------------------------- |
-| **Geometry**     | Rings × azimuth bins                                | Cartesian tiles (sensor-local or lat/long aligned) |
-| **Purpose**      | Foreground/background separation                    | Surface modelling for height-above-ground          |
-| **Representation** | Per-cell range statistics (mean, spread, freeze)  | Per-tile plane equation (normal, offset)           |
-| **Update rate**  | Per-frame EMA updates                               | Incremental PCA/least-squares                      |
-| **Coordinate frame** | Sensor-centric polar                            | Sensor-local Cartesian (Tier 1) or world-frame (Tier 2) |
-| **Export format** | VTK ImageData, ASC (debugging)                     | GeoJSON, ASC raster, VTK StructuredGrid            |
-| **GPS required** | No                                                  | No (Tier 1); Yes (Tier 2 global grid)             |
+| Aspect               | L3 Background Grid (polar)                       | L4 Ground Plane (Cartesian)                             |
+| -------------------- | ------------------------------------------------ | ------------------------------------------------------- |
+| **Geometry**         | Rings × azimuth bins                             | Cartesian tiles (sensor-local or lat/long aligned)      |
+| **Purpose**          | Foreground/background separation                 | Surface modelling for height-above-ground               |
+| **Representation**   | Per-cell range statistics (mean, spread, freeze) | Per-tile plane equation (normal, offset)                |
+| **Update rate**      | Per-frame EMA updates                            | Incremental PCA/least-squares                           |
+| **Coordinate frame** | Sensor-centric polar                             | Sensor-local Cartesian (Tier 1) or world-frame (Tier 2) |
+| **Export format**    | VTK ImageData, ASC (debugging)                   | GeoJSON, ASC raster, VTK StructuredGrid                 |
+| **GPS required**     | No                                               | No (Tier 1); Yes (Tier 2 global grid)                   |
 
 The ground plane can consume **ground-classified points** from the L3 background grid (cells marked as static and within ground Z-band) or operate independently on raw L2 frame points filtered by elevation. Initial implementation should support both modes for flexibility.
 
@@ -220,6 +220,7 @@ Each tile must converge rapidly to a stable plane estimate. Target: **settled wi
 For each new point (x, y, z) added to tile (ix, iy):
 
 1. Update running statistics:
+
    ```
    n += 1
    sum_x += x;  sum_y += y;  sum_z += z
@@ -228,6 +229,7 @@ For each new point (x, y, z) added to tile (ix, iy):
    ```
 
 2. When `n ≥ minPointsForPlane` (e.g., 10 points), compute mean and covariance matrix:
+
    ```
    mean = (sum_x/n, sum_y/n, sum_z/n)
    cov[i,j] = (sum_ij / n) - (sum_i/n)*(sum_j/n)
@@ -307,8 +309,8 @@ planarity = 1 - (λ₃ / λ₂)
 
 **Classification thresholds:**
 
-| Planarity | Classification      | Use for height queries? |
-| --------- | ------------------- | ----------------------- |
+| Planarity | Classification       | Use for height queries? |
+| --------- | -------------------- | ----------------------- |
 | ≥ 0.95    | High-confidence flat | Yes                     |
 | 0.85–0.95 | Moderate-confidence  | Yes, with caution       |
 | 0.70–0.85 | Low-confidence       | No (warn user)          |
@@ -786,7 +788,7 @@ type GlobalGroundTile struct {
 func (g *GroundPlaneGrid) AddPoint(x, y, z float64, timestamp int64) (TileIndex, bool) {
     idx := g.WorldToTileIndex(x, y)
     tile := g.GetOrCreateTile(idx)
-    
+
     // Outlier check (if tile is settled)
     if tile.Settled {
         dist := tile.DistanceToPlane(x, y, z)

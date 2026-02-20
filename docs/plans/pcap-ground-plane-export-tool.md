@@ -1,8 +1,9 @@
 # Ground Plane Export for pcap-analyse Tool
 
-**Status**: Planning  
-**Target**: `cmd/tools/pcap-analyse`  
+**Status**: Planning
+**Target**: `cmd/tools/pcap-analyse`
 **Related Design Docs**:
+
 - `docs/lidar/architecture/ground-plane-extraction.md`
 - `docs/lidar/architecture/gps-ethernet-parsing.md`
 - `docs/lidar/architecture/ground-plane-maths.md`
@@ -24,16 +25,19 @@ The ground plane extraction reuses the existing L1→L2→L3 background grid pip
 ## Background
 
 The current `pcap-analyse` tool (`cmd/tools/pcap-analyse/main.go`, ~53 KB) processes PCAP files through the full L1→L2→L3→L4→L5→L6 pipeline and exports:
+
 - CSV tracks (vehicle trajectories)
 - JSON results (detection summary)
 - Training data (foreground blobs for ML)
 
 Existing export infrastructure:
+
 - `ExportBackgroundGridToASC()` in `internal/lidar/l3grid/export_bg_snapshot.go` — ASC format for CloudCompare
 - Web API endpoints: `/api/lidar/export/frame-sequence-asc`, `handleExportSnapshotASC`
 - VTK export recommended in `docs/lidar/architecture/lidar-background-grid-standards.md`
 
 GPS support exists but is unused:
+
 - L1 parser extracts GPS timestamps from PCAP
 - Site config stores lat/long in database
 - No coordinate transformation or geo-referencing currently implemented
@@ -43,6 +47,7 @@ GPS support exists but is unused:
 Add the following flags to `cmd/tools/pcap-analyse/main.go`:
 
 ### Ground Plane Extraction
+
 ```
 --ground-plane          Enable ground plane extraction and export (default: false)
 --ground-plane-format   Export format: "geojson", "asc", "vtk", "csv" (default: "geojson")
@@ -52,6 +57,7 @@ Add the following flags to `cmd/tools/pcap-analyse/main.go`:
 ```
 
 ### GPS Geo-Referencing (Optional — Additive Only)
+
 ```
 --gps-lat               Manual GPS latitude for geo-referencing (decimal degrees)
 --gps-lon               Manual GPS longitude for geo-referencing (decimal degrees)
@@ -63,6 +69,7 @@ Add the following flags to `cmd/tools/pcap-analyse/main.go`:
 ```
 
 ### Flag Validation Rules
+
 - If `--ground-plane` is false, all other ground plane flags are ignored
 - `--ground-plane-format` accepts multiple comma-separated values: `--ground-plane-format geojson,csv,vtk`
 - **GPS flags are strictly optional.** If no GPS source is available, export in local Cartesian coordinates (sensor at origin). All core extraction works without GPS.
@@ -76,11 +83,13 @@ Add the following flags to `cmd/tools/pcap-analyse/main.go`:
 The ground plane extraction integrates into the existing PCAP analysis pipeline as follows:
 
 ### Phase 1: Existing Pipeline (Unchanged)
+
 1. **L1**: Parse PCAP packets, decode LiDAR frames, extract GPS timestamps
 2. **L2**: Convert spherical coordinates to Cartesian (sensor-local frame), apply sensor corrections
 3. **L3**: Accumulate background grid, settle static points, classify foreground/background
 
 ### Phase 2: Ground Plane Extraction (New — within L4 Perception)
+
 4. **Ground Classification**: After L3 grid settling (typically 5-10 seconds):
    - Classify ground cells using height-based threshold (Z < -1.8m from sensor)
    - Apply spatial coherence filter (ground cells must be contiguous)
@@ -94,6 +103,7 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 6. **Continue Processing**: Foreground detection (L4 clustering → L5 → L6) proceeds as normal for vehicle tracking
 
 ### Phase 3: Plane Fitting and Export (New)
+
 7. **Final Plane Fitting**: After PCAP replay completes:
    - For each tile with sufficient points (≥10), fit plane using SVD on covariance matrix
    - Compute confidence score: `conf = 1 - (λ_min / λ_max)` where λ are eigenvalues
@@ -120,6 +130,7 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 **Use Case**: GIS tools (QGIS, ArcGIS), web mapping (Leaflet, Mapbox), geospatial analysis
 
 **Format**:
+
 ```json
 {
   "type": "FeatureCollection",
@@ -158,6 +169,7 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 ```
 
 **Implementation Notes**:
+
 - Polygon coordinates must close (first point == last point) per GeoJSON spec (RFC 7946)
 - If no GPS coordinates, use local Cartesian (meters) with `coordinate_system: "Sensor-XY"`
 - Plane equation: `ax + by + cz + d = 0` where `[a,b,c]` is `plane_normal`, `d` is `plane_offset`
@@ -167,6 +179,7 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 **Use Case**: Existing CloudCompare workflow, 3D point cloud visualisation
 
 **Format**:
+
 ```
 ncols 100
 nrows 100
@@ -180,6 +193,7 @@ NODATA_value -9999
 ```
 
 **Implementation Notes**:
+
 - Reuse existing `ExportBackgroundGridToASC()` from `internal/lidar/l3grid/export_bg_snapshot.go`
 - Z values are fitted plane heights, not raw point heights
 - Tiles below confidence threshold written as `NODATA_value`
@@ -190,6 +204,7 @@ NODATA_value -9999
 **Use Case**: Spreadsheet analysis, data science, custom processing
 
 **Format**:
+
 ```csv
 tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class,curvature_deg,point_count,mean_height,height_std_dev,settlement_time_ms
 10,5,51.507412,-0.127834,0.02,-0.01,0.9998,-1.85,0.95,flat,1.2,847,-1.85,0.03,2340
@@ -197,6 +212,7 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 ```
 
 **Implementation Notes**:
+
 - If no GPS: omit `lat,lon` columns or write `0,0`
 - Plane equation: `ax + by + cz + d = 0`
 - All numeric values rounded to sensible precision (lat/lon: 6 decimals, heights: 3 decimals)
@@ -206,6 +222,7 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 **Use Case**: 3D scientific visualisation, advanced analysis in ParaView/LidarView
 
 **Format**: VTK StructuredGrid with scalar fields
+
 ```xml
 <VTKFile type="StructuredGrid" version="1.0" byte_order="LittleEndian">
   <StructuredGrid WholeExtent="0 100 0 100 0 0">
@@ -226,6 +243,7 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 ```
 
 **Implementation Notes**:
+
 - Defer to Phase 4 — requires VTK library or manual XML generation
 - Recommended library: `github.com/lanl/vpic-utils/vtk` or custom XML writer
 - Coordinate system: ENU if GPS available, else sensor-relative Cartesian
@@ -233,6 +251,7 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 ## GPS Integration
 
 ### Coordinate Fallback Chain
+
 1. **PCAP GPS** (if `--gps-from-pcap` enabled):
    - Parse GPS ethernet packets using `docs/lidar/architecture/gps-ethernet-parsing.md` spec
    - Extract first valid GNGGA or GNRMC sentence with 3D fix
@@ -249,12 +268,15 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
    - Omit lat/lon from CSV, use tile_x/tile_y only
 
 ### Coordinate Transformation
+
 - **Local Cartesian → ENU**: Translate origin to GPS point, rotate by heading
 - **ENU → WGS84**: Use `github.com/wroge/wgs84` library for geodetic conversion
 - **Heading Convention**: Degrees clockwise from true north (0° = north, 90° = east)
 
 ### GPS Metadata in Exports
+
 All formats include GPS origin in metadata/header:
+
 - GeoJSON: `metadata.gps_origin` object
 - ASC: Comment lines `# GPS_ORIGIN: lat lon alt heading`
 - CSV: Separate `ground-plane-meta.json` sidecar file
@@ -282,6 +304,7 @@ output/<run-id>/
 **Naming Convention**: `ground-plane.<format>` for main export files
 
 **Metadata File** (`ground-plane-meta.json`): Always written when `--ground-plane` enabled:
+
 ```json
 {
   "extraction_timestamp": "2026-01-15T10:45:23Z",
@@ -307,9 +330,11 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 ## Implementation Phases
 
 ### Phase 1: Core Ground Plane Extraction (No GPS)
+
 **Goal**: Extract and fit ground plane tiles from PCAP in local coordinates
 
 **Tasks**:
+
 1. Add `--ground-plane` flag to enable extraction
 2. Implement ground cell classification in L3 grid (height threshold + spatial filter)
 3. Implement tile accumulation with incremental covariance (in-memory hashmap)
@@ -322,9 +347,11 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 **Testing**: Integration test with existing test PCAP files, validate plane normals and confidence scores
 
 ### Phase 2: CLI Flags and CSV/ASC Export
+
 **Goal**: Add command-line interface and basic export formats
 
 **Tasks**:
+
 1. Add all ground plane CLI flags (format, tile size, range, confidence)
 2. Implement CSV export with all tile properties
 3. Implement ASC export (reuse `ExportBackgroundGridToASC` with fitted Z values)
@@ -337,9 +364,11 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 **Testing**: Export format validation, regression testing (existing exports unchanged)
 
 ### Phase 3: GPS Geo-Referencing and GeoJSON Export
+
 **Goal**: Add GPS coordinate transformation and primary export format
 
 **Tasks**:
+
 1. Add GPS CLI flags (`--gps-lat`, `--gps-lon`, `--gps-alt`, `--gps-heading`)
 2. Implement `--gps-from-pcap` flag and NMEA sentence parsing
 3. Implement coordinate transformation: Cartesian → ENU → WGS84
@@ -352,9 +381,11 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 **Testing**: Validate GeoJSON schema (RFC 7946), test with QGIS import, verify coordinate transformation
 
 ### Phase 4: VTK Export and Advanced Features
+
 **Goal**: Add VTK format for scientific visualisation, polish features
 
 **Tasks**:
+
 1. Implement VTK StructuredGrid export (manual XML or library)
 2. Add curvature classification and per-tile statistics
 3. Optimise memory usage for large PCAP files (streaming tile export)
@@ -368,6 +399,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 ## Testing Strategy
 
 ### Unit Tests
+
 - **Tile Fitting**: `internal/lidar/l4perception/ground_plane_test.go`
   - Test plane fitting with known point clouds (flat, sloped, noisy)
   - Test confidence scoring with varying eigenvalue ratios
@@ -379,6 +411,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
   - Test edge cases (poles, antimeridian)
 
 ### Integration Tests
+
 - **PCAP Processing**: `cmd/tools/pcap-analyse/ground_plane_test.go`
   - Use existing test PCAP files (e.g., `data/test-captures/*.pcap`)
   - Validate ground plane extraction produces expected tile count
@@ -391,12 +424,14 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
   - ASC: Parse header, validate grid dimensions match tile count
 
 ### Manual Testing
+
 - Import GeoJSON into QGIS, verify tile positions and properties
 - Open ASC in CloudCompare, verify ground plane visualisation
 - Open VTK in ParaView, verify scalar field rendering
 - Test GPS fallback chain with real PCAP files (with/without GPS packets)
 
 ### Regression Testing
+
 - Ensure `--ground-plane=false` (default) produces identical output to current version
 - Benchmark PCAP processing time with/without ground plane extraction
 - Validate memory usage does not exceed 2x baseline for large PCAP files
@@ -404,6 +439,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 ## Acceptance Criteria
 
 ### Phase 1: Core Extraction
+
 - [ ] Ground plane tiles extracted from test PCAP files
 - [ ] Plane normals within 5° of expected values (for flat ground)
 - [ ] Confidence scores > 0.9 for high-quality tiles, < 0.5 for noisy tiles
@@ -411,6 +447,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - [ ] No regression in existing PCAP processing (tracks.csv unchanged)
 
 ### Phase 2: CLI and Basic Exports
+
 - [ ] All CLI flags documented in `--help` output
 - [ ] CSV export validates against schema (all columns present)
 - [ ] ASC export opens in CloudCompare without errors
@@ -419,6 +456,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - [ ] Export files written to correct output directory structure
 
 ### Phase 3: GPS and GeoJSON
+
 - [ ] GPS fallback chain works: PCAP → manual → local coordinates
 - [ ] GeoJSON validates against RFC 7946 schema (use `geojsonlint`)
 - [ ] GeoJSON imports into QGIS with correct coordinate system (WGS84)
@@ -427,6 +465,7 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - [ ] CSV and ASC exports include GPS metadata
 
 ### Phase 4: VTK and Polish
+
 - [ ] VTK file opens in ParaView without errors
 - [ ] Scalar fields (confidence, curvature) render correctly in ParaView
 - [ ] PCAP processing time increases < 20% with ground plane extraction enabled
@@ -453,4 +492,3 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - **Global grid visualisation**: Web UI for browsing the persistent Tier 2 global ground grid
 - **OSM polyline import** (v2): Anchor ground plane tiles to kerb lines, crosswalks, and road edges from OpenStreetMap
 - **OSM write-back** (v2): Propose edits to OSM with more accurate geometry from LiDAR measurements (requires OSM API key)
-
