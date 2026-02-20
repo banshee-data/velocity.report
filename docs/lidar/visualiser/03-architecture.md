@@ -200,6 +200,49 @@ proto/
 
 ---
 
+### 2.3 Planned Background Debug Channels (Polar/Cartesian/Region Map)
+
+Status: **Planned (docs-only)**.
+
+The visualiser currently consumes foreground frames and periodic background
+snapshots. For debugging settlement behaviour, add three explicit background
+debug surfaces:
+
+1. **Polar background points**: inspect ring/azimuth cell behaviour directly.
+2. **Cartesian background points**: inspect transformed geometry used by renderer.
+3. **Region map overlay**: inspect cell-to-region assignment and settle state.
+
+Planned data path:
+
+```
+L3 Background Grid (polar cells, confidence/state)
+  -> Background Debug Extractor
+    -> Polar Debug Stream
+    -> Cartesian Debug Stream
+    -> Region Map Stream
+      -> gRPC FrameBundle Debug Extension
+        -> Swift decode
+          -> Metal overlays + inspector panels
+```
+
+Planned frontend controls:
+
+- background debug mode selector: `off | polar | cartesian | region-map`
+- frame inspector showing selected point/cell source keys and confidence
+- region legend (region ID, class, lifecycle state)
+
+Math coupling reference:
+
+- `docs/maths/background-grid-settling-maths.md`
+- `docs/maths/ground-plane-maths.md`
+- `docs/maths/proposal/20260219-unify-l3-l4-settling.md`
+
+Canonical config/maths mapping source:
+
+- `config/README.maths.md`
+
+---
+
 ## 3. Transport Choice
 
 ### 3.1 Why gRPC for Point Cloud Streaming

@@ -1,0 +1,425 @@
+#!/usr/bin/env python3
+"""Synchronise and validate canonical key order across config surfaces.
+
+Supported sources:
+- JSON files (top-level object)
+- Go struct JSON tags (for order extraction)
+- Markdown fenced JSON blocks (```json ... ```)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from collections import OrderedDict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+
+@dataclass
+class MarkdownJSONBlock:
+    start: int
+    end: int
+    obj: OrderedDict
+
+
+def load_json_object(path: Path) -> OrderedDict:
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f, object_pairs_hook=OrderedDict)
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: expected top-level JSON object")
+    return data
+
+
+def write_json_object(path: Path, obj: OrderedDict) -> None:
+    path.write_text(json.dumps(obj, indent=2) + "\n", encoding="utf-8")
+
+
+def parse_markdown_json_blocks(text: str, path: Path) -> list[MarkdownJSONBlock]:
+    blocks: list[MarkdownJSONBlock] = []
+    for match in re.finditer(r"```json[ \t]*\n(.*?)\n```", text, flags=re.DOTALL):
+        raw = match.group(1)
+        try:
+            parsed = json.loads(raw, object_pairs_hook=OrderedDict)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{path}: failed to parse JSON in fenced ```json``` block: {e}") from e
+        if not isinstance(parsed, dict):
+            continue
+        blocks.append(MarkdownJSONBlock(start=match.start(1), end=match.end(1), obj=parsed))
+    if not blocks:
+        raise ValueError(f"{path}: no parseable ```json``` object blocks found")
+    return blocks
+
+
+def choose_best_markdown_block(
+    blocks: list[MarkdownJSONBlock],
+    canonical_keys: list[str] | None = None,
+) -> MarkdownJSONBlock:
+    if canonical_keys is None:
+        return blocks[0]
+    canonical_set = set(canonical_keys)
+    best: MarkdownJSONBlock | None = None
+    best_score = -1
+    for block in blocks:
+        score = len([k for k in block.obj.keys() if k in canonical_set])
+        if score > best_score:
+            best_score = score
+            best = block
+    if best is None:
+        raise ValueError("internal error: unable to select markdown JSON block")
+    return best
+
+
+def extract_keys_from_go_struct(path: Path, struct_name: str) -> list[str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start_re = re.compile(rf"^\s*type\s+{re.escape(struct_name)}\s+struct\s*\{{\s*$")
+    tag_re = re.compile(r'`json:"([^",]+)')
+
+    in_struct = False
+    keys: list[str] = []
+    seen = set()
+    for line in lines:
+        if not in_struct:
+            if start_re.match(line):
+                in_struct = True
+            continue
+
+        if line.strip() == "}":
+            break
+        match = tag_re.search(line)
+        if not match:
+            continue
+        key = match.group(1)
+        if key == "-":
+            continue
+        if key in seen:
+            raise ValueError(f"{path}: duplicate json key in {struct_name}: {key}")
+        seen.add(key)
+        keys.append(key)
+
+    if not in_struct:
+        raise ValueError(f"{path}: struct {struct_name} not found")
+    if not keys:
+        raise ValueError(f"{path}: no json tags found in struct {struct_name}")
+    return keys
+
+
+def build_ordered_object(
+    existing: OrderedDict,
+    canonical_keys: list[str],
+    canonical_values: dict[str, object] | None,
+) -> tuple[OrderedDict, list[str]]:
+    out: OrderedDict = OrderedDict()
+    existing_keys = list(existing.keys())
+    canonical_set = set(canonical_keys)
+
+    leading_extras: list[str] = []
+    trailing_extras: list[str] = []
+    seen_canonical = False
+    for key in existing_keys:
+        if key in canonical_set:
+            seen_canonical = True
+            continue
+        if not seen_canonical:
+            leading_extras.append(key)
+        else:
+            trailing_extras.append(key)
+
+    for key in leading_extras:
+        out[key] = existing[key]
+
+    missing: list[str] = []
+    for key in canonical_keys:
+        if key in existing:
+            out[key] = existing[key]
+        elif canonical_values is not None and key in canonical_values:
+            out[key] = canonical_values[key]
+        else:
+            missing.append(key)
+
+    for key in trailing_extras:
+        out[key] = existing[key]
+
+    return out, missing
+
+
+def canonical_key_status(existing_keys: Iterable[str], canonical_keys: list[str]) -> tuple[list[str], bool]:
+    existing_list = list(existing_keys)
+    canonical_set = set(canonical_keys)
+
+    missing = [k for k in canonical_keys if k not in existing_list]
+    filtered = [k for k in existing_list if k in canonical_set]
+    expected = [k for k in canonical_keys if k in existing_list]
+    order_ok = filtered == expected
+    return missing, order_ok
+
+
+def normalize_source_path(path: str, cwd: Path) -> Path:
+    p = Path(path)
+    if not p.is_absolute():
+        p = cwd / p
+    return p.resolve()
+
+
+def parse_go_source(source: str) -> tuple[str, str]:
+    if ":" not in source:
+        raise ValueError("--main-go-struct expects PATH:STRUCT")
+    path, struct_name = source.rsplit(":", 1)
+    if not path or not struct_name:
+        raise ValueError("--main-go-struct expects PATH:STRUCT")
+    return path, struct_name
+
+
+def discover_targets(cwd: Path, md_targets: set[Path], json_targets: set[Path]) -> None:
+    for path in sorted((cwd / "config").glob("tuning*.json")):
+        if path.is_file():
+            json_targets.add(path.resolve())
+
+    for path in sorted((cwd / "config").glob("*.md")):
+        if path.is_file():
+            md_targets.add(path.resolve())
+
+
+def apply_json_target(
+    path: Path,
+    canonical_keys: list[str],
+    canonical_values: dict[str, object] | None,
+    check_only: bool,
+) -> tuple[bool, bool, str]:
+    try:
+        obj = load_json_object(path)
+    except Exception as err:  # noqa: BLE001
+        return False, False, f"[FAIL] {path}: {err}"
+
+    missing, order_ok = canonical_key_status(obj.keys(), canonical_keys)
+    issues: list[str] = []
+    if missing:
+        issues.append(f"missing keys: {', '.join(missing)}")
+    if not order_ok:
+        issues.append("canonical key order mismatch")
+
+    if check_only:
+        if issues:
+            return False, False, f"[FAIL] {path}: " + "; ".join(issues)
+        return True, False, f"[OK] {path}"
+
+    ordered, still_missing = build_ordered_object(obj, canonical_keys, canonical_values)
+    if still_missing:
+        return (
+            False,
+            False,
+            f"[FAIL] {path}: cannot sync missing keys without values: {', '.join(still_missing)}",
+        )
+    changed = ordered != obj
+    if changed:
+        write_json_object(path, ordered)
+        return True, True, f"[SYNC] {path}"
+    return True, False, f"[OK] {path}"
+
+
+def apply_markdown_target(
+    path: Path,
+    canonical_keys: list[str],
+    canonical_values: dict[str, object] | None,
+    check_only: bool,
+) -> tuple[bool, bool, str]:
+    try:
+        text = path.read_text(encoding="utf-8")
+        blocks = parse_markdown_json_blocks(text, path)
+        block = choose_best_markdown_block(blocks, canonical_keys=canonical_keys)
+    except Exception as err:  # noqa: BLE001
+        return False, False, f"[FAIL] {path}: {err}"
+
+    missing, order_ok = canonical_key_status(block.obj.keys(), canonical_keys)
+    issues: list[str] = []
+    if missing:
+        issues.append(f"missing keys: {', '.join(missing)}")
+    if not order_ok:
+        issues.append("canonical key order mismatch")
+
+    if check_only:
+        if issues:
+            return False, False, f"[FAIL] {path}: " + "; ".join(issues)
+        return True, False, f"[OK] {path}"
+
+    ordered, still_missing = build_ordered_object(block.obj, canonical_keys, canonical_values)
+    if still_missing:
+        return (
+            False,
+            False,
+            f"[FAIL] {path}: cannot sync missing keys without values: {', '.join(still_missing)}",
+        )
+
+    block_text = json.dumps(ordered, indent=2)
+    new_text = text[: block.start] + block_text + text[block.end :]
+    changed = new_text != text
+    if changed:
+        path.write_text(new_text, encoding="utf-8")
+        return True, True, f"[SYNC] {path}"
+    return True, False, f"[OK] {path}"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Ensure consistent key order across tuning config sources.",
+    )
+    main_group = parser.add_mutually_exclusive_group(required=True)
+    main_group.add_argument("--main-json", help="Canonical source JSON object file.")
+    main_group.add_argument(
+        "--main-go-struct",
+        help="Canonical source Go struct in PATH:STRUCT format (extract json tags order).",
+    )
+    main_group.add_argument(
+        "--main-md",
+        help="Canonical source markdown file containing a JSON code block.",
+    )
+    parser.add_argument(
+        "--json-target",
+        action="append",
+        default=[],
+        help="JSON file target to validate/sync (repeatable).",
+    )
+    parser.add_argument(
+        "--md-target",
+        action="append",
+        default=[],
+        help="Markdown target containing JSON code block (repeatable).",
+    )
+    parser.add_argument(
+        "--discover",
+        action="store_true",
+        help="Auto-discover config targets in ./config.",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check only (non-mutating). Exit non-zero on mismatch.",
+    )
+    args = parser.parse_args()
+
+    cwd = Path.cwd().resolve()
+
+    canonical_keys: list[str]
+    canonical_values: dict[str, object] | None = None
+    main_path: Path | None = None
+
+    try:
+        if args.main_json:
+            main_path = normalize_source_path(args.main_json, cwd)
+            main_obj = load_json_object(main_path)
+            canonical_keys = [k for k in main_obj.keys() if not k.startswith("_")]
+            canonical_values = dict(main_obj)
+        elif args.main_go_struct:
+            rel_path, struct_name = parse_go_source(args.main_go_struct)
+            main_path = normalize_source_path(rel_path, cwd)
+            canonical_keys = extract_keys_from_go_struct(main_path, struct_name)
+        else:
+            main_path = normalize_source_path(args.main_md, cwd)
+            text = main_path.read_text(encoding="utf-8")
+            blocks = parse_markdown_json_blocks(text, main_path)
+            main_block = choose_best_markdown_block(blocks)
+            canonical_keys = [k for k in main_block.obj.keys() if not k.startswith("_")]
+            canonical_values = dict(main_block.obj)
+    except Exception as err:  # noqa: BLE001
+        print(f"error: failed to load canonical source: {err}", file=sys.stderr)
+        return 2
+
+    if not canonical_keys:
+        print("error: canonical key list is empty", file=sys.stderr)
+        return 2
+
+    explicit_md_targets: set[Path] = set()
+    json_targets: set[Path] = set()
+    md_targets: set[Path] = set()
+    for t in args.json_target:
+        p = normalize_source_path(t, cwd)
+        json_targets.add(p)
+    for t in args.md_target:
+        p = normalize_source_path(t, cwd)
+        explicit_md_targets.add(p)
+        md_targets.add(p)
+
+    if args.discover:
+        discover_targets(cwd, md_targets, json_targets)
+
+    if main_path is not None:
+        json_targets.discard(main_path)
+        md_targets.discard(main_path)
+
+    # Keep discovered markdown files only when they contain a relevant JSON block.
+    explicit_md_failures: list[str] = []
+    filtered_md_targets: set[Path] = set()
+    canonical_set = set(canonical_keys)
+    for md_path in sorted(md_targets):
+        is_explicit = md_path in explicit_md_targets
+        try:
+            text = md_path.read_text(encoding="utf-8")
+            blocks = parse_markdown_json_blocks(text, md_path)
+        except Exception as err:  # noqa: BLE001
+            if is_explicit:
+                explicit_md_failures.append(f"[FAIL] {md_path}: {err}")
+            continue
+        best = choose_best_markdown_block(blocks, canonical_keys=canonical_keys)
+        overlap = len([k for k in best.obj.keys() if k in canonical_set])
+        if overlap > 0:
+            filtered_md_targets.add(md_path)
+        elif is_explicit:
+            explicit_md_failures.append(
+                f"[FAIL] {md_path}: no JSON block overlaps canonical keys",
+            )
+
+    md_targets = filtered_md_targets
+
+    if explicit_md_failures:
+        for msg in explicit_md_failures:
+            print(msg, file=sys.stderr)
+        return 1
+
+    if not json_targets and not md_targets:
+        print("error: no targets selected (use --json-target/--md-target and/or --discover)", file=sys.stderr)
+        return 2
+
+    failed = False
+    changed_count = 0
+
+    for json_path in sorted(json_targets):
+        ok, changed, msg = apply_json_target(
+            path=json_path,
+            canonical_keys=canonical_keys,
+            canonical_values=canonical_values,
+            check_only=args.check,
+        )
+        print(msg)
+        if not ok:
+            failed = True
+        if changed:
+            changed_count += 1
+
+    for md_path in sorted(md_targets):
+        ok, changed, msg = apply_markdown_target(
+            path=md_path,
+            canonical_keys=canonical_keys,
+            canonical_values=canonical_values,
+            check_only=args.check,
+        )
+        print(msg)
+        if not ok:
+            failed = True
+        if changed:
+            changed_count += 1
+
+    if failed:
+        return 1
+
+    if args.check:
+        print("config key order check passed")
+    else:
+        print(f"config key order sync complete; updated {changed_count} file(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

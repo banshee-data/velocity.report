@@ -13,6 +13,7 @@ This document defines an incremental, API-first implementation plan with explici
 - ✅ **M5: Algorithm Upgrades** — Complete (Track B)
 - ✅ **M6: Debug + Labelling** — Complete (Track B)
 - ✅ **M7: Performance Hardening** — Complete (7.1, 7.2, 7.3 implemented; profiling items skipped — not bottlenecked)
+- 📝 **M8: Background Debug Surfaces (Polar/Cartesian/Region Map)** — Planned (docs-only scope in this branch)
 
 **Checkbox Legend**:
 
@@ -34,6 +35,7 @@ This document defines an incremental, API-first implementation plan with explici
  M5: Algorithm Upgrades            ──▶ Improved tracking quality             ✅ DONE
  M6: Debug + Labelling             ──▶ Full debug overlays + label export    ✅ DONE
  M7: Performance Hardening         ──▶ Production-ready performance          ✅ DONE
+ M8: BG Debug Surfaces             ──▶ Polar/Cartesian/region-map debug      📝 PLANNED
 ```
 
 ---
@@ -548,6 +550,41 @@ frame.PointCloud.Release()
 
 ---
 
+### M8: Background Debug Surfaces (Polar/Cartesian/Region Map) 📝
+
+**Status**: Planned (docs only in this branch; implementation deferred)
+
+**Goal**: Add first-class frontend-debug outputs for background settlement:
+
+- Polar debug points (ring/azimuth/range/confidence/state)
+- Cartesian debug points (x/y/z/confidence/source-cell)
+- Region map overlay (region ID + lifecycle/class state)
+
+**Track B (Pipeline, planned)**:
+
+- [ ] Extend visualiser protobuf contract with background debug bundle
+- [ ] Add stream request toggles for polar/cartesian/region-map debug outputs
+- [ ] Extract debug views from L3/L4 shared state without affecting runtime decisions
+- [ ] Publish region map lifecycle state (`learning`, `obs_stable`, `geom_stable`, `locked`)
+
+**Track A (Visualiser, planned)**:
+
+- [ ] Add debug mode selector (`off|polar|cartesian|region-map`)
+- [ ] Add polar inspector panel (cell key, confidence, settle state)
+- [ ] Add Cartesian background overlay mode for geometric cross-checking
+- [ ] Add region-map colour legend and selected-region metadata panel
+
+**Acceptance Criteria (planned)**:
+
+- [ ] Frontend can toggle between polar/cartesian/region-map debug views at runtime
+- [ ] Selected rendered point can be traced back to source polar cell
+- [ ] Region map shows stable IDs and lifecycle state transitions frame-to-frame
+- [ ] Debug outputs do not alter clustering/tracking outputs when disabled
+
+**Estimated Dev-Days**: 8 (4 Track A + 4 Track B)
+
+---
+
 ## 3. Task Breakdown Summary
 
 | Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status           |
@@ -561,7 +598,8 @@ frame.PointCloud.Release()
 | M5: Algorithm Upgrades | 2              | 10             | 12           | ✅ Complete (B)  |
 | M6: Debug + Labelling  | 8              | 4              | 12           | ✅ Complete (B)  |
 | M7: Performance        | 4              | 4              | 8            | ✅ Complete      |
-| **Total**              | **30**         | **47**         | **77**       | **All complete** |
+| M8: BG Debug Surfaces  | 4              | 4              | 8            | 📝 Planned       |
+| **Total**              | **34**         | **51**         | **85**       | **M8 pending**   |
 
 ---
 
@@ -635,12 +673,15 @@ Each milestone has a **stop point** where functionality is complete and stable:
 | M5        | Improved tracking quality validated      | ✅ Complete (B) |
 | M6        | Labelling workflow complete              | ✅ Complete (B) |
 | M7        | Performance targets met                  | ✅ Complete     |
+| M8        | BG debug surfaces + region map live      | 📝 Planned      |
 
 **MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback. ✅ **ACHIEVED**
 
 **V1.0 = M0 - M6**: Full debug + labelling capability. ✅ **Track B ACHIEVED** (Track A pending)
 
 **V1.1 = M7**: Production-ready performance. ✅ **ACHIEVED** (February 2026)
+
+**V1.2 = M8**: Background debug surfaces for frontend diagnostics. 📝 **PLANNED**
 
 ---
 
@@ -650,3 +691,4 @@ Each milestone has a **stop point** where functionality is complete and stable:
 - [02-api-contracts.md](./02-api-contracts.md) – API contract
 - [03-architecture.md](./03-architecture.md) – System architecture
 - [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) – Tracking improvements
+- [../../plans/frontend-background-debug-surfaces-plan.md](../../plans/frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope

@@ -797,6 +797,12 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(resp)
 		return
 	case http.MethodPost:
+		// @TODO(config-parity): align this POST body with the canonical tuning schema
+		// (internal/config/tuning.go:TuningConfig and config/tuning.defaults.json)
+		// and keep fields in canonical key order.
+		// Missing keys: buffer_timeout, min_frame_points, flush_interval, background_flush,
+		// max_tracks, height_band_floor, height_band_ceiling, remove_ground,
+		// max_cluster_diameter, min_cluster_diameter, max_cluster_aspect_ratio.
 		var body struct {
 			// Background params
 			NoiseRelative              *float64 `json:"noise_relative"`
