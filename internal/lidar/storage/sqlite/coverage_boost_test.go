@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
@@ -1056,4 +1057,717 @@ func TestCompareParams_AdditionalBranches(t *testing.T) {
 	if _, ok := trDiff["gating_distance_squared"]; !ok {
 		t.Error("expected gating_distance_squared in diff")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: nullable field branches in GetRunTracks (plural)
+// ---------------------------------------------------------------------------
+
+func TestGetRunTracks_WithAllNullableFields(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	// Insert a parent run.
+	run := &AnalysisRun{
+		RunID:      "run-nullable-1",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor-1",
+		ParamsJSON: json.RawMessage(`{}`),
+		Status:     "completed",
+	}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun: %v", err)
+	}
+
+	// Insert a track with ALL nullable fields populated —
+	// covers classModel.Valid, qualityLabel.Valid, labelSource.Valid etc. in GetRunTracks.
+	track := &RunTrack{
+		RunID:               "run-nullable-1",
+		TrackID:             "track-n1",
+		SensorID:            "sensor-1",
+		TrackState:          "confirmed",
+		StartUnixNanos:      1000,
+		EndUnixNanos:        2000,
+		ObservationCount:    10,
+		AvgSpeedMps:         5.5,
+		PeakSpeedMps:        8.0,
+		ObjectClass:         "vehicle",
+		ObjectConfidence:    0.95,
+		ClassificationModel: "rule_based_v2",
+		UserLabel:           "car",
+		LabelConfidence:     0.9,
+		LabelerID:           "user-42",
+		LabeledAt:           3000,
+		QualityLabel:        "excellent",
+		LabelSource:         "human_review",
+		IsSplitCandidate:    true,
+		IsMergeCandidate:    false,
+		LinkedTrackIDs:      []string{"track-n2"},
+	}
+	if err := store.InsertRunTrack(track); err != nil {
+		t.Fatalf("InsertRunTrack: %v", err)
+	}
+
+	tracks, err := store.GetRunTracks("run-nullable-1")
+	if err != nil {
+		t.Fatalf("GetRunTracks: %v", err)
+	}
+	if len(tracks) != 1 {
+		t.Fatalf("expected 1 track, got %d", len(tracks))
+	}
+	got := tracks[0]
+	if got.ClassificationModel != "rule_based_v2" {
+		t.Errorf("ClassificationModel = %q, want %q", got.ClassificationModel, "rule_based_v2")
+	}
+	if got.QualityLabel != "excellent" {
+		t.Errorf("QualityLabel = %q, want %q", got.QualityLabel, "excellent")
+	}
+	if got.LabelSource != "human_review" {
+		t.Errorf("LabelSource = %q, want %q", got.LabelSource, "human_review")
+	}
+	if got.LabelerID != "user-42" {
+		t.Errorf("LabelerID = %q, want %q", got.LabelerID, "user-42")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: nullable field branches in ListRuns
+// ---------------------------------------------------------------------------
+
+func TestListRuns_WithNullableFields(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	run := &AnalysisRun{
+		RunID:        "run-listopt-1",
+		CreatedAt:    time.Now(),
+		SourceType:   "pcap",
+		SourcePath:   "/data/test.pcap",
+		SensorID:     "sensor-1",
+		ParamsJSON:   json.RawMessage(`{}`),
+		Status:       "failed",
+		ErrorMessage: "disk full",
+		ParentRunID:  "run-parent-1",
+		Notes:        "test notes",
+		VRLogPath:    "/var/lib/test.vrlog",
+	}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun: %v", err)
+	}
+
+	runs, err := store.ListRuns(10)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected 1 run, got %d", len(runs))
+	}
+	got := runs[0]
+	if got.SourcePath != "/data/test.pcap" {
+		t.Errorf("SourcePath = %q, want %q", got.SourcePath, "/data/test.pcap")
+	}
+	if got.ErrorMessage != "disk full" {
+		t.Errorf("ErrorMessage = %q, want %q", got.ErrorMessage, "disk full")
+	}
+	if got.ParentRunID != "run-parent-1" {
+		t.Errorf("ParentRunID = %q, want %q", got.ParentRunID, "run-parent-1")
+	}
+	if got.Notes != "test notes" {
+		t.Errorf("Notes = %q, want %q", got.Notes, "test notes")
+	}
+	if got.VRLogPath != "/var/lib/test.vrlog" {
+		t.Errorf("VRLogPath = %q, want %q", got.VRLogPath, "/var/lib/test.vrlog")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: GetSweep with transform pipeline fields
+// ---------------------------------------------------------------------------
+
+func TestGetSweep_WithTransformPipeline(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewSweepStore(db)
+
+	rec := SweepRecord{
+		SweepID:  "sweep-tp-1",
+		SensorID: "sensor-1",
+		Mode:     "auto",
+		Status:   "running",
+		Request:  json.RawMessage(`{"key":"value"}`),
+	}
+	if err := store.InsertSweep(rec); err != nil {
+		t.Fatalf("InsertSweep: %v", err)
+	}
+
+	// Update with transform pipeline fields.
+	now := time.Now().UTC()
+	err := store.UpdateSweepResults(
+		"sweep-tp-1",
+		"completed",
+		json.RawMessage(`{"results":true}`),
+		json.RawMessage(`{"rec":true}`),
+		json.RawMessage(`{"round":1}`),
+		&now,
+		"",
+		json.RawMessage(`{"score":0.95}`),
+		json.RawMessage(`{"explain":"good"}`),
+		json.RawMessage(`{"prov":"labels"}`),
+		"pipeline-v3",
+		"1.2.0",
+	)
+	if err != nil {
+		t.Fatalf("UpdateSweepResults: %v", err)
+	}
+
+	got, err := store.GetSweep("sweep-tp-1")
+	if err != nil {
+		t.Fatalf("GetSweep: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetSweep returned nil")
+	}
+	if got.TransformPipelineName != "pipeline-v3" {
+		t.Errorf("TransformPipelineName = %q, want %q", got.TransformPipelineName, "pipeline-v3")
+	}
+	if got.TransformPipelineVersion != "1.2.0" {
+		t.Errorf("TransformPipelineVersion = %q, want %q", got.TransformPipelineVersion, "1.2.0")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: ListSweeps with error message
+// ---------------------------------------------------------------------------
+
+func TestListSweeps_WithErrorMsg(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	store := NewSweepStore(db)
+
+	rec := SweepRecord{
+		SweepID:  "sweep-err-1",
+		SensorID: "sensor-err",
+		Mode:     "auto",
+		Status:   "running",
+		Request:  json.RawMessage(`{}`),
+	}
+	if err := store.InsertSweep(rec); err != nil {
+		t.Fatalf("InsertSweep: %v", err)
+	}
+
+	// Complete with an error message.
+	now := time.Now().UTC()
+	err := store.UpdateSweepResults(
+		"sweep-err-1", "failed",
+		nil, nil, nil, &now,
+		"timeout exceeded",
+		nil, nil, nil, "", "",
+	)
+	if err != nil {
+		t.Fatalf("UpdateSweepResults: %v", err)
+	}
+
+	sweeps, err := store.ListSweeps("sensor-err", 10)
+	if err != nil {
+		t.Fatalf("ListSweeps: %v", err)
+	}
+	if len(sweeps) != 1 {
+		t.Fatalf("expected 1 sweep, got %d", len(sweeps))
+	}
+	if sweeps[0].Error != "timeout exceeded" {
+		t.Errorf("Error = %q, want %q", sweeps[0].Error, "timeout exceeded")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: AnalysisRunManager closed-DB error paths
+// ---------------------------------------------------------------------------
+
+func TestARM_StartRun_DBError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Close the DB so InsertRun fails.
+	db.Close()
+
+	m := NewAnalysisRunManagerDI(db, "sensor-1")
+	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
+	if err == nil {
+		t.Error("expected error from StartRun with closed DB")
+	}
+}
+
+func TestARM_RecordTrack_DBError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	m := NewAnalysisRunManagerDI(db, "sensor-1")
+
+	// Start a run successfully first.
+	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+
+	// Close DB so InsertRunTrack fails.
+	db.Close()
+
+	track := &TrackedObject{TrackID: "track-arm-1", SensorID: "sensor-1"}
+	result := m.RecordTrack(track)
+	if result {
+		t.Error("expected RecordTrack to return false with closed DB")
+	}
+}
+
+func TestARM_CompleteRun_DBError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	m := NewAnalysisRunManagerDI(db, "sensor-1")
+
+	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+
+	db.Close()
+
+	err = m.CompleteRun()
+	if err == nil {
+		t.Error("expected error from CompleteRun with closed DB")
+	}
+}
+
+func TestARM_FailRun_DBError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	m := NewAnalysisRunManagerDI(db, "sensor-1")
+
+	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+
+	db.Close()
+
+	err = m.FailRun("something broke")
+	if err == nil {
+		t.Error("expected error from FailRun with closed DB")
+	}
+}
+
+func TestARM_GetCurrentRunParams_BadJSON(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	m := NewAnalysisRunManagerDI(db, "sensor-1")
+
+	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+
+	// Corrupt the ParamsJSON so Unmarshal fails.
+	m.currentRun.ParamsJSON = json.RawMessage(`{invalid json`)
+
+	_, ok := m.GetCurrentRunParams()
+	if ok {
+		t.Error("expected GetCurrentRunParams to return false with invalid JSON")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: closed-DB error paths for track_store functions
+// ---------------------------------------------------------------------------
+
+func TestClosedDB_InsertCluster(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	cluster := &WorldCluster{
+		SensorID:    "sensor-1",
+		WorldFrame:  "frame-1",
+		TSUnixNanos: 1000,
+		CentroidX:   1.0,
+	}
+	_, err := InsertCluster(db, cluster)
+	if err == nil {
+		t.Error("expected error from InsertCluster with closed DB")
+	}
+}
+
+func TestClosedDB_InsertTrack(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	track := &TrackedObject{TrackID: "t1", SensorID: "sensor-1"}
+	err := InsertTrack(db, track, "frame-1")
+	if err == nil {
+		t.Error("expected error from InsertTrack with closed DB")
+	}
+}
+
+func TestClosedDB_UpdateTrack(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	track := &TrackedObject{TrackID: "t1", SensorID: "sensor-1"}
+	err := UpdateTrack(db, track, "frame-1")
+	if err == nil {
+		t.Error("expected error from UpdateTrack with closed DB")
+	}
+}
+
+func TestClosedDB_InsertTrackObservation(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	obs := &TrackObservation{TrackID: "t1", TSUnixNanos: 1000}
+	err := InsertTrackObservation(db, obs)
+	if err == nil {
+		t.Error("expected error from InsertTrackObservation with closed DB")
+	}
+}
+
+func TestClosedDB_GetTrackObservationsInRange(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	_, err := GetTrackObservationsInRange(db, "sensor-1", 0, 9999, 10, "")
+	if err == nil {
+		t.Error("expected error from GetTrackObservationsInRange with closed DB")
+	}
+}
+
+func TestClosedDB_GetActiveTracks(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	_, err := GetActiveTracks(db, "sensor-1", "")
+	if err == nil {
+		t.Error("expected error from GetActiveTracks with closed DB")
+	}
+}
+
+func TestClosedDB_GetTracksInRange(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	_, err := GetTracksInRange(db, "sensor-1", "", 0, 9999, 10)
+	if err == nil {
+		t.Error("expected error from GetTracksInRange with closed DB")
+	}
+}
+
+func TestClosedDB_GetTrackObservations(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	_, err := GetTrackObservations(db, "t1", 10)
+	if err == nil {
+		t.Error("expected error from GetTrackObservations with closed DB")
+	}
+}
+
+func TestClosedDB_GetRecentClusters(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	_, err := GetRecentClusters(db, "sensor-1", 0, 9999, 10)
+	if err == nil {
+		t.Error("expected error from GetRecentClusters with closed DB")
+	}
+}
+
+func TestClosedDB_PruneDeletedTracks(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	_, err := PruneDeletedTracks(db, "sensor-1", time.Hour)
+	if err == nil {
+		t.Error("expected error from PruneDeletedTracks with closed DB")
+	}
+}
+
+func TestClosedDB_ClearTracks(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	err := ClearTracks(db, "sensor-1")
+	if err == nil {
+		t.Error("expected error from ClearTracks with closed DB")
+	}
+}
+
+func TestClosedDB_ClearRuns(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	err := ClearRuns(db, "sensor-1")
+	if err == nil {
+		t.Error("expected error from ClearRuns with closed DB")
+	}
+}
+
+func TestClosedDB_DeleteRun(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	err := DeleteRun(db, "run-1")
+	if err == nil {
+		t.Error("expected error from DeleteRun with closed DB")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: closed-DB error paths for analysis_run store
+// ---------------------------------------------------------------------------
+
+func TestClosedDB_AnalysisRunStore_InsertRun(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewAnalysisRunStore(db)
+	run := &AnalysisRun{
+		RunID:      "run-err-1",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor-1",
+		ParamsJSON: json.RawMessage(`{}`),
+		Status:     "running",
+	}
+	err := store.InsertRun(run)
+	if err == nil {
+		t.Error("expected error from InsertRun with closed DB")
+	}
+}
+
+func TestClosedDB_AnalysisRunStore_UpdateRunStatus(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewAnalysisRunStore(db)
+	err := store.UpdateRunStatus("run-1", "failed", "test error")
+	if err == nil {
+		t.Error("expected error from UpdateRunStatus with closed DB")
+	}
+}
+
+func TestClosedDB_AnalysisRunStore_UpdateRunVRLogPath(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewAnalysisRunStore(db)
+	err := store.UpdateRunVRLogPath("run-1", "/path/to/file.vrlog")
+	if err == nil {
+		t.Error("expected error from UpdateRunVRLogPath with closed DB")
+	}
+}
+
+func TestClosedDB_AnalysisRunStore_CompleteRun(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewAnalysisRunStore(db)
+	stats := &AnalysisStats{TotalFrames: 100}
+	err := store.CompleteRun("run-1", stats)
+	if err == nil {
+		t.Error("expected error from CompleteRun with closed DB")
+	}
+}
+
+func TestClosedDB_AnalysisRunStore_ListRuns(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewAnalysisRunStore(db)
+	_, err := store.ListRuns(10)
+	if err == nil {
+		t.Error("expected error from ListRuns with closed DB")
+	}
+}
+
+func TestClosedDB_AnalysisRunStore_GetRunTracks(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewAnalysisRunStore(db)
+	_, err := store.GetRunTracks("run-1")
+	if err == nil {
+		t.Error("expected error from GetRunTracks with closed DB")
+	}
+}
+
+func TestClosedDB_AnalysisRunStore_InsertRunTrack(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewAnalysisRunStore(db)
+	track := &RunTrack{
+		RunID:    "run-1",
+		TrackID:  "t1",
+		SensorID: "sensor-1",
+	}
+	err := store.InsertRunTrack(track)
+	if err == nil {
+		t.Error("expected error from InsertRunTrack with closed DB")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: closed-DB error paths for sweep store
+// ---------------------------------------------------------------------------
+
+func TestClosedDB_SweepStore_InsertSweep(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewSweepStore(db)
+	rec := SweepRecord{
+		SweepID:  "s1",
+		SensorID: "sensor-1",
+		Mode:     "auto",
+		Status:   "running",
+		Request:  json.RawMessage(`{}`),
+	}
+	err := store.InsertSweep(rec)
+	if err == nil {
+		t.Error("expected error from InsertSweep with closed DB")
+	}
+}
+
+func TestClosedDB_SweepStore_GetSweep(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewSweepStore(db)
+	_, err := store.GetSweep("s1")
+	if err == nil {
+		t.Error("expected error from GetSweep with closed DB")
+	}
+}
+
+func TestClosedDB_SweepStore_ListSweeps(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewSweepStore(db)
+	_, err := store.ListSweeps("sensor-1", 10)
+	if err == nil {
+		t.Error("expected error from ListSweeps with closed DB")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: closed-DB error paths for evaluation/scene/missed stores
+// ---------------------------------------------------------------------------
+
+func TestClosedDB_EvaluationStore_ListByScene(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewEvaluationStore(db)
+	_, err := store.ListByScene("scene-1")
+	if err == nil {
+		t.Error("expected error from ListByScene with closed DB")
+	}
+}
+
+func TestClosedDB_EvaluationStore_Get(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewEvaluationStore(db)
+	_, err := store.Get("eval-1")
+	if err == nil {
+		t.Error("expected error from Get with closed DB")
+	}
+}
+
+func TestClosedDB_SceneStore_ListScenes(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Create scene store before closing — needs *sql.DB.
+	store := NewSceneStore(db)
+	db.Close()
+
+	_, err := store.ListScenes("sensor-1")
+	if err == nil {
+		t.Error("expected error from ListScenes with closed DB")
+	}
+}
+
+func TestClosedDB_MissedRegionStore_ListByRun(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	db.Close()
+
+	store := NewMissedRegionStore(db)
+	_, err := store.ListByRun("run-1")
+	if err == nil {
+		t.Error("expected error from ListByRun with closed DB")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage boost: DeleteRun with non-existent run ID (rows affected == 0)
+// ---------------------------------------------------------------------------
+
+func TestCovBoost_DeleteRun_NotFound(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	err := DeleteRun(db, "non-existent-run-id")
+	if err == nil {
+		t.Error("expected error when deleting non-existent run")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// setupTestDB helper for closed-DB tests that need raw *sql.DB
+// ---------------------------------------------------------------------------
+
+func openRawSQLite(t *testing.T) *sql.DB {
+	t.Helper()
+	tmpDir := t.TempDir()
+	dbPath := tmpDir + "/test.db"
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	return db
 }
