@@ -176,9 +176,9 @@ type VolumeFeature struct {
 type BoundingKind uint8
 
 const (
-    BoundingOBB        BoundingKind = iota // Oriented bounding box
-    BoundingConvexHull                     // Convex hull (compact point set)
-    BoundingSphere                         // Bounding sphere (simplest)
+    BoundingBox    BoundingKind = iota // Oriented bounding box (OBB)
+    BoundingHull                       // Convex hull (compact point set)
+    BoundingSphere                     // Bounding sphere (simplest)
 )
 ```
 
@@ -389,13 +389,15 @@ type VectorSceneMap struct {
 
 **Comparison: tiled grid vs vector polygons for a 100 m × 100 m scene**
 
-| Approach | Representation | Element Count | Per-Element Size | Total Raw | Total Compressed |
-| -------- | -------------- | ------------- | ---------------- | --------- | ---------------- |
-| **Tiled grid (1 m)** | GroundTile | 10,000 | 128 bytes | 1.28 MB | ~320 KB |
-| **Vector LOD 0** | Ground polygons | ~15 | ~100 bytes | ~1.5 KB | ~0.5 KB |
-| **Vector LOD 0–1** | All polygons | ~50 | ~120 bytes | ~6 KB | ~2 KB |
-| **Vector LOD 0–2** | All polygons | ~200 | ~140 bytes | ~28 KB | ~7 KB |
-| **Vector LOD 0–3 (survey)** | All polygons | ~500 | ~180 bytes | ~90 KB | ~22 KB |
+Compressed sizes assume gzip compression at ~4:1 ratio for tile grids (high redundancy in similar plane parameters) and ~3:1 for vector polygons (less redundancy due to variable geometry). These ratios are consistent with observed gzip performance on similar structured data (see `ground-plane-maths.md` §10.2).
+
+| Approach | Representation | Element Count | Per-Element Size | Total Raw | Total Compressed (~3–4:1) |
+| -------- | -------------- | ------------- | ---------------- | --------- | ------------------------- |
+| **Tiled grid (1 m)** | GroundTile | 10,000 | 128 bytes | 1.28 MB | ~320 KB (4:1) |
+| **Vector LOD 0** | Ground polygons | ~15 | ~100 bytes | ~1.5 KB | ~0.5 KB (3:1) |
+| **Vector LOD 0–1** | All polygons | ~50 | ~120 bytes | ~6 KB | ~2 KB (3:1) |
+| **Vector LOD 0–2** | All polygons | ~200 | ~140 bytes | ~28 KB | ~9 KB (3:1) |
+| **Vector LOD 0–3 (survey)** | All polygons | ~500 | ~180 bytes | ~90 KB | ~30 KB (3:1) |
 
 Even at maximum detail (LOD 3 everywhere), the vector representation is **14× more compact** than the uniform tiled grid. In practice, LOD 3 is applied selectively to < 5% of the scene area, yielding typical storage around **10–30 KB compressed** for a full intersection.
 
@@ -726,8 +728,9 @@ type VectorSceneParams struct {
     RefinementZStepM         float64 // Z-step threshold to trigger LOD 2+ (default: 0.10 m)
     RefinementDensityPtsPerM2 float64 // Point density for LOD 3 eligibility (default: 50.0)
 
-    // Pruning
-    MinPolygonAreaM2       float64 // Discard polygons smaller than this (default: 0.10 m²)
+    // Pruning (per-LOD minimum polygon area; see §4.3 pruning table)
+    MinPolygonAreaLOD2M2   float64 // Discard LOD 2 polygons smaller than this (default: 0.25 m²)
+    MinPolygonAreaLOD3M2   float64 // Discard LOD 3 polygons smaller than this (default: 0.10 m²)
     MaxVerticesPerPolygon  int     // Simplify if exceeded (default: 32)
     PlanarityImprovementMin float64 // Min planarity gain from split (default: 0.05)
     MinConfidence          float32 // Exclude features below this (default: 0.70)
