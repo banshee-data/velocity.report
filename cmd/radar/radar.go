@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -191,11 +192,54 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	log.SetOutput(os.Stdout)
 
-	var debugLogFile *os.File
-	if debugPath := os.Getenv("VELOCITY_DEBUG_LOG"); debugPath != "" {
+	// Three-stream LiDAR logging: VELOCITY_LIDAR_{OPS,DEBUG,TRACE}_LOG env vars.
+	// Falls back to legacy VELOCITY_DEBUG_LOG (all streams to one file) when
+	// the new vars are not set.
+	var logFiles []*os.File
+	opsPath := os.Getenv("VELOCITY_LIDAR_OPS_LOG")
+	lidarDebugPath := os.Getenv("VELOCITY_LIDAR_DEBUG_LOG")
+	tracePath := os.Getenv("VELOCITY_LIDAR_TRACE_LOG")
+
+	if opsPath != "" || lidarDebugPath != "" || tracePath != "" {
+		writers := lidar.LogWriters{}
+		// Determine a fallback writer: the first explicitly set path, so
+		// unspecified streams still produce output (design: avoid silent log loss).
+		fallbackPath := firstNonEmpty(opsPath, lidarDebugPath, tracePath)
+		openLog := func(path string) (io.Writer, error) {
+			if path == "" {
+				path = fallbackPath
+			}
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return nil, fmt.Errorf("create directory for %s: %w", path, err)
+			}
+			f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+			if err != nil {
+				return nil, fmt.Errorf("open %s: %w", path, err)
+			}
+			logFiles = append(logFiles, f)
+			return f, nil
+		}
+		if w, err := openLog(opsPath); err == nil {
+			writers.Ops = w
+		} else {
+			log.Printf("warning: %v", err)
+		}
+		if w, err := openLog(lidarDebugPath); err == nil {
+			writers.Debug = w
+		} else {
+			log.Printf("warning: %v", err)
+		}
+		if w, err := openLog(tracePath); err == nil {
+			writers.Trace = w
+		} else {
+			log.Printf("warning: %v", err)
+		}
+		lidar.SetLogWriters(writers)
+	} else if debugPath := os.Getenv("VELOCITY_DEBUG_LOG"); debugPath != "" {
+		// Legacy: route all three streams to a single file.
 		if err := os.MkdirAll(filepath.Dir(debugPath), 0o755); err == nil {
 			if f, err := os.OpenFile(debugPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
-				debugLogFile = f
+				logFiles = append(logFiles, f)
 				lidar.SetDebugLogger(f)
 			} else {
 				log.Printf("warning: failed to open debug log %s: %v", debugPath, err)
@@ -204,9 +248,11 @@ func main() {
 			log.Printf("warning: failed to create debug log directory for %s", debugPath)
 		}
 	}
-	if debugLogFile != nil {
-		defer debugLogFile.Close()
-	}
+	defer func() {
+		for _, f := range logFiles {
+			f.Close()
+		}
+	}()
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
@@ -1122,4 +1168,14 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 			}
 		}
 	}
+}
+
+// firstNonEmpty returns the first non-empty string from its arguments.
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
 }
