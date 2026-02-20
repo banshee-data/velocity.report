@@ -119,3 +119,22 @@ Operational defaults:
 
 - Full structured logging migration (JSON fields, correlation IDs, external log pipeline integration).
 - Rewriting every historical log line in one PR; this design allows incremental migration.
+
+## Implementation Status
+
+Core three-stream model is implemented in `internal/lidar/debug.go`:
+
+- `SetLogWriters(LogWriters{Ops, Debug, Trace})` configures all streams.
+- `SetLogWriter(level, w)` configures a single stream.
+- `Opsf`, `Diagf`, `Tracef` emit to explicit streams.
+- `Debugf` routes via keyword classifier (ops keywords first, then trace, default debug).
+- `SetDebugLogger(w)` compatibility shim routes all three streams to one writer.
+- Thread-safe via `sync.RWMutex` around logger pointer access.
+
+Entry point wiring in `cmd/radar/radar.go` supports:
+
+- `VELOCITY_LIDAR_OPS_LOG`, `VELOCITY_LIDAR_DEBUG_LOG`, `VELOCITY_LIDAR_TRACE_LOG` (new).
+- `VELOCITY_DEBUG_LOG` legacy fallback (all streams to one file).
+- Unspecified stream paths fall back to the first explicitly set path.
+
+Sub-package migration (pipeline, l2frames, l3grid) is incremental and not yet started.
