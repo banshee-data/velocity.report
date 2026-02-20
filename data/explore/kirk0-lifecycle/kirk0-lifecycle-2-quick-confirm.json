@@ -1,0 +1,8 @@
+{
+  "_label": "2/5 — Quick confirm",
+  "_description": "Tracks confirm after only 2 hits. More tracks visible sooner, but higher false-positive risk.",
+  "hits_to_confirm": 2,
+  "max_misses": 3,
+  "max_misses_confirmed": 15,
+  "max_tracks": 100
+}

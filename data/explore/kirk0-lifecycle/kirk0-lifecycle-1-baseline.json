@@ -1,0 +1,8 @@
+{
+  "_label": "1/5 — Baseline (defaults)",
+  "_description": "Default track lifecycle parameters for comparison baseline.",
+  "hits_to_confirm": 4,
+  "max_misses": 3,
+  "max_misses_confirmed": 15,
+  "max_tracks": 100
+}

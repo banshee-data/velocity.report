@@ -1,0 +1,8 @@
+{
+  "_label": "5/5 — Aggressive cleanup",
+  "_description": "Drop tracks quickly: hits_to_confirm=3, max_misses=2, max_misses_confirmed=8. Less noise but more track fragmentation.",
+  "hits_to_confirm": 3,
+  "max_misses": 2,
+  "max_misses_confirmed": 8,
+  "max_tracks": 50
+}
