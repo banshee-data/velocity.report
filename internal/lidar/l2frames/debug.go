@@ -14,9 +14,9 @@ var (
 // SetLogWriters configures the three logging streams for the l2frames package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = newLogger(ops)
-	diagLogger = newLogger(diag)
-	traceLogger = newLogger(trace)
+	opsLogger = newLogger("[l2frames] ", ops)
+	diagLogger = newLogger("[l2frames] ", diag)
+	traceLogger = newLogger("[l2frames] ", trace)
 }
 
 // SetDebugLogger is the backward-compatible shim that routes all three streams
@@ -25,11 +25,11 @@ func SetDebugLogger(w io.Writer) {
 	SetLogWriters(w, w, w)
 }
 
-func newLogger(w io.Writer) *log.Logger {
+func newLogger(prefix string, w io.Writer) *log.Logger {
 	if w == nil {
 		return nil
 	}
-	return log.New(w, "", log.LstdFlags|log.Lmicroseconds)
+	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
 }
 
 // opsf logs to the ops stream (actionable warnings, errors, data loss).
