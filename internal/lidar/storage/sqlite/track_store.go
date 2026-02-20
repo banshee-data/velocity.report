@@ -255,7 +255,7 @@ func PruneDeletedTracks(db *sql.DB, sensorID string, ttl time.Duration) (int64, 
 		DELETE FROM lidar_track_obs
 		WHERE track_id IN (
 			SELECT track_id FROM lidar_tracks
-			WHERE sensor_id = ? AND state = 'deleted'
+			WHERE sensor_id = ? AND track_state = 'deleted'
 			  AND COALESCE(end_unix_nanos, start_unix_nanos) < ?
 		)`, sensorID, cutoffNanos)
 	if err != nil {
@@ -266,7 +266,7 @@ func PruneDeletedTracks(db *sql.DB, sensorID string, ttl time.Duration) (int64, 
 	// Delete the track rows themselves.
 	res, err := tx.Exec(`
 		DELETE FROM lidar_tracks
-		WHERE sensor_id = ? AND state = 'deleted'
+		WHERE sensor_id = ? AND track_state = 'deleted'
 		  AND COALESCE(end_unix_nanos, start_unix_nanos) < ?`,
 		sensorID, cutoffNanos)
 	if err != nil {
