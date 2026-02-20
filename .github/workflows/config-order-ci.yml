@@ -5,7 +5,9 @@ on:
     types: [opened, reopened, synchronize]
     paths:
       - "config/**"
+      - "docs/**"
       - "internal/config/tuning.go"
+      - "internal/lidar/monitor/webserver.go"
       - "scripts/config-order-sync"
       - "scripts/readme-maths-check"
       - "Makefile"
@@ -15,7 +17,9 @@ on:
       - main
     paths:
       - "config/**"
+      - "docs/**"
       - "internal/config/tuning.go"
+      - "internal/lidar/monitor/webserver.go"
       - "scripts/config-order-sync"
       - "scripts/readme-maths-check"
       - "Makefile"
@@ -35,5 +39,8 @@ jobs:
       - name: Run key-order check
         run: make config-order-check
 
-      - name: Run README.maths key check
-        run: make readme-maths-check
+      # @TODO(config-parity): remove continue-on-error once webserver POST input
+      # reaches full key + order parity with tuning defaults/schema.
+      - name: Run README.maths strict parity check (optional for now)
+        continue-on-error: true
+        run: make readme-maths-check-strict

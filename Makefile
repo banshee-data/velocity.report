@@ -96,7 +96,8 @@ help:
 	@echo "  lint-web             Check web formatting"
 	@echo "  config-order-check   Validate tuning key order consistency"
 	@echo "  config-order-sync    Rewrite tuning sources to canonical key order"
-	@echo "  readme-maths-check   Validate docs JSON keys vs README.maths key list"
+	@echo "  readme-maths-check   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
+	@echo "  readme-maths-check-strict Validate README.maths keys with strict webserver parity"
 	@echo ""
 	@echo "PDF GENERATOR:"
 	@echo "  pdf-check-latex-parity Verify package parity between document builder and format ini"
@@ -969,10 +970,13 @@ config-order-sync:
 		--discover \
 		--md-target config/README.md
 
-.PHONY: readme-maths-check
+.PHONY: readme-maths-check readme-maths-check-strict
 
 readme-maths-check:
 	@./scripts/readme-maths-check
+
+readme-maths-check-strict:
+	@./scripts/readme-maths-check --webserver-mode exact
 
 lint-go:
 	@echo "Checking Go formatting (gofmt -l)..."
