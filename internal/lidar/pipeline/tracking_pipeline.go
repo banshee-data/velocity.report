@@ -194,7 +194,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
-		// Route frame completion to debug log to keep main log quiet during normal runs.
+		// Route frame completion to trace log to keep main log quiet during normal runs.
 		tracef("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°",
 			frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 
