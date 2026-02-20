@@ -17,3 +17,48 @@
 	height: 1.4em;
 	display: block;
 }
+
+/*
+ * velocity.report shared standard classes — DESIGN.md §5.5
+ *
+ * Semantic layout primitives reused across route files.
+ * Prefer composing these classes over repeating long utility strings.
+ */
+
+/* Full-height page container for workspace routes. */
+.vr-page {
+	display: flex;
+	flex-direction: column;
+	height: calc(100vh - 64px);
+	overflow: hidden;
+	background-color: var(--color-surface-200);
+}
+
+/* Header / control strip bar. */
+.vr-toolbar {
+	flex: none;
+	border-bottom-width: 1px;
+	border-color: color-mix(in srgb, var(--color-surface-content) 10%, transparent);
+	background-color: var(--color-surface-100);
+	padding: 1rem 1.5rem;
+}
+
+/* Responsive two-column stat cards grid. */
+.vr-stat-grid {
+	display: grid;
+	grid-template-columns: repeat(1, minmax(0, 1fr));
+	gap: 1rem;
+}
+@media (min-width: 768px) {
+	.vr-stat-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+/* Chart container card with border and fixed height. */
+.vr-chart-card {
+	border-radius: 0.25rem;
+	border-width: 1px;
+	border-color: color-mix(in srgb, var(--color-surface-content) 10%, transparent);
+	padding: 1rem;
+}

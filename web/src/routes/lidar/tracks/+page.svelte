@@ -638,9 +638,9 @@
 	});
 </script>
 
-<main id="main-content" class="bg-surface-200 flex h-[calc(100vh-64px)] flex-col overflow-hidden">
+<main id="main-content" class="vr-page">
 	<!-- Header -->
-	<div class="border-surface-content/10 bg-surface-100 h-20 flex-none border-b px-6 py-4">
+	<div class="vr-toolbar h-20">
 		<div class="flex h-full items-center justify-between overflow-hidden">
 			<div class="min-w-0 flex-1">
 				<h1 class="text-surface-content truncate text-2xl font-semibold">
