@@ -2,8 +2,6 @@
 
 Prioritised list of upcoming work for velocity.report. Each task links to its own design document. This is the single source of truth for project-wide work items — individual docs in `docs/plans/` describe single projects, not priority lists.
 
-Last updated: 2026-02-19
-
 ## P1 — Next
 
 - Sweep/HINT platform hardening — transform pipeline, objective registry, explainability — [design doc](docs/plans/industry-standard-ml-solver-expansion-plan.md)
@@ -11,11 +9,6 @@ Last updated: 2026-02-19
 - Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](docs/lidar/future/track-labeling-auto-aware-tuning.md)
 - Frontend consolidation Phases 1–3 — migrate status/regions/sweep to Svelte — [design doc](docs/plans/frontend-consolidation.md)
 - LiDAR logging stream split — ops/debug/trace streams with routing rubric — [design doc](docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
-- Web palette compliance — replace non-canonical colorMap and cRange with DESIGN.md §3.3 values; extract to palette.ts — [design doc §1.1](docs/plans/design-review-and-improvement-plan.md)
-- Chart empty-state placeholder — add no-data message to dashboard chart when chartData is empty — [design doc §3.1](docs/plans/design-review-and-improvement-plan.md)
-- DESIGN.md references — add Design Language section to CONTRIBUTING.md and link from README.md — [design doc §8.1](docs/plans/design-review-and-improvement-plan.md)
-- Shared palette module — create palette.ts as canonical Svelte source; cross-reference Python config_manager.py — [design doc §1.3](docs/plans/design-review-and-improvement-plan.md)
-- Shared CSS standard classes — extract vr-page, vr-toolbar, vr-stat-grid, vr-chart-card from repeated Tailwind bundles — [design doc §2.1](docs/plans/design-review-and-improvement-plan.md)
 - PR template design checklist — add DESIGN.md §9 UI/chart checklist to .github/PULL_REQUEST_TEMPLATE.md — [design doc §8.2](docs/plans/design-review-and-improvement-plan.md)
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 
@@ -29,7 +22,7 @@ Last updated: 2026-02-19
 - Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](docs/plans/track-labeling-ui-plan.md)
 - HINT sweep polish — 11 remaining polish items — [design doc](docs/plans/hint-sweep-mode.md)
 - Precompiled LaTeX — faster PDF report generation — [design doc](docs/plans/precompiled-latex-plan.md)
-- Python venv consolidation — unify to single .venv/ at root — [design doc](docs/plans/python-venv-consolidation-plan.md)
+- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/python-venv-consolidation-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](docs/plans/design-review-and-improvement-plan.md)
 - Widescreen content containment — add vr-page max-width centering at ≥3000px — [design doc §2.2](docs/plans/design-review-and-improvement-plan.md)
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](docs/plans/design-review-and-improvement-plan.md)
@@ -65,3 +58,8 @@ Last updated: 2026-02-19
 - webserver.go split — datasource_handlers.go + playback_handlers.go extracted — [design doc §6.1](docs/plans/design-review-and-improvement-plan.md)
 - background.go split — background_persistence.go, background_export.go, background_drift.go extracted — [design doc §6.2](docs/plans/design-review-and-improvement-plan.md)
 - CompareRuns extraction — comparison logic moved to l6objects/comparison.go — [design doc §6.3](docs/plans/design-review-and-improvement-plan.md)
+- Web palette compliance — palette.ts created with canonical DESIGN.md §3.3 values; colorMap/cRange removed — [design doc §1.1](docs/plans/design-review-and-improvement-plan.md)
+- Chart empty-state placeholder — "No chart data available" shown when chartData is empty — [design doc §3.1](docs/plans/design-review-and-improvement-plan.md)
+- DESIGN.md references — Design Language section added to CONTRIBUTING.md; link added to README.md — [design doc §8.1](docs/plans/design-review-and-improvement-plan.md)
+- Shared palette module — palette.ts exports PERCENTILE_COLOURS, LEGEND_ORDER with tests — [design doc §1.3](docs/plans/design-review-and-improvement-plan.md)
+- Shared CSS standard classes — vr-page, vr-toolbar, vr-stat-grid, vr-chart-card in app.css — [design doc §2.1](docs/plans/design-review-and-improvement-plan.md)
