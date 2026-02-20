@@ -34,6 +34,7 @@ var (
 )
 
 // Keyword lists used by the classifier to route Debugf messages.
+// These are read-only after init; do not modify at runtime.
 var (
 	opsKeywords   = []string{"error", "failed", "fatal", "panic", "warn", "timeout", "dropped"}
 	traceKeywords = []string{"packet", "queued", "parsed", "progress", "fps=", "bandwidth", "frame="}

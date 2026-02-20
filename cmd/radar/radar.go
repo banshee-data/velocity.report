@@ -250,7 +250,9 @@ func main() {
 	}
 	defer func() {
 		for _, f := range logFiles {
-			f.Close()
+			if err := f.Close(); err != nil {
+				log.Printf("warning: failed to close log file: %v", err)
+			}
 		}
 	}()
 
