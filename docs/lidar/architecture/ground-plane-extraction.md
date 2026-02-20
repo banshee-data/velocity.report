@@ -4,7 +4,16 @@
 
 ### Purpose
 
-This document specifies a dedicated **ground plane extraction subsystem** that models the road surface as a piecewise-planar grid of tiles, separate from the existing L3 background grid. The ground plane provides a stable geometric reference for measuring object heights above ground, enabling robust object classification and reducing false positives from ground clutter.
+This document specifies a **ground plane extraction subsystem** within L4 Perception that models the road surface as a piecewise-planar grid of tiles. The ground plane provides a stable geometric reference for measuring object heights above ground, enabling robust object classification and reducing false positives from ground clutter.
+
+### Architecture Principles
+
+**Sensor-iterative (LiDAR-only first):** All local PCAP observations are sensor-iterative. The ground plane subsystem **must function with the LiDAR sensor alone, with no GPS**. GPS is only additive — it enriches exports with geographic coordinates but is never required for core ground plane extraction or height-above-ground queries. Every algorithm described in this document operates in sensor-local coordinates by default.
+
+**Two-tier ground model:** The system distinguishes between:
+
+1. **Local scene ground** — per-observation-session ground tiles settled from live LiDAR returns. These are the working data for real-time perception.
+2. **Global published ground** — a persistent, lat/long-aligned grid (0.001 millidegree tiles, approximately 111 m at the equator down to ~43.5 m at 67°N/S) that accumulates across observation sessions. Global tiles can be loaded at startup, diffed against the current local scene, and updated from settled local tiles. This global grid is a shared, publishable artefact.
 
 ### Motivation
 
@@ -21,21 +30,24 @@ The ground plane subsystem addresses these needs by:
 - **Settling rapidly** to provide stable height references within seconds of observation
 - **Handling discontinuous surfaces** — modelling flatness and curvature locally without requiring a global solver
 - **Providing confidence metrics** — queryable per-tile planarity and coverage statistics
-- **Aligning with geographic coordinates** — lat/long-aligned Cartesian grid for integration with mapping tools and multi-device deployments
+- **Optionally aligning with geographic coordinates** — lat/long-aligned Cartesian grid for integration with mapping tools and multi-device deployments (GPS additive, never required)
 
 ### Relationship to Existing Systems
 
-The ground plane subsystem operates as **L3.5** in the six-layer model:
+The ground plane subsystem is part of **L4 Perception**, publishing a non-point-based interface (plane equations per tile) that is unioned into scene understanding alongside point-based cluster outputs:
 
 ```
-L1 Packets → L2 Frames → L3 Background Grid → [L3.5 Ground Plane] → L4 Perception → L5 Tracks → L6 Objects
+L1 Packets → L2 Frames → L3 Background Grid → L4 Perception → L5 Tracks → L6 Objects
+                                                  ├── Clustering (point-based)
+                                                  ├── Ground Plane (surface-based)
+                                                  └── Height-above-ground queries
 ```
 
 - **L3 Background Grid** identifies static scene elements via EMA-updated per-cell range statistics and neighbour confirmation. It distinguishes background (stationary) from foreground (moving) but doesn't model surface geometry.
-- **L3.5 Ground Plane** consumes points classified as static ground (from L3 or raw frames) and fits local plane equations to build a geometric surface model.
-- **L4 Perception** uses the ground plane to compute height-above-ground for each cluster, improving object classification and reducing ground-clutter false positives.
+- **L4 Ground Plane** (within `internal/lidar/l4perception/`) consumes points classified as static ground (from L3 or raw frames) and fits local plane equations to build a geometric surface model. It publishes a `GroundSurface` interface — a non-point-based representation of the scene geometry.
+- **L4 Clustering** uses the ground plane to compute height-above-ground for each cluster, improving object classification and reducing ground-clutter false positives.
 
-This separation maintains the L3 grid's role as a fast foreground/background separator while adding geometric reasoning for height-based classification.
+This keeps all perception-level scene understanding within L4, maintaining the L3 grid's role as a fast foreground/background separator while adding geometric reasoning for height-based classification.
 
 ---
 
@@ -79,13 +91,46 @@ The system **does not enforce continuity constraints** between tiles. Each tile 
 
 ## 3. Grid Structure & Alignment
 
-### Lat/Long-Aligned Cartesian Grid
+### Two-Tier Grid Model
 
-Unlike the L3 background grid (polar: rings × azimuth bins), the ground plane uses a **Cartesian grid aligned with geographic coordinates**:
+The ground plane operates at two distinct spatial scales:
 
-- **Grid axes** — X = East, Y = North (following WGS84 local tangent plane convention).
-- **Origin** — Sensor's GPS position at initialization, or a configurable reference point.
-- **Tile indexing** — Each tile is identified by integer indices (ix, iy) with tile centre at (ix · tileSize, iy · tileSize) relative to origin.
+#### Tier 1: Local Scene Grid (Sensor-Iterative)
+
+The **local scene grid** is the primary working data, settled from live LiDAR returns during each observation session. It operates in sensor-local Cartesian coordinates and requires **no GPS**.
+
+- **Grid axes** — X = right, Y = forward, Z = up (sensor-local frame, matching `SphericalToCartesian` output).
+- **Origin** — Sensor position (0, 0, 0).
+- **Tile indexing** — Integer indices (ix, iy) with tile centre at (ix · tileSize, iy · tileSize) relative to sensor origin.
+- **Tile size** — Configurable, default 1.0 m × 1.0 m (see tile size table below).
+- **Coverage** — Determined by sensor range and visibility; typically 50–100 m radius.
+- **Lifecycle** — Created per observation session; settles within seconds; discarded when session ends (or promoted to global grid if GPS available).
+
+This is the only tier required for core perception. The system **must** function at this tier with LiDAR data alone.
+
+#### Tier 2: Global Published Grid (GPS-Enhanced, Optional)
+
+When GPS coordinates are available, settled local tiles can be projected into a **global lat/long-aligned grid** that persists across observation sessions:
+
+- **Grid axes** — X = East, Y = North (WGS84 local tangent plane convention).
+- **Tile sizing** — 0.001 millidegree (≈0.001° × 0.001°). At the equator this is approximately 111 m × 111 m. At 67°N/S latitude this is approximately 43.5 m × 111 m (longitude shrinks by cos(latitude)). Each global tile spans multiple local scene tiles.
+- **Tile indexing** — Integer millidegree indices: `ix = floor(longitude / 0.001)`, `iy = floor(latitude / 0.001)`.
+- **Persistence** — Stored in SQLite and exportable as a shared artefact. Can be loaded at startup to seed local scene grids (providing prior ground estimates before LiDAR settling completes).
+- **Diff/merge** — When a new observation session settles, its local tiles are diffed against the existing global grid. Consistent tiles strengthen confidence; divergent tiles trigger re-evaluation (construction, seasonal change, etc.).
+
+Global tiles contain aggregate statistics from multiple observation sessions:
+
+| Field | Description |
+| ----- | ----------- |
+| Mean plane normal | Weighted average of contributing local tile normals |
+| Mean Z-offset | Weighted average ground height |
+| Session count | Number of observation sessions contributing |
+| Last updated | Timestamp of most recent contribution |
+| Confidence | Combined planarity from all contributing sessions |
+
+### Lat/Long-Aligned Cartesian Grid (Tier 2)
+
+When GPS is available, the local sensor-frame grid can be transformed to a geographic Cartesian grid:
 
 **Benefits of Cartesian geographic alignment:**
 
@@ -144,20 +189,21 @@ ix := int(math.Floor(wx / tileSize))
 iy := int(math.Floor(wy / tileSize))
 ```
 
-The ground plane subsystem must integrate with GPS/PTP parsing (see `internal/lidar/l1packets/parse/extract.go`) to obtain sensor position and heading for the pose transform.
+The ground plane subsystem **can optionally** integrate with GPS/PTP parsing (see `internal/lidar/l1packets/parse/extract.go`) to obtain sensor position and heading for the pose transform. Without GPS, only Tier 1 local scene tiles are available (which is sufficient for all core perception tasks).
 
 ### Relationship to L3 Polar Background Grid
 
-The L3 `BackgroundGrid` and L3.5 ground plane serve complementary roles:
+The L3 `BackgroundGrid` and L4 ground plane serve complementary roles:
 
-| Aspect           | L3 Background Grid (polar)                          | L3.5 Ground Plane (Cartesian)                      |
+| Aspect           | L3 Background Grid (polar)                          | L4 Ground Plane (Cartesian)                        |
 | ---------------- | --------------------------------------------------- | -------------------------------------------------- |
-| **Geometry**     | Rings × azimuth bins                                | Cartesian tiles (lat/long aligned)                 |
+| **Geometry**     | Rings × azimuth bins                                | Cartesian tiles (sensor-local or lat/long aligned) |
 | **Purpose**      | Foreground/background separation                    | Surface modelling for height-above-ground          |
 | **Representation** | Per-cell range statistics (mean, spread, freeze)  | Per-tile plane equation (normal, offset)           |
 | **Update rate**  | Per-frame EMA updates                               | Incremental PCA/least-squares                      |
-| **Coordinate frame** | Sensor-centric polar                            | World-frame Cartesian (geo-referenced)             |
+| **Coordinate frame** | Sensor-centric polar                            | Sensor-local Cartesian (Tier 1) or world-frame (Tier 2) |
 | **Export format** | VTK ImageData, ASC (debugging)                     | GeoJSON, ASC raster, VTK StructuredGrid            |
+| **GPS required** | No                                                  | No (Tier 1); Yes (Tier 2 global grid)             |
 
 The ground plane can consume **ground-classified points** from the L3 background grid (cells marked as static and within ground Z-band) or operate independently on raw L2 frame points filtered by elevation. Initial implementation should support both modes for flexibility.
 
@@ -409,20 +455,24 @@ This prevents stale tiles from being trusted indefinitely in dynamic environment
 
 ## 7. Integration with Existing Pipeline
 
-### Layer Position: L3.5 Ground Plane
+### Layer Position: L4 Perception (Ground Surface Interface)
 
-The ground plane subsystem sits between **L3 Grid** and **L4 Perception**:
+The ground plane is part of **L4 Perception**, publishing a **non-point-based interface** (`GroundSurface`) that is unioned with point-based clustering for scene understanding:
 
 ```
 L2 Frames (SphericalToCartesian)
     ↓
-[Optional: L3 Background Grid — identifies static points]
+L3 Background Grid (identifies static points)
     ↓
-L3.5 Ground Plane Extractor
-    ↓ (provides HeightAboveGround for each point)
-    ↓
-L4 Perception (clustering, OBB fitting, classification)
+L4 Perception
+    ├── Ground Plane Extractor → GroundSurface interface (plane equations per tile)
+    ├── Clustering (DBSCAN → WorldCluster)
+    └── Height-above-ground queries (using GroundSurface)
+         ↓
+L5 Tracking
 ```
+
+The `GroundSurface` interface is deliberately **non-point-based**: it exposes plane equations, height queries, and confidence metrics rather than point clouds. This allows L4 clustering to query height-above-ground without coupling to the internal tile representation.
 
 ### Two Operating Modes
 
@@ -477,45 +527,42 @@ type HeightBandFilter struct {
          │
          ▼
 ┌─────────────────┐
-│ L2: Frame Build │ (SphericalToCartesian → world points)
+│ L2: Frame Build │ (SphericalToCartesian → sensor-local Cartesian)
 └────────┬────────┘
          │
-         ├─────────────────────────┐
-         │                         │
-         ▼                         ▼
-┌──────────────────┐      ┌─────────────────────┐
-│ L3: Background   │      │ L3.5: Ground Plane  │
-│     Grid         │      │      Extractor      │
-│ (foreground sep) │      │ (tile plane fitting)│
-└────────┬─────────┘      └──────────┬──────────┘
-         │                           │
-         │  Ground-classified pts    │
-         └──────────┬────────────────┘
-                    │
-                    ▼
-         ┌────────────────────┐
-         │ Merged ground model│ (Z-offset per XY)
-         └──────────┬─────────┘
-                    │
-                    ▼
-         ┌───────────────────────┐
-         │ L4: Perception        │
-         │ - Compute height      │
-         │   above ground        │
-         │ - Filter by dynamic   │
-         │   Z thresholds        │
-         │ - Cluster & classify  │
-         └───────────┬───────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │ L5: Tracking          │
-         └───────────┬───────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │ L6: Object classes    │
-         └───────────────────────┘
+         ▼
+┌──────────────────┐
+│ L3: Background   │
+│     Grid         │
+│ (foreground sep) │
+└────────┬─────────┘
+         │ Ground-classified static points
+         ▼
+┌───────────────────────────────────────────────────────────┐
+│ L4: Perception                                            │
+│                                                           │
+│  ┌─────────────────────┐    ┌──────────────────────────┐  │
+│  │ Ground Plane        │    │ Clustering (DBSCAN)      │  │
+│  │ Extractor           │    │                          │  │
+│  │ (tile plane fitting)│───▶│ height-above-ground      │  │
+│  │                     │    │ queries via GroundSurface │  │
+│  └─────────┬───────────┘    └──────────────────────────┘  │
+│            │                                              │
+│  ┌─────────▼───────────┐   (optional, GPS additive)      │
+│  │ Global Grid         │                                  │
+│  │ diff/merge (Tier 2) │                                  │
+│  └─────────────────────┘                                  │
+└───────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌───────────────────────┐
+│ L5: Tracking          │
+└───────────┬───────────┘
+            │
+            ▼
+┌───────────────────────┐
+│ L6: Object classes    │
+└───────────────────────┘
 ```
 
 ### Export Formats
@@ -600,7 +647,7 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 ### Core Types
 
 ```go
-package l3grid // or new package internal/lidar/l3groundplane
+package l4perception // ground plane lives within L4 Perception
 
 import (
     "sync"
@@ -641,11 +688,11 @@ type GroundTile struct {
     PointDensity float32 // Points per m² per second (recent average)
 }
 
-// GroundPlaneGrid manages the Cartesian tile grid.
+// GroundPlaneGrid manages the Cartesian tile grid (Tier 1: local scene).
+// Operates in sensor-local coordinates. No GPS required.
 type GroundPlaneGrid struct {
     // Configuration
     TileSize float64 // Metres per tile (e.g., 1.0)
-    OriginLat, OriginLon float64 // GPS origin for grid alignment
     MinPointsForSettlement int // e.g., 20
     MinPlanarityThreshold float32 // e.g., 0.95
     MinSettlementDurationNanos int64 // e.g., 5e9 (5 seconds)
@@ -681,6 +728,52 @@ type GroundPlaneParams struct {
     UpdateAlphaUnsettled float32 // e.g., 0.10 (fast convergence)
     UpdateAlphaSettled float32 // e.g., 0.01 (stability after settlement)
     EnableOutlierRejection bool // Use median-based outlier filter
+}
+
+// GroundSurface is the non-point-based interface published by the ground plane
+// extractor to the rest of L4 Perception. It provides height-above-ground queries
+// without exposing the internal tile representation.
+type GroundSurface interface {
+    // QueryHeightAboveGround returns the height of a point above the ground plane.
+    // Returns (height, confidence, ok). ok=false if no settled tile at (x, y).
+    QueryHeightAboveGround(x, y, z float64) (height float64, confidence float32, ok bool)
+
+    // IsSettled reports whether the ground plane has sufficient coverage to be trusted.
+    IsSettled() bool
+
+    // TileAt returns the ground plane parameters at (x, y).
+    // Returns (normal, offset, confidence, ok).
+    TileAt(x, y float64) (normal [3]float64, offset float64, confidence float32, ok bool)
+}
+
+// GlobalGroundGrid is the Tier 2 persistent grid aligned to lat/long millidegree tiles.
+// GPS required for population. Loaded at startup to seed local scene grids.
+type GlobalGroundGrid struct {
+    // Grid resolution: 0.001 degrees (~111 m equator, ~43.5 m at 67° latitude)
+    ResolutionDeg float64 // 0.001
+
+    // Tiles indexed by millidegree coordinates
+    Tiles map[GlobalTileIndex]*GlobalGroundTile
+    mu    sync.RWMutex
+
+    // Persistence
+    LastFlushNanos int64
+}
+
+// GlobalTileIndex identifies a tile in the global lat/long grid.
+type GlobalTileIndex struct {
+    LatMillideg int // floor(latitude / 0.001)
+    LonMillideg int // floor(longitude / 0.001)
+}
+
+// GlobalGroundTile aggregates ground plane statistics across observation sessions.
+type GlobalGroundTile struct {
+    MeanNormal     [3]float64 // Weighted average plane normal
+    MeanZOffset    float64    // Weighted average ground height
+    SessionCount   uint32     // Number of contributing sessions
+    LastUpdatedNanos int64    // Most recent contribution
+    Confidence     float32   // Combined planarity from all sessions
+    TotalPoints    uint64    // Sum of points across all sessions
 }
 ```
 
@@ -890,23 +983,26 @@ CREATE INDEX IF NOT EXISTS idx_ground_plane_timestamp ON ground_plane_snapshots(
 
 **Recommendation:** Support both modes. PCAP analysis tool (`cmd/tools/pcap-analyse/main.go`) should use multi-pass for maximum accuracy; live streaming uses single-pass incremental algorithms.
 
-### GPS Geo-Referencing Integration
+### GPS Geo-Referencing Integration (Additive Only)
+
+**Principle:** GPS is strictly additive. The ground plane **must** function without GPS. GPS enables Tier 2 global grid population and geographic exports but is never required for core perception.
 
 **Current state:** GPS parsing exists (`internal/lidar/l1packets/parse/extract.go`) but integration with LiDAR pipeline is incomplete.
 
-**Requirements for ground plane:**
+**When GPS is available:**
 
-1. **Sensor position** (lat, lon, altitude) to define grid origin.
+1. **Sensor position** (lat, lon, altitude) to define Tier 2 grid origin.
 2. **Sensor heading** (compass bearing) to transform sensor-local X/Y → world-frame East/North.
-3. **Timestamp synchronization** — GPS time must align with LiDAR frame timestamps (PTP or GPS-disciplined system clock).
+3. **Timestamp synchronisation** — GPS time must align with LiDAR frame timestamps (PTP or GPS-disciplined system clock).
 
-**Open questions:**
+**When GPS is unavailable (primary operating mode):**
 
-- How to handle GPS unavailability (indoor, tunnel, signal loss)?
-- Should ground plane grid origin be fixed at first GPS position, or dynamically updated (SLAM-like drift correction)?
-- Multi-device fusion: how to align grids from sensors with different origins?
+- Tier 1 local scene grid operates in sensor-local coordinates.
+- Height-above-ground queries, clustering, and all L4 perception functions work normally.
+- No geographic exports (GeoJSON tile corners require GPS coordinates).
+- No Tier 2 global grid population (requires geographic positioning).
 
-**Recommendation:** Initial implementation uses **fixed origin** at sensor deployment location (manual configuration). GPS integration for automatic origin and heading correction is deferred to future work (tracked in separate GPS geo-referencing spec).
+**Recommendation:** GPS integration is a separate enhancement phase. Core ground plane implementation is LiDAR-only.
 
 ### Integration with External Elevation Models
 
@@ -936,6 +1032,28 @@ CREATE INDEX IF NOT EXISTS idx_ground_plane_timestamp ON ground_plane_snapshots(
 3. **Multi-device cross-validation** — If multiple sensors observe the same area, compare their ground plane estimates to detect sensor-local occlusions.
 
 **Recommendation:** Implement confidence decay (Option 1) for initial version. Temporal filtering (Option 2) is future enhancement for long-running deployments.
+
+### OpenStreetMap Integration (Future V2)
+
+**Vision:** Import OSM polylines (kerbs, crosswalks, signs, road edges) as real-world geometric anchors for ground plane validation and refinement.
+
+**Import workflow (v1 — read-only):**
+
+1. Query OSM Overpass API for road geometry within the global grid's bounding box.
+2. Parse polylines (ways) for kerb lines, crosswalks, stop lines, sign positions.
+3. Project OSM features onto the ground plane grid as **anchor constraints** — known height discontinuities (kerbs: +0.15 m), known flat regions (crosswalks), known positions (signs).
+4. Use anchors to validate and refine ground plane tile boundaries.
+
+**Update workflow (v2 — write-back, requires OSM API key):**
+
+1. Compare settled ground plane against existing OSM data.
+2. Identify discrepancies: kerb positions shifted, crosswalk faded/repainted, new road features.
+3. Propose edits to OSM as changesets with more accurate positions derived from LiDAR measurements.
+4. Requires user authentication via OSM API key and manual review before submission.
+
+**Privacy note:** OSM write-back shares geometric features (kerb positions, road edges) — never vehicle data or PII. This is consistent with privacy-first design as it enriches the public map, not a private database.
+
+**Deferred to:** Future work (v2). Core ground plane and Tier 2 global grid must be stable first.
 
 ---
 
@@ -999,9 +1117,12 @@ CREATE INDEX IF NOT EXISTS idx_ground_plane_timestamp ON ground_plane_snapshots(
 
 - [ ] Automatic sensor tilt calibration
 - [ ] Multi-device ground plane fusion
-- [ ] External DEM integration (USGS, OSM)
+- [ ] External DEM integration (USGS, OSM elevation)
 - [ ] Temporal change detection (construction zone monitoring)
 - [ ] IMU integration for dynamic tilt correction
+- [ ] Tier 2 global grid: diff/merge across observation sessions
+- [ ] OSM polyline import for anchor constraints (kerbs, crosswalks, signs)
+- [ ] OSM write-back workflow (v2, requires API key)
 
 ---
 
@@ -1012,10 +1133,12 @@ The ground plane extraction subsystem provides a geometric foundation for height
 - **Accurate height-above-ground measurements** for pedestrian/vehicle/cyclist classification
 - **Adaptive ground filtering** that handles San Francisco's hilly terrain and kerb discontinuities
 - **Confidence-aware queries** for assessing measurement reliability
-- **Geographic alignment** for multi-device fusion and GIS integration
+- **Optional geographic alignment** for multi-device fusion and GIS integration (GPS additive)
 
 The piecewise-planar tile approach balances **spatial resolution** (1 m tiles capture local features), **computational efficiency** (incremental PCA, O(1) per-tile updates), and **robustness** (outlier rejection, confidence decay). Settlement within 5–10 seconds ensures rapid deployment while maintaining stability via locked baseline mechanisms.
 
-Integration as **L3.5** in the six-layer model preserves the existing L3 background grid's role for foreground/background separation while adding geometric surface reasoning for L4 perception. The design supports both real-time streaming (Raspberry Pi deployment) and offline multi-pass analysis (PCAP replay), with export formats compatible with LidarView, ParaView, QGIS, and other GIS/3D visualization tools.
+The ground plane lives within **L4 Perception**, publishing a `GroundSurface` interface — a non-point-based representation of the scene geometry that is unioned with point-based clustering for scene understanding. This preserves the existing L3 background grid's role for foreground/background separation while adding geometric surface reasoning within perception.
 
-Open questions around sensor calibration, GPS geo-referencing, and multi-device fusion are deferred to future work, allowing an incremental implementation path that delivers value early (accurate height measurements) while preserving extensibility for advanced features (geographic alignment, external terrain integration).
+The **two-tier model** (local scene tiles + global published grid) separates concerns: Tier 1 operates with LiDAR alone (sensor-iterative, no GPS dependency), while Tier 2 enriches the system when GPS is available, enabling cross-session accumulation and geographic exports. The system always functions with the LiDAR-only sensor; GPS is only additive.
+
+Open questions around sensor calibration, GPS geo-referencing, and multi-device fusion are deferred to future work, allowing an incremental implementation path that delivers value early (accurate height measurements) while preserving extensibility for advanced features (geographic alignment, OSM integration, external terrain databases).

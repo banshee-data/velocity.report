@@ -11,7 +11,7 @@ A single concise layer model for LiDAR data in velocity.report. OSI is only a re
 | L1 (lowest)  | Packets    | Sensor-wire transport and capture                  | Hesai UDP payloads, PCAP packets                                             |
 | L2           | Frames     | Time-coherent frame assembly and geometry exports  | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export feed      |
 | L3           | Grid       | Background/foreground separation state             | `BackgroundGrid`, ring/azimuth bins, foreground mask                         |
-| L4           | Perception | Per-frame object primitives and measurements       | Clusters and observations (`WorldCluster`, `TrackObservation`)               |
+| L4           | Perception | Per-frame object primitives and measurements       | Clusters and observations (`WorldCluster`, `TrackObservation`), ground plane surface model (`GroundSurface` interface) |
 | L5           | Tracks     | Multi-frame identity and motion continuity         | `TrackedObject`, `TrackSet`                                                  |
 | L6 (highest) | Objects    | Semantic object interpretation and dataset mapping | Local classes (`car`, `pedestrian`, `bird`, `other`) and AV taxonomy mapping |
 
@@ -21,6 +21,7 @@ A single concise layer model for LiDAR data in velocity.report. OSI is only a re
 - Frames and Cartesian representations → **L2 Frames**
 - Background/foreground grid → **L3 Grid**
 - Clusters and observations → **L4 Perception**
+- Ground plane surface model → **L4 Perception** (non-point-based `GroundSurface` interface)
 - Tracks → **L5 Tracks**
 - Objects/classes → **L6 Objects**
 - VRLOG recordings span **L2-L5** (frame bundles, perception outputs, tracks)
@@ -33,7 +34,7 @@ A single concise layer model for LiDAR data in velocity.report. OSI is only a re
 | L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)             |
 | L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `export.go`, `geometry.go`                         |
 | L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `foreground.go`, `config.go`, `background_flusher.go` |
-| L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go` |
+| L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned) |
 | L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                  |
 | L6 Objects    | `internal/lidar/l6objects/`    | `classification.go`, `features.go`, `quality.go`                       |
 
