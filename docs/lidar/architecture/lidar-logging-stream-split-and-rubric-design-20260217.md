@@ -101,6 +101,7 @@ All `Debugf`/`debugf` call sites have been migrated to explicit stream functions
 | `l2frames/frame_builder.go` | 646 | `[FrameBuilder] cleanupFrames invoked` | ✅ high |
 | `l2frames/frame_builder.go` | 695 | `[FrameBuilder] Finalizing idle current frame` | ✅ high |
 | `l2frames/frame_builder.go` | 714 | `[FrameBuilder] Frame completed` | ✅ high |
+| `l2frames/frame_builder.go` | 731 | `[FrameBuilder] Incomplete or gappy frame` | ✅ high |
 | `l2frames/frame_builder.go` | 791 | `[FrameBuilder] Invoking frame callback` | ✅ high |
 | `l2frames/frame_builder.go` | 886 | `Frame completed (callback)` | ✅ high |
 | `pipeline/tracking_pipeline.go` | 198 | `[FrameBuilder] Completed frame` | ✅ high |
@@ -131,7 +132,6 @@ All `Debugf`/`debugf` call sites have been migrated to explicit stream functions
 | `l2frames/frame_builder.go` | 302 | `[FrameBuilder] Reset: cleared all buffered` | ✅ high |
 | `l2frames/frame_builder.go` | 553 | `[FrameBuilder] Discarding incomplete frame` | ⚠️ review |
 | `l2frames/frame_builder.go` | 592 | `[FrameBuilder] Evicting buffered frame` | ✅ high |
-| `l2frames/frame_builder.go` | 731 | `[FrameBuilder] Incomplete or gappy frame` | ⚠️ review |
 | `l2frames/frame_builder.go` | 761 | `[FrameBuilder] Exported next frame` | ✅ high |
 | `l2frames/frame_builder.go` | 777 | `[FrameBuilder] Exported batch frame` | ✅ high |
 | `l2frames/frame_builder.go` | 945 | `[FrameBuilder] all Z==0, recomputing XYZ` | ✅ high |
@@ -142,7 +142,7 @@ All `Debugf`/`debugf` call sites have been migrated to explicit stream functions
 
 ### Sites flagged for user review (⚠️)
 
-These 4 call sites were classified with best-effort judgement. Please confirm or reassign:
+These 3 call sites were classified with best-effort judgement. Please confirm or reassign:
 
 1. **`pipeline/tracking_pipeline.go:408`** — `[Tracking] Clustered into %d objects`
    - Currently: `tracef` (fires every frame → per-frame frequency)
@@ -155,7 +155,3 @@ These 4 call sites were classified with best-effort judgement. Please confirm or
 3. **`l2frames/frame_builder.go:553`** — `[FrameBuilder] Discarding incomplete frame`
    - Currently: `diagf` (normal during startup; expected behaviour)
    - Alternative: `opsf` (could indicate data quality issues or sensor problems)
-
-4. **`l2frames/frame_builder.go:731`** — `[FrameBuilder] Incomplete or gappy frame`
-   - Currently: `diagf` (frame quality diagnostic, can fire frequently with poor signal)
-   - Alternative: `tracef` (may be high-volume with noisy sensors)

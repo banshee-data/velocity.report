@@ -252,6 +252,23 @@ func TestSetLogWriters(t *testing.T) {
 		t.Errorf("Tracef output = %q, want to contain 'trace event: fps=30.0'", trace.String())
 	}
 
+	// Verify package prefix is present on every line
+	for _, line := range strings.Split(strings.TrimSpace(ops.String()), "\n") {
+		if !strings.Contains(line, "[lidar] ") {
+			t.Errorf("Ops line missing [lidar] prefix: %q", line)
+		}
+	}
+	for _, line := range strings.Split(strings.TrimSpace(dbg.String()), "\n") {
+		if !strings.Contains(line, "[lidar] ") {
+			t.Errorf("Debug line missing [lidar] prefix: %q", line)
+		}
+	}
+	for _, line := range strings.Split(strings.TrimSpace(trace.String()), "\n") {
+		if !strings.Contains(line, "[lidar] ") {
+			t.Errorf("Trace line missing [lidar] prefix: %q", line)
+		}
+	}
+
 	// Verify no cross-contamination
 	if strings.Contains(ops.String(), "diag event") || strings.Contains(ops.String(), "trace event") {
 		t.Errorf("Ops stream received non-ops messages: %q", ops.String())

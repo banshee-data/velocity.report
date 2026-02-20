@@ -37,9 +37,9 @@ var (
 func SetLogWriters(w LogWriters) {
 	mu.Lock()
 	defer mu.Unlock()
-	opsLogger = newLogger("", w.Ops)
-	debugLogger = newLogger("", w.Debug)
-	traceLogger = newLogger("", w.Trace)
+	opsLogger = newLogger("[lidar] ", w.Ops)
+	debugLogger = newLogger("[lidar] ", w.Debug)
+	traceLogger = newLogger("[lidar] ", w.Trace)
 }
 
 // SetLogWriter configures a single logging stream.
@@ -49,11 +49,11 @@ func SetLogWriter(level LogLevel, w io.Writer) {
 	defer mu.Unlock()
 	switch level {
 	case LogOps:
-		opsLogger = newLogger("", w)
+		opsLogger = newLogger("[lidar] ", w)
 	case LogDebug:
-		debugLogger = newLogger("", w)
+		debugLogger = newLogger("[lidar] ", w)
 	case LogTrace:
-		traceLogger = newLogger("", w)
+		traceLogger = newLogger("[lidar] ", w)
 	}
 }
 
