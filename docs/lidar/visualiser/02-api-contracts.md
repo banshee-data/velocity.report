@@ -304,7 +304,7 @@ message StatePrediction {
 
 Status: **Planned (docs-only), not implemented in current protobuf/API yet**.
 
-Goal: let the Swift frontend inspect background model behavior directly in both
+Goal: let the Swift frontend inspect background model behaviour directly in both
 native polar representation and Cartesian rendering form, including region map
 assignment state.
 
@@ -364,7 +364,7 @@ Planned frontend modes:
 
 - `Polar`: ring/azimuth grid inspection for settling diagnostics
 - `Cartesian`: world/sensor-frame point overlay for geometric inspection
-- `Region Map`: colorized region IDs and lifecycle state overlay
+- `Region Map`: colourised region IDs and lifecycle state overlay
 
 ### 1.6 Labels (User Annotations)
 

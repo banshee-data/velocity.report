@@ -205,10 +205,10 @@ proto/
 Status: **Planned (docs-only)**.
 
 The visualiser currently consumes foreground frames and periodic background
-snapshots. For debugging settlement behavior, add three explicit background
+snapshots. For debugging settlement behaviour, add three explicit background
 debug surfaces:
 
-1. **Polar background points**: inspect ring/azimuth cell behavior directly.
+1. **Polar background points**: inspect ring/azimuth cell behaviour directly.
 2. **Cartesian background points**: inspect transformed geometry used by renderer.
 3. **Region map overlay**: inspect cell-to-region assignment and settle state.
 

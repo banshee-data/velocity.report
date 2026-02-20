@@ -86,8 +86,12 @@ def extract_json_blocks(path: Path) -> list[dict]:
         raw = match.group(1)
         try:
             parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
+        except json.JSONDecodeError as exc:
+            # Fail fast on invalid JSON fences so documentation regressions are not hidden.
+            start_line = text[: match.start(1)].count("\n") + 1
+            raise ValueError(
+                f"{path}: invalid JSON in ```json``` block starting at line {start_line}: {exc}"
+            ) from exc
         if isinstance(parsed, dict):
             blocks.append(parsed)
     return blocks

@@ -572,7 +572,7 @@ frame.PointCloud.Release()
 - [ ] Add debug mode selector (`off|polar|cartesian|region-map`)
 - [ ] Add polar inspector panel (cell key, confidence, settle state)
 - [ ] Add Cartesian background overlay mode for geometric cross-checking
-- [ ] Add region-map color legend and selected-region metadata panel
+- [ ] Add region-map colour legend and selected-region metadata panel
 
 **Acceptance Criteria (planned)**:
 

@@ -44,8 +44,8 @@ def parse_markdown_json_blocks(text: str, path: Path) -> list[MarkdownJSONBlock]
         raw = match.group(1)
         try:
             parsed = json.loads(raw, object_pairs_hook=OrderedDict)
-        except json.JSONDecodeError:
-            continue
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{path}: failed to parse JSON in fenced ```json``` block: {e}") from e
         if not isinstance(parsed, dict):
             continue
         blocks.append(MarkdownJSONBlock(start=match.start(1), end=match.end(1), obj=parsed))
