@@ -42,7 +42,7 @@ import XCTest
         state.currentFrameIndex = 100
         state.totalFrames = 1000
 
-        state.stepForward()// Should be no-op when live
+        state.stepForward()  // Should be no-op when live
     }
 
     func testStepForwardIgnoresWhenNotSeekable() throws {
@@ -50,7 +50,7 @@ import XCTest
         state.isLive = false
         state.isSeekable = false
 
-        state.stepForward()// Should be no-op when not seekable
+        state.stepForward()  // Should be no-op when not seekable
     }
 
     func testStepForwardIgnoresAtEnd() throws {
@@ -60,7 +60,7 @@ import XCTest
         state.currentFrameIndex = 999
         state.totalFrames = 1000
 
-        state.stepForward()// Should not step past end
+        state.stepForward()  // Should not step past end
     }
 
     func testStepBackwardDecreasesFrameIndex() throws {
@@ -69,7 +69,7 @@ import XCTest
         state.isSeekable = true
         state.currentFrameIndex = 100
 
-        state.stepBackward()// Verify method executes without crash
+        state.stepBackward()  // Verify method executes without crash
     }
 
     func testStepBackwardIgnoresAtStart() throws {
@@ -78,7 +78,7 @@ import XCTest
         state.isSeekable = true
         state.currentFrameIndex = 0
 
-        state.stepBackward()// Should not step before start
+        state.stepBackward()  // Should not step before start
     }
 
     // MARK: - Increase Rate Tests
@@ -108,7 +108,7 @@ import XCTest
         state.selectedTrackID = nil
         state.currentRunID = "run-123"
 
-        state.assignQuality("good")// Should be no-op without selected track
+        state.assignQuality("good")  // Should be no-op without selected track
     }
 
     func testAssignQualityWithoutRunID() throws {
@@ -116,7 +116,7 @@ import XCTest
         state.selectedTrackID = "track-123"
         state.currentRunID = nil
 
-        state.assignQuality("good")// Should be no-op without run ID
+        state.assignQuality("good")  // Should be no-op without run ID
     }
 
     func testAssignQualityWithTrackAndRun() throws {
@@ -124,7 +124,7 @@ import XCTest
         state.selectedTrackID = "track-123"
         state.currentRunID = "run-123"
 
-        state.assignQuality("perfect")// Task will fail to reach server but method executes
+        state.assignQuality("perfect")  // Task will fail to reach server but method executes
     }
 
     // MARK: - Export Labels Tests
@@ -143,7 +143,7 @@ import XCTest
         state.showTrackLabels = true
         state.metalViewSize = CGSize(width: 800, height: 600)
 
-        state.reprojectLabels()// Should not crash when renderer is nil
+        state.reprojectLabels()  // Should not crash when renderer is nil
     }
 
     // MARK: - Frame State Update Tests (via public onFrameReceived)
@@ -205,14 +205,14 @@ import XCTest
         let state = AppState()
         state.isConnecting = true
 
-        state.connect()// Should skip and not create duplicate connection
+        state.connect()  // Should skip and not create duplicate connection
     }
 
     func testConnectSkipsWhenAlreadyConnected() throws {
         let state = AppState()
         state.isConnected = true
 
-        state.connect()// Should skip when already connected
+        state.connect()  // Should skip when already connected
     }
 
     // MARK: - Toggle Connection Tests
@@ -221,7 +221,7 @@ import XCTest
         let state = AppState()
         state.isConnecting = true
 
-        state.toggleConnection()// Should ignore toggle while connecting
+        state.toggleConnection()  // Should ignore toggle while connecting
     }
 
     func testToggleConnectionDisconnectsWhenConnected() throws {
@@ -499,8 +499,7 @@ struct VisualiserClientDecodeTests {
     private func createConnectedClient() throws -> VisualiserClient {
         let client = VisualiserClient(address: "127.0.0.1:1")
         let transport = try HTTP2ClientTransport.Posix(
-            target: .dns(host: "127.0.0.1", port: 1),
-            transportSecurity: .plaintext)
+            target: .dns(host: "127.0.0.1", port: 1), transportSecurity: .plaintext)
         let grpcClient = GRPCClient(transport: transport)
         client._grpcClient.value = grpcClient
         client._isConnected.value = true
@@ -1120,12 +1119,12 @@ struct RunTrackTests {
 
     func testClientDisconnectWhenNotConnected() throws {
         let client = VisualiserClient(address: "localhost:50051")
-        client.disconnect()// Should not crash
+        client.disconnect()  // Should not crash
     }
 
     func testClientRestartStream() throws {
         let client = VisualiserClient(address: "localhost:50051")
-        client.restartStream()// Should not crash when not connected
+        client.restartStream()  // Should not crash when not connected
     }
 }
 
@@ -1177,7 +1176,7 @@ struct RunTrackTests {
         state.currentRunID = nil  // Live mode
         state.currentTimestamp = 5_000_000_000
 
-        state.assignLabel("good_vehicle")// Task will attempt to call API but fail gracefully
+        state.assignLabel("good_vehicle")  // Task will attempt to call API but fail gracefully
     }
 
     func testAssignLabelInRunMode() throws {
@@ -1185,7 +1184,7 @@ struct RunTrackTests {
         state.selectedTrackID = "track-123"
         state.currentRunID = "run-123"
 
-        state.assignLabel("good_vehicle")// Task will attempt to call run-track API
+        state.assignLabel("good_vehicle")  // Task will attempt to call run-track API
     }
 }
 
