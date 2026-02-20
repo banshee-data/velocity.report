@@ -59,5 +59,6 @@
 .vr-chart-card {
 	border-radius: 0.25rem;
 	border-width: 1px;
+	border-color: color-mix(in srgb, var(--color-surface-content) 10%, transparent);
 	padding: 1rem;
 }
