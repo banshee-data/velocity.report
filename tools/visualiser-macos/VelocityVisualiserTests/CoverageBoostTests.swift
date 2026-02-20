@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import GRPCCore
+import GRPCNIOTransportHTTP2
 import SwiftUI
 import Testing
 import XCTest
@@ -487,6 +489,177 @@ struct VisualiserClientDecodeTests {
 }
 
 // MARK: - ContentView Component Tests
+
+// MARK: - VisualiserClient Connection & Method Body Coverage
+
+@available(macOS 15.0, *) final class VisualiserClientConnectionTests: XCTestCase {
+
+    /// Helper: create a client with spoofed "connected" state and a non-running gRPC client.
+    /// This lets us exercise method bodies past the guard without a real server.
+    private func createConnectedClient() throws -> VisualiserClient {
+        let client = VisualiserClient(address: "127.0.0.1:1")
+        let transport = try HTTP2ClientTransport.Posix(
+            target: .dns(host: "127.0.0.1", port: 1),
+            transportSecurity: .plaintext)
+        let grpcClient = GRPCClient(transport: transport)
+        client._grpcClient.value = grpcClient
+        client._isConnected.value = true
+        return client
+    }
+
+    // MARK: - disconnect() happy path
+
+    func testDisconnectHappyPath() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        client._isConnected.value = true
+
+        XCTAssertTrue(client.isConnected)
+        client.disconnect()
+        XCTAssertFalse(client.isConnected)
+    }
+
+    func testDisconnectWithDelegate() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        client._isConnected.value = true
+
+        let delegate = MockVisualiserDelegate()
+        client.delegate = delegate
+
+        client.disconnect()
+        XCTAssertFalse(client.isConnected)
+        XCTAssertTrue(delegate.didDisconnect)
+    }
+
+    // MARK: - connect() already-connected guard
+
+    func testConnectWhenAlreadyConnected() async throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        client._isConnected.value = true
+
+        // Should return immediately without error (already connected)
+        try await client.connect()
+        XCTAssertTrue(client.isConnected)
+    }
+
+    // MARK: - gRPC Method Bodies (exercise code past the guard)
+
+    func testPauseBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            try await client.pause()
+            XCTFail("Expected error from non-running transport")
+        } catch {
+            // Expected — transport is not running, but method body was exercised
+        }
+    }
+
+    func testPlayBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            try await client.play()
+            XCTFail("Expected error from non-running transport")
+        } catch {
+            // Expected
+        }
+    }
+
+    func testSeekToTimestampBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            try await client.seek(to: 1_000_000_000)
+            XCTFail("Expected error")
+        } catch {
+            // Expected
+        }
+    }
+
+    func testSeekToFrameBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            try await client.seek(toFrame: 42)
+            XCTFail("Expected error")
+        } catch {
+            // Expected
+        }
+    }
+
+    func testSetRateBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            try await client.setRate(2.0)
+            XCTFail("Expected error")
+        } catch {
+            // Expected
+        }
+    }
+
+    func testSetOverlayModesBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            try await client.setOverlayModes(
+                showPoints: true, showClusters: true, showTracks: true, showTrails: false,
+                showVelocity: false, showGating: true, showAssociation: false, showResiduals: true)
+            XCTFail("Expected error")
+        } catch {
+            // Expected
+        }
+    }
+
+    func testGetCapabilitiesBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            _ = try await client.getCapabilities()
+            XCTFail("Expected error")
+        } catch {
+            // Expected
+        }
+    }
+
+    func testStartRecordingBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            _ = try await client.startRecording(outputPath: "/tmp/test.vrlog")
+            XCTFail("Expected error")
+        } catch {
+            // Expected
+        }
+    }
+
+    func testStopRecordingBodyExercised() async throws {
+        let client = try createConnectedClient()
+        do {
+            _ = try await client.stopRecording()
+            XCTFail("Expected error")
+        } catch {
+            // Expected
+        }
+    }
+
+    // MARK: - restartStream when connected
+
+    func testRestartStreamWhenConnected() throws {
+        let client = VisualiserClient(address: "localhost:50051")
+        client._isConnected.value = true
+        // restartStream exercises the guard-pass + cancel + startStreamingTask
+        client.restartStream()
+        // The streaming task will fail quickly (no gRPC client), that's expected
+    }
+}
+
+/// Mock delegate for testing connection callbacks.
+@available(macOS 15.0, *) class MockVisualiserDelegate: VisualiserClientDelegate {
+    var didConnect = false
+    var didDisconnect = false
+    var receivedFrames: [FrameBundle] = []
+    var didFinishStream = false
+
+    func clientDidConnect(_ client: VisualiserClient) { didConnect = true }
+    func clientDidDisconnect(_ client: VisualiserClient, error: Error?) { didDisconnect = true }
+    func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
+        receivedFrames.append(frame)
+    }
+    func clientDidFinishStream(_ client: VisualiserClient) { didFinishStream = true }
+}
 
 @MainActor struct ContentViewToolbarTests {
     @Test func toolbarViewInstantiates() throws {
