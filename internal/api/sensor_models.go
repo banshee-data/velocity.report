@@ -6,7 +6,7 @@ type SensorModel struct {
 	DisplayName     string   `json:"display_name"`
 	HasDoppler      bool     `json:"has_doppler"`
 	HasFMCW         bool     `json:"has_fmcw"`
-	HasDistance      bool     `json:"has_distance"`
+	HasDistance     bool     `json:"has_distance"`
 	DefaultBaudRate int      `json:"default_baud_rate"`
 	InitCommands    []string `json:"init_commands"`
 	Description     string   `json:"description"`
@@ -19,7 +19,7 @@ var SupportedSensorModels = map[string]SensorModel{
 		DisplayName:     "OmniPreSense OPS243-A",
 		HasDoppler:      true,
 		HasFMCW:         false,
-		HasDistance:      false,
+		HasDistance:     false,
 		DefaultBaudRate: 19200,
 		InitCommands:    []string{"AX", "OJ", "OS", "OM", "OH", "OC"},
 		Description:     "Doppler radar with speed measurement only",
@@ -29,7 +29,7 @@ var SupportedSensorModels = map[string]SensorModel{
 		DisplayName:     "OmniPreSense OPS243-C",
 		HasDoppler:      true,
 		HasFMCW:         true,
-		HasDistance:      true,
+		HasDistance:     true,
 		DefaultBaudRate: 19200,
 		InitCommands:    []string{"AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"},
 		Description:     "FMCW radar with both speed and distance measurement",

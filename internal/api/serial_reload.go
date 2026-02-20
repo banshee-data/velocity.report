@@ -74,7 +74,7 @@ type SerialPortManager struct {
 
 	// Event fanout: bridges subscriptions across mux reloads
 	eventFanoutCh chan string            // Input from mux subscription (internal use)
-	fanoutMu      sync.RWMutex          // Protects subscribers map
+	fanoutMu      sync.RWMutex           // Protects subscribers map
 	subscribers   map[string]chan string // Maps subscriber ID -> channel
 }
 
