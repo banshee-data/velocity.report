@@ -749,8 +749,9 @@ type GroundSurface interface {
 // GlobalGroundGrid is the Tier 2 persistent grid aligned to lat/long millidegree tiles.
 // GPS required for population. Loaded at startup to seed local scene grids.
 type GlobalGroundGrid struct {
-    // Grid resolution: 0.001 degrees (~111 m equator, ~43.5 m at 67° latitude)
-    ResolutionDeg float64 // 0.001
+    // Grid resolution: system constant at 0.001 degrees (~111 m equator, ~43.5 m at 67° latitude).
+    // Fixed to enable cross-device interoperability — all velocity.report instances share the same grid.
+    ResolutionDeg float64 // Always 0.001
 
     // Tiles indexed by millidegree coordinates
     Tiles map[GlobalTileIndex]*GlobalGroundTile
