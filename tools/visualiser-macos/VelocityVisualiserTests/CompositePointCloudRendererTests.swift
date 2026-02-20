@@ -17,15 +17,11 @@ struct CompositePointCloudRendererTests {
 
     // Helper to create a Metal device (or skip test if unavailable)
     private func createDevice() throws -> MTLDevice {
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            throw TestError.metalNotAvailable
-        }
+        guard let device = MTLCreateSystemDefaultDevice() else { throw TestError.metalNotAvailable }
         return device
     }
 
-    enum TestError: Error {
-        case metalNotAvailable
-    }
+    enum TestError: Error { case metalNotAvailable }
 
     // MARK: - Initialisation Tests
 
@@ -45,10 +41,8 @@ struct CompositePointCloudRendererTests {
         let renderer = CompositePointCloudRenderer(device: device)
 
         switch renderer.cacheState {
-        case .empty:
-            #expect(true)
-        default:
-            #expect(Bool(false), "Expected empty state")
+        case .empty: #expect(true)
+        default: #expect(Bool(false), "Expected empty state")
         }
     }
 
@@ -79,10 +73,8 @@ struct CompositePointCloudRendererTests {
 
         // Cache should be in cached state
         switch renderer.cacheState {
-        case .cached(let seq):
-            #expect(seq == 1)
-        default:
-            #expect(Bool(false), "Expected cached state")
+        case .cached(let seq): #expect(seq == 1)
+        default: #expect(Bool(false), "Expected cached state")
         }
     }
 
@@ -154,10 +146,8 @@ struct CompositePointCloudRendererTests {
 
         // Check cache is valid
         switch renderer.cacheState {
-        case .cached(let seq):
-            #expect(seq == 42)
-        default:
-            #expect(Bool(false), "Expected cached state")
+        case .cached(let seq): #expect(seq == 42)
+        default: #expect(Bool(false), "Expected cached state")
         }
 
         // Process foreground with matching sequence
@@ -176,10 +166,8 @@ struct CompositePointCloudRendererTests {
 
         // Cache should still be valid
         switch renderer.cacheState {
-        case .cached(let seq):
-            #expect(seq == 42)
-        default:
-            #expect(Bool(false), "Expected cached state")
+        case .cached(let seq): #expect(seq == 42)
+        default: #expect(Bool(false), "Expected cached state")
         }
     }
 
@@ -216,10 +204,8 @@ struct CompositePointCloudRendererTests {
 
         // Cache should be invalidated
         switch renderer.cacheState {
-        case .empty:
-            #expect(true)
-        default:
-            #expect(Bool(false), "Expected empty state after mismatch")
+        case .empty: #expect(true)
+        default: #expect(Bool(false), "Expected empty state after mismatch")
         }
     }
 
@@ -252,10 +238,8 @@ struct CompositePointCloudRendererTests {
         #expect(statsAfterClear.total == 0)
 
         switch renderer.cacheState {
-        case .empty:
-            #expect(true)
-        default:
-            #expect(Bool(false), "Expected empty state after clear")
+        case .empty: #expect(true)
+        default: #expect(Bool(false), "Expected empty state after clear")
         }
     }
 
@@ -543,5 +527,280 @@ struct CompositePointCloudRendererTests {
         stats = renderer.getBufferStats()
         #expect(stats.bgCapacity == 0)
         #expect(stats.fgCapacity == 0)
+    }
+
+    // MARK: - Coverage Boost: Full Frame With Background
+
+    @Test func fullFrameWithBackground() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // Build a .full frame that includes BOTH pointCloud and background.
+        // The existing processFullFrameLegacy test only sets pointCloud.
+        var pc = PointCloudFrame()
+        pc.x = [1.0, 2.0]
+        pc.y = [3.0, 4.0]
+        pc.z = [0.5, 0.6]
+        pc.intensity = [100, 150]
+        pc.pointCount = 2
+
+        var bg = BackgroundSnapshot()
+        bg.sequenceNumber = 7
+        bg.x = [10.0, 20.0, 30.0]
+        bg.y = [40.0, 50.0, 60.0]
+        bg.z = [0.1, 0.2, 0.3]
+        bg.confidence = [5, 10, 15]
+
+        var frame = FrameBundle()
+        frame.frameType = .full
+        frame.pointCloud = pc
+        frame.background = bg
+
+        renderer.processFrame(frame)
+
+        let stats = renderer.getStats()
+        #expect(stats.foreground == 2)
+        #expect(stats.background == 3)
+        #expect(stats.total == 5)
+
+        // Cache should be populated from the background in the .full frame
+        switch renderer.cacheState {
+        case .cached(let seq): #expect(seq == 7)
+        default: #expect(Bool(false), "Expected cached state with seq 7")
+        }
+    }
+
+    // MARK: - Coverage Boost: Foreground Point Filter
+
+    @Test func foregroundFilterAcceptsSomePoints() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // Filter that only accepts points with x > 5.0
+        renderer.foregroundPointFilter = { x, _ in x > 5.0 }
+
+        var pc = PointCloudFrame()
+        pc.x = [1.0, 10.0, 3.0, 20.0]
+        pc.y = [0.0, 0.0, 0.0, 0.0]
+        pc.z = [0.5, 0.5, 0.5, 0.5]
+        pc.intensity = [100, 150, 200, 250]
+        // All default classification = 1 (foreground), so filter applies
+        pc.pointCount = 4
+
+        var frame = FrameBundle()
+        frame.frameType = .foreground
+        frame.pointCloud = pc
+        renderer.processFrame(frame)
+
+        // Only points with x > 5.0 pass: x=10.0 and x=20.0
+        let stats = renderer.getStats()
+        #expect(stats.foreground == 2)
+    }
+
+    @Test func foregroundFilterWithClassificationData() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // Filter that rejects all foreground points
+        renderer.foregroundPointFilter = { _, _ in false }
+
+        var pc = PointCloudFrame()
+        pc.x = [1.0, 2.0, 3.0]
+        pc.y = [0.0, 0.0, 0.0]
+        pc.z = [0.5, 0.5, 0.5]
+        pc.intensity = [100, 150, 200]
+        // classification: 1=foreground (filtered), 2=ground (passes), 0=background (passes)
+        pc.classification = [1, 2, 0]
+        pc.pointCount = 3
+
+        var frame = FrameBundle()
+        frame.frameType = .foreground
+        frame.pointCloud = pc
+        renderer.processFrame(frame)
+
+        // Point 0 (classification=1) is rejected by filter.
+        // Points 1,2 (classification!=1) pass through regardless of filter.
+        let stats = renderer.getStats()
+        #expect(stats.foreground == 2)
+    }
+
+    @Test func foregroundFilterDisabledByNil() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // Ensure filter is nil (default)
+        renderer.foregroundPointFilter = nil
+
+        var pc = PointCloudFrame()
+        pc.x = [1.0, 2.0, 3.0]
+        pc.y = [0.0, 0.0, 0.0]
+        pc.z = [0.5, 0.5, 0.5]
+        pc.intensity = [100, 150, 200]
+        pc.classification = [1, 1, 1]
+        pc.pointCount = 3
+
+        var frame = FrameBundle()
+        frame.frameType = .foreground
+        frame.pointCloud = pc
+        renderer.processFrame(frame)
+
+        // All points pass when no filter is set
+        let stats = renderer.getStats()
+        #expect(stats.foreground == 3)
+    }
+
+    // MARK: - Coverage Boost: Classification Data Without Filter
+
+    @Test func foregroundWithClassificationNoFilter() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // Process foreground frame WITH classification data but WITHOUT a filter.
+        // This covers the classification assignment branch in the non-filter path.
+        var pc = PointCloudFrame()
+        pc.x = [1.0, 2.0]
+        pc.y = [3.0, 4.0]
+        pc.z = [0.5, 0.6]
+        pc.intensity = [100, 200]
+        pc.classification = [1, 2]  // Foreground and ground
+        pc.pointCount = 2
+
+        var frame = FrameBundle()
+        frame.frameType = .foreground
+        frame.pointCloud = pc
+        renderer.processFrame(frame)
+
+        let stats = renderer.getStats()
+        #expect(stats.foreground == 2)
+    }
+
+    // MARK: - Coverage Boost: Buffer Shrink Reallocation
+
+    @Test func bufferShrinksWhenExcessivelyLarge() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // First frame: 10_000 points → large buffer
+        var pc1 = PointCloudFrame()
+        pc1.x = Array(repeating: 1.0, count: 10_000)
+        pc1.y = Array(repeating: 2.0, count: 10_000)
+        pc1.z = Array(repeating: 0.5, count: 10_000)
+        pc1.intensity = Array(repeating: 200, count: 10_000)
+        pc1.pointCount = 10_000
+
+        var frame1 = FrameBundle()
+        frame1.frameType = .foreground
+        frame1.pointCloud = pc1
+        renderer.processFrame(frame1)
+
+        let largeCapacity = renderer.getBufferStats().fgCapacity
+
+        // Second frame: 100 points → triggers shrink (ratio >4x)
+        var pc2 = PointCloudFrame()
+        pc2.x = Array(repeating: 1.0, count: 100)
+        pc2.y = Array(repeating: 2.0, count: 100)
+        pc2.z = Array(repeating: 0.5, count: 100)
+        pc2.intensity = Array(repeating: 100, count: 100)
+        pc2.pointCount = 100
+
+        var frame2 = FrameBundle()
+        frame2.frameType = .foreground
+        frame2.pointCloud = pc2
+        renderer.processFrame(frame2)
+
+        let shrunkCapacity = renderer.getBufferStats().fgCapacity
+        // Capacity should have decreased due to shrink reallocation
+        #expect(shrunkCapacity < largeCapacity)
+        #expect(renderer.getBufferStats().fgUsed == 100)
+    }
+
+    @Test func backgroundBufferShrinksWhenExcessivelyLarge() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        // First background: 10_000 points
+        var bg1 = BackgroundSnapshot()
+        bg1.sequenceNumber = 1
+        bg1.x = Array(repeating: 1.0, count: 10_000)
+        bg1.y = Array(repeating: 2.0, count: 10_000)
+        bg1.z = Array(repeating: 0.5, count: 10_000)
+        bg1.confidence = Array(repeating: 10, count: 10_000)
+
+        var bgFrame1 = FrameBundle()
+        bgFrame1.frameType = .background
+        bgFrame1.background = bg1
+        renderer.processFrame(bgFrame1)
+
+        let largeCapacity = renderer.getBufferStats().bgCapacity
+
+        // Second background: 100 points → triggers shrink
+        var bg2 = BackgroundSnapshot()
+        bg2.sequenceNumber = 2
+        bg2.x = Array(repeating: 1.0, count: 100)
+        bg2.y = Array(repeating: 2.0, count: 100)
+        bg2.z = Array(repeating: 0.5, count: 100)
+        bg2.confidence = Array(repeating: 5, count: 100)
+
+        var bgFrame2 = FrameBundle()
+        bgFrame2.frameType = .background
+        bgFrame2.background = bg2
+        renderer.processFrame(bgFrame2)
+
+        let shrunkCapacity = renderer.getBufferStats().bgCapacity
+        #expect(shrunkCapacity < largeCapacity)
+        #expect(renderer.getBufferStats().bgUsed == 100)
+    }
+
+    // MARK: - Coverage Boost: Cache Stale Property
+
+    @Test func isCacheStaleWhenEmpty() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+        #expect(renderer.isCacheStale == true)
+    }
+
+    @Test func isCacheStaleWhenCached() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        var bg = BackgroundSnapshot()
+        bg.sequenceNumber = 1
+        bg.x = [1.0]
+        bg.y = [2.0]
+        bg.z = [0.5]
+        bg.confidence = [10]
+
+        var bgFrame = FrameBundle()
+        bgFrame.frameType = .background
+        bgFrame.background = bg
+        renderer.processFrame(bgFrame)
+
+        #expect(renderer.isCacheStale == false)
+    }
+
+    // MARK: - Coverage Boost: BackgroundCacheState Description
+
+    @Test func cacheStateRefreshingDescription() throws {
+        // Exercise the .refreshing case of BackgroundCacheState
+        let refreshingState: BackgroundCacheState = .refreshing
+        #expect(refreshingState.description == "Refreshing...")
+        #expect(refreshingState.description.contains("Refreshing"))
+    }
+
+    // MARK: - Coverage Boost: Delta Frame (No-Op)
+
+    @Test func deltaFrameIsNoOp() throws {
+        let device = try createDevice()
+        let renderer = CompositePointCloudRenderer(device: device)
+
+        var frame = FrameBundle()
+        frame.frameType = .delta
+
+        renderer.processFrame(frame)
+
+        let stats = renderer.getStats()
+        #expect(stats.foreground == 0)
+        #expect(stats.background == 0)
+        #expect(stats.total == 0)
     }
 }
