@@ -19,19 +19,17 @@ Runtime operations and debugging.
 - **Settling time optimization** for efficient parameter sweeps
 - **Tracking status** and known issues
 
-### `reference/`
+### Protocol References
 
-Protocol specifications and data formats.
+Packet/data format references are maintained in architecture docs.
 
-- **Packet structure** for Hesai Pandar40P UDP format
-- **Database schema** for LiDAR tables
+- **Packet structure** for Hesai Pandar40P UDP format (`architecture/hesai_packet_structure.md`)
 
-### `roadmap/`
+### `ROADMAP.md`
 
 Development progress and future planning.
 
 - **ML pipeline roadmap** (Phases 4.0–4.3: labelling UI, training, tuning)
-- **Development log** with implementation notes
 
 ### `future/`
 
@@ -73,19 +71,40 @@ Tracking pipeline refactor and upgrade proposals.
 
 ## Quick Links
 
-| Topic                   | Document                                                                                                   |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
-| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                           |
-| Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                 |
-| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)           |
-| ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                           |
-| Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                               |
-| **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md)                 |
-| **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                                           |
-| **Labelling + QC Plan** | [visualiser/06-labelling-qc-enhancements-overview.md](visualiser/06-labelling-qc-enhancements-overview.md) |
-| **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                                       |
-| **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                     |
-| **Track Labelling**     | [future/track-labeling-auto-aware-tuning.md](future/track-labeling-auto-aware-tuning.md)                   |
+| Topic                   | Document                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                                   |
+| Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                         |
+| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                   |
+| ML pipeline             | [ROADMAP.md](ROADMAP.md)                                                                                           |
+| Vector vs Velocity      | [architecture/20260221-vector-vs-velocity-workstreams.md](architecture/20260221-vector-vs-velocity-workstreams.md) |
+| Foundations Fix-It      | [architecture/20260221-lidar-foundations-fixit.md](architecture/20260221-lidar-foundations-fixit.md)               |
+| Packet format           | [architecture/hesai_packet_structure.md](architecture/hesai_packet_structure.md)                                   |
+| **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md)                         |
+| **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                                                   |
+| **Labelling + QC Plan** | [visualiser/06-labelling-qc-enhancements-overview.md](visualiser/06-labelling-qc-enhancements-overview.md)         |
+| **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                                               |
+| **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                             |
+| **Track Labelling**     | [future/track-labeling-auto-aware-tuning.md](future/track-labeling-auto-aware-tuning.md)                           |
+
+## Current vs Planned Algorithm Work
+
+### Implemented in current runtime
+
+- Vector-grid baseline foreground extraction (`internal/lidar/l3grid/foreground.go`)
+- L4 DBSCAN clustering and geometry (`internal/lidar/l4perception/cluster.go`)
+- L5 Kalman + Hungarian tracking (`internal/lidar/l5tracks/tracking.go`)
+- Height-band ground filtering (`internal/lidar/l4perception/ground.go`)
+
+### Planned / future work
+
+- Velocity-coherent foreground extraction and hybrid evaluation path
+- Tile-plane/vector-scene ground modelling
+- Full runtime tuning schema parity for all non-tracker keys
+
+Separation guidance:
+
+- [architecture/20260221-vector-vs-velocity-workstreams.md](architecture/20260221-vector-vs-velocity-workstreams.md)
 
 ## Implementation Status
 

@@ -11,6 +11,8 @@
 
 This document outlines the evolution of the LIDAR tracking system from rule-based classification to a full ML-driven classification pipeline with labeling UI, parameter tuning, and comparative analysis.
 
+Workstream note (2026-02-21): velocity-coherent foreground extraction remains planned future work and is tracked separately from the production vector-grid baseline. See `docs/lidar/architecture/20260221-vector-vs-velocity-workstreams.md`.
+
 **Current State (Completed through Phase 3.7):**
 
 - ✅ Background subtraction and foreground extraction

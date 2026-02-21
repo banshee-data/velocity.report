@@ -9,7 +9,7 @@ This document is now the implementation plan and execution checklist.
 
 The mathematical model, parameter tradeoffs, and expected benefits are documented in:
 
-- [`docs/lidar/future/velocity-coherent-foreground-extraction-math.md`](./velocity-coherent-foreground-extraction-math.md)
+- [`docs/maths/proposal/20260220-velocity-coherent-foreground-extraction.md`](../../maths/proposal/20260220-velocity-coherent-foreground-extraction.md)
 
 ---
 
@@ -37,8 +37,9 @@ Build a velocity-coherent foreground extraction path that runs alongside the cur
 ## Baseline (Current System)
 
 - Active extractor: `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`
-- Active clustering: DBSCAN in `internal/lidar/clustering.go`
+- Active clustering: DBSCAN in `internal/lidar/l4perception/cluster.go`
 - No `VelocityCoherentTracker` implementation currently present
+- Workstream separation reference: [`docs/lidar/architecture/20260221-vector-vs-velocity-workstreams.md`](../architecture/20260221-vector-vs-velocity-workstreams.md)
 
 ---
 
@@ -233,6 +234,6 @@ These targets are hypotheses to validate, not committed production guarantees.
 
 ## Related Docs
 
-- [`docs/lidar/future/velocity-coherent-foreground-extraction-math.md`](./velocity-coherent-foreground-extraction-math.md)
+- [`docs/maths/proposal/20260220-velocity-coherent-foreground-extraction.md`](../../maths/proposal/20260220-velocity-coherent-foreground-extraction.md)
 - [`docs/lidar/future/static-pose-alignment-plan.md`](./static-pose-alignment-plan.md)
 - [`docs/lidar/future/motion-capture-architecture.md`](./motion-capture-architecture.md)

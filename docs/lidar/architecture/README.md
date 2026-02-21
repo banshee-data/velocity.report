@@ -38,12 +38,15 @@ For the full layer model specification, see [lidar-data-layer-model.md](lidar-da
 | [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical six-layer model with package mapping                                |
 | [lidar-layer-alignment-refactor-review-20260217.md](lidar-layer-alignment-refactor-review-20260217.md)               | Layer alignment review: completed migration, complexity analysis, file splits |
 | [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams     |
+| [20260221-vector-vs-velocity-workstreams.md](20260221-vector-vs-velocity-workstreams.md)                             | Foundation separation boundary: vector-grid vs velocity-coherent work         |
+| [20260221-lidar-foundations-fixit.md](20260221-lidar-foundations-fixit.md)                                           | Gap write-up with completed fixes and remaining items                         |
+| [20260221-lidar-foundations-fixit-plan.md](20260221-lidar-foundations-fixit-plan.md)                                 | Follow-up execution phases for doc/runtime parity                             |
 | [foreground_tracking.md](foreground_tracking.md)                                                                     | Foreground extraction and tracking pipeline design                            |
 | [lidar-background-grid-standards.md](lidar-background-grid-standards.md)                                             | Background grid format comparison with industry standards                     |
 | [hesai_packet_structure.md](hesai_packet_structure.md)                                                               | Hesai Pandar40P UDP packet format reference                                   |
 | [lidar_sidecar_overview.md](lidar_sidecar_overview.md)                                                               | System-level overview of the LiDAR sidecar architecture                       |
-| [lidar-network-configuration.md](lidar-network-configuration.md)                                                     | Network interface selection, diagnostics, and hot-reload for UDP listener      |
-| [lidar-multi-model-ingestion-and-configuration.md](lidar-multi-model-ingestion-and-configuration.md)                 | Proposed path for supporting 3–10 LiDAR models with distinct packet formats    |
+| [lidar-network-configuration.md](lidar-network-configuration.md)                                                     | Network interface selection, diagnostics, and hot-reload for UDP listener     |
+| [lidar-multi-model-ingestion-and-configuration.md](lidar-multi-model-ingestion-and-configuration.md)                 | Proposed path for supporting 3–10 LiDAR models with distinct packet formats   |
 
 ### Historical (completed designs)
 
@@ -56,7 +59,7 @@ For the full layer model specification, see [lidar-data-layer-model.md](lidar-da
 | Document                                                                 | Scope                                        |
 | ------------------------------------------------------------------------ | -------------------------------------------- |
 | [av-range-image-format-alignment.md](av-range-image-format-alignment.md) | AV dual-return range image format (deferred) |
-| [dynamic-algorithm-selection.md](dynamic-algorithm-selection.md)         | Runtime algorithm switching (deferred)       |
+| [dynamic-algorithm-selection.md](dynamic-algorithm-selection.md)         | Branch-based design spec; not active runtime |
 
 ## Implementation Status
 

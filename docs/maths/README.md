@@ -50,6 +50,35 @@ The production pipeline uses four math-heavy layers:
 4. **Tracking to diagnostics/tuning:**
    - Alignment, jitter, fragmentation, and gating metrics close the loop on parameter quality.
 
+## Current vs Planned Scope
+
+### Implemented now (production runtime)
+
+- L3 foreground/background classification (`internal/lidar/l3grid/foreground.go`)
+- L3 region-adaptive overrides on production mask path (`internal/lidar/l3grid/foreground.go`)
+- L4 transform + DBSCAN clustering (`internal/lidar/l4perception/cluster.go`)
+- L5 Kalman tracking + Hungarian association (`internal/lidar/l5tracks/tracking.go`)
+- L4 height-band ground removal (`internal/lidar/l4perception/ground.go`)
+
+### Planned / future work
+
+- L4 tile-plane/vector ground-surface modelling and region-aware settlement
+- velocity-coherent foreground extraction path and hybrid algorithm selection
+- shared L3/L4 settlement core across observation/geometry confidence layers
+
+## Workstream Separation (Vector vs Velocity)
+
+To keep foundations stable, math and implementation planning are split into:
+
+1. **Vector-grid foundations**
+   - static-scene reliability and geometry (`L3` confidence, future `L4` surface/vector models)
+2. **Velocity-coherent algorithm**
+   - motion-based foreground extraction and sparse continuity
+
+Reference:
+
+- [`docs/lidar/architecture/20260221-vector-vs-velocity-workstreams.md`](../lidar/architecture/20260221-vector-vs-velocity-workstreams.md)
+
 ## Detailed Documents
 
 - [Background Grid Settling Maths](background-grid-settling-maths.md)
@@ -62,6 +91,8 @@ The production pipeline uses four math-heavy layers:
   - CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
 - [Unify L3/L4 Settling Proposal](proposal/20260219-unify-l3-l4-settling.md)
   - Overlap analysis, interference risks, and a single-settlement architecture updated for polygon/polyline region keys.
+- [Velocity-Coherent Foreground Extraction Proposal Maths](proposal/20260220-velocity-coherent-foreground-extraction.md)
+  - Planned motion-based extraction model (not active in current runtime).
 
 ## Config Mapping
 

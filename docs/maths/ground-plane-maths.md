@@ -1,12 +1,17 @@
 # Ground Plane Maths
 
-**Status:** Architecture + implementation math note
+**Status:** Mixed Scope — Current Runtime + Planned Vector/Ground Model
 **Layer:** L4 Perception
 **Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../lidar/architecture/vector-scene-map.md)
 
 ## 1. Scope and Design Intent
 
 This document defines the mathematical model for long-running, high-quality ground estimation in stationary LiDAR deployments.
+
+Current runtime boundary (2026-02-21):
+
+- Implemented: height-band filtering in `internal/lidar/l4perception/ground.go`
+- Planned: tile-plane/vector-scene region model described in this document
 
 It is intentionally conservative:
 

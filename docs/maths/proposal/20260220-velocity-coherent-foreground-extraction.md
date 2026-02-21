@@ -1,6 +1,6 @@
 # Velocity-Coherent Foreground Extraction Math
 
-**Status:** Design Math for Planned Implementation
+**Status:** Proposal Math (Not Active in Current Runtime)
 **Date:** February 20, 2026
 **Version:** 1.0
 
@@ -8,7 +8,11 @@ This document defines the mathematical model for velocity-coherent foreground ex
 
 Implementation tasks and delivery sequencing live in:
 
-- [`docs/lidar/future/velocity-coherent-foreground-extraction.md`](./velocity-coherent-foreground-extraction.md)
+- [`docs/lidar/future/velocity-coherent-foreground-extraction.md`](../../lidar/future/velocity-coherent-foreground-extraction.md)
+
+Workstream boundary reference:
+
+- [`docs/lidar/architecture/20260221-vector-vs-velocity-workstreams.md`](../../lidar/architecture/20260221-vector-vs-velocity-workstreams.md)
 
 ---
 

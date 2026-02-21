@@ -79,11 +79,11 @@ Proposed annotation payload:
 {
   "scene_id": "site-001-main-street",
   "regions": [
-    {"region_id": "ground_a", "class": "ground_plane", "geometry": "..."},
-    {"region_id": "wall_east", "class": "wall", "geometry": "..."}
+    { "region_id": "ground_a", "class": "ground_plane", "geometry": "..." },
+    { "region_id": "wall_east", "class": "wall", "geometry": "..." }
   ],
   "known_objects": [
-    {"object_id": "pole_07", "class": "static_object", "geometry": "..."}
+    { "object_id": "pole_07", "class": "static_object", "geometry": "..." }
   ]
 }
 ```

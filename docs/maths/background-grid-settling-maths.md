@@ -33,6 +33,8 @@ Incoming polar points are mapped to `(ring, az_bin)`.
 
 Both paths use the same core threshold family and confidence dynamics.
 
+Implementation note (2026-02-21): region-adaptive overrides (`NoiseRelativeFraction`, `NeighborConfirmationCount`, `SettleUpdateFraction`) now apply on the production mask path as well.
+
 ## 4. Closeness Threshold Model
 
 Base threshold for a point/observation at range `r`:

@@ -1,8 +1,8 @@
 # LiDAR Multi-Model Ingestion and Configuration
 
-**Status:** Proposed  
-**Author:** Architecture Team  
-**Created:** 2026-02-21  
+**Status:** Proposed
+**Author:** Architecture Team
+**Created:** 2026-02-21
 **Related:** `lidar-data-layer-model.md`, `hesai_packet_structure.md`, `lidar-network-configuration.md`
 
 ## Overview
@@ -106,13 +106,13 @@ This keeps deployment shape unchanged: no new services, no cloud coordination, n
 
 ## Suggested Delivery Phases
 
-| Phase | Scope | Effort |
-| --- | --- | --- |
-| 1 | Add registry/factory abstractions and migrate Pandar40P into registry-backed implementation | M |
-| 2 | Add SQLite tables and CRUD API for model catalogue/profile/ingest binding | M |
-| 3 | Add hot-reload manager wiring parser+listener swaps from active ingest config | M |
-| 4 | Add settings UI pages and validation/test endpoints | M |
-| 5 | Add first 2 non-Hesai models, then expand to 3–10 models incrementally | L |
+| Phase | Scope                                                                                       | Effort |
+| ----- | ------------------------------------------------------------------------------------------- | ------ |
+| 1     | Add registry/factory abstractions and migrate Pandar40P into registry-backed implementation | M      |
+| 2     | Add SQLite tables and CRUD API for model catalogue/profile/ingest binding                   | M      |
+| 3     | Add hot-reload manager wiring parser+listener swaps from active ingest config               | M      |
+| 4     | Add settings UI pages and validation/test endpoints                                         | M      |
+| 5     | Add first 2 non-Hesai models, then expand to 3–10 models incrementally                      | L      |
 
 **Size key:** S = ½ day, M = 1 day, L = 2 days
 

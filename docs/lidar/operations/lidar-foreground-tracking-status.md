@@ -1,7 +1,7 @@
 # LiDAR Foreground Tracking Status
 
-**Last Updated:** January 13, 2026
-**Status:** Operational — Core Pipeline Working
+**Last Updated:** February 21, 2026
+**Status:** Operational — Vector-Grid Baseline Active, Velocity-Coherent Path Planned
 
 ## Current State
 
@@ -15,11 +15,31 @@
 | Warmup Sensitivity Scaling  | ✅ Working | Eliminates initialisation trails                 |
 | PCAP Analysis Mode          | ✅ Working | Grid preserved for analysis workflows            |
 
+## Implemented vs Planned
+
+### Implemented now (runtime truth)
+
+- Production extractor: `ProcessFramePolarWithMask` (`internal/lidar/l3grid/foreground.go`)
+- Region-adaptive parameter application on production mask path
+- L4 DBSCAN clustering (`internal/lidar/l4perception/cluster.go`)
+- L5 Kalman + Hungarian tracking (`internal/lidar/l5tracks/tracking.go`)
+
+### Planned / future
+
+- Velocity-coherent extractor and hybrid mode (not active in runtime)
+- Dynamic extractor mode API and side-by-side algorithm comparison tooling
+- Ground tile-plane/vector-scene modelling (current runtime is height-band filter)
+
+Separation reference:
+
+- [`../architecture/20260221-vector-vs-velocity-workstreams.md`](../architecture/20260221-vector-vs-velocity-workstreams.md)
+
 **Implementation Status:**
 
 - ✅ Phase 3.7 (Analysis Run Infrastructure): Complete
 - ✅ Port 2370 Foreground Streaming: Working
 - ✅ Warmup Trail Artifacts: Resolved
+- ✅ Region-adaptive parity on mask path (Feb 2026)
 
 ## Resolved Issues
 
@@ -61,6 +81,14 @@ CPU usage during foreground processing is higher than expected. Not yet investig
 
 **Mitigation:** Use `go tool pprof` to identify hot functions when investigating.
 
+### Runtime Tuning Schema Parity (Partial)
+
+`/api/lidar/params` supports core background/tracker keys, but not full canonical tuning parity for all non-tracker runtime keys yet.
+
+Recent update:
+
+- `max_tracks` POST support is now wired.
+
 ## Configuration Reference
 
 ### Background Parameters
@@ -101,7 +129,7 @@ warmupMultiplier = 1.0 + 3.0 * (100 - count) / 100
 
 ## Future Enhancements
 
-See [ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md) for Phase 4.0+ features:
+See [ML Pipeline Roadmap](../ROADMAP.md) for Phase 4.0+ features:
 
 - Track labeling UI
 - ML classifier training

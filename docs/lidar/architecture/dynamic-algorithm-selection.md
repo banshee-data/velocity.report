@@ -1,6 +1,6 @@
 # Dynamic Algorithm Selection for LiDAR Foreground Extraction
 
-**Status:** Design Specification — Ready for Implementation on `main`
+**Status:** Branch-History Design Specification (Not Active on `main` Runtime)
 **Date:** February 8, 2026
 **Source Branch:** `copilot/summarize-changes-and-spec` (34 commits, 54 files, ~7,300 lines)
 **Related Docs:**
@@ -13,6 +13,8 @@
 ## 1. Executive Summary
 
 This document specifies the design for **pluggable foreground extraction algorithms** in the LiDAR tracking pipeline. The work enables runtime switching between background subtraction (existing), velocity-coherent extraction (new), and hybrid approaches — supporting A/B evaluation and gradual algorithm migration.
+
+Current runtime note (2026-02-21): the production pipeline on `main` still uses `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`; this document should be treated as implementation guidance, not implemented-state documentation.
 
 ### Motivation
 

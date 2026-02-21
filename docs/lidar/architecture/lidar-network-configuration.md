@@ -108,14 +108,14 @@ END;
 
 **Key fields:**
 
-| Field            | Purpose                                                                                  |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| `interface_name` | Network interface name (e.g., `eth0`, `enp3s0`). Empty string = wildcard (all interfaces)|
-| `bind_address`   | Explicit IP to bind (e.g., `192.168.1.100`). Empty string = derive from interface_name   |
-| `udp_port`       | UDP port to listen on (default 2369). Restricted to unprivileged range                   |
+| Field            | Purpose                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `interface_name` | Network interface name (e.g., `eth0`, `enp3s0`). Empty string = wildcard (all interfaces)                                                                                |
+| `bind_address`   | Explicit IP to bind (e.g., `192.168.1.100`). Empty string = derive from interface_name                                                                                   |
+| `udp_port`       | UDP port to listen on (default 2369). Restricted to unprivileged range                                                                                                   |
 | `receive_buffer` | OS socket receive buffer in bytes (default 4 MiB, max 64 MiB). Higher values reduce packet drops under burst load; 64 MiB ceiling is safe on Raspberry Pi 4 (1–8 GB RAM) |
-| `sensor_model`   | Sensor identifier for parser selection. CHECK constraint: `LIKE 'hesai-%'`               |
-| `forward_*`      | Packet forwarding target (mirrors `--lidar-forward-*` flags)                             |
+| `sensor_model`   | Sensor identifier for parser selection. CHECK constraint: `LIKE 'hesai-%'`                                                                                               |
+| `forward_*`      | Packet forwarding target (mirrors `--lidar-forward-*` flags)                                                                                                             |
 
 **Bind address resolution:** When `interface_name` is set but `bind_address` is empty, the system resolves the interface's primary IPv4 address at bind time. When both are empty, the listener binds to `0.0.0.0` (wildcard). When `bind_address` is explicit, it is used directly regardless of `interface_name`.
 
@@ -245,23 +245,23 @@ New endpoints under `/api/lidar/network/`, mirroring the `/api/serial/` pattern:
 
 #### Configuration CRUD
 
-| Method   | Path                            | Description                   |
-| -------- | ------------------------------- | ----------------------------- |
-| `GET`    | `/api/lidar/network/configs`    | List all network configs      |
-| `POST`   | `/api/lidar/network/configs`    | Create a new config           |
-| `GET`    | `/api/lidar/network/configs/:id`| Get config by ID              |
-| `PUT`    | `/api/lidar/network/configs/:id`| Update config                 |
-| `DELETE` | `/api/lidar/network/configs/:id`| Delete config                 |
+| Method   | Path                             | Description              |
+| -------- | -------------------------------- | ------------------------ |
+| `GET`    | `/api/lidar/network/configs`     | List all network configs |
+| `POST`   | `/api/lidar/network/configs`     | Create a new config      |
+| `GET`    | `/api/lidar/network/configs/:id` | Get config by ID         |
+| `PUT`    | `/api/lidar/network/configs/:id` | Update config            |
+| `DELETE` | `/api/lidar/network/configs/:id` | Delete config            |
 
 #### Diagnostics & Control
 
-| Method | Path                             | Description                                            |
-| ------ | -------------------------------- | ------------------------------------------------------ |
-| `GET`  | `/api/lidar/network/interfaces`  | Enumerate local network interfaces with IP/MAC/status  |
-| `GET`  | `/api/lidar/network/interfaces/:name` | Interface detail with gateway and subnet info     |
-| `POST` | `/api/lidar/network/probe`       | Traffic probe — check for UDP packets on port/interface |
-| `POST` | `/api/lidar/network/reload`      | Apply enabled config (hot-reload listener)             |
-| `GET`  | `/api/lidar/network/status`      | Current listener status + live packet stats            |
+| Method | Path                                  | Description                                             |
+| ------ | ------------------------------------- | ------------------------------------------------------- |
+| `GET`  | `/api/lidar/network/interfaces`       | Enumerate local network interfaces with IP/MAC/status   |
+| `GET`  | `/api/lidar/network/interfaces/:name` | Interface detail with gateway and subnet info           |
+| `POST` | `/api/lidar/network/probe`            | Traffic probe — check for UDP packets on port/interface |
+| `POST` | `/api/lidar/network/reload`           | Apply enabled config (hot-reload listener)              |
+| `GET`  | `/api/lidar/network/status`           | Current listener status + live packet stats             |
 
 #### Request/Response Examples
 
@@ -340,43 +340,43 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 
 ### Phase 1: Database & API Foundation
 
-| Task                                                  | Effort |
-| ----------------------------------------------------- | ------ |
-| Migration `000030_create_lidar_network_config`        | S      |
-| Update `schema.sql` with new table                    | S      |
-| `internal/db/lidar_network_config.go` — CRUD          | M      |
-| `internal/db/lidar_network_config_test.go`            | M      |
+| Task                                           | Effort |
+| ---------------------------------------------- | ------ |
+| Migration `000030_create_lidar_network_config` | S      |
+| Update `schema.sql` with new table             | S      |
+| `internal/db/lidar_network_config.go` — CRUD   | M      |
+| `internal/db/lidar_network_config_test.go`     | M      |
 
 ### Phase 2: Network Diagnostics
 
-| Task                                                  | Effort |
-| ----------------------------------------------------- | ------ |
+| Task                                                                   | Effort |
+| ---------------------------------------------------------------------- | ------ |
 | `internal/api/network_diagnostics.go` — interface enum, gateway, probe | M      |
-| `internal/api/network_diagnostics_test.go`            | M      |
+| `internal/api/network_diagnostics_test.go`                             | M      |
 
 ### Phase 3: Hot-Reload Manager
 
-| Task                                                  | Effort |
-| ----------------------------------------------------- | ------ |
+| Task                                                         | Effort |
+| ------------------------------------------------------------ | ------ |
 | `internal/api/lidar_network_reload.go` — LiDARNetworkManager | L      |
-| `internal/api/lidar_network_reload_test.go`           | L      |
-| Wire into `server.go` route registration              | S      |
-| CLI flag migration: honour DB config over flags        | M      |
+| `internal/api/lidar_network_reload_test.go`                  | L      |
+| Wire into `server.go` route registration                     | S      |
+| CLI flag migration: honour DB config over flags              | M      |
 
 ### Phase 4: Settings UI
 
-| Task                                                  | Effort |
-| ----------------------------------------------------- | ------ |
+| Task                                                               | Effort |
+| ------------------------------------------------------------------ | ------ |
 | `web/src/routes/(constrained)/settings/lidar-network/+page.svelte` | L      |
-| `web/src/lib/api.ts` — lidar network API functions    | S      |
-| Settings page link from `/settings`                   | S      |
+| `web/src/lib/api.ts` — lidar network API functions                 | S      |
+| Settings page link from `/settings`                                | S      |
 
 ### Phase 5: Integration & Testing
 
-| Task                                                  | Effort |
-| ----------------------------------------------------- | ------ |
-| End-to-end test: probe → configure → reload → verify  | M      |
-| Coverage targets: 90%+ across new files               | M      |
+| Task                                                 | Effort |
+| ---------------------------------------------------- | ------ |
+| End-to-end test: probe → configure → reload → verify | M      |
+| Coverage targets: 90%+ across new files              | M      |
 
 **Size key:** S = ½ day, M = 1 day, L = 2 days
 
