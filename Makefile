@@ -128,6 +128,7 @@ help:
 	@echo "  plot-noise-buckets   Generate per-noise bar charts (FILE=data.csv)"
 	@echo "  stats-live           Capture live LiDAR snapshots"
 	@echo "  stats-pcap           Capture PCAP replay snapshots (PCAP=file.pcap)"
+	@echo "  profile-macos-lidar  Poll Go/Swift process metrics, then auto-start PCAP replay"
 	@echo "  run-pcap-stats       PCAP capture stats — frame rate, RPM (FILE=path)"
 	@echo ""
 	@echo "API SHORTCUTS (LiDAR HTTP API):"
@@ -1318,7 +1319,7 @@ git-fs:
 # DATA VISUALIZATION
 # =============================================================================
 
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap run-pcap-stats run-pcap-stats-10s
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap profile-macos-lidar run-pcap-stats run-pcap-stats-10s
 
 # Noise sweep line plot (neighbour=1, closeness=2.5 by default)
 plot-noise-sweep:
@@ -1357,6 +1358,22 @@ stats-pcap:
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
 	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
+
+# macOS process profiling at fixed cadence:
+# 1) Poll idle metrics for IDLE seconds.
+# 2) Trigger PCAP replay via API.
+# 3) Continue polling until replay completes.
+# Usage:
+#   make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
+profile-macos-lidar:
+	@[ -z "$(PCAP)" ] && echo "Usage: make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
+	@./scripts/perf/macos_profile_lidar.sh \
+		--pcap "$(PCAP)" \
+		--interval $${INTERVAL:-5} \
+		--idle-seconds $${IDLE:-120} \
+		--sensor $${SENSOR:-hesai-pandar40p} \
+		--base-url $${BASE_URL:-http://127.0.0.1:8081}
 
 # PCAP capture statistics — frame rate, RPM, duration, track counts
 # Accepts a single file or a directory (recursively finds .pcap/.pcapng)
