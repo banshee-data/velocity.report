@@ -9,6 +9,12 @@ on:
       - "proto/velocity_visualiser/**"
       - ".github/workflows/mac-ci.yml"
 
+  # Tags and manual dispatch produce a versioned DMG artefact.
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
 permissions:
   contents: read
   pull-requests: write
@@ -98,3 +104,42 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
+
+  # Versioned DMG artefact — runs on tagged releases and manual dispatch.
+  dmg:
+    name: "📦 DMG"
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download generated protos
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-protos
+          path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
+
+      - name: Build Release app
+        run: |
+          cd tools/visualiser-macos
+          xcodebuild \
+            -project VelocityVisualiser.xcodeproj \
+            -scheme VelocityVisualiser \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Create versioned DMG
+        run: make dmg-mac
+
+      - name: Upload DMG artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VelocityVisualiser-dmg
+          path: tools/visualiser-macos/build/VelocityVisualiser-*.dmg
+          retention-days: 90
