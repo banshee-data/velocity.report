@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image/color"
 	"io"
 	"log"
 	"os"
@@ -35,6 +36,9 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 	_ "modernc.org/sqlite"
 )
 
@@ -64,6 +68,7 @@ type Config struct {
 	FrameRate      float64 // Expected frame rate in Hz
 	Stats          bool    // Display concise capture statistics only
 	Stats10s       bool    // Display per-10s frame rate buckets (filterable)
+	PcapGraph      string  // Output path for throughput PNG graph (empty = disabled)
 
 	// Benchmark settings
 	Benchmark           bool
@@ -157,6 +162,8 @@ type CaptureStats struct {
 	TotalFrames       int               `json:"total_frames"`
 	TotalPackets      int               `json:"total_packets"`
 	TotalPoints       int               `json:"total_points"`
+	TotalBytes        int64             `json:"total_bytes"`
+	AvgThroughputMbps float64           `json:"avg_throughput_mbps"`
 	AvgFrameRateHz    float64           `json:"avg_frame_rate_hz"`
 	MinFrameRateHz    float64           `json:"min_frame_rate_hz"`
 	MaxFrameRateHz    float64           `json:"max_frame_rate_hz"`
@@ -169,11 +176,14 @@ type CaptureStats struct {
 	FrameRate10s      []FrameRateBucket `json:"frame_rate_10s,omitempty"`
 }
 
-// FrameRateBucket holds frame-rate metrics for a 10-second window.
+// FrameRateBucket holds frame-rate and throughput metrics for a 10-second window.
 type FrameRateBucket struct {
-	OffsetSecs float64 `json:"offset_secs"` // Bucket start relative to capture start
-	Frames     int     `json:"frames"`
-	Hz         float64 `json:"hz"`
+	OffsetSecs     float64 `json:"offset_secs"` // Bucket start relative to capture start
+	Frames         int     `json:"frames"`
+	Hz             float64 `json:"hz"`
+	Packets        int     `json:"packets"`         // UDP packets in this bucket
+	Bytes          int64   `json:"bytes"`           // Total payload bytes in this bucket
+	ThroughputMbps float64 `json:"throughput_mbps"` // Throughput in Mbit/s
 }
 
 // FrameTimeStats holds statistics for per-frame processing times.
@@ -273,7 +283,7 @@ func main() {
 	}
 
 	// In stats mode, suppress logging and disable exports
-	if config.Stats || config.Stats10s {
+	if config.Stats || config.Stats10s || config.PcapGraph != "" {
 		config.Verbose = false
 		config.ExportCSV = false
 		config.ExportJSON = false
@@ -311,6 +321,14 @@ func main() {
 		return
 	}
 
+	// Generate throughput graph PNG if requested
+	if config.PcapGraph != "" && result.CaptureStats != nil {
+		if err := generateThroughputGraph(*result.CaptureStats, config.PcapGraph); err != nil {
+			log.Fatalf("Failed to generate throughput graph: %v", err)
+		}
+		fmt.Printf("Throughput graph: %s\n", config.PcapGraph)
+	}
+
 	// Print summary (unless in quiet mode)
 	if !config.Quiet {
 		printSummary(result)
@@ -343,6 +361,7 @@ func parseFlags() Config {
 	flag.Float64Var(&config.FrameRate, "fps", 10.0, "Expected frame rate in Hz")
 	flag.BoolVar(&config.Stats, "stats", false, "Display concise capture statistics (frame rate, RPM, duration)")
 	flag.BoolVar(&config.Stats10s, "stats-10s", false, "Display per-10s frame rate buckets (grep-friendly)")
+	flag.StringVar(&config.PcapGraph, "pcap-graph", "", "Output throughput graph PNG (e.g. throughput.png)")
 
 	// Benchmark flags (short and long forms bind to same variable for convenience)
 	flag.BoolVar(&config.Benchmark, "benchmark", false, "Enable performance measurement mode")
@@ -369,6 +388,8 @@ func parseFlags() Config {
 		fmt.Fprintf(os.Stderr, "  -benchmark-output FILE  Output benchmark JSON to FILE\n")
 		fmt.Fprintf(os.Stderr, "  -quiet                  Suppress output to reduce measurement noise\n")
 		fmt.Fprintf(os.Stderr, "  -compare-baseline FILE  Compare against baseline, exit 1 on regression\n\n")
+		fmt.Fprintf(os.Stderr, "Throughput Graph (PcapGraph):\n")
+		fmt.Fprintf(os.Stderr, "  -pcap-graph FILE.png    Generate 10s-rollup throughput bar chart\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
@@ -376,10 +397,16 @@ func parseFlags() Config {
 		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -training -output ./ml_data\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -benchmark -quiet -benchmark-output perf.json\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -benchmark -compare-baseline baseline.json\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -pcap capture.pcap -pcap-graph throughput.png\n", os.Args[0])
 	}
 
 	flag.Parse()
 	return config
+}
+
+// packetSample records per-packet size for throughput bucketing.
+type packetSample struct {
+	Bytes int
 }
 
 // analysisStats implements network.PacketStatsInterface for tracking analysis statistics.
@@ -390,12 +417,19 @@ type analysisStats struct {
 	dropped  int
 	firstPkt time.Time
 	lastPkt  time.Time
+
+	// Per-packet byte sizes (for throughput rollups; index-aligned with
+	// frameTimestamps once aggregated into buckets).
+	packetSamples []packetSample
+	totalBytes    int64
 }
 
 func (s *analysisStats) AddPacket(bytes int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.packets++
+	s.totalBytes += int64(bytes)
+	s.packetSamples = append(s.packetSamples, packetSample{Bytes: bytes})
 	now := time.Now()
 	if s.firstPkt.IsZero() {
 		s.firstPkt = now
@@ -423,6 +457,20 @@ func (s *analysisStats) getStats() (packets, points int, duration time.Duration)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.packets, s.points, s.lastPkt.Sub(s.firstPkt)
+}
+
+func (s *analysisStats) getTotalBytes() int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.totalBytes
+}
+
+func (s *analysisStats) getPacketSamples() []packetSample {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]packetSample, len(s.packetSamples))
+	copy(out, s.packetSamples)
+	return out
 }
 
 // analysisFrameBuilder implements network.FrameBuilder for collecting frames and processing.
@@ -686,7 +734,8 @@ func (fb *analysisFrameBuilder) getTrainingFrames() []*TrainingFrame {
 }
 
 // getCaptureStats computes concise capture-level metrics from collected data.
-func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureStats {
+// totalBytes is the cumulative payload byte count from analysisStats.
+func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult, totalBytes int64) CaptureStats {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
@@ -696,6 +745,7 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 		TotalFrames:     result.TotalFrames,
 		TotalPackets:    result.TotalPackets,
 		TotalPoints:     result.TotalPoints,
+		TotalBytes:      totalBytes,
 		ConfirmedTracks: result.ConfirmedTracks,
 	}
 
@@ -750,7 +800,15 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 		}
 	}
 
-	// Compute 10-second frame-rate buckets from per-frame PCAP timestamps
+	// Compute average throughput from total bytes and capture duration.
+	if stats.DurationSecs > 0 && totalBytes > 0 {
+		stats.AvgThroughputMbps = float64(totalBytes) * 8.0 / (stats.DurationSecs * 1e6)
+	}
+
+	// Compute 10-second frame-rate buckets from per-frame PCAP timestamps.
+	// Throughput per bucket is estimated proportionally: each frame carries
+	// approximately the same payload, so bytes_in_bucket ≈
+	// (frames_in_bucket / total_frames) × total_bytes.
 	const bucketDuration = 10 * time.Second
 	if len(fb.frameTimestamps) > 1 {
 		t0 := fb.frameTimestamps[0]
@@ -762,7 +820,19 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 				// Flush current bucket
 				offset := bucketStart.Sub(t0).Seconds()
 				hz := float64(count) / bucketDuration.Seconds()
-				buckets = append(buckets, FrameRateBucket{OffsetSecs: offset, Frames: count, Hz: hz})
+				bucketBytes := int64(0)
+				if stats.TotalFrames > 0 {
+					bucketBytes = totalBytes * int64(count) / int64(stats.TotalFrames)
+				}
+				mbps := float64(bucketBytes) * 8.0 / (bucketDuration.Seconds() * 1e6)
+				buckets = append(buckets, FrameRateBucket{
+					OffsetSecs:     offset,
+					Frames:         count,
+					Hz:             hz,
+					Packets:        0, // Not tracked per-bucket
+					Bytes:          bucketBytes,
+					ThroughputMbps: mbps,
+				})
 				bucketStart = bucketStart.Add(bucketDuration)
 				count = 0
 			}
@@ -776,7 +846,18 @@ func (fb *analysisFrameBuilder) getCaptureStats(result *AnalysisResult) CaptureS
 				elapsed = bucketDuration.Seconds() // single-point bucket
 			}
 			hz := float64(count) / elapsed
-			buckets = append(buckets, FrameRateBucket{OffsetSecs: offset, Frames: count, Hz: hz})
+			bucketBytes := int64(0)
+			if stats.TotalFrames > 0 {
+				bucketBytes = totalBytes * int64(count) / int64(stats.TotalFrames)
+			}
+			mbps := float64(bucketBytes) * 8.0 / (elapsed * 1e6)
+			buckets = append(buckets, FrameRateBucket{
+				OffsetSecs:     offset,
+				Frames:         count,
+				Hz:             hz,
+				Bytes:          bucketBytes,
+				ThroughputMbps: mbps,
+			})
 		}
 		stats.FrameRate10s = buckets
 	}
@@ -792,6 +873,8 @@ func printCaptureStats(stats CaptureStats) {
 	fmt.Printf("  Packets:     %d\n", stats.TotalPackets)
 	fmt.Printf("  Points:      %d (%.0f/frame, %.1f%% foreground)\n",
 		stats.TotalPoints, stats.AvgPointsPerFrame, stats.ForegroundPct)
+	fmt.Printf("  Data:        %s (avg %.2f Mbit/s)\n",
+		formatBytes(uint64(stats.TotalBytes)), stats.AvgThroughputMbps)
 	fmt.Printf("  Frame rate:  avg %.1f Hz, min %.1f Hz, max %.1f Hz\n",
 		stats.AvgFrameRateHz, stats.MinFrameRateHz, stats.MaxFrameRateHz)
 	fmt.Printf("  RPM:         %d–%d", stats.MinRPM, stats.MaxRPM)
@@ -803,14 +886,61 @@ func printCaptureStats(stats CaptureStats) {
 }
 
 // printStats10s prints one line per 10-second bucket in a grep-friendly format.
-// Format: [filename] (mmm:ss) frame_rate: XX.X Hz
+// Format: [filename] (mmm:ss) frame_rate: XX.X Hz  throughput: XX.XX Mbit/s
 func printStats10s(stats CaptureStats) {
 	base := filepath.Base(stats.File)
 	for _, b := range stats.FrameRate10s {
 		min := int(b.OffsetSecs) / 60
 		sec := int(b.OffsetSecs) % 60
-		fmt.Printf("[%s] (%03d:%02d) frame_rate: %.1f Hz\n", base, min, sec, b.Hz)
+		fmt.Printf("[%s] (%03d:%02d) frame_rate: %.1f Hz  throughput: %.2f Mbit/s\n", base, min, sec, b.Hz, b.ThroughputMbps)
 	}
+}
+
+// generateThroughputGraph renders a bar chart of 10-second throughput buckets to a PNG file.
+func generateThroughputGraph(stats CaptureStats, outputPath string) error {
+	buckets := stats.FrameRate10s
+	if len(buckets) == 0 {
+		return fmt.Errorf("no 10-second buckets to graph")
+	}
+
+	p := plot.New()
+	p.Title.Text = fmt.Sprintf("Throughput — %s", filepath.Base(stats.File))
+	p.X.Label.Text = "Time (seconds)"
+	p.Y.Label.Text = "Throughput (Mbit/s)"
+	p.Y.Min = 0
+
+	// Build bar chart values
+	values := make(plotter.Values, len(buckets))
+	labels := make([]string, len(buckets))
+	for i, b := range buckets {
+		values[i] = b.ThroughputMbps
+		min := int(b.OffsetSecs) / 60
+		sec := int(b.OffsetSecs) % 60
+		labels[i] = fmt.Sprintf("%d:%02d", min, sec)
+	}
+
+	bars, err := plotter.NewBarChart(values, vg.Points(20))
+	if err != nil {
+		return fmt.Errorf("create bar chart: %w", err)
+	}
+	bars.Color = color.RGBA{R: 0x33, G: 0x66, B: 0xCC, A: 0xFF}
+
+	p.Add(bars)
+	p.NominalX(labels...)
+
+	// Scale width with number of buckets (min 8", max 24")
+	widthInches := float64(len(buckets)) * 0.5
+	if widthInches < 8 {
+		widthInches = 8
+	}
+	if widthInches > 24 {
+		widthInches = 24
+	}
+
+	if err := p.Save(vg.Length(widthInches)*vg.Inch, 5*vg.Inch, outputPath); err != nil {
+		return fmt.Errorf("save graph: %w", err)
+	}
+	return nil
 }
 
 // getBenchmarkData returns the collected benchmark timing data.
@@ -954,7 +1084,7 @@ func analyzePCAP(config Config) (*AnalysisResult, error) {
 	}
 
 	// Collect capture stats (always, used by -stats mode and JSON export)
-	cs := frameBuilder.getCaptureStats(result)
+	cs := frameBuilder.getCaptureStats(result, stats.getTotalBytes())
 	result.CaptureStats = &cs
 
 	return result, nil
