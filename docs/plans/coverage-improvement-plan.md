@@ -183,7 +183,7 @@ coverage requires a macOS runner with Metal support).
    that draw-call paths stay at lower coverage.
 
 4. **ContentView** — Large SwiftUI view with limited unit-test surface.
-   Consider adopting [ViewInspector](https://github.com/nicklama/ViewInspector)
+   Consider adopting [ViewInspector](https://github.com/nalexn/ViewInspector)
    for snapshot-free view testing, or extract complex logic into
    `@Observable` view models that can be tested without a view hierarchy.
 
@@ -297,7 +297,7 @@ coverage requires a macOS runner with Metal support).
 ### macOS SwiftUI Views (`ContentView.swift`)
 - Extract complex logic into `@Observable` view models testable
   without a view hierarchy.
-- Consider [ViewInspector](https://github.com/nicklama/ViewInspector) for
+- Consider [ViewInspector](https://github.com/nalexn/ViewInspector) for
   snapshot-free view testing if deeper view coverage is needed.
 - Focus on testing the view models and state management rather than the
   SwiftUI view tree itself.
