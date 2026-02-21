@@ -297,16 +297,7 @@ dmg-mac:
 		echo "Error: VelocityVisualiser.app not found. Run 'make build-mac' first."; \
 		exit 1; \
 	fi
-	@staging=$$(mktemp -d); \
-	cp -R "$(VISUALISER_APP)" "$$staging/VelocityVisualiser.app"; \
-	ln -s /Applications "$$staging/Applications"; \
-	hdiutil create \
-		-volname "VelocityVisualiser $(VERSION)" \
-		-srcfolder "$$staging" \
-		-ov -format UDZO \
-		"$(VISUALISER_DMG)"; \
-	rm -rf "$$staging"
-	@echo "✓ DMG created: $(VISUALISER_DMG)"
+	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(VERSION)"
 
 # =============================================================================
 # PROTOBUF CODE GENERATION
