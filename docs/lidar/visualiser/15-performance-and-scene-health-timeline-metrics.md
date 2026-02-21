@@ -116,7 +116,7 @@ message MetricSample {
   double value = 2;
   int64 timestamp_ns = 3;          // same frame timestamp
   uint64 frame_id = 4;
-  string severity = 5;             // OK|WARN|ERROR
+  Enum severity = 2;             // OK|WARN|ERROR
 }
 
 message FrameMetrics {
