@@ -107,8 +107,8 @@ message MetricDefinition {
   string display_name = 2;         // CPU usage
   MetricFamily family = 3;
   string unit = 4;                 // pct|mb|count|m|ms
-  double warning_threshold = 5;    // NaN/empty if none
-  double error_threshold = 6;      // NaN/empty if none
+  optional double warning_threshold = 5;  // unset if none
+  optional double error_threshold = 6;    // unset if none
 }
 
 message MetricSample {
@@ -144,12 +144,12 @@ message TrackComparisonMetric {
 
 message FrameBundle {
   // existing fields...
-  FrameMetrics metrics = 10;
+  FrameMetrics metrics = 13;
 }
 
 message StreamRequest {
   // existing fields...
-  bool include_metrics = 23;
+  bool include_metrics = 8;
 }
 
 message CapabilitiesResponse {
