@@ -1,9 +1,9 @@
 # Review: Velocity-Coherent Foreground Extraction Math
 
-**Status:** Review of Design Math Proposal
+**Status:** Review + Integration Decisions for Design Math Proposal
 **Date:** February 20, 2026
 **Reviewed document:** [`20260220-velocity-coherent-foreground-extraction.md`](20260220-velocity-coherent-foreground-extraction.md)
-**Version:** 1.0
+**Version:** 1.1
 
 ---
 
@@ -438,32 +438,130 @@ projection trees).
 
 ---
 
-## 9. Constructive Summary
+## 9. Integration Decisions for Proposal v1.1 (Move Forward)
+
+The proposal will proceed with the following accepted decisions, integrating all
+review feedback into the next revision of
+`20260220-velocity-coherent-foreground-extraction.md`.
+
+1. **Future FFT radar overlay in vector space:** **Yes**—marrying FFT radar
+   velocity with LiDAR vector-plane polylines is easier with the review-aligned
+   architecture, because velocity is treated as a first-class signal with
+   explicit uncertainty, and can be fused onto compressed vector points without
+   reworking point-level correspondences.
+2. **Concern §2 (velocity noise model):** **Yes**—add explicit `Σ_v` modelling.
+3. **Concern §3 (6D metric scaling):** **Yes**—use variance-normalised
+   Mahalanobis-like distance.
+4. **Concern §4 (clustering fragility):** **Two-stage**—keep robust spatial
+   clustering first, then apply velocity refinement/splitting.
+5. **Concern §5 (track continuity maths):** **Yes**—reuse Kalman covariance
+   propagation, continuous sparse tolerance scaling, and variance-aware merge
+   scoring.
+6. **Concern §6 (L3 bottleneck):** choose **parallel channels** and avoid
+   cyclic dependencies in code (no L5→L3 feedback loop).
+7. **Concern §7 (validation):** draft and adopt a formal validation/acceptance
+   specification (metrics, labelling, procedures, statistical tests).
+8. **Concern §8 (complexity):** **Yes**—correct complexity claims and measure
+   runtime empirically on replay.
+9. **Execution posture:** assume go-forward and incorporate these edits into the
+   proposal document now, not as deferred notes.
+
+---
+
+## 10. Complexity and Tuning Hotspots (Config Keys to Add)
+
+The following areas are expected to require environment-specific tuning:
+
+- **Velocity split sensitivity:** avoid over-splitting single objects vs.
+  under-separating close-by objects.
+- **Sparse continuation tolerance:** balance sparse recall against wrong
+  associations.
+- **Fragment merge threshold:** prevent identity errors while reducing
+  fragmentation.
+- **Parallel temporal-channel motion gate:** improve tangential-motion recall
+  without introducing foliage/noise false positives.
+
+Recommended configuration keys for proposal v1.1:
+
+| Key                                   | Default | Purpose                                                     |
+| ------------------------------------- | ------- | ----------------------------------------------------------- |
+| `clustering.split.sigma2_v`           | `4.0`   | Velocity-variance split threshold (m²/s²)                   |
+| `clustering.split.q_min`              | `0.5`   | Minimum confidence for sparse velocity sub-clusters         |
+| `clustering.metric.eps_sigma`         | `3.0`   | Dimensionless neighbourhood threshold in sigma units        |
+| `tracking.sparse.k_tol`               | `2.0`   | Continuous `1/sqrt(n)` sparse continuation tolerance factor |
+| `tracking.merge.lambda_min`           | `-6.0`  | Minimum log-likelihood merge score                          |
+| `tracking.predict.tau_max_s`          | `3.0`   | Maximum coast/prediction horizon                            |
+| `foreground.temporal.enabled`         | `true`  | Enable second foreground channel (temporal gradient)        |
+| `foreground.temporal.v_min_mps`       | `1.0`   | Minimum motion for temporal foreground trigger (m/s)        |
+| `foreground.channel_union_mode`       | `"or"`  | Foreground union policy for EMA + temporal channels         |
+| `validation.temporal_overlap_min`     | `0.7`   | Minimum overlap to count trajectory capture                 |
+| `validation.occlusion_gap_max_frames` | `50`    | Max short-occlusion gap for recovery metric                 |
+| `performance.frame_budget_ms_p95`     | `50`    | Target p95 per-frame latency budget on Raspberry Pi 4       |
+
+---
+
+## 11. Validation and Acceptance Spec (Draft)
+
+### 11.1 Labelling and ground truth
+
+- Build a labelled replay corpus (minimum 15 representative PCAP segments).
+- Annotate per-frame vehicle identity and trajectory continuity.
+- Mark entry, exit, and occlusion intervals explicitly.
+
+### 11.2 Primary metrics
+
+- **Sparse recall (3–11 points):** proportion of labelled sparse trajectories
+  captured with at least 70% temporal overlap.
+- **Precision:** proportion of generated tracks matched to labelled trajectories.
+- **Fragmentation:** ID switches per labelled trajectory.
+- **Occlusion recovery:** proportion of short occlusions (`2–50` frames)
+  recovered with consistent identity.
+- **Runtime:** p95 per-frame latency against configured budget.
+
+### 11.3 Acceptance gates
+
+- Sparse recall improvement: **at least +20%** vs. baseline.
+- Fragmentation reduction: **at least -15%** vs. baseline.
+- Precision degradation: **no worse than -5% absolute** vs. baseline.
+- Runtime: **p95 <= configured budget** (default 50 ms).
+
+### 11.4 Procedure
+
+1. Run baseline and candidate pipelines on identical replay segments.
+2. Compute paired per-segment deltas for all primary metrics.
+3. Report 95% confidence intervals and significance decisions.
+4. Perform failure-mode audit (false sparse clusters, wrong merges, ghost
+   tracks, temporal-channel false positives).
+5. Freeze tuned key values and record rationale before rollout.
+
+---
+
+## 12. Constructive Summary
 
 The concerns above do not invalidate the proposal's direction. Velocity
 enrichment of the clustering and tracking pipeline is a natural and valuable
 evolution. The following prioritised changes would substantially strengthen the
 mathematical foundation:
 
-| Priority | Concern | Recommended Change |
-| -------- | ------- | ------------------ |
-| **P0** | L3 bottleneck (§6) | Define the foreground feedback or bypass path mathematically before starting implementation |
-| **P1** | Correspondence noise (§1, §2) | Replace point-level correspondence with cluster-level velocity from L5, or add a regularised scene flow formulation |
-| **P1** | 6D metric scaling (§3) | Use variance-normalised (Mahalanobis-like) distance instead of raw weighted Euclidean |
-| **P2** | MinPts = 3 fragility (§4) | Use two-stage clustering (2D spatial → velocity split) instead of a single 6D DBSCAN pass |
-| **P2** | Uncertainty growth (§5.1) | Reuse existing Kalman covariance propagation for post-tail prediction |
-| **P2** | Merge criterion (§5.2) | Replace arithmetic average with a log-likelihood ratio or variance-weighted score |
-| **P3** | Adaptive thresholds (§5.3) | Replace discrete breakpoints with continuous 1/√n scaling |
-| **P3** | Validation (§7) | Define ground-truth procedure and statistical test before implementation |
-| **P3** | Complexity (§8) | Correct O(N log N) claim to O(N²) for 6D; verify empirically |
+| Priority | Concern                       | Recommended Change                                                                                                  |
+| -------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **P0**   | L3 bottleneck (§6)            | Define the foreground feedback or bypass path mathematically before starting implementation                         |
+| **P1**   | Correspondence noise (§1, §2) | Replace point-level correspondence with cluster-level velocity from L5, or add a regularised scene flow formulation |
+| **P1**   | 6D metric scaling (§3)        | Use variance-normalised (Mahalanobis-like) distance instead of raw weighted Euclidean                               |
+| **P2**   | MinPts = 3 fragility (§4)     | Use two-stage clustering (2D spatial → velocity split) instead of a single 6D DBSCAN pass                           |
+| **P2**   | Uncertainty growth (§5.1)     | Reuse existing Kalman covariance propagation for post-tail prediction                                               |
+| **P2**   | Merge criterion (§5.2)        | Replace arithmetic average with a log-likelihood ratio or variance-weighted score                                   |
+| **P3**   | Adaptive thresholds (§5.3)    | Replace discrete breakpoints with continuous 1/√n scaling                                                           |
+| **P3**   | Validation (§7)               | Define ground-truth procedure and statistical test before implementation                                            |
+| **P3**   | Complexity (§8)               | Correct O(N log N) claim to O(N²) for 6D; verify empirically                                                        |
 
 ---
 
 ## References
 
 - Bernardin, K. & Stiefelhagen, R. (2008). "Evaluating Multiple Object Tracking
-  Performance: The CLEAR MOT Metrics." *EURASIP Journal on Image and Video
-  Processing.*
+  Performance: The CLEAR MOT Metrics." _EURASIP Journal on Image and Video
+  Processing._
 - Dewan, A., Caselitz, T., Tipaldi, G. D. & Burgard, W. (2016). "Rigid Scene
-  Flow for 3D LiDAR Scans." *IEEE/RSJ International Conference on Intelligent
-  Robots and Systems (IROS).*
+  Flow for 3D LiDAR Scans." _IEEE/RSJ International Conference on Intelligent
+  Robots and Systems (IROS)._
