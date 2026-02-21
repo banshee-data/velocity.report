@@ -34,7 +34,10 @@ ln -s /Applications "$staging/Applications"
 
 # ── 2. Create writable DMG ───────────────────────────────────────────────────
 # Size the image to fit the app bundle plus headroom.
-raw_dmg=$(mktemp -u /tmp/dmg-rw-XXXXXX).dmg
+# Atomically reserve a unique path, then rename to .dmg for hdiutil.
+raw_base=$(mktemp /tmp/dmg-rw-XXXXXX)
+raw_dmg="${raw_base}.dmg"
+mv "$raw_base" "$raw_dmg"
 app_size_kb=$(du -sk "$staging/$APP_NAME" | awk '{print $1}')
 dmg_size_kb=$(( app_size_kb + 8192 ))  # 8 MiB headroom
 
