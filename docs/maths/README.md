@@ -71,6 +71,8 @@ The production pipeline uses four math-heavy layers:
   — Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md)
   — Point-level velocity estimation and velocity-aware DBSCAN for sparse object recovery, track continuity, and fragment merging. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
+- [Velocity-Coherent Foreground Extraction Review](proposals/20260220-velocity-coherent-foreground-extraction-review.md)
+  — Mathematical review: correspondence noise, 6D metric scaling, L3 bottleneck, and validation methodology.
 - [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
   — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
 - [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
