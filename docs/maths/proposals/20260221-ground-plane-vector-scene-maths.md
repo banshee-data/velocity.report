@@ -2,7 +2,7 @@
 
 Status: Proposed
 Target Directory: docs/maths/
-Purpose/Summary: ground-plane-vector-scene-maths.
+Purpose: This maths proposal for Ground Plane and Vector-Scene Maths Proposal explores alternative formulations, expected benefits, and open risks, linking theoretical changes to measurable impacts before committing implementation work.
 
 **Status:** Proposal Math (Not Active in Current Runtime)
 **Layer:** L4 Perception
