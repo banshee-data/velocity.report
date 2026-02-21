@@ -9,7 +9,7 @@
 
 ### Current State
 
-The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address (`:port`) at startup, accepting Hesai Pandar40P packets on whichever network interface they arrive. The listening port (default 2369), forwarding targets, and interface addresses are configured entirely through CLI flags on `cmd/radar`. Changing any network parameter requires a process restart.
+The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address (`:port`) at startup, accepting Hesai Pandar40P packets on whichever network interface they arrive. The listening port (default 2369), forwarding targets, and interface addresses are configured entirely through CLI flags on `cmd/radar` (the unified binary that hosts both radar and LiDAR subsystems). Changing any network parameter requires a process restart.
 
 **Current CLI flags:**
 
@@ -113,7 +113,7 @@ END;
 | `interface_name` | Network interface name (e.g., `eth0`, `enp3s0`). Empty string = wildcard (all interfaces)|
 | `bind_address`   | Explicit IP to bind (e.g., `192.168.1.100`). Empty string = derive from interface_name   |
 | `udp_port`       | UDP port to listen on (default 2369). Restricted to unprivileged range                   |
-| `receive_buffer` | OS socket receive buffer in bytes (default 4 MiB, max 64 MiB)                            |
+| `receive_buffer` | OS socket receive buffer in bytes (default 4 MiB, max 64 MiB). Higher values reduce packet drops under burst load; 64 MiB ceiling is safe on Raspberry Pi 4 (1–8 GB RAM) |
 | `sensor_model`   | Sensor identifier for parser selection. CHECK constraint: `LIKE 'hesai-%'`               |
 | `forward_*`      | Packet forwarding target (mirrors `--lidar-forward-*` flags)                             |
 
@@ -144,6 +144,7 @@ type LiDARNetworkManager struct {
 
 // UDPListenerFactory constructs a UDPListener from the resolved bind address
 // and configuration. Injected so tests can supply mock listeners.
+// See internal/lidar/l1packets/network/listener.go for UDPListenerConfig.
 type UDPListenerFactory func(cfg network.UDPListenerConfig) (*network.UDPListener, error)
 
 // NetworkConfigSnapshot describes the active network configuration for API
