@@ -115,7 +115,7 @@ jobs:
   # Versioned DMG artefact — runs on tagged releases and manual dispatch.
   dmg:
     name: "📦 DMG"
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     needs: setup
     steps:
