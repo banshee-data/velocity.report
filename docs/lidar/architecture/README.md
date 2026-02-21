@@ -43,6 +43,7 @@ For the full layer model specification, see [lidar-data-layer-model.md](lidar-da
 | [hesai_packet_structure.md](hesai_packet_structure.md)                                                               | Hesai Pandar40P UDP packet format reference                                   |
 | [lidar_sidecar_overview.md](lidar_sidecar_overview.md)                                                               | System-level overview of the LiDAR sidecar architecture                       |
 | [lidar-network-configuration.md](lidar-network-configuration.md)                                                     | Network interface selection, diagnostics, and hot-reload for UDP listener      |
+| [lidar-multi-model-ingestion-and-configuration.md](lidar-multi-model-ingestion-and-configuration.md)                 | Proposed path for supporting 3–10 LiDAR models with distinct packet formats    |
 
 ### Historical (completed designs)
 
