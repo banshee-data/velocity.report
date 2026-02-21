@@ -83,3 +83,26 @@ make proto-gen
 
 This generates both Go and Swift files. The Swift files are placed in:
 `tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`
+
+## Creating a Release DMG
+
+To package VelocityVisualiser.app into a versioned DMG for distribution:
+
+```bash
+# From repository root — builds the app then creates the DMG
+make build-mac
+make dmg-mac
+```
+
+The output DMG is written to:
+
+```
+tools/visualiser-macos/build/VelocityVisualiser-<VERSION>.dmg
+```
+
+The DMG contains VelocityVisualiser.app and an Applications symlink for
+drag-and-drop installation. The version is read from the `VERSION` variable
+in the Makefile (currently set at build time).
+
+> **CI:** Tagged releases (`v*`) and manual workflow dispatches automatically
+> produce the DMG as a downloadable artefact in the `🍎 macOS CI` workflow.
