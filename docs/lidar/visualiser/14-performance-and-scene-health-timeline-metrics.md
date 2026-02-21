@@ -70,7 +70,7 @@ Minimum label sets:
 
 - Ground plane polygons/mesh regions.
 - Wall/structure regions.
-- Known static objects (for example poles, signs, kerb islands).
+- Known static objects (e.g. poles, signs, kerb islands).
 - Optional dynamic-object reference tracks for benchmark runs.
 
 Proposed annotation payload:
@@ -192,7 +192,7 @@ Request body:
 }
 ```
 
-Response includes per-track drift, points-outside-box counts, and per-region match metrics so the UI can inspect specific offenders.
+Response includes per-track drift, points-outside-bbox counts, and per-region match metrics so the UI can inspect specific offenders.
 
 ## Per-frame collection and logging
 
@@ -295,7 +295,7 @@ For each scenario, capture:
 
 - drift distributions by track and region,
 - points-outside-box rates,
-- stage-level runtime costs (for example scene-flow calculations, DBSCAN iterations).
+- stage-level runtime costs (e.g. vector-vs-grid comparison calculations, DBSCAN iterations).
 
 Prioritisation policy:
 
