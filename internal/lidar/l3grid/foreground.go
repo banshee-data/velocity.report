@@ -221,6 +221,26 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
 
+		// Region-adaptive parameter overrides (if identified) must apply on the
+		// mask path as well, since this is the production runtime path.
+		cellNoiseRel := noiseRel
+		cellNeighborConfirm := neighConfirm
+		cellAlpha := effectiveAlpha
+		if g.RegionMgr != nil && g.RegionMgr.IdentificationComplete {
+			regionID := g.RegionMgr.GetRegionForCell(cellIdx)
+			if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
+				if regionNoiseRel := float64(regionParams.NoiseRelativeFraction); regionNoiseRel > 0 {
+					cellNoiseRel = regionNoiseRel
+				}
+				if regionNeighborConfirm := regionParams.NeighborConfirmationCount; regionNeighborConfirm > 0 {
+					cellNeighborConfirm = regionNeighborConfirm
+				}
+				if regionAlpha := float64(regionParams.SettleUpdateFraction); regionAlpha > 0 && regionAlpha <= 1 {
+					cellAlpha = regionAlpha
+				}
+			}
+		}
+
 		// If frozen, treat as foreground but don't accumulate recFg
 		// The freeze itself is sufficient protection; accumulating recFg during freeze
 		// causes unnecessarily high values (observed 70+) that persist after thaw.
@@ -253,10 +273,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 		// Same-ring neighbor confirmation
 		neighborConfirmCount := 0
-		if neighConfirm > 0 {
+		if cellNeighborConfirm > 0 {
 			// Search radius should be at least equal to the required confirmation count
 			// to make it possible to satisfy the condition.
-			searchRadius := neighConfirm
+			searchRadius := cellNeighborConfirm
 			if searchRadius < 1 {
 				searchRadius = 1
 			}
@@ -274,7 +294,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				neighborCell := g.Cells[neighborIdx]
 				if neighborCell.TimesSeenCount > 0 {
 					neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - p.Distance)
-					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + noiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
+					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + cellNoiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
 					if neighborDiff <= neighborCloseness {
 						neighborConfirmCount++
 					}
@@ -293,7 +313,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			warmupMultiplier = 1.0 + 3.0*float64(100-cell.TimesSeenCount)/100.0
 		}
 
-		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+noiseRel*p.Distance+0.01)*warmupMultiplier + safety
+		closenessThreshold := closenessMultiplier*(float64(cell.RangeSpreadMeters)+cellNoiseRel*p.Distance+0.01)*warmupMultiplier + safety
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
 
 		// Locked baseline classification: if cell has a locked baseline, use it for classification
@@ -304,7 +324,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			// Use locked baseline for classification - more stable than EMA average
 			lockedDiff := math.Abs(float64(cell.LockedBaseline) - p.Distance)
 			// Acceptance window: locked spread * multiplier + noise-based margin + safety
-			lockedWindow := lockedMultiplier*float64(cell.LockedSpread) + noiseRel*p.Distance + safety
+			lockedWindow := lockedMultiplier*float64(cell.LockedSpread) + cellNoiseRel*p.Distance + safety
 			if lockedWindow < 0.1 {
 				lockedWindow = 0.1 // Minimum 10cm window
 			}
@@ -314,7 +334,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		// Classification decision: prioritize locked baseline if available
 		isBackgroundLike := isWithinLockedRange ||
 			cellDiff <= closenessThreshold ||
-			(neighConfirm > 0 && neighborConfirmCount >= neighConfirm)
+			(cellNeighborConfirm > 0 && neighborConfirmCount >= cellNeighborConfirm)
 
 		// Deadlock Breaker:
 		// If a cell is persistently classified as foreground (RecentForegroundCount high)
@@ -356,9 +376,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			} else {
 				// Fast re-acquisition: if cell recently saw foreground, use boosted alpha
 				// to quickly re-converge to background after object passes
-				updateAlpha := effectiveAlpha
+				updateAlpha := cellAlpha
 				if cell.RecentForegroundCount > 0 {
-					updateAlpha = math.Min(effectiveAlpha*reacqBoost, 0.5) // cap at 0.5 to avoid instability
+					updateAlpha = math.Min(cellAlpha*reacqBoost, 0.5) // cap at 0.5 to avoid instability
 				}
 
 				oldAvg := float64(cell.AverageRangeMeters)

@@ -801,7 +801,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 		// (internal/config/tuning.go:TuningConfig and config/tuning.defaults.json)
 		// and keep fields in canonical key order.
 		// Missing keys: buffer_timeout, min_frame_points, flush_interval, background_flush,
-		// max_tracks, height_band_floor, height_band_ceiling, remove_ground,
+		// height_band_floor, height_band_ceiling, remove_ground,
 		// max_cluster_diameter, min_cluster_diameter, max_cluster_aspect_ratio.
 		var body struct {
 			// Background params
@@ -826,6 +826,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			HitsToConfirm         *int     `json:"hits_to_confirm"`
 			MaxMisses             *int     `json:"max_misses"`
 			MaxMissesConfirmed    *int     `json:"max_misses_confirmed"`
+			MaxTracks             *int     `json:"max_tracks"`
 			// Extended tracker params
 			MaxReasonableSpeedMps            *float64 `json:"max_reasonable_speed_mps"`
 			MaxPositionJumpMeters            *float64 `json:"max_position_jump_meters"`
@@ -965,6 +966,9 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			}
 			if body.MaxMissesConfirmed != nil {
 				ws.tracker.Config.MaxMissesConfirmed = *body.MaxMissesConfirmed
+			}
+			if body.MaxTracks != nil {
+				ws.tracker.Config.MaxTracks = *body.MaxTracks
 			}
 			if body.MaxReasonableSpeedMps != nil {
 				ws.tracker.Config.MaxReasonableSpeedMps = float32(*body.MaxReasonableSpeedMps)
