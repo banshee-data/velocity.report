@@ -22,6 +22,7 @@ help:
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
+	@echo "  dmg-mac              Create versioned DMG for release"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
@@ -236,8 +237,9 @@ MAC_CONFIG ?= Release
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
 VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVisualiser.app
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
+VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg
 
-.PHONY: build-mac clean-mac run-mac dev-mac
+.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac
 
 build-mac:
 	@echo "Building macOS LiDAR visualiser..."
@@ -307,6 +309,23 @@ dev-mac:
 	@$(MAKE) build-mac MAC_CONFIG=Debug
 	@echo "Starting visualiser (Debug — stdout logging enabled)..."
 	@$(VISUALISER_DIR)/build/Build/Products/Debug/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser
+
+dmg-mac:
+	@echo "Creating versioned DMG: VelocityVisualiser-$(VERSION).dmg..."
+	@if [ ! -d "$(VISUALISER_APP)" ]; then \
+		echo "Error: VelocityVisualiser.app not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@staging=$$(mktemp -d); \
+	cp -R "$(VISUALISER_APP)" "$$staging/VelocityVisualiser.app"; \
+	ln -s /Applications "$$staging/Applications"; \
+	hdiutil create \
+		-volname "VelocityVisualiser $(VERSION)" \
+		-srcfolder "$$staging" \
+		-ov -format UDZO \
+		"$(VISUALISER_DMG)"; \
+	rm -rf "$$staging"
+	@echo "✓ DMG created: $(VISUALISER_DMG)"
 
 # =============================================================================
 # PROTOBUF CODE GENERATION
