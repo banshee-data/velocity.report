@@ -145,7 +145,7 @@ tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift
 tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift.disabled
 
 # DMG release artefacts (regenerate with: make dmg-mac)
-*.dmg
+tools/visualiser-macos/build/*.dmg
 
 *.vrlog
 
