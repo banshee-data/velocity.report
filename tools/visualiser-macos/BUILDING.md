@@ -100,9 +100,10 @@ The output DMG is written to:
 tools/visualiser-macos/build/VelocityVisualiser-<VERSION>.dmg
 ```
 
-The DMG contains VelocityVisualiser.app and an Applications symlink for
-drag-and-drop installation. The version is read from the `VERSION` variable
-in the Makefile (currently set at build time).
+The DMG opens in a small Finder window with VelocityVisualiser.app on the
+left and an Applications shortcut on the right for drag-and-drop installation.
+The layout is configured by `scripts/create-dmg.sh`. The version is read from
+the `VERSION` variable in the Makefile.
 
 > **CI:** Tagged releases (`v*`) and manual workflow dispatches automatically
 > produce the DMG as a downloadable artefact in the `🍎 macOS CI` workflow.
