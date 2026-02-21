@@ -5,6 +5,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 ## P1 — Next
 
 - (#210) Raspberry Pi imager pipeline — custom flashing UX, depends on packaging — [design doc](docs/plans/rpi-imager-fork-design.md)
+- Simplification and deprecation programme (Project A/B) — deprecation signalling, deploy retirement gate, and migration plan task list — [design doc](docs/plans/simplification-and-deprecation-plan.md)
 - Sweep/HINT platform hardening — transform pipeline, objective registry, explainability — [design doc](docs/plans/industry-standard-ml-solver-expansion-plan.md)
 - Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](docs/lidar/operations/settling-time-optimization.md)
 
@@ -14,6 +15,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Distribution and packaging — Debian packaging, update mechanism — [design doc](docs/plans/distribution-packaging-plan.md)
 - Time-partitioned raw data tables — major storage architecture change — [design doc](docs/features/time-partitioned-data-tables.md)
 - (#252) Frontend consolidation Phases 1–3 — migrate status/regions/sweep to Svelte — [design doc](docs/plans/frontend-consolidation.md)
+- Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](docs/plans/simplification-and-deprecation-plan.md)
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 - Visualiser QC programme — features 1/2/3/5/7/8/10 — [design doc](docs/lidar/visualiser/06-labelling-qc-enhancements-overview.md)
 - Transit deduplication — duplicate transit record prevention — [design doc](docs/plans/transit-deduplication-plan.md)
