@@ -1,6 +1,7 @@
 # `arena.go` Deprecation and Layered Type Layout Design (2026-02-17)
 
 Status: Active
+Purpose/Summary: arena-go-deprecation-and-layered-type-layout-design-20260217.
 
 ## Objective
 

@@ -1,6 +1,7 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
 Status: Active
+Purpose/Summary: lidar_sidecar_overview.
 
 **Status:** Phase 3.9 completed — All core features operational
 **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs → Sweep/Auto-Tune
@@ -1122,4 +1123,4 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 
 **Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
 
-The implementation is ready for Phase 4.0 (Track Labelling & Ground Truth) development. See `docs/lidar/future/track-labeling-auto-aware-tuning-future.md` for the detailed 8-phase design.
+The implementation is ready for Phase 4.0 (Track Labelling & Ground Truth) development. See `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md` for the detailed 8-phase design.

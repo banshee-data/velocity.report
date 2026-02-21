@@ -1,6 +1,7 @@
 # LiDAR Ground Plane Extraction — Architecture Specification
 
 Status: Active
+Purpose/Summary: ground-plane-extraction.
 
 ## 1. Overview & Motivation
 
@@ -1128,7 +1129,7 @@ CREATE INDEX IF NOT EXISTS idx_ground_plane_timestamp ON ground_plane_snapshots(
 - [ ] Tier 2 global grid: diff/merge across observation sessions
 - [ ] OSM polyline import for anchor constraints (kerbs, crosswalks, signs)
 - [ ] OSM write-back workflow (v2, requires API key)
-- [ ] **Vector scene map** — Extend tile-based ground plane into polygon-based multi-feature representation with buildings, vegetation, and hierarchical LOD (see `docs/proposals/lidar/architecture/vector-scene-map.md`)
+- [ ] **Vector scene map** — Extend tile-based ground plane into polygon-based multi-feature representation with buildings, vegetation, and hierarchical LOD (see `docs/plans/lidar-architecture-vector-scene-map-plan.md`)
 
 ---
 

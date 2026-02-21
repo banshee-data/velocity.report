@@ -1,6 +1,7 @@
 # PCAP Analysis Mode
 
 Status: Active
+Purpose/Summary: pcap-analysis-mode.
 
 ## Overview
 

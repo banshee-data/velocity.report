@@ -1,6 +1,7 @@
 # Track Labeling and Auto-Tuning Status
 
 Status: Active
+Purpose/Summary: track-labeling-auto-aware-tuning.
 
 **Status:** Implemented/Operational Baseline (with follow-up phases tracked separately)
 **Last Updated:** February 21, 2026
@@ -20,4 +21,4 @@ This document covers only the implemented/active operational baseline.
 
 Proposal and deferred phases are tracked separately in:
 
-- [`../future/track-labeling-auto-aware-tuning-future.md`](../future/track-labeling-auto-aware-tuning-future.md)
+- [`../../plans/lidar-track-labeling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labeling-auto-aware-tuning-plan.md)

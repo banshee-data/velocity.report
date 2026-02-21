@@ -1,6 +1,7 @@
 # LiDAR Terminology
 
 Status: Active
+Purpose/Summary: terminology.
 
 Core terms used across the LiDAR tracking system.
 

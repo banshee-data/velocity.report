@@ -1,6 +1,7 @@
 # LiDAR Foundations Fix-It Plan
 
 Status: Planned follow-up execution
+Purpose/Summary: 20260221-lidar-foundations-fixit-plan.
 
 ## Phase 1: Documentation Truth Alignment
 

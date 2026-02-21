@@ -1,6 +1,7 @@
 # Adaptive Region Parameters for Background Grid
 
 Status: Active
+Purpose/Summary: adaptive-region-parameters.
 
 ## Overview
 

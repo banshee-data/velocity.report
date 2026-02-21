@@ -1,6 +1,7 @@
 # LiDAR Math Foundations Audit
 
 Status: Active
+Purpose/Summary: 20260221-math-foundations-audit.
 
 Scope: `docs/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
 
@@ -19,13 +20,13 @@ Scope: `docs/maths/**`, velocity-coherence planning docs, and `internal/lidar/**
 ### Proposed (not implemented yet)
 
 1. Velocity-coherent foreground extraction:
-   - explicitly marked planning-only in `docs/lidar/future/velocity-coherent-foreground-extraction.md:3`.
+   - explicitly marked planning-only in `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md:3`.
    - no velocity-coherent extractor files currently exist under `internal/lidar/`.
 2. L4 ground plane tile fitting and vector scene map:
-   - `docs/proposals/lidar/architecture/vector-scene-map.md:3` is `Status: Proposed`.
+   - `docs/plans/lidar-architecture-vector-scene-map-plan.md:3` is `Status: Proposed`.
    - current runtime L4 ground removal is still height-band filtering (`internal/lidar/l4perception/ground.go:18`).
 3. Unified L3/L4 settlement core:
-   - still a proposal (`docs/proposals/maths/20260219-unify-l3-l4-settling.md:3`).
+   - still a proposal (`docs/maths/proposals/20260219-unify-l3-l4-settling.md:3`).
 
 ## 2. Velocity Coherence Separation
 
@@ -93,8 +94,8 @@ Impact:
 
 Evidence:
 
-- planning doc says not implemented (`docs/lidar/future/velocity-coherent-foreground-extraction.md:3`).
-- architecture spec includes branch-complete tables that can be misread without full context (`docs/proposals/lidar/architecture/dynamic-algorithm-selection.md:25`).
+- planning doc says not implemented (`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md:3`).
+- architecture spec includes branch-complete tables that can be misread without full context (`docs/plans/lidar-architecture-dynamic-algorithm-selection-plan.md:25`).
 - no extractor files exist in `internal/lidar/` despite referenced names.
 - pipeline config has no `ExtractorMode`/hybrid fields (`internal/lidar/pipeline/tracking_pipeline.go:109`).
 
@@ -107,8 +108,8 @@ Impact:
 Resolution:
 
 - Updated velocity plan links to canonical maths proposal:
-  - `docs/lidar/future/velocity-coherent-foreground-extraction.md`
-  - `docs/proposals/maths/20260220-velocity-coherent-foreground-extraction.md`
+  - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
+  - `docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
 
 Impact:
 

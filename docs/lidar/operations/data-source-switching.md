@@ -1,6 +1,7 @@
 # Data Source Switching Implementation Plan
 
 Status: Active
+Purpose/Summary: data-source-switching.
 
 **Status:** Implemented (November 2025)
 
@@ -275,7 +276,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - Update `stats-pcap` / API targets to call start/stop helpers
 
 6. **Documentation Updates** (~100 lines changed)
-   - `internal/lidar/docs/architecture/lidar_sidecar_overview.md` - remove PCAP mode flag references
+   - `docs/lidar/architecture/lidar_sidecar_overview.md` - remove PCAP mode flag references
    - `cmd/radar/README.md` - update with new API workflow
    - `scripts/api/README.md` - document new endpoint
    - Add migration guide for `--lidar-pcap-mode` users

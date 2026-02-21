@@ -1,9 +1,9 @@
 # LIDAR Foreground Extraction and Tracking Implementation Plan
 
 Status: Active
+Purpose/Summary: foreground_tracking.
 
 **Status:** Implementation Complete through Phase 3.7
-**Date:** January 2026
 **Version:** 7.1 - Warmup sensitivity scaling added
 
 ---
@@ -1579,10 +1579,10 @@ MeasurementNoise      = [0.2, 0.2]
 ### C. Related Documentation
 
 - `ARCHITECTURE.md` - System architecture overview
-- `internal/lidar/docs/architecture/lidar_sidecar_overview.md` - LIDAR implementation details
-- `internal/lidar/docs/devlog.md` - Development history
-- `internal/lidar/background.go` - Background grid implementation
-- `internal/lidar/arena.go` - Track data structures
+- `docs/lidar/architecture/lidar_sidecar_overview.md` - LIDAR implementation details
+- `docs/DEVLOG.md` - Development history
+- `internal/lidar/l3grid/background.go` - Background grid implementation
+- `internal/lidar/l5tracks/types.go` - Track data structures
 
 ### D. ML Training Data Storage
 
@@ -1701,7 +1701,7 @@ When pose validation is implemented:
 ## Related Documentation
 
 - **[ML Pipeline Roadmap](../ROADMAP.md)** - Complete architectural plan for Phase 4.0-4.4 (analysis runs, labeling UI, ML training, parameter tuning)
-- **[Velocity-Coherent Foreground Extraction](../future/velocity-coherent-foreground-extraction.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
+- **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
 - **[LIDAR Foreground Tracking Status](../operations/lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
 - **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
 - **[Development Log](../../DEVLOG.md)** - Chronological implementation history

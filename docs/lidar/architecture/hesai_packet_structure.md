@@ -1,6 +1,7 @@
 # Hesai Pandar40P LiDAR Packet Structure Analysis
 
 Status: Active
+Purpose/Summary: hesai_packet_structure.
 
 ## Overview
 

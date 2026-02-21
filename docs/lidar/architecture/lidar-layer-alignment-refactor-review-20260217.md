@@ -1,6 +1,7 @@
 # LiDAR Layer Alignment and Readability Review (2026-02-17)
 
 Status: Active
+Purpose/Summary: lidar-layer-alignment-refactor-review-20260217.
 
 ## Goal
 

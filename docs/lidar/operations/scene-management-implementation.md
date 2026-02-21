@@ -1,10 +1,10 @@
 # Phase 2 (Scene Management) Implementation
 
 Status: Active
+Purpose/Summary: scene-management-implementation.
 
-**Date:** February 2026
 **Status:** ✅ Complete
-**Design Document:** `docs/lidar/future/track-labeling-auto-aware-tuning-future.md`
+**Design Document:** `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md`
 
 ## Overview
 

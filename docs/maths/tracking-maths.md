@@ -1,6 +1,7 @@
 # Tracking Maths
 
 Status: Active
+Purpose/Summary: tracking-maths.
 
 **Status:** Implementation-aligned math note
 **Layer:** L5 Tracks (`internal/lidar/l5tracks`)

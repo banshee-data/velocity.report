@@ -1,6 +1,7 @@
 # Vector-Grid vs Velocity Algorithm Workstreams
 
 Status: Active separation plan (foundation guidance)
+Purpose/Summary: 20260221-vector-vs-velocity-workstreams.
 
 ## Purpose
 
@@ -51,8 +52,8 @@ Current status:
 
 - Planning only. No velocity-coherent extractor is active in `main` runtime.
 - Design references:
-  - `docs/lidar/future/velocity-coherent-foreground-extraction.md`
-  - `docs/proposals/maths/20260220-velocity-coherent-foreground-extraction.md`
+  - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
+  - `docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
 
 ## Required Boundary Between A and B
 

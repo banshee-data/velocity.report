@@ -2,6 +2,7 @@
 
 Owner: LiDAR pipeline maintainers
 Status: In progress
+Purpose/Summary: 20260221-lidar-foundations-fixit.
 
 ## Goal
 

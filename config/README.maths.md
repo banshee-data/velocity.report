@@ -38,7 +38,7 @@ Code path:
 Math reference:
 
 - [`docs/maths/ground-plane-maths.md`](../docs/maths/ground-plane-maths.md)
-- Proposal: [`docs/proposals/maths/20260219-unify-l3-l4-settling.md`](../docs/proposals/maths/20260219-unify-l3-l4-settling.md)
+- Proposal: [`docs/maths/proposals/20260219-unify-l3-l4-settling.md`](../docs/maths/proposals/20260219-unify-l3-l4-settling.md)
 
 Keys:
 

@@ -1,6 +1,7 @@
 # LiDAR Auto-Tuning Guide
 
 Status: Active
+Purpose/Summary: auto-tuning.
 
 **Status**: Phases 1–2 implemented, Phase 5 (ground truth) implemented
 

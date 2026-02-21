@@ -1,6 +1,7 @@
 # Code Coverage
 
 Status: Reference
+Purpose/Summary: COVERAGE.
 
 This project uses [Codecov](https://codecov.io) to track code coverage across all three main components: Go server, Python PDF generator, and Web frontend.
 

@@ -1,9 +1,9 @@
 # LIDAR ML Pipeline Roadmap
 
 Status: Active
+Purpose/Summary: ROADMAP.
 
 **Status:** Phase 3.7 Implemented, Phase 3.8–3.9 Implemented, Phases 4.0-4.3 Planned
-**Date:** December 1, 2025 (updated February 2026)
 **Author:** Copilot (Architectural Analysis)
 **Version:** 1.1
 

@@ -1,6 +1,7 @@
 # LiDAR Logging Stream Split and Rubric Design (2026-02-17)
 
 Status: Active
+Purpose/Summary: lidar-logging-stream-split-and-rubric-design-20260217.
 
 ## Objective
 
