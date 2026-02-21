@@ -21,7 +21,7 @@ Current state is effectively single-model (`hesai-pandar40p`) parsing with model
 
 Introduce a `ModelParserFactory` and `ModelRegistry` in `internal/lidar/l1packets/parse`:
 
-- `ModelRegistry` maps `model_key` (for example `hesai-pandar40p`, `ouster-os1-64`) to capabilities and parser constructor
+- `ModelRegistry` maps `model_key` (e.g. `hesai-pandar40p`, `ouster-os1-64`) to capabilities and parser constructor
 - `ModelParserFactory` builds the parser from a resolved model profile
 - Existing `network.Parser` interface remains the integration seam for `UDPListener`
 
@@ -83,7 +83,7 @@ This mirrors existing repository conventions: stable catalogue + editable config
 Serve configuration through explicit API resources:
 
 - `GET /api/lidar/models` — list supported models and capabilities
-- `GET /api/lidar/model-profiles` / `POST|PUT|DELETE` — manage site profiles
+- `GET /api/lidar/model-profiles`, `POST /api/lidar/model-profiles`, `PUT /api/lidar/model-profiles`, `DELETE /api/lidar/model-profiles` — manage site profiles
 - `GET /api/lidar/ingest/config` — active binding and resolved runtime config
 - `POST /api/lidar/ingest/reload` — apply enabled profile/binding without process restart
 - `POST /api/lidar/ingest/test` — validate selected model+network pair against live traffic metadata
