@@ -55,39 +55,84 @@ OUT_ROOT="logs/perf"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pcap)
-      PCAP_PATH="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --pcap" >&2
+        usage
+        exit 2
+      fi
+      PCAP_PATH="$2"
       shift 2
       ;;
     --sensor)
-      SENSOR_ID="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --sensor" >&2
+        usage
+        exit 2
+      fi
+      SENSOR_ID="$2"
       shift 2
       ;;
     --base-url)
-      BASE_URL="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --base-url" >&2
+        usage
+        exit 2
+      fi
+      BASE_URL="$2"
       shift 2
       ;;
     --interval)
-      INTERVAL="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --interval" >&2
+        usage
+        exit 2
+      fi
+      INTERVAL="$2"
       shift 2
       ;;
     --idle-seconds)
-      IDLE_SECONDS="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --idle-seconds" >&2
+        usage
+        exit 2
+      fi
+      IDLE_SECONDS="$2"
       shift 2
       ;;
     --max-active-seconds)
-      MAX_ACTIVE_SECONDS="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --max-active-seconds" >&2
+        usage
+        exit 2
+      fi
+      MAX_ACTIVE_SECONDS="$2"
       shift 2
       ;;
     --go-pid)
-      GO_PID="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --go-pid" >&2
+        usage
+        exit 2
+      fi
+      GO_PID="$2"
       shift 2
       ;;
     --swift-pid)
-      SWIFT_PID="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --swift-pid" >&2
+        usage
+        exit 2
+      fi
+      SWIFT_PID="$2"
       shift 2
       ;;
     --out-dir)
-      OUT_ROOT="${2:-}"
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --out-dir" >&2
+        usage
+        exit 2
+      fi
+      OUT_ROOT="$2"
       shift 2
       ;;
     --help|-h)
