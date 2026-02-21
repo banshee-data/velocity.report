@@ -23,6 +23,21 @@ Add a first-class metrics channel to the visualiser so each scene frame can be i
 - Remote/cloud telemetry pipelines.
 - Replacing existing frame or event timeline features.
 
+## Comparative harness design
+
+The harness compares two representations for the same frame/time window:
+
+- **Centroid-vector scene**: track/cluster-centroid and vector-derived world model.
+- **Grid-world scene**: original grid-based world representation used by the pipeline.
+
+Both are aligned by `frame_id` and `timestamp_ns`, then evaluated against shared point-cloud and bounding-box evidence.
+
+### Comparison outputs
+
+- Resolution delta metrics (how much detail is retained/lost between vector and grid views).
+- Drift metrics between boxes and points over time.
+- Subregion quality metrics against ground truth.
+
 ## Metric Model
 
 ### Metric families
@@ -39,6 +54,39 @@ Initial required metrics:
 - `perf.memory_rss_mb` (`PERFORMANCE`, MB, warning >= 1000, error >= 1500)
 - `scene.points_outside_bbox_count` (`SCENE_HEALTH`, count, warning >= 50, error >= 200)
 - `scene.track_drift_m` (`SCENE_HEALTH`, metres, warning >= 0.50, error >= 1.00)
+- `scene.subregion_match_iou` (`SCENE_HEALTH`, ratio, warning < 0.70, error < 0.50)
+
+### Harness metric formulas
+
+- **Points outside boxes**: count points that do not fall within any expected box for the same object/subregion.
+- **Drift (metres)**: distance between expected object centroid (ground truth or baseline world) and observed centroid/box centre.
+- **Subregion performance**: per-region overlap score (IoU) and point-class agreement versus annotated truth.
+
+## Ground truth annotation model
+
+The harness requires a scene annotation layer that can be loaded for replay and live comparison.
+
+Minimum label sets:
+
+- Ground plane polygons/mesh regions.
+- Wall/structure regions.
+- Known static objects (for example poles, signs, kerb islands).
+- Optional dynamic-object reference tracks for benchmark runs.
+
+Proposed annotation payload:
+
+```json
+{
+  "scene_id": "site-001-main-street",
+  "regions": [
+    {"region_id": "ground_a", "class": "ground_plane", "geometry": "..."},
+    {"region_id": "wall_east", "class": "wall", "geometry": "..."}
+  ],
+  "known_objects": [
+    {"object_id": "pole_07", "class": "static_object", "geometry": "..."}
+  ]
+}
+```
 
 ## API Design
 
@@ -75,6 +123,23 @@ message FrameMetrics {
   uint64 frame_id = 1;
   int64 timestamp_ns = 2;
   repeated MetricSample samples = 3;
+  repeated SubregionMetric subregion_metrics = 4;
+  repeated TrackComparisonMetric track_metrics = 5;
+}
+
+message SubregionMetric {
+  string region_id = 1;
+  string metric_key = 2;           // e.g. scene.subregion_match_iou
+  double value = 3;
+  string severity = 4;
+}
+
+message TrackComparisonMetric {
+  string track_id = 1;
+  string metric_key = 2;           // e.g. scene.track_drift_m
+  double value = 3;
+  uint32 points_outside_bbox = 4;
+  string severity = 5;
 }
 
 message FrameBundle {
@@ -108,6 +173,26 @@ Response:
 - `next_cursor`
 
 This keeps scene data and metrics queryable side-by-side by shared `frame_id` and `timestamp_ns`.
+
+### 3) Per-track/subregion debug comparison API
+
+Allow front-end tools to request focused comparisons for debug workflows.
+
+- `POST /api/lidar/runs/{run_id}/metrics/compare`
+
+Request body:
+
+```json
+{
+  "start_ns": 1700000000000000000,
+  "end_ns": 1700000005000000000,
+  "track_ids": ["track_42", "track_57"],
+  "region_ids": ["ground_a", "wall_east"],
+  "include_point_mismatch_samples": true
+}
+```
+
+Response includes per-track drift, points-outside-box counts, and per-region match metrics so the UI can inspect specific offenders.
 
 ## Per-frame collection and logging
 
@@ -194,8 +279,31 @@ The timeline should be definition-driven, not hard-coded:
 1. Add proto fields and backend emitters behind `include_metrics`.
 2. Populate `metric_definitions` in capability response.
 3. Add recorder/header support for metric metadata.
-4. Add timeline lanes in macOS visualiser.
-5. Keep old logs readable (`metrics` field absent => no metrics lane data).
+4. Add comparison harness execution path (vector scene vs grid world) with ground-truth loading.
+5. Add timeline lanes in macOS visualiser.
+6. Keep old logs readable (`metrics` field absent => no metrics lane data).
+
+## Scenario profiling and optimisation prioritisation
+
+After harness implementation, run comparisons across a scenario matrix:
+
+- low/medium/high object density scenes,
+- different road geometries and structure layouts,
+- known edge cases (occlusion-heavy frames, fast crossings, sparse returns).
+
+For each scenario, capture:
+
+- drift distributions by track and region,
+- points-outside-box rates,
+- stage-level runtime costs (for example scene-flow calculations, DBSCAN iterations).
+
+Prioritisation policy:
+
+1. Rank by highest user impact (largest drift/error rates first).
+2. Rank by largest runtime bottlenecks (slowest pipeline stages).
+3. Optimise top offenders first (threshold tuning, maths optimisation, parallelisation) and re-run the same harness to confirm gain.
+
+The workflow is explicitly **measure first, then optimise**.
 
 ## Acceptance criteria
 
