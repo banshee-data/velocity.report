@@ -98,7 +98,7 @@ Checklist:
 
 Exit criteria:
 
-- [ ] Spatial clusters remain robust with existing MinPts behavior
+- [ ] Spatial clusters remain robust with existing MinPts behaviour
 - [ ] Velocity splits occur only when variance exceeds threshold
 - [ ] Normalised metric eliminates unit-mismatch issues
 - [ ] False-positive growth stays within agreed threshold versus baseline
