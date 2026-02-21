@@ -1,7 +1,6 @@
 # Vector-Grid vs Velocity Algorithm Workstreams
 
 Status: Active separation plan (foundation guidance)
-Purpose/Summary: 20260221-vector-vs-velocity-workstreams.
 
 ## Purpose
 

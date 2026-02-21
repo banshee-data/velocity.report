@@ -1,8 +1,5 @@
 # Development Log
 
-Status: Active
-Purpose/Summary: DEVLOG.
-
 ## February 19, 2026 - LiDAR Layer Alignment & Architecture Review
 
 - Implemented LiDAR 6-layer alignment refactor: split `l3grid/background.go` into persistence, export, and drift files.

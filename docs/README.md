@@ -10,7 +10,7 @@ _|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
 # /docs
 
 Status: Active
-Purpose: Documentation structure and conventions
+Purpose: Defines the project documentation contract, folder ownership, naming conventions, and metadata rules so technical docs stay consistent, navigable, and resilient as files move or capabilities expand.
 
 ## /docs root structure
 
@@ -33,7 +33,7 @@ Purpose: Documentation structure and conventions
 ## Naming Conventions
 
 - Plans (flat): `<hub>-<area>-<topic>-plan.md` in `docs/plans/`
-- Maths proposals: domain-meaningful names in `docs/maths/proposals/`
+- Maths proposals: `<yyymmdd>-<topic>.md` in `docs/maths/proposals/`
 
 ## Metadata Conventions
 
@@ -50,7 +50,7 @@ Additional rules:
 > Template/Style Quick Box
 >
 > - `Status:` required
-> - `Purpose:` required
+> - `Purpose:` or `Summary:` required (one of, not both)
 > - `Version:` optional
 > - `Date:` not allowed (remove if present)
 

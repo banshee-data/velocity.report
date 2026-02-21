@@ -1,8 +1,6 @@
 # LiDAR Math Foundations Audit
 
 Status: Active
-Purpose/Summary: 20260221-math-foundations-audit.
-
 Scope: `docs/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
 
 ## 1. Built vs Proposed

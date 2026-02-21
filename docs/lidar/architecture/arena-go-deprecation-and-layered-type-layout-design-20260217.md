@@ -1,8 +1,5 @@
 # `arena.go` Deprecation and Layered Type Layout Design (2026-02-17)
 
-Status: Active
-Purpose/Summary: arena-go-deprecation-and-layered-type-layout-design-20260217.
-
 ## Objective
 
 Deprecate `internal/lidar/arena.go` and replace it with layer-aligned type files that match `docs/lidar/architecture/lidar-data-layer-model.md`.

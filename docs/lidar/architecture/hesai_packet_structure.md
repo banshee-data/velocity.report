@@ -1,8 +1,5 @@
 # Hesai Pandar40P LiDAR Packet Structure Analysis
 
-Status: Active
-Purpose/Summary: hesai_packet_structure.
-
 ## Overview
 
 This document provides a comprehensive analysis of the Hesai Pandar40P LiDAR UDP packet format based on live packet captures and parsing implementation. The sensor transmits 3D point cloud data via UDP packets at high frequency, with each packet containing measurements from all 40 laser channels across 10 azimuth positions.

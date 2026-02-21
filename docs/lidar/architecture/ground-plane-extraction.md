@@ -1,8 +1,5 @@
 # LiDAR Ground Plane Extraction — Architecture Specification
 
-Status: Active
-Purpose/Summary: ground-plane-extraction.
-
 ## 1. Overview & Motivation
 
 ### Purpose
