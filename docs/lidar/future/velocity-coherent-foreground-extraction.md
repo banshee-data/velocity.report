@@ -9,7 +9,7 @@ This document is now the implementation plan and execution checklist.
 
 The mathematical model, parameter tradeoffs, and expected benefits are documented in:
 
-- [`docs/lidar/future/velocity-coherent-foreground-extraction-math.md`](./velocity-coherent-foreground-extraction-math.md)
+- [`docs/maths/proposal/20260220-velocity-coherent-foreground-extraction.md`](../../maths/proposal/20260220-velocity-coherent-foreground-extraction.md)
 
 ---
 
@@ -19,11 +19,12 @@ Build a velocity-coherent foreground extraction path that runs alongside the cur
 
 ### In Scope
 
-- Per-point velocity estimation across frames
-- Position+velocity clustering (6D metric behavior)
-- Long-tail lifecycle states (pre-tail, post-tail)
-- Sparse continuation down to 3 points with stricter velocity checks
-- Fragment merge heuristics for split tracks
+- Cluster-level velocity inheritance from Kalman track state
+- Two-stage clustering: spatial DBSCAN + velocity refinement/split
+- Kalman-based track coasting with uncertainty growth
+- Sparse continuation down to 3 points with continuous tolerance scaling
+- Variance-aware log-likelihood fragment merge scoring
+- Parallel foreground channel union (EMA/range + temporal-gradient)
 - Dual-source storage/API for side-by-side evaluation
 
 ### Out of Scope (for this plan)
@@ -60,68 +61,79 @@ Exit criteria:
 - [ ] Reproducible baseline report generated from one command
 - [ ] Baseline includes precision/recall proxy, track duration, fragmentation rate, and throughput
 
-### Phase 1: Point-Level Velocity Estimation
+### Phase 1: Cluster-Level Velocity Inheritance
 
-**Goal:** Compute velocity vectors and confidence for points with stable frame-to-frame correspondence.
+**Goal:** Wire cluster-level velocity from existing Kalman track state into the clustering pipeline.
 
 Checklist:
 
-- [ ] Create `internal/lidar/velocity_estimation.go`
-- [ ] Implement correspondence search with configurable radius and plausibility gates
-- [ ] Implement velocity confidence scoring
-- [ ] Add `internal/lidar/velocity_estimation_test.go` with synthetic and replayed edge cases
-- [ ] Add config wiring for velocity estimation parameters
+- [ ] Create `internal/lidar/velocity_model.go`
+- [ ] Implement velocity inheritance from L5 Kalman track to L4 cluster
+- [ ] Implement velocity noise model: `Σ_v(i) = Σ_v,track(i) + Σ_v,floor`
+- [ ] Handle untracked/new clusters with `v_i = 0` fallback
+- [ ] Add `internal/lidar/velocity_model_test.go` with tracked/untracked cases
+- [ ] Add config wiring for `clustering.split.sigma2_v` and `clustering.split.q_min`
 
 Exit criteria:
 
-- [ ] Velocity output generated for >95% of matchable points on validation segments
-- [ ] Implausible velocity rates bounded by configured threshold
-- [ ] Unit tests cover no-match, ambiguous-match, and high-noise cases
+- [ ] All tracked clusters inherit velocity from Kalman track state
+- [ ] Untracked clusters have zero velocity with floor covariance
+- [ ] Velocity covariance model includes track uncertainty + floor
+- [ ] Unit tests cover tracked, untracked, and confidence edge cases
 
-### Phase 2: Velocity-Coherent Clustering
+### Phase 2: Two-Stage Velocity-Split Clustering
 
-**Goal:** Cluster points using position+velocity coherence and support `MinPts=3` mode.
+**Goal:** Implement two-stage clustering with spatial DBSCAN followed by velocity refinement/split.
 
 Checklist:
 
-- [ ] Create `internal/lidar/clustering_6d.go`
-- [ ] Implement 6D neighbourhood metric (position + velocity weighting)
-- [ ] Implement minimum-point behavior with sparse guardrails
-- [ ] Add `internal/lidar/clustering_6d_test.go`
+- [ ] Create `internal/lidar/clustering_velocity_split.go`
+- [ ] Implement Stage 1: preserve existing spatial DBSCAN (no MinPts changes)
+- [ ] Implement Stage 2: velocity variance evaluation within spatial clusters
+- [ ] Implement Mahalanobis-like metric: `D²(u_i, u_j) = Δx^T Σ_x^{-1} Δx + Δv^T Σ_v^{-1} Δv`
+- [ ] Implement velocity split logic using variance threshold and confidence gates
+- [ ] Add config wiring for `clustering.metric.eps_sigma`
+- [ ] Add `internal/lidar/clustering_velocity_split_test.go`
 - [ ] Validate cluster stability versus existing DBSCAN on replay data
 
 Exit criteria:
 
-- [ ] 3-point sparse clusters are accepted only with velocity coherence
+- [ ] Spatial clusters remain robust with existing MinPts behavior
+- [ ] Velocity splits occur only when variance exceeds threshold
+- [ ] Normalised metric eliminates unit-mismatch issues
 - [ ] False-positive growth stays within agreed threshold versus baseline
 - [ ] Runtime impact is measured and documented
 
-### Phase 3: Long-Tail Lifecycle (Pre-Tail and Post-Tail)
+### Phase 3: Kalman-Based Track Coasting
 
-**Goal:** Extend track continuity at object entry and exit boundaries.
+**Goal:** Extend track continuity using Kalman covariance propagation with uncertainty growth.
 
 Checklist:
 
-- [ ] Create `internal/lidar/long_tail.go`
-- [ ] Add pre-tail predicted entry association logic
-- [ ] Add post-tail prediction window and uncertainty growth logic
-- [ ] Extend track states and transitions
-- [ ] Add `internal/lidar/long_tail_test.go`
+- [ ] Create `internal/lidar/track_coasting.go`
+- [ ] Implement Kalman propagation: `P(τ) = F P_0 F^T + Q(τ)`
+- [ ] Implement Mahalanobis association gating for predicted tracks
+- [ ] Add prediction/coast window with configurable horizon (`tracking.predict.tau_max_s`)
+- [ ] Extend track states and transitions for coasting mode
+- [ ] Add `internal/lidar/track_coasting_test.go`
 
 Exit criteria:
 
 - [ ] Mean track duration increases on boundary-entry/exit scenarios
 - [ ] Recovery after brief occlusions improves without large precision drop
+- [ ] Uncertainty grows correctly with coast duration
 - [ ] State machine transitions are fully test-covered
 
-### Phase 4: Sparse Continuation
+### Phase 4: Sparse Continuation with Continuous Tolerance Scaling
 
-**Goal:** Preserve track identity through low-point-count observations.
+**Goal:** Preserve track identity through low-point-count observations using continuous scaling.
 
 Checklist:
 
 - [ ] Create `internal/lidar/sparse_continuation.go`
-- [ ] Implement adaptive tolerances by point count
+- [ ] Implement continuous tolerance scaling: `tolerance(n) = k / sqrt(n)`
+- [ ] Add physically plausible clamping bounds
+- [ ] Add config wiring for `tracking.sparse.k_tol`
 - [ ] Enforce confidence and variance gates for 3-5 point frames
 - [ ] Integrate sparse continuation decisions into tracker updates
 - [ ] Add targeted tests for 3-point continuation and failure boundaries
@@ -130,27 +142,53 @@ Exit criteria:
 
 - [ ] Sparse tracks are maintained when motion is coherent
 - [ ] No significant increase in ID switches in sparse scenes
+- [ ] Tolerance scaling is continuous (not discrete tiers)
 - [ ] Parameter sensitivity documented for tuning
 
-### Phase 5: Track Fragment Merging
+### Phase 5: Parallel Foreground Channel Union
 
-**Goal:** Merge split track fragments when kinematics are consistent.
+**Goal:** Implement parallel foreground channels with union policy to improve sparse recall.
+
+Checklist:
+
+- [ ] Create `internal/lidar/l3grid/foreground_temporal.go`
+- [ ] Implement Channel A: existing EMA/range foreground logic (no changes)
+- [ ] Implement Channel B: temporal-gradient motion foreground
+- [ ] Implement union policy: `foreground = A OR B`
+- [ ] Add config wiring for `foreground.temporal.enabled`, `foreground.temporal.v_min_mps`, `foreground.channel_union_mode`
+- [ ] Add `internal/lidar/l3grid/foreground_temporal_test.go`
+- [ ] Validate false-positive rate versus baseline
+
+Exit criteria:
+
+- [ ] Both channels operate independently (no cyclic dependencies)
+- [ ] Union output correctly combines both channels
+- [ ] Temporal channel triggers on motion exceeding `v_min_mps`
+- [ ] False-positive increase stays within agreed threshold
+- [ ] Channel switching can be controlled via config
+
+### Phase 6: Variance-Aware Track Fragment Merging
+
+**Goal:** Merge split track fragments using log-likelihood scoring.
 
 Checklist:
 
 - [ ] Create `internal/lidar/track_merge.go`
 - [ ] Implement candidate generation using time/position/velocity gates
-- [ ] Implement merge scoring and deterministic tie-breaking
+- [ ] Implement variance-aware log-likelihood merge scoring: `Λ_merge = Σ component terms`
+- [ ] Add merge acceptance threshold: `Λ_merge >= Λ_min` (config: `tracking.merge.lambda_min`)
+- [ ] Implement deterministic tie-breaking
 - [ ] Add `internal/lidar/track_merge_test.go`
 - [ ] Record merge decisions for audit/debug
 
 Exit criteria:
 
 - [ ] Fragmentation rate decreases on occlusion-heavy validation runs
+- [ ] Merge scoring uses variance weighting (not equal-weight averaging)
 - [ ] Incorrect merge rate remains below agreed threshold
 - [ ] Merge audit trail is queryable
 
-### Phase 6: Pipeline, Storage, and API Integration
+### Phase 7: Pipeline, Storage, and API Integration
 
 **Goal:** Run current and velocity-coherent paths in parallel and expose both results.
 
@@ -166,9 +204,9 @@ Exit criteria:
 
 - [ ] Both sources can be queried independently and jointly
 - [ ] Dashboard comparison can be generated from stored results
-- [ ] No regression in existing source behavior
+- [ ] No regression in existing source behaviour
 
-### Phase 7: Validation and Rollout
+### Phase 8: Validation and Rollout
 
 **Goal:** Decide production readiness from measured outcomes.
 
@@ -202,14 +240,18 @@ These targets are hypotheses to validate, not committed production guarantees.
 
 ## Risks and Mitigations
 
-- Risk: Low `MinPts` increases noise clusters
-  - Mitigation: strict velocity-confidence and variance gates in sparse mode
-- Risk: Over-aggressive post-tail prediction causes ghost tracks
-  - Mitigation: uncertainty growth caps and hard prediction timeout
+- Risk: Velocity noise model over/under-confidence
+  - Mitigation: explicit floor covariance and empirical tuning of `Σ_v,floor`
+- Risk: Velocity splits in Stage 2 increase fragmentation
+  - Mitigation: strict variance threshold and confidence gates (`clustering.split.q_min`)
+- Risk: Over-aggressive Kalman coasting causes ghost tracks
+  - Mitigation: uncertainty growth caps and hard prediction timeout (`tracking.predict.tau_max_s`)
 - Risk: Incorrect fragment merges
-  - Mitigation: conservative merge threshold + auditable merge logs
+  - Mitigation: conservative log-likelihood threshold (`tracking.merge.lambda_min`) + auditable merge logs
+- Risk: Temporal foreground channel increases false positives
+  - Mitigation: motion threshold (`foreground.temporal.v_min_mps`) and union-only policy (no cyclic feedback)
 - Risk: Runtime overhead from added matching/clustering
-  - Mitigation: bounded neighbourhood queries and benchmark gates in CI
+  - Mitigation: two-stage design limits high-dimensional operations + benchmark gates in CI
 
 ---
 
@@ -223,16 +265,17 @@ These targets are hypotheses to validate, not committed production guarantees.
 
 ## Milestones
 
-1. M1: Phase 1 complete with validated velocity estimates
-2. M2: Phase 2 complete with stable sparse clustering
-3. M3: Phase 3-4 complete with long-tail and sparse continuation
-4. M4: Phase 5 complete with audited fragment merging
-5. M5: Phase 6-7 complete with rollout decision package
+1. M1: Phase 1 complete with validated cluster-level velocity inheritance
+2. M2: Phase 2 complete with stable two-stage clustering
+3. M3: Phase 3-4 complete with Kalman coasting and sparse continuation
+4. M4: Phase 5 complete with parallel foreground channel union
+5. M5: Phase 6 complete with audited variance-aware fragment merging
+6. M6: Phase 7-8 complete with rollout decision package
 
 ---
 
 ## Related Docs
 
-- [`docs/lidar/future/velocity-coherent-foreground-extraction-math.md`](./velocity-coherent-foreground-extraction-math.md)
+- [`docs/maths/proposal/20260220-velocity-coherent-foreground-extraction.md`](../../maths/proposal/20260220-velocity-coherent-foreground-extraction.md)
 - [`docs/lidar/future/static-pose-alignment-plan.md`](./static-pose-alignment-plan.md)
 - [`docs/lidar/future/motion-capture-architecture.md`](./motion-capture-architecture.md)
