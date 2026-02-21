@@ -62,6 +62,10 @@ The production pipeline uses four math-heavy layers:
   - CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
 - [Unify L3/L4 Settling Proposal](proposal/20260219-unify-l3-l4-settling.md)
   - Overlap analysis, interference risks, and a single-settlement architecture updated for polygon/polyline region keys.
+- [Velocity-Coherent Foreground Extraction Proposal](proposal/20260220-velocity-coherent-foreground-extraction.md)
+  - Per-point velocity estimation, 6D clustering metric, track continuity model, and fragment merging.
+- [Velocity-Coherent Foreground Extraction Review](proposal/20260220-velocity-coherent-foreground-extraction-review.md)
+  - Mathematical review: correspondence noise, 6D metric scaling, L3 bottleneck, and validation methodology.
 
 ## Config Mapping
 
