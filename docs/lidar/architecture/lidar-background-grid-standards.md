@@ -1,5 +1,7 @@
 # LiDAR Background Grid — Standards Comparison
 
+Status: Active
+
 ## Context
 
 - Current implementation stores background as a **polar range image** (`BackgroundGrid` in `internal/lidar/background.go`): rings × azimuth bins with per-cell average range, spread, last-updated timestamp, freeze window, and acceptance counters. Snapshots persist to `lidar_bg_snapshot` with compressed `[]BackgroundCell` blobs (`internal/lidar/docs/schema.sql`).

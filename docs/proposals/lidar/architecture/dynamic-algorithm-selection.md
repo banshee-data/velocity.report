@@ -1,12 +1,15 @@
 # Dynamic Algorithm Selection for LiDAR Foreground Extraction
 
+Status: Proposed
+Target Directory: docs/lidar/architecture/
+
 **Status:** Branch-History Design Specification (Not Active on `main` Runtime)
 **Date:** February 8, 2026
 **Source Branch:** `copilot/summarize-changes-and-spec` (34 commits, 54 files, ~7,300 lines)
 **Related Docs:**
 
-- [`docs/lidar/future/velocity-coherent-foreground-extraction.md`](../future/velocity-coherent-foreground-extraction.md) — Original design vision
-- [`docs/lidar/ROADMAP.md`](../ROADMAP.md) — ML Pipeline Roadmap (Phase 4.x)
+- [`docs/lidar/future/velocity-coherent-foreground-extraction.md`](../../../lidar/future/velocity-coherent-foreground-extraction.md) — Original design vision
+- [`docs/lidar/ROADMAP.md`](../../../lidar/ROADMAP.md) — ML Pipeline Roadmap (Phase 4.x)
 
 ---
 

@@ -1,5 +1,8 @@
 # Design: Ghost Trails and Velocity Uncertainty Cones (Feature 5)
 
+Status: Proposed
+Target Directory: docs/lidar/visualiser/
+
 **Status:** Proposed (February 2026)
 
 ## Objective

@@ -1,5 +1,8 @@
 # Labelling + QC Enhancements (Features 1, 2, 3, 5, 7, 8, 10)
 
+Status: Proposed
+Target Directory: docs/lidar/visualiser/
+
 **Status:** Proposed (February 2026)
 
 ## Scope
@@ -16,13 +19,13 @@ This document defines the shared architecture for the following feature designs:
 
 Feature-specific designs are in:
 
-- `docs/lidar/visualiser/07-track-quality-score.md`
-- `docs/lidar/visualiser/08-track-event-timeline-bar.md`
-- `docs/lidar/visualiser/09-split-merge-repair-workbench.md`
-- `docs/lidar/visualiser/10-trails-and-uncertainty-visualisation.md`
-- `docs/lidar/visualiser/11-physics-checks-and-confirmation-gates.md`
-- `docs/lidar/visualiser/12-priority-review-queue.md`
-- `docs/lidar/visualiser/13-qc-dashboard-and-audit-export.md`
+- `docs/proposals/lidar/visualiser/07-track-quality-score.md`
+- `docs/proposals/lidar/visualiser/08-track-event-timeline-bar.md`
+- `docs/proposals/lidar/visualiser/09-split-merge-repair-workbench.md`
+- `docs/proposals/lidar/visualiser/10-trails-and-uncertainty-visualisation.md`
+- `docs/proposals/lidar/visualiser/11-physics-checks-and-confirmation-gates.md`
+- `docs/proposals/lidar/visualiser/12-priority-review-queue.md`
+- `docs/proposals/lidar/visualiser/13-qc-dashboard-and-audit-export.md`
 
 ## Design Principles
 

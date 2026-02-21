@@ -1,5 +1,7 @@
 # Adaptive Region Parameters for Background Grid
 
+Status: Active
+
 ## Overview
 
 The LiDAR background grid now supports **adaptive region-based parameters** that automatically segment the sensor's field of view into regions with different settling characteristics, and apply optimized parameters to each region.

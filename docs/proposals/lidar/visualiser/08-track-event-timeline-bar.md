@@ -1,5 +1,8 @@
 # Design: Timeline Event Bar (Feature 2)
 
+Status: Proposed
+Target Directory: docs/lidar/visualiser/
+
 **Status:** Proposed (February 2026)
 
 ## Objective

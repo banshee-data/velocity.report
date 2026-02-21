@@ -1,5 +1,8 @@
 # Design: One-Click Split/Merge Repair Workbench (Feature 3)
 
+Status: Proposed
+Target Directory: docs/lidar/visualiser/
+
 **Status:** Proposed (February 2026)
 
 ## Objective

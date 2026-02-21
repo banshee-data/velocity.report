@@ -1,5 +1,7 @@
 # Warmup Trails Fix — January 2026
 
+Status: Historical
+
 **Status:** Resolved
 **Issue:** False positive foreground points ("trails") appearing for ~30 seconds after grid reset.
 

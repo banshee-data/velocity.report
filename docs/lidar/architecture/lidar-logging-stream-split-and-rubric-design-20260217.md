@@ -1,5 +1,7 @@
 # LiDAR Logging Stream Split and Rubric Design (2026-02-17)
 
+Status: Active
+
 ## Objective
 
 Replace the single `Debugf` logging stream with three explicit streams (`Opsf`, `Diagf`, `Tracef`) to separate actionable events from high-volume telemetry.

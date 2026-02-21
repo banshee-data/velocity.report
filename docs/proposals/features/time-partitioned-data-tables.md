@@ -1,5 +1,8 @@
 # Design Specification: Time-Partitioned Raw Data Tables
 
+Status: Proposed
+Target Directory: docs/features/
+
 **Status:** Draft
 **Created:** 2025-12-01
 **Author:** Ictinus (Product-Conscious Software Architect)
@@ -3339,14 +3342,14 @@ func PreflightChecks() error {
 
 ### Related velocity.report Documentation
 
-- [ARCHITECTURE.md](/ARCHITECTURE.md) - System architecture overview
-- [README.md](/README.md) - Project overview
-- [internal/db/schema.sql](/internal/db/schema.sql) - Current database schema
+- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture overview
+- [README.md](../../../README.md) - Project overview
+- [`internal/db/schema.sql`](../../../internal/db/schema.sql) - Current database schema
 
 ### Future Reading
 
-- [Multi-Device Support Design](docs/features/multi-device-support.md) (planned)
-- [Data Retention Policies](docs/features/data-retention.md) (planned)
+- Multi-device support design (planned, doc not written yet)
+- Data retention policy document (planned, doc not written yet)
 
 ---
 

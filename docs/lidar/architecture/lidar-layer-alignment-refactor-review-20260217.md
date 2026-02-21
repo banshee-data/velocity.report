@@ -1,5 +1,7 @@
 # LiDAR Layer Alignment and Readability Review (2026-02-17)
 
+Status: Active
+
 ## Goal
 
 Make the codebase more logical and readable by aligning implementation with the six-layer model in `docs/lidar/architecture/lidar-data-layer-model.md`.

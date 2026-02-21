@@ -1,5 +1,7 @@
 # Velocity-Coherent Foreground Extraction Implementation Plan and Checklist
 
+Status: Future
+
 **Status:** Planning (Not Yet Implemented)
 **Date:** February 20, 2026
 **Owner:** LIDAR Pipeline Team
@@ -9,7 +11,7 @@ This document is now the implementation plan and execution checklist.
 
 The mathematical model, parameter tradeoffs, and expected benefits are documented in:
 
-- [`docs/maths/proposal/20260220-velocity-coherent-foreground-extraction.md`](../../maths/proposal/20260220-velocity-coherent-foreground-extraction.md)
+- [`docs/proposals/maths/20260220-velocity-coherent-foreground-extraction.md`](../../proposals/maths/20260220-velocity-coherent-foreground-extraction.md)
 
 ---
 
@@ -234,6 +236,6 @@ These targets are hypotheses to validate, not committed production guarantees.
 
 ## Related Docs
 
-- [`docs/maths/proposal/20260220-velocity-coherent-foreground-extraction.md`](../../maths/proposal/20260220-velocity-coherent-foreground-extraction.md)
+- [`docs/proposals/maths/20260220-velocity-coherent-foreground-extraction.md`](../../proposals/maths/20260220-velocity-coherent-foreground-extraction.md)
 - [`docs/lidar/future/static-pose-alignment-plan.md`](./static-pose-alignment-plan.md)
 - [`docs/lidar/future/motion-capture-architecture.md`](./motion-capture-architecture.md)

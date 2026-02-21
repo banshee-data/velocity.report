@@ -1,5 +1,7 @@
 # Hesai LIDAR 7DOF Track Production - Future AV Integration
 
+Status: Future
+
 **Status:** DEFERRED - See Simplification Notes Below
 **Date:** December 18, 2025 (Updated January 2026)
 **Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualization

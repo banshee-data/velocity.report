@@ -1,5 +1,8 @@
 # Feature Specification: Site Configuration with Time-Based Cosine Error Correction
 
+Status: Proposed
+Target Directory: docs/features/
+
 **Status:** Proposed / Design Phase
 **Date:** 2025-11-07 (Revised 2026-01-19)
 **Author:** Ictinus (Product Architecture Agent)

@@ -1,5 +1,7 @@
 # Implementation Plan
 
+Status: Active
+
 This document defines an incremental, API-first implementation plan with explicit milestones and acceptance criteria.
 
 **Current Status** (February 2026):
@@ -395,7 +397,7 @@ See [../refactor/01-tracking-upgrades.md](../refactor/01-tracking-upgrades.md) f
 - [x] JSON export endpoint for ML pipeline
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
-> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`../future/track-labeling-auto-aware-tuning.md`](../future/track-labeling-auto-aware-tuning.md) Phase 1.1.
+> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`../future/track-labeling-auto-aware-tuning-future.md`](../future/track-labeling-auto-aware-tuning-future.md) Phase 1.1.
 
 **Acceptance Criteria**:
 

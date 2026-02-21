@@ -1,5 +1,7 @@
 # Motion Capture Architecture - Future Specification
 
+Status: Future
+
 **Status:** Future Work (Not in Current Release)
 **Date:** December 17, 2025
 **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)

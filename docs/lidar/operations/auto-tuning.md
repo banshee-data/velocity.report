@@ -1,5 +1,7 @@
 # LiDAR Auto-Tuning Guide
 
+Status: Active
+
 **Status**: Phases 1–2 implemented, Phase 5 (ground truth) implemented
 
 This guide covers the complete auto-tuning system: tunable parameters, collected metrics, scoring objectives, operational workflows, and decision-making strategies. It is intended as a reference for both human operators and AI agents refining LiDAR tracking parameters.

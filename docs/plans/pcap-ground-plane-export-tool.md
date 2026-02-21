@@ -1,11 +1,13 @@
 # Ground Plane Export for pcap-analyse Tool
 
+Status: Planned
+
 **Status**: Planning
 **Target**: `cmd/tools/pcap-analyse`
 **Related Design Docs**:
 
 - `docs/lidar/architecture/ground-plane-extraction.md`
-- `docs/lidar/architecture/gps-ethernet-parsing.md`
+- `docs/proposals/lidar/architecture/gps-ethernet-parsing.md`
 - `docs/maths/ground-plane-maths.md`
 
 ## Objective
@@ -253,7 +255,7 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 ### Coordinate Fallback Chain
 
 1. **PCAP GPS** (if `--gps-from-pcap` enabled):
-   - Parse GPS ethernet packets using `docs/lidar/architecture/gps-ethernet-parsing.md` spec
+   - Parse GPS ethernet packets using `docs/proposals/lidar/architecture/gps-ethernet-parsing.md` spec
    - Extract first valid GNGGA or GNRMC sentence with 3D fix
    - Use lat/lon/alt from GPS, heading from `--gps-heading` or NMEA course-over-ground
 

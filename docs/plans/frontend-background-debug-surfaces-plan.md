@@ -1,5 +1,7 @@
 # Frontend Background Debug Surfaces Plan
 
+Status: Planned
+
 **Status:** Planning-only (no implementation in this branch)
 **Scope:** Swift visualiser debugging outputs for background settlement
 **Related:** [`docs/lidar/visualiser/02-api-contracts.md`](../lidar/visualiser/02-api-contracts.md), [`docs/lidar/visualiser/03-architecture.md`](../lidar/visualiser/03-architecture.md), [`docs/lidar/visualiser/04-implementation-plan.md`](../lidar/visualiser/04-implementation-plan.md), [`config/README.maths.md`](../../config/README.maths.md)

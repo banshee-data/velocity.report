@@ -1,5 +1,7 @@
 # HINT Sweep Mode — Human-Involved Numerical Tuning
 
+Status: Planned
+
 **Status**: Implemented ✅ (Core functionality complete: 46/57 items)
 
 **Summary**: HINT sweep mode is fully functional with backend, API, dashboard UI, and notifications implemented. Remaining 11 items are polish tasks: macOS visualiser label UX improvements (P1: 4 sub-items, P2: 2 sub-items), TypeScript type definitions, page subtitle, and inline continue button in Svelte page.

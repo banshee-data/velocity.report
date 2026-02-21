@@ -1,7 +1,8 @@
 # Precompiled LaTeX Format Plan
 
+Status: Planned
+
 **Status**: Draft — awaiting review before implementation
-**Date**: 13 February 2026
 **Parent**: [RPi Imager Fork Design § 4.6 Option B](rpi-imager-fork-design.md)
 **Goal**: Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX
 tree and precompiled `.fmt` file, reducing the Raspberry Pi image by ~700–750 MB

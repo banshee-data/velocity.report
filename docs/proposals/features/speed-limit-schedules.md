@@ -1,5 +1,8 @@
 # Feature Specification: Time-Based Speed Limit Schedules
 
+Status: Proposed
+Target Directory: docs/features/
+
 **Status:** Design Specification (Not Implemented)
 **Created:** 2025-12-01
 **Author:** Ictinus (Product Architect)

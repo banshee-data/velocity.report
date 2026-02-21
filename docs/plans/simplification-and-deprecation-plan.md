@@ -1,5 +1,7 @@
 # Simplification and Deprecation Plan
 
+Status: Planned
+
 ## Status: Draft
 
 ## Goal

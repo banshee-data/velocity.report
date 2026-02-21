@@ -1,5 +1,8 @@
 # Design: Priority Review Queue by Uncertainty and Impact (Feature 8)
 
+Status: Proposed
+Target Directory: docs/lidar/visualiser/
+
 **Status:** Proposed (February 2026)
 
 ## Objective

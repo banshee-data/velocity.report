@@ -1,5 +1,7 @@
 # Architecture
 
+Status: Active (contains planned sections)
+
 This document describes the system architecture for the macOS LiDAR visualiser and the supporting pipeline refactor.
 
 ---
@@ -235,7 +237,7 @@ Math coupling reference:
 
 - `docs/maths/background-grid-settling-maths.md`
 - `docs/maths/ground-plane-maths.md`
-- `docs/maths/proposal/20260219-unify-l3-l4-settling.md`
+- `docs/proposals/maths/20260219-unify-l3-l4-settling.md`
 
 Canonical config/maths mapping source:
 

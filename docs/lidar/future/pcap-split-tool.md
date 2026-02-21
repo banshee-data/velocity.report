@@ -1,5 +1,7 @@
 # PCAP Split Tool Design Document
 
+Status: Future
+
 ## Executive Summary
 
 This document describes the design for `pcap-split`, a Go command-line tool that automatically segments LIDAR PCAP files into non-overlapping periods of motion and stability. The tool enables separate analysis pipelines for mobile observation (driving) and static observation (parked) data collection scenarios.
@@ -1114,9 +1116,9 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 ## Related Documentation
 
 - [PCAP Analysis Mode](../operations/pcap-analysis-mode.md) - Web UI analysis workflow
-- Background Subtraction (see [`internal/lidar/background.go`](../../background.go)) - Settling algorithm details
-- [LIDAR Tracking Integration](../roadmap/lidar-tracking-integration.md) - Object detection pipeline
-- [Architecture](../../../../ARCHITECTURE.md) - System overview
+- Background Subtraction (see [`internal/lidar/l3grid/background.go`](../../../internal/lidar/l3grid/background.go)) - Settling algorithm details
+- [LIDAR Tracking Pipeline](../architecture/foreground_tracking.md) - Object detection pipeline
+- [Architecture](../../../ARCHITECTURE.md) - System overview
 
 ## Glossary
 

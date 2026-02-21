@@ -1,5 +1,7 @@
 # SQLite Client Standardization Plan
 
+Status: Planned
+
 ## Status
 
 Draft

@@ -1,5 +1,7 @@
 # LiDAR Background Settling Time Optimisation
 
+Status: Active
+
 **Status**: Phase 2 Complete (February 2026)
 
 **Implementation Summary**:
@@ -393,7 +395,7 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 ## Related Documentation
 
 - [Adaptive Region Parameters](../operations/adaptive-region-parameters.md)
-- [PCAP Split Tool](pcap-split-tool.md) (future: auto-segment for settling)
+- [PCAP Split Tool](../future/pcap-split-tool.md) (future: auto-segment for settling)
 - [LiDAR Background Grid Standards](../architecture/lidar-background-grid-standards.md)
 
 ## References

@@ -1,6 +1,8 @@
 # Serial Configuration UI - Quick Reference
 
-**Full Specification:** See [docs/features/serial-configuration-ui.md](./serial-configuration-ui.md)
+Status: Active
+
+**Full Specification:** See [docs/proposals/features/serial-configuration-ui.md](../proposals/features/serial-configuration-ui.md)
 
 ## What This Feature Enables
 

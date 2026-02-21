@@ -1,9 +1,12 @@
 # GPS Ethernet Parsing Architecture
 
+Status: Proposed
+Target Directory: docs/lidar/architecture/
+
 **Status:** Proposed
 **Author:** Architecture Team
 **Created:** 2026
-**Related:** `hesai_packet_structure.md`, `ground-plane-extraction.md`
+**Related:** [`../../../lidar/architecture/hesai_packet_structure.md`](../../../lidar/architecture/hesai_packet_structure.md), [`../../../lidar/architecture/ground-plane-extraction.md`](../../../lidar/architecture/ground-plane-extraction.md)
 
 ## Overview & Motivation
 

@@ -1,5 +1,7 @@
 # Problem Statement and User Workflows
 
+Status: Active
+
 ## 1. Problem Statement
 
 ### Why LidarView Is Insufficient

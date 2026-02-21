@@ -1,5 +1,7 @@
 # velocity.report Raspberry Pi Imager — Design Document
 
+Status: Planned
+
 > **Status:** Draft
 > **Author:** Ictinus (Product Architecture)
 > **Date:** 2026-02-11

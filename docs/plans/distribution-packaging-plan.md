@@ -1,5 +1,7 @@
 # velocity.report Distribution and Packaging Plan
 
+Status: Planned
+
 **Document Version:** 1.0
 **Date:** 2025-11-20
 **Status:** Proposed Architecture

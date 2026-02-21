@@ -1,8 +1,11 @@
 # 3D Vector Scene Map — Architecture Specification
 
+Status: Proposed
+Target Directory: docs/lidar/architecture/
+
 **Status:** Proposed
 **Layer:** L4 Perception (extends `GroundSurface` interface)
-**Related:** [ground-plane-extraction.md](ground-plane-extraction.md), [ground-plane-maths.md](../../maths/ground-plane-maths.md), [lidar-data-layer-model.md](lidar-data-layer-model.md)
+**Related:** [ground-plane-extraction.md](../../../lidar/architecture/ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../proposals/maths/ground-plane-vector-scene-maths.md), [lidar-data-layer-model.md](../../../lidar/architecture/lidar-data-layer-model.md)
 **Date:** 2026-02
 
 ---
@@ -11,7 +14,7 @@
 
 ### From Tiled Grid to Vector Polygons
 
-The existing ground plane specification (`ground-plane-extraction.md`) models the road surface as a **uniform tiled grid** — a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
+The existing ground plane specification (`../../../lidar/architecture/ground-plane-extraction.md`) models the road surface as a **uniform tiled grid** — a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
 
 1. **Tile uniformity wastes storage on homogeneous regions** — A straight, flat stretch of road produces hundreds of nearly-identical 1 m tiles where a single polygon would suffice.
 2. **Buildings and walls are vertical surfaces** — Tiles are inherently horizontal (Z-up plane fits). Vertical structures require a fundamentally different representation: wall-plane parameters or bounding polygons with corner coordinates.
@@ -389,7 +392,7 @@ type VectorSceneMap struct {
 
 **Comparison: tiled grid vs vector polygons for a 100 m × 100 m scene**
 
-Compressed sizes assume gzip compression at ~4:1 ratio for tile grids (high redundancy in similar plane parameters) and ~3:1 for vector polygons (less redundancy due to variable geometry). These ratios are consistent with observed gzip performance on similar structured data (see [`ground-plane-maths.md`](../../maths/ground-plane-maths.md) §10).
+Compressed sizes assume gzip compression at ~4:1 ratio for tile grids (high redundancy in similar plane parameters) and ~3:1 for vector polygons (less redundancy due to variable geometry). These ratios are consistent with observed gzip performance on similar structured data (see [`ground-plane-maths.md`](../../../proposals/maths/ground-plane-vector-scene-maths.md) §10).
 
 | Approach                    | Representation  | Element Count | Per-Element Size | Total Raw | Total Compressed (~3–4:1) |
 | --------------------------- | --------------- | ------------- | ---------------- | --------- | ------------------------- |
@@ -807,7 +810,7 @@ The vector scene map provides natural anchor points for OpenStreetMap features:
 - **Kerb polygons** (LOD 2) correspond to OSM `barrier=kerb` ways.
 - **Crosswalk polygons** (LOD 2) correspond to OSM `highway=crossing` nodes/ways.
 
-The V2 OSM write-back workflow from `ground-plane-extraction.md` applies directly: export vector scene polygons as proposed OSM changesets.
+The V2 OSM write-back workflow from `../../../lidar/architecture/ground-plane-extraction.md` applies directly: export vector scene polygons as proposed OSM changesets.
 
 ### Multi-Device Fusion
 
@@ -823,9 +826,9 @@ A vehicle-mounted sensor produces a stream of local scene maps along its route. 
 
 ### Internal Documents
 
-- **Ground Plane Extraction** — `docs/lidar/architecture/ground-plane-extraction.md` (tile-based ground model, Tier 1/2 design)
-- **Ground Plane Maths** — `docs/maths/ground-plane-maths.md` (algorithm trade-offs)
-- **LiDAR Layer Model** — `docs/lidar/architecture/lidar-data-layer-model.md` (L1–L6 layer definitions)
+- **Ground Plane Extraction** — `docs/lidar/architecture/../../../lidar/architecture/ground-plane-extraction.md` (tile-based ground model, Tier 1/2 design)
+- **Ground Plane Proposal Maths** — `docs/proposals/maths/ground-plane-vector-scene-maths.md` (algorithm trade-offs)
+- **LiDAR Layer Model** — `docs/lidar/architecture/../../../lidar/architecture/lidar-data-layer-model.md` (L1–L6 layer definitions)
 - **Background Grid Standards** — `docs/lidar/architecture/lidar-background-grid-standards.md` (VTK/PCD export)
 - **PCAP Export Tool** — `docs/plans/pcap-ground-plane-export-tool.md` (CLI flags, export formats)
 

@@ -1,5 +1,7 @@
 # Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
 
+Status: Future
+
 **Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
 
 **Next blocker:** None for Phases 1-5. Phase 6 (transit promotion) is deferred pending design. Phase 9 (profile comparison) is next priority.

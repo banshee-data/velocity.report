@@ -1,5 +1,7 @@
 # Parameter Comparison: Current vs. Optimised
 
+Status: Active
+
 This document provides a quick reference showing the parameter changes between the current defaults and the optimised configuration for addressing jitter, fragmentation, misalignment, and empty boxes.
 
 ## Side-by-Side Comparison

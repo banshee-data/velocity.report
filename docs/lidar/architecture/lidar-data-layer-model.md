@@ -1,5 +1,7 @@
 # LiDAR Data Layer Model (Six Layers)
 
+Status: Active
+
 ## Purpose
 
 A single concise layer model for LiDAR data in velocity.report. OSI is only a reference point; this model uses six practical layers that match current implementation and future AV compatibility work.
@@ -22,7 +24,7 @@ A single concise layer model for LiDAR data in velocity.report. OSI is only a re
 - Background/foreground grid → **L3 Grid**
 - Clusters and observations → **L4 Perception**
 - Ground plane surface model → **L4 Perception** (non-point-based `GroundSurface` interface)
-- Vector scene map → **L4 Perception** (polygon features for ground, structures, volumes; derived from ground plane; see `vector-scene-map.md`)
+- Vector scene map → **L4 Perception** (polygon features for ground, structures, volumes; derived from ground plane; see `docs/proposals/lidar/architecture/vector-scene-map.md`)
 - Tracks → **L5 Tracks**
 - Objects/classes → **L6 Objects**
 - VRLOG recordings span **L2-L5** (frame bundles, perception outputs, tracks)

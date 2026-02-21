@@ -1,5 +1,7 @@
 # Unified Plan: Seekable Replay and Swift-Native Track Labeling
 
+Status: Planned
+
 Unifies:
 
 - `docs/plans/vrlog-recording-replay-plan.md` (VRLOG record/replay plumbing)

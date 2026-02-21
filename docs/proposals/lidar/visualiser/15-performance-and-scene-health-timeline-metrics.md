@@ -1,5 +1,8 @@
 # Design: Performance and Scene Health Metrics in Timeline and VR Logs
 
+Status: Proposed
+Target Directory: docs/lidar/visualiser/
+
 **Status:** Proposed (February 2026)
 
 ## Objective
@@ -315,6 +318,6 @@ The workflow is explicitly **measure first, then optimise**.
 
 ## Related documents
 
-- [02-api-contracts.md](./02-api-contracts.md)
+- [02-api-contracts.md](../../../lidar/visualiser/02-api-contracts.md)
 - [08-track-event-timeline-bar.md](./08-track-event-timeline-bar.md)
-- [03-architecture.md](./03-architecture.md)
+- [03-architecture.md](../../../lidar/visualiser/03-architecture.md)

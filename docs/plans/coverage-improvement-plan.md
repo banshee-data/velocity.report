@@ -1,5 +1,7 @@
 # Coverage Improvement Plan: 95.5% Target
 
+Status: Planned
+
 **Goal:** Raise every `internal/`, web, Python, and macOS package/module/file
 to ≥ 95.5% line coverage.
 

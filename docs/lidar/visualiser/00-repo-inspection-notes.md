@@ -1,5 +1,7 @@
 # Repo Inspection Notes
 
+Status: Active
+
 This document summarises the existing LiDAR pipeline architecture identified during the design phase for the macOS visualiser project.
 
 ## 1. LiDAR Ingestion
@@ -25,7 +27,7 @@ UDP packets (port 2368)
 
 ### Key Observations
 
-- Hesai Pandar40P packets are 1262 bytes (see [packet_analysis_results.md](../reference/packet_analysis_results.md) for protocol details)
+- Hesai Pandar40P packets are 1262 bytes (see [hesai_packet_structure.md](../architecture/hesai_packet_structure.md) for protocol details)
 - Motor speed drives frame duration: 10-20 Hz (600-1200 RPM)
   - Sensor supports two speed modes with variable packet rates during transitions
   - Frame completion time: ~50-100ms depending on motor speed

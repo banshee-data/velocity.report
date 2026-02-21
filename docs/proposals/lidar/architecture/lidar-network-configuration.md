@@ -1,9 +1,12 @@
 # LiDAR Network Configuration
 
+Status: Proposed
+Target Directory: docs/lidar/architecture/
+
 **Status:** Proposed
 **Author:** Architecture Team
 **Created:** 2026-02-21
-**Related:** `hesai_packet_structure.md`, `lidar_sidecar_overview.md`, `/docs/architecture/networking.md`
+**Related:** [`../../../lidar/architecture/hesai_packet_structure.md`](../../../lidar/architecture/hesai_packet_structure.md), [`../../../lidar/architecture/lidar_sidecar_overview.md`](../../../lidar/architecture/lidar_sidecar_overview.md), [`../../../architecture/networking.md`](../../../architecture/networking.md)
 
 ## Overview & Motivation
 

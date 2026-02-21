@@ -1,5 +1,7 @@
 # AV Standard LIDAR Integration Plan
 
+Status: Future
+
 **Status:** DEFERRED - AV Integration Only
 **Date:** December 16, 2025 (Updated January 2026)
 **Author:** Agent Ictinus (Product Architecture)

@@ -1,5 +1,8 @@
 # AV Range Image Format Alignment
 
+Status: Proposed
+Target Directory: docs/lidar/architecture/
+
 ## Executive Summary
 
 This design document outlines the changes required to align the velocity.report Hesai capture format with the open AV dataset lidar data specification (dual returns, elongation, range images). The key alignment areas are:

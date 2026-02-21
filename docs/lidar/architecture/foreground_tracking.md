@@ -1,5 +1,7 @@
 # LIDAR Foreground Extraction and Tracking Implementation Plan
 
+Status: Active
+
 **Status:** Implementation Complete through Phase 3.7
 **Date:** January 2026
 **Version:** 7.1 - Warmup sensitivity scaling added
@@ -1702,4 +1704,4 @@ When pose validation is implemented:
 - **[Velocity-Coherent Foreground Extraction](../future/velocity-coherent-foreground-extraction.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
 - **[LIDAR Foreground Tracking Status](../operations/lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
 - **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
-- **[Development Log](../roadmap/devlog.md)** - Chronological implementation history
+- **[Development Log](../../DEVLOG.md)** - Chronological implementation history

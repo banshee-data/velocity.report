@@ -1,5 +1,7 @@
 # CLI Comprehensive Guide & Implementation Plan
 
+Status: Active
+
 **Date:** 2025-12-02
 **Purpose:** Complete reference and restructuring plan for velocity.report CLI interfaces
 

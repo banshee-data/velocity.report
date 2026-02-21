@@ -1,5 +1,7 @@
 # LiDAR Terminology
 
+Status: Active
+
 Core terms used across the LiDAR tracking system.
 
 | Term                   | Definition                                                                                                                                                   |

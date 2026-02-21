@@ -1,5 +1,8 @@
 # Feature Specification: Serial Configuration and Testing via UI
 
+Status: Proposed
+Target Directory: docs/features/
+
 **Status:** Draft
 **Created:** 2025-11-06
 **Author:** Ictinus (Product Architect)

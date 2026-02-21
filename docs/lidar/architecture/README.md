@@ -1,84 +1,25 @@
 # LiDAR Architecture
 
-Current architecture documentation for the velocity.report LiDAR subsystem.
+Status: Active
 
-## Six-Layer Model
+Architecture notes for the LiDAR pipeline.
 
-The LiDAR pipeline uses a six-layer model. Each layer has a canonical Go package under `internal/lidar/`:
+## Layer Model
 
-| Layer         | Package         | Responsibility                                                          |
-| ------------- | --------------- | ----------------------------------------------------------------------- |
-| L1 Packets    | `l1packets/`    | Sensor-wire transport: UDP ingestion, PCAP replay, Hesai packet parsing |
-| L2 Frames     | `l2frames/`     | Time-coherent frame assembly, polar/Cartesian geometry, ASC export      |
-| L3 Grid       | `l3grid/`       | Background/foreground separation: EMA grid, regions, persistence, drift |
-| L4 Perception | `l4perception/` | Per-frame object primitives: DBSCAN clustering, OBB, ground removal     |
-| L5 Tracks     | `l5tracks/`     | Multi-frame identity: Kalman tracking, Hungarian assignment, lifecycle  |
-| L6 Objects    | `l6objects/`    | Semantic interpretation: classification, quality scoring, comparison    |
+The runtime follows a six-layer model mapped to `internal/lidar/` packages:
 
-Cross-cutting packages:
+- `l1packets/`: UDP/PCAP ingest and packet parsing
+- `l2frames/`: frame assembly and geometric transforms
+- `l3grid/`: background/foreground modeling and region behavior
+- `l4perception/`: clustering, geometry, and ground-related filtering
+- `l5tracks/`: multi-frame tracking and assignment
+- `l6objects/`: semantic/object-level interpretation
 
-| Package           | Purpose                                                                         |
-| ----------------- | ------------------------------------------------------------------------------- |
-| `pipeline/`       | Orchestration via stage interfaces (`ForegroundStage`, `PerceptionStage`, etc.) |
-| `storage/sqlite/` | DB repositories: scene, track, evaluation, sweep, analysis run stores           |
-| `adapters/`       | Transport and IO: export, training data, ground truth evaluation                |
-| `sweep/`          | Parameter sweep runner and auto-tuner (interface-only layer coupling)           |
-| `monitor/`        | HTTP server, API handlers, ECharts dashboards, data source management           |
+Cross-cutting orchestration and IO live in `pipeline/`, `storage/`, `adapters/`, `sweep/`, and `monitor/`.
 
-**Dependency rule**: `L(n)` may depend on `L(n-1)` and below, never upward. SQL/DB code lives in `storage/`, not in domain layers.
+## Scope Separation
 
-For the full layer model specification, see [lidar-data-layer-model.md](lidar-data-layer-model.md).
+- Active runtime architecture docs live directly in this folder.
+- Proposals and research docs live in `docs/proposals/lidar/architecture/`.
 
-## Architecture Documents
-
-### Current (active)
-
-| Document                                                                                                             | Scope                                                                         |
-| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical six-layer model with package mapping                                |
-| [lidar-layer-alignment-refactor-review-20260217.md](lidar-layer-alignment-refactor-review-20260217.md)               | Layer alignment review: completed migration, complexity analysis, file splits |
-| [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams     |
-| [20260221-vector-vs-velocity-workstreams.md](20260221-vector-vs-velocity-workstreams.md)                             | Foundation separation boundary: vector-grid vs velocity-coherent work         |
-| [20260221-lidar-foundations-fixit.md](20260221-lidar-foundations-fixit.md)                                           | Gap write-up with completed fixes and remaining items                         |
-| [20260221-lidar-foundations-fixit-plan.md](20260221-lidar-foundations-fixit-plan.md)                                 | Follow-up execution phases for doc/runtime parity                             |
-| [foreground_tracking.md](foreground_tracking.md)                                                                     | Foreground extraction and tracking pipeline design                            |
-| [lidar-background-grid-standards.md](lidar-background-grid-standards.md)                                             | Background grid format comparison with industry standards                     |
-| [hesai_packet_structure.md](hesai_packet_structure.md)                                                               | Hesai Pandar40P UDP packet format reference                                   |
-| [lidar_sidecar_overview.md](lidar_sidecar_overview.md)                                                               | System-level overview of the LiDAR sidecar architecture                       |
-| [lidar-network-configuration.md](lidar-network-configuration.md)                                                     | Network interface selection, diagnostics, and hot-reload for UDP listener     |
-| [lidar-multi-model-ingestion-and-configuration.md](lidar-multi-model-ingestion-and-configuration.md)                 | Proposed path for supporting 3–10 LiDAR models with distinct packet formats   |
-
-### Historical (completed designs)
-
-| Document                                                                                                                           | Status                                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [arena-go-deprecation-and-layered-type-layout-design-20260217.md](arena-go-deprecation-and-layered-type-layout-design-20260217.md) | ✅ Complete — arena.go removed, types migrated to layer packages |
-
-### Future / Research
-
-| Document                                                                 | Scope                                        |
-| ------------------------------------------------------------------------ | -------------------------------------------- |
-| [av-range-image-format-alignment.md](av-range-image-format-alignment.md) | AV dual-return range image format (deferred) |
-| [dynamic-algorithm-selection.md](dynamic-algorithm-selection.md)         | Branch-based design spec; not active runtime |
-
-## Implementation Status
-
-The layer alignment migration is **complete** (items 1–12, 14 in the review doc). Remaining:
-
-- **Item 13**: Frontend decomposition (tracksStore, runsStore, missedRegionStore) — see [BACKLOG.md](/BACKLOG.md)
-
-Post-migration file sizes:
-
-| File                               | Lines | Notes                                            |
-| ---------------------------------- | ----- | ------------------------------------------------ |
-| `l3grid/background.go`             | 1,628 | Core grid processing (split from 2,610)          |
-| `l3grid/background_persistence.go` | 450   | Snapshot serialisation, DB restore/persist       |
-| `l3grid/background_export.go`      | 350   | Heatmaps, ASC export, region debug info          |
-| `l3grid/background_drift.go`       | 245   | M3.5 sensor movement and drift detection         |
-| `monitor/webserver.go`             | 2,746 | Server init, routes, handlers (split from 4,067) |
-| `monitor/datasource_handlers.go`   | 682   | UDP/PCAP data source management                  |
-| `monitor/playback_handlers.go`     | 589   | PCAP/VRLOG playback controls                     |
-| `storage/sqlite/analysis_run.go`   | 1,325 | Run CRUD (domain logic moved to l6objects)       |
-| `l6objects/comparison.go`          | 81    | ComputeTemporalIoU, comparison types             |
-
-Further size/complexity reduction opportunities are documented in the [review doc's "Further Opportunities" section](lidar-layer-alignment-refactor-review-20260217.md#further-opportunities-to-reduce-size-and-complexity), covering ECharts handler extraction, sweep file splits, Go-embedded dashboard retirement, and visualiser codec consolidation.
+Use directory listings for per-document discovery to minimize stale index maintenance.

@@ -1,5 +1,7 @@
 # Frontend Consolidation Plan
 
+Status: Planned
+
 ## Status: Draft
 
 ## Problem Statement

@@ -1,5 +1,7 @@
 # Quick Start: Addressing Pipeline Quality Issues
 
+Status: Active
+
 **Issue:** High jitter, fragmentation, misalignment, and empty boxes in tracking results
 **Date:** 2026-02-14
 

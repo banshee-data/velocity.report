@@ -1,5 +1,7 @@
 # Transit Deduplication Plan
 
+Status: Planned
+
 ## Problem Statement
 
 The transit worker can create duplicate transit records when:

@@ -1,5 +1,7 @@
 # Networking Design Principles
 
+Status: Active
+
 This document describes the network architecture, listener segmentation, and access control model for velocity.report.
 
 ## Deployment Model
