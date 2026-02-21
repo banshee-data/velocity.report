@@ -494,8 +494,9 @@ Recommended configuration keys for proposal v1.1:
 | `foreground.temporal.enabled`         | `true`  | Enable second foreground channel (temporal gradient)        |
 | `foreground.temporal.v_min_mps`       | `1.0`   | Minimum motion for temporal foreground trigger (m/s)        |
 | `foreground.channel_union_mode`       | `"or"`  | Foreground union policy for EMA + temporal channels         |
-| `validation.temporal_overlap_min`     | `0.7`   | Minimum overlap to count trajectory capture                 |
-| `validation.occlusion_gap_max_frames` | `50`    | Max short-occlusion gap for recovery metric                 |
+| `validation.temporal_overlap_min`     | `0.7`   | Minimum fraction of labelled trajectory duration assigned to the same recovered track |
+| `validation.occlusion_gap_min_frames` | `2`     | Inclusive lower bound of "short occlusion" gap length (frames) for recovery scoring |
+| `validation.occlusion_gap_max_frames` | `50`    | Inclusive upper bound of "short occlusion" gap length (frames) for recovery scoring |
 | `performance.frame_budget_ms_p95`     | `50`    | Target p95 per-frame latency budget on Raspberry Pi 4       |
 
 ---
@@ -515,7 +516,9 @@ Recommended configuration keys for proposal v1.1:
 - **Precision:** proportion of generated tracks matched to labelled trajectories.
 - **Fragmentation:** ID switches per labelled trajectory.
 - **Occlusion recovery:** proportion of short occlusions (`2–50` frames)
-  recovered with consistent identity.
+  where the same track ID appears before the gap and on the first non-occluded
+  frame after the gap; partial reappearance during the gap does not count as
+  recovery.
 - **Runtime:** p95 per-frame latency against configured budget.
 
 ### 11.3 Acceptance gates
