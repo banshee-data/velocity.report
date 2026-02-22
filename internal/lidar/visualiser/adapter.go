@@ -333,6 +333,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			TrackDurationSecs: t.TrackDurationSecs,
 			OcclusionCount:    t.OcclusionCount,
 			Alpha:             1.0, // Fully visible
+			HeadingSource:     int(t.HeadingSource),
 		}
 
 		// Copy covariance

@@ -741,3 +741,192 @@ func TestTracker_Update_VelocityClamping(t *testing.T) {
 		assert.LessOrEqual(t, speed, float64(cfg.MaxReasonableSpeedMps)+0.1)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Guard 3: 90° heading jump rejection
+// ---------------------------------------------------------------------------
+
+func TestTracker_Guard3_Rejects90DegreeHeadingJump(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultTrackerConfig()
+	cfg.HitsToConfirm = 1
+	cfg.MinPointsForPCA = 3
+	cfg.OBBAspectRatioLockThreshold = 0.15
+	cfg.OBBHeadingSmoothingAlpha = 1.0 // No smoothing for test clarity
+	tracker := NewTracker(cfg)
+
+	now := time.Now()
+
+	// Frame 1: create track heading east (0 rad), rectangular
+	tracker.Update([]WorldCluster{{
+		CentroidX:         5.0,
+		CentroidY:         0.0,
+		PointsCount:       50,
+		BoundingBoxLength: 4.5,
+		BoundingBoxWidth:  1.8,
+		BoundingBoxHeight: 1.5,
+		SensorID:          "s1",
+		OBB: &l4perception.OrientedBoundingBox{
+			HeadingRad: 0.0,
+			Length:     4.5,
+			Width:      1.8,
+			Height:     1.5,
+		},
+	}}, now)
+
+	// Get track after first frame
+	tracks := tracker.GetActiveTracks()
+	require.Len(t, tracks, 1)
+	trackID := tracks[0].TrackID
+
+	// Frame 2: same position, heading jumps by ~90° (PCA axis swap)
+	tracker.Update([]WorldCluster{{
+		CentroidX:         5.1,
+		CentroidY:         0.0,
+		PointsCount:       50,
+		BoundingBoxLength: 1.8,
+		BoundingBoxWidth:  4.5,
+		BoundingBoxHeight: 1.5,
+		SensorID:          "s1",
+		OBB: &l4perception.OrientedBoundingBox{
+			HeadingRad: math.Pi / 2, // 90° jump
+			Length:     1.8,
+			Width:      4.5,
+			Height:     1.5,
+		},
+	}}, now.Add(100*time.Millisecond))
+
+	// Verify: heading should still be near 0 (locked by Guard 3)
+	track := tracker.Tracks[trackID]
+	require.NotNil(t, track)
+	assert.InDelta(t, 0.0, float64(track.OBBHeadingRad), 0.2,
+		"Guard 3 should reject 90° heading jump")
+	assert.Equal(t, HeadingSourceLocked, track.HeadingSource,
+		"HeadingSource should be Locked after 90° rejection")
+}
+
+func TestTracker_Guard3_DimensionsHeldWhenHeadingLocked(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultTrackerConfig()
+	cfg.HitsToConfirm = 1
+	cfg.MinPointsForPCA = 3
+	cfg.OBBAspectRatioLockThreshold = 0.15
+	cfg.OBBHeadingSmoothingAlpha = 1.0
+	tracker := NewTracker(cfg)
+
+	now := time.Now()
+
+	// Frame 1: create track, 4.5m × 1.8m heading east
+	tracker.Update([]WorldCluster{{
+		CentroidX:         5.0,
+		CentroidY:         0.0,
+		PointsCount:       50,
+		BoundingBoxLength: 4.5,
+		BoundingBoxWidth:  1.8,
+		BoundingBoxHeight: 1.5,
+		SensorID:          "s1",
+		OBB: &l4perception.OrientedBoundingBox{
+			HeadingRad: 0.0,
+			Length:     4.5,
+			Width:      1.8,
+			Height:     1.5,
+		},
+	}}, now)
+
+	tracks := tracker.GetActiveTracks()
+	require.Len(t, tracks, 1)
+	trackID := tracks[0].TrackID
+
+	// Frame 2: PCA axis swap → heading jump 90°, dimensions swapped
+	tracker.Update([]WorldCluster{{
+		CentroidX:         5.1,
+		CentroidY:         0.0,
+		PointsCount:       50,
+		BoundingBoxLength: 1.8,
+		BoundingBoxWidth:  4.5,
+		BoundingBoxHeight: 1.6,
+		SensorID:          "s1",
+		OBB: &l4perception.OrientedBoundingBox{
+			HeadingRad: math.Pi / 2,
+			Length:     1.8,
+			Width:      4.5,
+			Height:     1.6,
+		},
+	}}, now.Add(100*time.Millisecond))
+
+	track := tracker.Tracks[trackID]
+	require.NotNil(t, track)
+
+	// Length/Width should be held at frame 1 values (not swapped)
+	assert.InDelta(t, 4.5, float64(track.OBBLength), 0.01,
+		"OBBLength should be held when heading is locked")
+	assert.InDelta(t, 1.8, float64(track.OBBWidth), 0.01,
+		"OBBWidth should be held when heading is locked")
+	// Height should update (axis-independent)
+	assert.InDelta(t, 1.6, float64(track.OBBHeight), 0.01,
+		"OBBHeight should still update when heading is locked")
+}
+
+func TestTracker_ClusterDimensionsUsedDirectly(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultTrackerConfig()
+	cfg.HitsToConfirm = 1
+	cfg.MinPointsForPCA = 3
+	cfg.OBBAspectRatioLockThreshold = 0.10
+	cfg.OBBHeadingSmoothingAlpha = 0.08 // Normal smoothing
+	tracker := NewTracker(cfg)
+
+	now := time.Now()
+
+	// Frame 1: create track
+	tracker.Update([]WorldCluster{{
+		CentroidX:         5.0,
+		CentroidY:         0.0,
+		PointsCount:       50,
+		BoundingBoxLength: 4.5,
+		BoundingBoxWidth:  1.8,
+		BoundingBoxHeight: 1.5,
+		SensorID:          "s1",
+		OBB: &l4perception.OrientedBoundingBox{
+			HeadingRad: 0.0,
+			Length:     4.5,
+			Width:      1.8,
+			Height:     1.5,
+		},
+	}}, now)
+
+	tracks := tracker.GetActiveTracks()
+	require.Len(t, tracks, 1)
+	trackID := tracks[0].TrackID
+
+	// Frame 2: heading consistent (small change), new dimensions
+	tracker.Update([]WorldCluster{{
+		CentroidX:         5.5,
+		CentroidY:         0.0,
+		PointsCount:       50,
+		BoundingBoxLength: 5.0,
+		BoundingBoxWidth:  2.0,
+		BoundingBoxHeight: 1.6,
+		SensorID:          "s1",
+		OBB: &l4perception.OrientedBoundingBox{
+			HeadingRad: 0.05,
+			Length:     5.0,
+			Width:      2.0,
+			Height:     1.6,
+		},
+	}}, now.Add(100*time.Millisecond))
+
+	track := tracker.Tracks[trackID]
+	require.NotNil(t, track)
+
+	// Cluster dimensions should be used directly (not EMA-smoothed)
+	assert.InDelta(t, 5.0, float64(track.OBBLength), 0.01,
+		"OBBLength should match cluster directly")
+	assert.InDelta(t, 2.0, float64(track.OBBWidth), 0.01,
+		"OBBWidth should match cluster directly")
+	assert.InDelta(t, 1.6, float64(track.OBBHeight), 0.01,
+		"OBBHeight should match cluster directly")
+}

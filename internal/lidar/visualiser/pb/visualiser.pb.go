@@ -1073,7 +1073,11 @@ type Track struct {
 	OcclusionState    OcclusionState `protobuf:"varint,32,opt,name=occlusion_state,json=occlusionState,proto3,enum=velocity.visualiser.v1.OcclusionState" json:"occlusion_state,omitempty"`
 	MotionModel       MotionModel    `protobuf:"varint,33,opt,name=motion_model,json=motionModel,proto3,enum=velocity.visualiser.v1.MotionModel" json:"motion_model,omitempty"`
 	// Rendering hints
-	Alpha         float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	Alpha float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	// Fields 35-37 (bbox_length, bbox_width, bbox_height) and 38 (heading_source)
+	// are defined in visualiser.proto but require `make proto-gen-go` to regenerate
+	// stubs before they serialise over gRPC. Until then, per-frame dimensions are
+	// served via the web JSON API only (see internal/lidar/monitor/track_api.go).
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

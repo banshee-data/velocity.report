@@ -125,6 +125,7 @@ type TrackResponse struct {
 	PeakSpeedMps        float32              `json:"peak_speed_mps"`
 	BoundingBox         BBox                 `json:"bounding_box"`
 	OBBHeadingRad       float32              `json:"obb_heading_rad"`
+	HeadingSource       int                  `json:"heading_source,omitempty"` // 0=PCA, 1=velocity, 2=displacement, 3=locked
 	FirstSeen           string               `json:"first_seen"`
 	LastSeen            string               `json:"last_seen"`
 	History             []TrackPointResponse `json:"history,omitempty"`
@@ -1008,6 +1009,7 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 			Height:    track.OBBHeight,
 		},
 		OBBHeadingRad: track.OBBHeadingRad,
+		HeadingSource: int(track.HeadingSource),
 		FirstSeen:     time.Unix(0, first).UTC().Format(time.RFC3339Nano),
 		LastSeen:      time.Unix(0, last).UTC().Format(time.RFC3339Nano),
 		History:       history,

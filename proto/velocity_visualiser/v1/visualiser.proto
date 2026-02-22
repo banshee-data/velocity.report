@@ -231,6 +231,20 @@ message Track {
 
   // Rendering hints
   float alpha = 34;              // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+
+  // Per-frame bounding box dimensions (from cluster/DBSCAN OBB directly).
+  // These use cluster dimensions when heading is consistent; held when heading
+  // is locked. Prefer these over running averages (fields 18-20) for rendering.
+  // NOTE: requires `make proto-gen-go` / `make proto-gen-swift` to regenerate
+  // stubs before they serialise over gRPC. Until then, per-frame dimensions are
+  // served only via the web JSON API (internal/lidar/monitor/track_api.go).
+  float bbox_length = 35;        // metres, along heading direction
+  float bbox_width = 36;         // metres, perpendicular to heading
+  float bbox_height = 37;        // metres, Z extent
+
+  // Heading source (for debug rendering: colour-code boxes by heading origin)
+  // 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
+  int32 heading_source = 38;
 }
 
 message TrackPoint {

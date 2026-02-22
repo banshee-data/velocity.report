@@ -263,7 +263,8 @@ type Track struct {
 	MotionModel       MotionModel
 
 	// Rendering hints
-	Alpha float32 // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	Alpha         float32 // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	HeadingSource int     // Source of heading: 0=PCA, 1=velocity, 2=displacement, 3=locked
 }
 
 // TrackState represents the lifecycle state of a track.

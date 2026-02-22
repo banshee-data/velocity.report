@@ -286,6 +286,7 @@ dev-mac:
 	@echo "Stopping any running visualiser instances..."
 	@pkill -f "VelocityVisualiser" || true
 	@sleep 0.5
+	@$(MAKE) proto-gen-swift
 	@$(MAKE) build-mac
 	@echo "Starting visualiser..."
 	@$(VISUALISER_BIN)

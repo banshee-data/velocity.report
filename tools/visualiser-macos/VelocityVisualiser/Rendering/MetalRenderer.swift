@@ -105,6 +105,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var showAssociation: Bool = false  // M6: Association lines
     var showResiduals: Bool = false  // M6: Residual vectors
     var showGrid: Bool = true  // Ground reference grid
+    var showHeadingSource: Bool = false  // Debug: colour boxes by heading source instead of state
     var pointSize: Float = 5.0
     var backgroundColor: MTLClearColor = MTLClearColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 1.0)
 
@@ -468,6 +469,15 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             // Skip filtered-out tracks
             if hiddenTrackIDs.contains(track.trackID) { continue }
             // Build transform matrix
+            // These dimensions use the tracker-provided averaged bbox stats
+            // (bboxLengthAvg / bboxWidthAvg / bboxHeightAvg). Canonical-axis
+            // normalisation (Fix A in obb.go) is currently disabled, so length/width
+            // ordering follows whatever the tracker outputs rather than enforcing
+            // length >= width. Per-frame dimensions are exposed in the proto as
+            // bbox_length / bbox_width / bbox_height; switch to those if you need
+            // per-frame box sizing here. See
+            // docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix E
+            // for background on the design trade-offs.
             let scale = simd_float4x4(
                 diagonal: simd_float4(
                     track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0,
@@ -492,6 +502,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 instances.append(1.0)  // g
                 instances.append(1.0)  // b
                 instances.append(track.alpha)  // alpha (supports fade-out)
+            } else if showHeadingSource {
+                // Debug: colour by heading source to diagnose angular drift
+                let colour = track.headingSource.colour
+                instances.append(colour.r)
+                instances.append(colour.g)
+                instances.append(colour.b)
+                instances.append(track.alpha)
             } else {
                 let colour = track.state.colour
                 instances.append(colour.r)

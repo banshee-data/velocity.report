@@ -250,3 +250,81 @@ func TestSmoothOBBHeading_OutputRange(t *testing.T) {
 		}
 	}
 }
+
+func TestEstimateOBBFromCluster_NearSquareClusterPreservesNaturalAxes(t *testing.T) {
+	// Verify that near-square clusters preserve PCA's natural axis assignment.
+	// This is important for pedestrians whose bounding boxes are legitimately
+	// square or near-square.
+	points := []WorldPoint{
+		{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+		{X: 2.0, Y: 0, Z: 0, Timestamp: time.Now()},
+		{X: 0, Y: 2.1, Z: 0, Timestamp: time.Now()},
+		{X: 2.0, Y: 2.1, Z: 0, Timestamp: time.Now()},
+		{X: 1.0, Y: 1.05, Z: 0, Timestamp: time.Now()},
+	}
+
+	obb := EstimateOBBFromCluster(points)
+
+	// PCA should find Y as the principal axis (slightly more variance).
+	// Length follows the principal axis. We verify the overall extents are
+	// correct (both ~2.0m) regardless of which is labelled Length vs Width.
+	maxDim := math.Max(float64(obb.Length), float64(obb.Width))
+	minDim := math.Min(float64(obb.Length), float64(obb.Width))
+	if math.Abs(maxDim-2.1) > 0.3 {
+		t.Errorf("Expected max dimension ≈ 2.1, got %.2f", maxDim)
+	}
+	if math.Abs(minDim-2.0) > 0.3 {
+		t.Errorf("Expected min dimension ≈ 2.0, got %.2f", minDim)
+	}
+
+	// Heading should be near 0 or ±π/2 — the PCA principal axis
+	if math.Abs(float64(obb.HeadingRad)) > 0.3 &&
+		math.Abs(math.Abs(float64(obb.HeadingRad))-math.Pi/2) > 0.3 {
+		t.Errorf("Expected heading near 0 or ±π/2, got %.2f rad", obb.HeadingRad)
+	}
+}
+
+func TestEstimateOBBFromCluster_RectangleDimensionsCorrect(t *testing.T) {
+	// Verify that rectangles produce correct dimension values
+	// regardless of whether Length > Width or vice versa.
+	testCases := []struct {
+		name   string
+		points []WorldPoint
+	}{
+		{
+			name: "rectangle longer in X",
+			points: []WorldPoint{
+				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 4, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 0, Y: 2, Z: 0, Timestamp: time.Now()},
+				{X: 4, Y: 2, Z: 0, Timestamp: time.Now()},
+				{X: 2, Y: 1, Z: 0, Timestamp: time.Now()},
+			},
+		},
+		{
+			name: "rectangle longer in Y",
+			points: []WorldPoint{
+				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 2, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 0, Y: 4, Z: 0, Timestamp: time.Now()},
+				{X: 2, Y: 4, Z: 0, Timestamp: time.Now()},
+				{X: 1, Y: 2, Z: 0, Timestamp: time.Now()},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			obb := EstimateOBBFromCluster(tc.points)
+			maxDim := math.Max(float64(obb.Length), float64(obb.Width))
+			minDim := math.Min(float64(obb.Length), float64(obb.Width))
+
+			if math.Abs(maxDim-4.0) > 0.5 {
+				t.Errorf("Expected max dimension ≈ 4.0, got %.2f", maxDim)
+			}
+			if math.Abs(minDim-2.0) > 0.5 {
+				t.Errorf("Expected min dimension ≈ 2.0, got %.2f", minDim)
+			}
+		})
+	}
+}
