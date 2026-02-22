@@ -286,7 +286,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
 				count := throttledFrames.Add(1)
 				if count%50 == 0 {
-					tracef("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+					diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
 				// Only advance miss counters when there is a genuine
 				// wall-clock gap (> 2× frame interval), not during short
@@ -296,6 +296,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				// would kill them in ~300 ms otherwise.
 				if cfg.Tracker != nil && now.Sub(lastProcessedTime) >= 2*minFrameInterval {
 					cfg.Tracker.AdvanceMisses(frame.StartTimestamp)
+					diagf("[Pipeline] AdvanceMisses: wall-clock gap %v during throttle, tracks penalised", now.Sub(lastProcessedTime))
 				}
 				return
 			}
