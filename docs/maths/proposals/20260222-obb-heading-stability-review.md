@@ -1,6 +1,6 @@
 # OBB Heading Stability Review
 
-**Status:** Partially Implemented (Fixes A, B, C applied; Fix D is config-only; Fix E pending proto regen; Fix F not yet started)
+**Status:** Revised — Fix A reverted (unsuitable for non-vehicular objects); replaced with tracker-level 90° jump rejection. Fixes B, C applied. Heading-source debug rendering added. Fix D config-only; Fix E/F not yet started.
 **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
 **Created:** 2026-02-22
 **Related:**
@@ -148,16 +148,17 @@ renders all cluster boxes (ignoring association) would be valuable.
 
 ## 3. Problematic Code Paths (Summary)
 
-| Location | Issue |
-|---|---|
-| `l4perception/obb.go:103` | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity |
-| `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis — swaps when axis flips |
-| `l5tracks/tracking.go:1006` | Velocity disambiguation only when speed > 0.5 m/s |
-| `l5tracks/tracking.go:992` | Aspect-ratio lock threshold 0.25 may be too loose |
-| `l5tracks/tracking.go:886–890` | Dimension averaging not axis-locked — averages mixed orientations |
-| `l5tracks/tracking.go:1044–1048` | Per-frame OBB dimensions updated without axis consistency check |
-| `MetalRenderer.swift:471–475` | Track boxes use averaged dims with smoothed heading (mismatch) |
-| `adapter.go:223–225` | Associated clusters not rendered (correct, but hinders debugging) |
+| Location | Issue | Status |
+|---|---|---|
+| `l4perception/obb.go:103` | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity | Mitigated by velocity/displacement disambiguation |
+| `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis — swaps when axis flips | Handled by 90° jump rejection (Guard 3) |
+| `l5tracks/tracking.go` | Velocity disambiguation only when speed > 0.5 m/s | Displacement fallback added (Fix C) |
+| `l5tracks/tracking.go` | Aspect-ratio lock threshold 0.25 may be too loose | Open (Fix D) |
+| `l5tracks/tracking.go` | 90° heading jumps from PCA axis swaps | **Fixed:** Guard 3 rejects 60°–120° jumps |
+| `l5tracks/tracking.go` | No heading-source diagnostic data | **Fixed:** HeadingSource enum added (Fix G) |
+| `l5tracks/tracking.go` | Dimension averaging not axis-locked | EMA smoothing added (Fix B) |
+| `MetalRenderer.swift` | Track boxes use averaged dims with smoothed heading | Comment updated; Fix E pending |
+| `adapter.go` | Associated clusters not rendered (hinders debugging) | Open (Fix F) |
 
 ---
 
@@ -210,30 +211,44 @@ contaminating foreground clusters), which would reduce PCA noise.
 
 ## 5. Proposed Fixes
 
-### Fix A: Canonical-axis dimension normalisation (addresses §2.2, §2.3)
+### Fix A: ~~Canonical-axis dimension normalisation~~ REVERTED
 
-**Problem:** Length and width swap when PCA axis flips.
+**Original proposal:** Force `Length >= Width` always, rotating heading by
+π/2 when the perpendicular extent exceeds the principal extent.
 
-**Fix:** After computing the OBB, normalise dimensions so that
-`length >= width` always, and adjust heading accordingly:
+**Reverted because:** Pedestrian and other non-vehicular clusters are
+legitimately square or near-square. The normalisation incorrectly rotated
+their headings by 90° every frame, causing the very spinning it was meant
+to prevent. Only vehicle-shaped clusters (high aspect ratio) would benefit,
+but the heuristic cannot distinguish object types at the OBB level.
 
-```go
-if obb.Width > obb.Length {
-    obb.Length, obb.Width = obb.Width, obb.Length
-    obb.HeadingRad += π/2
-    // re-normalise heading to [-π, π]
-}
-```
+**Replaced by:** Tracker-level 90° jump rejection (Guard 3 in the heading
+update block). If the heading delta vs the previous smoothed heading is
+between 60°–120° (i.e. near ±90°), the update is rejected and the heading
+is locked. This catches PCA axis swaps for near-square clusters that
+passed the aspect-ratio guard (Guard 2) without incorrectly rotating
+headings for legitimately square objects.
 
-This ensures "length" always means the longer extent and "width" always
-means the shorter extent, regardless of which eigenvector PCA chose as
-principal. The heading is adjusted to match.
+### Fix G: Heading-source debug rendering (NEW)
 
-**Impact:** Eliminates the 90° axis-swap problem. Running averages of
-length and width become meaningful because they always refer to the same
-physical axis.
+**Problem:** Cannot determine which component is responsible for heading
+drift without additional diagnostic tooling.
 
-**Effort:** Small — localised change in `EstimateOBBFromCluster`.
+**Fix:** Added `HeadingSource` enum tracking through the full stack:
+tracker → adapter → model → proto → gRPC → macOS renderer → web API.
+Values: `PCA` (0), `velocity` (1), `displacement` (2), `locked` (3).
+
+macOS visualiser gains `showHeadingSource` toggle that colours confirmed
+track boxes by heading source instead of lifecycle state:
+- **Blue** — velocity-disambiguated (healthy)
+- **Yellow** — raw PCA (no disambiguation available)
+- **Orange** — displacement-disambiguated (slow-moving)
+- **Grey** — heading locked (aspect ratio guard or 90° jump rejection)
+
+Web API exposes `heading_source` field in `TrackResponse` JSON.
+
+**Impact:** Enables real-time visual diagnosis of which heading path is
+responsible for angular drift on any given track.
 
 ### Fix B: Smoothed dimensions in the tracker (addresses §2.3, §2.4)
 
@@ -348,16 +363,17 @@ before tracking smoothing is applied.
 
 1. **Fix A** (canonical-axis normalisation) — eliminates the root cause of
    axis swaps. All downstream fixes build on this.
-2. **Fix D** (tighten aspect-ratio threshold) — config-only, reduces noise
-   while Fix A is validated.
+2. **Fix D** (tighten aspect-ratio threshold) — config-only, reduces noise.
 3. **Fix C** (low-speed disambiguation) — addresses the remaining 180° flip
    cases.
 4. **Fix B** (smoothed dimensions) — temporal stability for rendering.
-5. **Fix E** (renderer consistency) — synchronise both renderers.
-6. **Fix F** (debug cluster rendering) — optional, for ongoing tuning.
+5. **Fix G** (heading-source debug rendering) — colour-code boxes by heading
+   origin for drift diagnosis.
+6. **Fix E** (renderer consistency) — synchronise both renderers.
+7. **Fix F** (debug cluster rendering) — optional, for ongoing tuning.
 
-Fixes A, D, and C address correctness. Fixes B and E address rendering
-quality. Fix F addresses observability.
+Guard 3 (90° jump rejection), fixes B, C, and G are implemented.
+Fix D is config-only. Fixes E and F are not yet started.
 
 ---
 
@@ -365,8 +381,8 @@ quality. Fix F addresses observability.
 
 ### 7.1 Unit test additions
 
-- `obb_test.go`: Verify that after Fix A, `Length >= Width` always holds.
-- `obb_test.go`: Verify heading adjustment when width > length.
+- `obb_test.go`: Verify PCA returns natural axes without forced normalisation.
+- `obb_test.go`: Verify correct dimensions for rectangles in X and Y.
 - `tracking_test.go`: Verify heading stability for near-square clusters
   across multiple frames.
 - `tracking_test.go`: Verify dimension consistency when PCA axis would
@@ -377,11 +393,13 @@ quality. Fix F addresses observability.
 - Run existing `.vrlog` captures through the pipeline with and without fixes.
 - Measure heading jitter RMS (already tracked in
   `HeadingJitterSumSq`/`HeadingJitterCount`).
-- Measure dimension convergence (average length/width should reflect true
-  vehicle proportions, not converge to square).
+- Use heading-source debug rendering (Fix G) to identify which tracks have
+  unstable heading sources.
 
 ### 7.3 Visual inspection
 
+- Enable `showHeadingSource` in macOS visualiser to see heading-source
+  colour coding (blue/yellow/orange/grey) on track boxes.
 - With Fix F enabled, compare raw DBSCAN OBBs against smoothed track OBBs
   in the macOS visualiser.
 - Confirm that cyan (cluster) boxes spin but green/yellow (track) boxes do
@@ -405,9 +423,10 @@ The tracker already computes:
 
 ## 9. Open Questions
 
-1. Should the canonical-axis normalisation (Fix A) be applied at the cluster
-   level (`EstimateOBBFromCluster`) or at the tracker level when consuming
-   the OBB? Applying at cluster level is simpler and benefits all consumers.
+1. **Resolved:** Canonical-axis normalisation (Fix A) was reverted because it
+   incorrectly rotates headings for pedestrian and other square clusters.
+   The 90° jump rejection (Guard 3) handles the axis-swap problem at the
+   tracker level where temporal context is available.
 
 2. What is the optimal aspect-ratio lock threshold (Fix D)? The current 0.25
    is likely too loose; 0.15 is proposed but should be validated against replay
@@ -422,3 +441,7 @@ The tracker already computes:
    (`BoundingBoxLengthAvg`/`BoundingBoxWidthAvg`)? The cumulative average
    has value for long-term classification features; the EMA is better for
    rendering. Consider keeping both.
+
+5. Should the 90° jump rejection threshold (60°–120° band) be configurable?
+   Currently hardcoded as π/3 to 2π/3. This should cover all practical PCA
+   axis-swap scenarios but may need tuning for unusual sensor geometries.
