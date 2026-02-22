@@ -3929,6 +3929,41 @@ func TestWebServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	}
 }
 
+func TestWebServer_HandleTuningParams_POST_InvalidMaxTracks(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "params-invalid-max-tracks")
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "params-invalid-max-tracks",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
+	server.SetTracker(tracker)
+
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"zero", `{"max_tracks": 0}`},
+		{"negative", `{"max_tracks": -1}`},
+		{"too_large", `{"max_tracks": 1001}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/lidar/params?sensor_id=params-invalid-max-tracks", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+			server.handleTuningParams(rr, req)
+			if rr.Code != http.StatusBadRequest {
+				t.Errorf("expected 400 for %s, got %d: %s", tc.name, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
 func TestWebServer_HandleTuningParams_POST_InvalidDeletedTrackGracePeriod(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, "params-invalid-grace")
 	defer cleanup()

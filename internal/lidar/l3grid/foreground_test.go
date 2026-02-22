@@ -499,6 +499,85 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveParams(t *testing.T) {
 	}
 }
 
+// TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm verifies that a
+// region override of NeighborConfirmationCount=0 disables the neighbour-confirmation
+// path, overriding a global value that would otherwise trigger it.
+//
+// Scenario: main cell background=10m, neighbour cell background=10.5m.
+// A point at 10.5m is foreground relative to the main cell by distance, but the
+// neighbour cell confirms it as background via the neighbour-confirmation path.
+// When the region override sets NeighborConfirmationCount=0 the neighbour path is
+// skipped and the point is correctly classified as foreground.
+func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.T) {
+	// Grid: 1 ring, 8 azimuth bins.
+	g := makeTestGridStrict(1, 8)
+	bm := g.Manager
+	g.SettlingComplete = true
+
+	// Global params: tight noise, 1 neighbour required, small safety.
+	g.Params.ClosenessSensitivityMultiplier = 1.0
+	g.Params.NoiseRelativeFraction = 0.01
+	g.Params.SafetyMarginMeters = 0.1
+	g.Params.NeighborConfirmationCount = 1
+	g.Params.BackgroundUpdateFraction = 0.5
+	g.Params.SeedFromFirstObservation = false
+
+	// Main cell at azBin=0: background at 10.0m.
+	// Neighbour cell at azBin=1: background at 10.5m.
+	// A point at 10.5m is foreground relative to the main cell by distance
+	// (diff=0.5m > closenessThreshold≈0.215m), but the neighbour at 10.5m
+	// confirms it as background via the neighbour-confirmation path.
+	g.Cells[g.Idx(0, 0)] = BackgroundCell{AverageRangeMeters: 10.0, TimesSeenCount: 120}
+	g.Cells[g.Idx(0, 1)] = BackgroundCell{AverageRangeMeters: 10.5, TimesSeenCount: 120}
+
+	// Without region override: neighbour confirmation classifies point as background.
+	mask, err := bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.5}})
+	if err != nil {
+		t.Fatalf("ProcessFramePolarWithMask failed: %v", err)
+	}
+	if mask[0] {
+		t.Fatalf("expected background via neighbour confirmation (global params), got foreground")
+	}
+
+	// Restore main cell after update.
+	g.Cells[g.Idx(0, 0)] = BackgroundCell{AverageRangeMeters: 10.0, TimesSeenCount: 120}
+
+	// Apply a region override with NeighborConfirmationCount=0 for azBin=0 only.
+	// The global NeighborConfirmationCount=1 should be suppressed for this cell.
+	mainIdx := g.Idx(0, 0)
+	cellMask := make([]bool, len(g.Cells))
+	cellMask[mainIdx] = true
+	rm := NewRegionManager(g.Rings, g.AzimuthBins)
+	for i := range rm.CellToRegionID {
+		rm.CellToRegionID[i] = -1
+	}
+	rm.Regions = []*Region{
+		{
+			ID:        0,
+			CellMask:  cellMask,
+			CellList:  []int{mainIdx},
+			CellCount: 1,
+			Params: RegionParams{
+				NoiseRelativeFraction:     0.01,
+				NeighborConfirmationCount: 0, // explicitly disable neighbour confirmation
+				SettleUpdateFraction:      0.5,
+			},
+		},
+	}
+	rm.CellToRegionID[mainIdx] = 0
+	rm.IdentificationComplete = true
+	g.RegionMgr = rm
+
+	// With NeighborConfirmationCount=0 override: point should be foreground.
+	mask, err = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.5}})
+	if err != nil {
+		t.Fatalf("ProcessFramePolarWithMask failed with region override: %v", err)
+	}
+	if !mask[0] {
+		t.Fatalf("expected foreground when region disables neighbour confirmation, got background")
+	}
+}
+
 // TestProcessFramePolarWithMask_AcceptanceCounting verifies that per-range
 // acceptance metrics are accumulated during ProcessFramePolarWithMask calls.
 // This is the root cause fix for accept_rate=0 in auto-tune sweeps.

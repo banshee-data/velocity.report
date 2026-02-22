@@ -223,23 +223,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 		// Region-adaptive parameter overrides (if identified) must apply on the
 		// mask path as well, since this is the production runtime path.
-		cellNoiseRel := noiseRel
-		cellNeighborConfirm := neighConfirm
-		cellAlpha := effectiveAlpha
-		if g.RegionMgr != nil && g.RegionMgr.IdentificationComplete {
-			regionID := g.RegionMgr.GetRegionForCell(cellIdx)
-			if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
-				if regionNoiseRel := float64(regionParams.NoiseRelativeFraction); regionNoiseRel > 0 {
-					cellNoiseRel = regionNoiseRel
-				}
-				if regionNeighborConfirm := regionParams.NeighborConfirmationCount; regionNeighborConfirm > 0 {
-					cellNeighborConfirm = regionNeighborConfirm
-				}
-				if regionAlpha := float64(regionParams.SettleUpdateFraction); regionAlpha > 0 && regionAlpha <= 1 {
-					cellAlpha = regionAlpha
-				}
-			}
-		}
+		cellNoiseRel, cellNeighborConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
 
 		// If frozen, treat as foreground but don't accumulate recFg
 		// The freeze itself is sufficient protection; accumulating recFg during freeze

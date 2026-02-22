@@ -968,6 +968,10 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 				ws.tracker.Config.MaxMissesConfirmed = *body.MaxMissesConfirmed
 			}
 			if body.MaxTracks != nil {
+				if *body.MaxTracks < 1 || *body.MaxTracks > 1000 {
+					http.Error(w, "max_tracks must be between 1 and 1000", http.StatusBadRequest)
+					return
+				}
 				ws.tracker.Config.MaxTracks = *body.MaxTracks
 			}
 			if body.MaxReasonableSpeedMps != nil {
