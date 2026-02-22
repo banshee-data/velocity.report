@@ -29,7 +29,8 @@ type BackgroundParams struct {
 	ForegroundDBSCANEps            float32 // clustering radius for foreground gating
 	// ForegroundMaxInputPoints caps the number of points fed into the core DBSCAN
 	// loop. When the input exceeds this value, uniform random subsampling is
-	// applied to keep runtime bounded. Zero disables the cap. Default: 8000.
+	// applied to keep runtime bounded. If this value is zero or negative, a
+	// sensible default cap of 8000 points is applied.
 	ForegroundMaxInputPoints int
 	// NoiseRelativeFraction is the fraction of range (distance) to treat as
 	// expected measurement noise. This allows closeness thresholds to grow
