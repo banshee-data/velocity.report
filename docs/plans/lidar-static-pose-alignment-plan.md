@@ -1,8 +1,5 @@
 # Hesai LIDAR 7DOF Track Production - Future AV Integration
 
-Status: Planned
-Purpose/Summary: lidar-static-pose-alignment-plan.
-
 **Status:** DEFERRED - See Simplification Notes Below
 **Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualization
 **Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data

@@ -1,8 +1,5 @@
 # Webserver Tuning Schema Parity Backlog
 
-Status: Planned
-Purpose/Summary: lidar-webserver-tuning-schema-parity-plan.
-
 ## Goal
 
 Bring `/api/lidar/params` POST input schema to full parity with canonical tuning config schema and key order.

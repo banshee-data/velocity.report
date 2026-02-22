@@ -1,8 +1,5 @@
 # CLI Comprehensive Guide & Implementation Plan
 
-Status: Active
-Purpose/Summary: cli-comprehensive-guide.
-
 **Purpose:** Complete reference and restructuring plan for velocity.report CLI interfaces
 
 ---

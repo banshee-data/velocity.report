@@ -1,8 +1,5 @@
 # Architecture
 
-Status: Active (contains planned sections)
-Purpose/Summary: 03-architecture.
-
 This document describes the system architecture for the macOS LiDAR visualiser and the supporting pipeline refactor.
 
 ---

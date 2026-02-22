@@ -1,8 +1,5 @@
 # Networking Design Principles
 
-Status: Active
-Purpose/Summary: networking.
-
 This document describes the network architecture, listener segmentation, and access control model for velocity.report.
 
 ## Deployment Model

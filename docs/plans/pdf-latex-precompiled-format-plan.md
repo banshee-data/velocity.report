@@ -1,8 +1,5 @@
 # Precompiled LaTeX Format Plan
 
-Status: Planned
-Purpose/Summary: pdf-latex-precompiled-format-plan.
-
 **Status**: Draft — awaiting review before implementation
 **Parent**: [RPi Imager Fork Design § 4.6 Option B](deploy-rpi-imager-fork-plan.md)
 **Goal**: Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX

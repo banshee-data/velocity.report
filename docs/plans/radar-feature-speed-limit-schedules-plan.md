@@ -1,8 +1,5 @@
 # Feature Specification: Time-Based Speed Limit Schedules
 
-Status: Planned
-Purpose/Summary: radar-feature-speed-limit-schedules.
-
 **Status:** Design Specification (Not Implemented)
 **Author:** Ictinus (Product Architect)
 **Issue:** Time-based speed limit schedules for sites

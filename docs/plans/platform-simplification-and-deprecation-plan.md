@@ -1,8 +1,5 @@
 # Simplification and Deprecation Plan
 
-Status: Planned
-Purpose/Summary: platform-simplification-and-deprecation-plan.
-
 ## Status: Draft
 
 ## Goal

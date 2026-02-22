@@ -1,8 +1,5 @@
 # Feature Specification: Serial Configuration and Testing via UI
 
-Status: Planned
-Purpose/Summary: radar-feature-serial-configuration-ui.
-
 **Status:** Draft
 **Author:** Ictinus (Product Architect)
 **Issue:** Serial config + test (baud, port) via UI

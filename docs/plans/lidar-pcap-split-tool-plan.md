@@ -1,8 +1,5 @@
 # PCAP Split Tool Design Document
 
-Status: Planned
-Purpose/Summary: lidar-pcap-split-tool-plan.
-
 ## Executive Summary
 
 This document describes the design for `pcap-split`, a Go command-line tool that automatically segments LIDAR PCAP files into non-overlapping periods of motion and stability. The tool enables separate analysis pipelines for mobile observation (driving) and static observation (parked) data collection scenarios.

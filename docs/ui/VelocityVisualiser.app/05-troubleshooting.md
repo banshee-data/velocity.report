@@ -1,8 +1,5 @@
 # Troubleshooting
 
-Status: Active
-Purpose/Summary: 05-troubleshooting.
-
 This guide covers common issues when building and running the macOS Visualiser.
 
 ---

@@ -1,8 +1,5 @@
 # Ground Plane Export for pcap-analyse Tool
 
-Status: Planned
-Purpose/Summary: lidar-pcap-ground-plane-export-tool-plan.
-
 **Status**: Planning
 **Target**: `cmd/tools/pcap-analyse`
 **Related Design Docs**:

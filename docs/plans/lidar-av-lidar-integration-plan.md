@@ -1,8 +1,5 @@
 # AV Standard LIDAR Integration Plan
 
-Status: Planned
-Purpose/Summary: lidar-av-lidar-integration-plan.
-
 **Status:** DEFERRED - AV Integration Only
 **Author:** Agent Ictinus (Product Architecture)
 **Version:** 1.1

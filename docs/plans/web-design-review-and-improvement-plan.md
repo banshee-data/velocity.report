@@ -1,8 +1,5 @@
 # Design Review and Improvement Plan
 
-Status: Planned
-Purpose/Summary: web-design-review-and-improvement-plan.
-Last reviewed: 2026-02-19
 Reference: [DESIGN.md](../../DESIGN.md), [ARCHITECTURE.md](../../ARCHITECTURE.md)
 Backlog: [BACKLOG.md](../../BACKLOG.md) — P1 item 6
 

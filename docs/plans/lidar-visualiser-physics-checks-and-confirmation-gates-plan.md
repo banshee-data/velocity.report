@@ -1,8 +1,5 @@
 # Design: Automatic Physics Checks and Confirmation Gates (Feature 7)
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-physics-checks-and-confirmation-gates.
-
 **Status:** Proposed (February 2026)
 
 ## Objective

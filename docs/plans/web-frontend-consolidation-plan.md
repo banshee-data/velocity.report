@@ -1,8 +1,5 @@
 # Frontend Consolidation Plan
 
-Status: Planned
-Purpose/Summary: web-frontend-consolidation-plan.
-
 ## Status: Draft
 
 ## Problem Statement

@@ -1,8 +1,5 @@
 # Design: Session-Level QC Dashboard and Audit Export (Feature 10)
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-qc-dashboard-and-audit-export.
-
 **Status:** Proposed (February 2026)
 
 ## Objective

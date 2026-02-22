@@ -1,11 +1,6 @@
 # Design Specification: Time-Partitioned Raw Data Tables
 
-Status: Planned
-Purpose/Summary: radar-feature-time-partitioned-data-tables.
-
 **Status:** Draft
-**Author:** Ictinus (Product-Conscious Software Architect)
-**Target Release:** TBD
 
 ## Table of Contents
 

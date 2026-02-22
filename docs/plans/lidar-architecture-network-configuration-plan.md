@@ -1,8 +1,5 @@
 # LiDAR Network Configuration
 
-Status: Planned
-Purpose/Summary: lidar-architecture-network-configuration.
-
 **Status:** Proposed
 **Author:** Architecture Team
 **Related:** [`../lidar/architecture/hesai_packet_structure.md`](../lidar/architecture/hesai_packet_structure.md), [`../lidar/architecture/lidar_sidecar_overview.md`](../lidar/architecture/lidar_sidecar_overview.md), [`../radar/architecture/networking.md`](../radar/architecture/networking.md)

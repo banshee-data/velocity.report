@@ -1,8 +1,5 @@
 # Design: Track Quality Score and Reason Codes (Feature 1)
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-track-quality-score.
-
 **Status:** Proposed (February 2026)
 
 ## Objective

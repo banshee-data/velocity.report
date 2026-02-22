@@ -1,8 +1,5 @@
 # Python Virtual Environment Consolidation Plan
 
-Status: Planned
-Purpose/Summary: tooling-python-venv-consolidation-plan.
-
 **Status**: Implementation Plan
 **Goal**: Consolidate from dual Python venv system to single shared repository-level venv
 

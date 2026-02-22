@@ -1,8 +1,5 @@
 # Labelling + QC Enhancements (Features 1, 2, 3, 5, 7, 8, 10)
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-labelling-qc-enhancements-overview.
-
 **Status:** Proposed (February 2026)
 
 ## Scope

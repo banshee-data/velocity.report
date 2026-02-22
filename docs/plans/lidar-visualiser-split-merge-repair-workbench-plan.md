@@ -1,8 +1,5 @@
 # Design: One-Click Split/Merge Repair Workbench (Feature 3)
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-split-merge-repair-workbench.
-
 **Status:** Proposed (February 2026)
 
 ## Objective

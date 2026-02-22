@@ -1,8 +1,5 @@
 # Design: Performance and Scene Health Metrics in Timeline and VR Logs
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-performance-and-scene-health-timeline-metrics.
-
 **Status:** Proposed (February 2026)
 
 ## Objective

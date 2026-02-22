@@ -1,8 +1,5 @@
 # Serial Configuration UI - Quick Reference
 
-Status: Active
-Purpose/Summary: serial-config-quickref.
-
 **Full Specification:** See [docs/plans/radar-feature-serial-configuration-ui-plan.md](../plans/radar-feature-serial-configuration-ui-plan.md)
 
 ## What This Feature Enables

@@ -1,8 +1,5 @@
 # Velocity-Coherent Foreground Extraction Implementation Plan and Checklist
 
-Status: Planned
-Purpose/Summary: lidar-velocity-coherent-foreground-extraction-plan.
-
 **Status:** Planning (Not Yet Implemented)
 **Owner:** LIDAR Pipeline Team
 **Version:** 2.0

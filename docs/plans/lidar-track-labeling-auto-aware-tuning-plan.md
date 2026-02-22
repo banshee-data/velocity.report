@@ -1,7 +1,7 @@
 # Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
 
 Status: Planned
-Purpose/Summary: lidar-track-labeling-auto-aware-tuning-plan.
+Purpose: Defines end-to-end track labelling and ground-truth-aware auto-tuning workflow, covering data model, APIs, review tooling, scoring logic, and phased implementation for higher-quality LiDAR tracking outputs.
 
 **Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
 

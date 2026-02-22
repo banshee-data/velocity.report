@@ -1,8 +1,5 @@
 # Repo Inspection Notes
 
-Status: Active
-Purpose/Summary: 00-repo-inspection-notes.
-
 This document summarises the existing LiDAR pipeline architecture identified during the design phase for the macOS visualiser project.
 
 ## 1. LiDAR Ingestion

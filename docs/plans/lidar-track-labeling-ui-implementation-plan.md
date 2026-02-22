@@ -1,8 +1,5 @@
 # Unified Plan: Seekable Replay and Swift-Native Track Labeling
 
-Status: Planned
-Purpose/Summary: lidar-track-labeling-ui-implementation-plan.
-
 Unifies:
 
 - `docs/plans/vrlog-recording-replay-plan.md` (VRLOG record/replay plumbing)

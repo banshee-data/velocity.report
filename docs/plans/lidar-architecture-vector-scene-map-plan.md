@@ -1,11 +1,8 @@
 # 3D Vector Scene Map — Architecture Specification
 
-Status: Planned
-Purpose/Summary: lidar-architecture-vector-scene-map.
-
 **Status:** Proposed
 **Layer:** L4 Perception (extends `GroundSurface` interface)
-**Related:** [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../maths/proposals/ground-plane-vector-scene-maths.md), [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
+**Related:** [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../maths/proposals/20260221-ground-plane-vector-scene-maths.md), [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
 
 ---
 
@@ -391,7 +388,7 @@ type VectorSceneMap struct {
 
 **Comparison: tiled grid vs vector polygons for a 100 m × 100 m scene**
 
-Compressed sizes assume gzip compression at ~4:1 ratio for tile grids (high redundancy in similar plane parameters) and ~3:1 for vector polygons (less redundancy due to variable geometry). These ratios are consistent with observed gzip performance on similar structured data (see [`ground-plane-maths.md`](../maths/proposals/ground-plane-vector-scene-maths.md) §10).
+Compressed sizes assume gzip compression at ~4:1 ratio for tile grids (high redundancy in similar plane parameters) and ~3:1 for vector polygons (less redundancy due to variable geometry). These ratios are consistent with observed gzip performance on similar structured data (see [`ground-plane-maths.md`](../maths/proposals/20260221-ground-plane-vector-scene-maths.md) §10).
 
 | Approach                    | Representation  | Element Count | Per-Element Size | Total Raw | Total Compressed (~3–4:1) |
 | --------------------------- | --------------- | ------------- | ---------------- | --------- | ------------------------- |

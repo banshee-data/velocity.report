@@ -1,8 +1,5 @@
 # LiDAR Multi-Model Ingestion and Configuration
 
-Status: Planned
-Purpose/Summary: lidar-architecture-multi-model-ingestion-and-configuration.
-
 **Status:** Proposed
 **Author:** Architecture Team
 **Related:** [`../lidar/architecture/lidar-data-layer-model.md`](../lidar/architecture/lidar-data-layer-model.md), [`../lidar/architecture/hesai_packet_structure.md`](../lidar/architecture/hesai_packet_structure.md), [`lidar-network-configuration.md`](./lidar-architecture-network-configuration-plan.md)

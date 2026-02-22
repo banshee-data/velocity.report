@@ -1,8 +1,5 @@
 # Design: Timeline Event Bar (Feature 2)
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-track-event-timeline-bar.
-
 **Status:** Proposed (February 2026)
 
 ## Objective

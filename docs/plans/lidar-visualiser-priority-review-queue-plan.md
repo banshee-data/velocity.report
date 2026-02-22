@@ -1,8 +1,5 @@
 # Design: Priority Review Queue by Uncertainty and Impact (Feature 8)
 
-Status: Planned
-Purpose/Summary: lidar-visualiser-priority-review-queue.
-
 **Status:** Proposed (February 2026)
 
 ## Objective

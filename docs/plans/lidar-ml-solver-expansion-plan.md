@@ -1,9 +1,8 @@
 # Velocity Report Expansion Plan Inspired by an Industry Standard ML Solver
 
-Status: Planned
-Purpose/Summary: lidar-ml-solver-expansion-plan.
-
 ## Document Intent
+
+Evolve sweep/auto/HINT from a feature set into a reusable Optimisation Platform.
 
 This document translates practices from an industry standard ML solver into a concrete expansion path for Velocity Report’s LiDAR tuning and human-feedback stack. It focuses on current-state reality, near-term opportunities around HINT sweep mode, and a phased implementation sequence that improves experimentation speed, model trust, and operational reproducibility.
 

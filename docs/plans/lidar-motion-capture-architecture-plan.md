@@ -1,8 +1,5 @@
 # Motion Capture Architecture - Future Specification
 
-Status: Planned
-Purpose/Summary: lidar-motion-capture-architecture-plan.
-
 **Status:** Future Work (Not in Current Release)
 **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)
 **Purpose:** Long-term architecture specification for motion capture scenarios

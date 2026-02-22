@@ -1,7 +1,6 @@
 # API Contracts
 
 Status: Active (contains planned sections)
-Purpose/Summary: 02-api-contracts.
 
 This is the **most critical document** for the visualiser project. It defines the canonical data model and communication protocol between the Go pipeline (server) and the macOS visualiser (client).
 

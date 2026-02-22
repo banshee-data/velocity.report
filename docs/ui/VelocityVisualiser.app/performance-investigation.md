@@ -1,8 +1,5 @@
 # LiDAR Visualiser Performance Investigation
 
-Status: Active
-Purpose/Summary: performance-investigation.
-
 **Status:** Substantially Complete — M3.5 split streaming implemented, frame rate throttle added. Minor gaps: CLI flag for background interval uses default only; bandwidth reduction not formally tested (claimed ~96% in code)
 **Authors:** David, Copilot
 **Scope:** Static LiDAR deployments only (no SLAM/mobile use cases)

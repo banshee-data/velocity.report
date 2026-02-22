@@ -1,10 +1,5 @@
 # SQLite Client Standardization Plan
 
-Status: Planned
-Purpose: Use one canonical set of SQLite interfacing code for the shared schema in internal/db/schema.sql, and remove direct SQL access from internal/api.
-
-## Goal
-
 Use one canonical set of SQLite interfacing code for the shared schema in `internal/db/schema.sql`, and remove direct SQL access from `internal/api`.
 
 ## Scope

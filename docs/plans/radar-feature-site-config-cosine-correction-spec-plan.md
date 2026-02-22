@@ -1,8 +1,5 @@
 # Feature Specification: Site Configuration with Time-Based Cosine Error Correction
 
-Status: Planned
-Purpose/Summary: radar-feature-site-config-cosine-correction-spec.
-
 **Status:** Proposed / Design Phase
 **Author:** Ictinus (Product Architecture Agent)
 

@@ -1,8 +1,5 @@
 # Implementation Plan
 
-Status: Active
-Purpose/Summary: 04-implementation-plan.
-
 This document defines an incremental, API-first implementation plan with explicit milestones and acceptance criteria.
 
 **Current Status** (February 2026):
