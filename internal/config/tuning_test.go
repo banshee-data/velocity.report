@@ -240,6 +240,7 @@ func TestLoadTuningConfig(t *testing.T) {
   "enable_diagnostics": false,
   "foreground_dbscan_eps": 0.8,
   "foreground_min_cluster_points": 5,
+  "foreground_max_input_points": 8000,
   "buffer_timeout": "250ms",
   "min_frame_points": 500,
   "flush_interval": "120s",
@@ -572,6 +573,7 @@ func TestAllTuningParams(t *testing.T) {
   "enable_diagnostics": true,
   "foreground_min_cluster_points": 10,
   "foreground_dbscan_eps": 0.5,
+  "foreground_max_input_points": 5000,
   "buffer_timeout": "250ms",
   "min_frame_points": 500,
   "flush_interval": "120s",
@@ -641,6 +643,9 @@ func TestAllTuningParams(t *testing.T) {
 	}
 	if cfg.ForegroundDBSCANEps == nil || *cfg.ForegroundDBSCANEps != 0.5 {
 		t.Errorf("ForegroundDBSCANEps = %v, want 0.5", cfg.ForegroundDBSCANEps)
+	}
+	if cfg.ForegroundMaxInputPoints == nil || *cfg.ForegroundMaxInputPoints != 5000 {
+		t.Errorf("ForegroundMaxInputPoints = %v, want 5000", cfg.ForegroundMaxInputPoints)
 	}
 	if cfg.BufferTimeout == nil || *cfg.BufferTimeout != "250ms" {
 		t.Errorf("BufferTimeout = %v, want '250ms'", cfg.BufferTimeout)
