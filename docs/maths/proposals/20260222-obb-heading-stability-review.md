@@ -250,25 +250,35 @@ Web API exposes `heading_source` field in `TrackResponse` JSON.
 **Impact:** Enables real-time visual diagnosis of which heading path is
 responsible for angular drift on any given track.
 
-### Fix B: Smoothed dimensions in the tracker (addresses §2.3, §2.4)
+### Fix B: Use cluster dimensions directly (addresses §2.3, §2.4)
 
-**Problem:** Per-frame OBB dimensions jitter, and averaged dimensions blend
-mixed orientations.
+**Problem:** Per-frame OBB dimensions jitter, and EMA-smoothed dimensions
+mixed swapped axes when heading was locked due to PCA axis swaps.
 
-**Fix:** Apply EMA smoothing to length, width, and height in the tracker
-(analogous to heading smoothing), using the same α:
+**Fix:** Use cluster (DBSCAN) dimensions directly for per-frame rendering
+instead of EMA smoothing. When the heading is updated normally, the cluster
+dimensions are consistent with the heading. When the heading is locked
+(Guard 1/2/3), only update height — length and width are held to avoid
+desynchronising dimensions from the locked heading.
 
 ```go
-track.OBBLength = (1-α)*track.OBBLength + α*cluster.OBB.Length
-track.OBBWidth  = (1-α)*track.OBBWidth  + α*cluster.OBB.Width
-track.OBBHeight = (1-α)*track.OBBHeight + α*cluster.OBB.Height
+if updateHeading {
+    track.OBBLength = cluster.OBB.Length
+    track.OBBWidth  = cluster.OBB.Width
+    track.OBBHeight = cluster.OBB.Height
+} else {
+    // Only update height (axis-independent)
+    track.OBBHeight = cluster.OBB.Height
+}
 ```
 
-This provides temporal stability without the axis-mixing problem of
-cumulative averaging (because Fix A ensures consistent axis labelling).
+This avoids the axis-mixing problem because the tracker-level 90° heading
+jump rejection (Guard 3) prevents sudden relabelling of axes, and dimensions
+are only updated when heading and dimensions are known to be consistent.
 
-**Impact:** Smoother box dimensions on screen. Combined with Fix A, prevents
-dimension convergence toward square.
+**Impact:** Per-frame box dimensions match the DBSCAN cluster dimensions
+exactly, producing boxes that capture all cluster points. Dimensions remain
+anisotropic for elongated objects instead of converging towards a square.
 
 **Effort:** Small — localised change in tracker update.
 
@@ -361,18 +371,20 @@ before tracking smoothing is applied.
 
 ## 6. Recommended Implementation Order
 
-1. **Fix A** (canonical-axis normalisation) — eliminates the root cause of
-   axis swaps. All downstream fixes build on this.
-2. **Fix D** (tighten aspect-ratio threshold) — config-only, reduces noise.
-3. **Fix C** (low-speed disambiguation) — addresses the remaining 180° flip
-   cases.
-4. **Fix B** (smoothed dimensions) — temporal stability for rendering.
+1. **Guard 3** (90° heading jump rejection) — catches PCA axis swaps at the
+   tracker level. Replaces Fix A (canonical-axis normalisation, reverted).
+2. **Fix C** (low-speed disambiguation) — addresses 180° flip cases via
+   displacement fallback.
+3. **Fix B** (use cluster dimensions directly) — per-frame rendering uses
+   DBSCAN dimensions. Skips dimension updates when heading is locked to
+   maintain axis consistency.
+4. **Fix D** (tighten aspect-ratio threshold) — config-only, reduces noise.
 5. **Fix G** (heading-source debug rendering) — colour-code boxes by heading
    origin for drift diagnosis.
 6. **Fix E** (renderer consistency) — synchronise both renderers.
 7. **Fix F** (debug cluster rendering) — optional, for ongoing tuning.
 
-Guard 3 (90° jump rejection), fixes B, C, and G are implemented.
+Guard 3, fixes B, C, and G are implemented.
 Fix D is config-only. Fixes E and F are not yet started.
 
 ---

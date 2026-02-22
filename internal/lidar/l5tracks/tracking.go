@@ -993,7 +993,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	//   3. Reject 90° jumps: if the raw heading delta vs smoothed is near ±90°,
 	//      this is likely a PCA axis swap (not real object rotation). Hold heading.
 	//   4. EMA α = OBBHeadingSmoothingAlpha (0.08) provides heavy smoothing.
-	// Per-frame OBB dimensions are always updated regardless of heading lock.
+	// Per-frame OBB dimensions use cluster (DBSCAN) values directly when heading
+	// is updated. When heading is locked, only height is updated to avoid
+	// desynchronising dimensions from the locked heading.
 	if cluster.OBB != nil {
 		updateHeading := true
 		headingSource := HeadingSourcePCA
@@ -1119,21 +1121,22 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 		track.HeadingSource = headingSource
 
-		// EMA-smooth per-frame OBB dimensions to reduce frame-to-frame jitter
-		// while keeping dimensions synchronised with the smoothed heading.
-		// Alpha is the weight of the new observation (same convention as
-		// SmoothOBBHeading: higher alpha = more responsive to new values).
-		// See docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix B.
-		alpha := t.Config.OBBHeadingSmoothingAlpha
-		if track.ObservationCount <= 1 {
-			// First observation: initialise directly (no previous value to smooth)
+		// Use cluster (DBSCAN) dimensions directly for per-frame rendering.
+		// The DBSCAN OBB dimensions are aligned with the current frame's PCA
+		// heading and capture all cluster points. When the heading was updated
+		// this frame, the cluster dimensions are consistent with the new heading.
+		// When the heading was locked (Guard 1/2/3), the cluster axes may be
+		// rotated relative to the stored heading — in that case only update
+		// height (which is independent of horizontal axis orientation) to avoid
+		// desynchronising dimensions from the locked heading.
+		if updateHeading {
 			track.OBBLength = cluster.OBB.Length
 			track.OBBWidth = cluster.OBB.Width
 			track.OBBHeight = cluster.OBB.Height
 		} else {
-			track.OBBLength = (1-alpha)*track.OBBLength + alpha*cluster.OBB.Length
-			track.OBBWidth = (1-alpha)*track.OBBWidth + alpha*cluster.OBB.Width
-			track.OBBHeight = (1-alpha)*track.OBBHeight + alpha*cluster.OBB.Height
+			// Heading was locked: cluster Length/Width may be swapped relative
+			// to the track's heading. Only update height (axis-independent).
+			track.OBBHeight = cluster.OBB.Height
 		}
 		track.LatestZ = cluster.OBB.CenterZ
 	}

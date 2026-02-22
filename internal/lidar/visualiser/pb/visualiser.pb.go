@@ -1074,9 +1074,12 @@ type Track struct {
 	MotionModel       MotionModel    `protobuf:"varint,33,opt,name=motion_model,json=motionModel,proto3,enum=velocity.visualiser.v1.MotionModel" json:"motion_model,omitempty"`
 	// Rendering hints
 	Alpha         float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
-	// Heading source (for debug rendering: colour-code boxes by heading origin)
-	// 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
-	// NOTE: manually added field — regenerate stubs with `make proto-gen-go` to sync.
+	// Per-frame bounding box dimensions (EMA-smoothed by tracker, aligned with heading).
+	// NOTE: fields 35-38 manually added — run `make proto-gen-go` to regenerate stubs
+	// and sync with the wire descriptor so these fields serialise over gRPC.
+	BboxLength    float32 `protobuf:"fixed32,35,opt,name=bbox_length,json=bboxLength,proto3" json:"bbox_length,omitempty"`
+	BboxWidth     float32 `protobuf:"fixed32,36,opt,name=bbox_width,json=bboxWidth,proto3" json:"bbox_width,omitempty"`
+	BboxHeight    float32 `protobuf:"fixed32,37,opt,name=bbox_height,json=bboxHeight,proto3" json:"bbox_height,omitempty"`
 	HeadingSource int32   `protobuf:"varint,38,opt,name=heading_source,json=headingSource,proto3" json:"heading_source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1346,6 +1349,27 @@ func (x *Track) GetMotionModel() MotionModel {
 func (x *Track) GetAlpha() float32 {
 	if x != nil {
 		return x.Alpha
+	}
+	return 0
+}
+
+func (x *Track) GetBboxLength() float32 {
+	if x != nil {
+		return x.BboxLength
+	}
+	return 0
+}
+
+func (x *Track) GetBboxWidth() float32 {
+	if x != nil {
+		return x.BboxWidth
+	}
+	return 0
+}
+
+func (x *Track) GetBboxHeight() float32 {
+	if x != nil {
+		return x.BboxHeight
 	}
 	return 0
 }
