@@ -1,22 +1,9 @@
 package lidar
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"sync"
-)
-
-// LogLevel represents a logging stream.
-type LogLevel int
-
-const (
-	// LogOps routes to the ops stream: actionable warnings/errors and lifecycle events.
-	LogOps LogLevel = iota
-	// LogDiag routes to the diag stream: day-to-day diagnostics for troubleshooting.
-	LogDiag
-	// LogTrace routes to the trace stream: high-frequency packet/frame telemetry.
-	LogTrace
 )
 
 // LogWriters holds the io.Writers for each logging stream.
@@ -41,23 +28,6 @@ func SetLogWriters(w LogWriters) {
 	opsLogger = newLogger("[lidar] ", w.Ops)
 	diagLogger = newLogger("[lidar] ", w.Diag)
 	traceLogger = newLogger("[lidar] ", w.Trace)
-}
-
-// SetLogWriter configures a single logging stream.
-// Pass nil to disable the stream.
-func SetLogWriter(level LogLevel, w io.Writer) {
-	mu.Lock()
-	defer mu.Unlock()
-	switch level {
-	case LogOps:
-		opsLogger = newLogger("[lidar] ", w)
-	case LogDiag:
-		diagLogger = newLogger("[lidar] ", w)
-	case LogTrace:
-		traceLogger = newLogger("[lidar] ", w)
-	default:
-		panic(fmt.Sprintf("lidar.SetLogWriter: unknown LogLevel %d", level))
-	}
 }
 
 // newLogger creates a *log.Logger for a given writer, or returns nil if w is nil.

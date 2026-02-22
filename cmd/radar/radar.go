@@ -57,6 +57,7 @@ var (
 	versionFlag  = flag.Bool("version", false, "Print version information and exit")
 	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
 	configFile   = flag.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
+	logLevel     = flag.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -192,66 +193,52 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	log.SetOutput(os.Stdout)
 
-	// Three-stream LiDAR logging: VELOCITY_LIDAR_{OPS,DIAG,TRACE}_LOG env vars.
-	var logFiles []*os.File
-	opsPath := os.Getenv("VELOCITY_LIDAR_OPS_LOG")
-	diagPath := os.Getenv("VELOCITY_LIDAR_DIAG_LOG")
-	tracePath := os.Getenv("VELOCITY_LIDAR_TRACE_LOG")
-
-	if opsPath != "" || diagPath != "" || tracePath != "" {
-		writers := lidar.LogWriters{}
-		// Determine a fallback writer: the first explicitly set path, so
-		// unspecified streams still produce output (design: avoid silent log loss).
-		fallbackPath := firstNonEmpty(opsPath, diagPath, tracePath)
-		// Dedup file descriptors: reuse the same *os.File when multiple
-		// streams resolve to the same path (after fallback expansion).
-		openedFiles := map[string]*os.File{}
-		openLog := func(path string) (io.Writer, error) {
-			if path == "" {
-				path = fallbackPath
-			}
-			if f, ok := openedFiles[path]; ok {
-				return f, nil
-			}
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				return nil, fmt.Errorf("create directory for %s: %w", path, err)
-			}
-			f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-			if err != nil {
-				return nil, fmt.Errorf("open %s: %w", path, err)
-			}
-			openedFiles[path] = f
-			logFiles = append(logFiles, f)
-			return f, nil
+	// Three-stream LiDAR logging.
+	//
+	// Verbosity is controlled by --log-level (ops|diag|trace, default: ops).
+	// ops is always routed to stdout. When VELOCITY_DEBUG_LOG is set, diag
+	// and trace (if enabled by --log-level) are routed to that file;
+	// otherwise they also go to stdout.
+	writers := lidar.LogWriters{Ops: os.Stdout}
+	var debugLogFile *os.File
+	if p := os.Getenv("VELOCITY_DEBUG_LOG"); p != "" {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			log.Fatalf("create directory for %s: %v", p, err)
 		}
-		if w, err := openLog(opsPath); err == nil {
-			writers.Ops = w
-		} else {
-			log.Printf("warning: %v", err)
+		f, err := os.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			log.Fatalf("open debug log %s: %v", p, err)
 		}
-		if w, err := openLog(diagPath); err == nil {
-			writers.Diag = w
-		} else {
-			log.Printf("warning: %v", err)
-		}
-		if w, err := openLog(tracePath); err == nil {
-			writers.Trace = w
-		} else {
-			log.Printf("warning: %v", err)
-		}
-		lidar.SetLogWriters(writers)
-		// Wire sub-package loggers to the same streams.
-		l2frames.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
-		l3grid.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
-		pipeline.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+		debugLogFile = f
 	}
 	defer func() {
-		for _, f := range logFiles {
-			if err := f.Close(); err != nil {
-				log.Printf("warning: failed to close log file: %v", err)
-			}
+		if debugLogFile != nil {
+			debugLogFile.Close()
 		}
 	}()
+
+	// debugDest is the file for diag/trace streams: the debug log file if
+	// set, otherwise stdout (so nothing is silently lost).
+	debugDest := io.Writer(os.Stdout)
+	if debugLogFile != nil {
+		debugDest = debugLogFile
+	}
+	switch *logLevel {
+	case "trace":
+		writers.Trace = debugDest
+		fallthrough
+	case "diag":
+		writers.Diag = debugDest
+	case "ops":
+		// ops-only: diag and trace stay nil (disabled)
+	default:
+		log.Fatalf("invalid --log-level=%q (valid: ops, diag, trace)", *logLevel)
+	}
+	lidar.SetLogWriters(writers)
+	parse.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	l2frames.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	l3grid.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	pipeline.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
@@ -448,7 +435,6 @@ func main() {
 				log.Fatalf("Invalid embedded lidar configuration: %v", err)
 			}
 			parser = parse.NewPandar40PParser(*config)
-			parser.SetDebug(*debugMode)
 			parse.ConfigureTimestampMode(parser)
 
 			// Initialise tracking components from tuning config
@@ -535,7 +521,6 @@ func main() {
 				Classifier:          classifier,
 				DB:                  lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
 				SensorID:            *lidarSensor,
-				DebugMode:           *debugMode,
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
@@ -555,11 +540,6 @@ func main() {
 				BufferTimeout:   frameBufferTimeout,
 				CleanupInterval: 250 * time.Millisecond,
 			})
-			// Enable lightweight frame-completion logging only when --debug is set.
-			// PCAP mode no longer forces debug logging so operators can choose verbosity.
-			if frameBuilder != nil {
-				frameBuilder.SetDebug(*debugMode)
-			}
 		}
 
 		// Packet forwarding (optional)
@@ -1167,14 +1147,4 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 			}
 		}
 	}
-}
-
-// firstNonEmpty returns the first non-empty string from its arguments.
-func firstNonEmpty(ss ...string) string {
-	for _, s := range ss {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
 }
