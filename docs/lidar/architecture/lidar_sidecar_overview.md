@@ -195,7 +195,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 - **Production Deployment**: Documentation for multi-node edge deployment
 - ✅ **Track Visualisation UI**: SvelteKit components for track history playback (implemented)
 
-> **See also:** [ML Pipeline Roadmap](../ROADMAP.md) for detailed Phase 4.0-4.3 architecture (labeling UI, ML training, parameter tuning, production)
+> **See also:** [Product Roadmap — LiDAR Pipeline Reference](../../ROADMAP.md#appendix-a-lidar-pipeline-reference) for Phase 4.0-4.3 plans ([labelling](../../plans/lidar-track-labeling-auto-aware-tuning-plan.md), [ML training](../../plans/lidar-ml-classifier-training-plan.md), [parameter tuning](../../plans/lidar-parameter-tuning-optimisation-plan.md), production deployment)
 
 ---
 
