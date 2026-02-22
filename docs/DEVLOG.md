@@ -1,5 +1,11 @@
 # Development Log
 
+## February 21, 2026 - Release v0.5.0
+
+- Released version 0.5.0 with HINT tuning system, VRLog replay, 6-layer LiDAR alignment, serial port hot-reload, and macOS visualiser M5–M7.
+- Updated version across all components via `set-version.sh 0.5.0 --all`.
+- Go test coverage at 85.9%, web at 97%, HINT at 91.9%.
+
 ## February 19, 2026 - LiDAR Layer Alignment & Architecture Review
 
 - Implemented LiDAR 6-layer alignment refactor: split `l3grid/background.go` into persistence, export, and drift files.

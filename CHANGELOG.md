@@ -43,6 +43,155 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
+## [0.5.0] - 2026-02-21
+
+### macOS Visualiser
+
+#### Added
+
+- **M5: Algorithm Upgrades**
+  - Hungarian association for improved track-to-detection matching
+  - Ground removal filtering for cleaner point clouds
+  - Oriented Bounding Box (OBB) estimation with per-frame dimensions
+  - Occlusion coasting for tracks temporarily hidden behind obstacles
+- **M6: Debug Overlays**
+  - Gating ellipses, association lines, and residual visualisations via gRPC
+  - Label API handlers for track annotation
+- **M7: Performance Hardening**
+  - Swift buffer pooling and `PointCloudFrame` reference counting
+  - Frame skip cooldown for sustained rendering performance
+- Ground reference grid toggle and background grid points toggle
+- Track filtering with dual-handle range slider
+- Run browser and run-track labelling support with side panel for track selection
+
+### Radar Server
+
+#### Added
+
+- DB-driven serial port configuration with hot-reload support
+  - `SerialPortManager` wrapper with persistent event fanout across reloads
+  - API endpoints: `/api/serial/{configs,models,test,devices,reload}`
+  - `radar_serial_config` database table (migration 000029)
+- Interactive map component for site visualisation
+
+#### Changed
+
+- Documentation updated to reflect current code state: Makefile targets (59→101), Go 1.25+, SQLite 3.51.2, Python 3.11+
+
+### LiDAR Server
+
+#### Added
+
+- **Human-Involved Numerical Tuning (HINT) system** (renamed from RLHF)
+  - `RLHFTuner` engine with API endpoints and handler tests
+  - Score component breakdown: `ScoreComponents`, `ScoreExplanation`, `/explain` endpoint
+  - Class/time coverage gates for continue validation
+  - Long-polling for HINT status and PCAP completion
+  - Suspend and resume for auto-tune sweeps with checkpoint persistence
+- **VRLog recording and replay** for track labelling workflow
+  - `FrameRecorder` interface with `.vrlog` format
+  - Playback API endpoints with seek/pause/rate control
+  - VRLOG safe directory configuration with absolute path validation
+  - Background snapshot sending during VRLOG replay
+- **Parameter sweep dashboard** with ECharts bar charts and results table
+  - Auto-tuning mode with iterative grid narrowing and multi-objective scoring
+  - Settle mode support: `once` and `per_combo`
+  - Heatmaps for tracks and alignment metrics
+- **Label-aware auto-tuning**: scoring incorporates human labels with IoU-based confidence
+- **6-layer alignment refactor** (OSI-style data model)
+  - Split `l3grid/background.go` into persistence, export, and drift files
+  - Split `monitor/webserver.go` into data-source and playback handler files
+  - Extracted domain comparison logic from `storage/sqlite` into `l6objects`
+  - HTTP method prefixes and middleware wrappers for route tables
+- Label taxonomy refactor: `good_vehicle`/`good_pedestrian` → `car`/`ped`; added `impossible` label
+- `label_source` provenance tracking with IoU-based confidence
+- Height band filtering parameters in tuning configuration
+- Per-frame OBB dimensions and improved heading handling
+- Cluster size filtering, track pruning, and classification updates
+- Default parameters loaded from `tuning.defaults.json` instead of hardcoded values
+- Dependency injection interfaces: `CommandExecutor`, `UDPSocket`, `PCAPReader`, `DataSourceManager`
+- `DirectBackend` for sweep runner, replacing HTTP client for in-process execution
+- Schema/version stamp fields in sweep persistence
+
+#### Changed
+
+- `UDPListener` refactored to use `SocketFactory` for testability
+- Serialised frame callback processing in `frame_builder.go` to prevent data races
+- LiDAR configuration consolidated into single config struct with fluent setters
+
+#### Fixed
+
+- Route conflict panic from duplicate route registrations
+- VRLog seek race condition
+- int64 overflow in temporal spread calculation
+- PCAP replay methods to use full file path for `pcap_file` parameter
+- Out-of-bounds error in tuning parameters
+
+### PDF Generator
+
+#### Changed
+
+- TeX configuration updated for minimal precompiled install
+- CI integration tests use minimal TeX tree (`build-texlive-minimal`) instead of full TeX Live
+
+### Web Frontend
+
+#### Added
+
+- Sweep dashboard with HINT/RLHF mode toggle
+  - ECharts bar charts and heatmaps for sweep results
+  - Auto-tuning recommendation card
+- Gap detection in `MapPane.svelte` to prevent spaghetti lines in track visualisations
+- Interactive map component for site visualisation
+
+#### Changed
+
+- Enhanced Svelte chart components (`RadarOverviewChart`)
+- Sweep dashboard chart height increased (300→450px), grid layout changed (6→3 columns)
+
+### Documentation
+
+#### Added
+
+- `DESIGN.md` with project-wide design principles and frontend design language
+- Design review and improvement plan against `DESIGN.md`
+- LiDAR 6-layer data model documentation (OSI-style)
+- Comprehensive audit of 29 LiDAR documentation files with 12 discrepancy fixes
+- Consolidated LiDAR roadmap with prioritised future work (P0–P3)
+- Track labelling design document (8 phases: ground truth, label-aware auto-tuning)
+- `lidar_transits` table schema design for dashboard/report integration
+- Precompiled LaTeX `.fmt` support design document
+- Frontend consolidation design document
+- `velocity.report-imager` design (RPi Imager fork for simplified deployment)
+- LiDAR settling time optimisation design document
+- LiDAR labelling QC enhancements plan
+- LiDAR refactor plans for package restructuring
+- `BACKLOG.md` for deferred work items
+- CONTRIBUTING guide
+
+#### Changed
+
+- Documentation site restructured to use `public_html` paths
+- Documentation homepage updated with improved spacing and hamburger menu
+
+### Build System
+
+#### Added
+
+- End-to-end test support in CI pipeline
+
+#### Changed
+
+- Trimmed CI TeX Live packages: dropped `texlive-fonts-extra` (~500 MB) and `latexmk`; added `--no-install-recommends`
+
+### Test Coverage
+
+- Go test coverage increased from ~38% to 85.9% on critical packages
+- Web test coverage boosted to 97%
+- RLHF/HINT test coverage at 91.9%
+- Comprehensive Swift tests for macOS visualiser
+- Added tests: monitoring, serialmux factory/mock, LiDAR arena, quality scoring, admin routes, tracking pipeline
+
 ## [0.4.0] - 2026-01-29
 
 ### macOS Visualiser
