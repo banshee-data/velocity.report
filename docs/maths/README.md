@@ -62,6 +62,8 @@ The production pipeline uses four math-heavy layers:
   - CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
 - [Unify L3/L4 Settling Proposal](proposals/20260219-unify-l3-l4-settling.md)
   - Overlap analysis, interference risks, and a single-settlement architecture updated for polygon/polyline region keys.
+- [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md)
+  - Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Proposes six targeted fixes.
 
 ## Config Mapping
 
