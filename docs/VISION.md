@@ -28,7 +28,7 @@ The OmniPreSense OPS243 sensor provides three complementary data feeds:
 |------|----------------|-------------|----------------|
 | **Speed / magnitude** | `OS`, `OM` | Doppler speed and signal strength per detection | ✅ Ingested (`radar_data`) |
 | **Objects** | `OJ` | Sessionised object events with classifier, duration, speed envelope, length estimate | ✅ Ingested (`radar_objects`) |
-| **FFT** | `OF` / `of` | Frequency-domain spectrum (Doppler and FMCW modes) — enables multi-target separation and signature analysis | ⬜ Command allowed; ingestion not implemented |
+| **FFT** | `OF` (Doppler) / `of` (FMCW) | Frequency-domain spectrum — enables multi-target separation and signature analysis | ⬜ Command allowed; ingestion not implemented |
 
 All three feeds should be ingested simultaneously so that a single vehicle pass yields:
 
@@ -177,16 +177,18 @@ transit {
 
 ### 5.4 Query Examples
 
+The following use SQL-like pseudocode to illustrate TDL intent. The actual syntax (SQL-like DSL, JSON filters, or natural-language) is a design decision; these examples show the *semantics* the language must support.
+
 ```
 -- Percentage exceeding 30 mph, morning peak
 SELECT
-  COUNT(*) FILTER (WHERE speed.peak_mph > 30) * 100.0 / COUNT(*)
+  COUNT(CASE WHEN speed.peak_mph > 30 THEN 1 END) * 100.0 / COUNT(*)
 FROM transit
 WHERE timestamp BETWEEN '07:00' AND '09:00'
 
 -- Outlier transits (above p98 for the dataset)
 SELECT * FROM transit
-WHERE speed.peak_mph > (SELECT PERCENTILE(speed.peak_mph, 0.98) FROM transit)
+WHERE speed.peak_mph > p98(speed.peak_mph)
 
 -- Close passes to cyclists
 SELECT t1.id, t1.speed.peak_mph, t1.context.nearest_object_distance_m
