@@ -655,6 +655,36 @@ func (rm *RegionManager) GetRegionParams(regionID int) *RegionParams {
 	return &rm.Regions[regionID].Params
 }
 
+// effectiveCellParams returns the region-adaptive parameters for a given cell,
+// falling back to the provided defaults when no region override is active.
+// For NeighborConfirmationCount: a value of zero explicitly disables neighbour
+// confirmation; negative values are treated as unset and defer to the default.
+func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float64, defaultNeighborConfirm int, defaultAlpha float64) (noiseRel float64, neighborConfirm int, alpha float64) {
+	noiseRel = defaultNoiseRel
+	neighborConfirm = defaultNeighborConfirm
+	alpha = defaultAlpha
+	if g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
+		return
+	}
+	regionID := g.RegionMgr.GetRegionForCell(cellIdx)
+	regionParams := g.RegionMgr.GetRegionParams(regionID)
+	if regionParams == nil {
+		return
+	}
+	if v := float64(regionParams.NoiseRelativeFraction); v > 0 {
+		noiseRel = v
+	}
+	if v := regionParams.NeighborConfirmationCount; v >= 0 {
+		// v == 0 explicitly disables neighbour confirmation;
+		// negative values are treated as invalid/unset and ignored.
+		neighborConfirm = v
+	}
+	if v := float64(regionParams.SettleUpdateFraction); v > 0 && v <= 1 {
+		alpha = v
+	}
+	return
+}
+
 // ToSnapshot serialises the RegionManager's region data into a form suitable for database persistence.
 // Returns nil if regions have not yet been identified.
 func (rm *RegionManager) ToSnapshot(sensorID string, snapshotID int64) *RegionSnapshot {
@@ -1426,26 +1456,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			}
 
 			// Get region-specific parameters if regions are identified
-			cellNoiseRel := noiseRel
-			cellNeighborConfirm := neighConfirm
-			cellAlpha := effectiveAlpha
-			if g.RegionMgr != nil && g.RegionMgr.IdentificationComplete {
-				regionID := g.RegionMgr.GetRegionForCell(cellIdx)
-				if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
-					cellNoiseRel = float64(regionParams.NoiseRelativeFraction)
-					if cellNoiseRel <= 0 {
-						cellNoiseRel = noiseRel // fallback to default
-					}
-					cellNeighborConfirm = regionParams.NeighborConfirmationCount
-					if cellNeighborConfirm <= 0 {
-						cellNeighborConfirm = neighConfirm // fallback to default
-					}
-					cellAlpha = float64(regionParams.SettleUpdateFraction)
-					if cellAlpha <= 0 || cellAlpha > 1 {
-						cellAlpha = effectiveAlpha // fallback to default
-					}
-				}
-			}
+			cellNoiseRel, cellNeighborConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
 
 			observationMean := sums[cellIdx] / float64(counts[cellIdx])
 			// Small protection when minDistances == +Inf (shouldn't happen if counts>0)

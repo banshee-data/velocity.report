@@ -3914,7 +3914,7 @@ func TestWebServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	server.SetTracker(tracker)
 
-	body := strings.NewReader(`{"gating_distance_squared": 25.0, "process_noise_pos": 0.5}`)
+	body := strings.NewReader(`{"gating_distance_squared": 25.0, "process_noise_pos": 0.5, "max_tracks": 77}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/params?sensor_id=params-tracker-sensor", body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -3923,6 +3923,44 @@ func TestWebServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if tracker.Config.MaxTracks != 77 {
+		t.Errorf("expected max_tracks to be updated to 77, got %d", tracker.Config.MaxTracks)
+	}
+}
+
+func TestWebServer_HandleTuningParams_POST_InvalidMaxTracks(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "params-invalid-max-tracks")
+	defer cleanup()
+
+	stats := NewPacketStats()
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		SensorID:          "params-invalid-max-tracks",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	server := NewWebServer(config)
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
+	server.SetTracker(tracker)
+
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"zero", `{"max_tracks": 0}`},
+		{"negative", `{"max_tracks": -1}`},
+		{"too_large", `{"max_tracks": 1001}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/lidar/params?sensor_id=params-invalid-max-tracks", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			rr := httptest.NewRecorder()
+			server.handleTuningParams(rr, req)
+			if rr.Code != http.StatusBadRequest {
+				t.Errorf("expected 400 for %s, got %d: %s", tc.name, rr.Code, rr.Body.String())
+			}
+		})
 	}
 }
 

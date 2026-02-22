@@ -801,7 +801,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 		// (internal/config/tuning.go:TuningConfig and config/tuning.defaults.json)
 		// and keep fields in canonical key order.
 		// Missing keys: buffer_timeout, min_frame_points, flush_interval, background_flush,
-		// max_tracks, height_band_floor, height_band_ceiling, remove_ground,
+		// height_band_floor, height_band_ceiling, remove_ground,
 		// max_cluster_diameter, min_cluster_diameter, max_cluster_aspect_ratio.
 		var body struct {
 			// Background params
@@ -826,6 +826,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			HitsToConfirm         *int     `json:"hits_to_confirm"`
 			MaxMisses             *int     `json:"max_misses"`
 			MaxMissesConfirmed    *int     `json:"max_misses_confirmed"`
+			MaxTracks             *int     `json:"max_tracks"`
 			// Extended tracker params
 			MaxReasonableSpeedMps            *float64 `json:"max_reasonable_speed_mps"`
 			MaxPositionJumpMeters            *float64 `json:"max_position_jump_meters"`
@@ -940,78 +941,99 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
-		// Apply tracker config changes if tracker is available
+		// Apply tracker config changes if tracker is available.
+		// Validation that may reject the request is done before
+		// acquiring the tracker lock.
 		if ws.tracker != nil {
-			if body.GatingDistanceSquared != nil {
-				ws.tracker.Config.GatingDistanceSquared = float32(*body.GatingDistanceSquared)
+			if body.MaxTracks != nil {
+				if *body.MaxTracks < 1 || *body.MaxTracks > 1000 {
+					ws.writeJSONError(w, http.StatusBadRequest, "max_tracks must be between 1 and 1000")
+					return
+				}
 			}
-			if body.ProcessNoisePos != nil {
-				ws.tracker.Config.ProcessNoisePos = float32(*body.ProcessNoisePos)
-			}
-			if body.ProcessNoiseVel != nil {
-				ws.tracker.Config.ProcessNoiseVel = float32(*body.ProcessNoiseVel)
-			}
-			if body.MeasurementNoise != nil {
-				ws.tracker.Config.MeasurementNoise = float32(*body.MeasurementNoise)
-			}
-			if body.OcclusionCovInflation != nil {
-				ws.tracker.Config.OcclusionCovInflation = float32(*body.OcclusionCovInflation)
-			}
-			if body.HitsToConfirm != nil {
-				ws.tracker.Config.HitsToConfirm = *body.HitsToConfirm
-			}
-			if body.MaxMisses != nil {
-				ws.tracker.Config.MaxMisses = *body.MaxMisses
-			}
-			if body.MaxMissesConfirmed != nil {
-				ws.tracker.Config.MaxMissesConfirmed = *body.MaxMissesConfirmed
-			}
-			if body.MaxReasonableSpeedMps != nil {
-				ws.tracker.Config.MaxReasonableSpeedMps = float32(*body.MaxReasonableSpeedMps)
-			}
-			if body.MaxPositionJumpMeters != nil {
-				ws.tracker.Config.MaxPositionJumpMeters = float32(*body.MaxPositionJumpMeters)
-			}
-			if body.MaxPredictDt != nil {
-				ws.tracker.Config.MaxPredictDt = float32(*body.MaxPredictDt)
-			}
-			if body.MaxCovarianceDiag != nil {
-				ws.tracker.Config.MaxCovarianceDiag = float32(*body.MaxCovarianceDiag)
-			}
-			if body.MinPointsForPCA != nil {
-				ws.tracker.Config.MinPointsForPCA = *body.MinPointsForPCA
-			}
-			if body.OBBHeadingSmoothingAlpha != nil {
-				ws.tracker.Config.OBBHeadingSmoothingAlpha = float32(*body.OBBHeadingSmoothingAlpha)
-			}
-			if body.OBBAspectRatioLockThreshold != nil {
-				ws.tracker.Config.OBBAspectRatioLockThreshold = float32(*body.OBBAspectRatioLockThreshold)
-			}
-			if body.MaxTrackHistoryLength != nil {
-				ws.tracker.Config.MaxTrackHistoryLength = *body.MaxTrackHistoryLength
-			}
-			if body.MaxSpeedHistoryLength != nil {
-				ws.tracker.Config.MaxSpeedHistoryLength = *body.MaxSpeedHistoryLength
-			}
-			if body.MergeSizeRatio != nil {
-				ws.tracker.Config.MergeSizeRatio = float32(*body.MergeSizeRatio)
-			}
-			if body.SplitSizeRatio != nil {
-				ws.tracker.Config.SplitSizeRatio = float32(*body.SplitSizeRatio)
-			}
+			var gracePeriod time.Duration
 			if body.DeletedTrackGracePeriod != nil {
-				d, err := time.ParseDuration(*body.DeletedTrackGracePeriod)
+				var err error
+				gracePeriod, err = time.ParseDuration(*body.DeletedTrackGracePeriod)
 				if err != nil {
 					ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid deleted_track_grace_period: %v", err))
 					return
 				}
-				ws.tracker.Config.DeletedTrackGracePeriod = d
 			}
-			if body.MinObservationsForClassification != nil {
-				ws.tracker.Config.MinObservationsForClassification = *body.MinObservationsForClassification
-				if ws.classifier != nil {
-					ws.classifier.MinObservations = *body.MinObservationsForClassification
+
+			ws.tracker.UpdateConfig(func(cfg *l5tracks.TrackerConfig) {
+				if body.GatingDistanceSquared != nil {
+					cfg.GatingDistanceSquared = float32(*body.GatingDistanceSquared)
 				}
+				if body.ProcessNoisePos != nil {
+					cfg.ProcessNoisePos = float32(*body.ProcessNoisePos)
+				}
+				if body.ProcessNoiseVel != nil {
+					cfg.ProcessNoiseVel = float32(*body.ProcessNoiseVel)
+				}
+				if body.MeasurementNoise != nil {
+					cfg.MeasurementNoise = float32(*body.MeasurementNoise)
+				}
+				if body.OcclusionCovInflation != nil {
+					cfg.OcclusionCovInflation = float32(*body.OcclusionCovInflation)
+				}
+				if body.HitsToConfirm != nil {
+					cfg.HitsToConfirm = *body.HitsToConfirm
+				}
+				if body.MaxMisses != nil {
+					cfg.MaxMisses = *body.MaxMisses
+				}
+				if body.MaxMissesConfirmed != nil {
+					cfg.MaxMissesConfirmed = *body.MaxMissesConfirmed
+				}
+				if body.MaxTracks != nil {
+					cfg.MaxTracks = *body.MaxTracks
+				}
+				if body.MaxReasonableSpeedMps != nil {
+					cfg.MaxReasonableSpeedMps = float32(*body.MaxReasonableSpeedMps)
+				}
+				if body.MaxPositionJumpMeters != nil {
+					cfg.MaxPositionJumpMeters = float32(*body.MaxPositionJumpMeters)
+				}
+				if body.MaxPredictDt != nil {
+					cfg.MaxPredictDt = float32(*body.MaxPredictDt)
+				}
+				if body.MaxCovarianceDiag != nil {
+					cfg.MaxCovarianceDiag = float32(*body.MaxCovarianceDiag)
+				}
+				if body.MinPointsForPCA != nil {
+					cfg.MinPointsForPCA = *body.MinPointsForPCA
+				}
+				if body.OBBHeadingSmoothingAlpha != nil {
+					cfg.OBBHeadingSmoothingAlpha = float32(*body.OBBHeadingSmoothingAlpha)
+				}
+				if body.OBBAspectRatioLockThreshold != nil {
+					cfg.OBBAspectRatioLockThreshold = float32(*body.OBBAspectRatioLockThreshold)
+				}
+				if body.MaxTrackHistoryLength != nil {
+					cfg.MaxTrackHistoryLength = *body.MaxTrackHistoryLength
+				}
+				if body.MaxSpeedHistoryLength != nil {
+					cfg.MaxSpeedHistoryLength = *body.MaxSpeedHistoryLength
+				}
+				if body.MergeSizeRatio != nil {
+					cfg.MergeSizeRatio = float32(*body.MergeSizeRatio)
+				}
+				if body.SplitSizeRatio != nil {
+					cfg.SplitSizeRatio = float32(*body.SplitSizeRatio)
+				}
+				if body.DeletedTrackGracePeriod != nil {
+					cfg.DeletedTrackGracePeriod = gracePeriod
+				}
+				if body.MinObservationsForClassification != nil {
+					cfg.MinObservationsForClassification = *body.MinObservationsForClassification
+				}
+			})
+
+			// Propagate classification threshold to the classifier outside
+			// the tracker lock to avoid holding two locks simultaneously.
+			if body.MinObservationsForClassification != nil && ws.classifier != nil {
+				ws.classifier.MinObservations = *body.MinObservationsForClassification
 			}
 		}
 

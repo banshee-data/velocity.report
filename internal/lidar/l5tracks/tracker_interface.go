@@ -64,6 +64,11 @@ type TrackerInterface interface {
 	// GetDeletedTrackGracePeriod returns the configured grace period for
 	// deleted track fade-out rendering.
 	GetDeletedTrackGracePeriod() time.Duration
+
+	// UpdateConfig applies the given function to the tracker's
+	// configuration under the tracker lock, making it safe for
+	// concurrent callers (e.g. HTTP tuning handlers).
+	UpdateConfig(fn func(*TrackerConfig))
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.
