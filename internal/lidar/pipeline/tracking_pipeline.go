@@ -292,16 +292,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				if count%50 == 0 {
 					tracef("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
-				// Only advance miss counters when there is a genuine
-				// wall-clock gap (> 2× frame interval), not during short
-				// throttle bursts from PCAP catch-up. This prevents
-				// premature track deletion: tentative tracks have
-				// max_misses=3, so a rapid burst of throttled frames
-				// would kill them in ~300 ms otherwise.
-				if cfg.Tracker != nil && now.Sub(lastProcessedTime) >= 2*minFrameInterval {
-					cfg.Tracker.AdvanceMisses(frame.StartTimestamp)
-					diagf("[Pipeline] AdvanceMisses: wall-clock gap %v during throttle, tracks penalised", now.Sub(lastProcessedTime))
-				}
+				// Do NOT advance miss counters during throttle.
+				// PCAP catch-up floods frames faster than real-time;
+				// advancing misses would kill tentative tracks
+				// (max_misses=3) within ~300 ms. Live sensors never
+				// reach this path (MaxFrameRate > sensor Hz), so
+				// skipping AdvanceMisses has no effect on live tracking.
 				return
 			}
 			lastProcessedTime = now
