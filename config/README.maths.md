@@ -65,6 +65,7 @@ Keys:
 
 - `foreground_dbscan_eps`
 - `foreground_min_cluster_points`
+- `foreground_max_input_points`
 - `max_cluster_diameter`
 - `min_cluster_diameter`
 - `max_cluster_aspect_ratio`

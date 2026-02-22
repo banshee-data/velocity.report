@@ -41,6 +41,7 @@ The configuration uses a flat JSON schema. **All keys are required** — the fil
   "enable_diagnostics": false,
   "foreground_dbscan_eps": 0.8,
   "foreground_min_cluster_points": 5,
+  "foreground_max_input_points": 8000,
   "buffer_timeout": "500ms",
   "min_frame_points": 1000,
   "flush_interval": "60s",
@@ -121,6 +122,7 @@ After foreground extraction, world-frame points are clustered via DBSCAN. These 
 | ------------------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `foreground_dbscan_eps`         | float64 | 0.8     | DBSCAN neighbourhood radius (metres). Two points closer than this (2D Euclidean, X/Y) are neighbours. **Must be ≥0.5** to avoid catastrophic cluster fragmentation — values below this cause vehicles to split into many sub-clusters. Range: (0, ∞). |
 | `foreground_min_cluster_points` | int     | 5       | Minimum points to form a cluster. Smaller clusters are discarded as noise. Lower values detect sparser/more distant objects but admit more noise. Range: [1, ∞).                                                                                      |
+| `foreground_max_input_points`   | int     | 8000    | Maximum foreground points fed into DBSCAN per frame. When the foreground point count exceeds this value, uniform random subsampling is applied to keep runtime bounded. 0 or negative applies the default cap of 8000. Range: [1, ∞).                 |
 
 #### Frame Builder
 
