@@ -122,7 +122,11 @@ type TrackingPipelineConfig struct {
 	// the tracking pipeline. When frames arrive faster than this rate (e.g.
 	// during PCAP catch-up bursts), excess frames are dropped after background
 	// update but before the expensive clustering/tracking/serialisation path.
-	// Zero means no limit (process every frame). Typical value: 12.
+	// Zero means no limit (process every frame).
+	//
+	// The value MUST exceed the sensor's maximum frame rate to avoid
+	// dropping live data. Hesai Pandar40P runs at 10 or 20 Hz depending
+	// on configuration; 25 fps gives 25% headroom above the fastest mode.
 	MaxFrameRate float64
 
 	// VoxelLeafSize, when > 0, enables voxel grid downsampling before
