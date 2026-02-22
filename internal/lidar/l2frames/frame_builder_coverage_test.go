@@ -581,3 +581,13 @@ func TestClose_NilChannel(t *testing.T) {
 	// Should not panic
 	fb.Close()
 }
+
+func TestDroppedFrames_ZeroInitially(t *testing.T) {
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID: "test-dropped-init",
+	})
+	defer fb.Close()
+	if fb.DroppedFrames() != 0 {
+		t.Errorf("expected 0 dropped frames initially; got %d", fb.DroppedFrames())
+	}
+}
