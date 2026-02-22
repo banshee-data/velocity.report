@@ -887,6 +887,6 @@ This architecture specification provides a complete roadmap for adding motion ca
 - **Deferred - Static Pose:** `static-pose-alignment-plan.md` (future static sensor calibration)
 - **Deferred - AV Integration:** `av-lidar-integration-plan.md` (AV dataset integration, not current traffic monitoring)
 - **Database Schema:** `../reference/schema.sql` (current and future tables)
-- **ML Pipeline:** `../lidar/ROADMAP.md` (classification pipeline)
+- **ML Pipeline:** [`docs/ROADMAP.md`](../ROADMAP.md) (classification pipeline)
 
 > **Reminder:** This document describes **future work for motion capture**. For current traffic monitoring implementation, see `../lidar/architecture/foreground_tracking.md`.

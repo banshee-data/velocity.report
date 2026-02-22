@@ -129,7 +129,7 @@ warmupMultiplier = 1.0 + 3.0 * (100 - count) / 100
 
 ## Future Enhancements
 
-See [ML Pipeline Roadmap](../ROADMAP.md) for Phase 4.0+ features:
+See [Product Roadmap — LiDAR Pipeline Reference](../../ROADMAP.md#appendix-a-lidar-pipeline-reference) for Phase 4.0+ features:
 
 - Track labeling UI
 - ML classifier training

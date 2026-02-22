@@ -10,7 +10,7 @@ Purpose: Defines end-to-end track labelling and ground-truth-aware auto-tuning w
 **Related documents:**
 
 - Auto-tuning (Phases 1–2 implemented): [`../lidar/operations/auto-tuning.md`](../lidar/operations/auto-tuning.md)
-- ML pipeline roadmap: [`../lidar/ROADMAP.md`](../lidar/ROADMAP.md)
+- ML pipeline roadmap: [`docs/ROADMAP.md`](../ROADMAP.md)
 - Tracking upgrades (6/9 implemented): [`../lidar/troubleshooting/01-tracking-upgrades.md`](../lidar/troubleshooting/01-tracking-upgrades.md)
 
 Previous plan (bigger charts + sane auto-tuner defaults) is complete.
