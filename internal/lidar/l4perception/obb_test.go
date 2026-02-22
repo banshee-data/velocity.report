@@ -252,9 +252,9 @@ func TestSmoothOBBHeading_OutputRange(t *testing.T) {
 }
 
 func TestEstimateOBBFromCluster_NearSquareClusterPreservesNaturalAxes(t *testing.T) {
-	// Verify that near-square clusters preserve PCA's natural axis assignment
-	// without canonical-axis normalisation. This is important for pedestrians
-	// whose bounding boxes are legitimately square or near-square.
+	// Verify that near-square clusters preserve PCA's natural axis assignment.
+	// This is important for pedestrians whose bounding boxes are legitimately
+	// square or near-square.
 	points := []WorldPoint{
 		{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
 		{X: 2.0, Y: 0, Z: 0, Timestamp: time.Now()},
@@ -266,9 +266,8 @@ func TestEstimateOBBFromCluster_NearSquareClusterPreservesNaturalAxes(t *testing
 	obb := EstimateOBBFromCluster(points)
 
 	// PCA should find Y as the principal axis (slightly more variance).
-	// Without canonical-axis normalisation, Length follows the principal axis.
-	// We verify the overall extents are correct (both ~2.0m) regardless of
-	// which is labelled Length vs Width.
+	// Length follows the principal axis. We verify the overall extents are
+	// correct (both ~2.0m) regardless of which is labelled Length vs Width.
 	maxDim := math.Max(float64(obb.Length), float64(obb.Width))
 	minDim := math.Min(float64(obb.Length), float64(obb.Width))
 	if math.Abs(maxDim-2.1) > 0.3 {

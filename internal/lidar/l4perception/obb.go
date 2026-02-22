@@ -144,11 +144,9 @@ func EstimateOBBFromCluster(points []WorldPoint) OrientedBoundingBox {
 	width := float32(maxPerp - minPerp)
 	height := float32(maxZ - minZ)
 
-	// Note: canonical-axis normalisation (forcing Length >= Width) was removed
-	// because pedestrian and other non-vehicular clusters are legitimately
-	// square or near-square. Forcing a swap introduced incorrect heading
-	// rotations for these objects. The 90° axis-swap problem is instead
-	// handled by the tracker's heading jump rejection (l5tracks/tracking.go).
+	// Length >= Width is NOT enforced here; near-square clusters (pedestrians)
+	// are legitimate. The 90° PCA axis-swap problem is handled at the tracker
+	// level by heading jump rejection (l5tracks/tracking.go Guard 3).
 
 	// The geometric centre of the OBB is the midpoint of the projected
 	// extents along each axis, NOT the mean of the input points. Using the

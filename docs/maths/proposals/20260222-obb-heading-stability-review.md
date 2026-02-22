@@ -1,6 +1,6 @@
 # OBB Heading Stability Review
 
-**Status:** Revised — Fix A reverted (unsuitable for non-vehicular objects); replaced with tracker-level 90° jump rejection. Fixes B, C applied. Heading-source debug rendering added. Fix D config-only; Fix E/F not yet started.
+**Status:** Implemented — Guard 3 (90° jump rejection) replaces canonical-axis normalisation. Fixes B, C, G applied. Fix D config-only; Fix E/F not yet started.
 **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
 **Created:** 2026-02-22
 **Related:**
@@ -157,7 +157,7 @@ renders all cluster boxes (ignoring association) would be valuable.
 | `l5tracks/tracking.go`        | Aspect-ratio lock threshold 0.25 may be too loose                    | Open (Fix D)                                      |
 | `l5tracks/tracking.go`        | 90° heading jumps from PCA axis swaps                                | **Fixed:** Guard 3 rejects 60°–120° jumps         |
 | `l5tracks/tracking.go`        | No heading-source diagnostic data                                    | **Fixed:** HeadingSource enum added (Fix G)       |
-| `l5tracks/tracking.go`        | Dimension averaging not axis-locked                                  | EMA smoothing added (Fix B)                       |
+| `l5tracks/tracking.go`        | Dimension averaging not axis-locked                                  | **Fixed:** per-frame cluster dims used (Fix B)    |
 | `MetalRenderer.swift`         | Track boxes use averaged dims with smoothed heading                  | Comment updated; Fix E pending                    |
 | `adapter.go`                  | Associated clusters not rendered (hinders debugging)                 | Open (Fix F)                                      |
 
@@ -213,25 +213,7 @@ contaminating foreground clusters), which would reduce PCA noise.
 
 ## 5. Proposed Fixes
 
-### Fix A: ~~Canonical-axis dimension normalisation~~ REVERTED
-
-**Original proposal:** Force `Length >= Width` always, rotating heading by
-π/2 when the perpendicular extent exceeds the principal extent.
-
-**Reverted because:** Pedestrian and other non-vehicular clusters are
-legitimately square or near-square. The normalisation incorrectly rotated
-their headings by 90° every frame, causing the very spinning it was meant
-to prevent. Only vehicle-shaped clusters (high aspect ratio) would benefit,
-but the heuristic cannot distinguish object types at the OBB level.
-
-**Replaced by:** Tracker-level 90° jump rejection (Guard 3 in the heading
-update block). If the heading delta vs the previous smoothed heading is
-between 60°–120° (i.e. near ±90°), the update is rejected and the heading
-is locked. This catches PCA axis swaps for near-square clusters that
-passed the aspect-ratio guard (Guard 2) without incorrectly rotating
-headings for legitimately square objects.
-
-### Fix G: Heading-source debug rendering (NEW)
+### Fix G: Heading-source debug rendering
 
 **Problem:** Cannot determine which component is responsible for heading
 drift without additional diagnostic tooling.
@@ -439,25 +421,20 @@ The tracker already computes:
 
 ## 9. Open Questions
 
-1. **Resolved:** Canonical-axis normalisation (Fix A) was reverted because it
-   incorrectly rotates headings for pedestrian and other square clusters.
-   The 90° jump rejection (Guard 3) handles the axis-swap problem at the
-   tracker level where temporal context is available.
-
-2. What is the optimal aspect-ratio lock threshold (Fix D)? The current 0.25
+1. What is the optimal aspect-ratio lock threshold (Fix D)? The current 0.25
    is likely too loose; 0.15 is proposed but should be validated against replay
    data across multiple sites.
 
-3. Should the velocity-coherent extraction proposal (20260220) subsume Fix C?
+2. Should the velocity-coherent extraction proposal (20260220) subsume Fix C?
    If per-point velocity vectors become available, they provide a stronger
    heading signal than displacement history. However, Fix C is simpler and
    can be implemented immediately.
 
-4. Should smoothed dimensions (Fix B) replace the current cumulative average
+3. Should per-frame dimensions (Fix B) replace the current cumulative average
    (`BoundingBoxLengthAvg`/`BoundingBoxWidthAvg`)? The cumulative average
-   has value for long-term classification features; the EMA is better for
-   rendering. Consider keeping both.
+   has value for long-term classification features; per-frame cluster dims
+   are better for rendering. Both are currently served via the web JSON API.
 
-5. Should the 90° jump rejection threshold (60°–120° band) be configurable?
+4. Should the 90° jump rejection threshold (60°–120° band) be configurable?
    Currently hardcoded as π/3 to 2π/3. This should cover all practical PCA
    axis-swap scenarios but may need tuning for unusual sensor geometries.
