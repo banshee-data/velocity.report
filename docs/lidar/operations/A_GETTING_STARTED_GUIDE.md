@@ -1,7 +1,6 @@
 # LiDAR Pipeline Getting Started
 
-Status: Active
-Purpose: Quick-start runbook for starting, validating, and switching LiDAR pipeline data sources.
+Quick-start runbook for starting, validating, and switching LiDAR pipeline data sources.
 
 ## 1. Prerequisites
 
@@ -73,4 +72,4 @@ make stats-pcap PCAP=/absolute/path/to/capture.pcap
 - `docs/lidar/operations/data-source-switching.md`
 - `docs/lidar/operations/pcap-analysis-mode.md`
 - `docs/lidar/operations/quickstart-pipeline-fix.md`
-- `docs/lidar/operations/CONFIG_PARAM_TUNING_GUIDE.md`
+- `docs/lidar/operations/config-param-tuning.md`

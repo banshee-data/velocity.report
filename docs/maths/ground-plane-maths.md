@@ -1,11 +1,8 @@
 # Ground Plane Maths
 
-Status: Active
-Purpose/Summary: ground-plane-maths.
-
 **Status:** Implementation-aligned math note
 **Layer:** L4 Perception
-**Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../lidar/architecture/ground-plane-extraction.md), [Ground Plane and Vector-Scene Proposal Maths](proposals/ground-plane-vector-scene-maths.md)
+**Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../lidar/architecture/ground-plane-extraction.md), [Ground Plane and Vector-Scene Proposal Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
 
 ## Scope
 
@@ -42,6 +39,6 @@ Default behavior is provided by `DefaultHeightBandFilter()`; overrides are wired
 
 Advanced tile-plane/vector-scene maths (region selection, confidence settlement, curvature and global-surface priors) is separated into proposal material:
 
-- [proposals/ground-plane-vector-scene-maths.md](proposals/ground-plane-vector-scene-maths.md)
+- [proposals/20260221-ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md)
 
 That proposal is not active in current runtime.

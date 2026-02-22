@@ -1,8 +1,5 @@
 # Data Source Switching Implementation Plan
 
-Status: Active
-Purpose/Summary: data-source-switching.
-
 **Status:** Implemented (November 2025)
 
 **Endpoints registered in `internal/lidar/monitor/webserver.go`:**

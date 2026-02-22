@@ -1,8 +1,5 @@
 # Dynamic Algorithm Selection for LiDAR Foreground Extraction
 
-Status: Planned
-Purpose/Summary: lidar-architecture-dynamic-algorithm-selection.
-
 **Status:** Branch-History Design Specification (Not Active on `main` Runtime)
 **Source Branch:** `copilot/summarize-changes-and-spec` (34 commits, 54 files, ~7,300 lines)
 **Related Docs:**

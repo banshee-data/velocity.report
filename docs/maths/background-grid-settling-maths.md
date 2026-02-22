@@ -1,8 +1,5 @@
 # Background Grid Settling Maths
 
-Status: Active
-Purpose/Summary: background-grid-settling-maths.
-
 **Status:** Implementation-aligned math note
 **Layer:** L3 Grid (`internal/lidar/l3grid`)
 **Related:** [Ground Plane Maths](ground-plane-maths.md)

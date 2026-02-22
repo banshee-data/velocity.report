@@ -1,9 +1,5 @@
 # Velocity-Coherent Foreground Extraction Math
 
-Status: Proposed
-Target Directory: docs/maths/
-Purpose/Summary: 20260220-velocity-coherent-foreground-extraction.
-
 **Status:** Proposal Math (Not Active in Current Runtime)
 **Version:** 1.0
 

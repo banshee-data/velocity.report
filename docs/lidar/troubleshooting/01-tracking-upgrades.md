@@ -1,8 +1,5 @@
 # Tracking Upgrades
 
-Status: Planned
-Purpose/Summary: 01-tracking-upgrades.
-
 **Status:** 6 of 9 upgrades implemented (February 2026)
 
 | Upgrade                           | Status         | Implementation                                                                      |

@@ -1,8 +1,5 @@
 # Track Labeling and Auto-Tuning Status
 
-Status: Active
-Purpose/Summary: track-labeling-auto-aware-tuning.
-
 **Status:** Implemented/Operational Baseline (with follow-up phases tracked separately)
 **Last Updated:** February 21, 2026
 

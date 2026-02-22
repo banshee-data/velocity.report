@@ -1,8 +1,5 @@
 # PCAP Analysis Mode
 
-Status: Active
-Purpose/Summary: pcap-analysis-mode.
-
 ## Overview
 
 The LiDAR system supports two modes for PCAP replay:

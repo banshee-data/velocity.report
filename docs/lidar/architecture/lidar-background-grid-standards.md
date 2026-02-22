@@ -1,7 +1,8 @@
 # LiDAR Background Grid — Standards Comparison
 
-Status: Active
-Purpose/Summary: lidar-background-grid-standards.
+## Purpose
+
+This keeps our background pipeline stable while enabling standards-based exports for external tools and future fusion work. This architecture document for LiDAR Background Grid — Standards Comparison explains component boundaries.
 
 ## Context
 

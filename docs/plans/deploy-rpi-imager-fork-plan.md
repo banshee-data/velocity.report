@@ -1,8 +1,5 @@
 # velocity.report Raspberry Pi Imager — Design Document
 
-Status: Planned
-Purpose/Summary: deploy-rpi-imager-fork-plan.
-
 > **Status:** Draft
 > **Author:** Ictinus (Product Architecture)
 > **Date:** 2026-02-11

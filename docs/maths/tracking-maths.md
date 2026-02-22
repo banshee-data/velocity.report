@@ -1,7 +1,7 @@
 # Tracking Maths
 
 Status: Active
-Purpose/Summary: tracking-maths.
+Purpose: Tracking estimates persistent object state over time from frame-level cluster measurements. This maths document for Tracking Maths explains assumptions, equations, and parameter relationships that influence runtime behavior and guide implementation.
 
 **Status:** Implementation-aligned math note
 **Layer:** L5 Tracks (`internal/lidar/l5tracks`)

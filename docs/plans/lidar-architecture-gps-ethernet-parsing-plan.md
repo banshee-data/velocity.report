@@ -1,7 +1,6 @@
 # GPS Ethernet Parsing Architecture
 
-Status: Planned
-Purpose/Summary: lidar-architecture-gps-ethernet-parsing.
+Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR ingestion while preserving sensor-only operation, including parsing boundaries, data contracts, rollout safeguards, and integration validation requirements.
 
 **Status:** Proposed
 **Author:** Architecture Team

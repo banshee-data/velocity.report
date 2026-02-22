@@ -1,9 +1,5 @@
 # Proposal: Unify L3/L4 Settling
 
-Status: Proposed
-Target Directory: docs/maths/
-Purpose/Summary: 20260219-unify-l3-l4-settling.
-
 **Status:** Proposal
 **Scope:** L3 background settling + L4 ground-surface settling harmonisation
 **Related:** [`docs/maths/background-grid-settling-maths.md`](../../maths/background-grid-settling-maths.md), [`docs/maths/ground-plane-maths.md`](../../maths/ground-plane-maths.md), [`docs/plans/lidar-architecture-vector-scene-map-plan.md`](../../plans/lidar-architecture-vector-scene-map-plan.md)

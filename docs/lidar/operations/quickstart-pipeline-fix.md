@@ -1,8 +1,5 @@
 # Quick Start: Addressing Pipeline Quality Issues
 
-Status: Active
-Purpose/Summary: quickstart-pipeline-fix.
-
 **Issue:** High jitter, fragmentation, misalignment, and empty boxes in tracking results
 
 ---

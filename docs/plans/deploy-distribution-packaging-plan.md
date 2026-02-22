@@ -1,8 +1,5 @@
 # velocity.report Distribution and Packaging Plan
 
-Status: Planned
-Purpose/Summary: deploy-distribution-packaging-plan.
-
 **Document Version:** 1.0
 **Status:** Proposed Architecture
 

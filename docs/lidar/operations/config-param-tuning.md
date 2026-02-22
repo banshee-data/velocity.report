@@ -1,8 +1,5 @@
 # LiDAR Config Parameter Tuning Guide
 
-Status: Active
-Purpose: Practical workflow for tuning LiDAR foreground, clustering, and tracking parameters.
-
 ## 1. Tuning Workflow
 
 1. Start from baseline config (`config/tuning.defaults.json` or your site baseline).

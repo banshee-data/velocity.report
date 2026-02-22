@@ -1,8 +1,5 @@
 # LiDAR Foreground Tracking Status
 
-Status: Active
-Purpose/Summary: lidar-foreground-tracking-status.
-
 **Last Updated:** February 21, 2026
 **Status:** Operational — Vector-Grid Baseline Active, Velocity-Coherent Path Planned
 

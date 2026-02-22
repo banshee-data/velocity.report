@@ -1,8 +1,5 @@
 # Clustering Maths
 
-Status: Active
-Purpose/Summary: clustering-maths.
-
 **Status:** Implementation-aligned math note
 **Layer:** L4 Perception (`internal/lidar/l4perception`)
 **Related:** [Tracking Maths](tracking-maths.md), [Ground Plane Maths](ground-plane-maths.md)

@@ -1,12 +1,7 @@
 # Garbage Tracks — Consolidated Status and Remaining Priorities
 
-Status: Historical
-Purpose/Summary: garbage-tracks-checklist.
-
 This is the canonical document for garbage-track remediation.
 It combines the original review and checklist into one maintained source.
-
-Updated: 2026-02-17
 
 ---
 

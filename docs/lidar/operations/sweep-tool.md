@@ -1,8 +1,5 @@
 # Sweep Tool Guide
 
-Status: Active
-Purpose/Summary: sweep-tool.
-
 The sweep tool (`cmd/sweep`) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics — allowing you to identify the settings that best suit your deployment site.
 
 ## Prerequisites

@@ -1,8 +1,5 @@
 # Transit Deduplication Plan
 
-Status: Planned
-Purpose/Summary: data-transit-deduplication-plan.
-
 ## Problem Statement
 
 The transit worker can create duplicate transit records when:

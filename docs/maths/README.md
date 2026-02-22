@@ -1,8 +1,5 @@
 # LiDAR Maths
 
-Status: Active
-Purpose/Summary: Mathematical assumptions and models used by the LiDAR pipeline.
-
 ## Scope
 
 This folder covers estimation, filtering, gating, optimization, and confidence math that affects runtime behavior.
@@ -18,3 +15,18 @@ This folder covers estimation, filtering, gating, optimization, and confidence m
 - Velocity-coherent extraction and other non-runtime models are documented as proposals.
 
 Use directory listings for file-level navigation.
+
+## Document layout
+
+```
+
+# $Topic
+
+**Status:** $status
+**Layer:** L$n Tracks (`internal/lidar/$track`)
+**Related:** [$related]($related.md)
+
+## 1. Purpose
+
+...
+```
