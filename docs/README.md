@@ -19,6 +19,7 @@ Purpose: Defines the project documentation contract, folder ownership, naming co
 - `docs/ui/` # Web, mac, PDF clients
 - `docs/maths/` # Algorithms and signal theory
 - `docs/plans/` # Implementation plans, roadmap
+- `docs/VISION.md` # Product vision and backlog alignment guide
 - `docs/COVERAGE.md` # Test coverage tracking
 - `docs/DEVLOG.md` # Chronological development notes
 
