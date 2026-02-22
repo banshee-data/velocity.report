@@ -44,7 +44,7 @@ The canonical velocity percentiles (p50, p85, p98, max) are stored per-transit a
 - **p98** — 98th-percentile speed; flags the top 2% high-speed outliers.
 - **max** — absolute peak observed speed.
 
-These align with the project-wide percentile palette defined in `DESIGN.md` §3.3 and the existing `lidar_tracks` columns (`p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps`, `peak_speed_mps`). Radar transits store `transit_max_speed`; p50/p85/p98 columns will be added when the fused transit schema is defined.
+These align with the project-wide percentile palette defined in `DESIGN.md` §3.3. The existing `lidar_tracks` table stores `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps`, and `peak_speed_mps`; radar transits store `transit_max_speed`. The fused transit schema will add a `p98_speed_mps` column (p95 remains available but p98 is the canonical outlier threshold for TDL).
 
 Precomputation avoids scanning per-frame observation rows at query time, keeping TDL response latency low on Raspberry Pi hardware.
 
@@ -142,13 +142,13 @@ A TDL expression is an English sentence composed of optional clauses. Order is f
 |---------|---------|
 | `faster than <N> mph` | `speed.max_mph > N` |
 | `slower than <N> mph` | `speed.max_mph < N` |
-| `above p85` | `speed.max_mph > speed.p85_mph` (dataset-level p85) |
-| `outliers` | `speed.max_mph > speed.p98_mph` (dataset-level p98) |
+| `above p85` | `speed.max_mph > dataset_p85` (dataset-level p85, computed on demand) |
+| `outliers` | `speed.max_mph > dataset_p98` (dataset-level p98, computed on demand) |
 | `speeding` | `speed.max_mph > posted_limit` (site speed limit) |
 | `braking` | `behaviour.style = 'braking'` |
 | `erratic` | `behaviour.style = 'erratic'` |
 | `stopped` | `behaviour.stopped = true` |
-| `close to cyclist` | `context.nearest_object_class = 'cyclist' AND context.nearest_object_distance_m < 1.5` |
+| `close to cyclist` | `context.nearest_object_class = 'cyclist' AND context.nearest_object_distance_m < d_close` (default 1.5 m; site-configurable) |
 | `within <N> m of <class>` | `context.nearest_object_class = <class> AND context.nearest_object_distance_m < N` |
 
 **Time range** — scopes the query temporally.
@@ -214,7 +214,7 @@ Prefixing a query with an aggregation keyword returns grouped statistics instead
 | `breakdown of` | Group by vehicle class, return counts per class |
 | `hourly distribution of` | Histogram of matching transits by hour of day |
 
-These aggregations operate over the precomputed per-transit p50/p85/p98/max values, so a `speed summary of vehicles during morning peak` computes dataset-level percentiles from the stored per-transit percentiles — no per-frame scan required.
+These aggregations operate over the precomputed per-transit values. For `speed summary`, dataset-level p50/p85/p98/max are computed from the per-transit `speed.max_mph` column using SQLite window functions — not by averaging per-transit percentiles, which would be statistically incorrect. A `speed summary of vehicles during morning peak` runs a single ordered scan over matching transits' `speed.max_mph` values to produce accurate dataset-wide percentiles.
 
 ## 5. Behaviour Vocabulary
 
@@ -249,7 +249,7 @@ Each behaviour label maps to a concrete rule over L1 metrics and the speed profi
 
 | Label | Rule | Inputs |
 |-------|------|--------|
-| **steady** | Speed variance below threshold across the transit; no significant acceleration or deceleration events. | `std(profile[]) < σ_steady` |
+| **steady** | Speed variance below threshold across the transit; no significant acceleration or deceleration events. The profile should be smoothed (e.g. moving average) before variance calculation to avoid false classification from sensor noise. | `std(smooth(profile[])) < σ_steady` |
 | **accelerating** | Sustained speed increase: end speed exceeds start speed by more than a threshold. | `profile[last] - profile[first] > Δ_accel` |
 | **braking** | Sustained speed decrease: start speed exceeds end speed by more than a threshold. | `profile[first] - profile[last] > Δ_brake` |
 | **erratic** | High speed variance or multiple direction changes in acceleration; inconsistent driving pattern. | `std(profile[]) > σ_erratic` OR acceleration sign changes > N |
@@ -302,4 +302,4 @@ A web-based interface over the transit database that:
 - **Renders a vector-scene replay** of selected transits — bounding boxes moving through a 2D plan view.
 - **Exports filtered datasets** as CSV for external analysis.
 
-The description interface is the primary consumer of the TDL — every filter, aggregation, and export operation is expressed as a natural-language TDL string (§4) and executed via the JSON API (§6, step 5).
+The description interface is the primary consumer of the TDL — every filter, aggregation, and export operation is expressed as a natural-language TDL string (§4) and executed via the JSON API (§6, step 5). The API also accepts structured JSON filter objects for programmatic access; both input formats compile to the same parameterised SQL.
