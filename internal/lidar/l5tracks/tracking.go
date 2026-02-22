@@ -300,6 +300,15 @@ type DebugCollector interface {
 	RecordPrediction(trackID string, x, y, vx, vy float32)
 }
 
+// UpdateConfig applies the given function to the tracker's configuration
+// under the tracker lock. This is the safe way to mutate Config fields
+// from outside the tracking goroutine (e.g. HTTP tuning handlers).
+func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	fn(&t.Config)
+}
+
 // Reset clears all tracks and resets the tracker to its initial state.
 // This is used between sweep permutations to ensure each combination
 // starts with a clean tracker (no residual Kalman filter state).
