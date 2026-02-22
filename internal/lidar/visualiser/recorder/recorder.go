@@ -415,14 +415,16 @@ func (r *Replayer) ReadFrame() (*visualiser.FrameBundle, error) {
 
 	// Read frame from chunk
 	offset := entry.Offset
-	if offset+4 > uint32(len(r.chunkData)) {
+	chunkLen := uint64(len(r.chunkData))
+	if uint64(offset)+4 > chunkLen {
 		return nil, fmt.Errorf("invalid frame offset")
 	}
 
 	frameLen := binary.LittleEndian.Uint32(r.chunkData[offset:])
 	offset += 4
 
-	if offset+frameLen > uint32(len(r.chunkData)) {
+	// Use uint64 to prevent wrap-around overflow when frameLen is large.
+	if uint64(offset)+uint64(frameLen) > chunkLen {
 		return nil, fmt.Errorf("invalid frame length")
 	}
 
