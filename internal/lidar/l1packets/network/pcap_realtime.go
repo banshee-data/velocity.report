@@ -73,6 +73,19 @@ const (
 	maxForegroundBufferPackets = 20
 )
 
+// Backoff constants for dynamic PCAP pacing.
+const (
+	// pcapBackoffThreshold is the lag beyond which dynamic backoff kicks in.
+	// Below this threshold the pacer runs at full speed to catch up quickly.
+	pcapBackoffThreshold = 200 * time.Millisecond
+
+	// pcapBackoffMinYield is the minimum sleep inserted per packet when behind.
+	pcapBackoffMinYield = 1 * time.Millisecond
+
+	// pcapBackoffMaxYield caps the per-packet yield to avoid stalling replay.
+	pcapBackoffMaxYield = 50 * time.Millisecond
+)
+
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.
 // This allows live network forwarding of PCAP data for real-time analysis.
 // Packets are forwarded via PacketForwarder if configured.
@@ -201,8 +214,14 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					packetCount, captureTime, firstPacketTime, captureTime.Sub(firstPacketTime).Seconds())
 			}
 
-			// Real-time pacing: compare wall clock elapsed with PCAP time elapsed
-			// This accounts for processing time and avoids cumulative lag
+			// Real-time pacing: compare wall clock elapsed with PCAP time elapsed.
+			// This accounts for processing time and avoids cumulative lag.
+			//
+			// Dynamic backoff: when the pipeline falls behind schedule
+			// (waitTime < 0), insert a proportional yield instead of
+			// firing packets at full speed. This prevents catch-up bursts
+			// that flood the FrameBuilder channel, spike CPU to 150%+,
+			// and cause track breaks from dropped frames.
 			if firstPacketTime != captureTime {
 				// How much PCAP time has elapsed since the effective start?
 				pcapElapsed := captureTime.Sub(startThreshold)
@@ -219,6 +238,25 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						return ctx.Err()
 					case <-time.After(waitTime):
 						// Continue
+					}
+				} else if waitTime < -pcapBackoffThreshold {
+					// Pipeline is behind schedule. Apply dynamic backoff:
+					// yield proportionally to how far behind we are, capped
+					// at pcapBackoffMaxYield. This lets the pipeline drain
+					// without a full stop and avoids the positive feedback
+					// loop (slow frame → burst → more slow frames).
+					behindBy := -waitTime
+					yield := behindBy / 4 // 25% of lag as yield
+					if yield > pcapBackoffMaxYield {
+						yield = pcapBackoffMaxYield
+					}
+					if yield < pcapBackoffMinYield {
+						yield = pcapBackoffMinYield
+					}
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-time.After(yield):
 					}
 				}
 			}

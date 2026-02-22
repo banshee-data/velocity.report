@@ -2,6 +2,7 @@ package l4perception
 
 import (
 	"math"
+	"math/rand"
 	"sort"
 	"time"
 
@@ -235,6 +236,12 @@ type DBSCANParams struct {
 	MaxClusterDiameter    float64 // Upper bound (metres) for longest OBB dimension
 	MinClusterDiameter    float64 // Lower bound (metres) for longest OBB dimension
 	MaxClusterAspectRatio float64 // Maximum length/width ratio
+
+	// MaxInputPoints caps the number of points fed into the core DBSCAN
+	// loop. When the input exceeds this value, uniform random subsampling
+	// is applied to keep runtime bounded. Zero or negative disables the
+	// cap. Typical value: 8000.
+	MaxInputPoints int
 }
 
 // DefaultDBSCANParams returns DBSCAN parameters loaded from the canonical
@@ -254,9 +261,19 @@ func DefaultDBSCANParams() DBSCANParams {
 // DBSCAN performs density-based clustering on world points.
 // Uses 2D (x, y) Euclidean distance. Z is used only for cluster features.
 // Returns a slice of WorldCluster objects representing detected clusters.
+//
+// When the input exceeds MaxInputPoints, uniform random subsampling is
+// applied to bound worst-case runtime. MaxInputPoints <= 0 disables
+// the cap (default behaviour for backward compatibility).
 func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 	if len(points) == 0 {
 		return nil
+	}
+
+	// Safety cap: subsample when point count exceeds the threshold to
+	// prevent O(n²) worst-case DBSCAN on unexpectedly dense frames.
+	if params.MaxInputPoints > 0 && len(points) > params.MaxInputPoints {
+		points = uniformSubsample(points, params.MaxInputPoints)
 	}
 
 	n := len(points)
@@ -284,6 +301,28 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 	}
 
 	return buildClusters(points, labels, clusterID, params)
+}
+
+// uniformSubsample returns a random subset of n points from the input
+// using Fisher-Yates partial shuffle. The original slice is not modified.
+func uniformSubsample(points []WorldPoint, n int) []WorldPoint {
+	if n >= len(points) {
+		return points
+	}
+	// Work on a copy of the index space to avoid mutating the caller's slice.
+	idx := make([]int, len(points))
+	for i := range idx {
+		idx[i] = i
+	}
+	for i := 0; i < n; i++ {
+		j := i + rand.Intn(len(idx)-i)
+		idx[i], idx[j] = idx[j], idx[i]
+	}
+	result := make([]WorldPoint, n)
+	for i := 0; i < n; i++ {
+		result[i] = points[idx[i]]
+	}
+	return result
 }
 
 // expandCluster expands a cluster from a core point.

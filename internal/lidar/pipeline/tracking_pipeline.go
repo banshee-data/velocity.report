@@ -294,9 +294,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				if count%50 == 0 {
 					tracef("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
-				// Advance miss counters so tracks aren't artificially kept
-				// alive by throttle-induced gaps (task 7.2).
-				if cfg.Tracker != nil {
+				// Only advance miss counters when there is a genuine
+				// wall-clock gap (> 2× frame interval), not during short
+				// throttle bursts from PCAP catch-up. This prevents
+				// premature track deletion: tentative tracks have
+				// max_misses=3, so a rapid burst of throttled frames
+				// would kill them in ~300 ms otherwise.
+				if cfg.Tracker != nil && now.Sub(lastProcessedTime) >= 2*minFrameInterval {
 					cfg.Tracker.AdvanceMisses(frame.StartTimestamp)
 				}
 				return
@@ -379,6 +383,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if params.ForegroundDBSCANEps > 0 {
 			dbscanParams.Eps = float64(params.ForegroundDBSCANEps)
 		}
+		// Cap input points to bound worst-case DBSCAN runtime on
+		// unexpectedly dense frames (e.g. 12k+ foreground points).
+		dbscanParams.MaxInputPoints = 8000
 
 		clusters := l4perception.DBSCAN(filteredPoints, dbscanParams)
 		if len(clusters) == 0 {
