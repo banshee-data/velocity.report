@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -75,7 +76,7 @@ type FrameBuilder struct {
 	frameCallback       func(*LiDARFrame) // callback when frame is complete
 	frameCh             chan *LiDARFrame  // serialises frame callback invocations
 	frameDone           chan struct{}     // closed when frameCallbackWorker exits
-	droppedFrames       uint64            // count of frames dropped due to full channel
+	droppedFrames       atomic.Uint64     // count of frames dropped due to full channel (accessed atomically)
 	exportNextFrameASC  bool              // flag to export next completed frame
 	exportBatchCount    int               // number of frames to export in batch
 	exportBatchExported int               // number of frames already exported in current batch
@@ -291,9 +292,7 @@ func (fb *FrameBuilder) Close() {
 // DroppedFrames returns the number of frames dropped due to a full
 // callback channel. Useful for post-run diagnostics.
 func (fb *FrameBuilder) DroppedFrames() uint64 {
-	fb.mu.Lock()
-	defer fb.mu.Unlock()
-	return fb.droppedFrames
+	return fb.droppedFrames.Load()
 }
 
 // Reset clears all buffered frame state. This should be called when switching
@@ -320,6 +319,9 @@ func (fb *FrameBuilder) Reset() {
 	for k := range fb.pendingPackets {
 		delete(fb.pendingPackets, k)
 	}
+
+	// Reset dropped frame counter so per-run diagnostics are accurate.
+	fb.droppedFrames.Store(0)
 
 	diagf("[FrameBuilder] Reset: cleared all buffered frames and state for sensor=%s", fb.sensorID)
 }
@@ -801,10 +803,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			// Channel full — drop frame to avoid blocking frame assembly.
 			// This handles back-pressure when the tracking pipeline cannot
 			// keep up with frame arrival rate.
-			fb.mu.Lock()
-			fb.droppedFrames++
-			count := fb.droppedFrames
-			fb.mu.Unlock()
+			count := fb.droppedFrames.Add(1)
 			opsf("[FrameBuilder] Dropped frame %s: callback queue full (total dropped: %d)", frame.FrameID, count)
 		}
 	}
