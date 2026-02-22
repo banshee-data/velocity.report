@@ -1009,7 +1009,8 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 
 // bboxFromTrack returns a BBox populated from the best available dimensions.
 // Per-frame cluster dims (OBBLength/Width/Height) are preferred; when they
-// are zero (e.g. DB-loaded tracks), the running average is used as fallback.
+// are zero (e.g. tracks loaded from DB where only the historical value is
+// stored), BoundingBoxLengthAvg is used as fallback.
 func bboxFromTrack(track *l5tracks.TrackedObject) BBox {
 	l := track.OBBLength
 	if l == 0 {
