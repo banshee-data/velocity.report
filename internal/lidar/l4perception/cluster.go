@@ -305,17 +305,23 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 
 // uniformSubsample returns a random subset of n points from the input
 // using Fisher-Yates partial shuffle. The original slice is not modified.
+//
+// A local *rand.Rand seeded from the current time is used rather than the
+// global generator to avoid lock contention when DBSCAN is called
+// concurrently and to make the sampling behaviour independent of global
+// seed state elsewhere in the process.
 func uniformSubsample(points []WorldPoint, n int) []WorldPoint {
 	if n >= len(points) {
 		return points
 	}
+	rng := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec // non-crypto use
 	// Work on a copy of the index space to avoid mutating the caller's slice.
 	idx := make([]int, len(points))
 	for i := range idx {
 		idx[i] = i
 	}
 	for i := 0; i < n; i++ {
-		j := i + rand.Intn(len(idx)-i)
+		j := i + rng.Intn(len(idx)-i)
 		idx[i], idx[j] = idx[j], idx[i]
 	}
 	result := make([]WorldPoint, n)
