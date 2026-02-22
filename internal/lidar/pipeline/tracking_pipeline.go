@@ -127,7 +127,7 @@ type TrackingPipelineConfig struct {
 	//
 	// The value MUST exceed the sensor's maximum frame rate to avoid
 	// dropping live data. Hesai Pandar40P runs at 10 or 20 Hz depending
-	// on configuration; 25 fps gives 25% headroom above the fastest mode.
+	// on configuration; 25 fps provides 5 fps (25%) headroom above the 20 Hz mode.
 	MaxFrameRate float64
 
 	// VoxelLeafSize, when > 0, enables voxel grid downsampling before
