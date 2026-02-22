@@ -4,6 +4,7 @@
 **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
 **Created:** 2026-02-22
 **Related:**
+
 - [`docs/maths/clustering-maths.md`](../clustering-maths.md) (OBB via PCA, §5.2)
 - [`docs/maths/tracking-maths.md`](../tracking-maths.md) (OBB heading handling, §7)
 - [`docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](20260220-velocity-coherent-foreground-extraction.md) (velocity-coherent clustering)
@@ -148,17 +149,17 @@ renders all cluster boxes (ignoring association) would be valuable.
 
 ## 3. Problematic Code Paths (Summary)
 
-| Location | Issue | Status |
-|---|---|---|
-| `l4perception/obb.go:103` | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity | Mitigated by velocity/displacement disambiguation |
-| `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis — swaps when axis flips | Handled by 90° jump rejection (Guard 3) |
-| `l5tracks/tracking.go` | Velocity disambiguation only when speed > 0.5 m/s | Displacement fallback added (Fix C) |
-| `l5tracks/tracking.go` | Aspect-ratio lock threshold 0.25 may be too loose | Open (Fix D) |
-| `l5tracks/tracking.go` | 90° heading jumps from PCA axis swaps | **Fixed:** Guard 3 rejects 60°–120° jumps |
-| `l5tracks/tracking.go` | No heading-source diagnostic data | **Fixed:** HeadingSource enum added (Fix G) |
-| `l5tracks/tracking.go` | Dimension averaging not axis-locked | EMA smoothing added (Fix B) |
-| `MetalRenderer.swift` | Track boxes use averaged dims with smoothed heading | Comment updated; Fix E pending |
-| `adapter.go` | Associated clusters not rendered (hinders debugging) | Open (Fix F) |
+| Location                      | Issue                                                                | Status                                            |
+| ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
+| `l4perception/obb.go:103`     | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity     | Mitigated by velocity/displacement disambiguation |
+| `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis — swaps when axis flips | Handled by 90° jump rejection (Guard 3)           |
+| `l5tracks/tracking.go`        | Velocity disambiguation only when speed > 0.5 m/s                    | Displacement fallback added (Fix C)               |
+| `l5tracks/tracking.go`        | Aspect-ratio lock threshold 0.25 may be too loose                    | Open (Fix D)                                      |
+| `l5tracks/tracking.go`        | 90° heading jumps from PCA axis swaps                                | **Fixed:** Guard 3 rejects 60°–120° jumps         |
+| `l5tracks/tracking.go`        | No heading-source diagnostic data                                    | **Fixed:** HeadingSource enum added (Fix G)       |
+| `l5tracks/tracking.go`        | Dimension averaging not axis-locked                                  | EMA smoothing added (Fix B)                       |
+| `MetalRenderer.swift`         | Track boxes use averaged dims with smoothed heading                  | Comment updated; Fix E pending                    |
+| `adapter.go`                  | Associated clusters not rendered (hinders debugging)                 | Open (Fix F)                                      |
 
 ---
 
@@ -183,6 +184,7 @@ The document describes heading handling:
 > 2. wrap-aware EMA smoothing
 
 This covers §2.1 (velocity disambiguation) but does not discuss:
+
 - What happens at low speeds (no disambiguation).
 - The axis-swap problem (§2.2) where heading jumps by 90°, not 180°.
 - The dimension averaging inconsistency (§2.3).
@@ -240,6 +242,7 @@ Values: `PCA` (0), `velocity` (1), `displacement` (2), `locked` (3).
 
 macOS visualiser gains `showHeadingSource` toggle that colours confirmed
 track boxes by heading source instead of lifecycle state:
+
 - **Blue** — velocity-disambiguated (healthy)
 - **Yellow** — raw PCA (no disambiguation available)
 - **Orange** — displacement-disambiguated (slow-moving)
@@ -356,6 +359,7 @@ clusters are hidden.
 
 **Fix:** Add a visualiser toggle (or debug overlay) that renders all cluster
 OBBs regardless of association status. This would show:
+
 - Cyan boxes for all DBSCAN clusters
 - Green/yellow boxes for tracks (overlapping associated clusters)
 
