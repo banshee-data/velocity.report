@@ -290,7 +290,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
 				count := throttledFrames.Add(1)
 				if count%50 == 0 {
-					tracef("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+					diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
 				// Do NOT advance miss counters during throttle.
 				// PCAP catch-up floods frames faster than real-time;
