@@ -594,7 +594,7 @@ func (p *Publisher) Publish(frame interface{}) {
 	default:
 		// Drop frame if channel is full
 		dropped := p.droppedFrames.Add(1)
-		lidar.Diagf("[Visualiser] DROPPED frame %d (total dropped: %d), channel full, points=%d tracks=%d",
+		lidar.Opsf("[Visualiser] DROPPED frame %d (total dropped: %d), channel full, points=%d tracks=%d",
 			frameBundle.FrameID, dropped, pointCount, trackCount)
 	}
 }
