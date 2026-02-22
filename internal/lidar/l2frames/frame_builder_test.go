@@ -834,8 +834,6 @@ func TestFrameBuilder_FinalizeFrame(t *testing.T) {
 				close(done)
 			},
 		})
-		// Enable debug mode directly on the FrameBuilder
-		fb.debug = true
 
 		frame := &LiDARFrame{
 			FrameID:        "test-frame",

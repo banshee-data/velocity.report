@@ -182,31 +182,6 @@ func TestGetCurrentFrameStats(t *testing.T) {
 	}
 }
 
-// TestSetDebug tests enabling/disabling debug logging
-func TestSetDebug(t *testing.T) {
-	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "test-sensor"})
-
-	// Enable debug
-	fb.SetDebug(true)
-	fb.mu.Lock()
-	debugEnabled := fb.debug
-	fb.mu.Unlock()
-
-	if !debugEnabled {
-		t.Error("SetDebug(true) did not enable debug mode")
-	}
-
-	// Disable debug
-	fb.SetDebug(false)
-	fb.mu.Lock()
-	debugEnabled = fb.debug
-	fb.mu.Unlock()
-
-	if debugEnabled {
-		t.Error("SetDebug(false) did not disable debug mode")
-	}
-}
-
 // TestNewFrameBuilderWithLogging tests creating a frame builder with logging
 func TestNewFrameBuilderWithLogging(t *testing.T) {
 	fb := NewFrameBuilderWithLogging("test-sensor-log")
@@ -369,7 +344,6 @@ func TestFrameBuilder_ConcurrentOperations(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			fb.EnableTimeBased(id%2 == 0)
-			fb.SetDebug(id%2 == 1)
 		}(i)
 
 		// Writer - export requests
