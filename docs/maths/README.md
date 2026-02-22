@@ -52,20 +52,124 @@ The production pipeline uses four math-heavy layers:
 
 ## Detailed Documents
 
+### Active Maths (implemented in current runtime)
+
 - [Background Grid Settling Maths](background-grid-settling-maths.md)
-  - Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behaviour, and confidence dynamics.
+  — Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behaviour, and confidence dynamics.
 - [Ground Plane Maths](ground-plane-maths.md)
-  - Tile/region plane estimation, region-selection math, robust confidence/settlement criteria, curvature math, density constraints, and L3-L4 interaction.
+  — Tile/region plane estimation, region-selection math, robust confidence/settlement criteria, curvature math, density constraints, and L3-L4 interaction.
 - [Clustering Maths](clustering-maths.md)
-  - Downsampling, neighbourhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA), and complexity bounds.
+  — Downsampling, neighbourhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA), and complexity bounds.
 - [Tracking Maths](tracking-maths.md)
-  - CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
-- [Unify L3/L4 Settling Proposal](proposals/20260219-unify-l3-l4-settling.md)
-  - Overlap analysis, interference risks, and a single-settlement architecture updated for polygon/polyline region keys.
-- [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md)
-  - Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Proposes six targeted fixes.
+  — CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
+
+### Proposals (not yet active — see [Roadmap](#prioritised-proposal-roadmap) below)
+
+- [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md) — **Partially Implemented**
+  — Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Guard 3 (90° jump rejection), fixes B, C, G applied; remaining fixes superseded by geometry-coherent model.
 - [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md)
-  - Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
+  — Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
+- [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md)
+  — Point-level velocity estimation and velocity-aware DBSCAN for sparse object recovery, track continuity, and fragment merging. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
+- [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
+  — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
+- [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
+  — Overlap analysis, interference risks, and a single-settlement architecture with shared lifecycle per surface-region key.
+
+---
+
+## Prioritised Proposal Roadmap
+
+Work items drawn from the proposals above, ordered by user-visible impact and
+dependency readiness. Each item can be implemented independently, but earlier
+items improve later ones.
+
+### P1 — Geometry-Coherent Track State *(highest priority)*
+
+**Source:** [20260222-geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
+**Layer:** L5 tracking
+**Status:** Proposal — not started
+**Effort:** L (6–7 days)
+**Dependencies:** None (works standalone; enhanced by P2)
+
+Replaces the reactive OBB guards (aspect-ratio lock, 90° jump rejection,
+dimension sync) with a single Bayesian geometry model per track. Each frame's
+PCA observation is tested in both axis interpretations; the interpretation with
+the lower Mahalanobis residual wins. Uncertainty shrinks with observations,
+shape classification modulates heading trust, and motion coupling provides a
+heading prior when velocity data is available.
+
+**Why first:** Directly fixes the most visible user-facing problem (bounding
+boxes that spin, change shape, or fail to capture all cluster points). No
+upstream changes required.
+
+**Remaining OBB review work subsumed:** Fixes D (threshold tuning), E (renderer
+consistency), and F (debug cluster rendering) from the
+[OBB heading stability review](proposals/20260222-obb-heading-stability-review.md)
+become unnecessary once the geometry-coherent model replaces the guards.
+
+### P2 — Velocity-Coherent Foreground Extraction
+
+**Source:** [20260220-velocity-coherent-foreground-extraction.md](proposals/20260220-velocity-coherent-foreground-extraction.md)
+**Layer:** L4 perception (pre-clustering)
+**Status:** Proposal — not started
+**Effort:** L (estimated)
+**Dependencies:** None (independent of P1, but improves P1 when combined)
+**Plan:** [lidar-velocity-coherent-foreground-extraction-plan.md](../plans/lidar-velocity-coherent-foreground-extraction-plan.md)
+
+Enriches each foreground point with a per-frame velocity estimate via
+constrained nearest-neighbour correspondence. DBSCAN then clusters in a
+position+velocity metric space, recovering sparse objects (3–11 points) and
+reducing track fragmentation at scene entry/exit.
+
+**Why second:** Provides per-cluster velocity vectors that tighten P1's
+heading-motion prior. Also independently improves sparse object recall by
+20–40 % and reduces fragmentation by 10–25 % (hypothesised, pending
+validation).
+
+### P3 — Ground Plane and Vector-Scene Maths
+
+**Source:** [20260221-ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md)
+**Layer:** L4 perception (ground surface)
+**Status:** Proposal — not started
+**Effort:** L (estimated)
+**Dependencies:** Benefits from P4 (shared settling); can start independently
+
+Replaces the existing basic ground model with streaming PCA plane estimation
+per tile, multi-criteria settlement (geometry fitness + density/observability
++ temporal stability), scored region selection, and vector-scene polygon/polyline
+integration.
+
+**Why third:** Improves foreground/background separation quality, which feeds
+into clustering (P2) and tracking (P1). Important for long-running
+deployment accuracy and drift resistance. Less immediately visible to
+end users than P1/P2.
+
+### P4 — Unify L3/L4 Settling
+
+**Source:** [20260219-unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md)
+**Layer:** L3–L4 boundary (infrastructure)
+**Status:** Proposal — not started
+**Effort:** M–L (estimated, phased migration)
+**Dependencies:** None; simplifies P3 implementation
+
+Replaces independent settling lifecycles in L3 (range baseline) and L4 (ground
+geometry) with a shared `SettlementCore` per surface-region key. One warmup,
+one freeze/thaw policy, one confidence substrate — two model outputs.
+
+**Why fourth:** Infrastructure simplification that reduces operational
+complexity and config coupling drift. Less user-visible impact on its own,
+but lowers the complexity cost of P3.
+
+### Maintenance — OBB Heading Stability Review (remaining items)
+
+**Source:** [20260222-obb-heading-stability-review.md](proposals/20260222-obb-heading-stability-review.md)
+**Status:** Guard 3, fixes B, C, G **implemented**. Fix D (config-only), E, F not started.
+
+Fix D (tighten aspect-ratio lock threshold) is a low-risk config change that
+can be applied any time. Fixes E and F provide incremental improvement but
+are **superseded by P1** — once the geometry-coherent model lands, the guards
+they improve will be removed.
 
 ## Config Mapping
 
