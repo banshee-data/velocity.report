@@ -115,4 +115,4 @@ A web-based interface over the transit database that:
 - **Renders a vector-scene replay** of selected transits — bounding boxes moving through a 2D plan view.
 - **Exports filtered datasets** as CSV for external analysis.
 
-The description interface is the primary consumer of the TDL — every filter, aggregation, and export operation is expressed through the abstract transit schema (§3) and executed via the JSON filter API (§5.2).
+The description interface is the primary consumer of the TDL — every filter, aggregation, and export operation is expressed through the abstract transit schema (§3) and executed via the JSON filter API (§5, step 2).
