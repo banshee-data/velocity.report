@@ -310,7 +310,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				}
 			}
 			if skipped > 0 {
-				lidar.Tracef("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
+				lidar.Diagf("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
 					clientID, skipped, cooldown.inSkipMode())
 			}
 

@@ -583,7 +583,7 @@ func (p *Publisher) Publish(frame interface{}) {
 	// Check channel depth before sending
 	queueDepth := len(p.frameChan)
 	if queueDepth > 50 {
-		log.Printf("[Visualiser] WARNING: Frame queue depth high: %d/100", queueDepth)
+		lidar.Diagf("[Visualiser] WARNING: Frame queue depth high: %d/100", queueDepth)
 	}
 
 	select {
@@ -594,7 +594,7 @@ func (p *Publisher) Publish(frame interface{}) {
 	default:
 		// Drop frame if channel is full
 		dropped := p.droppedFrames.Add(1)
-		log.Printf("[Visualiser] DROPPED frame %d (total dropped: %d), channel full, points=%d tracks=%d",
+		lidar.Diagf("[Visualiser] DROPPED frame %d (total dropped: %d), channel full, points=%d tracks=%d",
 			frameBundle.FrameID, dropped, pointCount, trackCount)
 	}
 }
