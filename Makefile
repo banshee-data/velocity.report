@@ -590,11 +590,15 @@ dev-go-latex-full:
 
 dev-go-lidar:
 	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
+
+dev-go-lidar-trace:
+	@$(call run_dev_go_require_precompiled_root)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
 
 dev-go-lidar-both:
 	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)
