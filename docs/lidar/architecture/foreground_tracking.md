@@ -23,7 +23,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - **Phase 3.6:** ✅ PCAP Analysis Tool for ML data extraction
 - **Phase 3.7:** ✅ Analysis Run Infrastructure (params JSON, run comparison)
 
-**Next Phases:** See [ML Pipeline Roadmap](../ROADMAP.md) for Phases 4.0-4.3.
+**Next Phases:** See [Product Roadmap — LiDAR ML Pipeline Phases](../../ROADMAP.md#appendix-a-lidar-ml-pipeline-phases) for Phases 4.0-4.3.
 
 ---
 
@@ -1689,7 +1689,7 @@ When pose validation is implemented:
 ---
 
 **Document Status:** Implementation Complete through Phase 3.6
-**Next Action:** Implement Phase 4.0 Analysis Run Infrastructure (see `../ROADMAP.md`)
+**Next Action:** Implement Phase 4.0 Analysis Run Infrastructure (see [`docs/ROADMAP.md`](../../ROADMAP.md#appendix-a-lidar-ml-pipeline-phases))
 **Last Updated:** December 1, 2025
 **Contact:** Engineering Team
 
@@ -1697,7 +1697,7 @@ When pose validation is implemented:
 
 ## Related Documentation
 
-- **[ML Pipeline Roadmap](../ROADMAP.md)** - Complete architectural plan for Phase 4.0-4.4 (analysis runs, labeling UI, ML training, parameter tuning)
+- **[Product Roadmap — LiDAR ML Pipeline Phases](../../ROADMAP.md#appendix-a-lidar-ml-pipeline-phases)** - Complete architectural plan for Phase 4.0-4.3 (analysis runs, labelling UI, ML training, parameter tuning)
 - **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
 - **[LIDAR Foreground Tracking Status](../operations/lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
 - **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
