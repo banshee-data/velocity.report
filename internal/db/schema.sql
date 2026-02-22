@@ -478,3 +478,31 @@ CREATE INDEX idx_lidar_sweeps_sensor ON lidar_sweeps (sensor_id);
 CREATE INDEX idx_lidar_sweeps_status ON lidar_sweeps (status);
 
 CREATE UNIQUE INDEX idx_evaluations_pair ON lidar_evaluations (reference_run_id, candidate_run_id);
+
+CREATE TABLE radar_serial_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , name TEXT NOT NULL UNIQUE
+        , port_path TEXT NOT NULL
+        , baud_rate INTEGER NOT NULL DEFAULT 19200
+        , data_bits INTEGER NOT NULL DEFAULT 8
+        , stop_bits INTEGER NOT NULL DEFAULT 1
+        , parity TEXT NOT NULL DEFAULT 'N'
+        , enabled INTEGER NOT NULL DEFAULT 1
+        , description TEXT
+        , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
+        , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
+        -- Note: Detailed sensor_model validation is performed in Go using the
+        -- SupportedSensorModels registry; this CHECK only enforces a basic
+        -- format to avoid requiring schema migrations when new models are added.
+        , CHECK (sensor_model LIKE 'ops243-%')
+          );
+
+CREATE INDEX idx_radar_serial_config_enabled ON radar_serial_config (enabled);
+
+CREATE TRIGGER update_radar_serial_config_timestamp AFTER
+   UPDATE ON radar_serial_config BEGIN
+   UPDATE radar_serial_config
+      SET updated_at = STRFTIME('%s', 'now')
+    WHERE id = NEW.id;
+END;
