@@ -1,40 +1,61 @@
-# Internal Project Documentation
+```
+      __     _
+     / /  __| |    ___     __      ___
+    / /  / _  |   / _ \   / _|    (_-<
+  _/_/_  \__,_|   \___/   \__|    /__/
+_|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
+"`-o-o-'"`-o-o-'"`-o-o-'"`-o-o-'"`-o-o-'
+```
 
-This directory contains internal project documentation for development and planning purposes.
+# /docs
 
-## Contents
+Status: Active
+Purpose: Defines the project documentation contract, folder ownership, naming conventions, and metadata rules so technical docs stay consistent, navigable, and resilient as files move or capabilities expand.
 
-### LiDAR Documentation
+## /docs root structure
 
-- [`lidar/`](lidar/) - LiDAR subsystem documentation
-  - [LiDAR Overview](lidar/README.md) - Index of architecture, operations, and reference docs
-  - `architecture/` - Core system design and implementation specs
-  - `operations/` - Runtime operations and debugging
-  - `reference/` - Protocol specs and data formats
-  - `roadmap/` - Development progress and planning
-  - `future/` - Deferred features for specialised use cases
+- `docs/lidar/` # LiDAR pipeline and sensor
+- `docs/radar/` # Radar sensor processing
+- `docs/ui/` # Web, mac, PDF clients
+- `docs/maths/` # Algorithms and signal theory
+- `docs/plans/` # Implementation plans, roadmap
+- `docs/COVERAGE.md` # Test coverage tracking
+- `docs/DEVLOG.md` # Chronological development notes
 
-### Mathematical Documentation
+## Scope Rules
 
-- [`maths/`](maths/) - Math-focused subsystem notes and assumptions
-  - [Maths Overview](maths/README.md) - High-level assumptions and architecture
-  - [Background Grid Settling Maths](maths/background-grid-settling-maths.md)
-  - [Ground Plane Maths](maths/ground-plane-maths.md)
-  - [Clustering Maths](maths/clustering-maths.md)
-  - [Tracking Maths](maths/tracking-maths.md)
+- Capability docs live under the owning root hub (`lidar`, `radar`).
+- UI/client surface docs for web/mac/pdf live under `docs/ui/`.
+- `docs/plans/` contains implementation plans and deferred roadmap work (including previously proposal-scoped non-maths docs).
+- Maths stays separate under `docs/maths/`.
+- Maths proposals live only in `docs/maths/proposals/`.
 
-### Planning Documents
+## Naming Conventions
 
-- [`plans/`](plans/) - Migration and refactoring plans
-  - [Python venv Consolidation Plan](plans/python-venv-consolidation-plan.md)
-  - [Transit Deduplication Plan](plans/transit-deduplication-plan.md)
-  - [Distribution and Packaging Plan](plans/DISTRIBUTION_AND_PACKAGING_PLAN.md)
-  - [Frontend Background Debug Surfaces Plan](plans/frontend-background-debug-surfaces-plan.md)
+- Plans (flat): `<hub>-<area>-<topic>-plan.md` in `docs/plans/`
+- Maths proposals: `<yyymmdd>-<topic>.md` in `docs/maths/proposals/`
 
-### Feature Specifications
+## Metadata Conventions
 
-- [`features/`](features/) - Feature specifications and requirements
+Required in all docs:
+
+- `Status:` required
+- `Purpose:` or `Summary:` required (one of, not both)
+- `Version:` optional
+
+Additional rules:
+
+- `Date:` metadata fields are not allowed
+
+> Template/Style Quick Box
+>
+> - `Status:` required
+> - `Purpose:` or `Summary:` required (one of, not both)
+> - `Version:` optional
+> - `Date:` not allowed (remove if present)
+
+Use directory listings for file-level navigation to avoid stale index maintenance.
 
 ## Public Documentation Site
 
-The public-facing documentation site has been moved to [`public_html/`](../public_html/).
+Public-facing docs are in [`public_html/`](../public_html/).

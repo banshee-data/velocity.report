@@ -2,6 +2,8 @@
 
 **Status**: Phases 1–2 implemented, Phase 5 (ground truth) implemented
 
+Auto-tuning iteratively searches the parameter space to find values that maximise tracking quality. It runs multiple rounds of grid search, narrowing the search bounds after each round based on the.
+
 This guide covers the complete auto-tuning system: tunable parameters, collected metrics, scoring objectives, operational workflows, and decision-making strategies. It is intended as a reference for both human operators and AI agents refining LiDAR tracking parameters.
 
 **Implementation files:**

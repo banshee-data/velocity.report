@@ -1,7 +1,6 @@
 # LIDAR ML Pipeline Roadmap
 
 **Status:** Phase 3.7 Implemented, Phase 3.8–3.9 Implemented, Phases 4.0-4.3 Planned
-**Date:** December 1, 2025 (updated February 2026)
 **Author:** Copilot (Architectural Analysis)
 **Version:** 1.1
 
@@ -10,6 +9,8 @@
 ## Executive Summary
 
 This document outlines the evolution of the LIDAR tracking system from rule-based classification to a full ML-driven classification pipeline with labeling UI, parameter tuning, and comparative analysis.
+
+Workstream note (2026-02-21): velocity-coherent foreground extraction remains planned future work and is tracked separately from the production vector-grid baseline. See `docs/lidar/architecture/20260221-vector-vs-velocity-workstreams.md`.
 
 **Current State (Completed through Phase 3.7):**
 
@@ -873,7 +874,7 @@ Deploy the complete ML pipeline for production use.
 1. ✅ Phase 3.7 (COMPLETED — infrastructure for all other phases)
 2. ✅ Phase 3.8 (COMPLETED — tracking quality improvements)
 3. ✅ Phase 3.9 (COMPLETED — parameter sweep and auto-tuning)
-4. Phase 4.0 (critical for getting labels — see `future/track-labeling-auto-aware-tuning.md`)
+4. Phase 4.0 (critical for getting labels — see `future/track-labeling-auto-aware-tuning-future.md`)
 5. Phase 4.2 (can be done in parallel with labelling)
 6. Phase 4.1 (requires labelled data from 4.0)
 7. Phase 4.3 (final deployment)

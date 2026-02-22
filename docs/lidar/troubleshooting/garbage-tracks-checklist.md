@@ -3,8 +3,6 @@
 This is the canonical document for garbage-track remediation.
 It combines the original review and checklist into one maintained source.
 
-Updated: 2026-02-17
-
 ---
 
 ## Scope and context
@@ -12,14 +10,14 @@ Updated: 2026-02-17
 - Reviewed layers: full LiDAR pipeline (foreground → transform → ground filter → clustering → tracking → persistence → rendering).
 - Goal: remove trajectory contamination, avoid spaghetti artefacts, fix missing detections, and harden pipeline determinism.
 - Canonical reference files:
-  - [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
-  - [tracking.go](../../../internal/lidar/tracking.go)
-  - [ground.go](../../../internal/lidar/ground.go)
-  - [transform.go](../../../internal/lidar/transform.go)
-  - [obb.go](../../../internal/lidar/obb.go)
-  - [clustering.go](../../../internal/lidar/clustering.go)
-  - [track_store.go](../../../internal/lidar/track_store.go)
-  - [frame_builder.go](../../../internal/lidar/frame_builder.go)
+  - [tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go)
+  - [tracking.go](../../../internal/lidar/l5tracks/tracking.go)
+  - [ground.go](../../../internal/lidar/l4perception/ground.go)
+  - [transform.go](../../../internal/lidar/l4perception/cluster.go)
+  - [obb.go](../../../internal/lidar/l4perception/obb.go)
+  - [clustering.go](../../../internal/lidar/l4perception/cluster.go)
+  - [track_store.go](../../../internal/lidar/storage/sqlite/track_store.go)
+  - [frame_builder.go](../../../internal/lidar/l2frames/frame_builder.go)
   - [adapter.go](../../../internal/lidar/visualiser/adapter.go)
   - [track_api.go](../../../internal/lidar/monitor/track_api.go)
   - [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
@@ -105,19 +103,19 @@ Updated: 2026-02-17
 #### 3.1 Cluster size/aspect filtering ✅ Done
 
 - **Severity:** Medium
-- **Files:** [clustering.go](../../../internal/lidar/clustering.go)
+- **Files:** [clustering.go](../../../internal/lidar/l4perception/cluster.go)
 - **Implemented behaviour:** `buildClusters()` now rejects clusters with longest OBB dimension > `MaxClusterDiameter` (12 m) or < `MinClusterDiameter` (0.05 m). Aspect ratio check (longest/shortest > `MaxClusterAspectRatio` = 15) is only applied when the shortest axis exceeds 0.03 m to avoid rejecting legitimate edge-on detections.
 
 #### 3.3 Merge/split temporal coherence ✅ Done
 
 - **Severity:** Medium
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go)
+- **Files:** [tracking.go](../../../internal/lidar/l5tracks/tracking.go)
 - **Implemented behaviour:** After Hungarian association, Step 3b compares each matched cluster's area to the track's historical average OBB area. `MergeCandidate` is set when the cluster area exceeds 2.5× the average (indicating two objects merged), `SplitCandidate` is set when below 0.3× (indicating an object split). These advisory flags are available on `TrackedObject` for downstream filtering.
 
 #### 4.3 Classification mutation locking ✅ Done
 
 - **Severity:** Medium
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go), [tracker_interface.go](../../../internal/lidar/tracker_interface.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
+- **Files:** [tracking.go](../../../internal/lidar/l5tracks/tracking.go), [tracker_interface.go](../../../internal/lidar/l5tracks/tracker_interface.go), [tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go)
 - **Implemented behaviour:** `UpdateClassification()` method added to `TrackerInterface` and `Tracker`. After `ClassifyAndUpdate()` runs on a snapshot, the pipeline calls `cfg.Tracker.UpdateClassification()` to write the classification result back to the live track under the tracker's mutex. This prevents the previous bug where classification ran on snapshot copies that were never propagated to in-memory state.
 
 #### 5.2 Run filter robustness ✅ Done
@@ -129,7 +127,7 @@ Updated: 2026-02-17
 #### 7.1 Throttle-related dt spikes ✅ Done
 
 - **Severity:** Medium
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go)
+- **Files:** [tracking.go](../../../internal/lidar/l5tracks/tracking.go)
 - **Implemented behaviour:** In `Update()`, `dt` is clamped to `MaxPredictDt` (0.5 s) before `LastUpdateNanos` is set. This prevents throttle-induced gaps from inflating the dt used for association gating's implied-speed check.
 
 ### R3 — UX/polish and housekeeping
@@ -137,7 +135,7 @@ Updated: 2026-02-17
 #### 1.3 Deleted-track DB pruning ✅ Done
 
 - **Severity:** Medium
-- **Files:** [track_store.go](../../../internal/lidar/track_store.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
+- **Files:** [track_store.go](../../../internal/lidar/storage/sqlite/track_store.go), [tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go)
 - **Implemented behaviour:** `PruneDeletedTracks(db, sensorID, ttl)` function deletes tracks in `state='deleted'` whose end timestamp is older than the TTL (5 minutes), along with their observations, in a single transaction. Called once per minute from the pipeline callback to prevent unbounded storage growth.
 
 #### 6.2 Per-track colour differentiation within class ✅ Done
@@ -161,13 +159,13 @@ Updated: 2026-02-17
 #### 7.2 Miss accounting on throttled frames ✅ Done
 
 - **Severity:** Low
-- **Files:** [tracking.go](../../../internal/lidar/tracking.go), [tracker_interface.go](../../../internal/lidar/tracker_interface.go), [tracking_pipeline.go](../../../internal/lidar/tracking_pipeline.go)
+- **Files:** [tracking.go](../../../internal/lidar/l5tracks/tracking.go), [tracker_interface.go](../../../internal/lidar/l5tracks/tracker_interface.go), [tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go)
 - **Implemented behaviour:** `AdvanceMisses(timestamp)` method added to `TrackerInterface` and `Tracker`. Called in the pipeline's throttle path before `return`, incrementing `Misses` and resetting `Hits` for all active tracks. Tracks exceeding their miss budget are deleted. This prevents tracks from being artificially kept alive when frames are skipped.
 
 #### 3.2 Non-convex centroid stability ✅ Done
 
 - **Severity:** Low
-- **Files:** [clustering.go](../../../internal/lidar/clustering.go)
+- **Files:** [clustering.go](../../../internal/lidar/l4perception/cluster.go)
 - **Implemented behaviour:** `computeClusterMetrics()` now uses the medoid (the actual cluster point closest to the arithmetic mean) instead of the arithmetic mean for the centroid. This ensures the centroid always lies on a real measurement point, preventing association instability for non-convex clusters (L-shapes, arcs).
 
 ---

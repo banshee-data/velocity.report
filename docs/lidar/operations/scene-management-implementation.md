@@ -1,8 +1,7 @@
 # Phase 2 (Scene Management) Implementation
 
-**Date:** February 2026
 **Status:** ✅ Complete
-**Design Document:** `docs/lidar/future/track-labeling-auto-aware-tuning.md`
+**Design Document:** `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md`
 
 ## Overview
 

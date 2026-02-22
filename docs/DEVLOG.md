@@ -333,7 +333,7 @@
 
 ## December 1, 2025 - ML Pipeline Roadmap
 
-- Created comprehensive ML Pipeline Roadmap document (`internal/lidar/docs/ml_pipeline_roadmap.md`).
+- Created comprehensive ML Pipeline Roadmap documentation (now tracked in `docs/plans/lidar-track-labeling-ui-implementation-plan.md` and related LiDAR plan docs).
 - Planned Phase 4.0 Track Labeling UI: SvelteKit routes, track browser, trajectory viewer, labeling panel.
 - Planned Phase 4.1 ML Classifier Training: feature extraction, Python training pipeline, Go model deployment.
 - Planned Phase 4.2 Parameter Tuning: grid search, quality metrics, objective function optimisation.

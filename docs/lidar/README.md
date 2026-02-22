@@ -73,19 +73,19 @@ Tracking pipeline refactor and upgrade proposals.
 
 ## Quick Links
 
-| Topic                   | Document                                                                                                   |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
-| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                           |
-| Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                 |
-| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)           |
-| ML pipeline             | [roadmap/ml_pipeline_roadmap.md](roadmap/ml_pipeline_roadmap.md)                                           |
-| Packet format           | [reference/packet_analysis_results.md](reference/packet_analysis_results.md)                               |
-| **macOS Visualiser**    | [visualiser/01-problem-and-user-workflows.md](visualiser/01-problem-and-user-workflows.md)                 |
-| **API Contracts**       | [visualiser/02-api-contracts.md](visualiser/02-api-contracts.md)                                           |
-| **Labelling + QC Plan** | [visualiser/06-labelling-qc-enhancements-overview.md](visualiser/06-labelling-qc-enhancements-overview.md) |
-| **Tracking Upgrades**   | [refactor/01-tracking-upgrades.md](refactor/01-tracking-upgrades.md)                                       |
-| **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                     |
-| **Track Labelling**     | [future/track-labeling-auto-aware-tuning.md](future/track-labeling-auto-aware-tuning.md)                   |
+| Topic                   | Document                                                                                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                                                             |
+| Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                                                   |
+| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                             |
+| ML pipeline             | [../plans/lidar-ml-solver-expansion-plan.md](../plans/lidar-ml-solver-expansion-plan.md)                                                     |
+| Packet format           | [architecture/hesai_packet_structure.md](architecture/hesai_packet_structure.md)                                                             |
+| **macOS Visualiser**    | [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md)               |
+| **API Contracts**       | [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md)                                         |
+| **Labelling + QC Plan** | [../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) |
+| **Tracking Upgrades**   | [troubleshooting/01-tracking-upgrades.md](troubleshooting/01-tracking-upgrades.md)                                                           |
+| **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                                                       |
+| **Track Labelling**     | [../plans/lidar-track-labeling-auto-aware-tuning-plan.md](../plans/lidar-track-labeling-auto-aware-tuning-plan.md)                           |
 
 ## Implementation Status
 
@@ -137,7 +137,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Swift run browser UI — `RunBrowserView`, `RunBrowserState` for loading analysis runs
 - ✅ Swift label API client — `RunTrackLabelAPIClient` for track labelling
 
-See: [`docs/plans/track-labeling-ui-plan.md`](../plans/track-labeling-ui-plan.md)
+See: [`docs/plans/lidar-track-labeling-ui-implementation-plan.md`](../plans/lidar-track-labeling-ui-implementation-plan.md)
 
 #### macOS Visualiser: M0–M7 Complete (Oct 2025 – Feb 2026)
 

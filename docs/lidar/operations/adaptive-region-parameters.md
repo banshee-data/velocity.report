@@ -45,7 +45,10 @@ When settling completes, regions are automatically identified:
 
 ### 3. Parameter Application (During Runtime)
 
-Once regions are identified, `ProcessFramePolar` uses region-specific parameters for each cell:
+Once regions are identified, both foreground extraction paths use region-specific parameters per cell:
+
+- `ProcessFramePolar` (batch path)
+- `ProcessFramePolarWithMask` (production runtime mask path)
 
 ```go
 // Look up region for this cell

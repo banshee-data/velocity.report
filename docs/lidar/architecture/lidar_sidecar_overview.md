@@ -195,7 +195,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 - **Production Deployment**: Documentation for multi-node edge deployment
 - ✅ **Track Visualisation UI**: SvelteKit components for track history playback (implemented)
 
-> **See also:** [ML Pipeline Roadmap](../roadmap/ml_pipeline_roadmap.md) for detailed Phase 4.0-4.3 architecture (labeling UI, ML training, parameter tuning, production)
+> **See also:** [ML Pipeline Roadmap](../ROADMAP.md) for detailed Phase 4.0-4.3 architecture (labeling UI, ML training, parameter tuning, production)
 
 ---
 
@@ -1120,4 +1120,4 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 
 **Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
 
-The implementation is ready for Phase 4.0 (Track Labelling & Ground Truth) development. See `docs/lidar/future/track-labeling-auto-aware-tuning.md` for the detailed 8-phase design.
+The implementation is ready for Phase 4.0 (Track Labelling & Ground Truth) development. See `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md` for the detailed 8-phase design.
