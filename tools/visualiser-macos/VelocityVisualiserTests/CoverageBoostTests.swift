@@ -364,9 +364,9 @@ struct VisualiserClientDecodeTests {
         track.vz = 0.0
         track.speedMps = 8.02
         track.headingRad = 0.062
-        track.bboxLengthAvg = 4.5
-        track.bboxWidthAvg = 1.8
-        track.bboxHeightAvg = 1.5
+        track.bboxLength = 4.5
+        track.bboxWidth = 1.8
+        track.bboxHeight = 1.5
         track.bboxHeadingRad = 0.062
         track.heightP95Max = 1.6
         track.intensityMeanAvg = 50.0
@@ -1029,7 +1029,7 @@ struct VisualiserClientDecodeTests {
             trackID: "track-001", sensorID: "sensor-1", state: .confirmed, hits: 50, misses: 2,
             observationCount: 48, firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000,
             x: 10.0, y: 5.0, z: 0.5, vx: 8.0, vy: 0.5, vz: 0.0, speedMps: 8.0, headingRad: 0.1,
-            covariance4x4: [], bboxLengthAvg: 4.5, bboxWidthAvg: 1.8, bboxHeightAvg: 1.5,
+            covariance4x4: [], bboxLength: 4.5, bboxWidth: 1.8, bboxHeight: 1.5,
             bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0, avgSpeedMps: 7.5,
             peakSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
             trackLengthMetres: 150.0, trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98,
@@ -1458,7 +1458,7 @@ struct RunTrackTests {
             trackID: "track-001", sensorID: "sensor-1", state: .confirmed, hits: 10, misses: 0,
             observationCount: 10, firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000,
             x: 10.0, y: 5.0, z: 0.5, vx: 5.0, vy: 0.0, vz: 0.0, speedMps: 5.0, headingRad: 0.0,
-            covariance4x4: [], bboxLengthAvg: 4.0, bboxWidthAvg: 1.8, bboxHeightAvg: 1.5,
+            covariance4x4: [], bboxLength: 4.0, bboxWidth: 1.8, bboxHeight: 1.5,
             bboxHeadingRad: 0.0, heightP95Max: 1.5, intensityMeanAvg: 50.0, avgSpeedMps: 5.0,
             peakSpeedMps: 6.0, classLabel: "", classConfidence: 0.0, trackLengthMetres: 50.0,
             trackDurationSecs: 10.0, occlusionCount: 0, confidence: 0.9, occlusionState: .none,

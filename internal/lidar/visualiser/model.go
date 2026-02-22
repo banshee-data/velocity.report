@@ -233,13 +233,10 @@ type Track struct {
 	// Uncertainty (optional, row-major 4x4)
 	Covariance4x4 []float32
 
-	// Bounding box dimensions (per-frame cluster OBB, not averaged).
-	// The field names retain the "Avg" suffix for proto wire compatibility
-	// (proto fields 18-20 are named bbox_length_avg etc.) but the adapter
-	// populates them from the tracker's per-frame OBBLength/Width/Height.
-	BBoxLengthAvg  float32 // Per-frame cluster length (metres, along heading)
-	BBoxWidthAvg   float32 // Per-frame cluster width (metres, perpendicular to heading)
-	BBoxHeightAvg  float32 // Per-frame cluster height (metres, Z extent)
+	// Bounding box dimensions (per-frame cluster OBB from DBSCAN)
+	BBoxLength     float32 // Per-frame cluster length (metres, along heading)
+	BBoxWidth      float32 // Per-frame cluster width (metres, perpendicular to heading)
+	BBoxHeight     float32 // Per-frame cluster height (metres, Z extent)
 	BBoxHeadingRad float32
 
 	// Features

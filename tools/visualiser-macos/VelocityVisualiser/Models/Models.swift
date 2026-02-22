@@ -220,9 +220,9 @@ struct Track {
 
     var covariance4x4: [Float] = []
 
-    var bboxLengthAvg: Float = 0
-    var bboxWidthAvg: Float = 0
-    var bboxHeightAvg: Float = 0
+    var bboxLength: Float = 0
+    var bboxWidth: Float = 0
+    var bboxHeight: Float = 0
     var bboxHeadingRad: Float = 0
 
     var heightP95Max: Float = 0

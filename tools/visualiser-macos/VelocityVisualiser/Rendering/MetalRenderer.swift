@@ -441,8 +441,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private func isPointInsideAnyBox(px: Float, py: Float) -> Bool {
         guard let tracks = _lastTracks else { return false }
         for track in tracks {
-            let halfL = (track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0) * 0.5
-            let halfW = (track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0) * 0.5
+            let halfL = (track.bboxLength > 0 ? track.bboxLength : 1.0) * 0.5
+            let halfW = (track.bboxWidth > 0 ? track.bboxWidth : 1.0) * 0.5
             let heading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
 
             // Transform point into box-local coordinates (rotate by -heading)
@@ -469,17 +469,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             // Skip filtered-out tracks
             if hiddenTrackIDs.contains(track.trackID) { continue }
             // Build transform matrix
-            // Dimensions use the tracker-provided per-frame cluster (DBSCAN) OBB
-            // dimensions, carried via bboxLengthAvg / bboxWidthAvg / bboxHeightAvg
-            // (proto fields 18-20). Despite the proto field names, the adapter
-            // populates these from the tracker's per-frame OBBLength/Width/Height,
-            // NOT running averages. The web JSON API serves the same values as
-            // bounding_box.length / .width / .height.
+            // Dimensions use per-frame cluster (DBSCAN) OBB dimensions from proto
+            // fields 18-20 (bbox_length / bbox_width / bbox_height).
             let scale = simd_float4x4(
                 diagonal: simd_float4(
-                    track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0,
-                    track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0,
-                    track.bboxHeightAvg > 0 ? track.bboxHeightAvg : 1.0, 1.0))
+                    track.bboxLength > 0 ? track.bboxLength : 1.0,
+                    track.bboxWidth > 0 ? track.bboxWidth : 1.0,
+                    track.bboxHeight > 0 ? track.bboxHeight : 1.0, 1.0))
 
             // Use OBB heading for box orientation (aligns box to physical shape);
             // fall back to velocity heading if OBB heading unavailable.
@@ -632,7 +628,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 // for track arrows. PCA heading (bboxHeadingRad) is used for box rotation
                 // but velocity heading better represents direction of motion.
                 let heading = track.headingRad != 0 ? track.headingRad : track.bboxHeadingRad
-                let arrowLength = max(track.bboxLengthAvg, track.bboxWidthAvg, 1.0) * 0.8
+                let arrowLength = max(track.bboxLength, track.bboxWidth, 1.0) * 0.8
 
                 let tipX = track.x + cos(heading) * arrowLength
                 let tipY = track.y + sin(heading) * arrowLength
@@ -1095,8 +1091,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // Pass 1: Check if click is inside any projected bounding box
         for track in tracks {
             let boxHeading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
-            let halfL = (track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0) * 0.5
-            let halfW = (track.bboxWidthAvg > 0 ? track.bboxWidthAvg : 1.0) * 0.5
+            let halfL = (track.bboxLength > 0 ? track.bboxLength : 1.0) * 0.5
+            let halfW = (track.bboxWidth > 0 ? track.bboxWidth : 1.0) * 0.5
             let cosH = cos(boxHeading)
             let sinH = sin(boxHeading)
 
@@ -1212,7 +1208,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             if track.state == .deleted || track.state == .unknown { continue }
 
             // Project position above the bounding box top
-            let worldPos = simd_float4(track.x, track.y, track.z + track.bboxHeightAvg, 1.0)
+            let worldPos = simd_float4(track.x, track.y, track.z + track.bboxHeight, 1.0)
             let clip = mvp * worldPos
             guard clip.w > 0 else { continue }
 

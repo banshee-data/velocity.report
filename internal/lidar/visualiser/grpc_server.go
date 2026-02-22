@@ -513,13 +513,14 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				Vz:               t.VZ,
 				SpeedMps:         t.SpeedMps,
 				HeadingRad:       t.HeadingRad,
-				BboxLengthAvg:    t.BBoxLengthAvg,
-				BboxWidthAvg:     t.BBoxWidthAvg,
-				BboxHeightAvg:    t.BBoxHeightAvg,
+				BboxLength:       t.BBoxLength,
+				BboxWidth:        t.BBoxWidth,
+				BboxHeight:       t.BBoxHeight,
 				BboxHeadingRad:   t.BBoxHeadingRad,
 				Confidence:       t.Confidence,
 				MotionModel:      pb.MotionModel(t.MotionModel),
 				Alpha:            t.Alpha,
+				HeadingSource:    int32(t.HeadingSource),
 			}
 		}
 

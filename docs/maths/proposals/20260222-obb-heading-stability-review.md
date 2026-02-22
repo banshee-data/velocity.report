@@ -106,8 +106,8 @@ each other (both approach the mean of the true length and true width). For a
 The macOS renderer (`MetalRenderer.swift:460–512`) builds track box transforms
 using:
 
-- **Dimensions:** `bboxLengthAvg` × `bboxWidthAvg` × `bboxHeightAvg`
-  (running averages)
+- **Dimensions:** `bboxLength` × `bboxWidth` × `bboxHeight`
+  (per-frame cluster dimensions)
 - **Heading:** `bboxHeadingRad` (smoothed OBB heading from tracker)
 
 These two signals are not synchronised:

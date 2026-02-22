@@ -199,10 +199,10 @@ message Track {
   // Uncertainty (optional)
   repeated float covariance_4x4 = 17 [packed = true];  // row-major
 
-  // Bounding box (running average)
-  float bbox_length_avg = 18;
-  float bbox_width_avg = 19;
-  float bbox_height_avg = 20;
+  // Bounding box (per-frame cluster dimensions from DBSCAN OBB)
+  float bbox_length = 18;          // metres, along heading direction
+  float bbox_width = 19;           // metres, perpendicular to heading
+  float bbox_height = 20;          // metres, Z extent
 
   // Features
   float height_p95_max = 21;

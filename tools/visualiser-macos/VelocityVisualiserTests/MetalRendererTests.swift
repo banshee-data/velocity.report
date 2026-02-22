@@ -817,10 +817,10 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0, z: 0.8,
-                    bboxLengthAvg: 4.0, bboxWidthAvg: 1.8, bboxHeightAvg: 1.5),
+                    bboxLength: 4.0, bboxWidth: 1.8, bboxHeight: 1.5),
                 Track(
                     trackID: "track-002", state: .tentative, x: 30.0, y: 40.0, z: 0.9,
-                    bboxLengthAvg: 2.0, bboxWidthAvg: 1.0, bboxHeightAvg: 1.0),
+                    bboxLength: 2.0, bboxWidth: 1.0, bboxHeight: 1.0),
             ], trails: [])
 
         renderer.updateFrame(frame)
@@ -945,7 +945,7 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0, z: 0.8,
-                    headingRad: Float.pi / 4, bboxLengthAvg: 4.0, bboxWidthAvg: 1.8,
+                    headingRad: Float.pi / 4, bboxLength: 4.0, bboxWidth: 1.8,
                     bboxHeadingRad: Float.pi / 3)
             ], trails: [])
 
@@ -962,8 +962,8 @@ final class MetalRendererFrameUpdateTests: XCTestCase {
             frameID: 1, timestampNanos: 0,
             tracks: [
                 Track(
-                    trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0, bboxLengthAvg: 4.0,
-                    bboxWidthAvg: 1.8, bboxHeightAvg: 1.5)
+                    trackID: "track-001", state: .confirmed, x: 10.0, y: 20.0, bboxLength: 4.0,
+                    bboxWidth: 1.8, bboxHeight: 1.5)
             ], trails: [])
 
         renderer.updateFrame(frame)
@@ -1280,7 +1280,7 @@ final class MetalRendererHeadingArrowTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "t1", state: .confirmed, x: 10.0, y: 20.0, z: 0.8,
-                    headingRad: Float.pi / 4, bboxLengthAvg: 4.0)
+                    headingRad: Float.pi / 4, bboxLength: 4.0)
             ], trails: [])
 
         renderer.updateFrame(frame)
@@ -1400,7 +1400,7 @@ final class MetalRendererCoverageBoostTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "t-1", state: .confirmed, x: 5.0, y: 10.0, z: 1.0, headingRad: 0.5,
-                    bboxLengthAvg: 4.0, bboxWidthAvg: 2.0)
+                    bboxLength: 4.0, bboxWidth: 2.0)
             ],
             trails: [
                 TrackTrail(
@@ -1458,7 +1458,7 @@ final class MetalRendererCoverageBoostTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "box-1", state: .confirmed, x: 5.0, y: 10.0, z: 0.5, headingRad: 0.0,
-                    bboxLengthAvg: 4.0, bboxWidthAvg: 2.0, bboxHeadingRad: 0.0)
+                    bboxLength: 4.0, bboxWidth: 2.0, bboxHeadingRad: 0.0)
             ], trails: [])
         renderer.updateFrame(trackFrame)
 
@@ -1485,7 +1485,7 @@ final class MetalRendererCoverageBoostTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "box-1", state: .confirmed, x: 5.0, y: 10.0, z: 0.5, headingRad: 0.0,
-                    bboxLengthAvg: 4.0, bboxWidthAvg: 2.0, bboxHeadingRad: 0.0)
+                    bboxLength: 4.0, bboxWidth: 2.0, bboxHeadingRad: 0.0)
             ], trails: [])
 
         renderer.updateFrame(fullFrame)
@@ -1507,7 +1507,7 @@ final class MetalRendererCoverageBoostTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "rotated-1", state: .confirmed, x: 0.0, y: 0.0, z: 0.0,
-                    headingRad: Float.pi / 4, bboxLengthAvg: 6.0, bboxWidthAvg: 2.0,
+                    headingRad: Float.pi / 4, bboxLength: 6.0, bboxWidth: 2.0,
                     bboxHeadingRad: Float.pi / 4)
             ], trails: [])
         renderer.updateFrame(trackFrame)
@@ -1532,7 +1532,7 @@ final class MetalRendererCoverageBoostTests: XCTestCase {
             tracks: [
                 Track(
                     trackID: "rotated-1", state: .confirmed, x: 0.0, y: 0.0, z: 0.0,
-                    headingRad: Float.pi / 4, bboxLengthAvg: 6.0, bboxWidthAvg: 2.0,
+                    headingRad: Float.pi / 4, bboxLength: 6.0, bboxWidth: 2.0,
                     bboxHeadingRad: Float.pi / 4)
             ], trails: [])
 
@@ -1548,7 +1548,7 @@ final class MetalRendererCoverageBoostTests: XCTestCase {
         // Place a track at world origin with a large bounding box
         let track = Track(
             trackID: "target-track", state: .confirmed, x: 0.0, y: 10.0, z: 0.0, headingRad: 0.0,
-            bboxLengthAvg: 10.0, bboxWidthAvg: 10.0, bboxHeadingRad: 0.0)
+            bboxLength: 10.0, bboxWidth: 10.0, bboxHeadingRad: 0.0)
 
         var frame = FrameBundle()
         frame.tracks = TrackSet(frameID: 1, timestampNanos: 0, tracks: [track], trails: [])
@@ -1575,11 +1575,11 @@ final class MetalRendererCoverageBoostTests: XCTestCase {
             frameID: 1, timestampNanos: 0,
             tracks: [
                 Track(
-                    trackID: "near", state: .confirmed, x: 0.0, y: 10.0, z: 0.0, bboxLengthAvg: 5.0,
-                    bboxWidthAvg: 3.0),
+                    trackID: "near", state: .confirmed, x: 0.0, y: 10.0, z: 0.0, bboxLength: 5.0,
+                    bboxWidth: 3.0),
                 Track(
-                    trackID: "far", state: .confirmed, x: 50.0, y: 50.0, z: 0.0, bboxLengthAvg: 2.0,
-                    bboxWidthAvg: 1.0),
+                    trackID: "far", state: .confirmed, x: 50.0, y: 50.0, z: 0.0, bboxLength: 2.0,
+                    bboxWidth: 1.0),
             ], trails: [])
         renderer.updateFrame(frame)
 
