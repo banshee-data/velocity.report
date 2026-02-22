@@ -253,7 +253,7 @@ responsible for angular drift on any given track.
 ### Fix B: Use cluster dimensions directly (addresses §2.3, §2.4)
 
 **Problem:** Per-frame OBB dimensions jitter, and EMA-smoothed dimensions
-mixed swapped axes when heading was locked due to PCA axis swaps.
+can mix swapped axes when heading was locked due to PCA axis swaps.
 
 **Fix:** Use cluster (DBSCAN) dimensions directly for per-frame rendering
 instead of EMA smoothing. When the heading is updated normally, the cluster

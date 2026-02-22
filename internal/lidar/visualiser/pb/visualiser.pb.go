@@ -1074,7 +1074,8 @@ type Track struct {
 	MotionModel       MotionModel    `protobuf:"varint,33,opt,name=motion_model,json=motionModel,proto3,enum=velocity.visualiser.v1.MotionModel" json:"motion_model,omitempty"`
 	// Rendering hints
 	Alpha         float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
-	// Per-frame bounding box dimensions (EMA-smoothed by tracker, aligned with heading).
+	// Per-frame bounding box dimensions (from cluster/DBSCAN OBB directly).
+	// Held when heading is locked (only height updates independently).
 	// NOTE: fields 35-38 manually added — run `make proto-gen-go` to regenerate stubs
 	// and sync with the wire descriptor so these fields serialise over gRPC.
 	BboxLength    float32 `protobuf:"fixed32,35,opt,name=bbox_length,json=bboxLength,proto3" json:"bbox_length,omitempty"`
