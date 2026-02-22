@@ -752,6 +752,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			"post_settle_update_fraction":   params.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
+			"foreground_max_input_points":   params.ForegroundMaxInputPoints,
 			"background_update_fraction":    params.BackgroundUpdateFraction,
 			"safety_margin_meters":          params.SafetyMarginMeters,
 		}
@@ -815,6 +816,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
 			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
 			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
+			ForegroundMaxInputPoints   *int     `json:"foreground_max_input_points"`
 			BackgroundUpdateFraction   *float64 `json:"background_update_fraction"`
 			SafetyMarginMeters         *float64 `json:"safety_margin_meters"`
 			// Tracker params
@@ -920,6 +922,14 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 				eps = float32(*body.ForegroundDBSCANEps)
 			}
 			if err := bm.SetForegroundClusterParams(minPts, eps); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
+		if body.ForegroundMaxInputPoints != nil {
+			p := bm.GetParams()
+			p.ForegroundMaxInputPoints = *body.ForegroundMaxInputPoints
+			if err := bm.SetParams(p); err != nil {
 				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -1044,9 +1054,9 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 
 		// Log D: API call timing for params with all active settings
 		timestamp := time.Now().UnixNano()
-		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v warmup_ns=%d warmup_frames=%d post_settle_alpha=%.4f fg_min_pts=%d fg_eps=%.3f timestamp=%d",
+		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v warmup_ns=%d warmup_frames=%d post_settle_alpha=%.4f fg_min_pts=%d fg_eps=%.3f fg_max_pts=%d timestamp=%d",
 			sensorID, cur.NoiseRelativeFraction, cur.ClosenessSensitivityMultiplier,
-			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, cur.WarmupDurationNanos, cur.WarmupMinFrames, cur.PostSettleUpdateFraction, cur.ForegroundMinClusterPoints, cur.ForegroundDBSCANEps, timestamp)
+			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, cur.WarmupDurationNanos, cur.WarmupMinFrames, cur.PostSettleUpdateFraction, cur.ForegroundMinClusterPoints, cur.ForegroundDBSCANEps, cur.ForegroundMaxInputPoints, timestamp)
 
 		// If this was a form submission, redirect back to status page
 		if r.FormValue("config_json") != "" {
@@ -1066,6 +1076,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			"post_settle_update_fraction":   cur.PostSettleUpdateFraction,
 			"foreground_min_cluster_points": cur.ForegroundMinClusterPoints,
 			"foreground_dbscan_eps":         cur.ForegroundDBSCANEps,
+			"foreground_max_input_points":   cur.ForegroundMaxInputPoints,
 			"background_update_fraction":    cur.BackgroundUpdateFraction,
 			"safety_margin_meters":          cur.SafetyMarginMeters,
 		}
@@ -1413,6 +1424,7 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 			{"seed_from_first", "Seed From First Observation", params.SeedFromFirstObservation, ""},
 			{"foreground_min_cluster_points", "Foreground Min Cluster Points", params.ForegroundMinClusterPoints, ""},
 			{"foreground_dbscan_eps", "Foreground DBSCAN Eps", params.ForegroundDBSCANEps, "%.3f"},
+			{"foreground_max_input_points", "Foreground Max Input Points", params.ForegroundMaxInputPoints, ""},
 			{"enable_diagnostics", "Enable Diagnostics", mgr.EnableDiagnostics, ""},
 		}
 
