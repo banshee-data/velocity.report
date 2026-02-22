@@ -75,6 +75,7 @@ type FrameBuilder struct {
 	frameCallback       func(*LiDARFrame) // callback when frame is complete
 	frameCh             chan *LiDARFrame  // serialises frame callback invocations
 	frameDone           chan struct{}     // closed when frameCallbackWorker exits
+	droppedFrames       uint64            // count of frames dropped due to full channel
 	exportNextFrameASC  bool              // flag to export next completed frame
 	exportBatchCount    int               // number of frames to export in batch
 	exportBatchExported int               // number of frames already exported in current batch
@@ -133,6 +134,12 @@ type FrameBuilderConfig struct {
 	CleanupInterval       time.Duration     // how often to check for frames to finalize (default: 250ms)
 	ExpectedFrameDuration time.Duration     // expected duration per frame based on motor speed (default: 0 = azimuth-only)
 	EnableTimeBased       bool              // true to use time-based detection with azimuth validation
+
+	// FrameChCapacity sets the buffered channel capacity for the frame
+	// callback worker. Default 8 is adequate for live sensor input;
+	// PCAP replay benefits from a larger buffer (e.g. 32) to absorb
+	// short processing stalls without dropping frames.
+	FrameChCapacity int
 }
 
 // NewFrameBuilder creates a new FrameBuilder with the specified configuration
@@ -183,7 +190,11 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 	// only one frame callback runs at a time, preventing concurrent
 	// tracker Update() and persistence operations that cause data races.
 	if fb.frameCallback != nil {
-		fb.frameCh = make(chan *LiDARFrame, 8)
+		chCap := config.FrameChCapacity
+		if chCap <= 0 {
+			chCap = 8
+		}
+		fb.frameCh = make(chan *LiDARFrame, chCap)
 		fb.frameDone = make(chan struct{})
 		go fb.frameCallbackWorker()
 	}
@@ -244,7 +255,11 @@ func NewFrameBuilderDI(config FrameBuilderConfig) *FrameBuilder {
 	// only one frame callback runs at a time, preventing concurrent
 	// tracker Update() and persistence operations that cause data races.
 	if fb.frameCallback != nil {
-		fb.frameCh = make(chan *LiDARFrame, 8)
+		chCap := config.FrameChCapacity
+		if chCap <= 0 {
+			chCap = 8
+		}
+		fb.frameCh = make(chan *LiDARFrame, chCap)
 		fb.frameDone = make(chan struct{})
 		go fb.frameCallbackWorker()
 	}
@@ -272,6 +287,14 @@ func (fb *FrameBuilder) Close() {
 		close(fb.frameCh)
 		<-fb.frameDone
 	}
+}
+
+// DroppedFrames returns the number of frames dropped due to a full
+// callback channel. Useful for post-run diagnostics.
+func (fb *FrameBuilder) DroppedFrames() uint64 {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	return fb.droppedFrames
 }
 
 // Reset clears all buffered frame state. This should be called when switching
@@ -797,7 +820,11 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			// Channel full — drop frame to avoid blocking frame assembly.
 			// This handles back-pressure when the tracking pipeline cannot
 			// keep up with frame arrival rate.
-			opsf("[FrameBuilder] Dropped frame %s: callback queue full", frame.FrameID)
+			fb.mu.Lock()
+			fb.droppedFrames++
+			count := fb.droppedFrames
+			fb.mu.Unlock()
+			opsf("[FrameBuilder] Dropped frame %s: callback queue full (total dropped: %d)", frame.FrameID, count)
 		}
 	}
 }
