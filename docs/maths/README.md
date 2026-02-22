@@ -64,6 +64,8 @@ The production pipeline uses four math-heavy layers:
   - Overlap analysis, interference risks, and a single-settlement architecture updated for polygon/polyline region keys.
 - [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md)
   - Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Proposes six targeted fixes.
+- [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md)
+  - Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
 
 ## Config Mapping
 
