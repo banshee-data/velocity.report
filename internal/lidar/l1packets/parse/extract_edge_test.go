@@ -384,10 +384,6 @@ func TestSetDebugModes(t *testing.T) {
 	config := createTestMockConfig()
 	parser := NewPandar40PParser(*config)
 
-	// Test SetDebug
-	parser.SetDebug(true)
-	parser.SetDebug(false)
-
 	// Test SetDebugPackets
 	parser.SetDebugPackets(0)
 	parser.SetDebugPackets(100)

@@ -169,7 +169,6 @@ func TestTrackingPipelineConfig_NilForwarder(t *testing.T) {
 		Classifier:        nil,
 		DB:                nil,
 		SensorID:          "test-sensor",
-		DebugMode:         false,
 	}
 
 	// This should not panic
@@ -559,7 +558,6 @@ func TestNewFrameCallback_DebugMode(t *testing.T) {
 	config := &TrackingPipelineConfig{
 		BackgroundManager: bgMgr,
 		SensorID:          "test-sensor",
-		DebugMode:         true, // Enable debug mode
 	}
 
 	callback := config.NewFrameCallback()
@@ -730,7 +728,6 @@ func TestNewFrameCallback_TrackClassification(t *testing.T) {
 		Classifier:        classifier,
 		DB:                database,
 		SensorID:          "test-sensor",
-		DebugMode:         true, // Enable debug mode for better coverage
 	}
 
 	callback := config.NewFrameCallback()
@@ -963,7 +960,6 @@ func TestNewFrameCallback_DebugModeNilForwarder(t *testing.T) {
 		BackgroundManager: bgMgr,
 		FgForwarder:       nil, // Nil forwarder
 		SensorID:          "test-sensor",
-		DebugMode:         true, // Should log about nil forwarder
 	}
 
 	callback := config.NewFrameCallback()
@@ -1021,7 +1017,6 @@ func TestNewFrameCallback_ConfirmedTracksWithDebug(t *testing.T) {
 		Classifier:        classifier,
 		DB:                database,
 		SensorID:          "test-sensor",
-		DebugMode:         true, // Enable debug for line 252-254 coverage
 	}
 
 	callback := config.NewFrameCallback()
@@ -1110,7 +1105,6 @@ func TestNewFrameCallback_DatabaseInsertError(t *testing.T) {
 		Tracker:           tracker,
 		DB:                database,
 		SensorID:          "test-sensor",
-		DebugMode:         true, // Enable debug to trigger error logging
 	}
 
 	callback := config.NewFrameCallback()
@@ -1181,7 +1175,6 @@ func TestNewFrameCallback_FullPipeline(t *testing.T) {
 		Classifier:         classifier,
 		DB:                 database,
 		SensorID:           sensorID,
-		DebugMode:          true,
 		AnalysisRunManager: runMgr,
 	}
 

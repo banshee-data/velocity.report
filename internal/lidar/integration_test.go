@@ -33,7 +33,6 @@ func TestHesaiLiDAR_PCAPIntegration(t *testing.T) {
 	config := createTestHesaiParserConfig()
 	parser := parse.NewPandar40PParser(config)
 	parser.SetTimestampMode(parse.TimestampModeSystemTime)
-	parser.SetDebug(false)
 
 	// Step 2: Set up frame builder with callback
 	var (

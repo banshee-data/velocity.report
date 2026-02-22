@@ -548,10 +548,6 @@ func TestParserSetters(t *testing.T) {
 	parser.SetTimestampMode(TimestampModeInternal)
 	parser.SetTimestampMode(TimestampModeLiDAR)
 
-	// Test SetDebug
-	parser.SetDebug(true)
-	parser.SetDebug(false)
-
 	// Test SetDebugPackets
 	parser.SetDebugPackets(0)
 	parser.SetDebugPackets(100)

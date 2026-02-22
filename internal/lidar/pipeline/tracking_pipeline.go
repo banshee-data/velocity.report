@@ -3,7 +3,6 @@ package pipeline
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -114,7 +113,6 @@ type TrackingPipelineConfig struct {
 	Classifier          *l6objects.TrackClassifier
 	DB                  *sql.DB // Use standard sql.DB to avoid import cycle with db package
 	SensorID            string
-	DebugMode           bool
 	AnalysisRunManager  *sqlite.AnalysisRunManager // Optional: for recording analysis runs
 	VisualiserPublisher VisualiserPublisher        // Optional: gRPC publisher
 	VisualiserAdapter   VisualiserAdapter          // Optional: adapter for gRPC
@@ -222,26 +220,22 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
-		if cfg.DebugMode {
-			// Provide extra context at the exact handoff so we can trace delivery
-			var firstAz, lastAz float64
-			var firstTS, lastTS int64
-			if len(polar) > 0 {
-				firstAz = polar[0].Azimuth
-				lastAz = polar[len(polar)-1].Azimuth
-				firstTS = polar[0].Timestamp
-				lastTS = polar[len(polar)-1].Timestamp
-			}
-			log.Printf("[FrameBuilder->Pipeline] Delivering frame %s -> %d points (azimuth: %.1f°->%.1f°, ts: %d->%d)",
-				frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
+		// Provide extra context at the handoff so we can trace delivery
+		var firstAz, lastAz float64
+		var firstTS, lastTS int64
+		if len(polar) > 0 {
+			firstAz = polar[0].Azimuth
+			lastAz = polar[len(polar)-1].Azimuth
+			firstTS = polar[0].Timestamp
+			lastTS = polar[len(polar)-1].Timestamp
 		}
+		tracef("[FrameBuilder->Pipeline] Delivering frame %s -> %d points (azimuth: %.1f°->%.1f°, ts: %d->%d)",
+			frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
 
 		// Stage 1: Foreground extraction
 		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
 		if err != nil || mask == nil {
-			if cfg.DebugMode {
-				log.Printf("[Tracking] Failed to get foreground mask: %v", err)
-			}
+			opsf("[Tracking] Failed to get foreground mask: %v", err)
 			return
 		}
 
@@ -328,7 +322,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if len(pointsToForward) > 0 {
 				cfg.FgForwarder.ForwardForeground(pointsToForward)
 			}
-		} else if cfg.DebugMode {
+		} else {
 			diagf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
 		}
 
@@ -351,12 +345,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				groundFilter = l4perception.DefaultHeightBandFilter()
 			}
 			filteredPoints = groundFilter.FilterVertical(worldPoints)
-			if cfg.DebugMode {
-				proc, kept, below, above := groundFilter.Stats()
-				tracef("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
-					proc, kept, below, above)
-			}
-		} else if cfg.DebugMode {
+			proc, kept, below, above := groundFilter.Stats()
+			tracef("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+				proc, kept, below, above)
+		} else {
 			diagf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
 		}
 
@@ -461,9 +453,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if cfg.DB != nil {
 				worldFrame := fmt.Sprintf("site/%s", cfg.SensorID)
 				if err := sqlite.InsertTrack(cfg.DB, track, worldFrame); err != nil {
-					if cfg.DebugMode {
-						log.Printf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
-					}
+					opsf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
 				}
 
 				// Only persist observations for tracks that were matched to a
@@ -494,15 +484,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						IntensityMean:     track.IntensityMeanAvg,
 					}
 					if err := sqlite.InsertTrackObservation(cfg.DB, obs); err != nil {
-						if cfg.DebugMode {
-							log.Printf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
-						}
+						opsf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
 					}
 				}
 			}
 		}
 
-		if cfg.DebugMode && len(confirmedTracks) > 0 {
+		if len(confirmedTracks) > 0 {
 			diagf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
 		}
 
@@ -536,9 +524,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if lastPruneTime.IsZero() || now.Sub(lastPruneTime) >= pruneInterval {
 				lastPruneTime = now
 				if pruned, err := sqlite.PruneDeletedTracks(cfg.DB, cfg.SensorID, deletedTrackTTL); err != nil {
-					if cfg.DebugMode {
-						log.Printf("[Tracking] Prune deleted tracks failed: %v", err)
-					}
+					opsf("[Tracking] Prune deleted tracks failed: %v", err)
 				} else if pruned > 0 {
 					diagf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
 				}

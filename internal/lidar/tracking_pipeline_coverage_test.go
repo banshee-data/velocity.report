@@ -357,7 +357,6 @@ func TestNewFrameCallback_DebugModeAll(t *testing.T) {
 		BackgroundManager: bm,
 		Tracker:           tracker,
 		FgForwarder:       fwd,
-		DebugMode:         true,
 		VoxelLeafSize:     0.1,
 	}
 
@@ -421,7 +420,6 @@ func TestNewFrameCallback_ProcessError(t *testing.T) {
 	cfg := &TrackingPipelineConfig{
 		BackgroundManager: bm,
 		Tracker:           tracker,
-		DebugMode:         true, // also cover the debug logging path for mask error
 	}
 
 	callback := cfg.NewFrameCallback()
@@ -499,7 +497,6 @@ func TestPipelineCov2_AnalysisRunManager(t *testing.T) {
 		Tracker:            tracker,
 		AnalysisRunManager: runMgr,
 		SensorID:           "cov2-arm",
-		DebugMode:          true,
 	}
 	callback := cfg.NewFrameCallback()
 	callback(clusterFrame())
@@ -543,7 +540,6 @@ func TestPipelineCov2_AnalysisRunManagerRecordTrack(t *testing.T) {
 		Classifier:         classifier,
 		AnalysisRunManager: runMgr,
 		SensorID:           "cov2-rt",
-		DebugMode:          true, // covers debug confirmed-tracks log
 	}
 
 	callback := cfg.NewFrameCallback()
@@ -575,7 +571,6 @@ func TestPipelineCov2_DBInsertErrors(t *testing.T) {
 		Tracker:           tracker,
 		DB:                db, // already closed
 		SensorID:          "cov2-err",
-		DebugMode:         true,
 	}
 
 	callback := cfg.NewFrameCallback()
@@ -772,7 +767,6 @@ func TestPipelineCov2_DebugModeConfirmedTracks(t *testing.T) {
 	cfg := &TrackingPipelineConfig{
 		BackgroundManager: bm,
 		Tracker:           tracker,
-		DebugMode:         true,
 	}
 
 	callback := cfg.NewFrameCallback()
@@ -816,7 +810,6 @@ func TestPipelineCov2_FeatureExportWithRunManager(t *testing.T) {
 		Tracker:            tracker,
 		AnalysisRunManager: runMgr,
 		SensorID:           "cov2-fe",
-		DebugMode:          true,
 		FeatureExportFunc: func(trackID string, features TrackFeatures, class string, confidence float32) {
 			exported.Add(1)
 		},
@@ -920,7 +913,6 @@ func TestPipelineCov2_DebugModeDeliveryLog(t *testing.T) {
 	cfg := &TrackingPipelineConfig{
 		BackgroundManager: bm,
 		Tracker:           &mockTrackerCov{},
-		DebugMode:         true,
 	}
 
 	callback := cfg.NewFrameCallback()

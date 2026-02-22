@@ -317,7 +317,6 @@ func TestTrackingPipelineConfig_NewFrameCallback_FullPipelineWithDB(t *testing.T
 		Tracker:           tracker,
 		Classifier:        l6objects.NewTrackClassifier(),
 		DB:                db,
-		DebugMode:         true,
 		RemoveGround:      true,
 		HeightBandFloor:   -10.0, // very wide to not filter anything in tests
 		HeightBandCeiling: 10.0,
@@ -386,7 +385,6 @@ func TestTrackingPipelineConfig_NewFrameCallback_DebugMode(t *testing.T) {
 	cfg := &TrackingPipelineConfig{
 		SensorID:          sensorID,
 		BackgroundManager: bgMgr,
-		DebugMode:         true,
 		RemoveGround:      false,
 	}
 	cb := cfg.NewFrameCallback()
@@ -412,7 +410,6 @@ func TestTrackingPipelineConfig_NewFrameCallback_NoGroundRemoval(t *testing.T) {
 		BackgroundManager: bgMgr,
 		Tracker:           tracker,
 		RemoveGround:      false,
-		DebugMode:         true,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -501,7 +498,6 @@ func TestTrackingPipelineConfig_WithNilFgForwarder(t *testing.T) {
 		BackgroundManager: bgMgr,
 		Tracker:           tracker,
 		FgForwarder:       nil,
-		DebugMode:         true, // hits the "FgForwarder is nil" debug log
 		RemoveGround:      false,
 	}
 	cb := cfg.NewFrameCallback()
@@ -565,7 +561,6 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 		BackgroundManager:   bgMgr,
 		Tracker:             tracker,
 		RemoveGround:        false,
-		DebugMode:           true,
 		VisualiserPublisher: visPub,
 		VisualiserAdapter:   visAdapter,
 		LidarViewAdapter:    lidarView,
@@ -661,7 +656,6 @@ func TestTrackingPipelineConfig_AnalysisRunManager(t *testing.T) {
 		DB:                 db,
 		AnalysisRunManager: arm,
 		RemoveGround:       false,
-		DebugMode:          true,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -720,7 +714,6 @@ func TestTrackingPipelineConfig_DBPruning(t *testing.T) {
 		Tracker:           tracker,
 		DB:                db,
 		RemoveGround:      false,
-		DebugMode:         true,
 	}
 	cb := cfg.NewFrameCallback()
 
