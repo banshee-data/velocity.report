@@ -17,8 +17,16 @@ import (
 // FileExtension is the extension for velocity.report log files.
 const FileExtension = ".vrlog"
 
-// ChunkSize is the number of frames per chunk file.
+// ChunkSize is the number of frames per chunk file (soft limit).
+// Chunks may contain fewer frames if maxChunkWriteBytes is reached first.
 const ChunkSize = 1000
+
+// maxChunkWriteBytes is the maximum bytes written to a single chunk before
+// rotating to the next. This prevents dense LiDAR frames from producing
+// chunks that exceed the read-side maxChunkSize limit (200 MB). Set below
+// the read limit to leave headroom for the final frame written before the
+// threshold is checked.
+const maxChunkWriteBytes = 150 * 1024 * 1024 // 150 MB
 
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
@@ -47,11 +55,12 @@ type Recorder struct {
 	basePath string
 	sensorID string
 
-	header       LogHeader
-	index        []IndexEntry
-	currentChunk int
-	chunkFile    *os.File
-	chunkOffset  uint32
+	header        LogHeader
+	index         []IndexEntry
+	currentChunk  int
+	chunkFile     *os.File
+	chunkOffset   uint32
+	framesInChunk int // frames written to the current chunk
 
 	frameCount uint64
 	startNs    int64
@@ -110,10 +119,23 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	}
 	r.endNs = frame.TimestampNanos
 
-	// Open new chunk if needed
-	chunkIdx := int(r.frameCount / ChunkSize)
-	if chunkIdx != r.currentChunk {
-		if err := r.rotateChunk(chunkIdx); err != nil {
+	// Open new chunk if needed.
+	// Primary trigger: frame-count boundary (every ChunkSize frames).
+	// Secondary trigger: current chunk exceeds maxChunkWriteBytes, which
+	// prevents dense frames from producing chunks that fail on replay.
+	needRotate := false
+	if r.currentChunk == -1 {
+		// First frame — open chunk 0.
+		needRotate = true
+	} else if r.framesInChunk >= ChunkSize {
+		// Crossed the frame-count boundary.
+		needRotate = true
+	} else if r.chunkOffset >= maxChunkWriteBytes {
+		// Current chunk is too large.
+		needRotate = true
+	}
+	if needRotate {
+		if err := r.rotateChunk(r.currentChunk + 1); err != nil {
 			return err
 		}
 	}
@@ -138,11 +160,12 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	r.index = append(r.index, IndexEntry{
 		FrameID:     frame.FrameID,
 		TimestampNs: frame.TimestampNanos,
-		ChunkID:     uint32(chunkIdx),
+		ChunkID:     uint32(r.currentChunk),
 		Offset:      r.chunkOffset,
 	})
 
 	r.chunkOffset += uint32(4 + len(data))
+	r.framesInChunk++
 	r.frameCount++
 
 	return nil
@@ -165,6 +188,7 @@ func (r *Recorder) rotateChunk(chunkIdx int) error {
 	r.chunkFile = f
 	r.currentChunk = chunkIdx
 	r.chunkOffset = 0
+	r.framesInChunk = 0
 
 	return nil
 }
