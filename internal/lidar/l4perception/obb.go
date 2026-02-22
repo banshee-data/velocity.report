@@ -144,6 +144,22 @@ func EstimateOBBFromCluster(points []WorldPoint) OrientedBoundingBox {
 	width := float32(maxPerp - minPerp)
 	height := float32(maxZ - minZ)
 
+	// Canonical-axis normalisation: ensure Length >= Width so that "length"
+	// always refers to the longer extent and "width" to the shorter. PCA
+	// eigenvector selection can swap the principal axis between frames for
+	// near-square clusters, causing length and width to swap. This
+	// normalisation eliminates 90° axis-swap artefacts by rotating the
+	// heading by π/2 when the perpendicular extent exceeds the principal
+	// extent. See docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix A.
+	if width > length {
+		length, width = width, length
+		heading += math.Pi / 2
+		// Re-normalise heading to [-π, π]
+		if heading > math.Pi {
+			heading -= 2 * math.Pi
+		}
+	}
+
 	// The geometric centre of the OBB is the midpoint of the projected
 	// extents along each axis, NOT the mean of the input points. Using the
 	// mean would offset the box whenever the point distribution is asymmetric

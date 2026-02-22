@@ -231,6 +231,13 @@ message Track {
 
   // Rendering hints
   float alpha = 34;              // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+
+  // Bounding box (per-frame, EMA-smoothed by tracker)
+  // These are temporally smoothed and axis-normalised (length >= width always).
+  // Prefer these over the running averages above for rendering.
+  float bbox_length = 35;        // metres, along heading direction (smoothed)
+  float bbox_width = 36;         // metres, perpendicular to heading (smoothed)
+  float bbox_height = 37;        // metres, Z extent (smoothed)
 }
 
 message TrackPoint {

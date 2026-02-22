@@ -1012,6 +1012,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			// If the track has sufficient velocity, flip the PCA heading
 			// to align with the direction of travel.
 			speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
+			disambiguated := false
 			if speed > 0.5 { // Only disambiguate when moving (>0.5 m/s)
 				velHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
 				// Compute angular difference between PCA heading and velocity heading
@@ -1028,6 +1029,36 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 					newOBBHeading += math.Pi
 					if newOBBHeading > math.Pi {
 						newOBBHeading -= 2 * math.Pi
+					}
+				}
+				disambiguated = true
+			}
+
+			// Fix C: Fall back to displacement vector when Kalman velocity
+			// is too low for reliable disambiguation. This handles slow-
+			// moving objects (e.g. vehicles at junctions, pedestrians) where
+			// the Kalman velocity is near zero but real motion is occurring.
+			// See docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix C.
+			if !disambiguated && len(track.History) >= 2 {
+				last := track.History[len(track.History)-1]
+				prev := track.History[len(track.History)-2]
+				dx := last.X - prev.X
+				dy := last.Y - prev.Y
+				displacement := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+				if displacement > 0.1 { // 10 cm minimum displacement
+					refHeading := float32(math.Atan2(float64(dy), float64(dx)))
+					diff := newOBBHeading - refHeading
+					for diff > math.Pi {
+						diff -= 2 * math.Pi
+					}
+					for diff < -math.Pi {
+						diff += 2 * math.Pi
+					}
+					if diff > math.Pi/2 || diff < -math.Pi/2 {
+						newOBBHeading += math.Pi
+						if newOBBHeading > math.Pi {
+							newOBBHeading -= 2 * math.Pi
+						}
 					}
 				}
 			}
@@ -1050,10 +1081,21 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			track.OBBHeadingRad = l4perception.SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, t.Config.OBBHeadingSmoothingAlpha)
 		}
 
-		// Always update per-frame OBB dimensions regardless of heading lock
-		track.OBBLength = cluster.OBB.Length
-		track.OBBWidth = cluster.OBB.Width
-		track.OBBHeight = cluster.OBB.Height
+		// EMA-smooth per-frame OBB dimensions to reduce frame-to-frame jitter
+		// while keeping dimensions synchronised with the smoothed heading.
+		// Uses the same alpha as heading smoothing for temporal consistency.
+		// See docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix B.
+		alpha := t.Config.OBBHeadingSmoothingAlpha
+		if track.ObservationCount <= 1 {
+			// First observation: initialise directly (no previous value to smooth)
+			track.OBBLength = cluster.OBB.Length
+			track.OBBWidth = cluster.OBB.Width
+			track.OBBHeight = cluster.OBB.Height
+		} else {
+			track.OBBLength = (1-alpha)*track.OBBLength + alpha*cluster.OBB.Length
+			track.OBBWidth = (1-alpha)*track.OBBWidth + alpha*cluster.OBB.Width
+			track.OBBHeight = (1-alpha)*track.OBBHeight + alpha*cluster.OBB.Height
+		}
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 }

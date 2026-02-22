@@ -250,3 +250,94 @@ func TestSmoothOBBHeading_OutputRange(t *testing.T) {
 		}
 	}
 }
+
+func TestEstimateOBBFromCluster_CanonicalAxisNormalisation(t *testing.T) {
+	// Test that Length >= Width always holds after canonical-axis normalisation.
+	// This prevents the 90° axis-swap artefact where PCA selects the
+	// perpendicular as principal axis for near-square clusters.
+	// See docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix A.
+	testCases := []struct {
+		name   string
+		points []WorldPoint
+	}{
+		{
+			name: "rectangle longer in X",
+			points: []WorldPoint{
+				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 4, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 0, Y: 2, Z: 0, Timestamp: time.Now()},
+				{X: 4, Y: 2, Z: 0, Timestamp: time.Now()},
+				{X: 2, Y: 1, Z: 0, Timestamp: time.Now()},
+			},
+		},
+		{
+			name: "rectangle longer in Y",
+			points: []WorldPoint{
+				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 2, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 0, Y: 4, Z: 0, Timestamp: time.Now()},
+				{X: 2, Y: 4, Z: 0, Timestamp: time.Now()},
+				{X: 1, Y: 2, Z: 0, Timestamp: time.Now()},
+			},
+		},
+		{
+			name: "near-square cluster",
+			points: []WorldPoint{
+				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 2.1, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 0, Y: 2.0, Z: 0, Timestamp: time.Now()},
+				{X: 2.1, Y: 2.0, Z: 0, Timestamp: time.Now()},
+				{X: 1.05, Y: 1.0, Z: 0, Timestamp: time.Now()},
+			},
+		},
+		{
+			name: "diagonal cluster",
+			points: []WorldPoint{
+				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+				{X: 3, Y: 3, Z: 0, Timestamp: time.Now()},
+				{X: 0.5, Y: -0.5, Z: 0, Timestamp: time.Now()},
+				{X: 2.5, Y: 3.5, Z: 0, Timestamp: time.Now()},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			obb := EstimateOBBFromCluster(tc.points)
+			if obb.Length < obb.Width {
+				t.Errorf("Canonical-axis violation: Length (%.4f) < Width (%.4f)",
+					obb.Length, obb.Width)
+			}
+		})
+	}
+}
+
+func TestEstimateOBBFromCluster_HeadingAdjustedOnAxisSwap(t *testing.T) {
+	// When the perpendicular extent exceeds the principal extent, the heading
+	// should be rotated by π/2 to keep Length aligned with the heading direction.
+	// Create a cluster that is wider perpendicular to X than along X.
+	points := []WorldPoint{
+		{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+		{X: 1, Y: 0, Z: 0, Timestamp: time.Now()},
+		{X: 0, Y: 3, Z: 0, Timestamp: time.Now()},
+		{X: 1, Y: 3, Z: 0, Timestamp: time.Now()},
+		{X: 0.5, Y: 1.5, Z: 0, Timestamp: time.Now()},
+	}
+
+	obb := EstimateOBBFromCluster(points)
+
+	// Length should be ~3 (the longer Y extent), Width should be ~1 (the shorter X extent)
+	if obb.Length < obb.Width {
+		t.Errorf("Expected Length >= Width, got Length=%.2f, Width=%.2f",
+			obb.Length, obb.Width)
+	}
+
+	// The heading should point along Y (≈π/2) since that's where the longest
+	// extent is, after the canonical swap.
+	headingDeg := float64(obb.HeadingRad) * 180 / math.Pi
+	// Allow for PCA choosing either Y direction (heading near ±90°)
+	absHeading := math.Abs(headingDeg)
+	if absHeading < 70 || absHeading > 110 {
+		t.Errorf("Expected heading near ±90° (Y-axis), got %.1f°", headingDeg)
+	}
+}
