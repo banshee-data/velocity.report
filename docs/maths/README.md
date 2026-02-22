@@ -60,7 +60,7 @@ The production pipeline uses four math-heavy layers:
   - Downsampling, neighbourhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA), and complexity bounds.
 - [Tracking Maths](tracking-maths.md)
   - CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
-- [Unify L3/L4 Settling Proposal](proposal/20260219-unify-l3-l4-settling.md)
+- [Unify L3/L4 Settling Proposal](proposals/20260219-unify-l3-l4-settling.md)
   - Overlap analysis, interference risks, and a single-settlement architecture updated for polygon/polyline region keys.
 
 ## Config Mapping
