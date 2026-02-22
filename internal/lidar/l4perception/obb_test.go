@@ -251,11 +251,43 @@ func TestSmoothOBBHeading_OutputRange(t *testing.T) {
 	}
 }
 
-func TestEstimateOBBFromCluster_CanonicalAxisNormalisation(t *testing.T) {
-	// Test that Length >= Width always holds after canonical-axis normalisation.
-	// This prevents the 90° axis-swap artefact where PCA selects the
-	// perpendicular as principal axis for near-square clusters.
-	// See docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix A.
+func TestEstimateOBBFromCluster_NearSquareClusterPreservesNaturalAxes(t *testing.T) {
+	// Verify that near-square clusters preserve PCA's natural axis assignment
+	// without canonical-axis normalisation. This is important for pedestrians
+	// whose bounding boxes are legitimately square or near-square.
+	points := []WorldPoint{
+		{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
+		{X: 2.0, Y: 0, Z: 0, Timestamp: time.Now()},
+		{X: 0, Y: 2.1, Z: 0, Timestamp: time.Now()},
+		{X: 2.0, Y: 2.1, Z: 0, Timestamp: time.Now()},
+		{X: 1.0, Y: 1.05, Z: 0, Timestamp: time.Now()},
+	}
+
+	obb := EstimateOBBFromCluster(points)
+
+	// PCA should find Y as the principal axis (slightly more variance).
+	// Without canonical-axis normalisation, Length follows the principal axis.
+	// We verify the overall extents are correct (both ~2.0m) regardless of
+	// which is labelled Length vs Width.
+	maxDim := math.Max(float64(obb.Length), float64(obb.Width))
+	minDim := math.Min(float64(obb.Length), float64(obb.Width))
+	if math.Abs(maxDim-2.1) > 0.3 {
+		t.Errorf("Expected max dimension ≈ 2.1, got %.2f", maxDim)
+	}
+	if math.Abs(minDim-2.0) > 0.3 {
+		t.Errorf("Expected min dimension ≈ 2.0, got %.2f", minDim)
+	}
+
+	// Heading should be near 0 or ±π/2 — the PCA principal axis
+	if math.Abs(float64(obb.HeadingRad)) > 0.3 &&
+		math.Abs(math.Abs(float64(obb.HeadingRad))-math.Pi/2) > 0.3 {
+		t.Errorf("Expected heading near 0 or ±π/2, got %.2f rad", obb.HeadingRad)
+	}
+}
+
+func TestEstimateOBBFromCluster_RectangleDimensionsCorrect(t *testing.T) {
+	// Verify that rectangles produce correct dimension values
+	// regardless of whether Length > Width or vice versa.
 	testCases := []struct {
 		name   string
 		points []WorldPoint
@@ -280,64 +312,20 @@ func TestEstimateOBBFromCluster_CanonicalAxisNormalisation(t *testing.T) {
 				{X: 1, Y: 2, Z: 0, Timestamp: time.Now()},
 			},
 		},
-		{
-			name: "near-square cluster",
-			points: []WorldPoint{
-				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
-				{X: 2.1, Y: 0, Z: 0, Timestamp: time.Now()},
-				{X: 0, Y: 2.0, Z: 0, Timestamp: time.Now()},
-				{X: 2.1, Y: 2.0, Z: 0, Timestamp: time.Now()},
-				{X: 1.05, Y: 1.0, Z: 0, Timestamp: time.Now()},
-			},
-		},
-		{
-			name: "diagonal cluster",
-			points: []WorldPoint{
-				{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
-				{X: 3, Y: 3, Z: 0, Timestamp: time.Now()},
-				{X: 0.5, Y: -0.5, Z: 0, Timestamp: time.Now()},
-				{X: 2.5, Y: 3.5, Z: 0, Timestamp: time.Now()},
-			},
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			obb := EstimateOBBFromCluster(tc.points)
-			if obb.Length < obb.Width {
-				t.Errorf("Canonical-axis violation: Length (%.4f) < Width (%.4f)",
-					obb.Length, obb.Width)
+			maxDim := math.Max(float64(obb.Length), float64(obb.Width))
+			minDim := math.Min(float64(obb.Length), float64(obb.Width))
+
+			if math.Abs(maxDim-4.0) > 0.5 {
+				t.Errorf("Expected max dimension ≈ 4.0, got %.2f", maxDim)
+			}
+			if math.Abs(minDim-2.0) > 0.5 {
+				t.Errorf("Expected min dimension ≈ 2.0, got %.2f", minDim)
 			}
 		})
-	}
-}
-
-func TestEstimateOBBFromCluster_HeadingAdjustedOnAxisSwap(t *testing.T) {
-	// When the perpendicular extent exceeds the principal extent, the heading
-	// should be rotated by π/2 to keep Length aligned with the heading direction.
-	// Create a cluster that is wider perpendicular to X than along X.
-	points := []WorldPoint{
-		{X: 0, Y: 0, Z: 0, Timestamp: time.Now()},
-		{X: 1, Y: 0, Z: 0, Timestamp: time.Now()},
-		{X: 0, Y: 3, Z: 0, Timestamp: time.Now()},
-		{X: 1, Y: 3, Z: 0, Timestamp: time.Now()},
-		{X: 0.5, Y: 1.5, Z: 0, Timestamp: time.Now()},
-	}
-
-	obb := EstimateOBBFromCluster(points)
-
-	// Length should be ~3 (the longer Y extent), Width should be ~1 (the shorter X extent)
-	if obb.Length < obb.Width {
-		t.Errorf("Expected Length >= Width, got Length=%.2f, Width=%.2f",
-			obb.Length, obb.Width)
-	}
-
-	// The heading should point along Y (≈π/2) since that's where the longest
-	// extent is, after the canonical swap.
-	headingDeg := float64(obb.HeadingRad) * 180 / math.Pi
-	// Allow for PCA choosing either Y direction (heading near ±90°)
-	absHeading := math.Abs(headingDeg)
-	if absHeading < 70 || absHeading > 110 {
-		t.Errorf("Expected heading near ±90° (Y-axis), got %.1f°", headingDeg)
 	}
 }

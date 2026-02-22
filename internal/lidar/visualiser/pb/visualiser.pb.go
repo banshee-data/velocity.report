@@ -1074,6 +1074,10 @@ type Track struct {
 	MotionModel       MotionModel    `protobuf:"varint,33,opt,name=motion_model,json=motionModel,proto3,enum=velocity.visualiser.v1.MotionModel" json:"motion_model,omitempty"`
 	// Rendering hints
 	Alpha         float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	// Heading source (for debug rendering: colour-code boxes by heading origin)
+	// 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
+	// NOTE: manually added field — regenerate stubs with `make proto-gen-go` to sync.
+	HeadingSource int32   `protobuf:"varint,38,opt,name=heading_source,json=headingSource,proto3" json:"heading_source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1342,6 +1346,13 @@ func (x *Track) GetMotionModel() MotionModel {
 func (x *Track) GetAlpha() float32 {
 	if x != nil {
 		return x.Alpha
+	}
+	return 0
+}
+
+func (x *Track) GetHeadingSource() int32 {
+	if x != nil {
+		return x.HeadingSource
 	}
 	return 0
 }

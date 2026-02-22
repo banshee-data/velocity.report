@@ -36,6 +36,11 @@ export interface Track {
 	peak_speed_mps: number;
 	/** PCA-derived oriented bounding box heading (radians) */
 	obb_heading_rad: number;
+	/**
+	 * Source of the current heading estimate (for debug rendering).
+	 * 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
+	 */
+	heading_source?: number;
 	/** Bounding box dimensions (meters) */
 	bounding_box: {
 		/** Average length (meters) */

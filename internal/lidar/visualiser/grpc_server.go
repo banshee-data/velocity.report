@@ -520,6 +520,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				Confidence:       t.Confidence,
 				MotionModel:      pb.MotionModel(t.MotionModel),
 				Alpha:            t.Alpha,
+				HeadingSource:    int32(t.HeadingSource),
 			}
 		}
 

@@ -175,6 +175,26 @@ enum MotionModel: Int {
     case ca = 1  // constant acceleration
 }
 
+/// Source of the current heading estimate (for debug rendering).
+/// When debug heading-source colouring is enabled, confirmed-track boxes
+/// are tinted by heading origin instead of the default state colour.
+enum HeadingSource: Int {
+    case pca = 0           // raw PCA heading (no disambiguation)
+    case velocity = 1      // disambiguated using Kalman velocity
+    case displacement = 2  // disambiguated using position displacement
+    case locked = 3        // heading locked (aspect ratio guard or jump rejection)
+
+    /// Debug colour for heading-source overlay rendering.
+    var colour: (r: Float, g: Float, b: Float) {
+        switch self {
+        case .pca: return (1.0, 1.0, 0.0)           // yellow — raw PCA
+        case .velocity: return (0.3, 0.5, 1.0)      // blue — velocity-disambiguated
+        case .displacement: return (1.0, 0.5, 0.0)  // orange — displacement-disambiguated
+        case .locked: return (0.7, 0.7, 0.7)         // grey — heading locked
+        }
+    }
+}
+
 struct Track {
     var trackID: String = ""
     var sensorID: String = ""
@@ -222,6 +242,7 @@ struct Track {
 
     // Rendering hints
     var alpha: Float = 1.0  // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+    var headingSource: HeadingSource = .pca  // Source of heading for debug rendering
 }
 
 struct TrackPoint {

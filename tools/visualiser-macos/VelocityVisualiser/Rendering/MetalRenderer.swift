@@ -105,6 +105,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var showAssociation: Bool = false  // M6: Association lines
     var showResiduals: Bool = false  // M6: Residual vectors
     var showGrid: Bool = true  // Ground reference grid
+    var showHeadingSource: Bool = false  // Debug: colour boxes by heading source instead of state
     var pointSize: Float = 5.0
     var backgroundColor: MTLClearColor = MTLClearColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 1.0)
 
@@ -497,6 +498,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 instances.append(1.0)  // g
                 instances.append(1.0)  // b
                 instances.append(track.alpha)  // alpha (supports fade-out)
+            } else if showHeadingSource {
+                // Debug: colour by heading source to diagnose angular drift
+                let colour = track.headingSource.colour
+                instances.append(colour.r)
+                instances.append(colour.g)
+                instances.append(colour.b)
+                instances.append(track.alpha)
             } else {
                 let colour = track.state.colour
                 instances.append(colour.r)
