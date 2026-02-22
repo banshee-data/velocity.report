@@ -162,8 +162,8 @@ type TrackedObject struct {
 	speedHistory []float32
 
 	// OBB heading (smoothed via exponential moving average)
-	OBBHeadingRad float32        // Smoothed heading from oriented bounding box
-	HeadingSource HeadingSource  // Source of the current heading (for debug rendering)
+	OBBHeadingRad float32       // Smoothed heading from oriented bounding box
+	HeadingSource HeadingSource // Source of the current heading (for debug rendering)
 
 	// Latest per-frame OBB dimensions (instantaneous, for real-time rendering)
 	OBBLength float32 // Latest frame bounding box length (metres)
