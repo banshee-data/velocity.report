@@ -162,14 +162,84 @@ func TestRotateChunkCreateError(t *testing.T) {
 	os.Chmod(framesDir, 0444)
 	defer os.Chmod(framesDir, 0755)
 
-	// Force chunk rotation: set frameCount so next Record triggers chunkIdx=1
+	// Force chunk rotation: set framesInChunk so next Record triggers rotation
 	// while currentChunk is still 0
 	rec.mu.Lock()
-	rec.frameCount = ChunkSize
+	rec.framesInChunk = ChunkSize
 	rec.mu.Unlock()
 
 	err = rec.Record(testFrameBundle(1, ts+1e9))
 	if err == nil {
 		t.Error("expected error when frames dir is non-writable")
+	}
+}
+
+// TestSizeBasedChunkRotation verifies that the recorder rotates to a new
+// chunk when the current chunk's byte size exceeds maxChunkWriteBytes,
+// even if the frame-count boundary has not been reached.
+func TestSizeBasedChunkRotation(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	ts := time.Now().UnixNano()
+
+	// Write one frame, then fake a very large chunkOffset to trigger
+	// size-based rotation on the next Record call.
+	if err := rec.Record(testFrameBundle(0, ts)); err != nil {
+		t.Fatalf("Record(0) error = %v", err)
+	}
+	if rec.currentChunk != 0 {
+		t.Fatalf("expected chunk 0, got %d", rec.currentChunk)
+	}
+
+	rec.mu.Lock()
+	rec.chunkOffset = maxChunkWriteBytes // simulate a full chunk
+	rec.mu.Unlock()
+
+	// Next frame should trigger rotation to chunk 1.
+	if err := rec.Record(testFrameBundle(1, ts+1e9)); err != nil {
+		t.Fatalf("Record(1) error = %v", err)
+	}
+	if rec.currentChunk != 1 {
+		t.Fatalf("expected chunk 1 after size rotation, got %d", rec.currentChunk)
+	}
+
+	rec.Close()
+
+	// Verify replay works across the two chunks.
+	rp, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rp.Close()
+
+	if rp.TotalFrames() != 2 {
+		t.Fatalf("expected 2 frames, got %d", rp.TotalFrames())
+	}
+
+	// Confirm frames are in different chunks in the index.
+	if rp.index[0].ChunkID == rp.index[1].ChunkID {
+		t.Error("expected frames in different chunks after size-based rotation")
+	}
+
+	f0, err := rp.ReadFrame()
+	if err != nil {
+		t.Fatalf("ReadFrame(0) error = %v", err)
+	}
+	if f0.FrameID != 0 {
+		t.Errorf("frame 0 ID = %d, want 0", f0.FrameID)
+	}
+
+	f1, err := rp.ReadFrame()
+	if err != nil {
+		t.Fatalf("ReadFrame(1) error = %v", err)
+	}
+	if f1.FrameID != 1 {
+		t.Errorf("frame 1 ID = %d, want 1", f1.FrameID)
 	}
 }
