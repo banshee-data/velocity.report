@@ -1078,7 +1078,6 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 							newOBBHeading -= 2 * math.Pi
 						}
 					}
-					disambiguated = true
 					headingSource = HeadingSourceDisplacement
 				}
 			}
