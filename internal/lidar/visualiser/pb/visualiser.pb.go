@@ -1051,7 +1051,7 @@ type Track struct {
 	HeadingRad float32 `protobuf:"fixed32,16,opt,name=heading_rad,json=headingRad,proto3" json:"heading_rad,omitempty"`
 	// Uncertainty (optional, row-major 4x4)
 	Covariance_4X4 []float32 `protobuf:"fixed32,17,rep,packed,name=covariance_4x4,json=covariance4x4,proto3" json:"covariance_4x4,omitempty"`
-	// Bounding box (running average)
+	// Bounding box (per-frame cluster dimensions for rendering)
 	BboxLengthAvg float32 `protobuf:"fixed32,18,opt,name=bbox_length_avg,json=bboxLengthAvg,proto3" json:"bbox_length_avg,omitempty"`
 	BboxWidthAvg  float32 `protobuf:"fixed32,19,opt,name=bbox_width_avg,json=bboxWidthAvg,proto3" json:"bbox_width_avg,omitempty"`
 	BboxHeightAvg float32 `protobuf:"fixed32,20,opt,name=bbox_height_avg,json=bboxHeightAvg,proto3" json:"bbox_height_avg,omitempty"`
@@ -1074,10 +1074,8 @@ type Track struct {
 	MotionModel       MotionModel    `protobuf:"varint,33,opt,name=motion_model,json=motionModel,proto3,enum=velocity.visualiser.v1.MotionModel" json:"motion_model,omitempty"`
 	// Rendering hints
 	Alpha float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
-	// Fields 35-37 (bbox_length, bbox_width, bbox_height) and 38 (heading_source)
-	// are defined in visualiser.proto but require `make proto-gen-go` to regenerate
-	// stubs before they serialise over gRPC. Until then, per-frame dimensions are
-	// served via the web JSON API only (see internal/lidar/monitor/track_api.go).
+	// Fields 35-37 reserved (per-frame bbox removed; fields 18-20 now carry per-frame dims).
+	// Field 38 (heading_source) requires `make proto-gen-go` to regenerate stubs.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

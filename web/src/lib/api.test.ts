@@ -1418,9 +1418,9 @@ describe('api', () => {
 							avg_speed_mps: 2.5,
 							peak_speed_mps: 3.2,
 							bounding_box: {
-								length_avg: 4.5,
-								width_avg: 2.0,
-								height_avg: 1.5
+								length: 4.5,
+								width: 2.0,
+								height: 1.5
 							},
 							first_seen: '2025-12-09T10:00:00Z',
 							last_seen: '2025-12-09T10:00:03Z'
@@ -1522,9 +1522,9 @@ describe('api', () => {
 					avg_speed_mps: 2.8,
 					peak_speed_mps: 3.5,
 					bounding_box: {
-						length_avg: 0.6,
-						width_avg: 0.4,
-						height_avg: 1.7
+						length: 0.6,
+						width: 0.4,
+						height: 1.7
 					},
 					first_seen: '2025-12-09T10:00:00Z',
 					last_seen: '2025-12-09T10:00:05Z'
@@ -1686,9 +1686,9 @@ describe('api', () => {
 							avg_speed_mps: 1.6,
 							peak_speed_mps: 2.0,
 							bounding_box: {
-								length_avg: 4.5,
-								width_avg: 2.0,
-								height_avg: 1.5
+								length: 4.5,
+								width: 2.0,
+								height: 1.5
 							},
 							first_seen: '2025-12-09T09:00:00Z',
 							last_seen: '2025-12-09T09:00:06Z'

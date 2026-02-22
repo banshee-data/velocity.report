@@ -233,16 +233,11 @@ type Track struct {
 	// Uncertainty (optional, row-major 4x4)
 	Covariance4x4 []float32
 
-	// Bounding box (running average)
-	BBoxLengthAvg  float32
-	BBoxWidthAvg   float32
-	BBoxHeightAvg  float32
+	// Bounding box (per-frame cluster dimensions, not averaged)
+	BBoxLengthAvg  float32 // Per-frame cluster length (metres, along heading)
+	BBoxWidthAvg   float32 // Per-frame cluster width (metres, perpendicular to heading)
+	BBoxHeightAvg  float32 // Per-frame cluster height (metres, Z extent)
 	BBoxHeadingRad float32
-
-	// Bounding box (per-frame, instantaneous)
-	BBoxLength float32
-	BBoxWidth  float32
-	BBoxHeight float32
 
 	// Features
 	HeightP95Max     float32

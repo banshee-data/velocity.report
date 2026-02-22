@@ -579,10 +579,10 @@
 
 		// Only render bounding box / heading if we are using the current valid position
 		if (useCurrentPos) {
-			// Draw bounding box using per-frame OBB dimensions and PCA heading
+			// Draw bounding box using per-frame cluster OBB dimensions and PCA heading
 			const bbox = track.bounding_box;
-			const length = (bbox.length || bbox.length_avg) * scale;
-			const width = (bbox.width || bbox.width_avg) * scale;
+			const length = bbox.length * scale;
+			const width = bbox.width * scale;
 			const boxHeading = track.obb_heading_rad ?? track.heading_rad;
 
 			ctx.translate(screenX, screenY);

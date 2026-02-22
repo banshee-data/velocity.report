@@ -469,15 +469,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             // Skip filtered-out tracks
             if hiddenTrackIDs.contains(track.trackID) { continue }
             // Build transform matrix
-            // These dimensions use the tracker-provided averaged bbox stats
-            // (bboxLengthAvg / bboxWidthAvg / bboxHeightAvg). Canonical-axis
-            // normalisation (Fix A in obb.go) is currently disabled, so length/width
-            // ordering follows whatever the tracker outputs rather than enforcing
-            // length >= width. Per-frame dimensions are exposed in the proto as
-            // bbox_length / bbox_width / bbox_height; switch to those if you need
-            // per-frame box sizing here. See
-            // docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix E
-            // for background on the design trade-offs.
+            // Dimensions use the tracker-provided per-frame cluster (DBSCAN) OBB
+            // dimensions, carried via bboxLengthAvg / bboxWidthAvg / bboxHeightAvg
+            // (proto fields 18-20). Despite the proto field names, the adapter
+            // populates these from the tracker's per-frame OBBLength/Width/Height,
+            // NOT running averages. The web JSON API serves the same values as
+            // bounding_box.length / .width / .height.
             let scale = simd_float4x4(
                 diagonal: simd_float4(
                     track.bboxLengthAvg > 0 ? track.bboxLengthAvg : 1.0,

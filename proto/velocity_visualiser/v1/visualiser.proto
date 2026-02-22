@@ -203,7 +203,10 @@ message Track {
   // Uncertainty (optional, row-major 4x4)
   repeated float covariance_4x4 = 17 [packed = true];
 
-  // Bounding box (running average)
+  // Bounding box (per-frame cluster dimensions, not averaged)
+  // These carry per-frame cluster (DBSCAN) OBB dimensions for rendering.
+  // Despite the proto field names ending in _avg, the adapter populates
+  // them from the tracker's per-frame cluster dimensions (OBBLength etc.).
   float bbox_length_avg = 18;
   float bbox_width_avg = 19;
   float bbox_height_avg = 20;
@@ -232,15 +235,11 @@ message Track {
   // Rendering hints
   float alpha = 34;              // Opacity [0,1]; 1.0 = fully visible, used for fade-out
 
-  // Per-frame bounding box dimensions (from cluster/DBSCAN OBB directly).
-  // These use cluster dimensions when heading is consistent; held when heading
-  // is locked. Prefer these over running averages (fields 18-20) for rendering.
-  // NOTE: requires `make proto-gen-go` / `make proto-gen-swift` to regenerate
-  // stubs before they serialise over gRPC. Until then, per-frame dimensions are
-  // served only via the web JSON API (internal/lidar/monitor/track_api.go).
-  float bbox_length = 35;        // metres, along heading direction
-  float bbox_width = 36;         // metres, perpendicular to heading
-  float bbox_height = 37;        // metres, Z extent
+  // Fields 35-37 reserved. Previously defined as per-frame bbox dimensions
+  // but removed to avoid duplication: fields 18-20 now carry the per-frame
+  // cluster dimensions directly. Run `make proto-gen-go` / `make proto-gen-swift`
+  // to regenerate stubs if you need to use field 38 (heading_source).
+  reserved 35, 36, 37;
 
   // Heading source (for debug rendering: colour-code boxes by heading origin)
   // 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked

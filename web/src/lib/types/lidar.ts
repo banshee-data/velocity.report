@@ -41,19 +41,13 @@ export interface Track {
 	 * 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
 	 */
 	heading_source?: number;
-	/** Bounding box dimensions (meters) */
+	/** Bounding box dimensions (meters, per-frame cluster dimensions) */
 	bounding_box: {
-		/** Average length (meters) */
-		length_avg: number;
-		/** Average width (meters) */
-		width_avg: number;
-		/** Average height (meters) */
-		height_avg: number;
-		/** Per-frame length (meters) */
+		/** Length along heading direction (meters) */
 		length: number;
-		/** Per-frame width (meters) */
+		/** Width perpendicular to heading (meters) */
 		width: number;
-		/** Per-frame height (meters) */
+		/** Z extent (meters) */
 		height: number;
 	};
 	/** ISO 8601 timestamp when track was first seen */
