@@ -115,6 +115,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	totalPoints := 0
 	startTime := time.Now()
 	warmupRemaining := config.WarmupPackets
+	var backoffCount int64
 
 	// Offset-based seek: skip packets until we reach PacketOffset
 	skippingToOffset := config.PacketOffset > 0
@@ -252,6 +253,10 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					}
 					if yield < pcapBackoffMinYield {
 						yield = pcapBackoffMinYield
+					}
+					backoffCount++
+					if backoffCount%100 == 1 {
+						lidar.Diagf("[PCAP] Backoff: pipeline behind by %v, yielding %v (total backoffs: %d)", behindBy, yield, backoffCount)
 					}
 					select {
 					case <-ctx.Done():
