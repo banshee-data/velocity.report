@@ -733,6 +733,6 @@ OverlayModeRequest {
 ## 7. Related Documents
 
 - [01-problem-and-user-workflows.md](./01-problem-and-user-workflows.md) – Problem statement and user workflows
-- [03-architecture.md](./03-architecture.md) – System architecture
-- [04-implementation-plan.md](./04-implementation-plan.md) – Implementation milestones
+- [../../plans/ui-velocity-visualiser-architecture-plan.md](../../plans/ui-velocity-visualiser-architecture-plan.md) – System architecture
+- [../../plans/ui-velocity-visualiser-implementation-plan.md](../../plans/ui-velocity-visualiser-implementation-plan.md) – Implementation milestones
 - [../../lidar/troubleshooting/01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements

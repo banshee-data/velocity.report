@@ -8,11 +8,11 @@ This document describes the system architecture for the macOS LiDAR visualiser a
 
 This architecture aligns with industry-standard LiDAR perception formats:
 
-| Standard                        | Implementation                           | Reference                                                                                         |
-| ------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [av-lidar-integration-plan.md](../../plans/lidar-av-lidar-integration-plan.md)                    |
-| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md)                  |
-| **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../../lidar/architecture/lidar-background-grid-standards.md) |
+| Standard                        | Implementation                           | Reference                                                                                      |
+| ------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](./lidar-av-lidar-integration-plan.md)                     |
+| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](./lidar-static-pose-alignment-plan.md)                   |
+| **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../lidar/architecture/lidar-background-grid-standards.md) |
 
 The `OrientedBoundingBox` message in `visualiser.proto` uses the same field layout as `BoundingBox7DOF` from the AV integration spec, enabling direct conversion for AV dataset import/export.
 
@@ -531,7 +531,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: Pool slices are allocated but never returned; effectively defeats pooling benefit.
 
-**Deferred Solution**: Reference counting (see [04-implementation-plan.md §7.2](./04-implementation-plan.md#72-pointcloudframe-memory-pool-release-strategy)).
+**Deferred Solution**: Reference counting (see [ui-velocity-visualiser-implementation-plan.md §7.2](./ui-velocity-visualiser-implementation-plan.md#72-pointcloudframe-memory-pool-release-strategy)).
 
 ### 8.2 Swift Buffer Allocation Per Frame
 
@@ -539,7 +539,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: At 10-20 fps, this creates ~5 MB/s allocation pressure, increasing GC load.
 
-**Deferred Solution**: Buffer pooling or pre-allocation (see [04-implementation-plan.md §7.1](./04-implementation-plan.md#71-swift-buffer-pooling)).
+**Deferred Solution**: Buffer pooling or pre-allocation (see [ui-velocity-visualiser-implementation-plan.md §7.1](./ui-velocity-visualiser-implementation-plan.md#71-swift-buffer-pooling)).
 
 ### 8.3 Frame Skipping Lacks Cooldown
 
@@ -547,7 +547,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: Client may experience jittery frame delivery after recovering from backpressure.
 
-**Deferred Solution**: Add cooldown counter (see [04-implementation-plan.md §7.3](./04-implementation-plan.md#73-frame-skipping-cooldown)).
+**Deferred Solution**: Add cooldown counter (see [ui-velocity-visualiser-implementation-plan.md §7.3](./ui-velocity-visualiser-implementation-plan.md#73-frame-skipping-cooldown)).
 
 ### 8.4 Decimation Ratio Edge Cases
 
@@ -555,7 +555,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Workaround**: Callers should validate ratios. Minimum recommended: 0.01 (1%).
 
-**Documentation**: Added to [04-implementation-plan.md §7.4](./04-implementation-plan.md#74-decimation-edge-cases).
+**Documentation**: Added to [ui-velocity-visualiser-implementation-plan.md §7.4](./ui-velocity-visualiser-implementation-plan.md#74-decimation-edge-cases).
 
 ### 8.5 Go 1.21+ Dependency
 
@@ -575,7 +575,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 ## 9. Related Documents
 
-- [01-problem-and-user-workflows.md](./01-problem-and-user-workflows.md) – Problem statement
-- [02-api-contracts.md](./02-api-contracts.md) – API contract (protobuf schema)
-- [04-implementation-plan.md](./04-implementation-plan.md) – Milestones and tasks
-- [../../lidar/troubleshooting/01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) – Problem statement
+- [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md) – API contract (protobuf schema)
+- [./ui-velocity-visualiser-implementation-plan.md](./ui-velocity-visualiser-implementation-plan.md) – Milestones and tasks
+- [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements

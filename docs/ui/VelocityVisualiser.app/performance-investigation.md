@@ -26,7 +26,7 @@ For **static LiDAR** deployments (sensor fixed in place), the scene decomposes i
 
 **Current waste:** We send all points every frame when only 3% change (FG/BG ratio remains constant across frame rates).
 
-**Implemented solution (M3.5):** Send background snapshot infrequently (every 30s), send only foreground + clusters per frame. See [04-implementation-plan.md](./04-implementation-plan.md) for completion status.
+**Implemented solution (M3.5):** Send background snapshot infrequently (every 30s), send only foreground + clusters per frame. See [../../plans/ui-velocity-visualiser-implementation-plan.md](../../plans/ui-velocity-visualiser-implementation-plan.md) for completion status.
 
 ---
 
@@ -58,7 +58,7 @@ For **static LiDAR** deployments (sensor fixed in place), the scene decomposes i
 
 ## Primary Solution: Background/Foreground Split Streaming ✅
 
-**Status**: Implemented in M3.5 (Track A + Track B). See [04-implementation-plan.md](./04-implementation-plan.md).
+**Status**: Implemented in M3.5 (Track A + Track B). See [../../plans/ui-velocity-visualiser-implementation-plan.md](../../plans/ui-velocity-visualiser-implementation-plan.md).
 
 ### Concept
 

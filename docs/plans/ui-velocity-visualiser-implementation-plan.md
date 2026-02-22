@@ -689,6 +689,6 @@ Each milestone has a **stop point** where functionality is complete and stable:
 
 - [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) – Problem statement
 - [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md) – API contract
-- [../ui/VelocityVisualiser.app/03-architecture.md](../ui/VelocityVisualiser.app/03-architecture.md) – System architecture
+- [./ui-velocity-visualiser-architecture-plan.md](./ui-velocity-visualiser-architecture-plan.md) – System architecture
 - [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
 - [./web-frontend-background-debug-surfaces-plan.md](./web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope
