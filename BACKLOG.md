@@ -20,7 +20,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Visualiser QC programme — features 1/2/3/5/7/8/10 — [design doc](docs/plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 - Transit deduplication — duplicate transit record prevention — [design doc](docs/radar/architecture/transit-deduplication.md)
 - Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](docs/lidar/operations/track-labeling-ui-implementation.md)
-- HINT sweep polish — 11 remaining polish items — [design doc](docs/plans/lidar-sweep-hint-mode-plan.md)
+- HINT sweep polish — 11 remaining polish items — [operations design doc](docs/lidar/operations/hint-sweep-mode.md), [polish stub](docs/plans/lidar-sweep-hint-mode-plan.md)
 - Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/tooling-python-venv-consolidation-plan.md)
 - SQLite client standardization — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](docs/plans/data-sqlite-client-standardization-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](docs/ui/design-review-and-improvement.md)
