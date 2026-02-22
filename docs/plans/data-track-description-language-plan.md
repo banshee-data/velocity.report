@@ -306,7 +306,7 @@ The TDL operates over a **materialised fused transit table**, not a view. A view
 ```sql
 CREATE TABLE IF NOT EXISTS fused_transits (
     transit_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp_unix  DOUBLE NOT NULL,          -- transit start (unix epoch)
+    timestamp_unix  DOUBLE NOT NULL,          -- transit start (unix epoch, seconds with fractional part)
     duration_s      REAL,                     -- transit duration
     direction       TEXT,                     -- inbound / outbound / unknown
     max_speed_mph   REAL NOT NULL,            -- peak speed (primary query column)
