@@ -78,7 +78,7 @@ Tracking pipeline refactor and upgrade proposals.
 | System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                                                             |
 | Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                                                   |
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                             |
-| ML pipeline             | [../plans/lidar-ml-solver-expansion-plan.md](../plans/lidar-ml-solver-expansion-plan.md)                                                     |
+| ML pipeline             | [architecture/ml-solver-expansion.md](architecture/ml-solver-expansion.md)                                                     |
 | Packet format           | [architecture/hesai_packet_structure.md](architecture/hesai_packet_structure.md)                                                             |
 | **macOS Visualiser**    | [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md)               |
 | **API Contracts**       | [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md)                                         |
@@ -137,7 +137,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Swift run browser UI — `RunBrowserView`, `RunBrowserState` for loading analysis runs
 - ✅ Swift label API client — `RunTrackLabelAPIClient` for track labelling
 
-See: [`docs/plans/lidar-track-labeling-ui-implementation-plan.md`](../plans/lidar-track-labeling-ui-implementation-plan.md)
+See: [`docs/lidar/operations/track-labeling-ui-implementation.md`](operations/track-labeling-ui-implementation.md)
 
 #### macOS Visualiser: M0–M7 Complete (Oct 2025 – Feb 2026)
 

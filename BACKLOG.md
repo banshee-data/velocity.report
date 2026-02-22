@@ -18,7 +18,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](docs/plans/simplification-and-deprecation-plan.md)
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 - Visualiser QC programme — features 1/2/3/5/7/8/10 — [design doc](docs/lidar/visualiser/06-labelling-qc-enhancements-overview.md)
-- Transit deduplication — duplicate transit record prevention — [design doc](docs/plans/transit-deduplication-plan.md)
+- Transit deduplication — duplicate transit record prevention — [design doc](docs/radar/architecture/transit-deduplication.md)
 - Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](docs/plans/track-labeling-ui-plan.md)
 - HINT sweep polish — 11 remaining polish items — [design doc](docs/plans/hint-sweep-mode.md)
 - Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/python-venv-consolidation-plan.md)

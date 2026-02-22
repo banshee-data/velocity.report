@@ -115,4 +115,4 @@ User-level API authentication is deferred. When needed, the planned approach is:
 2. **Tailscale identity headers** — For Tailscale-proxied requests, use `Tailscale-User-Login` headers to identify the caller. This provides SSO-like auth without managing credentials.
 3. **Scope-based authorisation** — Map authenticated identities to permission scopes (read, tune, admin) to enforce least-privilege access.
 
-This work is tracked in [BACKLOG.md](../../../BACKLOG.md) and [web-design-review-and-improvement-plan.md](../../plans/web-design-review-and-improvement-plan.md).
+This work is tracked in [BACKLOG.md](../../../BACKLOG.md) and [design-review-and-improvement.md](../../ui/design-review-and-improvement.md).

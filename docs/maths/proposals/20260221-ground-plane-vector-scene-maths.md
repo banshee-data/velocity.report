@@ -2,7 +2,7 @@
 
 **Status:** Proposal Math (Not Active in Current Runtime)
 **Layer:** L4 Perception
-**Related:** [Background Grid Settling Maths](../../maths/background-grid-settling-maths.md), [Clustering Maths](../../maths/clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../lidar/architecture/ground-plane-extraction.md), [`docs/plans/lidar-architecture-vector-scene-map-plan.md`](../../plans/lidar-architecture-vector-scene-map-plan.md)
+**Related:** [Background Grid Settling Maths](../../maths/background-grid-settling-maths.md), [Clustering Maths](../../maths/clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../../lidar/architecture/vector-scene-map.md)
 
 ## 1. Scope and Design Intent
 
@@ -239,7 +239,7 @@ This avoids one-way authority and supports long-running static operation.
 
 ### 7.3 Region-level coupling for vector scene map
 
-When polygon/polyline priors are available (`docs/plans/lidar-architecture-vector-scene-map-plan.md`):
+When polygon/polyline priors are available (`docs/lidar/architecture/vector-scene-map.md`):
 
 1. Use ground polygons as region seeds.
 2. Use boundary polylines as split constraints (do not blend across them).

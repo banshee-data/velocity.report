@@ -1,6 +1,6 @@
 # Serial Configuration UI - Quick Reference
 
-**Full Specification:** See [docs/plans/radar-feature-serial-configuration-ui-plan.md](../plans/radar-feature-serial-configuration-ui-plan.md)
+**Full Specification:** See [docs/radar/architecture/serial-configuration-ui.md](architecture/serial-configuration-ui.md)
 
 ## What This Feature Enables
 

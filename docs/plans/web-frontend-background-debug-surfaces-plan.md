@@ -2,7 +2,7 @@
 
 **Status:** Planning-only (no implementation in this branch)
 **Scope:** Swift visualiser debugging outputs for background settlement
-**Related:** [`docs/ui/VelocityVisualiser.app/02-api-contracts.md`](../ui/VelocityVisualiser.app/02-api-contracts.md), [`docs/plans/ui-velocity-visualiser-architecture-plan.md`](./ui-velocity-visualiser-architecture-plan.md), [`docs/plans/ui-velocity-visualiser-implementation-plan.md`](./ui-velocity-visualiser-implementation-plan.md), [`config/README.maths.md`](../../config/README.maths.md)
+**Related:** [`docs/ui/VelocityVisualiser.app/02-api-contracts.md`](../ui/VelocityVisualiser.app/02-api-contracts.md), [`docs/ui/velocity-visualiser-architecture.md`](../ui/velocity-visualiser-architecture.md), [`docs/ui/velocity-visualiser-implementation.md`](../ui/velocity-visualiser-implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
 
 ## 1. Problem
 
