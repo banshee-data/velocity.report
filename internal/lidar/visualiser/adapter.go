@@ -316,13 +316,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			VZ:                0,
 			SpeedMps:          t.Speed(),
 			HeadingRad:        t.Heading(),
-			BBoxLengthAvg:     t.BoundingBoxLengthAvg,
-			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
-			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
-			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
 			BBoxLength:        t.OBBLength,
 			BBoxWidth:         t.OBBWidth,
 			BBoxHeight:        t.OBBHeight,
+			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
 			AvgSpeedMps:       t.AvgSpeedMps,
@@ -333,6 +330,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			TrackDurationSecs: t.TrackDurationSecs,
 			OcclusionCount:    t.OcclusionCount,
 			Alpha:             1.0, // Fully visible
+			HeadingSource:     int(t.HeadingSource),
 		}
 
 		// Copy covariance
@@ -398,13 +396,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			VZ:                0,
 			SpeedMps:          t.Speed(),
 			HeadingRad:        t.Heading(),
-			BBoxLengthAvg:     t.BoundingBoxLengthAvg,
-			BBoxWidthAvg:      t.BoundingBoxWidthAvg,
-			BBoxHeightAvg:     t.BoundingBoxHeightAvg,
-			BBoxHeadingRad:    t.OBBHeadingRad,
 			BBoxLength:        t.OBBLength,
 			BBoxWidth:         t.OBBWidth,
 			BBoxHeight:        t.OBBHeight,
+			BBoxHeadingRad:    t.OBBHeadingRad,
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
 			AvgSpeedMps:       t.AvgSpeedMps,

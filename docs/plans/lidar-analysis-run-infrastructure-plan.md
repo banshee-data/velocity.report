@@ -18,12 +18,12 @@ splits/merges. This was Phase 3.7 of the LiDAR ML pipeline.
 
 ## Implementation Files
 
-| File | Description |
-|------|-------------|
-| `internal/lidar/analysis_run.go` | Core types and database operations |
-| `internal/lidar/analysis_run_test.go` | Unit tests |
-| `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql` | Database migration |
-| `internal/db/schema.sql` | Updated with analysis run tables |
+| File                                                              | Description                        |
+| ----------------------------------------------------------------- | ---------------------------------- |
+| `internal/lidar/analysis_run.go`                                  | Core types and database operations |
+| `internal/lidar/analysis_run_test.go`                             | Unit tests                         |
+| `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql` | Database migration                 |
+| `internal/db/schema.sql`                                          | Updated with analysis run tables   |
 
 ---
 

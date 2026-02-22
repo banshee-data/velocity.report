@@ -28,6 +28,18 @@ const (
 	SingularDistanceRejection = 1e9
 )
 
+// HeadingSource indicates which mechanism determined the current track heading.
+// This is exposed via the visualiser so that renderers can colour-code boxes
+// to help diagnose angular drift (e.g. velocity-blue, PCA-yellow).
+type HeadingSource int
+
+const (
+	HeadingSourcePCA          HeadingSource = 0 // Raw PCA heading (no disambiguation)
+	HeadingSourceVelocity     HeadingSource = 1 // Disambiguated using Kalman velocity
+	HeadingSourceDisplacement HeadingSource = 2 // Disambiguated using position displacement
+	HeadingSourceLocked       HeadingSource = 3 // Heading locked (aspect ratio guard or jump rejection)
+)
+
 // TrackerConfig holds configuration parameters for the tracker.
 type TrackerConfig struct {
 	MaxTracks               int           // Maximum number of concurrent tracks
@@ -150,7 +162,8 @@ type TrackedObject struct {
 	speedHistory []float32
 
 	// OBB heading (smoothed via exponential moving average)
-	OBBHeadingRad float32 // Smoothed heading from oriented bounding box
+	OBBHeadingRad float32       // Smoothed heading from oriented bounding box
+	HeadingSource HeadingSource // Source of the current heading (for debug rendering)
 
 	// Latest per-frame OBB dimensions (instantaneous, for real-time rendering)
 	OBBLength float32 // Latest frame bounding box length (metres)
@@ -977,14 +990,20 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Guards:
 	//   1. Skip heading update when cluster has too few points for reliable PCA.
 	//   2. Lock heading when aspect ratio ≈ 1:1 (ambiguous principal axis).
-	//   3. EMA α = OBBHeadingSmoothingAlpha (0.08) provides heavy smoothing.
-	// Per-frame OBB dimensions are always updated regardless of heading lock.
+	//   3. Reject 90° jumps: if the raw heading delta vs smoothed is near ±90°,
+	//      this is likely a PCA axis swap (not real object rotation). Hold heading.
+	//   4. EMA α = OBBHeadingSmoothingAlpha (0.08) provides heavy smoothing.
+	// Per-frame OBB dimensions use cluster (DBSCAN) values directly when heading
+	// is updated. When heading is locked, only height is updated to avoid
+	// desynchronising dimensions from the locked heading.
 	if cluster.OBB != nil {
 		updateHeading := true
+		headingSource := HeadingSourcePCA
 
 		// Guard 1: minimum point count for reliable PCA
 		if cluster.PointsCount < t.Config.MinPointsForPCA {
 			updateHeading = false
+			headingSource = HeadingSourceLocked
 		}
 
 		// Guard 2: near-square aspect ratio → heading ambiguous
@@ -1000,6 +1019,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				}
 				if aspectDiff/maxDim < t.Config.OBBAspectRatioLockThreshold {
 					updateHeading = false
+					headingSource = HeadingSourceLocked
 				}
 			}
 		}
@@ -1012,6 +1032,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			// If the track has sufficient velocity, flip the PCA heading
 			// to align with the direction of travel.
 			speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
+			disambiguated := false
 			if speed > 0.5 { // Only disambiguate when moving (>0.5 m/s)
 				velHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
 				// Compute angular difference between PCA heading and velocity heading
@@ -1030,11 +1051,45 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 						newOBBHeading -= 2 * math.Pi
 					}
 				}
+				disambiguated = true
+				headingSource = HeadingSourceVelocity
 			}
 
-			// Track heading jitter before smoothing: measure angular change between
-			// the previous smoothed heading and the new raw heading.
-			if track.ObservationCount > 1 { // Skip first observation (no previous heading)
+			// Fall back to displacement vector when Kalman velocity
+			// is too low for reliable disambiguation. This handles slow-
+			// moving objects (e.g. vehicles at junctions, pedestrians) where
+			// the Kalman velocity is near zero but real motion is occurring.
+			if !disambiguated && len(track.History) >= 2 {
+				last := track.History[len(track.History)-1]
+				prev := track.History[len(track.History)-2]
+				dx := last.X - prev.X
+				dy := last.Y - prev.Y
+				displacement := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+				if displacement > 0.1 { // 10 cm minimum displacement
+					refHeading := float32(math.Atan2(float64(dy), float64(dx)))
+					diff := newOBBHeading - refHeading
+					for diff > math.Pi {
+						diff -= 2 * math.Pi
+					}
+					for diff < -math.Pi {
+						diff += 2 * math.Pi
+					}
+					if diff > math.Pi/2 || diff < -math.Pi/2 {
+						newOBBHeading += math.Pi
+						if newOBBHeading > math.Pi {
+							newOBBHeading -= 2 * math.Pi
+						}
+					}
+					headingSource = HeadingSourceDisplacement
+				}
+			}
+
+			// Guard 3: Reject 90° jumps. After disambiguation, if the
+			// heading delta vs the previous smoothed heading is near ±90°,
+			// this is almost certainly a PCA axis swap for a near-square
+			// cluster that slipped past Guard 2. Lock heading to prevent
+			// the box from spinning by 90° and snapping back.
+			if track.ObservationCount > 1 {
 				headingDelta := float64(newOBBHeading - track.OBBHeadingRad)
 				// Normalise to [-π, π]
 				for headingDelta > math.Pi {
@@ -1043,17 +1098,46 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				for headingDelta < -math.Pi {
 					headingDelta += 2 * math.Pi
 				}
+
+				// Track heading jitter before smoothing
 				track.HeadingJitterSumSq += headingDelta * headingDelta
 				track.HeadingJitterCount++
+
+				// Reject jumps near ±90° (between 60° and 120°). These are
+				// characteristic of PCA axis swaps where the principal and
+				// perpendicular axes exchange. Real objects do not rotate
+				// 90° in a single frame at traffic-monitoring distances.
+				absDelta := math.Abs(headingDelta)
+				if absDelta > math.Pi/3 && absDelta < 2*math.Pi/3 {
+					updateHeading = false
+					headingSource = HeadingSourceLocked
+				}
 			}
 
-			track.OBBHeadingRad = l4perception.SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, t.Config.OBBHeadingSmoothingAlpha)
+			if updateHeading {
+				track.OBBHeadingRad = l4perception.SmoothOBBHeading(track.OBBHeadingRad, newOBBHeading, t.Config.OBBHeadingSmoothingAlpha)
+			}
 		}
 
-		// Always update per-frame OBB dimensions regardless of heading lock
-		track.OBBLength = cluster.OBB.Length
-		track.OBBWidth = cluster.OBB.Width
-		track.OBBHeight = cluster.OBB.Height
+		track.HeadingSource = headingSource
+
+		// Use cluster (DBSCAN) dimensions directly for per-frame rendering.
+		// The DBSCAN OBB dimensions are aligned with the current frame's PCA
+		// heading and capture all cluster points. When the heading was updated
+		// this frame, the cluster dimensions are consistent with the new heading.
+		// When the heading was locked (Guard 1/2/3), the cluster axes may be
+		// rotated relative to the stored heading — in that case only update
+		// height (which is independent of horizontal axis orientation) to avoid
+		// desynchronising dimensions from the locked heading.
+		if updateHeading {
+			track.OBBLength = cluster.OBB.Length
+			track.OBBWidth = cluster.OBB.Width
+			track.OBBHeight = cluster.OBB.Height
+		} else {
+			// Heading was locked: cluster Length/Width may be swapped relative
+			// to the track's heading. Only update height (axis-independent).
+			track.OBBHeight = cluster.OBB.Height
+		}
 		track.LatestZ = cluster.OBB.CenterZ
 	}
 }

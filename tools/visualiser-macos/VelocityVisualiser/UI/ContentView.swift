@@ -574,8 +574,8 @@ struct TrackInspectorView: View {
                         DetailRow(
                             label: "L×W×H",
                             value: String(
-                                format: "%.1f × %.1f × %.1f m", t.bboxLengthAvg, t.bboxWidthAvg,
-                                t.bboxHeightAvg))
+                                format: "%.1f × %.1f × %.1f m", t.bboxLength, t.bboxWidth,
+                                t.bboxHeight))
                         DetailRow(
                             label: "OBB Heading",
                             value: String(format: "%.1f°", t.bboxHeadingRad * 180 / .pi))

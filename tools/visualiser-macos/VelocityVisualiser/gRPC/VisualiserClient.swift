@@ -492,8 +492,8 @@ final class LockedState<Value>: @unchecked Sendable {
                         observationCount: Int(t.observationCount), firstSeenNanos: t.firstSeenNs,
                         lastSeenNanos: t.lastSeenNs, x: t.x, y: t.y, z: t.z, vx: t.vx, vy: t.vy,
                         vz: t.vz, speedMps: t.speedMps, headingRad: t.headingRad,
-                        covariance4x4: t.covariance4X4, bboxLengthAvg: t.bboxLengthAvg,
-                        bboxWidthAvg: t.bboxWidthAvg, bboxHeightAvg: t.bboxHeightAvg,
+                        covariance4x4: t.covariance4X4, bboxLength: t.bboxLength,
+                        bboxWidth: t.bboxWidth, bboxHeight: t.bboxHeight,
                         bboxHeadingRad: t.bboxHeadingRad, heightP95Max: t.heightP95Max,
                         intensityMeanAvg: t.intensityMeanAvg, avgSpeedMps: t.avgSpeedMps,
                         peakSpeedMps: t.peakSpeedMps, classLabel: t.classLabel,
@@ -503,7 +503,8 @@ final class LockedState<Value>: @unchecked Sendable {
                         occlusionState: OcclusionState(rawValue: Int(t.occlusionState.rawValue))
                             ?? .none,
                         motionModel: MotionModel(rawValue: Int(t.motionModel.rawValue)) ?? .cv,
-                        alpha: t.alpha > 0 ? t.alpha : 1.0)
+                        alpha: t.alpha > 0 ? t.alpha : 1.0,
+                        headingSource: HeadingSource(rawValue: Int(t.headingSource)) ?? .pca)
                 },
                 trails: proto.tracks.trails.map { trail in
                     TrackTrail(

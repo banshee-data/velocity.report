@@ -382,14 +382,14 @@ func TestSyntheticGenerator_TrackBBoxDimensions(t *testing.T) {
 	frame := gen.NextFrame()
 
 	for i, track := range frame.Tracks.Tracks {
-		if track.BBoxLengthAvg != 2.2 {
-			t.Errorf("track %d: expected BBoxLengthAvg=2.2, got %.2f", i, track.BBoxLengthAvg)
+		if track.BBoxLength != 2.2 {
+			t.Errorf("track %d: expected BBoxLength=2.2, got %.2f", i, track.BBoxLength)
 		}
-		if track.BBoxWidthAvg != 1.9 {
-			t.Errorf("track %d: expected BBoxWidthAvg=1.9, got %.2f", i, track.BBoxWidthAvg)
+		if track.BBoxWidth != 1.9 {
+			t.Errorf("track %d: expected BBoxWidth=1.9, got %.2f", i, track.BBoxWidth)
 		}
-		if track.BBoxHeightAvg != 1.6 {
-			t.Errorf("track %d: expected BBoxHeightAvg=1.6, got %.2f", i, track.BBoxHeightAvg)
+		if track.BBoxHeight != 1.6 {
+			t.Errorf("track %d: expected BBoxHeight=1.6, got %.2f", i, track.BBoxHeight)
 		}
 		if track.Z != 0.8 {
 			t.Errorf("track %d: expected Z=0.8, got %.2f", i, track.Z)

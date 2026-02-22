@@ -1051,10 +1051,10 @@ type Track struct {
 	HeadingRad float32 `protobuf:"fixed32,16,opt,name=heading_rad,json=headingRad,proto3" json:"heading_rad,omitempty"`
 	// Uncertainty (optional, row-major 4x4)
 	Covariance_4X4 []float32 `protobuf:"fixed32,17,rep,packed,name=covariance_4x4,json=covariance4x4,proto3" json:"covariance_4x4,omitempty"`
-	// Bounding box (running average)
-	BboxLengthAvg float32 `protobuf:"fixed32,18,opt,name=bbox_length_avg,json=bboxLengthAvg,proto3" json:"bbox_length_avg,omitempty"`
-	BboxWidthAvg  float32 `protobuf:"fixed32,19,opt,name=bbox_width_avg,json=bboxWidthAvg,proto3" json:"bbox_width_avg,omitempty"`
-	BboxHeightAvg float32 `protobuf:"fixed32,20,opt,name=bbox_height_avg,json=bboxHeightAvg,proto3" json:"bbox_height_avg,omitempty"`
+	// Bounding box (per-frame cluster dimensions from DBSCAN OBB)
+	BboxLength float32 `protobuf:"fixed32,18,opt,name=bbox_length,json=bboxLength,proto3" json:"bbox_length,omitempty"`
+	BboxWidth  float32 `protobuf:"fixed32,19,opt,name=bbox_width,json=bboxWidth,proto3" json:"bbox_width,omitempty"`
+	BboxHeight float32 `protobuf:"fixed32,20,opt,name=bbox_height,json=bboxHeight,proto3" json:"bbox_height,omitempty"`
 	// OBB heading (smoothed)
 	BboxHeadingRad float32 `protobuf:"fixed32,21,opt,name=bbox_heading_rad,json=bboxHeadingRad,proto3" json:"bbox_heading_rad,omitempty"`
 	// Features
@@ -1073,7 +1073,14 @@ type Track struct {
 	OcclusionState    OcclusionState `protobuf:"varint,32,opt,name=occlusion_state,json=occlusionState,proto3,enum=velocity.visualiser.v1.OcclusionState" json:"occlusion_state,omitempty"`
 	MotionModel       MotionModel    `protobuf:"varint,33,opt,name=motion_model,json=motionModel,proto3,enum=velocity.visualiser.v1.MotionModel" json:"motion_model,omitempty"`
 	// Rendering hints
-	Alpha         float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	Alpha float32 `protobuf:"fixed32,34,opt,name=alpha,proto3" json:"alpha,omitempty"` // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	// Heading source (for debug rendering: colour-code boxes by heading origin)
+	// 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
+	HeadingSource int32 `protobuf:"varint,35,opt,name=heading_source,json=headingSource,proto3" json:"heading_source,omitempty"`
+	// NOTE: The raw protobuf descriptor bytes below are out of sync with these
+	// struct fields. Run `make proto-gen-go` to regenerate from visualiser.proto.
+	// Until then, gRPC wire encoding uses the descriptor (old field names/numbers)
+	// while direct struct access uses the new field names above.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1227,23 +1234,23 @@ func (x *Track) GetCovariance_4X4() []float32 {
 	return nil
 }
 
-func (x *Track) GetBboxLengthAvg() float32 {
+func (x *Track) GetBboxLength() float32 {
 	if x != nil {
-		return x.BboxLengthAvg
+		return x.BboxLength
 	}
 	return 0
 }
 
-func (x *Track) GetBboxWidthAvg() float32 {
+func (x *Track) GetBboxWidth() float32 {
 	if x != nil {
-		return x.BboxWidthAvg
+		return x.BboxWidth
 	}
 	return 0
 }
 
-func (x *Track) GetBboxHeightAvg() float32 {
+func (x *Track) GetBboxHeight() float32 {
 	if x != nil {
-		return x.BboxHeightAvg
+		return x.BboxHeight
 	}
 	return 0
 }
@@ -1342,6 +1349,13 @@ func (x *Track) GetMotionModel() MotionModel {
 func (x *Track) GetAlpha() float32 {
 	if x != nil {
 		return x.Alpha
+	}
+	return 0
+}
+
+func (x *Track) GetHeadingSource() int32 {
+	if x != nil {
+		return x.HeadingSource
 	}
 	return 0
 }

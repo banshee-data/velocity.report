@@ -125,6 +125,7 @@ type TrackResponse struct {
 	PeakSpeedMps        float32              `json:"peak_speed_mps"`
 	BoundingBox         BBox                 `json:"bounding_box"`
 	OBBHeadingRad       float32              `json:"obb_heading_rad"`
+	HeadingSource       int                  `json:"heading_source,omitempty"` // 0=PCA, 1=velocity, 2=displacement, 3=locked
 	FirstSeen           string               `json:"first_seen"`
 	LastSeen            string               `json:"last_seen"`
 	History             []TrackPointResponse `json:"history,omitempty"`
@@ -150,14 +151,12 @@ type Velocity struct {
 	VY float32 `json:"vy"`
 }
 
-// BBox represents bounding box dimensions (both per-frame and averaged).
+// BBox represents bounding box dimensions for rendering.
+// These are per-frame cluster dimensions (from DBSCAN OBB), not running averages.
 type BBox struct {
-	LengthAvg float32 `json:"length_avg"`
-	WidthAvg  float32 `json:"width_avg"`
-	HeightAvg float32 `json:"height_avg"`
-	Length    float32 `json:"length"`
-	Width     float32 `json:"width"`
-	Height    float32 `json:"height"`
+	Length float32 `json:"length"`
+	Width  float32 `json:"width"`
+	Height float32 `json:"height"`
 }
 
 // ClusterResponse represents a cluster in JSON API responses.
@@ -999,19 +998,33 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 		AgeSeconds:          spanSeconds,
 		AvgSpeedMps:         track.AvgSpeedMps,
 		PeakSpeedMps:        track.PeakSpeedMps,
-		BoundingBox: BBox{
-			LengthAvg: track.BoundingBoxLengthAvg,
-			WidthAvg:  track.BoundingBoxWidthAvg,
-			HeightAvg: track.BoundingBoxHeightAvg,
-			Length:    track.OBBLength,
-			Width:     track.OBBWidth,
-			Height:    track.OBBHeight,
-		},
-		OBBHeadingRad: track.OBBHeadingRad,
-		FirstSeen:     time.Unix(0, first).UTC().Format(time.RFC3339Nano),
-		LastSeen:      time.Unix(0, last).UTC().Format(time.RFC3339Nano),
-		History:       history,
+		BoundingBox:         bboxFromTrack(track),
+		OBBHeadingRad:       track.OBBHeadingRad,
+		HeadingSource:       int(track.HeadingSource),
+		FirstSeen:           time.Unix(0, first).UTC().Format(time.RFC3339Nano),
+		LastSeen:            time.Unix(0, last).UTC().Format(time.RFC3339Nano),
+		History:             history,
 	}
+}
+
+// bboxFromTrack returns a BBox populated from the best available dimensions.
+// Per-frame cluster dims (OBBLength/Width/Height) are preferred; when they
+// are zero (e.g. tracks loaded from DB where only the historical value is
+// stored), BoundingBoxLengthAvg is used as fallback.
+func bboxFromTrack(track *l5tracks.TrackedObject) BBox {
+	l := track.OBBLength
+	if l == 0 {
+		l = track.BoundingBoxLengthAvg
+	}
+	w := track.OBBWidth
+	if w == 0 {
+		w = track.BoundingBoxWidthAvg
+	}
+	h := track.OBBHeight
+	if h == 0 {
+		h = track.BoundingBoxHeightAvg
+	}
+	return BBox{Length: l, Width: w, Height: h}
 }
 
 // classSummaryAccum is an accumulator for computing class summary statistics.

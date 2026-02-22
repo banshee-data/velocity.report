@@ -30,14 +30,14 @@ struct TrackExtendedTests {
 
     @Test func trackBoundingBoxProperties() throws {
         var track = Track()
-        track.bboxLengthAvg = 4.5
-        track.bboxWidthAvg = 1.8
-        track.bboxHeightAvg = 1.6
+        track.bboxLength = 4.5
+        track.bboxWidth = 1.8
+        track.bboxHeight = 1.6
         track.bboxHeadingRad = Float.pi / 2
 
-        #expect(track.bboxLengthAvg == 4.5)
-        #expect(track.bboxWidthAvg == 1.8)
-        #expect(track.bboxHeightAvg == 1.6)
+        #expect(track.bboxLength == 4.5)
+        #expect(track.bboxWidth == 1.8)
+        #expect(track.bboxHeight == 1.6)
         #expect(abs(track.bboxHeadingRad - Float.pi / 2) < 0.001)
     }
 

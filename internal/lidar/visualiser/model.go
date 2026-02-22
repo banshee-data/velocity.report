@@ -233,16 +233,11 @@ type Track struct {
 	// Uncertainty (optional, row-major 4x4)
 	Covariance4x4 []float32
 
-	// Bounding box (running average)
-	BBoxLengthAvg  float32
-	BBoxWidthAvg   float32
-	BBoxHeightAvg  float32
+	// Bounding box dimensions (per-frame cluster OBB from DBSCAN)
+	BBoxLength     float32 // Per-frame cluster length (metres, along heading)
+	BBoxWidth      float32 // Per-frame cluster width (metres, perpendicular to heading)
+	BBoxHeight     float32 // Per-frame cluster height (metres, Z extent)
 	BBoxHeadingRad float32
-
-	// Bounding box (per-frame, instantaneous)
-	BBoxLength float32
-	BBoxWidth  float32
-	BBoxHeight float32
 
 	// Features
 	HeightP95Max     float32
@@ -263,7 +258,8 @@ type Track struct {
 	MotionModel       MotionModel
 
 	// Rendering hints
-	Alpha float32 // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	Alpha         float32 // Opacity [0,1]; 1.0 = fully visible, used for fade-out
+	HeadingSource int     // Source of heading: 0=PCA, 1=velocity, 2=displacement, 3=locked
 }
 
 // TrackState represents the lifecycle state of a track.

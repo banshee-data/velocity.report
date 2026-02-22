@@ -10,8 +10,8 @@ This architecture aligns with industry-standard LiDAR perception formats:
 
 | Standard                        | Implementation                           | Reference                                                                                      |
 | ------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](../plans/lidar-av-lidar-integration-plan.md)                     |
-| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](../plans/lidar-static-pose-alignment-plan.md)                   |
+| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](../plans/lidar-av-lidar-integration-plan.md)              |
+| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](../plans/lidar-static-pose-alignment-plan.md)            |
 | **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../lidar/architecture/lidar-background-grid-standards.md) |
 
 The `OrientedBoundingBox` message in `visualiser.proto` uses the same field layout as `BoundingBox7DOF` from the AV integration spec, enabling direct conversion for AV dataset import/export.
