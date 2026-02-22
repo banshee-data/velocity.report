@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -191,6 +192,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	const pruneInterval = 1 * time.Minute
 	var lastPruneTime time.Time
 
+	// One-shot diag warnings for disabled features. Fires at most once per
+	// callback instance (i.e. per PCAP/session) to avoid flooding the log.
+	var logFgForwarderNilOnce sync.Once
+	var logGroundDisabledOnce sync.Once
+
 	return func(frame *l2frames.LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -324,7 +330,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				cfg.FgForwarder.ForwardForeground(pointsToForward)
 			}
 		} else {
-			diagf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
+			logFgForwarderNilOnce.Do(func() {
+				diagf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
+			})
 		}
 
 		// Always log foreground extraction for tracking debugging
@@ -350,7 +358,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			tracef("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
 				proc, kept, below, above)
 		} else {
-			diagf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
+			logGroundDisabledOnce.Do(func() {
+				diagf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
+			})
 		}
 
 		if len(filteredPoints) == 0 {
