@@ -1,6 +1,6 @@
 # OBB Heading Stability Review
 
-**Status:** Investigation / Review
+**Status:** Partially Implemented (Fixes A, B, C applied; Fix D is config-only; Fix E pending proto regen; Fix F not yet started)
 **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
 **Created:** 2026-02-22
 **Related:**

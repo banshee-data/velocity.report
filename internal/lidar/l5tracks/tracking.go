@@ -1083,7 +1083,8 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 		// EMA-smooth per-frame OBB dimensions to reduce frame-to-frame jitter
 		// while keeping dimensions synchronised with the smoothed heading.
-		// Uses the same alpha as heading smoothing for temporal consistency.
+		// Alpha is the weight of the new observation (same convention as
+		// SmoothOBBHeading: higher alpha = more responsive to new values).
 		// See docs/maths/proposals/20260222-obb-heading-stability-review.md §5 Fix B.
 		alpha := t.Config.OBBHeadingSmoothingAlpha
 		if track.ObservationCount <= 1 {
