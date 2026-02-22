@@ -89,6 +89,10 @@ func (m *mockTrackerCov) GetDeletedTrackGracePeriod() time.Duration {
 	return 5 * time.Second
 }
 
+func (m *mockTrackerCov) UpdateConfig(fn func(*TrackerConfig)) {
+	// no-op in mock
+}
+
 // --- test helpers ---
 
 // testBackgroundManager creates a minimal BackgroundManager for tests.
