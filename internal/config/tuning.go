@@ -33,6 +33,7 @@ type TuningConfig struct {
 	// Foreground clustering params
 	ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps,omitempty"`
 	ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points,omitempty"`
+	ForegroundMaxInputPoints   *int     `json:"foreground_max_input_points,omitempty"`
 
 	// Frame builder params
 	BufferTimeout  *string `json:"buffer_timeout,omitempty"` // duration string like "500ms"
@@ -226,6 +227,9 @@ func (c *TuningConfig) ValidateComplete() error {
 	if c.ForegroundMinClusterPoints == nil {
 		missing = append(missing, "foreground_min_cluster_points")
 	}
+	if c.ForegroundMaxInputPoints == nil {
+		missing = append(missing, "foreground_max_input_points")
+	}
 	if c.BufferTimeout == nil {
 		missing = append(missing, "buffer_timeout")
 	}
@@ -377,6 +381,9 @@ func (c *TuningConfig) GetForegroundDBSCANEps() float64 { return *c.ForegroundDB
 
 // GetForegroundMinClusterPoints returns the foreground_min_cluster_points value.
 func (c *TuningConfig) GetForegroundMinClusterPoints() int { return *c.ForegroundMinClusterPoints }
+
+// GetForegroundMaxInputPoints returns the foreground_max_input_points value.
+func (c *TuningConfig) GetForegroundMaxInputPoints() int { return *c.ForegroundMaxInputPoints }
 
 // GetGatingDistanceSquared returns the gating_distance_squared value.
 func (c *TuningConfig) GetGatingDistanceSquared() float64 { return *c.GatingDistanceSquared }

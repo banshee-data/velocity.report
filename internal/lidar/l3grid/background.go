@@ -27,6 +27,10 @@ type BackgroundParams struct {
 	PostSettleUpdateFraction       float32 // optional lower alpha after settle for stability
 	ForegroundMinClusterPoints     int     // min points for a cluster to be forwarded/considered
 	ForegroundDBSCANEps            float32 // clustering radius for foreground gating
+	// ForegroundMaxInputPoints caps the number of points fed into the core DBSCAN
+	// loop. When the input exceeds this value, uniform random subsampling is
+	// applied to keep runtime bounded. Zero disables the cap. Default: 8000.
+	ForegroundMaxInputPoints int
 	// NoiseRelativeFraction is the fraction of range (distance) to treat as
 	// expected measurement noise. This allows closeness thresholds to grow
 	// with distance so that farther returns (which naturally have larger

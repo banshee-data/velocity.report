@@ -376,9 +376,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if params.ForegroundDBSCANEps > 0 {
 			dbscanParams.Eps = float64(params.ForegroundDBSCANEps)
 		}
-		// Cap input points to bound worst-case DBSCAN runtime on
-		// unexpectedly dense frames (e.g. 12k+ foreground points).
-		dbscanParams.MaxInputPoints = 8000
+		// Cap input points to bound worst-case DBSCAN runtime.
+		// Uses foreground_max_input_points from tuning (default 8000) so
+		// operators can trade detection accuracy for performance at runtime.
+		maxInputPoints := params.ForegroundMaxInputPoints
+		if maxInputPoints <= 0 {
+			maxInputPoints = 8000
+		}
+		dbscanParams.MaxInputPoints = maxInputPoints
 
 		clusters := l4perception.DBSCAN(filteredPoints, dbscanParams)
 		if len(clusters) == 0 {
