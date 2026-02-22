@@ -494,4 +494,4 @@ Each upgrade includes unit tests for the new function.
 
 - [../../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) – User workflows
 - [../../ui/VelocityVisualiser.app/02-api-contracts.md](../../ui/VelocityVisualiser.app/02-api-contracts.md) – API contract
-- [../../plans/ui-velocity-visualiser-implementation-plan.md](../../plans/ui-velocity-visualiser-implementation-plan.md) – Milestones
+- [../../ui/velocity-visualiser-implementation.md](../../ui/velocity-visualiser-implementation.md) – Milestones

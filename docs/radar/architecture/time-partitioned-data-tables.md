@@ -3336,9 +3336,9 @@ func PreflightChecks() error {
 
 ### Related velocity.report Documentation
 
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) - System architecture overview
-- [README.md](../../README.md) - Project overview
-- [`internal/db/schema.sql`](../../internal/db/schema.sql) - Current database schema
+- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture overview
+- [README.md](../../../README.md) - Project overview
+- [`internal/db/schema.sql`](../../../internal/db/schema.sql) - Current database schema
 
 ### Future Reading
 

@@ -4,7 +4,7 @@ Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR inges
 
 **Status:** Proposed
 **Author:** Architecture Team
-**Related:** [`../lidar/architecture/hesai_packet_structure.md`](../lidar/architecture/hesai_packet_structure.md), [`../lidar/architecture/ground-plane-extraction.md`](../lidar/architecture/ground-plane-extraction.md)
+**Related:** [`hesai_packet_structure.md`](./hesai_packet_structure.md), [`ground-plane-extraction.md`](./ground-plane-extraction.md)
 
 ## Overview & Motivation
 

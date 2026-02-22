@@ -212,7 +212,7 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Solution**: Send background snapshot every 30s (~920 KB), send foreground-only frames at 10 fps (~30 KB). Net bandwidth: ~3 Mbps.
 
-See [../ui/VelocityVisualiser.app/performance-investigation.md](../ui/VelocityVisualiser.app/performance-investigation.md) for detailed design.
+See [VelocityVisualiser.app/performance-investigation.md](./VelocityVisualiser.app/performance-investigation.md) for detailed design.
 
 **Implementation Notes**:
 
@@ -395,7 +395,7 @@ See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/
 - [x] JSON export endpoint for ML pipeline
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
-> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`./lidar-track-labeling-auto-aware-tuning-plan.md`](./lidar-track-labeling-auto-aware-tuning-plan.md) Phase 1.1.
+> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labeling-auto-aware-tuning-plan.md`](../plans/lidar-track-labeling-auto-aware-tuning-plan.md) Phase 1.1.
 
 **Acceptance Criteria**:
 
@@ -687,8 +687,8 @@ Each milestone has a **stop point** where functionality is complete and stable:
 
 ## 6. Related Documents
 
-- [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) – Problem statement
-- [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md) – API contract
-- [./ui-velocity-visualiser-architecture-plan.md](./ui-velocity-visualiser-architecture-plan.md) – System architecture
+- [VelocityVisualiser.app/01-problem-and-user-workflows.md](./VelocityVisualiser.app/01-problem-and-user-workflows.md) – Problem statement
+- [VelocityVisualiser.app/02-api-contracts.md](./VelocityVisualiser.app/02-api-contracts.md) – API contract
+- [velocity-visualiser-architecture.md](./velocity-visualiser-architecture.md) – System architecture
 - [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
-- [./web-frontend-background-debug-surfaces-plan.md](./web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope
+- [web-frontend-background-debug-surfaces-plan.md](../plans/web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope

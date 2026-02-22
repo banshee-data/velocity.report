@@ -25,8 +25,10 @@ Purpose: Defines the project documentation contract, folder ownership, naming co
 ## Scope Rules
 
 - Capability docs live under the owning root hub (`lidar`, `radar`).
+  - Architecture and design specifications live under `<hub>/architecture/`.
+  - Operational guides and implementation status live under `<hub>/operations/`.
 - UI/client surface docs for web/mac/pdf live under `docs/ui/`.
-- `docs/plans/` contains implementation plans and deferred roadmap work (including previously proposal-scoped non-maths docs).
+- `docs/plans/` contains forward-looking implementation plans and deferred roadmap work only. Completed architecture specs and implementation records belong in their hub folder.
 - Maths stays separate under `docs/maths/`.
 - Maths proposals live only in `docs/maths/proposals/`.
 

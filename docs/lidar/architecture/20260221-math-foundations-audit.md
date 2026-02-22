@@ -21,7 +21,7 @@ Scope: `docs/maths/**`, velocity-coherence planning docs, and `internal/lidar/**
    - explicitly marked planning-only in `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md:3`.
    - no velocity-coherent extractor files currently exist under `internal/lidar/`.
 2. L4 ground plane tile fitting and vector scene map:
-   - `docs/plans/lidar-architecture-vector-scene-map-plan.md:3` is `Status: Proposed`.
+   - `docs/lidar/architecture/vector-scene-map.md:3` is `Status: Proposed`.
    - current runtime L4 ground removal is still height-band filtering (`internal/lidar/l4perception/ground.go:18`).
 3. Unified L3/L4 settlement core:
    - still a proposal (`docs/maths/proposals/20260219-unify-l3-l4-settling.md:3`).

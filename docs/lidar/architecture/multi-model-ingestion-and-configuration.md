@@ -2,7 +2,7 @@
 
 **Status:** Proposed
 **Author:** Architecture Team
-**Related:** [`../lidar/architecture/lidar-data-layer-model.md`](../lidar/architecture/lidar-data-layer-model.md), [`../lidar/architecture/hesai_packet_structure.md`](../lidar/architecture/hesai_packet_structure.md), [`lidar-network-configuration.md`](./lidar-architecture-network-configuration-plan.md)
+**Related:** [`lidar-data-layer-model.md`](./lidar-data-layer-model.md), [`hesai_packet_structure.md`](./hesai_packet_structure.md), [`network-configuration.md`](./network-configuration.md)
 
 ## Overview
 
