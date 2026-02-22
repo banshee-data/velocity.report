@@ -25,7 +25,7 @@ The TDL is not SQL. It uses human-readable terms grounded in traffic-engineering
 | **Syntax family** | Natural language | Target users are neighbourhood change-makers, not engineers. The system parses structured English clauses into parameterised queries. |
 | **Execution target** | Go query builder → parameterised SQLite | Go translates parsed TDL into safe, parameterised SQL executed against SQLite views. No raw SQL is exposed. |
 | **Schema exposure** | Abstract | Users see domain concepts (transit, speed, behaviour) not table names. The abstract schema (§3) maps to underlying storage via SQLite views. |
-| **Aggregation model** | Precomputed velocity rollups | p50, p85, p98, and max are stored per-transit at write time. Dataset-wide aggregates are computed on demand over these precomputed values. |
+| **Aggregation model** | Per-transit max speed + on-demand dataset percentiles | Each transit stores its own `max_speed`. Dataset-level percentiles (p50, p85, p98) are computed at query time over the filtered set of transit max speeds. |
 
 ### 2.1 Why Natural Language
 
@@ -35,18 +35,15 @@ SQL-like DSLs are powerful but exclude non-technical users. JSON filter objects 
 - **For reports**: embeds directly in PDF template text — the generator evaluates TDL expressions inline.
 - **For the API**: the Go server parses TDL strings into the same parameterised SQL that a JSON filter would produce, so both interfaces share one execution path.
 
-### 2.2 Why Precomputed Velocity Rollups
+### 2.2 Speed Measurement Model
 
-The canonical velocity percentiles (p50, p85, p98, max) are stored per-transit at ingestion time rather than computed at query time:
+There are two distinct kinds of speed percentile in the system. Confusing them leads to incorrect schema design:
 
-- **p50** — median speed; typical behaviour for the transit.
-- **p85** — 85th-percentile speed; traffic-engineering standard for design speed.
-- **p98** — 98th-percentile speed; flags the top 2% high-speed outliers.
-- **max** — absolute peak observed speed.
+**Per-track profile percentiles** — computed from the ordered speed observations *within a single track*. If a LiDAR track has 100 frames of `speed_mps`, the p50/p85/p95 are percentiles of those 100 readings. These describe the speed *profile shape* of one vehicle pass (e.g. "this car was mostly doing 28 mph but briefly hit 35 mph"). The existing `lidar_tracks` table stores these as `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps`. They are useful for behaviour classification (§5) but are *not* the percentiles that traffic engineers reference.
 
-These align with the project-wide percentile palette defined in `DESIGN.md` §3.3. The existing `lidar_tracks` table stores `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps`, and `peak_speed_mps`; radar transits store `transit_max_speed`. The fused transit schema will add a `p98_speed_mps` column (p95 remains available but p98 is the canonical outlier threshold for TDL).
+**Dataset-level percentiles** — computed across the *max speeds of many transits*. If a street has 1,000 vehicle transits in a week, the p85 is the 85th-percentile of those 1,000 max-speed values. This is the traffic-engineering standard for design speed. These percentiles **cannot be precomputed per-transit** because they depend on which transits are included — a TDL filter that restricts to "weekday mornings" or "lorries only" changes the population and therefore the percentiles.
 
-Precomputation avoids scanning per-frame observation rows at query time, keeping TDL response latency low on Raspberry Pi hardware.
+The TDL stores **one scalar speed per transit**: `max_speed_mph` (the absolute peak observed speed for that vehicle pass). Dataset-level aggregates (p50, p85, p98, max) are computed at query time over the `max_speed_mph` values of the filtered transit set. On a Raspberry Pi with SQLite, computing percentiles over a sorted column of a few thousand rows takes single-digit milliseconds — precomputation is unnecessary.
 
 ## 3. Abstract Transit Schema
 
@@ -60,12 +57,9 @@ transit {
   direction       -- inbound / outbound / unknown
 
   speed {
-    p50_mph       -- median speed (precomputed)
-    p85_mph       -- 85th percentile speed (precomputed)
-    p98_mph       -- 98th percentile speed (precomputed)
-    max_mph       -- absolute peak speed (precomputed)
-    mean_mph      -- arithmetic mean speed
-    profile[]     -- ordered per-frame speed samples (from LiDAR obs)
+    max_mph       -- absolute peak speed for this transit (stored per-transit)
+    mean_mph      -- arithmetic mean speed across the transit (stored per-transit)
+    profile[]     -- ordered per-frame speed samples (from LiDAR obs; read-time)
   }
 
   classification {
@@ -102,19 +96,21 @@ transit {
 }
 ```
 
+**Dataset-level aggregates** (p50, p85, p98 of `speed.max_mph`) are not fields on the transit record. They are computed at query time over the filtered result set. A TDL query like `speed summary of vehicles during morning peak` computes these from the matching transits' `max_mph` values.
+
 ### 3.1 Schema-to-Storage Mapping
 
-| Abstract field | Source | Precomputed? |
-|---------------|--------|-------------|
-| `speed.p50_mph` | `lidar_tracks.p50_speed_mps` × 2.237 | ✅ per-track |
-| `speed.p85_mph` | `lidar_tracks.p85_speed_mps` × 2.237 | ✅ per-track |
-| `speed.p98_mph` | Fused transit table (new column) | ✅ per-transit |
-| `speed.max_mph` | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237 | ✅ per-transit |
-| `speed.profile[]` | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos` | ❌ read-time |
-| `behaviour.style` | Derived from `speed.profile[]` shape (§5) | ✅ per-transit |
-| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence` | ✅ per-track |
-| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)` | ❌ read-time |
-| `context.*` | Computed from concurrent tracks at ingestion | ✅ per-transit |
+| Abstract field | Source | Stored per-transit? |
+|---------------|--------|---------------------|
+| `speed.max_mph` | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237 | ✅ |
+| `speed.mean_mph` | `lidar_tracks.avg_speed_mps` × 2.237 | ✅ |
+| `speed.profile[]` | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos` | ❌ read-time join |
+| `behaviour.style` | Derived from `speed.profile[]` shape (§5) | ✅ |
+| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence` | ✅ |
+| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)` | ❌ read-time join |
+| `context.*` | Computed from concurrent tracks at ingestion | ✅ |
+
+Note: the existing `lidar_tracks.p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` columns are *per-track profile percentiles* — percentiles of the speed observations within a single track. They describe the speed profile shape and feed the behaviour classifier (§5), but are not exposed in the TDL abstract schema because users expect p85/p98 to mean dataset-level aggregates.
 
 ## 4. Natural Language Syntax
 
@@ -214,7 +210,7 @@ Prefixing a query with an aggregation keyword returns grouped statistics instead
 | `breakdown of` | Group by vehicle class, return counts per class |
 | `hourly distribution of` | Histogram of matching transits by hour of day |
 
-These aggregations operate over the precomputed per-transit values. For `speed summary`, dataset-level p50/p85/p98/max are computed from the per-transit `speed.max_mph` column using SQLite window functions — not by averaging per-transit percentiles, which would be statistically incorrect. A `speed summary of vehicles during morning peak` runs a single ordered scan over matching transits' `speed.max_mph` values to produce accurate dataset-wide percentiles.
+These aggregations run at query time over the filtered transit set. For `speed summary`, the server collects `max_speed_mph` from all matching transits, sorts the values, and computes p50/p85/p98/max using floor-based indexing (consistent with the existing `ComputeSpeedPercentiles` function in `l6objects`). This is a single ordered scan — not a per-frame observation scan — so latency stays low even on constrained hardware. See §6 for index strategy and performance constraints.
 
 ## 5. Behaviour Vocabulary
 
@@ -227,13 +223,13 @@ Translating sensor data into natural-language behaviour terms requires three lev
 | Level | Name | Input | Output | Example |
 |-------|------|-------|--------|---------|
 | **L0 — Observation** | Per-frame measurement | Raw sensor readings | `(x, y, speed_mps, heading_rad, ts)` | A single LiDAR observation at frame 1042 |
-| **L1 — Transit metric** | Per-transit aggregate | Ordered L0 observations | `p50_mph`, `p85_mph`, `p98_mph`, `max_mph`, `duration_s`, `speed_delta` | Precomputed velocity rollup for one vehicle pass |
+| **L1 — Transit metric** | Per-transit scalar | Ordered L0 observations | `max_mph`, `mean_mph`, `duration_s`, `speed_delta`, per-track profile percentiles | Stored per-transit; profile percentiles feed behaviour classifier |
 | **L2 — Behaviour label** | Semantic classification | L1 metrics + speed profile shape | `steady`, `braking`, `erratic`, `stopped`, `yielded` | Human-readable driving-style tag |
-| **L3 — Scene descriptor** | Cross-transit narrative | Multiple L2 labels + context | *"73% of vehicles exceed 30 mph during school run"* | Aggregate statement for reports |
+| **L3 — Scene descriptor** | Cross-transit narrative | Multiple L2 labels + context | *"73% of vehicles exceed 30 mph during school run"* | Aggregate statement for reports; percentiles (p50/p85/p98) computed at query time |
 
 **L0** already exists — `lidar_track_obs` and `radar_data` store per-frame data.
 
-**L1** is partially implemented — `lidar_tracks` stores p50/p85/p95 and peak speed; `radar_data_transits` stores max/min speed. The fused transit schema will unify these with p50/p85/p98/max columns.
+**L1** is partially implemented — `lidar_tracks` stores per-track profile percentiles (p50/p85/p95) and peak speed; `radar_data_transits` stores max/min speed. The fused transit record will carry `max_speed_mph` and `mean_speed_mph` as per-transit scalars. Per-track profile percentiles remain internal to the behaviour classifier and are not exposed via the TDL.
 
 **L2** is the critical new layer. It requires:
 
@@ -277,23 +273,182 @@ For the natural-language parser to resolve behaviour terms, it needs:
 
 Behaviour labels (L2) are derived, not manually applied. The labelling pipeline runs at transit finalisation:
 
-1. **At transit close** (radar or LiDAR track completion), compute L1 velocity rollups (p50, p85, p98, max) and store in the fused transit record.
+1. **At transit close** (radar or LiDAR track completion), store `max_speed_mph` and `mean_speed_mph` in the fused transit record. Per-track profile percentiles (p50/p85/p95 of observations within the track) are stored internally for the behaviour classifier but not in the abstract transit schema.
 2. **Run the speed-profile analyser** over `speed.profile[]` to assign a `behaviour.style` label.
 3. **Run the stop detector** to set `behaviour.stopped` and `behaviour.yielded` flags.
 4. **Run the conflict detector** over concurrent tracks to populate `context.nearest_object_distance_m` and `context.nearest_object_class`.
 
 This is distinct from the human-applied detection/quality labels (`user_label`, `quality_label`) defined in the LiDAR [label taxonomy](../lidar/terminology.md). Those labels evaluate *tracker correctness*; behaviour labels evaluate *driving style*.
 
-## 6. Implementation Path
+## 6. Storage, Indexing, and Retrieval
 
-1. **Define the fused transit schema** as a Go struct and SQLite view joining `radar_data_transits`, `lidar_tracks`, and `lidar_track_obs`. Add p50/p85/p98/max columns to the fused transit table.
+### 6.1 SQLite as the Query Engine
+
+SQLite is the project's single database (see `ARCHITECTURE.md`). The existing deployment runs on Raspberry Pi 4 with WAL mode, `PRAGMA synchronous = NORMAL`, and `busy_timeout = 30000`. The TDL query engine builds on this — no additional database is needed.
+
+SQLite's strengths for TDL:
+
+- **Single-file portability** — the transit database ships with the deployment; no external service.
+- **Sorted-index scans** — `ORDER BY max_speed_mph` over a B-tree index gives O(n) percentile computation without materialising a temp table.
+- **Window functions** — `PERCENT_RANK()`, `NTILE()`, and `ROW_NUMBER()` are available (SQLite ≥ 3.25; the project bundles 3.51.2 via `modernc.org/sqlite v1.44.3`).
+- **Parameterised queries** — the Go query builder emits `?`-parameterised SQL, avoiding injection and enabling prepared-statement caching.
+
+SQLite's constraints to design around:
+
+- **No concurrent writers** — WAL mode allows one writer + many readers, but long-running TDL aggregations must not block transit ingestion. Mitigation: TDL queries run on a read-only connection; ingestion uses a separate write connection.
+- **No server-side cursor streaming** — large result sets are materialised in memory. Mitigation: TDL list queries are paginated (default 100 rows); aggregation queries return scalar/histogram results, not row sets.
+- **No built-in percentile function** — `PERCENTILE_CONT` is not in base SQLite. Mitigation: use `NTILE(100)` or sorted-index offset to compute percentiles in SQL, or compute in Go from a sorted `max_speed_mph` slice (matching the existing `ComputeSpeedPercentiles` pattern).
+
+### 6.2 Fused Transit Table
+
+The TDL operates over a **materialised fused transit table**, not a view. A view joining `radar_data_transits`, `lidar_tracks`, and `lidar_track_obs` would require the join on every query. Instead, the fused transit record is written at transit-finalisation time:
+
+```sql
+CREATE TABLE IF NOT EXISTS fused_transits (
+    transit_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp_unix  DOUBLE NOT NULL,          -- transit start (unix epoch)
+    duration_s      REAL,                     -- transit duration
+    direction       TEXT,                     -- inbound / outbound / unknown
+    max_speed_mph   REAL NOT NULL,            -- peak speed (primary query column)
+    mean_speed_mph  REAL,                     -- arithmetic mean speed
+    category        TEXT,                     -- pedestrian / vehicle / cyclist / other
+    vehicle_class   TEXT,                     -- car / van / lorry / bus / motorcycle / unknown
+    behaviour_style TEXT,                     -- steady / accelerating / braking / erratic
+    stopped         INTEGER DEFAULT 0,        -- 1 if vehicle came to complete stop
+    yielded         INTEGER DEFAULT 0,        -- 1 if vehicle slowed below yield threshold
+    nearest_obj_distance_m REAL,              -- closest concurrent object distance
+    nearest_obj_class      TEXT,              -- class of nearest concurrent object
+    radar_transit_id       INTEGER,           -- FK → radar_data_transits
+    lidar_track_id         TEXT,              -- FK → lidar_tracks
+    fusion_confidence      REAL,              -- quality of radar/LiDAR association
+    created_at      DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+);
+```
+
+This table is the single scan target for all TDL filter and aggregation queries. Per-frame data (`speed.profile[]`, `geometry.trail[]`) is fetched via a secondary join to `lidar_track_obs` only when requested by a `show profile` or `show trail` clause.
+
+### 6.3 Index Strategy
+
+Indexes are designed for the TDL query patterns described in §4:
+
+```sql
+-- Primary query: filter by time + speed
+CREATE INDEX idx_fused_time_speed
+    ON fused_transits (timestamp_unix, max_speed_mph);
+
+-- Filter by direction within a time range
+CREATE INDEX idx_fused_time_direction
+    ON fused_transits (timestamp_unix, direction);
+
+-- Filter by classification
+CREATE INDEX idx_fused_category
+    ON fused_transits (category, vehicle_class);
+
+-- Filter by behaviour
+CREATE INDEX idx_fused_behaviour
+    ON fused_transits (behaviour_style);
+
+-- Aggregation: sorted speed for percentile computation
+CREATE INDEX idx_fused_speed
+    ON fused_transits (max_speed_mph);
+```
+
+The composite `(timestamp_unix, max_speed_mph)` index covers the most common TDL pattern: time-range filter + speed threshold or aggregation. SQLite can scan the index in `max_speed_mph` order within a time range to compute percentiles without a separate sort.
+
+### 6.4 Query Patterns
+
+**List query** — returns matching transits with pagination:
+
+```sql
+SELECT transit_id, timestamp_unix, max_speed_mph, category, vehicle_class,
+       behaviour_style, direction
+FROM fused_transits
+WHERE timestamp_unix BETWEEN ?1 AND ?2
+  AND category = 'vehicle'
+  AND max_speed_mph > ?3
+ORDER BY timestamp_unix DESC
+LIMIT ?4 OFFSET ?5;
+```
+
+**Speed summary** — computes dataset-level percentiles over filtered max speeds:
+
+```sql
+-- Approach A: NTILE window function (pure SQL)
+SELECT
+    MAX(CASE WHEN tile = 50  THEN max_speed_mph END) AS p50,
+    MAX(CASE WHEN tile = 85  THEN max_speed_mph END) AS p85,
+    MAX(CASE WHEN tile = 98  THEN max_speed_mph END) AS p98,
+    MAX(max_speed_mph) AS max
+FROM (
+    SELECT max_speed_mph,
+           NTILE(100) OVER (ORDER BY max_speed_mph) AS tile
+    FROM fused_transits
+    WHERE timestamp_unix BETWEEN ?1 AND ?2
+      AND category = 'vehicle'
+);
+
+-- Approach B: sorted slice in Go (matches existing ComputeSpeedPercentiles)
+-- 1. SELECT max_speed_mph FROM fused_transits WHERE ... ORDER BY max_speed_mph
+-- 2. Go code picks p50 = speeds[n/2], p85 = speeds[floor(n*0.85)], etc.
+```
+
+Approach B is simpler and matches the existing pattern in `internal/lidar/l6objects/classification.go`. For small-to-medium result sets (< 50,000 transits — roughly a year of data on a residential street at ~150 transits/day), the sorted slice fits comfortably in Raspberry Pi memory.
+
+**Count / percentage** — scalar aggregates:
+
+```sql
+SELECT
+    COUNT(*) AS total,
+    COUNT(CASE WHEN max_speed_mph > ?3 THEN 1 END) AS exceeding
+FROM fused_transits
+WHERE timestamp_unix BETWEEN ?1 AND ?2
+  AND category = 'vehicle';
+```
+
+**Hourly distribution** — histogram:
+
+```sql
+SELECT
+    CAST(strftime('%H', timestamp_unix, 'unixepoch') AS INTEGER) AS hour,
+    COUNT(*) AS count
+FROM fused_transits
+WHERE timestamp_unix BETWEEN ?1 AND ?2
+  AND category = 'vehicle'
+GROUP BY hour
+ORDER BY hour;
+```
+
+### 6.5 Volume Estimates and Performance
+
+| Metric | Estimate | Notes |
+|--------|----------|-------|
+| Transits per day | 100–500 | Residential street; varies by traffic volume |
+| Transits per year | ~50,000 | Upper bound for a busy street |
+| Row size (fused_transits) | ~200 bytes | Fixed columns, no BLOBs |
+| Table size per year | ~10 MB | Well within Raspberry Pi SD card capacity |
+| Percentile query time | < 50 ms | Sorted index scan over ≤ 50K rows |
+| Filtered list query time | < 10 ms | Composite index covers time + speed + category |
+
+These estimates assume the `fused_transits` table contains only scalar per-transit data. Per-frame observations remain in `lidar_track_obs` (which may be significantly larger) and are joined only for `show profile` / `show trail` requests.
+
+### 6.6 Read/Write Separation
+
+The Raspberry Pi runs a single Go process handling both sensor ingestion and HTTP API. To avoid write contention:
+
+- **Write path**: transit finalisation inserts into `fused_transits` using the main write connection (WAL mode allows concurrent readers).
+- **Read path**: TDL queries run on a separate read-only connection (`?mode=ro`). This ensures long-running aggregation queries never block ingestion.
+- **Cache**: prepared statements are cached per-connection. The Go query builder re-uses a small set of parameterised query templates, so the SQLite query planner runs once per template.
+
+## 7. Implementation Path
+
+1. **Define the fused transit schema** as a Go struct and SQLite view joining `radar_data_transits`, `lidar_tracks`, and `lidar_track_obs`. Per-transit columns: `max_speed_mph`, `mean_speed_mph`, `direction`, `behaviour_style`, `classification`, `context`. No per-transit percentile columns — p50/p85/p98 are query-time aggregates.
 2. **Implement the behaviour labelling pipeline** (§5.4) — speed-profile analyser, stop detector, conflict detector. Store L2 labels in the fused transit record.
 3. **Build the vocabulary registry** (§5.3) — map natural-language tokens to abstract schema filters. Start with the core vocabulary (§4.1 filter and subject tables) and expand from usage.
 4. **Build the TDL parser** — parse natural-language strings into a structured filter tree; translate to parameterised SQL via the Go query builder.
 5. **Expose a JSON API** — the web frontend and PDF generator post TDL strings; the server returns filtered transits or aggregated statistics.
-6. **Wire the description interface** (§7) to the TDL API.
+6. **Wire the description interface** (§8) to the TDL API.
 
-## 7. Description Interface
+## 8. Description Interface
 
 A web-based interface over the transit database that:
 
@@ -302,4 +457,4 @@ A web-based interface over the transit database that:
 - **Renders a vector-scene replay** of selected transits — bounding boxes moving through a 2D plan view.
 - **Exports filtered datasets** as CSV for external analysis.
 
-The description interface is the primary consumer of the TDL — every filter, aggregation, and export operation is expressed as a natural-language TDL string (§4) and executed via the JSON API (§6, step 5). The API also accepts structured JSON filter objects for programmatic access; both input formats compile to the same parameterised SQL.
+The description interface is the primary consumer of the TDL — every filter, aggregation, and export operation is expressed as a natural-language TDL string (§4) and executed via the JSON API (§7, step 5). The API also accepts structured JSON filter objects for programmatic access; both input formats compile to the same parameterised SQL.
