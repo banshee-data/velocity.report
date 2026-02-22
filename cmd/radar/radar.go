@@ -524,7 +524,7 @@ func main() {
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
-				MaxFrameRate:        12, // Prevent PCAP catch-up bursts from flooding the pipeline
+				MaxFrameRate:        25, // Must exceed sensor max Hz (20) to avoid dropping live frames
 				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:        tuningCfg.GetRemoveGround(),
