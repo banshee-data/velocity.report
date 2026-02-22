@@ -24,11 +24,11 @@ Both outputs draw from a fused scene built from radar and LiDAR data.
 
 The OmniPreSense OPS243 sensor provides three complementary data feeds:
 
-| Feed | OPS243 Command | Description | Current Status |
-|------|----------------|-------------|----------------|
-| **Speed / magnitude** | `OS`, `OM` | Doppler speed and signal strength per detection | ✅ Ingested (`radar_data`) |
-| **Objects** | `OJ` | Sessionised object events with classifier, duration, speed envelope, length estimate | ✅ Ingested (`radar_objects`) |
-| **FFT** | `OF` (Doppler) / `of` (FMCW) | Frequency-domain spectrum — enables multi-target separation and signature analysis | ⬜ Command allowed; ingestion not implemented |
+| Feed                  | OPS243 Command               | Description                                                                          | Current Status                                |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------- |
+| **Speed / magnitude** | `OS`, `OM`                   | Doppler speed and signal strength per detection                                      | ✅ Ingested (`radar_data`)                    |
+| **Objects**           | `OJ`                         | Sessionised object events with classifier, duration, speed envelope, length estimate | ✅ Ingested (`radar_objects`)                 |
+| **FFT**               | `OF` (Doppler) / `of` (FMCW) | Frequency-domain spectrum — enables multi-target separation and signature analysis   | ⬜ Command allowed; ingestion not implemented |
 
 All three feeds should be ingested simultaneously so that a single vehicle pass yields:
 
@@ -42,12 +42,12 @@ The fused radar record is the **primary speed measurement** for every transit.
 
 The LiDAR pipeline (L1–L6) progressively adds spatial context:
 
-| Capability | Pipeline Layer | Description | Current Status |
-|-----------|----------------|-------------|----------------|
-| **Detection & clustering** | L3 grid → L4 perception | Foreground extraction, DBSCAN clustering, OBB geometry | ✅ Implemented |
-| **Tracking** | L5 tracks | Kalman-filtered multi-frame identity, speed profile, trail | ✅ Implemented |
-| **Classification** | L6 objects | Category, size, vehicle class (rule-based; ML planned) | ✅ Rule-based; ML deferred |
-| **Long-track speed profile** | L5 tracks | Per-observation speed, heading, and bounding box over the full transit | ✅ Stored in `lidar_track_obs` |
+| Capability                   | Pipeline Layer          | Description                                                            | Current Status                 |
+| ---------------------------- | ----------------------- | ---------------------------------------------------------------------- | ------------------------------ |
+| **Detection & clustering**   | L3 grid → L4 perception | Foreground extraction, DBSCAN clustering, OBB geometry                 | ✅ Implemented                 |
+| **Tracking**                 | L5 tracks               | Kalman-filtered multi-frame identity, speed profile, trail             | ✅ Implemented                 |
+| **Classification**           | L6 objects              | Category, size, vehicle class (rule-based; ML planned)                 | ✅ Rule-based; ML deferred     |
+| **Long-track speed profile** | L5 tracks               | Per-observation speed, heading, and bounding box over the full transit | ✅ Stored in `lidar_track_obs` |
 
 As LiDAR matures, it contributes:
 
@@ -82,14 +82,14 @@ When only one sensor is available the record degrades gracefully — radar-only 
 
 Raw point clouds are ephemeral processing inputs. They are **never stored beyond the current analysis run**. Long-term storage holds only:
 
-| Data | Representation | Storage |
-|------|---------------|---------|
-| **Radar events** | JSON (`raw_event`) | `radar_data` |
-| **Radar objects** | JSON (classifier, speed envelope, duration) | `radar_objects` |
-| **Radar transits** | Aggregate (speed, magnitude, point count) | `radar_data_transits` |
-| **LiDAR tracks** | Summary statistics (speed percentiles, bbox, class) | `lidar_tracks` |
-| **LiDAR observations** | Per-frame (x, y, z, vx, vy, speed, heading, bbox) | `lidar_track_obs` |
-| **Fused transits** | Combined record with sensor provenance | ⬜ Schema not yet defined |
+| Data                   | Representation                                      | Storage                   |
+| ---------------------- | --------------------------------------------------- | ------------------------- |
+| **Radar events**       | JSON (`raw_event`)                                  | `radar_data`              |
+| **Radar objects**      | JSON (classifier, speed envelope, duration)         | `radar_objects`           |
+| **Radar transits**     | Aggregate (speed, magnitude, point count)           | `radar_data_transits`     |
+| **LiDAR tracks**       | Summary statistics (speed percentiles, bbox, class) | `lidar_tracks`            |
+| **LiDAR observations** | Per-frame (x, y, z, vx, vy, speed, heading, bbox)   | `lidar_track_obs`         |
+| **Fused transits**     | Combined record with sensor provenance              | ⬜ Schema not yet defined |
 
 ### 4.2 Polyline Vector Scene
 
@@ -134,23 +134,23 @@ Full design: [Track Description Language and Description Interface plan](plans/d
 
 This vision document should inform prioritisation in `BACKLOG.md`:
 
-| Vision pillar | Supports | Deprioritises |
-|---------------|----------|---------------|
-| **Radar feed expansion** (§3.1) | FFT ingestion, multi-feed simultaneous capture | Features unrelated to sensor data quality |
-| **LiDAR maturation** (§3.2) | ML classifier, track labelling QC, sweep system polish | Cosmetic visualiser features without tracking value |
-| **Sensor fusion** (§3.3) | Fused transit schema, temporal association logic | Single-sensor features that duplicate fused capabilities |
-| **Storage minimalism** (§4) | Polyline vector scene, point-cloud ephemeral policy | Long-term point-cloud storage, large BLOB tables |
-| **Track Description Language** (§5) | Abstract transit schema, JSON filter API, aggregation endpoints — [design doc](plans/data-track-description-language-plan.md) | Raw-SQL user interfaces, ad-hoc query endpoints |
-| **PDF reporting** (§6.1) | Fused-data report templates, TDL-scoped reports | Report features that only use radar data |
-| **Description interface** (§6.2) | Transit browser, aggregate stats, vector replay — [design doc](plans/data-track-description-language-plan.md) | Heavy 3D visualisation in production (development-only) |
+| Vision pillar                       | Supports                                                                                                                      | Deprioritises                                            |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Radar feed expansion** (§3.1)     | FFT ingestion, multi-feed simultaneous capture                                                                                | Features unrelated to sensor data quality                |
+| **LiDAR maturation** (§3.2)         | ML classifier, track labelling QC, sweep system polish                                                                        | Cosmetic visualiser features without tracking value      |
+| **Sensor fusion** (§3.3)            | Fused transit schema, temporal association logic                                                                              | Single-sensor features that duplicate fused capabilities |
+| **Storage minimalism** (§4)         | Polyline vector scene, point-cloud ephemeral policy                                                                           | Long-term point-cloud storage, large BLOB tables         |
+| **Track Description Language** (§5) | Abstract transit schema, JSON filter API, aggregation endpoints — [design doc](plans/data-track-description-language-plan.md) | Raw-SQL user interfaces, ad-hoc query endpoints          |
+| **PDF reporting** (§6.1)            | Fused-data report templates, TDL-scoped reports                                                                               | Report features that only use radar data                 |
+| **Description interface** (§6.2)    | Transit browser, aggregate stats, vector replay — [design doc](plans/data-track-description-language-plan.md)                 | Heavy 3D visualisation in production (development-only)  |
 
 ## 8. Phasing
 
-| Phase | Focus | Depends On |
-|-------|-------|------------|
-| **A — Radar completeness** | Ingest FFT data; fuse speed + object + FFT into a single transit record | Existing radar infrastructure |
-| **B — Fused transit schema** | Define the fused transit table/view joining radar and LiDAR; expose via API | Phase A + existing LiDAR track storage |
-| **C — JSON filter API** | Build the filter/aggregation endpoint over the fused schema; wire to web UI | Phase B |
-| **D — TDL and description interface** | Transit browser, aggregate statistics, vector-scene replay — [design doc](plans/data-track-description-language-plan.md) | Phase C |
-| **E — Fused PDF reports** | Extend PDF generator to pull from fused schema with TDL filters | Phase C |
-| **F — Advanced queries** | Close-pass analysis, driving style classification, stop compliance | Phase D + LiDAR classification maturity |
+| Phase                                 | Focus                                                                                                                    | Depends On                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| **A — Radar completeness**            | Ingest FFT data; fuse speed + object + FFT into a single transit record                                                  | Existing radar infrastructure           |
+| **B — Fused transit schema**          | Define the fused transit table/view joining radar and LiDAR; expose via API                                              | Phase A + existing LiDAR track storage  |
+| **C — JSON filter API**               | Build the filter/aggregation endpoint over the fused schema; wire to web UI                                              | Phase B                                 |
+| **D — TDL and description interface** | Transit browser, aggregate statistics, vector-scene replay — [design doc](plans/data-track-description-language-plan.md) | Phase C                                 |
+| **E — Fused PDF reports**             | Extend PDF generator to pull from fused schema with TDL filters                                                          | Phase C                                 |
+| **F — Advanced queries**              | Close-pass analysis, driving style classification, stop compliance                                                       | Phase D + LiDAR classification maturity |

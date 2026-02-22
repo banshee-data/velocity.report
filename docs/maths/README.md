@@ -84,7 +84,7 @@ Work items drawn from the proposals above, ordered by user-visible impact and
 dependency readiness. Each item can be implemented independently, but earlier
 items improve later ones.
 
-### P1 — Geometry-Coherent Track State *(highest priority)*
+### P1 — Geometry-Coherent Track State _(highest priority)_
 
 **Source:** [20260222-geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
 **Layer:** L5 tracking
@@ -137,8 +137,9 @@ validation).
 
 Replaces the existing basic ground model with streaming PCA plane estimation
 per tile, multi-criteria settlement (geometry fitness + density/observability
-+ temporal stability), scored region selection, and vector-scene polygon/polyline
-integration.
+
+- temporal stability), scored region selection, and vector-scene polygon/polyline
+  integration.
 
 **Why third:** Improves foreground/background separation quality, which feeds
 into clustering (P2) and tracking (P1). Important for long-running

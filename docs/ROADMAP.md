@@ -11,11 +11,11 @@ geometry-prior services.
 
 ## Related Documents
 
-| Document | Scope |
-|----------|-------|
-| [BACKLOG.md](../BACKLOG.md) | Priority-ordered work queue (single source of truth) |
-| [CHANGELOG.md](../CHANGELOG.md) | Released feature history (v0.1.0 – v0.4.0) |
-| [Vector-Scene Map Architecture](lidar/architecture/vector-scene-map.md) | Geometry-prior data model |
+| Document                                                                                       | Scope                                                |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| [BACKLOG.md](../BACKLOG.md)                                                                    | Priority-ordered work queue (single source of truth) |
+| [CHANGELOG.md](../CHANGELOG.md)                                                                | Released feature history (v0.1.0 – v0.4.0)           |
+| [Vector-Scene Map Architecture](lidar/architecture/vector-scene-map.md)                        | Geometry-prior data model                            |
 | [Ground-Plane Vector-Scene Maths](maths/proposals/20260221-ground-plane-vector-scene-maths.md) | Maths for piecewise planar tiles and prior weighting |
 
 ---
@@ -26,20 +26,20 @@ geometry-prior services.
 
 ### What Ships Today
 
-| Capability | Status | Component |
-|------------|--------|-----------|
-| Radar vehicle detection (OPS243A) | Production | Go server |
-| Real-time speed dashboard | Production | Svelte web |
-| Professional PDF reports | Production | Python/LaTeX |
-| Comparison reports (before/after) | Production | Go + Python |
-| Site configuration (SCD Type 6) | Production | Go + SQLite |
-| LiDAR background subtraction | Experimental | Go server |
-| LiDAR foreground tracking | Experimental | Go server |
-| Adaptive region segmentation | Experimental | Go server |
-| Parameter sweep / auto-tune | Experimental | Go server |
-| PCAP analysis mode | Experimental | Go server |
-| macOS 3D visualiser (Metal) | Experimental | Swift app |
-| Track labelling + VRLOG replay | Experimental | Swift + Go |
+| Capability                        | Status       | Component    |
+| --------------------------------- | ------------ | ------------ |
+| Radar vehicle detection (OPS243A) | Production   | Go server    |
+| Real-time speed dashboard         | Production   | Svelte web   |
+| Professional PDF reports          | Production   | Python/LaTeX |
+| Comparison reports (before/after) | Production   | Go + Python  |
+| Site configuration (SCD Type 6)   | Production   | Go + SQLite  |
+| LiDAR background subtraction      | Experimental | Go server    |
+| LiDAR foreground tracking         | Experimental | Go server    |
+| Adaptive region segmentation      | Experimental | Go server    |
+| Parameter sweep / auto-tune       | Experimental | Go server    |
+| PCAP analysis mode                | Experimental | Go server    |
+| macOS 3D visualiser (Metal)       | Experimental | Swift app    |
+| Track labelling + VRLOG replay    | Experimental | Swift + Go   |
 
 ### Architecture Snapshot
 
@@ -53,15 +53,15 @@ Sensors ──► Go Server ──► SQLite ──► Web Frontend
 
 ### LiDAR Pipeline Status
 
-| Phase | Description | Status | Plan |
-|-------|-------------|--------|------|
-| 3.7 | Analysis Run Infrastructure | ✅ Implemented | [plan](plans/lidar-analysis-run-infrastructure-plan.md) |
-| 3.8 | Tracking Upgrades (Hungarian, OBB, ground removal) | ✅ Implemented | — |
-| 3.9 | Adaptive Regions & Sweep System | ✅ Implemented | [plan](plans/lidar-sweep-hint-mode-plan.md) |
-| 4.0 | Track Labelling UI | Planned | [plan](plans/lidar-track-labeling-auto-aware-tuning-plan.md) |
-| 4.1 | ML Classifier Training | Planned | [plan](plans/lidar-ml-classifier-training-plan.md) |
-| 4.2 | Parameter Tuning & Optimisation | Planned | [plan](plans/lidar-parameter-tuning-optimisation-plan.md) |
-| 4.3 | Production Deployment | Planned | — |
+| Phase | Description                                        | Status         | Plan                                                         |
+| ----- | -------------------------------------------------- | -------------- | ------------------------------------------------------------ |
+| 3.7   | Analysis Run Infrastructure                        | ✅ Implemented | [plan](plans/lidar-analysis-run-infrastructure-plan.md)      |
+| 3.8   | Tracking Upgrades (Hungarian, OBB, ground removal) | ✅ Implemented | —                                                            |
+| 3.9   | Adaptive Regions & Sweep System                    | ✅ Implemented | [plan](plans/lidar-sweep-hint-mode-plan.md)                  |
+| 4.0   | Track Labelling UI                                 | Planned        | [plan](plans/lidar-track-labeling-auto-aware-tuning-plan.md) |
+| 4.1   | ML Classifier Training                             | Planned        | [plan](plans/lidar-ml-classifier-training-plan.md)           |
+| 4.2   | Parameter Tuning & Optimisation                    | Planned        | [plan](plans/lidar-parameter-tuning-optimisation-plan.md)    |
+| 4.3   | Production Deployment                              | Planned        | —                                                            |
 
 ---
 
@@ -71,12 +71,12 @@ Sensors ──► Go Server ──► SQLite ──► Web Frontend
 
 **Theme:** Stabilise the build, test, and deployment surface.
 
-| Feature | Plan Reference | Effort |
-|---------|---------------|--------|
-| SWEEP/HINT platform hardening (Phase 5–6) | [sweep-hint-mode](plans/lidar-sweep-hint-mode-plan.md) | M |
-| Settling optimisation Phase 3 | BACKLOG P1 | M |
-| Python venv consolidation (.venv/ at root) | [tooling-python-venv](plans/tooling-python-venv-consolidation-plan.md) | S |
-| Documentation standardisation (metadata) | [platform-docs](plans/platform-documentation-standardization-plan.md) | S |
+| Feature                                    | Plan Reference                                                         | Effort |
+| ------------------------------------------ | ---------------------------------------------------------------------- | ------ |
+| SWEEP/HINT platform hardening (Phase 5–6)  | [sweep-hint-mode](plans/lidar-sweep-hint-mode-plan.md)                 | M      |
+| Settling optimisation Phase 3              | BACKLOG P1                                                             | M      |
+| Python venv consolidation (.venv/ at root) | [tooling-python-venv](plans/tooling-python-venv-consolidation-plan.md) | S      |
+| Documentation standardisation (metadata)   | [platform-docs](plans/platform-documentation-standardization-plan.md)  | S      |
 
 **Exit criteria:** All P1 backlog items either completed or promoted to v0.6.
 
@@ -86,14 +86,14 @@ Sensors ──► Go Server ──► SQLite ──► Web Frontend
 
 **Theme:** Make velocity.report installable by a non-developer.
 
-| Feature | Plan Reference | Effort |
-|---------|---------------|--------|
-| Precompiled LaTeX (800 MB → 60 MB) | [pdf-latex-precompiled](plans/pdf-latex-precompiled-format-plan.md) | M |
-| Single `velocity-report` binary + subcommands | [deploy-distribution](plans/deploy-distribution-packaging-plan.md) Phase 1–2 | L |
-| GitHub Releases CI pipeline | [deploy-distribution](plans/deploy-distribution-packaging-plan.md) Phase 3 | M |
-| One-line install script | [deploy-distribution](plans/deploy-distribution-packaging-plan.md) Phase 4 | S |
-| Raspberry Pi imager pipeline (pi-gen) | [deploy-rpi-imager](plans/deploy-rpi-imager-fork-plan.md) | L |
-| Platform simplification & deprecation (Phase 1) | [platform-simplification](plans/platform-simplification-and-deprecation-plan.md) | S |
+| Feature                                         | Plan Reference                                                                   | Effort |
+| ----------------------------------------------- | -------------------------------------------------------------------------------- | ------ |
+| Precompiled LaTeX (800 MB → 60 MB)              | [pdf-latex-precompiled](plans/pdf-latex-precompiled-format-plan.md)              | M      |
+| Single `velocity-report` binary + subcommands   | [deploy-distribution](plans/deploy-distribution-packaging-plan.md) Phase 1–2     | L      |
+| GitHub Releases CI pipeline                     | [deploy-distribution](plans/deploy-distribution-packaging-plan.md) Phase 3       | M      |
+| One-line install script                         | [deploy-distribution](plans/deploy-distribution-packaging-plan.md) Phase 4       | S      |
+| Raspberry Pi imager pipeline (pi-gen)           | [deploy-rpi-imager](plans/deploy-rpi-imager-fork-plan.md)                        | L      |
+| Platform simplification & deprecation (Phase 1) | [platform-simplification](plans/platform-simplification-and-deprecation-plan.md) | S      |
 
 **Exit criteria:** A user can flash an SD card, boot a Raspberry Pi, and see
 live speed data in a browser within 15 minutes. GitHub Releases publishes
@@ -105,15 +105,15 @@ checksummed artefacts on tag push.
 
 **Theme:** One port, one app, one navigation. Radar side is production-grade.
 
-| Feature | Plan Reference | Effort |
-|---------|---------------|--------|
-| Frontend consolidation (Phases 0–5) | [web-frontend](plans/web-frontend-consolidation-plan.md) | L |
-| Retire port 8081 | [web-frontend](plans/web-frontend-consolidation-plan.md) Phase 5 | S |
-| Transit deduplication | BACKLOG P2 | M |
-| SQLite client standardisation | [data-sqlite](plans/data-sqlite-client-standardization-plan.md) | M |
-| Accessibility testing pass | BACKLOG P2 | S |
-| Widescreen content containment | BACKLOG P2 | S |
-| Profile comparison system (cross-run evaluation) | BACKLOG P2 | M |
+| Feature                                          | Plan Reference                                                   | Effort |
+| ------------------------------------------------ | ---------------------------------------------------------------- | ------ |
+| Frontend consolidation (Phases 0–5)              | [web-frontend](plans/web-frontend-consolidation-plan.md)         | L      |
+| Retire port 8081                                 | [web-frontend](plans/web-frontend-consolidation-plan.md) Phase 5 | S      |
+| Transit deduplication                            | BACKLOG P2                                                       | M      |
+| SQLite client standardisation                    | [data-sqlite](plans/data-sqlite-client-standardization-plan.md)  | M      |
+| Accessibility testing pass                       | BACKLOG P2                                                       | S      |
+| Widescreen content containment                   | BACKLOG P2                                                       | S      |
+| Profile comparison system (cross-run evaluation) | BACKLOG P2                                                       | M      |
 
 **Exit criteria:** Single Svelte app on `:8080` with conditional LiDAR sections.
 All radar-path SQL routed through canonical DB layer. WCAG 2.1 AA for core
@@ -126,17 +126,17 @@ dashboard flows.
 **Theme:** velocity.report is a reliable, documented, privacy-first traffic
 monitoring system that a neighbourhood group can deploy and trust.
 
-| Feature | Plan Reference | Effort |
-|---------|---------------|--------|
-| Test coverage ≥ 95.5% across all components | [platform-quality](plans/platform-quality-coverage-improvement-plan.md) | L |
-| Platform simplification complete (all phases) | [platform-simplification](plans/platform-simplification-and-deprecation-plan.md) | M |
-| LiDAR foundations fix-it (doc truth, runtime config) | [lidar-foundations](plans/lidar-architecture-foundations-fixit-plan.md) | M |
-| Unified settling (L3/L4 SettlementCore) | [maths: unify-l3-l4](maths/proposals/20260219-unify-l3-l4-settling.md) | L |
-| LaTeX palette cross-reference | BACKLOG P2 | S |
-| Time-partitioned raw data tables | BACKLOG P2 | M |
-| Geometry-prior local file format (GeoJSON) | [vector-scene-map](lidar/architecture/vector-scene-map.md) | M |
-| Data export (CSV, GeoJSON) | — | M |
-| Stable public API with versioned endpoints | — | M |
+| Feature                                              | Plan Reference                                                                   | Effort |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- | ------ |
+| Test coverage ≥ 95.5% across all components          | [platform-quality](plans/platform-quality-coverage-improvement-plan.md)          | L      |
+| Platform simplification complete (all phases)        | [platform-simplification](plans/platform-simplification-and-deprecation-plan.md) | M      |
+| LiDAR foundations fix-it (doc truth, runtime config) | [lidar-foundations](plans/lidar-architecture-foundations-fixit-plan.md)          | M      |
+| Unified settling (L3/L4 SettlementCore)              | [maths: unify-l3-l4](maths/proposals/20260219-unify-l3-l4-settling.md)           | L      |
+| LaTeX palette cross-reference                        | BACKLOG P2                                                                       | S      |
+| Time-partitioned raw data tables                     | BACKLOG P2                                                                       | M      |
+| Geometry-prior local file format (GeoJSON)           | [vector-scene-map](lidar/architecture/vector-scene-map.md)                       | M      |
+| Data export (CSV, GeoJSON)                           | —                                                                                | M      |
+| Stable public API with versioned endpoints           | —                                                                                | M      |
 
 **v1.0 contract:**
 
@@ -156,18 +156,18 @@ monitoring system that a neighbourhood group can deploy and trust.
 **Theme:** LiDAR perception matures; optional connectivity for community
 features while preserving local-only as the default.
 
-| Feature | Plan Reference | Effort |
-|---------|---------------|--------|
-| Visualiser QC programme (Features 1–10) | [qc-overview](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) | XL |
-| ML classifier training pipeline (Phase 4.1) | [ml-classifier](plans/lidar-ml-classifier-training-plan.md) | L |
-| Parameter tuning optimisation (Phase 4.2) | [param-tuning](plans/lidar-parameter-tuning-optimisation-plan.md) | L |
-| Ground-plane vector-scene maths (piecewise planar tiles) | [maths: ground-plane](maths/proposals/20260221-ground-plane-vector-scene-maths.md) | L |
-| Velocity-coherent foreground extraction | [maths: velocity-coherent](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) | L |
-| Dynamic algorithm selection (A/B foreground modes) | [lidar-dynamic-algo](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) | M |
-| Online geometry-prior service (opt-in) | §5 below | L |
-| Multi-location aggregate dashboard (privacy-preserving) | — | L |
-| Threshold-based speed alerts (local notification) | — | M |
-| Peak-hour and seasonal trend analysis | — | M |
+| Feature                                                  | Plan Reference                                                                                  | Effort |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------ |
+| Visualiser QC programme (Features 1–10)                  | [qc-overview](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)                | XL     |
+| ML classifier training pipeline (Phase 4.1)              | [ml-classifier](plans/lidar-ml-classifier-training-plan.md)                                     | L      |
+| Parameter tuning optimisation (Phase 4.2)                | [param-tuning](plans/lidar-parameter-tuning-optimisation-plan.md)                               | L      |
+| Ground-plane vector-scene maths (piecewise planar tiles) | [maths: ground-plane](maths/proposals/20260221-ground-plane-vector-scene-maths.md)              | L      |
+| Velocity-coherent foreground extraction                  | [maths: velocity-coherent](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) | L      |
+| Dynamic algorithm selection (A/B foreground modes)       | [lidar-dynamic-algo](plans/lidar-architecture-dynamic-algorithm-selection-plan.md)              | M      |
+| Online geometry-prior service (opt-in)                   | §5 below                                                                                        | L      |
+| Multi-location aggregate dashboard (privacy-preserving)  | —                                                                                               | L      |
+| Threshold-based speed alerts (local notification)        | —                                                                                               | M      |
+| Peak-hour and seasonal trend analysis                    | —                                                                                               | M      |
 
 **v2.0 principles:**
 
@@ -183,15 +183,15 @@ features while preserving local-only as the default.
 
 These features are tracked in the backlog at P3 but have no target milestone.
 
-| Feature | Reason Deferred |
-|---------|----------------|
-| AV dataset integration (28-class taxonomy, Parquet) | Targets a different user base (AV research, not neighbourhoods) |
-| Motion capture architecture (7DOF moving sensors) | Requires hardware not in current deployment model |
-| Static pose alignment (7DOF bounding boxes) | Dependent on motion capture; AV-focused |
-| AV range-image format alignment | Low urgency for traffic monitoring use case |
-| Visual regression testing | Valuable but not user-facing |
-| E2E test infrastructure | Valuable but not user-facing |
-| Frontend background/debug surfaces (Swift visualiser) | Niche developer tooling |
+| Feature                                               | Reason Deferred                                                 |
+| ----------------------------------------------------- | --------------------------------------------------------------- |
+| AV dataset integration (28-class taxonomy, Parquet)   | Targets a different user base (AV research, not neighbourhoods) |
+| Motion capture architecture (7DOF moving sensors)     | Requires hardware not in current deployment model               |
+| Static pose alignment (7DOF bounding boxes)           | Dependent on motion capture; AV-focused                         |
+| AV range-image format alignment                       | Low urgency for traffic monitoring use case                     |
+| Visual regression testing                             | Valuable but not user-facing                                    |
+| E2E test infrastructure                               | Valuable but not user-facing                                    |
+| Frontend background/debug surfaces (Swift visualiser) | Niche developer tooling                                         |
 
 ---
 
@@ -203,44 +203,44 @@ shown below.
 
 ### Criteria Definitions
 
-| Criterion | Weight | Description |
-|-----------|--------|-------------|
-| **User value** | 3× | Direct benefit to the target user (neighbourhood change-makers) |
-| **Privacy alignment** | 2× | Maintains or strengthens the privacy-first guarantee |
-| **Dependency unlock** | 2× | Enables or unblocks other high-value features |
-| **Effort** | 1× (inverse) | Smaller effort scores higher (3 = S, 2 = M, 1 = L, 0 = XL) |
-| **Platform maturity** | 1× | Reduces tech debt, improves reliability, or simplifies operations |
+| Criterion             | Weight       | Description                                                       |
+| --------------------- | ------------ | ----------------------------------------------------------------- |
+| **User value**        | 3×           | Direct benefit to the target user (neighbourhood change-makers)   |
+| **Privacy alignment** | 2×           | Maintains or strengthens the privacy-first guarantee              |
+| **Dependency unlock** | 2×           | Enables or unblocks other high-value features                     |
+| **Effort**            | 1× (inverse) | Smaller effort scores higher (3 = S, 2 = M, 1 = L, 0 = XL)        |
+| **Platform maturity** | 1×           | Reduces tech debt, improves reliability, or simplifies operations |
 
 ### Milestone Placement Thresholds
 
-| Milestone | Minimum Weighted Score | Rationale |
-|-----------|----------------------|-----------|
-| v0.5 | ≥ 18 | Highest-impact stabilisation work already in progress |
-| v0.6 | ≥ 16 | Deployment blockers that gate user adoption |
-| v0.7 | ≥ 14 | Frontend and data-layer polish for v1.0 readiness |
-| v1.0 | ≥ 12 | Everything needed for "production-ready" contract |
-| v2.0 | ≥ 8 | Advanced features, connected capabilities, research graduation |
-| Deferred | < 8 | Speculative, targets different users, or prerequisite missing |
+| Milestone | Minimum Weighted Score | Rationale                                                      |
+| --------- | ---------------------- | -------------------------------------------------------------- |
+| v0.5      | ≥ 18                   | Highest-impact stabilisation work already in progress          |
+| v0.6      | ≥ 16                   | Deployment blockers that gate user adoption                    |
+| v0.7      | ≥ 14                   | Frontend and data-layer polish for v1.0 readiness              |
+| v1.0      | ≥ 12                   | Everything needed for "production-ready" contract              |
+| v2.0      | ≥ 8                    | Advanced features, connected capabilities, research graduation |
+| Deferred  | < 8                    | Speculative, targets different users, or prerequisite missing  |
 
 ### Scored Examples
 
-| Feature | User Value (3×) | Privacy (2×) | Dep. Unlock (2×) | Effort (1×) | Platform (1×) | Total | Milestone |
-|---------|-----------------|-------------|-------------------|-------------|---------------|-------|-----------|
-| RPi imager pipeline | 3 (9) | 3 (6) | 3 (6) | 1 (1) | 2 (2) | **24** | v0.6 |
-| Precompiled LaTeX | 2 (6) | 2 (4) | 3 (6) | 2 (2) | 3 (3) | **21** | v0.6 |
-| Frontend consolidation | 3 (9) | 2 (4) | 2 (4) | 1 (1) | 3 (3) | **21** | v0.7 |
-| Single binary + subcommands | 3 (9) | 2 (4) | 2 (4) | 1 (1) | 3 (3) | **21** | v0.6 |
-| SWEEP/HINT hardening | 1 (3) | 2 (4) | 3 (6) | 2 (2) | 3 (3) | **18** | v0.5 |
-| Python venv consolidation | 1 (3) | 2 (4) | 2 (4) | 3 (3) | 3 (3) | **17** | v0.5 |
-| SQLite client standardisation | 2 (6) | 2 (4) | 2 (4) | 2 (2) | 3 (3) | **19** | v0.7 |
-| Coverage ≥ 95.5% | 1 (3) | 2 (4) | 1 (2) | 1 (1) | 3 (3) | **13** | v1.0 |
-| Unified settling (L3/L4) | 1 (3) | 2 (4) | 3 (6) | 1 (1) | 2 (2) | **16** | v1.0 |
-| Geometry-prior local file | 2 (6) | 3 (6) | 2 (4) | 2 (2) | 1 (1) | **19** | v1.0 |
-| Visualiser QC programme | 2 (6) | 2 (4) | 1 (2) | 0 (0) | 2 (2) | **14** | v2.0 |
-| ML classifier pipeline | 2 (6) | 2 (4) | 2 (4) | 1 (1) | 1 (1) | **16** | v2.0 |
-| Online geometry-prior service | 2 (6) | 1 (2) | 2 (4) | 1 (1) | 1 (1) | **14** | v2.0 |
-| AV dataset integration | 0 (0) | 2 (4) | 0 (0) | 0 (0) | 1 (1) | **5** | Deferred |
-| Motion capture architecture | 0 (0) | 2 (4) | 0 (0) | 0 (0) | 1 (1) | **5** | Deferred |
+| Feature                       | User Value (3×) | Privacy (2×) | Dep. Unlock (2×) | Effort (1×) | Platform (1×) | Total  | Milestone |
+| ----------------------------- | --------------- | ------------ | ---------------- | ----------- | ------------- | ------ | --------- |
+| RPi imager pipeline           | 3 (9)           | 3 (6)        | 3 (6)            | 1 (1)       | 2 (2)         | **24** | v0.6      |
+| Precompiled LaTeX             | 2 (6)           | 2 (4)        | 3 (6)            | 2 (2)       | 3 (3)         | **21** | v0.6      |
+| Frontend consolidation        | 3 (9)           | 2 (4)        | 2 (4)            | 1 (1)       | 3 (3)         | **21** | v0.7      |
+| Single binary + subcommands   | 3 (9)           | 2 (4)        | 2 (4)            | 1 (1)       | 3 (3)         | **21** | v0.6      |
+| SWEEP/HINT hardening          | 1 (3)           | 2 (4)        | 3 (6)            | 2 (2)       | 3 (3)         | **18** | v0.5      |
+| Python venv consolidation     | 1 (3)           | 2 (4)        | 2 (4)            | 3 (3)       | 3 (3)         | **17** | v0.5      |
+| SQLite client standardisation | 2 (6)           | 2 (4)        | 2 (4)            | 2 (2)       | 3 (3)         | **19** | v0.7      |
+| Coverage ≥ 95.5%              | 1 (3)           | 2 (4)        | 1 (2)            | 1 (1)       | 3 (3)         | **13** | v1.0      |
+| Unified settling (L3/L4)      | 1 (3)           | 2 (4)        | 3 (6)            | 1 (1)       | 2 (2)         | **16** | v1.0      |
+| Geometry-prior local file     | 2 (6)           | 3 (6)        | 2 (4)            | 2 (2)       | 1 (1)         | **19** | v1.0      |
+| Visualiser QC programme       | 2 (6)           | 2 (4)        | 1 (2)            | 0 (0)       | 2 (2)         | **14** | v2.0      |
+| ML classifier pipeline        | 2 (6)           | 2 (4)        | 2 (4)            | 1 (1)       | 1 (1)         | **16** | v2.0      |
+| Online geometry-prior service | 2 (6)           | 1 (2)        | 2 (4)            | 1 (1)       | 1 (1)         | **14** | v2.0      |
+| AV dataset integration        | 0 (0)           | 2 (4)        | 0 (0)            | 0 (0)       | 1 (1)         | **5**  | Deferred  |
+| Motion capture architecture   | 0 (0)           | 2 (4)        | 0 (0)            | 0 (0)       | 1 (1)         | **5**  | Deferred  |
 
 ### Key Placement Rationale
 
@@ -369,14 +369,14 @@ locations — while keeping velocity.report fully functional offline.
 The following design choices in v1.0 ensure the online service is additive, not
 a rewrite:
 
-| Decision (v1.0) | Future Benefit (v2.0+) |
-|------------------|----------------------|
-| **GeoJSON file format** for local priors | Same schema served by HTTP endpoint; no format conversion needed |
-| **Prior weights are advisory (0–1)**, not hard constraints | Service can return confidence-weighted priors; client applies them identically to local files |
-| **Prior Loader abstraction** separates file I/O from perception maths | Swap file reader for HTTP client behind the same interface |
-| **Sensor-local coordinate system** (no GPS required) | GPS is additive: if present, enables location-based prior lookup; if absent, local files still work |
-| **Privacy by default** | Online fetch is opt-in; no location data transmitted without explicit user consent |
-| **Schema includes `source` field** (`local`, `community`, `survey`) | Provenance tracking from day one; online priors carry their own trust metadata |
+| Decision (v1.0)                                                       | Future Benefit (v2.0+)                                                                              |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **GeoJSON file format** for local priors                              | Same schema served by HTTP endpoint; no format conversion needed                                    |
+| **Prior weights are advisory (0–1)**, not hard constraints            | Service can return confidence-weighted priors; client applies them identically to local files       |
+| **Prior Loader abstraction** separates file I/O from perception maths | Swap file reader for HTTP client behind the same interface                                          |
+| **Sensor-local coordinate system** (no GPS required)                  | GPS is additive: if present, enables location-based prior lookup; if absent, local files still work |
+| **Privacy by default**                                                | Online fetch is opt-in; no location data transmitted without explicit user consent                  |
+| **Schema includes `source` field** (`local`, `community`, `survey`)   | Provenance tracking from day one; online priors carry their own trust metadata                      |
 
 ### Online Service Specification (v2.0 Scope)
 
@@ -413,14 +413,14 @@ Response: GeoJSON FeatureCollection
 
 ### Implementation Phases
 
-| Phase | Milestone | Scope |
-|-------|-----------|-------|
-| **5a** | v1.0 | Define GeoJSON schema for local prior files |
-| **5b** | v1.0 | Implement Prior Loader with file-system backend |
-| **5c** | v1.0 | Wire `w_prior` weights into ground-plane region scoring |
-| **5d** | v2.0 | Add HTTP backend to Prior Loader (opt-in config flag) |
-| **5e** | v2.0 | Build community submission API (anonymous, geometry-only) |
-| **5f** | v2.0 | Ship self-hostable prior-service container image |
+| Phase  | Milestone | Scope                                                     |
+| ------ | --------- | --------------------------------------------------------- |
+| **5a** | v1.0      | Define GeoJSON schema for local prior files               |
+| **5b** | v1.0      | Implement Prior Loader with file-system backend           |
+| **5c** | v1.0      | Wire `w_prior` weights into ground-plane region scoring   |
+| **5d** | v2.0      | Add HTTP backend to Prior Loader (opt-in config flag)     |
+| **5e** | v2.0      | Build community submission API (anonymous, geometry-only) |
+| **5f** | v2.0      | Ship self-hostable prior-service container image          |
 
 ---
 
@@ -429,13 +429,13 @@ Response: GeoJSON FeatureCollection
 Estimates assume a single part-time contributor. Dates are indicative, not
 commitments.
 
-| Milestone | Target | Duration | Key Dependency |
-|-----------|--------|----------|---------------|
-| **v0.5** | Q1 2026 | 4–6 weeks | — |
-| **v0.6** | Q2 2026 | 6–10 weeks | Precompiled LaTeX unblocks RPi image |
-| **v0.7** | Q3 2026 | 6–8 weeks | Frontend consolidation Phase 3 dominates |
-| **v1.0** | Q4 2026 | 8–12 weeks | Coverage, unified settling, API stability |
-| **v2.0** | 2027 H1 | 16–24 weeks | QC programme, ML pipeline, online priors |
+| Milestone | Target  | Duration    | Key Dependency                            |
+| --------- | ------- | ----------- | ----------------------------------------- |
+| **v0.5**  | Q1 2026 | 4–6 weeks   | —                                         |
+| **v0.6**  | Q2 2026 | 6–10 weeks  | Precompiled LaTeX unblocks RPi image      |
+| **v0.7**  | Q3 2026 | 6–8 weeks   | Frontend consolidation Phase 3 dominates  |
+| **v1.0**  | Q4 2026 | 8–12 weeks  | Coverage, unified settling, API stability |
+| **v2.0**  | 2027 H1 | 16–24 weeks | QC programme, ML pipeline, online priors  |
 
 ---
 
@@ -482,28 +482,28 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 
 ### Existing Components
 
-| Component              | Location                                           | Status      |
-| ---------------------- | -------------------------------------------------- | ----------- |
-| PCAP Reader            | `internal/lidar/l1packets/network/pcap.go`         | ✅ Complete |
-| Frame Builder          | `internal/lidar/l2frames/frame_builder.go`         | ✅ Complete |
-| Background Manager     | `internal/lidar/l3grid/background.go`              | ✅ Complete |
-| Foreground Extraction  | `internal/lidar/l3grid/foreground.go`              | ✅ Complete |
-| DBSCAN Clustering      | `internal/lidar/l4perception/cluster.go`           | ✅ Complete |
-| Kalman Tracking        | `internal/lidar/l5tracks/tracking.go`              | ✅ Complete |
-| Rule-Based Classifier  | `internal/lidar/l6objects/classification.go`       | ✅ Complete |
-| Track Store            | `internal/lidar/storage/sqlite/track_store.go`     | ✅ Complete |
-| REST API               | `internal/lidar/monitor/track_api.go`              | ✅ Complete |
-| PCAP Analyse Tool      | `cmd/tools/pcap-analyze/main.go`                   | ✅ Complete |
-| Training Data Export   | `internal/lidar/adapters/training_data.go`         | ✅ Complete |
-| Analysis Run Store     | `internal/lidar/storage/sqlite/analysis_run.go`    | ✅ Complete |
-| Sweep Runner           | `internal/lidar/sweep/runner.go`                   | ✅ Complete |
-| Auto-Tuner             | `internal/lidar/sweep/auto.go`                     | ✅ Complete |
-| Sweep Scoring          | `internal/lidar/sweep/scoring.go`                  | ✅ Complete |
-| Sweep Dashboard        | `internal/lidar/monitor/html/sweep_dashboard.html` | ✅ Complete |
-| Hungarian Solver       | `internal/lidar/l5tracks/hungarian.go`             | ✅ Complete |
-| Ground Removal         | `internal/lidar/l4perception/ground.go`            | ✅ Complete |
-| OBB Estimation         | `internal/lidar/l4perception/obb.go`               | ✅ Complete |
-| Debug Collector        | `internal/lidar/debug/collector.go`                | ✅ Complete |
+| Component             | Location                                           | Status      |
+| --------------------- | -------------------------------------------------- | ----------- |
+| PCAP Reader           | `internal/lidar/l1packets/network/pcap.go`         | ✅ Complete |
+| Frame Builder         | `internal/lidar/l2frames/frame_builder.go`         | ✅ Complete |
+| Background Manager    | `internal/lidar/l3grid/background.go`              | ✅ Complete |
+| Foreground Extraction | `internal/lidar/l3grid/foreground.go`              | ✅ Complete |
+| DBSCAN Clustering     | `internal/lidar/l4perception/cluster.go`           | ✅ Complete |
+| Kalman Tracking       | `internal/lidar/l5tracks/tracking.go`              | ✅ Complete |
+| Rule-Based Classifier | `internal/lidar/l6objects/classification.go`       | ✅ Complete |
+| Track Store           | `internal/lidar/storage/sqlite/track_store.go`     | ✅ Complete |
+| REST API              | `internal/lidar/monitor/track_api.go`              | ✅ Complete |
+| PCAP Analyse Tool     | `cmd/tools/pcap-analyze/main.go`                   | ✅ Complete |
+| Training Data Export  | `internal/lidar/adapters/training_data.go`         | ✅ Complete |
+| Analysis Run Store    | `internal/lidar/storage/sqlite/analysis_run.go`    | ✅ Complete |
+| Sweep Runner          | `internal/lidar/sweep/runner.go`                   | ✅ Complete |
+| Auto-Tuner            | `internal/lidar/sweep/auto.go`                     | ✅ Complete |
+| Sweep Scoring         | `internal/lidar/sweep/scoring.go`                  | ✅ Complete |
+| Sweep Dashboard       | `internal/lidar/monitor/html/sweep_dashboard.html` | ✅ Complete |
+| Hungarian Solver      | `internal/lidar/l5tracks/hungarian.go`             | ✅ Complete |
+| Ground Removal        | `internal/lidar/l4perception/ground.go`            | ✅ Complete |
+| OBB Estimation        | `internal/lidar/l4perception/obb.go`               | ✅ Complete |
+| Debug Collector       | `internal/lidar/debug/collector.go`                | ✅ Complete |
 
 ### Production Deployment Architecture (Phase 4.3)
 

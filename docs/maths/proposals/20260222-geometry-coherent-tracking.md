@@ -1,9 +1,10 @@
 # Geometry-Coherent Track State for Stable Bounding Boxes
 
-**Status:** Proposal Math (Not Active in Current Runtime)  
-**Author:** velocity.report contributors  
-**Created:** 2026-02-22  
+**Status:** Proposal Math (Not Active in Current Runtime)
+**Author:** velocity.report contributors
+**Created:** 2026-02-22
 **Related:**
+
 - [OBB heading stability review](20260222-obb-heading-stability-review.md) — current guards
 - [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — upstream per-point velocity
 - [Ground plane and vector-scene maths](20260221-ground-plane-vector-scene-maths.md) — ground model
@@ -24,6 +25,7 @@ Despite these guards, two fundamental problems persist:
 ### 1.1 Shape Instability
 
 Dimensions (length, width, height) change dramatically frame-to-frame because PCA axes shift as points appear and disappear due to:
+
 - Partial occlusion by other objects
 - Sensor viewing angle changes
 - Point cloud sampling noise
@@ -34,6 +36,7 @@ A vehicle's bounding box might oscillate between 4.2 m × 1.8 m and 3.8 m × 2.1
 ### 1.2 Heading Rotation
 
 Guards reject discrete 90° jumps but allow gradual drift. Near-square clusters (pedestrians, slow-moving vehicles) cause frequent axis ambiguity:
+
 - PCA returns the axis with greatest variance as "length"
 - For aspect ratios near 1:1, noise determines which axis is chosen
 - Heading can drift continuously or flip unexpectedly
@@ -44,6 +47,7 @@ Guards reject discrete 90° jumps but allow gradual drift. Near-square clusters 
 **The system has no temporal model of object geometry.** Each frame recomputes geometry from scratch. Guards are reactive patches that detect and suppress symptoms, not a coherent model that maintains geometric consistency.
 
 The fundamental insight: **object shapes are persistent**. A vehicle doesn't change from 4.5 m to 4.0 m length in one frame. The correct model is:
+
 - True geometry is stable (evolves slowly)
 - Observations are noisy samples of true geometry
 - Update beliefs about true geometry using Bayesian evidence from observations
@@ -63,6 +67,7 @@ $$
 $$
 
 Where:
+
 - $L_{\text{est}}, W_{\text{est}}, H_{\text{est}}$: estimated dimensions (metres)
 - $\theta_{\text{est}}$: estimated heading (radians, zero = +X axis)
 - $\sigma_L, \sigma_W, \sigma_H, \sigma_\theta$: uncertainty (standard deviation) for each parameter
@@ -109,6 +114,7 @@ $$
 $$
 
 **Selection rule:**
+
 - If $d_{\text{aligned}} < d_{\text{swapped}}$: accept $\mathbf{z}_{\text{aligned}}$
 - If $d_{\text{swapped}} < d_{\text{aligned}}$: accept $\mathbf{z}_{\text{swapped}}$
 - If $\min(d_{\text{aligned}}, d_{\text{swapped}}) > d_{\text{threshold}}$: reject as outlier
@@ -129,11 +135,13 @@ H_{\text{est}} &\leftarrow (1 - \alpha_{\text{dim}}) \cdot H_{\text{est}} + \alp
 $$
 
 Where:
+
 - $\alpha_{\text{dim}}$: dimension smoothing rate (slow, e.g., 0.05)
 - $\alpha_{\text{heading}}$: heading smoothing rate (existing value, e.g., 0.08)
 - `smooth_heading()`: existing angular EMA with wraparound handling
 
 Dimension updates are intentionally slower than heading updates because:
+
 - Object dimensions are physically more stable than orientation
 - Dimension measurement noise is higher (depends on visible surface area)
 - Rapid dimension changes likely indicate observation errors, not true geometry changes
@@ -151,12 +159,14 @@ $$
 $$
 
 Where:
+
 - $n = n_{\text{obs}}$: number of accepted observations
 - $n_{\max}$: maximum count for uncertainty floor (e.g., 30 frames)
 - $\sigma_{\text{dim,init}}$: initial dimension uncertainty (e.g., 1.0 m)
 - $\sigma_{\theta,\text{init}}$: initial heading uncertainty (e.g., $\pi/2$ radians)
 
 **Effect:**
+
 - **New tracks** ($n \approx 1$): wide uncertainty → accept diverse observations, explore geometry space
 - **Mature tracks** ($n > n_{\max}$): tight uncertainty → reject outlier frames, maintain stable geometry
 
@@ -179,6 +189,7 @@ $$
 $$
 
 Where:
+
 - $\theta_{\text{velocity}} = \text{atan2}(v_y, v_x)$: heading from velocity vector
 - $\beta_{\text{motion}}$: motion influence weight (e.g., 0.3)
 
@@ -191,6 +202,7 @@ $$
 Where $v_{\text{scale}}$ controls the rate of uncertainty reduction (e.g., 2.0 m/s).
 
 **Effect:**
+
 - **Fast-moving objects:** heading prior is tight and motion-aligned → PCA axis selection is strongly constrained
 - **Slow-moving objects:** heading prior is wide → geometry-based axis selection dominates
 - **Transition is continuous:** no discrete mode switches
@@ -213,7 +225,6 @@ For tracks with speed $v \approx 0$ (below $v_{\min}$):
 - **Observation weight for heading decreases:**
   - Rely on geometry shape fit instead of heading fit
   - Axis selection weighs dimension residuals more heavily
-  
 - **Dimensions continue to update normally:**
   - Shape information remains valid regardless of motion
   - Dimension observations are not affected by lack of velocity signal
@@ -249,6 +260,7 @@ c_{\text{shape}} = \begin{cases}
 $$
 
 Where:
+
 - $r_{\text{elongated}} = 1.5$: threshold for vehicle-like objects
 - $r_{\text{square}} = 1.3$: threshold for pedestrian-like objects
 - Intermediate ratios remain unclassified (cautious approach)
@@ -258,28 +270,29 @@ Where:
 Shape classification modulates the update rule:
 
 **Elongated objects** (vehicles):
+
 - Heading updates have **full weight** ($w_\theta = 1.0$)
   - Well-defined heading from geometry
   - PCA axes are reliable for aspect ratio > 1.5
   - Motion direction should align with long axis
-  
 - Dimension changes are **suspicious**
   - Large dimension changes ($> 0.5$ m in one frame) trigger logging/alerts
   - May indicate tracking errors or mis-association
   - Shape should be stable over track lifetime
 
 **Square objects** (pedestrians):
+
 - Heading updates have **reduced weight** ($w_\theta = 0.3$)
   - Poorly defined heading from geometry
   - PCA axis choice is dominated by noise
   - Rely more heavily on motion direction when available
-  
 - Dimension changes are **expected**
   - PCA noise naturally causes dimension variation
   - Body pose changes (arms, walking gait) affect projected shape
   - Accept wider variation without flagging
 
 **Unknown objects:**
+
 - Default behaviour: moderate weight ($w_\theta = 0.7$)
 - Transitions to elongated/square after classification threshold
 
@@ -316,12 +329,12 @@ L5 Tracking (proposed changes)
 
 The geometry-coherent model **replaces four existing guard mechanisms**:
 
-| Current Guard | Replacement | Lines in tracking.go |
-|---------------|-------------|----------------------|
-| **Guard 2:** Aspect-ratio lock threshold | Subsumed by axis selection + shape classification | ~950-980 |
-| **Guard 3:** 90° jump rejection | Subsumed by axis selection (lower residual wins) | ~1000-1020 |
-| Dimension sync logic | Unified in ema_update() | ~1124-1141 |
-| HeadingSource enum complexity | Simplified: aligned / swapped / rejected / motion | Various |
+| Current Guard                            | Replacement                                       | Lines in tracking.go |
+| ---------------------------------------- | ------------------------------------------------- | -------------------- |
+| **Guard 2:** Aspect-ratio lock threshold | Subsumed by axis selection + shape classification | ~950-980             |
+| **Guard 3:** 90° jump rejection          | Subsumed by axis selection (lower residual wins)  | ~1000-1020           |
+| Dimension sync logic                     | Unified in ema_update()                           | ~1124-1141           |
+| HeadingSource enum complexity            | Simplified: aligned / swapped / rejected / motion | Various              |
 
 **Guard 1** (minimum point count) **remains** as a data-quality gate — it prevents OBB estimation when insufficient points are available.
 
@@ -347,6 +360,7 @@ When [velocity-coherent foreground extraction](20260220-velocity-coherent-foregr
    - Heading stability increases even for aspect ratio ≈ 1:1
 
 **Without velocity-coherent data** (current runtime), the model **still improves** over current guards:
+
 - Axis selection uses geometry alone (dimensions + heading continuity)
 - Kalman velocity provides weak motion prior (existing mechanism)
 - Displacement vector as fallback (existing mechanism)
@@ -360,32 +374,34 @@ The geometry-coherent model is designed to **work well standalone** and **improv
 
 New tuning parameters with proposed defaults:
 
-| Parameter | Symbol | Default | Description |
-|-----------|--------|---------|-------------|
-| `geometry_dim_alpha` | $\alpha_{\text{dim}}$ | 0.05 | EMA rate for dimension updates |
-| `geometry_heading_alpha` | $\alpha_{\text{heading}}$ | 0.08 | EMA rate for heading updates (existing) |
-| `geometry_outlier_threshold` | $d_{\text{threshold}}$ | 6.0 | Residual threshold for outlier rejection |
-| `geometry_classify_min_frames` | $n_{\text{classify}}$ | 10 | Frames before shape classification |
-| `geometry_elongated_ratio` | $r_{\text{elongated}}$ | 1.5 | L/W ratio threshold for elongated class |
-| `geometry_square_ratio` | $r_{\text{square}}$ | 1.3 | L/W ratio threshold for square class |
-| `geometry_sigma_dim_init` | $\sigma_{\text{dim,init}}$ | 1.0 | Initial dimension uncertainty (metres) |
-| `geometry_sigma_heading_init` | $\sigma_{\theta,\text{init}}$ | π/2 | Initial heading uncertainty (radians) |
-| `geometry_sigma_n_max` | $n_{\max}$ | 30 | Max observations for uncertainty floor |
-| `geometry_motion_min_speed` | $v_{\min}$ | 0.5 | Min speed for motion-informed heading (m/s) |
-| `geometry_motion_beta` | $\beta_{\text{motion}}$ | 0.3 | Motion influence weight on heading prior |
-| `geometry_motion_v_scale` | $v_{\text{scale}}$ | 2.0 | Speed scale for uncertainty reduction (m/s) |
-| `geometry_static_uncertainty_growth` | $\gamma_{\text{static}}$ | 0.01 | Heading uncertainty inflation for static objects (rad/frame) |
-| `geometry_heading_weight_elongated` | $w_\theta^{\text{elong}}$ | 1.0 | Heading residual weight for elongated objects |
-| `geometry_heading_weight_square` | $w_\theta^{\text{square}}$ | 0.3 | Heading residual weight for square objects |
-| `geometry_heading_weight_unknown` | $w_\theta^{\text{unknown}}$ | 0.7 | Heading residual weight for unknown objects |
+| Parameter                            | Symbol                        | Default | Description                                                  |
+| ------------------------------------ | ----------------------------- | ------- | ------------------------------------------------------------ |
+| `geometry_dim_alpha`                 | $\alpha_{\text{dim}}$         | 0.05    | EMA rate for dimension updates                               |
+| `geometry_heading_alpha`             | $\alpha_{\text{heading}}$     | 0.08    | EMA rate for heading updates (existing)                      |
+| `geometry_outlier_threshold`         | $d_{\text{threshold}}$        | 6.0     | Residual threshold for outlier rejection                     |
+| `geometry_classify_min_frames`       | $n_{\text{classify}}$         | 10      | Frames before shape classification                           |
+| `geometry_elongated_ratio`           | $r_{\text{elongated}}$        | 1.5     | L/W ratio threshold for elongated class                      |
+| `geometry_square_ratio`              | $r_{\text{square}}$           | 1.3     | L/W ratio threshold for square class                         |
+| `geometry_sigma_dim_init`            | $\sigma_{\text{dim,init}}$    | 1.0     | Initial dimension uncertainty (metres)                       |
+| `geometry_sigma_heading_init`        | $\sigma_{\theta,\text{init}}$ | π/2     | Initial heading uncertainty (radians)                        |
+| `geometry_sigma_n_max`               | $n_{\max}$                    | 30      | Max observations for uncertainty floor                       |
+| `geometry_motion_min_speed`          | $v_{\min}$                    | 0.5     | Min speed for motion-informed heading (m/s)                  |
+| `geometry_motion_beta`               | $\beta_{\text{motion}}$       | 0.3     | Motion influence weight on heading prior                     |
+| `geometry_motion_v_scale`            | $v_{\text{scale}}$            | 2.0     | Speed scale for uncertainty reduction (m/s)                  |
+| `geometry_static_uncertainty_growth` | $\gamma_{\text{static}}$      | 0.01    | Heading uncertainty inflation for static objects (rad/frame) |
+| `geometry_heading_weight_elongated`  | $w_\theta^{\text{elong}}$     | 1.0     | Heading residual weight for elongated objects                |
+| `geometry_heading_weight_square`     | $w_\theta^{\text{square}}$    | 0.3     | Heading residual weight for square objects                   |
+| `geometry_heading_weight_unknown`    | $w_\theta^{\text{unknown}}$   | 0.7     | Heading residual weight for unknown objects                  |
 
 **Defaults are conservative estimates** based on:
+
 - Current EMA rates in existing code
 - Typical vehicle dimensions (4-5 m length, 1.8-2.0 m width)
 - Typical pedestrian dimensions (0.5-0.7 m both axes)
 - Expected sensor noise characteristics
 
 Parameters should be validated and tuned through:
+
 - Synthetic data testing (known geometry ground truth)
 - Real-world validation dataset (manual annotation)
 - Edge case stress testing (near-square vehicles, large trucks, groups)
@@ -396,13 +412,13 @@ Parameters should be validated and tuned through:
 
 ### 7.1 Quantitative Improvements
 
-| Metric | Current System | Expected with Geometry-Coherent |
-|--------|----------------|----------------------------------|
-| **Dimension stability** (std dev over 5s window) | 0.3-0.5 m | < 0.1 m |
-| **Heading drift** (degrees/second for stationary) | 2-5°/s | < 0.5°/s |
-| **90° jump frequency** (per track) | 0.1-0.3 | < 0.01 |
-| **Aspect ratio flip frequency** (per track) | 0.2-0.5 | < 0.02 |
-| **Convergence time** (frames to stable geometry) | 15-20 | 5-10 |
+| Metric                                            | Current System | Expected with Geometry-Coherent |
+| ------------------------------------------------- | -------------- | ------------------------------- |
+| **Dimension stability** (std dev over 5s window)  | 0.3-0.5 m      | < 0.1 m                         |
+| **Heading drift** (degrees/second for stationary) | 2-5°/s         | < 0.5°/s                        |
+| **90° jump frequency** (per track)                | 0.1-0.3        | < 0.01                          |
+| **Aspect ratio flip frequency** (per track)       | 0.2-0.5        | < 0.02                          |
+| **Convergence time** (frames to stable geometry)  | 15-20          | 5-10                            |
 
 ### 7.2 Qualitative Improvements
 
@@ -430,26 +446,28 @@ Parameters should be validated and tuned through:
 
 ## 8. Implementation Estimate
 
-| Component | Effort | Files |
-|-----------|--------|-------|
-| Track geometry state struct | **S** (half day) | `l5tracks/tracking.go` |
-| Axis selection + outlier gate | **M** (1 day) | `l5tracks/tracking.go` |
-| EMA update with shape classification | **M** (1 day) | `l5tracks/tracking.go` |
-| Heading-motion coupling (§3) | **M** (1 day) | `l5tracks/tracking.go` |
-| Uncertainty shrinkage logic | **S** (half day) | `l5tracks/tracking.go` |
-| Configuration parameters | **S** (half day) | `config/tuning.go`, `l5tracks/tracking.go` |
-| Remove replaced guards | **S** (half day) | `l5tracks/tracking.go` |
-| Unit tests (axis selection, residuals) | **M** (1 day) | `l5tracks/tracking_test.go` |
-| Integration tests (track stability) | **M** (1 day) | `l5tracks/tracking_coverage_test.go` |
-| Documentation and logging | **S** (half day) | Various |
-| **Total** | **L (6-7 days)** | |
+| Component                              | Effort           | Files                                      |
+| -------------------------------------- | ---------------- | ------------------------------------------ |
+| Track geometry state struct            | **S** (half day) | `l5tracks/tracking.go`                     |
+| Axis selection + outlier gate          | **M** (1 day)    | `l5tracks/tracking.go`                     |
+| EMA update with shape classification   | **M** (1 day)    | `l5tracks/tracking.go`                     |
+| Heading-motion coupling (§3)           | **M** (1 day)    | `l5tracks/tracking.go`                     |
+| Uncertainty shrinkage logic            | **S** (half day) | `l5tracks/tracking.go`                     |
+| Configuration parameters               | **S** (half day) | `config/tuning.go`, `l5tracks/tracking.go` |
+| Remove replaced guards                 | **S** (half day) | `l5tracks/tracking.go`                     |
+| Unit tests (axis selection, residuals) | **M** (1 day)    | `l5tracks/tracking_test.go`                |
+| Integration tests (track stability)    | **M** (1 day)    | `l5tracks/tracking_coverage_test.go`       |
+| Documentation and logging              | **S** (half day) | Various                                    |
+| **Total**                              | **L (6-7 days)** |                                            |
 
 ### 8.1 Dependencies
 
 **Required:**
+
 - None (can be implemented with current pipeline)
 
 **Enhanced by:**
+
 - [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — provides per-cluster velocity for tighter heading priors
 
 ### 8.2 Testing Strategy
@@ -481,19 +499,23 @@ Parameters should be validated and tuned through:
 ### 8.3 Rollout Plan
 
 **Phase 1:** Implement core geometry state + axis selection
+
 - Replaces Guards 2 & 3
 - Can run in parallel with current system for A/B testing
 - Measure dimension stability, heading drift, flip frequency
 
 **Phase 2:** Add shape classification
+
 - Enables pedestrian-specific handling
 - Measure improvement on square objects
 
 **Phase 3:** Add heading-motion coupling
+
 - Integrate with existing Kalman velocity
 - Prepare for velocity-coherent data when available
 
 **Phase 4:** Remove deprecated guards
+
 - Clean up Guard 2, Guard 3, dimension sync logic
 - Simplify `HeadingSource` enum
 - Reduce code complexity
@@ -507,6 +529,7 @@ Parameters should be validated and tuned through:
 **Approach:** Tighten thresholds on existing guards (e.g., reject aspect ratio changes > 10%, reject heading changes > 5°).
 
 **Rejected because:**
+
 - Doesn't address root cause (no temporal model)
 - Creates rigidity: true geometry changes (pedestrian arm movement) would be rejected
 - Doesn't solve axis ambiguity — just suppresses symptoms more aggressively
@@ -517,6 +540,7 @@ Parameters should be validated and tuned through:
 **Approach:** Full Kalman filter with state vector $[\mathbf{x}, \mathbf{v}, \mathbf{G}]$ (position, velocity, geometry).
 
 **Rejected because:**
+
 - Overkill: geometry evolves much slower than position/velocity
 - Kalman assumes Gaussian noise and linear dynamics — PCA axis ambiguity is discrete, not Gaussian
 - Requires process noise covariance tuning (complex)
@@ -528,6 +552,7 @@ Parameters should be validated and tuned through:
 **Approach:** Use RANSAC to fit OBB directly to all points in track history, not just current frame.
 
 **Rejected because:**
+
 - Computationally expensive (quadratic in track length)
 - Doesn't handle object geometry changes (e.g., pedestrian pose)
 - Outlier rejection is coarse (entire frames, not individual observations)
@@ -541,6 +566,7 @@ Parameters should be validated and tuned through:
 ### 10.1 Geometry-Aware Data Association
 
 Once tracks maintain stable geometry:
+
 - Use geometry similarity in cost matrix for Hungarian algorithm
 - Reject associations with incompatible shapes (dimension mismatch > 1 m)
 - Reduce ID switches caused by geometry confusion
@@ -548,12 +574,14 @@ Once tracks maintain stable geometry:
 ### 10.2 Object Class Inference
 
 Shape classification naturally extends to:
+
 - **Pedestrian** (square, slow, small)
 - **Bicycle** (elongated, medium speed, small)
 - **Car** (elongated, medium-fast, medium)
 - **Truck** (elongated, medium-fast, large)
 
 Class priors could inform:
+
 - Expected dimension ranges
 - Typical motion patterns
 - Sensor detection characteristics
@@ -561,6 +589,7 @@ Class priors could inform:
 ### 10.3 Multi-Hypothesis Tracking
 
 For ambiguous tracks, maintain multiple geometry hypotheses:
+
 - Both axis interpretations tracked in parallel
 - Hypotheses pruned as evidence accumulates
 - Useful for handling temporary occlusions
@@ -571,21 +600,21 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 
 ### 11.1 Theoretical Foundation
 
-- **Kalman Filtering and Data Association:** Bar-Shalom, Y., Fortmann, T. E. (1988)  
+- **Kalman Filtering and Data Association:** Bar-Shalom, Y., Fortmann, T. E. (1988)
   Foundation for Bayesian state estimation with uncertain observations.
 
-- **Principal Component Analysis Ambiguity:** Jolliffe, I. T. (2002), *Principal Component Analysis*  
+- **Principal Component Analysis Ambiguity:** Jolliffe, I. T. (2002), _Principal Component Analysis_
   Documents the inherent axis orientation ambiguity in PCA.
 
-- **RANSAC for Robust Estimation:** Fischler, M. A., Bolles, R. C. (1981)  
+- **RANSAC for Robust Estimation:** Fischler, M. A., Bolles, R. C. (1981)
   Alternative approach to outlier rejection (considered but not adopted).
 
 ### 11.2 Related Work in LiDAR Tracking
 
-- **L-Shape Fitting for Vehicles:** Zhang, X., et al. (2017), "Real-Time Vehicle Detection and Tracking Using 3D LiDAR"  
+- **L-Shape Fitting for Vehicles:** Zhang, X., et al. (2017), "Real-Time Vehicle Detection and Tracking Using 3D LiDAR"
   Alternative to PCA for elongated objects; assumes L-shaped returns.
 
-- **Track-Level Shape Refinement:** Held, D., et al. (2016), "Robust Real-Time Tracking Combining 3D Shape, Color, and Motion"  
+- **Track-Level Shape Refinement:** Held, D., et al. (2016), "Robust Real-Time Tracking Combining 3D Shape, Color, and Motion"
   Uses shape consistency across frames; similar philosophy to this proposal.
 
 ### 11.3 Internal References
@@ -598,5 +627,5 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 
 ---
 
-**Proposal Status:** Awaiting review and experimental validation.  
+**Proposal Status:** Awaiting review and experimental validation.
 **Next Steps:** Implement Phase 1 (core geometry state + axis selection) for A/B testing against current system.
