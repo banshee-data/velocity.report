@@ -606,6 +606,13 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}
 		} else {
 			log.Printf("PCAP replay completed: %s", path)
+			// Log quality summary: cumulative dropped frame count for this sensor.
+			if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
+				dropped := fb.DroppedFrames()
+				if dropped > 0 {
+					log.Printf("[PCAP quality] %d frames dropped (callback queue full; cumulative across replays for this sensor)", dropped)
+				}
+			}
 			// Complete analysis run if active
 			if runID != "" && ws.analysisRunManager != nil {
 				if completeErr := ws.analysisRunManager.CompleteRun(); completeErr != nil {

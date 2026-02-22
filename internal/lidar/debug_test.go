@@ -223,35 +223,6 @@ func TestSetLogWriters(t *testing.T) {
 	}
 }
 
-// TestSetLogWriter tests configuring individual streams.
-func TestSetLogWriter(t *testing.T) {
-	defer resetLoggers()
-
-	var ops bytes.Buffer
-	SetLogWriter(LogOps, &ops)
-
-	Opsf("ops only: %s", "alert")
-	Diagf("should be silent")
-	Tracef("should be silent too")
-
-	if !strings.Contains(ops.String(), "ops only: alert") {
-		t.Errorf("Opsf output = %q, want to contain 'ops only: alert'", ops.String())
-	}
-}
-
-// TestSetLogWriterInvalidLevel tests that an invalid LogLevel panics.
-func TestSetLogWriterInvalidLevel(t *testing.T) {
-	defer resetLoggers()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("SetLogWriter with invalid LogLevel should panic")
-		}
-	}()
-
-	var buf bytes.Buffer
-	SetLogWriter(LogLevel(99), &buf)
-}
-
 // TestNilWriterSafety tests that nil writers do not cause panics.
 func TestNilWriterSafety(t *testing.T) {
 	defer resetLoggers()

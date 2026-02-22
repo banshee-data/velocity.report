@@ -156,7 +156,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre11
+VERSION := 0.5.0-pre12
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -590,11 +590,15 @@ dev-go-latex-full:
 
 dev-go-lidar:
 	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=diag)
+
+dev-go-lidar-trace:
+	@$(call run_dev_go_require_precompiled_root)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-forward-mode=grpc --log-level=trace)
 
 dev-go-lidar-both:
 	@$(call run_dev_go_require_precompiled_root)
-	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both)
+	@$(call run_dev_go,$(DEV_GO_LATEX_PRECOMPILED_FLAGS) --enable-transit-worker=false --enable-lidar --lidar-forward --lidar-foreground-forward --lidar-forward-mode=both --log-level=diag)
 
 dev-go-kill-server:
 	@$(call run_dev_go_kill_server)

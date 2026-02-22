@@ -40,6 +40,7 @@ type BackgroundConfig struct {
 	// Foreground filtering
 	ForegroundMinClusterPoints int     // Min points for cluster (default: 0)
 	ForegroundDBSCANEps        float32 // DBSCAN epsilon (default: 0)
+	ForegroundMaxInputPoints   int     // Max points fed to DBSCAN; 0 means use default (8000)
 }
 
 // DefaultBackgroundConfig returns a BackgroundConfig loaded from the
@@ -76,6 +77,7 @@ func BackgroundConfigFromTuning(cfg *config.TuningConfig) *BackgroundConfig {
 
 		ForegroundMinClusterPoints: cfg.GetForegroundMinClusterPoints(),
 		ForegroundDBSCANEps:        float32(cfg.GetForegroundDBSCANEps()),
+		ForegroundMaxInputPoints:   cfg.GetForegroundMaxInputPoints(),
 	}
 }
 
@@ -140,6 +142,7 @@ func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 		LockedBaselineMultiplier:       c.LockedBaselineMultiplier,
 		ForegroundMinClusterPoints:     c.ForegroundMinClusterPoints,
 		ForegroundDBSCANEps:            c.ForegroundDBSCANEps,
+		ForegroundMaxInputPoints:       c.ForegroundMaxInputPoints,
 	}
 }
 
@@ -224,5 +227,12 @@ func (c *BackgroundConfig) WithForegroundMinClusterPoints(n int) *BackgroundConf
 // WithForegroundDBSCANEps sets the DBSCAN epsilon for foreground clustering.
 func (c *BackgroundConfig) WithForegroundDBSCANEps(eps float32) *BackgroundConfig {
 	c.ForegroundDBSCANEps = eps
+	return c
+}
+
+// WithForegroundMaxInputPoints sets the maximum number of foreground points
+// fed into DBSCAN. Zero means the pipeline default (8000) is used.
+func (c *BackgroundConfig) WithForegroundMaxInputPoints(n int) *BackgroundConfig {
+	c.ForegroundMaxInputPoints = n
 	return c
 }

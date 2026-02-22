@@ -3,8 +3,8 @@ package pipeline
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -114,7 +114,6 @@ type TrackingPipelineConfig struct {
 	Classifier          *l6objects.TrackClassifier
 	DB                  *sql.DB // Use standard sql.DB to avoid import cycle with db package
 	SensorID            string
-	DebugMode           bool
 	AnalysisRunManager  *sqlite.AnalysisRunManager // Optional: for recording analysis runs
 	VisualiserPublisher VisualiserPublisher        // Optional: gRPC publisher
 	VisualiserAdapter   VisualiserAdapter          // Optional: adapter for gRPC
@@ -124,7 +123,11 @@ type TrackingPipelineConfig struct {
 	// the tracking pipeline. When frames arrive faster than this rate (e.g.
 	// during PCAP catch-up bursts), excess frames are dropped after background
 	// update but before the expensive clustering/tracking/serialisation path.
-	// Zero means no limit (process every frame). Typical value: 12.
+	// Zero means no limit (process every frame).
+	//
+	// The value MUST exceed the sensor's maximum frame rate to avoid
+	// dropping live data. Hesai Pandar40P runs at 10 or 20 Hz depending
+	// on configuration; 25 fps gives 25% headroom above the fastest mode.
 	MaxFrameRate float64
 
 	// VoxelLeafSize, when > 0, enables voxel grid downsampling before
@@ -189,6 +192,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	const pruneInterval = 1 * time.Minute
 	var lastPruneTime time.Time
 
+	// One-shot diag warnings for disabled features. Fires at most once per
+	// callback instance (i.e. per PCAP/session) to avoid flooding the log.
+	var logFgForwarderNilOnce sync.Once
+	var logGroundDisabledOnce sync.Once
+
 	return func(frame *l2frames.LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -222,26 +230,22 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
-		if cfg.DebugMode {
-			// Provide extra context at the exact handoff so we can trace delivery
-			var firstAz, lastAz float64
-			var firstTS, lastTS int64
-			if len(polar) > 0 {
-				firstAz = polar[0].Azimuth
-				lastAz = polar[len(polar)-1].Azimuth
-				firstTS = polar[0].Timestamp
-				lastTS = polar[len(polar)-1].Timestamp
-			}
-			log.Printf("[FrameBuilder->Pipeline] Delivering frame %s -> %d points (azimuth: %.1f°->%.1f°, ts: %d->%d)",
-				frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
+		// Provide extra context at the handoff so we can trace delivery
+		var firstAz, lastAz float64
+		var firstTS, lastTS int64
+		if len(polar) > 0 {
+			firstAz = polar[0].Azimuth
+			lastAz = polar[len(polar)-1].Azimuth
+			firstTS = polar[0].Timestamp
+			lastTS = polar[len(polar)-1].Timestamp
 		}
+		tracef("[FrameBuilder->Pipeline] Delivering frame %s -> %d points (azimuth: %.1f°->%.1f°, ts: %d->%d)",
+			frame.FrameID, len(polar), firstAz, lastAz, firstTS, lastTS)
 
 		// Stage 1: Foreground extraction
 		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
 		if err != nil || mask == nil {
-			if cfg.DebugMode {
-				log.Printf("[Tracking] Failed to get foreground mask: %v", err)
-			}
+			opsf("[Tracking] Failed to get foreground mask: %v", err)
 			return
 		}
 
@@ -292,13 +296,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
 				count := throttledFrames.Add(1)
 				if count%50 == 0 {
-					tracef("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+					diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
 				}
-				// Advance miss counters so tracks aren't artificially kept
-				// alive by throttle-induced gaps (task 7.2).
-				if cfg.Tracker != nil {
-					cfg.Tracker.AdvanceMisses(frame.StartTimestamp)
-				}
+				// Do NOT advance miss counters during throttle.
+				// PCAP catch-up floods frames faster than real-time;
+				// advancing misses would kill tentative tracks
+				// (max_misses=3) within ~300 ms. Live sensors never
+				// reach this path (MaxFrameRate > sensor Hz), so
+				// skipping AdvanceMisses has no effect on live tracking.
 				return
 			}
 			lastProcessedTime = now
@@ -324,8 +329,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if len(pointsToForward) > 0 {
 				cfg.FgForwarder.ForwardForeground(pointsToForward)
 			}
-		} else if cfg.DebugMode {
-			diagf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
+		} else {
+			logFgForwarderNilOnce.Do(func() {
+				diagf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
+			})
 		}
 
 		// Always log foreground extraction for tracking debugging
@@ -347,13 +354,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				groundFilter = l4perception.DefaultHeightBandFilter()
 			}
 			filteredPoints = groundFilter.FilterVertical(worldPoints)
-			if cfg.DebugMode {
-				proc, kept, below, above := groundFilter.Stats()
-				tracef("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
-					proc, kept, below, above)
-			}
-		} else if cfg.DebugMode {
-			diagf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
+			proc, kept, below, above := groundFilter.Stats()
+			tracef("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+				proc, kept, below, above)
+		} else {
+			logGroundDisabledOnce.Do(func() {
+				diagf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
+			})
 		}
 
 		if len(filteredPoints) == 0 {
@@ -379,6 +386,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if params.ForegroundDBSCANEps > 0 {
 			dbscanParams.Eps = float64(params.ForegroundDBSCANEps)
 		}
+		// Cap input points to bound worst-case DBSCAN runtime.
+		// Uses foreground_max_input_points from tuning (default 8000) so
+		// operators can trade detection accuracy for performance at runtime.
+		maxInputPoints := params.ForegroundMaxInputPoints
+		if maxInputPoints <= 0 {
+			maxInputPoints = 8000
+		}
+		dbscanParams.MaxInputPoints = maxInputPoints
 
 		clusters := l4perception.DBSCAN(filteredPoints, dbscanParams)
 		if len(clusters) == 0 {
@@ -454,9 +469,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if cfg.DB != nil {
 				worldFrame := fmt.Sprintf("site/%s", cfg.SensorID)
 				if err := sqlite.InsertTrack(cfg.DB, track, worldFrame); err != nil {
-					if cfg.DebugMode {
-						log.Printf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
-					}
+					opsf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
 				}
 
 				// Only persist observations for tracks that were matched to a
@@ -487,15 +500,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						IntensityMean:     track.IntensityMeanAvg,
 					}
 					if err := sqlite.InsertTrackObservation(cfg.DB, obs); err != nil {
-						if cfg.DebugMode {
-							log.Printf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
-						}
+						opsf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
 					}
 				}
 			}
 		}
 
-		if cfg.DebugMode && len(confirmedTracks) > 0 {
+		if len(confirmedTracks) > 0 {
 			diagf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
 		}
 
@@ -529,9 +540,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if lastPruneTime.IsZero() || now.Sub(lastPruneTime) >= pruneInterval {
 				lastPruneTime = now
 				if pruned, err := sqlite.PruneDeletedTracks(cfg.DB, cfg.SensorID, deletedTrackTTL); err != nil {
-					if cfg.DebugMode {
-						log.Printf("[Tracking] Prune deleted tracks failed: %v", err)
-					}
+					opsf("[Tracking] Prune deleted tracks failed: %v", err)
 				} else if pruned > 0 {
 					diagf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
 				}

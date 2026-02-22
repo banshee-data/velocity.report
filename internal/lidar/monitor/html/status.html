@@ -318,8 +318,8 @@
             <div class="form-row">
               <div class="form-group form-inline">
                 <input type="checkbox" name="analysis_mode" value="true" id="chk_analysis" />
-                <label for="chk_analysis" style="font-weight: normal; margin: 0;">Preserve
-                  grid</label>
+                <label for="chk_analysis" style="font-weight: normal; margin: 0;">Analyse
+                  &amp; record VRLOG</label>
               </div>
               <div class="form-group form-inline">
                 <input type="checkbox" name="enable_plots" value="true" id="chk_plots" />
@@ -504,7 +504,8 @@
           </form>
         </li>
         <li>
-          <form action="/api/lidar/runs/clear?sensor_id={{urlquery .SensorID}}" method="post" target="_blank" style="margin: 0;">
+          <form action="/api/lidar/runs/clear?sensor_id={{urlquery .SensorID}}" method="post" target="_blank"
+            style="margin: 0;">
             <button type="submit">&#x1F6A8; Clear Runs &#x1F6A8;</button>
           </form>
         </li>

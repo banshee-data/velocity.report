@@ -184,7 +184,6 @@ func TestFinalizeFrame_IncompleteFrame(t *testing.T) {
 	}
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "fin-incomplete", FrameCallback: cb})
-	fb.debug = true
 
 	// Create a frame with few points and low azimuth coverage (incomplete)
 	frame := &LiDARFrame{
@@ -228,7 +227,6 @@ func TestFinalizeFrame_CompleteFrame(t *testing.T) {
 	}
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "fin-complete", FrameCallback: cb})
-	fb.debug = true
 
 	// Create a frame with full coverage and enough points
 	points := make([]Point, 15000)
@@ -263,7 +261,6 @@ func TestFinalizeFrame_CompleteFrame(t *testing.T) {
 
 func TestFinalizeFrame_ExportNextSkipsIncomplete(t *testing.T) {
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "export-skip"})
-	fb.debug = true
 	fb.exportNextFrameASC = true
 
 	// Incomplete frame - should skip export but keep the flag
@@ -288,7 +285,6 @@ func TestFinalizeFrame_ExportNextSkipsIncomplete(t *testing.T) {
 
 func TestFinalizeFrame_ExportBatchSkipsIncomplete(t *testing.T) {
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "batch-skip"})
-	fb.debug = true
 	fb.exportBatchCount = 3
 	fb.exportBatchExported = 0
 
@@ -373,7 +369,6 @@ func TestFinalizeFrame_WithExportNext_Complete(t *testing.T) {
 	defer func() { defaultExportDir = oldDir }()
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "export-complete"})
-	fb.debug = true
 	fb.exportNextFrameASC = true
 
 	// Create a complete frame (enough coverage and points)
@@ -402,7 +397,6 @@ func TestFinalizeFrame_WithBatchExport_Complete(t *testing.T) {
 	defer func() { defaultExportDir = oldDir }()
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "batch-complete"})
-	fb.debug = true
 	fb.exportBatchCount = 2
 	fb.exportBatchExported = 0
 
@@ -586,4 +580,14 @@ func TestClose_NilChannel(t *testing.T) {
 	})
 	// Should not panic
 	fb.Close()
+}
+
+func TestDroppedFrames_ZeroInitially(t *testing.T) {
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID: "test-dropped-init",
+	})
+	defer fb.Close()
+	if fb.DroppedFrames() != 0 {
+		t.Errorf("expected 0 dropped frames initially; got %d", fb.DroppedFrames())
+	}
 }
