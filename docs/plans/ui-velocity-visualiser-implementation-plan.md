@@ -212,7 +212,7 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Solution**: Send background snapshot every 30s (~920 KB), send foreground-only frames at 10 fps (~30 KB). Net bandwidth: ~3 Mbps.
 
-See [performance-investigation.md](./performance-investigation.md) for detailed design.
+See [../ui/VelocityVisualiser.app/performance-investigation.md](../ui/VelocityVisualiser.app/performance-investigation.md) for detailed design.
 
 **Implementation Notes**:
 
@@ -337,7 +337,7 @@ See [performance-investigation.md](./performance-investigation.md) for detailed 
 - [x] Occlusion handling (confirmed tracks coast 8 frames, covariance inflation)
 - [x] Classification hooks (`internal/lidar/features.go`, periodic re-classification)
 
-See [../../lidar/troubleshooting/01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) for detailed proposals.
+See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) for detailed proposals.
 
 **Track A (Visualiser)**:
 
@@ -395,7 +395,7 @@ See [../../lidar/troubleshooting/01-tracking-upgrades.md](../../lidar/troublesho
 - [x] JSON export endpoint for ML pipeline
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
-> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`../../plans/lidar-track-labeling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labeling-auto-aware-tuning-plan.md) Phase 1.1.
+> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`./lidar-track-labeling-auto-aware-tuning-plan.md`](./lidar-track-labeling-auto-aware-tuning-plan.md) Phase 1.1.
 
 **Acceptance Criteria**:
 
@@ -687,8 +687,8 @@ Each milestone has a **stop point** where functionality is complete and stable:
 
 ## 6. Related Documents
 
-- [01-problem-and-user-workflows.md](./01-problem-and-user-workflows.md) – Problem statement
-- [02-api-contracts.md](./02-api-contracts.md) – API contract
-- [03-architecture.md](./03-architecture.md) – System architecture
-- [../../lidar/troubleshooting/01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
-- [../../plans/web-frontend-background-debug-surfaces-plan.md](../../plans/web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope
+- [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) – Problem statement
+- [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md) – API contract
+- [../ui/VelocityVisualiser.app/03-architecture.md](../ui/VelocityVisualiser.app/03-architecture.md) – System architecture
+- [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- [./web-frontend-background-debug-surfaces-plan.md](./web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope
