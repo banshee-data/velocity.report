@@ -20,13 +20,12 @@ Three stream model:
 ## API Surface
 
 - `SetLogWriters(LogWriters{Ops, Diag, Trace io.Writer})` — root package
-- `SetLogWriter(level LogLevel, w io.Writer)` — root package (panics on invalid level)
-- `SetLogWriters(ops, diag, trace io.Writer)` — sub-packages (l2frames, l3grid, pipeline)
+- `SetLogWriters(ops, diag, trace io.Writer)` — sub-packages (parse, l2frames, l3grid, pipeline)
 - `Opsf(...)` / `opsf(...)`
 - `Diagf(...)` / `diagf(...)`
 - `Tracef(...)` / `tracef(...)`
 
-`Debugf`, the keyword classifier, and the legacy `SetDebugLogger`/`SetLegacyLogger` shims have been removed. All call sites use explicit stream functions.
+`SetLogWriter(level, w)`, the `LogLevel` type, `Debugf`, the keyword classifier, and the legacy `SetDebugLogger`/`SetLegacyLogger` shims have been removed. All call sites use explicit stream functions.
 
 ## Routing Rubric (Severity + Volume)
 
@@ -44,15 +43,14 @@ Three stream model:
 
 ## Runtime Configuration Design
 
-Env vars:
+Two controls:
 
-- `VELOCITY_LIDAR_OPS_LOG`
-- `VELOCITY_LIDAR_DIAG_LOG`
-- `VELOCITY_LIDAR_TRACE_LOG`
+- `--log-level ops|diag|trace` (CLI flag, default: `ops`) — sets verbosity threshold. Streams at or above the level are enabled; lower streams are disabled (nil writer → no-op).
+- `VELOCITY_DEBUG_LOG` (env var, optional) — file path for debug output. When set, ops stays on stdout and diag+trace route to this file. When unset, all enabled streams go to stdout.
 
-Operational defaults:
+The ordering is `ops` < `diag` < `trace`. `--log-level trace` enables all three streams.
 
-- If only one new stream path is set, route unspecified streams to the same writer to avoid silent log loss.
+The previous per-stream env vars (`VELOCITY_LIDAR_OPS_LOG`, `VELOCITY_LIDAR_DIAG_LOG`, `VELOCITY_LIDAR_TRACE_LOG`) have been removed — they were never used in practice.
 
 ## File/Retention Guidance
 
