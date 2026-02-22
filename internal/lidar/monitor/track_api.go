@@ -998,12 +998,12 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 		AgeSeconds:          spanSeconds,
 		AvgSpeedMps:         track.AvgSpeedMps,
 		PeakSpeedMps:        track.PeakSpeedMps,
-		BoundingBox: bboxFromTrack(track),
-		OBBHeadingRad: track.OBBHeadingRad,
-		HeadingSource: int(track.HeadingSource),
-		FirstSeen:     time.Unix(0, first).UTC().Format(time.RFC3339Nano),
-		LastSeen:      time.Unix(0, last).UTC().Format(time.RFC3339Nano),
-		History:       history,
+		BoundingBox:         bboxFromTrack(track),
+		OBBHeadingRad:       track.OBBHeadingRad,
+		HeadingSource:       int(track.HeadingSource),
+		FirstSeen:           time.Unix(0, first).UTC().Format(time.RFC3339Nano),
+		LastSeen:            time.Unix(0, last).UTC().Format(time.RFC3339Nano),
+		History:             history,
 	}
 }
 
