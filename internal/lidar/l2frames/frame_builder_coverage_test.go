@@ -605,6 +605,13 @@ func TestDroppedFrames_ChannelFull(t *testing.T) {
 		FrameChCapacity: 1,
 	})
 
+	// Stop the background cleanup timer so it cannot race with our test.
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+
 	// Send one frame that will be picked up by the worker and block on blocker.
 	fb.frameCh <- &LiDARFrame{FrameID: "f0", SensorID: "test-dropped-full", PointCount: 1}
 	// Wait briefly for the worker to start processing f0.
@@ -612,24 +619,17 @@ func TestDroppedFrames_ChannelFull(t *testing.T) {
 	// Fill the channel buffer (capacity 1).
 	fb.frameCh <- &LiDARFrame{FrameID: "f1", SensorID: "test-dropped-full", PointCount: 1}
 
-	// Now the channel is full. Create and finalise a frame to trigger the drop.
-	fb.mu.Lock()
-	fb.currentFrame = &LiDARFrame{
+	// Build a frame that finalizeFrame will accept.
+	frame := &LiDARFrame{
 		FrameID:    "f2",
 		SensorID:   "test-dropped-full",
 		PointCount: 5000,
 		MinAzimuth: 0,
 		MaxAzimuth: 359.5,
 	}
-	// Ensure the frame looks complete (>= minFramePoints, full rotation)
-	fb.minFramePoints = 1
-	fb.mu.Unlock()
 
 	// Call finalizeFrame directly — it attempts to push onto frameCh,
 	// which is full, so the default branch should fire.
-	fb.mu.Lock()
-	frame := fb.currentFrame
-	fb.mu.Unlock()
 	fb.finalizeFrame(frame, "test-force")
 
 	if fb.DroppedFrames() != 1 {
