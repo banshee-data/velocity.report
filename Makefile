@@ -316,7 +316,8 @@ dmg-mac:
 		echo "Error: VelocityVisualiser.app not found. Run 'make build-mac' first."; \
 		exit 1; \
 	fi
-	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(VERSION)"
+	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(VERSION)" \
+		"$(VISUALISER_DIR)/Getting Started.txt"
 
 # =============================================================================
 # PROTOBUF CODE GENERATION

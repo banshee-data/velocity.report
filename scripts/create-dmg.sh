@@ -2,16 +2,20 @@
 # create-dmg.sh — Package a .app bundle into a drag-to-install DMG.
 #
 # Usage:
-#   scripts/create-dmg.sh <app-path> <dmg-path> <volume-name>
+#   scripts/create-dmg.sh <app-path> <dmg-path> <volume-name> [extras...]
+#
+# Any additional paths after the volume name are copied into the DMG root.
 #
 # The resulting DMG opens in a small Finder window with the app icon on the
-# left and an Applications shortcut on the right, ready for drag-and-drop
-# installation. No background image is used.
+# left, any extras in the centre, and an Applications shortcut on the right,
+# ready for drag-and-drop installation. No background image is used.
 set -euo pipefail
 
-APP_PATH="${1:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name>}"
-DMG_PATH="${2:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name>}"
-VOLUME_NAME="${3:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name>}"
+APP_PATH="${1:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name> [extras...]}"
+DMG_PATH="${2:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name> [extras...]}"
+VOLUME_NAME="${3:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name> [extras...]}"
+shift 3
+EXTRAS=("$@")
 
 if [ "$(uname)" != "Darwin" ]; then
   echo "Error: create-dmg.sh requires macOS" >&2
@@ -31,6 +35,17 @@ trap 'rm -rf "$staging"' EXIT
 
 cp -R "$APP_PATH" "$staging/$APP_NAME"
 ln -s /Applications "$staging/Applications"
+
+# Copy any extra files (e.g. Getting Started guide) into the DMG root.
+extra_names=()
+for extra in "${EXTRAS[@]}"; do
+  if [ -e "$extra" ]; then
+    cp -R "$extra" "$staging/"
+    extra_names+=("$(basename "$extra")")
+  else
+    echo "Warning: extra file not found, skipping: $extra" >&2
+  fi
+done
 
 # ── 2. Create writable DMG ───────────────────────────────────────────────────
 # Size the image to fit the app bundle plus headroom.
@@ -69,8 +84,14 @@ if [ ! -d "$mount_point" ]; then
 fi
 
 # Apply Finder view settings via AppleScript.
-# Window: 480 × 320, icon view, 80 px icons, no toolbar/sidebar.
-# App icon at (120, 160), Applications at (360, 160) — centred side-by-side.
+# Window: 520 × 340, icon view, 72 px icons, no toolbar/sidebar.
+# Three columns: app at left, extras centred, Applications at right.
+extra_positions=""
+for name in "${extra_names[@]}"; do
+  extra_positions="${extra_positions}
+    set position of item \"${name}\" of container window to {260, 160}"
+done
+
 osascript <<EOF
 tell application "Finder"
   tell disk "$VOLUME_NAME"
@@ -78,12 +99,13 @@ tell application "Finder"
     set current view of container window to icon view
     set toolbar visible of container window to false
     set statusbar visible of container window to false
-    set bounds of container window to {100, 100, 580, 420}
+    set bounds of container window to {100, 100, 620, 440}
     set theViewOptions to icon view options of container window
     set arrangement of theViewOptions to not arranged
-    set icon size of theViewOptions to 80
-    set position of item "$APP_NAME" of container window to {120, 160}
-    set position of item "Applications" of container window to {360, 160}
+    set icon size of theViewOptions to 72
+    set position of item "$APP_NAME" of container window to {130, 160}
+    ${extra_positions}
+    set position of item "Applications" of container window to {390, 160}
     close
     open
     update without registering applications

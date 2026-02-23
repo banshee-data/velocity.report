@@ -101,9 +101,15 @@ tools/visualiser-macos/build/VelocityVisualiser-<VERSION>.dmg
 ```
 
 The DMG opens in a small Finder window with VelocityVisualiser.app on the
-left and an Applications shortcut on the right for drag-and-drop installation.
-The layout is configured by `scripts/create-dmg.sh`. The version is read from
-the `VERSION` variable in the Makefile.
+left, a `Getting Started.txt` guide in the centre, and an Applications
+shortcut on the right for drag-and-drop installation. The layout is
+configured by `scripts/create-dmg.sh`. The version is read from the
+`VERSION` variable in the Makefile.
+
+The Getting Started guide (`tools/visualiser-macos/Getting Started.txt`)
+covers server setup, connecting the app, keyboard shortcuts, and basic
+troubleshooting. Edit it in the repository and it will be included in the
+next DMG build.
 
 > **CI:** Tagged releases (`v*`) and manual workflow dispatches automatically
 > produce the DMG as a downloadable artefact in the `🍎 macOS CI` workflow.
