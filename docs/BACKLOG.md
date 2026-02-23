@@ -1,6 +1,6 @@
 # Backlog
 
-Single source of truth for project-wide work items in velocity.report. Each task links to its own design document with syntax `[#$pr] (#$issue) $title - $task [design doc]($url)`. Individual docs in `plans/` describe single projects, not priority lists.
+Single source of truth for project-wide work items in velocity.report. Where available, tasks link to a design document using syntax `[#$pr] (#$issue) $title - $task [design doc]($url)`; tasks without a design doc use just the backlog entry and effort tag. Individual docs in `plans/` describe single projects, not priority lists.
 
 ## v0.5
 
