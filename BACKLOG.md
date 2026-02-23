@@ -8,6 +8,8 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Simplification and deprecation programme (Project A/B) — deprecation signalling, deploy retirement gate, and migration plan task list — [design doc](docs/plans/platform-simplification-and-deprecation-plan.md)
 - Sweep/HINT platform hardening — transform pipeline, objective registry, explainability — [design doc](docs/lidar/architecture/ml-solver-expansion.md)
 - Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](docs/lidar/operations/settling-time-optimization.md)
+- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/tooling-python-venv-consolidation-plan.md)
+- Precompiled LaTeX — faster PDF report generation via vendored TeX tree; v0.6 critical path — [design doc](docs/plans/pdf-latex-precompiled-format-plan.md)
 
 ## P2 — Later
 
@@ -21,14 +23,14 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Transit deduplication — duplicate transit record prevention — [design doc](docs/radar/architecture/transit-deduplication.md)
 - Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](docs/lidar/operations/track-labeling-ui-implementation.md)
 - HINT sweep polish — 11 remaining polish items — [operations design doc](docs/lidar/operations/hint-sweep-mode.md), [polish stub](docs/plans/lidar-sweep-hint-mode-plan.md)
-- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/tooling-python-venv-consolidation-plan.md)
 - SQLite client standardization — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](docs/plans/data-sqlite-client-standardization-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](docs/ui/design-review-and-improvement.md)
 - Widescreen content containment — add vr-page max-width centering at ≥3000px — [design doc §2.2](docs/ui/design-review-and-improvement.md)
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](docs/ui/design-review-and-improvement.md)
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](docs/plans/lidar-architecture-foundations-fixit-plan.md)
 - Coverage improvement — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](docs/plans/platform-quality-coverage-improvement-plan.md)
-- Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](docs/plans/pdf-latex-precompiled-format-plan.md)
+- Documentation standardisation — metadata and validation gates for all docs — [design doc](docs/plans/platform-documentation-standardization-plan.md)
+- Speed limit schedules — time-based speed limits for school zones and weekday/weekend variation — [design doc](docs/radar/architecture/speed-limit-schedules.md)
 
 ## P3 — Deferred / Research
 
@@ -47,7 +49,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Coverage thresholds — raise codecov thresholds to meaningful levels after coverage improves — [design doc §7.5](docs/ui/design-review-and-improvement.md)
 - Visualiser performance and scene health metrics — timeline and VR log metrics — [design doc](docs/plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md)
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](docs/plans/web-frontend-background-debug-surfaces-plan.md)
-- Documentation standardization — metadata and validation gates for all docs — [design doc](docs/plans/platform-documentation-standardization-plan.md)
+- Cosine error correction tracking — time-based cosine correction with SCD Type 6 — [design doc](docs/radar/architecture/site-config-cosine-correction-spec.md)
 
 ## Complete
 

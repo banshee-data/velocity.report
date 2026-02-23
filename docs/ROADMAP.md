@@ -14,6 +14,7 @@ geometry-prior services.
 | Document                                                                                       | Scope                                                |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | [BACKLOG.md](../BACKLOG.md)                                                                    | Priority-ordered work queue (single source of truth) |
+| [DECISIONS.md](DECISIONS.md)                                                                   | Outstanding executive decisions register              |
 | [CHANGELOG.md](../CHANGELOG.md)                                                                | Released feature history (v0.1.0 – v0.4.0)           |
 | [Vector-Scene Map Architecture](lidar/architecture/vector-scene-map.md)                        | Geometry-prior data model                            |
 | [Ground-Plane Vector-Scene Maths](maths/proposals/20260221-ground-plane-vector-scene-maths.md) | Maths for piecewise planar tiles and prior weighting |

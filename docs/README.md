@@ -21,6 +21,7 @@ Purpose: Defines the project documentation contract, folder ownership, naming co
 - `docs/plans/` # Implementation plans, roadmap
 - `docs/VISION.md` # Product vision and backlog alignment guide
 - `docs/ROADMAP.md` # Product roadmap and milestones (v0.5 → v2.0)
+- `docs/DECISIONS.md` # Outstanding executive decisions register
 - `docs/COVERAGE.md` # Test coverage tracking
 - `docs/DEVLOG.md` # Chronological development notes
 
