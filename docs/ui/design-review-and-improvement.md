@@ -1,6 +1,6 @@
 # Design Review and Improvement Plan
 
-Reference: [DESIGN.md](../../DESIGN.md), [ARCHITECTURE.md](../../ARCHITECTURE.md)
+Reference: [DESIGN.md](DESIGN.md), [ARCHITECTURE.md](../../ARCHITECTURE.md)
 Backlog: [BACKLOG.md](../BACKLOG.md) — P1 item 6
 
 ## Purpose

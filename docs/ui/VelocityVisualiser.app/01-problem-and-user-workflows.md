@@ -229,6 +229,6 @@ A **dedicated 3D visualisation tool** that:
 ## 7. Related Documents
 
 - [02-api-contracts.md](./02-api-contracts.md) – API contract between pipeline and visualiser
-- [../../plans/ui-velocity-visualiser-architecture-plan.md](../../plans/ui-velocity-visualiser-architecture-plan.md) – System architecture and module design
-- [../../plans/ui-velocity-visualiser-implementation-plan.md](../../plans/ui-velocity-visualiser-implementation-plan.md) – Incremental delivery milestones
+- [velocity-visualiser-architecture.md](../velocity-visualiser-architecture.md) – System architecture and module design
+- [velocity-visualiser-implementation.md](../velocity-visualiser-implementation.md) – Incremental delivery milestones
 - [../../lidar/troubleshooting/01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking algorithm improvements
