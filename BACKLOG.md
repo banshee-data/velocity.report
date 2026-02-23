@@ -21,7 +21,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 - Visualiser QC programme — features 1/2/3/5/7/8/10 — [design doc](docs/plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 - Transit deduplication — duplicate transit record prevention — [design doc](docs/radar/architecture/transit-deduplication.md)
-- Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](docs/lidar/operations/track-labeling-ui-implementation.md)
+- Track labelling UI enhancements — Phase 9: seekable replay, Swift-native labelling; target v0.7 (D-07) — [design doc](docs/lidar/operations/track-labeling-ui-implementation.md)
 - HINT sweep polish — 11 remaining polish items — [operations design doc](docs/lidar/operations/hint-sweep-mode.md), [polish stub](docs/plans/lidar-sweep-hint-mode-plan.md)
 - SQLite client standardization — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](docs/plans/data-sqlite-client-standardization-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](docs/ui/design-review-and-improvement.md)
@@ -31,6 +31,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Coverage improvement — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](docs/plans/platform-quality-coverage-improvement-plan.md)
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](docs/plans/platform-documentation-standardization-plan.md)
 - Speed limit schedules — time-based speed limits for school zones and weekday/weekend variation — [design doc](docs/radar/architecture/speed-limit-schedules.md)
+- Cosine error correction documentation — DB schema, API, and Svelte UI are largely implemented (SCD Type 6 site_config_periods); review and document existing feature — [design doc](docs/radar/architecture/site-config-cosine-correction-spec.md)
 
 ## P3 — Deferred / Research
 
@@ -49,7 +50,6 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Coverage thresholds — raise codecov thresholds to meaningful levels after coverage improves — [design doc §7.5](docs/ui/design-review-and-improvement.md)
 - Visualiser performance and scene health metrics — timeline and VR log metrics — [design doc](docs/plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md)
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](docs/plans/web-frontend-background-debug-surfaces-plan.md)
-- Cosine error correction tracking — time-based cosine correction with SCD Type 6 — [design doc](docs/radar/architecture/site-config-cosine-correction-spec.md)
 
 ## Complete
 

@@ -17,12 +17,12 @@ the summary table below.
 
 | Domain | Open | Resolved | Source Documents |
 | --- | --- | --- | --- |
-| Sensor Fusion & Data | 3 | 0 | VISION, TDL plan, radar arch |
-| LiDAR Perception | 4 | 0 | maths proposals, ROADMAP |
-| Deployment & Packaging | 3 | 0 | RPi imager, LaTeX, distribution plans |
-| Frontend & UI | 3 | 0 | DESIGN, frontend consolidation, design review |
-| Platform & Infrastructure | 3 | 0 | simplification, SQLite, coverage plans |
-| **Total** | **16** | **0** | |
+| Sensor Fusion & Data | 0 | 3 | VISION, TDL plan, radar arch |
+| LiDAR Perception | 0 | 4 | maths proposals, ROADMAP |
+| Deployment & Packaging | 0 | 3 | RPi imager, LaTeX, distribution plans |
+| Frontend & UI | 0 | 3 | DESIGN, frontend consolidation, design review |
+| Platform & Infrastructure | 0 | 3 | simplification, SQLite, coverage plans |
+| **Total** | **0** | **16** | |
 
 ---
 
@@ -46,6 +46,8 @@ the summary table below.
 
 **Depends on:** D-02 (FFT ingestion decision), SQLite client standardisation.
 
+**✅ Resolved: Option C — Defer until Phase B.** The fused transit schema is not yet needed; premature schema lock carries more risk than deferral. Revisit when LiDAR perception matures and sensor fusion work begins.
+
 ---
 
 ### D-02  FFT Radar Feed Ingestion
@@ -64,6 +66,8 @@ the summary table below.
 
 **Recommendation:** Option B. FFT is valuable but not blocking for the v1.0 production contract. Revisit when sensor fusion (Phase B) lands.
 
+**✅ Resolved: Option B — Defer to v2.0.** Focus on packaging and deployment for v0.6–v1.0; FFT ingestion revisited alongside sensor fusion work.
+
 ---
 
 ### D-03  Transit Deduplication Strategy
@@ -81,6 +85,8 @@ the summary table below.
 | **C — Append-only with dedup view** | No mutations; audit trail preserved | Storage growth; query complexity; RPi disk constraints |
 
 **Recommendation:** Option A as proposed. Schedule for v0.7 alongside SQLite client standardisation.
+
+**✅ Resolved: Option A — Delete-before-insert.** Simple, deterministic deduplication with model version tracking. Scheduled for v0.7.
 
 ---
 
@@ -101,6 +107,8 @@ the summary table below.
 | **C — Defer to v1.0** (alongside unified settling) | Groups maths work together | Long delay; degrades LiDAR credibility |
 
 **Recommendation:** Option B. Ship v0.5 with current guards, implement geometry-coherent tracking early in the v0.6 cycle. The existing Guard 3 (90° jump rejection) provides adequate interim mitigation.
+
+**✅ Resolved: Option B — Schedule for v0.6 cycle.** Ship v0.5 with current guards; implement geometry-coherent tracking early in v0.6.
 
 ---
 
@@ -123,6 +131,8 @@ the summary table below.
 
 **Recommendation:** Confirm P1 → P2 → P4 → P3. Move P4 (unify settling) before P3 (ground-plane) because it reduces operational complexity that aids P3 implementation. This reorders the last two but preserves the ROADMAP's v1.0 settling target.
 
+**✅ Resolved: P1 → P2 → P4 → P3 confirmed.** Geometry-coherent first (highest visual impact), then velocity-coherent (improves P1), then unify settling (reduces complexity), then ground-plane (benefits from settled infrastructure).
+
 ---
 
 ### D-06  OBB Heading Stability — Remaining Fixes (D, E, F)
@@ -140,6 +150,8 @@ the summary table below.
 
 **Recommendation:** Option B. The review document already marks D/E/F as superseded by P1. Confirm and close.
 
+**✅ Resolved: Option B — Skip; let P1 supersede.** Fixes D/E/F are superseded by geometry-coherent tracking (D-04). No incremental work needed.
+
 ---
 
 ### D-07  LiDAR Track Labelling UI Completion
@@ -156,6 +168,8 @@ the summary table below.
 | **B — Defer Phase 9 UI to v2.0** | Focus v0.7 on web frontend; ML isn't needed until v2.0 | Longer gap before labelled training data accumulates |
 
 **Recommendation:** Option B. The ML classifier is a v2.0 feature. Labelled data can accumulate via the existing (partial) UI; the Swift-native enhancements can ship with the QC programme.
+
+**✅ Resolved: Option A — Complete Phase 9 UI for v0.7.** Labelled training data accumulation benefits from early UI investment. Ship Swift-native labelling enhancements in v0.7 to maximise the labelled dataset available for ML training in v2.0.
 
 ---
 
@@ -177,6 +191,8 @@ the summary table below.
 
 **Recommendation:** Option A as proposed. It preserves the offline-first principle and professional-quality output. This is a v0.6 critical-path item.
 
+**✅ Resolved: Option A — Vendored TeX tree + precompiled .fmt.** Preserves offline-first principle and professional LaTeX output quality. v0.6 critical path confirmed.
+
 ---
 
 ### D-09  Single Binary Architecture
@@ -194,6 +210,8 @@ the summary table below.
 
 **Recommendation:** Option A. The combined binary size is acceptable for a Go application. Ship in v0.6 as planned.
 
+**✅ Resolved: Option A — Single binary with subcommands.** Combined binary size is acceptable. Ship in v0.6.
+
 ---
 
 ### D-10  RPi Image Tier Strategy
@@ -205,6 +223,8 @@ the summary table below.
 **Decision needed:** Confirm tier definitions and whether all three ship in v0.6 or only the Standard tier, with others following later.
 
 **Recommendation:** Ship Standard tier only in v0.6. Lite and Full tiers add maintenance burden with limited user demand at launch. Revisit for v0.7 or v1.0 based on adoption feedback.
+
+**✅ Resolved: pi-gen + TinyTeX, single tier.** Use pi-gen for image building with TinyTeX (not full TeX Live) for the LaTeX runtime. Ship a single image tier in v0.6. Additionally, report downloads (.zip) must include the .tex source files alongside the compiled PDF so that users can edit and recompile reports locally. Add this as a product specification to the RPi imager plan.
 
 ---
 
@@ -226,6 +246,8 @@ the summary table below.
 
 **Recommendation:** Option A for v0.7 as planned, but establish a clear priority order: migrate the 3–4 most-used charts first, then retire Go dashboards, then migrate remaining charts. This gives an early exit point if v0.7 scope needs trimming.
 
+**✅ Resolved: Option A — Rewrite all 8 charts in v0.7.** Prioritise the most-used charts first; retire Go dashboards (~2,000 lines) once Svelte replacements are complete.
+
 ---
 
 ### D-12  Web Palette Migration (Percentile Colours)
@@ -242,6 +264,8 @@ the summary table below.
 | **B — Wait for v0.7 to fix everything at once** | Single palette migration; no transitional inconsistency | Non-compliant palette ships in two more releases |
 
 **Recommendation:** Option A. Svelte palette is already compliant (PR #286). Document the ECharts gap as a known limitation until v0.7.
+
+**✅ Resolved: Option A — Fix Svelte charts now, ECharts in v0.7.** Svelte palette already compliant (PR #286). ECharts palette gap documented as a known limitation until v0.7 migration.
 
 ---
 
@@ -260,6 +284,8 @@ the summary table below.
 
 **Recommendation:** Option A. It is a small CSS change with no downstream risk.
 
+**✅ Resolved: Option B — Defer to v0.7 frontend consolidation.** Address widescreen containment as part of the coherent layout overhaul in v0.7 rather than a standalone fix.
+
 ---
 
 ## 5  Platform & Infrastructure
@@ -273,6 +299,8 @@ the summary table below.
 **Decision needed:** Define the Phase 1 scope for v0.6. Which deprecations ship first?
 
 **Recommendation:** Phase 1 should target: (1) retire `cmd/deploy` once single binary lands, (2) deprecation warnings on superseded Make targets, (3) flag old CLI options with "deprecated" messages. Defer removal to v0.7 after one release cycle of warnings.
+
+**✅ Resolved: Plan confirmed as proposed.** Phase 1 scope for v0.6: retire `cmd/deploy` after single binary, deprecation warnings on Make targets, "deprecated" flags on old CLI options. Removal deferred to v0.7.
 
 ---
 
@@ -292,6 +320,8 @@ the summary table below.
 
 **Recommendation:** Option A for v1.0 as planned. Disk growth is a real concern for RPi deployments running months of continuous collection.
 
+**✅ Resolved: Option A — Implement for v1.0.** Disk growth on long-running RPi deployments is a real concern. Ship partition rotation with union views in v1.0.
+
 ---
 
 ### D-16  Speed Limit Schedules (Time-Based Limits)
@@ -310,28 +340,34 @@ the summary table below.
 
 **Recommendation:** Option C. Score via the decision matrix (§3 of ROADMAP) and place in the appropriate milestone based on the result.
 
+**✅ Resolved: Option C — Add to BACKLOG P2 and score via decision matrix.** Speed limit schedules added to BACKLOG P2. Score via ROADMAP §3 decision matrix to determine milestone placement.
+
 ---
 
 ## Cross-Cutting: ROADMAP / BACKLOG Alignment
 
-### Inconsistencies Found
+### Inconsistencies Found and Resolved
 
 | Item | ROADMAP Says | BACKLOG Says | Resolution |
 | --- | --- | --- | --- |
-| Python venv consolidation | v0.5 | P2 (Later) | **Promote to P1** in BACKLOG — it is small (S) and listed in v0.5 |
-| Documentation standardisation | v0.5 | P3 (Deferred) | **Promote to P2** in BACKLOG — scheduled for v0.5 but not high-urgency; P2 is more appropriate than P3 |
-| Profile comparison system | v0.7 | P2 (Later) | **Consistent** — P2 maps to v0.7 correctly |
-| Precompiled LaTeX | v0.6 | P2 (Later) | **Promote to P1** in BACKLOG — it is on v0.6 critical path |
-| Speed limit schedules | Not listed | Not listed | **Add to BACKLOG P2** and score via decision matrix (see D-16) |
-| Cosine error correction | Not listed | Not listed | **Add to BACKLOG P3** — design exists but no implementation plan |
+| Python venv consolidation | v0.5 | P1 | ✅ **Aligned** — promoted to P1 |
+| Documentation standardisation | v0.5 | P2 | ✅ **Aligned** — promoted to P2 |
+| Profile comparison system | v0.7 | P2 (Later) | ✅ **Consistent** — P2 maps to v0.7 correctly |
+| Precompiled LaTeX | v0.6 | P1 | ✅ **Aligned** — promoted to P1 |
+| Speed limit schedules | Not listed | P2 | ✅ **Added** to BACKLOG P2 (D-16) |
+| Cosine error correction | Not listed | P2 | ✅ **Updated** — largely implemented; document existing feature and review gaps |
+| Track labelling UI (D-07) | v2.0 (QC) | P2 | ✅ **Updated** — Phase 9 UI moved to v0.7 per D-07 resolution |
 
 ---
 
 ## Next Steps
 
-1. **Resolve each D-*nn* decision** — record the outcome inline (strike through rejected options).
-2. **Update BACKLOG.md** — apply the alignment fixes above (promote venv and LaTeX; add missing items).
-3. **Update ROADMAP.md** — if any decisions change milestone placement.
-4. **Promote VISION.md from Draft** — the content is stable; change status to Active once D-01 and D-02 are resolved.
-5. **Begin P1 maths work** — geometry-coherent tracking (D-04) is the highest-impact open technical item.
-6. **Re-score new items** — run speed limit schedules and cosine correction through the decision matrix.
+All 16 decisions are resolved. Remaining actions:
+
+1. ~~Resolve each D-*nn* decision~~ — ✅ all 16 resolved.
+2. ~~Update BACKLOG.md~~ — ✅ alignment fixes applied.
+3. **Update ROADMAP.md** — add D-07 (track labelling UI v0.7) and D-10 (.tex in report downloads) to relevant milestones.
+4. **Promote VISION.md from Draft** — the content is stable; change status to Active once fused transit schema work begins.
+5. **Begin P1 maths work** — geometry-coherent tracking (D-04) scheduled for v0.6 cycle.
+6. **Document cosine error correction** — review existing DB/API/frontend implementation and write user-facing feature documentation.
+7. **Score speed limit schedules** — run through the decision matrix (ROADMAP §3) to determine milestone placement.
