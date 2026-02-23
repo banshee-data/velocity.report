@@ -126,3 +126,17 @@ Tracking consumes:
 - counts/intensity/height metrics.
 
 Association quality is therefore jointly constrained by clustering noise and tracker gating math.
+
+## 9. Observability and Performance Benchmarking
+
+Per-frame and per-track diagnostic metrics, a CI benchmark harness for DBSCAN/pipeline performance regression, and Raspberry Pi tuning guidance are specified in the companion plan:
+
+**[Clustering Observability and Benchmark Harness](../plans/lidar-clustering-observability-and-benchmark-plan.md)**
+
+Key areas covered:
+
+- **A.1** Per-frame pipeline stage timing (`FrameStageTiming`)
+- **A.2** Per-track association diagnostics (Mahalanobis distance, innovation residuals, area ratio)
+- **A.4** Cluster quality metrics (`PointDensity`, `RangeMean`, `DBSCANNeighboursVisited`)
+- **B.1–B.5** pcap-analyse benchmark harness with clustering-specific metrics and CI regression gates
+- **C.1–C.3** Raspberry Pi performance levers and frame budget
