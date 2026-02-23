@@ -812,16 +812,19 @@ func TestTrackingPipelineConfig_ThrottleDiagf(t *testing.T) {
 	}
 }
 
-// TestTrackingPipelineConfig_FailedMaskError verifies the ops log fires when
-// ProcessFramePolarWithMask returns a nil mask (e.g. BackgroundManager with nil Grid).
-func TestTrackingPipelineConfig_FailedMaskError(t *testing.T) {
+// TestTrackingPipelineConfig_NilMaskEarlyReturn verifies the ops log fires and
+// the callback returns early when ProcessFramePolarWithMask yields a nil mask
+// (not an error — the zero-value BackgroundManager has a nil Grid, so the
+// method returns (nil, nil)). The pipeline treats a nil mask the same as an
+// error and logs via opsf.
+func TestTrackingPipelineConfig_NilMaskEarlyReturn(t *testing.T) {
 	var opsBuf bytes.Buffer
 	SetLogWriters(&opsBuf, nil, nil)
 	defer SetLogWriters(nil, nil, nil)
 
-	sensorID := "coverage-mask-err-" + t.Name()
-	// Use a BackgroundManager with a nil Grid: ProcessFramePolarWithMask
-	// returns (nil, nil), causing the pipeline to log via opsf and return early.
+	sensorID := "coverage-nil-mask-" + t.Name()
+	// Zero-value BackgroundManager: Grid is nil, so ProcessFramePolarWithMask
+	// returns (nil, nil) — a nil mask with no error.
 	bgMgr := &l3grid.BackgroundManager{}
 
 	cfg := &TrackingPipelineConfig{
@@ -835,7 +838,7 @@ func TestTrackingPipelineConfig_FailedMaskError(t *testing.T) {
 
 	// Send a frame with a real point so it reaches ProcessFramePolarWithMask.
 	frame := &l2frames.LiDARFrame{
-		FrameID:        "mask-error-frame",
+		FrameID:        "nil-mask-frame",
 		StartTimestamp: now,
 		Points: []l2frames.Point{
 			{Channel: 1, Azimuth: 0, Distance: 10.0, Intensity: 100, Timestamp: now},

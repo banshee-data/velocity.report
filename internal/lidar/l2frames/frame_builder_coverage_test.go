@@ -640,3 +640,53 @@ func TestDroppedFrames_ChannelFull(t *testing.T) {
 	close(blocker)
 	fb.Close()
 }
+
+func TestDroppedFrames_ResetClearsCounter(t *testing.T) {
+	// Verify that Reset() zeroes the dropped frame counter so
+	// per-run diagnostics (e.g. PCAP replay) start fresh.
+	blocker := make(chan struct{})
+	cb := func(f *LiDARFrame) {
+		<-blocker
+	}
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-dropped-reset",
+		FrameCallback:   cb,
+		FrameChCapacity: 1,
+	})
+
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+
+	// Fill the channel to force a drop.
+	fb.frameCh <- &LiDARFrame{FrameID: "r0", SensorID: "test-dropped-reset", PointCount: 1}
+	time.Sleep(10 * time.Millisecond)
+	fb.frameCh <- &LiDARFrame{FrameID: "r1", SensorID: "test-dropped-reset", PointCount: 1}
+
+	frame := &LiDARFrame{
+		FrameID:    "r2",
+		SensorID:   "test-dropped-reset",
+		PointCount: 5000,
+		MinAzimuth: 0,
+		MaxAzimuth: 359.5,
+	}
+	fb.finalizeFrame(frame, "test-force")
+
+	if fb.DroppedFrames() != 1 {
+		t.Fatalf("precondition: expected 1 dropped frame; got %d", fb.DroppedFrames())
+	}
+
+	// Unblock the worker before Reset() — Reset() doesn't drain the channel.
+	close(blocker)
+	time.Sleep(10 * time.Millisecond)
+
+	fb.Reset()
+
+	if fb.DroppedFrames() != 0 {
+		t.Errorf("expected 0 dropped frames after Reset(); got %d", fb.DroppedFrames())
+	}
+
+	fb.Close()
+}
