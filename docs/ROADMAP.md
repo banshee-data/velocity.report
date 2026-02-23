@@ -97,8 +97,9 @@ Sensors ──► Go Server ──► SQLite ──► Web Frontend
 
 **Exit criteria:** A user can flash an SD card, boot a Raspberry Pi, and see
 live speed data in a browser within 15 minutes. GitHub Releases publishes
-checksummed artefacts on tag push. RPi image uses TinyTeX (single tier, D-10);
-report `.zip` downloads include `.tex` source alongside compiled PDF.
+checksummed artefacts on tag push. RPi image uses precompiled `.fmt`
+(single tier, D-08/D-10); report `.zip` downloads include `.tex` source
+alongside compiled PDF.
 
 ---
 
@@ -117,6 +118,7 @@ report `.zip` downloads include `.tex` source alongside compiled PDF.
 | Accessibility testing pass                       | BACKLOG P2                                                       | S      |
 | Widescreen content containment (D-13)            | BACKLOG P2                                                       | S      |
 | Profile comparison system (cross-run evaluation) | BACKLOG P2                                                       | M      |
+| Speed limit schedules (D-16)                     | [speed-limits](radar/architecture/speed-limit-schedules.md)      | L      |
 
 **Exit criteria:** Single Svelte app on `:8080` with conditional LiDAR sections.
 All radar-path SQL routed through canonical DB layer. WCAG 2.1 AA for core
@@ -244,6 +246,7 @@ shown below.
 | Online geometry-prior service | 2 (6)           | 1 (2)        | 2 (4)            | 1 (1)       | 1 (1)         | **14** | v2.0      |
 | AV dataset integration        | 0 (0)           | 2 (4)        | 0 (0)            | 0 (0)       | 1 (1)         | **5**  | Deferred  |
 | Motion capture architecture   | 0 (0)           | 2 (4)        | 0 (0)            | 0 (0)       | 1 (1)         | **5**  | Deferred  |
+| Speed limit schedules         | 2 (6)           | 2 (4)        | 1 (2)            | 1 (1)       | 1 (1)         | **14** | v0.7      |
 
 ### Key Placement Rationale
 
@@ -256,6 +259,12 @@ so v0.6 can focus on packaging without chasing regressions.
 Phase 3 (ECharts → LayerChart rewrite for 8 charts) requires ~2–3 weeks alone.
 Shipping the deployment story (v0.6) first ensures early adopters can install
 the system; the unified frontend is polish for v1.0 readiness.
+
+**Why speed limit schedules is v0.7 (D-16):**
+Scores 14 on the decision matrix. School zone monitoring directly serves
+neighbourhood advocates, fitting the v0.7 "Radar Polish" theme. The existing
+`site_config_periods` SCD Type 6 pattern provides the schema foundation;
+schedules extend it with time-of-day/day-of-week rules.
 
 **Why geometry-prior local file is v1.0, not earlier:**
 The vector-scene map schema must be stable before the online service (v2.0) can
@@ -303,6 +312,7 @@ v0.7 (Unified Frontend)
   ├── SQLite client standardisation
   ├── Transit deduplication (D-03)
   ├── Profile comparison system
+  ├── Speed limit schedules (D-16)
   └── Accessibility + widescreen polish (D-13)
         │
 v1.0 (Production-Ready)

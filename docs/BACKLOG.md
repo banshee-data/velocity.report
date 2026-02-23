@@ -31,7 +31,7 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Coverage improvement — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](plans/platform-quality-coverage-improvement-plan.md)
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md)
 - Speed limit schedules — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md)
-- Cosine error correction documentation — DB schema, API, and Svelte UI are largely implemented (SCD Type 6 site_config_periods); review and document existing feature — [design doc](radar/architecture/site-config-cosine-correction-spec.md)
+- Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md)
 
 ## P3 — Deferred / Research
 
