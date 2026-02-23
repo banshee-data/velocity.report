@@ -318,6 +318,87 @@ func TestComputeClusterMetrics(t *testing.T) {
 	}
 }
 
+func TestDBSCAN_Subsample(t *testing.T) {
+	// Generate a large dense cluster that exceeds MaxInputPoints to exercise
+	// the uniformSubsample branch and the entire subsample function body.
+	const nPoints = 200
+	const maxInput = 50
+
+	points := make([]WorldPoint, nPoints)
+	now := time.Now()
+	for i := range points {
+		angle := float64(i) * 2 * math.Pi / float64(nPoints)
+		points[i] = WorldPoint{
+			X:         0.3 * math.Cos(angle),
+			Y:         0.3 * math.Sin(angle),
+			Z:         0.0,
+			Intensity: 100,
+			Timestamp: now,
+			SensorID:  "test-subsample",
+		}
+	}
+
+	params := testDBSCANParams(0.6, 3)
+	params.MaxInputPoints = maxInput
+
+	clusters := DBSCAN(points, params)
+
+	// With subsampling the cluster may fragment, but we should still get at
+	// least one cluster from the dense ring.
+	if len(clusters) == 0 {
+		t.Error("expected at least 1 cluster after subsampling, got 0")
+	}
+
+	// Total points across all clusters must not exceed the subsample cap.
+	totalPts := 0
+	for _, c := range clusters {
+		totalPts += c.PointsCount
+	}
+	if totalPts > maxInput {
+		t.Errorf("total clustered points (%d) should not exceed MaxInputPoints (%d)", totalPts, maxInput)
+	}
+}
+
+func TestUniformSubsample_NopWhenSmall(t *testing.T) {
+	// When n >= len(points), the original slice is returned unmodified.
+	points := make([]WorldPoint, 10)
+	for i := range points {
+		points[i] = WorldPoint{X: float64(i), SensorID: "test"}
+	}
+	result := uniformSubsample(points, 10)
+	if len(result) != 10 {
+		t.Errorf("expected 10 points, got %d", len(result))
+	}
+	result2 := uniformSubsample(points, 20)
+	if len(result2) != 10 {
+		t.Errorf("expected 10 points (nop), got %d", len(result2))
+	}
+}
+
+func TestUniformSubsample_ReducesCount(t *testing.T) {
+	const total = 100
+	const want = 30
+	points := make([]WorldPoint, total)
+	for i := range points {
+		points[i] = WorldPoint{X: float64(i), SensorID: "test"}
+	}
+	result := uniformSubsample(points, want)
+	if len(result) != want {
+		t.Errorf("expected %d points, got %d", want, len(result))
+	}
+
+	// Verify all returned points are from the original set.
+	origSet := make(map[float64]bool, total)
+	for _, p := range points {
+		origSet[p.X] = true
+	}
+	for _, p := range result {
+		if !origSet[p.X] {
+			t.Errorf("returned point X=%v not in original set", p.X)
+		}
+	}
+}
+
 func TestDefaultDBSCANParams(t *testing.T) {
 	params := DefaultDBSCANParams()
 
