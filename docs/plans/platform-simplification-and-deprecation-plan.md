@@ -19,8 +19,8 @@ This plan is scoped to capabilities that are not essential to the core query-ser
 - Top-level `cmd/` applications: `radar`, `deploy`, `sweep`, `transit-backfill`, `tools/*`
 - `cmd/radar` CLI flags: 32 (`cmd/radar/radar.go`)
 - Existing strategic dependencies:
-  - Raspberry Pi image pipeline: [#210](../../BACKLOG.md)
-  - Frontend consolidation: [#252](../../BACKLOG.md)
+  - Raspberry Pi image pipeline: [#210](../BACKLOG.md)
+  - Frontend consolidation: [#252](../BACKLOG.md)
 
 ## What is Core vs Non-Core
 
@@ -48,14 +48,14 @@ This plan is scoped to capabilities that are not essential to the core query-ser
 - `build-deploy`, `build-deploy-linux`
 - `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`
 
-Rationale: these are superseded by the image-builder direction once [#210](../../BACKLOG.md) lands.
+Rationale: these are superseded by the image-builder direction once [#210](../BACKLOG.md) lands.
 
 #### B. Data visualisation wrappers (medium priority)
 
 - `plot-noise-sweep`, `plot-multisweep`, `plot-noise-buckets`
 - `stats-live`, `stats-pcap`
 
-Rationale: these duplicate visibility goals already being migrated under frontend consolidation [#252](../../BACKLOG.md).
+Rationale: these duplicate visibility goals already being migrated under frontend consolidation [#252](../BACKLOG.md).
 
 #### C. API shortcut wrappers (medium priority)
 
@@ -78,7 +78,7 @@ Rationale: useful for development, but not required as first-class public workfl
 
 #### C. `cmd/sweep` and ad hoc `cmd/tools/*` utilities (medium priority)
 
-- `cmd/sweep` remains useful during transition, but should be reviewed after frontend sweep migration in [#252](../../BACKLOG.md).
+- `cmd/sweep` remains useful during transition, but should be reviewed after frontend sweep migration in [#252](../BACKLOG.md).
 - `cmd/tools/scan_transits.go` and narrow-scope helper tools should be either:
   - promoted and maintained as supported tooling, or
   - explicitly marked deprecated and removed.
@@ -106,18 +106,18 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 ## Consolidation Options (Metrics, Stats, Frontend)
 
-### Option 1 — Consolidate on Svelte surface (recommended)
+### Option 1 — Consolidate on Svelte surface (recommended) ✅
 
 - Use [frontend consolidation](web-frontend-consolidation-plan.md) as the canonical migration path.
 - Retire duplicated stats/debug HTML surfaces after parity is reached.
 - Move “stats/metrics first look” workflows into one route hierarchy and one API surface.
 
-### Option 2 — Keep dual surfaces but reduce documented surface
+### ~~Option 2 — Keep dual surfaces but reduce documented surface~~
 
 - Keep existing monitor pages and scripts, but mark them internal-only.
 - Lower migration risk, but retains duplicated maintenance burden.
 
-### Option 3 — CLI-first metrics workflow
+### ~~Option 3 — CLI-first metrics workflow~~
 
 - Standardise on API + CLI scripts and minimise UI migration.
 - Lowest web effort, but weakest operator UX and discoverability.

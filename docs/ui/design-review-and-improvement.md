@@ -1,13 +1,13 @@
 # Design Review and Improvement Plan
 
 Reference: [DESIGN.md](../../DESIGN.md), [ARCHITECTURE.md](../../ARCHITECTURE.md)
-Backlog: [BACKLOG.md](../../BACKLOG.md) — P1 item 6
+Backlog: [BACKLOG.md](../BACKLOG.md) — P1 item 6
 
 ## Purpose
 
 Comprehensive audit of the repository against the design contract in DESIGN.md, identifying gaps, non-compliance, and areas for improvement. Each finding includes a severity, effort estimate, and recommended action.
 
-This document describes a single project (design contract compliance). The project-wide priority list lives in [BACKLOG.md](../../BACKLOG.md).
+This document describes a single project (design contract compliance). The project-wide priority list lives in [BACKLOG.md](../BACKLOG.md).
 
 Severity levels: **Critical** (violates explicit DESIGN.md contract), **High** (undermines design goals), **Medium** (missed best practice), **Low** (polish/nice-to-have).
 

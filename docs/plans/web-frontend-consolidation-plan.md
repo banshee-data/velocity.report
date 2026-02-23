@@ -98,7 +98,7 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 
 ## Options Evaluated
 
-### Option A: Two Separate Svelte Apps (Radar App + LiDAR App)
+### ~~Option A: Two Separate Svelte Apps (Radar App + LiDAR App)~~
 
 Ship two independent SvelteKit applications, each embedded in the binary. The radar app serves on 8080, the LiDAR app on 8081 (replacing the Go-embedded HTML).
 
@@ -152,7 +152,7 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 - LiDAR routes must return an explicit "LiDAR disabled" response and must not initialize hardware when disabled
 - Single `package.json` may accumulate LiDAR-specific dependencies over time
 
-### Option C: One Svelte App with Build-Time LiDAR Exclusion
+### ~~Option C: One Svelte App with Build-Time LiDAR Exclusion~~
 
 Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip LiDAR routes at build time, producing two variants of the static output.
 
@@ -204,7 +204,7 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 | Build simplicity       | 2      | 1      | 5      | 3      |
 | **Weighted Total**     |        | **32** | **95** | **67** |
 
-## Recommendation: Option B — One Svelte App with Conditional LiDAR Sections
+## Recommendation: Option B — One Svelte App with Conditional LiDAR Sections ✅
 
 Option B is the clear winner. The single-app approach avoids duplication, keeps the build simple, and provides the best user experience. The minor downside — shipping ~50KB of unused LiDAR JavaScript in radar-only deploys — is negligible compared to the maintenance cost of two separate applications or custom build tooling.
 

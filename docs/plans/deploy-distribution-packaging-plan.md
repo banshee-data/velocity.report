@@ -229,7 +229,7 @@ make lint
 
 ## 3. Distribution Approach Tradeoffs
 
-### Approach A: Monolithic Binary (Go with Embedded Python)
+### ~~Approach A: Monolithic Binary (Go with Embedded Python)~~
 
 **Description:** Embed Python interpreter and PDF generator into Go binary using tools like `go-python` or by bundling Python as subprocess.
 
@@ -252,7 +252,7 @@ make lint
 
 ---
 
-### Approach B: Multi-Binary Suite (Go Binaries + Python Scripts)
+### ~~Approach B: Multi-Binary Suite (Go Binaries + Python Scripts)~~
 
 **Description:** Build multiple Go binaries and install Python scripts alongside them. All tools available in `$PATH`.
 
@@ -319,11 +319,11 @@ velocity-report grid-heatmap   # Heatmap visualization
 - ⚠️ Larger binary (includes all Go code)
 - ⚠️ Some functionality overlap with `make` commands
 
-**Verdict:** ✅ **Strong Candidate** - Modern CLI pattern, excellent discoverability.
+**Verdict:** ✅ **CHOSEN (D-09)** - Modern CLI pattern, excellent discoverability.
 
 ---
 
-### Approach D: Hybrid Model (Subcommands + Separate Utilities)
+### ~~Approach D: Hybrid Model (Subcommands + Separate Utilities)~~
 
 **Description:** Core functionality in main binary, specialized tools as separate binaries or scripts.
 
