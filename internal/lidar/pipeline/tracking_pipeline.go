@@ -161,13 +161,24 @@ type TrackingPipelineConfig struct {
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
 // the full tracking pipeline: foreground extraction, clustering, tracking, and persistence.
 func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame) {
+	// Snapshot scalar config values so the closure is immune to the caller
+	// mutating *cfg after NewFrameCallback returns. Interface/pointer fields
+	// (BackgroundManager, Tracker, etc.) are intentionally shared — they
+	// carry mutable state that the pipeline must see.
+	maxFrameRate := cfg.MaxFrameRate
+	voxelLeafSize := cfg.VoxelLeafSize
+	heightBandFloor := cfg.HeightBandFloor
+	heightBandCeiling := cfg.HeightBandCeiling
+	removeGround := cfg.RemoveGround
+	sensorID := cfg.SensorID
+
 	// Get AnalysisRunManager from registry if not explicitly set
 	// This allows analysis runs to be started/stopped dynamically via webserver
 	getRunManager := func() *sqlite.AnalysisRunManager {
 		if cfg.AnalysisRunManager != nil {
 			return cfg.AnalysisRunManager
 		}
-		return sqlite.GetAnalysisRunManager(cfg.SensorID)
+		return sqlite.GetAnalysisRunManager(sensorID)
 	}
 
 	// Pre-allocate a reusable polar slice to avoid 69k-element allocation
@@ -181,8 +192,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// from consuming 250%+ CPU and flooding the gRPC client with drops.
 	var lastProcessedTime time.Time
 	var minFrameInterval time.Duration
-	if cfg.MaxFrameRate > 0 {
-		minFrameInterval = time.Duration(float64(time.Second) / cfg.MaxFrameRate)
+	if maxFrameRate > 0 {
+		minFrameInterval = time.Duration(float64(time.Second) / maxFrameRate)
 	}
 	var throttledFrames atomic.Uint64
 
@@ -285,7 +296,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		// Cache sensor-frame projections for debug visualization (aligns with polar background chart)
-		l3grid.StoreForegroundSnapshot(cfg.SensorID, frame.StartTimestamp, foregroundPoints, backgroundPolar, totalPoints, len(foregroundPoints))
+		l3grid.StoreForegroundSnapshot(sensorID, frame.StartTimestamp, foregroundPoints, backgroundPolar, totalPoints, len(foregroundPoints))
 
 		if len(foregroundPoints) == 0 {
 			// No foreground detected, skip tracking
@@ -301,7 +312,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if !lastProcessedTime.IsZero() && now.Sub(lastProcessedTime) < minFrameInterval {
 				count := throttledFrames.Add(1)
 				if count%50 == 0 {
-					diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, cfg.MaxFrameRate)
+					diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, maxFrameRate)
 				}
 				// Do NOT advance miss counters during throttle.
 				// PCAP catch-up floods frames faster than real-time;
@@ -344,17 +355,17 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		tracef("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 		// Stage 2: Transform to world coordinates
-		worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, cfg.SensorID)
+		worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, sensorID)
 
 		// Stage 2b: Ground removal (vertical filtering)
 		// Remove ground plane and overhead structure returns to reduce false clusters.
 		// Bounds are in sensor frame (identity pose): Z=0 is the sensor's horizontal
 		// plane, ground is at approximately −3.0 m for a ~3 m mount height.
 		filteredPoints := worldPoints
-		if cfg.RemoveGround {
+		if removeGround {
 			var groundFilter *l4perception.HeightBandFilter
-			if cfg.HeightBandFloor != 0 || cfg.HeightBandCeiling != 0 {
-				groundFilter = l4perception.NewHeightBandFilter(cfg.HeightBandFloor, cfg.HeightBandCeiling)
+			if heightBandFloor != 0 || heightBandCeiling != 0 {
+				groundFilter = l4perception.NewHeightBandFilter(heightBandFloor, heightBandCeiling)
 			} else {
 				groundFilter = l4perception.DefaultHeightBandFilter()
 			}
@@ -375,11 +386,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Stage 2c: Voxel grid downsampling (optional).
 		// Reduces point density while preserving spatial structure, which
 		// tightens cluster boundaries and speeds up DBSCAN.
-		if cfg.VoxelLeafSize > 0 {
+		if voxelLeafSize > 0 {
 			before := len(filteredPoints)
-			filteredPoints = l4perception.VoxelGrid(filteredPoints, cfg.VoxelLeafSize)
+			filteredPoints = l4perception.VoxelGrid(filteredPoints, voxelLeafSize)
 			tracef("[Tracking] Voxel downsample: %d → %d (leaf=%.3fm)",
-				before, len(filteredPoints), cfg.VoxelLeafSize)
+				before, len(filteredPoints), voxelLeafSize)
 		}
 
 		// Stage 3: Clustering (runtime-tunable via background params)
@@ -472,7 +483,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 			// Persist track to database
 			if cfg.DB != nil {
-				worldFrame := fmt.Sprintf("site/%s", cfg.SensorID)
+				worldFrame := fmt.Sprintf("site/%s", sensorID)
 				if err := sqlite.InsertTrack(cfg.DB, track, worldFrame); err != nil {
 					opsf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
 				}
@@ -544,7 +555,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			now := time.Now()
 			if lastPruneTime.IsZero() || now.Sub(lastPruneTime) >= pruneInterval {
 				lastPruneTime = now
-				if pruned, err := sqlite.PruneDeletedTracks(cfg.DB, cfg.SensorID, deletedTrackTTL); err != nil {
+				if pruned, err := sqlite.PruneDeletedTracks(cfg.DB, sensorID, deletedTrackTTL); err != nil {
 					opsf("[Tracking] Prune deleted tracks failed: %v", err)
 				} else if pruned > 0 {
 					diagf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)

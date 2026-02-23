@@ -119,10 +119,21 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	}
 	r.endNs = frame.TimestampNanos
 
+	// Serialize frame before deciding whether to rotate, so we can check
+	// the projected post-write size and avoid creating empty chunks.
+	// (placeholder - in production, use protobuf)
+	data, err := serializeFrame(frame)
+	if err != nil {
+		return fmt.Errorf("failed to serialize frame: %w", err)
+	}
+
 	// Open new chunk if needed.
-	// Primary trigger: frame-count boundary (every ChunkSize frames).
-	// Secondary trigger: current chunk exceeds maxChunkWriteBytes, which
-	// prevents dense frames from producing chunks that fail on replay.
+	// Primary trigger: first frame.
+	// Secondary trigger: frame-count boundary (every ChunkSize frames).
+	// Tertiary trigger: projected post-write size would exceed
+	// maxChunkWriteBytes, preventing a single large frame from pushing a
+	// chunk past the limit. Uses uint64 arithmetic to avoid uint32 wrap.
+	postWriteSize := uint64(r.chunkOffset) + uint64(4+len(data))
 	needRotate := false
 	if r.currentChunk == -1 {
 		// First frame — open chunk 0.
@@ -130,27 +141,11 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	} else if r.framesInChunk >= ChunkSize {
 		// Crossed the frame-count boundary.
 		needRotate = true
-	} else if r.chunkOffset >= maxChunkWriteBytes {
-		// Current chunk is too large.
+	} else if postWriteSize > maxChunkWriteBytes {
+		// Writing this frame would exceed the chunk byte limit.
 		needRotate = true
 	}
 	if needRotate {
-		if err := r.rotateChunk(r.currentChunk + 1); err != nil {
-			return err
-		}
-	}
-
-	// Serialize frame (placeholder - in production, use protobuf)
-	data, err := serializeFrame(frame)
-	if err != nil {
-		return fmt.Errorf("failed to serialize frame: %w", err)
-	}
-
-	// Rotate before writing if the projected post-write size would exceed
-	// the chunk byte limit. This prevents a single large frame from
-	// pushing a chunk past maxChunkWriteBytes.
-	postWriteSize := uint64(r.chunkOffset) + uint64(4+len(data))
-	if r.currentChunk >= 0 && postWriteSize > maxChunkWriteBytes {
 		if err := r.rotateChunk(r.currentChunk + 1); err != nil {
 			return err
 		}

@@ -466,11 +466,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			}()
 		}
 
-		// Belt-and-braces: ensure replay mode is set before any frames are
-		// produced, even if the handler's onPCAPStarted call raced with us.
-		if ws.onPCAPStarted != nil {
-			ws.onPCAPStarted()
-		}
+		// Note: onPCAPStarted is called by the caller (StartPCAPForSweep or
+		// handlePlayPCAP) after startPCAPLocked returns, so we do not call
+		// it here to avoid double-invocation.
 
 		// Start the packet forwarder for PCAP replay.
 		// The forwarder was stopped when the live UDP listener was stopped,
