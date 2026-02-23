@@ -17,7 +17,7 @@ import (
 
 // runPCAPEval replays a PCAP file offline through a local BackgroundManager
 // and evaluates settling convergence on every frame. No server is required.
-func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*SettlingEvaluation, error) {
+func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.SettlingReport, error) {
 	start := time.Now()
 
 	// --- Load tuning configuration ---
@@ -71,7 +71,7 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*SettlingE
 	thresholds := l3grid.DefaultSettlingThresholds()
 	var (
 		mu               sync.Mutex
-		history          []SettlingMetrics
+		history          []l3grid.SettlingMetrics
 		frameCount       int
 		recommendedFrame = -1
 	)
@@ -111,14 +111,7 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*SettlingE
 		converged := metrics.IsConverged(thresholds)
 
 		mu.Lock()
-		history = append(history, SettlingMetrics{
-			CoverageRate:    metrics.CoverageRate,
-			SpreadDeltaRate: metrics.SpreadDeltaRate,
-			RegionStability: metrics.RegionStability,
-			MeanConfidence:  metrics.MeanConfidence,
-			EvaluatedAt:     metrics.EvaluatedAt,
-			FrameNumber:     metrics.FrameNumber,
-		})
+		history = append(history, metrics)
 		if converged && recommendedFrame < 0 {
 			recommendedFrame = fn
 			log.Printf("✓ convergence detected at frame %d", fn)
@@ -177,20 +170,16 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*SettlingE
 	log.Printf("replay complete: %d frames in %v", frameCount, wallDur.Round(time.Millisecond))
 
 	// Build the thresholds struct for the report.
-	reportThresholds := SettlingThresholds{
+	reportThresholds := l3grid.SettlingThresholds{
 		MinCoverage:        thresholds.MinCoverage,
 		MaxSpreadDelta:     thresholds.MaxSpreadDelta,
 		MinRegionStability: thresholds.MinRegionStability,
 		MinConfidence:      thresholds.MinConfidence,
 	}
 
-	rationale := buildRationale(history, recommendedFrame, reportThresholds)
-	recDuration := "unknown"
-	if recommendedFrame > 0 {
-		recDuration = fmt.Sprintf("%.1fs (at 10 Hz)", float64(recommendedFrame)/10.0)
-	}
+	rationale := l3grid.BuildRationale(history, recommendedFrame, reportThresholds)
 
-	return &SettlingEvaluation{
+	return &l3grid.SettlingReport{
 		PCAPFile:            pcapFile,
 		TuningFile:          tuningFile,
 		SensorID:            sensorID,
@@ -198,7 +187,7 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*SettlingE
 		TotalFrames:         frameCount,
 		MetricsHistory:      history,
 		RecommendedFrame:    recommendedFrame,
-		RecommendedDuration: recDuration,
+		RecommendedDuration: l3grid.FormatRecommendedDuration(recommendedFrame),
 		Thresholds:          reportThresholds,
 		Rationale:           rationale,
 		WallDuration:        wallDur.Round(time.Millisecond).String(),
