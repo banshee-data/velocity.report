@@ -12,6 +12,7 @@ This document describes the system architecture, component relationships, data f
 - [Integration Points](#integration-points)
 - [Deployment Architecture](#deployment-architecture)
 - [Security & Privacy](#security--privacy)
+- [Component Status](#component-status)
 
 ## System Overview
 
@@ -883,6 +884,37 @@ Web Development:
 - Manual deployment process
 - Systemd service restart required
 - **TODO**: Add automatic update mechanism
+
+## Component Status
+
+### What Ships Today
+
+| Capability                        | Status       | Component    |
+| --------------------------------- | ------------ | ------------ |
+| Radar vehicle detection (OPS243A) | Production   | Go server    |
+| Real-time speed dashboard         | Production   | Svelte web   |
+| Professional PDF reports          | Production   | Python/LaTeX |
+| Comparison reports (before/after) | Production   | Go + Python  |
+| Site configuration (SCD Type 6)   | Production   | Go + SQLite  |
+| LiDAR background subtraction      | Experimental | Go server    |
+| LiDAR foreground tracking         | Experimental | Go server    |
+| Adaptive region segmentation      | Experimental | Go server    |
+| Parameter sweep / auto-tune       | Experimental | Go server    |
+| PCAP analysis mode                | Experimental | Go server    |
+| macOS 3D visualiser (Metal)       | Experimental | Swift app    |
+| Track labelling + VRLOG replay    | Experimental | Swift + Go   |
+
+### LiDAR Pipeline Status
+
+| Phase | Description                                        | Status         | Plan                                                              |
+| ----- | -------------------------------------------------- | -------------- | ----------------------------------------------------------------- |
+| 3.7   | Analysis Run Infrastructure                        | ✅ Implemented | [plan](docs/plans/lidar-analysis-run-infrastructure-plan.md)      |
+| 3.8   | Tracking Upgrades (Hungarian, OBB, ground removal) | ✅ Implemented | —                                                                 |
+| 3.9   | Adaptive Regions & Sweep System                    | ✅ Implemented | [plan](docs/plans/lidar-sweep-hint-mode-plan.md)                  |
+| 4.0   | Track Labelling UI                                 | Planned        | [plan](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) |
+| 4.1   | ML Classifier Training                             | Planned        | [plan](docs/plans/lidar-ml-classifier-training-plan.md)           |
+| 4.2   | Parameter Tuning & Optimisation                    | Planned        | [plan](docs/plans/lidar-parameter-tuning-optimisation-plan.md)    |
+| 4.3   | Production Deployment                              | Planned        | —                                                                 |
 
 ## Performance Characteristics
 

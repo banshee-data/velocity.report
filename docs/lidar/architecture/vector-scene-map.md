@@ -818,6 +818,103 @@ A vehicle-mounted sensor produces a stream of local scene maps along its route. 
 
 ---
 
+---
+
+## Future Online Geometry-Prior Service
+
+### Design Goal
+
+Enable a community-maintained online service that provides geometry priors
+(ground polygons, boundary polylines, structure features) for known deployment
+locations — while keeping velocity.report fully functional offline.
+
+### Architecture: Local-First with Optional Online Fetch
+
+```
+                         ┌─────────────────────────────┐
+                         │  Online Prior Service (v2+) │
+                         │  (community-maintained)     │
+                         │                             │
+                         │  GET /priors?lat=X&lon=Y    │
+                         │  → GeoJSON FeatureCollection│
+                         └──────────┬──────────────────┘
+                                    │ opt-in fetch
+                                    ▼
+┌─────────────┐      ┌──────────────────────────┐
+│ Local Prior │─────►│  Prior Loader             │
+│ File (v1.0) │      │  (reads local or remote)  │
+│ .geojson    │      │                           │
+└─────────────┘      └──────────┬────────────────┘
+                                │ w_prior weights
+                                ▼
+                     ┌───────────────────────────┐
+                     │  Ground-Plane Estimator   │
+                     │  (L4 Perception)          │
+                     │  Region scoring: §4.4     │
+                     │  S_R(p) = ... × w_prior   │
+                     └───────────────────────────┘
+```
+
+### Future-Compatibility Strategy (What We Build Now)
+
+The following design choices in v1.0 ensure the online service is additive, not
+a rewrite:
+
+| Decision (v1.0)                                                       | Future Benefit (v2.0+)                                                                              |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **GeoJSON file format** for local priors                              | Same schema served by HTTP endpoint; no format conversion needed                                    |
+| **Prior weights are advisory (0–1)**, not hard constraints            | Service can return confidence-weighted priors; client applies them identically to local files       |
+| **Prior Loader abstraction** separates file I/O from perception maths | Swap file reader for HTTP client behind the same interface                                          |
+| **Sensor-local coordinate system** (no GPS required)                  | GPS is additive: if present, enables location-based prior lookup; if absent, local files still work |
+| **Privacy by default**                                                | Online fetch is opt-in; no location data transmitted without explicit user consent                  |
+| **Schema includes `source` field** (`local`, `community`, `survey`)   | Provenance tracking from day one; online priors carry their own trust metadata                      |
+
+### Online Service Specification (v2.0 Scope)
+
+**API contract (draft):**
+
+```
+GET /api/v1/priors?lat={lat}&lon={lon}&radius={m}
+Accept: application/geo+json
+
+Response: GeoJSON FeatureCollection
+  features[]:
+    geometry: Polygon | LineString | Point
+    properties:
+      class: "ground" | "structure" | "volume"
+      confidence: 0.0–1.0
+      source: "community" | "survey" | "lidar-derived"
+      updated_at: ISO 8601
+      contributor: <anonymous hash>  # no PII
+```
+
+**Privacy safeguards:**
+
+1. Location queries use coarsened coordinates (100 m grid snapping) to prevent
+   precise deployment location disclosure.
+2. No authentication required for read access (public data).
+3. Contributions are anonymised (hash-based contributor IDs, no accounts).
+4. All prior data is geometry only — no speed, transit, or vehicle data.
+
+**Deployment options:**
+
+- Community-hosted instance (e.g., `priors.velocity.report`)
+- Self-hosted by municipalities or research groups
+- Static file hosting (GeoJSON files on any CDN)
+
+### Implementation Phases
+
+| Phase  | Milestone | Scope                                                     |
+| ------ | --------- | --------------------------------------------------------- |
+| **5a** | v1.0      | Define GeoJSON schema for local prior files               |
+| **5b** | v1.0      | Implement Prior Loader with file-system backend           |
+| **5c** | v1.0      | Wire `w_prior` weights into ground-plane region scoring   |
+| **5d** | v2.0      | Add HTTP backend to Prior Loader (opt-in config flag)     |
+| **5e** | v2.0      | Build community submission API (anonymous, geometry-only) |
+| **5f** | v2.0      | Ship self-hostable prior-service container image          |
+
+---
+
 ## References
 
 ### Internal Documents
