@@ -366,7 +366,7 @@ All 16 decisions are resolved. Remaining actions:
 
 1. ~~Resolve each D-*nn* decision~~ — ✅ all 16 resolved.
 2. ~~Update BACKLOG.md~~ — ✅ alignment fixes applied.
-3. **Update ROADMAP.md** — add D-07 (track labelling UI v0.7) and D-10 (.tex in report downloads) to relevant milestones.
+3. **Update ROADMAP.md** — add D-07 (track labelling UI v0.7), D-10 (.tex source in report .zip downloads, TinyTeX runtime), and single-tier RPi image to relevant milestones.
 4. **Promote VISION.md from Draft** — the content is stable; change status to Active once fused transit schema work begins.
 5. **Begin P1 maths work** — geometry-coherent tracking (D-04) scheduled for v0.6 cycle.
 6. **Document cosine error correction** — review existing DB/API/frontend implementation and write user-facing feature documentation.
