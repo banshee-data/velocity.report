@@ -4,13 +4,15 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 
 ## P1 — Next
 
-- (#210) Raspberry Pi imager pipeline — custom flashing UX, depends on packaging — [design doc](docs/plans/deploy-rpi-imager-fork-plan.md)
-- Simplification and deprecation programme (Project A/B) — deprecation signalling, deploy retirement gate, and migration plan task list — [design doc](docs/plans/platform-simplification-and-deprecation-plan.md)
-- Sweep/HINT platform hardening — transform pipeline, objective registry, explainability — [design doc](docs/lidar/architecture/ml-solver-expansion.md)
+- Precompiled LaTeX — faster PDF report generation via vendored TeX tree; v0.6 critical path — [design doc](docs/plans/pdf-latex-precompiled-format-plan.md)
+- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/tooling-python-venv-consolidation-plan.md)
 - Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](docs/lidar/operations/settling-time-optimization.md)
+- Simplification and deprecation programme (Project A/B) — deprecation signalling, deploy retirement gate, and migration plan task list — [design doc](docs/plans/platform-simplification-and-deprecation-plan.md)
+- (#210) Raspberry Pi imager pipeline — custom flashing UX, depends on packaging — [design doc](docs/plans/deploy-rpi-imager-fork-plan.md)
 
 ## P2 — Later
 
+- Sweep/HINT platform hardening — transform pipeline, objective registry, explainability — [design doc](docs/lidar/architecture/ml-solver-expansion.md)
 - Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md)
 - Distribution and packaging — Debian packaging, update mechanism — [design doc](docs/plans/deploy-distribution-packaging-plan.md)
 - Time-partitioned raw data tables — major storage architecture change — [design doc](docs/radar/architecture/time-partitioned-data-tables.md)
@@ -19,16 +21,17 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 - Visualiser QC programme — features 1/2/3/5/7/8/10 — [design doc](docs/plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 - Transit deduplication — duplicate transit record prevention — [design doc](docs/radar/architecture/transit-deduplication.md)
-- Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](docs/lidar/operations/track-labeling-ui-implementation.md)
+- Track labelling UI enhancements — Phase 9: seekable replay, Swift-native labelling; target v0.7 (D-07) — [design doc](docs/lidar/operations/track-labeling-ui-implementation.md)
 - HINT sweep polish — 11 remaining polish items — [operations design doc](docs/lidar/operations/hint-sweep-mode.md), [polish stub](docs/plans/lidar-sweep-hint-mode-plan.md)
-- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](docs/plans/tooling-python-venv-consolidation-plan.md)
-- SQLite client standardization — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](docs/plans/data-sqlite-client-standardization-plan.md)
+- SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](docs/plans/data-sqlite-client-standardization-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](docs/ui/design-review-and-improvement.md)
 - Widescreen content containment — add vr-page max-width centering at ≥3000px — [design doc §2.2](docs/ui/design-review-and-improvement.md)
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](docs/ui/design-review-and-improvement.md)
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](docs/plans/lidar-architecture-foundations-fixit-plan.md)
 - Coverage improvement — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](docs/plans/platform-quality-coverage-improvement-plan.md)
-- Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](docs/plans/pdf-latex-precompiled-format-plan.md)
+- Documentation standardisation — metadata and validation gates for all docs — [design doc](docs/plans/platform-documentation-standardization-plan.md)
+- Speed limit schedules — time-based speed limits for school zones and weekday/weekend variation — [design doc](docs/radar/architecture/speed-limit-schedules.md)
+- Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](docs/radar/architecture/site-config-cosine-correction-spec.md)
 
 ## P3 — Deferred / Research
 

@@ -18,8 +18,9 @@ Documentation structure, scope, and naming conventions.
 - `/docs/ui/` # Web, mac, PDF clients
 - `/docs/maths/` # Algorithms and signal theory
 - `/docs/plans/` # Implementation plans, roadmap
+- `/docs/DECISIONS.md` # Resolved executive decisions register
 - `/docs/VISION.md` # Product vision and backlog alignment guide
-- `/docs/ROADMAP.md` # Product roadmap and milestones (v0.5 → v2.0)
+- `/docs/ROADMAP.md` # Product roadmap and milestones (v0.5 → v2.0) — deprecated; see BACKLOG.md
 - `/docs/COVERAGE.md` # Test coverage tracking
 - `/docs/DEVLOG.md` # Chronological development notes
 
