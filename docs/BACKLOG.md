@@ -10,6 +10,10 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - SWEEP/HINT platform hardening (Phase 5–6) — transform pipeline, objective registry, explainability — [design doc](plans/lidar-sweep-hint-mode-plan.md) `M`
 - HINT sweep polish — 11 remaining polish items — [design doc](lidar/operations/hint-sweep-mode.md) `M`
 
+## v0.5.1 (Product)
+
+- (#290) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
+
 ## v0.6 (Deployment & Packaging)
 
 - Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](plans/pdf-latex-precompiled-format-plan.md) `M`
