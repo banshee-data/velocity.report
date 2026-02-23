@@ -10,7 +10,7 @@ splits/merges. This was Phase 3.7 of the LiDAR ML pipeline.
 
 ## Related Documents
 
-- [Product Roadmap](../ROADMAP.md) — milestone placement
+- [Backlog](../BACKLOG.md) — milestone placement
 - [Sweep/HINT Mode](lidar-sweep-hint-mode-plan.md) — parameter sweep system built on this infrastructure
 - [Track Labelling & Auto-Aware Tuning](lidar-track-labeling-auto-aware-tuning-plan.md) — labelling UI that consumes analysis runs
 

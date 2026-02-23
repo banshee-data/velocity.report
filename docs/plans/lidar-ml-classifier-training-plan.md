@@ -10,7 +10,7 @@ milestone.
 
 ## Related Documents
 
-- [Product Roadmap](../ROADMAP.md) — milestone placement (v2.0)
+- [Backlog](../BACKLOG.md) — milestone placement (v2.0)
 - [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md) — provides the run/track storage consumed by training
 - [Track Labelling & Auto-Aware Tuning](lidar-track-labeling-auto-aware-tuning-plan.md) — generates the labelled data this pipeline requires
 - [Parameter Tuning & Optimisation](lidar-parameter-tuning-optimisation-plan.md) — can run in parallel

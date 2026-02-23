@@ -9,7 +9,7 @@ is Phase 4.2 of the LiDAR ML pipeline, targeting the v2.0 milestone.
 
 ## Related Documents
 
-- [Product Roadmap](../ROADMAP.md) — milestone placement (v2.0)
+- [Backlog](../BACKLOG.md) — milestone placement (v2.0)
 - [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md) — provides run comparison and quality metrics
 - [Sweep/HINT Mode](lidar-sweep-hint-mode-plan.md) — existing parameter sweep system (Phase 3.9, ✅ implemented)
 - [ML Classifier Training](lidar-ml-classifier-training-plan.md) — benefits from tuned parameters

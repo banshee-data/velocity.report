@@ -7,7 +7,7 @@
 **Related documents:**
 
 - Auto-tuning (Phases 1–2 implemented): [`../lidar/operations/auto-tuning.md`](../lidar/operations/auto-tuning.md)
-- ML pipeline roadmap: [`docs/ROADMAP.md`](../ROADMAP.md)
+- ML pipeline phases: [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md)
 - Tracking upgrades (6/9 implemented): [`../lidar/troubleshooting/01-tracking-upgrades.md`](../lidar/troubleshooting/01-tracking-upgrades.md)
 
 Previous plan (bigger charts + sane auto-tuner defaults) is complete.

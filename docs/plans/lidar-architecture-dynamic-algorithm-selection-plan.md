@@ -5,7 +5,8 @@
 **Related Docs:**
 
 - [`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`](../plans/lidar-velocity-coherent-foreground-extraction-plan.md) — Original design vision
-- [`docs/ROADMAP.md`](../ROADMAP.md) — Product Roadmap & ML Pipeline Phases
+- [Backlog](../BACKLOG.md) — milestone placement
+- [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md) — ML pipeline phases
 
 ---
 

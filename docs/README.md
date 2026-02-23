@@ -21,7 +21,7 @@ Documentation structure, scope, and naming conventions.
 - `/docs/BACKLOG.md` # Prioritised work queue (single source of truth)
 - `/docs/DECISIONS.md` # Resolved executive decisions register
 - `/docs/VISION.md` # Product vision and backlog alignment guide
-- `/docs/ROADMAP.md` # Product roadmap and milestones (v0.5 → v2.0)
+- `/docs/BACKLOG.md` # Prioritised work queue with versioned milestones (v0.5 → v2.0)
 - `/docs/COVERAGE.md` # Test coverage tracking
 - `/docs/DEVLOG.md` # Chronological development notes
 - `/docs/TROUBLESHOOTING.md` # Cross-component debugging guide
