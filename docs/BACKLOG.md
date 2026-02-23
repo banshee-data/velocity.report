@@ -46,8 +46,8 @@ Single source of truth for project-wide work items in velocity.report. Each task
 - Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](ui/design-review-and-improvement.md) `S`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
-- Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis `M`
-- Stable public API with versioned endpoints — formal API versioning and stability guarantees `M`
+- Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
+- Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
 
 ## v2.0
 
