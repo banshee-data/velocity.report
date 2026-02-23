@@ -1170,16 +1170,11 @@ func (ws *WebServer) handleSettlingEval(w http.ResponseWriter, r *http.Request) 
 	converged := metrics.IsConverged(thresholds)
 
 	resp := map[string]interface{}{
-		"sensor_id":  sensorID,
-		"metrics":    metrics,
-		"thresholds": thresholds,
-		"converged":  converged,
-		"settling_complete": func() bool {
-			if mgr.Grid == nil {
-				return false
-			}
-			return mgr.Grid.SettlingComplete
-		}(),
+		"sensor_id":         sensorID,
+		"metrics":           metrics,
+		"thresholds":        thresholds,
+		"converged":         converged,
+		"settling_complete": mgr.IsSettlingComplete(),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)

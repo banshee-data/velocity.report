@@ -65,7 +65,8 @@ func (m SettlingMetrics) IsConverged(t SettlingThresholds) bool {
 
 // EvaluateSettling computes convergence metrics for the current grid state.
 // It is safe to call while the grid is actively processing frames; the method
-// acquires a read lock internally. Successive calls track frame-over-frame
+// acquires a write lock internally because it updates delta-tracking state
+// (prevSpreads, prevRegionIDs). Successive calls track frame-over-frame
 // deltas for SpreadDeltaRate and RegionStability.
 func (bm *BackgroundManager) EvaluateSettling(frameNumber int) SettlingMetrics {
 	if bm == nil || bm.Grid == nil {
@@ -73,8 +74,8 @@ func (bm *BackgroundManager) EvaluateSettling(frameNumber int) SettlingMetrics {
 	}
 
 	g := bm.Grid
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	total := len(g.Cells)
 	if total == 0 {

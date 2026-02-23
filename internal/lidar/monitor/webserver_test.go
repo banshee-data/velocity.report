@@ -1953,6 +1953,80 @@ func TestWebServer_HandleGridStatus_WithManager(t *testing.T) {
 	}
 }
 
+// ====== handleSettlingEval tests ======
+
+func TestWebServer_HandleSettlingEval_MissingSensorID(t *testing.T) {
+	server := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/settling_eval", nil)
+	rr := httptest.NewRecorder()
+	server.handleSettlingEval(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rr.Code)
+	}
+}
+
+func TestWebServer_HandleSettlingEval_NoManager(t *testing.T) {
+	server := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/settling_eval?sensor_id=nonexistent", nil)
+	rr := httptest.NewRecorder()
+	server.handleSettlingEval(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rr.Code)
+	}
+}
+
+func TestWebServer_HandleSettlingEval_WithManager(t *testing.T) {
+	cleanup := setupTestBackgroundManager(t, "settling-eval-sensor")
+	defer cleanup()
+
+	server := NewWebServer(WebServerConfig{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		SensorID:          "settling-eval-sensor",
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/settling_eval?sensor_id=settling-eval-sensor", nil)
+	rr := httptest.NewRecorder()
+	server.handleSettlingEval(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+	if resp["sensor_id"] != "settling-eval-sensor" {
+		t.Errorf("expected sensor_id='settling-eval-sensor', got %v", resp["sensor_id"])
+	}
+	if _, ok := resp["metrics"]; !ok {
+		t.Error("response missing 'metrics' field")
+	}
+	if _, ok := resp["thresholds"]; !ok {
+		t.Error("response missing 'thresholds' field")
+	}
+	if _, ok := resp["converged"]; !ok {
+		t.Error("response missing 'converged' field")
+	}
+	if _, ok := resp["settling_complete"]; !ok {
+		t.Error("response missing 'settling_complete' field")
+	}
+}
+
 func TestWebServer_HandleGridHeatmap_WithManager(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, "grid-heatmap-sensor")
 	defer cleanup()

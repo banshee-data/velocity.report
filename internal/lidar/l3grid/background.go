@@ -1081,6 +1081,19 @@ func (bm *BackgroundManager) GridStatus() map[string]interface{} {
 	}
 }
 
+// IsSettlingComplete returns whether the background grid has completed settling.
+// It acquires a read lock internally so it is safe to call concurrently with
+// ProcessFramePolar.
+func (bm *BackgroundManager) IsSettlingComplete() bool {
+	if bm == nil || bm.Grid == nil {
+		return false
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.SettlingComplete
+}
+
 // ResetGrid zeros per-cell stats (AverageRangeMeters, RangeSpreadMeters, TimesSeenCount,
 // LastUpdateUnixNanos, FrozenUntilUnixNanos) and acceptance counters. Intended for
 // testing and A/B sweeps only.
