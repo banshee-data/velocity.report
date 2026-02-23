@@ -1,7 +1,5 @@
 # Product Roadmap and Milestones
 
-## Status: Active
-
 ## Summary
 
 Unified product roadmap mapping velocity.report features to versioned release

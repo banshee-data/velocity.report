@@ -17,8 +17,16 @@ import (
 // FileExtension is the extension for velocity.report log files.
 const FileExtension = ".vrlog"
 
-// ChunkSize is the number of frames per chunk file.
+// ChunkSize is the number of frames per chunk file (soft limit).
+// Chunks may contain fewer frames if maxChunkWriteBytes is reached first.
 const ChunkSize = 1000
+
+// maxChunkWriteBytes is the maximum bytes written to a single chunk before
+// rotating to the next. This prevents dense LiDAR frames from producing
+// chunks that exceed the read-side maxChunkSize limit (200 MB). Set below
+// the read limit to leave headroom for the final frame written before the
+// threshold is checked.
+const maxChunkWriteBytes = 150 * 1024 * 1024 // 150 MB
 
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
@@ -47,11 +55,12 @@ type Recorder struct {
 	basePath string
 	sensorID string
 
-	header       LogHeader
-	index        []IndexEntry
-	currentChunk int
-	chunkFile    *os.File
-	chunkOffset  uint32
+	header        LogHeader
+	index         []IndexEntry
+	currentChunk  int
+	chunkFile     *os.File
+	chunkOffset   uint32
+	framesInChunk int // frames written to the current chunk
 
 	frameCount uint64
 	startNs    int64
@@ -110,18 +119,36 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	}
 	r.endNs = frame.TimestampNanos
 
-	// Open new chunk if needed
-	chunkIdx := int(r.frameCount / ChunkSize)
-	if chunkIdx != r.currentChunk {
-		if err := r.rotateChunk(chunkIdx); err != nil {
-			return err
-		}
-	}
-
-	// Serialize frame (placeholder - in production, use protobuf)
+	// Serialize frame before deciding whether to rotate, so we can check
+	// the projected post-write size and avoid creating empty chunks.
+	// (placeholder - in production, use protobuf)
 	data, err := serializeFrame(frame)
 	if err != nil {
 		return fmt.Errorf("failed to serialize frame: %w", err)
+	}
+
+	// Open new chunk if needed.
+	// Primary trigger: first frame.
+	// Secondary trigger: frame-count boundary (every ChunkSize frames).
+	// Tertiary trigger: projected post-write size would exceed
+	// maxChunkWriteBytes, preventing a single large frame from pushing a
+	// chunk past the limit. Uses uint64 arithmetic to avoid uint32 wrap.
+	postWriteSize := uint64(r.chunkOffset) + uint64(4+len(data))
+	needRotate := false
+	if r.currentChunk == -1 {
+		// First frame — open chunk 0.
+		needRotate = true
+	} else if r.framesInChunk >= ChunkSize {
+		// Crossed the frame-count boundary.
+		needRotate = true
+	} else if postWriteSize > maxChunkWriteBytes {
+		// Writing this frame would exceed the chunk byte limit.
+		needRotate = true
+	}
+	if needRotate {
+		if err := r.rotateChunk(r.currentChunk + 1); err != nil {
+			return err
+		}
 	}
 
 	// Write length-prefixed frame
@@ -138,11 +165,12 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 	r.index = append(r.index, IndexEntry{
 		FrameID:     frame.FrameID,
 		TimestampNs: frame.TimestampNanos,
-		ChunkID:     uint32(chunkIdx),
+		ChunkID:     uint32(r.currentChunk),
 		Offset:      r.chunkOffset,
 	})
 
 	r.chunkOffset += uint32(4 + len(data))
+	r.framesInChunk++
 	r.frameCount++
 
 	return nil
@@ -165,6 +193,7 @@ func (r *Recorder) rotateChunk(chunkIdx int) error {
 	r.chunkFile = f
 	r.currentChunk = chunkIdx
 	r.chunkOffset = 0
+	r.framesInChunk = 0
 
 	return nil
 }
@@ -391,14 +420,16 @@ func (r *Replayer) ReadFrame() (*visualiser.FrameBundle, error) {
 
 	// Read frame from chunk
 	offset := entry.Offset
-	if offset+4 > uint32(len(r.chunkData)) {
+	chunkLen := uint64(len(r.chunkData))
+	if uint64(offset)+4 > chunkLen {
 		return nil, fmt.Errorf("invalid frame offset")
 	}
 
 	frameLen := binary.LittleEndian.Uint32(r.chunkData[offset:])
 	offset += 4
 
-	if offset+frameLen > uint32(len(r.chunkData)) {
+	// Use uint64 to prevent wrap-around overflow when frameLen is large.
+	if uint64(offset)+uint64(frameLen) > chunkLen {
 		return nil, fmt.Errorf("invalid frame length")
 	}
 

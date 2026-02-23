@@ -184,7 +184,6 @@ func TestFinalizeFrame_IncompleteFrame(t *testing.T) {
 	}
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "fin-incomplete", FrameCallback: cb})
-	fb.debug = true
 
 	// Create a frame with few points and low azimuth coverage (incomplete)
 	frame := &LiDARFrame{
@@ -228,7 +227,6 @@ func TestFinalizeFrame_CompleteFrame(t *testing.T) {
 	}
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "fin-complete", FrameCallback: cb})
-	fb.debug = true
 
 	// Create a frame with full coverage and enough points
 	points := make([]Point, 15000)
@@ -263,7 +261,6 @@ func TestFinalizeFrame_CompleteFrame(t *testing.T) {
 
 func TestFinalizeFrame_ExportNextSkipsIncomplete(t *testing.T) {
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "export-skip"})
-	fb.debug = true
 	fb.exportNextFrameASC = true
 
 	// Incomplete frame - should skip export but keep the flag
@@ -288,7 +285,6 @@ func TestFinalizeFrame_ExportNextSkipsIncomplete(t *testing.T) {
 
 func TestFinalizeFrame_ExportBatchSkipsIncomplete(t *testing.T) {
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "batch-skip"})
-	fb.debug = true
 	fb.exportBatchCount = 3
 	fb.exportBatchExported = 0
 
@@ -373,7 +369,6 @@ func TestFinalizeFrame_WithExportNext_Complete(t *testing.T) {
 	defer func() { defaultExportDir = oldDir }()
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "export-complete"})
-	fb.debug = true
 	fb.exportNextFrameASC = true
 
 	// Create a complete frame (enough coverage and points)
@@ -402,7 +397,6 @@ func TestFinalizeFrame_WithBatchExport_Complete(t *testing.T) {
 	defer func() { defaultExportDir = oldDir }()
 
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "batch-complete"})
-	fb.debug = true
 	fb.exportBatchCount = 2
 	fb.exportBatchExported = 0
 
@@ -585,5 +579,114 @@ func TestClose_NilChannel(t *testing.T) {
 		SensorID: "test-close-nil",
 	})
 	// Should not panic
+	fb.Close()
+}
+
+func TestDroppedFrames_ZeroInitially(t *testing.T) {
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID: "test-dropped-init",
+	})
+	defer fb.Close()
+	if fb.DroppedFrames() != 0 {
+		t.Errorf("expected 0 dropped frames initially; got %d", fb.DroppedFrames())
+	}
+}
+
+func TestDroppedFrames_ChannelFull(t *testing.T) {
+	// Create a FrameBuilder with a blocking callback and a tiny channel
+	// so we can fill it up and trigger the drop path.
+	blocker := make(chan struct{})
+	cb := func(f *LiDARFrame) {
+		<-blocker // block until released
+	}
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-dropped-full",
+		FrameCallback:   cb,
+		FrameChCapacity: 1,
+	})
+
+	// Stop the background cleanup timer so it cannot race with our test.
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+
+	// Send one frame that will be picked up by the worker and block on blocker.
+	fb.frameCh <- &LiDARFrame{FrameID: "f0", SensorID: "test-dropped-full", PointCount: 1}
+	// Wait briefly for the worker to start processing f0.
+	time.Sleep(10 * time.Millisecond)
+	// Fill the channel buffer (capacity 1).
+	fb.frameCh <- &LiDARFrame{FrameID: "f1", SensorID: "test-dropped-full", PointCount: 1}
+
+	// Build a frame that finalizeFrame will accept.
+	frame := &LiDARFrame{
+		FrameID:    "f2",
+		SensorID:   "test-dropped-full",
+		PointCount: 5000,
+		MinAzimuth: 0,
+		MaxAzimuth: 359.5,
+	}
+
+	// Call finalizeFrame directly — it attempts to push onto frameCh,
+	// which is full, so the default branch should fire.
+	fb.finalizeFrame(frame, "test-force")
+
+	if fb.DroppedFrames() != 1 {
+		t.Errorf("expected 1 dropped frame; got %d", fb.DroppedFrames())
+	}
+
+	// Unblock the worker and clean up.
+	close(blocker)
+	fb.Close()
+}
+
+func TestDroppedFrames_ResetClearsCounter(t *testing.T) {
+	// Verify that Reset() zeroes the dropped frame counter so
+	// per-run diagnostics (e.g. PCAP replay) start fresh.
+	blocker := make(chan struct{})
+	cb := func(f *LiDARFrame) {
+		<-blocker
+	}
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-dropped-reset",
+		FrameCallback:   cb,
+		FrameChCapacity: 1,
+	})
+
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+
+	// Fill the channel to force a drop.
+	fb.frameCh <- &LiDARFrame{FrameID: "r0", SensorID: "test-dropped-reset", PointCount: 1}
+	time.Sleep(10 * time.Millisecond)
+	fb.frameCh <- &LiDARFrame{FrameID: "r1", SensorID: "test-dropped-reset", PointCount: 1}
+
+	frame := &LiDARFrame{
+		FrameID:    "r2",
+		SensorID:   "test-dropped-reset",
+		PointCount: 5000,
+		MinAzimuth: 0,
+		MaxAzimuth: 359.5,
+	}
+	fb.finalizeFrame(frame, "test-force")
+
+	if fb.DroppedFrames() != 1 {
+		t.Fatalf("precondition: expected 1 dropped frame; got %d", fb.DroppedFrames())
+	}
+
+	// Unblock the worker before Reset() — Reset() doesn't drain the channel.
+	close(blocker)
+	time.Sleep(10 * time.Millisecond)
+
+	fb.Reset()
+
+	if fb.DroppedFrames() != 0 {
+		t.Errorf("expected 0 dropped frames after Reset(); got %d", fb.DroppedFrames())
+	}
+
 	fb.Close()
 }

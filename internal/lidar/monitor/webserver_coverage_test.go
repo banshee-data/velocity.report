@@ -584,6 +584,24 @@ func TestCov2_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	}
 }
 
+func TestCov2_HandleTuningParams_POST_ForegroundMaxInputPoints(t *testing.T) {
+	bm := l3grid.NewBackgroundManager("cov2-tuning-fgmax-post", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-fgmax-post", bm)
+
+	ws := &WebServer{}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"foreground_max_input_points": 4000,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-fgmax-post", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws.handleTuningParams(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+}
+
 // --- handleGridStatus ---
 
 // --- handleTrafficStats ---

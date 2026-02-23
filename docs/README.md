@@ -9,20 +9,19 @@ _|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
 
 # /docs
 
-Status: Active
-Purpose: Defines the project documentation contract, folder ownership, naming conventions, and metadata rules so technical docs stay consistent, navigable, and resilient as files move or capabilities expand.
+Documentation structure, scope, and naming conventions.
 
-## /docs root structure
+## /docs/ root structure
 
-- `docs/lidar/` # LiDAR pipeline and sensor
-- `docs/radar/` # Radar sensor processing
-- `docs/ui/` # Web, mac, PDF clients
-- `docs/maths/` # Algorithms and signal theory
-- `docs/plans/` # Implementation plans, roadmap
-- `docs/VISION.md` # Product vision and backlog alignment guide
-- `docs/ROADMAP.md` # Product roadmap and milestones (v0.5 → v2.0)
-- `docs/COVERAGE.md` # Test coverage tracking
-- `docs/DEVLOG.md` # Chronological development notes
+- `/docs/lidar/` # LiDAR pipeline and sensor
+- `/docs/radar/` # Radar sensor processing
+- `/docs/ui/` # Web, mac, PDF clients
+- `/docs/maths/` # Algorithms and signal theory
+- `/docs/plans/` # Implementation plans, roadmap
+- `/docs/VISION.md` # Product vision and backlog alignment guide
+- `/docs/ROADMAP.md` # Product roadmap and milestones (v0.5 → v2.0)
+- `/docs/COVERAGE.md` # Test coverage tracking
+- `/docs/DEVLOG.md` # Chronological development notes
 
 ## Scope Rules
 
@@ -39,24 +38,27 @@ Purpose: Defines the project documentation contract, folder ownership, naming co
 - Plans (flat): `<hub>-<area>-<topic>-plan.md` in `docs/plans/`
 - Maths proposals: `<yyymmdd>-<topic>.md` in `docs/maths/proposals/`
 
-## Metadata Conventions
+## Document Structure
 
-Required in all docs:
+Every doc should open with:
 
-- `Status:` required
-- `Purpose:` or `Summary:` required (one of, not both)
-- `Version:` optional
+1. **`# Title`** — a clear, descriptive heading.
+2. **Opening paragraph** — one or two sentences explaining what the document covers (the _goal_, _motivation_, or _scope_). This replaces the old `Purpose:` metadata line.
+3. **First `##` section** — use a heading that fits the content: `## Goal`, `## Problem`, `## Summary`, `## Objective`, `## Purpose`, etc.
+
+Optional bold metadata may follow the title for docs that need implementation state:
+
+```
+**Status:** Proposed (February 2026)
+**Related:** [Other Doc](other-doc.md)
+```
+
+Use `**Status:**` only when the doc tracks implementation progress (plans, architecture specs). Reference docs, maths notes, and READMEs do not need it.
 
 Additional rules:
 
-- `Date:` metadata fields are not allowed
-
-> Template/Style Quick Box
->
-> - `Status:` required
-> - `Purpose:` or `Summary:` required (one of, not both)
-> - `Version:` optional
-> - `Date:` not allowed (remove if present)
+- `Date:` metadata fields are not allowed — use git history.
+- `Version:` is optional.
 
 Use directory listings for file-level navigation to avoid stale index maintenance.
 

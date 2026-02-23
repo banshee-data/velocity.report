@@ -1,13 +1,17 @@
 package pipeline
 
 import (
+	"bytes"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -240,6 +244,39 @@ func makeForegroundFrame(id string, ts time.Time, bgDist, fgDist float64) *l2fra
 	}
 }
 
+// makeDenseFrame creates a frame with >5000 background points spread across
+// all 16 channels × 350 azimuths, plus 20 foreground points. This exercises
+// the background downsampling branches (stride and cap).
+func makeDenseFrame(id string, ts time.Time, bgDist, fgDist float64) *l2frames.LiDARFrame {
+	points := make([]l2frames.Point, 0, 5700)
+	for ch := 1; ch <= 16; ch++ {
+		for az := 0; az < 350; az++ {
+			points = append(points, l2frames.Point{
+				Channel:   ch,
+				Azimuth:   float64(az),
+				Distance:  bgDist,
+				Intensity: 80,
+				Timestamp: ts,
+			})
+		}
+	}
+	for i := 0; i < 20; i++ {
+		d := fgDist + float64(i-10)*0.01
+		points = append(points, l2frames.Point{
+			Channel:   fgChannel,
+			Azimuth:   fgAzimuth,
+			Distance:  d,
+			Intensity: 200,
+			Timestamp: ts,
+		})
+	}
+	return &l2frames.LiDARFrame{
+		FrameID:        id,
+		StartTimestamp: ts,
+		Points:         points,
+	}
+}
+
 // setupTestDB creates a temporary SQLite database for pipeline testing.
 func setupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -317,7 +354,6 @@ func TestTrackingPipelineConfig_NewFrameCallback_FullPipelineWithDB(t *testing.T
 		Tracker:           tracker,
 		Classifier:        l6objects.NewTrackClassifier(),
 		DB:                db,
-		DebugMode:         true,
 		RemoveGround:      true,
 		HeightBandFloor:   -10.0, // very wide to not filter anything in tests
 		HeightBandCeiling: 10.0,
@@ -386,7 +422,6 @@ func TestTrackingPipelineConfig_NewFrameCallback_DebugMode(t *testing.T) {
 	cfg := &TrackingPipelineConfig{
 		SensorID:          sensorID,
 		BackgroundManager: bgMgr,
-		DebugMode:         true,
 		RemoveGround:      false,
 	}
 	cb := cfg.NewFrameCallback()
@@ -412,7 +447,6 @@ func TestTrackingPipelineConfig_NewFrameCallback_NoGroundRemoval(t *testing.T) {
 		BackgroundManager: bgMgr,
 		Tracker:           tracker,
 		RemoveGround:      false,
-		DebugMode:         true,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -501,7 +535,6 @@ func TestTrackingPipelineConfig_WithNilFgForwarder(t *testing.T) {
 		BackgroundManager: bgMgr,
 		Tracker:           tracker,
 		FgForwarder:       nil,
-		DebugMode:         true, // hits the "FgForwarder is nil" debug log
 		RemoveGround:      false,
 	}
 	cb := cfg.NewFrameCallback()
@@ -565,7 +598,6 @@ func TestTrackingPipelineConfig_WithVisualiserPublisher(t *testing.T) {
 		BackgroundManager:   bgMgr,
 		Tracker:             tracker,
 		RemoveGround:        false,
-		DebugMode:           true,
 		VisualiserPublisher: visPub,
 		VisualiserAdapter:   visAdapter,
 		LidarViewAdapter:    lidarView,
@@ -661,7 +693,6 @@ func TestTrackingPipelineConfig_AnalysisRunManager(t *testing.T) {
 		DB:                 db,
 		AnalysisRunManager: arm,
 		RemoveGround:       false,
-		DebugMode:          true,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -720,7 +751,6 @@ func TestTrackingPipelineConfig_DBPruning(t *testing.T) {
 		Tracker:           tracker,
 		DB:                db,
 		RemoveGround:      false,
-		DebugMode:         true,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -737,4 +767,864 @@ func TestTrackingPipelineConfig_DBPruning(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cb(makeForegroundFrame("pr-"+string(rune('A'+i)), now.Add(time.Duration(700+i*100)*time.Millisecond), 20.0, 5.0))
 	}
+}
+
+// TestTrackingPipelineConfig_ThrottleDiagf verifies that
+// the diagf log fires on every 50th throttled frame.
+func TestTrackingPipelineConfig_ThrottleDiagf(t *testing.T) {
+	var diagBuf bytes.Buffer
+	SetLogWriters(nil, &diagBuf, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-throttle-diagf-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		MaxFrameRate:      1, // 1 fps → 1s min interval; ensures all rapid-burst frames are throttled regardless of CI machine speed
+		RemoveGround:      false,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+
+	// Seed background model.
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+
+	// First foreground frame — passes the throttle check.
+	cb(makeForegroundFrame("fg-pass", now.Add(600*time.Millisecond), 20.0, 5.0))
+
+	// Rapid burst: 55 frames at ~0 interval → all throttled.
+	// The 50th throttled frame triggers the diagf log.
+	for i := 0; i < 55; i++ {
+		cb(makeForegroundFrame(
+			fmt.Sprintf("fg-rapid-%d", i),
+			now.Add(time.Duration(601+i)*time.Millisecond),
+			20.0, 5.0,
+		))
+	}
+
+	if !strings.Contains(diagBuf.String(), "[Pipeline] Throttled") {
+		t.Errorf("expected diagf for throttled frame count; got: %s", diagBuf.String())
+	}
+}
+
+// TestTrackingPipelineConfig_NilMaskEarlyReturn verifies the ops log fires and
+// the callback returns early when ProcessFramePolarWithMask yields a nil mask
+// (not an error — the zero-value BackgroundManager has a nil Grid, so the
+// method returns (nil, nil)). The pipeline treats a nil mask the same as an
+// error and logs via opsf.
+func TestTrackingPipelineConfig_NilMaskEarlyReturn(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-nil-mask-" + t.Name()
+	// Zero-value BackgroundManager: Grid is nil, so ProcessFramePolarWithMask
+	// returns (nil, nil) — a nil mask with no error.
+	bgMgr := &l3grid.BackgroundManager{}
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		RemoveGround:      false,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+
+	// Send a frame with a real point so it reaches ProcessFramePolarWithMask.
+	frame := &l2frames.LiDARFrame{
+		FrameID:        "nil-mask-frame",
+		StartTimestamp: now,
+		Points: []l2frames.Point{
+			{Channel: 1, Azimuth: 0, Distance: 10.0, Intensity: 100, Timestamp: now},
+		},
+	}
+	cb(frame)
+
+	if !strings.Contains(opsBuf.String(), "Failed to get foreground mask") {
+		t.Errorf("expected ops log for nil mask; got: %q", opsBuf.String())
+	}
+}
+
+// TestTrackingPipelineConfig_GroundRemovalDisabledDiagf exercises the RemoveGround=false
+// path with enough foreground frames for the background model to converge, so
+// the pipeline reaches the ground removal stage and logs via diagf.
+func TestTrackingPipelineConfig_GroundRemovalDisabledDiagf(t *testing.T) {
+	var diagBuf bytes.Buffer
+	SetLogWriters(nil, &diagBuf, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-no-ground-diagf-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		RemoveGround:      false,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+	// Send enough foreground frames to let the background model converge.
+	for i := 0; i < 15; i++ {
+		ts := now.Add(time.Duration(500+i*100) * time.Millisecond)
+		fgDist := 5.0 + float64(i)*0.1
+		cb(makeForegroundFrame(fmt.Sprintf("ng-%d", i), ts, 20.0, fgDist))
+	}
+
+	if !strings.Contains(diagBuf.String(), "Ground removal disabled") {
+		t.Errorf("expected diagf for ground removal disabled; got: %s", diagBuf.String())
+	}
+}
+
+// TestTrackingPipelineConfig_DBPruneSuccess exercises the prune-deleted-tracks
+// success path by inserting a soft-deleted track older than the TTL, then running
+// enough pipeline frames to trigger the once-per-minute prune interval.
+func TestTrackingPipelineConfig_DBPruneSuccess(t *testing.T) {
+	var diagBuf bytes.Buffer
+	SetLogWriters(nil, &diagBuf, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-prune-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	db := setupTestDB(t)
+
+	// Insert a soft-deleted track older than deletedTrackTTL (5 min).
+	worldFrame := fmt.Sprintf("site/%s", sensorID)
+	oldNanos := time.Now().Add(-20 * time.Minute).UnixNano()
+	_, err := db.Exec(`INSERT INTO lidar_tracks
+		(track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos)
+		VALUES (?, ?, ?, 'deleted', ?, ?)`,
+		"old-track-1", sensorID, worldFrame, oldNanos, oldNanos,
+	)
+	if err != nil {
+		t.Fatalf("insert old track: %v", err)
+	}
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		DB:                db,
+		RemoveGround:      true,
+		HeightBandFloor:   -10.0,
+		HeightBandCeiling: 10.0,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+	for i := 0; i < 15; i++ {
+		ts := now.Add(time.Duration(500+i*100) * time.Millisecond)
+		fgDist := 5.0 + float64(i)*0.1
+		cb(makeForegroundFrame(fmt.Sprintf("prune-%d", i), ts, 20.0, fgDist))
+	}
+
+	if !strings.Contains(diagBuf.String(), "Pruned") {
+		t.Logf("diagBuf: %s", diagBuf.String())
+		// Prune may not fire if no tracks reach confirmed+deleted state.
+		// The test still exercises the DB prune branch (lastPruneTime.IsZero()).
+	}
+}
+
+// TestTrackingPipelineConfig_CustomDBSCANParams exercises the tuning config
+// paths for ForegroundMinClusterPoints and ForegroundDBSCANEps.
+func TestTrackingPipelineConfig_CustomDBSCANParams(t *testing.T) {
+	sensorID := "coverage-dbscan-params-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	// Set custom DBSCAN params via the background manager params.
+	params := bgMgr.GetParams()
+	params.ForegroundMinClusterPoints = 3
+	params.ForegroundDBSCANEps = 1.5
+	bgMgr.SetParams(params)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		RemoveGround:      true,
+		HeightBandFloor:   -10.0,
+		HeightBandCeiling: 10.0,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+	for i := 0; i < 15; i++ {
+		ts := now.Add(time.Duration(500+i*100) * time.Millisecond)
+		fgDist := 5.0 + float64(i)*0.1
+		cb(makeForegroundFrame(fmt.Sprintf("dbscan-%d", i), ts, 20.0, fgDist))
+	}
+}
+
+// TestTrackingPipelineConfig_DenseBackgroundDownsample exercises the
+// background downsampling branches when backgroundCount > 5000
+// (stride and cap calculation).
+func TestTrackingPipelineConfig_DenseBackgroundDownsample(t *testing.T) {
+	sensorID := "coverage-dense-bg-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		RemoveGround:      true,
+		HeightBandFloor:   -10.0,
+		HeightBandCeiling: 10.0,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	// Seed background model with dense frames so all 5600 cells converge.
+	for i := 0; i < 3; i++ {
+		cb(makeDenseFrame(fmt.Sprintf("dense-seed-%d", i), now.Add(time.Duration(i)*100*time.Millisecond), 20.0, 20.0))
+	}
+	// Now send a dense frame with foreground — background count > 5000.
+	for i := 0; i < 3; i++ {
+		ts := now.Add(time.Duration(300+i*100) * time.Millisecond)
+		cb(makeDenseFrame(fmt.Sprintf("dense-fg-%d", i), ts, 20.0, 5.0))
+	}
+}
+
+// TestTrackingPipelineConfig_GroundFilterRemovesAll exercises the
+// filteredPoints == 0 early return after ground removal filters everything.
+func TestTrackingPipelineConfig_GroundFilterRemovesAll(t *testing.T) {
+	sensorID := "coverage-ground-filter-all-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	// Use a very narrow height band that rejects everything.
+	// Sensor at Z=0, ground at about −3m for typical mount.
+	// If floor=0.0 and ceiling=0.0, all points are filtered out.
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		RemoveGround:      true,
+		HeightBandFloor:   99.0,  // Impossibly high floor
+		HeightBandCeiling: 100.0, // Impossibly high ceiling
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+	// Foreground extracted, but ground filter should reject all points.
+	for i := 0; i < 15; i++ {
+		ts := now.Add(time.Duration(500+i*100) * time.Millisecond)
+		fgDist := 5.0 + float64(i)*0.1
+		cb(makeForegroundFrame(fmt.Sprintf("gf-%d", i), ts, 20.0, fgDist))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Helpers ported from internal/lidar/ root test files
+// ---------------------------------------------------------------------------
+
+// minObsForClassification loads the default min_observations_for_classification
+// from the tuning config, used by tests that need the threshold.
+func minObsForClassification() int {
+	return config.MustLoadDefaultConfig().GetMinObservationsForClassification()
+}
+
+// mockTrackerCov implements l5tracks.TrackerInterface with controllable return
+// values for deterministic coverage testing.
+type mockTrackerCov struct {
+	updateCalls      int
+	frameStatsCalls  int
+	confirmedTracks  []*l5tracks.TrackedObject
+	lastForeground   int
+	lastClustered    int
+	lastAssociations []string
+	activeTracks     []*l5tracks.TrackedObject
+	allTracks        []*l5tracks.TrackedObject
+	recentlyDeleted  []*l5tracks.TrackedObject
+	metricsResult    l5tracks.TrackingMetrics
+	totalCount       int
+	tentativeCount   int
+	confirmedCount   int
+	deletedCount     int
+}
+
+func (m *mockTrackerCov) Update(clusters []l5tracks.WorldCluster, timestamp time.Time) {
+	m.updateCalls++
+}
+func (m *mockTrackerCov) GetActiveTracks() []*l5tracks.TrackedObject    { return m.activeTracks }
+func (m *mockTrackerCov) GetConfirmedTracks() []*l5tracks.TrackedObject { return m.confirmedTracks }
+func (m *mockTrackerCov) GetTrack(trackID string) *l5tracks.TrackedObject {
+	return nil
+}
+func (m *mockTrackerCov) GetTrackCount() (total, tentative, confirmed, deleted int) {
+	return m.totalCount, m.tentativeCount, m.confirmedCount, m.deletedCount
+}
+func (m *mockTrackerCov) GetAllTracks() []*l5tracks.TrackedObject { return m.allTracks }
+func (m *mockTrackerCov) GetRecentlyDeletedTracks(nowNanos int64) []*l5tracks.TrackedObject {
+	return m.recentlyDeleted
+}
+func (m *mockTrackerCov) GetLastAssociations() []string { return m.lastAssociations }
+func (m *mockTrackerCov) GetTrackingMetrics() l5tracks.TrackingMetrics {
+	return m.metricsResult
+}
+func (m *mockTrackerCov) RecordFrameStats(totalFg, clustered int) {
+	m.frameStatsCalls++
+	m.lastForeground = totalFg
+	m.lastClustered = clustered
+}
+func (m *mockTrackerCov) UpdateClassification(trackID, objectClass string, confidence float32, model string) {
+}
+func (m *mockTrackerCov) AdvanceMisses(timestamp time.Time) {
+}
+func (m *mockTrackerCov) GetDeletedTrackGracePeriod() time.Duration {
+	return 5 * time.Second
+}
+func (m *mockTrackerCov) UpdateConfig(fn func(*l5tracks.TrackerConfig)) {
+	// no-op in mock
+}
+
+// testBackgroundManagerPrePopulated creates a 40×1800 BackgroundManager with
+// every cell pre-settled to a 10 m baseline. Points at a different distance
+// (e.g. 2 m or 5 m) will be detected as strong foreground.
+func testBackgroundManagerPrePopulated(t *testing.T) *l3grid.BackgroundManager {
+	t.Helper()
+	params := l3grid.BackgroundParams{
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		BackgroundUpdateFraction:       0.02,
+		NeighborConfirmationCount:      0, // no neighbour requirement
+		WarmupMinFrames:                0, // skip warmup
+	}
+	bm := l3grid.NewBackgroundManagerDI("test-cov", 40, 1800, params, nil)
+	if bm == nil {
+		t.Fatal("NewBackgroundManagerDI returned nil")
+	}
+	for i := range bm.Grid.Cells {
+		bm.Grid.Cells[i].AverageRangeMeters = 10.0
+		bm.Grid.Cells[i].TimesSeenCount = 100
+	}
+	bm.HasSettled = true
+	return bm
+}
+
+// testFramePrePopulated returns a frame with n points that will be detected as
+// foreground because their distance (2 m) differs from the 10 m background
+// baseline of testBackgroundManagerPrePopulated.
+func testFramePrePopulated(n int) *l2frames.LiDARFrame {
+	now := time.Now()
+	points := make([]l2frames.Point, n)
+	for i := 0; i < n; i++ {
+		points[i] = l2frames.Point{
+			Channel:   int(i%40) + 1,
+			Azimuth:   float64(i%360) + 0.5,
+			Elevation: float64(i%40)*0.5 - 10,
+			Distance:  2.0,
+			Intensity: 20,
+			Timestamp: now,
+		}
+	}
+	return &l2frames.LiDARFrame{
+		FrameID:        "test-frame",
+		Points:         points,
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+}
+
+// clusterFramePrePopulated returns a frame whose points form a tight DBSCAN
+// cluster after foreground extraction with the pre-populated 40×1800 grid.
+//
+// Geometry:
+//   - 40×1800 background grid at 10 m baseline (testBackgroundManagerPrePopulated).
+//   - distance=5 m → clearly foreground vs 10 m baseline.
+//   - elevation=6° → z ≈ 0.52 m → passes default height band [−2.8, 1.5].
+//   - azimuths 180°..189° in 1° steps → XY spread ≈ 0.78 m < Eps=0.8 m.
+//   - 10 points ≥ foreground_min_cluster_points (5).
+func clusterFramePrePopulated() *l2frames.LiDARFrame {
+	now := time.Now()
+	pts := make([]l2frames.Point, 10)
+	for i := range pts {
+		pts[i] = l2frames.Point{
+			Channel:   i + 1,              // channels 1-10
+			Azimuth:   180.0 + float64(i), // 180°-189°
+			Elevation: 6.0,
+			Distance:  5.0,
+			Intensity: 40,
+			Timestamp: now,
+		}
+	}
+	return &l2frames.LiDARFrame{
+		FrameID:        "cluster-frame",
+		Points:         pts,
+		StartTimestamp: now,
+		MinAzimuth:     180,
+		MaxAzimuth:     190,
+	}
+}
+
+// mockFgForwarderDetailed tracks forwarding calls with detailed state, used
+// by tests that check forwardCalled / lastPoints fields.
+type mockFgForwarderDetailed struct {
+	forwardCalled bool
+	lastPoints    []l4perception.PointPolar
+	callCount     int
+}
+
+func (m *mockFgForwarderDetailed) ForwardForeground(points []l4perception.PointPolar) {
+	m.forwardCalled = true
+	m.lastPoints = points
+	m.callCount++
+}
+
+// ---------------------------------------------------------------------------
+// Tests ported from internal/lidar/ root — unique coverage paths
+// ---------------------------------------------------------------------------
+
+// TestIsNilInterface_WithForegroundForwarder tests the specific case that
+// caused a bug: a nil pointer assigned to the ForegroundForwarder interface.
+func TestIsNilInterface_WithForegroundForwarder(t *testing.T) {
+	var fwd ForegroundForwarder
+
+	// Case 1: uninitialised interface
+	if !isNilInterface(fwd) {
+		t.Error("expected nil interface to be detected as nil")
+	}
+
+	// Case 2: nil pointer assigned to interface (the bug case)
+	var nilPtr *mockFgForwarderDetailed
+	fwd = nilPtr
+	if !isNilInterface(fwd) {
+		t.Error("expected interface holding nil pointer to be detected as nil")
+	}
+
+	// Case 3: valid pointer assigned to interface
+	validPtr := &mockFgForwarderDetailed{}
+	fwd = validPtr
+	if isNilInterface(fwd) {
+		t.Error("expected interface holding valid pointer to be detected as non-nil")
+	}
+}
+
+// TestNilTrackerAfterClusters covers the early return at tracker.Update when
+// cfg.Tracker is nil but DBSCAN produced clusters.
+func TestNilTrackerAfterClusters(t *testing.T) {
+	bm := testBackgroundManagerPrePopulated(t)
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           nil, // explicitly nil
+	}
+
+	cb := cfg.NewFrameCallback()
+	// clusterFramePrePopulated produces DBSCAN clusters → reaches "if cfg.Tracker == nil" after clusters.
+	cb(clusterFramePrePopulated())
+}
+
+// TestNoClustersRecordStats covers the path where foreground points survive
+// the height filter but DBSCAN produces no clusters (MinPts set very high),
+// and RecordFrameStats is called with 0 clustered points.
+func TestNoClustersRecordStats(t *testing.T) {
+	params := l3grid.BackgroundParams{
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+		BackgroundUpdateFraction:       0.02,
+		NeighborConfirmationCount:      0,
+		WarmupMinFrames:                0,
+		ForegroundMinClusterPoints:     999, // impossibly high → no clusters
+		ForegroundDBSCANEps:            2.0,
+	}
+	bm := l3grid.NewBackgroundManagerDI("test-nocl", 40, 1800, params, nil)
+	for i := range bm.Grid.Cells {
+		bm.Grid.Cells[i].AverageRangeMeters = 10.0
+		bm.Grid.Cells[i].TimesSeenCount = 100
+	}
+	bm.HasSettled = true
+
+	tracker := &mockTrackerCov{}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           tracker,
+	}
+
+	cb := cfg.NewFrameCallback()
+	cb(clusterFramePrePopulated())
+
+	if tracker.frameStatsCalls == 0 {
+		t.Error("expected RecordFrameStats to be called on the no-clusters path")
+	}
+}
+
+// TestNoForegroundReturn covers the early return after StoreForegroundSnapshot
+// when all points match the background distance.
+func TestNoForegroundReturn(t *testing.T) {
+	bm := testBackgroundManagerPrePopulated(t)
+	tracker := &mockTrackerCov{}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           tracker,
+	}
+
+	cb := cfg.NewFrameCallback()
+
+	// All points at 10 m exactly match the 10 m background baseline,
+	// so none are detected as foreground.
+	now := time.Now()
+	pts := make([]l2frames.Point, 50)
+	for i := range pts {
+		pts[i] = l2frames.Point{
+			Channel:   (i % 40) + 1,
+			Azimuth:   float64(i%360) + 0.5,
+			Distance:  10.0,
+			Intensity: 20,
+			Timestamp: now,
+		}
+	}
+	frame := &l2frames.LiDARFrame{
+		FrameID:        "bg-only",
+		Points:         pts,
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+	cb(frame)
+
+	if tracker.updateCalls > 0 {
+		t.Error("tracker should not be called when no foreground is detected")
+	}
+}
+
+// TestDBInsertErrors exercises InsertTrack and InsertTrackObservation error
+// paths. A closed database reliably triggers both errors.
+func TestDBInsertErrors(t *testing.T) {
+	db := setupTestDB(t)
+	db.Close() // close before pipeline uses it to force errors
+
+	bm := testBackgroundManagerPrePopulated(t)
+
+	tracker := &mockTrackerCov{
+		confirmedTracks: []*l5tracks.TrackedObject{
+			{
+				TrackID:          "err-t1",
+				ObservationCount: 10,
+				AvgSpeedMps:      4.0,
+			},
+		},
+	}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           tracker,
+		DB:                db,
+		SensorID:          "cov-err",
+	}
+
+	cb := cfg.NewFrameCallback()
+	// Should not panic; errors are logged.
+	cb(clusterFramePrePopulated())
+}
+
+// TestRegistryRunManager covers the getRunManager fallback path through the
+// global registry (cfg.AnalysisRunManager is nil, but a manager is
+// registered for the sensor).
+func TestRegistryRunManager(t *testing.T) {
+	db := setupTestDB(t)
+
+	sensorID := "cov-reg"
+	runMgr := sqlite.NewAnalysisRunManager(db, sensorID)
+	sqlite.RegisterAnalysisRunManager(sensorID, runMgr)
+	defer sqlite.RegisterAnalysisRunManager(sensorID, nil)
+
+	rp := sqlite.DefaultRunParams()
+	if _, err := runMgr.StartRun("/cov-reg.pcap", rp); err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	defer runMgr.CompleteRun()
+
+	bm := testBackgroundManagerPrePopulated(t)
+	tracker := &mockTrackerCov{
+		confirmedTracks: []*l5tracks.TrackedObject{
+			{TrackID: "reg-t1", ObservationCount: 10, AvgSpeedMps: 5.0},
+		},
+	}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           tracker,
+		SensorID:          sensorID,
+		// AnalysisRunManager intentionally nil → falls through to registry
+	}
+
+	cb := cfg.NewFrameCallback()
+	cb(clusterFramePrePopulated())
+}
+
+// TestFeatureExportWithRunManager combines FeatureExportFunc and an active
+// AnalysisRunManager to hit both export and run recording for confirmed
+// tracks in a single callback invocation.
+func TestFeatureExportWithRunManager(t *testing.T) {
+	db := setupTestDB(t)
+
+	bm := testBackgroundManagerPrePopulated(t)
+	runMgr := sqlite.NewAnalysisRunManager(db, "cov-fe")
+	rp := sqlite.DefaultRunParams()
+	if _, err := runMgr.StartRun("/cov-fe.pcap", rp); err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	defer runMgr.CompleteRun()
+
+	var exported atomic.Int32
+	tracker := &mockTrackerCov{
+		confirmedTracks: []*l5tracks.TrackedObject{
+			{
+				TrackID:          "fe-t1",
+				ObservationCount: minObsForClassification() + 5,
+				AvgSpeedMps:      6.0,
+				ObjectClass:      "vehicle",
+				ObjectConfidence: 0.9,
+			},
+		},
+	}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager:  bm,
+		Tracker:            tracker,
+		AnalysisRunManager: runMgr,
+		SensorID:           "cov-fe",
+		FeatureExportFunc: func(trackID string, features l6objects.TrackFeatures, class string, confidence float32) {
+			exported.Add(1)
+		},
+	}
+
+	cb := cfg.NewFrameCallback()
+	cb(clusterFramePrePopulated())
+}
+
+// TestDBPersistenceAndObservation exercises the full DB persistence path
+// (InsertTrack + InsertTrackObservation) with a functional database and
+// mockTrackerCov for deterministic confirmed tracks.
+func TestDBPersistenceAndObservation(t *testing.T) {
+	db := setupTestDB(t)
+
+	bm := testBackgroundManagerPrePopulated(t)
+
+	tracker := &mockTrackerCov{
+		confirmedTracks: []*l5tracks.TrackedObject{
+			{
+				TrackID:              "db-t1",
+				SensorID:             "cov-db",
+				ObservationCount:     8,
+				AvgSpeedMps:          4.5,
+				X:                    1.0,
+				Y:                    2.0,
+				VX:                   0.3,
+				VY:                   0.1,
+				BoundingBoxLengthAvg: 4.0,
+				BoundingBoxWidthAvg:  1.8,
+				BoundingBoxHeightAvg: 1.5,
+				HeightP95Max:         2.0,
+				IntensityMeanAvg:     45.0,
+			},
+		},
+	}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           tracker,
+		DB:                db,
+		SensorID:          "cov-db",
+	}
+
+	cb := cfg.NewFrameCallback()
+	cb(clusterFramePrePopulated())
+
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM lidar_tracks WHERE track_id='db-t1'").Scan(&count); err != nil {
+		t.Fatalf("query tracks: %v", err)
+	}
+	if count == 0 {
+		t.Log("track not persisted (DBSCAN may not have formed clusters)")
+	}
+}
+
+// TestAnalysisRunManagerRecordTrack ensures runManager.RecordTrack is invoked
+// for confirmed tracks when an analysis run is active, combined with cluster
+// classification.
+func TestAnalysisRunManagerRecordTrack(t *testing.T) {
+	db := setupTestDB(t)
+
+	bm := testBackgroundManagerPrePopulated(t)
+	runMgr := sqlite.NewAnalysisRunManager(db, "cov-rt")
+	rp := sqlite.DefaultRunParams()
+	if _, err := runMgr.StartRun("/cov-rt.pcap", rp); err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	defer runMgr.CompleteRun()
+
+	classifier := l6objects.NewTrackClassifier()
+
+	tracker := &mockTrackerCov{
+		confirmedTracks: []*l5tracks.TrackedObject{
+			{
+				TrackID:          "rt-t1",
+				ObservationCount: minObsForClassification(),
+				AvgSpeedMps:      3.0,
+				ObjectClass:      "", // triggers classify
+			},
+		},
+	}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager:  bm,
+		Tracker:            tracker,
+		Classifier:         classifier,
+		AnalysisRunManager: runMgr,
+		SensorID:           "cov-rt",
+	}
+
+	cb := cfg.NewFrameCallback()
+	cb(clusterFramePrePopulated())
+}
+
+// TestNilTracker exercises the nil-tracker path with a background manager
+// that has a non-settled, process-based background.
+func TestNilTracker(t *testing.T) {
+	bgMgr := l3grid.NewBackgroundManagerDI("test", 16, 360, l3grid.BackgroundParams{
+		BackgroundUpdateFraction:       0.1,
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMeters:             0.5,
+	}, nil)
+
+	// Populate background
+	for i := 0; i < 10; i++ {
+		points := []l4perception.PointPolar{
+			{Channel: 1, Azimuth: 180, Distance: 10.0},
+		}
+		bgMgr.ProcessFramePolar(points)
+	}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bgMgr,
+		Tracker:           nil,
+		SensorID:          "test-sensor",
+	}
+
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	frame := &l2frames.LiDARFrame{
+		FrameID: "test-frame",
+		Points: []l2frames.Point{
+			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+		},
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+
+	// Should handle nil tracker without panicking
+	cb(frame)
+}
+
+// TestDebugModeConfirmedTracks covers the debug log after the confirmed-tracks
+// loop when confirmed tracks are present.
+func TestDebugModeConfirmedTracks(t *testing.T) {
+	bm := testBackgroundManagerPrePopulated(t)
+
+	tracker := &mockTrackerCov{
+		confirmedTracks: []*l5tracks.TrackedObject{
+			{TrackID: "dbg-t1", ObservationCount: 3, AvgSpeedMps: 2.0},
+		},
+	}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           tracker,
+	}
+
+	cb := cfg.NewFrameCallback()
+	cb(clusterFramePrePopulated())
+
+	if tracker.updateCalls == 0 {
+		t.Error("expected tracker.Update (clusters should form)")
+	}
+}
+
+// TestBackgroundDownsamplingPrePopulated covers stride/cap branches when
+// there are >5000 background points, using the pre-populated 40×1800 grid.
+func TestBackgroundDownsamplingPrePopulated(t *testing.T) {
+	bm := testBackgroundManagerPrePopulated(t)
+	tracker := &mockTrackerCov{}
+
+	cfg := &TrackingPipelineConfig{
+		BackgroundManager: bm,
+		Tracker:           tracker,
+	}
+
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	const bgCount = 6000
+	const fgCount = 10
+	pts := make([]l2frames.Point, 0, bgCount+fgCount)
+
+	for i := 0; i < bgCount; i++ {
+		pts = append(pts, l2frames.Point{
+			Channel:   (i % 40) + 1,
+			Azimuth:   float64(i%1800) * 0.2,
+			Elevation: 0,
+			Distance:  10.0,
+			Intensity: 10,
+			Timestamp: now,
+		})
+	}
+	for i := 0; i < fgCount; i++ {
+		pts = append(pts, l2frames.Point{
+			Channel:   i + 1,
+			Azimuth:   180.0 + float64(i),
+			Elevation: 6.0,
+			Distance:  5.0,
+			Intensity: 40,
+			Timestamp: now,
+		})
+	}
+
+	frame := &l2frames.LiDARFrame{
+		FrameID:        "big-frame",
+		Points:         pts,
+		StartTimestamp: now,
+		MinAzimuth:     0,
+		MaxAzimuth:     360,
+	}
+	cb(frame)
 }

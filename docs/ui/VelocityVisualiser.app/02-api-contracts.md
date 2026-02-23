@@ -1,7 +1,5 @@
 # API Contracts
 
-Status: Active (contains planned sections)
-
 This is the **most critical document** for the visualiser project. It defines the canonical data model and communication protocol between the Go pipeline (server) and the macOS visualiser (client).
 
 ---
@@ -304,7 +302,7 @@ message StatePrediction {
 
 ### 1.5.1 Planned: Background Debug Surfaces for Swift Frontend
 
-Status: **Planned (docs-only), not implemented in current protobuf/API yet**.
+**Status:** Planned (docs-only), not implemented in current protobuf/API yet.
 
 Goal: let the Swift frontend inspect background model behaviour directly in both
 native polar representation and Cartesian rendering form, including region map

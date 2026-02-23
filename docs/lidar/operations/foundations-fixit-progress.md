@@ -1,8 +1,5 @@
 # LiDAR Foundations Fix-It
 
-Owner: LiDAR pipeline maintainers
-Status: In progress
-
 ## Goal
 
 Stabilize documentation and implementation boundaries so downstream work depends on explicit, accurate foundations.

@@ -228,6 +228,7 @@ func (d *DirectBackend) SetTuningParams(params map[string]interface{}) error {
 		PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
 		ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
 		ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
+		ForegroundMaxInputPoints   *int     `json:"foreground_max_input_points"`
 		BackgroundUpdateFraction   *float64 `json:"background_update_fraction"`
 		SafetyMarginMeters         *float64 `json:"safety_margin_meters"`
 		GatingDistanceSquared      *float64 `json:"gating_distance_squared"`
@@ -298,6 +299,13 @@ func (d *DirectBackend) SetTuningParams(params map[string]interface{}) error {
 			eps = float32(*body.ForegroundDBSCANEps)
 		}
 		if err := mgr.SetForegroundClusterParams(minPts, eps); err != nil {
+			return err
+		}
+	}
+	if body.ForegroundMaxInputPoints != nil {
+		p := mgr.GetParams()
+		p.ForegroundMaxInputPoints = *body.ForegroundMaxInputPoints
+		if err := mgr.SetParams(p); err != nil {
 			return err
 		}
 	}

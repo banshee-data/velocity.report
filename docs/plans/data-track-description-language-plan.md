@@ -1,9 +1,8 @@
 # Track Description Language and Description Interface
 
-Status: Proposed
-Purpose: Defines the Track Description Language (TDL) for querying the fused transit database, and the description interface for browsing and aggregating transit statistics.
+Defines the Track Description Language (TDL) for querying the fused transit database, and the description interface for browsing and aggregating transit statistics.
 
-Related: [Product Vision](../VISION.md)
+**Related:** [Product Vision](../VISION.md)
 
 ---
 

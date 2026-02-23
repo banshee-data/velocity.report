@@ -202,7 +202,7 @@ proto/
 
 ### 2.3 Planned Background Debug Channels (Polar/Cartesian/Region Map)
 
-Status: **Planned (docs-only)**.
+**Status:** Planned (docs-only).
 
 The visualiser currently consumes foreground frames and periodic background
 snapshots. For debugging settlement behaviour, add three explicit background

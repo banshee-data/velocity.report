@@ -195,11 +195,8 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
 
 	// Notify visualiser gRPC server that we are now replaying.
-	// NOTE: This must happen before the goroutine produces any frames so that
-	// the gRPC server injects PlaybackInfo into streamed frames. The goroutine
-	// won't emit frames until after pre-counting completes (which takes measurable
-	// time), so this call races are unlikely in practice. However, the goroutine
-	// also calls onPCAPStarted internally as a belt-and-braces guard.
+	// This must happen before the goroutine produces any frames so that the
+	// gRPC server injects PlaybackInfo into streamed frames.
 	if ws.onPCAPStarted != nil {
 		ws.onPCAPStarted()
 	}

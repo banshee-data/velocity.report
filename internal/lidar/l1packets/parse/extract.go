@@ -3,7 +3,6 @@ package parse
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -223,8 +222,7 @@ type Pandar40PParser struct {
 	packetCount     int             // Packet counter for debugging and diagnostic purposes
 	lastTimestamp   uint32          // Previous timestamp for static detection in PTP/GPS modes
 	staticCount     int             // Counter for static timestamp detection and fallback logic
-	debug           bool            // Enable debug logging for development and troubleshooting
-	debugPackets    int             // Number of initial packets to debug log (prevents log spam)
+	debugPackets    int             // Number of initial packets to trace log (prevents log spam)
 	lastMotorSpeed  uint16          // Last parsed motor speed in RPM (cached for frame builder integration)
 	externalTime    time.Time       // Optional override from capture metadata (e.g., PCAP) for replay
 	externalTimeSet bool            // Tracks when an external time override is available
@@ -251,13 +249,7 @@ func (p *Pandar40PParser) SetTimestampMode(mode TimestampMode) {
 	}
 }
 
-// SetDebug enables or disables debug logging for development and troubleshooting
-func (p *Pandar40PParser) SetDebug(enabled bool) {
-	p.debug = enabled
-}
-
-// SetDebugPackets sets the number of initial packets to debug log (prevents log spam)
-// Only affects logging when debug mode is enabled
+// SetDebugPackets sets the number of initial packets to trace log (prevents log spam)
 func (p *Pandar40PParser) SetDebugPackets(count int) {
 	p.debugPackets = count
 }
@@ -327,14 +319,14 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]l4perception.PointPolar, e
 	// and fixes the static timestamp detection logic which falsely triggered on block iterations.
 	packetTime := p.resolvePacketTime(tail)
 
-	// Debug packet tail fields if enabled (first few packets only to prevent log spam)
-	if p.debug && p.packetCount <= p.debugPackets {
+	// Trace packet tail fields for initial packets only to prevent log spam
+	if p.packetCount <= p.debugPackets {
 		if hasSequence {
-			log.Printf(
+			tracef(
 				"Packet %d tail: UDPSeq=%d, MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs, PacketTime=%s",
 				p.packetCount, tail.UDPSequence, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp, packetTime.Format(time.RFC3339Nano))
 		} else {
-			log.Printf(
+			tracef(
 				"Packet %d tail: MotorSpeed=%d RPM, HighTemp=0x%02x, ReturnMode=0x%02x, Factory=0x%02x, DateTime=%s, Timestamp=%d μs, PacketTime=%s",
 				p.packetCount, tail.MotorSpeed, tail.HighTempFlag, tail.ReturnMode, tail.FactoryInfo, tail.CombinedTimestamp.Format("2006-01-02 15:04:05"), tail.Timestamp, packetTime.Format(time.RFC3339Nano))
 		}
@@ -379,8 +371,8 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]l4perception.PointPolar, e
 	}
 
 	// Diagnostic: if parsing succeeded but produced zero points, log per-block non-zero counts
-	if p.debug && len(points) == 0 {
-		log.Printf("Packet %d parsed -> 0 points; nonzero_channels_per_block=%v; tail=%+v", p.packetCount, blockNonZero, tail)
+	if len(points) == 0 {
+		diagf("Packet %d parsed -> 0 points; nonzero_channels_per_block=%v; tail=%+v", p.packetCount, blockNonZero, tail)
 	}
 
 	return points, nil
@@ -486,18 +478,18 @@ func (p *Pandar40PParser) resolvePacketTime(tail *PacketTail) time.Time {
 			// Use system time for proper frame building when PTP timestamps are frozen
 			packetTime = time.Now()
 
-			// Debug logging for fallback (first occurrence only to prevent log spam)
+			// Log fallback (first occurrence only to prevent log spam)
 			if p.staticCount == STATIC_TIMESTAMP_THRESHOLD+1 {
-				log.Printf("PTP Debug - Static timestamps detected (raw: %d us), falling back to system time for frame building", tail.Timestamp)
+				opsf("PTP static timestamps detected (raw: %d us), falling back to system time for frame building", tail.Timestamp)
 			}
 		} else {
 			// PTP free-run mode: timestamps are microseconds since device boot
 			// Apply boot time offset to align with system time domain for proper frame building
 			packetTime = p.bootTime.Add(time.Duration(tail.Timestamp) * time.Microsecond)
 
-			// Debug logging for PTP timestamps (first few packets and periodic intervals)
+			// Trace logging for PTP timestamps (first few packets and periodic intervals)
 			if p.packetCount < p.debugPackets || p.packetCount%DEBUG_LOG_INTERVAL == 0 {
-				log.Printf("PTP Debug [pkt %d] - Raw timestamp: %d us, Boot offset time: %v, System time: %v",
+				tracef("PTP [pkt %d] - Raw timestamp: %d us, Boot offset time: %v, System time: %v",
 					p.packetCount, tail.Timestamp, packetTime, time.Now())
 			}
 		}

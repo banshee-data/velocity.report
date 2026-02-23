@@ -6,7 +6,6 @@
 
 # Frontend and Visualisation Design Language
 
-Status: Draft
 Last updated: 2026-02-18
 
 ## 1. One Strict Goal

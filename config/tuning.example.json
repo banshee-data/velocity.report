@@ -11,6 +11,7 @@
   "enable_diagnostics": false,
   "foreground_dbscan_eps": 0.8,
   "foreground_min_cluster_points": 5,
+  "foreground_max_input_points": 8000,
   "buffer_timeout": "250ms",
   "min_frame_points": 500,
   "flush_interval": "120s",

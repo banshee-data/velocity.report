@@ -64,7 +64,6 @@ func TestParsePacket_DebugLoggingBranches(t *testing.T) {
 
 	// Standard packet with debug
 	parser := NewPandar40PParser(*config)
-	parser.SetDebug(true)
 	parser.SetDebugPackets(5)
 
 	stdPacket := createTestMockPacket()
@@ -74,7 +73,6 @@ func TestParsePacket_DebugLoggingBranches(t *testing.T) {
 
 	// Sequence packet with debug (separate parser to reset packetCount)
 	parser2 := NewPandar40PParser(*config)
-	parser2.SetDebug(true)
 	parser2.SetDebugPackets(5)
 
 	seqPacket := createTestMockPacketWithSequence()
@@ -88,7 +86,6 @@ func TestParsePacket_DebugLoggingBranches(t *testing.T) {
 func TestParsePacket_DebugZeroPoints(t *testing.T) {
 	config := createTestMockConfig()
 	parser := NewPandar40PParser(*config)
-	parser.SetDebug(true)
 	parser.SetDebugPackets(5)
 
 	// Build packet with valid preambles but all-zero distances

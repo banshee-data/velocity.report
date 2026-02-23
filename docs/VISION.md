@@ -1,7 +1,6 @@
 # Product Vision
 
-Status: Draft
-Purpose: Defines the long-term product direction for velocity.report, guiding backlog pruning and prioritisation decisions.
+Long-term product direction for velocity.report, guiding backlog pruning and prioritisation decisions.
 
 ---
 
