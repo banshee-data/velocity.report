@@ -1,20 +1,18 @@
-// Command settling-eval evaluates background grid settling convergence for a
-// running velocity.report server. It polls the /api/lidar/settling_eval
-// endpoint at a configurable interval and produces a JSON report with
-// convergence metrics and a recommended WarmupMinFrames value.
+// Command settling-eval evaluates background grid settling convergence by
+// replaying a captured PCAP file offline through a local BackgroundManager
+// at full speed. It evaluates convergence on every frame and produces a JSON
+// report with convergence metrics and a recommended WarmupMinFrames value.
 //
 // Usage:
 //
-//	settling-eval --server http://localhost:8080 --sensor hesai-01 [--output report.json] [--interval 1s] [--timeout 120s]
+//	go run -tags=pcap ./cmd/tools/settling-eval capture.pcap [--tuning config/tuning.defaults.json] [--output report.json]
 package main
 
 import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"time"
 )
@@ -37,129 +35,55 @@ type SettlingThresholds struct {
 	MinConfidence      float64 `json:"min_confidence"`
 }
 
-// EvalResponse is the JSON body returned by /api/lidar/settling_eval.
-type EvalResponse struct {
-	SensorID         string             `json:"sensor_id"`
-	Metrics          SettlingMetrics    `json:"metrics"`
-	Thresholds       SettlingThresholds `json:"thresholds"`
-	Converged        bool               `json:"converged"`
-	SettlingComplete bool               `json:"settling_complete"`
-}
-
 // SettlingEvaluation is the final JSON report written to --output.
 type SettlingEvaluation struct {
-	ServerURL           string             `json:"server_url"`
+	PCAPFile            string             `json:"pcap_file"`
+	TuningFile          string             `json:"tuning_file"`
 	SensorID            string             `json:"sensor_id"`
 	TotalSamples        int                `json:"total_samples"`
+	TotalFrames         int                `json:"total_frames"`
 	MetricsHistory      []SettlingMetrics  `json:"metrics_history"`
 	RecommendedFrame    int                `json:"recommended_settling_frame"`
 	RecommendedDuration string             `json:"recommended_settling_duration"`
 	Thresholds          SettlingThresholds `json:"thresholds"`
 	Rationale           string             `json:"rationale"`
+	WallDuration        string             `json:"wall_duration"`
 }
 
 func main() {
-	server := flag.String("server", "http://localhost:8080", "velocity.report server URL")
-	sensor := flag.String("sensor", "", "sensor ID (required)")
 	output := flag.String("output", "", "output JSON path (default: stdout)")
-	interval := flag.Duration("interval", 1*time.Second, "polling interval")
-	timeout := flag.Duration("timeout", 120*time.Second, "maximum evaluation duration")
+	sensor := flag.String("sensor", "pcap-eval", "sensor ID")
+	tuningFile := flag.String("tuning", "", "tuning config JSON path (default: config/tuning.defaults.json)")
+	udpPort := flag.Int("port", 2368, "UDP port filter for PCAP packets")
+
 	flag.Parse()
 
-	if *sensor == "" {
-		fmt.Fprintln(os.Stderr, "error: --sensor is required")
-		flag.Usage()
+	if flag.NArg() != 1 {
+		fmt.Fprintf(os.Stderr, "usage: settling-eval [flags] <pcap-file>\n")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
+	pcapFile := flag.Arg(0)
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	url := fmt.Sprintf("%s/api/lidar/settling_eval?sensor_id=%s", *server, *sensor)
-
-	log.Printf("settling-eval: polling %s every %v (timeout %v)", url, *interval, *timeout)
-
-	var history []SettlingMetrics
-	var lastThresholds SettlingThresholds
-	recommendedFrame := -1
-	deadline := time.Now().Add(*timeout)
-
-	for time.Now().Before(deadline) {
-		resp, err := client.Get(url)
-		if err != nil {
-			log.Printf("poll error: %v", err)
-			time.Sleep(*interval)
-			continue
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			log.Printf("server returned %d: %s", resp.StatusCode, string(body))
-			time.Sleep(*interval)
-			continue
-		}
-
-		var evalResp EvalResponse
-		if err := json.Unmarshal(body, &evalResp); err != nil {
-			log.Printf("JSON decode error: %v", err)
-			time.Sleep(*interval)
-			continue
-		}
-
-		history = append(history, evalResp.Metrics)
-		lastThresholds = evalResp.Thresholds
-
-		log.Printf("frame=%d coverage=%.3f spread_delta=%.6f region_stability=%.3f confidence=%.1f converged=%v settling_complete=%v",
-			evalResp.Metrics.FrameNumber,
-			evalResp.Metrics.CoverageRate,
-			evalResp.Metrics.SpreadDeltaRate,
-			evalResp.Metrics.RegionStability,
-			evalResp.Metrics.MeanConfidence,
-			evalResp.Converged,
-			evalResp.SettlingComplete,
-		)
-
-		if evalResp.Converged && recommendedFrame < 0 {
-			recommendedFrame = evalResp.Metrics.FrameNumber
-			log.Printf("✓ convergence detected at frame %d", recommendedFrame)
-		}
-
-		// If both converged AND settling is already complete, we have
-		// enough data to produce a recommendation.
-		if evalResp.Converged && evalResp.SettlingComplete {
-			break
-		}
-
-		time.Sleep(*interval)
+	eval, err := runPCAPEval(pcapFile, *tuningFile, *sensor, *udpPort)
+	if err != nil {
+		log.Fatalf("pcap eval: %v", err)
 	}
+	writeReport(eval, *output)
+}
 
-	// Build recommendation
-	rationale := buildRationale(history, recommendedFrame, lastThresholds)
-	recDuration := "unknown"
-	if recommendedFrame > 0 && len(history) > 0 {
-		// Estimate duration assuming ~10 Hz frame rate
-		recDuration = fmt.Sprintf("%.1fs (at 10 Hz)", float64(recommendedFrame)/10.0)
-	}
-
-	eval := SettlingEvaluation{
-		ServerURL:           *server,
-		SensorID:            *sensor,
-		TotalSamples:        len(history),
-		MetricsHistory:      history,
-		RecommendedFrame:    recommendedFrame,
-		RecommendedDuration: recDuration,
-		Thresholds:          lastThresholds,
-		Rationale:           rationale,
-	}
-
+// writeReport marshals eval to JSON and writes to output (or stdout).
+func writeReport(eval *SettlingEvaluation, output string) {
 	data, err := json.MarshalIndent(eval, "", "  ")
 	if err != nil {
 		log.Fatalf("JSON encode: %v", err)
 	}
 
-	if *output != "" {
-		if err := os.WriteFile(*output, data, 0o644); err != nil {
-			log.Fatalf("write %s: %v", *output, err)
+	if output != "" {
+		if err := os.WriteFile(output, data, 0o644); err != nil {
+			log.Fatalf("write %s: %v", output, err)
 		}
-		log.Printf("✓ report written to %s", *output)
+		log.Printf("✓ report written to %s", output)
 	} else {
 		fmt.Println(string(data))
 	}
@@ -167,7 +91,7 @@ func main() {
 
 func buildRationale(history []SettlingMetrics, recFrame int, th SettlingThresholds) string {
 	if len(history) == 0 {
-		return "No samples collected; the server may not be running or the sensor may not be active."
+		return "No frames processed; the PCAP file may be empty or contain no valid LiDAR packets."
 	}
 	if recFrame < 0 {
 		last := history[len(history)-1]
