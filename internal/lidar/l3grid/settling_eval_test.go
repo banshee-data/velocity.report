@@ -189,6 +189,6 @@ func TestEvaluateSettling_TimestampSet(t *testing.T) {
 	before := time.Now()
 	m := bm.EvaluateSettling(0)
 	after := time.Now()
-	assert.False(t, m.EvaluatedAt.Before(before))
-	assert.False(t, m.EvaluatedAt.After(after))
+	assert.True(t, !m.EvaluatedAt.Before(before), "EvaluatedAt should be on or after before")
+	assert.True(t, !m.EvaluatedAt.After(after), "EvaluatedAt should be on or before after")
 }
