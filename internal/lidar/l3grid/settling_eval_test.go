@@ -181,6 +181,53 @@ func TestEvaluateSettling_RegionStability(t *testing.T) {
 	assert.InDelta(t, 0.75, m2.RegionStability, 1e-9)
 }
 
+func TestEvaluateSettling_ZeroCells(t *testing.T) {
+	t.Parallel()
+	// Create a manager with a grid that has zero cells to test the early return.
+	g := &BackgroundGrid{
+		SensorID:    "test-sensor",
+		SensorFrame: "sensor/test",
+		Rings:       0,
+		AzimuthBins: 0,
+		Cells:       nil,
+	}
+	bm := &BackgroundManager{Grid: g}
+	g.Manager = bm
+
+	m := bm.EvaluateSettling(42)
+	assert.Equal(t, 42, m.FrameNumber)
+	assert.Equal(t, 0.0, m.CoverageRate)
+	assert.Equal(t, 0.0, m.SpreadDeltaRate)
+}
+
+func TestIsSettlingComplete_NilManager(t *testing.T) {
+	t.Parallel()
+	var bm *BackgroundManager
+	assert.False(t, bm.IsSettlingComplete())
+}
+
+func TestIsSettlingComplete_NilGrid(t *testing.T) {
+	t.Parallel()
+	bm := &BackgroundManager{Grid: nil}
+	assert.False(t, bm.IsSettlingComplete())
+}
+
+func TestIsSettlingComplete_NotSettled(t *testing.T) {
+	t.Parallel()
+	g := makeTestGrid(1, 4)
+	bm := g.Manager
+	// Default: SettlingComplete is false
+	assert.False(t, bm.IsSettlingComplete())
+}
+
+func TestIsSettlingComplete_Settled(t *testing.T) {
+	t.Parallel()
+	g := makeTestGrid(1, 4)
+	bm := g.Manager
+	g.SettlingComplete = true
+	assert.True(t, bm.IsSettlingComplete())
+}
+
 func TestEvaluateSettling_TimestampSet(t *testing.T) {
 	t.Parallel()
 	g := makeTestGrid(1, 1)
