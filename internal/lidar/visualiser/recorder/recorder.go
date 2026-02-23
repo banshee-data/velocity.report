@@ -146,6 +146,16 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 		return fmt.Errorf("failed to serialize frame: %w", err)
 	}
 
+	// Rotate before writing if the projected post-write size would exceed
+	// the chunk byte limit. This prevents a single large frame from
+	// pushing a chunk past maxChunkWriteBytes.
+	postWriteSize := uint64(r.chunkOffset) + uint64(4+len(data))
+	if r.currentChunk >= 0 && postWriteSize > maxChunkWriteBytes {
+		if err := r.rotateChunk(r.currentChunk + 1); err != nil {
+			return err
+		}
+	}
+
 	// Write length-prefixed frame
 	lenBuf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(lenBuf, uint32(len(data)))

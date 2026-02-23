@@ -4,10 +4,16 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 )
+
+// subsampleSeq is a monotonically increasing counter mixed into the
+// uniformSubsample RNG seed to guarantee distinct seeds even when
+// consecutive calls occur within the same nanosecond (e.g. at 20 Hz).
+var subsampleSeq atomic.Uint64
 
 // EstimatedPointsPerCell is used for initial spatial index capacity estimation.
 const EstimatedPointsPerCell = 4
@@ -306,15 +312,17 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 // uniformSubsample returns a random subset of n points from the input
 // using Fisher-Yates partial shuffle. The original slice is not modified.
 //
-// A local *rand.Rand seeded from the current time is used rather than the
-// global generator to avoid lock contention when DBSCAN is called
-// concurrently and to make the sampling behaviour independent of global
-// seed state elsewhere in the process.
+// A local *rand.Rand is used rather than the global generator to avoid
+// lock contention when DBSCAN is called concurrently. The seed mixes
+// wall-clock time with a monotonic counter so that consecutive calls
+// within the same nanosecond still produce distinct subsamples.
 func uniformSubsample(points []WorldPoint, n int) []WorldPoint {
 	if n >= len(points) {
 		return points
 	}
-	rng := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec // non-crypto use
+	seq := subsampleSeq.Add(1)
+	seed := time.Now().UnixNano() ^ int64(seq) //nolint:gosec // non-crypto use
+	rng := rand.New(rand.NewSource(seed))      //nolint:gosec // non-crypto use
 	// Work on a copy of the index space to avoid mutating the caller's slice.
 	idx := make([]int, len(points))
 	for i := range idx {

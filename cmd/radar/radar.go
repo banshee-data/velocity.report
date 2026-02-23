@@ -539,6 +539,9 @@ func main() {
 				FrameBufferSize: 100,
 				BufferTimeout:   frameBufferTimeout,
 				CleanupInterval: 250 * time.Millisecond,
+				// Larger callback channel buffer absorbs short processing
+				// stalls during PCAP replay without dropping frames.
+				FrameChCapacity: 32,
 			})
 		}
 
