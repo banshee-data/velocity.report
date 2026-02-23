@@ -1,7 +1,7 @@
 # Outstanding Executive Decisions
 
 Status: Active
-Purpose: Comprehensive register of open design decisions across velocity.report, linking to source documents with options and proposed tradeoffs to drive resolution and release coherence.
+Purpose: Comprehensive register of open design decisions across velocity.report, linking to source documents with options and proposed trade-offs to drive resolution and release coherence.
 
 ---
 
@@ -232,7 +232,7 @@ the summary table below.
 
 **Source:** [DESIGN.md §3.3](../DESIGN.md) · [design review §1.1](ui/design-review-and-improvement.md)
 
-**Context:** The canonical percentile palette is defined (p50 #fbd92f, p85 #f7b32b, p98 #f25f5c, max #2d1e2f). Web `palette.ts` was created in [#286] with compliant values, but ECharts charts in Go-embedded dashboards still use the old palette. Full compliance requires the ECharts migration (D-11).
+**Context:** The canonical percentile palette is defined (p50 #fbd92f, p85 #f7b32b, p98 #f25f5c, max #2d1e2f). Web `palette.ts` was created in PR #286 with compliant values, but ECharts charts in Go-embedded dashboards still use the old palette. Full compliance requires the ECharts migration (D-11).
 
 **Options:**
 
@@ -241,7 +241,7 @@ the summary table below.
 | **A — Fix Svelte charts now, ECharts in v0.7** (recommended) | Svelte charts are compliant immediately; ECharts fixed when retired | Inconsistency between Svelte and Go dashboards in v0.5–v0.6 |
 | **B — Wait for v0.7 to fix everything at once** | Single palette migration; no transitional inconsistency | Non-compliant palette ships in two more releases |
 
-**Recommendation:** Option A. Svelte palette is already compliant ([#286]). Document the ECharts gap as a known limitation until v0.7.
+**Recommendation:** Option A. Svelte palette is already compliant (PR #286). Document the ECharts gap as a known limitation until v0.7.
 
 ---
 
