@@ -713,4 +713,7 @@ func TestGetterDefaults(t *testing.T) {
 	if cfg.GetBufferTimeout() <= 0 {
 		t.Errorf("GetBufferTimeout() must be positive: %v", cfg.GetBufferTimeout())
 	}
+	if cfg.GetForegroundMaxInputPoints() < 0 {
+		t.Errorf("GetForegroundMaxInputPoints() must be non-negative: %d", cfg.GetForegroundMaxInputPoints())
+	}
 }
