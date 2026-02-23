@@ -362,6 +362,20 @@ func TestDirectBackend_SetTuningParams_NeighborConfirmation(t *testing.T) {
 	}
 }
 
+func TestDirectBackend_SetTuningParams_ForegroundMaxInputPoints(t *testing.T) {
+	sensorID := "direct-test-fg-maxinput-" + t.Name()
+	_ = l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
+	ws := &WebServer{sensorID: sensorID}
+	db := NewDirectBackend(sensorID, ws)
+
+	err := db.SetTuningParams(map[string]interface{}{
+		"foreground_max_input_points": 5000,
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestDirectBackend_GetLastAnalysisRunID(t *testing.T) {
 	ws := &WebServer{sensorID: "test-sensor"}
 	db := NewDirectBackend("test-sensor", ws)
