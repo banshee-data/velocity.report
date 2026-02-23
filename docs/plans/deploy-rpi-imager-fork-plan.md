@@ -366,12 +366,12 @@ reduce it dramatically.
 
 #### 4.6.1 Options
 
-| Option                                 | Approach                                                                                                                           | Estimated Savings                              |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **A: TinyTeX**                         | Install TinyTeX (a minimal, portable TeX Live distribution) and add only the LaTeX packages velocity.report actually uses          | ~600–700 MB saved                              |
-| **B: Pre-compiled templates**          | Ship pre-compiled `.fmt` files and only the fonts/packages referenced by our report templates; no general-purpose TeX installation | ~700–750 MB saved                              |
-| **C: Hybrid (TinyTeX + pre-compiled)** | Install TinyTeX with pre-compiled format files for our templates; users can still install additional packages if needed            | ~650–700 MB saved                              |
-| **D: Docker sidecar**                  | Run LaTeX compilation inside a Docker container pulled on demand; no TeX in the base image at all                                  | ~800 MB saved (but adds Docker + runtime pull) |
+| Option                                     | Approach                                                                                                                           | Estimated Savings                              |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| ~~**A: TinyTeX**~~                         | Install TinyTeX (a minimal, portable TeX Live distribution) and add only the LaTeX packages velocity.report actually uses          | ~600–700 MB saved                              |
+| **B: Pre-compiled templates** ✅           | Ship pre-compiled `.fmt` files and only the fonts/packages referenced by our report templates; no general-purpose TeX installation | ~700–750 MB saved                              |
+| ~~**C: Hybrid (TinyTeX + pre-compiled)**~~ | Install TinyTeX with pre-compiled format files for our templates; users can still install additional packages if needed            | ~650–700 MB saved                              |
+| ~~**D: Docker sidecar**~~                  | Run LaTeX compilation inside a Docker container pulled on demand; no TeX in the base image at all                                  | ~800 MB saved (but adds Docker + runtime pull) |
 
 #### 4.6.2 Evaluation Matrix
 
@@ -388,7 +388,7 @@ reduce it dramatically.
 
 #### 4.6.3 Recommendation
 
-**Start with Option B (pre-compiled templates)** for the initial image. This
+**Start with Option B (pre-compiled templates)** for the initial image. ✅ Confirmed by D-08. This
 yields the greatest size savings (~750 MB) with the simplest runtime: the image
 ships only the `.fmt` format files, the specific fonts used by our report
 templates, and a minimal XeTeX binary. No package manager, no `tlmgr`, no
@@ -422,19 +422,19 @@ without changing the image build pipeline.
 
 There are three approaches to getting our image into end users' hands:
 
-| Criterion                    | A: Custom Repo JSON                                                                  | B: Fork rpi-imager                                                             | C: Custom Flashing Tool                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| **Concept**                  | Host a JSON catalogue; users launch stock rpi-imager with `--repo` flag or paste URL | Fork rpi-imager, rebrand with velocity.report UI, hardcode our image catalogue | Build a new Electron/Tauri app that wraps `dd`/Win32DiskImager logic |
-| **User Experience**          | Users must install rpi-imager separately, then configure a custom repo URL           | Users download one branded app, our images appear by default                   | Users download our custom app, our images appear by default          |
-| **Development Cost**         | Very low (JSON file + hosting)                                                       | Medium (C++/Qt build chain, cross-platform packaging)                          | High (new codebase, platform-specific disk I/O, security)            |
-| **Maintenance Burden**       | Near zero (rpi-imager team maintains the flashing logic)                             | High (must track upstream Qt and rpi-imager changes)                           | Very high (own all platform-specific code)                           |
-| **Branding**                 | Minimal (our images show in someone else's tool)                                     | Full (velocity.report look and feel)                                           | Full                                                                 |
-| **Cross-Platform**           | ✅ rpi-imager already supports macOS, Windows, Linux                                 | ✅ Inherited from rpi-imager                                                   | ❓ Must implement and test per-platform                              |
-| **First-Boot Customisation** | ✅ rpi-imager supports Wi-Fi, SSH, locale setup                                      | ✅ Can extend with custom fields                                               | ❓ Must implement from scratch                                       |
-| **Licence**                  | N/A (no code changes)                                                                | Apache 2.0 (permissive, fork-friendly)                                         | N/A                                                                  |
-| **Time to First Release**    | 1–2 days                                                                             | 4–8 weeks                                                                      | 12–20 weeks                                                          |
-| **Ongoing Upstream Sync**    | None needed                                                                          | Regular merges required                                                        | N/A                                                                  |
-| **Risk**                     | Low                                                                                  | Medium (upstream breaking changes, Qt version churn)                           | High (security bugs in raw disk writing)                             |
+| Criterion                    | A: Custom Repo JSON ✅                                                               | ~~B: Fork rpi-imager~~                                                             | ~~C: Custom Flashing Tool~~                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Concept**                  | Host a JSON catalogue; users launch stock rpi-imager with `--repo` flag or paste URL | ~~Fork rpi-imager, rebrand with velocity.report UI, hardcode our image catalogue~~ | ~~Build a new Electron/Tauri app that wraps `dd`/Win32DiskImager logic~~ |
+| **User Experience**          | Users must install rpi-imager separately, then configure a custom repo URL           | Users download one branded app, our images appear by default                       | Users download our custom app, our images appear by default              |
+| **Development Cost**         | Very low (JSON file + hosting)                                                       | Medium (C++/Qt build chain, cross-platform packaging)                              | High (new codebase, platform-specific disk I/O, security)                |
+| **Maintenance Burden**       | Near zero (rpi-imager team maintains the flashing logic)                             | High (must track upstream Qt and rpi-imager changes)                               | Very high (own all platform-specific code)                               |
+| **Branding**                 | Minimal (our images show in someone else's tool)                                     | Full (velocity.report look and feel)                                               | Full                                                                     |
+| **Cross-Platform**           | ✅ rpi-imager already supports macOS, Windows, Linux                                 | ✅ Inherited from rpi-imager                                                       | ❓ Must implement and test per-platform                                  |
+| **First-Boot Customisation** | ✅ rpi-imager supports Wi-Fi, SSH, locale setup                                      | ✅ Can extend with custom fields                                                   | ❓ Must implement from scratch                                           |
+| **Licence**                  | N/A (no code changes)                                                                | Apache 2.0 (permissive, fork-friendly)                                             | N/A                                                                      |
+| **Time to First Release**    | 1–2 days                                                                             | 4–8 weeks                                                                          | 12–20 weeks                                                              |
+| **Ongoing Upstream Sync**    | None needed                                                                          | Regular merges required                                                            | N/A                                                                      |
+| **Risk**                     | Low                                                                                  | Medium (upstream breaking changes, Qt version churn)                               | High (security bugs in raw disk writing)                                 |
 
 ### 5.2 Recommendation: Phased Approach
 
