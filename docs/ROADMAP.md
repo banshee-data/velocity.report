@@ -11,8 +11,8 @@ geometry-prior services.
 
 | Document                                                                                       | Scope                                                |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| [BACKLOG.md](../BACKLOG.md)                                                                    | Priority-ordered work queue (single source of truth) |
-| [DECISIONS.md](DECISIONS.md)                                                                   | Outstanding executive decisions register              |
+| [BACKLOG.md](BACKLOG.md)                                                                       | Priority-ordered work queue (single source of truth) |
+| [DECISIONS.md](DECISIONS.md)                                                                   | Resolved executive decisions register                |
 | [CHANGELOG.md](../CHANGELOG.md)                                                                | Released feature history (v0.1.0 – v0.4.0)           |
 | [Vector-Scene Map Architecture](lidar/architecture/vector-scene-map.md)                        | Geometry-prior data model                            |
 | [Ground-Plane Vector-Scene Maths](maths/proposals/20260221-ground-plane-vector-scene-maths.md) | Maths for piecewise planar tiles and prior weighting |
@@ -93,10 +93,12 @@ Sensors ──► Go Server ──► SQLite ──► Web Frontend
 | One-line install script                         | [deploy-distribution](plans/deploy-distribution-packaging-plan.md) Phase 4       | S      |
 | Raspberry Pi imager pipeline (pi-gen)           | [deploy-rpi-imager](plans/deploy-rpi-imager-fork-plan.md)                        | L      |
 | Platform simplification & deprecation (Phase 1) | [platform-simplification](plans/platform-simplification-and-deprecation-plan.md) | S      |
+| Geometry-coherent tracking (P1 maths, D-04)     | [proposal](maths/proposals/20260222-geometry-coherent-tracking.md)               | M      |
 
 **Exit criteria:** A user can flash an SD card, boot a Raspberry Pi, and see
 live speed data in a browser within 15 minutes. GitHub Releases publishes
-checksummed artefacts on tag push.
+checksummed artefacts on tag push. RPi image uses TinyTeX (single tier, D-10);
+report `.zip` downloads include `.tex` source alongside compiled PDF.
 
 ---
 
@@ -107,11 +109,13 @@ checksummed artefacts on tag push.
 | Feature                                          | Plan Reference                                                   | Effort |
 | ------------------------------------------------ | ---------------------------------------------------------------- | ------ |
 | Frontend consolidation (Phases 0–5)              | [web-frontend](plans/web-frontend-consolidation-plan.md)         | L      |
+| ECharts → LayerChart rewrite (8 charts, D-11)    | [DESIGN §4](ui/DESIGN.md), frontend consolidation Phase 3        | L      |
 | Retire port 8081                                 | [web-frontend](plans/web-frontend-consolidation-plan.md) Phase 5 | S      |
-| Transit deduplication                            | BACKLOG P2                                                       | M      |
+| Track labelling Phase 9 UI (Swift, D-07)         | [plan](plans/lidar-track-labeling-auto-aware-tuning-plan.md)     | M      |
+| Transit deduplication (D-03)                     | BACKLOG P2                                                       | M      |
 | SQLite client standardisation                    | [data-sqlite](plans/data-sqlite-client-standardization-plan.md)  | M      |
 | Accessibility testing pass                       | BACKLOG P2                                                       | S      |
-| Widescreen content containment                   | BACKLOG P2                                                       | S      |
+| Widescreen content containment (D-13)            | BACKLOG P2                                                       | S      |
 | Profile comparison system (cross-run evaluation) | BACKLOG P2                                                       | M      |
 
 **Exit criteria:** Single Svelte app on `:8080` with conditional LiDAR sections.
@@ -125,17 +129,18 @@ dashboard flows.
 **Theme:** velocity.report is a reliable, documented, privacy-first traffic
 monitoring system that a neighbourhood group can deploy and trust.
 
-| Feature                                              | Plan Reference                                                                   | Effort |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------- | ------ |
-| Test coverage ≥ 95.5% across all components          | [platform-quality](plans/platform-quality-coverage-improvement-plan.md)          | L      |
-| Platform simplification complete (all phases)        | [platform-simplification](plans/platform-simplification-and-deprecation-plan.md) | M      |
-| LiDAR foundations fix-it (doc truth, runtime config) | [lidar-foundations](plans/lidar-architecture-foundations-fixit-plan.md)          | M      |
-| Unified settling (L3/L4 SettlementCore)              | [maths: unify-l3-l4](maths/proposals/20260219-unify-l3-l4-settling.md)           | L      |
-| LaTeX palette cross-reference                        | BACKLOG P2                                                                       | S      |
-| Time-partitioned raw data tables                     | BACKLOG P2                                                                       | M      |
-| Geometry-prior local file format (GeoJSON)           | [vector-scene-map](lidar/architecture/vector-scene-map.md)                       | M      |
-| Data export (CSV, GeoJSON)                           | —                                                                                | M      |
-| Stable public API with versioned endpoints           | —                                                                                | M      |
+| Feature                                              | Plan Reference                                                                                  | Effort |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------ |
+| Test coverage ≥ 95.5% across all components          | [platform-quality](plans/platform-quality-coverage-improvement-plan.md)                         | L      |
+| Platform simplification complete (all phases)        | [platform-simplification](plans/platform-simplification-and-deprecation-plan.md)                | M      |
+| LiDAR foundations fix-it (doc truth, runtime config) | [lidar-foundations](plans/lidar-architecture-foundations-fixit-plan.md)                         | M      |
+| Velocity-coherent foreground extraction (P2, D-05)   | [maths: velocity-coherent](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) | L      |
+| Unified settling (L3/L4 SettlementCore, P4, D-05)    | [maths: unify-l3-l4](maths/proposals/20260219-unify-l3-l4-settling.md)                          | L      |
+| LaTeX palette cross-reference                        | BACKLOG P2                                                                                      | S      |
+| Time-partitioned raw data tables                     | BACKLOG P2                                                                                      | M      |
+| Geometry-prior local file format (GeoJSON)           | [vector-scene-map](lidar/architecture/vector-scene-map.md)                                      | M      |
+| Data export (CSV, GeoJSON)                           | —                                                                                               | M      |
+| Stable public API with versioned endpoints           | —                                                                                               | M      |
 
 **v1.0 contract:**
 
@@ -155,18 +160,17 @@ monitoring system that a neighbourhood group can deploy and trust.
 **Theme:** LiDAR perception matures; optional connectivity for community
 features while preserving local-only as the default.
 
-| Feature                                                  | Plan Reference                                                                                  | Effort |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------ |
-| Visualiser QC programme (Features 1–10)                  | [qc-overview](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)                | XL     |
-| ML classifier training pipeline (Phase 4.1)              | [ml-classifier](plans/lidar-ml-classifier-training-plan.md)                                     | L      |
-| Parameter tuning optimisation (Phase 4.2)                | [param-tuning](plans/lidar-parameter-tuning-optimisation-plan.md)                               | L      |
-| Ground-plane vector-scene maths (piecewise planar tiles) | [maths: ground-plane](maths/proposals/20260221-ground-plane-vector-scene-maths.md)              | L      |
-| Velocity-coherent foreground extraction                  | [maths: velocity-coherent](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) | L      |
-| Dynamic algorithm selection (A/B foreground modes)       | [lidar-dynamic-algo](plans/lidar-architecture-dynamic-algorithm-selection-plan.md)              | M      |
-| Online geometry-prior service (opt-in)                   | §5 below                                                                                        | L      |
-| Multi-location aggregate dashboard (privacy-preserving)  | —                                                                                               | L      |
-| Threshold-based speed alerts (local notification)        | —                                                                                               | M      |
-| Peak-hour and seasonal trend analysis                    | —                                                                                               | M      |
+| Feature                                                 | Plan Reference                                                                     | Effort |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------ |
+| Visualiser QC programme (Features 1–10)                 | [qc-overview](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)   | XL     |
+| ML classifier training pipeline (Phase 4.1)             | [ml-classifier](plans/lidar-ml-classifier-training-plan.md)                        | L      |
+| Parameter tuning optimisation (Phase 4.2)               | [param-tuning](plans/lidar-parameter-tuning-optimisation-plan.md)                  | L      |
+| Ground-plane vector-scene maths (P3, D-05)              | [maths: ground-plane](maths/proposals/20260221-ground-plane-vector-scene-maths.md) | L      |
+| Dynamic algorithm selection (A/B foreground modes)      | [lidar-dynamic-algo](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) | M      |
+| Online geometry-prior service (opt-in)                  | §5 below                                                                           | L      |
+| Multi-location aggregate dashboard (privacy-preserving) | —                                                                                  | L      |
+| Threshold-based speed alerts (local notification)       | —                                                                                  | M      |
+| Peak-hour and seasonal trend analysis                   | —                                                                                  | M      |
 
 **v2.0 principles:**
 
@@ -287,24 +291,28 @@ v0.6 (Deployment & Packaging)                             │
   ├── Precompiled LaTeX ─────────────────► RPi imager ◄───┘
   ├── Single binary + subcommands ─────► GitHub Releases
   ├── One-line install script
-  └── Platform simplification Phase 1
+  ├── Platform simplification Phase 1
+  └── Geometry-coherent tracking (P1, D-04)
         │
 v0.7 (Unified Frontend)
   │
   ├── Frontend consolidation (Phases 0–5)
+  │     ├── ECharts → LayerChart rewrite (D-11)
   │     └── Retire port 8081
+  ├── Track labelling Phase 9 UI (D-07)
   ├── SQLite client standardisation
-  ├── Transit deduplication
+  ├── Transit deduplication (D-03)
   ├── Profile comparison system
-  └── Accessibility + widescreen polish
+  └── Accessibility + widescreen polish (D-13)
         │
 v1.0 (Production-Ready)
   │
   ├── Coverage ≥ 95.5%
   ├── Platform simplification complete
   ├── LiDAR foundations fix-it
-  ├── Unified settling (L3/L4) ──────────────────────────┐
-  ├── Geometry-prior local file (GeoJSON) ◄──────────────┘
+  ├── Velocity-coherent extraction (P2, D-05) ───────────┐
+  ├── Unified settling (L3/L4, P4, D-05) ◄──────────────┘
+  ├── Geometry-prior local file (GeoJSON) ◄── unified settling
   ├── Data export (CSV, GeoJSON)
   ├── Time-partitioned raw data tables
   └── Stable public API (versioned)
@@ -312,8 +320,7 @@ v1.0 (Production-Ready)
 v2.0 (Advanced Perception & Connected)
   │
   ├── Visualiser QC programme ────► ML classifier pipeline
-  ├── Ground-plane vector-scene maths
-  ├── Velocity-coherent extraction
+  ├── Ground-plane vector-scene maths (P3, D-05)
   ├── Dynamic algorithm selection
   ├── Online geometry-prior service ◄── local file schema (v1.0)
   ├── Multi-location aggregate dashboard
@@ -339,28 +346,28 @@ locations — while keeping velocity.report fully functional offline.
 ### Architecture: Local-First with Optional Online Fetch
 
 ```
-                         ┌────────────────────────────┐
+                         ┌─────────────────────────────┐
                          │  Online Prior Service (v2+) │
                          │  (community-maintained)     │
                          │                             │
                          │  GET /priors?lat=X&lon=Y    │
                          │  → GeoJSON FeatureCollection│
-                         └──────────┬─────────────────┘
+                         └──────────┬──────────────────┘
                                     │ opt-in fetch
                                     ▼
 ┌─────────────┐      ┌──────────────────────────┐
-│ Local Prior  │─────►│  Prior Loader             │
-│ File (v1.0)  │      │  (reads local or remote)  │
-│ .geojson     │      │                           │
-└─────────────┘      └──────────┬───────────────┘
+│ Local Prior │─────►│  Prior Loader             │
+│ File (v1.0) │      │  (reads local or remote)  │
+│ .geojson    │      │                           │
+└─────────────┘      └──────────┬────────────────┘
                                 │ w_prior weights
                                 ▼
-                     ┌──────────────────────────┐
+                     ┌───────────────────────────┐
                      │  Ground-Plane Estimator   │
                      │  (L4 Perception)          │
                      │  Region scoring: §4.4     │
                      │  S_R(p) = ... × w_prior   │
-                     └──────────────────────────┘
+                     └───────────────────────────┘
 ```
 
 ### Future-Compatibility Strategy (What We Build Now)

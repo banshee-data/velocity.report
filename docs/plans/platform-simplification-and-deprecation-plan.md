@@ -106,18 +106,18 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 ## Consolidation Options (Metrics, Stats, Frontend)
 
-### Option 1 — Consolidate on Svelte surface (recommended)
+### Option 1 — Consolidate on Svelte surface (recommended) ✅
 
 - Use [frontend consolidation](web-frontend-consolidation-plan.md) as the canonical migration path.
 - Retire duplicated stats/debug HTML surfaces after parity is reached.
 - Move “stats/metrics first look” workflows into one route hierarchy and one API surface.
 
-### Option 2 — Keep dual surfaces but reduce documented surface
+### ~~Option 2 — Keep dual surfaces but reduce documented surface~~
 
 - Keep existing monitor pages and scripts, but mark them internal-only.
 - Lower migration risk, but retains duplicated maintenance burden.
 
-### Option 3 — CLI-first metrics workflow
+### ~~Option 3 — CLI-first metrics workflow~~
 
 - Standardise on API + CLI scripts and minimise UI migration.
 - Lowest web effort, but weakest operator UX and discoverability.
