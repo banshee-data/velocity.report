@@ -246,7 +246,8 @@ func TestBackgroundConfig_FluentAPI(t *testing.T) {
 		WithWarmupDuration(20 * time.Second).
 		WithWarmupMinFrames(50).
 		WithSnapshotInterval(30 * time.Minute).
-		WithChangeThresholdSnapshot(25)
+		WithChangeThresholdSnapshot(25).
+		WithForegroundMaxInputPoints(6000)
 
 	if cfg.UpdateFraction != 0.1 {
 		t.Errorf("expected UpdateFraction 0.1, got %f", cfg.UpdateFraction)
@@ -283,6 +284,9 @@ func TestBackgroundConfig_FluentAPI(t *testing.T) {
 	}
 	if cfg.ChangeThresholdSnapshot != 25 {
 		t.Errorf("expected ChangeThresholdSnapshot 25, got %d", cfg.ChangeThresholdSnapshot)
+	}
+	if cfg.ForegroundMaxInputPoints != 6000 {
+		t.Errorf("expected ForegroundMaxInputPoints 6000, got %d", cfg.ForegroundMaxInputPoints)
 	}
 }
 
