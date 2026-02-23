@@ -131,7 +131,7 @@ Full design: [Track Description Language and Description Interface plan](plans/d
 
 ## 7. Backlog Alignment
 
-This vision document should inform prioritisation in `BACKLOG.md`:
+This vision document should inform prioritisation in [BACKLOG.md](BACKLOG.md):
 
 | Vision pillar                       | Supports                                                                                                                      | Deprioritises                                            |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |

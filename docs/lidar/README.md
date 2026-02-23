@@ -166,4 +166,4 @@ See: [`docs/lidar/operations/track-labeling-ui-implementation.md`](operations/tr
 
 ### Planned Work
 
-See [BACKLOG.md](/BACKLOG.md) for the project-wide priority list with links to design documents.
+See [BACKLOG.md](../BACKLOG.md) for the project-wide priority list with links to design documents.

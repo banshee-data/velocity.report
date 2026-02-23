@@ -142,7 +142,7 @@ Prefix commit messages with the primary language or purpose:
 
 ## Design Language
 
-All UI and chart work must follow the design contract in **[DESIGN.md](DESIGN.md)**. Key requirements:
+All UI and chart work must follow the design contract in **[DESIGN.md](docs/ui/DESIGN.md)**. Key requirements:
 
 - Use the **canonical percentile colour palette** (DESIGN.md §3.3) for all chart stacks.
 - Follow the **information hierarchy**: context header → control strip → primary workspace → detail/inspector.

@@ -106,8 +106,6 @@ README.md                           # Project overview, quick start
 ├── ARCHITECTURE.md                 # System design, technical details
 ├── CODE_OF_CONDUCT.md              # Community guidelines
 ├── CONTRIBUTING.md                 # (Create if missing) Contribution guide
-├── TROUBLESHOOTING.md              # Common issues and solutions
-│
 ├── docs/                           # User-facing documentation
 │   ├── src/guides/setup.md         # Setup walkthrough
 │   ├── src/guides/...              # Other user guides
@@ -864,7 +862,7 @@ Check that:
 - The velocity-report service has correct permissions
 - The disk is not full
 
-See TROUBLESHOOTING.md for more help.
+See docs/TROUBLESHOOTING.md for more help.
 
 ````
 
