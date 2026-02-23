@@ -62,7 +62,7 @@ For the full layer model specification, see [lidar-data-layer-model.md](lidar-da
 
 The layer alignment migration is **complete** (items 1–12, 14 in the review doc). Remaining:
 
-- **Item 13**: Frontend decomposition (tracksStore, runsStore, missedRegionStore) — see [BACKLOG.md](/BACKLOG.md)
+- **Item 13**: Frontend decomposition (tracksStore, runsStore, missedRegionStore) — see [BACKLOG.md](../../BACKLOG.md)
 
 Post-migration file sizes:
 

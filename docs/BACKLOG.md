@@ -4,9 +4,11 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 
 ## P1 — Next
 
-- (#210) Raspberry Pi imager pipeline — custom flashing UX, depends on packaging — [design doc](plans/deploy-rpi-imager-fork-plan.md)
-- Simplification and deprecation programme (Project A/B) — deprecation signalling, deploy retirement gate, and migration plan task list — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- Precompiled LaTeX — faster PDF report generation via vendored TeX tree; v0.6 critical path — [design doc](plans/pdf-latex-precompiled-format-plan.md)
+- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md)
 - Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](lidar/operations/settling-time-optimization.md)
+- Simplification and deprecation programme (Project A/B) — deprecation signalling, deploy retirement gate, and migration plan task list — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- (#210) Raspberry Pi imager pipeline — custom flashing UX, depends on packaging — [design doc](plans/deploy-rpi-imager-fork-plan.md)
 
 ## P2 — Later
 
@@ -19,17 +21,17 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 - Visualiser QC programme — features 1/2/3/5/7/8/10 — [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 - Transit deduplication — duplicate transit record prevention — [design doc](radar/architecture/transit-deduplication.md)
-- Track labelling UI enhancements — seekable replay, Swift-native labelling — [design doc](lidar/operations/track-labeling-ui-implementation.md)
+- Track labelling UI enhancements — Phase 9: seekable replay, Swift-native labelling; target v0.7 (D-07) — [design doc](lidar/operations/track-labeling-ui-implementation.md)
 - HINT sweep polish — 11 remaining polish items — [operations design doc](lidar/operations/hint-sweep-mode.md), [polish stub](plans/lidar-sweep-hint-mode-plan.md)
-- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md)
-- SQLite client standardization — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardization-plan.md)
+- SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardization-plan.md)
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](ui/design-review-and-improvement.md)
 - Widescreen content containment — add vr-page max-width centering at ≥3000px — [design doc §2.2](ui/design-review-and-improvement.md)
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](ui/design-review-and-improvement.md)
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md)
 - Coverage improvement — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](plans/platform-quality-coverage-improvement-plan.md)
-- Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](plans/pdf-latex-precompiled-format-plan.md)
-- Speed limit schedules — time-based limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md)
+- Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md)
+- Speed limit schedules — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md)
+- Cosine error correction documentation — DB schema, API, and Svelte UI are largely implemented (SCD Type 6 site_config_periods); review and document existing feature — [design doc](radar/architecture/site-config-cosine-correction-spec.md)
 
 ## P3 — Deferred / Research
 
@@ -48,7 +50,6 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - Coverage thresholds — raise codecov thresholds to meaningful levels after coverage improves — [design doc §7.5](ui/design-review-and-improvement.md)
 - Visualiser performance and scene health metrics — timeline and VR log metrics — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md)
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md)
-- Documentation standardization — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md)
 
 ## Complete
 
@@ -65,10 +66,10 @@ Prioritised list of upcoming work for velocity.report. Each task links to its ow
 - [#284] background.go split — background_persistence.go, background_export.go, background_drift.go extracted — [design doc §6.2](ui/design-review-and-improvement.md)
 - [#284] CompareRuns extraction — comparison logic moved to l6objects/comparison.go — [design doc §6.3](ui/design-review-and-improvement.md)
 - [#286] Web palette compliance — palette.ts created with canonical DESIGN.md §3.3 values; colorMap/cRange removed — [design doc §1.1](ui/design-review-and-improvement.md)
-- [#291] PR template design checklist — add DESIGN.md §9 UI/chart checklist to .github/PULL_REQUEST_TEMPLATE.md — [design doc §8.2](ui/design-review-and-improvement.md)
 - [#286] Chart empty-state placeholder — "No chart data available" shown when chartData is empty — [design doc §3.1](ui/design-review-and-improvement.md)
 - [#286] DESIGN.md references — Design Language section added to CONTRIBUTING.md; link added to README.md — [design doc §8.1](ui/design-review-and-improvement.md)
 - [#286] Shared palette module — palette.ts exports PERCENTILE_COLOURS, LEGEND_ORDER with tests — [design doc §1.3](ui/design-review-and-improvement.md)
 - [#286] Shared CSS standard classes — vr-page, vr-toolbar, vr-stat-grid, vr-chart-card in app.css — [design doc §2.1](ui/design-review-and-improvement.md)
-- LiDAR logging stream split — explicit Opsf/Diagf/Tracef call sites replacing Debugf/classifier — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
-- LiDAR logging stream split — ops/debug/trace streams with routing rubric — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- [#287] LiDAR logging stream split — explicit Opsf/Diagf/Tracef call sites replacing Debugf/classifier — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- [#287] LiDAR logging stream split — ops/debug/trace streams with routing rubric — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- [#291] PR template design checklist — add DESIGN.md §9 UI/chart checklist to .github/PULL_REQUEST_TEMPLATE.md — [design doc §8.2](ui/design-review-and-improvement.md)
