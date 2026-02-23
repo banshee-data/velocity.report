@@ -662,8 +662,12 @@ func (rm *RegionManager) GetRegionParams(regionID int) *RegionParams {
 
 // effectiveCellParams returns the region-adaptive parameters for a given cell,
 // falling back to the provided defaults when no region override is active.
-// For NeighborConfirmationCount: a value of zero explicitly disables neighbour
-// confirmation; negative values are treated as unset and defer to the default.
+// For NeighborConfirmationCount: zero and negative values are treated as unset
+// and defer to the default. This matches the original inline behaviour where
+// <= 0 fell back to the global default — critical because many persisted
+// region snapshots store 0 (the Go zero value) meaning "not explicitly set".
+// Using 0 as "disable" would cause neighborConfirmCount >= 0 to be always true
+// in the foreground classifier, absorbing all points into the background.
 func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float64, defaultNeighborConfirm int, defaultAlpha float64) (noiseRel float64, neighborConfirm int, alpha float64) {
 	noiseRel = defaultNoiseRel
 	neighborConfirm = defaultNeighborConfirm
@@ -679,9 +683,7 @@ func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float6
 	if v := float64(regionParams.NoiseRelativeFraction); v > 0 {
 		noiseRel = v
 	}
-	if v := regionParams.NeighborConfirmationCount; v >= 0 {
-		// v == 0 explicitly disables neighbour confirmation;
-		// negative values are treated as invalid/unset and ignored.
+	if v := regionParams.NeighborConfirmationCount; v > 0 {
 		neighborConfirm = v
 	}
 	if v := float64(regionParams.SettleUpdateFraction); v > 0 && v <= 1 {

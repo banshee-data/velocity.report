@@ -542,11 +542,13 @@ func main() {
 			})
 		}
 
-		// Packet forwarding (optional)
+		// Packet forwarding (optional) — only for LidarView or both modes.
+		// In gRPC-only mode there is no LidarView listener, so forwarding raw
+		// packets to localhost:2368 causes write-error noise in the log.
 		var packetForwarder *network.PacketForwarder
 		// Create a PacketStats instance and wire it into the forwarder, listener and webserver
 		packetStats := monitor.NewPacketStats()
-		if *lidarForward {
+		if *lidarForward && (*lidarForwardMode == "lidarview" || *lidarForwardMode == "both") {
 			createdForwarder, err := network.NewPacketForwarder(*lidarFwdAddr, *lidarFwdPort, packetStats, time.Minute)
 			if err != nil {
 				log.Printf("failed to create lidar forwarder: %v", err)

@@ -500,14 +500,21 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveParams(t *testing.T) {
 }
 
 // TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm verifies that a
-// region override of NeighborConfirmationCount=0 disables the neighbour-confirmation
-// path, overriding a global value that would otherwise trigger it.
+// region override of NeighborConfirmationCount takes effect when it differs from
+// the global default.
 //
 // Scenario: main cell background=10m, neighbour cell background=10.5m.
 // A point at 10.5m is foreground relative to the main cell by distance, but the
-// neighbour cell confirms it as background via the neighbour-confirmation path.
-// When the region override sets NeighborConfirmationCount=0 the neighbour path is
-// skipped and the point is correctly classified as foreground.
+// neighbour cell confirms it as background via the neighbour-confirmation path
+// (global NeighborConfirmationCount=1, and 1 neighbour confirms).
+// When the region override raises NeighborConfirmationCount to 2, a single
+// neighbouring confirmation is no longer sufficient and the point is correctly
+// classified as foreground.
+//
+// Note: NeighborConfirmationCount == 0 is treated as "unset" (falls back to the
+// global default) because Go's zero-value int would silently disable the check
+// for every un-initialised region, causing all points to be classified as
+// background (neighborConfirmCount >= 0 is always true).
 func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.T) {
 	// Grid: 1 ring, 8 azimuth bins.
 	g := makeTestGridStrict(1, 8)
@@ -542,8 +549,10 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.
 	// Restore main cell after update.
 	g.Cells[g.Idx(0, 0)] = BackgroundCell{AverageRangeMeters: 10.0, TimesSeenCount: 120}
 
-	// Apply a region override with NeighborConfirmationCount=0 for azBin=0 only.
-	// The global NeighborConfirmationCount=1 should be suppressed for this cell.
+	// Apply a region override with NeighborConfirmationCount=2 for azBin=0 only.
+	// The global NeighborConfirmationCount=1 should be overridden; with only 1
+	// neighbouring cell confirming, the threshold of 2 is not met and the point
+	// is classified as foreground.
 	mainIdx := g.Idx(0, 0)
 	cellMask := make([]bool, len(g.Cells))
 	cellMask[mainIdx] = true
@@ -559,7 +568,7 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.
 			CellCount: 1,
 			Params: RegionParams{
 				NoiseRelativeFraction:     0.01,
-				NeighborConfirmationCount: 0, // explicitly disable neighbour confirmation
+				NeighborConfirmationCount: 2, // require 2 neighbours — only 1 available
 				SettleUpdateFraction:      0.5,
 			},
 		},
@@ -568,13 +577,14 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.
 	rm.IdentificationComplete = true
 	g.RegionMgr = rm
 
-	// With NeighborConfirmationCount=0 override: point should be foreground.
+	// With NeighborConfirmationCount=2 override: only 1 neighbour confirms,
+	// so the point should now be foreground.
 	mask, err = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.5}})
 	if err != nil {
 		t.Fatalf("ProcessFramePolarWithMask failed with region override: %v", err)
 	}
 	if !mask[0] {
-		t.Fatalf("expected foreground when region disables neighbour confirmation, got background")
+		t.Fatalf("expected foreground when region raises neighbour threshold above available confirmations, got background")
 	}
 }
 

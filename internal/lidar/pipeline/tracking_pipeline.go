@@ -197,6 +197,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	var logFgForwarderNilOnce sync.Once
 	var logGroundDisabledOnce sync.Once
 
+	// Cache the default DBSCAN params once at callback creation time rather
+	// than loading from disk on every frame. The per-frame overrides
+	// (Eps, MinPts, MaxInputPoints) from BackgroundParams still apply.
+	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
+
 	return func(frame *l2frames.LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -378,7 +383,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		// Stage 3: Clustering (runtime-tunable via background params)
-		dbscanParams := l4perception.DefaultDBSCANParams()
+		dbscanParams := defaultDBSCANParams
 		params := cfg.BackgroundManager.GetParams()
 		if params.ForegroundMinClusterPoints > 0 {
 			dbscanParams.MinPts = params.ForegroundMinClusterPoints

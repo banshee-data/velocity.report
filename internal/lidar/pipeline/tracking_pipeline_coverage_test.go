@@ -782,7 +782,7 @@ func TestTrackingPipelineConfig_ThrottleDiagf(t *testing.T) {
 	cfg := &TrackingPipelineConfig{
 		SensorID:          sensorID,
 		BackgroundManager: bgMgr,
-		MaxFrameRate:      1000, // 1ms frame interval
+		MaxFrameRate:      1, // 1 fps → 1s min interval; ensures all rapid-burst frames are throttled regardless of CI machine speed
 		RemoveGround:      false,
 	}
 	cb := cfg.NewFrameCallback()
