@@ -1,7 +1,6 @@
 # LIDAR Pipeline Diagnosis: Jitter, Fragmentation, Misalignment & Empty Boxes
 
-Status: Historical
-Summary: The tracking pipeline exhibits multiple quality degradation symptoms that stem from suboptimal parameter interactions across three coupled subsystems: This troubleshooting document for LIDAR Pipeline Diagnosis: Jitter, Fragmentation, Misalignment & Empty.
+The tracking pipeline exhibits multiple quality degradation symptoms from suboptimal parameter interactions across three coupled subsystems. This document diagnoses jitter, fragmentation, misalignment, and empty-box issues.
 
 **Issue:** High jitter, fragmentation, misalignment and empty boxes throughout tracking results
 **Goal:** Identify systematic problems and propose optimised parameters

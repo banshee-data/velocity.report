@@ -1,7 +1,5 @@
 # Vector-Grid vs Velocity Algorithm Workstreams
 
-Status: Active separation plan (foundation guidance)
-
 ## Purpose
 
 Separate foundational LiDAR work into two independent streams so the project can evolve motion algorithms without destabilizing static-scene reliability.

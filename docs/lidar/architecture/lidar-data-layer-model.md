@@ -1,8 +1,5 @@
 # LiDAR Data Layer Model (Six Layers)
 
-Status: Active
-Purpose/Summary: lidar-data-layer-model.
-
 ## Purpose
 
 A single concise layer model for LiDAR data in velocity.report. OSI is only a reference point; this model uses six practical layers that match current implementation and future AV compatibility work.

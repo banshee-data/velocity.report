@@ -1,6 +1,6 @@
 # LiDAR Foundations Fix-It Plan
 
-Status: Planned follow-up execution
+Planned follow-up execution to align LiDAR documentation with implementation truth and close outstanding foundation gaps.
 
 ## Phase 1: Documentation Truth Alignment
 

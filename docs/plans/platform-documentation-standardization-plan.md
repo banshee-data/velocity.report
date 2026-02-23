@@ -1,7 +1,6 @@
 # Documentation Standardization Plan
 
-Status: Planned
-Purpose: Defines a controlled process to stabilize documentation structure and metadata quality by reconciling branch drift against main, preserving authoritative summaries, and enforcing repeatable review gates.
+Controlled process to stabilise documentation structure and metadata quality by reconciling branch drift against main, preserving authoritative summaries, and enforcing repeatable review gates.
 
 ## 1. Objective
 
@@ -11,7 +10,7 @@ Reduce documentation churn and prevent low-signal edits by applying one repeatab
 
 - All markdown files under `docs/`.
 - Structure governance for hubs: `lidar`, `radar`, `ui`, `maths`, `plans`.
-- Metadata governance for `Status` and `Purpose`/`Summary`.
+- Document structure governance (opening paragraph, optional `**Status:**` metadata).
 
 ## 3. Baseline Reconciliation (Main-First)
 
@@ -19,20 +18,20 @@ Reduce documentation churn and prevent low-signal edits by applying one repeatab
 2. If a file differs only in metadata header lines, restore body content from `main`.
 3. If body content diverges materially, keep current content and manually resolve metadata from in-document summary sections.
 
-## 4. Metadata Source Rule
+## 4. Opening Paragraph Rule
 
-Use this precedence for metadata text:
+Every doc must have an opening paragraph after the `# Title` heading. Source order:
 
 1. Existing opening summary paragraph in the same file.
 2. `Overview` / `Goal` / `Summary` / `Objective` section lead paragraph.
-3. Main-branch equivalent file’s opening narrative paragraph.
+3. Main-branch equivalent file's opening narrative paragraph.
 4. Manual editor-written summary only when none of the above exists.
 
 Constraints:
 
-- Exactly one of `Purpose` or `Summary`.
-- 20-30 words.
-- Must describe document coverage, not filename, status labels, or changelog fragments.
+- One or two sentences describing document coverage.
+- Must be narrative text, not filename echoes, status labels, or changelog fragments.
+- Bold `**Status:**` metadata is optional — use only on docs that track implementation progress.
 
 ## 5. Structure Rule
 
@@ -53,9 +52,9 @@ Constraints:
 Run on every docs refactor:
 
 1. Link integrity: `/tmp/check_docs_links.sh`.
-2. Metadata presence: every doc has `Status` and one of `Purpose`/`Summary`.
-3. Metadata quality: 20-30 words, no filename-only values, no `Date:` metadata line.
-4. Drift report: list files using main-derived metadata vs manual fallback.
+2. Opening paragraph presence: every doc has a narrative opening paragraph after the title.
+3. No placeholder values: opening paragraphs must not echo the filename or contain status labels.
+4. Drift report: list files using main-derived opening paragraph vs manual fallback.
 
 ## 8. Execution Steps
 
