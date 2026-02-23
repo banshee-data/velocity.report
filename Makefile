@@ -16,6 +16,7 @@ help:
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
+	@echo "  build-settling-eval  Build settling convergence evaluation tool"
 	@echo "  build-deploy         Build velocity-deploy deployment manager"
 	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
@@ -187,6 +188,10 @@ build-radar-local:
 
 build-tools:
 	go build -o app-sweep ./cmd/sweep
+
+# Build settling-eval convergence evaluation tool
+build-settling-eval:
+	go build -o settling-eval ./cmd/tools/settling-eval
 
 # Build velocity-deploy deployment manager
 build-deploy:

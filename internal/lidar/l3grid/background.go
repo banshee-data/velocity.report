@@ -231,6 +231,13 @@ type BackgroundGrid struct {
 	// regionRestoreAttempted is set to true after the first attempt to restore
 	// regions from the database during settling, to avoid repeated DB lookups.
 	regionRestoreAttempted bool
+
+	// prevSpreads stores per-cell RangeSpreadMeters from the previous
+	// EvaluateSettling call for computing SpreadDeltaRate.
+	prevSpreads []float32
+	// prevRegionIDs stores per-cell region assignments from the previous
+	// EvaluateSettling call for computing RegionStability.
+	prevRegionIDs []int
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
