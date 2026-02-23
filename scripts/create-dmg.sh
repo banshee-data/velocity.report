@@ -15,7 +15,7 @@ APP_PATH="${1:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name> [extras.
 DMG_PATH="${2:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name> [extras...]}"
 VOLUME_NAME="${3:?usage: create-dmg.sh <app-path> <dmg-path> <volume-name> [extras...]}"
 shift 3
-EXTRAS=("$@")
+EXTRAS=("${@+"$@"}")
 
 if [ "$(uname)" != "Darwin" ]; then
   echo "Error: create-dmg.sh requires macOS" >&2
@@ -38,14 +38,16 @@ ln -s /Applications "$staging/Applications"
 
 # Copy any extra files (e.g. Getting Started guide) into the DMG root.
 extra_names=()
-for extra in "${EXTRAS[@]}"; do
-  if [ -e "$extra" ]; then
-    cp -R "$extra" "$staging/"
-    extra_names+=("$(basename "$extra")")
-  else
-    echo "Warning: extra file not found, skipping: $extra" >&2
-  fi
-done
+if [ ${#EXTRAS[@]} -gt 0 ]; then
+  for extra in "${EXTRAS[@]}"; do
+    if [ -e "$extra" ]; then
+      cp -R "$extra" "$staging/"
+      extra_names+=("$(basename "$extra")")
+    else
+      echo "Warning: extra file not found, skipping: $extra" >&2
+    fi
+  done
+fi
 
 # ── 2. Create writable DMG ───────────────────────────────────────────────────
 # Size the image to fit the app bundle plus headroom.
@@ -85,12 +87,18 @@ fi
 
 # Apply Finder view settings via AppleScript.
 # Window: 520 × 340, icon view, 72 px icons, no toolbar/sidebar.
-# Three columns: app at left, extras centred, Applications at right.
+# Three columns: app at left, extras evenly spaced in centre, Applications at right.
 extra_positions=""
-for name in "${extra_names[@]}"; do
-  extra_positions="${extra_positions}
-    set position of item \"${name}\" of container window to {260, 160}"
-done
+n_extras=${#extra_names[@]}
+if [ "$n_extras" -gt 0 ]; then
+  # Spread extras evenly between app (x=130) and Applications (x=390).
+  gap=$(( 260 / (n_extras + 1) ))
+  for i in "${!extra_names[@]}"; do
+    x=$(( 130 + gap * (i + 1) ))
+    extra_positions="${extra_positions}
+    set position of item \"${extra_names[$i]}\" of container window to {${x}, 160}"
+  done
+fi
 
 osascript <<EOF
 tell application "Finder"
