@@ -1,4 +1,4 @@
-    ALTER TABLE lidar_sweeps
+ALTER TABLE lidar_sweeps
      DROP COLUMN checkpoint_round;
 
     ALTER TABLE lidar_sweeps
