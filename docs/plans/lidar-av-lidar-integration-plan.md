@@ -128,13 +128,13 @@ The velocity.report system aligns with **AV industry standard** labeling specifi
 
 **velocity.report Implementation Priority:**
 
-| Priority | Categories                                                   | Rationale                          |
-| -------- | ------------------------------------------------------------ | ---------------------------------- |
-| P0       | Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist           | Core traffic monitoring            |
-| P1       | Bicycle, Motorcycle, Ground Animal, Bird                     | Safety-relevant moving objects     |
-| P2       | Sign, Pole, Traffic Light, Construction Cone                 | Infrastructure detection           |
-| P3       | Building, Road, Sidewalk, Vegetation                         | Scene understanding                |
-| Deferred | Sky, Ground, Static, Dynamic, Ego Vehicle, Pedestrian Object | Lower priority for roadside sensor |
+| Priority | Categories                                                        | Rationale                       |
+| -------- | ----------------------------------------------------------------- | ------------------------------- |
+| P0       | Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist, Bird, Dynamic |                                 |
+| P1       | Sign, Building, Ground, Vegetation, Pole, Ego Vehicle             |                                 |
+| P2       | Road, Sidewalk, , Traffic Light, Construction Cone, Static        |                                 |
+| P3       | Bicycle, Motorcycle, Pedestrian Object, Ground Animal             |                                 |
+| Deferred | Sky                                                               | Lower priority for Lidar sensor |
 
 #### Tracking and Identity
 
