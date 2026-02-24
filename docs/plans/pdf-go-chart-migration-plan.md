@@ -2,6 +2,7 @@
 
 **Status:** Draft — awaiting review before implementation
 **Related Documents:**
+
 - [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (D-08)
 - [Distribution packaging plan](deploy-distribution-packaging-plan.md) (D-09)
 - [RPi imager plan](deploy-rpi-imager-fork-plan.md) (D-10)
@@ -31,15 +32,15 @@ and SVG charts usable in both PDF reports and the web frontend.
 
 ### Key Changes Summary
 
-| Component          | Before (Python)                             | After (Go)                                        |
-| ------------------ | ------------------------------------------- | ------------------------------------------------- |
-| **Charts**         | matplotlib + seaborn → PDF figures          | `gonum/plot` (vgsvg) → SVG → PDF via `rsvg`       |
-| **Doc assembly**   | PyLaTeX `Document` builder                  | Go `text/template` → `.tex` file                  |
-| **PDF compilation**| PyLaTeX shells out to `xelatex`             | Go `os/exec` shells out to `xelatex` (unchanged)  |
-| **Config**         | JSON → Python dataclasses                   | JSON → Go structs (ReportRequest already exists)   |
-| **Data source**    | HTTP GET `/api/radar_stats` from Python     | Direct DB query from same Go process               |
-| **Runtime deps**   | Python 3.12 + .venv + 45 packages           | None (charts compiled into Go binary)              |
-| **Report archive** | `.zip` with `.tex` + chart PDFs             | `.zip` with `.tex` + chart SVGs                    |
+| Component           | Before (Python)                         | After (Go)                                       |
+| ------------------- | --------------------------------------- | ------------------------------------------------ |
+| **Charts**          | matplotlib + seaborn → PDF figures      | `gonum/plot` (vgsvg) → SVG → PDF via `rsvg`      |
+| **Doc assembly**    | PyLaTeX `Document` builder              | Go `text/template` → `.tex` file                 |
+| **PDF compilation** | PyLaTeX shells out to `xelatex`         | Go `os/exec` shells out to `xelatex` (unchanged) |
+| **Config**          | JSON → Python dataclasses               | JSON → Go structs (ReportRequest already exists) |
+| **Data source**     | HTTP GET `/api/radar_stats` from Python | Direct DB query from same Go process             |
+| **Runtime deps**    | Python 3.12 + .venv + 45 packages       | None (charts compiled into Go binary)            |
+| **Report archive**  | `.zip` with `.tex` + chart PDFs         | `.zip` with `.tex` + chart SVGs                  |
 
 ---
 
@@ -63,12 +64,12 @@ and SVG charts usable in both PDF reports and the web frontend.
 
 The PDF report pipeline currently requires:
 
-| Dependency           | Size / Impact                                  |
-| -------------------- | ---------------------------------------------- |
-| Python 3.12 runtime  | ~50 MB on Raspberry Pi image                   |
-| `.venv/` with 45 pkgs| ~400 MB uncompressed (matplotlib, numpy, scipy) |
-| `texlive-xetex`      | ~800 MB (addressed separately by D-08)          |
-| PyLaTeX              | Thin wrapper; but ties doc structure to Python  |
+| Dependency            | Size / Impact                                   |
+| --------------------- | ----------------------------------------------- |
+| Python 3.12 runtime   | ~50 MB on Raspberry Pi image                    |
+| `.venv/` with 45 pkgs | ~400 MB uncompressed (matplotlib, numpy, scipy) |
+| `texlive-xetex`       | ~800 MB (addressed separately by D-08)          |
+| PyLaTeX               | Thin wrapper; but ties doc structure to Python  |
 
 Eliminating Python removes the first two rows entirely. Combined with the
 precompiled LaTeX plan (D-08), the total footprint drops from ~1.25 GB to
@@ -124,23 +125,23 @@ This round-trip is eliminated in the new design.
 
 ### Python Modules to Replace
 
-| Module                | Lines | Replacement strategy                             |
-| --------------------- | ----- | ------------------------------------------------ |
-| `chart_builder.py`    | ~900  | Go SVG chart package (`internal/report/chart`)   |
-| `chart_saver.py`      | ~185  | Go SVG writer + optional SVG→PDF conversion      |
-| `pdf_generator.py`    | ~730  | Go template engine (`internal/report/tex`)       |
-| `document_builder.py` | ~350  | Go LaTeX preamble template                       |
-| `report_sections.py`  | ~250  | Go section templates                             |
-| `table_builders.py`   | ~200  | Go LaTeX table templates                         |
-| `config_manager.py`   | ~530  | Go config struct (extend `ReportRequest`)        |
-| `api_client.py`       | ~150  | Direct DB query (no HTTP)                        |
-| `stats_utils.py`      | ~300  | Go formatting functions                          |
-| `data_transformers.py`| ~200  | Go normalisation within chart package            |
-| `date_parser.py`      | ~100  | Go `time.Parse` (already in server)              |
-| `map_utils.py`        | ~300  | Reuse existing SVG blob + Go SVG manipulation    |
-| `zip_utils.py`        | ~80   | Go `archive/zip` (stdlib)                        |
-| `tex_environment.py`  | ~100  | Go TeX detection (align with D-08)               |
-| `cli/main.py`         | ~60   | Go `pdf` subcommand                              |
+| Module                 | Lines | Replacement strategy                           |
+| ---------------------- | ----- | ---------------------------------------------- |
+| `chart_builder.py`     | ~900  | Go SVG chart package (`internal/report/chart`) |
+| `chart_saver.py`       | ~185  | Go SVG writer + optional SVG→PDF conversion    |
+| `pdf_generator.py`     | ~730  | Go template engine (`internal/report/tex`)     |
+| `document_builder.py`  | ~350  | Go LaTeX preamble template                     |
+| `report_sections.py`   | ~250  | Go section templates                           |
+| `table_builders.py`    | ~200  | Go LaTeX table templates                       |
+| `config_manager.py`    | ~530  | Go config struct (extend `ReportRequest`)      |
+| `api_client.py`        | ~150  | Direct DB query (no HTTP)                      |
+| `stats_utils.py`       | ~300  | Go formatting functions                        |
+| `data_transformers.py` | ~200  | Go normalisation within chart package          |
+| `date_parser.py`       | ~100  | Go `time.Parse` (already in server)            |
+| `map_utils.py`         | ~300  | Reuse existing SVG blob + Go SVG manipulation  |
+| `zip_utils.py`         | ~80   | Go `archive/zip` (stdlib)                      |
+| `tex_environment.py`   | ~100  | Go TeX detection (align with D-08)             |
+| `cli/main.py`          | ~60   | Go `pdf` subcommand                            |
 
 ---
 
@@ -220,6 +221,7 @@ internal/report/
 ### 1. Time-Series Chart (Dual-Axis Percentile + Count)
 
 **Current (matplotlib):** 24.0 × 8.0 inch figure with:
+
 - Left Y-axis: P50/P85/P98/Max speed lines with markers
 - Right Y-axis: Count bars (translucent)
 - Orange background bars for low-sample periods (< 50 count)
@@ -230,6 +232,7 @@ internal/report/
 **Go equivalent (gonum/plot):**
 
 `gonum/plot` supports all required primitives:
+
 - `plotter.Line` for percentile lines with custom `draw.LineStyle`
 - `plotter.BarChart` for count bars
 - Custom `plot.Ticker` for X-axis time formatting
@@ -238,18 +241,18 @@ internal/report/
 
 **Styling map:**
 
-| matplotlib                      | gonum/plot equivalent                      |
-| ------------------------------- | ------------------------------------------ |
-| `fig, ax = plt.subplots()`      | `p := plot.New()`                          |
-| `ax.plot(x, y, marker, color)` | `plotter.NewLine(xy)` + `LineStyle`        |
-| `ax.bar(x, heights)`           | `plotter.NewBarChart(vals, width)`         |
-| `ax.twinx()`                   | Second `plot.Plot` with shared X-axis      |
-| `fig.legend()`                  | `p.Legend` configuration                   |
-| `ax.axvline()`                 | `plotter.NewLine` (vertical segment)       |
-| `fig.savefig(path)`            | `p.Save(w, h, "chart.svg")`               |
-| `Patch(facecolor, alpha)`      | Custom `plotter.Function` or rectangle     |
-| `ticker.FixedLocator`          | Custom `plot.Ticker` implementation         |
-| Masked arrays (NaN gaps)        | Separate line segments per day              |
+| matplotlib                     | gonum/plot equivalent                  |
+| ------------------------------ | -------------------------------------- |
+| `fig, ax = plt.subplots()`     | `p := plot.New()`                      |
+| `ax.plot(x, y, marker, color)` | `plotter.NewLine(xy)` + `LineStyle`    |
+| `ax.bar(x, heights)`           | `plotter.NewBarChart(vals, width)`     |
+| `ax.twinx()`                   | Second `plot.Plot` with shared X-axis  |
+| `fig.legend()`                 | `p.Legend` configuration               |
+| `ax.axvline()`                 | `plotter.NewLine` (vertical segment)   |
+| `fig.savefig(path)`            | `p.Save(w, h, "chart.svg")`            |
+| `Patch(facecolor, alpha)`      | Custom `plotter.Function` or rectangle |
+| `ticker.FixedLocator`          | Custom `plot.Ticker` implementation    |
+| Masked arrays (NaN gaps)       | Separate line segments per day         |
 
 **Key implementation detail:** gonum/plot does not have built-in dual-axis
 support. The recommended approach is to render two plots to the same SVG
@@ -264,6 +267,7 @@ limitation and gives pixel-precise control over element placement.
 ### 2. Histogram (Single Period)
 
 **Current (matplotlib):** 3.0 × 2.0 inch figure with:
+
 - Vertical bars: steelblue, α=0.7, black edge
 - X-axis: speed bucket labels ("20–25", "70+")
 - Y-axis: count
@@ -277,6 +281,7 @@ require a `plot.Ticker` implementation.
 ### 3. Comparison Histogram
 
 **Current (matplotlib):** 3.0 × 2.0 inch figure with:
+
 - Side-by-side bars (primary vs comparison period)
 - Y-axis: percentage (normalised from counts)
 - Two colours from the percentile palette
@@ -316,6 +321,7 @@ cmd := exec.Command("rsvg-convert", "-f", "pdf", "-o", "chart.pdf", "chart.svg")
 ```
 
 `rsvg-convert` is:
+
 - Already available on most Linux distributions (`librsvg2-bin`)
 - ~2 MB installed footprint (vs ~300 MB for inkscape)
 - The same tool already used by the Python `map_utils.py` as a fallback
@@ -584,14 +590,14 @@ Migrate the SVG marker injection:
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-| ---- | ------ | ---------- |
-| gonum/plot dual-axis limitation | Chart quality | Fall back to direct SVG generation via `encoding/xml` or `ajstarks/svgo`; prototype in Phase 1 before committing |
-| SVG-to-PDF fidelity via `rsvg-convert` | Text rendering | Use `rsvg-convert --dpi 150` for consistent sizing; test with Atkinson Hyperlegible font embedded in SVG |
-| Chart visual parity with matplotlib | User expectation | Side-by-side comparison during development; accept minor styling differences if data accuracy is preserved |
-| `rsvg-convert` not available on target | Build failure | Detect at startup, log warning; fall back to gonum/plot `vgpdf` direct PDF output (skip SVG artefact) |
-| LaTeX template complexity | Maintenance | Keep templates minimal; complex logic stays in Go helpers, templates only interpolate values |
-| Go `text/template` default delimiters `{{`/`}}` clash with LaTeX brace grouping | Template errors | Use custom Go template delimiters `<<` and `>>` via `template.Delims("<<", ">>")` to avoid any ambiguity with LaTeX `{`/`}` syntax |
+| Risk                                                                            | Impact           | Mitigation                                                                                                                         |
+| ------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| gonum/plot dual-axis limitation                                                 | Chart quality    | Fall back to direct SVG generation via `encoding/xml` or `ajstarks/svgo`; prototype in Phase 1 before committing                   |
+| SVG-to-PDF fidelity via `rsvg-convert`                                          | Text rendering   | Use `rsvg-convert --dpi 150` for consistent sizing; test with Atkinson Hyperlegible font embedded in SVG                           |
+| Chart visual parity with matplotlib                                             | User expectation | Side-by-side comparison during development; accept minor styling differences if data accuracy is preserved                         |
+| `rsvg-convert` not available on target                                          | Build failure    | Detect at startup, log warning; fall back to gonum/plot `vgpdf` direct PDF output (skip SVG artefact)                              |
+| LaTeX template complexity                                                       | Maintenance      | Keep templates minimal; complex logic stays in Go helpers, templates only interpolate values                                       |
+| Go `text/template` default delimiters `{{`/`}}` clash with LaTeX brace grouping | Template errors  | Use custom Go template delimiters `<<` and `>>` via `template.Delims("<<", ">>")` to avoid any ambiguity with LaTeX `{`/`}` syntax |
 
 ---
 
