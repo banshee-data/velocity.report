@@ -660,16 +660,18 @@ Query at LOD 3: Returns ~500 polygons (surveyed benchmarks, precise corners).
 
 When loading a global (Tier 2) vector scene map at session startup:
 
-1. Query global features within the sensor's coverage area.
-2. Provide LOD 0–1 features as **priors** — the local scene map starts with known road outlines, building positions, and vegetation zones.
-3. As the local Tier 1 ground tiles settle, refine or validate the prior polygons.
-4. Create LOD 2–3 refinements where the local observations reveal detail not present in the global map.
+1. If GPS is available and OSM priors are enabled, fetch/cache **OSM Simple 3D Buildings (S3DB)** data for the sensor coverage area (building outlines, `building:part=*`, optional `type=building` relations).
+2. Convert S3DB objects into LOD 0–1 **structure priors** (footprints, height extents, optional roof metadata) with source provenance (`osm_way`, `osm_relation`, timestamp, tag confidence).
+3. Load local or community GeoJSON priors for **non-OSM geometry** (ground polygons, kerbs, crosswalks, vegetation zones) and any site-specific overrides.
+4. Seed the local scene map with these priors, then let settled Tier 1 ground tiles and observed wall planes validate/refine them.
+5. Create LOD 2–3 refinements where local observations reveal detail not present in the priors.
 
 When merging back (local → global):
 
-1. LOD 0–1 polygons merge with weighted averaging (same as the ground tile merge algorithm).
-2. LOD 2–3 polygons are added if they meet confidence thresholds.
-3. LOD 2–3 polygons with stale timestamps are pruned (detail zones are assumed to change more frequently than coarse structure).
+1. Ground/volume LOD 0–1 polygons merge with weighted averaging (same as the ground tile merge algorithm).
+2. Structure changes are first compared against the originating OSM S3DB prior and emitted as **proposal candidates** (manual review), not auto-written upstream.
+3. LOD 2–3 local refinements are added to the local/global scene map if they meet confidence thresholds; OSM-compatible subsets may also be exported as proposal candidates.
+4. LOD 2–3 polygons with stale timestamps are pruned (detail zones are assumed to change more frequently than coarse structure).
 
 ---
 
@@ -789,6 +791,11 @@ type VectorSceneParams struct {
 - [ ] SQLite persistence (`vector_scene_features`, `vector_scene_snapshots`)
 - [ ] Global-to-local prior loading at session startup
 - [ ] Local-to-global merge with weighted averaging
+- [ ] OSM S3DB structure-prior provider (Overpass/PBF import + local cache)
+- [ ] S3DB → `StructureFeature` translation (outlines, `building:part=*`, height/roof tags, provenance)
+- [ ] Scan-vs-S3DB delta detection (footprint alignment, height, missing parts)
+- [ ] Export human-review OSM proposal bundles (`.osc`/`.osm`, GeoJSON diff, QA report)
+- [ ] JOSM/iD review workflow docs (manual upload only; no automatic OSM writes)
 - [ ] Stale feature pruning for LOD 2–3
 - [ ] CityJSON export (3D building shells)
 - [ ] Performance profiling on Raspberry Pi 4
@@ -806,7 +813,91 @@ The vector scene map provides natural anchor points for OpenStreetMap features:
 - **Kerb polygons** (LOD 2) correspond to OSM `barrier=kerb` ways.
 - **Crosswalk polygons** (LOD 2) correspond to OSM `highway=crossing` nodes/ways.
 
-The V2 OSM write-back workflow from `../lidar/architecture/ground-plane-extraction.md` applies directly: export vector scene polygons as proposed OSM changesets.
+#### OSM Simple 3D Buildings as the Preferred Structure Prior
+
+For **structure features** (buildings, building parts, walls), the preferred
+Tier 2 prior source should be **OpenStreetMap Simple 3D Buildings (S3DB)**
+rather than a velocity.report-specific GeoJSON corpus.
+
+Rationale:
+
+- OSM already provides a global, community-maintained building base map.
+- S3DB adds the 3D attributes we need for coarse structure priors (`height`,
+  `min_height`, `building:levels`, `roof:*`).
+- Using OSM as the default structure prior reduces duplicate datasets and makes
+  our refinement work easier to contribute back upstream.
+- The supplemental GeoJSON prior service remains useful for geometry that is
+  poorly represented in OSM today (ground surfaces, kerbs, vegetation zones,
+  local survey refinements).
+
+**S3DB import mapping (OSM → vector scene map):**
+
+| OSM construct / tags                                  | Vector scene usage                                       | Notes                                           |
+| ----------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
+| `building=*` outline (way or multipolygon)            | LOD 0 structure footprint prior                          | Stores overall footprint + metadata             |
+| `building:part=*` polygons                            | LOD 1 structure sub-features / wall segments             | Preferred for per-part heights                  |
+| `type=building` relation (`outline` + `part` members) | Explicit grouping of outline and parts                   | Use when present; infer containment otherwise   |
+| `height=*`, `min_height=*`                            | `ZMax`, `ZMin` priors (after local frame transform)      | Highest-confidence height tags                  |
+| `building:levels=*`, `building:min_level=*`           | Height fallback priors with lower confidence             | Convert with configured level-height heuristics |
+| `roof:shape`, `roof:height`, `roof:levels`, `roof:*`  | Optional roof prior metadata / roof uncertainty envelope | Used to avoid overfitting roof returns as walls |
+
+**Height precedence for priors (high → low confidence):**
+
+1. Explicit metric tags (`height=*`, `min_height=*`, `roof:height=*`)
+2. Mixed metric + levels (e.g. `height=*` plus `building:levels=*`)
+3. Levels-only estimates (`building:levels=*`, `roof:levels=*`) using configured defaults
+4. Footprint-only prior (geometry only, no reliable height)
+
+Implementation notes:
+
+- GPS is still optional. If unavailable, the system runs LiDAR-only with no OSM fetch.
+- When GPS is available, convert OSM WGS84 geometry into the sensor-local frame
+  (ENU / local tangent plane) before prior scoring and wall fitting.
+- Treat OSM priors as **soft constraints** (`w_prior`) and allow local LiDAR to
+  override them when observations disagree consistently.
+
+#### Scan-Derived OSM Update Proposal Tooling (Contribute Back Upstream)
+
+The V2 OSM write-back workflow from `../lidar/architecture/ground-plane-extraction.md`
+should be extended for S3DB-aware building updates. The key design requirement
+is **human-reviewed proposals by default** (not autonomous uploads).
+
+**Proposed tooling pipeline:**
+
+1. `vr-map prior import-osm-s3db`
+   Fetch/parse OSM S3DB data for an area (Overpass API or local `.pbf`
+   extract). Cache raw OSM objects and translated structure priors with version
+   metadata.
+2. `vr-map structure reconcile`
+   Compare observed LiDAR-derived `StructureFeature`s against imported S3DB
+   priors. Produce candidate deltas with confidence scores and evidence metrics.
+3. `vr-map structure export-osm-proposals`
+   Emit a review bundle containing:
+   `*.osc` (`osmChange`) patch or JOSM-loadable `.osm` draft objects,
+   GeoJSON diff overlay (before/after footprints, heights, parts), and a QA
+   report (Markdown/JSON) with residual error stats and conflict flags.
+4. Manual review in JOSM/iD (recommended path)
+   Validate geometry, tags, and local knowledge, then upload under a human
+   mapper account with appropriate changeset comments.
+
+**Candidate update types (S3DB-aware):**
+
+- Add missing `height=*` or `min_height=*` where LiDAR confidence is high.
+- Improve existing heights where residual error is systematic and above threshold.
+- Propose `building:part=*` splits when a single outline clearly contains
+  multiple height regimes or roof forms.
+- Add or refine `roof:shape` / `roof:height` only when confidence is
+  sufficient; otherwise emit a "needs survey/manual review" hint instead of a
+  tag edit.
+- Propose footprint vertex adjustments for persistent facade alignment errors.
+
+**Safety and community constraints:**
+
+- No automatic OSM uploads from the perception pipeline.
+- Every proposed object change must be reviewable individually.
+- Proposal export should preserve OSM IDs/version numbers and detect edit conflicts.
+- Bulk or repeated scripted edits must follow OSM community guidance for
+  automated/mechanical edits before execution.
 
 ### Multi-Device Fusion
 
@@ -820,20 +911,25 @@ A vehicle-mounted sensor produces a stream of local scene maps along its route. 
 
 ---
 
-## Future Online Geometry-Prior Service
+## Future Online Geometry-Prior Service (Supplemental to OSM)
 
 ### Design Goal
 
-Enable a community-maintained public file tree that provides geometry priors
-(ground polygons, boundary polylines, structure features) for known deployment
-locations — while keeping velocity.report fully functional offline.
+Enable a community-maintained public file tree that provides **supplemental**
+geometry priors (ground polygons, kerbs/crosswalks, boundary polylines,
+vegetation zones, and local refinements not well represented in OSM) for known
+deployment locations — while keeping velocity.report fully functional offline.
+
+For **building/structure priors**, prefer OSM Simple 3D Buildings (see §12 OSM
+Integration). The GeoJSON prior service described here is a complement, not
+the primary source of building geometry.
 
 ### Architecture: Local-First with Optional Static Fetch
 
-Priors are served as **static GeoJSON files** from a public file server (CDN,
-GitHub Pages, or any HTTP host). No running service, no authentication, no
-accounts. Files are organised in a canonical grid-based folder structure keyed
-by coarsened GPS coordinates.
+Supplemental priors are served as **static GeoJSON files** from a public file
+server (CDN, GitHub Pages, or any HTTP host). No running service, no
+authentication, no accounts. Files are organised in a canonical grid-based
+folder structure keyed by coarsened GPS coordinates.
 
 **Grid resolution: 0.01°** (~1.1 km N-S × ~0.7 km E-W at UK latitudes). This
 resolution is chosen to:
@@ -855,6 +951,10 @@ priors/
 
 Example: a sensor at 51.7523° N, 1.2577° W fetches
 `https://priors.velocity.report/51/-1/51.75_-1.26.geojson`
+
+The import path for OSM S3DB structure priors runs in parallel with this
+GeoJSON path. The diagram below focuses on the supplemental GeoJSON provider
+used primarily for non-OSM geometry classes.
 
 ```
                          ┌─────────────────────────────┐
@@ -1211,6 +1311,8 @@ low-speed urban traffic data specifically.
 
 ### External Standards
 
+- **OpenStreetMap Simple 3D Buildings** — [OSM Wiki: Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings) (building outlines, parts, and roof tagging model)
+- **OpenStreetMap Automated Edits Guidance** — [OSM Wiki: Automated Edits code of conduct](https://wiki.openstreetmap.org/wiki/Automated_Edits_code_of_conduct) (community process for scripted/mechanical edits)
 - **GeoJSON** — [RFC 7946](https://tools.ietf.org/html/rfc7946) (geographic feature collections)
 - **CityJSON** — [CityJSON 1.1](https://www.cityjson.org/specs/1.1.3/) (3D city model standard)
 - **GeoPackage** — [OGC GeoPackage](https://www.geopackage.org/) (SQLite-based geodata container)
