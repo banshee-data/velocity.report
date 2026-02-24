@@ -608,6 +608,204 @@ func TestFrameBundleToProto_WithTracks(t *testing.T) {
 	}
 }
 
+// TestFrameBundleToProto_TrackFieldCompleteness verifies that ALL Track
+// fields survive the model → proto conversion at the wire boundary.  This
+// regression test was added after discovering that 11 fields (PeakSpeedMps,
+// AvgSpeedMps, Hits, Confidence, Duration, Length, etc.) were silently
+// zero'd because the conversion in frameBundleToProto omitted them.
+func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        42,
+		TimestampNanos: 1_000_000_000,
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Tracks: &TrackSet{
+			FrameID:        42,
+			TimestampNanos: 1_000_000_000,
+			Tracks: []Track{
+				{
+					TrackID:           "trk-full",
+					SensorID:          "test-sensor",
+					State:             TrackStateConfirmed,
+					Hits:              10,
+					Misses:            3,
+					ObservationCount:  13,
+					FirstSeenNanos:    500_000_000,
+					LastSeenNanos:     1_000_000_000,
+					X:                 12.0,
+					Y:                 8.0,
+					Z:                 0.5,
+					VX:                5.0,
+					VY:                0.3,
+					VZ:                0.1,
+					SpeedMps:          5.01,
+					HeadingRad:        0.06,
+					Covariance4x4:     []float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+					BBoxLength:        4.5,
+					BBoxWidth:         1.8,
+					BBoxHeight:        1.5,
+					BBoxHeadingRad:    0.1,
+					HeightP95Max:      1.65,
+					IntensityMeanAvg:  42.0,
+					AvgSpeedMps:       4.2,
+					PeakSpeedMps:      6.8,
+					ClassLabel:        "car",
+					ClassConfidence:   0.92,
+					TrackLengthMetres: 55.0,
+					TrackDurationSecs: 11.0,
+					OcclusionCount:    2,
+					Confidence:        0.95,
+					OcclusionState:    OcclusionPartial,
+					MotionModel:       1, // CV
+					Alpha:             0.8,
+					HeadingSource:     1,
+				},
+			},
+			Trails: []TrackTrail{},
+		},
+	}
+
+	req := &pb.StreamRequest{
+		IncludeTracks: true,
+	}
+
+	pbFrame := frameBundleToProto(frame, req)
+	if pbFrame.Tracks == nil {
+		t.Fatal("expected non-nil Tracks")
+	}
+	if len(pbFrame.Tracks.Tracks) != 1 {
+		t.Fatalf("expected 1 track, got %d", len(pbFrame.Tracks.Tracks))
+	}
+
+	tr := pbFrame.Tracks.Tracks[0]
+
+	// -- Lifecycle -------------------------------------------------------
+	if tr.TrackId != "trk-full" {
+		t.Errorf("TrackId: got %q, want %q", tr.TrackId, "trk-full")
+	}
+	if tr.SensorId != "test-sensor" {
+		t.Errorf("SensorId: got %q, want %q", tr.SensorId, "test-sensor")
+	}
+	if tr.State != pb.TrackState(TrackStateConfirmed) {
+		t.Errorf("State: got %v, want %v", tr.State, pb.TrackState(TrackStateConfirmed))
+	}
+	if tr.Hits != 10 {
+		t.Errorf("Hits: got %d, want 10", tr.Hits)
+	}
+	if tr.Misses != 3 {
+		t.Errorf("Misses: got %d, want 3", tr.Misses)
+	}
+	if tr.ObservationCount != 13 {
+		t.Errorf("ObservationCount: got %d, want 13", tr.ObservationCount)
+	}
+	if tr.FirstSeenNs != 500_000_000 {
+		t.Errorf("FirstSeenNs: got %d, want 500000000", tr.FirstSeenNs)
+	}
+	if tr.LastSeenNs != 1_000_000_000 {
+		t.Errorf("LastSeenNs: got %d, want 1000000000", tr.LastSeenNs)
+	}
+
+	// -- Position --------------------------------------------------------
+	if tr.X != 12.0 {
+		t.Errorf("X: got %f, want 12.0", tr.X)
+	}
+	if tr.Y != 8.0 {
+		t.Errorf("Y: got %f, want 8.0", tr.Y)
+	}
+	if tr.Z != 0.5 {
+		t.Errorf("Z: got %f, want 0.5", tr.Z)
+	}
+
+	// -- Velocity --------------------------------------------------------
+	if tr.Vx != 5.0 {
+		t.Errorf("Vx: got %f, want 5.0", tr.Vx)
+	}
+	if tr.Vy != 0.3 {
+		t.Errorf("Vy: got %f, want 0.3", tr.Vy)
+	}
+	if tr.Vz != 0.1 {
+		t.Errorf("Vz: got %f, want 0.1", tr.Vz)
+	}
+	if tr.SpeedMps != 5.01 {
+		t.Errorf("SpeedMps: got %f, want 5.01", tr.SpeedMps)
+	}
+	if tr.HeadingRad != 0.06 {
+		t.Errorf("HeadingRad: got %f, want 0.06", tr.HeadingRad)
+	}
+	if tr.AvgSpeedMps != 4.2 {
+		t.Errorf("AvgSpeedMps: got %f, want 4.2", tr.AvgSpeedMps)
+	}
+	if tr.PeakSpeedMps != 6.8 {
+		t.Errorf("PeakSpeedMps: got %f, want 6.8", tr.PeakSpeedMps)
+	}
+
+	// -- Covariance ------------------------------------------------------
+	if len(tr.Covariance_4X4) != 16 {
+		t.Errorf("Covariance4x4 length: got %d, want 16", len(tr.Covariance_4X4))
+	}
+
+	// -- Bounding box ----------------------------------------------------
+	if tr.BboxLength != 4.5 {
+		t.Errorf("BboxLength: got %f, want 4.5", tr.BboxLength)
+	}
+	if tr.BboxWidth != 1.8 {
+		t.Errorf("BboxWidth: got %f, want 1.8", tr.BboxWidth)
+	}
+	if tr.BboxHeight != 1.5 {
+		t.Errorf("BboxHeight: got %f, want 1.5", tr.BboxHeight)
+	}
+	if tr.BboxHeadingRad != 0.1 {
+		t.Errorf("BboxHeadingRad: got %f, want 0.1", tr.BboxHeadingRad)
+	}
+
+	// -- Features --------------------------------------------------------
+	if tr.HeightP95Max != 1.65 {
+		t.Errorf("HeightP95Max: got %f, want 1.65", tr.HeightP95Max)
+	}
+	if tr.IntensityMeanAvg != 42.0 {
+		t.Errorf("IntensityMeanAvg: got %f, want 42.0", tr.IntensityMeanAvg)
+	}
+
+	// -- Classification --------------------------------------------------
+	if tr.ClassLabel != "car" {
+		t.Errorf("ClassLabel: got %q, want %q", tr.ClassLabel, "car")
+	}
+	if tr.ClassConfidence != 0.92 {
+		t.Errorf("ClassConfidence: got %f, want 0.92", tr.ClassConfidence)
+	}
+
+	// -- Quality metrics (the main regression targets) -------------------
+	if tr.TrackLengthMetres != 55.0 {
+		t.Errorf("TrackLengthMetres: got %f, want 55.0", tr.TrackLengthMetres)
+	}
+	if tr.TrackDurationSecs != 11.0 {
+		t.Errorf("TrackDurationSecs: got %f, want 11.0", tr.TrackDurationSecs)
+	}
+	if tr.OcclusionCount != 2 {
+		t.Errorf("OcclusionCount: got %d, want 2", tr.OcclusionCount)
+	}
+	if tr.Confidence != 0.95 {
+		t.Errorf("Confidence: got %f, want 0.95", tr.Confidence)
+	}
+	if tr.OcclusionState != pb.OcclusionState(OcclusionPartial) {
+		t.Errorf("OcclusionState: got %v, want %v", tr.OcclusionState, pb.OcclusionState(OcclusionPartial))
+	}
+
+	// -- Rendering hints -------------------------------------------------
+	if tr.MotionModel != 1 {
+		t.Errorf("MotionModel: got %v, want 1", tr.MotionModel)
+	}
+	if tr.Alpha != 0.8 {
+		t.Errorf("Alpha: got %f, want 0.8", tr.Alpha)
+	}
+	if tr.HeadingSource != 1 {
+		t.Errorf("HeadingSource: got %d, want 1", tr.HeadingSource)
+	}
+}
+
 func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 	frame := &FrameBundle{
 		FrameID:        1,
