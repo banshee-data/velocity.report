@@ -371,7 +371,7 @@ files embedded via `go:embed`.
 
 % Fonts
 \setmainfont{AtkinsonHyperlegible}[
-  Path = {{.FontDir}}/,
+  Path = <<.FontDir>>/,
   Extension = .ttf,
   UprightFont = *-Regular,
   BoldFont = *-Bold,
@@ -389,19 +389,19 @@ files embedded via `go:embed`.
 ### Main Template (`templates/report.tex`)
 
 ```latex
-{{template "preamble" .}}
+<<template "preamble" .>>
 
 \begin{document}
 \begin{multicols}{2}
 
-{{template "overview" .}}
-{{template "site_info" .}}
+<<template "overview" .>>
+<<template "site_info" .>>
 
 \end{multicols}
 
-{{template "chart_section" .}}
-{{template "statistics" .}}
-{{template "science" .}}
+<<template "chart_section" .>>
+<<template "statistics" .>>
+<<template "science" .>>
 
 \end{document}
 ```
@@ -591,7 +591,7 @@ Migrate the SVG marker injection:
 | Chart visual parity with matplotlib | User expectation | Side-by-side comparison during development; accept minor styling differences if data accuracy is preserved |
 | `rsvg-convert` not available on target | Build failure | Detect at startup, log warning; fall back to gonum/plot `vgpdf` direct PDF output (skip SVG artefact) |
 | LaTeX template complexity | Maintenance | Keep templates minimal; complex logic stays in Go helpers, templates only interpolate values |
-| Go `text/template` and LaTeX both use `{{ }}` and `\` | Syntax collision | Use Go template delimiters `<<` and `>>` (configurable via `template.Delims`) to avoid collision with LaTeX `{{ }}` |
+| Go `text/template` default delimiters `{{`/`}}` clash with LaTeX brace grouping | Template errors | Use custom Go template delimiters `<<` and `>>` via `template.Delims("<<", ">>")` to avoid any ambiguity with LaTeX `{`/`}` syntax |
 
 ---
 
