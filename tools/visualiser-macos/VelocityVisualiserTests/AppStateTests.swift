@@ -919,6 +919,8 @@ import XCTest
         let state = AppState()
         state.isPaused = false
         state.replayProgress = 0.5
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_900_000_000
         let delegate = ClientDelegateAdapter(appState: state)
         let client = VisualiserClient(address: "localhost:50051")
 
@@ -927,6 +929,8 @@ import XCTest
         try await waitForMainActor { state.replayFinished }
         XCTAssertTrue(state.isPaused)
         XCTAssertEqual(state.replayProgress, 1.0)
+        // currentTimestamp should be synced to logEndTimestamp
+        XCTAssertEqual(state.currentTimestamp, 2_000_000_000)
     }
 }
 
@@ -941,7 +945,7 @@ import XCTest
         state.currentFrameIndex = 0
         state.totalFrames = 100
 
-        state.stepForward()// No crash expected
+        state.stepForward()  // No crash expected
     }
 
     func testStepForwardIgnoredAtEnd() throws {
@@ -951,7 +955,7 @@ import XCTest
         state.currentFrameIndex = 99
         state.totalFrames = 100
 
-        state.stepForward()// Guard should prevent stepping past end
+        state.stepForward()  // Guard should prevent stepping past end
     }
 
     func testStepBackwardIgnoredWhenNotSeekable() throws {
@@ -960,7 +964,7 @@ import XCTest
         state.isSeekable = false
         state.currentFrameIndex = 50
 
-        state.stepBackward()// No crash expected
+        state.stepBackward()  // No crash expected
     }
 
     func testSeekIgnoredWhenNotSeekable() throws {
@@ -1118,6 +1122,141 @@ import XCTest
         state.selectTrack(nil)
         XCTAssertFalse(state.showLabelPanel)
         XCTAssertFalse(state.showSidePanel)
+    }
+}
+
+// MARK: - Track History Truncation Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackHistoryTruncationTests: XCTestCase {
+
+    func testHistoryTruncatesOnBackwardSeek() async throws {
+        let state = AppState()
+        state.isLive = false
+
+        // Simulate 5 frames of forward playback
+        for i: UInt64 in 0..<5 {
+            var frame = FrameBundle()
+            frame.frameID = i
+            frame.timestampNanos = Int64(i) * 100_000_000
+            frame.playbackInfo = PlaybackInfo(
+                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                paused: false, currentFrameIndex: i, totalFrames: 10)
+            frame.tracks = TrackSet(
+                frameID: i, timestampNanos: Int64(i) * 100_000_000,
+                tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: Float(i))], trails: []
+            )
+            state.onFrameReceived(frame)
+            await Task.yield()
+        }
+
+        let samplesAfterForward = state.trackHistory["t-001"]?.count ?? 0
+        XCTAssertEqual(samplesAfterForward, 5)
+
+        // Now simulate a backward seek to frame 2
+        var backFrame = FrameBundle()
+        backFrame.frameID = 2
+        backFrame.timestampNanos = 200_000_000
+        backFrame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: true,
+            currentFrameIndex: 2, totalFrames: 10)
+        backFrame.tracks = TrackSet(
+            frameID: 2, timestampNanos: 200_000_000,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 2.0)], trails: [])
+        state.onFrameReceived(backFrame)
+        await Task.yield()
+
+        // History should have been truncated: frames 0, 1, and the new frame 2 = 3 samples
+        let samplesAfterBackward = state.trackHistory["t-001"]?.count ?? 0
+        XCTAssertEqual(samplesAfterBackward, 3)
+    }
+
+    func testHistoryGrowsNormallyOnForwardPlay() async throws {
+        let state = AppState()
+        state.isLive = false
+
+        for i: UInt64 in 0..<10 {
+            var frame = FrameBundle()
+            frame.frameID = i
+            frame.timestampNanos = Int64(i) * 100_000_000
+            frame.playbackInfo = PlaybackInfo(
+                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                paused: false, currentFrameIndex: i, totalFrames: 100)
+            frame.tracks = TrackSet(
+                frameID: i, timestampNanos: Int64(i) * 100_000_000,
+                tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: Float(i))], trails: []
+            )
+            state.onFrameReceived(frame)
+            await Task.yield()
+        }
+
+        XCTAssertEqual(state.trackHistory["t-001"]?.count, 10)
+    }
+
+    func testHistoryDoesNotDuplicateOnSameFrame() async throws {
+        let state = AppState()
+        state.isLive = false
+
+        // Receive the same frame index twice (e.g. pause + step to same frame)
+        for _ in 0..<2 {
+            var frame = FrameBundle()
+            frame.frameID = 5
+            frame.timestampNanos = 500_000_000
+            frame.playbackInfo = PlaybackInfo(
+                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                paused: true, currentFrameIndex: 5, totalFrames: 10)
+            frame.tracks = TrackSet(
+                frameID: 5, timestampNanos: 500_000_000,
+                tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
+            state.onFrameReceived(frame)
+            await Task.yield()
+        }
+
+        // Should only have 1 sample (second receive truncates >= 5, then appends)
+        XCTAssertEqual(state.trackHistory["t-001"]?.count, 1)
+    }
+}
+
+// MARK: - Step After Replay Finished Tests
+
+@available(macOS 15.0, *) @MainActor final class StepAfterFinishTests: XCTestCase {
+
+    func testStepBackwardWhenFinishedDoesNotCrash() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.replayFinished = true
+        state.isPaused = true
+        state.currentFrameIndex = 99
+        state.totalFrames = 100
+
+        // Should not crash — steps backward and handles finished state
+        state.stepBackward()
+    }
+
+    func testStepForwardBlockedAtEnd() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.replayFinished = true
+        state.isPaused = true
+        state.currentFrameIndex = 99
+        state.totalFrames = 100
+
+        // currentFrameIndex + 1 == totalFrames, guard should block
+        state.stepForward()
+    }
+
+    func testStepForwardAllowedBeforeEnd() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.replayFinished = true
+        state.isPaused = true
+        state.currentFrameIndex = 50
+        state.totalFrames = 100
+
+        // currentFrameIndex + 1 < totalFrames, should proceed
+        state.stepForward()
     }
 }
 

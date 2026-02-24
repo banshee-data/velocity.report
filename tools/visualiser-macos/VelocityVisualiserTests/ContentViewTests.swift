@@ -332,3 +332,201 @@ struct StringTruncationTests {
         #expect(result.hasSuffix("..."))
     }
 }
+
+// MARK: - SparklineView Tests
+
+struct SparklineViewTests {
+    @Test func sparklineCreation() throws {
+        let view = SparklineView(values: [1, 2, 3, 4, 5], colour: .cyan, label: "Speed")
+        let _ = view.body
+    }
+
+    @Test func sparklineWithSingleValue() throws {
+        let view = SparklineView(values: [42.0], colour: .orange, label: "Heading")
+        let _ = view.body
+    }
+
+    @Test func sparklineWithEmptyValues() throws {
+        let view = SparklineView(values: [], colour: .red, label: "Empty")
+        let _ = view.body
+    }
+
+    @Test func sparklinePathWithTwoValues() throws {
+        let view = SparklineView(values: [0, 10], colour: .cyan, label: "Test")
+        let size = CGSize(width: 100, height: 40)
+        let path = view.sparklinePath(in: size)
+        // Should produce a valid path with 2 points
+        #expect(!path.isEmpty)
+    }
+
+    @Test func sparklinePathEmptyReturnsEmptyPath() throws {
+        let view = SparklineView(values: [], colour: .cyan, label: "Test")
+        let path = view.sparklinePath(in: CGSize(width: 100, height: 40))
+        #expect(path.isEmpty)
+    }
+
+    @Test func sparklinePathSingleValueReturnsEmptyPath() throws {
+        let view = SparklineView(values: [5.0], colour: .cyan, label: "Test")
+        let path = view.sparklinePath(in: CGSize(width: 100, height: 40))
+        // < 2 values → guard returns empty path
+        #expect(path.isEmpty)
+    }
+
+    @Test func sparklinePathConstantValues() throws {
+        // All identical values: effectiveRange falls back to 1.0
+        let view = SparklineView(values: [5, 5, 5, 5], colour: .cyan, label: "const")
+        let path = view.sparklinePath(in: CGSize(width: 100, height: 40))
+        #expect(!path.isEmpty)
+    }
+
+    @Test func sparklinePathNegativeValues() throws {
+        let view = SparklineView(values: [-10, -5, 0, 5, 10], colour: .cyan, label: "neg")
+        let path = view.sparklinePath(in: CGSize(width: 200, height: 40))
+        #expect(!path.isEmpty)
+    }
+
+    @Test func sparklinePathBoundsContainedInCanvas() throws {
+        let view = SparklineView(values: [0, 25, 50, 75, 100], colour: .cyan, label: "bounds")
+        let size = CGSize(width: 100, height: 40)
+        let path = view.sparklinePath(in: size)
+        let bounds = path.boundingRect
+        // All points should be within the canvas (with floating-point tolerance)
+        #expect(bounds.minX >= -0.1)
+        #expect(bounds.minY >= -0.1)
+        #expect(bounds.maxX <= size.width + 0.1)
+        #expect(bounds.maxY <= size.height + 0.1)
+    }
+}
+
+// MARK: - TrackHistoryGraphView Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackHistoryGraphViewTests: XCTestCase {
+
+    func testGraphViewWithNoSamples() throws {
+        let state = AppState()
+        let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
+        let _ = view.body
+    }
+
+    func testGraphViewWithOneSample() throws {
+        let state = AppState()
+        state.trackHistory["t-001"] = [
+            AppState.TrackSample(frameIndex: 0, speedMps: 5.0, headingDeg: 90.0)
+        ]
+        let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
+        let _ = view.body
+    }
+
+    func testGraphViewWithMultipleSamples() throws {
+        let state = AppState()
+        state.trackHistory["t-001"] = (0..<20).map {
+            AppState.TrackSample(
+                frameIndex: UInt64($0), speedMps: Float($0) * 0.5, headingDeg: Float($0) * 10)
+        }
+        let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
+        let _ = view.body
+    }
+
+    func testGraphViewUnknownTrackID() throws {
+        let state = AppState()
+        // No history for this track — should show nothing
+        let view = TrackHistoryGraphView(trackID: "nonexistent").environmentObject(state)
+        let _ = view.body
+    }
+}
+
+// MARK: - TimeDisplayView Tests
+
+@available(macOS 15.0, *) @MainActor final class TimeDisplayViewTests: XCTestCase {
+
+    func testTimeDisplayWithValidRange() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_500_000_000
+        let view = TimeDisplayView().environmentObject(state)
+        let _ = view.body
+    }
+
+    func testTimeDisplayWithZeroTimestamps() throws {
+        let state = AppState()
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.currentTimestamp = 0
+        let view = TimeDisplayView().environmentObject(state)
+        let _ = view.body
+    }
+
+    func testTimeDisplayWhenReplayFinished() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 2_000_000_000  // At end
+        state.replayFinished = true
+        state.replayProgress = 1.0
+        let view = TimeDisplayView().environmentObject(state)
+        let _ = view.body
+    }
+
+    func testTimeDisplayWithLogStartAtZero() throws {
+        // Log starts at timestamp 0 — hasValidRange should still work
+        let state = AppState()
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 5_000_000_000
+        state.currentTimestamp = 2_500_000_000
+        let view = TimeDisplayView().environmentObject(state)
+        let _ = view.body
+    }
+}
+
+// MARK: - PlaybackControlsView Tests
+
+@available(macOS 15.0, *) @MainActor final class PlaybackControlsViewTests: XCTestCase {
+
+    func testPlaybackControlsLiveMode() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = true
+        let view = PlaybackControlsView().environmentObject(state)
+        let _ = view.body
+    }
+
+    func testPlaybackControlsReplayMode() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = false
+        state.isSeekable = true
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        let view = PlaybackControlsView().environmentObject(state)
+        let _ = view.body
+    }
+
+    func testPlaybackControlsDisconnected() throws {
+        let state = AppState()
+        state.isConnected = false
+        let view = PlaybackControlsView().environmentObject(state)
+        let _ = view.body
+    }
+
+    func testPlaybackControlsReplayFinished() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = false
+        state.isSeekable = true
+        state.replayFinished = true
+        state.isPaused = true
+        state.replayProgress = 1.0
+        let view = PlaybackControlsView().environmentObject(state)
+        let _ = view.body
+    }
+
+    func testPlaybackControlsNotSeekable() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = false
+        state.isSeekable = false
+        let view = PlaybackControlsView().environmentObject(state)
+        let _ = view.body
+    }
+}
