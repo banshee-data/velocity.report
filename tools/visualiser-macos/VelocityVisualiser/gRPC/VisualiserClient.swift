@@ -539,7 +539,7 @@ final class LockedState<Value>: @unchecked Sendable {
                         bboxWidth: t.bboxWidth, bboxHeight: t.bboxHeight,
                         bboxHeadingRad: t.bboxHeadingRad, heightP95Max: t.heightP95Max,
                         intensityMeanAvg: t.intensityMeanAvg, avgSpeedMps: t.avgSpeedMps,
-                        peakSpeedMps: t.peakSpeedMps, classLabel: t.classLabel,
+                        peakSpeedMps: t.peakSpeedMps, classLabel: objectClassLabel(t.objectClass),
                         classConfidence: t.classConfidence, trackLengthMetres: t.trackLengthMetres,
                         trackDurationSecs: t.trackDurationSecs,
                         occlusionCount: Int(t.occlusionCount), confidence: t.confidence,
@@ -619,3 +619,25 @@ final class LockedState<Value>: @unchecked Sendable {
         return frame
     }
 }
+
+// MARK: - Proto Enum Conversion
+
+/// Convert a proto ObjectClass enum value to its canonical string label.
+/// Returns empty string only for unspecified, otherwise a valid label.
+private func objectClassLabel(_ oc: Velocity_Visualiser_V1_ObjectClass) -> String {
+    switch oc {
+    case .car: return "car"
+    case .truck: return "truck"
+    case .bus: return "bus"
+    case .pedestrian: return "pedestrian"
+    case .cyclist: return "cyclist"
+    case .motorcyclist: return "motorcyclist"
+    case .bird: return "bird"
+    case .noise: return "noise"
+    case .dynamic: return "dynamic"
+    case .unspecified, .UNRECOGNIZED: return ""
+    }
+}
+
+/// Checks if an ObjectClass enum value represents a valid classification.
+private func isClassified(_ label: String) -> Bool { return !label.isEmpty }

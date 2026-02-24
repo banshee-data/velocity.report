@@ -672,7 +672,9 @@ struct TrackInspectorView: View {
                             label: "Duration", value: String(format: "%.1f s", t.trackDurationSecs))
                         DetailRow(
                             label: "Length", value: String(format: "%.1f m", t.trackLengthMetres))
-                        if !t.classLabel.isEmpty { DetailRow(label: "Class", value: t.classLabel) }
+                        DetailRow(
+                            label: "Class",
+                            value: t.classLabel.isEmpty ? "Not classified" : t.classLabel)
                     }
                 }
 
@@ -969,10 +971,14 @@ struct LabelPanelView: View {
 
     // Canonical classification labels — must match Go validUserLabels and Svelte DetectionLabel
     static let classificationLabels: [(name: String, help: String)] = [
-        ("car", "Vehicle (car, truck, bus, motorcycle)"),
-        ("ped", "Pedestrian (person walking, running, cycling)"),
+        ("car", "Passenger car, SUV, or van"),
+        ("truck", "Pickup truck, box truck, or freight vehicle"),
+        ("bus", "Bus, coach, or large passenger vehicle (length > 7 m)"),
+        ("pedestrian", "Person walking, running, or using a mobility aid"),
+        ("cyclist", "Person on a bicycle or e-scooter"),
+        ("motorcyclist", "Person riding a motorcycle"), ("bird", "Bird or other airborne fauna"),
+        ("dynamic", "Ambiguous detection unsure between moving objects"),
         ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
-        ("impossible", "Track passes through walls or obstacles in the scene"),
     ]
 
     // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
