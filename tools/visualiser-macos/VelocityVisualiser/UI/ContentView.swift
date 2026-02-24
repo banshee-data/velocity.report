@@ -353,36 +353,85 @@ func formatDuration(_ nanos: Int64) -> String {
     return String(format: "%@%d:%02d", prefix, minutes, seconds)
 }
 
+@available(macOS 15.0, *) struct PlaybackControlsDerivedState: Equatable {
+    let mode: AppState.PlaybackMode
+    let isConnected: Bool
+    let isPaused: Bool
+    let playbackRate: Float
+    let showStepButtons: Bool
+    let stepBackwardDisabled: Bool
+    let stepForwardDisabled: Bool
+    let showReplayTimeline: Bool
+    let showSeekableSlider: Bool
+    let showReadOnlyProgress: Bool
+    let showReplayMetadataUnavailable: Bool
+    let seekSliderDisabled: Bool
+    let playPauseDisabled: Bool
+    let rateControlsDisabled: Bool
+    let modeLabel: String
+
+    init(
+        isConnected: Bool, mode: AppState.PlaybackMode, isPaused: Bool, playbackRate: Float,
+        busy: Bool, hasValidTimelineRange: Bool, hasFrameIndexProgress: Bool,
+        currentFrameIndex: UInt64, totalFrames: UInt64
+    ) {
+        self.isConnected = isConnected
+        self.mode = mode
+        self.isPaused = isPaused
+        self.playbackRate = playbackRate
+        self.modeLabel = mode.modeLabel
+        let isReplay = mode == .replayNonSeekable || mode == .replaySeekable
+        let isSeekableReplay = mode == .replaySeekable
+        let isLiveOrUnknown = mode == .live || mode == .unknown
+
+        showStepButtons = isSeekableReplay
+        stepBackwardDisabled = !isConnected || busy || currentFrameIndex == 0
+        stepForwardDisabled =
+            !isConnected || busy || totalFrames == 0 || currentFrameIndex + 1 >= totalFrames
+        showReplayTimeline = isReplay
+        showSeekableSlider = isSeekableReplay
+        showReadOnlyProgress =
+            mode == .replayNonSeekable && (hasValidTimelineRange || hasFrameIndexProgress)
+        showReplayMetadataUnavailable =
+            mode == .replayNonSeekable && !hasValidTimelineRange && !hasFrameIndexProgress
+        seekSliderDisabled = !isConnected || busy || !hasValidTimelineRange
+        playPauseDisabled = !isConnected || busy || isLiveOrUnknown
+        rateControlsDisabled = !isConnected || busy || isLiveOrUnknown
+    }
+}
+
 struct PlaybackControlsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        let isConnected = appState.isConnected
-        let isLive = appState.isLive
-        let isPaused = appState.isPaused
-        let playbackRate = appState.playbackRate
-        let isSeekable = appState.isSeekable
+        let ui = PlaybackControlsDerivedState(
+            isConnected: appState.isConnected, mode: appState.displayPlaybackMode,
+            isPaused: appState.isPaused, playbackRate: appState.playbackRate,
+            busy: appState.playbackControlsBusy,
+            hasValidTimelineRange: appState.hasValidTimelineRange,
+            hasFrameIndexProgress: appState.hasFrameIndexProgress,
+            currentFrameIndex: appState.currentFrameIndex, totalFrames: appState.totalFrames)
 
         HStack {
             // Play/Pause (disabled in live mode)
             Button(action: { appState.togglePlayPause() }) {
-                Image(systemName: isPaused ? "play.fill" : "pause.fill")
-            }.disabled(!isConnected || isLive)
+                Image(systemName: ui.isPaused ? "play.fill" : "pause.fill")
+            }.disabled(ui.playPauseDisabled)
 
             // Step buttons (only for seekable modes like .vrlog replay)
-            if isSeekable {
+            if ui.showStepButtons {
                 Button(action: { appState.stepBackward() }) {
                     Image(systemName: "backward.frame.fill")
-                }.disabled(!isConnected || isLive)
+                }.disabled(ui.stepBackwardDisabled)
 
                 Button(action: { appState.stepForward() }) {
                     Image(systemName: "forward.frame.fill")
-                }.disabled(!isConnected || isLive)
+                }.disabled(ui.stepForwardDisabled)
             }
 
             // Timeline (replay mode)
-            if !isLive {
-                if isSeekable {
+            if ui.showReplayTimeline {
+                if ui.showSeekableSlider {
                     // Interactive seek slider for .vrlog replay
                     Slider(value: $appState.replayProgress, in: 0...1) { editing in
                         if editing {
@@ -393,11 +442,15 @@ struct PlaybackControlsView: View {
                             // so we don't call setSliderEditing(false) here to avoid a race.
                             appState.seek(to: appState.replayProgress)
                         }
-                    }.frame(minWidth: 200)
-                } else {
+                    }.frame(minWidth: 200).disabled(ui.seekSliderDisabled)
+                } else if ui.showReadOnlyProgress {
                     // Read-only progress bar for PCAP replay
-                    Slider(value: $appState.replayProgress, in: 0...1).frame(minWidth: 200)
-                        .disabled(true)
+                    Slider(value: .constant(appState.displayReplayProgress), in: 0...1).frame(
+                        minWidth: 200
+                    ).disabled(true)
+                } else {
+                    Text("Replay metadata unavailable").font(.caption).foregroundColor(.secondary)
+                        .frame(minWidth: 200, alignment: .leading)
                 }
 
                 // Time display
@@ -409,21 +462,22 @@ struct PlaybackControlsView: View {
             // Rate control (disabled in live mode)
             HStack(spacing: 4) {
                 Button(action: { appState.decreaseRate() }) { Image(systemName: "minus") }
-                    .buttonStyle(.borderless).disabled(!isConnected || isLive)
+                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
 
                 // Rate display: number + clickable "x" to reset to 1x
                 HStack(spacing: 0) {
-                    Text(formatRate(playbackRate)).font(.caption).monospacedDigit()
+                    Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
                     Button(action: { appState.resetRate() }) { Text("x").font(.caption) }
-                        .buttonStyle(.borderless).disabled(!isConnected || isLive)
-                }.frame(width: 45).foregroundColor(isLive ? .secondary : .primary)
+                        .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                }.frame(width: 45).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
 
                 Button(action: { appState.increaseRate() }) { Image(systemName: "plus") }
-                    .buttonStyle(.borderless).disabled(!isConnected || isLive)
-            }.opacity(isLive ? 0.5 : 1.0)
+                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+            }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
 
             // Mode indicator (only show when connected)
-            ModeIndicatorView(isLive: isLive, isConnected: isConnected)
+            PlaybackModeBadgeView(
+                modeLabel: ui.modeLabel, mode: ui.mode, isConnected: ui.isConnected)
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
     }
@@ -471,6 +525,29 @@ struct ModeIndicatorView: View {
             ).padding(.horizontal, 8).padding(.vertical, 2).background(
                 isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2)
             ).cornerRadius(4)
+        }
+    }
+}
+
+@available(macOS 15.0, *) struct PlaybackModeBadgeView: View {
+    let modeLabel: String
+    let mode: AppState.PlaybackMode
+    let isConnected: Bool
+
+    private var foreground: Color {
+        switch mode {
+        case .live: return .red
+        case .replayNonSeekable: return .orange
+        case .replaySeekable: return .blue
+        case .unknown: return .secondary
+        }
+    }
+
+    var body: some View {
+        if isConnected {
+            Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground).padding(
+                .horizontal, 8
+            ).padding(.vertical, 2).background(foreground.opacity(0.16)).cornerRadius(4)
         }
     }
 }

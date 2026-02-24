@@ -85,6 +85,9 @@ import XCTest
 
     func testIncreaseRateUpperBoundClamping() throws {
         let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
         state.isLive = false
         state.playbackRate = 64.0  // Already at max
 
@@ -94,6 +97,9 @@ import XCTest
 
     func testIncreaseRateFromMidRange() throws {
         let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
         state.isLive = false
         state.playbackRate = 2.0
 
@@ -713,7 +719,7 @@ struct VisualiserClientDecodeTests {
     func testPauseWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.pause() }
+        let completed = await exerciseWithTimeout { _ = try await client.pause() }
         // Body was entered; completed or timed out
         _ = completed
     }
@@ -721,28 +727,28 @@ struct VisualiserClientDecodeTests {
     func testPlayWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.play() }
+        let completed = await exerciseWithTimeout { _ = try await client.play() }
         _ = completed
     }
 
     func testSeekTimestampWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.seek(to: 1_000_000) }
+        let completed = await exerciseWithTimeout { _ = try await client.seek(to: 1_000_000) }
         _ = completed
     }
 
     func testSeekFrameWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.seek(toFrame: 42) }
+        let completed = await exerciseWithTimeout { _ = try await client.seek(toFrame: 42) }
         _ = completed
     }
 
     func testSetRateWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.setRate(2.0) }
+        let completed = await exerciseWithTimeout { _ = try await client.setRate(2.0) }
         _ = completed
     }
 

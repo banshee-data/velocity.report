@@ -21,6 +21,24 @@ protocol VisualiserClientDelegate: AnyObject {
     func clientDidFinishStream(_ client: VisualiserClient)  // Called when replay stream ends (EOF)
 }
 
+/// Minimal playback control API used by AppState. Abstracted for tests.
+@available(macOS 15.0, *) protocol PlaybackRPCClient: AnyObject {
+    func pause() async throws -> VisualiserPlaybackStatus
+    func play() async throws -> VisualiserPlaybackStatus
+    func seek(to timestampNanos: Int64) async throws -> VisualiserPlaybackStatus
+    func seek(toFrame frameID: UInt64) async throws -> VisualiserPlaybackStatus
+    func setRate(_ rate: Float) async throws -> VisualiserPlaybackStatus
+    func restartStream()
+}
+
+/// Decoded status returned by playback control RPCs.
+struct VisualiserPlaybackStatus: Equatable {
+    var paused: Bool
+    var rate: Float
+    var currentTimestampNs: Int64
+    var currentFrameID: UInt64
+}
+
 /// Error types for the visualiser client.
 enum VisualiserClientError: Error, LocalizedError {
     case notConnected
@@ -48,7 +66,7 @@ enum VisualiserClientError: Error, LocalizedError {
 /// // Frames will be delivered via delegate
 /// client.disconnect()
 /// ```
-@available(macOS 15.0, *) final class VisualiserClient {
+@available(macOS 15.0, *) final class VisualiserClient: PlaybackRPCClient {
 
     // MARK: - Properties
 
@@ -267,57 +285,70 @@ enum VisualiserClientError: Error, LocalizedError {
 
     // MARK: - Playback Control
 
+    private func decodePlaybackStatus(
+        _ status: Velocity_Visualiser_V1_PlaybackStatus
+    ) -> VisualiserPlaybackStatus {
+        VisualiserPlaybackStatus(
+            paused: status.paused, rate: status.rate, currentTimestampNs: status.currentTimestampNs,
+            currentFrameID: status.currentFrameID)
+    }
+
     /// Pause playback (replay mode only).
-    func pause() async throws {
+    func pause() async throws -> VisualiserPlaybackStatus {
         guard isConnected, let grpcClient = _grpcClient.value else {
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         let request = Velocity_Visualiser_V1_PauseRequest()
-        _ = try await serviceClient.pause(request: ClientRequest(message: request))
+        let response = try await serviceClient.pause(request: ClientRequest(message: request))
+        return decodePlaybackStatus(response)
     }
 
     /// Resume playback (replay mode only).
-    func play() async throws {
+    func play() async throws -> VisualiserPlaybackStatus {
         guard isConnected, let grpcClient = _grpcClient.value else {
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         let request = Velocity_Visualiser_V1_PlayRequest()
-        _ = try await serviceClient.play(request: ClientRequest(message: request))
+        let response = try await serviceClient.play(request: ClientRequest(message: request))
+        return decodePlaybackStatus(response)
     }
 
     /// Seek to a timestamp (replay mode only).
-    func seek(to timestampNanos: Int64) async throws {
+    func seek(to timestampNanos: Int64) async throws -> VisualiserPlaybackStatus {
         guard isConnected, let grpcClient = _grpcClient.value else {
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         var request = Velocity_Visualiser_V1_SeekRequest()
         request.timestampNs = timestampNanos
-        _ = try await serviceClient.seek(request: ClientRequest(message: request))
+        let response = try await serviceClient.seek(request: ClientRequest(message: request))
+        return decodePlaybackStatus(response)
     }
 
     /// Seek to a frame ID (replay mode only).
-    func seek(toFrame frameID: UInt64) async throws {
+    func seek(toFrame frameID: UInt64) async throws -> VisualiserPlaybackStatus {
         guard isConnected, let grpcClient = _grpcClient.value else {
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         var request = Velocity_Visualiser_V1_SeekRequest()
         request.frameID = frameID
-        _ = try await serviceClient.seek(request: ClientRequest(message: request))
+        let response = try await serviceClient.seek(request: ClientRequest(message: request))
+        return decodePlaybackStatus(response)
     }
 
     /// Set playback rate (replay mode only).
-    func setRate(_ rate: Float) async throws {
+    func setRate(_ rate: Float) async throws -> VisualiserPlaybackStatus {
         guard isConnected, let grpcClient = _grpcClient.value else {
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         var request = Velocity_Visualiser_V1_SetRateRequest()
         request.rate = rate
-        _ = try await serviceClient.setRate(request: ClientRequest(message: request))
+        let response = try await serviceClient.setRate(request: ClientRequest(message: request))
+        return decodePlaybackStatus(response)
     }
 
     /// Send overlay mode preferences to the server.

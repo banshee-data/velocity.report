@@ -18,6 +18,30 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 /// Global application state, observable by SwiftUI views.
 @available(macOS 15.0, *) @MainActor class AppState: ObservableObject {
 
+    enum PlaybackMode: String, Equatable {
+        case unknown
+        case live
+        case replayNonSeekable
+        case replaySeekable
+
+        var modeLabel: String {
+            switch self {
+            case .unknown: return "CONNECTING"
+            case .live: return "LIVE"
+            case .replayNonSeekable: return "REPLAY (PCAP)"
+            case .replaySeekable: return "REPLAY (VRLOG)"
+            }
+        }
+    }
+
+    enum PlaybackCommandKind: Equatable {
+        case togglePlayPause
+        case seek
+        case stepForward
+        case stepBackward
+        case setRate
+    }
+
     // MARK: - Connection State
 
     @Published var isConnected: Bool = false
@@ -32,6 +56,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var isLive: Bool = true
     @Published var currentTimestamp: Int64 = 0
     @Published var currentFrameID: UInt64 = 0
+    @Published var playbackMode: PlaybackMode = .live
+    @Published fileprivate(set) var hasPlaybackMetadata: Bool = false
 
     // For replay mode
     @Published var logStartTimestamp: Int64 = 0
@@ -42,6 +68,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var currentFrameIndex: UInt64 = 0  // 0-based index in log (for stepping)
     @Published var totalFrames: UInt64 = 0
     @Published var isSeekable: Bool = false  // True when seek/step is supported (e.g. .vrlog replay)
+    @Published private(set) var inFlightPlaybackCommand: PlaybackCommandKind?
+    @Published private(set) var commandStartedAt: Date?
+    @Published private(set) var pendingSeekTargetTimestamp: Int64?
+    @Published private(set) var pendingSeekTargetFrameIndex: UInt64?
 
     // MARK: - Overlay Toggles
 
@@ -178,10 +208,13 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     // MARK: - Internal
 
     private var grpcClient: VisualiserClient?
+    var playbackCommandClientOverride: PlaybackRPCClient?
     private var lastFrameTime: Date = Date()
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
     private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
+    private var queuedSeekProgress: Double?
+    private var playbackStateGeneration: UInt64 = 0
 
     // MARK: - Run State
 
@@ -206,6 +239,148 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     deinit {
         // Cleanup if needed
     }
+
+    // MARK: - Playback Derived State
+
+    var hasValidTimelineRange: Bool { logEndTimestamp > logStartTimestamp }
+
+    var hasFrameIndexProgress: Bool { totalFrames > 1 }
+
+    var playbackControlsBusy: Bool { inFlightPlaybackCommand != nil }
+
+    var displayPlaybackMode: PlaybackMode {
+        if !isConnected && playbackMode == .unknown { return .unknown }
+        if hasPlaybackMetadata { return playbackMode }
+        if playbackMode == .unknown { return .unknown }
+        if isLive { return .live }
+        return isSeekable ? .replaySeekable : .replayNonSeekable
+    }
+
+    var displayReplayProgress: Double {
+        if hasValidTimelineRange { return replayProgress }
+        guard totalFrames > 1 else { return replayProgress }
+        let denom = Double(totalFrames - 1)
+        guard denom > 0 else { return replayProgress }
+        return max(0, min(1, Double(currentFrameIndex) / denom))
+    }
+
+    var canInteractWithSeekSlider: Bool {
+        displayPlaybackMode == .replaySeekable && hasValidTimelineRange && !playbackControlsBusy
+    }
+
+    var shouldShowReplayMetadataUnavailable: Bool {
+        displayPlaybackMode == .replayNonSeekable && !hasValidTimelineRange
+            && !hasFrameIndexProgress
+    }
+
+    // MARK: - Playback Helpers
+
+    private var playbackRPCClient: PlaybackRPCClient? {
+        playbackCommandClientOverride ?? grpcClient
+    }
+
+    fileprivate func setPlaybackMode(_ mode: PlaybackMode) {
+        playbackMode = mode
+        switch mode {
+        case .unknown:
+            // Preserve legacy defaults for callers/tests that still inspect these fields directly.
+            isLive = isConnected ? isLive : true
+            isSeekable = false
+        case .live:
+            isLive = true
+            isSeekable = false
+        case .replayNonSeekable:
+            isLive = false
+            isSeekable = false
+        case .replaySeekable:
+            isLive = false
+            isSeekable = true
+        }
+    }
+
+    private func inferPlaybackMode(isLive: Bool, seekable: Bool) -> PlaybackMode {
+        if isLive { return .live }
+        return seekable ? .replaySeekable : .replayNonSeekable
+    }
+
+    private func bumpPlaybackGeneration() { playbackStateGeneration &+= 1 }
+
+    fileprivate func resetPlaybackState(mode: PlaybackMode) {
+        bumpPlaybackGeneration()
+        setPlaybackMode(mode)
+        hasPlaybackMetadata = false
+        isPaused = false
+        replayFinished = false
+        replayProgress = 0
+        isSeekingInProgress = false
+        currentTimestamp = 0
+        currentFrameID = 0
+        logStartTimestamp = 0
+        logEndTimestamp = 0
+        currentFrameIndex = 0
+        totalFrames = 0
+        inFlightPlaybackCommand = nil
+        commandStartedAt = nil
+        pendingSeekTargetTimestamp = nil
+        pendingSeekTargetFrameIndex = nil
+        queuedSeekProgress = nil
+    }
+
+    private func beginPlaybackCommand(_ kind: PlaybackCommandKind) -> Bool {
+        guard inFlightPlaybackCommand == nil else { return false }
+        inFlightPlaybackCommand = kind
+        commandStartedAt = Date()
+        return true
+    }
+
+    private func finishPlaybackCommand(_ kind: PlaybackCommandKind) {
+        if inFlightPlaybackCommand == kind {
+            inFlightPlaybackCommand = nil
+            commandStartedAt = nil
+            if kind != .seek {
+                pendingSeekTargetTimestamp = nil
+                pendingSeekTargetFrameIndex = nil
+            }
+        }
+        if kind != .seek { isSeekingInProgress = false }
+        if let nextSeek = queuedSeekProgress, inFlightPlaybackCommand == nil {
+            queuedSeekProgress = nil
+            seek(to: nextSeek)
+        }
+    }
+
+    private func applyPlaybackAck(_ ack: VisualiserPlaybackStatus) {
+        isPaused = ack.paused
+        playbackRate = ack.rate
+        if ack.currentTimestampNs > 0 { currentTimestamp = ack.currentTimestampNs }
+        if ack.currentFrameID > 0 { currentFrameID = ack.currentFrameID }
+    }
+
+    private func guardPlaybackCommand(
+        kind: PlaybackCommandKind, requiresSeekable: Bool = false
+    ) -> PlaybackRPCClient? {
+        guard isConnected else {
+            logger.warning("Ignoring playback command \(String(describing: kind)) — not connected")
+            return nil
+        }
+        guard displayPlaybackMode != .unknown else {
+            logger.warning("Ignoring playback command \(String(describing: kind)) — mode unknown")
+            return nil
+        }
+        if requiresSeekable && displayPlaybackMode != .replaySeekable {
+            logger.warning(
+                "Ignoring playback command \(String(describing: kind)) — replay is not seekable")
+            return nil
+        }
+        guard let client = playbackRPCClient else {
+            logger.error(
+                "Ignoring playback command \(String(describing: kind)) — gRPC client missing")
+            return nil
+        }
+        return client
+    }
+
+    func setPlaybackModeForTesting(_ mode: PlaybackMode) { setPlaybackMode(mode) }
 
     // MARK: - Connection
 
@@ -238,10 +413,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         logger.info("connect() starting, serverAddress: \(self.serverAddress)")
         isConnecting = true
         connectionError = nil
+        bumpPlaybackGeneration()
+        setPlaybackMode(.unknown)
 
         grpcClient = VisualiserClient(address: serverAddress)
         grpcClient?.includeDebug = showDebug  // M6: Request debug data when enabled
-        clientDelegate = ClientDelegateAdapter(appState: self)
+        clientDelegate = ClientDelegateAdapter(appState: self, generation: playbackStateGeneration)
         grpcClient?.delegate = clientDelegate
         logger.debug("Created VisualiserClient and delegate")
 
@@ -274,11 +451,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         clientDelegate = nil
         isConnected = false
         currentFrame = nil
-        // Reset playback timestamps to prevent stale values on reconnect
-        logStartTimestamp = 0
-        logEndTimestamp = 0
-        currentTimestamp = 0
-        replayProgress = 0
+        resetPlaybackState(mode: .unknown)
         frameCount = 0
         logger.debug("Disconnected")
     }
@@ -306,15 +479,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// POST so the server already has the VRLOG loaded when frames start.
     func prepareForNewReplay() {
         logger.info("prepareForNewReplay() — resetting playback state")
-        isPaused = false
-        replayFinished = false
-        replayProgress = 0
-        isSeekingInProgress = false
-        currentTimestamp = 0
-        logStartTimestamp = 0
-        logEndTimestamp = 0
-        currentFrameIndex = 0
-        totalFrames = 0
+        resetPlaybackState(mode: .unknown)
         frameCount = 0
         trackHistory = [:]
         userLabels = [:]
@@ -322,75 +487,96 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     /// Restart the gRPC frame stream.  Call after loading a new VRLOG on
     /// the server so the client reconnects and picks up the new replay.
-    func restartGRPCStream() { grpcClient?.restartStream() }
+    func restartGRPCStream() {
+        bumpPlaybackGeneration()
+        if grpcClient != nil {
+            clientDelegate = ClientDelegateAdapter(
+                appState: self, generation: playbackStateGeneration)
+            grpcClient?.delegate = clientDelegate
+        }
+        grpcClient?.restartStream()
+    }
 
     func togglePlayPause() {
-        guard !isLive else { return }
+        guard displayPlaybackMode != .live else { return }
+        guard !playbackControlsBusy else { return }
+        guard let client = guardPlaybackCommand(kind: .togglePlayPause) else { return }
+        guard beginPlaybackCommand(.togglePlayPause) else { return }
 
+        let previousPaused = isPaused
         let newPaused = !isPaused
         let wasFinished = replayFinished
-        isPaused = newPaused  // Update immediately (optimistic)
+        isPaused = newPaused  // Optimistic
         logger.info("Toggle play/pause: newPaused=\(newPaused), wasFinished=\(wasFinished)")
 
-        Task {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.finishPlaybackCommand(.togglePlayPause) }
             do {
+                let ack: VisualiserPlaybackStatus
                 if newPaused {
-                    try await grpcClient?.pause()
+                    ack = try await client.pause()
                 } else {
-                    try await grpcClient?.play()
-                    // If replay had finished and we're resuming, restart the stream
-                    if wasFinished {
-                        logger.info("Restarting stream (replay was finished)")
-                        await MainActor.run { self.replayFinished = false }
-                        grpcClient?.restartStream()
-                    }
+                    ack = try await client.play()
                 }
-            } catch { logger.error("Failed to toggle playback: \(error.localizedDescription)") }
+                self.applyPlaybackAck(ack)
+                if !newPaused && wasFinished {
+                    logger.info("Restarting stream (replay was finished)")
+                    self.replayFinished = false
+                    self.restartGRPCStream()
+                }
+            } catch {
+                self.isPaused = previousPaused
+                logger.error("Failed to toggle playback: \(error.localizedDescription)")
+            }
         }
     }
 
     func stepForward() {
-        guard !isLive, isSeekable else { return }
+        guard displayPlaybackMode == .replaySeekable else { return }
         guard currentFrameIndex + 1 < totalFrames else { return }  // Don't step past end
-
-        let wasFinished = replayFinished
-        Task {
-            do {
-                // Auto-pause so the next frame doesn't immediately overwrite the seek.
-                if !isPaused {
-                    isPaused = true
-                    try await grpcClient?.pause()
-                }
-                try await grpcClient?.seek(toFrame: currentFrameIndex + 1)
-                // If replay had finished, restart the stream so frames arrive again
-                if wasFinished {
-                    logger.info("Restarting stream after step-forward (replay was finished)")
-                    await MainActor.run { self.replayFinished = false }
-                    grpcClient?.restartStream()
-                }
-            } catch { logger.error("Failed to step forward: \(error.localizedDescription)") }
-        }
+        guard !playbackControlsBusy else { return }
+        let targetFrame = currentFrameIndex + 1
+        runStepCommand(kind: .stepForward, targetFrame: targetFrame)
     }
 
     func stepBackward() {
-        guard !isLive, isSeekable, currentFrameIndex > 0 else { return }
+        guard displayPlaybackMode == .replaySeekable, currentFrameIndex > 0 else { return }
+        guard !playbackControlsBusy else { return }
+        let targetFrame = currentFrameIndex - 1
+        runStepCommand(kind: .stepBackward, targetFrame: targetFrame)
+    }
+
+    private func runStepCommand(kind: PlaybackCommandKind, targetFrame: UInt64) {
+        guard let client = guardPlaybackCommand(kind: kind, requiresSeekable: true) else { return }
+        guard beginPlaybackCommand(kind) else { return }
 
         let wasFinished = replayFinished
-        Task {
+        let previousPaused = isPaused
+        isSeekingInProgress = true
+        pendingSeekTargetFrameIndex = targetFrame
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.finishPlaybackCommand(kind) }
             do {
                 // Auto-pause so the next frame doesn't immediately overwrite the seek.
-                if !isPaused {
-                    isPaused = true
-                    try await grpcClient?.pause()
+                if !self.isPaused {
+                    self.isPaused = true
+                    let pauseAck = try await client.pause()
+                    self.applyPlaybackAck(pauseAck)
                 }
-                try await grpcClient?.seek(toFrame: currentFrameIndex - 1)
-                // If replay had finished, restart the stream so frames arrive again
+                let seekAck = try await client.seek(toFrame: targetFrame)
+                self.applyPlaybackAck(seekAck)
                 if wasFinished {
-                    logger.info("Restarting stream after step-backward (replay was finished)")
-                    await MainActor.run { self.replayFinished = false }
-                    grpcClient?.restartStream()
+                    logger.info("Restarting stream after step (replay was finished)")
+                    self.replayFinished = false
+                    self.restartGRPCStream()
                 }
-            } catch { logger.error("Failed to step backward: \(error.localizedDescription)") }
+            } catch {
+                self.isPaused = previousPaused
+                logger.error("Failed step command: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -398,88 +584,108 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     private static let availableRates: [Float] = [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
 
     func increaseRate() {
-        guard !isLive else { return }
-
-        // Find next higher rate
+        guard displayPlaybackMode != .live else { return }
         let currentIndex = Self.availableRates.firstIndex { $0 >= playbackRate } ?? 0
         let newIndex = min(currentIndex + 1, Self.availableRates.count - 1)
-        let newRate = Self.availableRates[newIndex]
-        logger.info("Increasing rate from \(self.playbackRate) to \(newRate)")
-        playbackRate = newRate  // Update immediately (optimistic)
-        Task {
-            do { try await grpcClient?.setRate(newRate) } catch {
-                logger.error("Failed to increase rate: \(error.localizedDescription)")
-            }
-        }
+        runRateChange(to: Self.availableRates[newIndex], logPrefix: "Increasing")
     }
 
     func decreaseRate() {
-        guard !isLive else { return }
-
-        // Find next lower rate
+        guard displayPlaybackMode != .live else { return }
         let currentIndex =
             Self.availableRates.lastIndex { $0 <= playbackRate } ?? (Self.availableRates.count - 1)
         let newIndex = max(currentIndex - 1, 0)
-        let newRate = Self.availableRates[newIndex]
-        logger.info("Decreasing rate from \(self.playbackRate) to \(newRate)")
-        playbackRate = newRate  // Update immediately (optimistic)
-        Task {
-            do { try await grpcClient?.setRate(newRate) } catch {
-                logger.error("Failed to decrease rate: \(error.localizedDescription)")
-            }
-        }
+        runRateChange(to: Self.availableRates[newIndex], logPrefix: "Decreasing")
     }
 
     func resetRate() {
-        guard !isLive else { return }
+        guard displayPlaybackMode != .live else { return }
+        runRateChange(to: 1.0, logPrefix: "Resetting")
+    }
 
-        let newRate: Float = 1.0
-        logger.info("Resetting rate to \(newRate)")
-        playbackRate = newRate
-        Task {
-            do { try await grpcClient?.setRate(newRate) } catch {
-                logger.error("Failed to reset rate: \(error.localizedDescription)")
+    private func runRateChange(to newRate: Float, logPrefix: String) {
+        guard !playbackControlsBusy else { return }
+        guard let client = guardPlaybackCommand(kind: .setRate) else { return }
+        guard beginPlaybackCommand(.setRate) else { return }
+
+        let previousRate = playbackRate
+        logger.info("\(logPrefix) rate from \(self.playbackRate) to \(newRate)")
+        playbackRate = newRate  // Optimistic
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.finishPlaybackCommand(.setRate) }
+            do {
+                let ack = try await client.setRate(newRate)
+                self.applyPlaybackAck(ack)
+            } catch {
+                self.playbackRate = previousRate
+                logger.error("Failed to change rate: \(error.localizedDescription)")
             }
         }
     }
 
     func seek(to progress: Double) {
-        guard !isLive, isSeekable else { return }
+        guard displayPlaybackMode == .replaySeekable else { return }
+        guard hasValidTimelineRange else { return }
 
+        let clampedProgress = max(0, min(1, progress))
         let targetTimestamp =
-            logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * progress)
+            logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
+        if inFlightPlaybackCommand == .seek {
+            queuedSeekProgress = clampedProgress
+            replayProgress = clampedProgress
+            currentTimestamp = targetTimestamp
+            pendingSeekTargetTimestamp = targetTimestamp
+            return
+        }
+        guard !playbackControlsBusy else { return }
+        guard let client = guardPlaybackCommand(kind: .seek, requiresSeekable: true) else { return }
+        guard beginPlaybackCommand(.seek) else { return }
+        let previousProgress = replayProgress
+        let previousTimestamp = currentTimestamp
+        let previousPaused = isPaused
+        let wasFinished = replayFinished
 
-        replayProgress = progress  // Update immediately (optimistic)
+        replayProgress = clampedProgress  // Optimistic
         currentTimestamp = targetTimestamp  // Sync timer display with slider position
         isSeekingInProgress = true
-        let wasFinished = replayFinished
+        pendingSeekTargetTimestamp = targetTimestamp
         logger.info(
-            "Seeking to progress \(progress) (timestamp \(targetTimestamp)), wasFinished=\(wasFinished)"
+            "Seeking to progress \(clampedProgress) (timestamp \(targetTimestamp)), wasFinished=\(wasFinished)"
         )
 
-        Task {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.finishPlaybackCommand(.seek) }
             do {
-                try await grpcClient?.seek(to: targetTimestamp)
+                let seekAck = try await client.seek(to: targetTimestamp)
+                self.applyPlaybackAck(seekAck)
 
-                // If replay had finished, we need to restart the stream to resume playback
                 if wasFinished {
                     logger.info("Replay was finished - sending play and restarting stream")
-                    // Clear finished flag first to avoid race conditions
-                    await MainActor.run {
-                        self.replayFinished = false
-                        self.isPaused = false
-                    }
-                    // Tell server to play, then restart stream
-                    try await grpcClient?.play()
-                    grpcClient?.restartStream()
+                    self.replayFinished = false
+                    self.isPaused = false
+                    let playAck = try await client.play()
+                    self.applyPlaybackAck(playAck)
+                    self.restartGRPCStream()
                 }
-            } catch { logger.error("Failed to seek: \(error.localizedDescription)") }
-            await MainActor.run { self.isSeekingInProgress = false }
+            } catch {
+                self.replayProgress = previousProgress
+                self.currentTimestamp = previousTimestamp
+                self.isPaused = previousPaused
+                logger.error("Failed to seek: \(error.localizedDescription)")
+            }
+            self.isSeekingInProgress = false
+            self.pendingSeekTargetTimestamp = nil
         }
     }
 
     /// Called when slider editing state changes
-    func setSliderEditing(_ editing: Bool) { isSeekingInProgress = editing }
+    func setSliderEditing(_ editing: Bool) {
+        if playbackControlsBusy && inFlightPlaybackCommand == .seek { return }
+        isSeekingInProgress = editing
+    }
 
     // MARK: - Recording
 
@@ -637,7 +843,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     // MARK: - Frame Handling
 
-    func onFrameReceived(_ frame: FrameBundle) {
+    func onFrameReceived(_ frame: FrameBundle, generation: UInt64? = nil) {
+        let eventGeneration = generation ?? playbackStateGeneration
+        guard eventGeneration == playbackStateGeneration else {
+            logger.debug("Ignoring stale frame for generation \(eventGeneration)")
+            return
+        }
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
 
@@ -686,7 +897,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             guard let self else { return }
             self.applyFrameStateUpdate(
                 frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
-                newLabels: newLabels)
+                newLabels: newLabels, generation: eventGeneration)
         }
     }
 
@@ -694,8 +905,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Called from a deferred Task to avoid AttributeGraph cycles.
     private func applyFrameStateUpdate(
         frame: FrameBundle, instantFPS: Double, newCacheStatus: String,
-        newLabels: [MetalRenderer.TrackScreenLabel]
+        newLabels: [MetalRenderer.TrackScreenLabel], generation: UInt64
     ) {
+        guard generation == playbackStateGeneration else {
+            logger.debug("Skipping stale deferred frame update for generation \(generation)")
+            return
+        }
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1
@@ -705,13 +920,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
-            isLive = playbackInfo.isLive
+            hasPlaybackMetadata = true
+            setPlaybackMode(
+                inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))
             logStartTimestamp = playbackInfo.logStartNs
             logEndTimestamp = playbackInfo.logEndNs
             playbackRate = playbackInfo.playbackRate
             currentFrameIndex = playbackInfo.currentFrameIndex
             totalFrames = playbackInfo.totalFrames
-            isSeekable = playbackInfo.seekable
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
 
@@ -771,7 +987,21 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 Double(currentTimestamp - logStartTimestamp)
                 / Double(logEndTimestamp - logStartTimestamp)
             replayProgress = max(0, min(1, progress))
+        } else if !isLive && !isSeekingInProgress && !hasValidTimelineRange && totalFrames > 1 {
+            replayProgress = displayReplayProgress
         }
+    }
+
+    func handleStreamFinished(expectedGeneration: UInt64?) {
+        if let expectedGeneration, expectedGeneration != playbackStateGeneration {
+            logger.debug("Ignoring stale finish callback for generation \(expectedGeneration)")
+            return
+        }
+        replayFinished = true
+        isPaused = true  // Pause at end
+        replayProgress = 1.0
+        // Sync currentTimestamp to logEndTimestamp so the time display matches the seek bar.
+        if logEndTimestamp > 0 { currentTimestamp = logEndTimestamp }
     }
 }
 
@@ -784,8 +1014,12 @@ private let delegateLogger = Logger(
 @available(macOS 15.0, *)
 final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable {
     private weak var appState: AppState?
+    private let generation: UInt64?
 
-    init(appState: AppState) { self.appState = appState }
+    init(appState: AppState, generation: UInt64? = nil) {
+        self.appState = appState
+        self.generation = generation
+    }
 
     func clientDidConnect(_ client: VisualiserClient) {
         print("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
@@ -794,6 +1028,8 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
             self?.appState?.isConnected = true
             self?.appState?.connectionError = nil
             self?.appState?.replayFinished = false
+            self?.appState?.hasPlaybackMetadata = false
+            self?.appState?.setPlaybackMode(.unknown)
             // Note: isLive is determined from first frame's PlaybackInfo
             delegateLogger.debug("AppState updated: isConnected=true")
         }
@@ -807,26 +1043,26 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
             "clientDidDisconnect called, error: \(error?.localizedDescription ?? "none")")
         Task { @MainActor [weak self] in
             self?.appState?.isConnected = false
+            self?.appState?.currentFrame = nil
+            self?.appState?.resetPlaybackState(mode: .unknown)
             // Only show simple error message, not verbose gRPC details
             if error != nil { self?.appState?.connectionError = "Connection lost" }
         }
     }
 
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
-        Task { @MainActor [weak self] in self?.appState?.onFrameReceived(frame) }
+        let generation = self.generation
+        Task { @MainActor [weak self] in
+            self?.appState?.onFrameReceived(frame, generation: generation)
+        }
     }
 
     func clientDidFinishStream(_ client: VisualiserClient) {
         print("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
         delegateLogger.info("clientDidFinishStream called - replay reached end")
+        let generation = self.generation
         Task { @MainActor [weak self] in
-            guard let self = self?.appState else { return }
-            self.replayFinished = true
-            self.isPaused = true  // Pause at end
-            self.replayProgress = 1.0
-            // Sync currentTimestamp to logEndTimestamp so the time display
-            // matches the seek bar position (both show "end of log").
-            if self.logEndTimestamp > 0 { self.currentTimestamp = self.logEndTimestamp }
+            self?.appState?.handleStreamFinished(expectedGeneration: generation)
         }
     }
 }

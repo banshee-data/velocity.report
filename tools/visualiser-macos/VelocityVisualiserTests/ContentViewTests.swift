@@ -561,6 +561,48 @@ struct SparklineViewTests {
     }
 }
 
+// MARK: - PlaybackControlsDerivedState Tests
+
+@available(macOS 15.0, *) final class PlaybackControlsDerivedStateTests: XCTestCase {
+    func testReplaySeekableEnablesExpectedControls() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: false,
+            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 10,
+            totalFrames: 100)
+        XCTAssertEqual(ui.modeLabel, "REPLAY (VRLOG)")
+        XCTAssertTrue(ui.showStepButtons)
+        XCTAssertTrue(ui.showSeekableSlider)
+        XCTAssertFalse(ui.seekSliderDisabled)
+        XCTAssertFalse(ui.playPauseDisabled)
+    }
+
+    func testReplayNonSeekableWithoutMetadataShowsFallbackMessage() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replayNonSeekable, isPaused: false, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: false, hasFrameIndexProgress: false,
+            currentFrameIndex: 0, totalFrames: 0)
+        XCTAssertEqual(ui.modeLabel, "REPLAY (PCAP)")
+        XCTAssertFalse(ui.showStepButtons)
+        XCTAssertFalse(ui.showReadOnlyProgress)
+        XCTAssertTrue(ui.showReplayMetadataUnavailable)
+    }
+
+    func testStepBoundsDisableAtStartAndEnd() throws {
+        let start = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: false,
+            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 0,
+            totalFrames: 10)
+        XCTAssertTrue(start.stepBackwardDisabled)
+        XCTAssertFalse(start.stepForwardDisabled)
+
+        let end = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: false,
+            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 9,
+            totalFrames: 10)
+        XCTAssertTrue(end.stepForwardDisabled)
+    }
+}
+
 // MARK: - TrackListView Display Tests
 
 @available(macOS 15.0, *) @MainActor final class TrackListViewDisplayTests: XCTestCase {
