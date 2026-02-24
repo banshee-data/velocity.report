@@ -324,6 +324,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !isLive, isSeekable else { return }
         guard currentFrameIndex + 1 < totalFrames else { return }  // Don't step past end
 
+        let wasFinished = replayFinished
         Task {
             do {
                 // Auto-pause so the next frame doesn't immediately overwrite the seek.
@@ -332,6 +333,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                     try await grpcClient?.pause()
                 }
                 try await grpcClient?.seek(toFrame: currentFrameIndex + 1)
+                // If replay had finished, restart the stream so frames arrive again
+                if wasFinished {
+                    logger.info("Restarting stream after step-forward (replay was finished)")
+                    await MainActor.run { self.replayFinished = false }
+                    grpcClient?.restartStream()
+                }
             } catch { logger.error("Failed to step forward: \(error.localizedDescription)") }
         }
     }
@@ -339,6 +346,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func stepBackward() {
         guard !isLive, isSeekable, currentFrameIndex > 0 else { return }
 
+        let wasFinished = replayFinished
         Task {
             do {
                 // Auto-pause so the next frame doesn't immediately overwrite the seek.
@@ -347,6 +355,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                     try await grpcClient?.pause()
                 }
                 try await grpcClient?.seek(toFrame: currentFrameIndex - 1)
+                // If replay had finished, restart the stream so frames arrive again
+                if wasFinished {
+                    logger.info("Restarting stream after step-backward (replay was finished)")
+                    await MainActor.run { self.replayFinished = false }
+                    grpcClient?.restartStream()
+                }
             } catch { logger.error("Failed to step backward: \(error.localizedDescription)") }
         }
     }
@@ -686,13 +700,18 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         clusterCount = frame.clusters?.clusters.count ?? 0
         trackCount = frame.tracks?.tracks.count ?? 0
 
-        // Accumulate velocity/heading history for each track
+        // Accumulate velocity/heading history for each track.
+        // When seeking or stepping backwards, trim samples that are ahead of
+        // the current frame to avoid invalid (non-monotonic) graphs.
         if let tracks = frame.tracks?.tracks {
             for track in tracks {
                 let sample = TrackSample(
                     frameIndex: currentFrameIndex, speedMps: track.speedMps,
                     headingDeg: track.headingRad * 180 / .pi)
                 var samples = trackHistory[track.trackID] ?? []
+                // Remove any samples at or beyond the current frame index
+                // (handles backward seeks and steps)
+                samples.removeAll { $0.frameIndex >= currentFrameIndex }
                 samples.append(sample)
                 if samples.count > Self.maxHistorySamples {
                     samples.removeFirst(samples.count - Self.maxHistorySamples)
@@ -769,9 +788,13 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         print("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
         delegateLogger.info("clientDidFinishStream called - replay reached end")
         Task { @MainActor [weak self] in
-            self?.appState?.replayFinished = true
-            self?.appState?.isPaused = true  // Pause at end
-            self?.appState?.replayProgress = 1.0
+            guard let self = self?.appState else { return }
+            self.replayFinished = true
+            self.isPaused = true  // Pause at end
+            self.replayProgress = 1.0
+            // Sync currentTimestamp to logEndTimestamp so the time display
+            // matches the seek bar position (both show "end of log").
+            if self.logEndTimestamp > 0 { self.currentTimestamp = self.logEndTimestamp }
         }
     }
 }

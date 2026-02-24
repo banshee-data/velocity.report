@@ -435,16 +435,13 @@ struct TimeDisplayView: View {
     @State private var showRemaining: Bool = false
 
     /// Whether we have valid log boundaries to compute durations.
-    private var hasValidRange: Bool {
-        appState.logStartTimestamp > 0 && appState.logEndTimestamp > appState.logStartTimestamp
-            && appState.currentTimestamp >= appState.logStartTimestamp
-    }
+    private var hasValidRange: Bool { appState.logEndTimestamp > appState.logStartTimestamp }
 
-    private var elapsed: Int64 { appState.currentTimestamp - appState.logStartTimestamp }
+    private var elapsed: Int64 { max(0, appState.currentTimestamp - appState.logStartTimestamp) }
 
     private var total: Int64 { appState.logEndTimestamp - appState.logStartTimestamp }
 
-    private var remaining: Int64 { appState.logEndTimestamp - appState.currentTimestamp }
+    private var remaining: Int64 { max(0, appState.logEndTimestamp - appState.currentTimestamp) }
 
     var body: some View {
         if hasValidRange {
@@ -680,7 +677,9 @@ struct SparklineView: View {
         }
     }
 
-    private func sparklinePath(in size: CGSize) -> Path {
+    /// Compute the sparkline path for a given canvas size.
+    /// Internal for testability via @testable import.
+    func sparklinePath(in size: CGSize) -> Path {
         guard values.count >= 2 else { return Path() }
 
         let minVal = values.min() ?? 0
@@ -1011,9 +1010,7 @@ struct LabelPanelView: View {
                                         String($0).trimmingCharacters(in: .whitespaces)
                                     })
                             }
-                            if track.labelerId == "hint-carryover" {
-                                isCarriedOver = true
-                            }
+                            if track.labelerId == "hint-carryover" { isCarriedOver = true }
                         }
                     } catch {
                         // Silently ignore — track may not exist in API yet
