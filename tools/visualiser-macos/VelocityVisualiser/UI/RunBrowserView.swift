@@ -84,7 +84,11 @@ extension String {
                 // Run list
                 List(runBrowserState.runs) { run in
                     RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
-                        Task { await loadRun(run) }
+                        Task {
+                            await loadRunForReplayAndUpdateAppState(
+                                runID: run.runId, appState: appState
+                            ) { await runBrowserState.loadRunForReplay(run.runId) }
+                        }
                     }
                 }.listStyle(.inset)
             }
@@ -117,11 +121,6 @@ extension String {
         }.frame(width: 500, height: 400).onAppear { Task { await runBrowserState.fetchRuns() } }
     }
 
-    private func loadRun(_ run: AnalysisRun) async {
-        await loadRunForReplayAndUpdateAppState(runID: run.runId, appState: appState) {
-            await runBrowserState.loadRunForReplay(run.runId)
-        }
-    }
 }
 
 /// Row view for a single run in the list.

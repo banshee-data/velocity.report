@@ -250,6 +250,26 @@ struct RecordingStatusTests {
 
         XCTAssertFalse(delegate.didFinishStream)
     }
+
+    func testNotifyStreamTerminationOnMainActorNotifiesDelegate() async {
+        let client = VisualiserClient(address: "localhost:50051")
+        let delegate = MockClientDelegate()
+        client.delegate = delegate
+
+        await client.notifyStreamTerminationOnMainActor(wasCancelled: false)
+
+        XCTAssertTrue(delegate.didFinishStream)
+    }
+
+    func testNotifyStreamTerminationOnMainActorSkipsCancelledFinish() async {
+        let client = VisualiserClient(address: "localhost:50051")
+        let delegate = MockClientDelegate()
+        client.delegate = delegate
+
+        await client.notifyStreamTerminationOnMainActor(wasCancelled: true)
+
+        XCTAssertFalse(delegate.didFinishStream)
+    }
 }
 
 // MARK: - VisualiserClient Not Connected Error Tests

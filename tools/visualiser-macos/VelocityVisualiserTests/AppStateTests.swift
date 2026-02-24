@@ -238,6 +238,16 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         XCTAssertNil(state.inFlightPlaybackCommand)
     }
 
+    func testPlaybackCommandGuardRejectsSeekRequirementForNonSeekableReplay() {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replayNonSeekable)
+
+        XCTAssertFalse(state.canRunPlaybackCommandForTesting(.seek, requiresSeekable: true))
+    }
+
     func testRestartGRPCStreamRebindsDelegateWhenClientExists() async throws {
         let state = AppState()
         state.serverAddress = "localhost"

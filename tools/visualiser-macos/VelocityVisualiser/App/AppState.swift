@@ -382,6 +382,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     func setPlaybackModeForTesting(_ mode: PlaybackMode) { setPlaybackMode(mode) }
 
+    func canRunPlaybackCommandForTesting(
+        _ kind: PlaybackCommandKind, requiresSeekable: Bool = false
+    ) -> Bool { guardPlaybackCommand(kind: kind, requiresSeekable: requiresSeekable) != nil }
+
     // MARK: - Connection
 
     func toggleConnection() {

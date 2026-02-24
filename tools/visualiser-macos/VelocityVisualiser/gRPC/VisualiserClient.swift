@@ -262,9 +262,7 @@ enum VisualiserClientError: Error, LocalizedError {
                     }
                     print("[VisualiserClient] Stream ended after \(frameCount) frames")
 
-                    await MainActor.run { [weak self] in
-                        self?.handleStreamTermination(wasCancelled: Task.isCancelled)
-                    }
+                    await self?.notifyStreamTerminationOnMainActor(wasCancelled: Task.isCancelled)
 
                 case .failure(let error):
                     print("[VisualiserClient] ❌ Stream rejected: \(error)")
@@ -291,6 +289,12 @@ enum VisualiserClientError: Error, LocalizedError {
             return
         }
         delegate?.clientDidFinishStream(self)
+    }
+
+    func notifyStreamTerminationOnMainActor(wasCancelled: Bool) async {
+        await MainActor.run { [weak self] in
+            self?.handleStreamTermination(wasCancelled: wasCancelled)
+        }
     }
 
     /// Pause playback (replay mode only).
