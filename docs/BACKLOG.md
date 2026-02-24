@@ -46,14 +46,14 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - (#4) Radar configuration via UI — read and send radar config commands through the web interface `M`
 - LayerChart policy in LiDAR routes — enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps — [design doc §4.2](ui/design-review-and-improvement.md)
-- Speed limit schedules (D-16) — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md) `L`
+- (#323) Speed limit schedules (D-16) — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md) `L`
 
 ## v1.0 (Production-Ready)
 
 - Test coverage ≥ 95.5% — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](plans/platform-quality-coverage-improvement-plan.md) `L`
 - Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
 - Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](maths/proposals/20260219-unify-l3-l4-settling.md) `L`
-- Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
+- (#324) Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
 - (#8) Data management (backup/archiving) — define backup destinations, read historical archives and rollup SQLite files from remote HTTP location `M`
 - (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters `M`
@@ -67,7 +67,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Visualiser QC programme (Features 1–10) — comprehensive quality control tooling for LiDAR data — [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - ML classifier training pipeline (Phase 4.1) — automated model training and evaluation framework — [plan](plans/lidar-ml-classifier-training-plan.md) `L`
 - Parameter tuning optimisation (Phase 4.2) — automated hyperparameter search and optimisation — [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
-- Ground-plane vector-scene maths (P3, D-05) — 3D scene reconstruction with ground-plane constraints — [proposal](maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
+- (#325) Ground-plane vector-scene maths (P3, D-05) — 3D scene reconstruction with ground-plane constraints — [proposal](maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Dynamic algorithm selection — runtime algorithm switching based on scene conditions — [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - Online geometry-prior service — opt-in community-maintained geometry priors (local-only remains default) — [design doc](lidar/architecture/vector-scene-map.md) `L`
 - Multi-location aggregate dashboard — cross-site analytics and comparative reporting `L`
@@ -78,10 +78,10 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v∞.0 (Deferred, waybacklog)
 
-- AV dataset integration — 28-class taxonomy, Parquet ingestion — [design doc](plans/lidar-av-lidar-integration-plan.md)
-- Motion capture architecture — moving sensor support — [design doc](plans/lidar-motion-capture-architecture-plan.md)
+- (#326) AV dataset integration — 28-class taxonomy, Parquet ingestion — [design doc](plans/lidar-av-lidar-integration-plan.md)
+- (#322) Motion capture architecture — moving sensor support — [design doc](plans/lidar-motion-capture-architecture-plan.md)
 - Static pose alignment — 7-DOF tracking — [design doc](plans/lidar-static-pose-alignment-plan.md)
-- AV range image format — dual-return support — [design doc](lidar/architecture/av-range-image-format-alignment.md)
+- (#327) AV range image format — dual-return support — [design doc](lidar/architecture/av-range-image-format-alignment.md)
 - Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md)
 - E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md)
 - (#9) LAN authentication — add auth layer if deployment moves beyond private LAN — [design doc §10.1](ui/design-review-and-improvement.md)
