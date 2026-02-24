@@ -12,7 +12,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.1 (Product)
 
-- (#290) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
+- [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
 
 ## v0.6 (Deployment & Packaging)
 
@@ -44,6 +44,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - GitHub Releases CI pipeline — automated binary builds and release packaging — [design doc](plans/deploy-distribution-packaging-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
+- (#4) Radar configuration via UI — read and send radar config commands through the web interface `M`
 - LayerChart policy in LiDAR routes — enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps — [design doc §4.2](ui/design-review-and-improvement.md)
 - Speed limit schedules (D-16) — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md) `L`
 
@@ -54,11 +55,15 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
+- (#8) Data management (backup/archiving) — define backup destinations, read historical archives and rollup SQLite files from remote HTTP location `M`
+- (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters `M`
+- (#122) Database monitoring UI — daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard `M`
 - Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
 - Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
 
 ## v2.0 (Advanced Perception & Connected)
 
+- (#103) Python OpenCV angle extraction — compute radar cosine-correction angle from checkerboard image; Python tool callable from webserver `M`
 - Visualiser QC programme (Features 1–10) — comprehensive quality control tooling for LiDAR data — [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - ML classifier training pipeline (Phase 4.1) — automated model training and evaluation framework — [plan](plans/lidar-ml-classifier-training-plan.md) `L`
 - Parameter tuning optimisation (Phase 4.2) — automated hyperparameter search and optimisation — [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
@@ -80,6 +85,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md)
 - E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md)
 - (#9) LAN authentication — add auth layer if deployment moves beyond private LAN — [design doc §10.1](ui/design-review-and-improvement.md)
+- (#7) Live SQL query view — browser-based SQL query tool; low priority while TailSQL suffices `S`
 - Coverage thresholds — raise codecov thresholds to meaningful levels after coverage improves — [design doc §7.5](ui/design-review-and-improvement.md)
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](ui/design-review-and-improvement.md) `S`
 
