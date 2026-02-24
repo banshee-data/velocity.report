@@ -218,14 +218,9 @@ velocity.report/
 - `ARCHITECTURE.md` for system design changes
 - `public_html/src/guides/setup.md` for user-facing setup instructions
 
-## Active Migrations
+## Python Virtual Environment
 
-**Python venv consolidation (In Progress):**
-
-- Moving from dual-venv to unified `.venv/` at repository root
-- Old: `tools/pdf-generator/.venv` (being phased out)
-- New: `.venv/` at root (target state)
-- Use `.venv/` paths in all new code and documentation
+All Python tools share a **single virtual environment** at the repository root (`.venv/`). Run `make install-python` to create it. There is no per-tool venv — `tools/pdf-generator/.venv` was retired during the venv consolidation.
 
 ## SQLite Capabilities
 

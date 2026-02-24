@@ -218,23 +218,17 @@ Sensors → Go Server → SQLite → (Web Frontend | PDF Generator)
 - Future: Peak hour analysis, seasonal trends, anomaly detection?
 - Challenge: Balance complexity with ease of use
 
-## Active Migrations & Technical Debt
+## Python Virtual Environment
 
-### In Progress
+All Python tools share a **single virtual environment** at the repository root (`.venv/`). Run `make install-python` to create it. There is no per-tool venv — `tools/pdf-generator/.venv` was retired during the venv consolidation.
 
-**Python venv consolidation:**
+## Known Issues
 
-- Moving from dual-venv (root + `tools/pdf-generator/.venv`) to single `.venv/` at root
-- Status: Plan documented, implementation pending
-- Impact: Simplifies dependency management, clearer for users
-
-**LIDAR integration:**
+### LIDAR Integration
 
 - Experimental component, lower test coverage
 - Not production-deployed yet
 - Opportunity: Define product vision for LIDAR capabilities
-
-### Known Issues
 
 **PDF generation path resolution:**
 
