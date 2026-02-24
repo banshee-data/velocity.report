@@ -95,7 +95,7 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 			NoisePointRatio:   0.15,
 			SpatialCoverage:   0.8,
 			ObservationCount:  30,
-			ObjectClass:       "", // Should be classified as "other"
+			ObjectClass:       "", // Should be classified as "dynamic"
 			ObjectConfidence:  0.5,
 			State:             TrackConfirmed,
 		},
@@ -121,8 +121,8 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 	if stats.ClassCounts["pedestrian"] != 1 {
 		t.Errorf("ClassCounts[pedestrian] = %d, want 1", stats.ClassCounts["pedestrian"])
 	}
-	if stats.ClassCounts["other"] != 1 {
-		t.Errorf("ClassCounts[other] = %d, want 1", stats.ClassCounts["other"])
+	if stats.ClassCounts["dynamic"] != 1 {
+		t.Errorf("ClassCounts[dynamic] = %d, want 1", stats.ClassCounts["dynamic"])
 	}
 
 	// Check lifecycle ratios
@@ -240,7 +240,7 @@ func TestComputeNoiseCoverageMetrics(t *testing.T) {
 	tracks := []*TrackedObject{
 		{
 			NoisePointRatio:  0.4, // High noise
-			ObjectClass:      "other",
+			ObjectClass:      "dynamic",
 			ObjectConfidence: 0.5, // Low confidence
 		},
 		{

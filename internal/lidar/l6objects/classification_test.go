@@ -27,8 +27,8 @@ func TestTrackClassifier_Classify_Bird(t *testing.T) {
 	if result.Confidence < 0.5 {
 		t.Errorf("Expected confidence >= 0.5, got %.2f", result.Confidence)
 	}
-	if result.Model != "rule-based-v1.0" {
-		t.Errorf("Expected model version 'rule-based-v1.0', got %s", result.Model)
+	if result.Model != "rule-based-v1.2" {
+		t.Errorf("Expected model version 'rule-based-v1.2', got %s", result.Model)
 	}
 }
 
@@ -94,6 +94,127 @@ func TestTrackClassifier_Classify_Pedestrian(t *testing.T) {
 	}
 }
 
+func TestTrackClassifier_Classify_Bus(t *testing.T) {
+	classifier := NewTrackClassifier()
+
+	// Create a bus-like track: very long, wide, and fast.
+	track := &TrackedObject{
+		TrackID:              "test-bus",
+		ObservationCount:     25,
+		BoundingBoxHeightAvg: 3.2,  // Tall
+		BoundingBoxLengthAvg: 10.0, // Very long (bus)
+		BoundingBoxWidthAvg:  2.5,  // Wide
+		AvgSpeedMps:          8.0,  // ~29 km/h
+		PeakSpeedMps:         12.0,
+	}
+
+	speeds := make([]float32, 25)
+	for i := range speeds {
+		speeds[i] = float32(6 + i%5)
+	}
+	track.SetSpeedHistory(speeds)
+
+	result := classifier.Classify(track)
+
+	if result.Class != ClassBus {
+		t.Errorf("Expected bus classification, got %s", result.Class)
+	}
+	if result.Confidence < 0.7 {
+		t.Errorf("Expected confidence >= 0.7, got %.2f", result.Confidence)
+	}
+}
+
+func TestTrackClassifier_Classify_Cyclist(t *testing.T) {
+	classifier := NewTrackClassifier()
+
+	// Create a cyclist-like track: narrow, moderate speed, human height.
+	// Length must be <1.5 m to avoid matching motorcyclist rule.
+	track := &TrackedObject{
+		TrackID:              "test-cyclist",
+		ObservationCount:     15,
+		BoundingBoxHeightAvg: 1.5, // Seated cyclist
+		BoundingBoxLengthAvg: 1.4, // Short bike (below motorcyclist 1.5 m threshold)
+		BoundingBoxWidthAvg:  0.6, // Narrow
+		AvgSpeedMps:          5.0, // ~18 km/h
+		PeakSpeedMps:         7.0,
+	}
+
+	speeds := make([]float32, 15)
+	for i := range speeds {
+		speeds[i] = float32(4 + float32(i%4)*0.5)
+	}
+	track.SetSpeedHistory(speeds)
+
+	result := classifier.Classify(track)
+
+	if result.Class != ClassCyclist {
+		t.Errorf("Expected cyclist classification, got %s", result.Class)
+	}
+	if result.Confidence < 0.6 {
+		t.Errorf("Expected confidence >= 0.6, got %.2f", result.Confidence)
+	}
+}
+
+func TestTrackClassifier_Classify_Truck(t *testing.T) {
+	classifier := NewTrackClassifier()
+
+	// Create a truck-like track: longer and taller than a car.
+	track := &TrackedObject{
+		TrackID:              "test-truck",
+		ObservationCount:     20,
+		BoundingBoxHeightAvg: 2.5, // Taller than a car
+		BoundingBoxLengthAvg: 6.5, // Longer than a car (>5.5 m)
+		BoundingBoxWidthAvg:  2.3, // Wider than a car (>2.0 m)
+		AvgSpeedMps:          9.0, // ~32 km/h
+		PeakSpeedMps:         14.0,
+	}
+
+	speeds := make([]float32, 20)
+	for i := range speeds {
+		speeds[i] = float32(7 + i%5)
+	}
+	track.SetSpeedHistory(speeds)
+
+	result := classifier.Classify(track)
+
+	if result.Class != ClassTruck {
+		t.Errorf("Expected truck classification, got %s", result.Class)
+	}
+	if result.Confidence < 0.6 {
+		t.Errorf("Expected confidence >= 0.6, got %.2f", result.Confidence)
+	}
+}
+
+func TestTrackClassifier_Classify_Motorcyclist(t *testing.T) {
+	classifier := NewTrackClassifier()
+
+	// Create a motorcyclist-like track: narrow, fast, longer than a bicycle.
+	track := &TrackedObject{
+		TrackID:              "test-motorcyclist",
+		ObservationCount:     20,
+		BoundingBoxHeightAvg: 1.5,  // Rider height
+		BoundingBoxLengthAvg: 2.2,  // Motorcycle length (>1.5 m)
+		BoundingBoxWidthAvg:  0.8,  // Narrow (<1.2 m)
+		AvgSpeedMps:          12.0, // ~43 km/h (faster than cyclist)
+		PeakSpeedMps:         18.0,
+	}
+
+	speeds := make([]float32, 20)
+	for i := range speeds {
+		speeds[i] = float32(10 + float32(i%5)*1.0)
+	}
+	track.SetSpeedHistory(speeds)
+
+	result := classifier.Classify(track)
+
+	if result.Class != ClassMotorcyclist {
+		t.Errorf("Expected motorcyclist classification, got %s", result.Class)
+	}
+	if result.Confidence < 0.6 {
+		t.Errorf("Expected confidence >= 0.6, got %.2f", result.Confidence)
+	}
+}
+
 func TestTrackClassifier_Classify_Other(t *testing.T) {
 	classifier := NewTrackClassifier()
 
@@ -111,8 +232,8 @@ func TestTrackClassifier_Classify_Other(t *testing.T) {
 
 	result := classifier.Classify(track)
 
-	if result.Class != ClassOther {
-		t.Errorf("Expected other classification, got %s", result.Class)
+	if result.Class != ClassDynamic {
+		t.Errorf("Expected dynamic classification, got %s", result.Class)
 	}
 }
 
@@ -132,8 +253,8 @@ func TestTrackClassifier_Classify_InsufficientObservations(t *testing.T) {
 
 	result := classifier.Classify(track)
 
-	if result.Class != ClassOther {
-		t.Errorf("Expected other classification for insufficient observations, got %s", result.Class)
+	if result.Class != ClassDynamic {
+		t.Errorf("Expected dynamic classification for insufficient observations, got %s", result.Class)
 	}
 	if result.Confidence >= 0.5 {
 		t.Errorf("Expected low confidence for insufficient observations, got %.2f", result.Confidence)
@@ -167,8 +288,8 @@ func TestTrackClassifier_ClassifyAndUpdate(t *testing.T) {
 	if track.ObjectConfidence < 0.5 {
 		t.Errorf("Expected ObjectConfidence >= 0.5, got %.2f", track.ObjectConfidence)
 	}
-	if track.ClassificationModel != "rule-based-v1.0" {
-		t.Errorf("Expected ClassificationModel 'rule-based-v1.0', got '%s'", track.ClassificationModel)
+	if track.ClassificationModel != "rule-based-v1.2" {
+		t.Errorf("Expected ClassificationModel 'rule-based-v1.2', got '%s'", track.ClassificationModel)
 	}
 }
 

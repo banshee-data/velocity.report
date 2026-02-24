@@ -329,6 +329,79 @@ func (MotionModel) EnumDescriptor() ([]byte, []int) {
 	return file_visualiser_proto_rawDescGZIP(), []int{5}
 }
 
+// ObjectClass enumerates all valid object classifications.
+// Used by both the rule-based classifier (output) and human label annotations (input).
+// Classifier classes: PEDESTRIAN..MOTORCYCLIST, DYNAMIC.  User-only label: NOISE.
+type ObjectClass int32
+
+const (
+	ObjectClass_OBJECT_CLASS_UNSPECIFIED  ObjectClass = 0 // Default / not yet classified
+	ObjectClass_OBJECT_CLASS_NOISE        ObjectClass = 1 // User-only: spurious sensor artefact
+	ObjectClass_OBJECT_CLASS_DYNAMIC      ObjectClass = 2 // Other dynamic object
+	ObjectClass_OBJECT_CLASS_PEDESTRIAN   ObjectClass = 3 // Person walking, running, or using mobility aid
+	ObjectClass_OBJECT_CLASS_CYCLIST      ObjectClass = 4 // Person riding a bicycle or e-scooter
+	ObjectClass_OBJECT_CLASS_BIRD         ObjectClass = 5 // Bird, drone, small flying object
+	ObjectClass_OBJECT_CLASS_BUS          ObjectClass = 6 // Bus, coach, large passenger vehicle
+	ObjectClass_OBJECT_CLASS_CAR          ObjectClass = 7 // Passenger car, SUV, van
+	ObjectClass_OBJECT_CLASS_TRUCK        ObjectClass = 8 // Pickup truck, box truck, freight vehicle
+	ObjectClass_OBJECT_CLASS_MOTORCYCLIST ObjectClass = 9 // Person riding a motorcycle
+)
+
+// Enum value maps for ObjectClass.
+var (
+	ObjectClass_name = map[int32]string{
+		0: "OBJECT_CLASS_UNSPECIFIED",
+		1: "OBJECT_CLASS_NOISE",
+		2: "OBJECT_CLASS_DYNAMIC",
+		3: "OBJECT_CLASS_PEDESTRIAN",
+		4: "OBJECT_CLASS_CYCLIST",
+		5: "OBJECT_CLASS_BIRD",
+		6: "OBJECT_CLASS_BUS",
+		7: "OBJECT_CLASS_CAR",
+		8: "OBJECT_CLASS_TRUCK",
+		9: "OBJECT_CLASS_MOTORCYCLIST",
+	}
+	ObjectClass_value = map[string]int32{
+		"OBJECT_CLASS_UNSPECIFIED":  0,
+		"OBJECT_CLASS_NOISE":        1,
+		"OBJECT_CLASS_DYNAMIC":      2,
+		"OBJECT_CLASS_PEDESTRIAN":   3,
+		"OBJECT_CLASS_CYCLIST":      4,
+		"OBJECT_CLASS_BIRD":         5,
+		"OBJECT_CLASS_BUS":          6,
+		"OBJECT_CLASS_CAR":          7,
+		"OBJECT_CLASS_TRUCK":        8,
+		"OBJECT_CLASS_MOTORCYCLIST": 9,
+	}
+)
+
+func (x ObjectClass) Enum() *ObjectClass {
+	p := new(ObjectClass)
+	*p = x
+	return p
+}
+
+func (x ObjectClass) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ObjectClass) Descriptor() protoreflect.EnumDescriptor {
+	return file_visualiser_proto_enumTypes[6].Descriptor()
+}
+
+func (ObjectClass) Type() protoreflect.EnumType {
+	return &file_visualiser_proto_enumTypes[6]
+}
+
+func (x ObjectClass) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ObjectClass.Descriptor instead.
+func (ObjectClass) EnumDescriptor() ([]byte, []int) {
+	return file_visualiser_proto_rawDescGZIP(), []int{6}
+}
+
 type CoordinateFrameInfo struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	FrameId        string                 `protobuf:"bytes,1,opt,name=frame_id,json=frameId,proto3" json:"frame_id,omitempty"`                      // e.g., "site/hesai-01"
@@ -1052,9 +1125,9 @@ type Track struct {
 	// Uncertainty (optional, row-major 4x4)
 	Covariance_4X4 []float32 `protobuf:"fixed32,17,rep,packed,name=covariance_4x4,json=covariance4x4,proto3" json:"covariance_4x4,omitempty"`
 	// Bounding box (per-frame cluster dimensions from DBSCAN OBB)
-	BboxLength float32 `protobuf:"fixed32,18,opt,name=bbox_length,json=bboxLength,proto3" json:"bbox_length,omitempty"`
-	BboxWidth  float32 `protobuf:"fixed32,19,opt,name=bbox_width,json=bboxWidth,proto3" json:"bbox_width,omitempty"`
-	BboxHeight float32 `protobuf:"fixed32,20,opt,name=bbox_height,json=bboxHeight,proto3" json:"bbox_height,omitempty"`
+	BboxLength float32 `protobuf:"fixed32,18,opt,name=bbox_length,json=bboxLength,proto3" json:"bbox_length,omitempty"` // metres, along heading direction
+	BboxWidth  float32 `protobuf:"fixed32,19,opt,name=bbox_width,json=bboxWidth,proto3" json:"bbox_width,omitempty"`    // metres, perpendicular to heading
+	BboxHeight float32 `protobuf:"fixed32,20,opt,name=bbox_height,json=bboxHeight,proto3" json:"bbox_height,omitempty"` // metres, Z extent
 	// OBB heading (smoothed)
 	BboxHeadingRad float32 `protobuf:"fixed32,21,opt,name=bbox_heading_rad,json=bboxHeadingRad,proto3" json:"bbox_heading_rad,omitempty"`
 	// Features
@@ -1063,8 +1136,8 @@ type Track struct {
 	AvgSpeedMps      float32 `protobuf:"fixed32,24,opt,name=avg_speed_mps,json=avgSpeedMps,proto3" json:"avg_speed_mps,omitempty"`
 	PeakSpeedMps     float32 `protobuf:"fixed32,25,opt,name=peak_speed_mps,json=peakSpeedMps,proto3" json:"peak_speed_mps,omitempty"`
 	// Classification
-	ClassLabel      string  `protobuf:"bytes,26,opt,name=class_label,json=classLabel,proto3" json:"class_label,omitempty"`                  // "pedestrian", "car", "cyclist", "bird", "other"
-	ClassConfidence float32 `protobuf:"fixed32,27,opt,name=class_confidence,json=classConfidence,proto3" json:"class_confidence,omitempty"` // 0.0 - 1.0
+	ObjectClass     ObjectClass `protobuf:"varint,26,opt,name=object_class,json=objectClass,proto3,enum=velocity.visualiser.v1.ObjectClass" json:"object_class,omitempty"` // classifier output or user label
+	ClassConfidence float32     `protobuf:"fixed32,27,opt,name=class_confidence,json=classConfidence,proto3" json:"class_confidence,omitempty"`                            // 0.0 - 1.0
 	// Quality metrics
 	TrackLengthMetres float32        `protobuf:"fixed32,28,opt,name=track_length_metres,json=trackLengthMetres,proto3" json:"track_length_metres,omitempty"`
 	TrackDurationSecs float32        `protobuf:"fixed32,29,opt,name=track_duration_secs,json=trackDurationSecs,proto3" json:"track_duration_secs,omitempty"`
@@ -1077,10 +1150,6 @@ type Track struct {
 	// Heading source (for debug rendering: colour-code boxes by heading origin)
 	// 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
 	HeadingSource int32 `protobuf:"varint,35,opt,name=heading_source,json=headingSource,proto3" json:"heading_source,omitempty"`
-	// NOTE: The raw protobuf descriptor bytes below are out of sync with these
-	// struct fields. Run `make proto-gen-go` to regenerate from visualiser.proto.
-	// Until then, gRPC wire encoding uses the descriptor (old field names/numbers)
-	// while direct struct access uses the new field names above.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1290,11 +1359,11 @@ func (x *Track) GetPeakSpeedMps() float32 {
 	return 0
 }
 
-func (x *Track) GetClassLabel() string {
+func (x *Track) GetObjectClass() ObjectClass {
 	if x != nil {
-		return x.ClassLabel
+		return x.ObjectClass
 	}
-	return ""
+	return ObjectClass_OBJECT_CLASS_UNSPECIFIED
 }
 
 func (x *Track) GetClassConfidence() float32 {
@@ -1938,14 +2007,14 @@ func (x *DebugOverlaySet) GetPredictions() []*StatePrediction {
 
 type LabelEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	LabelId       string                 `protobuf:"bytes,1,opt,name=label_id,json=labelId,proto3" json:"label_id,omitempty"`                   // UUID
-	TrackId       string                 `protobuf:"bytes,2,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`                   // associated track
-	ClassLabel    string                 `protobuf:"bytes,3,opt,name=class_label,json=classLabel,proto3" json:"class_label,omitempty"`          // assigned class
-	StartFrameId  uint64                 `protobuf:"varint,4,opt,name=start_frame_id,json=startFrameId,proto3" json:"start_frame_id,omitempty"` // segment start (optional)
-	EndFrameId    uint64                 `protobuf:"varint,5,opt,name=end_frame_id,json=endFrameId,proto3" json:"end_frame_id,omitempty"`       // segment end (optional)
-	CreatedNs     int64                  `protobuf:"varint,6,opt,name=created_ns,json=createdNs,proto3" json:"created_ns,omitempty"`            // when label was created
-	Annotator     string                 `protobuf:"bytes,7,opt,name=annotator,proto3" json:"annotator,omitempty"`                              // optional: who created the label
-	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`                                      // optional: free-form notes
+	LabelId       string                 `protobuf:"bytes,1,opt,name=label_id,json=labelId,proto3" json:"label_id,omitempty"`                                                      // UUID
+	TrackId       string                 `protobuf:"bytes,2,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`                                                      // associated track
+	ObjectClass   ObjectClass            `protobuf:"varint,3,opt,name=object_class,json=objectClass,proto3,enum=velocity.visualiser.v1.ObjectClass" json:"object_class,omitempty"` // assigned class
+	StartFrameId  uint64                 `protobuf:"varint,4,opt,name=start_frame_id,json=startFrameId,proto3" json:"start_frame_id,omitempty"`                                    // segment start (optional)
+	EndFrameId    uint64                 `protobuf:"varint,5,opt,name=end_frame_id,json=endFrameId,proto3" json:"end_frame_id,omitempty"`                                          // segment end (optional)
+	CreatedNs     int64                  `protobuf:"varint,6,opt,name=created_ns,json=createdNs,proto3" json:"created_ns,omitempty"`                                               // when label was created
+	Annotator     string                 `protobuf:"bytes,7,opt,name=annotator,proto3" json:"annotator,omitempty"`                                                                 // optional: who created the label
+	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`                                                                         // optional: free-form notes
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1994,11 +2063,11 @@ func (x *LabelEvent) GetTrackId() string {
 	return ""
 }
 
-func (x *LabelEvent) GetClassLabel() string {
+func (x *LabelEvent) GetObjectClass() ObjectClass {
 	if x != nil {
-		return x.ClassLabel
+		return x.ObjectClass
 	}
-	return ""
+	return ObjectClass_OBJECT_CLASS_UNSPECIFIED
 }
 
 func (x *LabelEvent) GetStartFrameId() uint64 {
@@ -3146,7 +3215,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12;\n" +
 	"\bclusters\x18\x03 \x03(\v2\x1f.velocity.visualiser.v1.ClusterR\bclusters\x12@\n" +
-	"\x06method\x18\x04 \x01(\x0e2(.velocity.visualiser.v1.ClusteringMethodR\x06method\"\xbd\t\n" +
+	"\x06method\x18\x04 \x01(\x0e2(.velocity.visualiser.v1.ClusteringMethodR\x06method\"\xf6\t\n" +
 	"\x05Track\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x1b\n" +
 	"\tsensor_id\x18\x02 \x01(\tR\bsensorId\x128\n" +
@@ -3167,17 +3236,19 @@ const file_visualiser_proto_rawDesc = "" +
 	"\tspeed_mps\x18\x0f \x01(\x02R\bspeedMps\x12\x1f\n" +
 	"\vheading_rad\x18\x10 \x01(\x02R\n" +
 	"headingRad\x12)\n" +
-	"\x0ecovariance_4x4\x18\x11 \x03(\x02B\x02\x10\x01R\rcovariance4x4\x12&\n" +
-	"\x0fbbox_length_avg\x18\x12 \x01(\x02R\rbboxLengthAvg\x12$\n" +
-	"\x0ebbox_width_avg\x18\x13 \x01(\x02R\fbboxWidthAvg\x12&\n" +
-	"\x0fbbox_height_avg\x18\x14 \x01(\x02R\rbboxHeightAvg\x12(\n" +
+	"\x0ecovariance_4x4\x18\x11 \x03(\x02B\x02\x10\x01R\rcovariance4x4\x12\x1f\n" +
+	"\vbbox_length\x18\x12 \x01(\x02R\n" +
+	"bboxLength\x12\x1d\n" +
+	"\n" +
+	"bbox_width\x18\x13 \x01(\x02R\tbboxWidth\x12\x1f\n" +
+	"\vbbox_height\x18\x14 \x01(\x02R\n" +
+	"bboxHeight\x12(\n" +
 	"\x10bbox_heading_rad\x18\x15 \x01(\x02R\x0ebboxHeadingRad\x12$\n" +
 	"\x0eheight_p95_max\x18\x16 \x01(\x02R\fheightP95Max\x12,\n" +
 	"\x12intensity_mean_avg\x18\x17 \x01(\x02R\x10intensityMeanAvg\x12\"\n" +
 	"\ravg_speed_mps\x18\x18 \x01(\x02R\vavgSpeedMps\x12$\n" +
-	"\x0epeak_speed_mps\x18\x19 \x01(\x02R\fpeakSpeedMps\x12\x1f\n" +
-	"\vclass_label\x18\x1a \x01(\tR\n" +
-	"classLabel\x12)\n" +
+	"\x0epeak_speed_mps\x18\x19 \x01(\x02R\fpeakSpeedMps\x12F\n" +
+	"\fobject_class\x18\x1a \x01(\x0e2#.velocity.visualiser.v1.ObjectClassR\vobjectClass\x12)\n" +
 	"\x10class_confidence\x18\x1b \x01(\x02R\x0fclassConfidence\x12.\n" +
 	"\x13track_length_metres\x18\x1c \x01(\x02R\x11trackLengthMetres\x12.\n" +
 	"\x13track_duration_secs\x18\x1d \x01(\x02R\x11trackDurationSecs\x12'\n" +
@@ -3187,7 +3258,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"confidence\x12O\n" +
 	"\x0focclusion_state\x18  \x01(\x0e2&.velocity.visualiser.v1.OcclusionStateR\x0eocclusionState\x12F\n" +
 	"\fmotion_model\x18! \x01(\x0e2#.velocity.visualiser.v1.MotionModelR\vmotionModel\x12\x14\n" +
-	"\x05alpha\x18\" \x01(\x02R\x05alpha\"K\n" +
+	"\x05alpha\x18\" \x01(\x02R\x05alpha\x12%\n" +
+	"\x0eheading_source\x18# \x01(\x05R\rheadingSource\"K\n" +
 	"\n" +
 	"TrackPoint\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
@@ -3240,13 +3312,12 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x16association_candidates\x18\x03 \x03(\v2,.velocity.visualiser.v1.AssociationCandidateR\x15associationCandidates\x12N\n" +
 	"\x0fgating_ellipses\x18\x04 \x03(\v2%.velocity.visualiser.v1.GatingEllipseR\x0egatingEllipses\x12H\n" +
 	"\tresiduals\x18\x05 \x03(\v2*.velocity.visualiser.v1.InnovationResidualR\tresiduals\x12I\n" +
-	"\vpredictions\x18\x06 \x03(\v2'.velocity.visualiser.v1.StatePredictionR\vpredictions\"\xfe\x01\n" +
+	"\vpredictions\x18\x06 \x03(\v2'.velocity.visualiser.v1.StatePredictionR\vpredictions\"\xa5\x02\n" +
 	"\n" +
 	"LabelEvent\x12\x19\n" +
 	"\blabel_id\x18\x01 \x01(\tR\alabelId\x12\x19\n" +
-	"\btrack_id\x18\x02 \x01(\tR\atrackId\x12\x1f\n" +
-	"\vclass_label\x18\x03 \x01(\tR\n" +
-	"classLabel\x12$\n" +
+	"\btrack_id\x18\x02 \x01(\tR\atrackId\x12F\n" +
+	"\fobject_class\x18\x03 \x01(\x0e2#.velocity.visualiser.v1.ObjectClassR\vobjectClass\x12$\n" +
 	"\x0estart_frame_id\x18\x04 \x01(\x04R\fstartFrameId\x12 \n" +
 	"\fend_frame_id\x18\x05 \x01(\x04R\n" +
 	"endFrameId\x12\x1d\n" +
@@ -3367,7 +3438,18 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x0eOCCLUSION_FULL\x10\x02*7\n" +
 	"\vMotionModel\x12\x13\n" +
 	"\x0fMOTION_MODEL_CV\x10\x00\x12\x13\n" +
-	"\x0fMOTION_MODEL_CA\x10\x012\xf0\x06\n" +
+	"\x0fMOTION_MODEL_CA\x10\x01*\x8e\x02\n" +
+	"\vObjectClass\x12\x1c\n" +
+	"\x18OBJECT_CLASS_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12OBJECT_CLASS_NOISE\x10\x01\x12\x18\n" +
+	"\x14OBJECT_CLASS_DYNAMIC\x10\x02\x12\x1b\n" +
+	"\x17OBJECT_CLASS_PEDESTRIAN\x10\x03\x12\x18\n" +
+	"\x14OBJECT_CLASS_CYCLIST\x10\x04\x12\x15\n" +
+	"\x11OBJECT_CLASS_BIRD\x10\x05\x12\x14\n" +
+	"\x10OBJECT_CLASS_BUS\x10\x06\x12\x14\n" +
+	"\x10OBJECT_CLASS_CAR\x10\a\x12\x16\n" +
+	"\x12OBJECT_CLASS_TRUCK\x10\b\x12\x1d\n" +
+	"\x19OBJECT_CLASS_MOTORCYCLIST\x10\t2\xf0\x06\n" +
 	"\x11VisualiserService\x12\\\n" +
 	"\fStreamFrames\x12%.velocity.visualiser.v1.StreamRequest\x1a#.velocity.visualiser.v1.FrameBundle0\x01\x12U\n" +
 	"\x05Pause\x12$.velocity.visualiser.v1.PauseRequest\x1a&.velocity.visualiser.v1.PlaybackStatus\x12S\n" +
@@ -3391,7 +3473,7 @@ func file_visualiser_proto_rawDescGZIP() []byte {
 	return file_visualiser_proto_rawDescData
 }
 
-var file_visualiser_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_visualiser_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
 var file_visualiser_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_visualiser_proto_goTypes = []any{
 	(DecimationMode)(0),          // 0: velocity.visualiser.v1.DecimationMode
@@ -3400,88 +3482,91 @@ var file_visualiser_proto_goTypes = []any{
 	(TrackState)(0),              // 3: velocity.visualiser.v1.TrackState
 	(OcclusionState)(0),          // 4: velocity.visualiser.v1.OcclusionState
 	(MotionModel)(0),             // 5: velocity.visualiser.v1.MotionModel
-	(*CoordinateFrameInfo)(nil),  // 6: velocity.visualiser.v1.CoordinateFrameInfo
-	(*PointCloudFrame)(nil),      // 7: velocity.visualiser.v1.PointCloudFrame
-	(*GridMetadata)(nil),         // 8: velocity.visualiser.v1.GridMetadata
-	(*BackgroundSnapshot)(nil),   // 9: velocity.visualiser.v1.BackgroundSnapshot
-	(*OrientedBoundingBox)(nil),  // 10: velocity.visualiser.v1.OrientedBoundingBox
-	(*Cluster)(nil),              // 11: velocity.visualiser.v1.Cluster
-	(*ClusterSet)(nil),           // 12: velocity.visualiser.v1.ClusterSet
-	(*Track)(nil),                // 13: velocity.visualiser.v1.Track
-	(*TrackPoint)(nil),           // 14: velocity.visualiser.v1.TrackPoint
-	(*TrackTrail)(nil),           // 15: velocity.visualiser.v1.TrackTrail
-	(*TrackSet)(nil),             // 16: velocity.visualiser.v1.TrackSet
-	(*AssociationCandidate)(nil), // 17: velocity.visualiser.v1.AssociationCandidate
-	(*GatingEllipse)(nil),        // 18: velocity.visualiser.v1.GatingEllipse
-	(*InnovationResidual)(nil),   // 19: velocity.visualiser.v1.InnovationResidual
-	(*StatePrediction)(nil),      // 20: velocity.visualiser.v1.StatePrediction
-	(*DebugOverlaySet)(nil),      // 21: velocity.visualiser.v1.DebugOverlaySet
-	(*LabelEvent)(nil),           // 22: velocity.visualiser.v1.LabelEvent
-	(*LabelSet)(nil),             // 23: velocity.visualiser.v1.LabelSet
-	(*PlaybackInfo)(nil),         // 24: velocity.visualiser.v1.PlaybackInfo
-	(*FrameBundle)(nil),          // 25: velocity.visualiser.v1.FrameBundle
-	(*StreamRequest)(nil),        // 26: velocity.visualiser.v1.StreamRequest
-	(*PlaybackStatus)(nil),       // 27: velocity.visualiser.v1.PlaybackStatus
-	(*PauseRequest)(nil),         // 28: velocity.visualiser.v1.PauseRequest
-	(*PlayRequest)(nil),          // 29: velocity.visualiser.v1.PlayRequest
-	(*SeekRequest)(nil),          // 30: velocity.visualiser.v1.SeekRequest
-	(*SetRateRequest)(nil),       // 31: velocity.visualiser.v1.SetRateRequest
-	(*OverlayModeRequest)(nil),   // 32: velocity.visualiser.v1.OverlayModeRequest
-	(*OverlayModeResponse)(nil),  // 33: velocity.visualiser.v1.OverlayModeResponse
-	(*CapabilitiesRequest)(nil),  // 34: velocity.visualiser.v1.CapabilitiesRequest
-	(*CapabilitiesResponse)(nil), // 35: velocity.visualiser.v1.CapabilitiesResponse
-	(*RecordingRequest)(nil),     // 36: velocity.visualiser.v1.RecordingRequest
-	(*RecordingStatus)(nil),      // 37: velocity.visualiser.v1.RecordingStatus
+	(ObjectClass)(0),             // 6: velocity.visualiser.v1.ObjectClass
+	(*CoordinateFrameInfo)(nil),  // 7: velocity.visualiser.v1.CoordinateFrameInfo
+	(*PointCloudFrame)(nil),      // 8: velocity.visualiser.v1.PointCloudFrame
+	(*GridMetadata)(nil),         // 9: velocity.visualiser.v1.GridMetadata
+	(*BackgroundSnapshot)(nil),   // 10: velocity.visualiser.v1.BackgroundSnapshot
+	(*OrientedBoundingBox)(nil),  // 11: velocity.visualiser.v1.OrientedBoundingBox
+	(*Cluster)(nil),              // 12: velocity.visualiser.v1.Cluster
+	(*ClusterSet)(nil),           // 13: velocity.visualiser.v1.ClusterSet
+	(*Track)(nil),                // 14: velocity.visualiser.v1.Track
+	(*TrackPoint)(nil),           // 15: velocity.visualiser.v1.TrackPoint
+	(*TrackTrail)(nil),           // 16: velocity.visualiser.v1.TrackTrail
+	(*TrackSet)(nil),             // 17: velocity.visualiser.v1.TrackSet
+	(*AssociationCandidate)(nil), // 18: velocity.visualiser.v1.AssociationCandidate
+	(*GatingEllipse)(nil),        // 19: velocity.visualiser.v1.GatingEllipse
+	(*InnovationResidual)(nil),   // 20: velocity.visualiser.v1.InnovationResidual
+	(*StatePrediction)(nil),      // 21: velocity.visualiser.v1.StatePrediction
+	(*DebugOverlaySet)(nil),      // 22: velocity.visualiser.v1.DebugOverlaySet
+	(*LabelEvent)(nil),           // 23: velocity.visualiser.v1.LabelEvent
+	(*LabelSet)(nil),             // 24: velocity.visualiser.v1.LabelSet
+	(*PlaybackInfo)(nil),         // 25: velocity.visualiser.v1.PlaybackInfo
+	(*FrameBundle)(nil),          // 26: velocity.visualiser.v1.FrameBundle
+	(*StreamRequest)(nil),        // 27: velocity.visualiser.v1.StreamRequest
+	(*PlaybackStatus)(nil),       // 28: velocity.visualiser.v1.PlaybackStatus
+	(*PauseRequest)(nil),         // 29: velocity.visualiser.v1.PauseRequest
+	(*PlayRequest)(nil),          // 30: velocity.visualiser.v1.PlayRequest
+	(*SeekRequest)(nil),          // 31: velocity.visualiser.v1.SeekRequest
+	(*SetRateRequest)(nil),       // 32: velocity.visualiser.v1.SetRateRequest
+	(*OverlayModeRequest)(nil),   // 33: velocity.visualiser.v1.OverlayModeRequest
+	(*OverlayModeResponse)(nil),  // 34: velocity.visualiser.v1.OverlayModeResponse
+	(*CapabilitiesRequest)(nil),  // 35: velocity.visualiser.v1.CapabilitiesRequest
+	(*CapabilitiesResponse)(nil), // 36: velocity.visualiser.v1.CapabilitiesResponse
+	(*RecordingRequest)(nil),     // 37: velocity.visualiser.v1.RecordingRequest
+	(*RecordingStatus)(nil),      // 38: velocity.visualiser.v1.RecordingStatus
 }
 var file_visualiser_proto_depIdxs = []int32{
 	0,  // 0: velocity.visualiser.v1.PointCloudFrame.decimation_mode:type_name -> velocity.visualiser.v1.DecimationMode
-	8,  // 1: velocity.visualiser.v1.BackgroundSnapshot.grid_metadata:type_name -> velocity.visualiser.v1.GridMetadata
-	10, // 2: velocity.visualiser.v1.Cluster.obb:type_name -> velocity.visualiser.v1.OrientedBoundingBox
-	11, // 3: velocity.visualiser.v1.ClusterSet.clusters:type_name -> velocity.visualiser.v1.Cluster
+	9,  // 1: velocity.visualiser.v1.BackgroundSnapshot.grid_metadata:type_name -> velocity.visualiser.v1.GridMetadata
+	11, // 2: velocity.visualiser.v1.Cluster.obb:type_name -> velocity.visualiser.v1.OrientedBoundingBox
+	12, // 3: velocity.visualiser.v1.ClusterSet.clusters:type_name -> velocity.visualiser.v1.Cluster
 	2,  // 4: velocity.visualiser.v1.ClusterSet.method:type_name -> velocity.visualiser.v1.ClusteringMethod
 	3,  // 5: velocity.visualiser.v1.Track.state:type_name -> velocity.visualiser.v1.TrackState
-	4,  // 6: velocity.visualiser.v1.Track.occlusion_state:type_name -> velocity.visualiser.v1.OcclusionState
-	5,  // 7: velocity.visualiser.v1.Track.motion_model:type_name -> velocity.visualiser.v1.MotionModel
-	14, // 8: velocity.visualiser.v1.TrackTrail.points:type_name -> velocity.visualiser.v1.TrackPoint
-	13, // 9: velocity.visualiser.v1.TrackSet.tracks:type_name -> velocity.visualiser.v1.Track
-	15, // 10: velocity.visualiser.v1.TrackSet.trails:type_name -> velocity.visualiser.v1.TrackTrail
-	17, // 11: velocity.visualiser.v1.DebugOverlaySet.association_candidates:type_name -> velocity.visualiser.v1.AssociationCandidate
-	18, // 12: velocity.visualiser.v1.DebugOverlaySet.gating_ellipses:type_name -> velocity.visualiser.v1.GatingEllipse
-	19, // 13: velocity.visualiser.v1.DebugOverlaySet.residuals:type_name -> velocity.visualiser.v1.InnovationResidual
-	20, // 14: velocity.visualiser.v1.DebugOverlaySet.predictions:type_name -> velocity.visualiser.v1.StatePrediction
-	22, // 15: velocity.visualiser.v1.LabelSet.labels:type_name -> velocity.visualiser.v1.LabelEvent
-	6,  // 16: velocity.visualiser.v1.FrameBundle.coordinate_frame:type_name -> velocity.visualiser.v1.CoordinateFrameInfo
-	7,  // 17: velocity.visualiser.v1.FrameBundle.point_cloud:type_name -> velocity.visualiser.v1.PointCloudFrame
-	12, // 18: velocity.visualiser.v1.FrameBundle.clusters:type_name -> velocity.visualiser.v1.ClusterSet
-	16, // 19: velocity.visualiser.v1.FrameBundle.tracks:type_name -> velocity.visualiser.v1.TrackSet
-	21, // 20: velocity.visualiser.v1.FrameBundle.debug:type_name -> velocity.visualiser.v1.DebugOverlaySet
-	24, // 21: velocity.visualiser.v1.FrameBundle.playback_info:type_name -> velocity.visualiser.v1.PlaybackInfo
-	1,  // 22: velocity.visualiser.v1.FrameBundle.frame_type:type_name -> velocity.visualiser.v1.FrameType
-	9,  // 23: velocity.visualiser.v1.FrameBundle.background:type_name -> velocity.visualiser.v1.BackgroundSnapshot
-	0,  // 24: velocity.visualiser.v1.StreamRequest.point_decimation:type_name -> velocity.visualiser.v1.DecimationMode
-	26, // 25: velocity.visualiser.v1.VisualiserService.StreamFrames:input_type -> velocity.visualiser.v1.StreamRequest
-	28, // 26: velocity.visualiser.v1.VisualiserService.Pause:input_type -> velocity.visualiser.v1.PauseRequest
-	29, // 27: velocity.visualiser.v1.VisualiserService.Play:input_type -> velocity.visualiser.v1.PlayRequest
-	30, // 28: velocity.visualiser.v1.VisualiserService.Seek:input_type -> velocity.visualiser.v1.SeekRequest
-	31, // 29: velocity.visualiser.v1.VisualiserService.SetRate:input_type -> velocity.visualiser.v1.SetRateRequest
-	32, // 30: velocity.visualiser.v1.VisualiserService.SetOverlayModes:input_type -> velocity.visualiser.v1.OverlayModeRequest
-	34, // 31: velocity.visualiser.v1.VisualiserService.GetCapabilities:input_type -> velocity.visualiser.v1.CapabilitiesRequest
-	36, // 32: velocity.visualiser.v1.VisualiserService.StartRecording:input_type -> velocity.visualiser.v1.RecordingRequest
-	36, // 33: velocity.visualiser.v1.VisualiserService.StopRecording:input_type -> velocity.visualiser.v1.RecordingRequest
-	25, // 34: velocity.visualiser.v1.VisualiserService.StreamFrames:output_type -> velocity.visualiser.v1.FrameBundle
-	27, // 35: velocity.visualiser.v1.VisualiserService.Pause:output_type -> velocity.visualiser.v1.PlaybackStatus
-	27, // 36: velocity.visualiser.v1.VisualiserService.Play:output_type -> velocity.visualiser.v1.PlaybackStatus
-	27, // 37: velocity.visualiser.v1.VisualiserService.Seek:output_type -> velocity.visualiser.v1.PlaybackStatus
-	27, // 38: velocity.visualiser.v1.VisualiserService.SetRate:output_type -> velocity.visualiser.v1.PlaybackStatus
-	33, // 39: velocity.visualiser.v1.VisualiserService.SetOverlayModes:output_type -> velocity.visualiser.v1.OverlayModeResponse
-	35, // 40: velocity.visualiser.v1.VisualiserService.GetCapabilities:output_type -> velocity.visualiser.v1.CapabilitiesResponse
-	37, // 41: velocity.visualiser.v1.VisualiserService.StartRecording:output_type -> velocity.visualiser.v1.RecordingStatus
-	37, // 42: velocity.visualiser.v1.VisualiserService.StopRecording:output_type -> velocity.visualiser.v1.RecordingStatus
-	34, // [34:43] is the sub-list for method output_type
-	25, // [25:34] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	6,  // 6: velocity.visualiser.v1.Track.object_class:type_name -> velocity.visualiser.v1.ObjectClass
+	4,  // 7: velocity.visualiser.v1.Track.occlusion_state:type_name -> velocity.visualiser.v1.OcclusionState
+	5,  // 8: velocity.visualiser.v1.Track.motion_model:type_name -> velocity.visualiser.v1.MotionModel
+	15, // 9: velocity.visualiser.v1.TrackTrail.points:type_name -> velocity.visualiser.v1.TrackPoint
+	14, // 10: velocity.visualiser.v1.TrackSet.tracks:type_name -> velocity.visualiser.v1.Track
+	16, // 11: velocity.visualiser.v1.TrackSet.trails:type_name -> velocity.visualiser.v1.TrackTrail
+	18, // 12: velocity.visualiser.v1.DebugOverlaySet.association_candidates:type_name -> velocity.visualiser.v1.AssociationCandidate
+	19, // 13: velocity.visualiser.v1.DebugOverlaySet.gating_ellipses:type_name -> velocity.visualiser.v1.GatingEllipse
+	20, // 14: velocity.visualiser.v1.DebugOverlaySet.residuals:type_name -> velocity.visualiser.v1.InnovationResidual
+	21, // 15: velocity.visualiser.v1.DebugOverlaySet.predictions:type_name -> velocity.visualiser.v1.StatePrediction
+	6,  // 16: velocity.visualiser.v1.LabelEvent.object_class:type_name -> velocity.visualiser.v1.ObjectClass
+	23, // 17: velocity.visualiser.v1.LabelSet.labels:type_name -> velocity.visualiser.v1.LabelEvent
+	7,  // 18: velocity.visualiser.v1.FrameBundle.coordinate_frame:type_name -> velocity.visualiser.v1.CoordinateFrameInfo
+	8,  // 19: velocity.visualiser.v1.FrameBundle.point_cloud:type_name -> velocity.visualiser.v1.PointCloudFrame
+	13, // 20: velocity.visualiser.v1.FrameBundle.clusters:type_name -> velocity.visualiser.v1.ClusterSet
+	17, // 21: velocity.visualiser.v1.FrameBundle.tracks:type_name -> velocity.visualiser.v1.TrackSet
+	22, // 22: velocity.visualiser.v1.FrameBundle.debug:type_name -> velocity.visualiser.v1.DebugOverlaySet
+	25, // 23: velocity.visualiser.v1.FrameBundle.playback_info:type_name -> velocity.visualiser.v1.PlaybackInfo
+	1,  // 24: velocity.visualiser.v1.FrameBundle.frame_type:type_name -> velocity.visualiser.v1.FrameType
+	10, // 25: velocity.visualiser.v1.FrameBundle.background:type_name -> velocity.visualiser.v1.BackgroundSnapshot
+	0,  // 26: velocity.visualiser.v1.StreamRequest.point_decimation:type_name -> velocity.visualiser.v1.DecimationMode
+	27, // 27: velocity.visualiser.v1.VisualiserService.StreamFrames:input_type -> velocity.visualiser.v1.StreamRequest
+	29, // 28: velocity.visualiser.v1.VisualiserService.Pause:input_type -> velocity.visualiser.v1.PauseRequest
+	30, // 29: velocity.visualiser.v1.VisualiserService.Play:input_type -> velocity.visualiser.v1.PlayRequest
+	31, // 30: velocity.visualiser.v1.VisualiserService.Seek:input_type -> velocity.visualiser.v1.SeekRequest
+	32, // 31: velocity.visualiser.v1.VisualiserService.SetRate:input_type -> velocity.visualiser.v1.SetRateRequest
+	33, // 32: velocity.visualiser.v1.VisualiserService.SetOverlayModes:input_type -> velocity.visualiser.v1.OverlayModeRequest
+	35, // 33: velocity.visualiser.v1.VisualiserService.GetCapabilities:input_type -> velocity.visualiser.v1.CapabilitiesRequest
+	37, // 34: velocity.visualiser.v1.VisualiserService.StartRecording:input_type -> velocity.visualiser.v1.RecordingRequest
+	37, // 35: velocity.visualiser.v1.VisualiserService.StopRecording:input_type -> velocity.visualiser.v1.RecordingRequest
+	26, // 36: velocity.visualiser.v1.VisualiserService.StreamFrames:output_type -> velocity.visualiser.v1.FrameBundle
+	28, // 37: velocity.visualiser.v1.VisualiserService.Pause:output_type -> velocity.visualiser.v1.PlaybackStatus
+	28, // 38: velocity.visualiser.v1.VisualiserService.Play:output_type -> velocity.visualiser.v1.PlaybackStatus
+	28, // 39: velocity.visualiser.v1.VisualiserService.Seek:output_type -> velocity.visualiser.v1.PlaybackStatus
+	28, // 40: velocity.visualiser.v1.VisualiserService.SetRate:output_type -> velocity.visualiser.v1.PlaybackStatus
+	34, // 41: velocity.visualiser.v1.VisualiserService.SetOverlayModes:output_type -> velocity.visualiser.v1.OverlayModeResponse
+	36, // 42: velocity.visualiser.v1.VisualiserService.GetCapabilities:output_type -> velocity.visualiser.v1.CapabilitiesResponse
+	38, // 43: velocity.visualiser.v1.VisualiserService.StartRecording:output_type -> velocity.visualiser.v1.RecordingStatus
+	38, // 44: velocity.visualiser.v1.VisualiserService.StopRecording:output_type -> velocity.visualiser.v1.RecordingStatus
+	36, // [36:45] is the sub-list for method output_type
+	27, // [27:36] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_visualiser_proto_init() }
@@ -3498,7 +3583,7 @@ func file_visualiser_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_visualiser_proto_rawDesc), len(file_visualiser_proto_rawDesc)),
-			NumEnums:      6,
+			NumEnums:      7,
 			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,

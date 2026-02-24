@@ -64,7 +64,7 @@ func ComputeRunStatistics(tracks []*TrackedObject) *RunStatistics {
 		// Classification distribution
 		className := track.ObjectClass
 		if className == "" {
-			className = "other"
+			className = "dynamic"
 		}
 		stats.ClassCounts[className]++
 		stats.ClassConfidenceAvg[className] += track.ObjectConfidence
@@ -114,7 +114,7 @@ func ComputeRunStatistics(tracks []*TrackedObject) *RunStatistics {
 	}
 
 	// Unknown ratio
-	unknownCount := stats.ClassCounts["other"]
+	unknownCount := stats.ClassCounts["dynamic"]
 	stats.UnknownRatio = float32(unknownCount) / n
 
 	// Lifecycle ratios
@@ -209,7 +209,7 @@ func ComputeTrackQualityMetrics(track *TrackedObject) *TrackQualityMetrics {
 type NoiseCoverageMetrics struct {
 	TotalTracks         int                `json:"total_tracks"`
 	TracksWithHighNoise int                `json:"tracks_with_high_noise"`       // noise_ratio > 0.3
-	TracksUnknownClass  int                `json:"tracks_unknown_class"`         // object_class == "other"
+	TracksUnknownClass  int                `json:"tracks_unknown_class"`         // object_class == "dynamic"
 	TracksLowConfidence int                `json:"tracks_low_confidence"`        // object_confidence < 0.6
 	UnknownRatioBySpeed map[string]float32 `json:"unknown_ratio_by_speed"`       // "slow"/"medium"/"fast"
 	UnknownRatioBySize  map[string]float32 `json:"unknown_ratio_by_size"`        // "small"/"medium"/"large"
@@ -232,7 +232,7 @@ func ComputeNoiseCoverageMetrics(tracks []*TrackedObject) *NoiseCoverageMetrics 
 		if track.NoisePointRatio > 0.3 {
 			metrics.TracksWithHighNoise++
 		}
-		if track.ObjectClass == "" || track.ObjectClass == "other" {
+		if track.ObjectClass == "" || track.ObjectClass == "dynamic" {
 			metrics.TracksUnknownClass++
 		}
 		if track.ObjectConfidence < 0.6 {
@@ -313,7 +313,7 @@ func FilterTracksForTraining(tracks []*TrackedObject, filter *TrackTrainingFilte
 		}
 
 		// Check classification requirement
-		if filter.RequireClass && (track.ObjectClass == "" || track.ObjectClass == "other") {
+		if filter.RequireClass && (track.ObjectClass == "" || track.ObjectClass == "dynamic") {
 			continue
 		}
 

@@ -246,7 +246,7 @@ type Track struct {
 	PeakSpeedMps     float32
 
 	// Classification
-	ClassLabel      string
+	ObjectClass     string
 	ClassConfidence float32
 
 	// Quality metrics

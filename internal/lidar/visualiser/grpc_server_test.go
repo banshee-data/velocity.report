@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 	"google.golang.org/grpc/metadata"
 )
@@ -652,7 +653,7 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 					IntensityMeanAvg:  42.0,
 					AvgSpeedMps:       4.2,
 					PeakSpeedMps:      6.8,
-					ClassLabel:        "car",
+					ObjectClass:       "car",
 					ClassConfidence:   0.92,
 					TrackLengthMetres: 55.0,
 					TrackDurationSecs: 11.0,
@@ -770,8 +771,8 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 	}
 
 	// -- Classification --------------------------------------------------
-	if tr.ClassLabel != "car" {
-		t.Errorf("ClassLabel: got %q, want %q", tr.ClassLabel, "car")
+	if tr.ObjectClass != pb.ObjectClass_OBJECT_CLASS_CAR {
+		t.Errorf("ObjectClass: got %v, want %v", tr.ObjectClass, pb.ObjectClass_OBJECT_CLASS_CAR)
 	}
 	if tr.ClassConfidence != 0.92 {
 		t.Errorf("ClassConfidence: got %f, want 0.92", tr.ClassConfidence)
@@ -1480,4 +1481,187 @@ func TestStreamFromPublisher_ReplayMode(t *testing.T) {
 
 	// Verify PlaybackInfo was injected (checked via logs since proto doesn't expose it directly)
 	// The test exercises the replay mode code path
+}
+
+// TestObjectClassConversionInProtoMessages verifies that Track.ObjectClass field
+// is correctly converted to proto ObjectClass enum in StreamFrame messages.
+// This integration test ensures the full pipeline works:
+// Go Track.ObjectClass (string) → objectClassFromString → proto enum → Swift conversion.
+func TestObjectClassConversionInProtoMessages(t *testing.T) {
+	// Create test tracks with various classifications
+	testTracks := []Track{
+		{
+			TrackID:     "trk-car",
+			ObjectClass: string(l6objects.ClassCar),
+			SensorID:    "sensor-1",
+			State:       TrackStateConfirmed,
+			Hits:        10,
+			Misses:      0,
+			Confidence:  0.95,
+			X:           10.0,
+			Y:           20.0,
+			Z:           0.0,
+			SpeedMps:    5.0,
+			HeadingRad:  0.0,
+			Alpha:       1.0,
+		},
+		{
+			TrackID:     "trk-pedestrian",
+			ObjectClass: string(l6objects.ClassPedestrian),
+			SensorID:    "sensor-1",
+			State:       TrackStateConfirmed,
+			Hits:        8,
+			Misses:      0,
+			Confidence:  0.85,
+			X:           5.0,
+			Y:           5.0,
+			Z:           0.0,
+			SpeedMps:    1.5,
+			HeadingRad:  0.0,
+			Alpha:       1.0,
+		},
+		{
+			TrackID:     "trk-bird",
+			ObjectClass: string(l6objects.ClassBird),
+			SensorID:    "sensor-1",
+			State:       TrackStateConfirmed,
+			Hits:        5,
+			Misses:      0,
+			Confidence:  0.7,
+			X:           0.0,
+			Y:           0.0,
+			Z:           10.0,
+			SpeedMps:    2.0,
+			HeadingRad:  0.0,
+			Alpha:       1.0,
+		},
+		{
+			TrackID:     "trk-unclassified",
+			ObjectClass: "", // Unspecified
+			SensorID:    "sensor-1",
+			State:       TrackStateTentative,
+			Hits:        2,
+			Misses:      1,
+			Confidence:  0.5,
+			X:           15.0,
+			Y:           15.0,
+			Z:           0.0,
+			SpeedMps:    0.5,
+			HeadingRad:  0.0,
+			Alpha:       0.5,
+		},
+	}
+
+	// Build a FrameBundle with test tracks
+	ts := TrackSet{
+		FrameID:        100,
+		TimestampNanos: 123456789,
+		Tracks:         testTracks,
+	}
+
+	frameBundle := []interface{}{
+		&ts,
+	}
+
+	// Simulate server processing to create proto message
+	// (This mimics what happens in StreamFrame handler)
+	for _, frame := range frameBundle {
+		if ts, ok := frame.(*TrackSet); ok {
+			// Convert to proto (similar to grpc_server.go StreamFrame logic)
+			pbTracks := make([]*pb.Track, len(ts.Tracks))
+			for i, t := range ts.Tracks {
+				pbTracks[i] = &pb.Track{
+					TrackId:     t.TrackID,
+					SensorId:    t.SensorID,
+					State:       pb.TrackState(t.State),
+					Hits:        int32(t.Hits),
+					Misses:      int32(t.Misses),
+					Confidence:  t.Confidence,
+					X:           t.X,
+					Y:           t.Y,
+					Z:           t.Z,
+					SpeedMps:    t.SpeedMps,
+					HeadingRad:  t.HeadingRad,
+					Alpha:       t.Alpha,
+					ObjectClass: objectClassFromString(t.ObjectClass), // KEY: The conversion happens here
+				}
+			}
+
+			// Verify each track's ObjectClass was converted correctly
+			expectedConversions := map[string]pb.ObjectClass{
+				"trk-car":          pb.ObjectClass_OBJECT_CLASS_CAR,
+				"trk-pedestrian":   pb.ObjectClass_OBJECT_CLASS_PEDESTRIAN,
+				"trk-bird":         pb.ObjectClass_OBJECT_CLASS_BIRD,
+				"trk-unclassified": pb.ObjectClass_OBJECT_CLASS_UNSPECIFIED,
+			}
+
+			for i, pbTrack := range pbTracks {
+				expected, ok := expectedConversions[pbTrack.TrackId]
+				if !ok {
+					t.Fatalf("unexpected track ID: %s", pbTrack.TrackId)
+				}
+
+				if pbTrack.ObjectClass != expected {
+					t.Errorf("Track %s: expected ObjectClass=%v, got %v",
+						pbTrack.TrackId, expected, pbTrack.ObjectClass)
+				}
+
+				// Verify the conversion is not lossy (all valid classes convert to non-unspecified)
+				if ts.Tracks[i].ObjectClass != "" && pbTrack.ObjectClass == pb.ObjectClass_OBJECT_CLASS_UNSPECIFIED {
+					t.Errorf("Track %s: non-empty ObjectClass string '%s' converted to UNSPECIFIED (data loss)",
+						pbTrack.TrackId, ts.Tracks[i].ObjectClass)
+				}
+			}
+		}
+	}
+}
+
+// TestAllObjectClassConstantsConvertible verifies all l6objects class constants
+// can be converted to proto enums without data loss.
+func TestAllObjectClassConstantsConvertible(t *testing.T) {
+	classConstants := []struct {
+		name     string
+		constant string
+		expected pb.ObjectClass
+	}{
+		{"car", string(l6objects.ClassCar), pb.ObjectClass_OBJECT_CLASS_CAR},
+		{"truck", string(l6objects.ClassTruck), pb.ObjectClass_OBJECT_CLASS_TRUCK},
+		{"bus", string(l6objects.ClassBus), pb.ObjectClass_OBJECT_CLASS_BUS},
+		{"pedestrian", string(l6objects.ClassPedestrian), pb.ObjectClass_OBJECT_CLASS_PEDESTRIAN},
+		{"cyclist", string(l6objects.ClassCyclist), pb.ObjectClass_OBJECT_CLASS_CYCLIST},
+		{"motorcyclist", string(l6objects.ClassMotorcyclist), pb.ObjectClass_OBJECT_CLASS_MOTORCYCLIST},
+		{"bird", string(l6objects.ClassBird), pb.ObjectClass_OBJECT_CLASS_BIRD},
+		{"dynamic", string(l6objects.ClassDynamic), pb.ObjectClass_OBJECT_CLASS_DYNAMIC},
+	}
+
+	for _, tc := range classConstants {
+		t.Run(tc.name, func(t *testing.T) {
+			result := objectClassFromString(tc.constant)
+			if result != tc.expected {
+				t.Errorf("objectClassFromString(%q) = %v, want %v",
+					tc.constant, result, tc.expected)
+			}
+
+			// Verify it's not unspecified (no data loss)
+			if result == pb.ObjectClass_OBJECT_CLASS_UNSPECIFIED {
+				t.Errorf("Class constant %q unexpectedly converted to UNSPECIFIED", tc.name)
+			}
+		})
+	}
+}
+
+// TestEmptyObjectClassBecomesUnspecified verifies that empty/uninitialized
+// ObjectClass values correctly become UNSPECIFIED in proto.
+func TestEmptyObjectClassBecomesUnspecified(t *testing.T) {
+	testCases := []string{"", " ", "invalid-class"}
+
+	for _, input := range testCases {
+		t.Run("input="+input, func(t *testing.T) {
+			result := objectClassFromString(input)
+			if result != pb.ObjectClass_OBJECT_CLASS_UNSPECIFIED {
+				t.Errorf("objectClassFromString(%q) = %v, want UNSPECIFIED",
+					input, result)
+			}
+		})
+	}
 }

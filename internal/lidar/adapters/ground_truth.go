@@ -17,9 +17,11 @@ import (
 // - Support label-aware auto-tuning with composite scoring
 
 // isPositiveLabel returns true if the classification label represents a real
-// detection (car, ped) rather than noise. These are the reference-worthy labels.
+// detection (car, truck, bus, pedestrian, cyclist, motorcyclist) rather than noise.
+// These are the reference-worthy labels.
 func isPositiveLabel(label string) bool {
-	return label == "car" || label == "ped"
+	return label == "car" || label == "truck" || label == "bus" ||
+		label == "pedestrian" || label == "cyclist" || label == "motorcyclist"
 }
 
 // hasQualityFlag returns true if the comma-separated quality label string
@@ -155,11 +157,11 @@ func matchTracks(reference, candidate []*sqlite.RunTrack) []TrackMatchResult {
 // EvaluateGroundTruth compares candidate tracks against reference ground truth tracks
 // and computes a comprehensive score with multiple quality metrics.
 //
-// Only reference tracks with classification label "car" or "ped" are considered ground truth.
+// Only reference tracks with positive classification labels are considered ground truth.
 // Tracks labelled "noise" are filtered out of the reference set.
 // All candidate tracks are evaluated to detect false positives.
 func EvaluateGroundTruth(reference, candidate []*sqlite.RunTrack, weights GroundTruthWeights) *GroundTruthScore {
-	// Filter reference tracks to only those labelled as positive detections (car, ped)
+	// Filter reference tracks to only those labelled as positive detections
 	var goodReferenceTracks []*sqlite.RunTrack
 	for _, track := range reference {
 		if isPositiveLabel(track.UserLabel) {

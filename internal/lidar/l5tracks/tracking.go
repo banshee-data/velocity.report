@@ -174,7 +174,7 @@ type TrackedObject struct {
 	LatestZ float32
 
 	// Classification
-	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "other"
+	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "dynamic"
 	ObjectConfidence    float32 // Classification confidence [0, 1]
 	ClassificationModel string  // Model version used for classification
 

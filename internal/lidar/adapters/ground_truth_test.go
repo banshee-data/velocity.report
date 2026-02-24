@@ -1,9 +1,10 @@
 package adapters
 
 import (
-	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"math"
 	"testing"
+
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // TestDefaultGroundTruthWeights verifies the default weights match the design doc.
@@ -362,7 +363,7 @@ func TestEvaluateGroundTruthDetectionByClass(t *testing.T) {
 	reference := []*sqlite.RunTrack{
 		{TrackID: "ref-v1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
 		{TrackID: "ref-v2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
-		{TrackID: "ref-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "ped"},
+		{TrackID: "ref-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "pedestrian"},
 		{TrackID: "ref-o1", StartUnixNanos: 7000, EndUnixNanos: 8000, UserLabel: "noise"},
 	}
 
@@ -384,8 +385,8 @@ func TestEvaluateGroundTruthDetectionByClass(t *testing.T) {
 
 	// Check class-specific rates (noise excluded from reference)
 	expectedRates := map[string]float64{
-		"car": 0.5, // 1/2 vehicles detected
-		"ped": 1.0, // 1/1 pedestrian detected
+		"car":        0.5, // 1/2 vehicles detected
+		"pedestrian": 1.0, // 1/1 pedestrian detected
 	}
 
 	for class, expectedRate := range expectedRates {

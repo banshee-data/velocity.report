@@ -11,25 +11,60 @@ import (
 type ObjectClass string
 
 const (
+	// ClassCar indicates a car or small/medium vehicle
+	ClassCar ObjectClass = "car"
+	// ClassTruck indicates a truck or medium-large vehicle
+	ClassTruck ObjectClass = "truck"
+	// ClassBus indicates a bus or large vehicle (length > 7 m)
+	ClassBus ObjectClass = "bus"
 	// ClassPedestrian indicates a pedestrian or person
 	ClassPedestrian ObjectClass = "pedestrian"
-	// ClassCar indicates a car or vehicle
-	ClassCar ObjectClass = "car"
+	// ClassCyclist indicates a cyclist
+	ClassCyclist ObjectClass = "cyclist"
+	// ClassMotorcyclist indicates a person on a motorcycle
+	ClassMotorcyclist ObjectClass = "motorcyclist"
 	// ClassBird indicates a bird or small flying object
 	ClassBird ObjectClass = "bird"
-	// ClassOther indicates an unclassified object
-	ClassOther ObjectClass = "other"
+	// ClassDynamic indicates an unclassified dynamic object
+	ClassDynamic ObjectClass = "dynamic"
+
+	// Aliases
+	ClassPed = ClassPedestrian // Short-form alias
 )
 
 // Classification thresholds (configurable for tuning)
 const (
-	// Height thresholds (meters)
+	// Height thresholds (metres)
 	BirdHeightMax       = 0.5 // Birds are typically small
-	PedestrianHeightMin = 1.0 // Pedestrians are at least 1m tall
-	PedestrianHeightMax = 2.2 // Pedestrians are typically under 2.2m
-	VehicleHeightMin    = 1.2 // Vehicles are at least 1.2m
-	VehicleLengthMin    = 3.0 // Vehicles are at least 3m long
-	VehicleWidthMin     = 1.5 // Vehicles are at least 1.5m wide
+	PedestrianHeightMin = 1.0 // Pedestrians are at least 1 m tall
+	PedestrianHeightMax = 2.2 // Pedestrians are typically under 2.2 m
+	VehicleHeightMin    = 1.2 // Vehicles are at least 1.2 m
+	VehicleLengthMin    = 3.0 // Vehicles are at least 3 m long
+	VehicleWidthMin     = 1.5 // Vehicles are at least 1.5 m wide
+
+	// Bus thresholds (very large vehicles)
+	BusLengthMin = 7.0 // Buses/coaches are typically ≥ 7 m
+	BusWidthMin  = 2.3 // Buses are typically ≥ 2.3 m wide
+
+	// Truck thresholds (medium-large vehicles, smaller than buses)
+	TruckLengthMin = 5.5 // Trucks are typically ≥ 5.5 m
+	TruckWidthMin  = 2.0 // Trucks are typically ≥ 2.0 m wide
+	TruckHeightMin = 2.0 // Trucks tend to be taller than cars
+
+	// Cyclist thresholds
+	CyclistHeightMin = 1.0  // Seated cyclist ≥ 1 m
+	CyclistHeightMax = 2.0  // Cyclist ≤ 2 m
+	CyclistSpeedMin  = 2.0  // Faster than walking (≥ 2 m/s ≈ 7.2 km/h)
+	CyclistSpeedMax  = 10.0 // Slower than most motor vehicles (≤ 10 m/s ≈ 36 km/h)
+	CyclistWidthMax  = 1.2  // Narrow profile
+	CyclistLengthMax = 2.5  // Bike ≤ 2.5 m
+
+	// Motorcyclist thresholds (similar to cyclist but faster)
+	MotorcyclistSpeedMin  = 5.0  // Faster than cyclists (≥ 5 m/s ≈ 18 km/h)
+	MotorcyclistSpeedMax  = 30.0 // Up to highway speed (≤ 30 m/s ≈ 108 km/h)
+	MotorcyclistWidthMax  = 1.2  // Narrow profile
+	MotorcyclistLengthMin = 1.5  // Motorcycle ≥ 1.5 m
+	MotorcyclistLengthMax = 3.0  // Motorcycle ≤ 3.0 m
 
 	// Speed thresholds (m/s)
 	BirdSpeedMax       = 1.0 // Birds detected at low speeds
@@ -102,7 +137,7 @@ func NewTrackClassifierWithMinObservations(minObservations int) *TrackClassifier
 		minObservations = 1
 	}
 	return &TrackClassifier{
-		ModelVersion:    "rule-based-v1.0",
+		ModelVersion:    "rule-based-v1.2",
 		MinObservations: minObservations,
 	}
 }
@@ -119,7 +154,7 @@ func (tc *TrackClassifier) Classify(track *TrackedObject) ClassificationResult {
 
 	// Not enough observations for reliable classification
 	if features.ObservationCount < tc.MinObservations {
-		result.Class = ClassOther
+		result.Class = ClassDynamic
 		result.Confidence = LowConfidence * 0.5 // Very low confidence
 		return result
 	}
@@ -132,22 +167,50 @@ func (tc *TrackClassifier) Classify(track *TrackedObject) ClassificationResult {
 		return result
 	}
 
-	// 2. Check for vehicle (large, fast)
+	// 2. Check for bus (very large vehicle)
+	if tc.isBus(features) {
+		result.Class = ClassBus
+		result.Confidence = tc.busConfidence(features)
+		return result
+	}
+
+	// 3. Check for truck (medium-large vehicle, between car and bus)
+	if tc.isTruck(features) {
+		result.Class = ClassTruck
+		result.Confidence = tc.truckConfidence(features)
+		return result
+	}
+
+	// 4. Check for car (medium vehicle — not bus/truck-sized)
 	if tc.isVehicle(features) {
 		result.Class = ClassCar
 		result.Confidence = tc.vehicleConfidence(features)
 		return result
 	}
 
-	// 3. Check for pedestrian (human-sized, moderate speed)
+	// 5. Check for motorcyclist (fast, narrow, elongated)
+	if tc.isMotorcyclist(features) {
+		result.Class = ClassMotorcyclist
+		result.Confidence = tc.motorcyclistConfidence(features)
+		return result
+	}
+
+	// 6. Check for cyclist (moderate speed, narrow profile)
+	if tc.isCyclist(features) {
+		result.Class = ClassCyclist
+		result.Confidence = tc.cyclistConfidence(features)
+		return result
+	}
+
+	// 7. Check for pedestrian (human-sized, slow)
 	if tc.isPedestrian(features) {
 		result.Class = ClassPedestrian
 		result.Confidence = tc.pedestrianConfidence(features)
 		return result
 	}
 
-	// 4. Default to other
-	result.Class = ClassOther
+	// 8. Default to dynamic
+	result.Class = ClassDynamic
 	result.Confidence = LowConfidence
 	return result
 }
@@ -203,7 +266,80 @@ func (tc *TrackClassifier) birdConfidence(f ClassificationFeatures) float32 {
 	return clampConfidence(confidence, 0.0, 1.0)
 }
 
-// isVehicle checks if features match vehicle classification.
+// isBus checks if features match bus/large-vehicle classification.
+// A bus is distinguished from a car by its significantly larger footprint.
+func (tc *TrackClassifier) isBus(f ClassificationFeatures) bool {
+	isVeryLong := f.AvgLength > BusLengthMin
+	isWide := f.AvgWidth > BusWidthMin
+	isFast := f.AvgSpeed > VehicleSpeedMin || f.PeakSpeed > VehicleSpeedMin*1.5
+	isTall := f.AvgHeight > VehicleHeightMin
+
+	return isVeryLong && isWide && (isFast || isTall)
+}
+
+// busConfidence computes confidence for bus classification.
+func (tc *TrackClassifier) busConfidence(f ClassificationFeatures) float32 {
+	confidence := float32(MediumConfidence)
+
+	// Very long objects are more likely buses
+	if f.AvgLength > 10.0 {
+		confidence += 0.10
+	}
+	if f.AvgWidth > 2.5 {
+		confidence += 0.05
+	}
+	if f.AvgHeight > 2.5 {
+		confidence += 0.05
+	}
+
+	// Speed factors
+	if f.AvgSpeed > 8.0 {
+		confidence += 0.05
+	}
+
+	if f.ObservationCount > 20 {
+		confidence += 0.05
+	}
+
+	return clampConfidence(confidence, LowConfidence, HighConfidence)
+}
+
+// isTruck checks if features match truck classification.
+// Trucks are larger than cars but smaller than buses.
+func (tc *TrackClassifier) isTruck(f ClassificationFeatures) bool {
+	isLong := f.AvgLength > TruckLengthMin
+	isWide := f.AvgWidth > TruckWidthMin
+	isTall := f.AvgHeight > TruckHeightMin
+	isFast := f.AvgSpeed > VehicleSpeedMin || f.PeakSpeed > VehicleSpeedMin*1.5
+
+	return isLong && isWide && isTall && isFast
+}
+
+// truckConfidence computes confidence for truck classification.
+func (tc *TrackClassifier) truckConfidence(f ClassificationFeatures) float32 {
+	confidence := float32(MediumConfidence)
+
+	if f.AvgLength > 6.0 {
+		confidence += 0.05
+	}
+	if f.AvgHeight > 2.5 {
+		confidence += 0.05
+	}
+	if f.AvgWidth > 2.2 {
+		confidence += 0.05
+	}
+	if f.AvgSpeed > 8.0 {
+		confidence += 0.05
+	}
+	if f.ObservationCount > 20 {
+		confidence += 0.05
+	}
+
+	return clampConfidence(confidence, LowConfidence, HighConfidence)
+}
+
+// isVehicle checks if features match car/vehicle classification.
+// Bus- and truck-sized objects are excluded (checked earlier in the cascade).
 func (tc *TrackClassifier) isVehicle(f ClassificationFeatures) bool {
 	// Large size AND high speed
 	isLarge := f.AvgLength > VehicleLengthMin || f.AvgWidth > VehicleWidthMin
@@ -235,6 +371,83 @@ func (tc *TrackClassifier) vehicleConfidence(f ClassificationFeatures) float32 {
 
 	// More observations = more confidence
 	if f.ObservationCount > 20 {
+		confidence += 0.05
+	}
+
+	return clampConfidence(confidence, LowConfidence, HighConfidence)
+}
+
+// isCyclist checks if features match cyclist classification.
+// Cyclists are faster than pedestrians but narrower than vehicles.
+func (tc *TrackClassifier) isCyclist(f ClassificationFeatures) bool {
+	heightOK := f.AvgHeight >= CyclistHeightMin && f.AvgHeight <= CyclistHeightMax
+	speedOK := f.AvgSpeed >= CyclistSpeedMin && f.AvgSpeed <= CyclistSpeedMax
+	narrowOK := f.AvgWidth < CyclistWidthMax && f.AvgLength < CyclistLengthMax
+
+	return heightOK && speedOK && narrowOK
+}
+
+// cyclistConfidence computes confidence for cyclist classification.
+func (tc *TrackClassifier) cyclistConfidence(f ClassificationFeatures) float32 {
+	confidence := float32(MediumConfidence)
+
+	// Speed in typical cycling range (3-8 m/s ≈ 11-29 km/h)
+	if f.AvgSpeed >= 3.0 && f.AvgSpeed <= 8.0 {
+		confidence += 0.10
+	}
+
+	// Narrow profile is very characteristic
+	if f.AvgWidth < 0.8 {
+		confidence += 0.05
+	}
+
+	// Height in seated-cyclist range
+	if f.AvgHeight >= 1.2 && f.AvgHeight <= 1.8 {
+		confidence += 0.05
+	}
+
+	if f.ObservationCount > 15 {
+		confidence += 0.05
+	}
+
+	return clampConfidence(confidence, LowConfidence, HighConfidence)
+}
+
+// isMotorcyclist checks if features match motorcyclist classification.
+// Motorcyclists are faster than cyclists with a narrow, elongated profile.
+func (tc *TrackClassifier) isMotorcyclist(f ClassificationFeatures) bool {
+	speedOK := f.AvgSpeed >= MotorcyclistSpeedMin && f.AvgSpeed <= MotorcyclistSpeedMax
+	narrowOK := f.AvgWidth <= MotorcyclistWidthMax
+	lengthOK := f.AvgLength >= MotorcyclistLengthMin && f.AvgLength <= MotorcyclistLengthMax
+
+	return speedOK && narrowOK && lengthOK
+}
+
+// motorcyclistConfidence computes confidence for motorcyclist classification.
+func (tc *TrackClassifier) motorcyclistConfidence(f ClassificationFeatures) float32 {
+	confidence := float32(MediumConfidence)
+
+	// Speed in typical motorcycling range (5-30 m/s ≈ 18-108 km/h)
+	if f.AvgSpeed >= 8.0 && f.AvgSpeed <= 25.0 {
+		confidence += 0.10
+	}
+
+	// Narrow profile is very characteristic of two-wheelers
+	if f.AvgWidth <= 0.9 {
+		confidence += 0.05
+	}
+
+	// Longer than a bicycle
+	if f.AvgLength >= 2.0 {
+		confidence += 0.05
+	}
+
+	// Higher peak speed distinguishes from cyclist
+	if f.PeakSpeed > 12.0 {
+		confidence += 0.05
+	}
+
+	if f.ObservationCount > 15 {
 		confidence += 0.05
 	}
 

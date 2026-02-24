@@ -20,6 +20,32 @@ import (
 // Ensure Server implements the gRPC interface.
 var _ pb.VisualiserServiceServer = (*Server)(nil)
 
+// objectClassFromString converts a classifier string label to the proto enum.
+func objectClassFromString(s string) pb.ObjectClass {
+	switch s {
+	case "car":
+		return pb.ObjectClass_OBJECT_CLASS_CAR
+	case "truck":
+		return pb.ObjectClass_OBJECT_CLASS_TRUCK
+	case "bus":
+		return pb.ObjectClass_OBJECT_CLASS_BUS
+	case "pedestrian":
+		return pb.ObjectClass_OBJECT_CLASS_PEDESTRIAN
+	case "cyclist":
+		return pb.ObjectClass_OBJECT_CLASS_CYCLIST
+	case "motorcyclist":
+		return pb.ObjectClass_OBJECT_CLASS_MOTORCYCLIST
+	case "bird":
+		return pb.ObjectClass_OBJECT_CLASS_BIRD
+	case "noise":
+		return pb.ObjectClass_OBJECT_CLASS_NOISE
+	case "dynamic":
+		return pb.ObjectClass_OBJECT_CLASS_DYNAMIC
+	default:
+		return pb.ObjectClass_OBJECT_CLASS_UNSPECIFIED
+	}
+}
+
 // overlayPreferences stores per-client overlay preferences.
 type overlayPreferences struct {
 	showPoints      bool
@@ -527,7 +553,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				IntensityMeanAvg:  t.IntensityMeanAvg,
 				AvgSpeedMps:       t.AvgSpeedMps,
 				PeakSpeedMps:      t.PeakSpeedMps,
-				ClassLabel:        t.ClassLabel,
+				ObjectClass:       objectClassFromString(t.ObjectClass),
 				ClassConfidence:   t.ClassConfidence,
 				TrackLengthMetres: t.TrackLengthMetres,
 				TrackDurationSecs: t.TrackDurationSecs,
