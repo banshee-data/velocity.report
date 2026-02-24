@@ -369,6 +369,58 @@ export interface SweepRecord {
 	score_components?: ScoreComponents | string;
 }
 
+/**
+ * HINT (Human-Involved Numerical Tuning) state returned by GET /api/lidar/sweep/hint.
+ * Mirrors Go type internal/lidar/sweep.HINTState.
+ */
+export interface HINTState {
+	status:
+		| 'idle'
+		| 'running_reference'
+		| 'awaiting_labels'
+		| 'running_sweep'
+		| 'completed'
+		| 'failed';
+	mode: string;
+	current_round: number;
+	total_rounds: number;
+	reference_run_id?: string;
+	label_progress?: LabelProgress;
+	label_deadline?: string;
+	sweep_deadline?: string;
+	auto_tune_state?: Record<string, unknown>;
+	recommendation?: Record<string, unknown>;
+	round_history: HINTRound[];
+	error?: string;
+	min_label_threshold: number;
+	labels_carried_over: number;
+	next_sweep_duration_mins: number;
+	min_class_coverage?: Record<string, number>;
+	min_temporal_spread_secs?: number;
+	tune_background: boolean;
+}
+
+/** Label progress within a single HINT round. Mirrors Go type sweep.LabelProgress. */
+export interface LabelProgress {
+	total: number;
+	labelled: number;
+	progress_pct: number;
+	by_class: Record<string, number>;
+}
+
+/** Results of a single HINT round. Mirrors Go type sweep.HINTRound. */
+export interface HINTRound {
+	round: number;
+	reference_run_id: string;
+	labelled_at?: string;
+	label_progress?: LabelProgress;
+	labels_carried_over: number;
+	sweep_id?: string;
+	best_score: number;
+	best_params?: Record<string, number>;
+	best_score_components?: ScoreComponents;
+}
+
 /** Score components for sweep scoring explanation */
 export interface ScoreComponents {
 	detection_rate: number;

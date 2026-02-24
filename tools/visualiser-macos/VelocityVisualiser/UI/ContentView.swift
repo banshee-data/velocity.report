@@ -919,6 +919,7 @@ struct LabelPanelView: View {
 
     @State private var lastAssignedLabel: String?
     @State private var activeFlags: Set<String> = []
+    @State private var isCarriedOver: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -930,6 +931,15 @@ struct LabelPanelView: View {
                 // Run context indicator
                 if let runID = appState.currentRunID {
                     Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
+                }
+
+                // Carried-over label badge
+                if isCarriedOver {
+                    HStack(spacing: 4) {
+                        Text("↻ carried").font(.caption2).foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.orange.opacity(0.8)).cornerRadius(4)
                 }
 
                 // Classification labels (user_label) — single-select
@@ -984,6 +994,7 @@ struct LabelPanelView: View {
             // Reset feedback when track selection changes
             lastAssignedLabel = nil
             activeFlags = []
+            isCarriedOver = false
             // Fetch existing labels for the newly selected track
             if let trackID = newTrackID, let runID = appState.currentRunID {
                 Task {
@@ -1001,6 +1012,9 @@ struct LabelPanelView: View {
                                     quality.split(separator: ",").map {
                                         String($0).trimmingCharacters(in: .whitespaces)
                                     })
+                            }
+                            if track.labelerId == "hint-carryover" {
+                                isCarriedOver = true
                             }
                         }
                     } catch {

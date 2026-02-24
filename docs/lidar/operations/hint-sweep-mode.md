@@ -1,8 +1,8 @@
 # HINT Sweep Mode — Human-Involved Numerical Tuning
 
-**Status**: Implemented ✅ (Core functionality complete: 46/57 items)
+**Status**: Complete ✅ (57/57 items)
 
-**Summary**: HINT sweep mode is fully functional with backend, API, dashboard UI, and notifications implemented. Remaining 11 items are polish tasks: macOS visualiser label UX improvements (P1: 4 sub-items, P2: 2 sub-items), TypeScript type definitions, page subtitle, and inline continue button in Svelte page.
+**Summary**: HINT sweep mode is fully implemented across backend, API, dashboard UI, notifications, macOS visualiser, and Svelte frontend. All polish items are complete: TypeScript type definitions, carried-over label badge, export labels removal, inline continue button, and shared page subtitle.
 
 ## Summary
 
@@ -656,14 +656,14 @@ Update the page subtitle and add mode-specific descriptions:
 
 ### Prerequisites (macOS Visualiser)
 
-- [ ] **P1** — Display existing labels in `LabelPanelView`
-  - [ ] Accept selected `RunTrack?` in `LabelPanelView`
-  - [ ] Pre-populate `lastAssignedLabel` / `lastAssignedQuality` from run-track data
-  - [ ] Show checkmark on matching button for current label state
-  - [ ] Add "↻ carried" badge for carried-over labels
-- [ ] **P2** — Remove Export Labels button
-  - [ ] Remove "Export Labels" button from `SidePanelView`
-  - [ ] Remove `exportLabels()` from `AppState`
+- [x] **P1** — Display existing labels in `LabelPanelView`
+  - [x] Accept selected `RunTrack?` in `LabelPanelView`
+  - [x] Pre-populate `lastAssignedLabel` / `lastAssignedQuality` from run-track data
+  - [x] Show checkmark on matching button for current label state
+  - [x] Add "↻ carried" badge for carried-over labels
+- [x] **P2** — Remove Export Labels button
+  - [x] Remove "Export Labels" button from `SidePanelView`
+  - [x] Remove `exportLabels()` from `AppState`
 - [x] **P3** — Confirm auto-save on click works (no changes needed)
 
 ### Phase 1: Backend — `HINTTuner` Engine
@@ -725,13 +725,13 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] Show HINT sweeps with distinct `mode = "hint"` badge
 - [x] HINT detail panel: round history with links to reference run tracks
 - [x] HINT detail panel: label progress and ground truth scores per round
-- [ ] Inline "Continue" button for `awaiting_labels` state
+- [x] Inline "Continue" button for `awaiting_labels` state
 - [x] Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT` to `api.ts`
-- [ ] Add `HINTState`, `HINTRound`, `LabelProgress` types to `lidar.ts`
+- [x] Add `HINTState`, `HINTRound`, `LabelProgress` types to `lidar.ts`
 
 ### Phase 6: Mode Description Updates
 
-- [ ] Add page subtitle shared across modes
+- [x] Add page subtitle shared across modes
 - [x] Add Auto-Tune description text (`.auto-only`)
 - [x] Add HINT description text (`.hint-only`)
 

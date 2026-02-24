@@ -559,24 +559,6 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         // TODO: Add merge flag support to backend API when needed
     }
 
-    func exportLabels() {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "labels-\(labelClient.sessionID).json"
-
-        panel.begin { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
-            guard let self = self else { return }
-
-            Task {
-                do {
-                    try await self.labelClient.exportToFile(url)
-                    logger.info("Labels exported to \(url.path)")
-                } catch { logger.error("Failed to export labels: \(error.localizedDescription)") }
-            }
-        }
-    }
-
     /// Send overlay mode preferences to the server via gRPC.
     func sendOverlayPreferences() {
         Task {

@@ -127,15 +127,6 @@ import XCTest
         state.assignQuality("perfect")  // Task will fail to reach server but method executes
     }
 
-    // MARK: - Export Labels Tests
-
-    func testExportLabelsOpensDialog() throws {
-        let state = AppState()
-        state.exportLabels()
-        // Test that the method runs without crashing
-        // Actual save panel interaction can't be easily tested
-    }
-
     // MARK: - Reproject Labels Tests
 
     func testReprojectLabelsWithoutRenderer() throws {
