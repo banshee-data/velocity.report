@@ -103,6 +103,11 @@ func (s *Server) SetVRLogMode(enabled bool) {
 	s.vrlogMode = enabled
 	if enabled {
 		s.replayMode = true
+		// Reset pause state so the new VRLOG replay starts playing
+		// immediately.  Without this, a previous Pause() RPC leaves
+		// s.paused=true and streamFromPublisher silently drops every
+		// frame, resulting in frames_sent=0 for connected clients.
+		s.paused = false
 	}
 }
 

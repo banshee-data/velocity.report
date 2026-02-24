@@ -478,6 +478,42 @@ func TestServer_SetVRLogMode(t *testing.T) {
 	}
 }
 
+// TestServer_SetVRLogMode_ResetsPaused verifies that entering VRLOG mode
+// resets the server pause state.  Without this, a previous Pause() RPC
+// leaves s.paused=true and streamFromPublisher silently drops every frame,
+// resulting in frames_sent=0 for connected clients.
+func TestServer_SetVRLogMode_ResetsPaused(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+	server := NewServer(pub)
+
+	// Simulate a user pausing during a previous replay
+	server.Pause(context.Background(), &pb.PauseRequest{})
+
+	server.playbackMu.RLock()
+	paused := server.paused
+	server.playbackMu.RUnlock()
+	if !paused {
+		t.Fatal("expected paused=true after Pause()")
+	}
+
+	// Load a new VRLOG — SetVRLogMode(true) should reset paused
+	server.SetVRLogMode(true)
+
+	server.playbackMu.RLock()
+	paused = server.paused
+	vrlogMode := server.vrlogMode
+	server.playbackMu.RUnlock()
+
+	if paused {
+		t.Error("expected paused=false after SetVRLogMode(true) — new VRLOG should start unpaused")
+	}
+	if !vrlogMode {
+		t.Error("expected vrlogMode=true")
+	}
+}
+
 // TestServer_Pause_VRLogMode tests pause delegation in VRLOG mode.
 func TestServer_Pause_VRLogMode(t *testing.T) {
 	cfg := DefaultConfig()
