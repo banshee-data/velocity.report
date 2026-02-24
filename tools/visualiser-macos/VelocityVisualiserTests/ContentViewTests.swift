@@ -408,21 +408,46 @@ struct SparklineViewTests {
         let _ = view.body
     }
 
-    func testGraphViewWithOneSample() throws {
+    func testGraphViewWithOneSample() async throws {
         let state = AppState()
-        state.trackHistory["t-001"] = [
-            AppState.TrackSample(frameIndex: 0, speedMps: 5.0, headingDeg: 90.0)
-        ]
+        state.isLive = false
+        var frame = FrameBundle()
+        frame.frameID = 0
+        frame.timestampNanos = 100_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 0, totalFrames: 10)
+        frame.tracks = TrackSet(
+            frameID: 0, timestampNanos: 100_000_000,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
+        state.onFrameReceived(frame)
+        await Task.yield()
+
         let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
         let _ = view.body
     }
 
-    func testGraphViewWithMultipleSamples() throws {
+    func testGraphViewWithMultipleSamples() async throws {
         let state = AppState()
-        state.trackHistory["t-001"] = (0..<20).map {
-            AppState.TrackSample(
-                frameIndex: UInt64($0), speedMps: Float($0) * 0.5, headingDeg: Float($0) * 10)
+        state.isLive = false
+        for i: UInt64 in 0..<20 {
+            var frame = FrameBundle()
+            frame.frameID = i
+            frame.timestampNanos = Int64(i) * 50_000_000
+            frame.playbackInfo = PlaybackInfo(
+                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                paused: false, currentFrameIndex: i, totalFrames: 100)
+            frame.tracks = TrackSet(
+                frameID: i, timestampNanos: Int64(i) * 50_000_000,
+                tracks: [
+                    Track(
+                        trackID: "t-001", state: .confirmed, speedMps: Float(i) * 0.5,
+                        headingRad: Float(i) * 0.17)
+                ], trails: [])
+            state.onFrameReceived(frame)
+            await Task.yield()
         }
+
         let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
         let _ = view.body
     }
