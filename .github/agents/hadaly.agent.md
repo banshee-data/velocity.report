@@ -135,14 +135,9 @@ make dev-docs             # Docs dev server
 - `radar_data_transits` view: Sessionized vehicle transits
 - `lidar_bg_snapshot`: Background point cloud data (BLOB)
 
-## Active Migrations & Known Issues
+## Python Virtual Environment
 
-**In Progress:**
-
-- **Python venv consolidation** - Moving from dual-venv to unified `.venv/` at root
-  - Old: `tools/pdf-generator/.venv` (being phased out)
-  - New: `.venv/` at repository root (target state)
-  - Status: Plan documented in `docs/python-venv-consolidation-plan.md`
+All Python tools share a **single virtual environment** at the repository root (`.venv/`). Run `make install-python` to create it. There is no per-tool venv — `tools/pdf-generator/.venv` was retired during the venv consolidation.
 
 ## Testing Strategy
 
