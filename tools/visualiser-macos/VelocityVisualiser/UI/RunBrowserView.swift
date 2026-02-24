@@ -97,6 +97,11 @@ extension String {
     }
 
     private func loadRun(_ run: AnalysisRun) async {
+        // Reset stale playback state before loading the new VRLOG.
+        // This clears isPaused, replayFinished, progress, timestamps,
+        // and restarts the gRPC stream if the old replay ended it.
+        appState.prepareForNewReplay()
+
         let success = await runBrowserState.loadRunForReplay(run.runId)
         if success {
             // Update app state to indicate we're in VRLOG replay mode

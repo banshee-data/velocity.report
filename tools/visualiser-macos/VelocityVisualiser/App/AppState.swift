@@ -299,6 +299,28 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     // MARK: - Playback Control
 
+    /// Reset playback state for a new VRLOG replay.
+    /// Call before loading a new VRLOG to clear stale state from a previous
+    /// replay (finished flag, pause state, progress, timestamps, history).
+    /// Also restarts the gRPC frame stream if it ended with the old replay.
+    func prepareForNewReplay() {
+        logger.info("prepareForNewReplay() — resetting playback state")
+        isPaused = false
+        replayFinished = false
+        replayProgress = 0
+        isSeekingInProgress = false
+        currentTimestamp = 0
+        logStartTimestamp = 0
+        logEndTimestamp = 0
+        currentFrameIndex = 0
+        totalFrames = 0
+        frameCount = 0
+        trackHistory = [:]
+        userLabels = [:]
+        // Restart the gRPC stream in case the old one ended with the previous replay
+        grpcClient?.restartStream()
+    }
+
     func togglePlayPause() {
         guard !isLive else { return }
 

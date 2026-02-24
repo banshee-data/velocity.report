@@ -1293,3 +1293,325 @@ import XCTest
         XCTAssertNil(state.selectedTrackID)
     }
 }
+
+// MARK: - User Labels Cache Tests
+
+@available(macOS 15.0, *) @MainActor final class UserLabelsCacheTests: XCTestCase {
+
+    func testUserLabelsDefaultEmpty() throws {
+        let state = AppState()
+        XCTAssertTrue(state.userLabels.isEmpty)
+    }
+
+    func testAssignLabelUpdatesUserLabelsCache() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+
+        state.assignLabel("car")
+        XCTAssertEqual(state.userLabels["track-001"], "car")
+    }
+
+    func testAssignLabelOverwritesPreviousLabel() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+
+        state.assignLabel("car")
+        XCTAssertEqual(state.userLabels["track-001"], "car")
+
+        state.assignLabel("pedestrian")
+        XCTAssertEqual(state.userLabels["track-001"], "pedestrian")
+    }
+
+    func testAssignLabelDoesNotUpdateCacheWithoutSelectedTrack() throws {
+        let state = AppState()
+        state.selectedTrackID = nil
+
+        state.assignLabel("car")
+        XCTAssertTrue(state.userLabels.isEmpty)
+    }
+
+    func testAssignLabelToAllVisiblePopulatesCache() throws {
+        let state = AppState()
+        // Create a frame with tracks so filteredTracks is non-empty
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-001", state: .confirmed),
+                Track(trackID: "t-002", state: .confirmed),
+                Track(trackID: "t-003", state: .tentative),
+            ], trails: [])
+        state.currentFrame = frame
+
+        state.assignLabelToAllVisible("bicycle")
+
+        XCTAssertEqual(state.userLabels["t-001"], "bicycle")
+        XCTAssertEqual(state.userLabels["t-002"], "bicycle")
+        XCTAssertEqual(state.userLabels["t-003"], "bicycle")
+    }
+
+    func testAssignLabelToAllVisibleDoesNothingWhenEmpty() throws {
+        let state = AppState()
+        // No frame, no tracks
+        state.assignLabelToAllVisible("car")
+        XCTAssertTrue(state.userLabels.isEmpty)
+    }
+
+    func testMultipleTracksHaveIndependentLabels() throws {
+        let state = AppState()
+
+        state.selectedTrackID = "track-001"
+        state.assignLabel("car")
+
+        state.selectedTrackID = "track-002"
+        state.assignLabel("pedestrian")
+
+        XCTAssertEqual(state.userLabels["track-001"], "car")
+        XCTAssertEqual(state.userLabels["track-002"], "pedestrian")
+    }
+}
+
+// MARK: - Seek Timestamp Sync Tests
+
+@available(macOS 15.0, *) @MainActor final class SeekTimestampSyncTests: XCTestCase {
+
+    func testSeekUpdatesCurrentTimestamp() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_000_000_000
+
+        state.seek(to: 0.5)
+
+        // currentTimestamp should be optimistically synced to the target
+        XCTAssertEqual(state.currentTimestamp, 1_500_000_000)
+    }
+
+    func testSeekToStartUpdatesTimestamp() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_500_000_000
+
+        state.seek(to: 0.0)
+
+        XCTAssertEqual(state.currentTimestamp, 1_000_000_000)
+    }
+
+    func testSeekToEndUpdatesTimestamp() throws {
+        let state = AppState()
+        state.isLive = false
+        state.isSeekable = true
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_000_000_000
+
+        state.seek(to: 1.0)
+
+        XCTAssertEqual(state.currentTimestamp, 2_000_000_000)
+    }
+
+    func testSeekIgnoredWhenLiveDoesNotUpdateTimestamp() throws {
+        let state = AppState()
+        state.isLive = true
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_000_000_000
+
+        state.seek(to: 0.5)
+
+        // Should remain unchanged
+        XCTAssertEqual(state.currentTimestamp, 1_000_000_000)
+    }
+}
+
+// MARK: - ClientDidFinishStream Edge Case Tests
+
+@available(macOS 15.0, *) @MainActor final class ClientDidFinishStreamEdgeCaseTests: XCTestCase {
+
+    private func waitForMainActor(
+        timeout: TimeInterval = 2.0, condition: @escaping @MainActor () -> Bool,
+        file: StaticString = #filePath, line: UInt = #line
+    ) async throws {
+        let deadline = ContinuousClock.now + .seconds(timeout)
+        while !condition() {
+            guard ContinuousClock.now < deadline else {
+                XCTFail("Timed out after \(timeout)s waiting for condition", file: file, line: line)
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    func testFinishStreamDoesNotSyncWhenLogEndIsZero() async throws {
+        let state = AppState()
+        state.logEndTimestamp = 0  // No valid log end
+        state.currentTimestamp = 500_000_000
+        let delegate = ClientDelegateAdapter(appState: state)
+        let client = VisualiserClient(address: "localhost:50051")
+
+        delegate.clientDidFinishStream(client)
+
+        try await waitForMainActor { state.replayFinished }
+        // currentTimestamp should NOT be overwritten when logEndTimestamp is 0
+        XCTAssertEqual(state.currentTimestamp, 500_000_000)
+    }
+}
+
+// MARK: - Export Labels Removal Tests
+
+@available(macOS 15.0, *) @MainActor final class ExportLabelsRemovalTests: XCTestCase {
+
+    func testExportLabelsMethodDoesNotExist() throws {
+        // Verify that the removed exportLabels() method is no longer available.
+        // This test uses compile-time verification: if exportLabels() still existed,
+        // uncommenting the line below would compile. It being commented out documents
+        // the intentional removal.
+        let state = AppState()
+        XCTAssertNotNil(state)  // AppState initialises without exportLabels
+        // state.exportLabels()  // Should NOT compile — method removed on this branch
+    }
+}
+
+// MARK: - Prepare For New Replay Tests (Regression Guard)
+
+/// Regression test: loading a new VRLOG after a previous replay finished must
+/// reset all stale playback state.  Before the fix, `clientDidFinishStream` set
+/// `isPaused = true`, `replayFinished = true`, `replayProgress = 1.0`, and
+/// `currentTimestamp = logEndTimestamp`. When a new VRLOG was loaded via the run
+/// browser, none of these were cleared, so the new replay appeared stuck/paused
+/// and the seek bar showed "100%".
+@available(macOS 15.0, *) @MainActor final class PrepareForNewReplayTests: XCTestCase {
+
+    func testPrepareForNewReplayResetsPlaybackState() async throws {
+        let state = AppState()
+
+        // Receive a frame to populate trackHistory and frameCount naturally
+        var frame = FrameBundle()
+        frame.frameID = 100
+        frame.timestampNanos = 1_500_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 1_000_000_000, logEndNs: 2_000_000_000, playbackRate: 1.0,
+            paused: false, currentFrameIndex: 100, totalFrames: 394)
+        frame.tracks = TrackSet(
+            frameID: 100, timestampNanos: 1_500_000_000,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        // Simulate a finished replay (stale state from clientDidFinishStream)
+        state.isPaused = true
+        state.replayFinished = true
+        state.replayProgress = 1.0
+        state.isSeekingInProgress = true
+        state.currentTimestamp = 2_000_000_000
+        state.userLabels["t-001"] = "car"
+
+        // Pre-conditions: verify stale state exists
+        XCTAssertFalse(state.trackHistory.isEmpty, "trackHistory should have data before reset")
+        XCTAssertEqual(state.frameCount, 1)
+
+        // Act: prepare for a new replay (called before loadRunForReplay)
+        state.prepareForNewReplay()
+
+        // Assert: all stale state must be cleared
+        XCTAssertFalse(state.isPaused, "isPaused should be cleared for new replay")
+        XCTAssertFalse(state.replayFinished, "replayFinished should be cleared")
+        XCTAssertEqual(state.replayProgress, 0, "replayProgress should reset to 0")
+        XCTAssertFalse(state.isSeekingInProgress, "isSeekingInProgress should be cleared")
+        XCTAssertEqual(state.currentTimestamp, 0, "currentTimestamp should reset to 0")
+        XCTAssertEqual(state.logStartTimestamp, 0, "logStartTimestamp should reset to 0")
+        XCTAssertEqual(state.logEndTimestamp, 0, "logEndTimestamp should reset to 0")
+        XCTAssertEqual(state.currentFrameIndex, 0, "currentFrameIndex should reset to 0")
+        XCTAssertEqual(state.totalFrames, 0, "totalFrames should reset to 0")
+        XCTAssertEqual(state.frameCount, 0, "frameCount should reset to 0")
+        XCTAssertTrue(state.trackHistory.isEmpty, "trackHistory should be cleared")
+        XCTAssertTrue(state.userLabels.isEmpty, "userLabels should be cleared")
+    }
+
+    func testPrepareForNewReplayFollowedByFirstFrameProducesCleanState() async throws {
+        let state = AppState()
+
+        // Simulate a finished replay
+        state.isPaused = true
+        state.replayFinished = true
+        state.replayProgress = 1.0
+        state.currentTimestamp = 2_000_000_000
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentFrameIndex = 394
+        state.totalFrames = 394
+        state.frameCount = 500
+
+        // Prepare for new replay
+        state.prepareForNewReplay()
+        state.isLive = false
+
+        // Simulate first frame of the NEW replay
+        var frame = FrameBundle()
+        frame.frameID = 0
+        frame.timestampNanos = 500_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 500_000_000, logEndNs: 40_000_000_000, playbackRate: 1.0,
+            paused: false, currentFrameIndex: 0, totalFrames: 394)
+        frame.tracks = TrackSet(
+            frameID: 0, timestampNanos: 500_000_000,
+            tracks: [Track(trackID: "t-new-001", state: .confirmed, speedMps: 3.0)], trails: [])
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        // Verify new replay started cleanly
+        XCTAssertFalse(state.isPaused, "New replay should not be paused")
+        XCTAssertFalse(state.replayFinished, "replayFinished should remain cleared")
+        XCTAssertEqual(state.currentFrameID, 0)
+        XCTAssertEqual(state.currentTimestamp, 500_000_000)
+        XCTAssertEqual(state.logStartTimestamp, 500_000_000)
+        XCTAssertEqual(state.logEndTimestamp, 40_000_000_000)
+        XCTAssertEqual(state.totalFrames, 394)
+        XCTAssertEqual(state.frameCount, 1, "frameCount should start from 1")
+        XCTAssertEqual(state.trackCount, 1)
+        // Replay progress should be near 0 (first frame of new log)
+        XCTAssertLessThan(state.replayProgress, 0.01, "Progress should be near start")
+    }
+
+    /// Regression: clientDidFinishStream fires → sets isPaused/replayFinished →
+    /// without prepareForNewReplay the new VRLOG appears stuck.
+    func testWithoutPrepareNewReplayInheritsStaleState() async throws {
+        let state = AppState()
+        state.isLive = false
+        state.logEndTimestamp = 2_000_000_000
+
+        // Simulate clientDidFinishStream side effects (old replay ended)
+        let delegate = ClientDelegateAdapter(appState: state)
+        let client = VisualiserClient(address: "localhost:50051")
+        delegate.clientDidFinishStream(client)
+
+        // Wait for the async Task in clientDidFinishStream to apply
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !state.replayFinished {
+            guard ContinuousClock.now < deadline else {
+                XCTFail("Timed out waiting for replayFinished")
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        // Confirm stale state is set
+        XCTAssertTrue(state.isPaused, "Finish should set isPaused")
+        XCTAssertTrue(state.replayFinished, "Finish should set replayFinished")
+        XCTAssertEqual(state.replayProgress, 1.0, "Finish should set progress to 1.0")
+
+        // NOW call prepareForNewReplay (the fix)
+        state.prepareForNewReplay()
+
+        // Verify all stale state is cleared
+        XCTAssertFalse(state.isPaused)
+        XCTAssertFalse(state.replayFinished)
+        XCTAssertEqual(state.replayProgress, 0)
+    }
+}

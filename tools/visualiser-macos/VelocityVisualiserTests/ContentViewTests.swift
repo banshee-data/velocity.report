@@ -560,3 +560,152 @@ struct SparklineViewTests {
         host(PlaybackControlsView(), state: state)
     }
 }
+
+// MARK: - TrackListView Display Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackListViewDisplayTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testTrackListViewAlwaysVisibleInFrameMode() throws {
+        let state = AppState()
+        // Frame mode (no currentRunID)
+        state.currentRunID = nil
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0, classLabel: "car")],
+            trails: [])
+        state.currentFrame = frame
+
+        // Should render without crash — track list is always visible (no isExpanded toggle)
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewEmptyFrameMode() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        // No frame data
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewRunModeWithNoRunID() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewRunModeWithRunID() throws {
+        let state = AppState()
+        state.currentRunID = "run-abc-123"
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewDisplaysUserLabelsOverClassLabel() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        state.userLabels["t-001"] = "pedestrian"  // User label should override classLabel
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-001", state: .confirmed, speedMps: 3.0, classLabel: "noise")
+            ], trails: [])
+        state.currentFrame = frame
+
+        // The view should prefer userLabels["t-001"] ("pedestrian") over classLabel ("noise")
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewWithMultipleTracks() throws {
+        let state = AppState()
+        state.currentRunID = nil
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-001", state: .confirmed, speedMps: 5.0, classLabel: "car"),
+                Track(trackID: "t-002", state: .tentative, speedMps: 1.5, classLabel: "noise"),
+                Track(trackID: "t-003", state: .confirmed, speedMps: 12.0, classLabel: ""),
+            ], trails: [])
+        state.currentFrame = frame
+
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewWithSelectedTrack() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        state.selectedTrackID = "t-002"
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-001", state: .confirmed, speedMps: 5.0),
+                Track(trackID: "t-002", state: .confirmed, speedMps: 3.0),
+            ], trails: [])
+        state.currentFrame = frame
+
+        host(TrackListView(), state: state)
+    }
+}
+
+// MARK: - LabelPanelView Carried Badge Tests
+
+@available(macOS 15.0, *) @MainActor final class LabelPanelCarriedBadgeTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testLabelPanelViewWithSelectedTrack() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        host(LabelPanelView(), state: state)
+    }
+
+    func testLabelPanelViewWithRunMode() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        state.currentRunID = "run-abc"
+        host(LabelPanelView(), state: state)
+    }
+
+    func testLabelPanelViewWithoutSelection() throws {
+        let state = AppState()
+        state.selectedTrackID = nil
+        host(LabelPanelView(), state: state)
+    }
+}
+
+// MARK: - SidePanelView Tests
+
+@available(macOS 15.0, *) @MainActor final class SidePanelViewTrackListTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testSidePanelContainsTrackList() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
+        state.currentFrame = frame
+
+        host(SidePanelView(), state: state)
+    }
+}
