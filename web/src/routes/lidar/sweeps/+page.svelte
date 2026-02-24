@@ -407,6 +407,7 @@
 
 					<!-- HINT: Inline Continue for awaiting_labels -->
 					{#if selectedSweep.mode === 'hint' && selectedSweep.status === 'awaiting_labels'}
+						{@const isContinuing = continueStatus === 'Continuing…'}
 						<div class="mb-4 rounded bg-yellow-50 px-4 py-3">
 							<p class="mb-2 text-sm font-medium text-yellow-800">
 								Awaiting track labels — label tracks then continue to sweep.
@@ -417,11 +418,11 @@
 									color="primary"
 									size="sm"
 									on:click={handleContinueHINT}
-									disabled={continueStatus === 'Continuing…'}
+									disabled={isContinuing}
 								>
-									{continueStatus === 'Continuing…' ? 'Continuing…' : 'Continue to Sweep'}
+									{isContinuing ? 'Continuing…' : 'Continue to Sweep'}
 								</Button>
-								{#if continueStatus && continueStatus !== 'Continuing…'}
+								{#if continueStatus && !isContinuing}
 									<span
 										class="text-xs {continueStatus.includes('✓')
 											? 'text-green-600'

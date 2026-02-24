@@ -935,11 +935,9 @@ struct LabelPanelView: View {
 
                 // Carried-over label badge
                 if isCarriedOver {
-                    HStack(spacing: 4) {
-                        Text("↻ carried").font(.caption2).foregroundColor(.white)
-                    }
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Color.orange.opacity(0.8)).cornerRadius(4)
+                    Text("↻ carried").font(.caption2).foregroundColor(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.8)).cornerRadius(4)
                 }
 
                 // Classification labels (user_label) — single-select
