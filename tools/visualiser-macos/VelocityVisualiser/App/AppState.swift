@@ -100,6 +100,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Provides immediate feedback in the track list before the server round-trips.
     @Published var userLabels: [String: String] = [:]
 
+    /// Local cache of user-assigned quality flags, keyed by track ID.
+    /// Provides immediate feedback in the track list before the server round-trips.
+    @Published var userQualityFlags: [String: String] = [:]
+
     // MARK: - Frame Data
 
     // Note: currentFrame is NOT @Published to avoid SwiftUI update cycles
@@ -487,6 +491,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         frameCount = 0
         trackHistory = [:]
         userLabels = [:]
+        userQualityFlags = [:]
     }
 
     /// Restart the gRPC frame stream.  Call after loading a new VRLOG on
@@ -789,6 +794,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func assignQuality(_ quality: String) {
         guard let trackID = selectedTrackID, let runID = currentRunID else { return }
         logger.info("Assigning quality '\(quality)' to track \(trackID)")
+        userQualityFlags[trackID] = quality  // Immediate local feedback
 
         Task {
             do {

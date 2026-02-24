@@ -854,6 +854,18 @@ struct TrackListView: View {
 
     // MARK: - Run Track List (API-fetched)
 
+    /// Collect tags for a run-mode track (classification + quality flags).
+    private func runTrackTags(_ track: RunTrack) -> [(String, Color)] {
+        var tags: [(String, Color)] = []
+        let displayLabel = appState.userLabels[track.trackId] ?? track.userLabel
+        if let label = displayLabel, !label.isEmpty { tags.append((label, .orange)) }
+        let quality = appState.userQualityFlags[track.trackId] ?? track.qualityLabel
+        if let quality = quality, !quality.isEmpty {
+            for flag in quality.split(separator: ",") { tags.append((String(flag), .cyan)) }
+        }
+        return tags
+    }
+
     @ViewBuilder private var runTrackListContent: some View {
         if runTracks.isEmpty && !isFetchingRunTracks {
             Text("No tracks in run").font(.caption).foregroundColor(.secondary)
@@ -865,26 +877,26 @@ struct TrackListView: View {
                     frameTrack.map { trackStateColour($0.state) } ?? Color.gray.opacity(0.5)
                 Button(action: { appState.selectTrack(track.trackId) }) {
                     HStack(spacing: 6) {
-                        // Label status indicator
                         Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
                             width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(track.trackId.shortTrackID).font(
-                                .system(.caption, design: .monospaced)
-                            ).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            // Row 1: hex ID + speed
                             HStack(spacing: 4) {
+                                Text(track.trackId.shortTrackID).font(
+                                    .system(.caption, design: .monospaced))
                                 if let speed = track.avgSpeedMps {
                                     Text(String(format: "%.1f m/s", speed)).font(.caption2)
                                 }
-                                let displayLabel =
-                                    appState.userLabels[track.trackId] ?? track.userLabel
-                                if let label = displayLabel, !label.isEmpty {
-                                    Text(label).font(.caption2).foregroundColor(.orange)
-                                }
-                                if let quality = track.qualityLabel, !quality.isEmpty {
-                                    Text(quality).font(.caption2).foregroundColor(.cyan)
-                                }
                             }.foregroundColor(.secondary)
+                            // Row 2: wrapping tag pills
+                            let tags = runTrackTags(track)
+                            if !tags.isEmpty {
+                                FlowLayout(spacing: 3) {
+                                    ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
+                                        TagPill(text: tag.0, colour: tag.1)
+                                    }
+                                }
+                            }
                         }
                         Spacer()
                         if track.trackId == appState.selectedTrackID {
@@ -902,6 +914,14 @@ struct TrackListView: View {
 
     // MARK: - Frame Track List (live mode)
 
+    /// Collect tags for a live-mode track (classification label).
+    private func frameTrackTags(_ track: Track) -> [(String, Color)] {
+        var tags: [(String, Color)] = []
+        let displayLabel = appState.userLabels[track.trackID] ?? track.classLabel
+        if !displayLabel.isEmpty { tags.append((displayLabel, .orange)) }
+        return tags
+    }
+
     @ViewBuilder private var frameTrackListContent: some View {
         if frameTracks.isEmpty {
             Text("No active tracks").font(.caption).foregroundColor(.secondary)
@@ -910,18 +930,22 @@ struct TrackListView: View {
                 Button(action: { appState.selectTrack(track.trackID) }) {
                     HStack(spacing: 6) {
                         Circle().fill(trackStateColour(track.state)).frame(width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(track.trackID.shortTrackID).font(
-                                .system(.caption, design: .monospaced)
-                            ).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            // Row 1: hex ID + speed
                             HStack(spacing: 4) {
+                                Text(track.trackID.shortTrackID).font(
+                                    .system(.caption, design: .monospaced))
                                 Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
-                                let displayLabel =
-                                    appState.userLabels[track.trackID] ?? track.classLabel
-                                if !displayLabel.isEmpty {
-                                    Text(displayLabel).font(.caption2).foregroundColor(.orange)
-                                }
                             }.foregroundColor(.secondary)
+                            // Row 2: wrapping tag pills
+                            let tags = frameTrackTags(track)
+                            if !tags.isEmpty {
+                                FlowLayout(spacing: 3) {
+                                    ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
+                                        TagPill(text: tag.0, colour: tag.1)
+                                    }
+                                }
+                            }
                         }
                         Spacer()
                         if track.trackID == appState.selectedTrackID {
@@ -1592,6 +1616,70 @@ class InteractiveMetalView: MTKView {
 // MARK: - Preview
 
 #Preview { ContentView().environmentObject(AppState()) }
+
+// MARK: - Flow Layout
+
+/// Wrapping flow layout for tag pills, capped at a maximum number of rows.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 3
+    var maxRows: Int = 2
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var row = 1
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && x > 0 {
+                row += 1
+                if row > maxRows { break }
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        return CGSize(width: maxWidth, height: y + rowHeight)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+        var row = 1
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX && x > bounds.minX {
+                row += 1
+                if row > maxRows { break }
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: .unspecified)
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+/// Compact tag pill: 5-character-truncated label with coloured background.
+struct TagPill: View {
+    let text: String
+    let colour: Color
+
+    var body: some View {
+        Text(String(text.prefix(5))).font(.system(size: 9, design: .monospaced)).foregroundColor(
+            .white
+        ).padding(.horizontal, 3).padding(.vertical, 1).background(colour.opacity(0.6))
+            .cornerRadius(3)
+    }
+}
 
 // MARK: - Track ID Helpers
 

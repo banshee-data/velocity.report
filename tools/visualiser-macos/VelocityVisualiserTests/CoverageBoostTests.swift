@@ -369,7 +369,7 @@ struct VisualiserClientDecodeTests {
         track.intensityMeanAvg = 50.0
         track.avgSpeedMps = 7.5
         track.peakSpeedMps = 9.0
-        track.classLabel = "vehicle"
+        track.objectClass = .car
         track.classConfidence = 0.95
         track.trackLengthMetres = 150.0
         track.trackDurationSecs = 20.0
@@ -390,7 +390,7 @@ struct VisualiserClientDecodeTests {
         #expect(decodedTrack?.hits == 100)
         #expect(decodedTrack?.avgSpeedMps == 7.5)
         #expect(decodedTrack?.peakSpeedMps == 9.0)
-        #expect(decodedTrack?.classLabel == "vehicle")
+        #expect(decodedTrack?.classLabel == "car")
         #expect(decodedTrack?.alpha == 0.85)
     }
 
