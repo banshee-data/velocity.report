@@ -98,8 +98,7 @@ extension String {
 
     private func loadRun(_ run: AnalysisRun) async {
         // Reset stale playback state before loading the new VRLOG.
-        // This clears isPaused, replayFinished, progress, timestamps,
-        // and restarts the gRPC stream if the old replay ended it.
+        // This clears isPaused, replayFinished, progress, timestamps.
         appState.prepareForNewReplay()
 
         let success = await runBrowserState.loadRunForReplay(run.runId)
@@ -108,6 +107,11 @@ extension String {
             appState.isLive = false
             // Set currentRunID so labels route to run-track API
             appState.currentRunID = run.runId
+            // Restart the gRPC stream AFTER the VRLOG has loaded on the
+            // server.  Doing this before the HTTP POST would disconnect
+            // the client while the server starts broadcasting, causing
+            // frames_sent=0 (frames lost before the new stream connects).
+            appState.restartGRPCStream()
         }
     }
 }

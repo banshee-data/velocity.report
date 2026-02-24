@@ -244,10 +244,18 @@ enum VisualiserClientError: Error, LocalizedError {
                     }
                     print("[VisualiserClient] Stream ended after \(frameCount) frames")
 
-                    // Notify delegate that stream finished (replay complete)
-                    await MainActor.run { [weak self] in
-                        guard let self = self else { return }
-                        self.delegate?.clientDidFinishStream(self)
+                    // Only notify delegate of a natural finish (replay complete).
+                    // If the task was cancelled (e.g. restartStream()), the stream
+                    // exit is intentional — firing clientDidFinishStream would race
+                    // with prepareForNewReplay() and re-dirty the playback state.
+                    if !Task.isCancelled {
+                        await MainActor.run { [weak self] in
+                            guard let self = self else { return }
+                            self.delegate?.clientDidFinishStream(self)
+                        }
+                    } else {
+                        print(
+                            "[VisualiserClient] Stream cancelled — skipping clientDidFinishStream")
                     }
 
                 case .failure(let error):
