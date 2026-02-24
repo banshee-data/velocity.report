@@ -1,0 +1,202 @@
+# LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
+
+**Status:** Planning-only (no implementation in this branch)
+**Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
+**Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+
+## 1. Problem
+
+The visualiser protobuf schema advertises fields and controls that are not fully
+implemented in the gRPC stream path:
+
+1. `FrameBundle.debug` exists in protobuf but is not serialized from the Go
+   visualiser server.
+2. `StreamRequest.include_debug` and `SetOverlayModes(...)` are accepted but are
+   not applied to streamed payloads.
+3. Several `Track` and `Cluster` fields are populated in the internal model but
+   are dropped during protobuf serialization.
+4. `Track.avg_speed_mps` (field `24`) does not match desired semantics for the
+   visualiser inspector; median and high-percentile summaries are more useful.
+
+This creates UI/runtime mismatch (especially debug overlays) and weakens trust
+in the proto as a contract.
+
+## 2. Goals
+
+1. Make protobuf stream output match the declared `visualiser.proto` contract.
+2. Restore debug overlays end-to-end (adapter -> gRPC -> Swift client -> renderer).
+3. Replace `Track.avg_speed_mps` with median semantics before `v0.5.0`.
+4. Add `p85` and `p98` speed summary fields for visual review.
+5. Add serialization tests that fail on future field drops.
+
+## 3. Non-Goals
+
+1. Redesigning debug overlay geometry/rendering in Metal.
+2. Large UI workflow changes beyond inspector label/value updates.
+3. Backward compatibility guarantees for pre-`v0.5.0` proto consumers.
+
+## 4. Current Gaps (Observed)
+
+### 4.1 Debug overlays
+
+1. `FrameAdapter.adaptDebugFrame(...)` builds `DebugOverlaySet` correctly.
+2. `frameBundleToProto(...)` does not map `frame.Debug` into `pb.FrameBundle.Debug`.
+3. Existing tests explicitly assert the broken behavior (`Debug == nil`).
+
+### 4.2 Overlay mode controls
+
+1. `SetOverlayModes(...)` stores preferences only.
+2. Stored preferences are not used during stream serialization/filtering.
+3. `supports_debug=true` can mislead clients when debug payloads are absent.
+
+### 4.3 Cluster field parity
+
+Declared but currently not serialized (at minimum):
+
+1. `Cluster.height_p95`
+2. `Cluster.intensity_mean`
+3. `Cluster.sample_points`
+
+Notes:
+
+1. `height_p95` and `intensity_mean` already exist in the internal model.
+2. `sample_points` is declared in the proto but is not currently propagated from
+   `l4perception.WorldCluster.SamplePoints` into the visualiser model.
+
+### 4.4 Track field parity
+
+Declared but currently not serialized (at minimum):
+
+1. `Track.covariance_4x4`
+2. `Track.height_p95_max`
+3. `Track.intensity_mean_avg`
+4. `Track.avg_speed_mps` (to be replaced)
+5. `Track.peak_speed_mps`
+6. `Track.class_label`
+7. `Track.class_confidence`
+8. `Track.track_length_metres`
+9. `Track.track_duration_secs`
+10. `Track.occlusion_count`
+11. `Track.occlusion_state`
+
+Notes:
+
+1. Many of these are already populated in `FrameAdapter.adaptTracks(...)`.
+2. Swift client decoding code already expects many of them, so missing values
+   silently fall back to defaults in UI.
+
+## 5. Protocol Change Direction (Pre-`v0.5.0`)
+
+### 5.1 Track speed summary fields
+
+Change `Track` speed summary fields in `visualiser.proto`:
+
+1. Replace field `24` from `avg_speed_mps` to `median_speed_mps`.
+2. Keep `peak_speed_mps` on field `25`.
+3. Add `p85_speed_mps` and `p98_speed_mps` as new fields (use new field numbers,
+   do not renumber unrelated fields).
+
+Rationale:
+
+1. Median is more robust to noisy short-lived speed spikes than mean.
+2. `p85` and `p98` match speed-review workflows already used elsewhere.
+3. Avoiding broad tag churn limits accidental breakage even before `v0.5.0`.
+
+### 5.2 Percentile computation
+
+Current helper computes `p50`, `p85`, `p95`. This plan adds `p98` support.
+
+Preferred approach:
+
+1. Introduce a visualiser-oriented helper that computes `median/p85/p98` from
+   track `speedHistory`.
+2. Keep existing `p95` helper behavior where other subsystems still rely on it.
+3. Document percentile indexing method (floor vs interpolation) in code/tests.
+
+## 6. Implementation Plan
+
+### Phase A: gRPC serializer parity (P0)
+
+1. Update `frameBundleToProto(...)` to serialize `FrameBundle.debug` when
+   `StreamRequest.include_debug=true`.
+2. Serialize all currently-dropped `Cluster` fields that are available in the
+   internal model.
+3. Serialize all currently-dropped `Track` fields that are already populated in
+   the internal model.
+4. Add/expand tests for `FrameBundle.background`, `frame_type`, and
+   `background_seq`.
+
+### Phase B: Overlay mode behavior (P1)
+
+1. Decide whether `SetOverlayModes(...)` should:
+   - filter server payload emission, or
+   - remain client-side only and be documented as advisory.
+2. If server-side filtering is implemented, apply stored preferences in
+   `frameBundleToProto(...)` / stream path for debug subsets.
+3. If not implemented immediately, downgrade `supports_debug` claims or document
+   capability granularity clearly.
+
+### Phase C: Speed summary schema + mapping (P1)
+
+1. Edit `proto/velocity_visualiser/v1/visualiser.proto`:
+   - `avg_speed_mps` -> `median_speed_mps` (field `24`)
+   - add `p85_speed_mps`
+   - add `p98_speed_mps`
+2. Regenerate protobuf code (Go and Swift generated bindings as applicable).
+3. Populate new fields from track `speedHistory`.
+4. Update adapter/model naming to keep semantics aligned.
+
+### Phase D: Swift client/UI parity (P2)
+
+1. Update Swift protobuf mapping for renamed/new track speed fields.
+2. Update inspector labels:
+   - `Average` -> `Median`
+   - add `p85`
+   - add `p98`
+3. Keep UI resilient when new fields are absent (temporary mixed-version runs).
+
+### Phase E: Test hardening (P1)
+
+1. Replace "debug not converted" tests with positive serialization tests.
+2. Add round-trip field assertions for:
+   - debug overlays (`association`, `gating`, `residuals`, `predictions`)
+   - cluster feature fields
+   - track feature/classification/quality fields
+   - track speed summary fields (`median`, `peak`, `p85`, `p98`)
+3. Add a regression test for `include_debug=false` to ensure payload omission is
+   intentional and explicit.
+
+## 7. Acceptance Criteria
+
+1. Enabling debug overlays in stream requests produces non-empty `FrameBundle.debug`
+   when debug data exists upstream.
+2. Swift visualiser receives and renders debug overlays without relying on local
+   test-only stub data.
+3. Track inspector shows `Median`, `Peak`, `p85`, and `p98` from streamed data.
+4. Protobuf serializer tests cover all non-trivial `Track` and `Cluster` fields
+   defined by the current schema.
+5. `visualiser.proto` field semantics for speed summaries match UI labels.
+
+## 8. Risks and Open Questions
+
+1. Mixed-version client/server compatibility during local development:
+   rename of field `24` changes semantics immediately.
+2. Percentile method consistency:
+   `p98` may differ slightly between floor-index and interpolated definitions.
+3. Overlay mode scope:
+   server-side filtering may be unnecessary if renderer-side toggles are already
+   sufficient, but proto/API naming should then be clarified.
+
+## 9. Task Checklist
+
+- [ ] Add debug overlay protobuf serialization in `frameBundleToProto(...)`
+- [ ] Gate debug serialization by `include_debug`
+- [ ] Serialize missing `Cluster` feature fields (`height_p95`, `intensity_mean`, `sample_points`)
+- [ ] Serialize missing `Track` feature/classification/quality fields
+- [ ] Add background/frame-type serializer tests
+- [ ] Update proto field `24` to `median_speed_mps`
+- [ ] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
+- [ ] Regenerate protobuf bindings (Go + Swift)
+- [ ] Compute/populate median/p85/p98 from track speed history
+- [ ] Update Swift visualiser inspector labels and values
+- [ ] Replace negative debug tests with positive end-to-end serialization tests

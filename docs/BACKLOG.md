@@ -4,6 +4,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5 (Platform Hardening)
 
+- Visualiser proto contract parity + debug overlays — implement `FrameBundle.debug` streaming, serialize missing track/cluster fields, and replace track speed summary `avg` with `median/p85/p98` before `v0.5.0` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
