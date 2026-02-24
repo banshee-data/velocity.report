@@ -4,7 +4,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5 (Platform Hardening)
 
-- Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md) `S`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - SWEEP/HINT platform hardening (Phase 5–6) — transform pipeline, objective registry, explainability — [design doc](plans/lidar-sweep-hint-mode-plan.md) `M`
@@ -112,3 +111,4 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#287] LiDAR logging stream split — ops/debug/trace streams with routing rubric — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
 - [#291] PR template design checklist — add DESIGN.md §9 UI/chart checklist to .github/PULL_REQUEST_TEMPLATE.md — [design doc §8.2](ui/design-review-and-improvement.md)
 - [#319] Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](lidar/operations/settling-time-optimization.md)
+- [#320] Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md)
