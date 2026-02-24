@@ -20,7 +20,15 @@ export interface Track {
 	/** Current heading (radians, world frame) */
 	heading_rad: number;
 	/** Classified object type (optional) */
-	object_class?: 'pedestrian' | 'car' | 'bird' | 'other';
+	object_class?:
+		| 'pedestrian'
+		| 'car'
+		| 'truck'
+		| 'bus'
+		| 'cyclist'
+		| 'motorcyclist'
+		| 'bird'
+		| 'dynamic';
 	/** Confidence in object classification (0-1, optional) */
 	object_confidence?: number;
 	/** Number of observations for this track */
@@ -177,8 +185,12 @@ export interface TrackStateSummary {
 export const TRACK_COLORS = {
 	pedestrian: '#4CAF50', // Green
 	car: '#2196F3', // Blue
+	truck: '#FF5722', // Deep Orange
+	bus: '#7B1FA2', // Purple
+	cyclist: '#00BCD4', // Cyan
+	motorcyclist: '#E91E63', // Pink
 	bird: '#FFC107', // Amber
-	other: '#9E9E9E', // Grey
+	dynamic: '#9E9E9E', // Grey
 	tentative: '#FF9800', // Orange (unconfirmed)
 	deleted: '#F44336' // Red (just deleted)
 } as const;
@@ -196,7 +208,7 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
 	const base =
 		objectClass && objectClass in TRACK_COLORS
 			? TRACK_COLORS[objectClass as keyof typeof TRACK_COLORS]
-			: TRACK_COLORS.other;
+			: TRACK_COLORS.dynamic;
 
 	// Simple string hash → deterministic hue offset
 	let hash = 0;
@@ -241,7 +253,16 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
 }
 
 /** Classification labels for track identity (single-select: what is the object?) */
-export type DetectionLabel = 'car' | 'ped' | 'noise' | 'impossible';
+export type DetectionLabel =
+	| 'car'
+	| 'truck'
+	| 'bus'
+	| 'pedestrian'
+	| 'cyclist'
+	| 'motorcyclist'
+	| 'bird'
+	| 'dynamic'
+	| 'noise';
 
 /** Quality flags for track attributes (multi-select: properties of the track) */
 export type QualityLabel =

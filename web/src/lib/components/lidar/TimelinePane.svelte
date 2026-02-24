@@ -152,7 +152,7 @@
 		if (track.object_class && track.object_class in TRACK_COLORS) {
 			return TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS];
 		}
-		return TRACK_COLORS.other;
+		return TRACK_COLORS.dynamic;
 	}
 </script>
 
