@@ -102,20 +102,20 @@ precompiled LaTeX plan (D-08), the total footprint drops from ~1.25 GB to
             │
             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Python: pdf_generator                                       │
-│  ├── api_client.py  → GET /api/radar_stats (HTTP to self)    │
-│  ├── chart_builder.py  → matplotlib figures (PDF)            │
-│  ├── chart_saver.py  → save to disk                          │
-│  ├── document_builder.py  → PyLaTeX Document                 │
-│  ├── pdf_generator.py  → assemble sections, embed charts     │
-│  ├── table_builders.py  → LaTeX tables                       │
-│  ├── report_sections.py  → section content                   │
-│  └── map_utils.py  → SVG marker injection + SVG→PDF          │
+│  Python: pdf_generator                                      │
+│  ├── api_client.py  → GET /api/radar_stats (HTTP to self)   │
+│  ├── chart_builder.py  → matplotlib figures (PDF)           │
+│  ├── chart_saver.py  → save to disk                         │
+│  ├── document_builder.py  → PyLaTeX Document                │
+│  ├── pdf_generator.py  → assemble sections, embed charts    │
+│  ├── table_builders.py  → LaTeX tables                      │
+│  ├── report_sections.py  → section content                  │
+│  └── map_utils.py  → SVG marker injection + SVG→PDF         │
 └───────────┬─────────────────────────────────────────────────┘
             │  PyLaTeX writes .tex, shells out to xelatex
             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  xelatex  → compiles .tex → .pdf                             │
+│  xelatex  → compiles .tex → .pdf                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -150,32 +150,32 @@ This round-trip is eliminated in the new design.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Web UI  →  POST /api/generate_report                       │
-│  (or CLI: velocity-report pdf --config report.json)          │
+│  (or CLI: velocity-report pdf --config report.json)         │
 └───────────┬─────────────────────────────────────────────────┘
             │
             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Go: internal/report/                                        │
-│  ├── report.go          ← orchestrator (Generate entry pt)   │
-│  ├── config.go          ← report configuration structs       │
-│  ├── chart/                                                  │
+│  Go: internal/report/                                       │
+│  ├── report.go          ← orchestrator (Generate entry pt)  │
+│  ├── config.go          ← report configuration structs      │
+│  ├── chart/                                                 │
 │  │   ├── timeseries.go  ← dual-axis percentile + count SVG  │
 │  │   ├── histogram.go   ← velocity distribution SVG         │
 │  │   ├── palette.go     ← colour constants (from DESIGN.md) │
 │  │   └── svg.go         ← SVG rendering helpers             │
-│  ├── tex/                                                    │
+│  ├── tex/                                                   │
 │  │   ├── render.go      ← template executor                 │
 │  │   ├── preamble.tex   ← LaTeX preamble template           │
 │  │   ├── report.tex     ← main document template            │
-│  │   ├── sections/      ← per-section .tex templates         │
+│  │   ├── sections/      ← per-section .tex templates        │
 │  │   └── helpers.go     ← LaTeX escaping, table formatting  │
 │  └── archive.go         ← .zip packaging                    │
 └───────────┬─────────────────────────────────────────────────┘
             │  Go writes .tex + .svg to temp dir
             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  xelatex  → compiles .tex → .pdf                             │
-│  (SVGs included via \includegraphics after svg→pdf convert)  │
+│  xelatex  → compiles .tex → .pdf                            │
+│  (SVGs included via \includegraphics after svg→pdf convert) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
