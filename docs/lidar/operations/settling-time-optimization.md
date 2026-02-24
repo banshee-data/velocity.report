@@ -1,13 +1,13 @@
 # LiDAR Background Settling Time Optimisation
 
-**Status**: Phase 2 Complete (February 2026)
+**Status**: Phase 3 Complete (February 2026)
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period.
 
 **Implementation Summary**:
 
 - ✅ Phase 1: Background Grid Restoration - Not implemented (regions-only approach used instead)
 - ✅ Phase 2: Region Persistence - **COMPLETE** (see implementation details below)
-- 🔲 Phase 3: Settling Evaluation Tool - Not started
+- ✅ Phase 3: Settling Evaluation Tool - **COMPLETE** (see implementation details below)
 - 🔲 Phase 4: Adaptive Settling Mode - Not started
 
 **Current Capability**: Region data is persisted with scene hash and automatically restored when processing PCAPs from the same location, skipping the ~30 second settling period entirely.
@@ -301,12 +301,40 @@ Implement both options in phases:
 
 **Outcome**: Full state restoration including region-specific parameters. Settling period can be skipped entirely when scene hash matches a previous run.
 
-### Phase 3: Settling Evaluation Tool (Option B)
+### Phase 3: Settling Evaluation Tool (Option B) ✅ COMPLETE
 
-1. Create `settling-eval` CLI tool
-2. Implement convergence metrics computation
-3. Generate recommendations for `WarmupMinFrames` tuning
-4. Document recommended settings per scene type
+**Status**: Implemented February 2026
+
+**Implementation**:
+
+1. ✅ Create `settling-eval` CLI tool
+   - Location: `cmd/tools/settling-eval/main.go`
+   - Connects to running server via `/api/lidar/settling_eval` endpoint
+   - Polls convergence metrics at configurable interval
+   - Outputs JSON evaluation with recommended `WarmupMinFrames`
+   - Usage: `settling-eval --server http://localhost:8080 --sensor hesai-01 [--output report.json]`
+
+2. ✅ Implement convergence metrics computation
+   - `SettlingMetrics` struct: `CoverageRate`, `SpreadDeltaRate`, `RegionStability`, `MeanConfidence`
+   - `SettlingThresholds` struct with `DefaultSettlingThresholds()`
+   - `EvaluateSettling(frameNumber)` method on `BackgroundManager`
+   - `IsConverged(thresholds)` method on `SettlingMetrics`
+   - Location: `internal/lidar/l3grid/settling_eval.go`
+
+3. ✅ Generate recommendations for `WarmupMinFrames` tuning
+   - CLI outputs recommended frame count and duration
+   - Includes 20% safety margin in recommendation
+   - Provides rationale explaining convergence status
+
+4. ✅ Document recommended settings per scene type
+   - Default thresholds: coverage ≥ 80%, spread delta ≤ 0.001, region stability ≥ 95%, confidence ≥ 10
+   - Thresholds suitable for typical outdoor LiDAR scenes
+
+**API Endpoint**: `GET /api/lidar/settling_eval?sensor_id=<id>`
+
+Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
+
+**Makefile**: `make build-settling-eval`
 
 **Outcome**: Data-driven guidance for tuning settling parameters.
 
@@ -394,7 +422,7 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 ## Related Documentation
 
 - [Adaptive Region Parameters](../operations/adaptive-region-parameters.md)
-- [PCAP Split Tool](../../plans/lidar-pcap-split-tool-plan.md) (future: auto-segment for settling)
+- [PCAP Split Tool](pcap-split-tool.md) (future: auto-segment for settling)
 - [LiDAR Background Grid Standards](../architecture/lidar-background-grid-standards.md)
 
 ## References

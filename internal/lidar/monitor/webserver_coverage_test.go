@@ -3036,6 +3036,51 @@ func TestCov3_HandleGridStatus_GET(t *testing.T) {
 	}
 }
 
+// --- handleSettlingEval ---
+
+func TestCov3_HandleSettlingEval_MissingSensorID(t *testing.T) {
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/settling_eval", nil)
+	w := httptest.NewRecorder()
+	ws.handleSettlingEval(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCov3_HandleSettlingEval_NoManager(t *testing.T) {
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/settling_eval?sensor_id=nonexistent-cov3", nil)
+	w := httptest.NewRecorder()
+	ws.handleSettlingEval(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func TestCov3_HandleSettlingEval_GET(t *testing.T) {
+	sensorID := "cov3-settling-eval"
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
+
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/settling_eval?sensor_id="+sensorID, nil)
+	w := httptest.NewRecorder()
+	ws.handleSettlingEval(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("JSON decode: %v", err)
+	}
+	for _, key := range []string{"sensor_id", "metrics", "thresholds", "converged", "settling_complete"} {
+		if _, ok := resp[key]; !ok {
+			t.Errorf("response missing key %q", key)
+		}
+	}
+}
+
 // --- startPCAPLocked (error paths) ---
 
 func TestCov3_StartPCAPLocked_EmptyFile(t *testing.T) {

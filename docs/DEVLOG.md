@@ -1,5 +1,62 @@
 # Development Log
 
+## February 23, 2026 - Settling Evaluation, Backlog Alignment & Vector Scene Map
+
+- Implemented `settling-eval` CLI tool (`cmd/settling-eval`) for evaluating background grid convergence from PCAP files.
+- Added `SettlingReport` structure and JSON reporting methods to `l3grid` package.
+- Refactored settling-eval to use `l3grid.SettlingReport`, streamlining report generation.
+- Added unit tests for `IsSettlingComplete`, `EvaluateSettling` zero-cells edge case, and settling eval coverage.
+- Fixed race conditions in settling eval tests and VRLog seek tests (use atomic return values instead of `reader.CurrentFrame()`).
+- Created DECISIONS.md executive decisions register; resolved 16 design decisions with rationale.
+- Deprecated ROADMAP.md in favour of BACKLOG.md as single source of truth for project-wide work items.
+- Moved `DESIGN.md` to `docs/ui/DESIGN.md` and updated all cross-references.
+- Reorganised BACKLOG.md milestones: added v0.5.1 for serial port configuration UI, adjusted v0.7/v0.8 item placements.
+- Added 6 missing GitHub issues to BACKLOG.md (#4, #7, #8, #103, #122, #148); fixed #290→#11 reference.
+- Updated vector scene map architecture: integrated OSM Simple 3D Buildings as structure priors, enhanced geometry prior service design.
+
+## February 22, 2026 - PCAP Performance, OBB Heading & Region-Adaptive Parameters
+
+- PCAP performance hardening (PR #313, 68 files): fixed `finalizeFrame` deadlock, added `foreground_max_input_points` tuning for DBSCAN decimation.
+- Used local random generator in `uniformSubsample` to avoid lock contention during concurrent DBSCAN calls.
+- Prevented miss counter advancement during frame throttle in tracking pipeline.
+- Updated `MaxFrameRate` to 25 in radar and tracking pipeline to prevent frame drops.
+- Added size-based chunk rotation to `.vrlog` recorder; prevented overflow in frame offset/length checks in replayer.
+- Refactored logging: removed debug flags, implemented structured log-level flag (`--log-level`), replaced trace logs with diagnostic logs.
+- Added backoff logging to PCAP real-time processing for diagnostics.
+- Added unit tests for DBSCAN subsampling, dropped frame handling, `ForegroundMaxInputPoints` config, and recorder/replayer error paths.
+- OBB heading stability (PR #310): added 90° jump rejection guard with heading source tracking; removed canonical-axis normalisation.
+- Standardised bbox dimensions: removed `_avg` duplication; both Swift and web visualisers use per-frame cluster dims.
+- Updated protobuf schema: renamed `bbox_length_avg` → `bbox_length`, moved `heading_source` to field 35.
+- Added geometry-coherent tracking maths proposal with cross-references to existing proposals.
+- Implemented region-adaptive parameters (PR #307): per-region `ClosenessMultiplier` and `NeighborConfirmationCount` in `ProcessFramePolarWithMask`.
+- Added `UpdateConfig` method to `Tracker` for runtime config updates via WebServer.
+- Created VISION.md with project-wide vision statement and technical design language.
+- Bumped version to 0.5.0-pre12.
+
+## February 21, 2026 - Documentation Reorganisation & Maths Specifications
+
+- Reorganised `docs/plans/` directory (PR #308, 35 files): consolidated and restructured plan documents.
+- Comprehensive LiDAR documentation overhaul (PR #295, 90 files): created velocity-coherent foreground extraction maths spec, added status fields to docs, created getting started guide and config parameter tuning guide.
+- Moved maths proposals to `docs/maths/proposals/` with consistent naming convention.
+- Added documentation standardisation plan with metadata and validation gates.
+- Updated ROADMAP.md (PR #312): aligned roadmap entries with BACKLOG.md priorities.
+- Added macOS process profiling script (`macos_profile_lidar.sh`) and corresponding Makefile targets.
+
+## February 20, 2026 - Design Plans, Test Coverage & CI Improvements
+
+- Created platform simplification and deprecation plan (PR #300): deprecation signalling, deploy retirement gate, migration task list.
+- Created quality coverage improvement plan (PR #294): target 95.5% across all components, exclude `cmd/`, add logic extraction strategy and macOS Swift app.
+- Created LiDAR multi-model ingestion and configuration architecture proposal (PR #303): sensor auto-detection, DB-driven config.
+- Created LiDAR network configuration design document (PR #302): interface selection, network diagnostics, hot-reload UDP listener binding.
+- Created visualiser algorithm diffing design document (PR #299): visual comparison of algorithmic outputs.
+- CI performance improvements (PR #292): streamlined macOS CI, added nightly full CI, removed deprecated performance regression test.
+- Refactored test setup: replaced direct file handling with template DB cloning; simplified schema consistency checks.
+- Expanded Go test coverage (PR #289): added unit tests for debug logging, tracking pipeline, SQLite analysis run comparison, PCAP handling, SSE streaming, recorder error handling, track observations, labelling progress.
+- Added OBB serialisation to `frameBundleToProto` with tests.
+- Added lifecycle parameter sweep scripts and kirk0 configuration permutations for tuning.
+- Fixed out-of-bounds errors and tuned tracking parameters (PR #293).
+- Updated LiDAR data layer model documentation with visualisation details.
+
 ## February 19, 2026 - LiDAR Layer Alignment & Architecture Review
 
 - Implemented LiDAR 6-layer alignment refactor: split `l3grid/background.go` into persistence, export, and drift files.

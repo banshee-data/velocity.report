@@ -23,7 +23,7 @@ Resolved design decisions across velocity.report. All 16 decisions are closed; t
 | D-13 | Widescreen content containment        | Defer to v0.7 frontend consolidation                              | v0.7      | [DESIGN §5.7](ui/DESIGN.md), [design review](ui/design-review-and-improvement.md)                                             |
 | D-14 | Simplification & deprecation scope    | Plan confirmed; Phase 1 in v0.6, removal in v0.7                  | v0.6      | [simplification plan](plans/platform-simplification-and-deprecation-plan.md)                                                  |
 | D-15 | Time-partitioned data tables          | Implement for v1.0                                                | v1.0      | [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)                                            |
-| D-16 | Speed limit schedules                 | Add to BACKLOG P2; scored 14 → v0.7 placement                     | v0.7      | [speed-limit-schedules.md](radar/architecture/speed-limit-schedules.md)                                                       |
+| D-16 | Speed limit schedules                 | Add to BACKLOG P2; scored 14 → v0.8 placement (radar theme)       | v0.8      | [speed-limit-schedules.md](radar/architecture/speed-limit-schedules.md)                                                       |
 
 ---
 
@@ -48,6 +48,7 @@ The decision matrix provides a repeatable framework for prioritising features an
 | v0.5      | ≥ 18                   | Highest-impact stabilisation work already in progress          |
 | v0.6      | ≥ 16                   | Deployment blockers that gate user adoption                    |
 | v0.7      | ≥ 14                   | Frontend and data-layer polish for v1.0 readiness              |
+| v0.8      | ≥ 13                   | Radar polish, CI automation, and post-frontend follow-through  |
 | v1.0      | ≥ 12                   | Everything needed for "production-ready" contract              |
 | v2.0      | ≥ 8                    | Advanced features, connected capabilities, research graduation |
 | Deferred  | < 8                    | Speculative, targets different users, or prerequisite missing  |
@@ -71,7 +72,11 @@ The decision matrix provides a repeatable framework for prioritising features an
 | Online geometry-prior service | 2 (6)           | 1 (2)        | 2 (4)            | 1 (1)       | 1 (1)         | **14** | v2.0      |
 | AV dataset integration        | 0 (0)           | 2 (4)        | 0 (0)            | 0 (0)       | 1 (1)         | **5**  | Deferred  |
 | Motion capture architecture   | 0 (0)           | 2 (4)        | 0 (0)            | 0 (0)       | 1 (1)         | **5**  | Deferred  |
-| Speed limit schedules         | 2 (6)           | 2 (4)        | 1 (2)            | 1 (1)       | 1 (1)         | **14** | v0.7      |
+| Speed limit schedules         | 2 (6)           | 2 (4)        | 1 (2)            | 1 (1)       | 1 (1)         | **14** | v0.8      |
+| GitHub Releases CI            | 2 (6)           | 2 (4)        | 2 (4)            | 2 (2)       | 3 (3)         | **19** | v0.8      |
+| Cosine error correction       | 2 (6)           | 2 (4)        | 1 (2)            | 2 (2)       | 2 (2)         | **16** | v0.8      |
+| Profile comparison system     | 1 (3)           | 2 (4)        | 2 (4)            | 2 (2)       | 2 (2)         | **15** | v0.8      |
+| Metrics/stats consolidation   | 1 (3)           | 2 (4)        | 1 (2)            | 2 (2)       | 3 (3)         | **14** | v0.7      |
 
 ### Key Placement Rationale
 
@@ -79,66 +84,15 @@ The decision matrix provides a repeatable framework for prioritising features an
 
 **Why frontend consolidation is v0.7, not v0.6:** Phase 3 (ECharts → LayerChart rewrite for 8 charts) requires ~2–3 weeks alone. Shipping the deployment story (v0.6) first ensures early adopters can install the system; the unified frontend is polish for v1.0 readiness.
 
-**Why speed limit schedules is v0.7 (D-16):** Scores 14 on the decision matrix. School zone monitoring directly serves neighbourhood advocates, fitting the v0.7 "Radar Polish" theme. The existing `site_config_periods` SCD Type 6 pattern provides the schema foundation; schedules extend it with time-of-day/day-of-week rules.
+**Why speed limit schedules is v0.8 (D-16):** Scores 14 on the decision matrix. School zone monitoring directly serves neighbourhood advocates, but it is radar-specific work orthogonal to the v0.7 frontend consolidation theme. Placing it in v0.8 keeps v0.7 focused on the Svelte migration and avoids context-switching between frontend and radar subsystems. The existing `site_config_periods` SCD Type 6 pattern provides the schema foundation; schedules extend it with time-of-day/day-of-week rules.
+
+**Why v0.8 exists (Radar Polish & Automation):** v0.7 initially carried 16 items — too many for a single milestone. After triage, metrics/stats consolidation follow-through and macOS palette constants stayed in v0.7 (both are natural consequences of the frontend migration landing there). v0.8 collects the remaining items that either (a) don't fit the frontend theme (speed limit schedules, cosine error correction), (b) depend on v0.7 completing first (GitHub Releases CI after frontend stabilisation), or (c) are conditional on other work landing (LayerChart policy, profile comparison). The split keeps v0.7 at 12 focused items while v0.8 (5 items) provides a natural bridge to v1.0 production readiness. Items scoring above the v0.7 threshold (≥ 14) may still appear in v0.8 when they don't fit the milestone theme or depend on v0.7 deliverables — the matrix scores placement eligibility, not obligation.
 
 **Why geometry-prior local file is v1.0, not earlier:** The vector-scene map schema must be stable before the online service (v2.0) can adopt it. Shipping the local file format in v1.0 locks the data contract. The maths are well-defined ([ground-plane-vector-scene proposal](maths/proposals/20260221-ground-plane-vector-scene-maths.md)) but runtime integration depends on unified settling (also v1.0).
 
 **Why QC programme is v2.0, not v1.0:** The QC programme spans 10 features with cross-dependencies (M1–M5 milestones internally). It targets the LiDAR labelling workflow, which is experimental in v1.0. Shipping v1.0 without QC keeps the release scope achievable.
 
 **Why ML classifier is v2.0:** Requires labelled training data generated by the QC programme. Also dependent on Phase 4.1 of the LiDAR ML pipeline, which is sequenced after track labelling (Phase 4.0) and parameter tuning (Phase 4.2) in the LiDAR roadmap.
-
-### Dependency Graph
-
-```
-v0.5 (Platform Hardening)
-  │
-  ├── SWEEP/HINT hardening ──────────────────────────────┐
-  ├── Settling optimisation Phase 3 ──────────────────────┤
-  ├── Python venv consolidation                           │
-  └── Documentation standardisation                       │
-                                                          │
-v0.6 (Deployment & Packaging)                             │
-  │                                                       │
-  ├── Precompiled LaTeX ─────────────────► RPi imager ◄───┘
-  ├── Single binary + subcommands ─────► GitHub Releases
-  ├── One-line install script
-  ├── Platform simplification Phase 1
-  └── Geometry-coherent tracking (P1, D-04)
-        │
-v0.7 (Unified Frontend)
-  │
-  ├── Frontend consolidation (Phases 0–5)
-  │     ├── ECharts → LayerChart rewrite (D-11)
-  │     └── Retire port 8081
-  ├── Track labelling Phase 9 UI (D-07)
-  ├── SQLite client standardisation
-  ├── Transit deduplication (D-03)
-  ├── Profile comparison system
-  ├── Speed limit schedules (D-16)
-  └── Accessibility + widescreen polish (D-13)
-        │
-v1.0 (Production-Ready)
-  │
-  ├── Coverage ≥ 95.5%
-  ├── Platform simplification complete
-  ├── LiDAR foundations fix-it
-  ├── Velocity-coherent extraction (P2, D-05) ───────────┐
-  ├── Unified settling (L3/L4, P4, D-05) ◄──────────────┘
-  ├── Geometry-prior local file (GeoJSON) ◄── unified settling
-  ├── Data export (CSV, GeoJSON)
-  ├── Time-partitioned raw data tables
-  └── Stable public API (versioned)
-        │
-v2.0 (Advanced Perception & Connected)
-  │
-  ├── Visualiser QC programme ────► ML classifier pipeline
-  ├── Ground-plane vector-scene maths (P3, D-05)
-  ├── Dynamic algorithm selection
-  ├── Online geometry-prior service ◄── local file schema (v1.0)
-  ├── Multi-location aggregate dashboard
-  ├── Speed threshold alerts
-  └── Peak-hour / seasonal trend analysis
-```
 
 ### Principles
 
@@ -153,3 +107,4 @@ v2.0 (Advanced Perception & Connected)
 5. **Defer what targets different users.** AV dataset integration, motion capture, and range-image formats serve autonomous-vehicle researchers, not neighbourhood change-makers. These remain deferred until the core product is mature.
 
 6. **Score, don't guess.** The decision matrix provides a repeatable framework. When a new feature request arrives, score it against the five criteria and place it in the milestone whose threshold it meets.
+7. **Scope milestones for focus.** Each milestone should have a clear theme and a manageable number of items (~10–12 max). When a milestone grows beyond that, split by theme or sequencing into the next milestone slot. Thematic coherence reduces context-switching and improves delivery predictability.

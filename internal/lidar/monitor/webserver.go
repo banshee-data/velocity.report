@@ -607,6 +607,7 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	// Background grid and region routes
 	gridRoutes := []route{
 		{"GET /api/lidar/grid_status", ws.handleGridStatus},
+		{"GET /api/lidar/settling_eval", ws.handleSettlingEval},
 		{"POST /api/lidar/grid_reset", ws.handleGridReset},
 		{"GET /api/lidar/grid_heatmap", ws.handleGridHeatmap},
 		{"/api/lidar/background/grid", ws.handleBackgroundGrid},
@@ -1137,6 +1138,44 @@ func (ws *WebServer) handleGridStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := status
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleSettlingEval returns convergence metrics for the background grid's
+// settling process. This powers the settling-eval CLI tool and provides
+// data-driven guidance for WarmupMinFrames tuning.
+// Query params: sensor_id (required)
+func (ws *WebServer) handleSettlingEval(w http.ResponseWriter, r *http.Request) {
+	sensorID := r.URL.Query().Get("sensor_id")
+	if sensorID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
+		return
+	}
+	mgr := l3grid.GetBackgroundManager(sensorID)
+	if mgr == nil {
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background manager for sensor '%s'", sensorID))
+		return
+	}
+	// Use the grid's current frame count as frame number.
+	status := mgr.GridStatus()
+	frameNumber := 0
+	if status != nil {
+		if bg, ok := status["background_count"].(int64); ok {
+			frameNumber = int(bg)
+		}
+	}
+	metrics := mgr.EvaluateSettling(frameNumber)
+	thresholds := l3grid.DefaultSettlingThresholds()
+	converged := metrics.IsConverged(thresholds)
+
+	resp := map[string]interface{}{
+		"sensor_id":         sensorID,
+		"metrics":           metrics,
+		"thresholds":        thresholds,
+		"converged":         converged,
+		"settling_complete": mgr.IsSettlingComplete(),
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }

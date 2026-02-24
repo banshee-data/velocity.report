@@ -276,23 +276,26 @@ func TestPublisher_VRLogReplay_Seek(t *testing.T) {
 	}
 	defer pub.StopVRLogReplay()
 
-	// Seek by frame index
-	if _, err := pub.SeekVRLog(5); err != nil {
+	// Seek by frame index — use the return value captured under lock to avoid
+	// a race with the concurrent replay loop advancing the frame pointer.
+	currentFrame, err := pub.SeekVRLog(5)
+	if err != nil {
 		t.Errorf("SeekVRLog failed: %v", err)
 	}
 
-	if reader.CurrentFrame() != 5 {
-		t.Errorf("expected frame 5, got %d", reader.CurrentFrame())
+	if currentFrame != 5 {
+		t.Errorf("expected frame 5, got %d", currentFrame)
 	}
 
-	// Seek by timestamp
+	// Seek by timestamp — same: use atomic return value, not reader.CurrentFrame().
 	targetTime := baseTime + int64(3)*int64(time.Second)
-	if _, err := pub.SeekVRLogTimestamp(targetTime); err != nil {
+	currentFrame, err = pub.SeekVRLogTimestamp(targetTime)
+	if err != nil {
 		t.Errorf("SeekVRLogTimestamp failed: %v", err)
 	}
 
-	if reader.CurrentFrame() != 3 {
-		t.Errorf("expected frame 3, got %d", reader.CurrentFrame())
+	if currentFrame != 3 {
+		t.Errorf("expected frame 3, got %d", currentFrame)
 	}
 }
 

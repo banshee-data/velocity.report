@@ -231,6 +231,13 @@ type BackgroundGrid struct {
 	// regionRestoreAttempted is set to true after the first attempt to restore
 	// regions from the database during settling, to avoid repeated DB lookups.
 	regionRestoreAttempted bool
+
+	// prevSpreads stores per-cell RangeSpreadMeters from the previous
+	// EvaluateSettling call for computing SpreadDeltaRate.
+	prevSpreads []float32
+	// prevRegionIDs stores per-cell region assignments from the previous
+	// EvaluateSettling call for computing RegionStability.
+	prevRegionIDs []int
 }
 
 // Helper to index Cells: idx = ring*AzimuthBins + azBin
@@ -1072,6 +1079,19 @@ func (bm *BackgroundManager) GridStatus() map[string]interface{} {
 		"foreground_count": g.ForegroundCount,
 		"background_count": g.BackgroundCount,
 	}
+}
+
+// IsSettlingComplete returns whether the background grid has completed settling.
+// It acquires a read lock internally so it is safe to call concurrently with
+// ProcessFramePolar.
+func (bm *BackgroundManager) IsSettlingComplete() bool {
+	if bm == nil || bm.Grid == nil {
+		return false
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.SettlingComplete
 }
 
 // ResetGrid zeros per-cell stats (AverageRangeMeters, RangeSpreadMeters, TimesSeenCount,

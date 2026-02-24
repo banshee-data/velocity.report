@@ -16,6 +16,7 @@ help:
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
+	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
 	@echo "  build-deploy         Build velocity-deploy deployment manager"
 	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
@@ -187,6 +188,16 @@ build-radar-local:
 
 build-tools:
 	go build -o app-sweep ./cmd/sweep
+
+# Run settling-eval convergence evaluation against a PCAP file.
+# Defaults to the kirk0 perf baseline capture (port 2369). Override any variable as needed.
+# Usage: make run-settling-eval [PCAP=capture.pcap] [PORT=2368] [TUNING=config/tuning.defaults.json] [OUTPUT=report.json]
+SETTLING_EVAL_PCAP ?= internal/lidar/perf/pcap/kirk0.pcapng
+SETTLING_EVAL_PORT ?= 2369
+run-settling-eval: PCAP ?= $(SETTLING_EVAL_PCAP)
+run-settling-eval: PORT ?= $(SETTLING_EVAL_PORT)
+run-settling-eval:
+	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--tuning $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
 
 # Build velocity-deploy deployment manager
 build-deploy:

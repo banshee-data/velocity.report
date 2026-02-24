@@ -33,6 +33,7 @@ logs/
 # Go Binaries & Build Artifacts
 # =============================================================================
 app-*
+/settling-eval
 velocity-report-*
 velocity-deploy*
 mock_serial_port*
