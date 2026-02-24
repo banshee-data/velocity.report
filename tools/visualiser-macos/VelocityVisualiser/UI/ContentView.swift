@@ -714,14 +714,23 @@ struct TrackHistoryGraphView: View {
 
     private var samples: [AppState.TrackSample] { appState.trackHistory[trackID] ?? [] }
 
+    /// Current peak speed from the live frame track data.
+    private var livePeakSpeed: CGFloat? {
+        guard
+            let track = appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID }
+            )
+        else { return nil }
+        return CGFloat(track.peakSpeedMps)
+    }
+
     var body: some View {
         if samples.count >= 2 {
             GroupBox(label: Text("History").font(.caption2)) {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Velocity sparkline
+                    // Velocity sparkline with peak speed dashed line
                     SparklineView(
                         values: samples.map { CGFloat($0.speedMps) }, colour: .cyan,
-                        label: "Velocity (m/s)")
+                        label: "Velocity (m/s)", peakValue: livePeakSpeed)
 
                     // Heading sparkline
                     SparklineView(
@@ -738,6 +747,8 @@ struct SparklineView: View {
     let values: [CGFloat]
     let colour: Color
     let label: String
+    /// Optional peak value shown as a dashed red horizontal line with right-axis label.
+    var peakValue: CGFloat? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -749,8 +760,23 @@ struct SparklineView: View {
                         .foregroundColor(colour)
                 }
             }
-            GeometryReader { geo in sparklinePath(in: geo.size).stroke(colour, lineWidth: 1.5) }
-                .frame(height: 40)
+            HStack(spacing: 0) {
+                GeometryReader { geo in
+                    // Main sparkline
+                    sparklinePath(in: geo.size).stroke(colour, lineWidth: 1.5)
+                    // Peak speed dashed line
+                    if let peak = peakValue {
+                        peakLinePath(peak: peak, in: geo.size).stroke(
+                            Color.red, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    }
+                }.frame(height: 40)
+                // Right axis label for peak
+                if let peak = peakValue {
+                    Text(String(format: "%.1f", peak)).font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(.red).frame(width: 28, alignment: .trailing).padding(
+                            .leading, 2)
+                }
+            }
         }
     }
 
@@ -760,7 +786,7 @@ struct SparklineView: View {
         guard values.count >= 2 else { return Path() }
 
         let minVal = values.min() ?? 0
-        let maxVal = values.max() ?? 1
+        let maxVal = max(values.max() ?? 1, peakValue ?? 0)
         let range = maxVal - minVal
         let effectiveRange = range < 0.001 ? 1.0 : range
 
@@ -774,6 +800,22 @@ struct SparklineView: View {
                     path.addLine(to: CGPoint(x: x, y: y))
                 }
             }
+        }
+    }
+
+    /// Compute a horizontal line at the given peak value.
+    func peakLinePath(peak: CGFloat, in size: CGSize) -> Path {
+        guard values.count >= 2 else { return Path() }
+
+        let minVal = values.min() ?? 0
+        let maxVal = max(values.max() ?? 1, peak)
+        let range = maxVal - minVal
+        let effectiveRange = range < 0.001 ? 1.0 : range
+        let y = size.height - (size.height * (peak - minVal) / effectiveRange)
+
+        return Path { path in
+            path.move(to: CGPoint(x: 0, y: y))
+            path.addLine(to: CGPoint(x: size.width, y: y))
         }
     }
 }
@@ -907,7 +949,8 @@ struct TrackListView: View {
                                 width: 6, height: 6)
                             Text(track.trackId.shortTrackID).font(
                                 .system(.caption, design: .monospaced))
-                            if let speed = track.peakSpeedMps {
+                            let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
+                            if let speed = liveSpeed ?? track.peakSpeedMps {
                                 Text(String(format: "%.1f m/s", speed)).font(.caption2)
                             }
                             Spacer()
