@@ -10,12 +10,18 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
+
+// replayClassifier re-classifies tracks during VRLOG replay when the
+// recorded FrameBundle has empty ObjectClass (recordings made before
+// classification was added to the pipeline).
+var replayClassifier = l6objects.NewTrackClassifierWithMinObservations(3)
 
 // Ensure Server implements the gRPC interface.
 var _ pb.VisualiserServiceServer = (*Server)(nil)
@@ -44,6 +50,32 @@ func objectClassFromString(s string) pb.ObjectClass {
 	default:
 		return pb.ObjectClass_OBJECT_CLASS_UNSPECIFIED
 	}
+}
+
+// classifyOrConvert returns the proto ObjectClass for a track.
+// If the track already carries a classification string, it is converted directly.
+// Otherwise (empty ObjectClass — typical for VRLOG recordings made before
+// classification existed), the track is re-classified on-the-fly from its
+// aggregate features so that replayed data still shows meaningful labels.
+func classifyOrConvert(t Track) pb.ObjectClass {
+	if t.ObjectClass != "" {
+		return objectClassFromString(t.ObjectClass)
+	}
+	// Re-classify from per-frame features when ObjectClass was not recorded
+	features := l6objects.ClassificationFeatures{
+		AvgHeight:        t.BBoxHeight,
+		AvgLength:        t.BBoxLength,
+		AvgWidth:         t.BBoxWidth,
+		HeightP95:        t.HeightP95Max,
+		AvgSpeed:         t.AvgSpeedMps,
+		PeakSpeed:        t.PeakSpeedMps,
+		ObservationCount: t.ObservationCount,
+	}
+	if t.LastSeenNanos > t.FirstSeenNanos {
+		features.DurationSecs = float32(t.LastSeenNanos-t.FirstSeenNanos) / 1e9
+	}
+	result := replayClassifier.ClassifyFeatures(features)
+	return objectClassFromString(string(result.Class))
 }
 
 // overlayPreferences stores per-client overlay preferences.
@@ -553,7 +585,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				IntensityMeanAvg:  t.IntensityMeanAvg,
 				AvgSpeedMps:       t.AvgSpeedMps,
 				PeakSpeedMps:      t.PeakSpeedMps,
-				ObjectClass:       objectClassFromString(t.ObjectClass),
+				ObjectClass:       classifyOrConvert(t),
 				ClassConfidence:   t.ClassConfidence,
 				TrackLengthMetres: t.TrackLengthMetres,
 				TrackDurationSecs: t.TrackDurationSecs,

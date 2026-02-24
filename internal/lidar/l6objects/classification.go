@@ -146,7 +146,14 @@ func NewTrackClassifierWithMinObservations(minObservations int) *TrackClassifier
 // Returns the classification result with class, confidence, and features used.
 func (tc *TrackClassifier) Classify(track *TrackedObject) ClassificationResult {
 	features := tc.extractFeatures(track)
+	return tc.ClassifyFeatures(features)
+}
 
+// ClassifyFeatures classifies an object from pre-built feature values.
+// Use this when the full TrackedObject is unavailable — e.g. during VRLOG
+// replay where only aggregate metrics (bbox, speed, observation count) are
+// stored in the recorded FrameBundle tracks.
+func (tc *TrackClassifier) ClassifyFeatures(features ClassificationFeatures) ClassificationResult {
 	result := ClassificationResult{
 		Model:    tc.ModelVersion,
 		Features: features,

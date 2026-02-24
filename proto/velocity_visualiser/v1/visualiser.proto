@@ -174,7 +174,7 @@ enum MotionModel {
 
 // ObjectClass enumerates all valid object classifications.
 // Used by both the rule-based classifier (output) and human label annotations (input).
-// Classifier classes: PEDESTRIAN..MOTORCYCLIST, DYNAMIC.  User-only label: NOISE.
+// All 9 classes are user-assignable. Classifier outputs: DYNAMIC..MOTORCYCLIST.
 enum ObjectClass {
   OBJECT_CLASS_UNSPECIFIED  = 0;  // Default / not yet classified
   OBJECT_CLASS_NOISE        = 1;  // User-only: spurious sensor artefact

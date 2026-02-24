@@ -322,3 +322,91 @@ func TestComputeSpeedPercentiles_Empty(t *testing.T) {
 		t.Errorf("Expected all zeros for empty input, got p50=%.2f, p85=%.2f, p95=%.2f", p50, p85, p95)
 	}
 }
+
+// TestClassifyFeatures_MatchesClassify verifies that ClassifyFeatures produces
+// the same result as Classify for the same input features.
+func TestClassifyFeatures_MatchesClassify(t *testing.T) {
+	classifier := NewTrackClassifierWithMinObservations(3)
+
+	track := &TrackedObject{
+		TrackID:              "roundtrip-car",
+		ObservationCount:     20,
+		BoundingBoxHeightAvg: 1.5,
+		BoundingBoxLengthAvg: 4.5,
+		BoundingBoxWidthAvg:  2.0,
+		AvgSpeedMps:          12.0,
+		PeakSpeedMps:         15.0,
+	}
+
+	fromTrack := classifier.Classify(track)
+	fromFeatures := classifier.ClassifyFeatures(fromTrack.Features)
+
+	if fromTrack.Class != fromFeatures.Class {
+		t.Errorf("ClassifyFeatures class=%s, Classify class=%s; should match", fromFeatures.Class, fromTrack.Class)
+	}
+	if fromTrack.Confidence != fromFeatures.Confidence {
+		t.Errorf("ClassifyFeatures confidence=%.2f, Classify confidence=%.2f; should match", fromFeatures.Confidence, fromTrack.Confidence)
+	}
+}
+
+// TestClassifyFeatures_AllClasses tests ClassifyFeatures for representative
+// feature sets of each class.
+func TestClassifyFeatures_AllClasses(t *testing.T) {
+	classifier := NewTrackClassifierWithMinObservations(3)
+
+	tests := []struct {
+		desc     string
+		features ClassificationFeatures
+		expected ObjectClass
+	}{
+		{
+			desc: "bird",
+			features: ClassificationFeatures{
+				AvgHeight: 0.2, AvgLength: 0.3, AvgWidth: 0.3,
+				AvgSpeed: 0.5, PeakSpeed: 0.8, ObservationCount: 10,
+			},
+			expected: ClassBird,
+		},
+		{
+			desc: "car",
+			features: ClassificationFeatures{
+				AvgHeight: 1.5, AvgLength: 4.5, AvgWidth: 2.0,
+				AvgSpeed: 12.0, PeakSpeed: 15.0, ObservationCount: 20,
+			},
+			expected: ClassCar,
+		},
+		{
+			desc: "pedestrian",
+			features: ClassificationFeatures{
+				AvgHeight: 1.7, AvgLength: 0.5, AvgWidth: 0.5,
+				AvgSpeed: 1.2, PeakSpeed: 2.0, ObservationCount: 15,
+			},
+			expected: ClassPedestrian,
+		},
+		{
+			desc: "bus",
+			features: ClassificationFeatures{
+				AvgHeight: 3.0, AvgLength: 10.0, AvgWidth: 2.5,
+				AvgSpeed: 8.0, PeakSpeed: 12.0, ObservationCount: 30,
+			},
+			expected: ClassBus,
+		},
+		{
+			desc: "too few observations → dynamic",
+			features: ClassificationFeatures{
+				AvgHeight: 1.5, AvgLength: 4.5, AvgWidth: 2.0,
+				AvgSpeed: 12.0, PeakSpeed: 15.0, ObservationCount: 1,
+			},
+			expected: ClassDynamic,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			result := classifier.ClassifyFeatures(tt.features)
+			if result.Class != tt.expected {
+				t.Errorf("ClassifyFeatures() class=%s, want %s", result.Class, tt.expected)
+			}
+		})
+	}
+}
