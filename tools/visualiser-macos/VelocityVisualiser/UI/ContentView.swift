@@ -722,7 +722,6 @@ struct DetailRow: View {
 /// In live mode: shows tracks from the current frame.
 struct TrackListView: View {
     @EnvironmentObject var appState: AppState
-    @State private var isExpanded = true
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
 
@@ -751,36 +750,28 @@ struct TrackListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button(action: {
-                isExpanded.toggle()
-                if isExpanded && isRunMode && runTracks.isEmpty { fetchRunTracks() }
-            }) {
-                HStack {
-                    Label(
-                        "Track List",
-                        systemImage: isExpanded ? "list.bullet.circle.fill" : "list.bullet.circle")
-                    Spacer()
-                    if isFetchingRunTracks {
-                        ProgressView().controlSize(.mini)
-                    } else {
-                        Text("\(displayCount)").font(.caption).foregroundColor(.secondary)
-                    }
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }.buttonStyle(.plain)
-
-            if isExpanded {
-                if isRunMode {
-                    // Run mode: show all tracks from the analysis run
-                    runTrackListContent
+            // Track count badge
+            HStack {
+                if isFetchingRunTracks {
+                    ProgressView().controlSize(.mini)
                 } else {
-                    // Live mode: show tracks from the current frame
-                    frameTrackListContent
+                    Text("\(displayCount) tracks").font(.caption).foregroundColor(.secondary)
                 }
+                Spacer()
+            }
+
+            if isRunMode {
+                // Run mode: show all tracks from the analysis run
+                runTrackListContent
+            } else {
+                // Live mode: show tracks from the current frame
+                frameTrackListContent
             }
         }.onChange(of: appState.currentRunID) { _, newRunID in
             if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
+        }.onChange(of: appState.userLabels) { _, _ in
+            // Refresh run track list when user labels change so API data stays in sync
+            if isRunMode { fetchRunTracks() }
         }.onAppear { if isRunMode { fetchRunTracks() } }
     }
 
@@ -808,7 +799,9 @@ struct TrackListView: View {
                                 if let speed = track.avgSpeedMps {
                                     Text(String(format: "%.1f m/s", speed)).font(.caption2)
                                 }
-                                if let label = track.userLabel, !label.isEmpty {
+                                let displayLabel =
+                                    appState.userLabels[track.trackId] ?? track.userLabel
+                                if let label = displayLabel, !label.isEmpty {
                                     Text(label).font(.caption2).foregroundColor(.orange)
                                 }
                                 if let quality = track.qualityLabel, !quality.isEmpty {
@@ -846,8 +839,10 @@ struct TrackListView: View {
                             ).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
                             HStack(spacing: 4) {
                                 Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
-                                if !track.classLabel.isEmpty {
-                                    Text(track.classLabel).font(.caption2).foregroundColor(.orange)
+                                let displayLabel =
+                                    appState.userLabels[track.trackID] ?? track.classLabel
+                                if !displayLabel.isEmpty {
+                                    Text(displayLabel).font(.caption2).foregroundColor(.orange)
                                 }
                             }.foregroundColor(.secondary)
                         }

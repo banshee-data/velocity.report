@@ -66,6 +66,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var showSidePanel: Bool = false
     @Published var showFilterPane: Bool = false  // Separate filter pane on the right
 
+    /// Local cache of user-assigned labels, keyed by track ID.
+    /// Provides immediate feedback in the track list before the server round-trips.
+    @Published var userLabels: [String: String] = [:]
+
     // MARK: - Frame Data
 
     // Note: currentFrame is NOT @Published to avoid SwiftUI update cycles
@@ -421,6 +425,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * progress)
 
         replayProgress = progress  // Update immediately (optimistic)
+        currentTimestamp = targetTimestamp  // Sync timer display with slider position
         isSeekingInProgress = true
         let wasFinished = replayFinished
         logger.info(
@@ -492,6 +497,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func assignLabel(_ label: String) {
         guard let trackID = selectedTrackID else { return }
         logger.info("Assigning label '\(label)' to track \(trackID)")
+        userLabels[trackID] = label  // Immediate local feedback
 
         Task {
             do {
@@ -516,6 +522,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         let tracks = filteredTracks
         guard !tracks.isEmpty else { return }
         logger.info("Assigning label '\(label)' to \(tracks.count) visible tracks")
+        for track in tracks { userLabels[track.trackID] = label }  // Immediate local feedback
 
         Task {
             var succeeded = 0
