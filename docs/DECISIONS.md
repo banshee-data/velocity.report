@@ -1,6 +1,6 @@
 # Executive Decisions Register
 
-Resolved design decisions across velocity.report. All 16 decisions are closed; the summary table below links each to its source document and records the outcome.
+Resolved design decisions across velocity.report. All 17 decisions are closed; the summary table below links each to its source document and records the outcome.
 
 ---
 
@@ -24,6 +24,7 @@ Resolved design decisions across velocity.report. All 16 decisions are closed; t
 | D-14 | Simplification & deprecation scope    | Plan confirmed; Phase 1 in v0.6, removal in v0.7                  | v0.6      | [simplification plan](plans/platform-simplification-and-deprecation-plan.md)                                                  |
 | D-15 | Time-partitioned data tables          | Implement for v1.0                                                | v1.0      | [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)                                            |
 | D-16 | Speed limit schedules                 | Add to BACKLOG P2; scored 14 → v0.8 placement (radar theme)       | v0.8      | [speed-limit-schedules.md](radar/architecture/speed-limit-schedules.md)                                                       |
+| D-17 | PDF generation migration to Go        | Go SVG charts + `text/template` LaTeX; eliminate Python stack      | v0.6      | [PDF Go chart migration plan](plans/pdf-go-chart-migration-plan.md)                                                           |
 
 ---
 
@@ -77,6 +78,7 @@ The decision matrix provides a repeatable framework for prioritising features an
 | Cosine error correction       | 2 (6)           | 2 (4)        | 1 (2)            | 2 (2)       | 2 (2)         | **16** | v0.8      |
 | Profile comparison system     | 1 (3)           | 2 (4)        | 2 (4)            | 2 (2)       | 2 (2)         | **15** | v0.8      |
 | Metrics/stats consolidation   | 1 (3)           | 2 (4)        | 1 (2)            | 2 (2)       | 3 (3)         | **14** | v0.7      |
+| PDF generation to Go (D-17)   | 2 (6)           | 2 (4)        | 3 (6)            | 1 (1)       | 3 (3)         | **20** | v0.6      |
 
 ### Key Placement Rationale
 
