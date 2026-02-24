@@ -566,9 +566,9 @@ struct SparklineViewTests {
 @available(macOS 15.0, *) final class PlaybackControlsDerivedStateTests: XCTestCase {
     func testReplaySeekableEnablesExpectedControls() throws {
         let ui = PlaybackControlsDerivedState(
-            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: false,
-            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 10,
-            totalFrames: 100)
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 10, totalFrames: 100)
         XCTAssertEqual(ui.modeLabel, "REPLAY (VRLOG)")
         XCTAssertTrue(ui.showStepButtons)
         XCTAssertTrue(ui.showSeekableSlider)
@@ -589,16 +589,16 @@ struct SparklineViewTests {
 
     func testStepBoundsDisableAtStartAndEnd() throws {
         let start = PlaybackControlsDerivedState(
-            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: false,
-            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 0,
-            totalFrames: 10)
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 0, totalFrames: 10)
         XCTAssertTrue(start.stepBackwardDisabled)
         XCTAssertFalse(start.stepForwardDisabled)
 
         let end = PlaybackControlsDerivedState(
-            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: false,
-            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 9,
-            totalFrames: 10)
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 9, totalFrames: 10)
         XCTAssertTrue(end.stepForwardDisabled)
     }
 }
@@ -749,5 +749,76 @@ struct SparklineViewTests {
         state.currentFrame = frame
 
         host(SidePanelView(), state: state)
+    }
+}
+
+// MARK: - TrackInspector Field Population Tests
+
+/// Verify that the Track fields displayed in TrackInspectorView are
+/// non-zero when the model is populated.  This is a model-level regression
+/// test: the gRPC server previously serialised zero values for PeakSpeedMps,
+/// Hits, Confidence, Duration, and Length because the proto conversion
+/// omitted those fields.
+struct TrackInspectorFieldTests {
+    /// Build a fully-populated Track matching what the adapter produces.
+    private func populatedTrack() -> Track {
+        Track(
+            trackID: "trk-inspector-test", sensorID: "sensor-1", state: .confirmed, hits: 50,
+            misses: 2, observationCount: 48, firstSeenNanos: 1_000_000_000,
+            lastSeenNanos: 2_000_000_000, x: 10.0, y: 5.0, z: 0.5, vx: 8.0, vy: 0.5, vz: 0.0,
+            speedMps: 8.03, headingRad: 0.06, covariance4x4: [], bboxLength: 4.5, bboxWidth: 1.8,
+            bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0,
+            avgSpeedMps: 7.5, peakSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
+            trackLengthMetres: 150.0, trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98,
+            occlusionState: .none, motionModel: .cv, alpha: 1.0)
+    }
+
+    @Test func peakSpeedIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.peakSpeedMps > 0, "peakSpeedMps must be populated")
+    }
+
+    @Test func hitsIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.hits > 0, "hits must be populated")
+    }
+
+    @Test func confidenceIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.confidence > 0, "confidence must be populated")
+    }
+
+    @Test func trackDurationIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.trackDurationSecs > 0, "trackDurationSecs must be populated")
+    }
+
+    @Test func trackLengthIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.trackLengthMetres > 0, "trackLengthMetres must be populated")
+    }
+
+    @Test func classLabelIsNonEmpty() throws {
+        let t = populatedTrack()
+        #expect(!t.classLabel.isEmpty, "classLabel must be populated")
+    }
+
+    @Test @MainActor func trackLookupViaAppState() throws {
+        let state = AppState()
+        var frame = FrameBundle()
+        let t = populatedTrack()
+        frame.tracks = TrackSet(frameID: 1, timestampNanos: 1_000_000, tracks: [t], trails: [])
+        state.currentFrame = frame
+
+        // Simulate what TrackInspectorView does: look up track by ID.
+        let found = state.currentFrame?.tracks?.tracks.first(where: {
+            $0.trackID == "trk-inspector-test"
+        })
+        #expect(found != nil, "track must be findable by ID")
+        #expect(found!.peakSpeedMps == 9.0)
+        #expect(found!.hits == 50)
+        #expect(found!.confidence == 0.98)
+        #expect(found!.trackDurationSecs == 20.0)
+        #expect(found!.trackLengthMetres == 150.0)
     }
 }

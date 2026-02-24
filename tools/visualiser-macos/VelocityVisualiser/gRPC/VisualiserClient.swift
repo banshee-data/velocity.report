@@ -262,18 +262,8 @@ enum VisualiserClientError: Error, LocalizedError {
                     }
                     print("[VisualiserClient] Stream ended after \(frameCount) frames")
 
-                    // Only notify delegate of a natural finish (replay complete).
-                    // If the task was cancelled (e.g. restartStream()), the stream
-                    // exit is intentional — firing clientDidFinishStream would race
-                    // with prepareForNewReplay() and re-dirty the playback state.
-                    if !Task.isCancelled {
-                        await MainActor.run { [weak self] in
-                            guard let self = self else { return }
-                            self.delegate?.clientDidFinishStream(self)
-                        }
-                    } else {
-                        print(
-                            "[VisualiserClient] Stream cancelled — skipping clientDidFinishStream")
+                    await MainActor.run { [weak self] in
+                        self?.handleStreamTermination(wasCancelled: Task.isCancelled)
                     }
 
                 case .failure(let error):
@@ -285,12 +275,22 @@ enum VisualiserClientError: Error, LocalizedError {
 
     // MARK: - Playback Control
 
-    private func decodePlaybackStatus(
+    static func decodePlaybackStatus(
         _ status: Velocity_Visualiser_V1_PlaybackStatus
     ) -> VisualiserPlaybackStatus {
         VisualiserPlaybackStatus(
             paused: status.paused, rate: status.rate, currentTimestampNs: status.currentTimestampNs,
             currentFrameID: status.currentFrameID)
+    }
+
+    @MainActor func handleStreamTermination(wasCancelled: Bool) {
+        // Only notify delegate of a natural finish (replay complete). If the task
+        // was cancelled (e.g. restartStream()), the stream exit is intentional.
+        guard !wasCancelled else {
+            print("[VisualiserClient] Stream cancelled — skipping clientDidFinishStream")
+            return
+        }
+        delegate?.clientDidFinishStream(self)
     }
 
     /// Pause playback (replay mode only).
@@ -301,7 +301,7 @@ enum VisualiserClientError: Error, LocalizedError {
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         let request = Velocity_Visualiser_V1_PauseRequest()
         let response = try await serviceClient.pause(request: ClientRequest(message: request))
-        return decodePlaybackStatus(response)
+        return Self.decodePlaybackStatus(response)
     }
 
     /// Resume playback (replay mode only).
@@ -312,7 +312,7 @@ enum VisualiserClientError: Error, LocalizedError {
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         let request = Velocity_Visualiser_V1_PlayRequest()
         let response = try await serviceClient.play(request: ClientRequest(message: request))
-        return decodePlaybackStatus(response)
+        return Self.decodePlaybackStatus(response)
     }
 
     /// Seek to a timestamp (replay mode only).
@@ -324,7 +324,7 @@ enum VisualiserClientError: Error, LocalizedError {
         var request = Velocity_Visualiser_V1_SeekRequest()
         request.timestampNs = timestampNanos
         let response = try await serviceClient.seek(request: ClientRequest(message: request))
-        return decodePlaybackStatus(response)
+        return Self.decodePlaybackStatus(response)
     }
 
     /// Seek to a frame ID (replay mode only).
@@ -336,7 +336,7 @@ enum VisualiserClientError: Error, LocalizedError {
         var request = Velocity_Visualiser_V1_SeekRequest()
         request.frameID = frameID
         let response = try await serviceClient.seek(request: ClientRequest(message: request))
-        return decodePlaybackStatus(response)
+        return Self.decodePlaybackStatus(response)
     }
 
     /// Set playback rate (replay mode only).
@@ -348,7 +348,7 @@ enum VisualiserClientError: Error, LocalizedError {
         var request = Velocity_Visualiser_V1_SetRateRequest()
         request.rate = rate
         let response = try await serviceClient.setRate(request: ClientRequest(message: request))
-        return decodePlaybackStatus(response)
+        return Self.decodePlaybackStatus(response)
     }
 
     /// Send overlay mode preferences to the server.

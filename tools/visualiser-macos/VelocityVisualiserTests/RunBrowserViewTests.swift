@@ -228,6 +228,18 @@ struct PlaybackStatusModelTests {
 
 // MARK: - RunBrowserView Tests
 
+@available(macOS 15.0, *) @MainActor final class SpyRunBrowserAppState: AppState {
+    var prepareForNewReplayCallCount = 0
+    var restartGRPCStreamCallCount = 0
+
+    override func prepareForNewReplay() {
+        prepareForNewReplayCallCount += 1
+        super.prepareForNewReplay()
+    }
+
+    override func restartGRPCStream() { restartGRPCStreamCallCount += 1 }
+}
+
 @available(macOS 15.0, *) @MainActor final class RunBrowserViewViewTests: XCTestCase {
 
     private func host<V: View>(_ view: V, state: AppState) {
@@ -245,6 +257,39 @@ struct PlaybackStatusModelTests {
         let state = AppState()
         state.currentRunID = "run-existing"
         host(RunBrowserView(), state: state)
+    }
+}
+
+@available(macOS 15.0, *) @MainActor final class RunBrowserReplayLoadHelperTests: XCTestCase {
+    func testLoadRunForReplayAndUpdateAppStateSuccess() async throws {
+        let state = SpyRunBrowserAppState()
+        state.isPaused = true
+        state.replayFinished = true
+        state.currentTimestamp = 123
+        state.currentRunID = nil
+
+        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { true }
+
+        XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
+        XCTAssertEqual(state.restartGRPCStreamCallCount, 1)
+        XCTAssertFalse(state.isLive)
+        XCTAssertEqual(state.currentRunID, "run-123")
+        XCTAssertFalse(state.isPaused)
+        XCTAssertFalse(state.replayFinished)
+        XCTAssertEqual(state.currentTimestamp, 0)
+    }
+
+    func testLoadRunForReplayAndUpdateAppStateFailureSkipsReplayActivation() async throws {
+        let state = SpyRunBrowserAppState()
+        state.currentRunID = nil
+        state.isLive = true
+
+        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { false }
+
+        XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
+        XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
+        XCTAssertTrue(state.isLive)
+        XCTAssertNil(state.currentRunID)
     }
 }
 

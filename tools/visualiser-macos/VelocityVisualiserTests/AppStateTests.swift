@@ -11,6 +11,8 @@ import XCTest
 
 @available(macOS 15.0, *)
 final class FakePlaybackRPCClient: PlaybackRPCClient {
+    enum ForcedError: Error { case testFailure }
+
     var pauseCallCount = 0
     var playCallCount = 0
     var seekTimestampCalls: [Int64] = []
@@ -29,18 +31,26 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
     var holdNextSeekTimestamp = false
     var seekTimestampContinuation: CheckedContinuation<Void, Never>?
+    var pauseError: Error?
+    var playError: Error?
+    var seekTimestampError: Error?
+    var seekFrameError: Error?
+    var setRateError: Error?
 
     func pause() async throws -> VisualiserPlaybackStatus {
+        if let pauseError { throw pauseError }
         pauseCallCount += 1
         return pauseStatus
     }
 
     func play() async throws -> VisualiserPlaybackStatus {
+        if let playError { throw playError }
         playCallCount += 1
         return playStatus
     }
 
     func seek(to timestampNanos: Int64) async throws -> VisualiserPlaybackStatus {
+        if let seekTimestampError { throw seekTimestampError }
         seekTimestampCalls.append(timestampNanos)
         if holdNextSeekTimestamp {
             holdNextSeekTimestamp = false
@@ -52,11 +62,13 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
     }
 
     func seek(toFrame frameID: UInt64) async throws -> VisualiserPlaybackStatus {
+        if let seekFrameError { throw seekFrameError }
         seekFrameCalls.append(frameID)
         return seekStatus
     }
 
     func setRate(_ rate: Float) async throws -> VisualiserPlaybackStatus {
+        if let setRateError { throw setRateError }
         setRateCalls.append(rate)
         var status = setRateStatus
         status.rate = rate
@@ -180,6 +192,208 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         XCTAssertEqual(fake.seekTimestampCalls[0], 1_100_000_000)
         XCTAssertEqual(fake.seekTimestampCalls[1], 1_900_000_000)
+    }
+
+    func testDerivedReplayProgressFallbackUsesFrameIndexWhenTimelineInvalid() {
+        let state = AppState()
+        state.currentFrameIndex = 5
+        state.totalFrames = 11
+        state.replayProgress = 0.25
+        state.logStartTimestamp = 100
+        state.logEndTimestamp = 100  // Invalid range
+
+        XCTAssertEqual(state.displayReplayProgress, 0.5, accuracy: 0.0001)
+    }
+
+    func testDerivedPlaybackFlagsForSeekSliderAndMetadataFallback() {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 1
+        state.logEndTimestamp = 2
+        XCTAssertTrue(state.canInteractWithSeekSlider)
+
+        state.setPlaybackModeForTesting(.replayNonSeekable)
+        state.logStartTimestamp = 10
+        state.logEndTimestamp = 10
+        state.totalFrames = 0
+        XCTAssertTrue(state.shouldShowReplayMetadataUnavailable)
+
+        state.setPlaybackModeForTesting(.live)
+        XCTAssertTrue(state.isLive)
+        XCTAssertFalse(state.isSeekable)
+    }
+
+    func testTogglePlayPauseIgnoredWhenPlaybackModeUnknown() {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.isLive = false
+        state.playbackMode = .unknown
+        state.playbackCommandClientOverride = fake
+
+        state.togglePlayPause()
+
+        XCTAssertEqual(fake.pauseCallCount + fake.playCallCount, 0)
+        XCTAssertNil(state.inFlightPlaybackCommand)
+    }
+
+    func testRestartGRPCStreamRebindsDelegateWhenClientExists() async throws {
+        let state = AppState()
+        state.serverAddress = "localhost"
+        state.connect()
+        state.restartGRPCStream()
+        try await Task.sleep(for: .milliseconds(20))
+    }
+
+    func testTogglePlayPauseFinishedReplayRestartsStream() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.isPaused = true
+        state.replayFinished = true
+
+        state.togglePlayPause()
+        try await waitFor {
+            fake.playCallCount == 1 && state.inFlightPlaybackCommand == nil
+        }
+
+        XCTAssertFalse(state.replayFinished)
+        XCTAssertFalse(state.isPaused)
+    }
+
+    func testTogglePlayPauseFailureRestoresOptimisticPausedState() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        fake.pauseError = FakePlaybackRPCClient.ForcedError.testFailure
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.isPaused = false
+
+        state.togglePlayPause()
+        try await waitFor { state.inFlightPlaybackCommand == nil }
+
+        XCTAssertFalse(state.isPaused)
+    }
+
+    func testStepForwardPausesSeeksAndRestartsWhenReplayFinished() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.currentFrameIndex = 2
+        state.totalFrames = 10
+        state.isPaused = false
+        state.replayFinished = true
+
+        state.stepForward()
+        try await waitFor {
+            fake.pauseCallCount == 1
+                && fake.seekFrameCalls == [3]
+                && state.inFlightPlaybackCommand == nil
+        }
+
+        XCTAssertFalse(state.replayFinished)
+        XCTAssertTrue(state.isPaused)
+        XCTAssertFalse(state.isSeekingInProgress)
+        XCTAssertNil(state.pendingSeekTargetFrameIndex)
+    }
+
+    func testStepForwardFailureRestoresPausedState() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        fake.seekFrameError = FakePlaybackRPCClient.ForcedError.testFailure
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.currentFrameIndex = 1
+        state.totalFrames = 5
+        state.isPaused = false
+
+        state.stepForward()
+        try await waitFor { state.inFlightPlaybackCommand == nil }
+
+        XCTAssertEqual(fake.pauseCallCount, 1)
+        XCTAssertEqual(fake.seekFrameCalls.count, 0)
+        XCTAssertFalse(state.isPaused)
+        XCTAssertFalse(state.isSeekingInProgress)
+    }
+
+    func testIncreaseRateFailureRestoresPreviousRate() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        fake.setRateError = FakePlaybackRPCClient.ForcedError.testFailure
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.playbackRate = 1.0
+
+        state.increaseRate()
+        try await waitFor { state.inFlightPlaybackCommand == nil }
+
+        XCTAssertEqual(state.playbackRate, 1.0)
+        XCTAssertTrue(fake.setRateCalls.isEmpty)
+    }
+
+    func testSeekFailureRestoresProgressTimestampAndPausedState() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        fake.seekTimestampError = FakePlaybackRPCClient.ForcedError.testFailure
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 1_000
+        state.logEndTimestamp = 2_000
+        state.replayProgress = 0.2
+        state.currentTimestamp = 1_200
+        state.isPaused = false
+
+        state.seek(to: 0.75)
+        try await waitFor { state.inFlightPlaybackCommand == nil }
+
+        XCTAssertEqual(state.replayProgress, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(state.currentTimestamp, 1_200)
+        XCTAssertFalse(state.isPaused)
+        XCTAssertFalse(state.isSeekingInProgress)
+        XCTAssertNil(state.pendingSeekTargetTimestamp)
+    }
+
+    func testDeferredFrameUpdateDroppedAfterGenerationChanges() async throws {
+        let state = AppState()
+        state.isLive = false
+        var frame = FrameBundle()
+        frame.frameID = 12
+        frame.timestampNanos = 1_500
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 100, logEndNs: 200, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 1, totalFrames: 2, seekable: false)
+
+        state.onFrameReceived(frame)
+        state.prepareForNewReplay()  // bumps generation before deferred Task runs
+        try await Task.sleep(for: .milliseconds(30))
+
+        XCTAssertEqual(state.currentFrameID, 0)
+        XCTAssertFalse(state.hasPlaybackMetadata)
+    }
+
+    func testFrameUpdateUsesFrameIndexFallbackProgressWhenTimelineInvalid() async throws {
+        let state = AppState()
+        state.isLive = false
+        var frame = FrameBundle()
+        frame.frameID = 9
+        frame.timestampNanos = 500
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 1_000, logEndNs: 1_000, playbackRate: 1.0, paused: true,
+            currentFrameIndex: 3, totalFrames: 5, seekable: false)
+
+        state.onFrameReceived(frame)
+        try await Task.sleep(for: .milliseconds(30))
+
+        XCTAssertEqual(state.replayProgress, 0.75, accuracy: 0.0001)
     }
 }
 

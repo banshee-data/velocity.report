@@ -637,8 +637,6 @@ struct TrackInspectorView: View {
                             label: "Heading",
                             value: String(format: "%.1f°", t.headingRad * 180 / .pi))
                         DetailRow(label: "Peak", value: String(format: "%.1f m/s", t.peakSpeedMps))
-                        DetailRow(
-                            label: "Average", value: String(format: "%.1f m/s", t.avgSpeedMps))
                     }
                 }
 

@@ -214,6 +214,44 @@ struct RecordingStatusTests {
     }
 }
 
+@available(macOS 15.0, *) @MainActor final class VisualiserClientPlaybackStatusDecodeTests: XCTestCase {
+
+    func testDecodePlaybackStatusMapsAllFields() throws {
+        var proto = Velocity_Visualiser_V1_PlaybackStatus()
+        proto.paused = true
+        proto.rate = 4.0
+        proto.currentTimestampNs = 12_345
+        proto.currentFrameID = 77
+
+        let decoded = VisualiserClient.decodePlaybackStatus(proto)
+
+        XCTAssertEqual(
+            decoded,
+            VisualiserPlaybackStatus(
+                paused: true, rate: 4.0, currentTimestampNs: 12_345, currentFrameID: 77))
+    }
+
+    func testHandleStreamTerminationNotifiesDelegateForNaturalFinish() {
+        let client = VisualiserClient(address: "localhost:50051")
+        let delegate = MockClientDelegate()
+        client.delegate = delegate
+
+        client.handleStreamTermination(wasCancelled: false)
+
+        XCTAssertTrue(delegate.didFinishStream)
+    }
+
+    func testHandleStreamTerminationSkipsDelegateWhenCancelled() {
+        let client = VisualiserClient(address: "localhost:50051")
+        let delegate = MockClientDelegate()
+        client.delegate = delegate
+
+        client.handleStreamTermination(wasCancelled: true)
+
+        XCTAssertFalse(delegate.didFinishStream)
+    }
+}
+
 // MARK: - VisualiserClient Not Connected Error Tests
 
 @available(macOS 15.0, *) final class VisualiserClientNotConnectedTests: XCTestCase {
@@ -223,7 +261,7 @@ struct RecordingStatusTests {
         XCTAssertFalse(client.isConnected)
 
         do {
-            try await client.pause()
+            _ = try await client.pause()
             XCTFail("Expected notConnected error")
         } catch let error as VisualiserClientError {
             switch error {
@@ -237,7 +275,7 @@ struct RecordingStatusTests {
         let client = VisualiserClient(address: "localhost:50051")
 
         do {
-            try await client.play()
+            _ = try await client.play()
             XCTFail("Expected notConnected error")
         } catch let error as VisualiserClientError {
             switch error {
@@ -251,7 +289,7 @@ struct RecordingStatusTests {
         let client = VisualiserClient(address: "localhost:50051")
 
         do {
-            try await client.seek(to: 1_000_000_000)
+            _ = try await client.seek(to: 1_000_000_000)
             XCTFail("Expected notConnected error")
         } catch let error as VisualiserClientError {
             switch error {
@@ -265,7 +303,7 @@ struct RecordingStatusTests {
         let client = VisualiserClient(address: "localhost:50051")
 
         do {
-            try await client.seek(toFrame: 42)
+            _ = try await client.seek(toFrame: 42)
             XCTFail("Expected notConnected error")
         } catch let error as VisualiserClientError {
             switch error {
@@ -279,7 +317,7 @@ struct RecordingStatusTests {
         let client = VisualiserClient(address: "localhost:50051")
 
         do {
-            try await client.setRate(2.0)
+            _ = try await client.setRate(2.0)
             XCTFail("Expected notConnected error")
         } catch let error as VisualiserClientError {
             switch error {
