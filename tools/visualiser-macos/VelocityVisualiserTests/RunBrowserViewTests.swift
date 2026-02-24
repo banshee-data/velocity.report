@@ -6,6 +6,7 @@
 //  RunRowView layout, and AnalysisRun computed properties.
 //
 
+import AppKit
 import Foundation
 import SwiftUI
 import Testing
@@ -229,17 +230,21 @@ struct PlaybackStatusModelTests {
 
 @available(macOS 15.0, *) @MainActor final class RunBrowserViewViewTests: XCTestCase {
 
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
     func testRunBrowserViewCreation() throws {
         let state = AppState()
-        let view = RunBrowserView().environmentObject(state)
-        let _ = view.body
+        host(RunBrowserView(), state: state)
     }
 
     func testRunBrowserViewWithRunIDSet() throws {
         let state = AppState()
         state.currentRunID = "run-existing"
-        let view = RunBrowserView().environmentObject(state)
-        let _ = view.body
+        host(RunBrowserView(), state: state)
     }
 }
 

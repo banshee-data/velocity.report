@@ -6,6 +6,7 @@
 //  and extracted utility logic.
 //
 
+import AppKit
 import Foundation
 import MetalKit
 import SwiftUI
@@ -402,10 +403,16 @@ struct SparklineViewTests {
 
 @available(macOS 15.0, *) @MainActor final class TrackHistoryGraphViewTests: XCTestCase {
 
+    /// Host a view with an AppState environment object so @EnvironmentObject resolves.
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
     func testGraphViewWithNoSamples() throws {
         let state = AppState()
-        let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
-        let _ = view.body
+        host(TrackHistoryGraphView(trackID: "t-001"), state: state)
     }
 
     func testGraphViewWithOneSample() async throws {
@@ -423,8 +430,7 @@ struct SparklineViewTests {
         state.onFrameReceived(frame)
         await Task.yield()
 
-        let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
-        let _ = view.body
+        host(TrackHistoryGraphView(trackID: "t-001"), state: state)
     }
 
     func testGraphViewWithMultipleSamples() async throws {
@@ -448,15 +454,12 @@ struct SparklineViewTests {
             await Task.yield()
         }
 
-        let view = TrackHistoryGraphView(trackID: "t-001").environmentObject(state)
-        let _ = view.body
+        host(TrackHistoryGraphView(trackID: "t-001"), state: state)
     }
 
     func testGraphViewUnknownTrackID() throws {
         let state = AppState()
-        // No history for this track — should show nothing
-        let view = TrackHistoryGraphView(trackID: "nonexistent").environmentObject(state)
-        let _ = view.body
+        host(TrackHistoryGraphView(trackID: "nonexistent"), state: state)
     }
 }
 
@@ -464,13 +467,18 @@ struct SparklineViewTests {
 
 @available(macOS 15.0, *) @MainActor final class TimeDisplayViewTests: XCTestCase {
 
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
     func testTimeDisplayWithValidRange() throws {
         let state = AppState()
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
         state.currentTimestamp = 1_500_000_000
-        let view = TimeDisplayView().environmentObject(state)
-        let _ = view.body
+        host(TimeDisplayView(), state: state)
     }
 
     func testTimeDisplayWithZeroTimestamps() throws {
@@ -478,29 +486,25 @@ struct SparklineViewTests {
         state.logStartTimestamp = 0
         state.logEndTimestamp = 0
         state.currentTimestamp = 0
-        let view = TimeDisplayView().environmentObject(state)
-        let _ = view.body
+        host(TimeDisplayView(), state: state)
     }
 
     func testTimeDisplayWhenReplayFinished() throws {
         let state = AppState()
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
-        state.currentTimestamp = 2_000_000_000  // At end
+        state.currentTimestamp = 2_000_000_000
         state.replayFinished = true
         state.replayProgress = 1.0
-        let view = TimeDisplayView().environmentObject(state)
-        let _ = view.body
+        host(TimeDisplayView(), state: state)
     }
 
     func testTimeDisplayWithLogStartAtZero() throws {
-        // Log starts at timestamp 0 — hasValidRange should still work
         let state = AppState()
         state.logStartTimestamp = 0
         state.logEndTimestamp = 5_000_000_000
         state.currentTimestamp = 2_500_000_000
-        let view = TimeDisplayView().environmentObject(state)
-        let _ = view.body
+        host(TimeDisplayView(), state: state)
     }
 }
 
@@ -508,12 +512,17 @@ struct SparklineViewTests {
 
 @available(macOS 15.0, *) @MainActor final class PlaybackControlsViewTests: XCTestCase {
 
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
     func testPlaybackControlsLiveMode() throws {
         let state = AppState()
         state.isConnected = true
         state.isLive = true
-        let view = PlaybackControlsView().environmentObject(state)
-        let _ = view.body
+        host(PlaybackControlsView(), state: state)
     }
 
     func testPlaybackControlsReplayMode() throws {
@@ -523,15 +532,13 @@ struct SparklineViewTests {
         state.isSeekable = true
         state.logStartTimestamp = 1_000_000_000
         state.logEndTimestamp = 2_000_000_000
-        let view = PlaybackControlsView().environmentObject(state)
-        let _ = view.body
+        host(PlaybackControlsView(), state: state)
     }
 
     func testPlaybackControlsDisconnected() throws {
         let state = AppState()
         state.isConnected = false
-        let view = PlaybackControlsView().environmentObject(state)
-        let _ = view.body
+        host(PlaybackControlsView(), state: state)
     }
 
     func testPlaybackControlsReplayFinished() throws {
@@ -542,8 +549,7 @@ struct SparklineViewTests {
         state.replayFinished = true
         state.isPaused = true
         state.replayProgress = 1.0
-        let view = PlaybackControlsView().environmentObject(state)
-        let _ = view.body
+        host(PlaybackControlsView(), state: state)
     }
 
     func testPlaybackControlsNotSeekable() throws {
@@ -551,7 +557,6 @@ struct SparklineViewTests {
         state.isConnected = true
         state.isLive = false
         state.isSeekable = false
-        let view = PlaybackControlsView().environmentObject(state)
-        let _ = view.body
+        host(PlaybackControlsView(), state: state)
     }
 }
