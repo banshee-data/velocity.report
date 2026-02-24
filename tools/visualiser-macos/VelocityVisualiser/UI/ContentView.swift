@@ -589,7 +589,7 @@ struct SidePanelView: View {
                     TrackListView()
                     Spacer()
                 }.padding()
-            }.scrollIndicators(.never).frame(width: 160, alignment: .leading)
+            }.scrollIndicators(.never).frame(width: 170, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -795,12 +795,19 @@ struct DetailRow: View {
 // MARK: - Track List
 
 /// Track list for selecting a track for labelling.
+/// Sort order for the track list.
+enum TrackSortOrder: String, CaseIterable {
+    case firstSeen = "First seen"
+    case peakSpeed = "Peak speed"
+}
+
 /// In run mode: fetches ALL tracks from the run via the API (so prior tracks are visible).
 /// In live mode: shows tracks from the current frame.
 struct TrackListView: View {
     @EnvironmentObject var appState: AppState
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
+    @State private var sortOrder: TrackSortOrder = .firstSeen
 
     /// Tracks visible in the current frame (live mode or as supplementary info).
     /// Uses filtered tracks when filters are active.
@@ -808,7 +815,19 @@ struct TrackListView: View {
         let tracks =
             appState.hasActiveFilters
             ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
-        return tracks.sorted { $0.trackID < $1.trackID }
+        switch sortOrder {
+        case .firstSeen: return tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
+        case .peakSpeed: return tracks.sorted { $0.peakSpeedMps > $1.peakSpeedMps }
+        }
+    }
+
+    /// Run tracks sorted according to the active sort order.
+    private var sortedRunTracks: [RunTrack] {
+        switch sortOrder {
+        case .firstSeen:
+            return runTracks.sorted { ($0.startUnixNanos ?? 0) < ($1.startUnixNanos ?? 0) }
+        case .peakSpeed: return runTracks.sorted { ($0.peakSpeedMps ?? 0) > ($1.peakSpeedMps ?? 0) }
+        }
     }
 
     /// Track lookup for determining in-view state and colours.
@@ -827,14 +846,19 @@ struct TrackListView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Track count badge
-            HStack {
+            // Track count badge + sort picker
+            HStack(spacing: 4) {
                 if isFetchingRunTracks {
                     ProgressView().controlSize(.mini)
                 } else {
-                    Text("\(displayCount) tracks").font(.caption).foregroundColor(.secondary)
+                    Text("\(displayCount)").font(.caption).foregroundColor(.secondary)
                 }
                 Spacer()
+                Picker("", selection: $sortOrder) {
+                    ForEach(TrackSortOrder.allCases, id: \.self) { order in
+                        Text(order.rawValue).tag(order)
+                    }
+                }.pickerStyle(.menu).labelsHidden().controlSize(.mini).frame(maxWidth: 90)
             }
 
             if isRunMode {
@@ -870,39 +894,32 @@ struct TrackListView: View {
         if runTracks.isEmpty && !isFetchingRunTracks {
             Text("No tracks in run").font(.caption).foregroundColor(.secondary)
         } else {
-            ForEach(runTracks, id: \.trackId) { track in
+            ForEach(sortedRunTracks, id: \.trackId) { track in
                 let frameTrack = frameTrackByID[track.trackId]
                 let isInView = frameTrack != nil
                 let statusColour =
                     frameTrack.map { trackStateColour($0.state) } ?? Color.gray.opacity(0.5)
                 Button(action: { appState.selectTrack(track.trackId) }) {
-                    HStack(spacing: 6) {
-                        Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
-                            width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 2) {
-                            // Row 1: hex ID + speed
-                            HStack(spacing: 4) {
-                                Text(track.trackId.shortTrackID).font(
-                                    .system(.caption, design: .monospaced))
-                                if let speed = track.avgSpeedMps {
-                                    Text(String(format: "%.1f m/s", speed)).font(.caption2)
-                                }
-                            }.foregroundColor(.secondary)
-                            // Row 2: wrapping tag pills
-                            let tags = runTrackTags(track)
-                            if !tags.isEmpty {
-                                FlowLayout(spacing: 3) {
-                                    ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
-                                        TagPill(text: tag.0, colour: tag.1)
-                                    }
-                                }
+                    VStack(alignment: .leading, spacing: 2) {
+                        // Row 1: dot + hex ID + speed + checkmark
+                        HStack(spacing: 4) {
+                            Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
+                                width: 6, height: 6)
+                            Text(track.trackId.shortTrackID).font(
+                                .system(.caption, design: .monospaced))
+                            if let speed = track.peakSpeedMps {
+                                Text(String(format: "%.1f m/s", speed)).font(.caption2)
                             }
-                        }
-                        Spacer()
-                        if track.trackId == appState.selectedTrackID {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
-                                .font(.caption)
-                        }
+                            Spacer()
+                            if track.trackId == appState.selectedTrackID {
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(
+                                    .accentColor
+                                ).font(.caption2)
+                            }
+                        }.foregroundColor(.secondary)
+                        // Row 2: tag pills (single line, max 2 + overflow)
+                        let tags = runTrackTags(track)
+                        if !tags.isEmpty { TagRow(tags: tags) }
                     }.padding(.vertical, 2).padding(.horizontal, 4).background(
                         track.trackId == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
@@ -928,30 +945,23 @@ struct TrackListView: View {
         } else {
             ForEach(frameTracks, id: \.trackID) { track in
                 Button(action: { appState.selectTrack(track.trackID) }) {
-                    HStack(spacing: 6) {
-                        Circle().fill(trackStateColour(track.state)).frame(width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 2) {
-                            // Row 1: hex ID + speed
-                            HStack(spacing: 4) {
-                                Text(track.trackID.shortTrackID).font(
-                                    .system(.caption, design: .monospaced))
-                                Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
-                            }.foregroundColor(.secondary)
-                            // Row 2: wrapping tag pills
-                            let tags = frameTrackTags(track)
-                            if !tags.isEmpty {
-                                FlowLayout(spacing: 3) {
-                                    ForEach(Array(tags.enumerated()), id: \.offset) { _, tag in
-                                        TagPill(text: tag.0, colour: tag.1)
-                                    }
-                                }
+                    VStack(alignment: .leading, spacing: 2) {
+                        // Row 1: dot + hex ID + speed + checkmark
+                        HStack(spacing: 4) {
+                            Circle().fill(trackStateColour(track.state)).frame(width: 6, height: 6)
+                            Text(track.trackID.shortTrackID).font(
+                                .system(.caption, design: .monospaced))
+                            Text(String(format: "%.1f m/s", track.peakSpeedMps)).font(.caption2)
+                            Spacer()
+                            if track.trackID == appState.selectedTrackID {
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(
+                                    .accentColor
+                                ).font(.caption2)
                             }
-                        }
-                        Spacer()
-                        if track.trackID == appState.selectedTrackID {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
-                                .font(.caption)
-                        }
+                        }.foregroundColor(.secondary)
+                        // Row 2: tag pills (single line, max 2 + overflow)
+                        let tags = frameTrackTags(track)
+                        if !tags.isEmpty { TagRow(tags: tags) }
                     }.padding(.vertical, 2).padding(.horizontal, 4).background(
                         track.trackID == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
@@ -1619,65 +1629,30 @@ class InteractiveMetalView: MTKView {
 
 // MARK: - Flow Layout
 
-/// Wrapping flow layout for tag pills, capped at a maximum number of rows.
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 3
-    var maxRows: Int = 2
+/// Horizontal row of tag pills showing at most 2 values.
+/// When there are 3+ tags the third slot shows a blue "..." overflow indicator.
+struct TagRow: View {
+    let tags: [(String, Color)]
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var row = 1
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth && x > 0 {
-                row += 1
-                if row > maxRows { break }
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(tags.prefix(2).enumerated()), id: \.offset) { _, tag in
+                TagPill(text: tag.0, colour: tag.1)
             }
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        return CGSize(width: maxWidth, height: y + rowHeight)
-    }
-
-    func placeSubviews(
-        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-    ) {
-        var x = bounds.minX
-        var y = bounds.minY
-        var rowHeight: CGFloat = 0
-        var row = 1
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > bounds.maxX && x > bounds.minX {
-                row += 1
-                if row > maxRows { break }
-                x = bounds.minX
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: .unspecified)
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
+            if tags.count > 2 { TagPill(text: "...", colour: .blue) }
+        }.lineLimit(1).fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// Compact tag pill: 5-character-truncated label with coloured background.
+/// Compact tag pill: 6-character-truncated label with coloured background.
 struct TagPill: View {
     let text: String
     let colour: Color
 
     var body: some View {
-        Text(String(text.prefix(5))).font(.system(size: 9, design: .monospaced)).foregroundColor(
-            .white
-        ).padding(.horizontal, 3).padding(.vertical, 1).background(colour.opacity(0.6))
-            .cornerRadius(3)
+        Text(String(text.prefix(6))).font(.system(size: 9, design: .monospaced)).lineLimit(1)
+            .fixedSize().foregroundColor(.white).padding(.horizontal, 3).padding(.vertical, 1)
+            .background(colour.opacity(0.6)).cornerRadius(3)
     }
 }
 
