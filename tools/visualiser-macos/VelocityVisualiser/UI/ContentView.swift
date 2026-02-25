@@ -1028,6 +1028,7 @@ struct TrackListView: View {
                 // Live mode: show tracks from the current frame
                 frameTrackListContent
             }
+            Spacer().frame(height: 8)
         }.onChange(of: appState.currentRunID) { _, newRunID in
             if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
         }.onChange(of: appState.userLabels) { _, _ in
@@ -1044,10 +1045,10 @@ struct TrackListView: View {
     private func runTrackTags(_ track: RunTrack) -> [(String, Color)] {
         var tags: [(String, Color)] = []
         let displayLabel = appState.userLabels[track.trackId] ?? track.userLabel
-        if let label = displayLabel, !label.isEmpty { tags.append((label, .orange)) }
+        if let label = displayLabel, !label.isEmpty { tags.append((label, .confirmedGreen)) }
         let quality = appState.userQualityFlags[track.trackId] ?? track.qualityLabel
         if let quality = quality, !quality.isEmpty {
-            for flag in quality.split(separator: ",") { tags.append((String(flag), .cyan)) }
+            for flag in quality.split(separator: ",") { tags.append((String(flag), .accentColor)) }
         }
         return tags
     }
@@ -1078,11 +1079,6 @@ struct TrackListView: View {
                                     .green)
                             }
                             Spacer()
-                            if track.trackId == appState.selectedTrackID {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(
-                                    .accentColor
-                                ).font(.caption2)
-                            }
                         }.foregroundColor(.secondary)
                         // Row 2: tag pills (single line, max 2 + overflow)
                         let tags = runTrackTags(track)
@@ -1102,7 +1098,7 @@ struct TrackListView: View {
     private func frameTrackTags(_ track: Track) -> [(String, Color)] {
         var tags: [(String, Color)] = []
         let displayLabel = appState.userLabels[track.trackID] ?? track.classLabel
-        if !displayLabel.isEmpty { tags.append((displayLabel, .orange)) }
+        if !displayLabel.isEmpty { tags.append((displayLabel, .confirmedGreen)) }
         return tags
     }
 
@@ -1124,11 +1120,6 @@ struct TrackListView: View {
                                     .green)
                             }
                             Spacer()
-                            if track.trackID == appState.selectedTrackID {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(
-                                    .accentColor
-                                ).font(.caption2)
-                            }
                         }.foregroundColor(.secondary)
                         // Row 2: tag pills (single line, max 2 + overflow)
                         let tags = frameTrackTags(track)
