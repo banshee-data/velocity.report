@@ -191,6 +191,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     /// Ring buffer of recent samples per track (keyed by trackID).
     private(set) var trackHistory: [String: [TrackSample]] = [:]
+    /// Persistent all-time peak speed per track (survives ring-buffer eviction).
+    private(set) var trackPeakSpeed: [String: Float] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     // MARK: - Renderer
@@ -476,6 +478,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         trackCount = 0
         cacheStatus = ""
         trackHistory = [:]
+        trackPeakSpeed = [:]
         renderer?.clearTransientData()
     }
 
@@ -491,6 +494,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         resetPlaybackState(mode: .unknown)
         frameCount = 0
         trackHistory = [:]
+        trackPeakSpeed = [:]
         userLabels = [:]
         userQualityFlags = [:]
     }
@@ -526,6 +530,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 let ack: VisualiserPlaybackStatus
                 if newPaused {
                     ack = try await client.pause()
+                } else if wasFinished {
+                    // Replay ended — seek to the beginning then play
+                    logger.info("Replay finished — seeking to start before playing")
+                    let seekAck = try await client.seek(to: self.logStartTimestamp)
+                    self.applyPlaybackAck(seekAck)
+                    self.replayProgress = 0
+                    self.currentTimestamp = self.logStartTimestamp
+                    ack = try await client.play()
                 } else {
                     ack = try await client.play()
                 }
@@ -976,6 +988,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                     samples.removeFirst(samples.count - Self.maxHistorySamples)
                 }
                 trackHistory[track.trackID] = samples
+                // Update persistent peak (survives ring-buffer eviction)
+                let prevPeak = trackPeakSpeed[track.trackID] ?? 0
+                if track.peakSpeedMps > prevPeak {
+                    trackPeakSpeed[track.trackID] = track.peakSpeedMps
+                }
             }
         }
 

@@ -744,19 +744,20 @@ struct TrackHistoryGraphView: View {
     var body: some View {
         let display = trimmedSamples
         if display.count >= 2 {
-            let globalPeak = display.map { CGFloat($0.peakSpeedMps) }.max() ?? 0
+            // Use persistent peak from AppState (survives ring-buffer eviction)
+            let globalPeak = CGFloat(appState.trackPeakSpeed[trackID] ?? 0)
 
             GroupBox(label: Text("History").font(.caption2)) {
                 VStack(alignment: .leading, spacing: 8) {
+                    // Heading sparkline (orange) — on top
+                    SparklineView(
+                        values: display.map { CGFloat($0.headingDeg) }, colour: .orange,
+                        label: "Heading (°)")
+
                     // Velocity sparkline (cyan) with dashed red line at global max
                     SparklineView(
                         values: display.map { CGFloat($0.speedMps) }, colour: .cyan,
                         label: "Velocity (m/s)", peakValue: globalPeak)
-
-                    // Heading sparkline (orange)
-                    SparklineView(
-                        values: display.map { CGFloat($0.headingDeg) }, colour: .orange,
-                        label: "Heading (°)")
                 }
             }
         }
