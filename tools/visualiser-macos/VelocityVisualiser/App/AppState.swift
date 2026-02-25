@@ -804,7 +804,6 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     func assignLabel(_ label: String) {
         guard let trackID = selectedTrackID else { return }
-        userLabels[trackID] = label  // Immediate local feedback
         logger.info("Assigning label '\(label)' to track \(trackID)")
         userLabels[trackID] = label  // Immediate local feedback
 
@@ -830,7 +829,6 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func assignLabelToAllVisible(_ label: String) {
         let tracks = filteredTracks
         guard !tracks.isEmpty else { return }
-        for track in tracks { userLabels[track.trackID] = label }  // Immediate local feedback
         logger.info("Assigning label '\(label)' to \(tracks.count) visible tracks")
         for track in tracks { userLabels[track.trackID] = label }  // Immediate local feedback
 

@@ -1858,7 +1858,7 @@ struct TrackLabelOverlay: View {
     }
 }
 
-/// A single track label pill: short 3-char hex suffix + class label.
+/// A single track label pill: short 4-char hex suffix + class label.
 /// Mirrors the tentative/confirmed design language:
 /// - Yellow text when showing the auto-classifier label (tentative)
 /// - Green text when showing a user-assigned label (confirmed)
@@ -2051,7 +2051,7 @@ class InteractiveMetalView: MTKView {
 // MARK: - Flow Layout
 
 /// Horizontal row of tag pills showing at most 2 values.
-/// When there are 3+ tags the third slot shows a blue "..." overflow indicator.
+/// When there are 3+ tags the third slot shows an accented "…" overflow indicator.
 struct TagRow: View {
     let tags: [(String, Color)]
 
