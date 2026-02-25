@@ -5,6 +5,9 @@
 
 import MetalKit
 import SwiftUI
+import os
+
+private let uiLogger = Logger(subsystem: "report.velocity.visualiser", category: "UI")
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
@@ -40,11 +43,19 @@ struct ContentView: View {
 
                         // Capture Metal view size for label projection
                         GeometryReader { geometry in
-                            Color.clear.onAppear { appState.metalViewSize = geometry.size }
-                                .onChange(of: geometry.size) { _, newSize in
-                                    // Defer to next run loop to avoid AttributeGraph cycle
-                                    Task { @MainActor in appState.metalViewSize = newSize }
+                            Color.clear.onAppear {
+                                let size = geometry.size
+                                Task { @MainActor in
+                                    appState.updateMetalViewSize(
+                                        size, source: "ContentView.onAppear")
                                 }
+                            }.onChange(of: geometry.size) { _, newSize in
+                                // Defer to next run loop to avoid AttributeGraph cycle
+                                Task { @MainActor in
+                                    appState.updateMetalViewSize(
+                                        newSize, source: "ContentView.GeometryReader.onChange")
+                                }
+                            }
                         }.allowsHitTesting(false)
                     }.frame(minWidth: 400, minHeight: 300)
                 }.frame(minWidth: 600)
@@ -772,25 +783,35 @@ struct SparklineView: View {
     /// Optional peak value shown as a dashed red horizontal line with right-axis label.
     var peakValue: CGFloat? = nil
 
+    /// Font size used for the inline sparkline labels.
+    private static let labelFontSize: CGFloat = 8
+    /// Vertical padding so labels don't clip the chart edge.
+    private static let labelPad: CGFloat = 1
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
+            // Header row: label + peak metric (always above the sparkline)
             HStack {
                 Text(label).font(.system(size: 9)).foregroundColor(.secondary)
                 Spacer()
-                if let last = values.last {
-                    Text(String(format: "%.1f", last)).font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(colour)
+                if let peak = peakValue {
+                    Text(String(format: "%.1f", peak)).font(
+                        .system(size: Self.labelFontSize, design: .monospaced)
+                    ).foregroundColor(.red)
                 }
             }
             HStack(spacing: 0) {
                 GeometryReader { geo in
+                    let size = geo.size
                     // Main sparkline
-                    sparklinePath(in: geo.size).stroke(colour, lineWidth: 1.5)
+                    sparklinePath(in: size).stroke(colour, lineWidth: 1.5)
                     // Peak speed dashed line
                     if let peak = peakValue {
-                        peakLinePath(peak: peak, in: geo.size).stroke(
+                        peakLinePath(peak: peak, in: size).stroke(
                             Color.red, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                     }
+                    // In-chart current value label
+                    currentValueLabel(in: size)
                 }.frame(height: 40)
                 // Right axis label for peak
                 if let peak = peakValue {
@@ -799,6 +820,24 @@ struct SparklineView: View {
                             .leading, 2)
                 }
             }
+        }
+    }
+
+    /// Current value label positioned at the right edge of the sparkline.
+    @ViewBuilder private func currentValueLabel(in size: CGSize) -> some View {
+        let minVal = values.min() ?? 0
+        let maxVal = max(values.max() ?? 1, peakValue ?? 0)
+        let range = maxVal - minVal
+        let effectiveRange = range < 0.001 ? 1.0 : range
+
+        if let last = values.last {
+            let lastY = size.height - (size.height * (last - minVal) / effectiveRange)
+            let nearBottom = lastY > size.height - 12
+            Text(String(format: "%.1f", last)).font(
+                .system(size: Self.labelFontSize, design: .monospaced)
+            ).foregroundColor(colour).position(
+                x: size.width - 14,
+                y: nearBottom ? lastY - 6 - Self.labelPad : lastY + 6 + Self.labelPad)
         }
     }
 
@@ -1181,41 +1220,52 @@ struct LabelPanelView: View {
                     ).padding(.vertical, 2).background(Color.orange.opacity(0.8)).cornerRadius(4)
                 }
 
-                // Classification labels (user_label) — single-select
-                Text("Classification").font(.caption).foregroundColor(.secondary).padding(.top, 4)
-                ForEach(Array(Self.classificationLabels.enumerated()), id: \.offset) {
-                    index, entry in
-                    LabelButton(
-                        label: entry.name, shortcut: "\(index + 1)",
-                        isActive: lastAssignedLabel == entry.name, helpText: entry.help
-                    ) {
-                        appState.assignLabel(entry.name)
-                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = entry.name }
-                    }
-                }
-
-                // Quality flags (quality_label) — multi-select toggles
-                if appState.currentRunID != nil {
-                    Divider().padding(.vertical, 4)
-                    Text("Flags").font(.caption).foregroundColor(.secondary)
-                    ForEach(Array(Self.qualityFlags.enumerated()), id: \.offset) { _, entry in
-                        FlagToggleButton(
-                            label: entry.name, isActive: activeFlags.contains(entry.name),
-                            helpText: entry.help
-                        ) {
-                            withAnimation(.easeOut(duration: 0.3)) {
-                                if activeFlags.contains(entry.name) {
-                                    activeFlags.remove(entry.name)
-                                } else {
-                                    activeFlags.insert(entry.name)
+                // Classification labels + quality flags in two columns
+                HStack(alignment: .top, spacing: 8) {
+                    // Left column: classification labels (single-select)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Classification").font(.caption).foregroundColor(.secondary).padding(
+                            .bottom, 4)
+                        ForEach(Array(Self.classificationLabels.enumerated()), id: \.offset) {
+                            index, entry in
+                            LabelButton(
+                                label: entry.name, shortcut: "\(index + 1)",
+                                isActive: lastAssignedLabel == entry.name, helpText: entry.help
+                            ) {
+                                appState.assignLabel(entry.name)
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    lastAssignedLabel = entry.name
                                 }
                             }
-                            // Save comma-separated flags
-                            let flagsString = activeFlags.sorted().joined(separator: ",")
-                            appState.assignQuality(flagsString)
                         }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Right column: quality flags (multi-select)
+                    if appState.currentRunID != nil {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Flags").font(.caption).foregroundColor(.secondary).padding(
+                                .bottom, 4)
+                            ForEach(Array(Self.qualityFlags.enumerated()), id: \.offset) {
+                                _, entry in
+                                FlagToggleButton(
+                                    label: entry.name, isActive: activeFlags.contains(entry.name),
+                                    helpText: entry.help
+                                ) {
+                                    withAnimation(.easeOut(duration: 0.3)) {
+                                        if activeFlags.contains(entry.name) {
+                                            activeFlags.remove(entry.name)
+                                        } else {
+                                            activeFlags.insert(entry.name)
+                                        }
+                                    }
+                                    // Save comma-separated flags
+                                    let flagsString = activeFlags.sorted().joined(separator: ",")
+                                    appState.assignQuality(flagsString)
+                                }
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
                     }
-                }
+                }.padding(.top, 4)
 
                 // Bulk label: apply to all visible (filtered) tracks
                 // TODO: Re-enable when backend bulk-label API is ready
@@ -1325,12 +1375,12 @@ struct LabelButton: View {
                 Text(displayName(label)).font(.callout)
                 Spacer()
                 if isActive {
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green).font(
-                        .caption)
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(.confirmedGreen)
+                        .font(.caption)
                 }
             }.padding(.vertical, 3).padding(.horizontal, 6).background(
                 isActive
-                    ? Color.accentColor.opacity(0.2)
+                    ? Color.confirmedGreen.opacity(0.2)
                     : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
             ).cornerRadius(4)
         }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }.help(
@@ -1445,7 +1495,7 @@ struct FilterBarView: View {
                     appState.filterMaxHits = 0
                     appState.filterMinPointsPerFrame = 0
                     appState.filterMaxPointsPerFrame = 0
-                    appState.resetAdmittedTracks()
+                    appState.resetAdmittedTracks(reason: "filterResetButton")
                 }) { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plain)
                     .foregroundColor(.accentColor).help("Reset all filters")
             }
@@ -1458,12 +1508,22 @@ struct FilterBarView: View {
             }.buttonStyle(.plain)
         }.padding(.horizontal, 12).padding(.vertical, 6).background(
             Color(nsColor: .controlBackgroundColor)
-        ).onChange(of: appState.filterMinHits) { _, _ in appState.resetAdmittedTracks() }.onChange(
-            of: appState.filterMaxHits
-        ) { _, _ in appState.resetAdmittedTracks() }.onChange(of: appState.filterMinPointsPerFrame)
-        { _, _ in appState.resetAdmittedTracks() }.onChange(of: appState.filterMaxPointsPerFrame) {
-            _, _ in appState.resetAdmittedTracks()
-        }.onChange(of: appState.filterOnlyInBox) { _, _ in appState.resetAdmittedTracks() }
+        ).onChange(of: appState.filterMinHits) { oldValue, newValue in
+            uiLogger.debug("filterMinHits \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMinHits")
+        }.onChange(of: appState.filterMaxHits) { oldValue, newValue in
+            uiLogger.debug("filterMaxHits \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMaxHits")
+        }.onChange(of: appState.filterMinPointsPerFrame) { oldValue, newValue in
+            uiLogger.debug("filterMinPointsPerFrame \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMinPointsPerFrame")
+        }.onChange(of: appState.filterMaxPointsPerFrame) { oldValue, newValue in
+            uiLogger.debug("filterMaxPointsPerFrame \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMaxPointsPerFrame")
+        }.onChange(of: appState.filterOnlyInBox) { oldValue, newValue in
+            uiLogger.debug("filterOnlyInBox \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterOnlyInBox")
+        }
     }
 }
 
@@ -1475,28 +1535,25 @@ struct RangeSliderView: View {
     let range: ClosedRange<Double>
     var step: Double = 1
 
-    @State private var trackWidth: CGFloat = 100
-
     private let thumbRadius: CGFloat = 6
     private let trackHeight: CGFloat = 4
 
     /// The effective high value: 0 means "no limit" → use range max for display.
     private var effectiveHigh: Double { high <= 0 ? range.upperBound : high }
 
-    private func xPosition(for value: Double) -> CGFloat {
-        let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
-        return CGFloat(fraction) * trackWidth
-    }
-
-    private func valueForX(_ x: CGFloat) -> Double {
-        let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
-        let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
-        return (raw / step).rounded() * step
-    }
-
     var body: some View {
         GeometryReader { geo in
-            let w = geo.size.width - thumbRadius * 2
+            let trackWidth = max(1, geo.size.width - thumbRadius * 2)
+            let xPosition: (Double) -> CGFloat = { value in
+                let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+                return CGFloat(fraction) * trackWidth
+            }
+            let valueForX: (CGFloat) -> Double = { x in
+                let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
+                let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+                return (raw / step).rounded() * step
+            }
+
             ZStack(alignment: .leading) {
                 // Track background
                 RoundedRectangle(cornerRadius: trackHeight / 2).fill(Color.gray.opacity(0.3)).frame(
@@ -1504,15 +1561,15 @@ struct RangeSliderView: View {
                 ).padding(.horizontal, thumbRadius)
 
                 // Active range highlight
-                let lowX = xPosition(for: low) + thumbRadius
-                let highX = xPosition(for: effectiveHigh) + thumbRadius
+                let lowX = xPosition(low) + thumbRadius
+                let highX = xPosition(effectiveHigh) + thumbRadius
                 RoundedRectangle(cornerRadius: trackHeight / 2).fill(Color.accentColor.opacity(0.5))
                     .frame(width: max(0, highX - lowX), height: trackHeight).offset(x: lowX)
 
                 // Low thumb
                 Circle().fill(Color.accentColor).frame(
                     width: thumbRadius * 2, height: thumbRadius * 2
-                ).offset(x: xPosition(for: low)).gesture(
+                ).offset(x: xPosition(low)).gesture(
                     DragGesture(minimumDistance: 0).onChanged { drag in
                         let newVal = min(valueForX(drag.location.x - thumbRadius), effectiveHigh)
                         low = max(range.lowerBound, newVal)
@@ -1521,15 +1578,13 @@ struct RangeSliderView: View {
                 // High thumb
                 Circle().fill(Color.accentColor).frame(
                     width: thumbRadius * 2, height: thumbRadius * 2
-                ).offset(x: xPosition(for: effectiveHigh)).gesture(
+                ).offset(x: xPosition(effectiveHigh)).gesture(
                     DragGesture(minimumDistance: 0).onChanged { drag in
                         let newVal = max(valueForX(drag.location.x - thumbRadius), low)
                         let clamped = min(range.upperBound, newVal)
                         // If dragged to the max, set to 0 (no limit)
                         high = clamped >= range.upperBound ? 0 : clamped
                     })
-            }.onAppear { trackWidth = w }.onChange(of: geo.size.width) { _, newW in
-                trackWidth = newW - thumbRadius * 2
             }
         }.frame(height: thumbRadius * 2 + 4)
     }
@@ -1586,16 +1641,29 @@ struct TrackLabelOverlay: View {
 }
 
 /// A single track label pill: short 3-char hex suffix + class label.
+/// Mirrors the tentative/confirmed design language:
+/// - Yellow text when showing the auto-classifier label (tentative)
+/// - Green text when showing a user-assigned label (confirmed)
 struct TrackLabelPill: View {
     let label: MetalRenderer.TrackScreenLabel
+
+    /// The display text and colour for the classification label.
+    private var classDisplay: (text: String, colour: Color)? {
+        if !label.userLabel.isEmpty {
+            return (label.userLabel, .confirmedGreen)
+        } else if !label.classLabel.isEmpty {
+            return (label.classLabel, .yellow)
+        }
+        return nil
+    }
 
     var body: some View {
         HStack(spacing: 3) {
             Text(label.id.shortTrackID).font(.system(size: 10, design: .monospaced))
                 .foregroundColor(.white)
 
-            if !label.classLabel.isEmpty {
-                Text(label.classLabel).font(.system(size: 10)).foregroundColor(.yellow)
+            if let display = classDisplay {
+                Text(display.text).font(.system(size: 10)).foregroundColor(display.colour)
             }
         }.padding(.horizontal, 5).padding(.vertical, 2).background(
             label.isSelected ? Color.blue.opacity(0.8) : Color.black.opacity(0.6)
@@ -1789,6 +1857,14 @@ struct TagPill: View {
             .fixedSize().foregroundColor(.white).padding(.horizontal, 3).padding(.vertical, 1)
             .background(colour.opacity(0.6)).cornerRadius(3)
     }
+}
+
+// MARK: - Confirmed Green Colour
+
+extension Color {
+    /// Green used for confirmed/user-assigned labels, matching the confirmed track state.
+    /// Slightly desaturated for legibility against dark backgrounds.
+    static let confirmedGreen = Color(red: 0.25, green: 0.82, blue: 0.38)
 }
 
 // MARK: - Track ID Helpers

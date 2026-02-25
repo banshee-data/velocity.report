@@ -103,7 +103,6 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Local cache of user-assigned quality flags, keyed by track ID.
     /// Provides immediate feedback in the track list before the server round-trips.
     @Published var userQualityFlags: [String: String] = [:]
-
     // MARK: - Frame Data
 
     // Note: currentFrame is NOT @Published to avoid SwiftUI update cycles
@@ -157,10 +156,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     /// Reset admitted tracks — called when filter parameters change.
-    func resetAdmittedTracks() {
+    func resetAdmittedTracks(reason: String = "unspecified") {
+        let previousCount = admittedTrackIDs.count
         admittedTrackIDs.removeAll()
         // Re-evaluate current frame immediately
         updateAdmittedTracks()
+        logger.debug(
+            "resetAdmittedTracks(reason: \(reason, privacy: .public)) previous=\(previousCount) current=\(self.admittedTrackIDs.count) filtersActive=\(self.hasActiveFilters)"
+        )
     }
 
     /// Tracks from the current frame that are admitted (passed filters at some point).
@@ -209,7 +212,21 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Reproject track labels after camera movement (orbit/pan/zoom).
     func reprojectLabels() {
         guard showTrackLabels, let r = renderer, metalViewSize.width > 0 else { return }
-        trackLabels = r.projectTrackLabels(viewSize: metalViewSize)
+        trackLabels = r.projectTrackLabels(viewSize: metalViewSize).map { label in
+            var patched = label
+            patched.userLabel = userLabels[label.id] ?? ""
+            return patched
+        }
+    }
+
+    /// Update the cached Metal view size and skip redundant writes to reduce SwiftUI churn.
+    func updateMetalViewSize(_ newSize: CGSize, source: String) {
+        guard metalViewSize != newSize else { return }
+        let formattedSize = String(format: "%.1fx%.1f", newSize.width, newSize.height)
+        logger.debug(
+            "metalViewSize <- \(formattedSize, privacy: .public) source=\(source, privacy: .public)"
+        )
+        metalViewSize = newSize
     }
 
     // MARK: - Internal
@@ -749,6 +766,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     func assignLabel(_ label: String) {
         guard let trackID = selectedTrackID else { return }
+        userLabels[trackID] = label  // Immediate local feedback
         logger.info("Assigning label '\(label)' to track \(trackID)")
         userLabels[trackID] = label  // Immediate local feedback
 
@@ -774,6 +792,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func assignLabelToAllVisible(_ label: String) {
         let tracks = filteredTracks
         guard !tracks.isEmpty else { return }
+        for track in tracks { userLabels[track.trackID] = label }  // Immediate local feedback
         logger.info("Assigning label '\(label)' to \(tracks.count) visible tracks")
         for track in tracks { userLabels[track.trackID] = label }  // Immediate local feedback
 
@@ -909,7 +928,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         let newLabels: [MetalRenderer.TrackScreenLabel]
         if showTrackLabels, let r = renderer, metalViewSize.width > 0 {
-            newLabels = r.projectTrackLabels(viewSize: metalViewSize)
+            newLabels = r.projectTrackLabels(viewSize: metalViewSize).map { label in
+                var patched = label
+                patched.userLabel = self.userLabels[label.id] ?? ""
+                return patched
+            }
         } else {
             newLabels = []
         }
@@ -988,7 +1011,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                     samples.removeFirst(samples.count - Self.maxHistorySamples)
                 }
                 trackHistory[track.trackID] = samples
-                // Update persistent peak (survives ring-buffer eviction)
+
+                // Update persistent peak speed (survives ring-buffer eviction)
                 let prevPeak = trackPeakSpeed[track.trackID] ?? 0
                 if track.peakSpeedMps > prevPeak {
                     trackPeakSpeed[track.trackID] = track.peakSpeedMps

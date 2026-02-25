@@ -1189,6 +1189,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         let screenY: Float
         let classLabel: String
         let isSelected: Bool
+        /// User-assigned label (set post-projection by AppState). Empty when unset.
+        var userLabel: String = ""
     }
 
     /// Project all visible track positions to screen coordinates for label overlay.
