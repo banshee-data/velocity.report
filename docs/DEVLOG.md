@@ -1,5 +1,34 @@
 # Development Log
 
+## February 25, 2026 — Visualiser UI Polish, Label Taxonomy & Test Coverage
+
+### Label taxonomy consolidation
+
+- Added `ObjectClass` protobuf enum and updated `Track` and `LabelEvent` messages to use it (replaces free-form string classification).
+- SQL migrations (`000029`) to expand and normalise label vocabulary across the database.
+- Go server: renamed `ClassLabel` → `ObjectClass`, added `ClassifyFeatures` method for VRLOG replay reclassification.
+- SvelteKit frontend: expanded `DetectionLabel` union type, updated colours and tests.
+- macOS visualiser: updated classification labels, tag pills in `TrackListView` for classification and quality indicators.
+- Documentation: added classification maths specification and label vocabulary consolidation plan.
+
+### Visualiser UI polish (branch `copilot/ui-polish-round2`)
+
+- Refactored `ContentView.swift` to extract testable helper functions: `KeyAction` enum (25 cases), `handleKeyPress()`, `assignLabelByIndex()`, standalone row/toolbar/panel views.
+- Extended keyboard label shortcuts from 4 → 9 (keys 1–9 map to the full label taxonomy: car, truck, bus, pedestrian, cyclist, motorcyclist, bird, dynamic, noise).
+- Fixed label panel sync: replaced `@State lastAssignedLabel` with computed `currentLabel` derived from `appState.userLabels`, so keyboard shortcuts and button clicks both update the highlight.
+- Added up/down arrow key track navigation (`selectNextTrack` / `selectPreviousTrack`) sorted by peak speed descending, using quiet selection that does not force the side panel open.
+- Reorganised Track Inspector components and enhanced data display (3D bounding-box labels, sparkline colour coding, speed display logic).
+- User labels caching for immediate UI feedback; playback state reset on new VRLOG replay.
+- Refactored playback state management: `PlaybackControlsDerivedState`, `PlaybackRPCClient` protocol, stream termination handling.
+- Test coverage on `ContentView.swift` improved from 55.97% → 86.65% (3045/3514 lines). Total unit tests: 1031.
+
+### Other changes
+
+- Bumped version to `0.5.0-pre13`.
+- Completed Python venv consolidation to single root `.venv/` (PR #320).
+- Added PDF generation migration-to-Go plan (PR #321, decision D-17).
+- Completed SWEEP/HINT platform hardening and polish backlog items; updated BACKLOG.md milestones.
+
 ## February 23, 2026 - Settling Evaluation, Backlog Alignment & Vector Scene Map
 
 - Implemented `settling-eval` CLI tool (`cmd/settling-eval`) for evaluating background grid convergence from PCAP files.
