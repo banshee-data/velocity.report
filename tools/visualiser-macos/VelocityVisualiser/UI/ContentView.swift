@@ -707,32 +707,28 @@ struct TrackInspectorView: View {
 
 // MARK: - Track History Graph
 
-/// Inline sparkline graph showing velocity (m/s) and heading (°) over recent frames.
+/// Inline sparkline graph showing peak speed, velocity, and heading over recent frames.
 struct TrackHistoryGraphView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
 
     private var samples: [AppState.TrackSample] { appState.trackHistory[trackID] ?? [] }
 
-    /// Current peak speed from the live frame track data.
-    private var livePeakSpeed: CGFloat? {
-        guard
-            let track = appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID }
-            )
-        else { return nil }
-        return CGFloat(track.peakSpeedMps)
-    }
-
     var body: some View {
         if samples.count >= 2 {
             GroupBox(label: Text("History").font(.caption2)) {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Velocity sparkline with peak speed dashed line
+                    // Peak speed sparkline (red, top)
+                    SparklineView(
+                        values: samples.map { CGFloat($0.peakSpeedMps) }, colour: .red,
+                        label: "Max (m/s)")
+
+                    // Velocity sparkline (cyan, middle)
                     SparklineView(
                         values: samples.map { CGFloat($0.speedMps) }, colour: .cyan,
-                        label: "Velocity (m/s)", peakValue: livePeakSpeed)
+                        label: "Velocity (m/s)")
 
-                    // Heading sparkline
+                    // Heading sparkline (orange, bottom)
                     SparklineView(
                         values: samples.map { CGFloat($0.headingDeg) }, colour: .orange,
                         label: "Heading (°)")
@@ -840,7 +836,7 @@ struct DetailRow: View {
 /// Sort order for the track list.
 enum TrackSortOrder: String, CaseIterable {
     case firstSeen = "First seen"
-    case peakSpeed = "Peak speed"
+    case peakSpeed = "Max velocity"
 }
 
 /// In run mode: fetches ALL tracks from the run via the API (so prior tracks are visible).
@@ -850,6 +846,9 @@ struct TrackListView: View {
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
     @State private var sortOrder: TrackSortOrder = .firstSeen
+    /// Tracks the rank (index) of each track by peak speed at a recent timestamp.
+    /// Used to show a green ▲ when a track climbs the leaderboard.
+    @State private var previousRanks: [String: (rank: Int, time: Date)] = [:]
 
     /// Tracks visible in the current frame (live mode or as supplementary info).
     /// Uses filtered tracks when filters are active.
@@ -886,6 +885,48 @@ struct TrackListView: View {
     /// Track IDs visible in the current frame (for run mode in-view indicator).
     private var inViewTrackIDs: Set<String> { Set(frameTracks.map { $0.trackID }) }
 
+    /// Whether a track has climbed at least 1 rank in the past 2 seconds.
+    private func isClimbing(_ trackID: String, currentRank: Int) -> Bool {
+        guard let prev = previousRanks[trackID] else { return false }
+        let elapsed = Date().timeIntervalSince(prev.time)
+        return elapsed < 2.0 && currentRank < prev.rank
+    }
+
+    /// Snapshot current speed-sorted ranks into previousRanks for climb detection.
+    private func updateRanks() {
+        let now = Date()
+        // Build rank map from frame tracks sorted by peak speed desc.
+        let speedSorted: [(id: String, peak: Float)]
+        if isRunMode {
+            speedSorted = runTracks.map {
+                let live = frameTrackByID[$0.trackId].map { Float($0.peakSpeedMps) }
+                return (id: $0.trackId, peak: live ?? Float($0.peakSpeedMps ?? 0))
+            }.sorted { $0.peak > $1.peak }
+        } else {
+            let tracks =
+                appState.hasActiveFilters
+                ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+            speedSorted = tracks.map { (id: $0.trackID, peak: $0.peakSpeedMps) }.sorted {
+                $0.peak > $1.peak
+            }
+        }
+        var newRanks: [String: (rank: Int, time: Date)] = [:]
+        for (index, entry) in speedSorted.enumerated() {
+            let oldEntry = previousRanks[entry.id]
+            if let old = oldEntry, index < old.rank {
+                // Track climbed — record new rank with fresh timestamp.
+                newRanks[entry.id] = (rank: index, time: now)
+            } else if let old = oldEntry {
+                // Same or lower — keep old timestamp for 2 s fade-out.
+                newRanks[entry.id] = (rank: index, time: old.time)
+            } else {
+                // New track — no arrow.
+                newRanks[entry.id] = (rank: index, time: now.addingTimeInterval(-3))
+            }
+        }
+        previousRanks = newRanks
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Track count badge + sort picker
@@ -915,6 +956,8 @@ struct TrackListView: View {
         }.onChange(of: appState.userLabels) { _, _ in
             // Refresh run track list when user labels change so API data stays in sync
             if isRunMode { fetchRunTracks() }
+        }.onChange(of: appState.currentFrameIndex) { _, _ in
+            if sortOrder == .peakSpeed { updateRanks() }
         }.onAppear { if isRunMode { fetchRunTracks() } }
     }
 
@@ -936,7 +979,7 @@ struct TrackListView: View {
         if runTracks.isEmpty && !isFetchingRunTracks {
             Text("No tracks in run").font(.caption).foregroundColor(.secondary)
         } else {
-            ForEach(sortedRunTracks, id: \.trackId) { track in
+            ForEach(Array(sortedRunTracks.enumerated()), id: \.element.trackId) { index, track in
                 let frameTrack = frameTrackByID[track.trackId]
                 let isInView = frameTrack != nil
                 let statusColour =
@@ -952,6 +995,12 @@ struct TrackListView: View {
                             let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
                             if let speed = liveSpeed ?? track.peakSpeedMps {
                                 Text(String(format: "%.1f m/s", speed)).font(.caption2)
+                            }
+                            if sortOrder == .peakSpeed
+                                && isClimbing(track.trackId, currentRank: index)
+                            {
+                                Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
+                                    .green)
                             }
                             Spacer()
                             if track.trackId == appState.selectedTrackID {
@@ -986,7 +1035,7 @@ struct TrackListView: View {
         if frameTracks.isEmpty {
             Text("No active tracks").font(.caption).foregroundColor(.secondary)
         } else {
-            ForEach(frameTracks, id: \.trackID) { track in
+            ForEach(Array(frameTracks.enumerated()), id: \.element.trackID) { index, track in
                 Button(action: { appState.selectTrack(track.trackID) }) {
                     VStack(alignment: .leading, spacing: 2) {
                         // Row 1: dot + hex ID + speed + checkmark
@@ -995,6 +1044,12 @@ struct TrackListView: View {
                             Text(track.trackID.shortTrackID).font(
                                 .system(.caption, design: .monospaced))
                             Text(String(format: "%.1f m/s", track.peakSpeedMps)).font(.caption2)
+                            if sortOrder == .peakSpeed
+                                && isClimbing(track.trackID, currentRank: index)
+                            {
+                                Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
+                                    .green)
+                            }
                             Spacer()
                             if track.trackID == appState.selectedTrackID {
                                 Image(systemName: "checkmark.circle.fill").foregroundColor(

@@ -185,6 +185,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     struct TrackSample {
         let frameIndex: UInt64
         let speedMps: Float
+        let peakSpeedMps: Float
         let headingDeg: Float
     }
 
@@ -965,7 +966,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             for track in tracks {
                 let sample = TrackSample(
                     frameIndex: currentFrameIndex, speedMps: track.speedMps,
-                    headingDeg: track.headingRad * 180 / .pi)
+                    peakSpeedMps: track.peakSpeedMps, headingDeg: track.headingRad * 180 / .pi)
                 var samples = trackHistory[track.trackID] ?? []
                 // Remove any samples at or beyond the current frame index
                 // (handles backward seeks and steps)
