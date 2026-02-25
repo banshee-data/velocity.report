@@ -1603,11 +1603,11 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 | Tool/Library            | Purpose                        | Status    | Priority      |
 | ----------------------- | ------------------------------ | --------- | ------------- |
-| **Parquet Go library**  | Read AV standard Parquet files | 🆕 New    | P0 - Required |
 | **SQLite**              | Store imported data            | ✅ Exists | -             |
+| **Parquet Go library**  | Read AV standard Parquet files | 🆕 New    | P0 - Required |
 | **7-DOF box math**      | IoU, containment, corners      | 🆕 New    | P0 - Required |
-| **Polygon containment** | NLZ point checking             | 🆕 New    | P1 - High     |
 | **av-import CLI**       | Import AV standard data        | 🆕 New    | P0 - Required |
+| **Polygon containment** | NLZ point checking             | 🆕 New    | P1 - High     |
 | **frame-analyzer CLI**  | Analyze frames                 | 🆕 New    | P1 - High     |
 
 ### Optional Tools and Libraries
@@ -1615,8 +1615,8 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 | Tool/Library                 | Purpose                  | Status      | Priority    |
 | ---------------------------- | ------------------------ | ----------- | ----------- |
 | **TFRecord writer**          | Export TensorFlow format | ⚪ Optional | P2 - Medium |
-| **Visualization**            | Point cloud rendering    | ⚪ Optional | P3 - Low    |
 | **AV dataset Python SDK**    | Reference implementation | ⚪ Optional | P2 - Medium |
+| **Visualisation**            | Point cloud rendering    | ⚪ Optional | P3 - Low    |
 | **Point cloud registration** | Refined pose alignment   | ⚪ Optional | P3 - Low    |
 | **Semantic segmentation**    | Per-point labels         | ⚪ Optional | P3 - Low    |
 
