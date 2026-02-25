@@ -5,7 +5,7 @@
 	 * Lists sweep/auto-tune runs with a detail panel showing recommendation,
 	 * request config, and links to the sweep dashboard.
 	 */
-	import { applyLidarParams, getSweep, listSweeps } from '$lib/api';
+	import { applyLidarParams, continueHINT, getSweep, listSweeps } from '$lib/api';
 	import type { SweepRecord, SweepSummary } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -38,6 +38,9 @@
 	let pasteJSON = '';
 	let pasteError: string | null = null;
 	let pasteApplying = false;
+
+	// HINT continue state
+	let continueStatus: string | null = null;
 
 	// Metric keys to filter out when applying recommendation params
 	const METRIC_KEYS = new Set([
@@ -153,6 +156,21 @@
 		}
 	}
 
+	async function handleContinueHINT() {
+		continueStatus = 'Continuing…';
+		try {
+			await continueHINT();
+			continueStatus = 'Continued ✓';
+			// Refresh sweep list to pick up state change
+			await loadData();
+			if (selectedSweep) {
+				selectedSweep = await getSweep(selectedSweep.sweep_id);
+			}
+		} catch (e) {
+			continueStatus = `Failed: ${e instanceof Error ? e.message : String(e)}`;
+		}
+	}
+
 	function formatDate(iso: string | undefined): string {
 		if (!iso) return '-';
 		return new Date(iso).toLocaleString();
@@ -226,7 +244,7 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">LiDAR Sweeps</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Parameter sweep and auto-tune history with recommendations
+					Sweep tuning parameters and visualise results to identify optimal tuning.
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -386,6 +404,36 @@
 							Open in Sweep Dashboard →
 						</a>
 					</div>
+
+					<!-- HINT: Inline Continue for awaiting_labels -->
+					{#if selectedSweep.mode === 'hint' && selectedSweep.status === 'awaiting_labels'}
+						{@const isContinuing = continueStatus === 'Continuing…'}
+						<div class="mb-4 rounded bg-yellow-50 px-4 py-3">
+							<p class="mb-2 text-sm font-medium text-yellow-800">
+								Awaiting track labels — label tracks then continue to sweep.
+							</p>
+							<div class="flex items-center gap-3">
+								<Button
+									variant="fill"
+									color="primary"
+									size="sm"
+									on:click={handleContinueHINT}
+									disabled={isContinuing}
+								>
+									{isContinuing ? 'Continuing…' : 'Continue to Sweep'}
+								</Button>
+								{#if continueStatus && !isContinuing}
+									<span
+										class="text-xs {continueStatus.includes('✓')
+											? 'text-green-600'
+											: 'text-red-500'}"
+									>
+										{continueStatus}
+									</span>
+								{/if}
+							</div>
+						</div>
+					{/if}
 
 					<!-- Error -->
 					{#if selectedSweep.error}

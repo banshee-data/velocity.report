@@ -1,1 +1,1 @@
-     DROP TABLE IF EXISTS lidar_sweeps;
+DROP TABLE IF EXISTS lidar_sweeps;

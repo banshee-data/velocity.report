@@ -353,36 +353,85 @@ func formatDuration(_ nanos: Int64) -> String {
     return String(format: "%@%d:%02d", prefix, minutes, seconds)
 }
 
+@available(macOS 15.0, *) struct PlaybackControlsDerivedState: Equatable {
+    let mode: AppState.PlaybackMode
+    let isConnected: Bool
+    let isPaused: Bool
+    let playbackRate: Float
+    let showStepButtons: Bool
+    let stepBackwardDisabled: Bool
+    let stepForwardDisabled: Bool
+    let showReplayTimeline: Bool
+    let showSeekableSlider: Bool
+    let showReadOnlyProgress: Bool
+    let showReplayMetadataUnavailable: Bool
+    let seekSliderDisabled: Bool
+    let playPauseDisabled: Bool
+    let rateControlsDisabled: Bool
+    let modeLabel: String
+
+    init(
+        isConnected: Bool, mode: AppState.PlaybackMode, isPaused: Bool, playbackRate: Float,
+        busy: Bool, hasValidTimelineRange: Bool, hasFrameIndexProgress: Bool,
+        currentFrameIndex: UInt64, totalFrames: UInt64
+    ) {
+        self.isConnected = isConnected
+        self.mode = mode
+        self.isPaused = isPaused
+        self.playbackRate = playbackRate
+        self.modeLabel = mode.modeLabel
+        let isReplay = mode == .replayNonSeekable || mode == .replaySeekable
+        let isSeekableReplay = mode == .replaySeekable
+        let isLiveOrUnknown = mode == .live || mode == .unknown
+
+        showStepButtons = isSeekableReplay
+        stepBackwardDisabled = !isConnected || busy || currentFrameIndex == 0
+        stepForwardDisabled =
+            !isConnected || busy || totalFrames == 0 || currentFrameIndex + 1 >= totalFrames
+        showReplayTimeline = isReplay
+        showSeekableSlider = isSeekableReplay
+        showReadOnlyProgress =
+            mode == .replayNonSeekable && (hasValidTimelineRange || hasFrameIndexProgress)
+        showReplayMetadataUnavailable =
+            mode == .replayNonSeekable && !hasValidTimelineRange && !hasFrameIndexProgress
+        seekSliderDisabled = !isConnected || busy || !hasValidTimelineRange
+        playPauseDisabled = !isConnected || busy || isLiveOrUnknown
+        rateControlsDisabled = !isConnected || busy || isLiveOrUnknown
+    }
+}
+
 struct PlaybackControlsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        let isConnected = appState.isConnected
-        let isLive = appState.isLive
-        let isPaused = appState.isPaused
-        let playbackRate = appState.playbackRate
-        let isSeekable = appState.isSeekable
+        let ui = PlaybackControlsDerivedState(
+            isConnected: appState.isConnected, mode: appState.displayPlaybackMode,
+            isPaused: appState.isPaused, playbackRate: appState.playbackRate,
+            busy: appState.playbackControlsBusy,
+            hasValidTimelineRange: appState.hasValidTimelineRange,
+            hasFrameIndexProgress: appState.hasFrameIndexProgress,
+            currentFrameIndex: appState.currentFrameIndex, totalFrames: appState.totalFrames)
 
         HStack {
             // Play/Pause (disabled in live mode)
             Button(action: { appState.togglePlayPause() }) {
-                Image(systemName: isPaused ? "play.fill" : "pause.fill")
-            }.disabled(!isConnected || isLive)
+                Image(systemName: ui.isPaused ? "play.fill" : "pause.fill")
+            }.disabled(ui.playPauseDisabled)
 
             // Step buttons (only for seekable modes like .vrlog replay)
-            if isSeekable {
+            if ui.showStepButtons {
                 Button(action: { appState.stepBackward() }) {
                     Image(systemName: "backward.frame.fill")
-                }.disabled(!isConnected || isLive)
+                }.disabled(ui.stepBackwardDisabled)
 
                 Button(action: { appState.stepForward() }) {
                     Image(systemName: "forward.frame.fill")
-                }.disabled(!isConnected || isLive)
+                }.disabled(ui.stepForwardDisabled)
             }
 
             // Timeline (replay mode)
-            if !isLive {
-                if isSeekable {
+            if ui.showReplayTimeline {
+                if ui.showSeekableSlider {
                     // Interactive seek slider for .vrlog replay
                     Slider(value: $appState.replayProgress, in: 0...1) { editing in
                         if editing {
@@ -393,11 +442,15 @@ struct PlaybackControlsView: View {
                             // so we don't call setSliderEditing(false) here to avoid a race.
                             appState.seek(to: appState.replayProgress)
                         }
-                    }.frame(minWidth: 200)
-                } else {
+                    }.frame(minWidth: 200).disabled(ui.seekSliderDisabled)
+                } else if ui.showReadOnlyProgress {
                     // Read-only progress bar for PCAP replay
-                    Slider(value: $appState.replayProgress, in: 0...1).frame(minWidth: 200)
-                        .disabled(true)
+                    Slider(value: .constant(appState.displayReplayProgress), in: 0...1).frame(
+                        minWidth: 200
+                    ).disabled(true)
+                } else {
+                    Text("Replay metadata unavailable").font(.caption).foregroundColor(.secondary)
+                        .frame(minWidth: 200, alignment: .leading)
                 }
 
                 // Time display
@@ -409,42 +462,41 @@ struct PlaybackControlsView: View {
             // Rate control (disabled in live mode)
             HStack(spacing: 4) {
                 Button(action: { appState.decreaseRate() }) { Image(systemName: "minus") }
-                    .buttonStyle(.borderless).disabled(!isConnected || isLive)
+                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
 
                 // Rate display: number + clickable "x" to reset to 1x
                 HStack(spacing: 0) {
-                    Text(formatRate(playbackRate)).font(.caption).monospacedDigit()
+                    Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
                     Button(action: { appState.resetRate() }) { Text("x").font(.caption) }
-                        .buttonStyle(.borderless).disabled(!isConnected || isLive)
-                }.frame(width: 45).foregroundColor(isLive ? .secondary : .primary)
+                        .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                }.frame(width: 45).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
 
                 Button(action: { appState.increaseRate() }) { Image(systemName: "plus") }
-                    .buttonStyle(.borderless).disabled(!isConnected || isLive)
-            }.opacity(isLive ? 0.5 : 1.0)
+                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+            }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
 
             // Mode indicator (only show when connected)
-            ModeIndicatorView(isLive: isLive, isConnected: isConnected)
+            PlaybackModeBadgeView(
+                modeLabel: ui.modeLabel, mode: ui.mode, isConnected: ui.isConnected)
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
     }
 }
 
 /// Displays elapsed/total or remaining/total time. Click to toggle.
+/// Falls back to frame-index display when nanosecond timestamps are not available.
 struct TimeDisplayView: View {
     @EnvironmentObject var appState: AppState
     @State private var showRemaining: Bool = false
 
     /// Whether we have valid log boundaries to compute durations.
-    private var hasValidRange: Bool {
-        appState.logStartTimestamp > 0 && appState.logEndTimestamp > appState.logStartTimestamp
-            && appState.currentTimestamp >= appState.logStartTimestamp
-    }
+    private var hasValidRange: Bool { appState.logEndTimestamp > appState.logStartTimestamp }
 
-    private var elapsed: Int64 { appState.currentTimestamp - appState.logStartTimestamp }
+    private var elapsed: Int64 { max(0, appState.currentTimestamp - appState.logStartTimestamp) }
 
     private var total: Int64 { appState.logEndTimestamp - appState.logStartTimestamp }
 
-    private var remaining: Int64 { appState.logEndTimestamp - appState.currentTimestamp }
+    private var remaining: Int64 { max(0, appState.logEndTimestamp - appState.currentTimestamp) }
 
     var body: some View {
         if hasValidRange {
@@ -454,11 +506,17 @@ struct TimeDisplayView: View {
             Button(action: { showRemaining.toggle() }) {
                 Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
-            }.buttonStyle(.plain).help(
+            }.buttonStyle(.plain).fixedSize().help(
                 showRemaining ? "Showing remaining time" : "Showing elapsed time")
+        } else if appState.totalFrames > 0 {
+            // Fallback: show frame-index progress when timestamps are unavailable
+            Text("F\(appState.currentFrameIndex + 1)/\(appState.totalFrames)").font(
+                .system(.caption, design: .monospaced)
+            ).foregroundColor(.secondary).fixedSize()
         } else {
             Text("--:-- / --:--").font(.system(.caption, design: .monospaced)).foregroundColor(
-                .secondary)
+                .secondary
+            ).fixedSize()
         }
     }
 }
@@ -474,6 +532,29 @@ struct ModeIndicatorView: View {
             ).padding(.horizontal, 8).padding(.vertical, 2).background(
                 isLive ? Color.red.opacity(0.2) : Color.orange.opacity(0.2)
             ).cornerRadius(4)
+        }
+    }
+}
+
+@available(macOS 15.0, *) struct PlaybackModeBadgeView: View {
+    let modeLabel: String
+    let mode: AppState.PlaybackMode
+    let isConnected: Bool
+
+    private var foreground: Color {
+        switch mode {
+        case .live: return .red
+        case .replayNonSeekable: return .orange
+        case .replaySeekable: return .blue
+        case .unknown: return .secondary
+        }
+    }
+
+    var body: some View {
+        if isConnected {
+            Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground).padding(
+                .horizontal, 8
+            ).padding(.vertical, 2).background(foreground.opacity(0.16)).cornerRadius(4)
         }
     }
 }
@@ -515,7 +596,7 @@ struct SidePanelView: View {
                     TrackListView()
                     Spacer()
                 }.padding()
-            }.scrollIndicators(.never).frame(width: 160, alignment: .leading)
+            }.scrollIndicators(.never).frame(width: 170, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -563,8 +644,6 @@ struct TrackInspectorView: View {
                             label: "Heading",
                             value: String(format: "%.1f°", t.headingRad * 180 / .pi))
                         DetailRow(label: "Peak", value: String(format: "%.1f m/s", t.peakSpeedMps))
-                        DetailRow(
-                            label: "Average", value: String(format: "%.1f m/s", t.avgSpeedMps))
                     }
                 }
 
@@ -600,15 +679,18 @@ struct TrackInspectorView: View {
                             label: "Duration", value: String(format: "%.1f s", t.trackDurationSecs))
                         DetailRow(
                             label: "Length", value: String(format: "%.1f m", t.trackLengthMetres))
-                        if !t.classLabel.isEmpty { DetailRow(label: "Class", value: t.classLabel) }
+                        DetailRow(
+                            label: "Class",
+                            value: t.classLabel.isEmpty ? "Not classified" : t.classLabel)
                     }
                 }
 
-                // Velocity & Heading graph
-                TrackHistoryGraphView(trackID: trackID)
             } else {
-                Text("Track data unavailable").font(.caption).foregroundColor(.secondary)
+                Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
             }
+
+            // Velocity & Heading graph — persists even after track leaves the frame
+            TrackHistoryGraphView(trackID: trackID)
         }
     }
 
@@ -633,26 +715,49 @@ struct TrackInspectorView: View {
 
 // MARK: - Track History Graph
 
-/// Inline sparkline graph showing velocity (m/s) and heading (°) over recent frames.
+/// Inline sparkline graph showing peak speed, velocity, and heading over recent frames.
 struct TrackHistoryGraphView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
 
     private var samples: [AppState.TrackSample] { appState.trackHistory[trackID] ?? [] }
 
+    /// Trim trailing near-zero-speed samples (lead-out) from the chart.
+    /// Keeps the full history for tracks that have always been slow/static
+    /// (e.g. objects waiting at an intersection).
+    private var trimmedSamples: [AppState.TrackSample] {
+        let raw = samples
+        guard raw.count >= 2 else { return raw }
+        let threshold: Float = 0.3  // m/s — below this is considered stationary
+        let peakSpeed = raw.map(\.speedMps).max() ?? 0
+        // If the track never exceeded threshold, keep everything (static object).
+        guard peakSpeed > threshold else { return raw }
+        // Find last index where speed exceeds the threshold, keep up to 5 frames of
+        // lead-out so the chart doesn't end abruptly.
+        if let lastMoving = raw.lastIndex(where: { $0.speedMps > threshold }) {
+            let keepTo = min(lastMoving + 5, raw.count - 1)
+            return Array(raw[...keepTo])
+        }
+        return raw
+    }
+
     var body: some View {
-        if samples.count >= 2 {
+        let display = trimmedSamples
+        if display.count >= 2 {
+            // Use persistent peak from AppState (survives ring-buffer eviction)
+            let globalPeak = CGFloat(appState.trackPeakSpeed[trackID] ?? 0)
+
             GroupBox(label: Text("History").font(.caption2)) {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Velocity sparkline
+                    // Heading sparkline (orange) — on top
                     SparklineView(
-                        values: samples.map { CGFloat($0.speedMps) }, colour: .cyan,
-                        label: "Velocity (m/s)")
-
-                    // Heading sparkline
-                    SparklineView(
-                        values: samples.map { CGFloat($0.headingDeg) }, colour: .orange,
+                        values: display.map { CGFloat($0.headingDeg) }, colour: .orange,
                         label: "Heading (°)")
+
+                    // Velocity sparkline (cyan) with dashed red line at global max
+                    SparklineView(
+                        values: display.map { CGFloat($0.speedMps) }, colour: .cyan,
+                        label: "Velocity (m/s)", peakValue: globalPeak)
                 }
             }
         }
@@ -664,6 +769,8 @@ struct SparklineView: View {
     let values: [CGFloat]
     let colour: Color
     let label: String
+    /// Optional peak value shown as a dashed red horizontal line with right-axis label.
+    var peakValue: CGFloat? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -675,16 +782,33 @@ struct SparklineView: View {
                         .foregroundColor(colour)
                 }
             }
-            GeometryReader { geo in sparklinePath(in: geo.size).stroke(colour, lineWidth: 1.5) }
-                .frame(height: 40)
+            HStack(spacing: 0) {
+                GeometryReader { geo in
+                    // Main sparkline
+                    sparklinePath(in: geo.size).stroke(colour, lineWidth: 1.5)
+                    // Peak speed dashed line
+                    if let peak = peakValue {
+                        peakLinePath(peak: peak, in: geo.size).stroke(
+                            Color.red, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    }
+                }.frame(height: 40)
+                // Right axis label for peak
+                if let peak = peakValue {
+                    Text(String(format: "%.1f", peak)).font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(.red).frame(width: 28, alignment: .trailing).padding(
+                            .leading, 2)
+                }
+            }
         }
     }
 
-    private func sparklinePath(in size: CGSize) -> Path {
+    /// Compute the sparkline path for a given canvas size.
+    /// Internal for testability via @testable import.
+    func sparklinePath(in size: CGSize) -> Path {
         guard values.count >= 2 else { return Path() }
 
         let minVal = values.min() ?? 0
-        let maxVal = values.max() ?? 1
+        let maxVal = max(values.max() ?? 1, peakValue ?? 0)
         let range = maxVal - minVal
         let effectiveRange = range < 0.001 ? 1.0 : range
 
@@ -698,6 +822,22 @@ struct SparklineView: View {
                     path.addLine(to: CGPoint(x: x, y: y))
                 }
             }
+        }
+    }
+
+    /// Compute a horizontal line at the given peak value.
+    func peakLinePath(peak: CGFloat, in size: CGSize) -> Path {
+        guard values.count >= 2 else { return Path() }
+
+        let minVal = values.min() ?? 0
+        let maxVal = max(values.max() ?? 1, peak)
+        let range = maxVal - minVal
+        let effectiveRange = range < 0.001 ? 1.0 : range
+        let y = size.height - (size.height * (peak - minVal) / effectiveRange)
+
+        return Path { path in
+            path.move(to: CGPoint(x: 0, y: y))
+            path.addLine(to: CGPoint(x: size.width, y: y))
         }
     }
 }
@@ -719,13 +859,22 @@ struct DetailRow: View {
 // MARK: - Track List
 
 /// Track list for selecting a track for labelling.
+/// Sort order for the track list.
+enum TrackSortOrder: String, CaseIterable {
+    case firstSeen = "First seen"
+    case peakSpeed = "Max velocity"
+}
+
 /// In run mode: fetches ALL tracks from the run via the API (so prior tracks are visible).
 /// In live mode: shows tracks from the current frame.
 struct TrackListView: View {
     @EnvironmentObject var appState: AppState
-    @State private var isExpanded = true
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
+    @State private var sortOrder: TrackSortOrder = .firstSeen
+    /// Tracks the rank (index) of each track by peak speed.
+    /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
+    @State private var previousRanks: [String: (rank: Int, climbedAt: Date?)] = [:]
 
     /// Tracks visible in the current frame (live mode or as supplementary info).
     /// Uses filtered tracks when filters are active.
@@ -733,7 +882,29 @@ struct TrackListView: View {
         let tracks =
             appState.hasActiveFilters
             ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
-        return tracks.sorted { $0.trackID < $1.trackID }
+        switch sortOrder {
+        case .firstSeen: return tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
+        case .peakSpeed: return tracks.sorted { $0.peakSpeedMps > $1.peakSpeedMps }
+        }
+    }
+
+    /// Run tracks sorted according to the active sort order.
+    /// In peak-speed mode, uses live frame speed when available so the list re-sorts in real time.
+    private var sortedRunTracks: [RunTrack] {
+        switch sortOrder {
+        case .firstSeen:
+            return runTracks.sorted { ($0.startUnixNanos ?? 0) < ($1.startUnixNanos ?? 0) }
+        case .peakSpeed:
+            return runTracks.sorted { a, b in
+                let peakA =
+                    frameTrackByID[a.trackId].map { Double($0.peakSpeedMps) }
+                    ?? (a.peakSpeedMps ?? 0)
+                let peakB =
+                    frameTrackByID[b.trackId].map { Double($0.peakSpeedMps) }
+                    ?? (b.peakSpeedMps ?? 0)
+                return peakA > peakB
+            }
+        }
     }
 
     /// Track lookup for determining in-view state and colours.
@@ -750,78 +921,133 @@ struct TrackListView: View {
     /// Track IDs visible in the current frame (for run mode in-view indicator).
     private var inViewTrackIDs: Set<String> { Set(frameTracks.map { $0.trackID }) }
 
+    /// Whether a track has climbed at least 1 rank in the past 2 seconds.
+    private func isClimbing(_ trackID: String) -> Bool {
+        guard let entry = previousRanks[trackID], let climbedAt = entry.climbedAt else {
+            return false
+        }
+        return Date().timeIntervalSince(climbedAt) < 2.0
+    }
+
+    /// Snapshot current speed-sorted ranks into previousRanks for climb detection.
+    private func updateRanks() {
+        let now = Date()
+        // Build rank map from frame tracks sorted by peak speed desc.
+        let speedSorted: [(id: String, peak: Float)]
+        if isRunMode {
+            speedSorted = runTracks.map {
+                let live = frameTrackByID[$0.trackId].map { Float($0.peakSpeedMps) }
+                return (id: $0.trackId, peak: live ?? Float($0.peakSpeedMps ?? 0))
+            }.sorted { $0.peak > $1.peak }
+        } else {
+            let tracks =
+                appState.hasActiveFilters
+                ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+            speedSorted = tracks.map { (id: $0.trackID, peak: $0.peakSpeedMps) }.sorted {
+                $0.peak > $1.peak
+            }
+        }
+        var newRanks: [String: (rank: Int, climbedAt: Date?)] = [:]
+        for (index, entry) in speedSorted.enumerated() {
+            if let old = previousRanks[entry.id] {
+                if index < old.rank {
+                    // Track climbed — record fresh climb timestamp.
+                    newRanks[entry.id] = (rank: index, climbedAt: now)
+                } else {
+                    // Same or lower rank — preserve existing climbedAt for 2 s fade-out.
+                    newRanks[entry.id] = (rank: index, climbedAt: old.climbedAt)
+                }
+            } else {
+                // New track — no arrow.
+                newRanks[entry.id] = (rank: index, climbedAt: nil)
+            }
+        }
+        previousRanks = newRanks
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button(action: {
-                isExpanded.toggle()
-                if isExpanded && isRunMode && runTracks.isEmpty { fetchRunTracks() }
-            }) {
-                HStack {
-                    Label(
-                        "Track List",
-                        systemImage: isExpanded ? "list.bullet.circle.fill" : "list.bullet.circle")
-                    Spacer()
-                    if isFetchingRunTracks {
-                        ProgressView().controlSize(.mini)
-                    } else {
-                        Text("\(displayCount)").font(.caption).foregroundColor(.secondary)
-                    }
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }.buttonStyle(.plain)
-
-            if isExpanded {
-                if isRunMode {
-                    // Run mode: show all tracks from the analysis run
-                    runTrackListContent
+            // Track count badge + sort picker
+            HStack(spacing: 4) {
+                if isFetchingRunTracks {
+                    ProgressView().controlSize(.mini)
                 } else {
-                    // Live mode: show tracks from the current frame
-                    frameTrackListContent
+                    Text("\(displayCount)").font(.caption).foregroundColor(.secondary)
                 }
+                Spacer()
+                Picker("", selection: $sortOrder) {
+                    ForEach(TrackSortOrder.allCases, id: \.self) { order in
+                        Text(order.rawValue).tag(order)
+                    }
+                }.pickerStyle(.menu).labelsHidden().controlSize(.mini).frame(maxWidth: 90)
+            }
+
+            if isRunMode {
+                // Run mode: show all tracks from the analysis run
+                runTrackListContent
+            } else {
+                // Live mode: show tracks from the current frame
+                frameTrackListContent
             }
         }.onChange(of: appState.currentRunID) { _, newRunID in
             if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
+        }.onChange(of: appState.userLabels) { _, _ in
+            // Refresh run track list when user labels change so API data stays in sync
+            if isRunMode { fetchRunTracks() }
+        }.onChange(of: appState.currentFrameIndex) { _, _ in
+            if sortOrder == .peakSpeed { updateRanks() }
         }.onAppear { if isRunMode { fetchRunTracks() } }
     }
 
     // MARK: - Run Track List (API-fetched)
 
+    /// Collect tags for a run-mode track (classification + quality flags).
+    private func runTrackTags(_ track: RunTrack) -> [(String, Color)] {
+        var tags: [(String, Color)] = []
+        let displayLabel = appState.userLabels[track.trackId] ?? track.userLabel
+        if let label = displayLabel, !label.isEmpty { tags.append((label, .orange)) }
+        let quality = appState.userQualityFlags[track.trackId] ?? track.qualityLabel
+        if let quality = quality, !quality.isEmpty {
+            for flag in quality.split(separator: ",") { tags.append((String(flag), .cyan)) }
+        }
+        return tags
+    }
+
     @ViewBuilder private var runTrackListContent: some View {
         if runTracks.isEmpty && !isFetchingRunTracks {
             Text("No tracks in run").font(.caption).foregroundColor(.secondary)
         } else {
-            ForEach(runTracks, id: \.trackId) { track in
+            ForEach(sortedRunTracks, id: \.trackId) { track in
                 let frameTrack = frameTrackByID[track.trackId]
                 let isInView = frameTrack != nil
                 let statusColour =
                     frameTrack.map { trackStateColour($0.state) } ?? Color.gray.opacity(0.5)
                 Button(action: { appState.selectTrack(track.trackId) }) {
-                    HStack(spacing: 6) {
-                        // Label status indicator
-                        Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
-                            width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        // Row 1: dot + hex ID + speed + checkmark
+                        HStack(spacing: 4) {
+                            Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
+                                width: 6, height: 6)
                             Text(track.trackId.shortTrackID).font(
-                                .system(.caption, design: .monospaced)
-                            ).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                            HStack(spacing: 4) {
-                                if let speed = track.avgSpeedMps {
-                                    Text(String(format: "%.1f m/s", speed)).font(.caption2)
-                                }
-                                if let label = track.userLabel, !label.isEmpty {
-                                    Text(label).font(.caption2).foregroundColor(.orange)
-                                }
-                                if let quality = track.qualityLabel, !quality.isEmpty {
-                                    Text(quality).font(.caption2).foregroundColor(.cyan)
-                                }
-                            }.foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        if track.trackId == appState.selectedTrackID {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
-                                .font(.caption)
-                        }
+                                .system(.caption, design: .monospaced))
+                            let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
+                            if let speed = liveSpeed ?? track.peakSpeedMps {
+                                Text(String(format: "%.1f m/s", speed)).font(.caption2)
+                            }
+                            if sortOrder == .peakSpeed && isClimbing(track.trackId) {
+                                Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
+                                    .green)
+                            }
+                            Spacer()
+                            if track.trackId == appState.selectedTrackID {
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(
+                                    .accentColor
+                                ).font(.caption2)
+                            }
+                        }.foregroundColor(.secondary)
+                        // Row 2: tag pills (single line, max 2 + overflow)
+                        let tags = runTrackTags(track)
+                        if !tags.isEmpty { TagRow(tags: tags) }
                     }.padding(.vertical, 2).padding(.horizontal, 4).background(
                         track.trackId == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
@@ -833,30 +1059,41 @@ struct TrackListView: View {
 
     // MARK: - Frame Track List (live mode)
 
+    /// Collect tags for a live-mode track (classification label).
+    private func frameTrackTags(_ track: Track) -> [(String, Color)] {
+        var tags: [(String, Color)] = []
+        let displayLabel = appState.userLabels[track.trackID] ?? track.classLabel
+        if !displayLabel.isEmpty { tags.append((displayLabel, .orange)) }
+        return tags
+    }
+
     @ViewBuilder private var frameTrackListContent: some View {
         if frameTracks.isEmpty {
             Text("No active tracks").font(.caption).foregroundColor(.secondary)
         } else {
             ForEach(frameTracks, id: \.trackID) { track in
                 Button(action: { appState.selectTrack(track.trackID) }) {
-                    HStack(spacing: 6) {
-                        Circle().fill(trackStateColour(track.state)).frame(width: 8, height: 8)
-                        VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        // Row 1: dot + hex ID + speed + checkmark
+                        HStack(spacing: 4) {
+                            Circle().fill(trackStateColour(track.state)).frame(width: 6, height: 6)
                             Text(track.trackID.shortTrackID).font(
-                                .system(.caption, design: .monospaced)
-                            ).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                            HStack(spacing: 4) {
-                                Text(String(format: "%.1f m/s", track.speedMps)).font(.caption2)
-                                if !track.classLabel.isEmpty {
-                                    Text(track.classLabel).font(.caption2).foregroundColor(.orange)
-                                }
-                            }.foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        if track.trackID == appState.selectedTrackID {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
-                                .font(.caption)
-                        }
+                                .system(.caption, design: .monospaced))
+                            Text(String(format: "%.1f m/s", track.peakSpeedMps)).font(.caption2)
+                            if sortOrder == .peakSpeed && isClimbing(track.trackID) {
+                                Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
+                                    .green)
+                            }
+                            Spacer()
+                            if track.trackID == appState.selectedTrackID {
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(
+                                    .accentColor
+                                ).font(.caption2)
+                            }
+                        }.foregroundColor(.secondary)
+                        // Row 2: tag pills (single line, max 2 + overflow)
+                        let tags = frameTrackTags(track)
+                        if !tags.isEmpty { TagRow(tags: tags) }
                     }.padding(.vertical, 2).padding(.horizontal, 4).background(
                         track.trackID == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
@@ -900,10 +1137,14 @@ struct LabelPanelView: View {
 
     // Canonical classification labels — must match Go validUserLabels and Svelte DetectionLabel
     static let classificationLabels: [(name: String, help: String)] = [
-        ("car", "Vehicle (car, truck, bus, motorcycle)"),
-        ("ped", "Pedestrian (person walking, running, cycling)"),
+        ("car", "Passenger car, SUV, or van"),
+        ("truck", "Pickup truck, box truck, or freight vehicle"),
+        ("bus", "Bus, coach, or large passenger vehicle (length > 7 m)"),
+        ("pedestrian", "Person walking, running, or using a mobility aid"),
+        ("cyclist", "Person on a bicycle or e-scooter"),
+        ("motorcyclist", "Person riding a motorcycle"), ("bird", "Bird or other airborne fauna"),
+        ("dynamic", "Ambiguous detection unsure between moving objects"),
         ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
-        ("impossible", "Track passes through walls or obstacles in the scene"),
     ]
 
     // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
@@ -919,6 +1160,7 @@ struct LabelPanelView: View {
 
     @State private var lastAssignedLabel: String?
     @State private var activeFlags: Set<String> = []
+    @State private var isCarriedOver: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -930,6 +1172,13 @@ struct LabelPanelView: View {
                 // Run context indicator
                 if let runID = appState.currentRunID {
                     Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
+                }
+
+                // Carried-over label badge
+                if isCarriedOver {
+                    Text("↻ carried").font(.caption2).foregroundColor(.white).padding(
+                        .horizontal, 6
+                    ).padding(.vertical, 2).background(Color.orange.opacity(0.8)).cornerRadius(4)
                 }
 
                 // Classification labels (user_label) — single-select
@@ -969,21 +1218,24 @@ struct LabelPanelView: View {
                 }
 
                 // Bulk label: apply to all visible (filtered) tracks
-                Divider().padding(.vertical, 4)
-                BulkLabelView()
+                // TODO: Re-enable when backend bulk-label API is ready
+                // Divider().padding(.vertical, 4)
+                // BulkLabelView()
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
 
                 // Bulk label available even without selection
-                if appState.filteredTracks.count > 0 {
-                    Divider().padding(.vertical, 4)
-                    BulkLabelView()
-                }
+                // TODO: Re-enable when backend bulk-label API is ready
+                // if appState.filteredTracks.count > 0 {
+                //     Divider().padding(.vertical, 4)
+                //     BulkLabelView()
+                // }
             }
         }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
             lastAssignedLabel = nil
             activeFlags = []
+            isCarriedOver = false
             // Fetch existing labels for the newly selected track
             if let trackID = newTrackID, let runID = appState.currentRunID {
                 Task {
@@ -1002,6 +1254,7 @@ struct LabelPanelView: View {
                                         String($0).trimmingCharacters(in: .whitespaces)
                                     })
                             }
+                            if track.labelerId == "hint-carryover" { isCarriedOver = true }
                         }
                     } catch {
                         // Silently ignore — track may not exist in API yet
@@ -1294,22 +1547,23 @@ struct DebugOverlayTogglesView: View {
             Toggle("Track Labels", isOn: $appState.showTrackLabels).font(.caption).toggleStyle(
                 .checkbox)
 
-            Toggle("Association Lines", isOn: $appState.showAssociation).font(.caption).toggleStyle(
-                .checkbox
-            ).disabled(!appState.showDebug)
+            // TODO: Re-enable when backend debug overlay data is available
+            // Toggle("Association Lines", isOn: $appState.showAssociation).font(.caption).toggleStyle(
+            //     .checkbox
+            // ).disabled(!appState.showDebug)
 
-            Toggle("Gating Ellipses", isOn: $appState.showGating).font(.caption).toggleStyle(
-                .checkbox
-            ).disabled(!appState.showDebug)
+            // Toggle("Gating Ellipses", isOn: $appState.showGating).font(.caption).toggleStyle(
+            //     .checkbox
+            // ).disabled(!appState.showDebug)
 
-            Toggle("Residual Vectors", isOn: $appState.showResiduals).font(.caption).toggleStyle(
-                .checkbox
-            ).disabled(!appState.showDebug)
+            // Toggle("Residual Vectors", isOn: $appState.showResiduals).font(.caption).toggleStyle(
+            //     .checkbox
+            // ).disabled(!appState.showDebug)
 
-            if !appState.showDebug {
-                Text("Enable Debug (D) to show overlays").font(.caption2).foregroundColor(
-                    .secondary)
-            }
+            // if !appState.showDebug {
+            //     Text("Enable Debug (D) to show overlays").font(.caption2).foregroundColor(
+            //         .secondary)
+            // }
         }
     }
 }
@@ -1507,6 +1761,35 @@ class InteractiveMetalView: MTKView {
 // MARK: - Preview
 
 #Preview { ContentView().environmentObject(AppState()) }
+
+// MARK: - Flow Layout
+
+/// Horizontal row of tag pills showing at most 2 values.
+/// When there are 3+ tags the third slot shows a blue "..." overflow indicator.
+struct TagRow: View {
+    let tags: [(String, Color)]
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(tags.prefix(2).enumerated()), id: \.offset) { _, tag in
+                TagPill(text: tag.0, colour: tag.1)
+            }
+            if tags.count > 2 { TagPill(text: "...", colour: .blue) }
+        }.lineLimit(1).fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Compact tag pill: 6-character-truncated label with coloured background.
+struct TagPill: View {
+    let text: String
+    let colour: Color
+
+    var body: some View {
+        Text(String(text.prefix(6))).font(.system(size: 9, design: .monospaced)).lineLimit(1)
+            .fixedSize().foregroundColor(.white).padding(.horizontal, 3).padding(.vertical, 1)
+            .background(colour.opacity(0.6)).cornerRadius(3)
+    }
+}
 
 // MARK: - Track ID Helpers
 

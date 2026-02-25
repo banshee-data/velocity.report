@@ -13,7 +13,7 @@
 #   ./scripts/format-sql.sh [file1.sql file2.sql ...]
 #   ./scripts/format-sql.sh internal/db/schema.sql
 #
-# If no files are specified, formats only schema.sql (migrations excluded)
+# If no files are specified, formats schema.sql and all migrations
 #
 # Exit codes:
 #   0 - Success
@@ -55,12 +55,20 @@ fi
 FILES=()
 
 if [ $# -eq 0 ]; then
-    # No arguments - format only schema.sql (migrations are already formatted)
-    echo "No files specified, formatting schema.sql only (migrations excluded)"
+    # No arguments - format schema.sql and all migrations
     cd "$PROJECT_ROOT"
     if [ -f "internal/db/schema.sql" ]; then
         FILES+=("internal/db/schema.sql")
     fi
+    # Skip 000001 - 000003 migrations — they use a table named "log"
+    # which sql-formatter uppercases to the SQL keyword LOG.
+    while IFS= read -r -d '' f; do
+        base="$(basename "$f")"
+        if [[ "$base" == 000001_* || "$base" == 000002_* || "$base" == 000003_* ]]; then
+            continue
+        fi
+        FILES+=("$f")
+    done < <(find "$PROJECT_ROOT/internal/db/migrations" -name "*.sql" -print0 | sort -z)
 else
     # Format specified files
     FILES=("$@")

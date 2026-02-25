@@ -20,6 +20,10 @@ import SwiftUI
             // to minimize AttributeGraph cycles
             AppCommands(appState: appState)
         }
+
+        Window("About VelocityReport.app", id: "about") { AboutView() }.windowResizability(
+            .contentSize
+        ).defaultPosition(.center)
     }
 }
 
@@ -27,8 +31,14 @@ import SwiftUI
 
 struct AppCommands: Commands {
     let appState: AppState
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        // About panel
+        CommandGroup(replacing: .appInfo) {
+            Button("About VelocityReport.app") { openWindow(id: "about") }
+        }
+
         // Connection commands
         CommandGroup(replacing: .newItem) {
             Button("Connect/Disconnect") { appState.toggleConnection() }.keyboardShortcut(

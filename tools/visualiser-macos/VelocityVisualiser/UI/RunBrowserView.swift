@@ -16,6 +16,27 @@ extension String {
     }
 }
 
+@available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
+    runID: String, appState: AppState, loadRunForReplay: @escaping @MainActor () async -> Bool
+) async {
+    // Reset stale playback state before loading the new VRLOG.
+    // This clears isPaused, replayFinished, progress, timestamps.
+    appState.prepareForNewReplay()
+
+    let success = await loadRunForReplay()
+    if success {
+        // Update app state to indicate we're in VRLOG replay mode
+        appState.isLive = false
+        // Set currentRunID so labels route to run-track API
+        appState.currentRunID = runID
+        // Restart the gRPC stream AFTER the VRLOG has loaded on the
+        // server.  Doing this before the HTTP POST would disconnect
+        // the client while the server starts broadcasting, causing
+        // frames_sent=0 (frames lost before the new stream connects).
+        appState.restartGRPCStream()
+    }
+}
+
 /// View for browsing and selecting analysis runs.
 @available(macOS 15.0, *) struct RunBrowserView: View {
     @StateObject private var runBrowserState = RunBrowserState()
@@ -63,7 +84,11 @@ extension String {
                 // Run list
                 List(runBrowserState.runs) { run in
                     RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
-                        Task { await loadRun(run) }
+                        Task {
+                            await loadRunForReplayAndUpdateAppState(
+                                runID: run.runId, appState: appState
+                            ) { await runBrowserState.loadRunForReplay(run.runId) }
+                        }
                     }
                 }.listStyle(.inset)
             }
@@ -96,15 +121,6 @@ extension String {
         }.frame(width: 500, height: 400).onAppear { Task { await runBrowserState.fetchRuns() } }
     }
 
-    private func loadRun(_ run: AnalysisRun) async {
-        let success = await runBrowserState.loadRunForReplay(run.runId)
-        if success {
-            // Update app state to indicate we're in VRLOG replay mode
-            appState.isLive = false
-            // Set currentRunID so labels route to run-track API
-            appState.currentRunID = run.runId
-        }
-    }
 }
 
 /// Row view for a single run in the list.

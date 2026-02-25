@@ -23,7 +23,7 @@ The features in this document (28-class taxonomy, Parquet ingestion, NLZ zones, 
 **Key differences:**
 | This Plan (AV Integration) | Current Implementation (Traffic) |
 |----------------------------|----------------------------------|
-| 28-class taxonomy | 4-6 classes |
+| 28-class taxonomy | 10 classes (P0 complete) |
 | Parquet ingestion | Direct Hesai stream |
 | Shape completion | Not needed |
 | Occlusion handling | Not needed |
@@ -128,13 +128,15 @@ The velocity.report system aligns with **AV industry standard** labeling specifi
 
 **velocity.report Implementation Priority:**
 
-| Priority | Categories                                                   | Rationale                          |
-| -------- | ------------------------------------------------------------ | ---------------------------------- |
-| P0       | Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist           | Core traffic monitoring            |
-| P1       | Bicycle, Motorcycle, Ground Animal, Bird                     | Safety-relevant moving objects     |
-| P2       | Sign, Pole, Traffic Light, Construction Cone                 | Infrastructure detection           |
-| P3       | Building, Road, Sidewalk, Vegetation                         | Scene understanding                |
-| Deferred | Sky, Ground, Static, Dynamic, Ego Vehicle, Pedestrian Object | Lower priority for roadside sensor |
+| Priority | Categories                                                                                  | Status    | Rationale                                                                                                                                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist, Bird, Dynamic, Noise                    | ✅ Done   | Highest impact on velocity/reporting: primary moving road users plus canonical moving catch-all for unknown motion. Bird stays in P0 because it is a common moving non-vehicle return that helps QC/filtering and reduces false motion attribution.                                            |
+| P1       | Sign, Building, Ground, Vegetation, Pole, Ego Vehicle, Trailer, Other Large Vehicle, Static | In design | Scene-structure and object-prior layer: supports spatial context, alignment, static-vs-moving discrimination, and size/shape priors for downstream tracking/report QA. Includes large vehicle variants (Other Large Vehicle, Trailer) that materially affect occlusion and footprint estimates |
+| P2       | Road, Sidewalk, Traffic Light, Construction Cone, Lane Marker, Road Marker                  | Deferred  | Surface/topology and street-furniture semantics improve map/scene understanding and AV dataset import fidelity, but are not required for core neighborhood speed measurement and reporting.                                                                                                    |
+| P3       | Bicycle, Motorcycle, Pedestrian Object, Ground Animal                                       | Deferred  | Long-tail / lower-frequency classes for this use case, plus riderless-vehicle variants that are less critical than rider-present actor classes (Cyclist, Motorcyclist) for current reporting outputs. Included for taxonomy completeness and future AV-import parity.                          |
+| N/A      | Sky                                                                                         | Defered   | Camera-only background class; not applicable to LiDAR-centric sensing and not needed for velocity reporting.                                                                                                                                                                                   |
+
+> **P0 schema complete (February 2026).** All 10 `ObjectClass` enum values (9 semantic + unspecified) are implemented in proto, Go classifier, Swift visualiser, and web frontend. See [label-vocabulary-consolidation-plan.md](label-vocabulary-consolidation-plan.md) Phases 1–3.1.
 
 #### Tracking and Identity
 
@@ -265,16 +267,19 @@ type ForegroundFrame struct {
 
 ### Current ML Pipeline Status
 
-| Component                   | Status      | Description                  |
-| --------------------------- | ----------- | ---------------------------- |
-| Background subtraction      | ✅ Complete | EMA grid-based               |
-| DBSCAN clustering           | ✅ Complete | Spatial indexing             |
-| Kalman tracking             | ✅ Complete | Multi-object tracking        |
-| Rule-based classification   | ✅ Complete | Pedestrian, car, bird, other |
-| Analysis Run Infrastructure | ✅ Complete | Versioned runs with params   |
-| Training data export        | ✅ Complete | Compact binary encoding      |
-| Track labeling UI           | 📋 Planned  | Phase 4.0                    |
-| ML classifier training      | 📋 Planned  | Phase 4.1                    |
+| Component                   | Status      | Description                                                                       |
+| --------------------------- | ----------- | --------------------------------------------------------------------------------- |
+| Background subtraction      | ✅ Complete | EMA grid-based                                                                    |
+| DBSCAN clustering           | ✅ Complete | Spatial indexing                                                                  |
+| Kalman tracking             | ✅ Complete | Multi-object tracking                                                             |
+| Rule-based classification   | ✅ Complete | All P0 classes: car, truck, bus, pedestrian, cyclist, motorcyclist, bird, dynamic |
+| P0 ObjectClass enum         | ✅ Complete | Proto enum (10 values), Go/Swift/TS converters                                    |
+| Analysis Run Infrastructure | ✅ Complete | Versioned runs with params                                                        |
+| Training data export        | ✅ Complete | Compact binary encoding                                                           |
+| Track labelling UI (Swift)  | ✅ Complete | Seekable replay, all 9 classes user-assignable                                    |
+| Track labelling UI (Web)    | ✅ Complete | Run browser with label/quality assignment                                         |
+| VRLOG replay classification | ✅ Complete | On-the-fly re-classification of legacy recordings                                 |
+| ML classifier training      | 📋 Planned  | Phase 4.1                                                                         |
 
 ---
 
@@ -1598,11 +1603,11 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 | Tool/Library            | Purpose                        | Status    | Priority      |
 | ----------------------- | ------------------------------ | --------- | ------------- |
-| **Parquet Go library**  | Read AV standard Parquet files | 🆕 New    | P0 - Required |
 | **SQLite**              | Store imported data            | ✅ Exists | -             |
+| **Parquet Go library**  | Read AV standard Parquet files | 🆕 New    | P0 - Required |
 | **7-DOF box math**      | IoU, containment, corners      | 🆕 New    | P0 - Required |
-| **Polygon containment** | NLZ point checking             | 🆕 New    | P1 - High     |
 | **av-import CLI**       | Import AV standard data        | 🆕 New    | P0 - Required |
+| **Polygon containment** | NLZ point checking             | 🆕 New    | P1 - High     |
 | **frame-analyzer CLI**  | Analyze frames                 | 🆕 New    | P1 - High     |
 
 ### Optional Tools and Libraries
@@ -1610,8 +1615,8 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 | Tool/Library                 | Purpose                  | Status      | Priority    |
 | ---------------------------- | ------------------------ | ----------- | ----------- |
 | **TFRecord writer**          | Export TensorFlow format | ⚪ Optional | P2 - Medium |
-| **Visualization**            | Point cloud rendering    | ⚪ Optional | P3 - Low    |
 | **AV dataset Python SDK**    | Reference implementation | ⚪ Optional | P2 - Medium |
+| **Visualisation**            | Point cloud rendering    | ⚪ Optional | P3 - Low    |
 | **Point cloud registration** | Refined pose alignment   | ⚪ Optional | P3 - Low    |
 | **Semantic segmentation**    | Per-point labels         | ⚪ Optional | P3 - Low    |
 

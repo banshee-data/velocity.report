@@ -172,6 +172,22 @@ enum MotionModel {
   MOTION_MODEL_CA = 1;           // constant acceleration
 }
 
+// ObjectClass enumerates all valid object classifications.
+// Used by both the rule-based classifier (output) and human label annotations (input).
+// All 9 classes are user-assignable. Classifier outputs: DYNAMIC..MOTORCYCLIST.
+enum ObjectClass {
+  OBJECT_CLASS_UNSPECIFIED  = 0;  // Default / not yet classified
+  OBJECT_CLASS_NOISE        = 1;  // User-only: spurious sensor artefact
+  OBJECT_CLASS_DYNAMIC      = 2;  // Other dynamic object
+  OBJECT_CLASS_PEDESTRIAN   = 3;  // Person walking, running, or using mobility aid
+  OBJECT_CLASS_CYCLIST      = 4;  // Person riding a bicycle or e-scooter
+  OBJECT_CLASS_BIRD         = 5;  // Bird, drone, small flying object
+  OBJECT_CLASS_BUS          = 6;  // Bus, coach, large passenger vehicle
+  OBJECT_CLASS_CAR          = 7;  // Passenger car, SUV, van
+  OBJECT_CLASS_TRUCK        = 8;  // Pickup truck, box truck, freight vehicle
+  OBJECT_CLASS_MOTORCYCLIST = 9;  // Person riding a motorcycle
+}
+
 message Track {
   string track_id = 1;           // e.g., "track_42"
   string sensor_id = 2;
@@ -218,8 +234,8 @@ message Track {
   float peak_speed_mps = 25;
 
   // Classification
-  string class_label = 26;       // "pedestrian", "car", "cyclist", "bird", "other"
-  float class_confidence = 27;   // 0.0 - 1.0
+  ObjectClass object_class = 26;   // classifier output or user label
+  float class_confidence = 27;     // 0.0 - 1.0
 
   // Quality metrics
   float track_length_metres = 28;
@@ -309,7 +325,7 @@ message DebugOverlaySet {
 message LabelEvent {
   string label_id = 1;           // UUID
   string track_id = 2;           // associated track
-  string class_label = 3;        // assigned class
+  ObjectClass object_class = 3;  // assigned class
   uint64 start_frame_id = 4;     // segment start (optional)
   uint64 end_frame_id = 5;       // segment end (optional)
   int64 created_ns = 6;          // when label was created

@@ -6,6 +6,7 @@
 //  RunRowView layout, and AnalysisRun computed properties.
 //
 
+import AppKit
 import Foundation
 import SwiftUI
 import Testing
@@ -96,9 +97,7 @@ struct AnalysisRunComputedPropertyTests {
     }
 
     private func makeRun(
-        vrlogPath: String? = nil,
-        status: String = "completed",
-        errorMessage: String? = nil,
+        vrlogPath: String? = nil, status: String = "completed", errorMessage: String? = nil,
         notes: String? = nil
     ) -> AnalysisRun {
         AnalysisRun(
@@ -134,33 +133,31 @@ struct RunTrackComputedPropertyTests {
 
     @Test func splitCandidate() throws {
         let track = RunTrack(
-            runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: nil, qualityLabel: nil, labelConfidence: nil,
-            labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
-            durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil,
-            isSplitCandidate: true, isMergeCandidate: false)
+            runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
+            qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
+            endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
+            peakSpeedMps: nil, isSplitCandidate: true, isMergeCandidate: false)
         #expect(track.isSplitCandidate == true)
         #expect(track.isMergeCandidate == false)
     }
 
     @Test func mergeCandidate() throws {
         let track = RunTrack(
-            runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: nil, qualityLabel: nil, labelConfidence: nil,
-            labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
-            durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil,
-            isSplitCandidate: false, isMergeCandidate: true)
+            runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
+            qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
+            endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
+            peakSpeedMps: nil, isSplitCandidate: false, isMergeCandidate: true)
         #expect(track.isSplitCandidate == false)
         #expect(track.isMergeCandidate == true)
     }
 
     @Test func allOptionalFieldsPresent() throws {
         let track = RunTrack(
-            runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: "car", qualityLabel: "good", labelConfidence: 0.95,
-            labelerId: "david", startUnixNanos: 1_000_000_000, endUnixNanos: 5_000_000_000,
-            totalObservations: 40, durationSecs: 4.0, avgSpeedMps: 8.5, peakSpeedMps: 12.0,
-            isSplitCandidate: false, isMergeCandidate: false)
+            runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: "car",
+            qualityLabel: "good", labelConfidence: 0.95, labelerId: "david",
+            startUnixNanos: 1_000_000_000, endUnixNanos: 5_000_000_000, totalObservations: 40,
+            durationSecs: 4.0, avgSpeedMps: 8.5, peakSpeedMps: 12.0, isSplitCandidate: false,
+            isMergeCandidate: false)
         #expect(track.qualityLabel == "good")
         #expect(track.labelConfidence == 0.95)
         #expect(track.durationSecs == 4.0)
@@ -170,11 +167,10 @@ struct RunTrackComputedPropertyTests {
 
     private func makeTrack(userLabel: String? = nil) -> RunTrack {
         RunTrack(
-            runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: userLabel, qualityLabel: nil, labelConfidence: nil,
-            labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
-            durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil, isSplitCandidate: nil,
-            isMergeCandidate: nil)
+            runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: userLabel,
+            qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
+            endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
+            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
     }
 }
 
@@ -183,8 +179,8 @@ struct RunTrackComputedPropertyTests {
 struct LabellingProgressModelTests {
     @Test func fullProgress() throws {
         let progress = LabellingProgress(
-            runId: "run-001", total: 50, labelled: 50,
-            byClass: ["car": 30, "noise": 20], progressPct: 100.0)
+            runId: "run-001", total: 50, labelled: 50, byClass: ["car": 30, "noise": 20],
+            progressPct: 100.0)
         #expect(progress.progressPct == 100.0)
         #expect(progress.total == progress.labelled)
     }
@@ -210,9 +206,8 @@ struct LabellingProgressModelTests {
 struct PlaybackStatusModelTests {
     @Test func liveMode() throws {
         let status = PlaybackStatus(
-            mode: "live", paused: false, rate: 1.0, seekable: false,
-            currentFrame: 0, totalFrames: 0, timestampNs: 0, logStartNs: 0, logEndNs: 0,
-            vrlogPath: nil)
+            mode: "live", paused: false, rate: 1.0, seekable: false, currentFrame: 0,
+            totalFrames: 0, timestampNs: 0, logStartNs: 0, logEndNs: 0, vrlogPath: nil)
         #expect(status.mode == "live")
         #expect(status.seekable == false)
         #expect(status.vrlogPath == nil)
@@ -220,15 +215,81 @@ struct PlaybackStatusModelTests {
 
     @Test func replayMode() throws {
         let status = PlaybackStatus(
-            mode: "replay", paused: true, rate: 4.0, seekable: true,
-            currentFrame: 500, totalFrames: 1200, timestampNs: 5_000_000_000,
-            logStartNs: 1_000_000_000, logEndNs: 12_000_000_000,
-            vrlogPath: "/data/test.vrlog")
+            mode: "replay", paused: true, rate: 4.0, seekable: true, currentFrame: 500,
+            totalFrames: 1200, timestampNs: 5_000_000_000, logStartNs: 1_000_000_000,
+            logEndNs: 12_000_000_000, vrlogPath: "/data/test.vrlog")
         #expect(status.mode == "replay")
         #expect(status.paused == true)
         #expect(status.rate == 4.0)
         #expect(status.totalFrames == 1200)
         #expect(status.vrlogPath == "/data/test.vrlog")
+    }
+}
+
+// MARK: - RunBrowserView Tests
+
+@available(macOS 15.0, *) @MainActor final class SpyRunBrowserAppState: AppState {
+    var prepareForNewReplayCallCount = 0
+    var restartGRPCStreamCallCount = 0
+
+    override func prepareForNewReplay() {
+        prepareForNewReplayCallCount += 1
+        super.prepareForNewReplay()
+    }
+
+    override func restartGRPCStream() { restartGRPCStreamCallCount += 1 }
+}
+
+@available(macOS 15.0, *) @MainActor final class RunBrowserViewViewTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testRunBrowserViewCreation() throws {
+        let state = AppState()
+        host(RunBrowserView(), state: state)
+    }
+
+    func testRunBrowserViewWithRunIDSet() throws {
+        let state = AppState()
+        state.currentRunID = "run-existing"
+        host(RunBrowserView(), state: state)
+    }
+}
+
+@available(macOS 15.0, *) @MainActor final class RunBrowserReplayLoadHelperTests: XCTestCase {
+    func testLoadRunForReplayAndUpdateAppStateSuccess() async throws {
+        let state = SpyRunBrowserAppState()
+        state.isPaused = true
+        state.replayFinished = true
+        state.currentTimestamp = 123
+        state.currentRunID = nil
+
+        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { true }
+
+        XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
+        XCTAssertEqual(state.restartGRPCStreamCallCount, 1)
+        XCTAssertFalse(state.isLive)
+        XCTAssertEqual(state.currentRunID, "run-123")
+        XCTAssertFalse(state.isPaused)
+        XCTAssertFalse(state.replayFinished)
+        XCTAssertEqual(state.currentTimestamp, 0)
+    }
+
+    func testLoadRunForReplayAndUpdateAppStateFailureSkipsReplayActivation() async throws {
+        let state = SpyRunBrowserAppState()
+        state.currentRunID = nil
+        state.isLive = true
+
+        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { false }
+
+        XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
+        XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
+        XCTAssertTrue(state.isLive)
+        XCTAssertNil(state.currentRunID)
     }
 }
 
@@ -249,10 +310,10 @@ struct PlaybackStatusModelTests {
 
     func testRunRowViewWithoutVRLog() throws {
         let run = AnalysisRun(
-            runId: "run-002", createdAt: Date(), sourceType: "live",
-            sourcePath: nil, sensorId: "hesai-01", durationSecs: 60.0,
-            totalFrames: 600, totalClusters: 200, totalTracks: 10, confirmedTracks: 8,
-            status: "running", errorMessage: nil, vrlogPath: nil, notes: nil)
+            runId: "run-002", createdAt: Date(), sourceType: "live", sourcePath: nil,
+            sensorId: "hesai-01", durationSecs: 60.0, totalFrames: 600, totalClusters: 200,
+            totalTracks: 10, confirmedTracks: 8, status: "running", errorMessage: nil,
+            vrlogPath: nil, notes: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
@@ -260,10 +321,10 @@ struct PlaybackStatusModelTests {
 
     func testRunRowViewSelected() throws {
         let run = AnalysisRun(
-            runId: "run-001", createdAt: Date(), sourceType: "vrlog",
-            sourcePath: nil, sensorId: "hesai-01", durationSecs: 120.0,
-            totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil)
+            runId: "run-001", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
+            sensorId: "hesai-01", durationSecs: 120.0, totalFrames: 1200, totalClusters: 500,
+            totalTracks: 25, confirmedTracks: 20, status: "completed", errorMessage: nil,
+            vrlogPath: "/data/test.vrlog", notes: nil)
 
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
@@ -271,10 +332,10 @@ struct PlaybackStatusModelTests {
 
     func testRunRowViewFailedStatus() throws {
         let run = AnalysisRun(
-            runId: "run-003", createdAt: Date(), sourceType: "vrlog",
-            sourcePath: nil, sensorId: "hesai-01", durationSecs: 5.0,
-            totalFrames: 50, totalClusters: 10, totalTracks: 0, confirmedTracks: 0,
-            status: "failed", errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil)
+            runId: "run-003", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
+            sensorId: "hesai-01", durationSecs: 5.0, totalFrames: 50, totalClusters: 10,
+            totalTracks: 0, confirmedTracks: 0, status: "failed",
+            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body

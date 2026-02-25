@@ -1,4 +1,4 @@
-     DROP INDEX IF EXISTS idx_bg_regions_source_path;
+DROP INDEX IF EXISTS idx_bg_regions_source_path;
 
      DROP INDEX IF EXISTS idx_bg_regions_scene_hash;
 

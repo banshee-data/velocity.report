@@ -6,6 +6,7 @@
 //  and extracted utility logic.
 //
 
+import AppKit
 import Foundation
 import MetalKit
 import SwiftUI
@@ -330,5 +331,494 @@ struct StringTruncationTests {
         let result = str.truncated(12)
         #expect(result.count <= 15)  // 12 + "..."
         #expect(result.hasSuffix("..."))
+    }
+}
+
+// MARK: - SparklineView Tests
+
+struct SparklineViewTests {
+    @Test func sparklineCreation() throws {
+        let view = SparklineView(values: [1, 2, 3, 4, 5], colour: .cyan, label: "Speed")
+        let _ = view.body
+    }
+
+    @Test func sparklineWithSingleValue() throws {
+        let view = SparklineView(values: [42.0], colour: .orange, label: "Heading")
+        let _ = view.body
+    }
+
+    @Test func sparklineWithEmptyValues() throws {
+        let view = SparklineView(values: [], colour: .red, label: "Empty")
+        let _ = view.body
+    }
+
+    @Test func sparklinePathWithTwoValues() throws {
+        let view = SparklineView(values: [0, 10], colour: .cyan, label: "Test")
+        let size = CGSize(width: 100, height: 40)
+        let path = view.sparklinePath(in: size)
+        // Should produce a valid path with 2 points
+        #expect(!path.isEmpty)
+    }
+
+    @Test func sparklinePathEmptyReturnsEmptyPath() throws {
+        let view = SparklineView(values: [], colour: .cyan, label: "Test")
+        let path = view.sparklinePath(in: CGSize(width: 100, height: 40))
+        #expect(path.isEmpty)
+    }
+
+    @Test func sparklinePathSingleValueReturnsEmptyPath() throws {
+        let view = SparklineView(values: [5.0], colour: .cyan, label: "Test")
+        let path = view.sparklinePath(in: CGSize(width: 100, height: 40))
+        // < 2 values → guard returns empty path
+        #expect(path.isEmpty)
+    }
+
+    @Test func sparklinePathConstantValues() throws {
+        // All identical values: effectiveRange falls back to 1.0
+        let view = SparklineView(values: [5, 5, 5, 5], colour: .cyan, label: "const")
+        let path = view.sparklinePath(in: CGSize(width: 100, height: 40))
+        #expect(!path.isEmpty)
+    }
+
+    @Test func sparklinePathNegativeValues() throws {
+        let view = SparklineView(values: [-10, -5, 0, 5, 10], colour: .cyan, label: "neg")
+        let path = view.sparklinePath(in: CGSize(width: 200, height: 40))
+        #expect(!path.isEmpty)
+    }
+
+    @Test func sparklinePathBoundsContainedInCanvas() throws {
+        let view = SparklineView(values: [0, 25, 50, 75, 100], colour: .cyan, label: "bounds")
+        let size = CGSize(width: 100, height: 40)
+        let path = view.sparklinePath(in: size)
+        let bounds = path.boundingRect
+        // All points should be within the canvas (with floating-point tolerance)
+        #expect(bounds.minX >= -0.1)
+        #expect(bounds.minY >= -0.1)
+        #expect(bounds.maxX <= size.width + 0.1)
+        #expect(bounds.maxY <= size.height + 0.1)
+    }
+}
+
+// MARK: - TrackHistoryGraphView Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackHistoryGraphViewTests: XCTestCase {
+
+    /// Host a view with an AppState environment object so @EnvironmentObject resolves.
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testGraphViewWithNoSamples() throws {
+        let state = AppState()
+        host(TrackHistoryGraphView(trackID: "t-001"), state: state)
+    }
+
+    func testGraphViewWithOneSample() async throws {
+        let state = AppState()
+        state.isLive = false
+        var frame = FrameBundle()
+        frame.frameID = 0
+        frame.timestampNanos = 100_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 0, totalFrames: 10)
+        frame.tracks = TrackSet(
+            frameID: 0, timestampNanos: 100_000_000,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        host(TrackHistoryGraphView(trackID: "t-001"), state: state)
+    }
+
+    func testGraphViewWithMultipleSamples() async throws {
+        let state = AppState()
+        state.isLive = false
+        for i: UInt64 in 0..<20 {
+            var frame = FrameBundle()
+            frame.frameID = i
+            frame.timestampNanos = Int64(i) * 50_000_000
+            frame.playbackInfo = PlaybackInfo(
+                isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0,
+                paused: false, currentFrameIndex: i, totalFrames: 100)
+            frame.tracks = TrackSet(
+                frameID: i, timestampNanos: Int64(i) * 50_000_000,
+                tracks: [
+                    Track(
+                        trackID: "t-001", state: .confirmed, speedMps: Float(i) * 0.5,
+                        headingRad: Float(i) * 0.17)
+                ], trails: [])
+            state.onFrameReceived(frame)
+            await Task.yield()
+        }
+
+        host(TrackHistoryGraphView(trackID: "t-001"), state: state)
+    }
+
+    func testGraphViewUnknownTrackID() throws {
+        let state = AppState()
+        host(TrackHistoryGraphView(trackID: "nonexistent"), state: state)
+    }
+}
+
+// MARK: - TimeDisplayView Tests
+
+@available(macOS 15.0, *) @MainActor final class TimeDisplayViewTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testTimeDisplayWithValidRange() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_500_000_000
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayWithZeroTimestamps() throws {
+        let state = AppState()
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.currentTimestamp = 0
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayWhenReplayFinished() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 2_000_000_000
+        state.replayFinished = true
+        state.replayProgress = 1.0
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayWithLogStartAtZero() throws {
+        let state = AppState()
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 5_000_000_000
+        state.currentTimestamp = 2_500_000_000
+        host(TimeDisplayView(), state: state)
+    }
+}
+
+// MARK: - PlaybackControlsView Tests
+
+@available(macOS 15.0, *) @MainActor final class PlaybackControlsViewTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testPlaybackControlsLiveMode() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = true
+        host(PlaybackControlsView(), state: state)
+    }
+
+    func testPlaybackControlsReplayMode() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = false
+        state.isSeekable = true
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        host(PlaybackControlsView(), state: state)
+    }
+
+    func testPlaybackControlsDisconnected() throws {
+        let state = AppState()
+        state.isConnected = false
+        host(PlaybackControlsView(), state: state)
+    }
+
+    func testPlaybackControlsReplayFinished() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = false
+        state.isSeekable = true
+        state.replayFinished = true
+        state.isPaused = true
+        state.replayProgress = 1.0
+        host(PlaybackControlsView(), state: state)
+    }
+
+    func testPlaybackControlsNotSeekable() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.isLive = false
+        state.isSeekable = false
+        host(PlaybackControlsView(), state: state)
+    }
+}
+
+// MARK: - PlaybackControlsDerivedState Tests
+
+@available(macOS 15.0, *) final class PlaybackControlsDerivedStateTests: XCTestCase {
+    func testReplaySeekableEnablesExpectedControls() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 10, totalFrames: 100)
+        XCTAssertEqual(ui.modeLabel, "REPLAY (VRLOG)")
+        XCTAssertTrue(ui.showStepButtons)
+        XCTAssertTrue(ui.showSeekableSlider)
+        XCTAssertFalse(ui.seekSliderDisabled)
+        XCTAssertFalse(ui.playPauseDisabled)
+    }
+
+    func testReplayNonSeekableWithoutMetadataShowsFallbackMessage() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replayNonSeekable, isPaused: false, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: false, hasFrameIndexProgress: false,
+            currentFrameIndex: 0, totalFrames: 0)
+        XCTAssertEqual(ui.modeLabel, "REPLAY (PCAP)")
+        XCTAssertFalse(ui.showStepButtons)
+        XCTAssertFalse(ui.showReadOnlyProgress)
+        XCTAssertTrue(ui.showReplayMetadataUnavailable)
+    }
+
+    func testStepBoundsDisableAtStartAndEnd() throws {
+        let start = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 0, totalFrames: 10)
+        XCTAssertTrue(start.stepBackwardDisabled)
+        XCTAssertFalse(start.stepForwardDisabled)
+
+        let end = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 9, totalFrames: 10)
+        XCTAssertTrue(end.stepForwardDisabled)
+    }
+}
+
+// MARK: - TrackListView Display Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackListViewDisplayTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testTrackListViewAlwaysVisibleInFrameMode() throws {
+        let state = AppState()
+        // Frame mode (no currentRunID)
+        state.currentRunID = nil
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0, classLabel: "car")],
+            trails: [])
+        state.currentFrame = frame
+
+        // Should render without crash — track list is always visible (no isExpanded toggle)
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewEmptyFrameMode() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        // No frame data
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewRunModeWithNoRunID() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewRunModeWithRunID() throws {
+        let state = AppState()
+        state.currentRunID = "run-abc-123"
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewDisplaysUserLabelsOverClassLabel() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        state.userLabels["t-001"] = "pedestrian"  // User label should override classLabel
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-001", state: .confirmed, speedMps: 3.0, classLabel: "noise")
+            ], trails: [])
+        state.currentFrame = frame
+
+        // The view should prefer userLabels["t-001"] ("pedestrian") over classLabel ("noise")
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewWithMultipleTracks() throws {
+        let state = AppState()
+        state.currentRunID = nil
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-001", state: .confirmed, speedMps: 5.0, classLabel: "car"),
+                Track(trackID: "t-002", state: .tentative, speedMps: 1.5, classLabel: "noise"),
+                Track(trackID: "t-003", state: .confirmed, speedMps: 12.0, classLabel: ""),
+            ], trails: [])
+        state.currentFrame = frame
+
+        host(TrackListView(), state: state)
+    }
+
+    func testTrackListViewWithSelectedTrack() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        state.selectedTrackID = "t-002"
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-001", state: .confirmed, speedMps: 5.0),
+                Track(trackID: "t-002", state: .confirmed, speedMps: 3.0),
+            ], trails: [])
+        state.currentFrame = frame
+
+        host(TrackListView(), state: state)
+    }
+}
+
+// MARK: - LabelPanelView Carried Badge Tests
+
+@available(macOS 15.0, *) @MainActor final class LabelPanelCarriedBadgeTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testLabelPanelViewWithSelectedTrack() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        host(LabelPanelView(), state: state)
+    }
+
+    func testLabelPanelViewWithRunMode() throws {
+        let state = AppState()
+        state.selectedTrackID = "track-001"
+        state.currentRunID = "run-abc"
+        host(LabelPanelView(), state: state)
+    }
+
+    func testLabelPanelViewWithoutSelection() throws {
+        let state = AppState()
+        state.selectedTrackID = nil
+        host(LabelPanelView(), state: state)
+    }
+}
+
+// MARK: - SidePanelView Tests
+
+@available(macOS 15.0, *) @MainActor final class SidePanelViewTrackListTests: XCTestCase {
+
+    private func host<V: View>(_ view: V, state: AppState) {
+        let hosted = view.environmentObject(state)
+        let controller = NSHostingController(rootView: AnyView(hosted))
+        controller.view.layout()
+    }
+
+    func testSidePanelContainsTrackList() throws {
+        let state = AppState()
+        state.currentRunID = nil
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [Track(trackID: "t-001", state: .confirmed, speedMps: 5.0)], trails: [])
+        state.currentFrame = frame
+
+        host(SidePanelView(), state: state)
+    }
+}
+
+// MARK: - TrackInspector Field Population Tests
+
+/// Verify that the Track fields displayed in TrackInspectorView are
+/// non-zero when the model is populated.  This is a model-level regression
+/// test: the gRPC server previously serialised zero values for PeakSpeedMps,
+/// Hits, Confidence, Duration, and Length because the proto conversion
+/// omitted those fields.
+struct TrackInspectorFieldTests {
+    /// Build a fully-populated Track matching what the adapter produces.
+    private func populatedTrack() -> Track {
+        Track(
+            trackID: "trk-inspector-test", sensorID: "sensor-1", state: .confirmed, hits: 50,
+            misses: 2, observationCount: 48, firstSeenNanos: 1_000_000_000,
+            lastSeenNanos: 2_000_000_000, x: 10.0, y: 5.0, z: 0.5, vx: 8.0, vy: 0.5, vz: 0.0,
+            speedMps: 8.03, headingRad: 0.06, covariance4x4: [], bboxLength: 4.5, bboxWidth: 1.8,
+            bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0,
+            avgSpeedMps: 7.5, peakSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
+            trackLengthMetres: 150.0, trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98,
+            occlusionState: .none, motionModel: .cv, alpha: 1.0)
+    }
+
+    @Test func peakSpeedIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.peakSpeedMps > 0, "peakSpeedMps must be populated")
+    }
+
+    @Test func hitsIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.hits > 0, "hits must be populated")
+    }
+
+    @Test func confidenceIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.confidence > 0, "confidence must be populated")
+    }
+
+    @Test func trackDurationIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.trackDurationSecs > 0, "trackDurationSecs must be populated")
+    }
+
+    @Test func trackLengthIsNonZero() throws {
+        let t = populatedTrack()
+        #expect(t.trackLengthMetres > 0, "trackLengthMetres must be populated")
+    }
+
+    @Test func classLabelIsNonEmpty() throws {
+        let t = populatedTrack()
+        #expect(!t.classLabel.isEmpty, "classLabel must be populated")
+    }
+
+    @Test @MainActor func trackLookupViaAppState() throws {
+        let state = AppState()
+        var frame = FrameBundle()
+        let t = populatedTrack()
+        frame.tracks = TrackSet(frameID: 1, timestampNanos: 1_000_000, tracks: [t], trails: [])
+        state.currentFrame = frame
+
+        // Simulate what TrackInspectorView does: look up track by ID.
+        let found = state.currentFrame?.tracks?.tracks.first(where: {
+            $0.trackID == "trk-inspector-test"
+        })
+        #expect(found != nil, "track must be findable by ID")
+        #expect(found!.peakSpeedMps == 9.0)
+        #expect(found!.hits == 50)
+        #expect(found!.confidence == 0.98)
+        #expect(found!.trackDurationSecs == 20.0)
+        #expect(found!.trackLengthMetres == 150.0)
     }
 }

@@ -87,7 +87,7 @@ help:
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
 	@echo "  format-mac           Format macOS Swift code (swift-format)"
-	@echo "  format-markdown      Format Markdown files (prettier)"
+	@echo "  format-docs          Format docs Markdown files (prettier)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
@@ -157,7 +157,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre12
+VERSION := 0.5.0-pre13
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -882,9 +882,9 @@ schema-erd:
 # FORMATTING (mutating)
 # =============================================================================
 
-.PHONY: format format-go format-python format-web format-mac format-markdown format-sql
+.PHONY: format format-go format-python format-web format-mac format-docs format-sql
 
-format: format-go format-python format-web format-mac format-markdown format-sql
+format: format-go format-python format-web format-mac format-docs format-sql
 	@echo "\nAll formatting targets complete."
 
 format-go:
@@ -941,7 +941,7 @@ format-mac:
 		echo "Skipping macOS formatting"; \
 	fi
 
-format-markdown:
+format-docs:
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \

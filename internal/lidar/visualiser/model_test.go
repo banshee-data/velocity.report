@@ -272,7 +272,7 @@ func TestTrack_FullFields(t *testing.T) {
 		IntensityMeanAvg:  100.0,
 		AvgSpeedMps:       2.0,
 		PeakSpeedMps:      3.0,
-		ClassLabel:        "car",
+		ObjectClass:       "car",
 		ClassConfidence:   0.95,
 		TrackLengthMetres: 25.0,
 		TrackDurationSecs: 10.0,
@@ -288,8 +288,8 @@ func TestTrack_FullFields(t *testing.T) {
 	if track.State != TrackStateConfirmed {
 		t.Errorf("expected State=TrackStateConfirmed, got %d", track.State)
 	}
-	if track.ClassLabel != "car" {
-		t.Errorf("expected ClassLabel=car, got %s", track.ClassLabel)
+	if track.ObjectClass != "car" {
+		t.Errorf("expected ObjectClass=car, got %s", track.ObjectClass)
 	}
 }
 

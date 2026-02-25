@@ -14,8 +14,8 @@ describe('lidar types', () => {
 			expect(TRACK_COLORS.bird).toBe('#FFC107');
 		});
 
-		it('should have correct colour for other', () => {
-			expect(TRACK_COLORS.other).toBe('#9E9E9E');
+		it('should have correct colour for dynamic', () => {
+			expect(TRACK_COLORS.dynamic).toBe('#9E9E9E');
 		});
 
 		it('should have correct colour for tentative', () => {
@@ -26,13 +26,33 @@ describe('lidar types', () => {
 			expect(TRACK_COLORS.deleted).toBe('#F44336');
 		});
 
-		it('should have all 6 track colours defined', () => {
+		it('should have correct colour for bus', () => {
+			expect(TRACK_COLORS.bus).toBe('#7B1FA2');
+		});
+
+		it('should have correct colour for cyclist', () => {
+			expect(TRACK_COLORS.cyclist).toBe('#00BCD4');
+		});
+
+		it('should have correct colour for truck', () => {
+			expect(TRACK_COLORS.truck).toBe('#FF5722');
+		});
+
+		it('should have correct colour for motorcyclist', () => {
+			expect(TRACK_COLORS.motorcyclist).toBe('#E91E63');
+		});
+
+		it('should have all 10 track colours defined', () => {
 			const keys = Object.keys(TRACK_COLORS);
-			expect(keys).toHaveLength(6);
+			expect(keys).toHaveLength(10);
 			expect(keys).toContain('pedestrian');
 			expect(keys).toContain('car');
+			expect(keys).toContain('truck');
+			expect(keys).toContain('bus');
+			expect(keys).toContain('cyclist');
+			expect(keys).toContain('motorcyclist');
 			expect(keys).toContain('bird');
-			expect(keys).toContain('other');
+			expect(keys).toContain('dynamic');
 			expect(keys).toContain('tentative');
 			expect(keys).toContain('deleted');
 		});
@@ -67,12 +87,12 @@ describe('lidar types', () => {
 			expect(colour).toMatch(/^#[0-9a-f]{6}$/);
 		});
 
-		it('should use "other" base colour for unknown class', () => {
+		it('should use "dynamic" base colour for unknown class', () => {
 			const colour = trackColour('track-unknown', 'unknown_class');
 			expect(colour).toMatch(/^#[0-9a-f]{6}$/);
 		});
 
-		it('should use "other" base colour when class is undefined', () => {
+		it('should use "dynamic" base colour when class is undefined', () => {
 			const colour = trackColour('track-no-class');
 			expect(colour).toMatch(/^#[0-9a-f]{6}$/);
 		});
@@ -133,7 +153,16 @@ describe('lidar types', () => {
 
 		it('should use the correct base class for each known class', () => {
 			// Verify that each known class produces a colour near its base.
-			const classes = ['pedestrian', 'car', 'bird', 'other'] as const;
+			const classes = [
+				'pedestrian',
+				'car',
+				'truck',
+				'bus',
+				'cyclist',
+				'motorcyclist',
+				'bird',
+				'dynamic'
+			] as const;
 			for (const cls of classes) {
 				const colour = trackColour('test-track', cls);
 				expect(colour).toMatch(/^#[0-9a-f]{6}$/);

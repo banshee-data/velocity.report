@@ -85,6 +85,9 @@ import XCTest
 
     func testIncreaseRateUpperBoundClamping() throws {
         let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
         state.isLive = false
         state.playbackRate = 64.0  // Already at max
 
@@ -94,6 +97,9 @@ import XCTest
 
     func testIncreaseRateFromMidRange() throws {
         let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
         state.isLive = false
         state.playbackRate = 2.0
 
@@ -125,15 +131,6 @@ import XCTest
         state.currentRunID = "run-123"
 
         state.assignQuality("perfect")  // Task will fail to reach server but method executes
-    }
-
-    // MARK: - Export Labels Tests
-
-    func testExportLabelsOpensDialog() throws {
-        let state = AppState()
-        state.exportLabels()
-        // Test that the method runs without crashing
-        // Actual save panel interaction can't be easily tested
     }
 
     // MARK: - Reproject Labels Tests
@@ -372,7 +369,7 @@ struct VisualiserClientDecodeTests {
         track.intensityMeanAvg = 50.0
         track.avgSpeedMps = 7.5
         track.peakSpeedMps = 9.0
-        track.classLabel = "vehicle"
+        track.objectClass = .car
         track.classConfidence = 0.95
         track.trackLengthMetres = 150.0
         track.trackDurationSecs = 20.0
@@ -393,7 +390,7 @@ struct VisualiserClientDecodeTests {
         #expect(decodedTrack?.hits == 100)
         #expect(decodedTrack?.avgSpeedMps == 7.5)
         #expect(decodedTrack?.peakSpeedMps == 9.0)
-        #expect(decodedTrack?.classLabel == "vehicle")
+        #expect(decodedTrack?.classLabel == "car")
         #expect(decodedTrack?.alpha == 0.85)
     }
 
@@ -722,7 +719,7 @@ struct VisualiserClientDecodeTests {
     func testPauseWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.pause() }
+        let completed = await exerciseWithTimeout { _ = try await client.pause() }
         // Body was entered; completed or timed out
         _ = completed
     }
@@ -730,28 +727,28 @@ struct VisualiserClientDecodeTests {
     func testPlayWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.play() }
+        let completed = await exerciseWithTimeout { _ = try await client.play() }
         _ = completed
     }
 
     func testSeekTimestampWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.seek(to: 1_000_000) }
+        let completed = await exerciseWithTimeout { _ = try await client.seek(to: 1_000_000) }
         _ = completed
     }
 
     func testSeekFrameWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.seek(toFrame: 42) }
+        let completed = await exerciseWithTimeout { _ = try await client.seek(toFrame: 42) }
         _ = completed
     }
 
     func testSetRateWithRunningTransport() async throws {
         let client = try await createClientWithRunningTransport()
         defer { client.disconnect() }
-        let completed = await exerciseWithTimeout { try await client.setRate(2.0) }
+        let completed = await exerciseWithTimeout { _ = try await client.setRate(2.0) }
         _ = completed
     }
 

@@ -1,4 +1,4 @@
-   CREATE TABLE IF NOT EXISTS lidar_sweeps (
+CREATE TABLE IF NOT EXISTS lidar_sweeps (
           id INTEGER PRIMARY KEY AUTOINCREMENT
         , sweep_id TEXT NOT NULL UNIQUE
         , sensor_id TEXT NOT NULL

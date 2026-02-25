@@ -20,7 +20,15 @@ export interface Track {
 	/** Current heading (radians, world frame) */
 	heading_rad: number;
 	/** Classified object type (optional) */
-	object_class?: 'pedestrian' | 'car' | 'bird' | 'other';
+	object_class?:
+		| 'pedestrian'
+		| 'car'
+		| 'truck'
+		| 'bus'
+		| 'cyclist'
+		| 'motorcyclist'
+		| 'bird'
+		| 'dynamic';
 	/** Confidence in object classification (0-1, optional) */
 	object_confidence?: number;
 	/** Number of observations for this track */
@@ -177,8 +185,12 @@ export interface TrackStateSummary {
 export const TRACK_COLORS = {
 	pedestrian: '#4CAF50', // Green
 	car: '#2196F3', // Blue
+	truck: '#FF5722', // Deep Orange
+	bus: '#7B1FA2', // Purple
+	cyclist: '#00BCD4', // Cyan
+	motorcyclist: '#E91E63', // Pink
 	bird: '#FFC107', // Amber
-	other: '#9E9E9E', // Grey
+	dynamic: '#9E9E9E', // Grey
 	tentative: '#FF9800', // Orange (unconfirmed)
 	deleted: '#F44336' // Red (just deleted)
 } as const;
@@ -196,7 +208,7 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
 	const base =
 		objectClass && objectClass in TRACK_COLORS
 			? TRACK_COLORS[objectClass as keyof typeof TRACK_COLORS]
-			: TRACK_COLORS.other;
+			: TRACK_COLORS.dynamic;
 
 	// Simple string hash → deterministic hue offset
 	let hash = 0;
@@ -241,7 +253,16 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
 }
 
 /** Classification labels for track identity (single-select: what is the object?) */
-export type DetectionLabel = 'car' | 'ped' | 'noise' | 'impossible';
+export type DetectionLabel =
+	| 'car'
+	| 'truck'
+	| 'bus'
+	| 'pedestrian'
+	| 'cyclist'
+	| 'motorcyclist'
+	| 'bird'
+	| 'dynamic'
+	| 'noise';
 
 /** Quality flags for track attributes (multi-select: properties of the track) */
 export type QualityLabel =
@@ -367,6 +388,58 @@ export interface SweepRecord {
 	started_at: string;
 	completed_at?: string;
 	score_components?: ScoreComponents | string;
+}
+
+/**
+ * HINT (Human-Involved Numerical Tuning) state returned by GET /api/lidar/sweep/hint.
+ * Mirrors Go type internal/lidar/sweep.HINTState.
+ */
+export interface HINTState {
+	status:
+		| 'idle'
+		| 'running_reference'
+		| 'awaiting_labels'
+		| 'running_sweep'
+		| 'completed'
+		| 'failed';
+	mode: string;
+	current_round: number;
+	total_rounds: number;
+	reference_run_id?: string;
+	label_progress?: LabelProgress;
+	label_deadline?: string;
+	sweep_deadline?: string;
+	auto_tune_state?: Record<string, unknown>;
+	recommendation?: Record<string, unknown>;
+	round_history: HINTRound[];
+	error?: string;
+	min_label_threshold: number;
+	labels_carried_over: number;
+	next_sweep_duration_mins: number;
+	min_class_coverage?: Record<string, number>;
+	min_temporal_spread_secs?: number;
+	tune_background: boolean;
+}
+
+/** Label progress within a single HINT round. Mirrors Go type sweep.LabelProgress. */
+export interface LabelProgress {
+	total: number;
+	labelled: number;
+	progress_pct: number;
+	by_class: Record<string, number>;
+}
+
+/** Results of a single HINT round. Mirrors Go type sweep.HINTRound. */
+export interface HINTRound {
+	round: number;
+	reference_run_id: string;
+	labelled_at?: string;
+	label_progress?: LabelProgress;
+	labels_carried_over: number;
+	sweep_id?: string;
+	best_score: number;
+	best_params?: Record<string, number>;
+	best_score_components?: ScoreComponents;
 }
 
 /** Score components for sweep scoring explanation */

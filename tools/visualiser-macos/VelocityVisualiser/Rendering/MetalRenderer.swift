@@ -968,7 +968,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let screenUp = normalize(cross(viewDir, right))
 
             let offset =
-                right * Float(-deltaX) * sensitivity + screenUp * Float(deltaY) * sensitivity
+                right * Float(-deltaX) * sensitivity + screenUp * Float(-deltaY) * sensitivity
             camera.position += offset
             camera.target += offset
         } else {

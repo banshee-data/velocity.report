@@ -33,9 +33,14 @@
 	// Classification label options (single-select: what is the object?)
 	const DETECTION_LABELS: { value: DetectionLabel; label: string; shortcut: string }[] = [
 		{ value: 'car', label: 'Car', shortcut: '1' },
-		{ value: 'ped', label: 'Pedestrian', shortcut: '2' },
-		{ value: 'noise', label: 'Noise', shortcut: '3' },
-		{ value: 'impossible', label: 'Impossible', shortcut: '4' }
+		{ value: 'truck', label: 'Truck', shortcut: '2' },
+		{ value: 'bus', label: 'Bus', shortcut: '3' },
+		{ value: 'pedestrian', label: 'Pedestrian', shortcut: '4' },
+		{ value: 'cyclist', label: 'Cyclist', shortcut: '5' },
+		{ value: 'motorcyclist', label: 'Motorcyclist', shortcut: '6' },
+		{ value: 'bird', label: 'Bird', shortcut: '8' },
+		{ value: 'dynamic', label: 'Dynamic', shortcut: '9' },
+		{ value: 'noise', label: 'Noise', shortcut: '7' }
 	];
 
 	// Quality flag options (multi-select: properties of the track)
@@ -470,6 +475,14 @@
 				return '🚶';
 			case 'car':
 				return '🚗';
+			case 'truck':
+				return '🚚';
+			case 'bus':
+				return '🚌';
+			case 'cyclist':
+				return '🚲';
+			case 'motorcyclist':
+				return '🏍️';
 			case 'bird':
 				return '🦅';
 			default:
@@ -480,9 +493,12 @@
 	// Get label badge colour
 	function getLabelColor(label: string): string {
 		if (label === 'car') return 'bg-blue-100 text-blue-800';
-		if (label === 'ped') return 'bg-green-100 text-green-800';
+		if (label === 'truck') return 'bg-orange-100 text-orange-800';
+		if (label === 'bus') return 'bg-purple-100 text-purple-800';
+		if (label === 'pedestrian') return 'bg-green-100 text-green-800';
+		if (label === 'cyclist') return 'bg-cyan-100 text-cyan-800';
+		if (label === 'motorcyclist') return 'bg-pink-100 text-pink-800';
 		if (label === 'noise') return 'bg-red-100 text-red-800';
-		if (label === 'impossible') return 'bg-amber-100 text-amber-800';
 		return 'bg-gray-100 text-gray-800';
 	}
 
@@ -581,8 +597,12 @@
 				<option value="all">All</option>
 				<option value="pedestrian">Pedestrian</option>
 				<option value="car">Car</option>
+				<option value="truck">Truck</option>
+				<option value="bus">Bus</option>
+				<option value="cyclist">Cyclist</option>
+				<option value="motorcyclist">Motorcyclist</option>
 				<option value="bird">Bird</option>
-				<option value="other">Other</option>
+				<option value="dynamic">Dynamic</option>
 			</select>
 		</div>
 
@@ -617,7 +637,13 @@
 					<option value="unlabelled">Unlabelled</option>
 					<option value="labelled">Labelled</option>
 					<option value="car">Car</option>
-					<option value="ped">Pedestrian</option>
+					<option value="truck">Truck</option>
+					<option value="bus">Bus</option>
+					<option value="pedestrian">Pedestrian</option>
+					<option value="cyclist">Cyclist</option>
+					<option value="motorcyclist">Motorcyclist</option>
+					<option value="bird">Bird</option>
+					<option value="dynamic">Dynamic</option>
 					<option value="noise">Noise</option>
 					<option value="good">Good</option>
 					<option value="noisy">Noisy</option>
@@ -674,7 +700,7 @@
 			{@const color =
 				track.object_class && track.object_class in TRACK_COLORS
 					? TRACK_COLORS[track.object_class as keyof typeof TRACK_COLORS]
-					: TRACK_COLORS.other}
+					: TRACK_COLORS.dynamic}
 			{@const runTrack = runId ? (runTrackMap.get(track.track_id) ?? null) : null}
 
 			<button

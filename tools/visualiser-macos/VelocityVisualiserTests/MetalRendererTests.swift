@@ -674,6 +674,61 @@ final class MetalRendererCameraControlTests: XCTestCase {
         XCTAssertTrue(moved, "Camera should move during shift-pan")
     }
 
+    /// Verify that vertical pan (deltaY) moves in the correct direction.
+    /// A positive deltaY (NSEvent: mouse moved upward) should move the camera upward
+    /// in screen space (positive screenUp), matching grab-style pan behaviour.
+    /// This was inverted before the fix: positive deltaY moved camera in the
+    /// wrong direction.
+    func testHandleMouseDragPanYDirectionConsistency() throws {
+        let renderer = try createRenderer()
+
+        // Pan with only positive deltaY (upward mouse movement in NSEvent coords)
+        let beforeUp = renderer.camera.position
+        renderer.handleMouseDrag(deltaX: 0, deltaY: 50, isRightButton: true, shiftHeld: false)
+        let afterUp = renderer.camera.position
+
+        // Reset camera
+        renderer.resetCamera()
+
+        // Pan with only negative deltaY (downward mouse movement)
+        let beforeDown = renderer.camera.position
+        renderer.handleMouseDrag(deltaX: 0, deltaY: -50, isRightButton: true, shiftHeld: false)
+        let afterDown = renderer.camera.position
+
+        // The two drags should move the camera in opposite directions
+        let upDelta = simd_float3(
+            afterUp.x - beforeUp.x, afterUp.y - beforeUp.y, afterUp.z - beforeUp.z)
+        let downDelta = simd_float3(
+            afterDown.x - beforeDown.x, afterDown.y - beforeDown.y, afterDown.z - beforeDown.z)
+
+        // Dot product of the two deltas should be negative (opposite directions)
+        let dot = upDelta.x * downDelta.x + upDelta.y * downDelta.y + upDelta.z * downDelta.z
+        XCTAssertLessThan(
+            dot, 0, "Upward and downward pan should move camera in opposite directions")
+    }
+
+    /// Verify that horizontal and vertical pan axes match: both deltaX and deltaY
+    /// are negated (grab-style), so the sign convention is symmetric.
+    func testHandleMouseDragPanXYSymmetricNegation() throws {
+        let renderer = try createRenderer()
+
+        // Pan right (positive deltaX in NSEvent) should move camera left (negative right)
+        let before = renderer.camera.position
+        renderer.handleMouseDrag(deltaX: 50, deltaY: 0, isRightButton: true, shiftHeld: false)
+        let afterX = renderer.camera.position
+
+        renderer.resetCamera()
+        let before2 = renderer.camera.position
+        renderer.handleMouseDrag(deltaX: 0, deltaY: 50, isRightButton: true, shiftHeld: false)
+        let afterY = renderer.camera.position
+
+        // Both should produce non-zero movement
+        let xMoved = simd.length(afterX - before) > 0.001
+        let yMoved = simd.length(afterY - before2) > 0.001
+        XCTAssertTrue(xMoved, "Horizontal pan should move camera")
+        XCTAssertTrue(yMoved, "Vertical pan should move camera")
+    }
+
     func testHandleKeyDownResetCamera() throws {
         let renderer = try createRenderer()
         renderer.camera.position = simd_float3(50, 50, 50)
