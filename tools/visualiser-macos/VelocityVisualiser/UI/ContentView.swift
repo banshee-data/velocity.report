@@ -678,11 +678,12 @@ struct TrackInspectorView: View {
                     }
                 }
 
-                // Velocity & Heading graph
-                TrackHistoryGraphView(trackID: trackID)
             } else {
-                Text("Track data unavailable").font(.caption).foregroundColor(.secondary)
+                Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
             }
+
+            // Velocity & Heading graph — persists even after track leaves the frame
+            TrackHistoryGraphView(trackID: trackID)
         }
     }
 
@@ -714,21 +715,37 @@ struct TrackHistoryGraphView: View {
 
     private var samples: [AppState.TrackSample] { appState.trackHistory[trackID] ?? [] }
 
+    /// Trim trailing near-zero-speed samples (lead-out) from the chart.
+    /// Keeps the full history for tracks that have always been slow/static
+    /// (e.g. objects waiting at an intersection).
+    private var trimmedSamples: [AppState.TrackSample] {
+        let raw = samples
+        guard raw.count >= 2 else { return raw }
+        let threshold: Float = 0.3  // m/s — below this is considered stationary
+        let peakSpeed = raw.map(\.speedMps).max() ?? 0
+        // If the track never exceeded threshold, keep everything (static object).
+        guard peakSpeed > threshold else { return raw }
+        // Find last index where speed exceeds the threshold, keep up to 5 frames of
+        // lead-out so the chart doesn't end abruptly.
+        if let lastMoving = raw.lastIndex(where: { $0.speedMps > threshold }) {
+            let keepTo = min(lastMoving + 5, raw.count - 1)
+            return Array(raw[...keepTo])
+        }
+        return raw
+    }
+
     var body: some View {
         if samples.count >= 2 {
+            let globalPeak = samples.map { CGFloat($0.peakSpeedMps) }.max() ?? 0
+
             GroupBox(label: Text("History").font(.caption2)) {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Peak speed sparkline (red, top)
-                    SparklineView(
-                        values: samples.map { CGFloat($0.peakSpeedMps) }, colour: .red,
-                        label: "Max (m/s)")
-
-                    // Velocity sparkline (cyan, middle)
+                    // Velocity sparkline (cyan) with dashed red line at global max
                     SparklineView(
                         values: samples.map { CGFloat($0.speedMps) }, colour: .cyan,
-                        label: "Velocity (m/s)")
+                        label: "Velocity (m/s)", peakValue: globalPeak)
 
-                    // Heading sparkline (orange, bottom)
+                    // Heading sparkline (orange)
                     SparklineView(
                         values: samples.map { CGFloat($0.headingDeg) }, colour: .orange,
                         label: "Heading (°)")
@@ -1192,16 +1209,18 @@ struct LabelPanelView: View {
                 }
 
                 // Bulk label: apply to all visible (filtered) tracks
-                Divider().padding(.vertical, 4)
-                BulkLabelView()
+                // TODO: Re-enable when backend bulk-label API is ready
+                // Divider().padding(.vertical, 4)
+                // BulkLabelView()
             } else {
                 Text("Select a track to label").font(.caption).foregroundColor(.secondary)
 
                 // Bulk label available even without selection
-                if appState.filteredTracks.count > 0 {
-                    Divider().padding(.vertical, 4)
-                    BulkLabelView()
-                }
+                // TODO: Re-enable when backend bulk-label API is ready
+                // if appState.filteredTracks.count > 0 {
+                //     Divider().padding(.vertical, 4)
+                //     BulkLabelView()
+                // }
             }
         }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
@@ -1519,22 +1538,23 @@ struct DebugOverlayTogglesView: View {
             Toggle("Track Labels", isOn: $appState.showTrackLabels).font(.caption).toggleStyle(
                 .checkbox)
 
-            Toggle("Association Lines", isOn: $appState.showAssociation).font(.caption).toggleStyle(
-                .checkbox
-            ).disabled(!appState.showDebug)
+            // TODO: Re-enable when backend debug overlay data is available
+            // Toggle("Association Lines", isOn: $appState.showAssociation).font(.caption).toggleStyle(
+            //     .checkbox
+            // ).disabled(!appState.showDebug)
 
-            Toggle("Gating Ellipses", isOn: $appState.showGating).font(.caption).toggleStyle(
-                .checkbox
-            ).disabled(!appState.showDebug)
+            // Toggle("Gating Ellipses", isOn: $appState.showGating).font(.caption).toggleStyle(
+            //     .checkbox
+            // ).disabled(!appState.showDebug)
 
-            Toggle("Residual Vectors", isOn: $appState.showResiduals).font(.caption).toggleStyle(
-                .checkbox
-            ).disabled(!appState.showDebug)
+            // Toggle("Residual Vectors", isOn: $appState.showResiduals).font(.caption).toggleStyle(
+            //     .checkbox
+            // ).disabled(!appState.showDebug)
 
-            if !appState.showDebug {
-                Text("Enable Debug (D) to show overlays").font(.caption2).foregroundColor(
-                    .secondary)
-            }
+            // if !appState.showDebug {
+            //     Text("Enable Debug (D) to show overlays").font(.caption2).foregroundColor(
+            //         .secondary)
+            // }
         }
     }
 }
