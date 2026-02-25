@@ -9,8 +9,7 @@ import XCTest
 
 @testable import VelocityVisualiser
 
-@available(macOS 15.0, *)
-final class FakePlaybackRPCClient: PlaybackRPCClient {
+@available(macOS 15.0, *) final class FakePlaybackRPCClient: PlaybackRPCClient {
     enum ForcedError: Error { case testFailure }
 
     var pauseCallCount = 0
@@ -54,8 +53,7 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         seekTimestampCalls.append(timestampNanos)
         if holdNextSeekTimestamp {
             holdNextSeekTimestamp = false
-            await withCheckedContinuation { continuation in
-                seekTimestampContinuation = continuation
+            await withCheckedContinuation { continuation in seekTimestampContinuation = continuation
             }
         }
         return seekStatus
@@ -104,7 +102,8 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         state.togglePlayPause()
 
-        XCTAssertFalse(state.isPaused, "Should not optimistically toggle without a connected client")
+        XCTAssertFalse(
+            state.isPaused, "Should not optimistically toggle without a connected client")
     }
 
     func testIncreaseRateDoesNotMutateWhenClientMissing() throws {
@@ -116,7 +115,8 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         state.increaseRate()
 
-        XCTAssertEqual(state.playbackRate, 1.0, "Should not optimistically change rate without client")
+        XCTAssertEqual(
+            state.playbackRate, 1.0, "Should not optimistically change rate without client")
     }
 
     func testPrepareForNewReplayClearsSeekabilityAndCommandState() async throws {
@@ -182,13 +182,18 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         fake.holdNextSeekTimestamp = true
         state.seek(to: 0.1)
-        try await waitFor { fake.seekTimestampCalls.count == 1 && state.inFlightPlaybackCommand == .seek }
+        try await waitFor {
+            fake.seekTimestampCalls.count == 1 && state.inFlightPlaybackCommand == .seek
+        }
 
         state.seek(to: 0.9)
-        XCTAssertEqual(fake.seekTimestampCalls.count, 1, "Second seek should coalesce while first is busy")
+        XCTAssertEqual(
+            fake.seekTimestampCalls.count, 1, "Second seek should coalesce while first is busy")
 
         fake.seekTimestampContinuation?.resume()
-        try await waitFor { fake.seekTimestampCalls.count == 2 && state.inFlightPlaybackCommand == nil }
+        try await waitFor {
+            fake.seekTimestampCalls.count == 2 && state.inFlightPlaybackCommand == nil
+        }
 
         XCTAssertEqual(fake.seekTimestampCalls[0], 1_100_000_000)
         XCTAssertEqual(fake.seekTimestampCalls[1], 1_900_000_000)
@@ -266,9 +271,7 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         state.replayFinished = true
 
         state.togglePlayPause()
-        try await waitFor {
-            fake.playCallCount == 1 && state.inFlightPlaybackCommand == nil
-        }
+        try await waitFor { fake.playCallCount == 1 && state.inFlightPlaybackCommand == nil }
 
         XCTAssertFalse(state.replayFinished)
         XCTAssertFalse(state.isPaused)
@@ -302,8 +305,7 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         state.stepForward()
         try await waitFor {
-            fake.pauseCallCount == 1
-                && fake.seekFrameCalls == [3]
+            fake.pauseCallCount == 1 && fake.seekFrameCalls == [3]
                 && state.inFlightPlaybackCommand == nil
         }
 
@@ -2096,5 +2098,108 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         // When the VisualiserClient guard is working, this callback never fires.
         XCTAssertTrue(
             state.replayFinished, "Without VisualiserClient guard, late finish DOES re-dirty state")
+    }
+}
+
+// MARK: - Track Navigation Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackNavigationTests: XCTestCase {
+
+    func testSelectNextTrackNoTracks() {
+        let state = AppState()
+        state.selectNextTrack()
+        XCTAssertNil(state.selectedTrackID)
+    }
+
+    func testSelectPreviousTrackNoTracks() {
+        let state = AppState()
+        state.selectPreviousTrack()
+        XCTAssertNil(state.selectedTrackID)
+    }
+
+    func testSelectNextTrackNoCurrentSelection() {
+        let state = AppState()
+        // Inject a frame with tracks
+        let tracks = [
+            makeTrackForNav(id: "trk_a", peakSpeed: 10),
+            makeTrackForNav(id: "trk_b", peakSpeed: 20),
+        ]
+        state.currentFrame = makeFrameForNav(tracks: tracks)
+
+        state.selectNextTrack()
+        // Should select highest speed track (first in sort)
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+    }
+
+    func testSelectPreviousTrackNoCurrentSelection() {
+        let state = AppState()
+        let tracks = [
+            makeTrackForNav(id: "trk_a", peakSpeed: 10),
+            makeTrackForNav(id: "trk_b", peakSpeed: 20),
+        ]
+        state.currentFrame = makeFrameForNav(tracks: tracks)
+
+        state.selectPreviousTrack()
+        // Should select last in sort (lowest speed)
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
+    }
+
+    func testSelectNextTrackWraps() {
+        let state = AppState()
+        let tracks = [
+            makeTrackForNav(id: "trk_a", peakSpeed: 10),
+            makeTrackForNav(id: "trk_b", peakSpeed: 20),
+        ]
+        state.currentFrame = makeFrameForNav(tracks: tracks)
+        state.selectedTrackID = "trk_a"  // Last in speed-sorted list
+
+        state.selectNextTrack()
+        // Should wrap to first (highest speed)
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+    }
+
+    func testSelectPreviousTrackWraps() {
+        let state = AppState()
+        let tracks = [
+            makeTrackForNav(id: "trk_a", peakSpeed: 10),
+            makeTrackForNav(id: "trk_b", peakSpeed: 20),
+        ]
+        state.currentFrame = makeFrameForNav(tracks: tracks)
+        state.selectedTrackID = "trk_b"  // First in speed-sorted list
+
+        state.selectPreviousTrack()
+        // Should wrap to last (lowest speed)
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
+    }
+
+    func testSelectNextTrackDoesNotOpenSidePanel() {
+        let state = AppState()
+        let tracks = [makeTrackForNav(id: "trk_a", peakSpeed: 10)]
+        state.currentFrame = makeFrameForNav(tracks: tracks)
+        state.showSidePanel = false
+        state.showLabelPanel = false
+
+        state.selectNextTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
+        XCTAssertFalse(
+            state.showSidePanel, "Up/down navigation should not force the side panel open")
+        XCTAssertFalse(state.showLabelPanel)
+    }
+
+    // MARK: - Helpers
+
+    private func makeTrackForNav(id: String, peakSpeed: Float) -> Track {
+        var t = Track()
+        t.trackID = id
+        t.state = .confirmed
+        t.peakSpeedMps = peakSpeed
+        t.speedMps = peakSpeed
+        return t
+    }
+
+    private func makeFrameForNav(tracks: [Track]) -> FrameBundle {
+        var fb = FrameBundle()
+        fb.tracks = TrackSet(tracks: tracks)
+        return fb
     }
 }

@@ -138,6 +138,68 @@ private func makeRunTrack(
         XCTAssertEqual(state.userLabels["trk_00001234"], "pedestrian")
     }
 
+    func testLabel5AssignsWithSelection() {
+        let state = AppState()
+        state.selectTrack("trk_00001234")
+        let result = handleKeyPress(.label5, appState: state)
+        XCTAssertEqual(result, .handled)
+        XCTAssertEqual(state.userLabels["trk_00001234"], "cyclist")
+    }
+
+    func testLabel6AssignsWithSelection() {
+        let state = AppState()
+        state.selectTrack("trk_00001234")
+        let result = handleKeyPress(.label6, appState: state)
+        XCTAssertEqual(result, .handled)
+        XCTAssertEqual(state.userLabels["trk_00001234"], "motorcyclist")
+    }
+
+    func testLabel7AssignsWithSelection() {
+        let state = AppState()
+        state.selectTrack("trk_00001234")
+        let result = handleKeyPress(.label7, appState: state)
+        XCTAssertEqual(result, .handled)
+        XCTAssertEqual(state.userLabels["trk_00001234"], "bird")
+    }
+
+    func testLabel8AssignsWithSelection() {
+        let state = AppState()
+        state.selectTrack("trk_00001234")
+        let result = handleKeyPress(.label8, appState: state)
+        XCTAssertEqual(result, .handled)
+        XCTAssertEqual(state.userLabels["trk_00001234"], "dynamic")
+    }
+
+    func testLabel9AssignsWithSelection() {
+        let state = AppState()
+        state.selectTrack("trk_00001234")
+        let result = handleKeyPress(.label9, appState: state)
+        XCTAssertEqual(result, .handled)
+        XCTAssertEqual(state.userLabels["trk_00001234"], "noise")
+    }
+
+    func testLabel5to9IgnoredNoSelection() {
+        let state = AppState()
+        XCTAssertEqual(handleKeyPress(.label5, appState: state), .ignored)
+        XCTAssertEqual(handleKeyPress(.label6, appState: state), .ignored)
+        XCTAssertEqual(handleKeyPress(.label7, appState: state), .ignored)
+        XCTAssertEqual(handleKeyPress(.label8, appState: state), .ignored)
+        XCTAssertEqual(handleKeyPress(.label9, appState: state), .ignored)
+    }
+
+    // Track navigation
+    func testSelectNextTrack() {
+        let state = AppState()
+        let result = handleKeyPress(.selectNextTrack, appState: state)
+        XCTAssertEqual(result, .handled)
+    }
+
+    func testSelectPrevTrack() {
+        let state = AppState()
+        let result = handleKeyPress(.selectPrevTrack, appState: state)
+        XCTAssertEqual(result, .handled)
+    }
+
     // Overlay toggles
     func testTogglePoints() {
         let state = AppState()
@@ -204,10 +266,11 @@ private func makeRunTrack(
     func testAllKeyActionsExist() {
         let allActions: [KeyAction] = [
             .space, .comma, .period, .decreaseRate, .increaseRate, .label1, .label2, .label3,
-            .label4, .togglePoints, .toggleBackground, .toggleBoxes, .toggleClusters, .toggleTrails,
-            .toggleVelocity, .toggleLabels, .toggleGrid, .toggleDebug,
+            .label4, .label5, .label6, .label7, .label8, .label9, .selectPrevTrack,
+            .selectNextTrack, .togglePoints, .toggleBackground, .toggleBoxes, .toggleClusters,
+            .toggleTrails, .toggleVelocity, .toggleLabels, .toggleGrid, .toggleDebug,
         ]
-        XCTAssertEqual(allActions.count, 18)
+        XCTAssertEqual(allActions.count, 25)
     }
 }
 
@@ -700,11 +763,12 @@ final class KeyActionEnumTests: XCTestCase {
         // Verify all enum cases can be created (exhaustiveness check)
         let actions: [KeyAction] = [
             .space, .comma, .period, .decreaseRate, .increaseRate, .label1, .label2, .label3,
-            .label4, .togglePoints, .toggleBackground, .toggleBoxes, .toggleClusters, .toggleTrails,
-            .toggleVelocity, .toggleLabels, .toggleGrid, .toggleDebug,
+            .label4, .label5, .label6, .label7, .label8, .label9, .selectPrevTrack,
+            .selectNextTrack, .togglePoints, .toggleBackground, .toggleBoxes, .toggleClusters,
+            .toggleTrails, .toggleVelocity, .toggleLabels, .toggleGrid, .toggleDebug,
         ]
         // Each should be distinct
-        XCTAssertEqual(actions.count, 18)
+        XCTAssertEqual(actions.count, 25)
     }
 }
 
