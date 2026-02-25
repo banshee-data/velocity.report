@@ -607,7 +607,7 @@ struct SidePanelView: View {
                     TrackListView()
                     Spacer()
                 }.padding()
-            }.scrollIndicators(.never).frame(width: 170, alignment: .leading)
+            }.scrollIndicators(.never).frame(width: 140, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -787,6 +787,10 @@ struct SparklineView: View {
     private static let labelFontSize: CGFloat = 8
     /// Vertical padding so labels don't clip the chart edge.
     private static let labelPad: CGFloat = 1
+    /// Right margin for metric labels — keeps header, peak and current value aligned.
+    private static let metricTrailing: CGFloat = 4
+    /// Lighter red for sparkline peak line and labels — perceptually matched to orange/cyan.
+    private static let peakRed = Color(red: 1.0, green: 0.45, blue: 0.4)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -797,29 +801,21 @@ struct SparklineView: View {
                 if let peak = peakValue {
                     Text(String(format: "%.1f", peak)).font(
                         .system(size: Self.labelFontSize, design: .monospaced)
-                    ).foregroundColor(.red)
+                    ).foregroundColor(Self.peakRed)
                 }
-            }
-            HStack(spacing: 0) {
-                GeometryReader { geo in
-                    let size = geo.size
-                    // Main sparkline
-                    sparklinePath(in: size).stroke(colour, lineWidth: 1.5)
-                    // Peak speed dashed line
-                    if let peak = peakValue {
-                        peakLinePath(peak: peak, in: size).stroke(
-                            Color.red, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                    }
-                    // In-chart current value label
-                    currentValueLabel(in: size)
-                }.frame(height: 40)
-                // Right axis label for peak
+            }.padding(.trailing, Self.metricTrailing)
+            GeometryReader { geo in
+                let size = geo.size
+                // Main sparkline
+                sparklinePath(in: size).stroke(colour, lineWidth: 1.5)
+                // Peak speed dashed line
                 if let peak = peakValue {
-                    Text(String(format: "%.1f", peak)).font(.system(size: 8, design: .monospaced))
-                        .foregroundColor(.red).frame(width: 28, alignment: .trailing).padding(
-                            .leading, 2)
+                    peakLinePath(peak: peak, in: size).stroke(
+                        Self.peakRed, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                 }
-            }
+                // In-chart current value label
+                currentValueLabel(in: size)
+            }.frame(height: 40)
         }
     }
 
@@ -833,11 +829,12 @@ struct SparklineView: View {
         if let last = values.last {
             let lastY = size.height - (size.height * (last - minVal) / effectiveRange)
             let nearBottom = lastY > size.height - 12
+            let labelY = nearBottom ? lastY - 8 - Self.labelPad : lastY + 8 + Self.labelPad
+            let clampedY = min(max(labelY, 4), size.height - 4)
             Text(String(format: "%.1f", last)).font(
                 .system(size: Self.labelFontSize, design: .monospaced)
             ).foregroundColor(colour).position(
-                x: size.width - 14,
-                y: nearBottom ? lastY - 6 - Self.labelPad : lastY + 6 + Self.labelPad)
+                x: size.width - Self.metricTrailing - 14, y: clampedY)
         }
     }
 
@@ -1071,7 +1068,12 @@ struct TrackListView: View {
                             Text(track.trackId.shortTrackID).font(
                                 .system(.caption, design: .monospaced))
                             let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
-                            if let speed = liveSpeed ?? track.peakSpeedMps {
+                            let persistentPeak = appState.trackPeakSpeed[track.trackId].map {
+                                Double($0)
+                            }
+                            let bestSpeed = [liveSpeed, persistentPeak, track.peakSpeedMps]
+                                .compactMap { $0 }.max()
+                            if let speed = bestSpeed {
                                 Text(String(format: "%.1f m/s", speed)).font(.caption2)
                             }
                             if sortOrder == .peakSpeed && isClimbing(track.trackId) {
@@ -1083,7 +1085,7 @@ struct TrackListView: View {
                         // Row 2: tag pills (single line, max 2 + overflow)
                         let tags = runTrackTags(track)
                         if !tags.isEmpty { TagRow(tags: tags) }
-                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
+                    }.padding(.vertical, 3).padding(.horizontal, 4).background(
                         track.trackId == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
                     ).cornerRadius(4).contentShape(Rectangle())
@@ -1114,7 +1116,13 @@ struct TrackListView: View {
                             Circle().fill(trackStateColour(track.state)).frame(width: 6, height: 6)
                             Text(track.trackID.shortTrackID).font(
                                 .system(.caption, design: .monospaced))
-                            Text(String(format: "%.1f m/s", track.peakSpeedMps)).font(.caption2)
+                            Text(
+                                String(
+                                    format: "%.1f m/s",
+                                    max(
+                                        track.peakSpeedMps,
+                                        appState.trackPeakSpeed[track.trackID] ?? 0))
+                            ).font(.caption2)
                             if sortOrder == .peakSpeed && isClimbing(track.trackID) {
                                 Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
                                     .green)
@@ -1124,7 +1132,7 @@ struct TrackListView: View {
                         // Row 2: tag pills (single line, max 2 + overflow)
                         let tags = frameTrackTags(track)
                         if !tags.isEmpty { TagRow(tags: tags) }
-                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
+                    }.padding(.vertical, 3).padding(.horizontal, 4).background(
                         track.trackID == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
                     ).cornerRadius(4).contentShape(Rectangle())
@@ -1359,16 +1367,18 @@ struct LabelButton: View {
         Button(action: action) {
             HStack {
                 if let shortcut {
-                    Text(shortcut).font(.system(.caption, design: .monospaced)).foregroundColor(
-                        .secondary
-                    ).frame(width: 14, alignment: .trailing)
+                    ZStack {
+                        Circle().fill(
+                            isActive
+                                ? Color.confirmedGreen.opacity(0.8) : Color.secondary.opacity(0.3)
+                        ).frame(width: 16, height: 16)
+                        Text(shortcut).font(
+                            .system(size: 9, weight: .semibold, design: .monospaced)
+                        ).foregroundColor(isActive ? .white : .secondary)
+                    }
                 }
                 Text(displayName(label)).font(.callout)
                 Spacer()
-                if isActive {
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.confirmedGreen)
-                        .font(.caption)
-                }
             }.padding(.vertical, 3).padding(.horizontal, 6).background(
                 isActive
                     ? Color.confirmedGreen.opacity(0.2)
@@ -1833,7 +1843,7 @@ struct TagRow: View {
             ForEach(Array(tags.prefix(2).enumerated()), id: \.offset) { _, tag in
                 TagPill(text: tag.0, colour: tag.1)
             }
-            if tags.count > 2 { TagPill(text: "...", colour: .blue) }
+            if tags.count > 2 { TagPill(text: "\u{2026}", colour: .accentColor) }
         }.lineLimit(1).fixedSize(horizontal: false, vertical: true)
     }
 }
