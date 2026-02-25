@@ -111,7 +111,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label1, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "car")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "noise")
     }
 
     func testLabel2AssignsWithSelection() {
@@ -119,7 +119,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label2, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "truck")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "dynamic")
     }
 
     func testLabel3AssignsWithSelection() {
@@ -127,7 +127,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label3, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "bus")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "pedestrian")
     }
 
     func testLabel4AssignsWithSelection() {
@@ -135,7 +135,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label4, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "pedestrian")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "cyclist")
     }
 
     func testLabel5AssignsWithSelection() {
@@ -143,7 +143,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label5, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "cyclist")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "bird")
     }
 
     func testLabel6AssignsWithSelection() {
@@ -151,7 +151,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label6, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "motorcyclist")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "bus")
     }
 
     func testLabel7AssignsWithSelection() {
@@ -159,7 +159,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label7, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "bird")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "car")
     }
 
     func testLabel8AssignsWithSelection() {
@@ -167,7 +167,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label8, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "dynamic")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "truck")
     }
 
     func testLabel9AssignsWithSelection() {
@@ -175,7 +175,7 @@ private func makeRunTrack(
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label9, appState: state)
         XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "noise")
+        XCTAssertEqual(state.userLabels["trk_00001234"], "motorcyclist")
     }
 
     func testLabel5to9IgnoredNoSelection() {

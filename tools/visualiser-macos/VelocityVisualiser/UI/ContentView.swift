@@ -1375,16 +1375,16 @@ struct TrackListView: View {
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
-    // Canonical classification labels — must match Go validUserLabels and Svelte DetectionLabel
+    // Canonical classification labels — order must match proto ObjectClass enum (1=noise .. 9=motorcyclist)
     static let classificationLabels: [(name: String, help: String)] = [
+        ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
+        ("dynamic", "Ambiguous detection unsure between moving objects"),
+        ("pedestrian", "Person walking, running, or using a mobility aid"),
+        ("cyclist", "Person on a bicycle or e-scooter"), ("bird", "Bird or other airborne fauna"),
+        ("bus", "Bus, coach, or large passenger vehicle (length > 7 m)"),
         ("car", "Passenger car, SUV, or van"),
         ("truck", "Pickup truck, box truck, or freight vehicle"),
-        ("bus", "Bus, coach, or large passenger vehicle (length > 7 m)"),
-        ("pedestrian", "Person walking, running, or using a mobility aid"),
-        ("cyclist", "Person on a bicycle or e-scooter"),
-        ("motorcyclist", "Person riding a motorcycle"), ("bird", "Bird or other airborne fauna"),
-        ("dynamic", "Ambiguous detection unsure between moving objects"),
-        ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
+        ("motorcyclist", "Person riding a motorcycle"),
     ]
 
     // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
