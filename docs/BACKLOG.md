@@ -114,3 +114,4 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#320] Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md)
 - [#328] SWEEP/HINT platform hardening (Phase 5–6) — transform pipeline, objective registry, explainability — [design doc](plans/lidar-sweep-hint-mode-plan.md)
 - [#328] HINT sweep polish — 11 remaining polish items — [design doc](lidar/operations/hint-sweep-mode.md)
+- [#328] (#326) P0 ObjectClass schema alignment, label vocabulary consolidation Phases 1–3.1 — [design doc](plans/label-vocabulary-consolidation-plan.md) [AV plan §P0](plans/lidar-av-lidar-integration-plan.md)
