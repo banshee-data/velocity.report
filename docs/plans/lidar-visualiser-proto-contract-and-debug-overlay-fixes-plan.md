@@ -215,8 +215,9 @@ Preferred approach:
 ### Phase E: Test hardening (P1)
 
 1. Replace "debug not converted" tests with positive serialization tests.
-   (Current tests `TestFrameBundleToProto_DebugNotConverted` and
-   `TestFrameBundleToProto_DebugFieldAbsent` still assert the broken behavior.)
+   `TestFrameBundleToProto_DebugNotConverted` and
+   `TestFrameBundleToProto_DebugFieldAbsent` currently assert `Debug == nil`;
+   update these to assert non-nil debug output once serialization is implemented.
 2. Add round-trip field assertions for:
    - debug overlays (`association`, `gating`, `residuals`, `predictions`)
    - cluster feature fields
