@@ -484,6 +484,7 @@ struct PlaybackControlsView: View {
 }
 
 /// Displays elapsed/total or remaining/total time. Click to toggle.
+/// Falls back to frame-index display when nanosecond timestamps are not available.
 struct TimeDisplayView: View {
     @EnvironmentObject var appState: AppState
     @State private var showRemaining: Bool = false
@@ -505,11 +506,17 @@ struct TimeDisplayView: View {
             Button(action: { showRemaining.toggle() }) {
                 Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
-            }.buttonStyle(.plain).help(
+            }.buttonStyle(.plain).fixedSize().help(
                 showRemaining ? "Showing remaining time" : "Showing elapsed time")
+        } else if appState.totalFrames > 0 {
+            // Fallback: show frame-index progress when timestamps are unavailable
+            Text("F\(appState.currentFrameIndex + 1)/\(appState.totalFrames)").font(
+                .system(.caption, design: .monospaced)
+            ).foregroundColor(.secondary).fixedSize()
         } else {
             Text("--:-- / --:--").font(.system(.caption, design: .monospaced)).foregroundColor(
-                .secondary)
+                .secondary
+            ).fixedSize()
         }
     }
 }
@@ -735,19 +742,20 @@ struct TrackHistoryGraphView: View {
     }
 
     var body: some View {
-        if samples.count >= 2 {
-            let globalPeak = samples.map { CGFloat($0.peakSpeedMps) }.max() ?? 0
+        let display = trimmedSamples
+        if display.count >= 2 {
+            let globalPeak = display.map { CGFloat($0.peakSpeedMps) }.max() ?? 0
 
             GroupBox(label: Text("History").font(.caption2)) {
                 VStack(alignment: .leading, spacing: 8) {
                     // Velocity sparkline (cyan) with dashed red line at global max
                     SparklineView(
-                        values: samples.map { CGFloat($0.speedMps) }, colour: .cyan,
+                        values: display.map { CGFloat($0.speedMps) }, colour: .cyan,
                         label: "Velocity (m/s)", peakValue: globalPeak)
 
                     // Heading sparkline (orange)
                     SparklineView(
-                        values: samples.map { CGFloat($0.headingDeg) }, colour: .orange,
+                        values: display.map { CGFloat($0.headingDeg) }, colour: .orange,
                         label: "Heading (°)")
                 }
             }
