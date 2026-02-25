@@ -39,9 +39,14 @@ extension String {
 
 /// View for browsing and selecting analysis runs.
 @available(macOS 15.0, *) struct RunBrowserView: View {
-    @StateObject private var runBrowserState = RunBrowserState()
+    @StateObject private var runBrowserState: RunBrowserState
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+
+    init() { _runBrowserState = StateObject(wrappedValue: RunBrowserState()) }
+
+    /// Test-only initialiser accepting a pre-configured state.
+    init(state: RunBrowserState) { _runBrowserState = StateObject(wrappedValue: state) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -104,11 +109,8 @@ extension String {
                     Button("Stop Replay") {
                         Task {
                             await runBrowserState.stopReplay()
-                            // Restore app state to live mode
-                            await MainActor.run {
-                                appState.isLive = true
-                                appState.currentRunID = nil
-                            }
+                            appState.isLive = true
+                            appState.currentRunID = nil
                         }
                     }.buttonStyle(.bordered)
                 } else {
@@ -147,7 +149,8 @@ extension String {
             // Stats
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(run.totalTracks) tracks").font(.caption)
-                Text(formatDuration(run.durationSecs)).font(.caption).foregroundColor(.secondary)
+                Text(runRowFormatDuration(run.durationSecs)).font(.caption).foregroundColor(
+                    .secondary)
             }
 
             // VRLOG indicator
@@ -165,29 +168,33 @@ extension String {
             isSelected ? Color.accentColor.opacity(0.1) : Color.clear
         ).cornerRadius(4)
     }
+}
 
-    private func formatDuration(_ seconds: Double) -> String {
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        return String(format: "%d:%02d", mins, secs)
+/// Map a run status string to a display colour.
+/// Extracted from StatusDot for testability.
+func statusDotColour(_ status: String) -> Color {
+    switch status {
+    case "completed": return .green
+    case "running": return .orange
+    case "failed": return .red
+    default: return .gray
     }
+}
+
+/// Format a duration in seconds as M:SS.
+/// Extracted from RunRowView for testability.
+func runRowFormatDuration(_ seconds: Double) -> String {
+    let mins = Int(seconds) / 60
+    let secs = Int(seconds) % 60
+    return String(format: "%d:%02d", mins, secs)
 }
 
 /// Status indicator dot for run status.
 struct StatusDot: View {
     let status: String
 
-    private var color: Color {
-        switch status {
-        case "completed": return .green
-        case "running": return .orange
-        case "failed": return .red
-        default: return .gray
-        }
-    }
-
     var body: some View {
-        Circle().fill(color).frame(width: 8, height: 8).help("Status: \(status)")
+        Circle().fill(statusDotColour(status)).frame(width: 8, height: 8).help("Status: \(status)")
     }
 }
 
