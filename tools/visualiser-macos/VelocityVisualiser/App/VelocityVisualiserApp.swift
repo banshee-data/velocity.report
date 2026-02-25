@@ -21,7 +21,7 @@ import SwiftUI
             AppCommands(appState: appState)
         }
 
-        Window("About VelocityVisualiser.app", id: "about") { AboutView() }.windowResizability(
+        Window("About VelocityReport.app", id: "about") { AboutView() }.windowResizability(
             .contentSize
         ).defaultPosition(.center)
     }
@@ -36,7 +36,7 @@ struct AppCommands: Commands {
     var body: some Commands {
         // About panel
         CommandGroup(replacing: .appInfo) {
-            Button("About VelocityVisualiser.app") { openWindow(id: "about") }
+            Button("About VelocityReport.app") { openWindow(id: "about") }
         }
 
         // Connection commands
