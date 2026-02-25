@@ -580,15 +580,25 @@ struct SidePanelView: View {
             // Left column: inspector + labels (scrolls independently)
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Track info
+                    // Track header + labels first
                     if let trackID = appState.selectedTrackID {
-                        TrackInspectorView(trackID: trackID)
+                        TrackInspectorHeaderView(trackID: trackID)
                     }
-
-                    Divider()
 
                     // Label panel
                     LabelPanelView()
+
+                    Divider()
+
+                    // History chart
+                    if let trackID = appState.selectedTrackID {
+                        TrackHistoryGraphView(trackID: trackID)
+                    }
+
+                    // Detail cards (position, velocity, dimensions, state)
+                    if let trackID = appState.selectedTrackID {
+                        TrackInspectorDetailCards(trackID: trackID)
+                    }
 
                     Divider()
 
@@ -614,11 +624,11 @@ struct SidePanelView: View {
 
 // MARK: - Track Inspector
 
-struct TrackInspectorView: View {
+/// Header for the track inspector: title, close button, ID, and "not in frame" message.
+struct TrackInspectorHeaderView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
 
-    /// Find the current track data from the latest frame.
     private var track: Track? {
         appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID })
     }
@@ -635,9 +645,25 @@ struct TrackInspectorView: View {
 
             Text("ID: \(trackID)").font(.caption).foregroundColor(.secondary)
 
-            if let t = track {
-                Divider()
+            if track == nil {
+                Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
+            }
+        }
+    }
+}
 
+/// Detail cards for the track inspector: position, velocity, dimensions, state.
+struct TrackInspectorDetailCards: View {
+    let trackID: String
+    @EnvironmentObject var appState: AppState
+
+    private var track: Track? {
+        appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID })
+    }
+
+    var body: some View {
+        if let t = track {
+            VStack(alignment: .leading, spacing: 8) {
                 // Position
                 GroupBox(label: Text("Position").font(.caption2)) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -695,13 +721,7 @@ struct TrackInspectorView: View {
                             value: t.classLabel.isEmpty ? "Not classified" : t.classLabel)
                     }
                 }
-
-            } else {
-                Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
             }
-
-            // Velocity & Heading graph — persists even after track leaves the frame
-            TrackHistoryGraphView(trackID: trackID)
         }
     }
 
@@ -720,6 +740,20 @@ struct TrackInspectorView: View {
         case .tentative: return .yellow
         case .confirmed: return .green
         case .deleted: return .red
+        }
+    }
+}
+
+/// Composite view for backward compatibility — shows header, detail cards, and history.
+struct TrackInspectorView: View {
+    let trackID: String
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TrackInspectorHeaderView(trackID: trackID)
+            TrackInspectorDetailCards(trackID: trackID)
+            TrackHistoryGraphView(trackID: trackID)
         }
     }
 }
@@ -913,6 +947,8 @@ struct TrackListView: View {
     @EnvironmentObject var appState: AppState
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
+    /// Guard flag to prevent fetchRunTracks re-entry when syncing API labels to appState.
+    @State private var isSyncingAPILabels = false
     @State private var sortOrder: TrackSortOrder = .firstSeen
     /// Tracks the rank (index) of each track by peak speed.
     /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
@@ -1047,7 +1083,7 @@ struct TrackListView: View {
             if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
         }.onChange(of: appState.userLabels) { _, _ in
             // Refresh run track list when user labels change so API data stays in sync
-            if isRunMode { fetchRunTracks() }
+            if isRunMode && !isSyncingAPILabels { fetchRunTracks() }
         }.onChange(of: appState.currentFrameIndex) { _, _ in
             if sortOrder == .peakSpeed { updateRanks() }
         }.onAppear { if isRunMode { fetchRunTracks() } }
@@ -1084,7 +1120,7 @@ struct TrackListView: View {
                                 width: 6, height: 6)
                             Text(track.trackId.shortTrackID).font(
                                 .system(.caption, design: .monospaced)
-                            ).foregroundColor(.white)
+                            ).foregroundColor(.white).fixedSize()
                             let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
                             let persistentPeak = appState.trackPeakSpeed[track.trackId].map {
                                 Double($0)
@@ -1135,7 +1171,7 @@ struct TrackListView: View {
                             Circle().fill(trackStateColour(track.state)).frame(width: 6, height: 6)
                             Text(track.trackID.shortTrackID).font(
                                 .system(.caption, design: .monospaced)
-                            ).foregroundColor(.white)
+                            ).foregroundColor(.white).fixedSize()
                             Text(
                                 String(
                                     format: "%.1f m/s",
@@ -1174,6 +1210,22 @@ struct TrackListView: View {
                 await MainActor.run {
                     self.runTracks = tracks
                     self.isFetchingRunTracks = false
+                    // Sync API-confirmed labels and quality flags into appState so the
+                    // 3D box labels and track list tags always reflect server state.
+                    self.isSyncingAPILabels = true
+                    for track in tracks {
+                        if let label = track.userLabel, !label.isEmpty {
+                            if appState.userLabels[track.trackId] == nil {
+                                appState.userLabels[track.trackId] = label
+                            }
+                        }
+                        if let quality = track.qualityLabel, !quality.isEmpty {
+                            if appState.userQualityFlags[track.trackId] == nil {
+                                appState.userQualityFlags[track.trackId] = quality
+                            }
+                        }
+                    }
+                    self.isSyncingAPILabels = false
                 }
             } catch { await MainActor.run { self.isFetchingRunTracks = false } }
         }
@@ -1319,10 +1371,13 @@ struct LabelPanelView: View {
                                 lastAssignedLabel = label
                             }
                             if let quality = track.qualityLabel, !quality.isEmpty {
-                                activeFlags = Set(
+                                let flags = Set(
                                     quality.split(separator: ",").map {
                                         String($0).trimmingCharacters(in: .whitespaces)
                                     })
+                                activeFlags = flags
+                                // Sync to appState so track list tags stay consistent
+                                appState.userQualityFlags[trackID] = quality
                             }
                             if track.labelerId == "hint-carryover" { isCarriedOver = true }
                         }
