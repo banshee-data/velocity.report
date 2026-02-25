@@ -2107,6 +2107,7 @@ import XCTest
 
     func testSelectNextTrackNoTracks() {
         let state = AppState()
+        // trackListOrder is empty by default
         state.selectNextTrack()
         XCTAssertNil(state.selectedTrackID)
     }
@@ -2119,63 +2120,45 @@ import XCTest
 
     func testSelectNextTrackNoCurrentSelection() {
         let state = AppState()
-        // Inject a frame with tracks
-        let tracks = [
-            makeTrackForNav(id: "trk_a", peakSpeed: 10),
-            makeTrackForNav(id: "trk_b", peakSpeed: 20),
-        ]
-        state.currentFrame = makeFrameForNav(tracks: tracks)
+        state.trackListOrder = ["trk_b", "trk_a"]
 
         state.selectNextTrack()
-        // Should select highest speed track (first in sort)
+        // Should select first in list
         XCTAssertEqual(state.selectedTrackID, "trk_b")
     }
 
     func testSelectPreviousTrackNoCurrentSelection() {
         let state = AppState()
-        let tracks = [
-            makeTrackForNav(id: "trk_a", peakSpeed: 10),
-            makeTrackForNav(id: "trk_b", peakSpeed: 20),
-        ]
-        state.currentFrame = makeFrameForNav(tracks: tracks)
+        state.trackListOrder = ["trk_b", "trk_a"]
 
         state.selectPreviousTrack()
-        // Should select last in sort (lowest speed)
+        // Should select last in list
         XCTAssertEqual(state.selectedTrackID, "trk_a")
     }
 
     func testSelectNextTrackWraps() {
         let state = AppState()
-        let tracks = [
-            makeTrackForNav(id: "trk_a", peakSpeed: 10),
-            makeTrackForNav(id: "trk_b", peakSpeed: 20),
-        ]
-        state.currentFrame = makeFrameForNav(tracks: tracks)
-        state.selectedTrackID = "trk_a"  // Last in speed-sorted list
+        state.trackListOrder = ["trk_b", "trk_a"]
+        state.selectedTrackID = "trk_a"  // Last in list
 
         state.selectNextTrack()
-        // Should wrap to first (highest speed)
+        // Should wrap to first
         XCTAssertEqual(state.selectedTrackID, "trk_b")
     }
 
     func testSelectPreviousTrackWraps() {
         let state = AppState()
-        let tracks = [
-            makeTrackForNav(id: "trk_a", peakSpeed: 10),
-            makeTrackForNav(id: "trk_b", peakSpeed: 20),
-        ]
-        state.currentFrame = makeFrameForNav(tracks: tracks)
-        state.selectedTrackID = "trk_b"  // First in speed-sorted list
+        state.trackListOrder = ["trk_b", "trk_a"]
+        state.selectedTrackID = "trk_b"  // First in list
 
         state.selectPreviousTrack()
-        // Should wrap to last (lowest speed)
+        // Should wrap to last
         XCTAssertEqual(state.selectedTrackID, "trk_a")
     }
 
     func testSelectNextTrackDoesNotOpenSidePanel() {
         let state = AppState()
-        let tracks = [makeTrackForNav(id: "trk_a", peakSpeed: 10)]
-        state.currentFrame = makeFrameForNav(tracks: tracks)
+        state.trackListOrder = ["trk_a"]
         state.showSidePanel = false
         state.showLabelPanel = false
 
@@ -2186,20 +2169,26 @@ import XCTest
         XCTAssertFalse(state.showLabelPanel)
     }
 
-    // MARK: - Helpers
+    func testSelectNextTrackFollowsListOrder() {
+        let state = AppState()
+        // Simulate "first seen" order (alphabetical here)
+        state.trackListOrder = ["trk_a", "trk_b", "trk_c"]
+        state.selectedTrackID = "trk_a"
 
-    private func makeTrackForNav(id: String, peakSpeed: Float) -> Track {
-        var t = Track()
-        t.trackID = id
-        t.state = .confirmed
-        t.peakSpeedMps = peakSpeed
-        t.speedMps = peakSpeed
-        return t
+        state.selectNextTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+        state.selectNextTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_c")
     }
 
-    private func makeFrameForNav(tracks: [Track]) -> FrameBundle {
-        var fb = FrameBundle()
-        fb.tracks = TrackSet(tracks: tracks)
-        return fb
+    func testSelectPreviousTrackFollowsListOrder() {
+        let state = AppState()
+        state.trackListOrder = ["trk_a", "trk_b", "trk_c"]
+        state.selectedTrackID = "trk_c"
+
+        state.selectPreviousTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+        state.selectPreviousTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
     }
 }

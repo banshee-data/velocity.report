@@ -103,6 +103,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Local cache of user-assigned quality flags, keyed by track ID.
     /// Provides immediate feedback in the track list before the server round-trips.
     @Published var userQualityFlags: [String: String] = [:]
+
+    /// Ordered track IDs as displayed in the track list.
+    /// Updated by TrackListView whenever the list re-sorts so that
+    /// up/down keyboard navigation follows the visible ordering.
+    var trackListOrder: [String] = []
     // MARK: - Frame Data
 
     // Note: currentFrame is NOT @Published to avoid SwiftUI update cycles
@@ -753,18 +758,9 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
     // MARK: - Track Navigation
 
-    /// Sorted track IDs for keyboard navigation (peak speed descending).
-    private var sortedTrackIDs: [String] {
-        let tracks = hasActiveFilters ? filteredTracks : (currentFrame?.tracks?.tracks ?? [])
-        return tracks.sorted {
-            max($0.peakSpeedMps, trackPeakSpeed[$0.trackID] ?? 0)
-                > max($1.peakSpeedMps, trackPeakSpeed[$1.trackID] ?? 0)
-        }.map { $0.trackID }
-    }
-
-    /// Select the next track in the sorted list. Wraps to the first track at the end.
+    /// Select the next track in the track list order. Wraps to the first track at the end.
     func selectNextTrack() {
-        let ids = sortedTrackIDs
+        let ids = trackListOrder
         guard !ids.isEmpty else { return }
         if let current = selectedTrackID, let idx = ids.firstIndex(of: current) {
             let next = ids[(idx + 1) % ids.count]
@@ -774,9 +770,9 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         }
     }
 
-    /// Select the previous track in the sorted list. Wraps to the last track at the start.
+    /// Select the previous track in the track list order. Wraps to the last track at the start.
     func selectPreviousTrack() {
-        let ids = sortedTrackIDs
+        let ids = trackListOrder
         guard !ids.isEmpty else { return }
         if let current = selectedTrackID, let idx = ids.firstIndex(of: current) {
             let prev = ids[(idx - 1 + ids.count) % ids.count]

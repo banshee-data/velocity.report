@@ -867,7 +867,7 @@ struct SidePanelView: View {
 
 // MARK: - Track Inspector
 
-/// Header for the track inspector: title, close button, ID, and "not in frame" message.
+/// Header for the track inspector: title, close button, ID, run ID, and "not in frame" message.
 struct TrackInspectorHeaderView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
@@ -887,6 +887,10 @@ struct TrackInspectorHeaderView: View {
             }
 
             Text("ID: \(trackID)").font(.caption).foregroundColor(.secondary)
+
+            if let runID = appState.currentRunID {
+                Text("Run: \(runID)").font(.caption).foregroundColor(.secondary)
+            }
 
             if track == nil {
                 Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
@@ -1283,7 +1287,11 @@ struct TrackListView: View {
             if isRunMode && !isSyncingAPILabels { fetchRunTracks() }
         }.onChange(of: appState.currentFrameIndex) { _, _ in
             if sortOrder == .peakSpeed { updateRanks() }
-        }.onAppear { if isRunMode { fetchRunTracks() } }
+            syncTrackListOrder()
+        }.onChange(of: sortOrder) { _, _ in syncTrackListOrder() }.onAppear {
+            if isRunMode { fetchRunTracks() }
+            syncTrackListOrder()
+        }
     }
 
     // MARK: - Run Track List (API-fetched)
@@ -1364,8 +1372,19 @@ struct TrackListView: View {
                         }
                     }
                     self.isSyncingAPILabels = false
+                    syncTrackListOrder()
                 }
             } catch { await MainActor.run { self.isFetchingRunTracks = false } }
+        }
+    }
+
+    /// Push the current visible track ordering into AppState so that
+    /// up/down keyboard navigation matches what the user sees in the list.
+    private func syncTrackListOrder() {
+        if isRunMode {
+            appState.trackListOrder = sortedRunTracks.map { $0.trackId }
+        } else {
+            appState.trackListOrder = frameTracks.map { $0.trackID }
         }
     }
 }
@@ -1410,22 +1429,15 @@ struct LabelPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Label Track").font(.headline)
-
-            if let trackID = appState.selectedTrackID {
-                Text("Track: \(trackID)").font(.caption).foregroundColor(.secondary)
-
-                // Run context indicator
-                if let runID = appState.currentRunID {
-                    Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
-                }
-
+            if let _ = appState.selectedTrackID {
                 // Carried-over label badge
                 if isCarriedOver {
                     Text("↻ carried").font(.caption2).foregroundColor(.white).padding(
                         .horizontal, 6
                     ).padding(.vertical, 2).background(Color.orange.opacity(0.8)).cornerRadius(4)
                 }
+
+                Text("Labels").font(.subheadline).foregroundColor(.secondary)
 
                 // Classification labels + quality flags in two columns
                 HStack(alignment: .top, spacing: 8) {
