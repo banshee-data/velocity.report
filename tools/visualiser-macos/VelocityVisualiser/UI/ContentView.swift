@@ -607,7 +607,7 @@ struct SidePanelView: View {
                     TrackListView()
                     Spacer()
                 }.padding()
-            }.scrollIndicators(.never).frame(width: 140, alignment: .leading)
+            }.scrollIndicators(.never).frame(width: 136, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -819,7 +819,7 @@ struct SparklineView: View {
         }
     }
 
-    /// Current value label positioned at the right edge of the sparkline.
+    /// Current value label right-aligned at the trailing edge of the sparkline.
     @ViewBuilder private func currentValueLabel(in size: CGSize) -> some View {
         let minVal = values.min() ?? 0
         let maxVal = max(values.max() ?? 1, peakValue ?? 0)
@@ -831,10 +831,16 @@ struct SparklineView: View {
             let nearBottom = lastY > size.height - 12
             let labelY = nearBottom ? lastY - 8 - Self.labelPad : lastY + 8 + Self.labelPad
             let clampedY = min(max(labelY, 4), size.height - 4)
-            Text(String(format: "%.1f", last)).font(
-                .system(size: Self.labelFontSize, design: .monospaced)
-            ).foregroundColor(colour).position(
-                x: size.width - Self.metricTrailing - 14, y: clampedY)
+            VStack {
+                Spacer().frame(height: max(clampedY - 4, 0))
+                HStack {
+                    Spacer()
+                    Text(String(format: "%.1f", last)).font(
+                        .system(size: Self.labelFontSize, design: .monospaced)
+                    ).foregroundColor(colour)
+                }.padding(.trailing, Self.metricTrailing)
+                Spacer()
+            }.frame(width: size.width, height: size.height)
         }
     }
 
@@ -920,7 +926,11 @@ struct TrackListView: View {
             ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
         switch sortOrder {
         case .firstSeen: return tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
-        case .peakSpeed: return tracks.sorted { $0.peakSpeedMps > $1.peakSpeedMps }
+        case .peakSpeed:
+            return tracks.sorted {
+                max($0.peakSpeedMps, appState.trackPeakSpeed[$0.trackID] ?? 0)
+                    > max($1.peakSpeedMps, appState.trackPeakSpeed[$1.trackID] ?? 0)
+            }
         }
     }
 
@@ -933,11 +943,15 @@ struct TrackListView: View {
         case .peakSpeed:
             return runTracks.sorted { a, b in
                 let peakA =
-                    frameTrackByID[a.trackId].map { Double($0.peakSpeedMps) }
-                    ?? (a.peakSpeedMps ?? 0)
+                    [
+                        frameTrackByID[a.trackId].map { Double($0.peakSpeedMps) },
+                        appState.trackPeakSpeed[a.trackId].map { Double($0) }, a.peakSpeedMps,
+                    ].compactMap { $0 }.max() ?? 0
                 let peakB =
-                    frameTrackByID[b.trackId].map { Double($0.peakSpeedMps) }
-                    ?? (b.peakSpeedMps ?? 0)
+                    [
+                        frameTrackByID[b.trackId].map { Double($0.peakSpeedMps) },
+                        appState.trackPeakSpeed[b.trackId].map { Double($0) }, b.peakSpeedMps,
+                    ].compactMap { $0 }.max() ?? 0
                 return peakA > peakB
             }
         }
@@ -973,15 +987,18 @@ struct TrackListView: View {
         if isRunMode {
             speedSorted = runTracks.map {
                 let live = frameTrackByID[$0.trackId].map { Float($0.peakSpeedMps) }
-                return (id: $0.trackId, peak: live ?? Float($0.peakSpeedMps ?? 0))
+                let persistent = appState.trackPeakSpeed[$0.trackId]
+                let api = Float($0.peakSpeedMps ?? 0)
+                return (id: $0.trackId, peak: [live, persistent, api].compactMap { $0 }.max() ?? 0)
             }.sorted { $0.peak > $1.peak }
         } else {
             let tracks =
                 appState.hasActiveFilters
                 ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
-            speedSorted = tracks.map { (id: $0.trackID, peak: $0.peakSpeedMps) }.sorted {
-                $0.peak > $1.peak
-            }
+            speedSorted = tracks.map {
+                let persistent = appState.trackPeakSpeed[$0.trackID] ?? 0
+                return (id: $0.trackID, peak: max($0.peakSpeedMps, persistent))
+            }.sorted { $0.peak > $1.peak }
         }
         var newRanks: [String: (rank: Int, climbedAt: Date?)] = [:]
         for (index, entry) in speedSorted.enumerated() {
@@ -1061,12 +1078,13 @@ struct TrackListView: View {
                     frameTrack.map { trackStateColour($0.state) } ?? Color.gray.opacity(0.5)
                 Button(action: { appState.selectTrack(track.trackId) }) {
                     VStack(alignment: .leading, spacing: 2) {
-                        // Row 1: dot + hex ID + speed + checkmark
+                        // Row 1: dot + hex ID + speed + climb arrow
                         HStack(spacing: 4) {
                             Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
                                 width: 6, height: 6)
                             Text(track.trackId.shortTrackID).font(
-                                .system(.caption, design: .monospaced))
+                                .system(.caption, design: .monospaced)
+                            ).foregroundColor(.white)
                             let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
                             let persistentPeak = appState.trackPeakSpeed[track.trackId].map {
                                 Double($0)
@@ -1074,18 +1092,19 @@ struct TrackListView: View {
                             let bestSpeed = [liveSpeed, persistentPeak, track.peakSpeedMps]
                                 .compactMap { $0 }.max()
                             if let speed = bestSpeed {
-                                Text(String(format: "%.1f m/s", speed)).font(.caption2)
+                                Text(String(format: "%.1f m/s", speed)).font(.caption2).fixedSize()
                             }
                             if sortOrder == .peakSpeed && isClimbing(track.trackId) {
                                 Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
-                                    .green)
+                                    .green
+                                ).fixedSize()
                             }
                             Spacer()
-                        }.foregroundColor(.secondary)
+                        }.foregroundColor(.secondary).lineLimit(1)
                         // Row 2: tag pills (single line, max 2 + overflow)
                         let tags = runTrackTags(track)
                         if !tags.isEmpty { TagRow(tags: tags) }
-                    }.padding(.vertical, 3).padding(.horizontal, 4).background(
+                    }.padding(.vertical, 4).padding(.horizontal, 4).background(
                         track.trackId == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
                     ).cornerRadius(4).contentShape(Rectangle())
@@ -1111,28 +1130,30 @@ struct TrackListView: View {
             ForEach(frameTracks, id: \.trackID) { track in
                 Button(action: { appState.selectTrack(track.trackID) }) {
                     VStack(alignment: .leading, spacing: 2) {
-                        // Row 1: dot + hex ID + speed + checkmark
+                        // Row 1: dot + hex ID + speed + climb arrow
                         HStack(spacing: 4) {
                             Circle().fill(trackStateColour(track.state)).frame(width: 6, height: 6)
                             Text(track.trackID.shortTrackID).font(
-                                .system(.caption, design: .monospaced))
+                                .system(.caption, design: .monospaced)
+                            ).foregroundColor(.white)
                             Text(
                                 String(
                                     format: "%.1f m/s",
                                     max(
                                         track.peakSpeedMps,
                                         appState.trackPeakSpeed[track.trackID] ?? 0))
-                            ).font(.caption2)
+                            ).font(.caption2).fixedSize()
                             if sortOrder == .peakSpeed && isClimbing(track.trackID) {
                                 Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
-                                    .green)
+                                    .green
+                                ).fixedSize()
                             }
                             Spacer()
-                        }.foregroundColor(.secondary)
+                        }.foregroundColor(.secondary).lineLimit(1)
                         // Row 2: tag pills (single line, max 2 + overflow)
                         let tags = frameTrackTags(track)
                         if !tags.isEmpty { TagRow(tags: tags) }
-                    }.padding(.vertical, 3).padding(.horizontal, 4).background(
+                    }.padding(.vertical, 4).padding(.horizontal, 4).background(
                         track.trackID == appState.selectedTrackID
                             ? Color.accentColor.opacity(0.15) : Color.clear
                     ).cornerRadius(4).contentShape(Rectangle())

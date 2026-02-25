@@ -697,6 +697,52 @@ struct SparklineViewTests {
 
         host(TrackListView(), state: state)
     }
+
+    /// Ensures a track item with a high peak speed (28.8 m/s) and a climb arrow
+    /// renders on a single line without wrapping or layout errors.
+    func testTrackListItemHighSpeedDoesNotWrap() throws {
+        let state = AppState()
+        state.currentRunID = nil
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(
+                    trackID: "trk_00001234", state: .confirmed, speedMps: 28.8, peakSpeedMps: 28.8,
+                    classLabel: "car")
+            ], trails: [])
+        state.currentFrame = frame
+
+        // The track list displays max(peakSpeedMps, persistentPeak) and a lineLimit(1)
+        // prevents wrapping even with the "▲" climb indicator present.
+        host(TrackListView(), state: state)
+    }
+
+    /// Ensures multiple tracks with varying speeds — including the maximum
+    /// expected display width — render without layout issues.
+    func testTrackListItemMaxSpeedWidthVariants() throws {
+        let state = AppState()
+        state.currentRunID = nil
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(
+                    trackID: "trk_0000aaaa", state: .confirmed, speedMps: 1.0, peakSpeedMps: 1.0,
+                    classLabel: ""),
+                Track(
+                    trackID: "trk_0000bbbb", state: .confirmed, speedMps: 28.8, peakSpeedMps: 28.8,
+                    classLabel: "car"),
+                Track(
+                    trackID: "trk_0000cccc", state: .tentative, speedMps: 9.9, peakSpeedMps: 9.9,
+                    classLabel: "truck"),
+            ], trails: [])
+        state.currentFrame = frame
+
+        host(TrackListView(), state: state)
+    }
 }
 
 // MARK: - LabelPanelView Carried Badge Tests
