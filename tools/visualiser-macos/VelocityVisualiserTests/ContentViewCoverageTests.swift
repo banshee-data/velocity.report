@@ -9,6 +9,7 @@
 
 import AppKit
 import Foundation
+import MetalKit
 import SwiftUI
 import Testing
 import XCTest
@@ -992,7 +993,7 @@ struct SparklineViewCoverageTests {
                 tracks: [
                     Track(
                         trackID: "t-peak", state: .confirmed, speedMps: Float(i) * 3.0,
-                        peakSpeedMps: 12.0, headingRad: Float(i) * 0.3)
+                        headingRad: Float(i) * 0.3, peakSpeedMps: 12.0)
                 ], trails: [])
             state.onFrameReceived(frame)
             await Task.yield()
@@ -1295,7 +1296,7 @@ struct ToggleButtonActionTests {
 
 // MARK: - InteractiveMetalView Extended Tests
 
-@available(macOS 15.0, *) final class InteractiveMetalViewExtendedTests: XCTestCase {
+@available(macOS 15.0, *) @MainActor final class InteractiveMetalViewExtendedTests: XCTestCase {
 
     func testInitialState() throws {
         let view = InteractiveMetalView()
@@ -1370,7 +1371,7 @@ struct ToggleButtonActionTests {
 
 // MARK: - Preview Test
 
-struct PreviewTests {
+@MainActor struct PreviewTests {
     @Test func previewDoesNotCrash() throws {
         // Verify the #Preview doesn't crash
         let state = AppState()
