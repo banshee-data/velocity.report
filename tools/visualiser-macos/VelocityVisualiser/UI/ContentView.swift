@@ -846,9 +846,9 @@ struct TrackListView: View {
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
     @State private var sortOrder: TrackSortOrder = .firstSeen
-    /// Tracks the rank (index) of each track by peak speed at a recent timestamp.
-    /// Used to show a green ▲ when a track climbs the leaderboard.
-    @State private var previousRanks: [String: (rank: Int, time: Date)] = [:]
+    /// Tracks the rank (index) of each track by peak speed.
+    /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
+    @State private var previousRanks: [String: (rank: Int, climbedAt: Date?)] = [:]
 
     /// Tracks visible in the current frame (live mode or as supplementary info).
     /// Uses filtered tracks when filters are active.
@@ -863,11 +863,21 @@ struct TrackListView: View {
     }
 
     /// Run tracks sorted according to the active sort order.
+    /// In peak-speed mode, uses live frame speed when available so the list re-sorts in real time.
     private var sortedRunTracks: [RunTrack] {
         switch sortOrder {
         case .firstSeen:
             return runTracks.sorted { ($0.startUnixNanos ?? 0) < ($1.startUnixNanos ?? 0) }
-        case .peakSpeed: return runTracks.sorted { ($0.peakSpeedMps ?? 0) > ($1.peakSpeedMps ?? 0) }
+        case .peakSpeed:
+            return runTracks.sorted { a, b in
+                let peakA =
+                    frameTrackByID[a.trackId].map { Double($0.peakSpeedMps) }
+                    ?? (a.peakSpeedMps ?? 0)
+                let peakB =
+                    frameTrackByID[b.trackId].map { Double($0.peakSpeedMps) }
+                    ?? (b.peakSpeedMps ?? 0)
+                return peakA > peakB
+            }
         }
     }
 
@@ -886,10 +896,11 @@ struct TrackListView: View {
     private var inViewTrackIDs: Set<String> { Set(frameTracks.map { $0.trackID }) }
 
     /// Whether a track has climbed at least 1 rank in the past 2 seconds.
-    private func isClimbing(_ trackID: String, currentRank: Int) -> Bool {
-        guard let prev = previousRanks[trackID] else { return false }
-        let elapsed = Date().timeIntervalSince(prev.time)
-        return elapsed < 2.0 && currentRank < prev.rank
+    private func isClimbing(_ trackID: String) -> Bool {
+        guard let entry = previousRanks[trackID], let climbedAt = entry.climbedAt else {
+            return false
+        }
+        return Date().timeIntervalSince(climbedAt) < 2.0
     }
 
     /// Snapshot current speed-sorted ranks into previousRanks for climb detection.
@@ -910,18 +921,19 @@ struct TrackListView: View {
                 $0.peak > $1.peak
             }
         }
-        var newRanks: [String: (rank: Int, time: Date)] = [:]
+        var newRanks: [String: (rank: Int, climbedAt: Date?)] = [:]
         for (index, entry) in speedSorted.enumerated() {
-            let oldEntry = previousRanks[entry.id]
-            if let old = oldEntry, index < old.rank {
-                // Track climbed — record new rank with fresh timestamp.
-                newRanks[entry.id] = (rank: index, time: now)
-            } else if let old = oldEntry {
-                // Same or lower — keep old timestamp for 2 s fade-out.
-                newRanks[entry.id] = (rank: index, time: old.time)
+            if let old = previousRanks[entry.id] {
+                if index < old.rank {
+                    // Track climbed — record fresh climb timestamp.
+                    newRanks[entry.id] = (rank: index, climbedAt: now)
+                } else {
+                    // Same or lower rank — preserve existing climbedAt for 2 s fade-out.
+                    newRanks[entry.id] = (rank: index, climbedAt: old.climbedAt)
+                }
             } else {
                 // New track — no arrow.
-                newRanks[entry.id] = (rank: index, time: now.addingTimeInterval(-3))
+                newRanks[entry.id] = (rank: index, climbedAt: nil)
             }
         }
         previousRanks = newRanks
@@ -979,7 +991,7 @@ struct TrackListView: View {
         if runTracks.isEmpty && !isFetchingRunTracks {
             Text("No tracks in run").font(.caption).foregroundColor(.secondary)
         } else {
-            ForEach(Array(sortedRunTracks.enumerated()), id: \.element.trackId) { index, track in
+            ForEach(sortedRunTracks, id: \.trackId) { track in
                 let frameTrack = frameTrackByID[track.trackId]
                 let isInView = frameTrack != nil
                 let statusColour =
@@ -996,9 +1008,7 @@ struct TrackListView: View {
                             if let speed = liveSpeed ?? track.peakSpeedMps {
                                 Text(String(format: "%.1f m/s", speed)).font(.caption2)
                             }
-                            if sortOrder == .peakSpeed
-                                && isClimbing(track.trackId, currentRank: index)
-                            {
+                            if sortOrder == .peakSpeed && isClimbing(track.trackId) {
                                 Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
                                     .green)
                             }
@@ -1035,7 +1045,7 @@ struct TrackListView: View {
         if frameTracks.isEmpty {
             Text("No active tracks").font(.caption).foregroundColor(.secondary)
         } else {
-            ForEach(Array(frameTracks.enumerated()), id: \.element.trackID) { index, track in
+            ForEach(frameTracks, id: \.trackID) { track in
                 Button(action: { appState.selectTrack(track.trackID) }) {
                     VStack(alignment: .leading, spacing: 2) {
                         // Row 1: dot + hex ID + speed + checkmark
@@ -1044,9 +1054,7 @@ struct TrackListView: View {
                             Text(track.trackID.shortTrackID).font(
                                 .system(.caption, design: .monospaced))
                             Text(String(format: "%.1f m/s", track.peakSpeedMps)).font(.caption2)
-                            if sortOrder == .peakSpeed
-                                && isClimbing(track.trackID, currentRank: index)
-                            {
+                            if sortOrder == .peakSpeed && isClimbing(track.trackID) {
                                 Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
                                     .green)
                             }
@@ -1142,9 +1150,9 @@ struct LabelPanelView: View {
 
                 // Carried-over label badge
                 if isCarriedOver {
-                    Text("↻ carried").font(.caption2).foregroundColor(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.8)).cornerRadius(4)
+                    Text("↻ carried").font(.caption2).foregroundColor(.white).padding(
+                        .horizontal, 6
+                    ).padding(.vertical, 2).background(Color.orange.opacity(0.8)).cornerRadius(4)
                 }
 
                 // Classification labels (user_label) — single-select
