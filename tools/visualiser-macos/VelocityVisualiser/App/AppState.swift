@@ -751,6 +751,48 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         }
     }
 
+    // MARK: - Track Navigation
+
+    /// Sorted track IDs for keyboard navigation (peak speed descending).
+    private var sortedTrackIDs: [String] {
+        let tracks = hasActiveFilters ? filteredTracks : (currentFrame?.tracks?.tracks ?? [])
+        return tracks.sorted {
+            max($0.peakSpeedMps, trackPeakSpeed[$0.trackID] ?? 0)
+                > max($1.peakSpeedMps, trackPeakSpeed[$1.trackID] ?? 0)
+        }.map { $0.trackID }
+    }
+
+    /// Select the next track in the sorted list. Wraps to the first track at the end.
+    func selectNextTrack() {
+        let ids = sortedTrackIDs
+        guard !ids.isEmpty else { return }
+        if let current = selectedTrackID, let idx = ids.firstIndex(of: current) {
+            let next = ids[(idx + 1) % ids.count]
+            selectTrackQuietly(next)
+        } else {
+            selectTrackQuietly(ids[0])
+        }
+    }
+
+    /// Select the previous track in the sorted list. Wraps to the last track at the start.
+    func selectPreviousTrack() {
+        let ids = sortedTrackIDs
+        guard !ids.isEmpty else { return }
+        if let current = selectedTrackID, let idx = ids.firstIndex(of: current) {
+            let prev = ids[(idx - 1 + ids.count) % ids.count]
+            selectTrackQuietly(prev)
+        } else {
+            selectTrackQuietly(ids.last!)
+        }
+    }
+
+    /// Select a track without popping open the side panel if it isn't already visible.
+    private func selectTrackQuietly(_ trackID: String) {
+        selectedTrackID = trackID
+        renderer?.selectedTrackID = trackID
+        reprojectLabels()
+    }
+
     // MARK: - Labelling
 
     func selectTrack(_ trackID: String?) {

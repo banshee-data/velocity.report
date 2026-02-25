@@ -75,12 +75,20 @@ struct ContentView: View {
             }.onKeyPress(".") { handleKeyPress(.period, appState: appState) }.onKeyPress("[") {
                 handleKeyPress(.decreaseRate, appState: appState)
             }.onKeyPress("]") { handleKeyPress(.increaseRate, appState: appState) }
-            // Label shortcuts: keys 1-4 assign detection labels
+            // Label shortcuts: keys 1-9 assign detection labels
             .onKeyPress("1") { handleKeyPress(.label1, appState: appState) }.onKeyPress("2") {
                 handleKeyPress(.label2, appState: appState)
             }.onKeyPress("3") { handleKeyPress(.label3, appState: appState) }.onKeyPress("4") {
                 handleKeyPress(.label4, appState: appState)
-            }  // Overlay toggle hotkeys
+            }.onKeyPress("5") { handleKeyPress(.label5, appState: appState) }.onKeyPress("6") {
+                handleKeyPress(.label6, appState: appState)
+            }.onKeyPress("7") { handleKeyPress(.label7, appState: appState) }.onKeyPress("8") {
+                handleKeyPress(.label8, appState: appState)
+            }.onKeyPress("9") { handleKeyPress(.label9, appState: appState) }
+            // Track navigation: up/down arrows traverse the track list
+            .onKeyPress(.upArrow) { handleKeyPress(.selectPrevTrack, appState: appState) }
+            .onKeyPress(.downArrow) { handleKeyPress(.selectNextTrack, appState: appState) }
+            // Overlay toggle hotkeys
             .onKeyPress("f") { handleKeyPress(.togglePoints, appState: appState) }.onKeyPress("k") {
                 handleKeyPress(.toggleBackground, appState: appState)
             }.onKeyPress("b") { handleKeyPress(.toggleBoxes, appState: appState) }.onKeyPress("c") {
@@ -102,7 +110,8 @@ struct ContentView: View {
 /// All keyboard actions that can be triggered by hotkeys.
 enum KeyAction {
     case space, comma, period, decreaseRate, increaseRate
-    case label1, label2, label3, label4
+    case label1, label2, label3, label4, label5, label6, label7, label8, label9
+    case selectPrevTrack, selectNextTrack
     case togglePoints, toggleBackground, toggleBoxes, toggleClusters
     case toggleTrails, toggleVelocity, toggleLabels, toggleGrid, toggleDebug
 }
@@ -132,6 +141,17 @@ enum KeyAction {
     case .label2: return assignLabelByIndex(1, appState: appState)
     case .label3: return assignLabelByIndex(2, appState: appState)
     case .label4: return assignLabelByIndex(3, appState: appState)
+    case .label5: return assignLabelByIndex(4, appState: appState)
+    case .label6: return assignLabelByIndex(5, appState: appState)
+    case .label7: return assignLabelByIndex(6, appState: appState)
+    case .label8: return assignLabelByIndex(7, appState: appState)
+    case .label9: return assignLabelByIndex(8, appState: appState)
+    case .selectPrevTrack:
+        appState.selectPreviousTrack()
+        return .handled
+    case .selectNextTrack:
+        appState.selectNextTrack()
+        return .handled
     case .togglePoints:
         appState.showPoints.toggle()
         return .handled
@@ -1378,9 +1398,15 @@ struct LabelPanelView: View {
         ("disconnected", "Track was lost and recovered — identity may have changed"),
     ]
 
-    @State private var lastAssignedLabel: String?
     @State private var activeFlags: Set<String> = []
     @State private var isCarriedOver: Bool = false
+
+    /// The current label for the selected track, derived from appState for
+    /// consistency when labels are assigned via keyboard shortcuts.
+    private var currentLabel: String? {
+        guard let trackID = appState.selectedTrackID else { return nil }
+        return appState.userLabels[trackID]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1411,13 +1437,8 @@ struct LabelPanelView: View {
                             index, entry in
                             LabelButton(
                                 label: entry.name, shortcut: "\(index + 1)",
-                                isActive: lastAssignedLabel == entry.name, helpText: entry.help
-                            ) {
-                                appState.assignLabel(entry.name)
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    lastAssignedLabel = entry.name
-                                }
-                            }
+                                isActive: currentLabel == entry.name, helpText: entry.help
+                            ) { appState.assignLabel(entry.name) }
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1464,7 +1485,6 @@ struct LabelPanelView: View {
             }
         }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
-            lastAssignedLabel = nil
             activeFlags = []
             isCarriedOver = false
             // Fetch existing labels for the newly selected track
@@ -1477,7 +1497,7 @@ struct LabelPanelView: View {
                             // Only update if we're still on the same track
                             guard appState.selectedTrackID == trackID else { return }
                             if let label = track.userLabel, !label.isEmpty {
-                                lastAssignedLabel = label
+                                appState.userLabels[trackID] = label
                             }
                             if let quality = track.qualityLabel, !quality.isEmpty {
                                 let flags = Set(
