@@ -642,8 +642,7 @@ struct ParseQualityFlagsTests {
 
     @Test func emptyStringProducesEmptySet() {
         let result = parseQualityFlags("")
-        // split on "," of "" gives [""], trimmed gives [""]
-        #expect(result.count == 1)
+        #expect(result.isEmpty)
     }
 
     @Test func duplicatesCollapsed() {
