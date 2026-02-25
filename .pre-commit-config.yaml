@@ -45,9 +45,9 @@ repos:
         files: ^tools/visualiser-macos/.*\.swift$
         stages: [pre-commit]
 
-      - id: format-markdown
-        name: format-markdown (prettier for Markdown files)
-        entry: make format-markdown
+      - id: format-docs
+        name: format-docs (prettier for Markdown files)
+        entry: make format-docs
         language: system
         pass_filenames: false
         files: \.md$
