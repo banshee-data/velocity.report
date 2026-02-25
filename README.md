@@ -475,18 +475,18 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 
 ### Core Subsystem Targets
 
-| Action             | Go                                                            | Python            | Web            | Docs              | macOS        |
-| ------------------ | ------------------------------------------------------------- | ----------------- | -------------- | ----------------- | ------------ |
-| **install**        | -                                                             | `install-python`  | `install-web`  | `install-docs`    | -            |
-| **build**          | `build-radar-*`                                               | -                 | `build-web`    | `build-docs`      | `build-mac`  |
-| **dev**            | `dev-go`                                                      | -                 | `dev-web`      | `dev-docs`        | `dev-mac`    |
-| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-lidar-both`<br>`dev-go-kill-server` | -                 | -              | -                 | -            |
-| **run**            | -                                                             | -                 | -              | -                 | `run-mac`    |
-| **test**           | `test-go`                                                     | `test-python`     | `test-web`     | -                 | `test-mac`   |
-| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary`                   | `test-python-cov` | `test-web-cov` | -                 | -            |
-| **format**         | `format-go`                                                   | `format-python`   | `format-web`   | `format-markdown` | `format-mac` |
-| **lint**           | `lint-go`                                                     | `lint-python`     | `lint-web`     | -                 | -            |
-| **clean**          | -                                                             | `clean-python`    | -              | -                 | `clean-mac`  |
+| Action             | Go                                                            | Python            | Web            | Docs           | macOS        |
+| ------------------ | ------------------------------------------------------------- | ----------------- | -------------- | -------------- | ------------ |
+| **install**        | -                                                             | `install-python`  | `install-web`  | `install-docs` | -            |
+| **build**          | `build-radar-*`                                               | -                 | `build-web`    | `build-docs`   | `build-mac`  |
+| **dev**            | `dev-go`                                                      | -                 | `dev-web`      | `dev-docs`     | `dev-mac`    |
+| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-lidar-both`<br>`dev-go-kill-server` | -                 | -              | -              | -            |
+| **run**            | -                                                             | -                 | -              | -              | `run-mac`    |
+| **test**           | `test-go`                                                     | `test-python`     | `test-web`     | -              | `test-mac`   |
+| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary`                   | `test-python-cov` | `test-web-cov` | -              | -            |
+| **format**         | `format-go`                                                   | `format-python`   | `format-web`   | `format-docs`  | `format-mac` |
+| **lint**           | `lint-go`                                                     | `lint-python`     | `lint-web`     | -              | -            |
+| **clean**          | -                                                             | `clean-python`    | -              | -              | `clean-mac`  |
 
 **Cross-cutting formatting targets:**
 
@@ -558,7 +558,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `format-python` - Format Python code (black + ruff)
 - `format-web` - Format web code (prettier)
 - `format-mac` - Format macOS Swift code (swift-format)
-- `format-markdown` - Format Markdown files (prettier)
+- `format-docs` - Format Markdown files (prettier)
 - `format-sql` - Format SQL files (sql-formatter)
 
 ### Linting Targets
