@@ -251,6 +251,28 @@ func buildFrameModeSpeedEntries(
     }.sorted { $0.peak > $1.peak }
 }
 
+/// Compute updated ranks for the track list.
+/// Combines run-mode and frame-mode logic into a single call.
+/// Extracted from TrackListView.updateRanks() for testability.
+@MainActor func computeUpdatedRanks(
+    isRunMode: Bool, runTracks: [RunTrack], frameTrackByID: [String: Track], appState: AppState,
+    previousRanks: [String: RankEntry], now: Date = Date()
+) -> [String: RankEntry] {
+    let speedSorted: [(id: String, peak: Float)]
+    if isRunMode {
+        speedSorted = buildRunModeSpeedEntries(
+            runTracks: runTracks, frameTrackByID: frameTrackByID,
+            trackPeakSpeed: appState.trackPeakSpeed)
+    } else {
+        let tracks =
+            appState.hasActiveFilters
+            ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+        speedSorted = buildFrameModeSpeedEntries(
+            tracks: tracks, trackPeakSpeed: appState.trackPeakSpeed)
+    }
+    return computeRanks(speedSorted: speedSorted, previousRanks: previousRanks, now: now)
+}
+
 /// Collect tags for a run-mode track (classification + quality flags).
 /// Extracted from TrackListView for testability.
 func runTrackTags(
@@ -312,6 +334,63 @@ func sortRunTracksByPeakSpeed(
             ].compactMap { $0 }.max() ?? 0
         return peakA > peakB
     }
+}
+
+/// Parse a comma-separated quality label string into a set of flag names.
+/// Extracted from LabelPanelView for testability.
+func parseQualityFlags(_ quality: String) -> Set<String> {
+    Set(quality.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) })
+}
+
+/// Toggle a flag in a set: remove if present, insert if absent.
+/// Returns the updated set. Extracted from LabelPanelView for testability.
+func toggleFlag(_ flag: String, in flags: Set<String>) -> Set<String> {
+    var updated = flags
+    if updated.contains(flag) { updated.remove(flag) } else { updated.insert(flag) }
+    return updated
+}
+
+/// Serialise a set of quality flags to a sorted comma-separated string.
+/// Extracted from LabelPanelView for testability.
+func serialiseFlags(_ flags: Set<String>) -> String { flags.sorted().joined(separator: ",") }
+
+/// Sync labels fetched from the run-track API into the AppState and local view state.
+/// Extracted from LabelPanelView .onChange closure for testability.
+/// Returns (updatedFlags, isCarriedOver).
+@MainActor func applyFetchedTrackLabels(
+    track: RunTrack, trackID: String, appState: AppState
+) -> (flags: Set<String>, isCarriedOver: Bool) {
+    var flags: Set<String> = []
+    var carried = false
+    if let label = track.userLabel, !label.isEmpty { appState.userLabels[trackID] = label }
+    if let quality = track.qualityLabel, !quality.isEmpty {
+        flags = parseQualityFlags(quality)
+        appState.userQualityFlags[trackID] = quality
+    }
+    if track.labelerId == "hint-carryover" { carried = true }
+    return (flags, carried)
+}
+
+/// Sync a batch of run tracks into AppState labels/flags — used by TrackListView.fetchRunTracks().
+/// Extracted for testability. Returns the number of synced labels.
+@MainActor @discardableResult func syncRunTracksToAppState(
+    _ tracks: [RunTrack], appState: AppState
+) -> Int {
+    var count = 0
+    for track in tracks {
+        if let label = track.userLabel, !label.isEmpty {
+            if appState.userLabels[track.trackId] == nil {
+                appState.userLabels[track.trackId] = label
+                count += 1
+            }
+        }
+        if let quality = track.qualityLabel, !quality.isEmpty {
+            if appState.userQualityFlags[track.trackId] == nil {
+                appState.userQualityFlags[track.trackId] = quality
+            }
+        }
+    }
+    return count
 }
 
 // MARK: - Standalone Track Row Views (extracted for testability)
@@ -1245,21 +1324,9 @@ struct TrackListView: View {
 
     /// Snapshot current speed-sorted ranks into previousRanks for climb detection.
     private func updateRanks() {
-        let now = Date()
-        let speedSorted: [(id: String, peak: Float)]
-        if isRunMode {
-            speedSorted = buildRunModeSpeedEntries(
-                runTracks: runTracks, frameTrackByID: frameTrackByID,
-                trackPeakSpeed: appState.trackPeakSpeed)
-        } else {
-            let tracks =
-                appState.hasActiveFilters
-                ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
-            speedSorted = buildFrameModeSpeedEntries(
-                tracks: tracks, trackPeakSpeed: appState.trackPeakSpeed)
-        }
-        previousRanks = computeRanks(
-            speedSorted: speedSorted, previousRanks: previousRanks, now: now)
+        previousRanks = computeUpdatedRanks(
+            isRunMode: isRunMode, runTracks: runTracks, frameTrackByID: frameTrackByID,
+            appState: appState, previousRanks: previousRanks)
     }
 
     var body: some View {
@@ -1356,21 +1423,8 @@ struct TrackListView: View {
                 await MainActor.run {
                     self.runTracks = tracks
                     self.isFetchingRunTracks = false
-                    // Sync API-confirmed labels and quality flags into appState so the
-                    // 3D box labels and track list tags always reflect server state.
                     self.isSyncingAPILabels = true
-                    for track in tracks {
-                        if let label = track.userLabel, !label.isEmpty {
-                            if appState.userLabels[track.trackId] == nil {
-                                appState.userLabels[track.trackId] = label
-                            }
-                        }
-                        if let quality = track.qualityLabel, !quality.isEmpty {
-                            if appState.userQualityFlags[track.trackId] == nil {
-                                appState.userQualityFlags[track.trackId] = quality
-                            }
-                        }
-                    }
+                    syncRunTracksToAppState(tracks, appState: appState)
                     self.isSyncingAPILabels = false
                     syncTrackListOrder()
                 }
@@ -1466,15 +1520,9 @@ struct LabelPanelView: View {
                                     helpText: entry.help
                                 ) {
                                     withAnimation(.easeOut(duration: 0.3)) {
-                                        if activeFlags.contains(entry.name) {
-                                            activeFlags.remove(entry.name)
-                                        } else {
-                                            activeFlags.insert(entry.name)
-                                        }
+                                        activeFlags = toggleFlag(entry.name, in: activeFlags)
                                     }
-                                    // Save comma-separated flags
-                                    let flagsString = activeFlags.sorted().joined(separator: ",")
-                                    appState.assignQuality(flagsString)
+                                    appState.assignQuality(serialiseFlags(activeFlags))
                                 }
                             }
                         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -1506,21 +1554,11 @@ struct LabelPanelView: View {
                         let client = RunTrackLabelAPIClient()
                         let track = try await client.getTrack(runID: runID, trackID: trackID)
                         await MainActor.run {
-                            // Only update if we're still on the same track
                             guard appState.selectedTrackID == trackID else { return }
-                            if let label = track.userLabel, !label.isEmpty {
-                                appState.userLabels[trackID] = label
-                            }
-                            if let quality = track.qualityLabel, !quality.isEmpty {
-                                let flags = Set(
-                                    quality.split(separator: ",").map {
-                                        String($0).trimmingCharacters(in: .whitespaces)
-                                    })
-                                activeFlags = flags
-                                // Sync to appState so track list tags stay consistent
-                                appState.userQualityFlags[trackID] = quality
-                            }
-                            if track.labelerId == "hint-carryover" { isCarriedOver = true }
+                            let result = applyFetchedTrackLabels(
+                                track: track, trackID: trackID, appState: appState)
+                            activeFlags = result.flags
+                            isCarriedOver = result.isCarriedOver
                         }
                     } catch {
                         // Silently ignore — track may not exist in API yet
@@ -1747,6 +1785,24 @@ struct FilterBarView: View {
 
 /// A dual-handle range slider. The low handle cannot exceed the high handle
 /// and vice versa. When high is at the maximum value it represents "no limit" (0 in AppState).
+/// Compute the x-position for a value within a range slider.
+/// Extracted from RangeSliderView for testability.
+func rangeSliderXPosition(value: Double, range: ClosedRange<Double>, trackWidth: CGFloat) -> CGFloat
+{
+    let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+    return CGFloat(fraction) * trackWidth
+}
+
+/// Compute the snapped value for an x-position within a range slider.
+/// Extracted from RangeSliderView for testability.
+func rangeSliderValueForX(
+    x: CGFloat, range: ClosedRange<Double>, trackWidth: CGFloat, step: Double
+) -> Double {
+    let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
+    let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+    return (raw / step).rounded() * step
+}
+
 struct RangeSliderView: View {
     @Binding var low: Double
     @Binding var high: Double
@@ -1763,13 +1819,10 @@ struct RangeSliderView: View {
         GeometryReader { geo in
             let trackWidth = max(1, geo.size.width - thumbRadius * 2)
             let xPosition: (Double) -> CGFloat = { value in
-                let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
-                return CGFloat(fraction) * trackWidth
+                rangeSliderXPosition(value: value, range: range, trackWidth: trackWidth)
             }
             let valueForX: (CGFloat) -> Double = { x in
-                let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
-                let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
-                return (raw / step).rounded() * step
+                rangeSliderValueForX(x: x, range: range, trackWidth: trackWidth, step: step)
             }
 
             ZStack(alignment: .leading) {
