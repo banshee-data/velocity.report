@@ -11,6 +11,8 @@
 
 import SwiftUI
 
+private let appLogger = DevLogger(category: "App")
+
 @main struct VelocityVisualiserApp: App {
     @StateObject private var appState = AppState()
 
@@ -24,6 +26,12 @@ import SwiftUI
         Window("About VelocityReport.app", id: "about") { AboutView() }.windowResizability(
             .contentSize
         ).defaultPosition(.center)
+    }
+
+    init() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { _ in appLogger.info("Application terminating, goodbye 👋") }
     }
 }
 

@@ -157,33 +157,43 @@ enum KeyAction {
     case .label8: return assignLabelByIndex(7, appState: appState)
     case .label9: return assignLabelByIndex(8, appState: appState)
     case .selectPrevTrack:
+        uiLogger.debug("Key: ↑ → selectPreviousTrack()")
         appState.selectPreviousTrack()
         return .handled
     case .selectNextTrack:
+        uiLogger.debug("Key: ↓ → selectNextTrack()")
         appState.selectNextTrack()
         return .handled
     case .togglePoints:
+        uiLogger.debug("Key: F → togglePoints (now \(!appState.showPoints))")
         appState.showPoints.toggle()
         return .handled
     case .toggleBackground:
+        uiLogger.debug("Key: K → toggleBackground (now \(!appState.showBackground))")
         appState.showBackground.toggle()
         return .handled
     case .toggleBoxes:
+        uiLogger.debug("Key: B → toggleBoxes (now \(!appState.showBoxes))")
         appState.showBoxes.toggle()
         return .handled
     case .toggleClusters:
+        uiLogger.debug("Key: C → toggleClusters (now \(!appState.showClusters))")
         appState.showClusters.toggle()
         return .handled
     case .toggleTrails:
+        uiLogger.debug("Key: T → toggleTrails (now \(!appState.showTrails))")
         appState.showTrails.toggle()
         return .handled
     case .toggleVelocity:
+        uiLogger.debug("Key: V → toggleVelocity (now \(!appState.showVelocity))")
         appState.showVelocity.toggle()
         return .handled
     case .toggleLabels:
+        uiLogger.debug("Key: L → toggleLabels (now \(!appState.showTrackLabels))")
         appState.showTrackLabels.toggle()
         return .handled
     case .toggleGrid:
+        uiLogger.debug("Key: G → toggleGrid (now \(!appState.showGrid))")
         appState.showGrid.toggle()
         return .handled
     }
@@ -192,9 +202,16 @@ enum KeyAction {
 /// Assign a classification label by index. Returns .ignored if no track selected
 /// or the label index is out of range.
 @MainActor private func assignLabelByIndex(_ index: Int, appState: AppState) -> KeyPress.Result {
-    guard appState.selectedTrackID != nil else { return .ignored }
+    guard appState.selectedTrackID != nil else {
+        uiLogger.debug("Key: \(index + 1) → label ignored (no track selected)")
+        return .ignored
+    }
     let labels = LabelPanelView.classificationLabels
-    guard labels.count > index else { return .ignored }
+    guard labels.count > index else {
+        uiLogger.debug("Key: \(index + 1) → label ignored (index out of range)")
+        return .ignored
+    }
+    uiLogger.debug("Key: \(index + 1) → assignLabel(\(labels[index].name))")
     appState.assignLabel(labels[index].name)
     return .handled
 }
