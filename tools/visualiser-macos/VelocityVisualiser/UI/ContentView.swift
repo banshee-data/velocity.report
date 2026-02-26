@@ -1698,13 +1698,15 @@ struct FilterBarView: View {
             // Only points in boxes toggle
             Toggle("In boxes", isOn: $appState.filterOnlyInBox).font(.caption).toggleStyle(
                 .checkbox
-            ).help("Hide foreground points that are not inside any bounding box")
+            ).fixedSize().help("Hide foreground points that are not inside any bounding box")
 
             Divider().frame(height: 20)
 
             // Hits range slider
             HStack(spacing: 4) {
-                Text("Hits").font(.caption).foregroundColor(.secondary)
+                Text("Hits").font(.caption).foregroundColor(.secondary).frame(
+                    width: 50, alignment: .trailing
+                ).fixedSize()
                 RangeSliderView(
                     low: Binding(
                         get: { Double(appState.filterMinHits) },
@@ -1716,14 +1718,17 @@ struct FilterBarView: View {
                 Text(
                     "\(appState.filterMinHits)–\(appState.filterMaxHits == 0 ? "∞" : "\(appState.filterMaxHits)")"
                 ).font(.system(.caption, design: .monospaced)).frame(
-                    width: 40, alignment: .trailing)
-            }
+                    width: 44, alignment: .trailing
+                ).fixedSize()
+            }.fixedSize()
 
             Divider().frame(height: 20)
 
             // Points/frame range slider
             HStack(spacing: 4) {
-                Text("Pts/frm").font(.caption).foregroundColor(.secondary)
+                Text("Pts/frm").font(.caption).foregroundColor(.secondary).frame(
+                    width: 50, alignment: .trailing
+                ).fixedSize()
                 RangeSliderView(
                     low: Binding(
                         get: { Double(appState.filterMinPointsPerFrame) },
@@ -1736,8 +1741,9 @@ struct FilterBarView: View {
                 Text(
                     "\(appState.filterMinPointsPerFrame)–\(appState.filterMaxPointsPerFrame == 0 ? "∞" : "\(appState.filterMaxPointsPerFrame)")"
                 ).font(.system(.caption, design: .monospaced)).frame(
-                    width: 40, alignment: .trailing)
-            }
+                    width: 44, alignment: .trailing
+                ).fixedSize()
+            }.fixedSize()
 
             Divider().frame(height: 20)
 
