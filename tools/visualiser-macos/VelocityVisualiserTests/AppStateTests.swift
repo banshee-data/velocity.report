@@ -2286,9 +2286,7 @@ import XCTest
         XCTAssertEqual(AppState.TimeDisplayMode.frames.menuLabel, "Frame Index")
     }
 
-    func testAllCasesCount() {
-        XCTAssertEqual(AppState.TimeDisplayMode.allCases.count, 3)
-    }
+    func testAllCasesCount() { XCTAssertEqual(AppState.TimeDisplayMode.allCases.count, 3) }
 
     // MARK: - cycleTimeDisplayMode()
 
@@ -2325,5 +2323,133 @@ import XCTest
         XCTAssertEqual(AppState.TimeDisplayMode.elapsed.rawValue, "elapsed")
         XCTAssertEqual(AppState.TimeDisplayMode.remaining.rawValue, "remaining")
         XCTAssertEqual(AppState.TimeDisplayMode.frames.rawValue, "frames")
+    }
+}
+
+// MARK: - resetAdmittedTracks Tests
+
+@available(macOS 15.0, *) @MainActor final class ResetAdmittedTracksTests: XCTestCase {
+
+    func testResetClearsAdmittedTrackIDs() throws {
+        let state = AppState()
+        // Pre-load a frame with tracks and apply a filter so tracks get admitted
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-1", state: .confirmed, hits: 10),
+                Track(trackID: "t-2", state: .confirmed, hits: 5),
+            ], trails: [])
+        state.currentFrame = frame
+        state.filterMinHits = 1
+        state.updateAdmittedTracks()
+
+        XCTAssertFalse(state.admittedTrackIDs.isEmpty, "precondition: tracks should be admitted")
+
+        state.resetAdmittedTracks(reason: "test")
+
+        // After reset, tracks that still pass the filter should be re-admitted
+        // because resetAdmittedTracks calls updateAdmittedTracks() internally.
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-1"))
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-2"))
+    }
+
+    func testResetClearsTracksThatNoLongerPassFilter() throws {
+        let state = AppState()
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-low", state: .confirmed, hits: 2),
+                Track(trackID: "t-high", state: .confirmed, hits: 20),
+            ], trails: [])
+        state.currentFrame = frame
+        state.filterMinHits = 1
+        state.updateAdmittedTracks()
+
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-low"))
+
+        // Raise filter threshold so t-low no longer passes
+        state.filterMinHits = 10
+        state.resetAdmittedTracks(reason: "filter change")
+
+        XCTAssertFalse(state.admittedTrackIDs.contains("t-low"))
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-high"))
+    }
+
+    func testResetWithNoCurrentFrame() throws {
+        let state = AppState()
+        state.filterMinHits = 5
+        // No current frame — should not crash
+        state.resetAdmittedTracks(reason: "no frame")
+        XCTAssertTrue(state.admittedTrackIDs.isEmpty)
+    }
+
+    func testResetWithDefaultReason() throws {
+        let state = AppState()
+        // Uses the default reason parameter ("unspecified") — just verifies no crash
+        state.resetAdmittedTracks()
+        XCTAssertTrue(state.admittedTrackIDs.isEmpty)
+    }
+
+    func testResetWithNoActiveFilters() throws {
+        let state = AppState()
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100, tracks: [Track(trackID: "t-1", state: .confirmed)],
+            trails: [])
+        state.currentFrame = frame
+
+        // No filters active — hasActiveFilters is false
+        XCTAssertFalse(state.hasActiveFilters)
+
+        state.resetAdmittedTracks(reason: "clear")
+        // updateAdmittedTracks runs but trackPassesFilter always returns true
+        // when no filter criteria are set
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-1"))
+    }
+}
+
+// MARK: - updateMetalViewSize Tests
+
+@available(macOS 15.0, *) @MainActor final class UpdateMetalViewSizeTests: XCTestCase {
+
+    func testUpdateChangesSize() throws {
+        let state = AppState()
+        XCTAssertEqual(state.metalViewSize, .zero)
+
+        state.updateMetalViewSize(CGSize(width: 800, height: 600), source: "test")
+        XCTAssertEqual(state.metalViewSize, CGSize(width: 800, height: 600))
+    }
+
+    func testUpdateNoOpWhenSizeUnchanged() throws {
+        let state = AppState()
+        let size = CGSize(width: 1024, height: 768)
+        state.updateMetalViewSize(size, source: "initial")
+
+        // Second call with same size should be a no-op (guard clause)
+        state.updateMetalViewSize(size, source: "duplicate")
+        XCTAssertEqual(state.metalViewSize, size)
+    }
+
+    func testUpdateToDifferentSize() throws {
+        let state = AppState()
+        state.updateMetalViewSize(CGSize(width: 640, height: 480), source: "first")
+        state.updateMetalViewSize(CGSize(width: 1920, height: 1080), source: "second")
+        XCTAssertEqual(state.metalViewSize, CGSize(width: 1920, height: 1080))
+    }
+
+    func testUpdateFromZeroSize() throws {
+        let state = AppState()
+        XCTAssertEqual(state.metalViewSize, .zero)
+        state.updateMetalViewSize(CGSize(width: 100, height: 100), source: "fromZero")
+        XCTAssertEqual(state.metalViewSize, CGSize(width: 100, height: 100))
+    }
+
+    func testUpdateToZeroSize() throws {
+        let state = AppState()
+        state.updateMetalViewSize(CGSize(width: 500, height: 300), source: "setup")
+        state.updateMetalViewSize(.zero, source: "reset")
+        XCTAssertEqual(state.metalViewSize, .zero)
     }
 }
