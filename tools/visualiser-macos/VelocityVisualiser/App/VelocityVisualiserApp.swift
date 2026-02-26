@@ -66,16 +66,11 @@ struct AppCommands: Commands {
 
             Divider()
 
-            // Clock display mode picker
-            Picker(
-                "Time Display",
-                selection: Binding(
-                    get: { appState.timeDisplayMode }, set: { appState.timeDisplayMode = $0 })
-            ) {
-                ForEach(AppState.TimeDisplayMode.allCases, id: \.self) { mode in
-                    Text(mode.menuLabel).tag(mode)
-                }
-            }
+            // Time display mode — explicit buttons because Picker in Commands
+            // doesn't reliably call its setter (AppCommands is not @ObservedObject).
+            Button("Elapsed Time") { appState.timeDisplayMode = .elapsed }
+            Button("Remaining Time") { appState.timeDisplayMode = .remaining }
+            Button("Frame Index") { appState.timeDisplayMode = .frames }
         }
 
         // Overlay commands - use direct bindings
