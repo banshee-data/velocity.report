@@ -1,6 +1,24 @@
 import { TRACK_COLORS, trackColour } from './lidar';
+import type { QualityLabel } from './lidar';
 
 describe('lidar types', () => {
+	describe('QualityLabel type', () => {
+		it('should accept all valid quality labels including jitter_heading', () => {
+			// Type-level assertion: these assignments must compile without error.
+			const labels: QualityLabel[] = [
+				'good',
+				'noisy',
+				'jitter_velocity',
+				'jitter_heading',
+				'merge',
+				'split',
+				'truncated',
+				'disconnected'
+			];
+			expect(labels).toHaveLength(8);
+		});
+	});
+
 	describe('TRACK_COLORS', () => {
 		it('should have correct colour for pedestrian', () => {
 			expect(TRACK_COLORS.pedestrian).toBe('#4CAF50');
