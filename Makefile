@@ -24,7 +24,7 @@ help:
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
-	@echo "  dev-mac              Kill, build, and run macOS visualiser"
+	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
 	@echo ""
 	@echo "PROTOBUF CODE GENERATION:"
 	@echo "  proto-gen            Generate protobuf stubs for all languages"
@@ -232,8 +232,9 @@ build-docs:
 
 # Build macOS LiDAR visualiser (requires macOS and Xcode)
 VISUALISER_DIR = tools/visualiser-macos
+MAC_CONFIG ?= Release
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
-VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/Release/VelocityVisualiser.app
+VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVisualiser.app
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
 
 .PHONY: build-mac clean-mac run-mac dev-mac
@@ -280,10 +281,10 @@ build-mac:
 	@cd $(VISUALISER_DIR) && xcodebuild \
 		-project VelocityVisualiser.xcodeproj \
 		-scheme VelocityVisualiser \
-		-configuration Release \
+		-configuration $(MAC_CONFIG) \
 		-derivedDataPath build \
 		build
-	@echo "✓ Visualiser build complete: $(VISUALISER_BUILD_DIR)/Build/Products/Release/"
+	@echo "✓ Visualiser build complete: $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/"
 
 clean-mac:
 	@echo "Cleaning macOS visualiser build artifacts..."
@@ -303,9 +304,9 @@ dev-mac:
 	@pkill -f "VelocityVisualiser" || true
 	@sleep 0.5
 	@$(MAKE) proto-gen-swift
-	@$(MAKE) build-mac
-	@echo "Starting visualiser..."
-	@$(VISUALISER_BIN)
+	@$(MAKE) build-mac MAC_CONFIG=Debug
+	@echo "Starting visualiser (Debug — stdout logging enabled)..."
+	@$(VISUALISER_DIR)/build/Build/Products/Debug/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser
 
 # =============================================================================
 # PROTOBUF CODE GENERATION

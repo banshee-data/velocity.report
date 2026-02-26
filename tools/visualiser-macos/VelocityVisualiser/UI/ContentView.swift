@@ -7,7 +7,7 @@ import MetalKit
 import SwiftUI
 import os
 
-private let uiLogger = Logger(subsystem: "report.velocity.visualiser", category: "UI")
+private let uiLogger = DevLogger(category: "UI")
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState

@@ -17,8 +17,7 @@ extension String {
     }
 }
 
-private let runBrowserLogger = Logger(
-    subsystem: "report.velocity.visualiser", category: "RunBrowser")
+private let runBrowserLogger = DevLogger(category: "RunBrowser")
 
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
     runID: String, appState: AppState, loadRunForReplay: @escaping @MainActor () async -> Bool

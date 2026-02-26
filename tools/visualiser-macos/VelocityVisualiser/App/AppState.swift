@@ -13,7 +13,7 @@ import Foundation
 import UniformTypeIdentifiers
 import os
 
-private let logger = Logger(subsystem: "report.velocity.visualiser", category: "AppState")
+private let logger = DevLogger(category: "AppState")
 
 /// Global application state, observable by SwiftUI views.
 @available(macOS 15.0, *) @MainActor class AppState: ObservableObject {
