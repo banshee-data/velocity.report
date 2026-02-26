@@ -6,12 +6,26 @@ import SwiftUI
 // MARK: - About View
 
 struct AboutView: View {
+    @Environment(\.dismiss) private var dismiss
+
     private let projectURL = URL(string: "https://velocity.report")!
     private let githubURL = URL(string: "https://github.com/banshee-data/velocity.report")!
     private let licenceURL = URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!
+    private var gitSHADisplay: String { BuildInfo.gitSHA.truncated(7) }
+    private var githubRevisionURL: URL {
+        URL(string: "https://github.com/banshee-data/velocity.report/tree/\(BuildInfo.gitSHA)")!
+    }
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
+    private func closeAboutWindow() {
+        if let window = NSApp.keyWindow {
+            window.performClose(nil)
+            return
+        }
+        dismiss()
     }
 
     var body: some View {
@@ -21,9 +35,12 @@ struct AboutView: View {
 
             Text("VelocityReport.app").font(.title).fontWeight(.semibold)
 
-            Text("v\(appVersion)").font(.caption).foregroundColor(.secondary)
-            Text("Git SHA: \(BuildInfo.gitSHA)").font(.caption).foregroundColor(.secondary)
-            Text("Build time: \(BuildInfo.buildTime)").font(.caption).foregroundColor(.secondary)
+            HStack(spacing: 1) {
+                Text("v\(appVersion)  SHA:").font(.caption).foregroundColor(.secondary).help(
+                    "Build time: \(BuildInfo.buildTime)")
+
+                Link("\(gitSHADisplay)", destination: githubRevisionURL).font(.caption)
+            }
 
             Divider().padding(.horizontal, 24)
 
@@ -85,7 +102,11 @@ struct AboutView: View {
             Text("© 2025–2026 Banshee Data. All rights reserved.").font(.caption2).foregroundColor(
                 .secondary
             ).padding(.top, 4)
-        }.padding(24).frame(width: 420)
+        }.padding(24).frame(width: 420).background {
+            Button("Close About Panel") { closeAboutWindow() }.keyboardShortcut(.cancelAction)
+                .opacity(0).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(
+                    true)
+        }.onExitCommand(perform: closeAboutWindow)
     }
 
     @ViewBuilder private func aboutSection(title: String, body: String) -> some View {
