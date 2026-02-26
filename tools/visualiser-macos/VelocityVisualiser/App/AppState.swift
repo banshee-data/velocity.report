@@ -552,9 +552,9 @@ private let logger = DevLogger(category: "AppState")
         }
 
         // When replay has finished, restart from the beginning.
-        // The server pauses at EOF (keeps the stream alive) instead of
-        // closing it, so a Seek + Play is sufficient — no stream restart
-        // required.
+        // The server pauses at EOF (keeps the stream alive), so Seek+Play
+        // RPCs work on the existing connection.  Fall back to stream
+        // restart if the RPCs fail for any reason.
         if replayFinished {
             logger.info("Replay finished — restarting from beginning")
             isPaused = false
@@ -567,13 +567,22 @@ private let logger = DevLogger(category: "AppState")
                 guard let self else { return }
                 if let client = self.playbackRPCClient {
                     do {
+                        logger.debug("Restart: trying seek(to: \(self.logStartTimestamp)) + play()")
                         let seekAck = try await client.seek(to: self.logStartTimestamp)
                         self.applyPlaybackAck(seekAck)
                         let playAck = try await client.play()
                         self.applyPlaybackAck(playAck)
-                    } catch { logger.warning("Restart RPCs failed: \(error.localizedDescription)") }
+                        logger.debug("Restart: seek+play succeeded")
+                    } catch {
+                        logger.warning(
+                            "Restart RPCs failed: \(error.localizedDescription) — falling back to stream restart"
+                        )
+                        self.restartGRPCStream()
+                    }
                 } else {
-                    logger.debug("togglePlayPause() restart path — no playbackRPCClient available")
+                    logger.debug(
+                        "togglePlayPause() restart path — no playbackRPCClient, restarting stream")
+                    self.restartGRPCStream()
                 }
             }
             return

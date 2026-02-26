@@ -184,7 +184,10 @@ enum VisualiserClientError: Error, LocalizedError {
 
     /// Restart the frame stream (used after seek when replay has finished).
     func restartStream() {
-        guard isConnected else { return }
+        guard isConnected else {
+            print("[VisualiserClient] restartStream() — not connected, skipping")
+            return
+        }
         print("[VisualiserClient] Restarting stream...")
         _streamTask.value?.cancel()
         startStreamingTask()
@@ -336,24 +339,38 @@ enum VisualiserClientError: Error, LocalizedError {
 
     /// Resume playback (replay mode only).
     func play() async throws -> VisualiserPlaybackStatus {
+        print(
+            "[VisualiserClient] play() — isConnected=\(isConnected), hasClient=\(_grpcClient.value != nil)"
+        )
         guard isConnected, let grpcClient = _grpcClient.value else {
+            print("[VisualiserClient] play() — not connected")
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         let request = Velocity_Visualiser_V1_PlayRequest()
         let response = try await serviceClient.play(request: ClientRequest(message: request))
+        print(
+            "[VisualiserClient] play() — response: frame=\(response.currentFrameID), paused=\(response.paused)"
+        )
         return Self.decodePlaybackStatus(response)
     }
 
     /// Seek to a timestamp (replay mode only).
     func seek(to timestampNanos: Int64) async throws -> VisualiserPlaybackStatus {
+        print(
+            "[VisualiserClient] seek(to: \(timestampNanos)) — isConnected=\(isConnected), hasClient=\(_grpcClient.value != nil)"
+        )
         guard isConnected, let grpcClient = _grpcClient.value else {
+            print("[VisualiserClient] seek() — not connected")
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         var request = Velocity_Visualiser_V1_SeekRequest()
         request.timestampNs = timestampNanos
         let response = try await serviceClient.seek(request: ClientRequest(message: request))
+        print(
+            "[VisualiserClient] seek() — response: frame=\(response.currentFrameID), paused=\(response.paused)"
+        )
         return Self.decodePlaybackStatus(response)
     }
 
