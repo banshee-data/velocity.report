@@ -129,6 +129,49 @@ struct RangeSliderValueForXTests {
     }
 }
 
+// MARK: - rangeSliderXPosition Guard Clause Tests
+
+struct RangeSliderXPositionGuardTests {
+    @Test func zeroTrackWidthReturnsZero() {
+        let result = rangeSliderXPosition(value: 50, range: 0...100, trackWidth: 0)
+        #expect(result == 0)
+    }
+
+    @Test func negativeTrackWidthReturnsZero() {
+        let result = rangeSliderXPosition(value: 50, range: 0...100, trackWidth: -10)
+        #expect(result == 0)
+    }
+
+    @Test func equalBoundsReturnsZero() {
+        let result = rangeSliderXPosition(value: 50, range: 50...50, trackWidth: 200)
+        #expect(result == 0)
+    }
+}
+
+// MARK: - rangeSliderValueForX Guard Clause Tests
+
+struct RangeSliderValueForXGuardTests {
+    @Test func zeroTrackWidthReturnsLowerBound() {
+        let result = rangeSliderValueForX(x: 100, range: 10...50, trackWidth: 0, step: 1)
+        #expect(result == 10)
+    }
+
+    @Test func equalBoundsReturnsLowerBound() {
+        let result = rangeSliderValueForX(x: 100, range: 25...25, trackWidth: 200, step: 1)
+        #expect(result == 25)
+    }
+
+    @Test func zeroStepReturnsLowerBound() {
+        let result = rangeSliderValueForX(x: 100, range: 0...100, trackWidth: 200, step: 0)
+        #expect(result == 0)
+    }
+
+    @Test func negativeStepReturnsLowerBound() {
+        let result = rangeSliderValueForX(x: 100, range: 5...50, trackWidth: 200, step: -1)
+        #expect(result == 5)
+    }
+}
+
 // MARK: - statusDotColour Tests
 
 struct StatusDotColourTests {
