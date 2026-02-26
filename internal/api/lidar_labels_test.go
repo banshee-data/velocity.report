@@ -830,3 +830,51 @@ func TestLidarLabelAPI_UpdateLabel_WithAllFields(t *testing.T) {
 		t.Errorf("expected notes '%s', got %v", notes, updated.Notes)
 	}
 }
+
+// MARK: - Quality Label Validation Tests
+
+func TestValidateQualityLabel(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"good", true},
+		{"noisy", true},
+		{"jitter_velocity", true},
+		{"jitter_heading", true},
+		{"merge", true},
+		{"split", true},
+		{"truncated", true},
+		{"disconnected", true},
+		{"good,noisy", true},
+		{"jitter_velocity,jitter_heading", true},
+		{"good, noisy", true}, // spaces around comma
+		{"", false},
+		{"invalid", false},
+		{"good,invalid", false},
+		{"good,", false},
+		{",good", false},
+	}
+
+	for _, tc := range tests {
+		got := ValidateQualityLabel(tc.input)
+		if got != tc.want {
+			t.Errorf("ValidateQualityLabel(%q) = %v, want %v", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestValidateUserLabel(t *testing.T) {
+	// Spot-check canonical labels
+	for _, label := range []string{"car", "truck", "bus", "pedestrian", "cyclist", "motorcyclist", "bird", "noise", "dynamic"} {
+		if !ValidateUserLabel(label) {
+			t.Errorf("ValidateUserLabel(%q) = false, want true", label)
+		}
+	}
+	if ValidateUserLabel("") {
+		t.Error("ValidateUserLabel(\"\") = true, want false")
+	}
+	if ValidateUserLabel("unknown") {
+		t.Error("ValidateUserLabel(\"unknown\") = true, want false")
+	}
+}
