@@ -915,10 +915,9 @@ struct SidePanelView: View {
                     // Label panel
                     LabelPanelView()
 
-                    Divider()
-
-                    // History chart
+                    // History chart + detail cards (only when a track is selected)
                     if let trackID = appState.selectedTrackID {
+                        Divider()
                         TrackHistoryGraphView(trackID: trackID)
                     }
 
@@ -926,11 +925,6 @@ struct SidePanelView: View {
                     if let trackID = appState.selectedTrackID {
                         TrackInspectorDetailCards(trackID: trackID)
                     }
-
-                    Divider()
-
-                    // Debug overlay toggles
-                    DebugOverlayTogglesView()
 
                     Spacer()
                 }.padding()
@@ -976,9 +970,6 @@ struct TrackInspectorHeaderView: View {
                 Text("Run: \(runID)").font(.caption).foregroundColor(.secondary)
             }
 
-            if track == nil {
-                Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
-            }
         }
     }
 }
@@ -1053,6 +1044,8 @@ struct TrackInspectorDetailCards: View {
                     }
                 }
             }
+        } else {
+            Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
         }
     }
 

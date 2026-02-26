@@ -21,9 +21,9 @@ struct AboutView: View {
 
             Text("VelocityReport.app").font(.title).fontWeight(.semibold)
 
-            Text("v\(appVersion) [Git SHA: \(BuildInfo.gitSHA)]").font(.caption).foregroundColor(
-                .secondary
-            ).help("Build time: \(BuildInfo.buildTime)")
+            Text("v\(appVersion)").font(.caption).foregroundColor(.secondary)
+            Text("Git SHA: \(BuildInfo.gitSHA)").font(.caption).foregroundColor(.secondary)
+            Text("Build time: \(BuildInfo.buildTime)").font(.caption).foregroundColor(.secondary)
 
             Divider().padding(.horizontal, 24)
 
