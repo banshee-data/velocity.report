@@ -1017,11 +1017,6 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         currentTimestamp = frame.timestampNanos
         frameCount += 1
 
-        // Note: replayFinished is cleared explicitly by togglePlayPause when
-        // the user restarts playback.  Do NOT clear it here — this deferred
-        // Task can run after handleStreamFinished sets it, causing the UI to
-        // miss the finished state.
-
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
             hasPlaybackMetadata = true
@@ -1099,6 +1094,36 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             replayProgress = max(0, min(1, progress))
         } else if !isLive && !isSeekingInProgress && !hasValidTimelineRange && totalFrames > 1 {
             replayProgress = displayReplayProgress
+        }
+
+        // Detect replay completion from frame metadata.  This is more reliable
+        // than waiting for gRPC stream termination, which may never propagate
+        // in grpc-swift-v2's NIO transport (the `for try await` iterator can
+        // hang indefinitely after the server closes the stream with OK status).
+        if let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
+            playbackInfo.totalFrames > 0,
+            playbackInfo.currentFrameIndex + 1 >= playbackInfo.totalFrames
+        {
+            if !replayFinished {
+                logger.info(
+                    "Replay complete: frame \(playbackInfo.currentFrameIndex + 1)/\(playbackInfo.totalFrames)"
+                )
+                replayFinished = true
+                isPaused = true
+                replayProgress = 1.0
+                if logEndTimestamp > 0 { currentTimestamp = logEndTimestamp }
+            }
+        } else if replayFinished, let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
+            playbackInfo.totalFrames > 0,
+            playbackInfo.currentFrameIndex + 1 < playbackInfo.totalFrames
+        {
+            // User seeked/stepped away from the last frame — clear finished
+            // state so that pressing play resumes from the new position
+            // instead of restarting from the beginning.
+            logger.info(
+                "Clearing replay-finished: now at frame \(playbackInfo.currentFrameIndex + 1)/\(playbackInfo.totalFrames)"
+            )
+            replayFinished = false
         }
     }
 

@@ -956,8 +956,62 @@ import XCTest
         state.onFrameReceived(frame)
         await Task.yield()
 
-        // replayFinished is only cleared by togglePlayPause, not by frame receipt
+        // Frames without playbackInfo leave replayFinished unchanged
         XCTAssertTrue(state.replayFinished)
+    }
+
+    func testLastFrameSetsReplayFinished() async throws {
+        let state = AppState()
+        XCTAssertFalse(state.replayFinished)
+
+        var frame = FrameBundle()
+        frame.frameID = 100
+        frame.timestampNanos = 1_000_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 99, totalFrames: 100, seekable: true)
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertTrue(state.replayFinished, "Last frame should set replayFinished")
+        XCTAssertTrue(state.isPaused, "Last frame should pause playback")
+        XCTAssertEqual(state.replayProgress, 1.0, "Progress should be 1.0 at end")
+    }
+
+    func testNonLastFrameClearsReplayFinished() async throws {
+        let state = AppState()
+        state.replayFinished = true
+
+        var frame = FrameBundle()
+        frame.frameID = 50
+        frame.timestampNanos = 500_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 49, totalFrames: 100, seekable: true)
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertFalse(
+            state.replayFinished,
+            "Receiving a non-last frame should clear replayFinished (user seeked away)")
+    }
+
+    func testLiveFrameDoesNotSetReplayFinished() async throws {
+        let state = AppState()
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.timestampNanos = 1_000_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: true, logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 99, totalFrames: 100)
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertFalse(state.replayFinished, "Live mode should never set replayFinished")
     }
 
     func testFPSCalculation() async throws {

@@ -14,10 +14,6 @@ struct AboutView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
     }
 
-    private var buildNumber: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-    }
-
     var body: some View {
         VStack(spacing: 16) {
             // App icon + title
@@ -25,8 +21,9 @@ struct AboutView: View {
 
             Text("VelocityReport.app").font(.title).fontWeight(.semibold)
 
-            Text("v\(appVersion) (\(buildNumber))").font(.caption).foregroundColor(.secondary).help(
-                "\(BuildInfo.gitSHA) — \(BuildInfo.buildTime)")
+            Text("v\(appVersion) [Git SHA: \(BuildInfo.gitSHA)]").font(.caption).foregroundColor(
+                .secondary
+            ).help("Build time: \(BuildInfo.buildTime)")
 
             Divider().padding(.horizontal, 24)
 
