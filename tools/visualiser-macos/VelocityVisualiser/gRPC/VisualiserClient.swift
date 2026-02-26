@@ -196,10 +196,23 @@ enum VisualiserClientError: Error, LocalizedError {
         let task = Task { [weak self] in
             guard let self = self else { return }
 
-            do { try await self.streamFrames() } catch {
+            do {
+                try await self.streamFrames()
+                // Stream returned normally — notify replay finish.
+                // Also notified inside onResponse, but this is the
+                // belt-and-suspenders fallback (idempotent).
+                if !Task.isCancelled {
+                    await MainActor.run { self.handleStreamTermination(wasCancelled: false) }
+                }
+            } catch {
                 if !Task.isCancelled {
                     print("[VisualiserClient] ❌ Stream error: \(error)")
                     logger.error("Stream error: \(error.localizedDescription)")
+                    // Notify finish BEFORE disconnect so replayFinished is set
+                    // when clientDidDisconnect checks it.  This handles the case
+                    // where grpc-swift throws on transport close even though the
+                    // replay reached EOF normally.
+                    await MainActor.run { self.handleStreamTermination(wasCancelled: false) }
                     await MainActor.run { self.delegate?.clientDidDisconnect(self, error: error) }
                 }
             }
@@ -240,27 +253,40 @@ enum VisualiserClientError: Error, LocalizedError {
                     print("[VisualiserClient] ✅ Stream accepted, metadata: \(contents.metadata)")
 
                     var frameCount: UInt64 = 0
-                    for try await protoFrame in response.messages {
-                        frameCount += 1
+                    do {
+                        for try await protoFrame in response.messages {
+                            frameCount += 1
 
-                        // Log every 100 frames
-                        if frameCount % 100 == 1 {
-                            print(
-                                "[VisualiserClient] 📊 Received frame \(frameCount): id=\(protoFrame.frameID), points=\(protoFrame.pointCloud.pointCount)"
-                            )
+                            // Log every 100 frames
+                            if frameCount % 100 == 1 {
+                                print(
+                                    "[VisualiserClient] 📊 Received frame \(frameCount): id=\(protoFrame.frameID), points=\(protoFrame.pointCloud.pointCount)"
+                                )
+                            }
+
+                            // Decode proto to internal model off the main actor,
+                            // then hop to MainActor only to notify the delegate.
+                            guard let strongSelf = self else { continue }
+                            let frame = strongSelf.decodeFrameBundle(protoFrame)
+
+                            await MainActor.run { [weak strongSelf] in
+                                guard let self = strongSelf else { return }
+                                self.delegate?.client(self, didReceiveFrame: frame)
+                            }
                         }
-
-                        // Decode proto to internal model off the main actor,
-                        // then hop to MainActor only to notify the delegate.
-                        guard let strongSelf = self else { continue }
-                        let frame = strongSelf.decodeFrameBundle(protoFrame)
-
-                        await MainActor.run { [weak strongSelf] in
-                            guard let self = strongSelf else { return }
-                            self.delegate?.client(self, didReceiveFrame: frame)
-                        }
+                        print(
+                            "[VisualiserClient] 🏁 Stream ended normally after \(frameCount) frames")
+                    } catch {
+                        // grpc-swift-v2 may throw when the server closes the
+                        // stream (even with Status OK).  If we received frames,
+                        // treat this as a normal replay finish rather than a
+                        // fatal error — the gRPC transport error is expected at
+                        // EOF and should not prevent the UI from showing the
+                        // finished state.
+                        print(
+                            "[VisualiserClient] 🏁 Stream ended after \(frameCount) frames (transport: \(error.localizedDescription))"
+                        )
                     }
-                    print("[VisualiserClient] Stream ended after \(frameCount) frames")
 
                     await self?.notifyStreamTerminationOnMainActor(wasCancelled: Task.isCancelled)
 
