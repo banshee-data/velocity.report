@@ -818,18 +818,23 @@ struct PlaybackControlsView: View {
 
             // Rate control (disabled in live mode)
             HStack(spacing: 4) {
-                Button(action: { appState.decreaseRate() }) { Image(systemName: "minus") }
-                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                Button(action: { appState.decreaseRate() }) {
+                    Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
+                        Rectangle())
+                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
 
                 // Rate display: number + clickable "x" to reset to 1x
                 HStack(spacing: 0) {
                     Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
-                    Button(action: { appState.resetRate() }) { Text("x").font(.caption) }
-                        .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                    Button(action: { appState.resetRate() }) {
+                        Text("x").font(.caption).frame(width: 16, height: 22).contentShape(
+                            Rectangle())
+                    }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
                 }.frame(width: 45).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
 
-                Button(action: { appState.increaseRate() }) { Image(systemName: "plus") }
-                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                Button(action: { appState.increaseRate() }) {
+                    Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle())
+                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
             }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
 
             // Mode indicator (only show when connected)
@@ -840,11 +845,10 @@ struct PlaybackControlsView: View {
     }
 }
 
-/// Displays elapsed/total or remaining/total time. Click to toggle.
-/// Falls back to frame-index display when nanosecond timestamps are not available.
+/// Displays elapsed, remaining, or frame-index time. Click to cycle mode.
+/// The display mode is stored on AppState and can also be changed from the Playback menu.
 struct TimeDisplayView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showRemaining: Bool = false
 
     /// Whether we have valid log boundaries to compute durations.
     private var hasValidRange: Bool { appState.logEndTimestamp > appState.logStartTimestamp }
@@ -855,26 +859,38 @@ struct TimeDisplayView: View {
 
     private var remaining: Int64 { max(0, appState.logEndTimestamp - appState.currentTimestamp) }
 
-    var body: some View {
-        if hasValidRange {
-            let currentText = showRemaining ? formatDuration(-remaining) : formatDuration(elapsed)
-            let totalText = formatDuration(total)
-
-            Button(action: { showRemaining.toggle() }) {
-                Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }.buttonStyle(.plain).fixedSize().help(
-                showRemaining ? "Showing remaining time" : "Showing elapsed time")
-        } else if appState.totalFrames > 0 {
-            // Fallback: show frame-index progress when timestamps are unavailable
-            Text("F\(appState.currentFrameIndex + 1)/\(appState.totalFrames)").font(
-                .system(.caption, design: .monospaced)
-            ).foregroundColor(.secondary).fixedSize()
-        } else {
-            Text("--:-- / --:--").font(.system(.caption, design: .monospaced)).foregroundColor(
-                .secondary
-            ).fixedSize()
+    /// Text for the current display mode, with automatic fallback.
+    private var displayText: String {
+        let mode = appState.timeDisplayMode
+        if mode == .frames || !hasValidRange {
+            // Frames mode, or forced fallback when timestamps unavailable
+            if appState.totalFrames > 0 {
+                return "F\(appState.currentFrameIndex + 1)/\(appState.totalFrames)"
+            }
+            return "--:-- / --:--"
         }
+        let totalText = formatDuration(total)
+        switch mode {
+        case .elapsed: return "\(formatDuration(elapsed)) / \(totalText)"
+        case .remaining: return "\(formatDuration(-remaining)) / \(totalText)"
+        case .frames: return ""  // Handled above
+        }
+    }
+
+    /// Tooltip describing the current display mode.
+    private var tooltip: String {
+        switch appState.timeDisplayMode {
+        case .elapsed: return "Showing elapsed time (click to cycle)"
+        case .remaining: return "Showing remaining time (click to cycle)"
+        case .frames: return "Showing frame index (click to cycle)"
+        }
+    }
+
+    var body: some View {
+        Button(action: { appState.cycleTimeDisplayMode() }) {
+            Text(displayText).font(.system(.caption, design: .monospaced)).foregroundColor(
+                .secondary)
+        }.buttonStyle(.plain).fixedSize().help(tooltip)
     }
 }
 
@@ -1481,7 +1497,8 @@ struct LabelPanelView: View {
     static let qualityFlags: [(name: String, help: String)] = [
         ("good", "Clean, accurate track with correct speed and trajectory"),
         ("noisy", "Track has noisy position or speed estimates"),
-        ("jitter_velocity", "Speed or heading estimates jitter significantly"),
+        ("jitter_velocity", "Speed estimates jitter significantly"),
+        ("jitter_heading", "Heading estimates jitter significantly"),
         ("merge", "Two or more distinct objects incorrectly merged into one track"),
         ("split", "Single object incorrectly split into multiple tracks"),
         ("truncated", "Track starts late or ends early compared to the real object"),

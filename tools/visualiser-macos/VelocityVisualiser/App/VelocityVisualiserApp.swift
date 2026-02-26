@@ -63,6 +63,19 @@ struct AppCommands: Commands {
             Button("Increase Rate") { appState.increaseRate() }.keyboardShortcut("]", modifiers: [])
 
             Button("Decrease Rate") { appState.decreaseRate() }.keyboardShortcut("[", modifiers: [])
+
+            Divider()
+
+            // Clock display mode picker
+            Picker(
+                "Time Display",
+                selection: Binding(
+                    get: { appState.timeDisplayMode }, set: { appState.timeDisplayMode = $0 })
+            ) {
+                ForEach(AppState.TimeDisplayMode.allCases, id: \.self) { mode in
+                    Text(mode.menuLabel).tag(mode)
+                }
+            }
         }
 
         // Overlay commands - use direct bindings
@@ -99,10 +112,12 @@ struct AppCommands: Commands {
 
             Divider()
 
-            ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
-                index, entry in
-                Button("Classify: \(entry.name)") { appState.assignLabel(entry.name) }
-                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [])
+            Menu("Classify") {
+                ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
+                    index, entry in
+                    Button(entry.name) { appState.assignLabel(entry.name) }.keyboardShortcut(
+                        KeyEquivalent(Character(String(index + 1))), modifiers: [])
+                }
             }
         }
     }

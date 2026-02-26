@@ -520,6 +520,13 @@ struct FlagToggleButtonTests {
         let _ = view.body
     }
 
+    @Test func snakeCaseLabelJitterHeading() throws {
+        let view = FlagToggleButton(
+            label: "jitter_heading", isActive: true, helpText: "Heading jitters"
+        ) {}
+        let _ = view.body
+    }
+
     @Test func emptyHelpText() throws {
         let view = FlagToggleButton(label: "merge", isActive: true) {}
         let _ = view.body
@@ -1229,7 +1236,7 @@ struct LabelPanelStaticDataTests {
         }
     }
 
-    @Test func qualityFlagsCount() throws { #expect(LabelPanelView.qualityFlags.count == 7) }
+    @Test func qualityFlagsCount() throws { #expect(LabelPanelView.qualityFlags.count == 8) }
 
     @Test func qualityFlagNamesNotEmpty() throws {
         for entry in LabelPanelView.qualityFlags {

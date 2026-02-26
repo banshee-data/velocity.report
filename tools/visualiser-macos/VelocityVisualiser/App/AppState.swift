@@ -42,6 +42,28 @@ private let logger = DevLogger(category: "AppState")
         case setRate
     }
 
+    /// Display mode for the timeline clock in playback controls.
+    enum TimeDisplayMode: String, CaseIterable, Equatable {
+        case elapsed  // "0:12 / 1:30"
+        case remaining  // "-1:18 / 1:30"
+        case frames  // "F120/900"
+
+        /// Returns the next mode in the cycle.
+        var next: TimeDisplayMode {
+            let all = Self.allCases
+            let idx = all.firstIndex(of: self)!
+            return all[(idx + 1) % all.count]
+        }
+
+        var menuLabel: String {
+            switch self {
+            case .elapsed: return "Elapsed Time"
+            case .remaining: return "Remaining Time"
+            case .frames: return "Frame Index"
+            }
+        }
+    }
+
     // MARK: - Connection State
 
     @Published var isConnected: Bool = false
@@ -68,6 +90,7 @@ private let logger = DevLogger(category: "AppState")
     @Published var currentFrameIndex: UInt64 = 0  // 0-based index in log (for stepping)
     @Published var totalFrames: UInt64 = 0
     @Published var isSeekable: Bool = false  // True when seek/step is supported (e.g. .vrlog replay)
+    @Published var timeDisplayMode: TimeDisplayMode = .elapsed  // Clock display mode
     @Published private(set) var inFlightPlaybackCommand: PlaybackCommandKind?
     @Published private(set) var commandStartedAt: Date?
     @Published private(set) var pendingSeekTargetTimestamp: Int64?
@@ -724,6 +747,12 @@ private let logger = DevLogger(category: "AppState")
     func resetRate() {
         guard displayPlaybackMode != .live else { return }
         runRateChange(to: 1.0, logPrefix: "Resetting")
+    }
+
+    /// Cycles the clock display mode: elapsed → remaining → frames → elapsed.
+    func cycleTimeDisplayMode() {
+        timeDisplayMode = timeDisplayMode.next
+        logger.debug("Time display mode: \(self.timeDisplayMode.rawValue)")
     }
 
     private func runRateChange(to newRate: Float, logPrefix: String) {
