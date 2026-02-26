@@ -722,12 +722,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 self.applyPlaybackAck(seekAck)
 
                 if wasFinished {
-                    logger.info("Replay was finished - sending play and restarting stream")
+                    // The server pauses at EOF and stays alive, so a seek +
+                    // play is enough — the existing stream resumes from the
+                    // new position.  No stream restart needed.
+                    logger.info("Replay was finished — sending play after seek")
                     self.replayFinished = false
                     self.isPaused = false
                     let playAck = try await client.play()
                     self.applyPlaybackAck(playAck)
-                    self.restartGRPCStream()
                 }
             } catch {
                 self.replayProgress = previousProgress
