@@ -79,7 +79,7 @@ Tracking pipeline refactor and upgrade proposals.
 | Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                                                   |
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                             |
 | ML pipeline             | [architecture/ml-solver-expansion.md](architecture/ml-solver-expansion.md)                                                                   |
-| Packet format           | [architecture/hesai_packet_structure.md](architecture/hesai_packet_structure.md)                                                             |
+| Packet format           | [HESAI_PACKET_FORMAT.md](../data/HESAI_PACKET_FORMAT.md)                                                                                     |
 | **macOS Visualiser**    | [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md)               |
 | **API Contracts**       | [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md)                                         |
 | **Labelling + QC Plan** | [../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) |

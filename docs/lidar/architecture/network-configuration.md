@@ -2,7 +2,7 @@
 
 **Status:** Proposed
 **Author:** Architecture Team
-**Related:** [`hesai_packet_structure.md`](./hesai_packet_structure.md), [`lidar_sidecar_overview.md`](./lidar_sidecar_overview.md), [`networking.md`](../../radar/architecture/networking.md)
+**Related:** [`HESAI_PACKET_FORMAT.md`](../../data/HESAI_PACKET_FORMAT.md), [`lidar_sidecar_overview.md`](./lidar_sidecar_overview.md), [`networking.md`](../../radar/architecture/networking.md)
 
 ## Overview & Motivation
 
