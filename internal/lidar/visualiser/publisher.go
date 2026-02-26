@@ -325,10 +325,21 @@ func (p *Publisher) vrlogReplayLoop() {
 		frame, err := reader.ReadFrame()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				log.Printf("[Visualiser] VRLOG replay complete")
-			} else {
-				log.Printf("[Visualiser] VRLOG replay error: %v", err)
+				// Pause at EOF instead of stopping — keeps the VRLOG loaded
+				// so the client can Seek(0) + Play() to restart.
+				log.Printf("[Visualiser] VRLOG replay complete — pausing at end")
+				p.vrlogMu.Lock()
+				p.vrlogPaused = true
+				if p.vrlogReader != nil {
+					p.vrlogReader.SetPaused(true)
+				}
+				p.vrlogMu.Unlock()
+				// Reset timing so restart plays at correct pace.
+				lastFrameTime = 0
+				lastWallTime = time.Time{}
+				continue
 			}
+			log.Printf("[Visualiser] VRLOG replay error: %v", err)
 			// Clean up replay state asynchronously to prevent deadlock.
 			// StopVRLogReplay() waits on vrlogWg, which includes this goroutine.
 			go p.StopVRLogReplay()
