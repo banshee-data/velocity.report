@@ -133,6 +133,7 @@ tools/*/output/*
 tools/visualiser-macos/build/
 tools/visualiser-macos/DerivedData/
 tools/visualiser-macos/.build/
+tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift
 
 # Test results
 tools/visualiser-macos/TestResults*
