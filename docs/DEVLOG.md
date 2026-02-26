@@ -1,6 +1,17 @@
 # Development Log
 
-## February 25, 2026 - Visualiser Test Coverage & UI Refinement
+## February 26, 2026 - Replay EOF Debugging, Build Metadata CI/Test Plumbing & Format Docs
+
+- Added `docs/data/DATA_STRUCTURES.md` and `docs/data/VRLOG_FORMAT.md`, and updated LiDAR architecture/documentation references to the new data format docs.
+- Expanded macOS visualiser diagnostics while debugging replay EOF behavior: added `DevLogger` (replacing `os.Logger`) and increased logging coverage in `AppState`, `ContentView`, `RunBrowserView`, and `RunBrowserState`.
+- Simplified debug log output in `AppState` by removing privacy-attribute noise and improving message formatting clarity.
+- Added detailed `VisualiserClient` replay RPC diagnostics (`seek()` / `play()` / stream restart path) including connection-state and response logging.
+- Hardened replay restart handling in `AppState`: on replay completion, it tries `seek(logStartTimestamp)` + `play()` first and falls back to a full gRPC stream restart if RPCs fail or no playback RPC client is available.
+- Updated Go visualiser VRLOG replay loop to pause at EOF (instead of stopping), keep the replay loaded, and reset replay pacing timestamps so restart-from-beginning via `Seek(0)` + `Play()` works cleanly.
+- Extended `BuildInfo.swift` generation to macOS test runs and CI workflows (`mac-ci`, `nightly-full-ci`) so `gitSHA`/`buildTime` metadata is available consistently.
+- Refined `AboutView` / `ContentView` layout and separated version/build info into clearer lines.
+
+## February 25, 2026 - Visualiser Test Coverage, Replay Completion & UI Refinement
 
 - Refactored `ContentView.swift` to extract testable helper functions: `KeyAction` enum (25 cases), `handleKeyPress()`, `assignLabelByIndex()`, standalone row/toolbar/panel views.
 - Extended keyboard label shortcuts from 4 → 9 (keys 1–9 map to `ObjectClass` proto enum order: noise, dynamic, pedestrian, cyclist, bird, bus, car, truck, motorcyclist).
@@ -8,6 +19,12 @@
 - Added up/down arrow key track navigation (`selectNextTrack` / `selectPreviousTrack`) using `trackListOrder` published by `TrackListView`, so navigation follows the visible sort order (first-seen or peak-speed).
 - Consolidated Track Inspector and Label Panel: removed duplicate track/run ID display; header now shows full run ID in grey; label section uses "Labels" subheading instead of separate "Label Track" panel.
 - Reorganised Track Inspector components and enhanced data display (3D bounding-box labels, sparkline colour coding, speed display logic).
+- Added replay completion handling across Go + macOS visualiser playback: server pauses at EOF instead of closing the stream, macOS playback controls/AppState detect replay completion, and replay state tests were updated for the new behavior.
+- Added/expanded build metadata plumbing for the macOS visualiser: generated `BuildInfo.swift` during macOS builds, ignored generated `BuildInfo.swift` in git, and surfaced build information in `AboutView`.
+- Improved playback/replay robustness diagnostics: enhanced `VisualiserClient` stream handling/error logging and `AppState` replay completion detection with additional tests.
+- Added rendering options / UI controls for velocity arrows and updated related Swift tests.
+- Refactored `RunBrowserView`, expanded UI coverage (`UICoverageBoostTests` / comprehensive view tests), and fixed `FilterBarView` layout sizing consistency issues.
+- Applied Swift safety/polish fixes (#330): reduced force-unwraps, addressed actor-isolation issues, normalised whitespace, and fixed range-slider edge cases.
 - Test coverage on `ContentView.swift` improved from 55.97% → 86.65% (3045/3514 lines). Total unit tests: 1032.
 
 ## February 24, 2026 - Label Taxonomy Consolidation & UI Polish
@@ -28,6 +45,7 @@
 - Completed Python venv consolidation to single root `.venv/` (PR #320).
 - Added PDF generation migration-to-Go plan (PR #321, decision D-17).
 - Completed SWEEP/HINT platform hardening and polish backlog items; updated BACKLOG.md milestones.
+- Added `TestResults/` to `.gitignore` for Xcode test artifact cleanup.
 - Bumped version to `0.5.0-pre13`.
 
 ## February 23, 2026 - Settling Evaluation, Backlog Alignment & Vector Scene Map
