@@ -271,7 +271,8 @@ import XCTest
         state.replayFinished = true
 
         state.togglePlayPause()
-        try await waitFor { fake.playCallCount == 1 && state.inFlightPlaybackCommand == nil }
+        // The replayFinished path seeks to start then plays then restarts
+        try await waitFor { fake.seekTimestampCalls.count == 1 && fake.playCallCount == 1 }
 
         XCTAssertFalse(state.replayFinished)
         XCTAssertFalse(state.isPaused)
@@ -1356,7 +1357,8 @@ import XCTest
 
         delegate.clientDidFinishStream(client)
 
-        try await waitForMainActor { state.replayFinished }
+        // handleStreamFinished now runs synchronously via MainActor.assumeIsolated
+        XCTAssertTrue(state.replayFinished)
         XCTAssertTrue(state.isPaused)
         XCTAssertEqual(state.replayProgress, 1.0)
         // currentTimestamp should be synced to logEndTimestamp

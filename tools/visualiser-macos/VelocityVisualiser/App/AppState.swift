@@ -536,14 +536,46 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     func togglePlayPause() {
         guard displayPlaybackMode != .live else { return }
         guard !playbackControlsBusy else { return }
+
+        // When replay has finished, restart from the beginning.
+        // Bypass the normal RPC guards because the stream may have ended and
+        // the connection state may have been partially reset.
+        if replayFinished {
+            logger.info("Replay finished — restarting from beginning")
+            isPaused = false
+            replayFinished = false
+            replayProgress = 0
+            currentTimestamp = logStartTimestamp
+            currentFrameIndex = 0
+
+            // Seek to start and play via RPC if the client is still reachable,
+            // then restart the frame stream regardless.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let client = self.playbackRPCClient {
+                    do {
+                        let seekAck = try await client.seek(to: self.logStartTimestamp)
+                        self.applyPlaybackAck(seekAck)
+                        let playAck = try await client.play()
+                        self.applyPlaybackAck(playAck)
+                    } catch {
+                        logger.warning(
+                            "Seek/play RPC failed during restart — relying on stream restart: \(error.localizedDescription)"
+                        )
+                    }
+                }
+                self.restartGRPCStream()
+            }
+            return
+        }
+
         guard let client = guardPlaybackCommand(kind: .togglePlayPause) else { return }
         guard beginPlaybackCommand(.togglePlayPause) else { return }
 
         let previousPaused = isPaused
         let newPaused = !isPaused
-        let wasFinished = replayFinished
         isPaused = newPaused  // Optimistic
-        logger.info("Toggle play/pause: newPaused=\(newPaused), wasFinished=\(wasFinished)")
+        logger.info("Toggle play/pause: newPaused=\(newPaused)")
 
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -552,23 +584,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 let ack: VisualiserPlaybackStatus
                 if newPaused {
                     ack = try await client.pause()
-                } else if wasFinished {
-                    // Replay ended — seek to the beginning then play
-                    logger.info("Replay finished — seeking to start before playing")
-                    let seekAck = try await client.seek(to: self.logStartTimestamp)
-                    self.applyPlaybackAck(seekAck)
-                    self.replayProgress = 0
-                    self.currentTimestamp = self.logStartTimestamp
-                    ack = try await client.play()
                 } else {
                     ack = try await client.play()
                 }
                 self.applyPlaybackAck(ack)
-                if !newPaused && wasFinished {
-                    logger.info("Restarting stream (replay was finished)")
-                    self.replayFinished = false
-                    self.restartGRPCStream()
-                }
             } catch {
                 self.isPaused = previousPaused
                 logger.error("Failed to toggle playback: \(error.localizedDescription)")
@@ -1133,11 +1152,19 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         delegateLogger.warning(
             "clientDidDisconnect called, error: \(error?.localizedDescription ?? "none")")
         Task { @MainActor [weak self] in
-            self?.appState?.isConnected = false
-            self?.appState?.currentFrame = nil
-            self?.appState?.resetPlaybackState(mode: .unknown)
-            // Only show simple error message, not verbose gRPC details
-            if error != nil { self?.appState?.connectionError = "Connection lost" }
+            guard let appState = self?.appState else { return }
+            appState.isConnected = false
+            appState.currentFrame = nil
+            // If the replay had already finished (handleStreamFinished ran
+            // synchronously before this Task), preserve the finished state
+            // instead of fully resetting — the user should see "play" to
+            // restart, not a broken disabled state.
+            if appState.replayFinished {
+                delegateLogger.info("Preserving replay-finished state after disconnect")
+            } else {
+                appState.resetPlaybackState(mode: .unknown)
+                if error != nil { appState.connectionError = "Connection lost" }
+            }
         }
     }
 
@@ -1152,7 +1179,11 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         print("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
         delegateLogger.info("clientDidFinishStream called - replay reached end")
         let generation = self.generation
-        Task { @MainActor [weak self] in
+        // Call synchronously — we are already on MainActor (called from
+        // @MainActor handleStreamTermination).  Using MainActor.assumeIsolated
+        // avoids queueing a Task that could be delayed behind hundreds of
+        // pending frame-delivery Tasks, or overridden by clientDidDisconnect.
+        MainActor.assumeIsolated { [weak self] in
             self?.appState?.handleStreamFinished(expectedGeneration: generation)
         }
     }

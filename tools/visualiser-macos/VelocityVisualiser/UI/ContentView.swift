@@ -691,6 +691,7 @@ func formatDuration(_ nanos: Int64) -> String {
     let mode: AppState.PlaybackMode
     let isConnected: Bool
     let isPaused: Bool
+    let replayFinished: Bool
     let playbackRate: Float
     let showStepButtons: Bool
     let stepBackwardDisabled: Bool
@@ -705,13 +706,15 @@ func formatDuration(_ nanos: Int64) -> String {
     let modeLabel: String
 
     init(
-        isConnected: Bool, mode: AppState.PlaybackMode, isPaused: Bool, playbackRate: Float,
-        busy: Bool, hasValidTimelineRange: Bool, hasFrameIndexProgress: Bool,
-        currentFrameIndex: UInt64, totalFrames: UInt64
+        isConnected: Bool, mode: AppState.PlaybackMode, isPaused: Bool,
+        replayFinished: Bool = false, playbackRate: Float, busy: Bool, hasValidTimelineRange: Bool,
+        hasFrameIndexProgress: Bool, currentFrameIndex: UInt64, totalFrames: UInt64
     ) {
         self.isConnected = isConnected
         self.mode = mode
-        self.isPaused = isPaused
+        // When replay has finished, always treat as paused (show play icon)
+        self.isPaused = isPaused || replayFinished
+        self.replayFinished = replayFinished
         self.playbackRate = playbackRate
         self.modeLabel = mode.modeLabel
         let isReplay = mode == .replayNonSeekable || mode == .replaySeekable
@@ -722,14 +725,15 @@ func formatDuration(_ nanos: Int64) -> String {
         stepBackwardDisabled = !isConnected || busy || currentFrameIndex == 0
         stepForwardDisabled =
             !isConnected || busy || totalFrames == 0 || currentFrameIndex + 1 >= totalFrames
-        showReplayTimeline = isReplay
-        showSeekableSlider = isSeekableReplay
+        showReplayTimeline = isReplay || replayFinished
+        showSeekableSlider = isSeekableReplay || replayFinished
         showReadOnlyProgress =
             mode == .replayNonSeekable && (hasValidTimelineRange || hasFrameIndexProgress)
         showReplayMetadataUnavailable =
             mode == .replayNonSeekable && !hasValidTimelineRange && !hasFrameIndexProgress
         seekSliderDisabled = !isConnected || busy || !hasValidTimelineRange
-        playPauseDisabled = !isConnected || busy || isLiveOrUnknown
+        // When replay finished, always allow the play button (to restart)
+        playPauseDisabled = replayFinished ? false : (!isConnected || busy || isLiveOrUnknown)
         rateControlsDisabled = !isConnected || busy || isLiveOrUnknown
     }
 }
@@ -740,8 +744,8 @@ struct PlaybackControlsView: View {
     var body: some View {
         let ui = PlaybackControlsDerivedState(
             isConnected: appState.isConnected, mode: appState.displayPlaybackMode,
-            isPaused: appState.isPaused, playbackRate: appState.playbackRate,
-            busy: appState.playbackControlsBusy,
+            isPaused: appState.isPaused, replayFinished: appState.replayFinished,
+            playbackRate: appState.playbackRate, busy: appState.playbackControlsBusy,
             hasValidTimelineRange: appState.hasValidTimelineRange,
             hasFrameIndexProgress: appState.hasFrameIndexProgress,
             currentFrameIndex: appState.currentFrameIndex, totalFrames: appState.totalFrames)
