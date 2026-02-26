@@ -538,8 +538,9 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         guard !playbackControlsBusy else { return }
 
         // When replay has finished, restart from the beginning.
-        // Bypass the normal RPC guards because the stream may have ended and
-        // the connection state may have been partially reset.
+        // The server pauses at EOF (keeps the stream alive) instead of
+        // closing it, so a Seek + Play is sufficient — no stream restart
+        // required.
         if replayFinished {
             logger.info("Replay finished — restarting from beginning")
             isPaused = false
@@ -548,8 +549,6 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             currentTimestamp = logStartTimestamp
             currentFrameIndex = 0
 
-            // Seek to start and play via RPC if the client is still reachable,
-            // then restart the frame stream regardless.
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let client = self.playbackRPCClient {
@@ -558,13 +557,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                         self.applyPlaybackAck(seekAck)
                         let playAck = try await client.play()
                         self.applyPlaybackAck(playAck)
-                    } catch {
-                        logger.warning(
-                            "Seek/play RPC failed during restart — relying on stream restart: \(error.localizedDescription)"
-                        )
-                    }
+                    } catch { logger.warning("Restart RPCs failed: \(error.localizedDescription)") }
                 }
-                self.restartGRPCStream()
             }
             return
         }
@@ -632,9 +626,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 let seekAck = try await client.seek(toFrame: targetFrame)
                 self.applyPlaybackAck(seekAck)
                 if wasFinished {
-                    logger.info("Restarting stream after step (replay was finished)")
+                    // The server pauses at EOF and stays alive, so a seek is
+                    // enough — the streaming loop already picked up the seek
+                    // and delivered the stepped frame through the existing
+                    // stream.  No stream restart needed.
                     self.replayFinished = false
-                    self.restartGRPCStream()
                 }
             } catch {
                 self.isPaused = previousPaused
