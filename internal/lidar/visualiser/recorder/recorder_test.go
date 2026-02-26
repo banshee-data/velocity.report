@@ -1084,3 +1084,157 @@ func TestReplayerWithChunkFileOpen(t *testing.T) {
 		t.Errorf("Close() with open chunk error = %v", err)
 	}
 }
+
+// TestReplayerPlaybackInfoTimestamps verifies that ReadFrame populates
+// LogStartNs, LogEndNs, TotalFrames, and CurrentFrameIndex on every frame.
+func TestReplayerPlaybackInfoTimestamps(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	baseTime := int64(1_700_000_000_000_000_000) // a realistic nanosecond timestamp
+	numFrames := 5
+	frameDelta := int64(100_000_000) // 100ms per frame
+	for i := 0; i < numFrames; i++ {
+		frame := testFrameBundle(uint64(i), baseTime+int64(i)*frameDelta)
+		if err := rec.Record(frame); err != nil {
+			t.Fatalf("Record() error = %v", err)
+		}
+	}
+	rec.Close()
+
+	expectedStart := baseTime
+	expectedEnd := baseTime + int64(numFrames-1)*frameDelta
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	for i := 0; i < numFrames; i++ {
+		frame, err := rep.ReadFrame()
+		if err != nil {
+			t.Fatalf("ReadFrame(%d) error = %v", i, err)
+		}
+		pi := frame.PlaybackInfo
+		if pi == nil {
+			t.Fatalf("ReadFrame(%d) PlaybackInfo is nil", i)
+		}
+		if pi.LogStartNs != expectedStart {
+			t.Errorf("frame %d LogStartNs = %d, want %d", i, pi.LogStartNs, expectedStart)
+		}
+		if pi.LogEndNs != expectedEnd {
+			t.Errorf("frame %d LogEndNs = %d, want %d", i, pi.LogEndNs, expectedEnd)
+		}
+		if pi.TotalFrames != uint64(numFrames) {
+			t.Errorf("frame %d TotalFrames = %d, want %d", i, pi.TotalFrames, numFrames)
+		}
+		if pi.CurrentFrameIndex != uint64(i) {
+			t.Errorf("frame %d CurrentFrameIndex = %d, want %d", i, pi.CurrentFrameIndex, i)
+		}
+		if pi.IsLive {
+			t.Errorf("frame %d IsLive = true, want false", i)
+		}
+		if !pi.Seekable {
+			t.Errorf("frame %d Seekable = false, want true", i)
+		}
+	}
+}
+
+// TestReplayerPlaybackInfoAfterSeek verifies that PlaybackInfo tracks the
+// current frame index correctly after a seek operation.
+func TestReplayerPlaybackInfoAfterSeek(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	baseTime := int64(1_700_000_000_000_000_000)
+	numFrames := 10
+	for i := 0; i < numFrames; i++ {
+		frame := testFrameBundle(uint64(i), baseTime+int64(i)*100_000_000)
+		if err := rec.Record(frame); err != nil {
+			t.Fatalf("Record() error = %v", err)
+		}
+	}
+	rec.Close()
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	// Seek to frame 7 and read
+	if err := rep.Seek(7); err != nil {
+		t.Fatalf("Seek(7) error = %v", err)
+	}
+	frame, err := rep.ReadFrame()
+	if err != nil {
+		t.Fatalf("ReadFrame() after seek error = %v", err)
+	}
+	pi := frame.PlaybackInfo
+	if pi == nil {
+		t.Fatal("PlaybackInfo is nil after seek")
+	}
+	if pi.CurrentFrameIndex != 7 {
+		t.Errorf("CurrentFrameIndex after seek = %d, want 7", pi.CurrentFrameIndex)
+	}
+	if pi.TotalFrames != uint64(numFrames) {
+		t.Errorf("TotalFrames after seek = %d, want %d", pi.TotalFrames, numFrames)
+	}
+	if pi.LogStartNs != baseTime {
+		t.Errorf("LogStartNs after seek = %d, want %d", pi.LogStartNs, baseTime)
+	}
+}
+
+// TestReplayerHeaderTimestamps verifies that the VRLOG header correctly
+// stores the first and last frame timestamps.
+func TestReplayerHeaderTimestamps(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	baseTime := int64(1_700_000_000_000_000_000)
+	numFrames := 3
+	frameDelta := int64(200_000_000) // 200ms
+	for i := 0; i < numFrames; i++ {
+		frame := testFrameBundle(uint64(i), baseTime+int64(i)*frameDelta)
+		rec.Record(frame)
+	}
+	rec.Close()
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	header := rep.Header()
+	if header.StartNs != baseTime {
+		t.Errorf("Header().StartNs = %d, want %d", header.StartNs, baseTime)
+	}
+	expectedEnd := baseTime + int64(numFrames-1)*frameDelta
+	if header.EndNs != expectedEnd {
+		t.Errorf("Header().EndNs = %d, want %d", header.EndNs, expectedEnd)
+	}
+	if header.TotalFrames != uint64(numFrames) {
+		t.Errorf("Header().TotalFrames = %d, want %d", header.TotalFrames, numFrames)
+	}
+	if header.EndNs <= header.StartNs {
+		t.Errorf("Header().EndNs (%d) should be > StartNs (%d) for valid timeline range",
+			header.EndNs, header.StartNs)
+	}
+}

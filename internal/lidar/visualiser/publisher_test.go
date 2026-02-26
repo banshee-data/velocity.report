@@ -807,3 +807,81 @@ func TestPublisher_LogPeriodicStats(t *testing.T) {
 		t.Errorf("expected lastFrameCount=100, got %d", lastFrameCount)
 	}
 }
+
+// TestPublisher_VRLogReplay_PlaybackInfoPreserved verifies that the VRLOG
+// replay loop preserves PlaybackInfo fields (LogStartNs, LogEndNs,
+// TotalFrames, CurrentFrameIndex, Seekable) set by the FrameReader.
+func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer pub.Stop()
+
+	// Build frames with PlaybackInfo pre-populated (simulating a recorder replayer)
+	startNs := int64(1_700_000_000_000_000_000)
+	endNs := int64(1_700_000_000_500_000_000)
+	frames := make([]*FrameBundle, 3)
+	for i := range frames {
+		frames[i] = &FrameBundle{
+			FrameID:        uint64(i),
+			TimestampNanos: startNs + int64(i)*100_000_000,
+			PlaybackInfo: &PlaybackInfo{
+				IsLive:            false,
+				LogStartNs:        startNs,
+				LogEndNs:          endNs,
+				PlaybackRate:      1.0,
+				CurrentFrameIndex: uint64(i),
+				TotalFrames:       3,
+				Seekable:          true,
+			},
+		}
+	}
+
+	reader := newMockFrameReader(frames)
+
+	// Add a client BEFORE starting replay so it receives the published frames
+	req := &pb.StreamRequest{}
+	client := pub.addClient("test-client-playbackinfo", req)
+	defer pub.removeClient("test-client-playbackinfo")
+
+	if err := pub.StartVRLogReplay(reader); err != nil {
+		t.Fatalf("StartVRLogReplay() error = %v", err)
+	}
+	defer pub.StopVRLogReplay()
+
+	var received []*FrameBundle
+	timeout := time.After(5 * time.Second)
+	for len(received) < 3 {
+		select {
+		case frame := <-client.frameCh:
+			received = append(received, frame)
+		case <-timeout:
+			t.Fatalf("timed out waiting for frames (got %d/3)", len(received))
+		}
+	}
+
+	for i, frame := range received {
+		pi := frame.PlaybackInfo
+		if pi == nil {
+			t.Fatalf("frame %d PlaybackInfo is nil", i)
+		}
+		if pi.LogStartNs != startNs {
+			t.Errorf("frame %d LogStartNs = %d, want %d", i, pi.LogStartNs, startNs)
+		}
+		if pi.LogEndNs != endNs {
+			t.Errorf("frame %d LogEndNs = %d, want %d", i, pi.LogEndNs, endNs)
+		}
+		if pi.TotalFrames != 3 {
+			t.Errorf("frame %d TotalFrames = %d, want 3", i, pi.TotalFrames)
+		}
+		if pi.IsLive {
+			t.Errorf("frame %d IsLive = true, want false", i)
+		}
+		if !pi.Seekable {
+			t.Errorf("frame %d Seekable = false, want true", i)
+		}
+	}
+}
