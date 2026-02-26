@@ -509,6 +509,34 @@ struct SparklineViewTests {
         state.currentTimestamp = 2_500_000_000
         host(TimeDisplayView(), state: state)
     }
+
+    func testTimeDisplayRemainingMode() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_500_000_000
+        state.timeDisplayMode = .remaining
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayFramesMode() throws {
+        let state = AppState()
+        state.totalFrames = 500
+        state.currentFrameIndex = 250
+        state.timeDisplayMode = .frames
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayFramesModeWithValidRange() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_500_000_000
+        state.totalFrames = 500
+        state.currentFrameIndex = 250
+        state.timeDisplayMode = .frames
+        host(TimeDisplayView(), state: state)
+    }
 }
 
 // MARK: - PlaybackControlsView Tests

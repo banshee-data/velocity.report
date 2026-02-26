@@ -442,6 +442,55 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
         state.currentTimestamp = 31_000_000_000
         hostView(TimeDisplayView(), state: state)
     }
+
+    func testTimeDisplayRemainingMode() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 61_000_000_000
+        state.currentTimestamp = 31_000_000_000
+        state.timeDisplayMode = .remaining
+        hostView(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayFramesMode() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 61_000_000_000
+        state.currentTimestamp = 31_000_000_000
+        state.totalFrames = 600
+        state.currentFrameIndex = 300
+        state.timeDisplayMode = .frames
+        hostView(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayFramesModeNoFrames() throws {
+        let state = AppState()
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 0
+        state.timeDisplayMode = .frames
+        hostView(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayElapsedModeNoRange() throws {
+        let state = AppState()
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 200
+        state.currentFrameIndex = 50
+        state.timeDisplayMode = .elapsed  // explicit, but no valid range → falls back to frames
+        hostView(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayRemainingModeNoRange() throws {
+        let state = AppState()
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 200
+        state.currentFrameIndex = 50
+        state.timeDisplayMode = .remaining  // no valid range → falls back to frames
+        hostView(TimeDisplayView(), state: state)
+    }
 }
 
 // MARK: - OverlayTogglesView Coverage

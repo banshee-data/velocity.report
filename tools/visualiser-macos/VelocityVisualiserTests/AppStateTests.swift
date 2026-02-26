@@ -2250,3 +2250,80 @@ import XCTest
         XCTAssertEqual(state.selectedTrackID, "trk_a")
     }
 }
+
+// MARK: - TimeDisplayMode Tests
+
+@available(macOS 15.0, *) @MainActor final class TimeDisplayModeTests: XCTestCase {
+
+    // MARK: - Enum Properties
+
+    func testDefaultTimeDisplayMode() {
+        let state = AppState()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+    }
+
+    func testNextCyclesElapsedToRemaining() {
+        XCTAssertEqual(AppState.TimeDisplayMode.elapsed.next, .remaining)
+    }
+
+    func testNextCyclesRemainingToFrames() {
+        XCTAssertEqual(AppState.TimeDisplayMode.remaining.next, .frames)
+    }
+
+    func testNextCyclesFramesToElapsed() {
+        XCTAssertEqual(AppState.TimeDisplayMode.frames.next, .elapsed)
+    }
+
+    func testMenuLabelElapsed() {
+        XCTAssertEqual(AppState.TimeDisplayMode.elapsed.menuLabel, "Elapsed Time")
+    }
+
+    func testMenuLabelRemaining() {
+        XCTAssertEqual(AppState.TimeDisplayMode.remaining.menuLabel, "Remaining Time")
+    }
+
+    func testMenuLabelFrames() {
+        XCTAssertEqual(AppState.TimeDisplayMode.frames.menuLabel, "Frame Index")
+    }
+
+    func testAllCasesCount() {
+        XCTAssertEqual(AppState.TimeDisplayMode.allCases.count, 3)
+    }
+
+    // MARK: - cycleTimeDisplayMode()
+
+    func testCycleTimeDisplayModeFullCycle() {
+        let state = AppState()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .remaining)
+
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .frames)
+
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+    }
+
+    func testCycleFromFramesWrapsToElapsed() {
+        let state = AppState()
+        state.timeDisplayMode = .frames
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+    }
+
+    func testTimeDisplayModeEquatable() {
+        let a: AppState.TimeDisplayMode = .elapsed
+        let b: AppState.TimeDisplayMode = .elapsed
+        let c: AppState.TimeDisplayMode = .remaining
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+    }
+
+    func testTimeDisplayModeRawValues() {
+        XCTAssertEqual(AppState.TimeDisplayMode.elapsed.rawValue, "elapsed")
+        XCTAssertEqual(AppState.TimeDisplayMode.remaining.rawValue, "remaining")
+        XCTAssertEqual(AppState.TimeDisplayMode.frames.rawValue, "frames")
+    }
+}
