@@ -254,12 +254,18 @@ struct StringTruncatedTests {
         view.onCameraChanged = { cameraChanged = true }
 
         // Use CGEvent to create a magnify event
-        if let cgEvent = CGEvent(source: nil) {
-            cgEvent.type = .init(rawValue: 30)!  // kCGEventMagnify = 30
-            let nsEvent = NSEvent(cgEvent: cgEvent)!
-            view.magnify(with: nsEvent)
-            XCTAssertTrue(cameraChanged)
+        guard let cgEvent = CGEvent(source: nil) else {
+            throw XCTSkip("CGEvent not available on this platform; skipping magnify callback test")
         }
+        guard let magnifyType = CGEventType(rawValue: 30) else {
+            throw XCTSkip("Magnify event type not supported on this platform; skipping magnify callback test")
+        }
+        cgEvent.type = magnifyType  // kCGEventMagnify = 30
+        guard let nsEvent = NSEvent(cgEvent: cgEvent) else {
+            throw XCTSkip("Failed to create NSEvent from CGEvent; skipping magnify callback test")
+        }
+        view.magnify(with: nsEvent)
+        XCTAssertTrue(cameraChanged)
     }
 
     func testKeyDownWithoutRenderer() throws {
@@ -913,7 +919,9 @@ struct SerialiseFlagsTests {
             scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: 5, wheel2: 0,
             wheel3: 0)
         {
-            let nsEvent = NSEvent(cgEvent: cgEvent)!
+            guard let nsEvent = NSEvent(cgEvent: cgEvent) else {
+                throw XCTSkip("Failed to create NSEvent from CGEvent; skipping scroll wheel test")
+            }
             view.scrollWheel(with: nsEvent)
             // onCameraChanged is called even without renderer
             XCTAssertTrue(cameraChanged)
@@ -930,7 +938,9 @@ struct SerialiseFlagsTests {
             scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: -3, wheel2: 0,
             wheel3: 0)
         {
-            let nsEvent = NSEvent(cgEvent: cgEvent)!
+            guard let nsEvent = NSEvent(cgEvent: cgEvent) else {
+                throw XCTSkip("Failed to create NSEvent from CGEvent; skipping scroll wheel precise deltas test")
+            }
             view.scrollWheel(with: nsEvent)
             XCTAssertEqual(changeCount, 1)
         }

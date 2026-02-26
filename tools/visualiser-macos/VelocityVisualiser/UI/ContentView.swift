@@ -283,7 +283,10 @@ func runTrackTags(
     if let label = displayLabel, !label.isEmpty { tags.append((label, .confirmedGreen)) }
     let quality = userQualityFlags[track.trackId] ?? track.qualityLabel
     if let quality = quality, !quality.isEmpty {
-        for flag in quality.split(separator: ",") { tags.append((String(flag), .accentColor)) }
+        for flag in quality.split(separator: ",") {
+            let trimmedFlag = flag.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedFlag.isEmpty { tags.append((trimmedFlag, .accentColor)) }
+        }
     }
     return tags
 }
@@ -339,7 +342,11 @@ func sortRunTracksByPeakSpeed(
 /// Parse a comma-separated quality label string into a set of flag names.
 /// Extracted from LabelPanelView for testability.
 func parseQualityFlags(_ quality: String) -> Set<String> {
-    Set(quality.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) })
+    let trimmedFlags = quality
+        .split(separator: ",")
+        .map { String($0).trimmingCharacters(in: .whitespaces) }
+        .filter { !$0.isEmpty }
+    return Set(trimmedFlags)
 }
 
 /// Toggle a flag in a set: remove if present, insert if absent.
@@ -365,7 +372,7 @@ func serialiseFlags(_ flags: Set<String>) -> String { flags.sorted().joined(sepa
     if let label = track.userLabel, !label.isEmpty { appState.userLabels[trackID] = label }
     if let quality = track.qualityLabel, !quality.isEmpty {
         flags = parseQualityFlags(quality)
-        appState.userQualityFlags[trackID] = quality
+        appState.userQualityFlags[trackID] = serialiseFlags(flags)
     }
     if track.labelerId == "hint-carryover" { carried = true }
     return (flags, carried)
@@ -1789,6 +1796,7 @@ struct FilterBarView: View {
 /// Extracted from RangeSliderView for testability.
 func rangeSliderXPosition(value: Double, range: ClosedRange<Double>, trackWidth: CGFloat) -> CGFloat
 {
+    guard trackWidth > 0, range.upperBound > range.lowerBound else { return 0 }
     let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
     return CGFloat(fraction) * trackWidth
 }
@@ -1798,6 +1806,9 @@ func rangeSliderXPosition(value: Double, range: ClosedRange<Double>, trackWidth:
 func rangeSliderValueForX(
     x: CGFloat, range: ClosedRange<Double>, trackWidth: CGFloat, step: Double
 ) -> Double {
+    guard trackWidth > 0, range.upperBound > range.lowerBound, step > 0 else {
+        return range.lowerBound
+    }
     let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
     let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
     return (raw / step).rounded() * step

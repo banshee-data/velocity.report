@@ -109,8 +109,10 @@ extension String {
                     Button("Stop Replay") {
                         Task {
                             await runBrowserState.stopReplay()
-                            appState.isLive = true
-                            appState.currentRunID = nil
+                            await MainActor.run {
+                                appState.isLive = true
+                                appState.currentRunID = nil
+                            }
                         }
                     }.buttonStyle(.bordered)
                 } else {
