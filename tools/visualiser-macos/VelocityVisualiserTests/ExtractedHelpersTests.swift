@@ -257,20 +257,15 @@ private func makeRunTrack(
         XCTAssertNotEqual(state.showGrid, before)
     }
 
-    func testToggleDebug() {
-        let state = AppState()
-        XCTAssertEqual(handleKeyPress(.toggleDebug, appState: state), .handled)
-    }
-
     // All KeyAction cases are exhaustively tested above.
     func testAllKeyActionsExist() {
         let allActions: [KeyAction] = [
             .space, .comma, .period, .decreaseRate, .increaseRate, .label1, .label2, .label3,
             .label4, .label5, .label6, .label7, .label8, .label9, .selectPrevTrack,
             .selectNextTrack, .togglePoints, .toggleBackground, .toggleBoxes, .toggleClusters,
-            .toggleTrails, .toggleVelocity, .toggleLabels, .toggleGrid, .toggleDebug,
+            .toggleTrails, .toggleVelocity, .toggleLabels, .toggleGrid,
         ]
-        XCTAssertEqual(allActions.count, 25)
+        XCTAssertEqual(allActions.count, 24)
     }
 }
 
@@ -765,10 +760,10 @@ final class KeyActionEnumTests: XCTestCase {
             .space, .comma, .period, .decreaseRate, .increaseRate, .label1, .label2, .label3,
             .label4, .label5, .label6, .label7, .label8, .label9, .selectPrevTrack,
             .selectNextTrack, .togglePoints, .toggleBackground, .toggleBoxes, .toggleClusters,
-            .toggleTrails, .toggleVelocity, .toggleLabels, .toggleGrid, .toggleDebug,
+            .toggleTrails, .toggleVelocity, .toggleLabels, .toggleGrid,
         ]
         // Each should be distinct
-        XCTAssertEqual(actions.count, 25)
+        XCTAssertEqual(actions.count, 24)
     }
 }
 

@@ -945,6 +945,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         // Set renderer flags before updateFrame so filtering is applied during rendering
         renderer?.showClusters = showClusters  // M4: Update cluster toggle
+        renderer?.showVelocity = showVelocity  // Velocity/heading arrows on tracks
         renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
         renderer?.showGating = showGating  // M6: Gating ellipses
         renderer?.showAssociation = showAssociation  // M6: Association lines
@@ -997,8 +998,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         currentTimestamp = frame.timestampNanos
         frameCount += 1
 
-        // Clear finished state since we're receiving frames again
-        if replayFinished { replayFinished = false }
+        // Note: replayFinished is cleared explicitly by togglePlayPause when
+        // the user restarts playback.  Do NOT clear it here — this deferred
+        // Task can run after handleStreamFinished sets it, causing the UI to
+        // miss the finished state.
 
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {

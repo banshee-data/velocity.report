@@ -17,19 +17,19 @@ struct ContentView: View {
             // Toolbar always at the top, spanning full width
             ToolbarView()
 
-            // Filter bar below toolbar
-            if appState.showFilterPane { FilterBarView() }
-
             // Main content below toolbar
             HSplitView {
                 // Main 3D view
                 VStack(spacing: 0) {
+                    // Filter bar above the Metal view, not above inspector
+                    if appState.showFilterPane { FilterBarView() }
                     // Metal view - frames are delivered directly to renderer via AppState
                     ZStack {
                         MetalViewRepresentable(
                             showPoints: appState.showPoints,
                             showBackground: appState.showBackground, showBoxes: appState.showBoxes,
-                            showClusters: appState.showClusters, showTrails: appState.showTrails,
+                            showClusters: appState.showClusters,
+                            showVelocity: appState.showVelocity, showTrails: appState.showTrails,
                             showDebug: appState.showDebug, showGrid: appState.showGrid,
                             pointSize: appState.pointSize,
                             onRendererCreated: { renderer in appState.registerRenderer(renderer) },
@@ -96,9 +96,7 @@ struct ContentView: View {
             }.onKeyPress("t") { handleKeyPress(.toggleTrails, appState: appState) }.onKeyPress("v")
         { handleKeyPress(.toggleVelocity, appState: appState) }.onKeyPress("l") {
             handleKeyPress(.toggleLabels, appState: appState)
-        }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }.onKeyPress("d") {
-            handleKeyPress(.toggleDebug, appState: appState)
-        }  // Run browser sheet
+        }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }  // Run browser sheet
             .sheet(isPresented: $appState.showRunBrowser) {
                 RunBrowserView().environmentObject(appState)
             }
@@ -113,7 +111,7 @@ enum KeyAction {
     case label1, label2, label3, label4, label5, label6, label7, label8, label9
     case selectPrevTrack, selectNextTrack
     case togglePoints, toggleBackground, toggleBoxes, toggleClusters
-    case toggleTrails, toggleVelocity, toggleLabels, toggleGrid, toggleDebug
+    case toggleTrails, toggleVelocity, toggleLabels, toggleGrid
 }
 
 /// Handle a keyboard action, returning the SwiftUI key-press result.
@@ -175,9 +173,6 @@ enum KeyAction {
         return .handled
     case .toggleGrid:
         appState.showGrid.toggle()
-        return .handled
-    case .toggleDebug:
-        appState.toggleDebug()
         return .handled
     }
 }
@@ -342,10 +337,9 @@ func sortRunTracksByPeakSpeed(
 /// Parse a comma-separated quality label string into a set of flag names.
 /// Extracted from LabelPanelView for testability.
 func parseQualityFlags(_ quality: String) -> Set<String> {
-    let trimmedFlags = quality
-        .split(separator: ",")
-        .map { String($0).trimmingCharacters(in: .whitespaces) }
-        .filter { !$0.isEmpty }
+    let trimmedFlags = quality.split(separator: ",").map {
+        String($0).trimmingCharacters(in: .whitespaces)
+    }.filter { !$0.isEmpty }
     return Set(trimmedFlags)
 }
 
@@ -1961,6 +1955,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var showBackground: Bool
     var showBoxes: Bool
     var showClusters: Bool
+    var showVelocity: Bool
     var showTrails: Bool
     var showDebug: Bool
     var showGrid: Bool
@@ -2000,6 +1995,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showBackground = showBackground
         renderer.showBoxes = showBoxes
         renderer.showClusters = showClusters
+        renderer.showVelocity = showVelocity
         renderer.showTrails = showTrails
         renderer.showDebug = showDebug
         renderer.showGrid = showGrid

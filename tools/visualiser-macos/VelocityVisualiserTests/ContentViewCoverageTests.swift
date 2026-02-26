@@ -1274,11 +1274,13 @@ struct ToggleButtonActionTests {
     func testAllPropertiesFalse() throws {
         let rep = MetalViewRepresentable(
             showPoints: false, showBackground: false, showBoxes: false, showClusters: false,
-            showTrails: false, showDebug: false, showGrid: false, pointSize: 1.0)
+            showVelocity: false, showTrails: false, showDebug: false, showGrid: false,
+            pointSize: 1.0)
         XCTAssertFalse(rep.showPoints)
         XCTAssertFalse(rep.showBackground)
         XCTAssertFalse(rep.showBoxes)
         XCTAssertFalse(rep.showClusters)
+        XCTAssertFalse(rep.showVelocity)
         XCTAssertFalse(rep.showTrails)
         XCTAssertFalse(rep.showDebug)
         XCTAssertFalse(rep.showGrid)
@@ -1288,7 +1290,7 @@ struct ToggleButtonActionTests {
     func testCoordinatorCreation() throws {
         let rep = MetalViewRepresentable(
             showPoints: true, showBackground: true, showBoxes: true, showClusters: true,
-            showTrails: true, showDebug: true, showGrid: true, pointSize: 20.0)
+            showVelocity: true, showTrails: true, showDebug: true, showGrid: true, pointSize: 20.0)
         let coordinator = rep.makeCoordinator()
         XCTAssertNil(coordinator.renderer)
     }

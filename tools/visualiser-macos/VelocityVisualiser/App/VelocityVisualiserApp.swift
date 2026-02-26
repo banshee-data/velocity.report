@@ -90,13 +90,6 @@ struct AppCommands: Commands {
             Toggle(
                 "Grid", isOn: Binding(get: { appState.showGrid }, set: { appState.showGrid = $0 })
             ).keyboardShortcut("g", modifiers: [])
-
-            Divider()
-
-            Toggle(
-                "Debug Overlays",
-                isOn: Binding(get: { appState.showDebug }, set: { appState.showDebug = $0 })
-            ).keyboardShortcut("d", modifiers: [])
         }
 
         // Label commands

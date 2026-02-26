@@ -946,7 +946,7 @@ import XCTest
         XCTAssertEqual(state.totalFrames, 500)
     }
 
-    func testFrameReceivingClearsReplayFinished() async throws {
+    func testFrameReceivingDoesNotClearReplayFinished() async throws {
         let state = AppState()
         state.replayFinished = true
 
@@ -955,7 +955,8 @@ import XCTest
         state.onFrameReceived(frame)
         await Task.yield()
 
-        XCTAssertFalse(state.replayFinished)
+        // replayFinished is only cleared by togglePlayPause, not by frame receipt
+        XCTAssertTrue(state.replayFinished)
     }
 
     func testFPSCalculation() async throws {
@@ -1462,7 +1463,7 @@ import XCTest
         XCTAssertEqual(state.currentFrameID, 1)
     }
 
-    func testOnFrameReceivedClearsReplayFinishedFlag() async throws {
+    func testOnFrameReceivedDoesNotClearReplayFinishedFlag() async throws {
         let state = AppState()
         state.replayFinished = true
 
@@ -1471,7 +1472,8 @@ import XCTest
         state.onFrameReceived(frame)
         await Task.yield()
 
-        XCTAssertFalse(state.replayFinished)
+        // replayFinished is only cleared by togglePlayPause, not by frame receipt
+        XCTAssertTrue(state.replayFinished)
     }
 
     func testReplayProgressClampedToZeroOne() async throws {

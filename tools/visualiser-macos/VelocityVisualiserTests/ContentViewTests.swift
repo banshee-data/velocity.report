@@ -251,7 +251,7 @@ struct TrackLabelOverlayTests {
     func testCoordinatorCreation() throws {
         let rep = MetalViewRepresentable(
             showPoints: true, showBackground: true, showBoxes: true, showClusters: true,
-            showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
+            showVelocity: true, showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
         let coordinator = rep.makeCoordinator()
         XCTAssertNil(coordinator.renderer)
     }
@@ -259,12 +259,13 @@ struct TrackLabelOverlayTests {
     func testDefaultProperties() throws {
         let rep = MetalViewRepresentable(
             showPoints: true, showBackground: true, showBoxes: true, showClusters: true,
-            showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
+            showVelocity: true, showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
 
         XCTAssertTrue(rep.showPoints)
         XCTAssertTrue(rep.showBackground)
         XCTAssertTrue(rep.showBoxes)
         XCTAssertTrue(rep.showClusters)
+        XCTAssertTrue(rep.showVelocity)
         XCTAssertTrue(rep.showTrails)
         XCTAssertFalse(rep.showDebug)
         XCTAssertTrue(rep.showGrid)
@@ -274,12 +275,14 @@ struct TrackLabelOverlayTests {
     func testCustomProperties() throws {
         let rep = MetalViewRepresentable(
             showPoints: false, showBackground: false, showBoxes: false, showClusters: false,
-            showTrails: false, showDebug: true, showGrid: false, pointSize: 15.0)
+            showVelocity: false, showTrails: false, showDebug: true, showGrid: false,
+            pointSize: 15.0)
 
         XCTAssertFalse(rep.showPoints)
         XCTAssertFalse(rep.showBackground)
         XCTAssertFalse(rep.showBoxes)
         XCTAssertFalse(rep.showClusters)
+        XCTAssertFalse(rep.showVelocity)
         XCTAssertFalse(rep.showTrails)
         XCTAssertTrue(rep.showDebug)
         XCTAssertFalse(rep.showGrid)
