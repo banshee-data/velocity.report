@@ -283,5 +283,8 @@ On first launch with no saved servers, auto-create a default entry:
    defer to a future phase.
 3. **Multiple simultaneous connections:** Currently single-server only. Is there
    a use case for viewing two servers side-by-side? Defer unless requested.
-4. **Secure transport:** gRPC TLS support? Currently plaintext. Add a
-   `useTLS` toggle per server if needed later.
+4. **Secure transport:** Visualiser↔server gRPC traffic MUST use TLS by default,
+   ideally mutual TLS (mTLS) with certificate validation. Plaintext/insecure
+   connections, if supported at all, SHOULD be an explicit, opt-in per-server
+   debug mode (for trusted lab networks only), clearly marked as insecure in
+   the UI rather than the default configuration.
