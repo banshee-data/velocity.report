@@ -467,6 +467,14 @@ func TestReplayServer_StreamFrames_Success(t *testing.T) {
 		t.Error("expected server to be paused at EOF")
 	}
 
+	// Reader should also be paused (SetPaused(true) called at EOF)
+	reader.mu.Lock()
+	readerPaused := reader.paused
+	reader.mu.Unlock()
+	if !readerPaused {
+		t.Error("expected reader to be paused at EOF")
+	}
+
 	// Cancel context to stop the stream
 	cancel()
 	err := <-done
