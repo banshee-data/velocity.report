@@ -117,22 +117,34 @@ enum KeyAction {
 /// Handle a keyboard action, returning the SwiftUI key-press result.
 /// Extracted from ContentView closures for testability.
 @MainActor func handleKeyPress(_ action: KeyAction, appState: AppState) -> KeyPress.Result {
+    uiLogger.debug("handleKeyPress(\(String(describing: action)))")
     switch action {
     case .space:
+        uiLogger.debug("Key: SPACE → togglePlayPause()")
         appState.togglePlayPause()
         return .handled
     case .comma:
-        guard appState.isSeekable else { return .ignored }
+        guard appState.isSeekable else {
+            uiLogger.debug("Key: COMMA → ignored (not seekable)")
+            return .ignored
+        }
+        uiLogger.debug("Key: COMMA → stepBackward()")
         appState.stepBackward()
         return .handled
     case .period:
-        guard appState.isSeekable else { return .ignored }
+        guard appState.isSeekable else {
+            uiLogger.debug("Key: PERIOD → ignored (not seekable)")
+            return .ignored
+        }
+        uiLogger.debug("Key: PERIOD → stepForward()")
         appState.stepForward()
         return .handled
     case .decreaseRate:
+        uiLogger.debug("Key: [ → decreaseRate()")
         appState.decreaseRate()
         return .handled
     case .increaseRate:
+        uiLogger.debug("Key: ] → increaseRate()")
         appState.increaseRate()
         return .handled
     case .label1: return assignLabelByIndex(0, appState: appState)
@@ -752,19 +764,23 @@ struct PlaybackControlsView: View {
 
         HStack {
             // Play/Pause (disabled in live mode)
-            Button(action: { appState.togglePlayPause() }) {
-                Image(systemName: ui.isPaused ? "play.fill" : "pause.fill")
-            }.disabled(ui.playPauseDisabled)
+            Button(action: {
+                uiLogger.debug("UI: Play/Pause button clicked")
+                appState.togglePlayPause()
+            }) { Image(systemName: ui.isPaused ? "play.fill" : "pause.fill") }.disabled(
+                ui.playPauseDisabled)
 
             // Step buttons (only for seekable modes like .vrlog replay)
             if ui.showStepButtons {
-                Button(action: { appState.stepBackward() }) {
-                    Image(systemName: "backward.frame.fill")
-                }.disabled(ui.stepBackwardDisabled)
+                Button(action: {
+                    uiLogger.debug("UI: Step backward button clicked")
+                    appState.stepBackward()
+                }) { Image(systemName: "backward.frame.fill") }.disabled(ui.stepBackwardDisabled)
 
-                Button(action: { appState.stepForward() }) {
-                    Image(systemName: "forward.frame.fill")
-                }.disabled(ui.stepForwardDisabled)
+                Button(action: {
+                    uiLogger.debug("UI: Step forward button clicked")
+                    appState.stepForward()
+                }) { Image(systemName: "forward.frame.fill") }.disabled(ui.stepForwardDisabled)
             }
 
             // Timeline (replay mode)
@@ -773,8 +789,11 @@ struct PlaybackControlsView: View {
                     // Interactive seek slider for .vrlog replay
                     Slider(value: $appState.replayProgress, in: 0...1) { editing in
                         if editing {
+                            uiLogger.debug("UI: Slider drag started")
                             appState.setSliderEditing(true)
                         } else {
+                            uiLogger.debug(
+                                "UI: Slider drag ended — seeking to \(appState.replayProgress)")
                             // Capture target before allowing frame updates to overwrite progress.
                             // seek() sets isSeekingInProgress = true and clears it on completion,
                             // so we don't call setSliderEditing(false) here to avoid a race.

@@ -5,6 +5,7 @@
 // and allows the user to load a run for replay and labelling.
 
 import SwiftUI
+import os
 
 // MARK: - String Extension for Truncation
 
@@ -16,14 +17,19 @@ extension String {
     }
 }
 
+private let runBrowserLogger = Logger(
+    subsystem: "report.velocity.visualiser", category: "RunBrowser")
+
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
     runID: String, appState: AppState, loadRunForReplay: @escaping @MainActor () async -> Bool
 ) async {
+    runBrowserLogger.debug("loadRunForReplayAndUpdateAppState() — runID=\(runID)")
     // Reset stale playback state before loading the new VRLOG.
     // This clears isPaused, replayFinished, progress, timestamps.
     appState.prepareForNewReplay()
 
     let success = await loadRunForReplay()
+    runBrowserLogger.debug("loadRunForReplay returned success=\(success)")
     if success {
         // Update app state to indicate we're in VRLOG replay mode
         appState.isLive = false
@@ -34,6 +40,7 @@ extension String {
         // the client while the server starts broadcasting, causing
         // frames_sent=0 (frames lost before the new stream connects).
         appState.restartGRPCStream()
+        runBrowserLogger.debug("gRPC stream restarted for run \(runID)")
     }
 }
 
