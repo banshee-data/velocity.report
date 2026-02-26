@@ -167,7 +167,7 @@ private let logger = DevLogger(category: "AppState")
         // Re-evaluate current frame immediately
         updateAdmittedTracks()
         logger.debug(
-            "resetAdmittedTracks(reason: \(reason, privacy: .public)) previous=\(previousCount) current=\(self.admittedTrackIDs.count) filtersActive=\(self.hasActiveFilters)"
+            "resetAdmittedTracks(reason: \(reason)) previous=\(previousCount) current=\(self.admittedTrackIDs.count) filtersActive=\(self.hasActiveFilters)"
         )
     }
 
@@ -228,9 +228,7 @@ private let logger = DevLogger(category: "AppState")
     func updateMetalViewSize(_ newSize: CGSize, source: String) {
         guard metalViewSize != newSize else { return }
         let formattedSize = String(format: "%.1fx%.1f", newSize.width, newSize.height)
-        logger.debug(
-            "metalViewSize <- \(formattedSize, privacy: .public) source=\(source, privacy: .public)"
-        )
+        logger.debug("metalViewSize <- \(formattedSize) source=\(source)")
         metalViewSize = newSize
     }
 
