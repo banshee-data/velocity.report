@@ -112,6 +112,9 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 				log.Printf("[gRPC] Replay reached end — pausing at EOF")
 				rs.mu.Lock()
 				rs.paused = true
+				if rs.reader != nil {
+					rs.reader.SetPaused(true)
+				}
 				rs.mu.Unlock()
 				continue
 			}
