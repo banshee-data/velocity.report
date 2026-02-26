@@ -922,3 +922,104 @@ final class EdgeCaseHelperTests: XCTestCase {
         hostView(view, state: state)
     }
 }
+
+// MARK: - Toggle Round-Trip Tests (double-toggle returns to original)
+
+@available(macOS 15.0, *) @MainActor final class ToggleRoundTripTests: XCTestCase {
+
+    func testTogglePointsRoundTrip() {
+        let state = AppState()
+        let original = state.showPoints
+        _ = handleKeyPress(.togglePoints, appState: state)
+        XCTAssertNotEqual(state.showPoints, original)
+        _ = handleKeyPress(.togglePoints, appState: state)
+        XCTAssertEqual(state.showPoints, original)
+    }
+
+    func testToggleBackgroundRoundTrip() {
+        let state = AppState()
+        let original = state.showBackground
+        _ = handleKeyPress(.toggleBackground, appState: state)
+        _ = handleKeyPress(.toggleBackground, appState: state)
+        XCTAssertEqual(state.showBackground, original)
+    }
+
+    func testToggleBoxesRoundTrip() {
+        let state = AppState()
+        let original = state.showBoxes
+        _ = handleKeyPress(.toggleBoxes, appState: state)
+        _ = handleKeyPress(.toggleBoxes, appState: state)
+        XCTAssertEqual(state.showBoxes, original)
+    }
+
+    func testToggleClustersRoundTrip() {
+        let state = AppState()
+        let original = state.showClusters
+        _ = handleKeyPress(.toggleClusters, appState: state)
+        _ = handleKeyPress(.toggleClusters, appState: state)
+        XCTAssertEqual(state.showClusters, original)
+    }
+
+    func testToggleTrailsRoundTrip() {
+        let state = AppState()
+        let original = state.showTrails
+        _ = handleKeyPress(.toggleTrails, appState: state)
+        _ = handleKeyPress(.toggleTrails, appState: state)
+        XCTAssertEqual(state.showTrails, original)
+    }
+
+    func testToggleVelocityRoundTrip() {
+        let state = AppState()
+        let original = state.showVelocity
+        _ = handleKeyPress(.toggleVelocity, appState: state)
+        _ = handleKeyPress(.toggleVelocity, appState: state)
+        XCTAssertEqual(state.showVelocity, original)
+    }
+
+    func testToggleLabelsRoundTrip() {
+        let state = AppState()
+        let original = state.showTrackLabels
+        _ = handleKeyPress(.toggleLabels, appState: state)
+        _ = handleKeyPress(.toggleLabels, appState: state)
+        XCTAssertEqual(state.showTrackLabels, original)
+    }
+
+    func testToggleGridRoundTrip() {
+        let state = AppState()
+        let original = state.showGrid
+        _ = handleKeyPress(.toggleGrid, appState: state)
+        _ = handleKeyPress(.toggleGrid, appState: state)
+        XCTAssertEqual(state.showGrid, original)
+    }
+}
+
+// MARK: - assignLabelByIndex Edge Cases
+
+@available(macOS 15.0, *) @MainActor final class AssignLabelByIndexEdgeCaseTests: XCTestCase {
+
+    func testLabelIgnoredNoSelectionLogsCorrectly() {
+        let state = AppState()
+        // No track selected — all label keys should return .ignored
+        for action: KeyAction in [
+            .label1, .label2, .label3, .label4, .label5, .label6, .label7, .label8, .label9,
+        ] { XCTAssertEqual(handleKeyPress(action, appState: state), .ignored) }
+    }
+
+    func testAllNineLabelsAssignWithSelection() {
+        let state = AppState()
+        state.selectTrack("trk_test")
+        let expectedLabels = [
+            "noise", "dynamic", "pedestrian", "cyclist", "bird", "bus", "car", "truck",
+            "motorcyclist",
+        ]
+        let actions: [KeyAction] = [
+            .label1, .label2, .label3, .label4, .label5, .label6, .label7, .label8, .label9,
+        ]
+
+        for (action, expected) in zip(actions, expectedLabels) {
+            let result = handleKeyPress(action, appState: state)
+            XCTAssertEqual(result, .handled)
+            XCTAssertEqual(state.userLabels["trk_test"], expected)
+        }
+    }
+}
