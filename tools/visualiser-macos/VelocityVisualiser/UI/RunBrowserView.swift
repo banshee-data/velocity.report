@@ -6,16 +6,6 @@
 
 import SwiftUI
 
-// MARK: - String Extension for Truncation
-
-extension String {
-    /// Truncate string with ellipsis. E.g. "abc123def456".truncated(8) -> "abc123de..."
-    func truncated(_ maxLength: Int) -> String {
-        if count <= maxLength { return self }
-        return String(prefix(maxLength)) + "..."
-    }
-}
-
 private let runBrowserLogger = DevLogger(category: "RunBrowser")
 
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(

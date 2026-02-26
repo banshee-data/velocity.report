@@ -1241,7 +1241,7 @@ struct StringTruncationCoverageTests {
 
     @Test func truncateLongString() throws {
         let result = "hello world this is a long string".truncated(10)
-        #expect(result == "hello worl...")
+        #expect(result == "hello worl\u{2026}")
     }
 
     @Test func truncateExactLength() throws {

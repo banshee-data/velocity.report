@@ -316,7 +316,7 @@ struct TrackLabelOverlayTests {
     }
 }
 
-// MARK: - String Truncation Tests (from RunBrowserView extension)
+// MARK: - String Truncation Tests (from App/StringTruncation.swift extension)
 
 struct StringTruncationTests {
     @Test func truncateShortString() throws {
@@ -332,8 +332,8 @@ struct StringTruncationTests {
     @Test func truncateLongString() throws {
         let str = "this-is-a-very-long-string"
         let result = str.truncated(12)
-        #expect(result.count <= 15)  // 12 + "..."
-        #expect(result.hasSuffix("..."))
+        #expect(result.count <= 13)  // 12 + "\u{2026}"
+        #expect(result.hasSuffix("\u{2026}"))
     }
 }
 

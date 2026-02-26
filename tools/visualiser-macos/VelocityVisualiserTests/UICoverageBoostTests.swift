@@ -209,11 +209,11 @@ struct StringTruncatedTests {
 
     @Test func exactLength() { #expect("hello".truncated(5) == "hello") }
 
-    @Test func longString() { #expect("abcdef".truncated(3) == "abc...") }
+    @Test func longString() { #expect("abcdef".truncated(3) == "abc\u{2026}") }
 
     @Test func emptyString() { #expect("".truncated(5) == "") }
 
-    @Test func singleChar() { #expect("abcdef".truncated(1) == "a...") }
+    @Test func singleChar() { #expect("abcdef".truncated(1) == "a\u{2026}") }
 }
 
 // MARK: - AboutView Hosting Tests
@@ -301,7 +301,8 @@ struct StringTruncatedTests {
             throw XCTSkip("CGEvent not available on this platform; skipping magnify callback test")
         }
         guard let magnifyType = CGEventType(rawValue: 30) else {
-            throw XCTSkip("Magnify event type not supported on this platform; skipping magnify callback test")
+            throw XCTSkip(
+                "Magnify event type not supported on this platform; skipping magnify callback test")
         }
         cgEvent.type = magnifyType  // kCGEventMagnify = 30
         guard let nsEvent = NSEvent(cgEvent: cgEvent) else {
@@ -982,7 +983,9 @@ struct SerialiseFlagsTests {
             wheel3: 0)
         {
             guard let nsEvent = NSEvent(cgEvent: cgEvent) else {
-                throw XCTSkip("Failed to create NSEvent from CGEvent; skipping scroll wheel precise deltas test")
+                throw XCTSkip(
+                    "Failed to create NSEvent from CGEvent; skipping scroll wheel precise deltas test"
+                )
             }
             view.scrollWheel(with: nsEvent)
             XCTAssertEqual(changeCount, 1)
