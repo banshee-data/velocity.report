@@ -440,12 +440,38 @@ func TestReplayServer_StreamFrames_Success(t *testing.T) {
 		done <- rs.StreamFrames(req, stream)
 	}()
 
-	// Wait for streaming to complete (EOF)
-	err := <-done
+	// Wait for all frames to be sent (the server pauses at EOF instead of
+	// returning, so we poll until the expected frame count is reached and
+	// then cancel the context to stop the stream).
+	deadline := time.After(2 * time.Second)
+	for {
+		stream.mu.Lock()
+		n := len(stream.frames)
+		stream.mu.Unlock()
+		if n >= 2 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for frames")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 
-	// Should get nil error when EOF is reached
-	if err != nil {
-		t.Errorf("expected nil error at EOF, got: %v", err)
+	// Server should now be paused at EOF
+	rs.mu.RLock()
+	paused := rs.paused
+	rs.mu.RUnlock()
+	if !paused {
+		t.Error("expected server to be paused at EOF")
+	}
+
+	// Cancel context to stop the stream
+	cancel()
+	err := <-done
+	if err != context.Canceled {
+		t.Errorf("expected context.Canceled, got: %v", err)
 	}
 
 	// Check that frames were sent

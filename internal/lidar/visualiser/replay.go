@@ -104,8 +104,16 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 		frame, err := reader.ReadFrame()
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("[gRPC] Replay complete")
-				return nil
+				// Pause at EOF instead of closing the stream.  The client
+				// detects the last frame via PlaybackInfo and shows a "play"
+				// button.  When the user restarts, a Seek + Play RPC resets
+				// the reader and the existing stream resumes — no stream
+				// restart required.
+				log.Printf("[gRPC] Replay reached end — pausing at EOF")
+				rs.mu.Lock()
+				rs.paused = true
+				rs.mu.Unlock()
+				continue
 			}
 			log.Printf("[gRPC] Replay error: %v", err)
 			return status.Errorf(codes.Internal, "replay error: %v", err)
