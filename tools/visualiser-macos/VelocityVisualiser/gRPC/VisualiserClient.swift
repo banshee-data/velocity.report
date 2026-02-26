@@ -196,6 +196,7 @@ enum VisualiserClientError: Error, LocalizedError {
     // MARK: - Streaming
 
     private func startStreamingTask() {
+        _streamTerminationNotified = false
         let task = Task { [weak self] in
             guard let self = self else { return }
 
@@ -310,6 +311,10 @@ enum VisualiserClientError: Error, LocalizedError {
             currentFrameID: status.currentFrameID)
     }
 
+    /// Whether we have already notified the delegate of stream termination
+    /// for the current streaming task.  Reset in `startStreamingTask()`.
+    private var _streamTerminationNotified = false
+
     @MainActor func handleStreamTermination(wasCancelled: Bool) {
         // Only notify delegate of a natural finish (replay complete). If the task
         // was cancelled (e.g. restartStream()), the stream exit is intentional.
@@ -317,6 +322,13 @@ enum VisualiserClientError: Error, LocalizedError {
             print("[VisualiserClient] Stream cancelled — skipping clientDidFinishStream")
             return
         }
+        // Idempotency: streamFrames() and startStreamingTask() can both trigger
+        // this for the same stream.  Only notify once per stream.
+        guard !_streamTerminationNotified else {
+            print("[VisualiserClient] Stream termination already notified — skipping duplicate")
+            return
+        }
+        _streamTerminationNotified = true
         delegate?.clientDidFinishStream(self)
     }
 
