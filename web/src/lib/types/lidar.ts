@@ -269,6 +269,7 @@ export type QualityLabel =
 	| 'good'
 	| 'noisy'
 	| 'jitter_velocity'
+	| 'jitter_heading'
 	| 'merge'
 	| 'split'
 	| 'truncated'
