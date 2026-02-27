@@ -11,6 +11,7 @@ struct AboutView: View {
     private let projectURL = URL(string: "https://velocity.report")!
     private let githubURL = URL(string: "https://github.com/banshee-data/velocity.report")!
     private let licenceURL = URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!
+    private let ccURL = URL(string: "https://creativecommons.org/licenses/by/4.0/")!
     private var gitSHADisplay: String { String(BuildInfo.gitSHA.prefix(7)) }
     private var githubRevisionURL: URL {
         URL(string: "https://github.com/banshee-data/velocity.report/tree/\(BuildInfo.gitSHA)")!
@@ -99,9 +100,10 @@ struct AboutView: View {
                 }
             }
 
-            Text("© 2025–2026 Banshee Data. All rights reserved.").font(.caption2).foregroundColor(
-                .secondary
-            ).padding(.top, 4)
+            HStack(spacing: 4) {
+                Text("© 2025–2026 Banshee, Inc. Documentation licensed under")
+                Link("CC BY 4.0", destination: ccURL)
+            }.font(.caption2).foregroundColor(.secondary).padding(.top, 4)
         }.padding(24).frame(width: 420).background {
             Button("Close About Panel") { closeAboutWindow() }.keyboardShortcut(.cancelAction)
                 .opacity(0).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(
