@@ -100,9 +100,12 @@ struct AboutView: View {
                 }
             }
 
-            HStack(spacing: 4) {
-                Text("© 2025–2026 Banshee, Inc. Documentation licensed under")
-                Link("CC BY 4.0", destination: ccURL)
+            VStack(spacing: 2) {
+                Text("© 2025–2026 Banshee, Inc.")
+                HStack(spacing: 4) {
+                    Text("Documentation licensed under")
+                    Link("CC BY 4.0", destination: ccURL)
+                }
             }.font(.caption2).foregroundColor(.secondary).padding(.top, 4)
         }.padding(24).frame(width: 420).background {
             Button("Close About Panel") { closeAboutWindow() }.keyboardShortcut(.cancelAction)
