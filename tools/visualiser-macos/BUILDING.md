@@ -118,3 +118,85 @@ next DMG build.
 
 > **CI:** Tagged releases (`v*`) and manual workflow dispatches automatically
 > produce the DMG as a downloadable artefact in the `🍎 macOS CI` workflow.
+
+## Signing, Notarisation, and Distribution
+
+To distribute the DMG outside the App Store, the `.app` must be codesigned
+with a **Developer ID Application** certificate and the DMG must be
+**notarised** by Apple. The `release-mac` target automates the full pipeline:
+
+```bash
+# Full pipeline: build → sign → DMG → notarise → verify
+make release-mac
+```
+
+Individual steps can also be run separately:
+
+```bash
+make build-mac          # Build the .app
+make sign-mac           # Codesign with Developer ID (Hardened Runtime)
+make dmg-mac-release    # Package into DMG
+make notarise-mac DMG_SUFFIX=   # Submit, wait, staple
+make verify-mac   DMG_SUFFIX=   # codesign + spctl + stapler checks
+```
+
+### One-Time Local Setup
+
+1. **Install a Developer ID Application certificate** from the
+   [Apple Developer portal](https://developer.apple.com/account/resources/certificates/list)
+   into your login keychain.
+
+2. **Store notarisation credentials** (choose one):
+
+   **Option A — Keychain profile** (recommended for local development):
+
+   ```bash
+   xcrun notarytool store-credentials "velocity-report" \
+     --apple-id "<APPLE_ID>" --team-id "<TEAM_ID>" \
+     --password "<APP-SPECIFIC-PASSWORD>"
+   ```
+
+   **Option B — App Store Connect API key** (recommended for CI):
+
+   ```bash
+   export NOTARY_KEY=/path/to/AuthKey_XXXX.p8
+   export NOTARY_KEY_ID=XXXXXXXXXX
+   export NOTARY_ISSUER=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+
+### Configuration
+
+| Variable            | Default                    | Description                              |
+| ------------------- | -------------------------- | ---------------------------------------- |
+| `CODESIGN_IDENTITY` | `Developer ID Application` | Codesign identity name                   |
+| `NOTARY_PROFILE`    | `velocity-report`          | Keychain profile for `notarytool`        |
+| `NOTARY_KEY`        | _(unset)_                  | Path to App Store Connect API key (.p8)  |
+| `NOTARY_KEY_ID`     | _(unset)_                  | API key ID (used with `NOTARY_KEY`)      |
+| `NOTARY_ISSUER`     | _(unset)_                  | API issuer UUID (used with `NOTARY_KEY`) |
+
+### CI Secrets
+
+When configured, the `🍎 macOS CI` workflow signs and notarises
+automatically on tagged releases. Required GitHub Actions secrets:
+
+| Secret                       | Description                                     |
+| ---------------------------- | ----------------------------------------------- |
+| `MACOS_CERTIFICATE`          | Base64-encoded Developer ID `.p12` certificate  |
+| `MACOS_CERTIFICATE_PASSWORD` | Password for the `.p12` file                    |
+| `NOTARY_KEY`                 | Contents of the App Store Connect API key (.p8) |
+| `NOTARY_KEY_ID`              | API key ID                                      |
+| `NOTARY_ISSUER`              | API issuer UUID                                 |
+
+If the secrets are not set, CI still produces an unsigned DMG artefact.
+
+### Common Failure Modes
+
+| Symptom                                                    | Cause                                     | Fix                                         |
+| ---------------------------------------------------------- | ----------------------------------------- | ------------------------------------------- |
+| `identity not found`                                       | Certificate not in keychain               | Install Developer ID cert from Apple portal |
+| `errSecInternalComponent`                                  | Keychain locked or restricted             | `security unlock-keychain login.keychain`   |
+| `Hardened Runtime not enabled`                             | Missing `--options runtime`               | Already set by `codesign-notarise.sh`       |
+| `Unsigned nested code`                                     | Framework/dylib not signed                | Script signs nested code inside-out         |
+| `Invalid signature (code or signature have been modified)` | App modified after signing                | Re-run `make sign-mac` before packaging     |
+| `Notarisation credentials not found`                       | Missing profile/key                       | Run `store-credentials` or set env vars     |
+| `Package Invalid` / rejected by Apple                      | Hardened Runtime issue or unsigned binary | Check `xcrun notarytool log` for details    |
