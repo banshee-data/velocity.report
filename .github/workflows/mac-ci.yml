@@ -135,6 +135,26 @@ jobs:
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             > tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift
 
+      - name: Import Developer ID certificate
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          # Decode the .p12 certificate and import into a temporary keychain.
+          CERT_FILE=$(mktemp /tmp/cert.XXXXXX.p12)
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_FILE"
+          KEYCHAIN=build.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT_FILE" -k "$KEYCHAIN" -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$CERT_FILE"
+
       - name: Build Release app
         run: |
           cd tools/visualiser-macos
@@ -148,8 +168,28 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Codesign app
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+        run: make sign-mac
+
       - name: Create versioned DMG
         run: make dmg-mac-release
+
+      - name: Notarise and staple DMG
+        if: env.NOTARY_KEY != ''
+        env:
+          NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
+        run: make notarise-mac DMG_SUFFIX=
+
+      - name: Verify signatures
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+        run: make verify-mac DMG_SUFFIX=
 
       - name: Upload DMG artefact
         uses: actions/upload-artifact@v4
