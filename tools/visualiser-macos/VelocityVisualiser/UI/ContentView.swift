@@ -470,6 +470,7 @@ struct FrameTrackRowView: View {
     let trackId: String
     let shortID: String
     let statusColour: Color
+    var isInView: Bool = true
     let speedDisplay: String
     let showClimbArrow: Bool
     let tags: [(String, Color)]
@@ -494,7 +495,7 @@ struct FrameTrackRowView: View {
                 if !tags.isEmpty { TagRow(tags: tags) }
             }.padding(.vertical, 4).padding(.horizontal, 4).background(
                 isSelected ? Color.accentColor.opacity(0.15) : Color.clear
-            ).cornerRadius(4).contentShape(Rectangle())
+            ).cornerRadius(4).contentShape(Rectangle()).opacity(isInView ? 1.0 : 0.45)
         }.buttonStyle(.plain)
     }
 }
@@ -760,7 +761,8 @@ func formatDuration(_ nanos: Int64) -> String {
             mode == .replayNonSeekable && (hasValidTimelineRange || hasFrameIndexProgress)
         showReplayMetadataUnavailable =
             mode == .replayNonSeekable && !hasValidTimelineRange && !hasFrameIndexProgress
-        seekSliderDisabled = !isConnected || busy || !hasValidTimelineRange
+        seekSliderDisabled =
+            !isConnected || busy || (!hasValidTimelineRange && !hasFrameIndexProgress)
         // When replay finished, always allow the play button (to restart)
         playPauseDisabled = replayFinished ? false : (!isConnected || busy || isLiveOrUnknown)
         rateControlsDisabled = !isConnected || busy || isLiveOrUnknown
@@ -894,6 +896,15 @@ struct TimeDisplayView: View {
         }
     }
 
+    /// Short mode prefix shown alongside the time display.
+    private var modePrefix: String {
+        switch appState.timeDisplayMode {
+        case .elapsed: return hasValidRange ? "" : "E"
+        case .remaining: return hasValidRange ? "" : "R"
+        case .frames: return ""
+        }
+    }
+
     /// Tooltip describing the current display mode.
     private var tooltip: String {
         switch appState.timeDisplayMode {
@@ -904,10 +915,21 @@ struct TimeDisplayView: View {
     }
 
     var body: some View {
-        Button(action: { appState.cycleTimeDisplayMode() }) {
-            Text(displayText).font(.system(.caption, design: .monospaced)).foregroundColor(
-                .secondary)
-        }.buttonStyle(.plain).fixedSize().help(tooltip)
+        Button(action: {
+            uiLogger.debug("UI: Time display clicked — cycling mode")
+            appState.cycleTimeDisplayMode()
+        }) {
+            HStack(spacing: 2) {
+                if !modePrefix.isEmpty {
+                    Text(modePrefix).font(.system(.caption2, design: .monospaced)).foregroundColor(
+                        Color(nsColor: .tertiaryLabelColor))
+                }
+                Text(displayText).font(.system(.caption, design: .monospaced)).foregroundColor(
+                    .secondary)
+            }.contentShape(Rectangle())
+        }.buttonStyle(.plain).fixedSize().help(tooltip).onHover { hovering in
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 }
 
@@ -1333,12 +1355,16 @@ struct TrackListView: View {
     /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
     @State private var previousRanks: [String: RankEntry] = [:]
 
-    /// Tracks visible in the current frame (live mode or as supplementary info).
-    /// Uses filtered tracks when filters are active.
+    /// All tracks seen during this session, including those no longer in view.
+    /// Uses allSeenTracks from AppState so tracks persist after leaving the frame.
+    /// When filters are active, only includes tracks that have been admitted.
     private var frameTracks: [Track] {
-        let tracks =
-            appState.hasActiveFilters
-            ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+        let tracks: [Track]
+        if appState.hasActiveFilters {
+            tracks = appState.filteredTracks
+        } else {
+            tracks = Array(appState.allSeenTracks.values)
+        }
         switch sortOrder {
         case .firstSeen: return tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
         case .peakSpeed:
@@ -1369,8 +1395,8 @@ struct TrackListView: View {
     /// Display count for the header badge.
     private var displayCount: Int { isRunMode ? runTracks.count : frameTracks.count }
 
-    /// Track IDs visible in the current frame (for run mode in-view indicator).
-    private var inViewTrackIDs: Set<String> { Set(frameTracks.map { $0.trackID }) }
+    /// Track IDs visible in the current frame (for in-view indicator).
+    private var inViewTrackIDs: Set<String> { appState.inViewTrackIDs }
 
     /// Snapshot current speed-sorted ranks into previousRanks for climb detection.
     private func updateRanks() {
@@ -1446,9 +1472,12 @@ struct TrackListView: View {
             Text("No active tracks").font(.caption).foregroundColor(.secondary)
         } else {
             ForEach(frameTracks, id: \.trackID) { track in
+                let isInView = inViewTrackIDs.contains(track.trackID)
                 FrameTrackRowView(
                     trackId: track.trackID, shortID: track.trackID.shortTrackID,
-                    statusColour: trackStateColour(track.state),
+                    statusColour: isInView
+                        ? trackStateColour(track.state) : Color.gray.opacity(0.4),
+                    isInView: isInView,
                     speedDisplay: String(
                         format: "%.1f m/s",
                         max(track.peakSpeedMps, appState.trackPeakSpeed[track.trackID] ?? 0)),

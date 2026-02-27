@@ -2453,3 +2453,125 @@ import XCTest
         XCTAssertEqual(state.metalViewSize, .zero)
     }
 }
+
+// MARK: - Seekbar Frame-Based Fallback Tests
+
+@available(macOS 15.0, *) @MainActor final class SeekbarFrameFallbackTests: XCTestCase {
+
+    func testCanInteractWithSeekSliderWithFrameProgressOnly() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0  // No valid timeline range
+        state.totalFrames = 100  // But we have frame progress
+        XCTAssertFalse(state.hasValidTimelineRange)
+        XCTAssertTrue(state.hasFrameIndexProgress)
+        XCTAssertTrue(state.canInteractWithSeekSlider)
+    }
+
+    func testCanInteractWithSeekSliderWithTimestampsOnly() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 1
+        state.logEndTimestamp = 2
+        state.totalFrames = 0
+        XCTAssertTrue(state.hasValidTimelineRange)
+        XCTAssertFalse(state.hasFrameIndexProgress)
+        XCTAssertTrue(state.canInteractWithSeekSlider)
+    }
+
+    func testCanInteractWithSeekSliderFalseWithNoData() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 0
+        XCTAssertFalse(state.hasValidTimelineRange)
+        XCTAssertFalse(state.hasFrameIndexProgress)
+        XCTAssertFalse(state.canInteractWithSeekSlider)
+    }
+
+    func testCanInteractWithSeekSliderFalseWhenNotSeekable() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replayNonSeekable)
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 100
+        XCTAssertFalse(state.canInteractWithSeekSlider)
+    }
+
+    func testSeekWithFrameProgressOnly() throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.playbackCommandClientOverride = fake
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 100
+
+        state.seek(to: 0.5)
+
+        // Should use frame-based seeking, target frame = 49
+        XCTAssertTrue(state.isSeekingInProgress)
+        XCTAssertEqual(state.replayProgress, 0.5, accuracy: 0.001)
+    }
+
+    func testSeekIgnoredWithNoTimestampsAndNoFrames() throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.playbackCommandClientOverride = fake
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 0  // No frame progress either
+
+        state.seek(to: 0.5)
+
+        // Should be ignored — no valid range AND no frame progress
+        XCTAssertFalse(state.isSeekingInProgress)
+    }
+}
+
+// MARK: - PlaybackControlsDerivedState Seekbar Fallback Tests
+
+@available(macOS 15.0, *) final class SeekSliderDerivedStateTests: XCTestCase {
+
+    func testSeekSliderEnabledWithFrameProgressOnly() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: false, hasFrameIndexProgress: true,
+            currentFrameIndex: 10, totalFrames: 100)
+        XCTAssertFalse(ui.seekSliderDisabled, "seekbar should be enabled with frame progress")
+        XCTAssertTrue(ui.showSeekableSlider)
+    }
+
+    func testSeekSliderDisabledWithNoProgressData() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: false, hasFrameIndexProgress: false,
+            currentFrameIndex: 0, totalFrames: 0)
+        XCTAssertTrue(ui.seekSliderDisabled, "seekbar should be disabled without any progress data")
+    }
+
+    func testSeekSliderDisabledWhenBusy() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: true,
+            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 10,
+            totalFrames: 100)
+        XCTAssertTrue(ui.seekSliderDisabled, "seekbar should be disabled when busy")
+    }
+
+    func testSeekSliderDisabledWhenDisconnected() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: false, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 10, totalFrames: 100)
+        XCTAssertTrue(ui.seekSliderDisabled, "seekbar should be disabled when disconnected")
+    }
+}

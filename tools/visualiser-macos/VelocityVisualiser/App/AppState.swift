@@ -194,11 +194,11 @@ private let logger = DevLogger(category: "AppState")
         )
     }
 
-    /// Tracks from the current frame that are admitted (passed filters at some point).
+    /// Tracks that have been admitted by filters, drawn from allSeenTracks
+    /// so they persist even after leaving the current frame.
     var filteredTracks: [Track] {
-        guard let trackSet = currentFrame?.tracks else { return [] }
-        guard hasActiveFilters else { return trackSet.tracks }
-        return trackSet.tracks.filter { admittedTrackIDs.contains($0.trackID) }
+        guard hasActiveFilters else { return Array(allSeenTracks.values) }
+        return allSeenTracks.values.filter { admittedTrackIDs.contains($0.trackID) }
     }
 
     /// Set of track IDs that pass the current filters.
@@ -225,6 +225,14 @@ private let logger = DevLogger(category: "AppState")
     /// Persistent all-time peak speed per track (survives ring-buffer eviction).
     private(set) var trackPeakSpeed: [String: Float] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
+
+    /// Accumulated tracks across all frames in the current session/replay.
+    /// Tracks persist in this dictionary even after they leave the sensor's field of view,
+    /// ensuring the track list does not lose entries when a track goes out of frame.
+    /// Cleared on disconnect, new replay, or clearAll.
+    private(set) var allSeenTracks: [String: Track] = [:]
+    /// Track IDs present in the most recent frame (for in-view indicators).
+    private(set) var inViewTrackIDs: Set<String> = []
 
     // MARK: - Renderer
 
@@ -315,7 +323,8 @@ private let logger = DevLogger(category: "AppState")
     }
 
     var canInteractWithSeekSlider: Bool {
-        displayPlaybackMode == .replaySeekable && hasValidTimelineRange && !playbackControlsBusy
+        displayPlaybackMode == .replaySeekable && (hasValidTimelineRange || hasFrameIndexProgress)
+            && !playbackControlsBusy
     }
 
     var shouldShowReplayMetadataUnavailable: Bool {
@@ -522,6 +531,8 @@ private let logger = DevLogger(category: "AppState")
         cacheStatus = ""
         trackHistory = [:]
         trackPeakSpeed = [:]
+        allSeenTracks = [:]
+        inViewTrackIDs = []
         renderer?.clearTransientData()
     }
 
@@ -540,6 +551,8 @@ private let logger = DevLogger(category: "AppState")
         frameCount = 0
         trackHistory = [:]
         trackPeakSpeed = [:]
+        allSeenTracks = [:]
+        inViewTrackIDs = []
         userLabels = [:]
         userQualityFlags = [:]
     }
@@ -779,27 +792,36 @@ private let logger = DevLogger(category: "AppState")
 
     func seek(to progress: Double) {
         logger.debug(
-            "seek(to: \(progress)) called — mode=\(self.displayPlaybackMode.rawValue) seekable=\(self.isSeekable) hasValidRange=\(self.hasValidTimelineRange) busy=\(self.playbackControlsBusy) inFlight=\(String(describing: self.inFlightPlaybackCommand))"
+            "seek(to: \(progress)) called — mode=\(self.displayPlaybackMode.rawValue) seekable=\(self.isSeekable) hasValidRange=\(self.hasValidTimelineRange) hasFrameProgress=\(self.hasFrameIndexProgress) busy=\(self.playbackControlsBusy) inFlight=\(String(describing: self.inFlightPlaybackCommand))"
         )
         guard displayPlaybackMode == .replaySeekable else {
             logger.debug("seek() ignored — not seekable")
             return
         }
-        guard hasValidTimelineRange else {
+        guard hasValidTimelineRange || hasFrameIndexProgress else {
             logger.debug(
-                "seek() ignored — no valid timeline range (start=\(self.logStartTimestamp) end=\(self.logEndTimestamp))"
+                "seek() ignored — no valid timeline range or frame progress (start=\(self.logStartTimestamp) end=\(self.logEndTimestamp) totalFrames=\(self.totalFrames))"
             )
             return
         }
 
         let clampedProgress = max(0, min(1, progress))
-        let targetTimestamp =
-            logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
+        let useTimestampSeek = hasValidTimelineRange
+        let targetTimestamp: Int64 =
+            useTimestampSeek
+            ? logStartTimestamp
+                + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
+            : currentTimestamp
+        let targetFrame: UInt64 =
+            !useTimestampSeek && totalFrames > 1
+            ? UInt64(Double(totalFrames - 1) * clampedProgress) : 0
+
         if inFlightPlaybackCommand == .seek {
             queuedSeekProgress = clampedProgress
             replayProgress = clampedProgress
-            currentTimestamp = targetTimestamp
-            pendingSeekTargetTimestamp = targetTimestamp
+            if useTimestampSeek { currentTimestamp = targetTimestamp }
+            pendingSeekTargetTimestamp = useTimestampSeek ? targetTimestamp : nil
+            pendingSeekTargetFrameIndex = !useTimestampSeek ? targetFrame : nil
             return
         }
         guard !playbackControlsBusy else { return }
@@ -811,18 +833,24 @@ private let logger = DevLogger(category: "AppState")
         let wasFinished = replayFinished
 
         replayProgress = clampedProgress  // Optimistic
-        currentTimestamp = targetTimestamp  // Sync timer display with slider position
+        if useTimestampSeek { currentTimestamp = targetTimestamp }
         isSeekingInProgress = true
-        pendingSeekTargetTimestamp = targetTimestamp
+        pendingSeekTargetTimestamp = useTimestampSeek ? targetTimestamp : nil
+        pendingSeekTargetFrameIndex = !useTimestampSeek ? targetFrame : nil
         logger.info(
-            "Seeking to progress \(clampedProgress) (timestamp \(targetTimestamp)), wasFinished=\(wasFinished)"
+            "Seeking to progress \(clampedProgress) (timestamp \(targetTimestamp), frame \(targetFrame), useTimestamp=\(useTimestampSeek)), wasFinished=\(wasFinished)"
         )
 
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer { self.finishPlaybackCommand(.seek) }
             do {
-                let seekAck = try await client.seek(to: targetTimestamp)
+                let seekAck: VisualiserPlaybackStatus
+                if useTimestampSeek {
+                    seekAck = try await client.seek(to: targetTimestamp)
+                } else {
+                    seekAck = try await client.seek(toFrame: targetFrame)
+                }
                 self.applyPlaybackAck(seekAck)
 
                 if wasFinished {
@@ -843,6 +871,7 @@ private let logger = DevLogger(category: "AppState")
             }
             self.isSeekingInProgress = false
             self.pendingSeekTargetTimestamp = nil
+            self.pendingSeekTargetFrameIndex = nil
         }
     }
 
@@ -1156,7 +1185,11 @@ private let logger = DevLogger(category: "AppState")
         // When seeking or stepping backwards, trim samples that are ahead of
         // the current frame to avoid invalid (non-monotonic) graphs.
         if let tracks = frame.tracks?.tracks {
+            // Update in-view set and accumulate all seen tracks
+            inViewTrackIDs = Set(tracks.map { $0.trackID })
             for track in tracks {
+                allSeenTracks[track.trackID] = track
+
                 let sample = TrackSample(
                     frameIndex: currentFrameIndex, speedMps: track.speedMps,
                     peakSpeedMps: track.peakSpeedMps, headingDeg: track.headingRad * 180 / .pi)
@@ -1176,6 +1209,8 @@ private let logger = DevLogger(category: "AppState")
                     trackPeakSpeed[track.trackID] = track.peakSpeedMps
                 }
             }
+        } else {
+            inViewTrackIDs = []
         }
 
         // M3.5: Update cache status
