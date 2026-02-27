@@ -28,10 +28,28 @@ if [ ! -d "$APP_PATH" ]; then
 fi
 
 APP_NAME="$(basename "$APP_PATH")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Detach any stale volume with the same name from a previous run.
+mount_point="/Volumes/$VOLUME_NAME"
+if [ -d "$mount_point" ]; then
+  echo "Detaching stale volume: $mount_point" >&2
+  hdiutil detach "$mount_point" -force 2>/dev/null || true
+fi
+
+# Remove any existing DMG so hdiutil convert does not prompt.
+rm -f "$DMG_PATH"
 
 # ── 1. Stage contents ────────────────────────────────────────────────────────
 staging=$(mktemp -d)
-trap 'rm -rf "$staging"' EXIT
+raw_dmg=""
+device=""
+cleanup() {
+  [ -n "$device" ]    && hdiutil detach "$device" -force 2>/dev/null || true
+  [ -n "$raw_dmg" ]   && rm -f "$raw_dmg"
+  [ -n "$staging" ]   && rm -rf "$staging"
+}
+trap cleanup EXIT
 
 cp -R "$APP_PATH" "$staging/$APP_NAME"
 ln -s /Applications "$staging/Applications"
@@ -70,7 +88,6 @@ hdiutil create \
 # ── 3. Mount and configure Finder layout ─────────────────────────────────────
 device=$(hdiutil attach -readwrite -noverify -noautoopen "$raw_dmg" \
   | grep '/Volumes/' | head -1 | awk '{print $1}')
-mount_point="/Volumes/$VOLUME_NAME"
 
 # Wait briefly for the volume to become available.
 for _ in 1 2 3 4 5; do
@@ -80,37 +97,42 @@ done
 
 if [ ! -d "$mount_point" ]; then
   echo "Error: volume did not mount at $mount_point" >&2
-  hdiutil detach "$device" -force 2>/dev/null || true
-  rm -f "$raw_dmg"
   exit 1
 fi
 
-# Apply Finder view settings via AppleScript.
-# Window: 520 × 340, icon view, 72 px icons, no toolbar/sidebar.
-# Three columns: app at left, extras evenly spaced in centre, Applications at right.
-extra_args=()
-n_extras=${#extra_names[@]}
-if [ "$n_extras" -gt 0 ]; then
-  # Spread extras evenly between app (x=130) and Applications (x=390).
-  gap=$(( 260 / (n_extras + 1) ))
-  for i in "${!extra_names[@]}"; do
-    x=$(( 130 + gap * (i + 1) ))
-    extra_args+=("${extra_names[$i]}:${x}")
-  done
-fi
+# Remove macOS filesystem metadata that should not appear in the DMG.
+rm -rf "$mount_point/.fseventsd"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Give Finder time to index the newly mounted volume.
+sleep 2
+
+# Apply Finder view settings via AppleScript.
+# Window: 520 × 400, icon view, 72 px icons, no toolbar/sidebar.
+# Row 1 (y=130): app icon at left, Applications alias at right.
+# Row 2 (y=260): extras centred below.
+extra_args=()
+for name in "${extra_names[@]+"${extra_names[@]}"}"; do
+  extra_args+=("$name")
+done
+
 osascript "$SCRIPT_DIR/dmg-layout.applescript" \
   "$VOLUME_NAME" "$APP_NAME" ${extra_args[@]+"${extra_args[@]}"}
+
+# Remove macOS metadata that Finder/fsevents recreates during layout.
+rm -rf "$mount_point/.fseventsd" "$mount_point/.Trashes"
+# Place a sentinel file to prevent fseventsd from recreating the directory.
+touch "$mount_point/.fseventsd"
 
 # Ensure .DS_Store is flushed.
 sync
 
 hdiutil detach "$device"
+device=""
 
 # ── 4. Convert to compressed read-only DMG ───────────────────────────────────
 mkdir -p "$(dirname "$DMG_PATH")"
 hdiutil convert "$raw_dmg" -format UDZO -o "$DMG_PATH" -ov
 rm -f "$raw_dmg"
+raw_dmg=""
 
 echo "✓ DMG created: $DMG_PATH"

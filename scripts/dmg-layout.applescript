@@ -1,42 +1,61 @@
 -- dmg-layout.applescript -- Configure Finder icon layout for a drag-to-install DMG.
 --
 -- Usage:
---   osascript scripts/dmg-layout.applescript <volume-name> <app-name> [name:x ...]
+--   osascript scripts/dmg-layout.applescript <volume-name> <app-name> [extra ...]
 --
--- Positions the app icon at the left (x=130) and an Applications alias at
--- the right (x=390).  Any extra items are passed as "name:x" pairs and
--- placed at the given x coordinate.  All items sit at y=160.
+-- Positions the app icon at the left (x=130, y=130) and an Applications
+-- alias at the right (x=390, y=130).  Any extra items are placed on a
+-- second row, centred horizontally (y=260).
 --
--- Window: 520 × 340, icon view, 72 px icons, no toolbar or sidebar.
+-- Window: 520 × 400, icon view, 72 px icons, no toolbar or sidebar.
 
 on run argv
 	set volumeName to item 1 of argv
 	set appName to item 2 of argv
 
 	tell application "Finder"
+		-- Wait for Finder to discover the newly mounted volume (up to 15 s).
+		set maxAttempts to 15
+		set diskFound to false
+		repeat with attempt from 1 to maxAttempts
+			try
+				set volRef to disk volumeName
+				set diskFound to true
+				exit repeat
+			on error
+				delay 1
+			end try
+		end repeat
+		if not diskFound then
+			error "Finder never discovered disk '" & volumeName & "' after " & maxAttempts & " seconds."
+		end if
+
 		tell disk volumeName
 			open
 			set current view of container window to icon view
 			set toolbar visible of container window to false
 			set statusbar visible of container window to false
-			set bounds of container window to {100, 100, 620, 440}
+			set bounds of container window to {100, 100, 620, 500}
 			set theViewOptions to icon view options of container window
 			set arrangement of theViewOptions to not arranged
 			set icon size of theViewOptions to 72
-			set position of item appName of container window to {130, 160}
 
-			-- Position any extra items passed as "name:x" pairs.
-			repeat with i from 3 to count of argv
-				set pair to item i of argv
-				set AppleScript's text item delimiters to ":"
-				set parts to text items of pair
-				set extraName to item 1 of parts
-				set extraX to (item 2 of parts) as integer
-				set AppleScript's text item delimiters to ""
-				set position of item extraName of container window to {extraX, 160}
-			end repeat
+			-- Row 1: app on the left, Applications on the right.
+			set position of item appName of container window to {130, 130}
+			set position of item "Applications" of container window to {390, 130}
 
-			set position of item "Applications" of container window to {390, 160}
+			-- Row 2: extras centred below.
+			set nExtras to (count of argv) - 2
+			if nExtras > 0 then
+				set winWidth to 520
+				set gap to winWidth div (nExtras + 1)
+				repeat with i from 3 to count of argv
+					set extraName to item i of argv
+					set extraX to gap * (i - 2)
+					set position of item extraName of container window to {extraX, 260}
+				end repeat
+			end if
+
 			close
 			open
 			update without registering applications

@@ -22,7 +22,8 @@ help:
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
-	@echo "  dmg-mac              Create versioned DMG for release"
+	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
+	@echo "  dmg-mac-release      Create release DMG (version only, no SHA)"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
@@ -241,7 +242,7 @@ GIT_SHA_SHORT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown
 DMG_SUFFIX ?= +$(GIT_SHA_SHORT)
 VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg
 
-.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac
+.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release
 
 build-mac:
 	@echo "Building macOS LiDAR visualiser..."
@@ -320,6 +321,9 @@ dmg-mac:
 	fi
 	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(VERSION)$(DMG_SUFFIX)" \
 		"$(VISUALISER_DIR)/Getting Started.txt"
+
+dmg-mac-release:
+	@$(MAKE) dmg-mac DMG_SUFFIX=
 
 # =============================================================================
 # PROTOBUF CODE GENERATION
