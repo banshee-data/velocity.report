@@ -118,13 +118,11 @@ done
 osascript "$SCRIPT_DIR/dmg-layout.applescript" \
   "$VOLUME_NAME" "$APP_NAME" ${extra_args[@]+"${extra_args[@]}"}
 
-# Remove macOS metadata that Finder/fsevents recreates during layout.
-rm -rf "$mount_point/.fseventsd" "$mount_point/.Trashes"
-# Place a sentinel file to prevent fseventsd from recreating the directory.
-touch "$mount_point/.fseventsd"
-
 # Ensure .DS_Store is flushed.
 sync
+
+# Remove macOS metadata right before detach so there is no time to recreate it.
+rm -rf "$mount_point/.fseventsd" "$mount_point/.Trashes"
 
 hdiutil detach "$device"
 device=""
