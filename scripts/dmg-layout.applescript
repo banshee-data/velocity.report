@@ -35,14 +35,14 @@ on run argv
 			set current view of container window to icon view
 			set toolbar visible of container window to false
 			set statusbar visible of container window to false
-			set bounds of container window to {100, 100, 620, 500}
+			set bounds of container window to {100, 100, 500, 500}
 			set theViewOptions to icon view options of container window
 			set arrangement of theViewOptions to not arranged
 			set icon size of theViewOptions to 72
 
 			-- Row 1: app on the left, Applications on the right.
-			set position of item appName of container window to {130, 130}
-			set position of item "Applications" of container window to {390, 130}
+			set position of item appName of container window to {100, 70}
+			set position of item "Applications" of container window to {300, 70}
 
 			-- Row 2: extras centred below.
 			set nExtras to (count of argv) - 2
@@ -51,8 +51,7 @@ on run argv
 				set gap to winWidth div (nExtras + 1)
 				repeat with i from 3 to count of argv
 					set extraName to item i of argv
-					set extraX to gap * (i - 2)
-					set position of item extraName of container window to {extraX, 260}
+					set position of item extraName of container window to {200, 230}
 				end repeat
 			end if
 
