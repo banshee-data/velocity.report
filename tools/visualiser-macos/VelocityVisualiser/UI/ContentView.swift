@@ -695,6 +695,20 @@ struct ToggleButton: View {
     }
 }
 
+// MARK: - Control Pill Background
+
+/// A subtle background fill for interactive controls (rate +/-, 1x reset, timer).
+/// Uses the system separator colour at low opacity so it adapts to dark/light mode
+/// without adding strokes or button chrome.
+private struct ControlPillBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background(
+            RoundedRectangle(cornerRadius: 4).fill(Color(nsColor: .separatorColor).opacity(0.35)))
+    }
+}
+
+extension View { func controlPillBackground() -> some View { modifier(ControlPillBackground()) } }
+
 // MARK: - Playback Controls
 
 /// Format playback rate for display: "0.5", "1", "2", "64" etc.
@@ -836,24 +850,27 @@ struct PlaybackControlsView: View {
             }
 
             // Rate control (disabled in live mode)
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Button(action: { appState.decreaseRate() }) {
                     Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
                         Rectangle())
-                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
 
-                // Rate display: number + clickable "x" to reset to 1x
-                HStack(spacing: 0) {
-                    Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
-                    Button(action: { appState.resetRate() }) {
-                        Text("x").font(.caption).frame(width: 16, height: 22).contentShape(
-                            Rectangle())
-                    }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
-                }.frame(width: 45).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
+                // Rate display: clickable to reset to 1x
+                Button(action: { appState.resetRate() }) {
+                    HStack(spacing: 0) {
+                        Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
+                        Text("x").font(.caption)
+                    }.frame(width: 45, height: 22).contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(ui.rateControlsDisabled).foregroundColor(
+                    ui.rateControlsDisabled ? .secondary : .primary
+                ).controlPillBackground().onHover { hovering in
+                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                }
 
                 Button(action: { appState.increaseRate() }) {
                     Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle())
-                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
             }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
 
             // Mode indicator (only show when connected)
@@ -926,9 +943,9 @@ struct TimeDisplayView: View {
                 }
                 Text(displayText).font(.system(.caption, design: .monospaced)).foregroundColor(
                     .secondary)
-            }.contentShape(Rectangle())
-        }.buttonStyle(.plain).fixedSize().help(tooltip).onHover { hovering in
-            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }.padding(.horizontal, 6).padding(.vertical, 2).contentShape(Rectangle())
+        }.buttonStyle(.plain).fixedSize().help(tooltip).controlPillBackground().onHover {
+            hovering in if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
     }
 }
