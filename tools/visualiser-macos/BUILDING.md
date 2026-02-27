@@ -83,3 +83,38 @@ make proto-gen
 
 This generates both Go and Swift files. The Swift files are placed in:
 `tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`
+
+## Creating a Release DMG
+
+To package VelocityVisualiser.app into a versioned DMG for distribution:
+
+```bash
+# From repository root — builds the app then creates the DMG
+make build-mac
+make dmg-mac            # dev: VelocityVisualiser-<VERSION>+<SHA>.dmg
+make dmg-mac-release    # release: VelocityVisualiser-<VERSION>.dmg
+```
+
+By default `dmg-mac` appends the short git SHA to the filename (e.g.
+`VelocityVisualiser-0.5.0-pre14+a1b2c3d.dmg`) so that development builds
+are easily distinguishable. Use `dmg-mac-release` (or pass `DMG_SUFFIX=`)
+to produce a clean release filename without the SHA suffix.
+
+The output DMG is written to `tools/visualiser-macos/build/`:
+
+- `make dmg-mac` → `VelocityVisualiser-<VERSION>+<SHA>.dmg`
+- `make dmg-mac-release` → `VelocityVisualiser-<VERSION>.dmg`
+
+The DMG opens in a small Finder window with VelocityVisualiser.app on the
+left, a `Getting Started.txt` guide in the centre, and an Applications
+shortcut on the right for drag-and-drop installation. The layout is
+configured by `scripts/create-dmg.sh`. The version is read from the
+`VERSION` variable in the Makefile.
+
+The Getting Started guide (`tools/visualiser-macos/Getting Started.txt`)
+covers server setup, connecting the app, keyboard shortcuts, and basic
+troubleshooting. Edit it in the repository and it will be included in the
+next DMG build.
+
+> **CI:** Tagged releases (`v*`) and manual workflow dispatches automatically
+> produce the DMG as a downloadable artefact in the `🍎 macOS CI` workflow.

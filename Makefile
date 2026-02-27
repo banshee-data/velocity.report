@@ -22,6 +22,8 @@ help:
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
+	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
+	@echo "  dmg-mac-release      Create release DMG (version only, no SHA)"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
@@ -157,7 +159,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre13
+VERSION := 0.5.0-pre14
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -236,8 +238,11 @@ MAC_CONFIG ?= Release
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
 VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVisualiser.app
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
+GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
+DMG_SUFFIX ?= +$(GIT_SHA_SHORT)
+VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg
 
-.PHONY: build-mac clean-mac run-mac dev-mac
+.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release
 
 build-mac:
 	@echo "Building macOS LiDAR visualiser..."
@@ -307,6 +312,18 @@ dev-mac:
 	@$(MAKE) build-mac MAC_CONFIG=Debug
 	@echo "Starting visualiser (Debug — stdout logging enabled)..."
 	@$(VISUALISER_DIR)/build/Build/Products/Debug/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser
+
+dmg-mac:
+	@echo "Creating DMG: VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg..."
+	@if [ ! -d "$(VISUALISER_APP)" ]; then \
+		echo "Error: VelocityVisualiser.app not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(VERSION)$(DMG_SUFFIX)" \
+		"$(VISUALISER_DIR)/Getting Started.txt"
+
+dmg-mac-release:
+	@$(MAKE) dmg-mac DMG_SUFFIX=
 
 # =============================================================================
 # PROTOBUF CODE GENERATION

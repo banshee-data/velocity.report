@@ -1,0 +1,85 @@
+VelocityVisualiser.app — Getting Started
+======================================
+
+VelocityVisualiser.app is a macOS app for viewing live LiDAR point clouds,
+tracks, and debug overlays from the velocity.report traffic monitoring
+pipeline.
+
+
+1. START THE SERVER
+-------------------
+
+On the machine running the LiDAR sensor, start the
+velocity-report service with gRPC streaming enabled:
+
+    velocity-report --grpc-enabled --grpc-addr 0.0.0.0:50051
+
+For local development on your Mac you can use the test server:
+
+    go run ./cmd/tools/visualiser-server \
+        -addr localhost:50051 -rate 10 -points 10000 -tracks 10
+
+
+2. CONNECT THE APP
+------------------
+
+  1. Open VelocityVisualiser.app
+  2. The server address defaults to localhost:50051 — change it if needed
+  3. Press ⌘⇧C (or click Connect)
+  4. You should see the point cloud streaming in the 3D view
+
+
+3. REPLAY A RECORDING
+---------------------
+
+  1. File → Open Recording (⌘O)
+  2. Select a .vrlog directory
+  3. Use the playback controls or keyboard shortcuts to navigate
+
+
+4. KEYBOARD SHORTCUTS
+---------------------
+
+  Connect / Disconnect     ⌘⇧C
+  Pause / Play             Space
+  Step Forward             .
+  Step Backward            ,
+  Faster Playback          ]
+  Slower Playback          [
+  Toggle Points            P
+  Toggle Boxes             B
+  Toggle Clusters          C
+  Toggle Trails            T
+  Toggle Velocity Vectors  V
+  Toggle Debug Overlays    D
+  Reset Camera             R
+  Label Track              L
+
+
+5. LABELLING TRACKS
+-------------------
+
+  1. Click a track in the 3D view to select it
+  2. Press L to open the Label panel
+  3. Assign a class (pedestrian, car, cyclist, etc.)
+
+
+6. TROUBLESHOOTING
+------------------
+
+  • "Server unreachable" — make sure the Go server is running and
+    the address matches the server's --grpc-addr flag.
+  • No points visible — press P to toggle the point overlay on.
+  • Low frame rate — reduce the point count on the server or disable
+    unused overlays (trails, velocity vectors).
+
+For more details see docs/lidar/visualiser/05-troubleshooting.md
+in the velocity.report repository.
+
+
+7. MORE INFORMATION
+-------------------
+
+  Repository    https://github.com/banshee-data/velocity.report
+  Build guide   tools/visualiser-macos/BUILDING.md
+  Docs          docs/lidar/visualiser/
