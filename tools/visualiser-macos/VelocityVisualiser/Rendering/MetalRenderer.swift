@@ -99,6 +99,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var showBackground: Bool = true  // Background grid points toggle
     var showBoxes: Bool = true
     var showClusters: Bool = true  // M4: Toggle for cluster rendering
+    var showVelocity: Bool = true  // Toggle for heading/velocity arrows on tracks
     var showTrails: Bool = true
     var showDebug: Bool = false  // M6: Master debug overlay toggle
     var showGating: Bool = false  // M6: Gating ellipses
@@ -619,8 +620,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // Debug line format: [x, y, z, r, g, b, a] per vertex (7 floats)
         var vertices = [Float]()
 
-        // Track heading arrows (green)
-        if let trackSet = tracks {
+        // Track heading arrows (green) — gated by showVelocity
+        if showVelocity, let trackSet = tracks {
             for track in trackSet.tracks {
                 if hiddenTrackIDs.contains(track.trackID) { continue }
                 guard track.bboxHeadingRad != 0 || track.headingRad != 0 else { continue }
@@ -916,7 +917,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         }
 
         // M5: Draw heading arrows
-        if showBoxes || showClusters, let pipeline = linePipeline,
+        if showVelocity || showClusters, let pipeline = linePipeline,
             let vertices = headingArrowVertices, headingArrowVertexCount > 0
         {
             encoder.setRenderPipelineState(pipeline)
@@ -1189,6 +1190,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         let screenY: Float
         let classLabel: String
         let isSelected: Bool
+        /// User-assigned label (set post-projection by AppState). Empty when unset.
+        var userLabel: String = ""
     }
 
     /// Project all visible track positions to screen coordinates for label overlay.

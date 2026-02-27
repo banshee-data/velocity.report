@@ -184,7 +184,10 @@ enum VisualiserClientError: Error, LocalizedError {
 
     /// Restart the frame stream (used after seek when replay has finished).
     func restartStream() {
-        guard isConnected else { return }
+        guard isConnected else {
+            print("[VisualiserClient] restartStream() — not connected, skipping")
+            return
+        }
         print("[VisualiserClient] Restarting stream...")
         _streamTask.value?.cancel()
         startStreamingTask()
@@ -193,13 +196,25 @@ enum VisualiserClientError: Error, LocalizedError {
     // MARK: - Streaming
 
     private func startStreamingTask() {
+        _streamTerminationNotified = false
         let task = Task { [weak self] in
             guard let self = self else { return }
 
-            do { try await self.streamFrames() } catch {
+            do {
+                try await self.streamFrames()
+                // Stream returned normally — notify replay finish.
+                // Also notified inside onResponse, but this is the
+                // belt-and-suspenders fallback (idempotent).
+                if !Task.isCancelled {
+                    await MainActor.run { self.handleStreamTermination(wasCancelled: false) }
+                }
+            } catch {
                 if !Task.isCancelled {
                     print("[VisualiserClient] ❌ Stream error: \(error)")
                     logger.error("Stream error: \(error.localizedDescription)")
+                    // Do not mark the stream as naturally finished here: this is
+                    // an error path. Let EOF/normal completion paths invoke
+                    // handleStreamTermination instead.
                     await MainActor.run { self.delegate?.clientDidDisconnect(self, error: error) }
                 }
             }
@@ -240,27 +255,40 @@ enum VisualiserClientError: Error, LocalizedError {
                     print("[VisualiserClient] ✅ Stream accepted, metadata: \(contents.metadata)")
 
                     var frameCount: UInt64 = 0
-                    for try await protoFrame in response.messages {
-                        frameCount += 1
+                    do {
+                        for try await protoFrame in response.messages {
+                            frameCount += 1
 
-                        // Log every 100 frames
-                        if frameCount % 100 == 1 {
-                            print(
-                                "[VisualiserClient] 📊 Received frame \(frameCount): id=\(protoFrame.frameID), points=\(protoFrame.pointCloud.pointCount)"
-                            )
+                            // Log every 100 frames
+                            if frameCount % 100 == 1 {
+                                print(
+                                    "[VisualiserClient] 📊 Received frame \(frameCount): id=\(protoFrame.frameID), points=\(protoFrame.pointCloud.pointCount)"
+                                )
+                            }
+
+                            // Decode proto to internal model off the main actor,
+                            // then hop to MainActor only to notify the delegate.
+                            guard let strongSelf = self else { continue }
+                            let frame = strongSelf.decodeFrameBundle(protoFrame)
+
+                            await MainActor.run { [weak strongSelf] in
+                                guard let self = strongSelf else { return }
+                                self.delegate?.client(self, didReceiveFrame: frame)
+                            }
                         }
-
-                        // Decode proto to internal model off the main actor,
-                        // then hop to MainActor only to notify the delegate.
-                        guard let strongSelf = self else { continue }
-                        let frame = strongSelf.decodeFrameBundle(protoFrame)
-
-                        await MainActor.run { [weak strongSelf] in
-                            guard let self = strongSelf else { return }
-                            self.delegate?.client(self, didReceiveFrame: frame)
-                        }
+                        print(
+                            "[VisualiserClient] 🏁 Stream ended normally after \(frameCount) frames")
+                    } catch {
+                        // grpc-swift-v2 may throw when the server closes the
+                        // stream (even with Status OK).  If we received frames,
+                        // treat this as a normal replay finish rather than a
+                        // fatal error — the gRPC transport error is expected at
+                        // EOF and should not prevent the UI from showing the
+                        // finished state.
+                        print(
+                            "[VisualiserClient] 🏁 Stream ended after \(frameCount) frames (transport: \(error.localizedDescription))"
+                        )
                     }
-                    print("[VisualiserClient] Stream ended after \(frameCount) frames")
 
                     await self?.notifyStreamTerminationOnMainActor(wasCancelled: Task.isCancelled)
 
@@ -281,6 +309,10 @@ enum VisualiserClientError: Error, LocalizedError {
             currentFrameID: status.currentFrameID)
     }
 
+    /// Whether we have already notified the delegate of stream termination
+    /// for the current streaming task.  Reset in `startStreamingTask()`.
+    private var _streamTerminationNotified = false
+
     @MainActor func handleStreamTermination(wasCancelled: Bool) {
         // Only notify delegate of a natural finish (replay complete). If the task
         // was cancelled (e.g. restartStream()), the stream exit is intentional.
@@ -288,6 +320,13 @@ enum VisualiserClientError: Error, LocalizedError {
             print("[VisualiserClient] Stream cancelled — skipping clientDidFinishStream")
             return
         }
+        // Idempotency: streamFrames() and startStreamingTask() can both trigger
+        // this for the same stream.  Only notify once per stream.
+        guard !_streamTerminationNotified else {
+            print("[VisualiserClient] Stream termination already notified — skipping duplicate")
+            return
+        }
+        _streamTerminationNotified = true
         delegate?.clientDidFinishStream(self)
     }
 
@@ -310,24 +349,38 @@ enum VisualiserClientError: Error, LocalizedError {
 
     /// Resume playback (replay mode only).
     func play() async throws -> VisualiserPlaybackStatus {
+        print(
+            "[VisualiserClient] play() — isConnected=\(isConnected), hasClient=\(_grpcClient.value != nil)"
+        )
         guard isConnected, let grpcClient = _grpcClient.value else {
+            print("[VisualiserClient] play() — not connected")
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         let request = Velocity_Visualiser_V1_PlayRequest()
         let response = try await serviceClient.play(request: ClientRequest(message: request))
+        print(
+            "[VisualiserClient] play() — response: frame=\(response.currentFrameID), paused=\(response.paused)"
+        )
         return Self.decodePlaybackStatus(response)
     }
 
     /// Seek to a timestamp (replay mode only).
     func seek(to timestampNanos: Int64) async throws -> VisualiserPlaybackStatus {
+        print(
+            "[VisualiserClient] seek(to: \(timestampNanos)) — isConnected=\(isConnected), hasClient=\(_grpcClient.value != nil)"
+        )
         guard isConnected, let grpcClient = _grpcClient.value else {
+            print("[VisualiserClient] seek() — not connected")
             throw VisualiserClientError.notConnected
         }
         let serviceClient = Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
         var request = Velocity_Visualiser_V1_SeekRequest()
         request.timestampNs = timestampNanos
         let response = try await serviceClient.seek(request: ClientRequest(message: request))
+        print(
+            "[VisualiserClient] seek() — response: frame=\(response.currentFrameID), paused=\(response.paused)"
+        )
         return Self.decodePlaybackStatus(response)
     }
 

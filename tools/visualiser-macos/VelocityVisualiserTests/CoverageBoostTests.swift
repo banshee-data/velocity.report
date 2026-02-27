@@ -9,6 +9,7 @@
 import Foundation
 import GRPCCore
 import GRPCNIOTransportHTTP2
+import MetalKit
 import SwiftUI
 import Testing
 import XCTest
@@ -1241,7 +1242,7 @@ struct StringTruncationCoverageTests {
 
     @Test func truncateLongString() throws {
         let result = "hello world this is a long string".truncated(10)
-        #expect(result == "hello worl...")
+        #expect(result == "hello worl\u{2026}")
     }
 
     @Test func truncateExactLength() throws {
@@ -1567,5 +1568,71 @@ struct RunTrackTests {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: 1.0)
+    }
+}
+
+// MARK: - MetalRenderer.showVelocity Property Tests
+
+final class MetalRendererShowVelocityTests: XCTestCase {
+
+    func testShowVelocityDefaultsToTrue() throws {
+        let metalView = MTKView()
+        guard let renderer = MetalRenderer(metalView: metalView) else {
+            throw XCTSkip("Metal not available")
+        }
+        XCTAssertTrue(renderer.showVelocity)
+    }
+
+    func testShowVelocityCanBeToggled() throws {
+        let metalView = MTKView()
+        guard let renderer = MetalRenderer(metalView: metalView) else {
+            throw XCTSkip("Metal not available")
+        }
+        renderer.showVelocity = false
+        XCTAssertFalse(renderer.showVelocity)
+        renderer.showVelocity = true
+        XCTAssertTrue(renderer.showVelocity)
+    }
+}
+
+// MARK: - TrackScreenLabel.userLabel Tests
+
+struct TrackScreenLabelUserLabelTests {
+
+    @Test func userLabelDefaultsToEmpty() {
+        let label = MetalRenderer.TrackScreenLabel(
+            id: "trk_001", screenX: 100, screenY: 200, classLabel: "vehicle", isSelected: false)
+        #expect(label.userLabel == "")
+    }
+
+    @Test func userLabelCanBeSet() {
+        var label = MetalRenderer.TrackScreenLabel(
+            id: "trk_002", screenX: 50, screenY: 75, classLabel: "", isSelected: true)
+        label.userLabel = "car"
+        #expect(label.userLabel == "car")
+    }
+
+    @Test func userLabelWithExplicitInit() {
+        let label = MetalRenderer.TrackScreenLabel(
+            id: "trk_003", screenX: 0, screenY: 0, classLabel: "pedestrian", isSelected: false,
+            userLabel: "noise")
+        #expect(label.userLabel == "noise")
+    }
+}
+
+// MARK: - willTerminateNotification DevLogger Tests
+
+struct AppTerminationLogTests {
+
+    @Test func devLoggerInfoDoesNotCrash() {
+        // Exercise the same code path used by the willTerminate handler.
+        let logger = DevLogger(category: "App")
+        logger.info("Application terminating, goodbye \u{1F44B}")  // No crash = pass.
+    }
+
+    @Test func devLoggerInfoWithGoodbyeMessage() {
+        let logger = DevLogger(category: "TestApp")
+        // Verify the exact message format used in VelocityVisualiserApp.init() compiles.
+        logger.info("Application terminating, goodbye \u{1F44B}")
     }
 }

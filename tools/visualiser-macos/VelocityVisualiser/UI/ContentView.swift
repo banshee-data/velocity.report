@@ -5,6 +5,9 @@
 
 import MetalKit
 import SwiftUI
+import os
+
+private let uiLogger = DevLogger(category: "UI")
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
@@ -14,19 +17,19 @@ struct ContentView: View {
             // Toolbar always at the top, spanning full width
             ToolbarView()
 
-            // Filter bar below toolbar
-            if appState.showFilterPane { FilterBarView() }
-
             // Main content below toolbar
             HSplitView {
                 // Main 3D view
                 VStack(spacing: 0) {
+                    // Filter bar above the Metal view, not above inspector
+                    if appState.showFilterPane { FilterBarView() }
                     // Metal view - frames are delivered directly to renderer via AppState
                     ZStack {
                         MetalViewRepresentable(
                             showPoints: appState.showPoints,
                             showBackground: appState.showBackground, showBoxes: appState.showBoxes,
-                            showClusters: appState.showClusters, showTrails: appState.showTrails,
+                            showClusters: appState.showClusters,
+                            showVelocity: appState.showVelocity, showTrails: appState.showTrails,
                             showDebug: appState.showDebug, showGrid: appState.showGrid,
                             pointSize: appState.pointSize,
                             onRendererCreated: { renderer in appState.registerRenderer(renderer) },
@@ -40,11 +43,19 @@ struct ContentView: View {
 
                         // Capture Metal view size for label projection
                         GeometryReader { geometry in
-                            Color.clear.onAppear { appState.metalViewSize = geometry.size }
-                                .onChange(of: geometry.size) { _, newSize in
-                                    // Defer to next run loop to avoid AttributeGraph cycle
-                                    Task { @MainActor in appState.metalViewSize = newSize }
+                            Color.clear.onAppear {
+                                let size = geometry.size
+                                Task { @MainActor in
+                                    appState.updateMetalViewSize(
+                                        size, source: "ContentView.onAppear")
                                 }
+                            }.onChange(of: geometry.size) { _, newSize in
+                                // Defer to next run loop to avoid AttributeGraph cycle
+                                Task { @MainActor in
+                                    appState.updateMetalViewSize(
+                                        newSize, source: "ContentView.GeometryReader.onChange")
+                                }
+                            }
                         }.allowsHitTesting(false)
                     }.frame(minWidth: 400, minHeight: 300)
                 }.frame(minWidth: 600)
@@ -59,80 +70,433 @@ struct ContentView: View {
             // Playback controls span full width below the split view
             PlaybackControlsView()
         }.frame(minWidth: 800, minHeight: 600)  // Keyboard shortcuts for playback
-            .onKeyPress(.space) {
-                appState.togglePlayPause()
-                return .handled
-            }.onKeyPress(",") {
-                guard appState.isSeekable else { return .ignored }
-                appState.stepBackward()
-                return .handled
-            }.onKeyPress(".") {
-                guard appState.isSeekable else { return .ignored }
-                appState.stepForward()
-                return .handled
-            }.onKeyPress("[") {
-                appState.decreaseRate()
-                return .handled
-            }.onKeyPress("]") {
-                appState.increaseRate()
-                return .handled
-            }  // Label shortcuts: keys 1-8 assign detection labels
-            .onKeyPress("1") {
-                guard appState.selectedTrackID != nil else { return .ignored }
-                let labels = LabelPanelView.classificationLabels
-                guard labels.count > 0 else { return .ignored }
-                appState.assignLabel(labels[0].name)
-                return .handled
-            }.onKeyPress("2") {
-                guard appState.selectedTrackID != nil else { return .ignored }
-                let labels = LabelPanelView.classificationLabels
-                guard labels.count > 1 else { return .ignored }
-                appState.assignLabel(labels[1].name)
-                return .handled
-            }.onKeyPress("3") {
-                guard appState.selectedTrackID != nil else { return .ignored }
-                let labels = LabelPanelView.classificationLabels
-                guard labels.count > 2 else { return .ignored }
-                appState.assignLabel(labels[2].name)
-                return .handled
-            }.onKeyPress("4") {
-                guard appState.selectedTrackID != nil else { return .ignored }
-                let labels = LabelPanelView.classificationLabels
-                guard labels.count > 3 else { return .ignored }
-                appState.assignLabel(labels[3].name)
-                return .handled
-            }  // Overlay toggle hotkeys
-            .onKeyPress("f") {
-                appState.showPoints.toggle()
-                return .handled
-            }.onKeyPress("k") {
-                appState.showBackground.toggle()
-                return .handled
-            }.onKeyPress("b") {
-                appState.showBoxes.toggle()
-                return .handled
-            }.onKeyPress("c") {
-                appState.showClusters.toggle()
-                return .handled
-            }.onKeyPress("t") {
-                appState.showTrails.toggle()
-                return .handled
-            }.onKeyPress("v") {
-                appState.showVelocity.toggle()
-                return .handled
-            }.onKeyPress("l") {
-                appState.showTrackLabels.toggle()
-                return .handled
-            }.onKeyPress("g") {
-                appState.showGrid.toggle()
-                return .handled
-            }.onKeyPress("d") {
-                appState.toggleDebug()
-                return .handled
-            }  // Run browser sheet
+            .onKeyPress(.space) { handleKeyPress(.space, appState: appState) }.onKeyPress(",") {
+                handleKeyPress(.comma, appState: appState)
+            }.onKeyPress(".") { handleKeyPress(.period, appState: appState) }.onKeyPress("[") {
+                handleKeyPress(.decreaseRate, appState: appState)
+            }.onKeyPress("]") { handleKeyPress(.increaseRate, appState: appState) }
+            // Label shortcuts: keys 1-9 assign detection labels
+            .onKeyPress("1") { handleKeyPress(.label1, appState: appState) }.onKeyPress("2") {
+                handleKeyPress(.label2, appState: appState)
+            }.onKeyPress("3") { handleKeyPress(.label3, appState: appState) }.onKeyPress("4") {
+                handleKeyPress(.label4, appState: appState)
+            }.onKeyPress("5") { handleKeyPress(.label5, appState: appState) }.onKeyPress("6") {
+                handleKeyPress(.label6, appState: appState)
+            }.onKeyPress("7") { handleKeyPress(.label7, appState: appState) }.onKeyPress("8") {
+                handleKeyPress(.label8, appState: appState)
+            }.onKeyPress("9") { handleKeyPress(.label9, appState: appState) }
+            // Track navigation: up/down arrows traverse the track list
+            .onKeyPress(.upArrow) { handleKeyPress(.selectPrevTrack, appState: appState) }
+            .onKeyPress(.downArrow) { handleKeyPress(.selectNextTrack, appState: appState) }
+            // Overlay toggle hotkeys
+            .onKeyPress("f") { handleKeyPress(.togglePoints, appState: appState) }.onKeyPress("k") {
+                handleKeyPress(.toggleBackground, appState: appState)
+            }.onKeyPress("b") { handleKeyPress(.toggleBoxes, appState: appState) }.onKeyPress("c") {
+                handleKeyPress(.toggleClusters, appState: appState)
+            }.onKeyPress("t") { handleKeyPress(.toggleTrails, appState: appState) }.onKeyPress("v")
+        { handleKeyPress(.toggleVelocity, appState: appState) }.onKeyPress("l") {
+            handleKeyPress(.toggleLabels, appState: appState)
+        }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }  // Run browser sheet
             .sheet(isPresented: $appState.showRunBrowser) {
                 RunBrowserView().environmentObject(appState)
             }
+    }
+}
+
+// MARK: - Keyboard Shortcut Handling
+
+/// All keyboard actions that can be triggered by hotkeys.
+enum KeyAction {
+    case space, comma, period, decreaseRate, increaseRate
+    case label1, label2, label3, label4, label5, label6, label7, label8, label9
+    case selectPrevTrack, selectNextTrack
+    case togglePoints, toggleBackground, toggleBoxes, toggleClusters
+    case toggleTrails, toggleVelocity, toggleLabels, toggleGrid
+}
+
+/// Handle a keyboard action, returning the SwiftUI key-press result.
+/// Extracted from ContentView closures for testability.
+@MainActor func handleKeyPress(_ action: KeyAction, appState: AppState) -> KeyPress.Result {
+    uiLogger.debug("handleKeyPress(\(String(describing: action)))")
+    switch action {
+    case .space:
+        uiLogger.debug("Key: SPACE → togglePlayPause()")
+        appState.togglePlayPause()
+        return .handled
+    case .comma:
+        guard appState.isSeekable else {
+            uiLogger.debug("Key: COMMA → ignored (not seekable)")
+            return .ignored
+        }
+        uiLogger.debug("Key: COMMA → stepBackward()")
+        appState.stepBackward()
+        return .handled
+    case .period:
+        guard appState.isSeekable else {
+            uiLogger.debug("Key: PERIOD → ignored (not seekable)")
+            return .ignored
+        }
+        uiLogger.debug("Key: PERIOD → stepForward()")
+        appState.stepForward()
+        return .handled
+    case .decreaseRate:
+        uiLogger.debug("Key: [ → decreaseRate()")
+        appState.decreaseRate()
+        return .handled
+    case .increaseRate:
+        uiLogger.debug("Key: ] → increaseRate()")
+        appState.increaseRate()
+        return .handled
+    case .label1: return assignLabelByIndex(0, appState: appState)
+    case .label2: return assignLabelByIndex(1, appState: appState)
+    case .label3: return assignLabelByIndex(2, appState: appState)
+    case .label4: return assignLabelByIndex(3, appState: appState)
+    case .label5: return assignLabelByIndex(4, appState: appState)
+    case .label6: return assignLabelByIndex(5, appState: appState)
+    case .label7: return assignLabelByIndex(6, appState: appState)
+    case .label8: return assignLabelByIndex(7, appState: appState)
+    case .label9: return assignLabelByIndex(8, appState: appState)
+    case .selectPrevTrack:
+        uiLogger.debug("Key: ↑ → selectPreviousTrack()")
+        appState.selectPreviousTrack()
+        return .handled
+    case .selectNextTrack:
+        uiLogger.debug("Key: ↓ → selectNextTrack()")
+        appState.selectNextTrack()
+        return .handled
+    case .togglePoints:
+        uiLogger.debug("Key: F → togglePoints (now \(!appState.showPoints))")
+        appState.showPoints.toggle()
+        return .handled
+    case .toggleBackground:
+        uiLogger.debug("Key: K → toggleBackground (now \(!appState.showBackground))")
+        appState.showBackground.toggle()
+        return .handled
+    case .toggleBoxes:
+        uiLogger.debug("Key: B → toggleBoxes (now \(!appState.showBoxes))")
+        appState.showBoxes.toggle()
+        return .handled
+    case .toggleClusters:
+        uiLogger.debug("Key: C → toggleClusters (now \(!appState.showClusters))")
+        appState.showClusters.toggle()
+        return .handled
+    case .toggleTrails:
+        uiLogger.debug("Key: T → toggleTrails (now \(!appState.showTrails))")
+        appState.showTrails.toggle()
+        return .handled
+    case .toggleVelocity:
+        uiLogger.debug("Key: V → toggleVelocity (now \(!appState.showVelocity))")
+        appState.showVelocity.toggle()
+        return .handled
+    case .toggleLabels:
+        uiLogger.debug("Key: L → toggleLabels (now \(!appState.showTrackLabels))")
+        appState.showTrackLabels.toggle()
+        return .handled
+    case .toggleGrid:
+        uiLogger.debug("Key: G → toggleGrid (now \(!appState.showGrid))")
+        appState.showGrid.toggle()
+        return .handled
+    }
+}
+
+/// Assign a classification label by index. Returns .ignored if no track selected
+/// or the label index is out of range.
+@MainActor private func assignLabelByIndex(_ index: Int, appState: AppState) -> KeyPress.Result {
+    guard appState.selectedTrackID != nil else {
+        uiLogger.debug("Key: \(index + 1) → label ignored (no track selected)")
+        return .ignored
+    }
+    let labels = LabelPanelView.classificationLabels
+    guard labels.count > index else {
+        uiLogger.debug("Key: \(index + 1) → label ignored (index out of range)")
+        return .ignored
+    }
+    uiLogger.debug("Key: \(index + 1) → assignLabel(\(labels[index].name))")
+    appState.assignLabel(labels[index].name)
+    return .handled
+}
+
+// MARK: - Track List Helpers (extracted for testability)
+
+/// Typealias for rank-tracking entries used by climb detection.
+typealias RankEntry = (rank: Int, climbedAt: Date?)
+
+/// Check whether a track has climbed at least 1 rank within the past `window` seconds.
+/// Extracted from TrackListView for testability.
+func isTrackClimbing(
+    _ trackID: String, ranks: [String: RankEntry], now: Date = Date(), window: TimeInterval = 2.0
+) -> Bool {
+    guard let entry = ranks[trackID], let climbedAt = entry.climbedAt else { return false }
+    return now.timeIntervalSince(climbedAt) < window
+}
+
+/// Compute updated ranks from a list of (id, peakSpeed) pairs sorted descending.
+/// Compares against `previousRanks` to detect climbs.
+/// Extracted from TrackListView.updateRanks() for testability.
+func computeRanks(
+    speedSorted: [(id: String, peak: Float)], previousRanks: [String: RankEntry], now: Date = Date()
+) -> [String: RankEntry] {
+    var newRanks: [String: RankEntry] = [:]
+    for (index, entry) in speedSorted.enumerated() {
+        if let old = previousRanks[entry.id] {
+            if index < old.rank {
+                newRanks[entry.id] = (rank: index, climbedAt: now)
+            } else {
+                newRanks[entry.id] = (rank: index, climbedAt: old.climbedAt)
+            }
+        } else {
+            newRanks[entry.id] = (rank: index, climbedAt: nil)
+        }
+    }
+    return newRanks
+}
+
+/// Build speed-sorted entries for run-mode tracks.
+/// Extracted from TrackListView.updateRanks() for testability.
+func buildRunModeSpeedEntries(
+    runTracks: [RunTrack], frameTrackByID: [String: Track], trackPeakSpeed: [String: Float]
+) -> [(id: String, peak: Float)] {
+    runTracks.map {
+        let live = frameTrackByID[$0.trackId].map { Float($0.peakSpeedMps) }
+        let persistent = trackPeakSpeed[$0.trackId]
+        let api = Float($0.peakSpeedMps ?? 0)
+        return (id: $0.trackId, peak: [live, persistent, api].compactMap { $0 }.max() ?? 0)
+    }.sorted { $0.peak > $1.peak }
+}
+
+/// Build speed-sorted entries for frame-mode tracks.
+/// Extracted from TrackListView.updateRanks() for testability.
+func buildFrameModeSpeedEntries(
+    tracks: [Track], trackPeakSpeed: [String: Float]
+) -> [(id: String, peak: Float)] {
+    tracks.map {
+        let persistent = trackPeakSpeed[$0.trackID] ?? 0
+        return (id: $0.trackID, peak: max($0.peakSpeedMps, persistent))
+    }.sorted { $0.peak > $1.peak }
+}
+
+/// Compute updated ranks for the track list.
+/// Combines run-mode and frame-mode logic into a single call.
+/// Extracted from TrackListView.updateRanks() for testability.
+@MainActor func computeUpdatedRanks(
+    isRunMode: Bool, runTracks: [RunTrack], frameTrackByID: [String: Track], appState: AppState,
+    previousRanks: [String: RankEntry], now: Date = Date()
+) -> [String: RankEntry] {
+    let speedSorted: [(id: String, peak: Float)]
+    if isRunMode {
+        speedSorted = buildRunModeSpeedEntries(
+            runTracks: runTracks, frameTrackByID: frameTrackByID,
+            trackPeakSpeed: appState.trackPeakSpeed)
+    } else {
+        let tracks =
+            appState.hasActiveFilters
+            ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+        speedSorted = buildFrameModeSpeedEntries(
+            tracks: tracks, trackPeakSpeed: appState.trackPeakSpeed)
+    }
+    return computeRanks(speedSorted: speedSorted, previousRanks: previousRanks, now: now)
+}
+
+/// Collect tags for a run-mode track (classification + quality flags).
+/// Extracted from TrackListView for testability.
+func runTrackTags(
+    _ track: RunTrack, userLabels: [String: String], userQualityFlags: [String: String]
+) -> [(String, Color)] {
+    var tags: [(String, Color)] = []
+    let displayLabel = userLabels[track.trackId] ?? track.userLabel
+    if let label = displayLabel, !label.isEmpty { tags.append((label, .confirmedGreen)) }
+    let quality = userQualityFlags[track.trackId] ?? track.qualityLabel
+    if let quality = quality, !quality.isEmpty {
+        for flag in quality.split(separator: ",") {
+            let trimmedFlag = flag.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedFlag.isEmpty { tags.append((trimmedFlag, .accentColor)) }
+        }
+    }
+    return tags
+}
+
+/// Collect tags for a live-mode track (classification label).
+/// Extracted from TrackListView for testability.
+func frameTrackTags(_ track: Track, userLabels: [String: String]) -> [(String, Color)] {
+    var tags: [(String, Color)] = []
+    let displayLabel = userLabels[track.trackID] ?? track.classLabel
+    if !displayLabel.isEmpty { tags.append((displayLabel, .confirmedGreen)) }
+    return tags
+}
+
+/// Compute the best (maximum) speed for a run-mode track from live, persistent, and API sources.
+/// Extracted from TrackListView row rendering for testability.
+func bestRunTrackSpeed(
+    trackId: String, apiPeakSpeed: Double?, frameTrack: Track?, trackPeakSpeed: [String: Float]
+) -> Double? {
+    let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
+    let persistentPeak = trackPeakSpeed[trackId].map { Double($0) }
+    return [liveSpeed, persistentPeak, apiPeakSpeed].compactMap { $0 }.max()
+}
+
+/// Sort tracks by peak speed descending, using both live and persistent peak data.
+/// Extracted from TrackListView.frameTracks for testability.
+func sortTracksByPeakSpeed(_ tracks: [Track], trackPeakSpeed: [String: Float]) -> [Track] {
+    tracks.sorted {
+        max($0.peakSpeedMps, trackPeakSpeed[$0.trackID] ?? 0)
+            > max($1.peakSpeedMps, trackPeakSpeed[$1.trackID] ?? 0)
+    }
+}
+
+/// Sort run tracks by peak speed descending, using live, persistent, and API peak data.
+/// Extracted from TrackListView.sortedRunTracks for testability.
+func sortRunTracksByPeakSpeed(
+    _ runTracks: [RunTrack], frameTrackByID: [String: Track], trackPeakSpeed: [String: Float]
+) -> [RunTrack] {
+    runTracks.sorted { a, b in
+        let peakA =
+            [
+                frameTrackByID[a.trackId].map { Double($0.peakSpeedMps) },
+                trackPeakSpeed[a.trackId].map { Double($0) }, a.peakSpeedMps,
+            ].compactMap { $0 }.max() ?? 0
+        let peakB =
+            [
+                frameTrackByID[b.trackId].map { Double($0.peakSpeedMps) },
+                trackPeakSpeed[b.trackId].map { Double($0) }, b.peakSpeedMps,
+            ].compactMap { $0 }.max() ?? 0
+        return peakA > peakB
+    }
+}
+
+/// Parse a comma-separated quality label string into a set of flag names.
+/// Extracted from LabelPanelView for testability.
+func parseQualityFlags(_ quality: String) -> Set<String> {
+    let trimmedFlags = quality.split(separator: ",").map {
+        String($0).trimmingCharacters(in: .whitespaces)
+    }.filter { !$0.isEmpty }
+    return Set(trimmedFlags)
+}
+
+/// Toggle a flag in a set: remove if present, insert if absent.
+/// Returns the updated set. Extracted from LabelPanelView for testability.
+func toggleFlag(_ flag: String, in flags: Set<String>) -> Set<String> {
+    var updated = flags
+    if updated.contains(flag) { updated.remove(flag) } else { updated.insert(flag) }
+    return updated
+}
+
+/// Serialise a set of quality flags to a sorted comma-separated string.
+/// Extracted from LabelPanelView for testability.
+func serialiseFlags(_ flags: Set<String>) -> String { flags.sorted().joined(separator: ",") }
+
+/// Sync labels fetched from the run-track API into the AppState and local view state.
+/// Extracted from LabelPanelView .onChange closure for testability.
+/// Returns (updatedFlags, isCarriedOver).
+@MainActor func applyFetchedTrackLabels(
+    track: RunTrack, trackID: String, appState: AppState
+) -> (flags: Set<String>, isCarriedOver: Bool) {
+    var flags: Set<String> = []
+    var carried = false
+    if let label = track.userLabel, !label.isEmpty { appState.userLabels[trackID] = label }
+    if let quality = track.qualityLabel, !quality.isEmpty {
+        flags = parseQualityFlags(quality)
+        appState.userQualityFlags[trackID] = serialiseFlags(flags)
+    }
+    if track.labelerId == "hint-carryover" { carried = true }
+    return (flags, carried)
+}
+
+/// Sync a batch of run tracks into AppState labels/flags — used by TrackListView.fetchRunTracks().
+/// Extracted for testability. Returns the number of synced labels.
+@MainActor @discardableResult func syncRunTracksToAppState(
+    _ tracks: [RunTrack], appState: AppState
+) -> Int {
+    var count = 0
+    for track in tracks {
+        if let label = track.userLabel, !label.isEmpty {
+            if appState.userLabels[track.trackId] == nil {
+                appState.userLabels[track.trackId] = label
+                count += 1
+            }
+        }
+        if let quality = track.qualityLabel, !quality.isEmpty {
+            if appState.userQualityFlags[track.trackId] == nil {
+                appState.userQualityFlags[track.trackId] = quality
+            }
+        }
+    }
+    return count
+}
+
+// MARK: - Standalone Track Row Views (extracted for testability)
+
+/// A single row in the run-mode track list. Extracted from TrackListView for
+/// standalone testability — all parameters are explicit, no @State dependency.
+struct RunTrackRowView: View {
+    let trackId: String
+    let shortID: String
+    let statusColour: Color
+    let isInView: Bool
+    let bestSpeed: Double?
+    let showClimbArrow: Bool
+    let tags: [(String, Color)]
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
+                        width: 6, height: 6)
+                    Text(shortID).font(.system(.caption, design: .monospaced)).foregroundColor(
+                        .white
+                    ).fixedSize()
+                    if let speed = bestSpeed {
+                        Text(String(format: "%.1f m/s", speed)).font(.caption2).fixedSize()
+                    }
+                    if showClimbArrow {
+                        Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(.green)
+                            .fixedSize()
+                    }
+                    Spacer()
+                }.foregroundColor(.secondary).lineLimit(1)
+                if !tags.isEmpty { TagRow(tags: tags) }
+            }.padding(.vertical, 4).padding(.horizontal, 4).background(
+                isSelected ? Color.accentColor.opacity(0.15) : Color.clear
+            ).cornerRadius(4).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+}
+
+/// A single row in the frame-mode (live) track list. Extracted from TrackListView for
+/// standalone testability — all parameters are explicit, no @State dependency.
+struct FrameTrackRowView: View {
+    let trackId: String
+    let shortID: String
+    let statusColour: Color
+    var isInView: Bool = true
+    let speedDisplay: String
+    let showClimbArrow: Bool
+    let tags: [(String, Color)]
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Circle().fill(statusColour).frame(width: 6, height: 6)
+                    Text(shortID).font(.system(.caption, design: .monospaced)).foregroundColor(
+                        .white
+                    ).fixedSize()
+                    Text(speedDisplay).font(.caption2).fixedSize()
+                    if showClimbArrow {
+                        Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(.green)
+                            .fixedSize()
+                    }
+                    Spacer()
+                }.foregroundColor(.secondary).lineLimit(1)
+                if !tags.isEmpty { TagRow(tags: tags) }
+            }.padding(.vertical, 4).padding(.horizontal, 4).background(
+                isSelected ? Color.accentColor.opacity(0.15) : Color.clear
+            ).cornerRadius(4).contentShape(Rectangle()).opacity(isInView ? 1.0 : 0.45)
+        }.buttonStyle(.plain)
     }
 }
 
@@ -331,6 +695,20 @@ struct ToggleButton: View {
     }
 }
 
+// MARK: - Control Pill Background
+
+/// A subtle background fill for interactive controls (rate +/-, 1x reset, timer).
+/// Uses the system separator colour at low opacity so it adapts to dark/light mode
+/// without adding strokes or button chrome.
+private struct ControlPillBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background(
+            RoundedRectangle(cornerRadius: 4).fill(Color(nsColor: .separatorColor).opacity(0.35)))
+    }
+}
+
+extension View { func controlPillBackground() -> some View { modifier(ControlPillBackground()) } }
+
 // MARK: - Playback Controls
 
 /// Format playback rate for display: "0.5", "1", "2", "64" etc.
@@ -357,6 +735,7 @@ func formatDuration(_ nanos: Int64) -> String {
     let mode: AppState.PlaybackMode
     let isConnected: Bool
     let isPaused: Bool
+    let replayFinished: Bool
     let playbackRate: Float
     let showStepButtons: Bool
     let stepBackwardDisabled: Bool
@@ -371,13 +750,15 @@ func formatDuration(_ nanos: Int64) -> String {
     let modeLabel: String
 
     init(
-        isConnected: Bool, mode: AppState.PlaybackMode, isPaused: Bool, playbackRate: Float,
-        busy: Bool, hasValidTimelineRange: Bool, hasFrameIndexProgress: Bool,
-        currentFrameIndex: UInt64, totalFrames: UInt64
+        isConnected: Bool, mode: AppState.PlaybackMode, isPaused: Bool,
+        replayFinished: Bool = false, playbackRate: Float, busy: Bool, hasValidTimelineRange: Bool,
+        hasFrameIndexProgress: Bool, currentFrameIndex: UInt64, totalFrames: UInt64
     ) {
         self.isConnected = isConnected
         self.mode = mode
-        self.isPaused = isPaused
+        // When replay has finished, always treat as paused (show play icon)
+        self.isPaused = isPaused || replayFinished
+        self.replayFinished = replayFinished
         self.playbackRate = playbackRate
         self.modeLabel = mode.modeLabel
         let isReplay = mode == .replayNonSeekable || mode == .replaySeekable
@@ -388,14 +769,16 @@ func formatDuration(_ nanos: Int64) -> String {
         stepBackwardDisabled = !isConnected || busy || currentFrameIndex == 0
         stepForwardDisabled =
             !isConnected || busy || totalFrames == 0 || currentFrameIndex + 1 >= totalFrames
-        showReplayTimeline = isReplay
-        showSeekableSlider = isSeekableReplay
+        showReplayTimeline = isReplay || replayFinished
+        showSeekableSlider = isSeekableReplay || replayFinished
         showReadOnlyProgress =
             mode == .replayNonSeekable && (hasValidTimelineRange || hasFrameIndexProgress)
         showReplayMetadataUnavailable =
             mode == .replayNonSeekable && !hasValidTimelineRange && !hasFrameIndexProgress
-        seekSliderDisabled = !isConnected || busy || !hasValidTimelineRange
-        playPauseDisabled = !isConnected || busy || isLiveOrUnknown
+        seekSliderDisabled =
+            !isConnected || busy || (!hasValidTimelineRange && !hasFrameIndexProgress)
+        // When replay finished, always allow the play button (to restart)
+        playPauseDisabled = replayFinished ? false : (!isConnected || busy || isLiveOrUnknown)
         rateControlsDisabled = !isConnected || busy || isLiveOrUnknown
     }
 }
@@ -406,27 +789,31 @@ struct PlaybackControlsView: View {
     var body: some View {
         let ui = PlaybackControlsDerivedState(
             isConnected: appState.isConnected, mode: appState.displayPlaybackMode,
-            isPaused: appState.isPaused, playbackRate: appState.playbackRate,
-            busy: appState.playbackControlsBusy,
+            isPaused: appState.isPaused, replayFinished: appState.replayFinished,
+            playbackRate: appState.playbackRate, busy: appState.playbackControlsBusy,
             hasValidTimelineRange: appState.hasValidTimelineRange,
             hasFrameIndexProgress: appState.hasFrameIndexProgress,
             currentFrameIndex: appState.currentFrameIndex, totalFrames: appState.totalFrames)
 
         HStack {
             // Play/Pause (disabled in live mode)
-            Button(action: { appState.togglePlayPause() }) {
-                Image(systemName: ui.isPaused ? "play.fill" : "pause.fill")
-            }.disabled(ui.playPauseDisabled)
+            Button(action: {
+                uiLogger.debug("UI: Play/Pause button clicked")
+                appState.togglePlayPause()
+            }) { Image(systemName: ui.isPaused ? "play.fill" : "pause.fill") }.disabled(
+                ui.playPauseDisabled)
 
             // Step buttons (only for seekable modes like .vrlog replay)
             if ui.showStepButtons {
-                Button(action: { appState.stepBackward() }) {
-                    Image(systemName: "backward.frame.fill")
-                }.disabled(ui.stepBackwardDisabled)
+                Button(action: {
+                    uiLogger.debug("UI: Step backward button clicked")
+                    appState.stepBackward()
+                }) { Image(systemName: "backward.frame.fill") }.disabled(ui.stepBackwardDisabled)
 
-                Button(action: { appState.stepForward() }) {
-                    Image(systemName: "forward.frame.fill")
-                }.disabled(ui.stepForwardDisabled)
+                Button(action: {
+                    uiLogger.debug("UI: Step forward button clicked")
+                    appState.stepForward()
+                }) { Image(systemName: "forward.frame.fill") }.disabled(ui.stepForwardDisabled)
             }
 
             // Timeline (replay mode)
@@ -435,8 +822,11 @@ struct PlaybackControlsView: View {
                     // Interactive seek slider for .vrlog replay
                     Slider(value: $appState.replayProgress, in: 0...1) { editing in
                         if editing {
+                            uiLogger.debug("UI: Slider drag started")
                             appState.setSliderEditing(true)
                         } else {
+                            uiLogger.debug(
+                                "UI: Slider drag ended — seeking to \(appState.replayProgress)")
                             // Capture target before allowing frame updates to overwrite progress.
                             // seek() sets isSeekingInProgress = true and clears it on completion,
                             // so we don't call setSliderEditing(false) here to avoid a race.
@@ -460,19 +850,27 @@ struct PlaybackControlsView: View {
             }
 
             // Rate control (disabled in live mode)
-            HStack(spacing: 4) {
-                Button(action: { appState.decreaseRate() }) { Image(systemName: "minus") }
-                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+            HStack(spacing: 3) {
+                Button(action: { appState.decreaseRate() }) {
+                    Image(systemName: "minus").frame(width: 22, height: 22).contentShape(
+                        Rectangle())
+                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
 
-                // Rate display: number + clickable "x" to reset to 1x
-                HStack(spacing: 0) {
-                    Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
-                    Button(action: { appState.resetRate() }) { Text("x").font(.caption) }
-                        .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
-                }.frame(width: 45).foregroundColor(ui.rateControlsDisabled ? .secondary : .primary)
+                // Rate display: clickable to reset to 1x
+                Button(action: { appState.resetRate() }) {
+                    HStack(spacing: 0) {
+                        Text(formatRate(ui.playbackRate)).font(.caption).monospacedDigit()
+                        Text("x").font(.caption)
+                    }.frame(width: 45, height: 22).contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(ui.rateControlsDisabled).foregroundColor(
+                    ui.rateControlsDisabled ? .secondary : .primary
+                ).controlPillBackground().onHover { hovering in
+                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                }
 
-                Button(action: { appState.increaseRate() }) { Image(systemName: "plus") }
-                    .buttonStyle(.borderless).disabled(ui.rateControlsDisabled)
+                Button(action: { appState.increaseRate() }) {
+                    Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle())
+                }.buttonStyle(.borderless).disabled(ui.rateControlsDisabled).controlPillBackground()
             }.opacity(ui.rateControlsDisabled ? 0.5 : 1.0)
 
             // Mode indicator (only show when connected)
@@ -483,11 +881,10 @@ struct PlaybackControlsView: View {
     }
 }
 
-/// Displays elapsed/total or remaining/total time. Click to toggle.
-/// Falls back to frame-index display when nanosecond timestamps are not available.
+/// Displays elapsed, remaining, or frame-index time. Click to cycle mode.
+/// The display mode is stored on AppState and can also be changed from the Playback menu.
 struct TimeDisplayView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showRemaining: Bool = false
 
     /// Whether we have valid log boundaries to compute durations.
     private var hasValidRange: Bool { appState.logEndTimestamp > appState.logStartTimestamp }
@@ -498,25 +895,57 @@ struct TimeDisplayView: View {
 
     private var remaining: Int64 { max(0, appState.logEndTimestamp - appState.currentTimestamp) }
 
-    var body: some View {
-        if hasValidRange {
-            let currentText = showRemaining ? formatDuration(-remaining) : formatDuration(elapsed)
-            let totalText = formatDuration(total)
+    /// Text for the current display mode, with automatic fallback.
+    private var displayText: String {
+        let mode = appState.timeDisplayMode
+        if mode == .frames || !hasValidRange {
+            // Frames mode, or forced fallback when timestamps unavailable
+            if appState.totalFrames > 0 {
+                return "F\(appState.currentFrameIndex + 1)/\(appState.totalFrames)"
+            }
+            return "--:-- / --:--"
+        }
+        let totalText = formatDuration(total)
+        switch mode {
+        case .elapsed: return "\(formatDuration(elapsed)) / \(totalText)"
+        case .remaining: return "\(formatDuration(-remaining)) / \(totalText)"
+        case .frames: return ""  // Handled above
+        }
+    }
 
-            Button(action: { showRemaining.toggle() }) {
-                Text("\(currentText) / \(totalText)").font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }.buttonStyle(.plain).fixedSize().help(
-                showRemaining ? "Showing remaining time" : "Showing elapsed time")
-        } else if appState.totalFrames > 0 {
-            // Fallback: show frame-index progress when timestamps are unavailable
-            Text("F\(appState.currentFrameIndex + 1)/\(appState.totalFrames)").font(
-                .system(.caption, design: .monospaced)
-            ).foregroundColor(.secondary).fixedSize()
-        } else {
-            Text("--:-- / --:--").font(.system(.caption, design: .monospaced)).foregroundColor(
-                .secondary
-            ).fixedSize()
+    /// Short mode prefix shown alongside the time display.
+    private var modePrefix: String {
+        switch appState.timeDisplayMode {
+        case .elapsed: return hasValidRange ? "" : "E"
+        case .remaining: return hasValidRange ? "" : "R"
+        case .frames: return ""
+        }
+    }
+
+    /// Tooltip describing the current display mode.
+    private var tooltip: String {
+        switch appState.timeDisplayMode {
+        case .elapsed: return "Showing elapsed time (click to cycle)"
+        case .remaining: return "Showing remaining time (click to cycle)"
+        case .frames: return "Showing frame index (click to cycle)"
+        }
+    }
+
+    var body: some View {
+        Button(action: {
+            uiLogger.debug("UI: Time display clicked — cycling mode")
+            appState.cycleTimeDisplayMode()
+        }) {
+            HStack(spacing: 2) {
+                if !modePrefix.isEmpty {
+                    Text(modePrefix).font(.system(.caption2, design: .monospaced)).foregroundColor(
+                        Color(nsColor: .tertiaryLabelColor))
+                }
+                Text(displayText).font(.system(.caption, design: .monospaced)).foregroundColor(
+                    .secondary)
+            }.padding(.horizontal, 6).padding(.vertical, 2).contentShape(Rectangle())
+        }.buttonStyle(.plain).fixedSize().help(tooltip).controlPillBackground().onHover {
+            hovering in if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
     }
 }
@@ -569,20 +998,24 @@ struct SidePanelView: View {
             // Left column: inspector + labels (scrolls independently)
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Track info
+                    // Track header + labels first
                     if let trackID = appState.selectedTrackID {
-                        TrackInspectorView(trackID: trackID)
+                        TrackInspectorHeaderView(trackID: trackID)
                     }
-
-                    Divider()
 
                     // Label panel
                     LabelPanelView()
 
-                    Divider()
+                    // History chart + detail cards (only when a track is selected)
+                    if let trackID = appState.selectedTrackID {
+                        Divider()
+                        TrackHistoryGraphView(trackID: trackID)
+                    }
 
-                    // Debug overlay toggles
-                    DebugOverlayTogglesView()
+                    // Detail cards (position, velocity, dimensions, state)
+                    if let trackID = appState.selectedTrackID {
+                        TrackInspectorDetailCards(trackID: trackID)
+                    }
 
                     Spacer()
                 }.padding()
@@ -596,18 +1029,18 @@ struct SidePanelView: View {
                     TrackListView()
                     Spacer()
                 }.padding()
-            }.scrollIndicators(.never).frame(width: 170, alignment: .leading)
+            }.scrollIndicators(.never).frame(width: 136, alignment: .leading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
 
 // MARK: - Track Inspector
 
-struct TrackInspectorView: View {
+/// Header for the track inspector: title, close button, ID, run ID, and "not in frame" message.
+struct TrackInspectorHeaderView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
 
-    /// Find the current track data from the latest frame.
     private var track: Track? {
         appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID })
     }
@@ -624,9 +1057,26 @@ struct TrackInspectorView: View {
 
             Text("ID: \(trackID)").font(.caption).foregroundColor(.secondary)
 
-            if let t = track {
-                Divider()
+            if let runID = appState.currentRunID {
+                Text("Run: \(runID)").font(.caption).foregroundColor(.secondary)
+            }
 
+        }
+    }
+}
+
+/// Detail cards for the track inspector: position, velocity, dimensions, state.
+struct TrackInspectorDetailCards: View {
+    let trackID: String
+    @EnvironmentObject var appState: AppState
+
+    private var track: Track? {
+        appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID })
+    }
+
+    var body: some View {
+        if let t = track {
+            VStack(alignment: .leading, spacing: 8) {
                 // Position
                 GroupBox(label: Text("Position").font(.caption2)) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -667,8 +1117,8 @@ struct TrackInspectorView: View {
                         HStack {
                             Text("State").font(.caption).foregroundColor(.secondary)
                             Spacer()
-                            Text(stateLabel(t.state)).font(.caption).fontWeight(.medium)
-                                .foregroundColor(stateColour(t.state))
+                            Text(trackStateLabel(t.state)).font(.caption).fontWeight(.medium)
+                                .foregroundColor(trackStateColour(t.state))
                         }
                         DetailRow(label: "Hits", value: "\(t.hits)")
                         DetailRow(label: "Misses", value: "\(t.misses)")
@@ -684,31 +1134,44 @@ struct TrackInspectorView: View {
                             value: t.classLabel.isEmpty ? "Not classified" : t.classLabel)
                     }
                 }
-
-            } else {
-                Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
             }
+        } else {
+            Text("Track not in current frame").font(.caption).foregroundColor(.secondary)
+        }
+    }
 
-            // Velocity & Heading graph — persists even after track leaves the frame
+}
+
+/// Human-readable label for a track state. Extracted for testability.
+func trackStateLabel(_ state: TrackState) -> String {
+    switch state {
+    case .unknown: return "Unknown"
+    case .tentative: return "Tentative"
+    case .confirmed: return "Confirmed"
+    case .deleted: return "Deleted"
+    }
+}
+
+/// Colour for a track state dot/badge. Extracted for testability.
+func trackStateColour(_ state: TrackState) -> Color {
+    switch state {
+    case .unknown: return .gray
+    case .tentative: return .yellow
+    case .confirmed: return .green
+    case .deleted: return .red
+    }
+}
+
+/// Composite view for backward compatibility — shows header, detail cards, and history.
+struct TrackInspectorView: View {
+    let trackID: String
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TrackInspectorHeaderView(trackID: trackID)
+            TrackInspectorDetailCards(trackID: trackID)
             TrackHistoryGraphView(trackID: trackID)
-        }
-    }
-
-    private func stateLabel(_ state: TrackState) -> String {
-        switch state {
-        case .unknown: return "Unknown"
-        case .tentative: return "Tentative"
-        case .confirmed: return "Confirmed"
-        case .deleted: return "Deleted"
-        }
-    }
-
-    private func stateColour(_ state: TrackState) -> Color {
-        switch state {
-        case .unknown: return .gray
-        case .tentative: return .yellow
-        case .confirmed: return .green
-        case .deleted: return .red
         }
     }
 }
@@ -772,33 +1235,64 @@ struct SparklineView: View {
     /// Optional peak value shown as a dashed red horizontal line with right-axis label.
     var peakValue: CGFloat? = nil
 
+    /// Font size used for the inline sparkline labels.
+    private static let labelFontSize: CGFloat = 8
+    /// Vertical padding so labels don't clip the chart edge.
+    private static let labelPad: CGFloat = 1
+    /// Right margin for metric labels — keeps header, peak and current value aligned.
+    private static let metricTrailing: CGFloat = 4
+    /// Lighter red for sparkline peak line and labels — perceptually matched to orange/cyan.
+    private static let peakRed = Color(red: 1.0, green: 0.45, blue: 0.4)
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
+            // Header row: label + peak metric (always above the sparkline)
             HStack {
                 Text(label).font(.system(size: 9)).foregroundColor(.secondary)
                 Spacer()
-                if let last = values.last {
-                    Text(String(format: "%.1f", last)).font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(colour)
-                }
-            }
-            HStack(spacing: 0) {
-                GeometryReader { geo in
-                    // Main sparkline
-                    sparklinePath(in: geo.size).stroke(colour, lineWidth: 1.5)
-                    // Peak speed dashed line
-                    if let peak = peakValue {
-                        peakLinePath(peak: peak, in: geo.size).stroke(
-                            Color.red, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                    }
-                }.frame(height: 40)
-                // Right axis label for peak
                 if let peak = peakValue {
-                    Text(String(format: "%.1f", peak)).font(.system(size: 8, design: .monospaced))
-                        .foregroundColor(.red).frame(width: 28, alignment: .trailing).padding(
-                            .leading, 2)
+                    Text(String(format: "%.1f", peak)).font(
+                        .system(size: Self.labelFontSize, design: .monospaced)
+                    ).foregroundColor(Self.peakRed)
                 }
-            }
+            }.padding(.trailing, Self.metricTrailing)
+            GeometryReader { geo in
+                let size = geo.size
+                // Main sparkline
+                sparklinePath(in: size).stroke(colour, lineWidth: 1.5)
+                // Peak speed dashed line
+                if let peak = peakValue {
+                    peakLinePath(peak: peak, in: size).stroke(
+                        Self.peakRed, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                }
+                // In-chart current value label
+                currentValueLabel(in: size)
+            }.frame(height: 40)
+        }
+    }
+
+    /// Current value label right-aligned at the trailing edge of the sparkline.
+    @ViewBuilder private func currentValueLabel(in size: CGSize) -> some View {
+        let minVal = values.min() ?? 0
+        let maxVal = max(values.max() ?? 1, peakValue ?? 0)
+        let range = maxVal - minVal
+        let effectiveRange = range < 0.001 ? 1.0 : range
+
+        if let last = values.last {
+            let lastY = size.height - (size.height * (last - minVal) / effectiveRange)
+            let nearBottom = lastY > size.height - 12
+            let labelY = nearBottom ? lastY - 8 - Self.labelPad : lastY + 8 + Self.labelPad
+            let clampedY = min(max(labelY, 4), size.height - 4)
+            VStack {
+                Spacer().frame(height: max(clampedY - 4, 0))
+                HStack {
+                    Spacer()
+                    Text(String(format: "%.1f", last)).font(
+                        .system(size: Self.labelFontSize, design: .monospaced)
+                    ).foregroundColor(colour)
+                }.padding(.trailing, Self.metricTrailing)
+                Spacer()
+            }.frame(width: size.width, height: size.height)
         }
     }
 
@@ -871,20 +1365,27 @@ struct TrackListView: View {
     @EnvironmentObject var appState: AppState
     @State private var runTracks: [RunTrack] = []
     @State private var isFetchingRunTracks = false
+    /// Guard flag to prevent fetchRunTracks re-entry when syncing API labels to appState.
+    @State private var isSyncingAPILabels = false
     @State private var sortOrder: TrackSortOrder = .firstSeen
     /// Tracks the rank (index) of each track by peak speed.
     /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
-    @State private var previousRanks: [String: (rank: Int, climbedAt: Date?)] = [:]
+    @State private var previousRanks: [String: RankEntry] = [:]
 
-    /// Tracks visible in the current frame (live mode or as supplementary info).
-    /// Uses filtered tracks when filters are active.
+    /// All tracks seen during this session, including those no longer in view.
+    /// Uses allSeenTracks from AppState so tracks persist after leaving the frame.
+    /// When filters are active, only includes tracks that have been admitted.
     private var frameTracks: [Track] {
-        let tracks =
-            appState.hasActiveFilters
-            ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+        let tracks: [Track]
+        if appState.hasActiveFilters {
+            tracks = appState.filteredTracks
+        } else {
+            tracks = Array(appState.allSeenTracks.values)
+        }
         switch sortOrder {
         case .firstSeen: return tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
-        case .peakSpeed: return tracks.sorted { $0.peakSpeedMps > $1.peakSpeedMps }
+        case .peakSpeed:
+            return sortTracksByPeakSpeed(tracks, trackPeakSpeed: appState.trackPeakSpeed)
         }
     }
 
@@ -895,15 +1396,8 @@ struct TrackListView: View {
         case .firstSeen:
             return runTracks.sorted { ($0.startUnixNanos ?? 0) < ($1.startUnixNanos ?? 0) }
         case .peakSpeed:
-            return runTracks.sorted { a, b in
-                let peakA =
-                    frameTrackByID[a.trackId].map { Double($0.peakSpeedMps) }
-                    ?? (a.peakSpeedMps ?? 0)
-                let peakB =
-                    frameTrackByID[b.trackId].map { Double($0.peakSpeedMps) }
-                    ?? (b.peakSpeedMps ?? 0)
-                return peakA > peakB
-            }
+            return sortRunTracksByPeakSpeed(
+                runTracks, frameTrackByID: frameTrackByID, trackPeakSpeed: appState.trackPeakSpeed)
         }
     }
 
@@ -918,51 +1412,14 @@ struct TrackListView: View {
     /// Display count for the header badge.
     private var displayCount: Int { isRunMode ? runTracks.count : frameTracks.count }
 
-    /// Track IDs visible in the current frame (for run mode in-view indicator).
-    private var inViewTrackIDs: Set<String> { Set(frameTracks.map { $0.trackID }) }
-
-    /// Whether a track has climbed at least 1 rank in the past 2 seconds.
-    private func isClimbing(_ trackID: String) -> Bool {
-        guard let entry = previousRanks[trackID], let climbedAt = entry.climbedAt else {
-            return false
-        }
-        return Date().timeIntervalSince(climbedAt) < 2.0
-    }
+    /// Track IDs visible in the current frame (for in-view indicator).
+    private var inViewTrackIDs: Set<String> { appState.inViewTrackIDs }
 
     /// Snapshot current speed-sorted ranks into previousRanks for climb detection.
     private func updateRanks() {
-        let now = Date()
-        // Build rank map from frame tracks sorted by peak speed desc.
-        let speedSorted: [(id: String, peak: Float)]
-        if isRunMode {
-            speedSorted = runTracks.map {
-                let live = frameTrackByID[$0.trackId].map { Float($0.peakSpeedMps) }
-                return (id: $0.trackId, peak: live ?? Float($0.peakSpeedMps ?? 0))
-            }.sorted { $0.peak > $1.peak }
-        } else {
-            let tracks =
-                appState.hasActiveFilters
-                ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
-            speedSorted = tracks.map { (id: $0.trackID, peak: $0.peakSpeedMps) }.sorted {
-                $0.peak > $1.peak
-            }
-        }
-        var newRanks: [String: (rank: Int, climbedAt: Date?)] = [:]
-        for (index, entry) in speedSorted.enumerated() {
-            if let old = previousRanks[entry.id] {
-                if index < old.rank {
-                    // Track climbed — record fresh climb timestamp.
-                    newRanks[entry.id] = (rank: index, climbedAt: now)
-                } else {
-                    // Same or lower rank — preserve existing climbedAt for 2 s fade-out.
-                    newRanks[entry.id] = (rank: index, climbedAt: old.climbedAt)
-                }
-            } else {
-                // New track — no arrow.
-                newRanks[entry.id] = (rank: index, climbedAt: nil)
-            }
-        }
-        previousRanks = newRanks
+        previousRanks = computeUpdatedRanks(
+            isRunMode: isRunMode, runTracks: runTracks, frameTrackByID: frameTrackByID,
+            appState: appState, previousRanks: previousRanks)
     }
 
     var body: some View {
@@ -982,36 +1439,22 @@ struct TrackListView: View {
                 }.pickerStyle(.menu).labelsHidden().controlSize(.mini).frame(maxWidth: 90)
             }
 
-            if isRunMode {
-                // Run mode: show all tracks from the analysis run
-                runTrackListContent
-            } else {
-                // Live mode: show tracks from the current frame
-                frameTrackListContent
-            }
+            if isRunMode { runTrackListContent } else { frameTrackListContent }
+            Spacer().frame(height: 8)
         }.onChange(of: appState.currentRunID) { _, newRunID in
             if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
         }.onChange(of: appState.userLabels) { _, _ in
-            // Refresh run track list when user labels change so API data stays in sync
-            if isRunMode { fetchRunTracks() }
+            if isRunMode && !isSyncingAPILabels { fetchRunTracks() }
         }.onChange(of: appState.currentFrameIndex) { _, _ in
             if sortOrder == .peakSpeed { updateRanks() }
-        }.onAppear { if isRunMode { fetchRunTracks() } }
+            syncTrackListOrder()
+        }.onChange(of: sortOrder) { _, _ in syncTrackListOrder() }.onAppear {
+            if isRunMode { fetchRunTracks() }
+            syncTrackListOrder()
+        }
     }
 
     // MARK: - Run Track List (API-fetched)
-
-    /// Collect tags for a run-mode track (classification + quality flags).
-    private func runTrackTags(_ track: RunTrack) -> [(String, Color)] {
-        var tags: [(String, Color)] = []
-        let displayLabel = appState.userLabels[track.trackId] ?? track.userLabel
-        if let label = displayLabel, !label.isEmpty { tags.append((label, .orange)) }
-        let quality = appState.userQualityFlags[track.trackId] ?? track.qualityLabel
-        if let quality = quality, !quality.isEmpty {
-            for flag in quality.split(separator: ",") { tags.append((String(flag), .cyan)) }
-        }
-        return tags
-    }
 
     @ViewBuilder private var runTrackListContent: some View {
         if runTracks.isEmpty && !isFetchingRunTracks {
@@ -1022,83 +1465,44 @@ struct TrackListView: View {
                 let isInView = frameTrack != nil
                 let statusColour =
                     frameTrack.map { trackStateColour($0.state) } ?? Color.gray.opacity(0.5)
-                Button(action: { appState.selectTrack(track.trackId) }) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        // Row 1: dot + hex ID + speed + checkmark
-                        HStack(spacing: 4) {
-                            Circle().fill(isInView ? statusColour : Color.gray.opacity(0.3)).frame(
-                                width: 6, height: 6)
-                            Text(track.trackId.shortTrackID).font(
-                                .system(.caption, design: .monospaced))
-                            let liveSpeed = frameTrack.map { Double($0.peakSpeedMps) }
-                            if let speed = liveSpeed ?? track.peakSpeedMps {
-                                Text(String(format: "%.1f m/s", speed)).font(.caption2)
-                            }
-                            if sortOrder == .peakSpeed && isClimbing(track.trackId) {
-                                Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
-                                    .green)
-                            }
-                            Spacer()
-                            if track.trackId == appState.selectedTrackID {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(
-                                    .accentColor
-                                ).font(.caption2)
-                            }
-                        }.foregroundColor(.secondary)
-                        // Row 2: tag pills (single line, max 2 + overflow)
-                        let tags = runTrackTags(track)
-                        if !tags.isEmpty { TagRow(tags: tags) }
-                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
-                        track.trackId == appState.selectedTrackID
-                            ? Color.accentColor.opacity(0.15) : Color.clear
-                    ).cornerRadius(4).contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                RunTrackRowView(
+                    trackId: track.trackId, shortID: track.trackId.shortTrackID,
+                    statusColour: statusColour, isInView: isInView,
+                    bestSpeed: bestRunTrackSpeed(
+                        trackId: track.trackId, apiPeakSpeed: track.peakSpeedMps,
+                        frameTrack: frameTrack, trackPeakSpeed: appState.trackPeakSpeed),
+                    showClimbArrow: sortOrder == .peakSpeed
+                        && isTrackClimbing(track.trackId, ranks: previousRanks),
+                    tags: runTrackTags(
+                        track, userLabels: appState.userLabels,
+                        userQualityFlags: appState.userQualityFlags),
+                    isSelected: track.trackId == appState.selectedTrackID,
+                    onSelect: { appState.selectTrack(track.trackId) })
             }
         }
     }
 
     // MARK: - Frame Track List (live mode)
 
-    /// Collect tags for a live-mode track (classification label).
-    private func frameTrackTags(_ track: Track) -> [(String, Color)] {
-        var tags: [(String, Color)] = []
-        let displayLabel = appState.userLabels[track.trackID] ?? track.classLabel
-        if !displayLabel.isEmpty { tags.append((displayLabel, .orange)) }
-        return tags
-    }
-
     @ViewBuilder private var frameTrackListContent: some View {
         if frameTracks.isEmpty {
             Text("No active tracks").font(.caption).foregroundColor(.secondary)
         } else {
             ForEach(frameTracks, id: \.trackID) { track in
-                Button(action: { appState.selectTrack(track.trackID) }) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        // Row 1: dot + hex ID + speed + checkmark
-                        HStack(spacing: 4) {
-                            Circle().fill(trackStateColour(track.state)).frame(width: 6, height: 6)
-                            Text(track.trackID.shortTrackID).font(
-                                .system(.caption, design: .monospaced))
-                            Text(String(format: "%.1f m/s", track.peakSpeedMps)).font(.caption2)
-                            if sortOrder == .peakSpeed && isClimbing(track.trackID) {
-                                Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(
-                                    .green)
-                            }
-                            Spacer()
-                            if track.trackID == appState.selectedTrackID {
-                                Image(systemName: "checkmark.circle.fill").foregroundColor(
-                                    .accentColor
-                                ).font(.caption2)
-                            }
-                        }.foregroundColor(.secondary)
-                        // Row 2: tag pills (single line, max 2 + overflow)
-                        let tags = frameTrackTags(track)
-                        if !tags.isEmpty { TagRow(tags: tags) }
-                    }.padding(.vertical, 2).padding(.horizontal, 4).background(
-                        track.trackID == appState.selectedTrackID
-                            ? Color.accentColor.opacity(0.15) : Color.clear
-                    ).cornerRadius(4).contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                let isInView = inViewTrackIDs.contains(track.trackID)
+                FrameTrackRowView(
+                    trackId: track.trackID, shortID: track.trackID.shortTrackID,
+                    statusColour: isInView
+                        ? trackStateColour(track.state) : Color.gray.opacity(0.4),
+                    isInView: isInView,
+                    speedDisplay: String(
+                        format: "%.1f m/s",
+                        max(track.peakSpeedMps, appState.trackPeakSpeed[track.trackID] ?? 0)),
+                    showClimbArrow: sortOrder == .peakSpeed
+                        && isTrackClimbing(track.trackID, ranks: previousRanks),
+                    tags: frameTrackTags(track, userLabels: appState.userLabels),
+                    isSelected: track.trackID == appState.selectedTrackID,
+                    onSelect: { appState.selectTrack(track.trackID) })
             }
         }
     }
@@ -1115,17 +1519,22 @@ struct TrackListView: View {
                 await MainActor.run {
                     self.runTracks = tracks
                     self.isFetchingRunTracks = false
+                    self.isSyncingAPILabels = true
+                    syncRunTracksToAppState(tracks, appState: appState)
+                    self.isSyncingAPILabels = false
+                    syncTrackListOrder()
                 }
             } catch { await MainActor.run { self.isFetchingRunTracks = false } }
         }
     }
 
-    private func trackStateColour(_ state: TrackState) -> Color {
-        switch state {
-        case .unknown: return .gray
-        case .tentative: return .yellow
-        case .confirmed: return .green
-        case .deleted: return .red
+    /// Push the current visible track ordering into AppState so that
+    /// up/down keyboard navigation matches what the user sees in the list.
+    private func syncTrackListOrder() {
+        if isRunMode {
+            appState.trackListOrder = sortedRunTracks.map { $0.trackId }
+        } else {
+            appState.trackListOrder = frameTracks.map { $0.trackID }
         }
     }
 }
@@ -1135,45 +1544,43 @@ struct TrackListView: View {
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
-    // Canonical classification labels — must match Go validUserLabels and Svelte DetectionLabel
+    // Canonical classification labels — order must match proto ObjectClass enum (1=noise .. 9=motorcyclist)
     static let classificationLabels: [(name: String, help: String)] = [
+        ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
+        ("dynamic", "Ambiguous detection unsure between moving objects"),
+        ("pedestrian", "Person walking, running, or using a mobility aid"),
+        ("cyclist", "Person on a bicycle or e-scooter"), ("bird", "Bird or other airborne fauna"),
+        ("bus", "Bus, coach, or large passenger vehicle (length > 7 m)"),
         ("car", "Passenger car, SUV, or van"),
         ("truck", "Pickup truck, box truck, or freight vehicle"),
-        ("bus", "Bus, coach, or large passenger vehicle (length > 7 m)"),
-        ("pedestrian", "Person walking, running, or using a mobility aid"),
-        ("cyclist", "Person on a bicycle or e-scooter"),
-        ("motorcyclist", "Person riding a motorcycle"), ("bird", "Bird or other airborne fauna"),
-        ("dynamic", "Ambiguous detection unsure between moving objects"),
-        ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
+        ("motorcyclist", "Person riding a motorcycle"),
     ]
 
     // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
     static let qualityFlags: [(name: String, help: String)] = [
         ("good", "Clean, accurate track with correct speed and trajectory"),
         ("noisy", "Track has noisy position or speed estimates"),
-        ("jitter_velocity", "Speed or heading estimates jitter significantly"),
+        ("jitter_velocity", "Speed estimates jitter significantly"),
+        ("jitter_heading", "Heading estimates jitter significantly"),
         ("merge", "Two or more distinct objects incorrectly merged into one track"),
         ("split", "Single object incorrectly split into multiple tracks"),
         ("truncated", "Track starts late or ends early compared to the real object"),
         ("disconnected", "Track was lost and recovered — identity may have changed"),
     ]
 
-    @State private var lastAssignedLabel: String?
     @State private var activeFlags: Set<String> = []
     @State private var isCarriedOver: Bool = false
 
+    /// The current label for the selected track, derived from appState for
+    /// consistency when labels are assigned via keyboard shortcuts.
+    private var currentLabel: String? {
+        guard let trackID = appState.selectedTrackID else { return nil }
+        return appState.userLabels[trackID]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Label Track").font(.headline)
-
-            if let trackID = appState.selectedTrackID {
-                Text("Track: \(trackID)").font(.caption).foregroundColor(.secondary)
-
-                // Run context indicator
-                if let runID = appState.currentRunID {
-                    Text("Run: \(runID.truncated(12))").font(.caption2).foregroundColor(.orange)
-                }
-
+            if let _ = appState.selectedTrackID {
                 // Carried-over label badge
                 if isCarriedOver {
                     Text("↻ carried").font(.caption2).foregroundColor(.white).padding(
@@ -1181,41 +1588,43 @@ struct LabelPanelView: View {
                     ).padding(.vertical, 2).background(Color.orange.opacity(0.8)).cornerRadius(4)
                 }
 
-                // Classification labels (user_label) — single-select
-                Text("Classification").font(.caption).foregroundColor(.secondary).padding(.top, 4)
-                ForEach(Array(Self.classificationLabels.enumerated()), id: \.offset) {
-                    index, entry in
-                    LabelButton(
-                        label: entry.name, shortcut: "\(index + 1)",
-                        isActive: lastAssignedLabel == entry.name, helpText: entry.help
-                    ) {
-                        appState.assignLabel(entry.name)
-                        withAnimation(.easeOut(duration: 0.3)) { lastAssignedLabel = entry.name }
-                    }
-                }
+                Text("Labels").font(.subheadline).foregroundColor(.secondary)
 
-                // Quality flags (quality_label) — multi-select toggles
-                if appState.currentRunID != nil {
-                    Divider().padding(.vertical, 4)
-                    Text("Flags").font(.caption).foregroundColor(.secondary)
-                    ForEach(Array(Self.qualityFlags.enumerated()), id: \.offset) { _, entry in
-                        FlagToggleButton(
-                            label: entry.name, isActive: activeFlags.contains(entry.name),
-                            helpText: entry.help
-                        ) {
-                            withAnimation(.easeOut(duration: 0.3)) {
-                                if activeFlags.contains(entry.name) {
-                                    activeFlags.remove(entry.name)
-                                } else {
-                                    activeFlags.insert(entry.name)
+                // Classification labels + quality flags in two columns
+                HStack(alignment: .top, spacing: 8) {
+                    // Left column: classification labels (single-select)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Classification").font(.caption).foregroundColor(.secondary).padding(
+                            .bottom, 4)
+                        ForEach(Array(Self.classificationLabels.enumerated()), id: \.offset) {
+                            index, entry in
+                            LabelButton(
+                                label: entry.name, shortcut: "\(index + 1)",
+                                isActive: currentLabel == entry.name, helpText: entry.help
+                            ) { appState.assignLabel(entry.name) }
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Right column: quality flags (multi-select)
+                    if appState.currentRunID != nil {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Flags").font(.caption).foregroundColor(.secondary).padding(
+                                .bottom, 4)
+                            ForEach(Array(Self.qualityFlags.enumerated()), id: \.offset) {
+                                _, entry in
+                                FlagToggleButton(
+                                    label: entry.name, isActive: activeFlags.contains(entry.name),
+                                    helpText: entry.help
+                                ) {
+                                    withAnimation(.easeOut(duration: 0.3)) {
+                                        activeFlags = toggleFlag(entry.name, in: activeFlags)
+                                    }
+                                    appState.assignQuality(serialiseFlags(activeFlags))
                                 }
                             }
-                            // Save comma-separated flags
-                            let flagsString = activeFlags.sorted().joined(separator: ",")
-                            appState.assignQuality(flagsString)
-                        }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
                     }
-                }
+                }.padding(.top, 4)
 
                 // Bulk label: apply to all visible (filtered) tracks
                 // TODO: Re-enable when backend bulk-label API is ready
@@ -1233,7 +1642,6 @@ struct LabelPanelView: View {
             }
         }.onChange(of: appState.selectedTrackID) { _, newTrackID in
             // Reset feedback when track selection changes
-            lastAssignedLabel = nil
             activeFlags = []
             isCarriedOver = false
             // Fetch existing labels for the newly selected track
@@ -1243,18 +1651,11 @@ struct LabelPanelView: View {
                         let client = RunTrackLabelAPIClient()
                         let track = try await client.getTrack(runID: runID, trackID: trackID)
                         await MainActor.run {
-                            // Only update if we're still on the same track
                             guard appState.selectedTrackID == trackID else { return }
-                            if let label = track.userLabel, !label.isEmpty {
-                                lastAssignedLabel = label
-                            }
-                            if let quality = track.qualityLabel, !quality.isEmpty {
-                                activeFlags = Set(
-                                    quality.split(separator: ",").map {
-                                        String($0).trimmingCharacters(in: .whitespaces)
-                                    })
-                            }
-                            if track.labelerId == "hint-carryover" { isCarriedOver = true }
+                            let result = applyFetchedTrackLabels(
+                                track: track, trackID: trackID, appState: appState)
+                            activeFlags = result.flags
+                            isCarriedOver = result.isCarriedOver
                         }
                     } catch {
                         // Silently ignore — track may not exist in API yet
@@ -1318,19 +1719,21 @@ struct LabelButton: View {
         Button(action: action) {
             HStack {
                 if let shortcut {
-                    Text(shortcut).font(.system(.caption, design: .monospaced)).foregroundColor(
-                        .secondary
-                    ).frame(width: 14, alignment: .trailing)
+                    ZStack {
+                        Circle().fill(
+                            isActive
+                                ? Color.confirmedGreen.opacity(0.8) : Color.secondary.opacity(0.3)
+                        ).frame(width: 16, height: 16)
+                        Text(shortcut).font(
+                            .system(size: 9, weight: .semibold, design: .monospaced)
+                        ).foregroundColor(isActive ? .white : .secondary)
+                    }
                 }
                 Text(displayName(label)).font(.callout)
                 Spacer()
-                if isActive {
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.green).font(
-                        .caption)
-                }
             }.padding(.vertical, 3).padding(.horizontal, 6).background(
                 isActive
-                    ? Color.accentColor.opacity(0.2)
+                    ? Color.confirmedGreen.opacity(0.2)
                     : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
             ).cornerRadius(4)
         }.buttonStyle(.plain).onHover { hovering in isHovered = hovering }.help(
@@ -1387,13 +1790,15 @@ struct FilterBarView: View {
             // Only points in boxes toggle
             Toggle("In boxes", isOn: $appState.filterOnlyInBox).font(.caption).toggleStyle(
                 .checkbox
-            ).help("Hide foreground points that are not inside any bounding box")
+            ).fixedSize().help("Hide foreground points that are not inside any bounding box")
 
             Divider().frame(height: 20)
 
             // Hits range slider
             HStack(spacing: 4) {
-                Text("Hits").font(.caption).foregroundColor(.secondary)
+                Text("Hits").font(.caption).foregroundColor(.secondary).frame(
+                    width: 50, alignment: .trailing
+                ).fixedSize()
                 RangeSliderView(
                     low: Binding(
                         get: { Double(appState.filterMinHits) },
@@ -1405,14 +1810,17 @@ struct FilterBarView: View {
                 Text(
                     "\(appState.filterMinHits)–\(appState.filterMaxHits == 0 ? "∞" : "\(appState.filterMaxHits)")"
                 ).font(.system(.caption, design: .monospaced)).frame(
-                    width: 40, alignment: .trailing)
-            }
+                    width: 44, alignment: .trailing
+                ).fixedSize()
+            }.fixedSize()
 
             Divider().frame(height: 20)
 
             // Points/frame range slider
             HStack(spacing: 4) {
-                Text("Pts/frm").font(.caption).foregroundColor(.secondary)
+                Text("Pts/frm").font(.caption).foregroundColor(.secondary).frame(
+                    width: 50, alignment: .trailing
+                ).fixedSize()
                 RangeSliderView(
                     low: Binding(
                         get: { Double(appState.filterMinPointsPerFrame) },
@@ -1425,8 +1833,9 @@ struct FilterBarView: View {
                 Text(
                     "\(appState.filterMinPointsPerFrame)–\(appState.filterMaxPointsPerFrame == 0 ? "∞" : "\(appState.filterMaxPointsPerFrame)")"
                 ).font(.system(.caption, design: .monospaced)).frame(
-                    width: 40, alignment: .trailing)
-            }
+                    width: 44, alignment: .trailing
+                ).fixedSize()
+            }.fixedSize()
 
             Divider().frame(height: 20)
 
@@ -1445,7 +1854,7 @@ struct FilterBarView: View {
                     appState.filterMaxHits = 0
                     appState.filterMinPointsPerFrame = 0
                     appState.filterMaxPointsPerFrame = 0
-                    appState.resetAdmittedTracks()
+                    appState.resetAdmittedTracks(reason: "filterResetButton")
                 }) { Image(systemName: "arrow.counterclockwise") }.buttonStyle(.plain)
                     .foregroundColor(.accentColor).help("Reset all filters")
             }
@@ -1458,24 +1867,54 @@ struct FilterBarView: View {
             }.buttonStyle(.plain)
         }.padding(.horizontal, 12).padding(.vertical, 6).background(
             Color(nsColor: .controlBackgroundColor)
-        ).onChange(of: appState.filterMinHits) { _, _ in appState.resetAdmittedTracks() }.onChange(
-            of: appState.filterMaxHits
-        ) { _, _ in appState.resetAdmittedTracks() }.onChange(of: appState.filterMinPointsPerFrame)
-        { _, _ in appState.resetAdmittedTracks() }.onChange(of: appState.filterMaxPointsPerFrame) {
-            _, _ in appState.resetAdmittedTracks()
-        }.onChange(of: appState.filterOnlyInBox) { _, _ in appState.resetAdmittedTracks() }
+        ).onChange(of: appState.filterMinHits) { oldValue, newValue in
+            uiLogger.debug("filterMinHits \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMinHits")
+        }.onChange(of: appState.filterMaxHits) { oldValue, newValue in
+            uiLogger.debug("filterMaxHits \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMaxHits")
+        }.onChange(of: appState.filterMinPointsPerFrame) { oldValue, newValue in
+            uiLogger.debug("filterMinPointsPerFrame \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMinPointsPerFrame")
+        }.onChange(of: appState.filterMaxPointsPerFrame) { oldValue, newValue in
+            uiLogger.debug("filterMaxPointsPerFrame \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterMaxPointsPerFrame")
+        }.onChange(of: appState.filterOnlyInBox) { oldValue, newValue in
+            uiLogger.debug("filterOnlyInBox \(oldValue) -> \(newValue)")
+            appState.resetAdmittedTracks(reason: "filterOnlyInBox")
+        }
     }
 }
 
 /// A dual-handle range slider. The low handle cannot exceed the high handle
 /// and vice versa. When high is at the maximum value it represents "no limit" (0 in AppState).
+/// Compute the x-position for a value within a range slider.
+/// Extracted from RangeSliderView for testability.
+func rangeSliderXPosition(value: Double, range: ClosedRange<Double>, trackWidth: CGFloat) -> CGFloat
+{
+    guard trackWidth > 0, range.upperBound > range.lowerBound else { return 0 }
+    let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+    return CGFloat(fraction) * trackWidth
+}
+
+/// Compute the snapped value for an x-position within a range slider.
+/// Extracted from RangeSliderView for testability.
+func rangeSliderValueForX(
+    x: CGFloat, range: ClosedRange<Double>, trackWidth: CGFloat, step: Double
+) -> Double {
+    guard trackWidth > 0, range.upperBound > range.lowerBound, step > 0 else {
+        return range.lowerBound
+    }
+    let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
+    let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
+    return (raw / step).rounded() * step
+}
+
 struct RangeSliderView: View {
     @Binding var low: Double
     @Binding var high: Double
     let range: ClosedRange<Double>
     var step: Double = 1
-
-    @State private var trackWidth: CGFloat = 100
 
     private let thumbRadius: CGFloat = 6
     private let trackHeight: CGFloat = 4
@@ -1483,20 +1922,16 @@ struct RangeSliderView: View {
     /// The effective high value: 0 means "no limit" → use range max for display.
     private var effectiveHigh: Double { high <= 0 ? range.upperBound : high }
 
-    private func xPosition(for value: Double) -> CGFloat {
-        let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
-        return CGFloat(fraction) * trackWidth
-    }
-
-    private func valueForX(_ x: CGFloat) -> Double {
-        let fraction = Double(max(0, min(x, trackWidth)) / trackWidth)
-        let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
-        return (raw / step).rounded() * step
-    }
-
     var body: some View {
         GeometryReader { geo in
-            let w = geo.size.width - thumbRadius * 2
+            let trackWidth = max(1, geo.size.width - thumbRadius * 2)
+            let xPosition: (Double) -> CGFloat = { value in
+                rangeSliderXPosition(value: value, range: range, trackWidth: trackWidth)
+            }
+            let valueForX: (CGFloat) -> Double = { x in
+                rangeSliderValueForX(x: x, range: range, trackWidth: trackWidth, step: step)
+            }
+
             ZStack(alignment: .leading) {
                 // Track background
                 RoundedRectangle(cornerRadius: trackHeight / 2).fill(Color.gray.opacity(0.3)).frame(
@@ -1504,15 +1939,15 @@ struct RangeSliderView: View {
                 ).padding(.horizontal, thumbRadius)
 
                 // Active range highlight
-                let lowX = xPosition(for: low) + thumbRadius
-                let highX = xPosition(for: effectiveHigh) + thumbRadius
+                let lowX = xPosition(low) + thumbRadius
+                let highX = xPosition(effectiveHigh) + thumbRadius
                 RoundedRectangle(cornerRadius: trackHeight / 2).fill(Color.accentColor.opacity(0.5))
                     .frame(width: max(0, highX - lowX), height: trackHeight).offset(x: lowX)
 
                 // Low thumb
                 Circle().fill(Color.accentColor).frame(
                     width: thumbRadius * 2, height: thumbRadius * 2
-                ).offset(x: xPosition(for: low)).gesture(
+                ).offset(x: xPosition(low)).gesture(
                     DragGesture(minimumDistance: 0).onChanged { drag in
                         let newVal = min(valueForX(drag.location.x - thumbRadius), effectiveHigh)
                         low = max(range.lowerBound, newVal)
@@ -1521,15 +1956,13 @@ struct RangeSliderView: View {
                 // High thumb
                 Circle().fill(Color.accentColor).frame(
                     width: thumbRadius * 2, height: thumbRadius * 2
-                ).offset(x: xPosition(for: effectiveHigh)).gesture(
+                ).offset(x: xPosition(effectiveHigh)).gesture(
                     DragGesture(minimumDistance: 0).onChanged { drag in
                         let newVal = max(valueForX(drag.location.x - thumbRadius), low)
                         let clamped = min(range.upperBound, newVal)
                         // If dragged to the max, set to 0 (no limit)
                         high = clamped >= range.upperBound ? 0 : clamped
                     })
-            }.onAppear { trackWidth = w }.onChange(of: geo.size.width) { _, newW in
-                trackWidth = newW - thumbRadius * 2
             }
         }.frame(height: thumbRadius * 2 + 4)
     }
@@ -1585,17 +2018,30 @@ struct TrackLabelOverlay: View {
     }
 }
 
-/// A single track label pill: short 3-char hex suffix + class label.
+/// A single track label pill: short 4-char hex suffix + class label.
+/// Mirrors the tentative/confirmed design language:
+/// - Yellow text when showing the auto-classifier label (tentative)
+/// - Green text when showing a user-assigned label (confirmed)
 struct TrackLabelPill: View {
     let label: MetalRenderer.TrackScreenLabel
+
+    /// The display text and colour for the classification label.
+    private var classDisplay: (text: String, colour: Color)? {
+        if !label.userLabel.isEmpty {
+            return (label.userLabel, .confirmedGreen)
+        } else if !label.classLabel.isEmpty {
+            return (label.classLabel, .yellow)
+        }
+        return nil
+    }
 
     var body: some View {
         HStack(spacing: 3) {
             Text(label.id.shortTrackID).font(.system(size: 10, design: .monospaced))
                 .foregroundColor(.white)
 
-            if !label.classLabel.isEmpty {
-                Text(label.classLabel).font(.system(size: 10)).foregroundColor(.yellow)
+            if let display = classDisplay {
+                Text(display.text).font(.system(size: 10)).foregroundColor(display.colour)
             }
         }.padding(.horizontal, 5).padding(.vertical, 2).background(
             label.isSelected ? Color.blue.opacity(0.8) : Color.black.opacity(0.6)
@@ -1611,6 +2057,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var showBackground: Bool
     var showBoxes: Bool
     var showClusters: Bool
+    var showVelocity: Bool
     var showTrails: Bool
     var showDebug: Bool
     var showGrid: Bool
@@ -1650,6 +2097,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showBackground = showBackground
         renderer.showBoxes = showBoxes
         renderer.showClusters = showClusters
+        renderer.showVelocity = showVelocity
         renderer.showTrails = showTrails
         renderer.showDebug = showDebug
         renderer.showGrid = showGrid
@@ -1765,7 +2213,7 @@ class InteractiveMetalView: MTKView {
 // MARK: - Flow Layout
 
 /// Horizontal row of tag pills showing at most 2 values.
-/// When there are 3+ tags the third slot shows a blue "..." overflow indicator.
+/// When there are 3+ tags the third slot shows an accented "…" overflow indicator.
 struct TagRow: View {
     let tags: [(String, Color)]
 
@@ -1774,7 +2222,7 @@ struct TagRow: View {
             ForEach(Array(tags.prefix(2).enumerated()), id: \.offset) { _, tag in
                 TagPill(text: tag.0, colour: tag.1)
             }
-            if tags.count > 2 { TagPill(text: "...", colour: .blue) }
+            if tags.count > 2 { TagPill(text: "\u{2026}", colour: .accentColor) }
         }.lineLimit(1).fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -1789,6 +2237,14 @@ struct TagPill: View {
             .fixedSize().foregroundColor(.white).padding(.horizontal, 3).padding(.vertical, 1)
             .background(colour.opacity(0.6)).cornerRadius(3)
     }
+}
+
+// MARK: - Confirmed Green Colour
+
+extension Color {
+    /// Green used for confirmed/user-assigned labels, matching the confirmed track state.
+    /// Slightly desaturated for legibility against dark backgrounds.
+    static let confirmedGreen = Color(red: 0.25, green: 0.82, blue: 0.38)
 }
 
 // MARK: - Track ID Helpers

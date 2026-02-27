@@ -251,7 +251,7 @@ struct TrackLabelOverlayTests {
     func testCoordinatorCreation() throws {
         let rep = MetalViewRepresentable(
             showPoints: true, showBackground: true, showBoxes: true, showClusters: true,
-            showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
+            showVelocity: true, showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
         let coordinator = rep.makeCoordinator()
         XCTAssertNil(coordinator.renderer)
     }
@@ -259,12 +259,13 @@ struct TrackLabelOverlayTests {
     func testDefaultProperties() throws {
         let rep = MetalViewRepresentable(
             showPoints: true, showBackground: true, showBoxes: true, showClusters: true,
-            showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
+            showVelocity: true, showTrails: true, showDebug: false, showGrid: true, pointSize: 5.0)
 
         XCTAssertTrue(rep.showPoints)
         XCTAssertTrue(rep.showBackground)
         XCTAssertTrue(rep.showBoxes)
         XCTAssertTrue(rep.showClusters)
+        XCTAssertTrue(rep.showVelocity)
         XCTAssertTrue(rep.showTrails)
         XCTAssertFalse(rep.showDebug)
         XCTAssertTrue(rep.showGrid)
@@ -274,12 +275,14 @@ struct TrackLabelOverlayTests {
     func testCustomProperties() throws {
         let rep = MetalViewRepresentable(
             showPoints: false, showBackground: false, showBoxes: false, showClusters: false,
-            showTrails: false, showDebug: true, showGrid: false, pointSize: 15.0)
+            showVelocity: false, showTrails: false, showDebug: true, showGrid: false,
+            pointSize: 15.0)
 
         XCTAssertFalse(rep.showPoints)
         XCTAssertFalse(rep.showBackground)
         XCTAssertFalse(rep.showBoxes)
         XCTAssertFalse(rep.showClusters)
+        XCTAssertFalse(rep.showVelocity)
         XCTAssertFalse(rep.showTrails)
         XCTAssertTrue(rep.showDebug)
         XCTAssertFalse(rep.showGrid)
@@ -313,7 +316,7 @@ struct TrackLabelOverlayTests {
     }
 }
 
-// MARK: - String Truncation Tests (from RunBrowserView extension)
+// MARK: - String Truncation Tests (from App/StringTruncation.swift extension)
 
 struct StringTruncationTests {
     @Test func truncateShortString() throws {
@@ -329,8 +332,8 @@ struct StringTruncationTests {
     @Test func truncateLongString() throws {
         let str = "this-is-a-very-long-string"
         let result = str.truncated(12)
-        #expect(result.count <= 15)  // 12 + "..."
-        #expect(result.hasSuffix("..."))
+        #expect(result.count <= 13)  // 12 + "\u{2026}"
+        #expect(result.hasSuffix("\u{2026}"))
     }
 }
 
@@ -504,6 +507,34 @@ struct SparklineViewTests {
         state.logStartTimestamp = 0
         state.logEndTimestamp = 5_000_000_000
         state.currentTimestamp = 2_500_000_000
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayRemainingMode() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_500_000_000
+        state.timeDisplayMode = .remaining
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayFramesMode() throws {
+        let state = AppState()
+        state.totalFrames = 500
+        state.currentFrameIndex = 250
+        state.timeDisplayMode = .frames
+        host(TimeDisplayView(), state: state)
+    }
+
+    func testTimeDisplayFramesModeWithValidRange() throws {
+        let state = AppState()
+        state.logStartTimestamp = 1_000_000_000
+        state.logEndTimestamp = 2_000_000_000
+        state.currentTimestamp = 1_500_000_000
+        state.totalFrames = 500
+        state.currentFrameIndex = 250
+        state.timeDisplayMode = .frames
         host(TimeDisplayView(), state: state)
     }
 }
@@ -692,6 +723,52 @@ struct SparklineViewTests {
             tracks: [
                 Track(trackID: "t-001", state: .confirmed, speedMps: 5.0),
                 Track(trackID: "t-002", state: .confirmed, speedMps: 3.0),
+            ], trails: [])
+        state.currentFrame = frame
+
+        host(TrackListView(), state: state)
+    }
+
+    /// Ensures a track item with a high peak speed (28.8 m/s) and a climb arrow
+    /// renders on a single line without wrapping or layout errors.
+    func testTrackListItemHighSpeedDoesNotWrap() throws {
+        let state = AppState()
+        state.currentRunID = nil
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(
+                    trackID: "trk_00001234", state: .confirmed, speedMps: 28.8, peakSpeedMps: 28.8,
+                    classLabel: "car")
+            ], trails: [])
+        state.currentFrame = frame
+
+        // The track list displays max(peakSpeedMps, persistentPeak) and a lineLimit(1)
+        // prevents wrapping even with the "▲" climb indicator present.
+        host(TrackListView(), state: state)
+    }
+
+    /// Ensures multiple tracks with varying speeds — including the maximum
+    /// expected display width — render without layout issues.
+    func testTrackListItemMaxSpeedWidthVariants() throws {
+        let state = AppState()
+        state.currentRunID = nil
+
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(
+                    trackID: "trk_0000aaaa", state: .confirmed, speedMps: 1.0, peakSpeedMps: 1.0,
+                    classLabel: ""),
+                Track(
+                    trackID: "trk_0000bbbb", state: .confirmed, speedMps: 28.8, peakSpeedMps: 28.8,
+                    classLabel: "car"),
+                Track(
+                    trackID: "trk_0000cccc", state: .tentative, speedMps: 9.9, peakSpeedMps: 9.9,
+                    classLabel: "truck"),
             ], trails: [])
         state.currentFrame = frame
 

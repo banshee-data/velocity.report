@@ -36,6 +36,7 @@ var validQualityLabels = map[string]bool{
 	"good":            true,
 	"noisy":           true,
 	"jitter_velocity": true,
+	"jitter_heading":  true,
 	"merge":           true,
 	"split":           true,
 	"truncated":       true,

@@ -9,8 +9,7 @@ import XCTest
 
 @testable import VelocityVisualiser
 
-@available(macOS 15.0, *)
-final class FakePlaybackRPCClient: PlaybackRPCClient {
+@available(macOS 15.0, *) final class FakePlaybackRPCClient: PlaybackRPCClient {
     enum ForcedError: Error { case testFailure }
 
     var pauseCallCount = 0
@@ -54,8 +53,7 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         seekTimestampCalls.append(timestampNanos)
         if holdNextSeekTimestamp {
             holdNextSeekTimestamp = false
-            await withCheckedContinuation { continuation in
-                seekTimestampContinuation = continuation
+            await withCheckedContinuation { continuation in seekTimestampContinuation = continuation
             }
         }
         return seekStatus
@@ -104,7 +102,8 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         state.togglePlayPause()
 
-        XCTAssertFalse(state.isPaused, "Should not optimistically toggle without a connected client")
+        XCTAssertFalse(
+            state.isPaused, "Should not optimistically toggle without a connected client")
     }
 
     func testIncreaseRateDoesNotMutateWhenClientMissing() throws {
@@ -116,7 +115,8 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         state.increaseRate()
 
-        XCTAssertEqual(state.playbackRate, 1.0, "Should not optimistically change rate without client")
+        XCTAssertEqual(
+            state.playbackRate, 1.0, "Should not optimistically change rate without client")
     }
 
     func testPrepareForNewReplayClearsSeekabilityAndCommandState() async throws {
@@ -182,13 +182,18 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         fake.holdNextSeekTimestamp = true
         state.seek(to: 0.1)
-        try await waitFor { fake.seekTimestampCalls.count == 1 && state.inFlightPlaybackCommand == .seek }
+        try await waitFor {
+            fake.seekTimestampCalls.count == 1 && state.inFlightPlaybackCommand == .seek
+        }
 
         state.seek(to: 0.9)
-        XCTAssertEqual(fake.seekTimestampCalls.count, 1, "Second seek should coalesce while first is busy")
+        XCTAssertEqual(
+            fake.seekTimestampCalls.count, 1, "Second seek should coalesce while first is busy")
 
         fake.seekTimestampContinuation?.resume()
-        try await waitFor { fake.seekTimestampCalls.count == 2 && state.inFlightPlaybackCommand == nil }
+        try await waitFor {
+            fake.seekTimestampCalls.count == 2 && state.inFlightPlaybackCommand == nil
+        }
 
         XCTAssertEqual(fake.seekTimestampCalls[0], 1_100_000_000)
         XCTAssertEqual(fake.seekTimestampCalls[1], 1_900_000_000)
@@ -266,9 +271,8 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         state.replayFinished = true
 
         state.togglePlayPause()
-        try await waitFor {
-            fake.playCallCount == 1 && state.inFlightPlaybackCommand == nil
-        }
+        // The replayFinished path seeks to start then plays then restarts
+        try await waitFor { fake.seekTimestampCalls.count == 1 && fake.playCallCount == 1 }
 
         XCTAssertFalse(state.replayFinished)
         XCTAssertFalse(state.isPaused)
@@ -302,8 +306,7 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         state.stepForward()
         try await waitFor {
-            fake.pauseCallCount == 1
-                && fake.seekFrameCalls == [3]
+            fake.pauseCallCount == 1 && fake.seekFrameCalls == [3]
                 && state.inFlightPlaybackCommand == nil
         }
 
@@ -944,7 +947,7 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         XCTAssertEqual(state.totalFrames, 500)
     }
 
-    func testFrameReceivingClearsReplayFinished() async throws {
+    func testFrameReceivingDoesNotClearReplayFinished() async throws {
         let state = AppState()
         state.replayFinished = true
 
@@ -953,7 +956,62 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         state.onFrameReceived(frame)
         await Task.yield()
 
+        // Frames without playbackInfo leave replayFinished unchanged
+        XCTAssertTrue(state.replayFinished)
+    }
+
+    func testLastFrameSetsReplayFinished() async throws {
+        let state = AppState()
         XCTAssertFalse(state.replayFinished)
+
+        var frame = FrameBundle()
+        frame.frameID = 100
+        frame.timestampNanos = 1_000_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 99, totalFrames: 100, seekable: true)
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertTrue(state.replayFinished, "Last frame should set replayFinished")
+        XCTAssertTrue(state.isPaused, "Last frame should pause playback")
+        XCTAssertEqual(state.replayProgress, 1.0, "Progress should be 1.0 at end")
+    }
+
+    func testNonLastFrameClearsReplayFinished() async throws {
+        let state = AppState()
+        state.replayFinished = true
+
+        var frame = FrameBundle()
+        frame.frameID = 50
+        frame.timestampNanos = 500_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: false, logStartNs: 0, logEndNs: 1_000_000_000, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 49, totalFrames: 100, seekable: true)
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertFalse(
+            state.replayFinished,
+            "Receiving a non-last frame should clear replayFinished (user seeked away)")
+    }
+
+    func testLiveFrameDoesNotSetReplayFinished() async throws {
+        let state = AppState()
+
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.timestampNanos = 1_000_000_000
+        frame.playbackInfo = PlaybackInfo(
+            isLive: true, logStartNs: 0, logEndNs: 0, playbackRate: 1.0, paused: false,
+            currentFrameIndex: 99, totalFrames: 100)
+
+        state.onFrameReceived(frame)
+        await Task.yield()
+
+        XCTAssertFalse(state.replayFinished, "Live mode should never set replayFinished")
     }
 
     func testFPSCalculation() async throws {
@@ -1353,7 +1411,8 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
 
         delegate.clientDidFinishStream(client)
 
-        try await waitForMainActor { state.replayFinished }
+        // handleStreamFinished now runs synchronously via MainActor.assumeIsolated
+        XCTAssertTrue(state.replayFinished)
         XCTAssertTrue(state.isPaused)
         XCTAssertEqual(state.replayProgress, 1.0)
         // currentTimestamp should be synced to logEndTimestamp
@@ -1460,7 +1519,7 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         XCTAssertEqual(state.currentFrameID, 1)
     }
 
-    func testOnFrameReceivedClearsReplayFinishedFlag() async throws {
+    func testOnFrameReceivedDoesNotClearReplayFinishedFlag() async throws {
         let state = AppState()
         state.replayFinished = true
 
@@ -1469,7 +1528,8 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         state.onFrameReceived(frame)
         await Task.yield()
 
-        XCTAssertFalse(state.replayFinished)
+        // replayFinished is only cleared by togglePlayPause, not by frame receipt
+        XCTAssertTrue(state.replayFinished)
     }
 
     func testReplayProgressClampedToZeroOne() async throws {
@@ -2096,5 +2156,647 @@ final class FakePlaybackRPCClient: PlaybackRPCClient {
         // When the VisualiserClient guard is working, this callback never fires.
         XCTAssertTrue(
             state.replayFinished, "Without VisualiserClient guard, late finish DOES re-dirty state")
+    }
+}
+
+// MARK: - Track Navigation Tests
+
+@available(macOS 15.0, *) @MainActor final class TrackNavigationTests: XCTestCase {
+
+    func testSelectNextTrackNoTracks() {
+        let state = AppState()
+        // trackListOrder is empty by default
+        state.selectNextTrack()
+        XCTAssertNil(state.selectedTrackID)
+    }
+
+    func testSelectPreviousTrackNoTracks() {
+        let state = AppState()
+        state.selectPreviousTrack()
+        XCTAssertNil(state.selectedTrackID)
+    }
+
+    func testSelectNextTrackNoCurrentSelection() {
+        let state = AppState()
+        state.trackListOrder = ["trk_b", "trk_a"]
+
+        state.selectNextTrack()
+        // Should select first in list
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+    }
+
+    func testSelectPreviousTrackNoCurrentSelection() {
+        let state = AppState()
+        state.trackListOrder = ["trk_b", "trk_a"]
+
+        state.selectPreviousTrack()
+        // Should select last in list
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
+    }
+
+    func testSelectNextTrackWraps() {
+        let state = AppState()
+        state.trackListOrder = ["trk_b", "trk_a"]
+        state.selectedTrackID = "trk_a"  // Last in list
+
+        state.selectNextTrack()
+        // Should wrap to first
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+    }
+
+    func testSelectPreviousTrackWraps() {
+        let state = AppState()
+        state.trackListOrder = ["trk_b", "trk_a"]
+        state.selectedTrackID = "trk_b"  // First in list
+
+        state.selectPreviousTrack()
+        // Should wrap to last
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
+    }
+
+    func testSelectNextTrackDoesNotOpenSidePanel() {
+        let state = AppState()
+        state.trackListOrder = ["trk_a"]
+        state.showSidePanel = false
+        state.showLabelPanel = false
+
+        state.selectNextTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
+        XCTAssertFalse(
+            state.showSidePanel, "Up/down navigation should not force the side panel open")
+        XCTAssertFalse(state.showLabelPanel)
+    }
+
+    func testSelectNextTrackFollowsListOrder() {
+        let state = AppState()
+        // Simulate "first seen" order (alphabetical here)
+        state.trackListOrder = ["trk_a", "trk_b", "trk_c"]
+        state.selectedTrackID = "trk_a"
+
+        state.selectNextTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+        state.selectNextTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_c")
+    }
+
+    func testSelectPreviousTrackFollowsListOrder() {
+        let state = AppState()
+        state.trackListOrder = ["trk_a", "trk_b", "trk_c"]
+        state.selectedTrackID = "trk_c"
+
+        state.selectPreviousTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_b")
+        state.selectPreviousTrack()
+        XCTAssertEqual(state.selectedTrackID, "trk_a")
+    }
+}
+
+// MARK: - TimeDisplayMode Tests
+
+@available(macOS 15.0, *) @MainActor final class TimeDisplayModeTests: XCTestCase {
+
+    // MARK: - Enum Properties
+
+    func testDefaultTimeDisplayMode() {
+        let state = AppState()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+    }
+
+    func testNextCyclesElapsedToRemaining() {
+        XCTAssertEqual(AppState.TimeDisplayMode.elapsed.next, .remaining)
+    }
+
+    func testNextCyclesRemainingToFrames() {
+        XCTAssertEqual(AppState.TimeDisplayMode.remaining.next, .frames)
+    }
+
+    func testNextCyclesFramesToElapsed() {
+        XCTAssertEqual(AppState.TimeDisplayMode.frames.next, .elapsed)
+    }
+
+    func testMenuLabelElapsed() {
+        XCTAssertEqual(AppState.TimeDisplayMode.elapsed.menuLabel, "Elapsed Time")
+    }
+
+    func testMenuLabelRemaining() {
+        XCTAssertEqual(AppState.TimeDisplayMode.remaining.menuLabel, "Remaining Time")
+    }
+
+    func testMenuLabelFrames() {
+        XCTAssertEqual(AppState.TimeDisplayMode.frames.menuLabel, "Frame Index")
+    }
+
+    func testAllCasesCount() { XCTAssertEqual(AppState.TimeDisplayMode.allCases.count, 3) }
+
+    // MARK: - cycleTimeDisplayMode()
+
+    func testCycleTimeDisplayModeFullCycle() {
+        let state = AppState()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .remaining)
+
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .frames)
+
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+    }
+
+    func testCycleFromFramesWrapsToElapsed() {
+        let state = AppState()
+        state.timeDisplayMode = .frames
+        state.cycleTimeDisplayMode()
+        XCTAssertEqual(state.timeDisplayMode, .elapsed)
+    }
+
+    func testTimeDisplayModeEquatable() {
+        let a: AppState.TimeDisplayMode = .elapsed
+        let b: AppState.TimeDisplayMode = .elapsed
+        let c: AppState.TimeDisplayMode = .remaining
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+    }
+
+    func testTimeDisplayModeRawValues() {
+        XCTAssertEqual(AppState.TimeDisplayMode.elapsed.rawValue, "elapsed")
+        XCTAssertEqual(AppState.TimeDisplayMode.remaining.rawValue, "remaining")
+        XCTAssertEqual(AppState.TimeDisplayMode.frames.rawValue, "frames")
+    }
+}
+
+// MARK: - resetAdmittedTracks Tests
+
+@available(macOS 15.0, *) @MainActor final class ResetAdmittedTracksTests: XCTestCase {
+
+    func testResetClearsAdmittedTrackIDs() throws {
+        let state = AppState()
+        // Pre-load a frame with tracks and apply a filter so tracks get admitted
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-1", state: .confirmed, hits: 10),
+                Track(trackID: "t-2", state: .confirmed, hits: 5),
+            ], trails: [])
+        state.currentFrame = frame
+        state.filterMinHits = 1
+        state.updateAdmittedTracks()
+
+        XCTAssertFalse(state.admittedTrackIDs.isEmpty, "precondition: tracks should be admitted")
+
+        state.resetAdmittedTracks(reason: "test")
+
+        // After reset, tracks that still pass the filter should be re-admitted
+        // because resetAdmittedTracks calls updateAdmittedTracks() internally.
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-1"))
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-2"))
+    }
+
+    func testResetClearsTracksThatNoLongerPassFilter() throws {
+        let state = AppState()
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100,
+            tracks: [
+                Track(trackID: "t-low", state: .confirmed, hits: 2),
+                Track(trackID: "t-high", state: .confirmed, hits: 20),
+            ], trails: [])
+        state.currentFrame = frame
+        state.filterMinHits = 1
+        state.updateAdmittedTracks()
+
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-low"))
+
+        // Raise filter threshold so t-low no longer passes
+        state.filterMinHits = 10
+        state.resetAdmittedTracks(reason: "filter change")
+
+        XCTAssertFalse(state.admittedTrackIDs.contains("t-low"))
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-high"))
+    }
+
+    func testResetWithNoCurrentFrame() throws {
+        let state = AppState()
+        state.filterMinHits = 5
+        // No current frame — should not crash
+        state.resetAdmittedTracks(reason: "no frame")
+        XCTAssertTrue(state.admittedTrackIDs.isEmpty)
+    }
+
+    func testResetWithDefaultReason() throws {
+        let state = AppState()
+        // Uses the default reason parameter ("unspecified") — just verifies no crash
+        state.resetAdmittedTracks()
+        XCTAssertTrue(state.admittedTrackIDs.isEmpty)
+    }
+
+    func testResetWithNoActiveFilters() throws {
+        let state = AppState()
+        var frame = FrameBundle()
+        frame.tracks = TrackSet(
+            frameID: 1, timestampNanos: 100, tracks: [Track(trackID: "t-1", state: .confirmed)],
+            trails: [])
+        state.currentFrame = frame
+
+        // No filters active — hasActiveFilters is false
+        XCTAssertFalse(state.hasActiveFilters)
+
+        state.resetAdmittedTracks(reason: "clear")
+        // updateAdmittedTracks runs but trackPassesFilter always returns true
+        // when no filter criteria are set
+        XCTAssertTrue(state.admittedTrackIDs.contains("t-1"))
+    }
+}
+
+// MARK: - updateMetalViewSize Tests
+
+@available(macOS 15.0, *) @MainActor final class UpdateMetalViewSizeTests: XCTestCase {
+
+    func testUpdateChangesSize() throws {
+        let state = AppState()
+        XCTAssertEqual(state.metalViewSize, .zero)
+
+        state.updateMetalViewSize(CGSize(width: 800, height: 600), source: "test")
+        XCTAssertEqual(state.metalViewSize, CGSize(width: 800, height: 600))
+    }
+
+    func testUpdateNoOpWhenSizeUnchanged() throws {
+        let state = AppState()
+        let size = CGSize(width: 1024, height: 768)
+        state.updateMetalViewSize(size, source: "initial")
+
+        // Second call with same size should be a no-op (guard clause)
+        state.updateMetalViewSize(size, source: "duplicate")
+        XCTAssertEqual(state.metalViewSize, size)
+    }
+
+    func testUpdateToDifferentSize() throws {
+        let state = AppState()
+        state.updateMetalViewSize(CGSize(width: 640, height: 480), source: "first")
+        state.updateMetalViewSize(CGSize(width: 1920, height: 1080), source: "second")
+        XCTAssertEqual(state.metalViewSize, CGSize(width: 1920, height: 1080))
+    }
+
+    func testUpdateFromZeroSize() throws {
+        let state = AppState()
+        XCTAssertEqual(state.metalViewSize, .zero)
+        state.updateMetalViewSize(CGSize(width: 100, height: 100), source: "fromZero")
+        XCTAssertEqual(state.metalViewSize, CGSize(width: 100, height: 100))
+    }
+
+    func testUpdateToZeroSize() throws {
+        let state = AppState()
+        state.updateMetalViewSize(CGSize(width: 500, height: 300), source: "setup")
+        state.updateMetalViewSize(.zero, source: "reset")
+        XCTAssertEqual(state.metalViewSize, .zero)
+    }
+}
+
+// MARK: - Seekbar Frame-Based Fallback Tests
+
+@available(macOS 15.0, *) @MainActor final class SeekbarFrameFallbackTests: XCTestCase {
+
+    func testCanInteractWithSeekSliderWithFrameProgressOnly() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0  // No valid timeline range
+        state.totalFrames = 100  // But we have frame progress
+        XCTAssertFalse(state.hasValidTimelineRange)
+        XCTAssertTrue(state.hasFrameIndexProgress)
+        XCTAssertTrue(state.canInteractWithSeekSlider)
+    }
+
+    func testCanInteractWithSeekSliderWithTimestampsOnly() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 1
+        state.logEndTimestamp = 2
+        state.totalFrames = 0
+        XCTAssertTrue(state.hasValidTimelineRange)
+        XCTAssertFalse(state.hasFrameIndexProgress)
+        XCTAssertTrue(state.canInteractWithSeekSlider)
+    }
+
+    func testCanInteractWithSeekSliderFalseWithNoData() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 0
+        XCTAssertFalse(state.hasValidTimelineRange)
+        XCTAssertFalse(state.hasFrameIndexProgress)
+        XCTAssertFalse(state.canInteractWithSeekSlider)
+    }
+
+    func testCanInteractWithSeekSliderFalseWhenNotSeekable() throws {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replayNonSeekable)
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 100
+        XCTAssertFalse(state.canInteractWithSeekSlider)
+    }
+
+    func testSeekWithFrameProgressOnly() throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.playbackCommandClientOverride = fake
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 100
+
+        state.seek(to: 0.5)
+
+        // Should use frame-based seeking, target frame = 49
+        XCTAssertTrue(state.isSeekingInProgress)
+        XCTAssertEqual(state.replayProgress, 0.5, accuracy: 0.001)
+    }
+
+    func testSeekIgnoredWithNoTimestampsAndNoFrames() throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.playbackCommandClientOverride = fake
+        state.logStartTimestamp = 0
+        state.logEndTimestamp = 0
+        state.totalFrames = 0  // No frame progress either
+
+        state.seek(to: 0.5)
+
+        // Should be ignored — no valid range AND no frame progress
+        XCTAssertFalse(state.isSeekingInProgress)
+    }
+}
+
+// MARK: - PlaybackControlsDerivedState Seekbar Fallback Tests
+
+@available(macOS 15.0, *) final class SeekSliderDerivedStateTests: XCTestCase {
+
+    func testSeekSliderEnabledWithFrameProgressOnly() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: false, hasFrameIndexProgress: true,
+            currentFrameIndex: 10, totalFrames: 100)
+        XCTAssertFalse(ui.seekSliderDisabled, "seekbar should be enabled with frame progress")
+        XCTAssertTrue(ui.showSeekableSlider)
+    }
+
+    func testSeekSliderDisabledWithNoProgressData() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: false, hasFrameIndexProgress: false,
+            currentFrameIndex: 0, totalFrames: 0)
+        XCTAssertTrue(ui.seekSliderDisabled, "seekbar should be disabled without any progress data")
+    }
+
+    func testSeekSliderDisabledWhenBusy() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: true, mode: .replaySeekable, isPaused: true, playbackRate: 1.0, busy: true,
+            hasValidTimelineRange: true, hasFrameIndexProgress: true, currentFrameIndex: 10,
+            totalFrames: 100)
+        XCTAssertTrue(ui.seekSliderDisabled, "seekbar should be disabled when busy")
+    }
+
+    func testSeekSliderDisabledWhenDisconnected() throws {
+        let ui = PlaybackControlsDerivedState(
+            isConnected: false, mode: .replaySeekable, isPaused: true, playbackRate: 1.0,
+            busy: false, hasValidTimelineRange: true, hasFrameIndexProgress: true,
+            currentFrameIndex: 10, totalFrames: 100)
+        XCTAssertTrue(ui.seekSliderDisabled, "seekbar should be disabled when disconnected")
+    }
+}
+
+// MARK: - Track Persistence Tests
+
+/// Tests that tracks persist in allSeenTracks after leaving the current frame,
+/// preventing the regression where the track list lost entries when tracks
+/// went out of the sensor's field of view.
+@available(macOS 15.0, *) @MainActor final class TrackPersistenceTests: XCTestCase {
+
+    /// Helper: build a FrameBundle with specified tracks.
+    private func makeFrame(
+        frameID: UInt64 = 1, tracks: [Track], playbackInfo: PlaybackInfo? = nil
+    ) -> FrameBundle {
+        var frame = FrameBundle()
+        frame.frameID = frameID
+        frame.timestampNanos = Int64(frameID) * 100_000_000
+        frame.tracks = TrackSet(
+            frameID: frameID, timestampNanos: Int64(frameID) * 100_000_000, tracks: tracks,
+            trails: [])
+        frame.playbackInfo = playbackInfo
+        return frame
+    }
+
+    /// Helper: build a Track with sensible defaults.
+    private func makeTrack(
+        id: String, state: TrackState = .confirmed, speed: Float = 8.0,
+        firstSeen: Int64 = 1_000_000_000
+    ) -> Track {
+        Track(
+            trackID: id, sensorID: "sensor-1", state: state, hits: 10, misses: 0,
+            observationCount: 10, firstSeenNanos: firstSeen, lastSeenNanos: firstSeen + 5_000_000,
+            speedMps: speed, peakSpeedMps: speed + 1, classLabel: "car")
+    }
+
+    // MARK: - Core Persistence
+
+    func testTracksAccumulateAcrossFrames() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a", firstSeen: 1_000_000)
+        let trackB = makeTrack(id: "trk_b", firstSeen: 2_000_000)
+
+        // Frame 1: only track A
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+        XCTAssertNotNil(state.allSeenTracks["trk_a"])
+
+        // Frame 2: only track B (track A left the frame)
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackB]))
+        await Task.yield()
+        XCTAssertEqual(
+            state.allSeenTracks.count, 2,
+            "Track A must persist even though it is no longer in the current frame")
+        XCTAssertNotNil(state.allSeenTracks["trk_a"])
+        XCTAssertNotNil(state.allSeenTracks["trk_b"])
+    }
+
+    func testTrackPersistsAfterLeavingFrame() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        // Frame 1: track A present
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        // Frame 2: empty — track A left
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: []))
+        await Task.yield()
+        XCTAssertEqual(
+            state.allSeenTracks.count, 1,
+            "Track must remain in allSeenTracks after leaving sensor view")
+        XCTAssertNotNil(state.allSeenTracks["trk_a"])
+    }
+
+    func testAllSeenTracksUpdatedWithLatestSnapshot() async throws {
+        let state = AppState()
+        let trackV1 = makeTrack(id: "trk_a", speed: 5.0)
+        let trackV2 = makeTrack(id: "trk_a", speed: 12.0)
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackV1]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks["trk_a"]?.speedMps, 5.0)
+
+        // Frame 2: same track with updated speed
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackV2]))
+        await Task.yield()
+        XCTAssertEqual(
+            state.allSeenTracks["trk_a"]?.speedMps, 12.0,
+            "allSeenTracks should store the latest snapshot of each track")
+    }
+
+    // MARK: - In-View Tracking
+
+    func testInViewTrackIDsUpdatedPerFrame() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+        let trackB = makeTrack(id: "trk_b")
+
+        // Frame 1: both tracks visible
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA, trackB]))
+        await Task.yield()
+        XCTAssertEqual(state.inViewTrackIDs, ["trk_a", "trk_b"])
+
+        // Frame 2: only track B visible
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackB]))
+        await Task.yield()
+        XCTAssertEqual(
+            state.inViewTrackIDs, ["trk_b"],
+            "inViewTrackIDs should reflect only the current frame's tracks")
+        // But allSeenTracks still has both
+        XCTAssertEqual(state.allSeenTracks.count, 2)
+    }
+
+    func testInViewTrackIDsEmptyWhenNoTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.inViewTrackIDs.count, 1)
+
+        // Frame with no tracks
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: []))
+        await Task.yield()
+        XCTAssertTrue(
+            state.inViewTrackIDs.isEmpty, "inViewTrackIDs should be empty when frame has no tracks")
+    }
+
+    // MARK: - Reset Behaviour
+
+    func testClearAllResetsSeenTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        state.clearAll()
+        XCTAssertTrue(state.allSeenTracks.isEmpty, "clearAll() must reset allSeenTracks")
+        XCTAssertTrue(state.inViewTrackIDs.isEmpty, "clearAll() must reset inViewTrackIDs")
+    }
+
+    func testPrepareForNewReplayResetsSeenTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        state.prepareForNewReplay()
+        XCTAssertTrue(state.allSeenTracks.isEmpty, "prepareForNewReplay() must reset allSeenTracks")
+        XCTAssertTrue(
+            state.inViewTrackIDs.isEmpty, "prepareForNewReplay() must reset inViewTrackIDs")
+    }
+
+    func testDisconnectResetsSeenTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        state.disconnect()
+        XCTAssertTrue(state.allSeenTracks.isEmpty, "disconnect() must reset allSeenTracks")
+    }
+
+    // MARK: - Filtered Tracks Persistence
+
+    func testFilteredTracksPersistAfterLeavingFrame() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a", state: .confirmed)
+        let trackB = makeTrack(id: "trk_b", state: .confirmed)
+
+        // Set up a filter
+        state.filterMinHits = 5
+
+        // Frame 1: both tracks
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA, trackB]))
+        await Task.yield()
+
+        let filteredCount1 = state.filteredTracks.count
+        XCTAssertEqual(filteredCount1, 2, "Both tracks should pass filter")
+
+        // Frame 2: only track B (track A left)
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackB]))
+        await Task.yield()
+
+        let filteredTracksAfter = state.filteredTracks
+        let filteredIDs = Set(filteredTracksAfter.map { $0.trackID })
+        XCTAssertTrue(
+            filteredIDs.contains("trk_a"),
+            "Track A must persist in filteredTracks after leaving the frame")
+        XCTAssertTrue(filteredIDs.contains("trk_b"))
+    }
+
+    // MARK: - Multiple Tracks Lifecycle
+
+    func testManyTracksAccumulateAndPersist() async throws {
+        let state = AppState()
+
+        // Frame 1: tracks A, B, C
+        let trackA = makeTrack(id: "trk_a", firstSeen: 1_000_000)
+        let trackB = makeTrack(id: "trk_b", firstSeen: 2_000_000)
+        let trackC = makeTrack(id: "trk_c", firstSeen: 3_000_000)
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA, trackB, trackC]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 3)
+
+        // Frame 2: only track D (all previous left)
+        let trackD = makeTrack(id: "trk_d", firstSeen: 4_000_000)
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackD]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 4, "All 4 tracks must be accumulated")
+        XCTAssertEqual(state.inViewTrackIDs, ["trk_d"])
+
+        // Frame 3: tracks B and D return
+        state.onFrameReceived(makeFrame(frameID: 3, tracks: [trackB, trackD]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 4, "Count unchanged — no new tracks")
+        XCTAssertEqual(state.inViewTrackIDs, ["trk_b", "trk_d"])
     }
 }

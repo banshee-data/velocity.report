@@ -11,6 +11,8 @@
 
 import SwiftUI
 
+private let appLogger = DevLogger(category: "App")
+
 @main struct VelocityVisualiserApp: App {
     @StateObject private var appState = AppState()
 
@@ -25,6 +27,15 @@ import SwiftUI
             .contentSize
         ).defaultPosition(.center)
     }
+
+    init() {
+        // Disable the macOS default tab bar (removes "Show Tab Bar" from View menu)
+        NSWindow.allowsAutomaticWindowTabbing = false
+
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { _ in appLogger.info("Application terminating, goodbye 👋") }
+    }
 }
 
 // MARK: - Unified Commands (minimizes AttributeGraph cycles)
@@ -38,6 +49,10 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             Button("About VelocityReport.app") { openWindow(id: "about") }
         }
+
+        // Suppress the macOS default View menu items (tab bar, toolbar, sidebar)
+        CommandGroup(replacing: .toolbar) {}
+        CommandGroup(replacing: .sidebar) {}
 
         // Connection commands
         CommandGroup(replacing: .newItem) {
@@ -63,6 +78,14 @@ struct AppCommands: Commands {
             Button("Increase Rate") { appState.increaseRate() }.keyboardShortcut("]", modifiers: [])
 
             Button("Decrease Rate") { appState.decreaseRate() }.keyboardShortcut("[", modifiers: [])
+
+            Divider()
+
+            // Time display mode — explicit buttons because Picker in Commands
+            // doesn't reliably call its setter (AppCommands is not @ObservedObject).
+            Button("Elapsed Time") { appState.timeDisplayMode = .elapsed }
+            Button("Remaining Time") { appState.timeDisplayMode = .remaining }
+            Button("Frame Index") { appState.timeDisplayMode = .frames }
         }
 
         // Overlay commands - use direct bindings
@@ -91,25 +114,19 @@ struct AppCommands: Commands {
                 "Grid", isOn: Binding(get: { appState.showGrid }, set: { appState.showGrid = $0 })
             ).keyboardShortcut("g", modifiers: [])
 
-            Divider()
-
             Toggle(
-                "Debug Overlays",
-                isOn: Binding(get: { appState.showDebug }, set: { appState.showDebug = $0 })
-            ).keyboardShortcut("d", modifiers: [])
+                "Labels",
+                isOn: Binding(
+                    get: { appState.showTrackLabels }, set: { appState.showTrackLabels = $0 })
+            ).keyboardShortcut("l", modifiers: [])
         }
 
-        // Label commands
+        // Label commands — classification shortcuts at root level
         CommandMenu("Labels") {
-            Button("Label Selected Track") { appState.showLabelPanel = true }.keyboardShortcut(
-                "l", modifiers: [])
-
-            Divider()
-
             ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
                 index, entry in
-                Button("Classify: \(entry.name)") { appState.assignLabel(entry.name) }
-                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [])
+                Button(entry.name) { appState.assignLabel(entry.name) }.keyboardShortcut(
+                    KeyEquivalent(Character(String(index + 1))), modifiers: [])
             }
         }
     }

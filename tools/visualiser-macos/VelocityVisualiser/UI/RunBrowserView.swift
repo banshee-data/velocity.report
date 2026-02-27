@@ -6,24 +6,18 @@
 
 import SwiftUI
 
-// MARK: - String Extension for Truncation
-
-extension String {
-    /// Truncate string with ellipsis. E.g. "abc123def456".truncated(8) -> "abc123de..."
-    func truncated(_ maxLength: Int) -> String {
-        if count <= maxLength { return self }
-        return String(prefix(maxLength)) + "..."
-    }
-}
+private let runBrowserLogger = DevLogger(category: "RunBrowser")
 
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
     runID: String, appState: AppState, loadRunForReplay: @escaping @MainActor () async -> Bool
 ) async {
+    runBrowserLogger.debug("loadRunForReplayAndUpdateAppState() — runID=\(runID)")
     // Reset stale playback state before loading the new VRLOG.
     // This clears isPaused, replayFinished, progress, timestamps.
     appState.prepareForNewReplay()
 
     let success = await loadRunForReplay()
+    runBrowserLogger.debug("loadRunForReplay returned success=\(success)")
     if success {
         // Update app state to indicate we're in VRLOG replay mode
         appState.isLive = false
@@ -34,14 +28,20 @@ extension String {
         // the client while the server starts broadcasting, causing
         // frames_sent=0 (frames lost before the new stream connects).
         appState.restartGRPCStream()
+        runBrowserLogger.debug("gRPC stream restarted for run \(runID)")
     }
 }
 
 /// View for browsing and selecting analysis runs.
 @available(macOS 15.0, *) struct RunBrowserView: View {
-    @StateObject private var runBrowserState = RunBrowserState()
+    @StateObject private var runBrowserState: RunBrowserState
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+
+    init() { _runBrowserState = StateObject(wrappedValue: RunBrowserState()) }
+
+    /// Test-only initialiser accepting a pre-configured state.
+    init(state: RunBrowserState) { _runBrowserState = StateObject(wrappedValue: state) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -104,7 +104,6 @@ extension String {
                     Button("Stop Replay") {
                         Task {
                             await runBrowserState.stopReplay()
-                            // Restore app state to live mode
                             await MainActor.run {
                                 appState.isLive = true
                                 appState.currentRunID = nil
@@ -147,7 +146,8 @@ extension String {
             // Stats
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(run.totalTracks) tracks").font(.caption)
-                Text(formatDuration(run.durationSecs)).font(.caption).foregroundColor(.secondary)
+                Text(runRowFormatDuration(run.durationSecs)).font(.caption).foregroundColor(
+                    .secondary)
             }
 
             // VRLOG indicator
@@ -165,29 +165,33 @@ extension String {
             isSelected ? Color.accentColor.opacity(0.1) : Color.clear
         ).cornerRadius(4)
     }
+}
 
-    private func formatDuration(_ seconds: Double) -> String {
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        return String(format: "%d:%02d", mins, secs)
+/// Map a run status string to a display colour.
+/// Extracted from StatusDot for testability.
+func statusDotColour(_ status: String) -> Color {
+    switch status {
+    case "completed": return .green
+    case "running": return .orange
+    case "failed": return .red
+    default: return .gray
     }
+}
+
+/// Format a duration in seconds as M:SS.
+/// Extracted from RunRowView for testability.
+func runRowFormatDuration(_ seconds: Double) -> String {
+    let mins = Int(seconds) / 60
+    let secs = Int(seconds) % 60
+    return String(format: "%d:%02d", mins, secs)
 }
 
 /// Status indicator dot for run status.
 struct StatusDot: View {
     let status: String
 
-    private var color: Color {
-        switch status {
-        case "completed": return .green
-        case "running": return .orange
-        case "failed": return .red
-        default: return .gray
-        }
-    }
-
     var body: some View {
-        Circle().fill(color).frame(width: 8, height: 8).help("Status: \(status)")
+        Circle().fill(statusDotColour(status)).frame(width: 8, height: 8).help("Status: \(status)")
     }
 }
 

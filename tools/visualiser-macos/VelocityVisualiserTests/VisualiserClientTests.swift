@@ -194,6 +194,19 @@ struct RecordingStatusTests {
     func clientDidFinishStream(_ client: VisualiserClient) { didFinishStream = true }
 }
 
+/// A delegate that counts how many times each callback fires — used for
+/// verifying idempotency guards and deduplication logic.
+@available(macOS 15.0, *) final class CountingClientDelegate: VisualiserClientDelegate {
+    var connectCallCount = 0
+    var disconnectCallCount = 0
+    var finishStreamCallCount = 0
+
+    func clientDidConnect(_ client: VisualiserClient) { connectCallCount += 1 }
+    func clientDidDisconnect(_ client: VisualiserClient, error: Error?) { disconnectCallCount += 1 }
+    func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {}
+    func clientDidFinishStream(_ client: VisualiserClient) { finishStreamCallCount += 1 }
+}
+
 @available(macOS 15.0, *) final class VisualiserClientDelegateTests: XCTestCase {
 
     func testDelegateCanBeSet() throws {
@@ -270,6 +283,36 @@ final class VisualiserClientPlaybackStatusDecodeTests: XCTestCase {
         await client.notifyStreamTerminationOnMainActor(wasCancelled: true)
 
         XCTAssertFalse(delegate.didFinishStream)
+    }
+
+    // MARK: - Idempotency Guard (duplicate stream termination)
+
+    func testHandleStreamTerminationIdempotency() {
+        let client = VisualiserClient(address: "localhost:50051")
+        let delegate = CountingClientDelegate()
+        client.delegate = delegate
+
+        // First call should notify
+        client.handleStreamTermination(wasCancelled: false)
+        XCTAssertEqual(delegate.finishStreamCallCount, 1)
+
+        // Second call should be suppressed by _streamTerminationNotified guard
+        client.handleStreamTermination(wasCancelled: false)
+        XCTAssertEqual(delegate.finishStreamCallCount, 1, "second call should be idempotent")
+    }
+
+    func testHandleStreamTerminationCancelledThenNatural() {
+        let client = VisualiserClient(address: "localhost:50051")
+        let delegate = CountingClientDelegate()
+        client.delegate = delegate
+
+        // Cancelled call does not set the idempotency flag
+        client.handleStreamTermination(wasCancelled: true)
+        XCTAssertEqual(delegate.finishStreamCallCount, 0)
+
+        // Natural finish should still notify (cancelled path returns early before flag check)
+        client.handleStreamTermination(wasCancelled: false)
+        XCTAssertEqual(delegate.finishStreamCallCount, 1)
     }
 }
 

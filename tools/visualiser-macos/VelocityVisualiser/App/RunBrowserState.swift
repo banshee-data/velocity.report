@@ -7,7 +7,7 @@ import Combine
 import Foundation
 import os
 
-private let logger = Logger(subsystem: "report.velocity.visualiser", category: "RunBrowserState")
+private let logger = DevLogger(category: "RunBrowserState")
 
 /// State for browsing and selecting analysis runs.
 @available(macOS 15.0, *) @MainActor class RunBrowserState: ObservableObject {

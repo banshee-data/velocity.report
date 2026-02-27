@@ -13,7 +13,7 @@ import Foundation
 import UniformTypeIdentifiers
 import os
 
-private let logger = Logger(subsystem: "report.velocity.visualiser", category: "AppState")
+private let logger = DevLogger(category: "AppState")
 
 /// Global application state, observable by SwiftUI views.
 @available(macOS 15.0, *) @MainActor class AppState: ObservableObject {
@@ -42,6 +42,28 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         case setRate
     }
 
+    /// Display mode for the timeline clock in playback controls.
+    enum TimeDisplayMode: String, CaseIterable, Equatable {
+        case elapsed  // "0:12 / 1:30"
+        case remaining  // "-1:18 / 1:30"
+        case frames  // "F120/900"
+
+        /// Returns the next mode in the cycle.
+        var next: TimeDisplayMode {
+            let all = Self.allCases
+            let idx = all.firstIndex(of: self)!
+            return all[(idx + 1) % all.count]
+        }
+
+        var menuLabel: String {
+            switch self {
+            case .elapsed: return "Elapsed Time"
+            case .remaining: return "Remaining Time"
+            case .frames: return "Frame Index"
+            }
+        }
+    }
+
     // MARK: - Connection State
 
     @Published var isConnected: Bool = false
@@ -68,6 +90,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     @Published var currentFrameIndex: UInt64 = 0  // 0-based index in log (for stepping)
     @Published var totalFrames: UInt64 = 0
     @Published var isSeekable: Bool = false  // True when seek/step is supported (e.g. .vrlog replay)
+    @Published var timeDisplayMode: TimeDisplayMode = .elapsed  // Clock display mode
     @Published private(set) var inFlightPlaybackCommand: PlaybackCommandKind?
     @Published private(set) var commandStartedAt: Date?
     @Published private(set) var pendingSeekTargetTimestamp: Int64?
@@ -104,6 +127,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Provides immediate feedback in the track list before the server round-trips.
     @Published var userQualityFlags: [String: String] = [:]
 
+    /// Ordered track IDs as displayed in the track list.
+    /// Updated by TrackListView whenever the list re-sorts so that
+    /// up/down keyboard navigation follows the visible ordering.
+    var trackListOrder: [String] = []
     // MARK: - Frame Data
 
     // Note: currentFrame is NOT @Published to avoid SwiftUI update cycles
@@ -157,17 +184,21 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     /// Reset admitted tracks — called when filter parameters change.
-    func resetAdmittedTracks() {
+    func resetAdmittedTracks(reason: String = "unspecified") {
+        let previousCount = admittedTrackIDs.count
         admittedTrackIDs.removeAll()
         // Re-evaluate current frame immediately
         updateAdmittedTracks()
+        logger.debug(
+            "resetAdmittedTracks(reason: \(reason)) previous=\(previousCount) current=\(self.admittedTrackIDs.count) filtersActive=\(self.hasActiveFilters)"
+        )
     }
 
-    /// Tracks from the current frame that are admitted (passed filters at some point).
+    /// Tracks that have been admitted by filters, drawn from allSeenTracks
+    /// so they persist even after leaving the current frame.
     var filteredTracks: [Track] {
-        guard let trackSet = currentFrame?.tracks else { return [] }
-        guard hasActiveFilters else { return trackSet.tracks }
-        return trackSet.tracks.filter { admittedTrackIDs.contains($0.trackID) }
+        guard hasActiveFilters else { return Array(allSeenTracks.values) }
+        return allSeenTracks.values.filter { admittedTrackIDs.contains($0.trackID) }
     }
 
     /// Set of track IDs that pass the current filters.
@@ -195,6 +226,14 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     private(set) var trackPeakSpeed: [String: Float] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
+    /// Accumulated tracks across all frames in the current session/replay.
+    /// Tracks persist in this dictionary even after they leave the sensor's field of view,
+    /// ensuring the track list does not lose entries when a track goes out of frame.
+    /// Cleared on disconnect, new replay, or clearAll.
+    private(set) var allSeenTracks: [String: Track] = [:]
+    /// Track IDs present in the most recent frame (for in-view indicators).
+    private(set) var inViewTrackIDs: Set<String> = []
+
     // MARK: - Renderer
 
     /// Weak reference to the Metal renderer for direct frame delivery
@@ -209,7 +248,19 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Reproject track labels after camera movement (orbit/pan/zoom).
     func reprojectLabels() {
         guard showTrackLabels, let r = renderer, metalViewSize.width > 0 else { return }
-        trackLabels = r.projectTrackLabels(viewSize: metalViewSize)
+        trackLabels = r.projectTrackLabels(viewSize: metalViewSize).map { label in
+            var patched = label
+            patched.userLabel = userLabels[label.id] ?? ""
+            return patched
+        }
+    }
+
+    /// Update the cached Metal view size and skip redundant writes to reduce SwiftUI churn.
+    func updateMetalViewSize(_ newSize: CGSize, source: String) {
+        guard metalViewSize != newSize else { return }
+        let formattedSize = String(format: "%.1fx%.1f", newSize.width, newSize.height)
+        logger.debug("metalViewSize <- \(formattedSize) source=\(source)")
+        metalViewSize = newSize
     }
 
     // MARK: - Internal
@@ -272,7 +323,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     var canInteractWithSeekSlider: Bool {
-        displayPlaybackMode == .replaySeekable && hasValidTimelineRange && !playbackControlsBusy
+        displayPlaybackMode == .replaySeekable && (hasValidTimelineRange || hasFrameIndexProgress)
+            && !playbackControlsBusy
     }
 
     var shouldShowReplayMetadataUnavailable: Bool {
@@ -464,6 +516,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         currentFrame = nil
         resetPlaybackState(mode: .unknown)
         frameCount = 0
+        allSeenTracks = [:]
+        inViewTrackIDs = []
         logger.debug("Disconnected")
     }
 
@@ -479,6 +533,8 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         cacheStatus = ""
         trackHistory = [:]
         trackPeakSpeed = [:]
+        allSeenTracks = [:]
+        inViewTrackIDs = []
         renderer?.clearTransientData()
     }
 
@@ -490,11 +546,15 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Note: the gRPC stream restart is handled by the caller AFTER the HTTP
     /// POST so the server already has the VRLOG loaded when frames start.
     func prepareForNewReplay() {
-        logger.info("prepareForNewReplay() — resetting playback state")
+        logger.info(
+            "prepareForNewReplay() — resetting playback state (was: mode=\(self.displayPlaybackMode.rawValue) paused=\(self.isPaused) finished=\(self.replayFinished) frame=\(self.currentFrameIndex)/\(self.totalFrames))"
+        )
         resetPlaybackState(mode: .unknown)
         frameCount = 0
         trackHistory = [:]
         trackPeakSpeed = [:]
+        allSeenTracks = [:]
+        inViewTrackIDs = []
         userLabels = [:]
         userQualityFlags = [:]
     }
@@ -502,6 +562,9 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     /// Restart the gRPC frame stream.  Call after loading a new VRLOG on
     /// the server so the client reconnects and picks up the new replay.
     func restartGRPCStream() {
+        logger.debug(
+            "restartGRPCStream() called — generation will bump from \(self.playbackStateGeneration)"
+        )
         bumpPlaybackGeneration()
         if grpcClient != nil {
             clientDelegate = ClientDelegateAdapter(
@@ -512,16 +575,72 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     func togglePlayPause() {
-        guard displayPlaybackMode != .live else { return }
-        guard !playbackControlsBusy else { return }
-        guard let client = guardPlaybackCommand(kind: .togglePlayPause) else { return }
-        guard beginPlaybackCommand(.togglePlayPause) else { return }
+        logger.debug(
+            "togglePlayPause() called — mode=\(self.displayPlaybackMode.rawValue) paused=\(self.isPaused) finished=\(self.replayFinished) busy=\(self.playbackControlsBusy) frame=\(self.currentFrameIndex)/\(self.totalFrames)"
+        )
+        guard displayPlaybackMode != .live else {
+            logger.debug("togglePlayPause() ignored — live mode")
+            return
+        }
+        guard !playbackControlsBusy else {
+            logger.debug(
+                "togglePlayPause() ignored — playback controls busy (inFlight=\(String(describing: self.inFlightPlaybackCommand)))"
+            )
+            return
+        }
+
+        // When replay has finished, restart from the beginning.
+        // The server pauses at EOF (keeps the stream alive), so Seek+Play
+        // RPCs work on the existing connection.  Fall back to stream
+        // restart if the RPCs fail for any reason.
+        if replayFinished {
+            logger.info("Replay finished — restarting from beginning")
+            isPaused = false
+            replayFinished = false
+            replayProgress = 0
+            currentTimestamp = logStartTimestamp
+            currentFrameIndex = 0
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let client = self.playbackRPCClient {
+                    do {
+                        logger.debug("Restart: trying seek(to: \(self.logStartTimestamp)) + play()")
+                        let seekAck = try await client.seek(to: self.logStartTimestamp)
+                        self.applyPlaybackAck(seekAck)
+                        let playAck = try await client.play()
+                        self.applyPlaybackAck(playAck)
+                        logger.debug("Restart: seek+play succeeded")
+                    } catch {
+                        logger.warning(
+                            "Restart RPCs failed: \(error.localizedDescription) — falling back to stream restart"
+                        )
+                        self.restartGRPCStream()
+                    }
+                } else {
+                    logger.debug(
+                        "togglePlayPause() restart path — no playbackRPCClient, restarting stream")
+                    self.restartGRPCStream()
+                }
+            }
+            return
+        }
+
+        guard let client = guardPlaybackCommand(kind: .togglePlayPause) else {
+            logger.debug("togglePlayPause() — guardPlaybackCommand returned nil")
+            return
+        }
+        guard beginPlaybackCommand(.togglePlayPause) else {
+            logger.debug(
+                "togglePlayPause() — beginPlaybackCommand returned false (command already in flight)"
+            )
+            return
+        }
 
         let previousPaused = isPaused
         let newPaused = !isPaused
-        let wasFinished = replayFinished
         isPaused = newPaused  // Optimistic
-        logger.info("Toggle play/pause: newPaused=\(newPaused), wasFinished=\(wasFinished)")
+        logger.info("Toggle play/pause: newPaused=\(newPaused)")
 
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -530,23 +649,10 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 let ack: VisualiserPlaybackStatus
                 if newPaused {
                     ack = try await client.pause()
-                } else if wasFinished {
-                    // Replay ended — seek to the beginning then play
-                    logger.info("Replay finished — seeking to start before playing")
-                    let seekAck = try await client.seek(to: self.logStartTimestamp)
-                    self.applyPlaybackAck(seekAck)
-                    self.replayProgress = 0
-                    self.currentTimestamp = self.logStartTimestamp
-                    ack = try await client.play()
                 } else {
                     ack = try await client.play()
                 }
                 self.applyPlaybackAck(ack)
-                if !newPaused && wasFinished {
-                    logger.info("Restarting stream (replay was finished)")
-                    self.replayFinished = false
-                    self.restartGRPCStream()
-                }
             } catch {
                 self.isPaused = previousPaused
                 logger.error("Failed to toggle playback: \(error.localizedDescription)")
@@ -555,23 +661,54 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     func stepForward() {
-        guard displayPlaybackMode == .replaySeekable else { return }
-        guard currentFrameIndex + 1 < totalFrames else { return }  // Don't step past end
-        guard !playbackControlsBusy else { return }
+        logger.debug(
+            "stepForward() called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex)/\(self.totalFrames) busy=\(self.playbackControlsBusy)"
+        )
+        guard displayPlaybackMode == .replaySeekable else {
+            logger.debug(
+                "stepForward() ignored — not seekable (mode=\(self.displayPlaybackMode.rawValue))")
+            return
+        }
+        guard currentFrameIndex + 1 < totalFrames else {
+            logger.debug(
+                "stepForward() ignored — at end (frame \(self.currentFrameIndex + 1) >= total \(self.totalFrames))"
+            )
+            return
+        }
+        guard !playbackControlsBusy else {
+            logger.debug("stepForward() ignored — busy")
+            return
+        }
         let targetFrame = currentFrameIndex + 1
         runStepCommand(kind: .stepForward, targetFrame: targetFrame)
     }
 
     func stepBackward() {
-        guard displayPlaybackMode == .replaySeekable, currentFrameIndex > 0 else { return }
-        guard !playbackControlsBusy else { return }
+        logger.debug(
+            "stepBackward() called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex) busy=\(self.playbackControlsBusy)"
+        )
+        guard displayPlaybackMode == .replaySeekable, currentFrameIndex > 0 else {
+            logger.debug("stepBackward() ignored — not seekable or already at frame 0")
+            return
+        }
+        guard !playbackControlsBusy else {
+            logger.debug("stepBackward() ignored — busy")
+            return
+        }
         let targetFrame = currentFrameIndex - 1
         runStepCommand(kind: .stepBackward, targetFrame: targetFrame)
     }
 
     private func runStepCommand(kind: PlaybackCommandKind, targetFrame: UInt64) {
-        guard let client = guardPlaybackCommand(kind: kind, requiresSeekable: true) else { return }
-        guard beginPlaybackCommand(kind) else { return }
+        logger.debug("runStepCommand(\(String(describing: kind)), targetFrame=\(targetFrame))")
+        guard let client = guardPlaybackCommand(kind: kind, requiresSeekable: true) else {
+            logger.debug("runStepCommand() — guardPlaybackCommand returned nil")
+            return
+        }
+        guard beginPlaybackCommand(kind) else {
+            logger.debug("runStepCommand() — beginPlaybackCommand returned false")
+            return
+        }
 
         let wasFinished = replayFinished
         let previousPaused = isPaused
@@ -591,9 +728,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                 let seekAck = try await client.seek(toFrame: targetFrame)
                 self.applyPlaybackAck(seekAck)
                 if wasFinished {
-                    logger.info("Restarting stream after step (replay was finished)")
+                    // The server pauses at EOF and stays alive, so a seek is
+                    // enough — the streaming loop already picked up the seek
+                    // and delivered the stepped frame through the existing
+                    // stream.  No stream restart needed.
                     self.replayFinished = false
-                    self.restartGRPCStream()
                 }
             } catch {
                 self.isPaused = previousPaused
@@ -625,6 +764,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         runRateChange(to: 1.0, logPrefix: "Resetting")
     }
 
+    /// Cycles the clock display mode: elapsed → remaining → frames → elapsed.
+    func cycleTimeDisplayMode() {
+        timeDisplayMode = timeDisplayMode.next
+        logger.debug("Time display mode: \(self.timeDisplayMode.rawValue)")
+    }
+
     private func runRateChange(to newRate: Float, logPrefix: String) {
         guard !playbackControlsBusy else { return }
         guard let client = guardPlaybackCommand(kind: .setRate) else { return }
@@ -648,17 +793,37 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
     }
 
     func seek(to progress: Double) {
-        guard displayPlaybackMode == .replaySeekable else { return }
-        guard hasValidTimelineRange else { return }
+        logger.debug(
+            "seek(to: \(progress)) called — mode=\(self.displayPlaybackMode.rawValue) seekable=\(self.isSeekable) hasValidRange=\(self.hasValidTimelineRange) hasFrameProgress=\(self.hasFrameIndexProgress) busy=\(self.playbackControlsBusy) inFlight=\(String(describing: self.inFlightPlaybackCommand))"
+        )
+        guard displayPlaybackMode == .replaySeekable else {
+            logger.debug("seek() ignored — not seekable")
+            return
+        }
+        guard hasValidTimelineRange || hasFrameIndexProgress else {
+            logger.debug(
+                "seek() ignored — no valid timeline range or frame progress (start=\(self.logStartTimestamp) end=\(self.logEndTimestamp) totalFrames=\(self.totalFrames))"
+            )
+            return
+        }
 
         let clampedProgress = max(0, min(1, progress))
-        let targetTimestamp =
-            logStartTimestamp + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
+        let useTimestampSeek = hasValidTimelineRange
+        let targetTimestamp: Int64 =
+            useTimestampSeek
+            ? logStartTimestamp
+                + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
+            : currentTimestamp
+        let targetFrame: UInt64 =
+            !useTimestampSeek && totalFrames > 1
+            ? UInt64(Double(totalFrames - 1) * clampedProgress) : 0
+
         if inFlightPlaybackCommand == .seek {
             queuedSeekProgress = clampedProgress
             replayProgress = clampedProgress
-            currentTimestamp = targetTimestamp
-            pendingSeekTargetTimestamp = targetTimestamp
+            if useTimestampSeek { currentTimestamp = targetTimestamp }
+            pendingSeekTargetTimestamp = useTimestampSeek ? targetTimestamp : nil
+            pendingSeekTargetFrameIndex = !useTimestampSeek ? targetFrame : nil
             return
         }
         guard !playbackControlsBusy else { return }
@@ -670,27 +835,35 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         let wasFinished = replayFinished
 
         replayProgress = clampedProgress  // Optimistic
-        currentTimestamp = targetTimestamp  // Sync timer display with slider position
+        if useTimestampSeek { currentTimestamp = targetTimestamp }
         isSeekingInProgress = true
-        pendingSeekTargetTimestamp = targetTimestamp
+        pendingSeekTargetTimestamp = useTimestampSeek ? targetTimestamp : nil
+        pendingSeekTargetFrameIndex = !useTimestampSeek ? targetFrame : nil
         logger.info(
-            "Seeking to progress \(clampedProgress) (timestamp \(targetTimestamp)), wasFinished=\(wasFinished)"
+            "Seeking to progress \(clampedProgress) (timestamp \(targetTimestamp), frame \(targetFrame), useTimestamp=\(useTimestampSeek)), wasFinished=\(wasFinished)"
         )
 
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer { self.finishPlaybackCommand(.seek) }
             do {
-                let seekAck = try await client.seek(to: targetTimestamp)
+                let seekAck: VisualiserPlaybackStatus
+                if useTimestampSeek {
+                    seekAck = try await client.seek(to: targetTimestamp)
+                } else {
+                    seekAck = try await client.seek(toFrame: targetFrame)
+                }
                 self.applyPlaybackAck(seekAck)
 
                 if wasFinished {
-                    logger.info("Replay was finished - sending play and restarting stream")
+                    // The server pauses at EOF and stays alive, so a seek +
+                    // play is enough — the existing stream resumes from the
+                    // new position.  No stream restart needed.
+                    logger.info("Replay was finished — sending play after seek")
                     self.replayFinished = false
                     self.isPaused = false
                     let playAck = try await client.play()
                     self.applyPlaybackAck(playAck)
-                    self.restartGRPCStream()
                 }
             } catch {
                 self.replayProgress = previousProgress
@@ -700,11 +873,15 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             }
             self.isSeekingInProgress = false
             self.pendingSeekTargetTimestamp = nil
+            self.pendingSeekTargetFrameIndex = nil
         }
     }
 
     /// Called when slider editing state changes
     func setSliderEditing(_ editing: Bool) {
+        logger.debug(
+            "setSliderEditing(\(editing)) — busy=\(self.playbackControlsBusy) inFlight=\(String(describing: self.inFlightPlaybackCommand))"
+        )
         if playbackControlsBusy && inFlightPlaybackCommand == .seek { return }
         isSeekingInProgress = editing
     }
@@ -732,6 +909,39 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
             // Note: Actual replay connection would need a reconnect to replay server
             print("Selected recording: \(url.path)")
         }
+    }
+
+    // MARK: - Track Navigation
+
+    /// Select the next track in the track list order. Wraps to the first track at the end.
+    func selectNextTrack() {
+        let ids = trackListOrder
+        guard !ids.isEmpty else { return }
+        if let current = selectedTrackID, let idx = ids.firstIndex(of: current) {
+            let next = ids[(idx + 1) % ids.count]
+            selectTrackQuietly(next)
+        } else {
+            selectTrackQuietly(ids[0])
+        }
+    }
+
+    /// Select the previous track in the track list order. Wraps to the last track at the start.
+    func selectPreviousTrack() {
+        let ids = trackListOrder
+        guard !ids.isEmpty else { return }
+        if let current = selectedTrackID, let idx = ids.firstIndex(of: current) {
+            let prev = ids[(idx - 1 + ids.count) % ids.count]
+            selectTrackQuietly(prev)
+        } else {
+            selectTrackQuietly(ids.last!)
+        }
+    }
+
+    /// Select a track without popping open the side panel if it isn't already visible.
+    private func selectTrackQuietly(_ trackID: String) {
+        selectedTrackID = trackID
+        renderer?.selectedTrackID = trackID
+        reprojectLabels()
     }
 
     // MARK: - Labelling
@@ -890,6 +1100,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         // Set renderer flags before updateFrame so filtering is applied during rendering
         renderer?.showClusters = showClusters  // M4: Update cluster toggle
+        renderer?.showVelocity = showVelocity  // Velocity/heading arrows on tracks
         renderer?.showDebug = showDebug  // M6: Debug overlay master toggle
         renderer?.showGating = showGating  // M6: Gating ellipses
         renderer?.showAssociation = showAssociation  // M6: Association lines
@@ -909,7 +1120,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 
         let newLabels: [MetalRenderer.TrackScreenLabel]
         if showTrackLabels, let r = renderer, metalViewSize.width > 0 {
-            newLabels = r.projectTrackLabels(viewSize: metalViewSize)
+            newLabels = r.projectTrackLabels(viewSize: metalViewSize).map { label in
+                var patched = label
+                patched.userLabel = self.userLabels[label.id] ?? ""
+                return patched
+            }
         } else {
             newLabels = []
         }
@@ -937,9 +1152,6 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1
-
-        // Clear finished state since we're receiving frames again
-        if replayFinished { replayFinished = false }
 
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
@@ -975,7 +1187,11 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         // When seeking or stepping backwards, trim samples that are ahead of
         // the current frame to avoid invalid (non-monotonic) graphs.
         if let tracks = frame.tracks?.tracks {
+            // Update in-view set and accumulate all seen tracks
+            inViewTrackIDs = Set(tracks.map { $0.trackID })
             for track in tracks {
+                allSeenTracks[track.trackID] = track
+
                 let sample = TrackSample(
                     frameIndex: currentFrameIndex, speedMps: track.speedMps,
                     peakSpeedMps: track.peakSpeedMps, headingDeg: track.headingRad * 180 / .pi)
@@ -988,12 +1204,15 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
                     samples.removeFirst(samples.count - Self.maxHistorySamples)
                 }
                 trackHistory[track.trackID] = samples
-                // Update persistent peak (survives ring-buffer eviction)
+
+                // Update persistent peak speed (survives ring-buffer eviction)
                 let prevPeak = trackPeakSpeed[track.trackID] ?? 0
                 if track.peakSpeedMps > prevPeak {
                     trackPeakSpeed[track.trackID] = track.peakSpeedMps
                 }
             }
+        } else {
+            inViewTrackIDs = []
         }
 
         // M3.5: Update cache status
@@ -1018,9 +1237,42 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         } else if !isLive && !isSeekingInProgress && !hasValidTimelineRange && totalFrames > 1 {
             replayProgress = displayReplayProgress
         }
+
+        // Detect replay completion from frame metadata.  This is more reliable
+        // than waiting for gRPC stream termination, which may never propagate
+        // in grpc-swift-v2's NIO transport (the `for try await` iterator can
+        // hang indefinitely after the server closes the stream with OK status).
+        if let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
+            playbackInfo.totalFrames > 0,
+            playbackInfo.currentFrameIndex + 1 >= playbackInfo.totalFrames
+        {
+            if !replayFinished {
+                logger.info(
+                    "Replay complete: frame \(playbackInfo.currentFrameIndex + 1)/\(playbackInfo.totalFrames)"
+                )
+                replayFinished = true
+                isPaused = true
+                replayProgress = 1.0
+                if logEndTimestamp > 0 { currentTimestamp = logEndTimestamp }
+            }
+        } else if replayFinished, let playbackInfo = frame.playbackInfo, !playbackInfo.isLive,
+            playbackInfo.totalFrames > 0,
+            playbackInfo.currentFrameIndex + 1 < playbackInfo.totalFrames
+        {
+            // User seeked/stepped away from the last frame — clear finished
+            // state so that pressing play resumes from the new position
+            // instead of restarting from the beginning.
+            logger.info(
+                "Clearing replay-finished: now at frame \(playbackInfo.currentFrameIndex + 1)/\(playbackInfo.totalFrames)"
+            )
+            replayFinished = false
+        }
     }
 
     func handleStreamFinished(expectedGeneration: UInt64?) {
+        logger.debug(
+            "handleStreamFinished(gen=\(String(describing: expectedGeneration))) — currentGen=\(self.playbackStateGeneration) frame=\(self.currentFrameIndex)/\(self.totalFrames)"
+        )
         if let expectedGeneration, expectedGeneration != playbackStateGeneration {
             logger.debug("Ignoring stale finish callback for generation \(expectedGeneration)")
             return
@@ -1028,6 +1280,7 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
         replayFinished = true
         isPaused = true  // Pause at end
         replayProgress = 1.0
+        logger.debug("Stream finished — set replayFinished=true, isPaused=true, progress=1.0")
         // Sync currentTimestamp to logEndTimestamp so the time display matches the seek bar.
         if logEndTimestamp > 0 { currentTimestamp = logEndTimestamp }
     }
@@ -1070,11 +1323,19 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         delegateLogger.warning(
             "clientDidDisconnect called, error: \(error?.localizedDescription ?? "none")")
         Task { @MainActor [weak self] in
-            self?.appState?.isConnected = false
-            self?.appState?.currentFrame = nil
-            self?.appState?.resetPlaybackState(mode: .unknown)
-            // Only show simple error message, not verbose gRPC details
-            if error != nil { self?.appState?.connectionError = "Connection lost" }
+            guard let appState = self?.appState else { return }
+            appState.isConnected = false
+            appState.currentFrame = nil
+            // If the replay had already finished (handleStreamFinished ran
+            // synchronously before this Task), preserve the finished state
+            // instead of fully resetting — the user should see "play" to
+            // restart, not a broken disabled state.
+            if appState.replayFinished {
+                delegateLogger.info("Preserving replay-finished state after disconnect")
+            } else {
+                appState.resetPlaybackState(mode: .unknown)
+                if error != nil { appState.connectionError = "Connection lost" }
+            }
         }
     }
 
@@ -1089,7 +1350,11 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         print("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
         delegateLogger.info("clientDidFinishStream called - replay reached end")
         let generation = self.generation
-        Task { @MainActor [weak self] in
+        // Call synchronously — we are already on MainActor (called from
+        // @MainActor handleStreamTermination).  Using MainActor.assumeIsolated
+        // avoids queueing a Task that could be delayed behind hundreds of
+        // pending frame-delivery Tasks, or overridden by clientDidDisconnect.
+        MainActor.assumeIsolated { [weak self] in
             self?.appState?.handleStreamFinished(expectedGeneration: generation)
         }
     }

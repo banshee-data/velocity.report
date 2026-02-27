@@ -86,6 +86,25 @@
 		};
 /* End PBXFrameworksBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		63B1F0A12F3C100100000001 /* Generate BuildInfo */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Generate BuildInfo";
+			outputPaths = (
+				"$(SRCROOT)/VelocityVisualiser/App/BuildInfo.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Safety net: regenerate BuildInfo.swift stub if the committed\n# copy has been deleted.  Normally the checked-in stub is sufficient\n# for Xcode builds, and the Makefile/CI overwrites it with real\n# values before production builds.\nBUILD_INFO=\"${SRCROOT}/VelocityVisualiser/App/BuildInfo.swift\"\nif [ ! -f \"$BUILD_INFO\" ]; then\n  echo \"// BuildInfo.swift\" > \"$BUILD_INFO\"\n  echo \"// Stub defaults — overwritten by Makefile/CI with real values at build time.\" >> \"$BUILD_INFO\"\n  echo \"\" >> \"$BUILD_INFO\"\n  echo \"enum BuildInfo {\" >> \"$BUILD_INFO\"\n  echo \"    static let gitSHA = \\\"unknown\\\"\" >> \"$BUILD_INFO\"\n  echo \"    static let buildTime = \\\"unknown\\\"\" >> \"$BUILD_INFO\"\n  echo \"}\" >> \"$BUILD_INFO\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXGroup section */
 		6331CDBA2F31B06100A770C0 = {
 			isa = PBXGroup;
@@ -114,6 +133,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6331CDE92F31B06400A770C0 /* Build configuration list for PBXNativeTarget "VelocityVisualiser" */;
 			buildPhases = (
+				63B1F0A12F3C100100000001 /* Generate BuildInfo */,
 				6331CDBF2F31B06200A770C0 /* Sources */,
 				6331CDC02F31B06200A770C0 /* Frameworks */,
 				6331CDC12F31B06200A770C0 /* Resources */,

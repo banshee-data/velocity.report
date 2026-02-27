@@ -48,6 +48,7 @@
 		{ value: 'good', label: 'Good', shortcut: '' },
 		{ value: 'noisy', label: 'Noisy', shortcut: '' },
 		{ value: 'jitter_velocity', label: 'Jitter Velocity', shortcut: '' },
+		{ value: 'jitter_heading', label: 'Jitter Heading', shortcut: '' },
 		{ value: 'merge', label: 'Merge', shortcut: '' },
 		{ value: 'split', label: 'Split', shortcut: '' },
 		{ value: 'truncated', label: 'Truncated', shortcut: '' },
@@ -507,6 +508,7 @@
 		if (label === 'good') return 'bg-green-100 text-green-800';
 		if (label === 'noisy') return 'bg-orange-100 text-orange-800';
 		if (label === 'jitter_velocity') return 'bg-orange-100 text-orange-800';
+		if (label === 'jitter_heading') return 'bg-orange-100 text-orange-800';
 		if (label === 'merge') return 'bg-yellow-100 text-yellow-800';
 		if (label === 'split') return 'bg-yellow-100 text-yellow-800';
 		if (label === 'truncated') return 'bg-purple-100 text-purple-800';
@@ -648,6 +650,7 @@
 					<option value="good">Good</option>
 					<option value="noisy">Noisy</option>
 					<option value="jitter_velocity">Jitter Velocity</option>
+					<option value="jitter_heading">Jitter Heading</option>
 					<option value="merge">Merge</option>
 					<option value="split">Split</option>
 					<option value="truncated">Truncated</option>
