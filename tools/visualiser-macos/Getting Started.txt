@@ -1,7 +1,7 @@
-VELOCITY VISUALISER — Getting Started
+VelocityVisualiser.app — Getting Started
 ======================================
 
-VelocityVisualiser is a macOS app for viewing live LiDAR point clouds,
+VelocityVisualiser.app is a macOS app for viewing live LiDAR point clouds,
 tracks, and debug overlays from the velocity.report traffic monitoring
 pipeline.
 
@@ -9,8 +9,8 @@ pipeline.
 1. START THE SERVER
 -------------------
 
-On the machine running the LiDAR sensor (typically a Raspberry Pi),
-start the velocity-report service with gRPC streaming enabled:
+On the machine running the LiDAR sensor, start the
+velocity-report service with gRPC streaming enabled:
 
     velocity-report --grpc-enabled --grpc-addr 0.0.0.0:50051
 
@@ -54,7 +54,6 @@ For local development on your Mac you can use the test server:
   Toggle Debug Overlays    D
   Reset Camera             R
   Label Track              L
-  Export Labels            ⌘E
 
 
 5. LABELLING TRACKS
@@ -63,7 +62,6 @@ For local development on your Mac you can use the test server:
   1. Click a track in the 3D view to select it
   2. Press L to open the Label panel
   3. Assign a class (pedestrian, car, cyclist, etc.)
-  4. Export labels via File → Export Labels (⌘E)
 
 
 6. TROUBLESHOOTING
@@ -83,5 +81,5 @@ in the velocity.report repository.
 -------------------
 
   Repository    https://github.com/banshee-data/velocity.report
-  Docs          docs/lidar/visualiser/
   Build guide   tools/visualiser-macos/BUILDING.md
+  Docs          docs/lidar/visualiser/
