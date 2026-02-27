@@ -45,6 +45,10 @@ help:
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
 	@echo "  dmg-mac-release      Create release DMG (version only, no SHA)"
+	@echo "  sign-mac             Codesign .app with Developer ID (Hardened Runtime)"
+	@echo "  notarise-mac         Notarise DMG and staple ticket"
+	@echo "  verify-mac           Verify codesign, Gatekeeper, and staple"
+	@echo "  release-mac          Full release: build, sign, DMG, notarise, verify"
 	@echo "  clean-mac            Clean macOS visualiser build artifacts"
 	@echo "  run-mac              Run macOS visualiser (requires build-mac)"
 	@echo "  dev-mac              Kill, build (Debug), and run macOS visualiser"
@@ -584,7 +588,7 @@ VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
 VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/$(BUILD_TS_COMPACT)-VelocityVisualiser-$(DEV_VERSION)-$(GIT_SHA_SHORT).dmg
 VISUALISER_DMG_RELEASE = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg
 
-.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release
+.PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release sign-mac notarise-mac verify-mac release-mac
 
 build-mac:
 	@echo "Building macOS LiDAR visualiser..."
@@ -666,6 +670,31 @@ dmg-mac-release:
 	@echo "Creating DMG: $(notdir $(VISUALISER_DMG_RELEASE))..."
 	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG_RELEASE)" "VelocityVisualiser $(VERSION)" \
 		"$(VISUALISER_DIR)/Getting Started.txt"
+
+sign-mac:
+	@if [ ! -d "$(VISUALISER_APP)" ]; then \
+		echo "Error: VelocityVisualiser.app not found. Run 'make build-mac' first."; \
+		exit 1; \
+	fi
+	@scripts/codesign-notarise.sh sign "$(VISUALISER_APP)"
+
+notarise-mac:
+	@if [ ! -f "$(VISUALISER_DMG)" ]; then \
+		echo "Error: DMG not found at $(VISUALISER_DMG). Run 'make dmg-mac' first."; \
+		exit 1; \
+	fi
+	@scripts/codesign-notarise.sh notarise "$(VISUALISER_DMG)"
+
+verify-mac:
+	@scripts/codesign-notarise.sh verify "$(VISUALISER_APP)" "$(VISUALISER_DMG)"
+
+release-mac:
+	@$(MAKE) build-mac
+	@$(MAKE) sign-mac
+	@$(MAKE) dmg-mac-release
+	@$(MAKE) notarise-mac DMG_SUFFIX=
+	@$(MAKE) verify-mac DMG_SUFFIX=
+	@echo "✓ Release complete: $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg"
 
 # =============================================================================
 # PROTOBUF CODE GENERATION
