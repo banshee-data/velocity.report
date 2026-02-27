@@ -4,6 +4,7 @@ package visualiser
 
 import (
 	"log"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -237,6 +238,7 @@ func (a *FrameAdapter) adaptUnassociatedClusters(worldClusters []l4perception.Wo
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
+			SamplePoints:   flattenSamplePoints(wc.SamplePoints),
 		}
 
 		// Include OBB if computed
@@ -281,6 +283,7 @@ func (a *FrameAdapter) adaptClusters(worldClusters []l4perception.WorldCluster, 
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
+			SamplePoints:   flattenSamplePoints(wc.SamplePoints),
 		}
 	}
 
@@ -299,6 +302,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 	}
 
 	for _, t := range activeTracks {
+		median, p85, p98 := speedPercentiles(t.SpeedHistory())
 		track := Track{
 			TrackID:           t.TrackID,
 			SensorID:          t.SensorID,
@@ -322,8 +326,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
-			AvgSpeedMps:       t.AvgSpeedMps,
+			MedianSpeedMps:    median,
 			PeakSpeedMps:      t.PeakSpeedMps,
+			P85SpeedMps:       p85,
+			P98SpeedMps:       p98,
 			ObjectClass:       t.ObjectClass,
 			ClassConfidence:   t.ObjectConfidence,
 			TrackLengthMetres: t.TrackLengthMeters,
@@ -379,6 +385,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			alpha = 0
 		}
 
+		median, p85, p98 := speedPercentiles(t.SpeedHistory())
 		track := Track{
 			TrackID:           t.TrackID,
 			SensorID:          t.SensorID,
@@ -402,8 +409,10 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			BBoxHeadingRad:    t.OBBHeadingRad,
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
-			AvgSpeedMps:       t.AvgSpeedMps,
+			MedianSpeedMps:    median,
 			PeakSpeedMps:      t.PeakSpeedMps,
+			P85SpeedMps:       p85,
+			P98SpeedMps:       p98,
 			ObjectClass:       t.ObjectClass,
 			ClassConfidence:   t.ObjectConfidence,
 			TrackLengthMetres: t.TrackLengthMeters,
@@ -446,6 +455,41 @@ func adaptTrackState(state l5tracks.TrackState) TrackState {
 	default:
 		return TrackStateUnknown
 	}
+}
+
+// flattenSamplePoints converts [][3]float32 to a flat xyz-interleaved []float32
+// for proto serialization. Returns nil when the input is empty.
+func flattenSamplePoints(pts [][3]float32) []float32 {
+	if len(pts) == 0 {
+		return nil
+	}
+	flat := make([]float32, 0, len(pts)*3)
+	for _, p := range pts {
+		flat = append(flat, p[0], p[1], p[2])
+	}
+	return flat
+}
+
+// speedPercentiles computes median (p50), p85, and p98 from a speed history
+// slice using floor-index percentile selection. Returns (0, 0, 0) when the
+// slice is empty. The input slice is not modified.
+func speedPercentiles(speeds []float32) (median, p85, p98 float32) {
+	n := len(speeds)
+	if n == 0 {
+		return 0, 0, 0
+	}
+	sorted := make([]float32, n)
+	copy(sorted, speeds)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+
+	percentile := func(p float64) float32 {
+		idx := int(p / 100.0 * float64(n))
+		if idx >= n {
+			idx = n - 1
+		}
+		return sorted[idx]
+	}
+	return percentile(50), percentile(85), percentile(98)
 }
 
 // adaptDebugFrame converts debug.DebugFrame to visualiser.DebugOverlaySet.

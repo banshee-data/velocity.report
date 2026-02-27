@@ -1886,3 +1886,79 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackProcessing(t *testing.T) {
 		t.Error("expected to find a deleted track with fade-out alpha")
 	}
 }
+
+func TestSpeedPercentiles_Empty(t *testing.T) {
+	median, p85, p98 := speedPercentiles(nil)
+	if median != 0 || p85 != 0 || p98 != 0 {
+		t.Errorf("expected (0,0,0) for nil input, got (%f,%f,%f)", median, p85, p98)
+	}
+	median, p85, p98 = speedPercentiles([]float32{})
+	if median != 0 || p85 != 0 || p98 != 0 {
+		t.Errorf("expected (0,0,0) for empty input, got (%f,%f,%f)", median, p85, p98)
+	}
+}
+
+func TestSpeedPercentiles_Single(t *testing.T) {
+	median, p85, p98 := speedPercentiles([]float32{5.0})
+	if median != 5.0 || p85 != 5.0 || p98 != 5.0 {
+		t.Errorf("expected (5,5,5) for single value, got (%f,%f,%f)", median, p85, p98)
+	}
+}
+
+func TestSpeedPercentiles_Known(t *testing.T) {
+	// 100 values: 1.0, 2.0, ..., 100.0
+	speeds := make([]float32, 100)
+	for i := range speeds {
+		speeds[i] = float32(i + 1)
+	}
+	median, p85, p98 := speedPercentiles(speeds)
+	// Floor-index: p50 → index 50 → value 51
+	if median != 51 {
+		t.Errorf("median: got %f, want 51", median)
+	}
+	// p85 → index 85 → value 86
+	if p85 != 86 {
+		t.Errorf("p85: got %f, want 86", p85)
+	}
+	// p98 → index 98 → value 99
+	if p98 != 99 {
+		t.Errorf("p98: got %f, want 99", p98)
+	}
+}
+
+func TestSpeedPercentiles_DoesNotMutateInput(t *testing.T) {
+	speeds := []float32{5.0, 3.0, 1.0, 4.0, 2.0}
+	original := make([]float32, len(speeds))
+	copy(original, speeds)
+	speedPercentiles(speeds)
+	for i := range speeds {
+		if speeds[i] != original[i] {
+			t.Errorf("input mutated at index %d: got %f, want %f", i, speeds[i], original[i])
+		}
+	}
+}
+
+func TestFlattenSamplePoints_Empty(t *testing.T) {
+	result := flattenSamplePoints(nil)
+	if result != nil {
+		t.Errorf("expected nil for nil input, got %v", result)
+	}
+	result = flattenSamplePoints([][3]float32{})
+	if result != nil {
+		t.Errorf("expected nil for empty input, got %v", result)
+	}
+}
+
+func TestFlattenSamplePoints_Values(t *testing.T) {
+	input := [][3]float32{{1, 2, 3}, {4, 5, 6}}
+	result := flattenSamplePoints(input)
+	expected := []float32{1, 2, 3, 4, 5, 6}
+	if len(result) != len(expected) {
+		t.Fatalf("length: got %d, want %d", len(result), len(expected))
+	}
+	for i := range expected {
+		if result[i] != expected[i] {
+			t.Errorf("index %d: got %f, want %f", i, result[i], expected[i])
+		}
+	}
+}

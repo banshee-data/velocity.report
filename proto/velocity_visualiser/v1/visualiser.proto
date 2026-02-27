@@ -230,8 +230,12 @@ message Track {
   // Features
   float height_p95_max = 22;
   float intensity_mean_avg = 23;
-  float avg_speed_mps = 24;
+  float median_speed_mps = 24;
   float peak_speed_mps = 25;
+
+  // Speed summary percentiles (computed from speed history)
+  float p85_speed_mps = 36;
+  float p98_speed_mps = 37;
 
   // Classification
   ObjectClass object_class = 26;   // classifier output or user label

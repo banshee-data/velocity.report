@@ -612,7 +612,7 @@ func TestFrameBundleToProto_WithTracks(t *testing.T) {
 // TestFrameBundleToProto_TrackFieldCompleteness verifies that ALL Track
 // fields survive the model → proto conversion at the wire boundary.  This
 // regression test was added after discovering that 11 fields (PeakSpeedMps,
-// AvgSpeedMps, Hits, Confidence, Duration, Length, etc.) were silently
+// MedianSpeedMps, Hits, Confidence, Duration, Length, etc.) were silently
 // zero'd because the conversion in frameBundleToProto omitted them.
 func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 	frame := &FrameBundle{
@@ -651,7 +651,7 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 					BBoxHeadingRad:    0.1,
 					HeightP95Max:      1.65,
 					IntensityMeanAvg:  42.0,
-					AvgSpeedMps:       4.2,
+					MedianSpeedMps:    4.2,
 					PeakSpeedMps:      6.8,
 					ObjectClass:       "car",
 					ClassConfidence:   0.92,
@@ -736,8 +736,8 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 	if tr.HeadingRad != 0.06 {
 		t.Errorf("HeadingRad: got %f, want 0.06", tr.HeadingRad)
 	}
-	if tr.AvgSpeedMps != 4.2 {
-		t.Errorf("AvgSpeedMps: got %f, want 4.2", tr.AvgSpeedMps)
+	if tr.MedianSpeedMps != 4.2 {
+		t.Errorf("MedianSpeedMps: got %f, want 4.2", tr.MedianSpeedMps)
 	}
 	if tr.PeakSpeedMps != 6.8 {
 		t.Errorf("PeakSpeedMps: got %f, want 6.8", tr.PeakSpeedMps)
@@ -1154,9 +1154,9 @@ func TestServer_SetReplayMode(t *testing.T) {
 // Tests for frameBundleToProto with Debug overlays
 // =============================================================================
 
-// Note: frameBundleToProto doesn't currently convert debug overlays to proto.
-// These tests verify the actual behaviour (Debug is not serialised).
-func TestFrameBundleToProto_DebugNotConverted(t *testing.T) {
+// Note: frameBundleToProto converts debug overlays to proto when include_debug=true.
+// These tests verify the serialisation is correct.
+func TestFrameBundleToProto_DebugSerialized(t *testing.T) {
 	frame := &FrameBundle{
 		FrameID:        1,
 		TimestampNanos: time.Now().UnixNano(),
@@ -1171,18 +1171,54 @@ func TestFrameBundleToProto_DebugNotConverted(t *testing.T) {
 			AssociationCandidates: []AssociationCandidate{
 				{ClusterID: 1, TrackID: "track-001", Distance: 2.5, Accepted: true},
 			},
+			GatingEllipses: []GatingEllipse{
+				{TrackID: "track-001", CenterX: 10, CenterY: 20, SemiMajor: 3.0, SemiMinor: 1.5, RotationRad: 0.5},
+			},
+			Residuals: []InnovationResidual{
+				{TrackID: "track-001", PredictedX: 10, PredictedY: 20, MeasuredX: 10.1, MeasuredY: 20.2, ResidualMagnitude: 0.22},
+			},
+			Predictions: []StatePrediction{
+				{TrackID: "track-001", X: 11, Y: 21, VX: 1.0, VY: 0.5},
+			},
 		},
 	}
 
 	req := &pb.StreamRequest{
-		IncludeDebug: true, // Even when requested, Debug is not converted (not implemented)
+		IncludeDebug: true,
 	}
 
 	pbFrame := frameBundleToProto(frame, req)
 
-	// Debug conversion is not implemented - verify it's nil
-	if pbFrame.Debug != nil {
-		t.Error("expected nil Debug (not yet implemented in frameBundleToProto)")
+	if pbFrame.Debug == nil {
+		t.Fatal("expected non-nil Debug when IncludeDebug=true and debug data exists")
+	}
+	if len(pbFrame.Debug.AssociationCandidates) != 1 {
+		t.Fatalf("expected 1 association candidate, got %d", len(pbFrame.Debug.AssociationCandidates))
+	}
+	ac := pbFrame.Debug.AssociationCandidates[0]
+	if ac.ClusterId != 1 || ac.TrackId != "track-001" || ac.Distance != 2.5 || !ac.Accepted {
+		t.Errorf("association candidate mismatch: %+v", ac)
+	}
+	if len(pbFrame.Debug.GatingEllipses) != 1 {
+		t.Fatalf("expected 1 gating ellipse, got %d", len(pbFrame.Debug.GatingEllipses))
+	}
+	ge := pbFrame.Debug.GatingEllipses[0]
+	if ge.TrackId != "track-001" || ge.SemiMajor != 3.0 {
+		t.Errorf("gating ellipse mismatch: %+v", ge)
+	}
+	if len(pbFrame.Debug.Residuals) != 1 {
+		t.Fatalf("expected 1 residual, got %d", len(pbFrame.Debug.Residuals))
+	}
+	r := pbFrame.Debug.Residuals[0]
+	if r.TrackId != "track-001" || r.ResidualMagnitude != 0.22 {
+		t.Errorf("residual mismatch: %+v", r)
+	}
+	if len(pbFrame.Debug.Predictions) != 1 {
+		t.Fatalf("expected 1 prediction, got %d", len(pbFrame.Debug.Predictions))
+	}
+	p := pbFrame.Debug.Predictions[0]
+	if p.TrackId != "track-001" || p.X != 11 || p.Vx != 1.0 {
+		t.Errorf("prediction mismatch: %+v", p)
 	}
 }
 
@@ -1206,6 +1242,113 @@ func TestFrameBundleToProto_DebugFieldAbsent(t *testing.T) {
 
 	if pbFrame.Debug != nil {
 		t.Error("expected nil Debug when IncludeDebug=false")
+	}
+}
+
+func TestFrameBundleToProto_DebugOmittedWhenNilData(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Debug: nil, // No debug data from upstream
+	}
+
+	req := &pb.StreamRequest{
+		IncludeDebug: true, // Requested but no data
+	}
+
+	pbFrame := frameBundleToProto(frame, req)
+
+	if pbFrame.Debug != nil {
+		t.Error("expected nil Debug when frame has no debug data")
+	}
+}
+
+func TestFrameBundleToProto_ClusterFeatureFields(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Clusters: &ClusterSet{
+			FrameID:        1,
+			TimestampNanos: time.Now().UnixNano(),
+			Clusters: []Cluster{
+				{
+					ClusterID:     1,
+					HeightP95:     2.1,
+					IntensityMean: 45.5,
+					SamplePoints:  []float32{1, 2, 3, 4, 5, 6},
+					PointsCount:   100,
+				},
+			},
+		},
+	}
+
+	req := &pb.StreamRequest{IncludeClusters: true}
+	pbFrame := frameBundleToProto(frame, req)
+
+	c := pbFrame.Clusters.Clusters[0]
+	if c.HeightP95 != 2.1 {
+		t.Errorf("HeightP95: got %f, want 2.1", c.HeightP95)
+	}
+	if c.IntensityMean != 45.5 {
+		t.Errorf("IntensityMean: got %f, want 45.5", c.IntensityMean)
+	}
+	if len(c.SamplePoints) != 6 {
+		t.Errorf("SamplePoints length: got %d, want 6", len(c.SamplePoints))
+	}
+	if c.SamplePoints[0] != 1 || c.SamplePoints[5] != 6 {
+		t.Errorf("SamplePoints: got %v, want [1 2 3 4 5 6]", c.SamplePoints)
+	}
+}
+
+func TestFrameBundleToProto_SpeedSummaryFields(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Tracks: &TrackSet{
+			FrameID:        1,
+			TimestampNanos: time.Now().UnixNano(),
+			Tracks: []Track{
+				{
+					TrackID:        "trk-speed",
+					MedianSpeedMps: 5.5,
+					PeakSpeedMps:   9.0,
+					P85SpeedMps:    7.2,
+					P98SpeedMps:    8.8,
+				},
+			},
+		},
+	}
+
+	req := &pb.StreamRequest{IncludeTracks: true}
+	pbFrame := frameBundleToProto(frame, req)
+
+	tr := pbFrame.Tracks.Tracks[0]
+	if tr.MedianSpeedMps != 5.5 {
+		t.Errorf("MedianSpeedMps: got %f, want 5.5", tr.MedianSpeedMps)
+	}
+	if tr.PeakSpeedMps != 9.0 {
+		t.Errorf("PeakSpeedMps: got %f, want 9.0", tr.PeakSpeedMps)
+	}
+	if tr.P85SpeedMps != 7.2 {
+		t.Errorf("P85SpeedMps: got %f, want 7.2", tr.P85SpeedMps)
+	}
+	if tr.P98SpeedMps != 8.8 {
+		t.Errorf("P98SpeedMps: got %f, want 8.8", tr.P98SpeedMps)
 	}
 }
 

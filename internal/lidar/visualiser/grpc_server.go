@@ -67,7 +67,7 @@ func classifyOrConvert(t Track) pb.ObjectClass {
 		AvgLength:        t.BBoxLength,
 		AvgWidth:         t.BBoxWidth,
 		HeightP95:        t.HeightP95Max,
-		AvgSpeed:         t.AvgSpeedMps,
+		AvgSpeed:         t.MedianSpeedMps,
 		PeakSpeed:        t.PeakSpeedMps,
 		ObservationCount: t.ObservationCount,
 	}
@@ -522,16 +522,19 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		pbClusters := make([]*pb.Cluster, len(cs.Clusters))
 		for i, c := range cs.Clusters {
 			pbCluster := &pb.Cluster{
-				ClusterId:   c.ClusterID,
-				SensorId:    c.SensorID,
-				TimestampNs: c.TimestampNanos,
-				CentroidX:   c.CentroidX,
-				CentroidY:   c.CentroidY,
-				CentroidZ:   c.CentroidZ,
-				AabbLength:  c.AABBLength,
-				AabbWidth:   c.AABBWidth,
-				AabbHeight:  c.AABBHeight,
-				PointsCount: int32(c.PointsCount),
+				ClusterId:     c.ClusterID,
+				SensorId:      c.SensorID,
+				TimestampNs:   c.TimestampNanos,
+				CentroidX:     c.CentroidX,
+				CentroidY:     c.CentroidY,
+				CentroidZ:     c.CentroidZ,
+				AabbLength:    c.AABBLength,
+				AabbWidth:     c.AABBWidth,
+				AabbHeight:    c.AABBHeight,
+				PointsCount:   int32(c.PointsCount),
+				HeightP95:     c.HeightP95,
+				IntensityMean: c.IntensityMean,
+				SamplePoints:  c.SamplePoints,
 			}
 			if c.OBB != nil {
 				pbCluster.Obb = &pb.OrientedBoundingBox{
@@ -583,8 +586,10 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				BboxHeadingRad:    t.BBoxHeadingRad,
 				HeightP95Max:      t.HeightP95Max,
 				IntensityMeanAvg:  t.IntensityMeanAvg,
-				AvgSpeedMps:       t.AvgSpeedMps,
+				MedianSpeedMps:    t.MedianSpeedMps,
 				PeakSpeedMps:      t.PeakSpeedMps,
+				P85SpeedMps:       t.P85SpeedMps,
+				P98SpeedMps:       t.P98SpeedMps,
 				ObjectClass:       classifyOrConvert(t),
 				ClassConfidence:   t.ClassConfidence,
 				TrackLengthMetres: t.TrackLengthMetres,
@@ -620,6 +625,65 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			Tracks:      pbTracks,
 			Trails:      pbTrails,
 		}
+	}
+
+	// Include debug overlays if requested and available
+	if req.IncludeDebug && frame.Debug != nil {
+		dbg := frame.Debug
+		pbDebug := &pb.DebugOverlaySet{
+			FrameId:     dbg.FrameID,
+			TimestampNs: dbg.TimestampNanos,
+		}
+		if len(dbg.AssociationCandidates) > 0 {
+			pbDebug.AssociationCandidates = make([]*pb.AssociationCandidate, len(dbg.AssociationCandidates))
+			for i, ac := range dbg.AssociationCandidates {
+				pbDebug.AssociationCandidates[i] = &pb.AssociationCandidate{
+					ClusterId: ac.ClusterID,
+					TrackId:   ac.TrackID,
+					Distance:  ac.Distance,
+					Accepted:  ac.Accepted,
+				}
+			}
+		}
+		if len(dbg.GatingEllipses) > 0 {
+			pbDebug.GatingEllipses = make([]*pb.GatingEllipse, len(dbg.GatingEllipses))
+			for i, ge := range dbg.GatingEllipses {
+				pbDebug.GatingEllipses[i] = &pb.GatingEllipse{
+					TrackId:     ge.TrackID,
+					CenterX:     ge.CenterX,
+					CenterY:     ge.CenterY,
+					SemiMajor:   ge.SemiMajor,
+					SemiMinor:   ge.SemiMinor,
+					RotationRad: ge.RotationRad,
+				}
+			}
+		}
+		if len(dbg.Residuals) > 0 {
+			pbDebug.Residuals = make([]*pb.InnovationResidual, len(dbg.Residuals))
+			for i, r := range dbg.Residuals {
+				pbDebug.Residuals[i] = &pb.InnovationResidual{
+					TrackId:           r.TrackID,
+					PredictedX:        r.PredictedX,
+					PredictedY:        r.PredictedY,
+					MeasuredX:         r.MeasuredX,
+					MeasuredY:         r.MeasuredY,
+					ResidualMagnitude: r.ResidualMagnitude,
+				}
+			}
+		}
+		if len(dbg.Predictions) > 0 {
+			pbDebug.Predictions = make([]*pb.StatePrediction, len(dbg.Predictions))
+			for i, p := range dbg.Predictions {
+				pbDebug.Predictions[i] = &pb.StatePrediction{
+					TrackId: p.TrackID,
+					X:       p.X,
+					Y:       p.Y,
+					Vx:      p.VX,
+					Vy:      p.VY,
+				}
+			}
+		}
+		pbFrame.Debug = pbDebug
 	}
 
 	// Include playback info
