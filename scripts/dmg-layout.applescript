@@ -1,10 +1,10 @@
 -- dmg-layout.applescript -- Configure Finder icon layout for a drag-to-install DMG.
 --
 -- Usage:
---   osascript scripts/dmg-layout.applescript <volume-name> <app-name> [extra ...]
+--   osascript scripts/dmg-layout.applescript <volume-name> <app-name> <extra>
 --
 -- Positions the app icon at the left (x=100, y=70) and an Applications
--- alias at the right (x=300, y=70).  Any extra item is placed centred
+-- alias at the right (x=300, y=70).  The single extra item is placed centred
 -- on a second row at {200, 230}.
 --
 -- Window: 400 × 400 (bounds {100, 100, 500, 500}), icon view, 72 px icons,
@@ -20,7 +20,7 @@ on run argv
 		set diskFound to false
 		repeat with attempt from 1 to maxAttempts
 			try
-				set volRef to disk volumeName
+				set _ to disk volumeName
 				set diskFound to true
 				exit repeat
 			on error
