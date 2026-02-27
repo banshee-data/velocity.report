@@ -88,40 +88,20 @@ fi
 # Apply Finder view settings via AppleScript.
 # Window: 520 × 340, icon view, 72 px icons, no toolbar/sidebar.
 # Three columns: app at left, extras evenly spaced in centre, Applications at right.
-extra_positions=""
+extra_args=()
 n_extras=${#extra_names[@]}
 if [ "$n_extras" -gt 0 ]; then
   # Spread extras evenly between app (x=130) and Applications (x=390).
   gap=$(( 260 / (n_extras + 1) ))
   for i in "${!extra_names[@]}"; do
     x=$(( 130 + gap * (i + 1) ))
-    extra_positions="${extra_positions}
-    set position of item \"${extra_names[$i]}\" of container window to {${x}, 160}"
+    extra_args+=("${extra_names[$i]}:${x}")
   done
 fi
 
-osascript <<EOF
-tell application "Finder"
-  tell disk "$VOLUME_NAME"
-    open
-    set current view of container window to icon view
-    set toolbar visible of container window to false
-    set statusbar visible of container window to false
-    set bounds of container window to {100, 100, 620, 440}
-    set theViewOptions to icon view options of container window
-    set arrangement of theViewOptions to not arranged
-    set icon size of theViewOptions to 72
-    set position of item "$APP_NAME" of container window to {130, 160}
-    ${extra_positions}
-    set position of item "Applications" of container window to {390, 160}
-    close
-    open
-    update without registering applications
-    delay 2
-    close
-  end tell
-end tell
-EOF
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+osascript "$SCRIPT_DIR/dmg-layout.applescript" \
+  "$VOLUME_NAME" "$APP_NAME" ${extra_args[@]+"${extra_args[@]}"}
 
 # Ensure .DS_Store is flushed.
 sync
