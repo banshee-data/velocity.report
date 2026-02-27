@@ -104,7 +104,7 @@ struct AboutView: View {
                 Text("© 2025–2026 Banshee, Inc.")
                 HStack(spacing: 4) {
                     Text("Documentation licensed under")
-                    Link("CC BY 4.0", destination: ccURL)
+                    Link("CC BY 4.0", destination: ccURL).foregroundColor(.blue)
                 }
             }.font(.caption2).foregroundColor(.secondary).padding(.top, 4)
         }.padding(24).frame(width: 420).background {
