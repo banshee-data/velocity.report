@@ -11,7 +11,7 @@ struct AboutView: View {
     private let projectURL = URL(string: "https://velocity.report")!
     private let githubURL = URL(string: "https://github.com/banshee-data/velocity.report")!
     private let licenceURL = URL(string: "https://www.apache.org/licenses/LICENSE-2.0")!
-    private var gitSHADisplay: String { BuildInfo.gitSHA.truncated(7) }
+    private var gitSHADisplay: String { String(BuildInfo.gitSHA.prefix(7)) }
     private var githubRevisionURL: URL {
         URL(string: "https://github.com/banshee-data/velocity.report/tree/\(BuildInfo.gitSHA)")!
     }

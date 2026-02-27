@@ -212,11 +212,9 @@ enum VisualiserClientError: Error, LocalizedError {
                 if !Task.isCancelled {
                     print("[VisualiserClient] ❌ Stream error: \(error)")
                     logger.error("Stream error: \(error.localizedDescription)")
-                    // Notify finish BEFORE disconnect so replayFinished is set
-                    // when clientDidDisconnect checks it.  This handles the case
-                    // where grpc-swift throws on transport close even though the
-                    // replay reached EOF normally.
-                    await MainActor.run { self.handleStreamTermination(wasCancelled: false) }
+                    // Do not mark the stream as naturally finished here: this is
+                    // an error path. Let EOF/normal completion paths invoke
+                    // handleStreamTermination instead.
                     await MainActor.run { self.delegate?.clientDidDisconnect(self, error: error) }
                 }
             }
