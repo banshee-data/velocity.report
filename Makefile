@@ -237,7 +237,9 @@ MAC_CONFIG ?= Release
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
 VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVisualiser.app
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
-VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg
+GIT_SHA_SHORT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+DMG_SUFFIX ?= +$(GIT_SHA_SHORT)
+VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg
 
 .PHONY: build-mac clean-mac run-mac dev-mac dmg-mac
 
@@ -311,7 +313,7 @@ dev-mac:
 	@$(VISUALISER_DIR)/build/Build/Products/Debug/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser
 
 dmg-mac:
-	@echo "Creating versioned DMG: VelocityVisualiser-$(VERSION).dmg..."
+	@echo "Creating DMG: VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg..."
 	@if [ ! -d "$(VISUALISER_APP)" ]; then \
 		echo "Error: VelocityVisualiser.app not found. Run 'make build-mac' first."; \
 		exit 1; \
