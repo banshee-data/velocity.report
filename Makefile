@@ -238,7 +238,7 @@ MAC_CONFIG ?= Release
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
 VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVisualiser.app
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
-GIT_SHA_SHORT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
 DMG_SUFFIX ?= +$(GIT_SHA_SHORT)
 VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg
 
