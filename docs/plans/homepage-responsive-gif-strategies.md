@@ -132,7 +132,7 @@ content shift when the GIF starts loading.
 When the macOS window capture GIF is recorded, optimise before committing:
 
 1. **Capture dimensions:** Record at native resolution, then resize to max
-   1200px wide (sufficient for `max-w-3xl` at 2× retina)
+   1536px wide (`max-w-3xl` is 768 CSS px; 1536px covers 2× retina displays)
 2. **Frame rate:** 10–15 fps is sufficient for UI demos (reduces file size
    significantly vs 30 fps)
 3. **Colour palette:** Use `gifsicle --optimize=3 --colors=128` to reduce
@@ -143,7 +143,7 @@ When the macOS window capture GIF is recorded, optimise before committing:
 
 ```bash
 # Example optimisation pipeline
-gifsicle --optimize=3 --colors=128 --resize-width 1200 \
+gifsicle --optimize=3 --colors=128 --resize-width 1536 \
     input.gif -o visualiser-demo.gif
 ```
 
