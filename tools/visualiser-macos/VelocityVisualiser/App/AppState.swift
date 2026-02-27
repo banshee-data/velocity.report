@@ -516,6 +516,8 @@ private let logger = DevLogger(category: "AppState")
         currentFrame = nil
         resetPlaybackState(mode: .unknown)
         frameCount = 0
+        allSeenTracks = [:]
+        inViewTrackIDs = []
         logger.debug("Disconnected")
     }
 

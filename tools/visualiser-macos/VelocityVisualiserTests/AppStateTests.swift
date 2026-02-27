@@ -2575,3 +2575,228 @@ import XCTest
         XCTAssertTrue(ui.seekSliderDisabled, "seekbar should be disabled when disconnected")
     }
 }
+
+// MARK: - Track Persistence Tests
+
+/// Tests that tracks persist in allSeenTracks after leaving the current frame,
+/// preventing the regression where the track list lost entries when tracks
+/// went out of the sensor's field of view.
+@available(macOS 15.0, *) @MainActor final class TrackPersistenceTests: XCTestCase {
+
+    /// Helper: build a FrameBundle with specified tracks.
+    private func makeFrame(
+        frameID: UInt64 = 1, tracks: [Track], playbackInfo: PlaybackInfo? = nil
+    ) -> FrameBundle {
+        var frame = FrameBundle()
+        frame.frameID = frameID
+        frame.timestampNanos = Int64(frameID) * 100_000_000
+        frame.tracks = TrackSet(
+            frameID: frameID, timestampNanos: Int64(frameID) * 100_000_000, tracks: tracks,
+            trails: [])
+        frame.playbackInfo = playbackInfo
+        return frame
+    }
+
+    /// Helper: build a Track with sensible defaults.
+    private func makeTrack(
+        id: String, state: TrackState = .confirmed, speed: Float = 8.0,
+        firstSeen: Int64 = 1_000_000_000
+    ) -> Track {
+        Track(
+            trackID: id, sensorID: "sensor-1", state: state, hits: 10, misses: 0,
+            observationCount: 10, firstSeenNanos: firstSeen, lastSeenNanos: firstSeen + 5_000_000,
+            speedMps: speed, peakSpeedMps: speed + 1, classLabel: "car")
+    }
+
+    // MARK: - Core Persistence
+
+    func testTracksAccumulateAcrossFrames() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a", firstSeen: 1_000_000)
+        let trackB = makeTrack(id: "trk_b", firstSeen: 2_000_000)
+
+        // Frame 1: only track A
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+        XCTAssertNotNil(state.allSeenTracks["trk_a"])
+
+        // Frame 2: only track B (track A left the frame)
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackB]))
+        await Task.yield()
+        XCTAssertEqual(
+            state.allSeenTracks.count, 2,
+            "Track A must persist even though it is no longer in the current frame")
+        XCTAssertNotNil(state.allSeenTracks["trk_a"])
+        XCTAssertNotNil(state.allSeenTracks["trk_b"])
+    }
+
+    func testTrackPersistsAfterLeavingFrame() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        // Frame 1: track A present
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        // Frame 2: empty — track A left
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: []))
+        await Task.yield()
+        XCTAssertEqual(
+            state.allSeenTracks.count, 1,
+            "Track must remain in allSeenTracks after leaving sensor view")
+        XCTAssertNotNil(state.allSeenTracks["trk_a"])
+    }
+
+    func testAllSeenTracksUpdatedWithLatestSnapshot() async throws {
+        let state = AppState()
+        let trackV1 = makeTrack(id: "trk_a", speed: 5.0)
+        let trackV2 = makeTrack(id: "trk_a", speed: 12.0)
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackV1]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks["trk_a"]?.speedMps, 5.0)
+
+        // Frame 2: same track with updated speed
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackV2]))
+        await Task.yield()
+        XCTAssertEqual(
+            state.allSeenTracks["trk_a"]?.speedMps, 12.0,
+            "allSeenTracks should store the latest snapshot of each track")
+    }
+
+    // MARK: - In-View Tracking
+
+    func testInViewTrackIDsUpdatedPerFrame() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+        let trackB = makeTrack(id: "trk_b")
+
+        // Frame 1: both tracks visible
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA, trackB]))
+        await Task.yield()
+        XCTAssertEqual(state.inViewTrackIDs, ["trk_a", "trk_b"])
+
+        // Frame 2: only track B visible
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackB]))
+        await Task.yield()
+        XCTAssertEqual(
+            state.inViewTrackIDs, ["trk_b"],
+            "inViewTrackIDs should reflect only the current frame's tracks")
+        // But allSeenTracks still has both
+        XCTAssertEqual(state.allSeenTracks.count, 2)
+    }
+
+    func testInViewTrackIDsEmptyWhenNoTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.inViewTrackIDs.count, 1)
+
+        // Frame with no tracks
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: []))
+        await Task.yield()
+        XCTAssertTrue(
+            state.inViewTrackIDs.isEmpty, "inViewTrackIDs should be empty when frame has no tracks")
+    }
+
+    // MARK: - Reset Behaviour
+
+    func testClearAllResetsSeenTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        state.clearAll()
+        XCTAssertTrue(state.allSeenTracks.isEmpty, "clearAll() must reset allSeenTracks")
+        XCTAssertTrue(state.inViewTrackIDs.isEmpty, "clearAll() must reset inViewTrackIDs")
+    }
+
+    func testPrepareForNewReplayResetsSeenTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        state.prepareForNewReplay()
+        XCTAssertTrue(state.allSeenTracks.isEmpty, "prepareForNewReplay() must reset allSeenTracks")
+        XCTAssertTrue(
+            state.inViewTrackIDs.isEmpty, "prepareForNewReplay() must reset inViewTrackIDs")
+    }
+
+    func testDisconnectResetsSeenTracks() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a")
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 1)
+
+        state.disconnect()
+        XCTAssertTrue(state.allSeenTracks.isEmpty, "disconnect() must reset allSeenTracks")
+    }
+
+    // MARK: - Filtered Tracks Persistence
+
+    func testFilteredTracksPersistAfterLeavingFrame() async throws {
+        let state = AppState()
+        let trackA = makeTrack(id: "trk_a", state: .confirmed)
+        let trackB = makeTrack(id: "trk_b", state: .confirmed)
+
+        // Set up a filter
+        state.filterMinHits = 5
+
+        // Frame 1: both tracks
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA, trackB]))
+        await Task.yield()
+
+        let filteredCount1 = state.filteredTracks.count
+        XCTAssertEqual(filteredCount1, 2, "Both tracks should pass filter")
+
+        // Frame 2: only track B (track A left)
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackB]))
+        await Task.yield()
+
+        let filteredTracksAfter = state.filteredTracks
+        let filteredIDs = Set(filteredTracksAfter.map { $0.trackID })
+        XCTAssertTrue(
+            filteredIDs.contains("trk_a"),
+            "Track A must persist in filteredTracks after leaving the frame")
+        XCTAssertTrue(filteredIDs.contains("trk_b"))
+    }
+
+    // MARK: - Multiple Tracks Lifecycle
+
+    func testManyTracksAccumulateAndPersist() async throws {
+        let state = AppState()
+
+        // Frame 1: tracks A, B, C
+        let trackA = makeTrack(id: "trk_a", firstSeen: 1_000_000)
+        let trackB = makeTrack(id: "trk_b", firstSeen: 2_000_000)
+        let trackC = makeTrack(id: "trk_c", firstSeen: 3_000_000)
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA, trackB, trackC]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 3)
+
+        // Frame 2: only track D (all previous left)
+        let trackD = makeTrack(id: "trk_d", firstSeen: 4_000_000)
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [trackD]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 4, "All 4 tracks must be accumulated")
+        XCTAssertEqual(state.inViewTrackIDs, ["trk_d"])
+
+        // Frame 3: tracks B and D return
+        state.onFrameReceived(makeFrame(frameID: 3, tracks: [trackB, trackD]))
+        await Task.yield()
+        XCTAssertEqual(state.allSeenTracks.count, 4, "Count unchanged — no new tracks")
+        XCTAssertEqual(state.inViewTrackIDs, ["trk_b", "trk_d"])
+    }
+}
