@@ -107,9 +107,9 @@ rm -rf "$mount_point/.fseventsd"
 sleep 2
 
 # Apply Finder view settings via AppleScript.
-# Window: 520 × 400, icon view, 72 px icons, no toolbar/sidebar.
-# Row 1 (y=130): app icon at left, Applications alias at right.
-# Row 2 (y=260): extras centred below.
+# Window: 400 × 400, icon view, 72 px icons, no toolbar/sidebar.
+# Row 1 (y=70): app icon at left (x=100), Applications alias at right (x=300).
+# Row 2 (y=230): Getting Started guide centred (x=200).
 extra_args=()
 for name in "${extra_names[@]+"${extra_names[@]}"}"; do
   extra_args+=("$name")
