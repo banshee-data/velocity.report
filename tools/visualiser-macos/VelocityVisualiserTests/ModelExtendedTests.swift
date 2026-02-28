@@ -45,7 +45,7 @@ struct TrackExtendedTests {
         var track = Track()
         track.heightP95Max = 1.8
         track.intensityMeanAvg = 120.0
-        track.avgSpeedMps = 8.5
+        track.medianSpeedMps = 8.5
         track.peakSpeedMps = 15.0
         track.trackLengthMetres = 125.0
         track.trackDurationSecs = 30.0
@@ -54,7 +54,7 @@ struct TrackExtendedTests {
 
         #expect(track.heightP95Max == 1.8)
         #expect(track.intensityMeanAvg == 120.0)
-        #expect(track.avgSpeedMps == 8.5)
+        #expect(track.medianSpeedMps == 8.5)
         #expect(track.peakSpeedMps == 15.0)
         #expect(track.trackLengthMetres == 125.0)
         #expect(track.trackDurationSecs == 30.0)

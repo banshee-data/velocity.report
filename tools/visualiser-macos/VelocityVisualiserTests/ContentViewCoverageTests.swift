@@ -42,7 +42,7 @@ private func makeTrack(
         observationCount: 48, firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000, x: x,
         y: y, z: z, vx: 8.0, vy: 0.5, vz: 0.0, speedMps: speed, headingRad: headingRad,
         covariance4x4: [], bboxLength: bboxLength, bboxWidth: bboxWidth, bboxHeight: bboxHeight,
-        bboxHeadingRad: bboxHeading, heightP95Max: 1.6, intensityMeanAvg: 50.0, avgSpeedMps: 7.5,
+        bboxHeadingRad: bboxHeading, heightP95Max: 1.6, intensityMeanAvg: 50.0, medianSpeedMps: 7.5,
         peakSpeedMps: peakSpeed, classLabel: classLabel, classConfidence: 0.95,
         trackLengthMetres: lengthMetres, trackDurationSecs: durationSecs, occlusionCount: 0,
         confidence: confidence, occlusionState: .none, motionModel: .cv, alpha: 1.0)

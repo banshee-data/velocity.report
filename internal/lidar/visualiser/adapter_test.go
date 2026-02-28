@@ -1926,14 +1926,13 @@ func TestSpeedPercentiles_Known(t *testing.T) {
 	}
 }
 
-func TestSpeedPercentiles_DoesNotMutateInput(t *testing.T) {
+func TestSpeedPercentiles_SortsInPlace(t *testing.T) {
 	speeds := []float32{5.0, 3.0, 1.0, 4.0, 2.0}
-	original := make([]float32, len(speeds))
-	copy(original, speeds)
 	speedPercentiles(speeds)
-	for i := range speeds {
-		if speeds[i] != original[i] {
-			t.Errorf("input mutated at index %d: got %f, want %f", i, speeds[i], original[i])
+	// After in-place sort, slice should be sorted ascending.
+	for i := 1; i < len(speeds); i++ {
+		if speeds[i] < speeds[i-1] {
+			t.Errorf("slice not sorted at index %d: %f < %f", i, speeds[i], speeds[i-1])
 		}
 	}
 }

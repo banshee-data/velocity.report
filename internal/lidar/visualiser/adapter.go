@@ -326,6 +326,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
+			AvgSpeedMps:       t.AvgSpeedMps,
 			MedianSpeedMps:    median,
 			PeakSpeedMps:      t.PeakSpeedMps,
 			P85SpeedMps:       p85,
@@ -409,6 +410,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			BBoxHeadingRad:    t.OBBHeadingRad,
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
+			AvgSpeedMps:       t.AvgSpeedMps,
 			MedianSpeedMps:    median,
 			PeakSpeedMps:      t.PeakSpeedMps,
 			P85SpeedMps:       p85,
@@ -458,7 +460,7 @@ func adaptTrackState(state l5tracks.TrackState) TrackState {
 }
 
 // flattenSamplePoints converts [][3]float32 to a flat xyz-interleaved []float32
-// for proto serialization. Returns nil when the input is empty.
+// for proto serialisation. Returns nil when the input is empty.
 func flattenSamplePoints(pts [][3]float32) []float32 {
 	if len(pts) == 0 {
 		return nil
@@ -472,15 +474,14 @@ func flattenSamplePoints(pts [][3]float32) []float32 {
 
 // speedPercentiles computes median (p50), p85, and p98 from a speed history
 // slice using floor-index percentile selection. Returns (0, 0, 0) when the
-// slice is empty. The input slice is not modified.
+// slice is empty. The input slice is sorted in-place — callers that need
+// the original order must pass a copy.
 func speedPercentiles(speeds []float32) (median, p85, p98 float32) {
 	n := len(speeds)
 	if n == 0 {
 		return 0, 0, 0
 	}
-	sorted := make([]float32, n)
-	copy(sorted, speeds)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	sort.Slice(speeds, func(i, j int) bool { return speeds[i] < speeds[j] })
 
 	percentile := func(p float64) float32 {
 		// int() truncation is equivalent to floor for non-negative values.
@@ -488,7 +489,7 @@ func speedPercentiles(speeds []float32) (median, p85, p98 float32) {
 		if idx >= n {
 			idx = n - 1
 		}
-		return sorted[idx]
+		return speeds[idx]
 	}
 	return percentile(50), percentile(85), percentile(98)
 }
