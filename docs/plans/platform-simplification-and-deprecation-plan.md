@@ -185,7 +185,7 @@ The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-in
 
 Removal of `cmd/deploy`, its associated Make targets, and legacy deployment documentation is gated on **all** of the following conditions being met:
 
-1. **#210 image pipeline operational:** A working `make build-image` (or equivalent) target produces a bootable Raspberry Pi image with `velocity-report` binary, systemd service, database, and LaTeX pre-installed.
+1. **#210 image pipeline operational:** A working `make build-image` (or equivalent) target produces a bootable Raspberry Pi image with `velocity-report` binary, systemd service, database, and LaTeX pre-installed. The image must boot on a Raspberry Pi 4 and pass an integration check: service starts, API responds on `:8080`, and database is accessible.
 2. **Packaging path confirmed:** At least one successful end-to-end deployment has been performed using the image pipeline (flash → boot → service running → API responding).
 3. **Migration period elapsed:** At least one minor release (e.g. v0.7.0) has shipped with both the image pipeline and the deprecated deploy tool available, giving users time to migrate.
 4. **No active deploy-tool users:** No known deployments rely exclusively on `cmd/deploy` for upgrades (confirmed via release notes or user communication).
@@ -211,7 +211,7 @@ The following breaking changes are planned for the v0.5.0 release. They are docu
 
 ### 2. Deployment surface deprecated
 
-- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.7.0+.
+- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.7.0 or later, once the retirement gate is satisfied.
 - **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see stderr warnings. Scripts that parse stdout should be unaffected; warnings go to stderr.
 - **Migration:** Begin planning migration to the image pipeline (#210) when available.
 
