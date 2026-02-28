@@ -483,6 +483,7 @@ func speedPercentiles(speeds []float32) (median, p85, p98 float32) {
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
 
 	percentile := func(p float64) float32 {
+		// int() truncation is equivalent to floor for non-negative values.
 		idx := int(p / 100.0 * float64(n))
 		if idx >= n {
 			idx = n - 1
