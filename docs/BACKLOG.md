@@ -14,6 +14,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 - Visualiser performance and scene health metrics — timeline and VR log metrics — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardization-plan.md) `M`
+- Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts
 
 ## v0.6 (Deployment & Packaging)
 
@@ -36,8 +37,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Track labelling Phase 9 UI (Swift, D-07) — seekable replay, Swift-native labelling — [design doc](plans/lidar-track-labeling-auto-aware-tuning-plan.md) `M`
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](ui/design-review-and-improvement.md) `S`
 - Widescreen content containment (D-13) — add vr-page max-width centring at ≥3000px — [design doc §2.2](ui/design-review-and-improvement.md) `S`
-- macOS palette constants — prepare shared palette definition when metric charts added to visualiser — [design doc §1.2](ui/design-review-and-improvement.md)
-- LayerChart policy in LiDAR routes — enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps — [design doc §4.2](ui/design-review-and-improvement.md)
+- macOS palette constants — prepare shared palette definition when metric charts added to visualiser — [design doc §1.2](ui/design-review-and-improvement.md) `S`
+- LayerChart policy in LiDAR routes — enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps — [design doc §4.2](ui/design-review-and-improvement.md) `S`
 - Platform simplification complete — all deprecated surfaces retired, migration complete — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 
 ## v0.8 (Radar Polish & Automation)
@@ -61,8 +62,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
 - Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
 - Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
-- Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md)
-- E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md)
+- Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
+- E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md) `M`
 
 ## v2.0 (Advanced Perception & Connected)
 
@@ -78,13 +79,13 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v∞.0 (Deferred, waybacklog)
 
 - (#7) Live SQL query view — browser-based SQL query tool; low priority while TailSQL suffices `S`
-- (#9) LAN authentication — add auth layer if deployment moves beyond private LAN — [design doc §10.1](ui/design-review-and-improvement.md)
-- (#322) Motion capture architecture — moving sensor support — [design doc](plans/lidar-motion-capture-architecture-plan.md)
-- (#326) AV dataset integration — 28-class taxonomy, Parquet ingestion — [design doc](plans/lidar-av-lidar-integration-plan.md)
-- (#327) AV range image format — dual-return support — [design doc](lidar/architecture/av-range-image-format-alignment.md)
-- Static pose alignment — 7-DOF tracking — [design doc](plans/lidar-static-pose-alignment-plan.md)
+- (#9) LAN authentication — add auth layer if deployment moves beyond private LAN — [design doc §10.1](ui/design-review-and-improvement.md) `M`
+- (#322) Motion capture architecture — moving sensor support — [design doc](plans/lidar-motion-capture-architecture-plan.md) `XL`
+- (#326) AV dataset integration — 28-class taxonomy, Parquet ingestion — [design doc](plans/lidar-av-lidar-integration-plan.md) `XL`
+- (#327) AV range image format — dual-return support — [design doc](lidar/architecture/av-range-image-format-alignment.md) `L`
+- Static pose alignment — 7-DOF tracking — [design doc](plans/lidar-static-pose-alignment-plan.md) `L`
 - Online geometry-prior service — opt-in community-maintained geometry priors (local-only remains default) — [design doc](lidar/architecture/vector-scene-map.md) `L`
-- Coverage thresholds — raise codecov thresholds to meaningful levels after coverage improves — [design doc §7.5](ui/design-review-and-improvement.md)
+- Coverage thresholds — raise codecov thresholds to meaningful levels after coverage improves — [design doc §7.5](ui/design-review-and-improvement.md) `S`
 - Multi-location aggregate dashboard — cross-site analytics and comparative reporting `L`
 - ECharts palette cross-reference — document palette alignment requirement for Phase 3 frontend consolidation migration — [design doc §3.3](ui/design-review-and-improvement.md) `S`
 

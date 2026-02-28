@@ -51,21 +51,20 @@ struct AboutView: View {
                     body:
                         "velocity.report is a citizen radar system that helps communities measure "
                         + "vehicle speeds using affordable, privacy-preserving sensors. No cameras, "
-                        + "no licence plates — just velocity measurements that respect privacy.")
+                        + "no licence plates, just velocity measurements that respect privacy.")
 
                 aboutSection(
                     title: "How It Works",
                     body:
                         "This visualiser connects to a velocity.report backend server via gRPC to "
                         + "display real-time LiDAR point clouds, tracked objects, and velocity data. "
-                        + "A running server instance (on a Raspberry Pi or local machine) is required."
-                )
+                        + "A running server instance on a local machine is required.")
 
                 aboutSection(
                     title: "Reports & Evidence",
                     body:
                         "Collected speed data is used to generate PDF reports with speed distributions, "
-                        + "percentile analysis, and hourly heatmaps — evidence that neighbourhood "
+                        + "percentile analysis, and hourly heatmaps; evidence that neighbourhood "
                         + "change-makers can present to councils to advocate for safer streets.")
             }.padding(.horizontal, 16)
 
@@ -99,9 +98,8 @@ struct AboutView: View {
                 }
             }
 
-            Text("© 2025–2026 Banshee Data. All rights reserved.").font(.caption2).foregroundColor(
-                .secondary
-            ).padding(.top, 4)
+            Text("© 2025–2026 Banshee, Inc.").font(.caption2).foregroundColor(.secondary).padding(
+                .top, 4)
         }.padding(24).frame(width: 420).background {
             Button("Close About Panel") { closeAboutWindow() }.keyboardShortcut(.cancelAction)
                 .opacity(0).frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(

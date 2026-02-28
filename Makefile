@@ -314,11 +314,8 @@ dev-mac:
 	@$(VISUALISER_DIR)/build/Build/Products/Debug/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser
 
 dmg-mac:
+	@$(MAKE) build-mac
 	@echo "Creating DMG: VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg..."
-	@if [ ! -d "$(VISUALISER_APP)" ]; then \
-		echo "Error: VelocityVisualiser.app not found. Run 'make build-mac' first."; \
-		exit 1; \
-	fi
 	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(VERSION)$(DMG_SUFFIX)" \
 		"$(VISUALISER_DIR)/Getting Started.txt"
 
