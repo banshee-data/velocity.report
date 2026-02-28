@@ -1,6 +1,6 @@
 # Simplification and Deprecation Plan
 
-## Status: Draft
+## Status: Approved (Phase 1 complete)
 
 ## Goal
 
@@ -130,18 +130,116 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 4. **LiDAR forwarding flag simplification**
 5. **Stats/plot/API-shortcut target consolidation after #252 parity**
 
+## Migration Guidance: Deploy Tool → Image Pipeline
+
+The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`) are deprecated. The replacement workflow is the Raspberry Pi image pipeline ([#210](../BACKLOG.md), [design doc](deploy-rpi-imager-fork-plan.md)).
+
+### Current workflow (deprecated)
+
+1. Cross-compile binary: `make build-radar-linux`
+2. Build deploy tool: `make build-deploy`
+3. Copy binary and deploy tool to Pi or use SSH: `make deploy-install`
+4. Install LaTeX remotely: `make deploy-install-latex TARGET=<host>`
+5. Upgrade via SSH: `make deploy-upgrade`
+
+### Future workflow (image pipeline, #210)
+
+1. Build a complete Raspberry Pi image: `make build-image` (planned)
+2. Flash the image to an SD card using Raspberry Pi Imager or `dd`
+3. Boot the Pi — the service starts automatically with all dependencies pre-installed
+4. Upgrade by re-flashing a new image or using an over-the-air update mechanism (TBD)
+
+### Transition period
+
+- Both workflows are available until the removal gate (below) is met.
+- No new features will be added to `cmd/deploy` or the deprecated Make targets.
+- Critical bug fixes remain accepted during the transition.
+
+## Active Usage Assumptions
+
+### `cmd/transit-backfill`
+
+- **Current status:** One-off batch tool for backfilling `radar_data_transits` from historical `radar_data` events.
+- **Active production need:** None confirmed. The built-in hourly transit worker (`--enable-transit-worker`) and the `velocity-report transits rebuild` subcommand now cover the same use case.
+- **Recommendation:** Deprecate after v0.5.0. The `transits rebuild` subcommand in `cmd/radar` is the supported replacement.
+
+### `cmd/tools/scan_transits.go`
+
+- **Current status:** Scans for hourly periods with `radar_data` but no corresponding transit records and optionally backfills.
+- **Active production need:** None confirmed. Duplicates `cmd/transit-backfill` capability at a different granularity.
+- **Recommendation:** Deprecate alongside `cmd/transit-backfill`.
+
+### `cmd/sweep`
+
+- **Current status:** Parameter sweep utility for LiDAR tuning. Actively used for iterative sensor calibration.
+- **Active production need:** Yes — required until frontend sweep migration ([#252](../BACKLOG.md)) provides equivalent capability.
+- **Recommendation:** Retain until #252 parity, then review.
+
+### `cmd/tools/backfill_ring_elevations`
+
+- **Current status:** Backfills ring elevation data for LiDAR background grid.
+- **Active production need:** Low. Used during initial LiDAR setup, not ongoing operations.
+- **Recommendation:** Retain as maintenance tool; review when LiDAR foundations fix-it completes.
+
+## Deploy Retirement Gate
+
+Removal of `cmd/deploy`, its associated Make targets, and legacy deployment documentation is gated on **all** of the following conditions being met:
+
+1. **#210 image pipeline operational:** A working `make build-image` (or equivalent) target produces a bootable Raspberry Pi image with `velocity-report` binary, systemd service, database, and LaTeX pre-installed.
+2. **Packaging path confirmed:** At least one successful end-to-end deployment has been performed using the image pipeline (flash → boot → service running → API responding).
+3. **Migration period elapsed:** At least one minor release (e.g. v0.7.0) has shipped with both the image pipeline and the deprecated deploy tool available, giving users time to migrate.
+4. **No active deploy-tool users:** No known deployments rely exclusively on `cmd/deploy` for upgrades (confirmed via release notes or user communication).
+
+Once all four conditions are met, the following will be removed:
+
+- `cmd/deploy/` directory and binary
+- `internal/deploy/` package
+- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`
+- `scripts/setup-radar-host.sh`
+- Deployment section from `README.md` (replaced by image pipeline instructions)
+
+## v0.5.0 Breaking Changes Plan
+
+The following breaking changes are planned for the v0.5.0 release. They are documented here so that downstream consumers can prepare.
+
+### 1. Visualiser proto: `avg_speed_mps` → `median_speed_mps` (field 24)
+
+- **What:** Proto field 24 in `TrackedObject` is renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) are added.
+- **Impact:** macOS visualiser and any gRPC clients reading field 24 as an average must update to treat it as a median.
+- **Migration:** Update client code to use the new field name. The wire format is unchanged (same field number), so binary compatibility is preserved.
+- **Design doc:** [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+
+### 2. Deployment surface deprecated
+
+- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.7.0+.
+- **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see stderr warnings. Scripts that parse stdout should be unaffected; warnings go to stderr.
+- **Migration:** Begin planning migration to the image pipeline (#210) when available.
+
+### 3. `cmd/transit-backfill` soft-deprecated
+
+- **What:** `cmd/transit-backfill` is soft-deprecated. It continues to work but is no longer the recommended approach.
+- **Impact:** None in v0.5.0. Removal planned for a future release after confirmation of zero active usage.
+- **Migration:** Use `velocity-report transits rebuild` instead.
+
+### No other breaking changes
+
+- No CLI flags are removed in v0.5.0.
+- No database schema breaking changes.
+- No API endpoint removals.
+- Privacy model is unchanged: local-only storage, no PII.
+
 ## Delivery Plan (Task Lists)
 
 ### Project A (P1): Deprecation readiness and signalling
 
-- [ ] Add deprecation notices to `setup-radar`, deploy targets, and `cmd/deploy` docs
-- [ ] Publish migration guidance: “deploy tool → image pipeline”
-- [ ] Freeze new feature work in `cmd/deploy` except critical fixes
-- [ ] Record active usage assumptions for `cmd/transit-backfill` and ad hoc tools
+- [x] Add deprecation notices to `setup-radar`, deploy targets, and `cmd/deploy` docs
+- [x] Publish migration guidance: “deploy tool → image pipeline”
+- [x] Freeze new feature work in `cmd/deploy` except critical fixes
+- [x] Record active usage assumptions for `cmd/transit-backfill` and ad hoc tools
 
 ### Project B (P1): Deploy retirement gate
 
-- [ ] Define explicit removal gate: #210 image pipeline operational + packaging path confirmed
+- [x] Define explicit removal gate: #210 image pipeline operational + packaging path confirmed
 - [ ] Remove legacy deploy targets once the gate is met
 - [ ] Remove `cmd/deploy` binary once migration period closes
 - [ ] Update setup/deployment docs to image-first workflow
@@ -164,3 +262,5 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 - This plan intentionally prioritises deprecation signalling first, then removal.
 - No privacy model changes are proposed: local-only storage and no PII remain unchanged.
 - Removal milestones are dependency-gated to avoid breaking existing deployments.
+- Phase 1 (Project A signalling + Project B gate definition) completed in v0.5.0.
+- Actual removal of deprecated surfaces is deferred to v0.7.0 after the retirement gate is satisfied.

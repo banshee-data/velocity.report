@@ -1,5 +1,12 @@
 # velocity-deploy - Deployment Manager
 
+> **⚠️ Deprecated:** `velocity-deploy` is deprecated and will be removed once the
+> [Raspberry Pi image pipeline (#210)](../../docs/BACKLOG.md) is operational and the
+> packaging path is confirmed. No new features will be added; only critical fixes
+> are accepted. See the
+> [migration guidance](../../docs/plans/platform-simplification-and-deprecation-plan.md#migration-guidance-deploy-tool--image-pipeline)
+> for the replacement workflow.
+
 `velocity-deploy` is a comprehensive deployment and management tool for velocity.report installations. It handles installation, upgrades, monitoring, and maintenance of velocity.report services on both local and remote hosts.
 
 ## Features
