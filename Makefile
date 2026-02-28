@@ -38,10 +38,10 @@ help:
 	@echo "  build-texlive-minimal Build local minimal TeX tree for production mode"
 	@echo "  build-tex-fmt        Rebuild velocity-report.fmt in local minimal TeX tree"
 	@echo "  install-texlive-minimal Install local minimal TeX tree to /opt/velocity-report"
-	@echo "  deploy-install-latex Install LaTeX on remote target (for PDF generation)"
-	@echo "  deploy-install-latex-minimal Copy local minimal TeX tree to remote target"
+	@echo "  deploy-install-latex Install LaTeX on remote target (deprecated)"
+	@echo "  deploy-install-latex-minimal Copy local minimal TeX tree to remote target (deprecated)"
 	@echo "  validate-tex-minimal Compare report output between full and minimal TeX"
-	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target"
+	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target (deprecated)"
 	@echo "  install-web          Install web dependencies (pnpm/npm)"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo ""
@@ -111,12 +111,12 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
-	@echo "DEPLOYMENT:"
-	@echo "  setup-radar          Install server on this host (requires sudo, legacy)"
-	@echo "  deploy-install       Install using velocity-deploy (local)"
-	@echo "  deploy-upgrade       Upgrade using velocity-deploy (local)"
-	@echo "  deploy-status        Check service status using velocity-deploy"
-	@echo "  deploy-health        Run health check using velocity-deploy"
+	@echo "DEPLOYMENT (deprecated — will be removed after #210 image pipeline lands):"
+	@echo "  setup-radar          Install server on this host (requires sudo, legacy, deprecated)"
+	@echo "  deploy-install       Install using velocity-deploy (deprecated)"
+	@echo "  deploy-upgrade       Upgrade using velocity-deploy (deprecated)"
+	@echo "  deploy-status        Check service status using velocity-deploy (deprecated)"
+	@echo "  deploy-health        Run health check using velocity-deploy (deprecated)"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  set-version          Update version across codebase (VER=0.4.0 TARGETS='--all')"
@@ -426,8 +426,10 @@ install-texlive-minimal:
 	@echo "Installing minimal TeX tree from $(TEX_MINIMAL_DIR) to /opt/velocity-report/texlive-minimal..."
 	@SOURCE_DIR="$(abspath $(TEX_MINIMAL_DIR))" ./scripts/install-minimal-texlive.sh
 
-# Deploy: Install local minimal TeX tree on remote target
+# Deploy: Install local minimal TeX tree on remote target (deprecated)
 deploy-install-latex-minimal:
+	@echo "⚠  DEPRECATED: deploy-install-latex-minimal will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo ""
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Error: TARGET not set. Usage: make deploy-install-latex-minimal TARGET=radar-ts"; \
 		exit 1; \
@@ -442,8 +444,10 @@ deploy-install-latex-minimal:
 	@ssh "$(TARGET)" "sudo mkdir -p /opt/velocity-report && sudo rm -rf /opt/velocity-report/texlive-minimal && sudo mv /tmp/velocity-report-texlive-minimal /opt/velocity-report/texlive-minimal && sudo chmod -R a+rX /opt/velocity-report/texlive-minimal"
 	@echo "✓ Minimal TeX tree deployed to $(TARGET)"
 
-# Deploy: Install LaTeX on remote target
+# Deploy: Install LaTeX on remote target (deprecated)
 deploy-install-latex:
+	@echo "⚠  DEPRECATED: deploy-install-latex will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo ""
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Error: TARGET not set. Usage: make deploy-install-latex TARGET=radar-ts"; \
 		exit 1; \
@@ -460,8 +464,10 @@ deploy-install-latex:
 		fi"; \
 	fi
 
-# Deploy: Update dependencies on remote target
+# Deploy: Update dependencies on remote target (deprecated)
 deploy-update-deps:
+	@echo "⚠  DEPRECATED: deploy-update-deps will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo ""
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Error: TARGET not set. Usage: make deploy-update-deps TARGET=radar-ts"; \
 		exit 1; \
@@ -1240,8 +1246,11 @@ clean-python:
 
 .PHONY: setup-radar deploy-install deploy-upgrade deploy-status deploy-health
 
-# Legacy installation script (kept for backward compatibility)
+# Legacy installation script (deprecated — will be removed after #210 image pipeline)
 setup-radar:
+	@echo "⚠  DEPRECATED: setup-radar will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo "   See docs/plans/platform-simplification-and-deprecation-plan.md for migration guidance."
+	@echo ""
 	@if [ ! -f "velocity-report-linux-arm64" ]; then \
 		echo "Error: velocity-report-linux-arm64 not found!"; \
 		echo "Run 'make build-radar-linux' first."; \
@@ -1255,8 +1264,10 @@ setup-radar:
 	@echo ""
 	@sudo ./scripts/setup-radar-host.sh
 
-# Modern deployment using velocity-deploy
+# Modern deployment using velocity-deploy (deprecated — will be removed after #210 image pipeline)
 deploy-install:
+	@echo "⚠  DEPRECATED: deploy-install will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo ""
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
@@ -1270,6 +1281,8 @@ deploy-install:
 	./velocity-deploy install --binary ./velocity-report-linux-arm64
 
 deploy-upgrade:
+	@echo "⚠  DEPRECATED: deploy-upgrade will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo ""
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
@@ -1283,6 +1296,8 @@ deploy-upgrade:
 	./velocity-deploy upgrade --binary ./velocity-report-linux-arm64
 
 deploy-status:
+	@echo "⚠  DEPRECATED: deploy-status will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo ""
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
@@ -1290,6 +1305,8 @@ deploy-status:
 	./velocity-deploy status
 
 deploy-health:
+	@echo "⚠  DEPRECATED: deploy-health will be removed once the Raspberry Pi image pipeline (#210) is operational."
+	@echo ""
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
