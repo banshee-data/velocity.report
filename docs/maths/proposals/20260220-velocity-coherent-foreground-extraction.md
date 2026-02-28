@@ -168,34 +168,42 @@ covariance-gated updates.
 
 ## 6. Config Contract (`config.tuning.json`)
 
-Existing flat tuning keys remain valid. New structured blocks:
+> **Canonical reference:** The full config restructure plan, including the
+> complete key-to-layer mapping, nested JSON schema, migration strategy, and
+> engine-specific options, is maintained in
+> [`config/CONFIG-RESTRUCTURE.md`](../../../config/CONFIG-RESTRUCTURE.md).
+>
+> This section retains the mathematical config contract for engine selection
+> and optimisation strategy only.
+
+Existing flat tuning keys are migrated into layer-scoped sub-objects (`l3`,
+`l4`, `l5`, `pipeline`). The `engine` field on each layer selects the
+algorithm variant. New `optimisation` block controls sweep strategy:
 
 ```json
 {
-  "optimization": {
+  "l3": { "engine": "ema_track_assist_v2", "options": {} },
+  "l4": { "engine": "two_stage_mahalanobis_v2", "options": {} },
+  "l5": { "engine": "imm_cv_ca_v2", "options": {} },
+  "optimisation": {
     "strategy": "accuracy_first_v1",
     "search_engine": "hybrid_grid_stochastic_v1",
     "layer_scope": "full"
-  },
-  "layer_engines": {
-    "l3": { "engine": "ema_track_assist_v2", "options": {} },
-    "l4": { "engine": "two_stage_mahalanobis_v2", "options": {} },
-    "l5": { "engine": "imm_cv_ca_v2", "options": {} }
   }
 }
 ```
 
-Allowed values:
+Allowed engine values:
 
-1. `optimization.strategy`: `accuracy_first_v1`, `balanced_v1`, `realtime_v1`
-2. `optimization.search_engine`: `grid_narrowing_v1`, `hybrid_grid_stochastic_v1`, `local_perturb_v1`
-3. `optimization.layer_scope`: `full`, `l3_only`, `l4_only`, `l5_only`
-4. `layer_engines.l3.engine`: `ema_baseline_v1`, `ema_track_assist_v2`
-5. `layer_engines.l4.engine`: `dbscan_xy_v1`, `two_stage_mahalanobis_v2`, `hdbscan_adaptive_v1`
-6. `layer_engines.l5.engine`: `cv_kf_v1`, `imm_cv_ca_v2`, `imm_cv_ca_rts_eval_v2`
+1. `l3.engine`: `ema_baseline_v1` (current default), `ema_track_assist_v2`
+2. `l4.engine`: `dbscan_xy_v1` (current default), `two_stage_mahalanobis_v2`, `hdbscan_adaptive_v1`
+3. `l5.engine`: `cv_kf_v1` (current default), `imm_cv_ca_v2`, `imm_cv_ca_rts_eval_v2`
 
-`layer_engines.<layer>.options` is typed as engine-specific override payload for
-isolated troubleshooting.
+Allowed optimisation values:
+
+1. `optimisation.strategy`: `accuracy_first_v1`, `balanced_v1`, `realtime_v1`
+2. `optimisation.search_engine`: `grid_narrowing_v1`, `hybrid_grid_stochastic_v1`, `local_perturb_v1`
+3. `optimisation.layer_scope`: `full`, `l3_only`, `l4_only`, `l5_only`
 
 ---
 

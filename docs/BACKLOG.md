@@ -7,6 +7,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Visualiser proto contract parity + debug overlays — implement `FrameBundle.debug` streaming, serialize missing track/cluster fields, and replace track speed summary `avg` with `median/p85/p98` before `v0.5.0` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
+- Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 
 ## v0.5.1 (Product)
 
@@ -26,6 +27,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Simplification and deprecation programme (Project A/B) — deprecation signalling, deploy retirement gate, and migration plan task list — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
+- Config restructure Phase 2 — expose L1 sensor/network and L3 background/foreground constants as tuning params; deprecate CLI flags — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 
 ## v0.7 (Unified Frontend)
 
@@ -71,6 +73,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - (#325) Ground-plane vector-scene maths (P3, D-05) — 3D scene reconstruction with ground-plane constraints — [proposal](maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Visualiser QC programme (Features 1–10) — comprehensive quality control tooling for LiDAR data — [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - ML classifier training pipeline (Phase 4.1) — automated model training and evaluation framework — [plan](plans/lidar-ml-classifier-training-plan.md) `L`
+- Config restructure Phase 3 — expose L2/L5/pipeline constants and L6 classification thresholds once classifier strategy is settled — [design doc](../config/CONFIG-RESTRUCTURE.md) `S`
 - Parameter tuning optimisation (Phase 4.2) — automated hyperparameter search and optimisation — [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
 - Dynamic algorithm selection — runtime algorithm switching based on scene conditions — [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - Threshold-based speed alerts — configurable alerting for speed threshold violations `M`
