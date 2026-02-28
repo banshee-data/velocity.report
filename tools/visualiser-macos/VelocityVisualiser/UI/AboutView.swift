@@ -98,7 +98,7 @@ struct AboutView: View {
                 }
             }
 
-            Text("© 2026 Banshee, Inc.").font(.caption2).foregroundColor(.secondary).padding(
+            Text("© 2025–2026 Banshee, Inc.").font(.caption2).foregroundColor(.secondary).padding(
                 .top, 4)
         }.padding(24).frame(width: 420).background {
             Button("Close About Panel") { closeAboutWindow() }.keyboardShortcut(.cancelAction)

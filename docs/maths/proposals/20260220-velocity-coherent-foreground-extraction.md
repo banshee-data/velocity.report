@@ -8,7 +8,7 @@ tracking in this branch. It keeps the existing layered architecture and does
 not introduce intermediary ".5" layers.
 
 Implementation sequencing and task ownership can continue to live in planning
-artifacts, but the math and evaluation contract are defined here.
+artefacts, but the math and evaluation contract are defined here.
 
 ---
 
@@ -269,13 +269,13 @@ Profile intent:
 ## 9. Failure Modes and Guards
 
 1. **False promotion in L3**
-2. Guard: promotion only near background gate with covariance consistency.
-3. **Over-splitting or over-merging in L4**
-4. Guard: Mahalanobis gates + geometric plausibility constraints.
-5. **Low-speed heading flip in L5**
-6. Guard: freeze-first policy with anisotropy + displacement unlock requirements.
-7. **Optimiser overfitting to proxy metrics**
-8. Guard: per-layer + global gates with CI-backed acceptance rules.
+   - Guard: promotion only near background gate with covariance consistency.
+2. **Over-splitting or over-merging in L4**
+   - Guard: Mahalanobis gates + geometric plausibility constraints.
+3. **Low-speed heading flip in L5**
+   - Guard: freeze-first policy with anisotropy + displacement unlock requirements.
+4. **Optimiser overfitting to proxy metrics**
+   - Guard: per-layer + global gates with CI-backed acceptance rules.
 
 ---
 
