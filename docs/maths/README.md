@@ -70,9 +70,7 @@ The production pipeline uses four math-heavy layers:
 - [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md)
   — Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md)
-  — Point-level velocity estimation and velocity-aware DBSCAN for sparse object recovery, track continuity, and fragment merging. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
-- [Velocity-Coherent Foreground Extraction Review](proposals/20260220-velocity-coherent-foreground-extraction-review.md)
-  — Mathematical review: correspondence noise, 6D metric scaling, L3 bottleneck, and validation methodology.
+  — Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence, low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
 - [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
   — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
 - [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
@@ -120,9 +118,10 @@ become unnecessary once the geometry-coherent model replaces the guards.
 **Plan:** [lidar-velocity-coherent-foreground-extraction-plan.md](../plans/lidar-velocity-coherent-foreground-extraction-plan.md)
 
 Enriches each foreground point with a per-frame velocity estimate via
-constrained nearest-neighbour correspondence. DBSCAN then clusters in a
-position+velocity metric space, recovering sparse objects (3–11 points) and
-reducing track fragmentation at scene entry/exit.
+track-assisted foreground promotion (L3), engine-selectable two-stage
+clustering with motion-coherence refinement (L4), and CV/CA-capable tracking
+with low-speed heading freeze policy (L5). Evaluation is layer-scoped and
+confidence-backed using replay comparisons and CI gates.
 
 **Why second:** Provides per-cluster velocity vectors that tighten P1's
 heading-motion prior. Also independently improves sparse object recall by

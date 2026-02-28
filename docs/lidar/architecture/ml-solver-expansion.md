@@ -183,6 +183,35 @@ Evolve sweep/auto/HINT from a feature set into a reusable **Optimisation Platfor
    - Promotion criteria (minimum labels, confidence thresholds, quality checks).
    - Artifact retention policy and traceable lineage.
 
+### 3.3 Layer-Scoped Contract (L3/L4/L5, No Intermediary Layers)
+
+To avoid architecture drift, optimisation and evaluation must map directly onto
+existing runtime layers:
+
+1. **L3 foreground extraction** (EMA + track-assisted promotion)
+2. **L4 clustering/perception** (spatial candidate extraction + motion-coherent refinement)
+3. **L5 tracking/state estimation** (velocity, acceleration, heading stability)
+
+The tuning contract should support explicit layer-scoped troubleshooting:
+
+- `optimization.strategy`: `accuracy_first_v1`, `balanced_v1`, `realtime_v1`
+- `optimization.search_engine`: `grid_narrowing_v1`, `hybrid_grid_stochastic_v1`, `local_perturb_v1`
+- `optimization.layer_scope`: `full`, `l3_only`, `l4_only`, `l5_only`
+- `layer_engines.l3.engine`: `ema_baseline_v1`, `ema_track_assist_v2`
+- `layer_engines.l4.engine`: `dbscan_xy_v1`, `two_stage_mahalanobis_v2`, `hdbscan_adaptive_v1`
+- `layer_engines.l5.engine`: `cv_kf_v1`, `imm_cv_ca_v2`, `imm_cv_ca_rts_eval_v2`
+
+Evaluation protocol should always compare:
+
+1. baseline
+2. L3-only change
+3. L4-only change
+4. L5-only change
+5. full-stack change
+
+with paired confidence intervals and explicit non-regression gates (heading
+jitter, fragmentation, ID stability) alongside velocity/acceleration accuracy.
+
 ---
 
 ## 4) HINT-Specific Enhancements to Prioritise
