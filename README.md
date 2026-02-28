@@ -541,15 +541,17 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `proto-gen-go` - Generate Go protobuf stubs
 - `proto-gen-swift` - Generate Swift protobuf stubs (macOS visualiser)
 
-### Deployment Targets
+### Deployment Targets (deprecated)
 
-- `setup-radar` - Install server on this host (requires sudo, legacy)
-- `deploy-install` - Install using velocity-deploy (local)
-- `deploy-upgrade` - Upgrade using velocity-deploy (local)
-- `deploy-status` - Check service status using velocity-deploy
-- `deploy-health` - Run health check using velocity-deploy
-- `deploy-install-latex` - Install LaTeX on remote target (for PDF generation)
-- `deploy-update-deps` - Update source, LaTeX, and Python deps on remote target
+> These targets are deprecated and will be removed after the Raspberry Pi image pipeline (#210) lands.
+
+- `setup-radar` - Install server on this host (requires sudo, **deprecated**)
+- `deploy-install` - Install using velocity-deploy (**deprecated**)
+- `deploy-upgrade` - Upgrade using velocity-deploy (**deprecated**)
+- `deploy-status` - Check service status using velocity-deploy (**deprecated**)
+- `deploy-health` - Run health check using velocity-deploy (**deprecated**)
+- `deploy-install-latex` - Install LaTeX on remote target (**deprecated**)
+- `deploy-update-deps` - Update source, LaTeX, and Python deps on remote target (**deprecated**)
 
 ### Formatting Targets
 
