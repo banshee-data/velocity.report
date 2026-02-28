@@ -14,6 +14,8 @@ evaluates strategies for displaying the GIF responsively across viewport sizes.
         alt="VelocityVisualiser showing real-time LiDAR track visualisation"
         class="w-full h-auto rounded-xl shadow-lg"
         loading="lazy"
+        width="900"
+        height="600"
     />
 </div>
 ```
