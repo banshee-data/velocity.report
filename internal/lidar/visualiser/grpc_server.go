@@ -583,7 +583,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				BboxHeadingRad:    t.BBoxHeadingRad,
 				HeightP95Max:      t.HeightP95Max,
 				IntensityMeanAvg:  t.IntensityMeanAvg,
-				AvgSpeedMps:       t.AvgSpeedMps,
+				MedianSpeedMps:    t.MedianSpeedMps,
 				PeakSpeedMps:      t.PeakSpeedMps,
 				ObjectClass:       classifyOrConvert(t),
 				ClassConfidence:   t.ClassConfidence,
@@ -595,6 +595,8 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				MotionModel:       pb.MotionModel(t.MotionModel),
 				Alpha:             t.Alpha,
 				HeadingSource:     int32(t.HeadingSource),
+				P85SpeedMps:       t.P85SpeedMps,
+				P98SpeedMps:       t.P98SpeedMps,
 			}
 		}
 
