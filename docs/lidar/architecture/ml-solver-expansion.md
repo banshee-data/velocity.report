@@ -183,6 +183,18 @@ Evolve sweep/auto/HINT from a feature set into a reusable **Optimisation Platfor
    - Promotion criteria (minimum labels, confidence thresholds, quality checks).
    - Artifact retention policy and traceable lineage.
 
+### 3.3 Layer-Scoped Contract (L3/L4/L5)
+
+> **Moved:** The detailed layer-scoped config contract, engine selection
+> registry, and evaluation protocol are now maintained in
+> [`config/CONFIG-RESTRUCTURE.md`](../../../config/CONFIG-RESTRUCTURE.md),
+> which is the canonical reference for the breaking config migration from
+> flat to layer-scoped structure.
+>
+> See also:
+> [`docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md` §6](../../maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+> for the mathematical definition of engine variants and evaluation protocol.
+
 ---
 
 ## 4) HINT-Specific Enhancements to Prioritise
@@ -322,262 +334,62 @@ Define success as measurable deltas:
 
 ---
 
-## 9) Implementation Checklist
-
-This section contains a comprehensive checklist for **all** action items identified
-in this document. Items are organised by the phase they belong to (A–E from §5),
-cross-referenced to the transferable learnings (§2), HINT enhancements (§4), and
-data model proposals (§6). Immediate implementation targets (9.1–9.4) are called
-out first, followed by the full backlog.
-
-### Current state (what already exists)
-
-The HINT sweep mode is fully implemented (Phase 1–6 of the HINT plan):
+## 9) Implementation Status and Remaining Backlog
 
-- [x] `HINTTuner` engine with round orchestration (`internal/lidar/sweep/hint.go`)
-- [x] API endpoints: `POST/GET /api/lidar/sweep/hint`, `/hint/continue`, `/hint/stop` (`sweep_handlers.go`)
-- [x] Dashboard UI: mode toggle, HINT config card, progress card, round history (`sweep_dashboard.html`, `.js`, `.css`)
-- [x] Svelte sweeps page: HINT mode badge, round history panel, API functions (`+page.svelte`, `api.ts`)
-- [x] Label carry-over via temporal IoU matching (≥ 0.5 threshold, `labelerID="hint-carryover"`, `confidence=1.0`)
-- [x] Ground truth scoring with `GroundTruthWeights` (8 metrics: detection rate, fragmentation, FP, velocity, quality, truncation, noise, stopped recovery)
-- [x] Early-round weight adjustments (round 1: DetectionRate ×1.5, FalsePositives ×0.5)
-- [x] `lidar_sweeps` persistence: `sweep_id`, `sensor_id`, `mode`, `status`, `request`, `results`, `charts`, `recommendation`, `round_results`, `error`, `started_at`, `completed_at`
-- [x] `lidar_run_tracks` label fields: `user_label`, `label_confidence`, `labeler_id`, `quality_label`
-
----
-
-### 9.1 — Schema/version stamp fields in sweep persistence
-
-_Phase A — Foundation. Refs: §2.1, §4.4, §6.1._
+### Completed work (Phase A — Foundation)
 
-Implements section 6.1 data model additions. Requires a new DB migration (migration 000024)
-and corresponding changes to the persistence layer and Go structs.
-
-**Migration (`internal/db/migrations/000024_add_sweep_metadata.up.sql`)**
+All Phase A items from the original plan (9.1–9.4) are **done**:
 
-- [x] Add column `objective_name TEXT` to `lidar_sweeps`
-- [x] Add column `objective_version TEXT` to `lidar_sweeps`
-- [x] Add column `transform_pipeline_name TEXT` to `lidar_sweeps`
-- [x] Add column `transform_pipeline_version TEXT` to `lidar_sweeps`
-- [x] Add column `score_components_json TEXT` to `lidar_sweeps`
-- [x] Add column `recommendation_explanation_json TEXT` to `lidar_sweeps`
-- [x] Add column `label_provenance_summary_json TEXT` to `lidar_sweeps`
-- [x] Create matching `000024_add_sweep_metadata.down.sql` (use `ALTER TABLE DROP COLUMN` per modernc.org/sqlite support)
+- **9.1** Schema/version stamps in sweep persistence (migration 000024, `SweepRecord` fields, struct population at sweep start).
+- **9.2** Score component breakdown (`ScoreComponents`, `ScoreExplanation`, `groundTruthScorerDetailed`, `/api/lidar/sweep/explain/{sweep_id}`).
+- **9.3** HINT continue validation with class/time coverage gates (`MinClassCoverage`, `MinTemporalSpreadSecs`, unit tests).
+- **9.4** Explanation rendering in dashboard and Svelte sweeps page (explanation card, score breakdown section, TypeScript interfaces).
+- **Phase A extras** — label provenance markers, IoU-based carry-over confidence, schema contracts (`schema_contracts.go`).
 
-**Persistence layer (`internal/lidar/sweep_store.go`)**
+### Phase A — remaining items
 
-- [x] Add fields to `SweepRecord` struct:
-  - `ObjectiveName`, `ObjectiveVersion` (`string`)
-  - `TransformPipelineName`, `TransformPipelineVersion` (`string`)
-  - `ScoreComponents` (`json.RawMessage`)
-  - `RecommendationExplanation` (`json.RawMessage`)
-  - `LabelProvenanceSummary` (`json.RawMessage`)
-- [x] Extend `InsertSweep` / `SaveSweepStart` to persist `objective_name` and `objective_version`
-- [x] Extend `UpdateSweepResults` / `SaveSweepComplete` to persist:
-  - `score_components_json`
-  - `recommendation_explanation_json`
-  - `label_provenance_summary_json`
-  - `transform_pipeline_name`, `transform_pipeline_version`
-- [x] Extend `GetSweep` / `ListSweeps` to read the new columns
-- [x] Add tests for the new columns in `sweep_store_test.go` (round-trip insert/read)
+Five `SaveSweepComplete` population tasks require integration with the active
+scorer during live runs. Blocked until Phase B transform pipeline work
+provides the structured metric vectors these fields depend on.
 
-**Struct population at sweep start**
+- [ ] Marshal `score_components_json` from best result's metric vector
+- [ ] Build and persist `label_provenance_summary_json` (counts by source)
+- [ ] Build and persist `recommendation_explanation_json` (top contributing factors)
+- [ ] Populate component breakdown during HINT scoring in `hint.go`
+- [ ] Persist `schema_version` field on sweep records
 
-- [x] `AutoTuner.start()`: stamp `objective_name` (e.g. `"weighted"`, `"acceptance"`, `"ground_truth"`) and `objective_version` (e.g. `"v1"`) into persisted sweep record
-- [x] `HINTTuner.run()`: stamp `objective_name="ground_truth"`, `objective_version="v1"` into persisted sweep record
-- [x] `Runner` (manual sweep): stamp `objective_name` if available (default `"manual"`)
+### Upcoming work (Phases B–E)
 
-**Struct population at sweep completion**
+Phases B–E are tracked in [BACKLOG.md](../../BACKLOG.md). The table below
+maps each phase to its project milestone and summarises scope.
 
-- [ ] On `SaveSweepComplete`, marshal `score_components_json` from the best result's metric vector _(deferred to Phase B — requires integration with active scorer during live runs)_
-- [ ] On `SaveSweepComplete`, build and persist `label_provenance_summary_json` (counts by source: `human_manual`, `hint-carryover`, unlabelled) _(deferred to Phase B)_
-- [ ] On `SaveSweepComplete`, build and persist `recommendation_explanation_json` (top contributing factors from score decomposition) _(deferred to Phase B)_
+| Phase | Milestone | Scope                                                                         |
+| ----- | --------- | ----------------------------------------------------------------------------- |
+| B     | v1.0      | Config-driven transform pipeline; objective registry; version stamps          |
+| C     | v1.0      | Round-over-round deltas; label-coverage penalties; multi-labeller consistency |
+| D     | v2.0      | Hybrid search strategy; early stopping on confidence intervals                |
+| E     | v2.0      | Experiment promotion rules; audit reports; canary mode; artefact retention    |
 
-### 9.2 — Score component breakdown in objective code paths
+#### Phase B — Transform + Objective Platform (v1.0)
 
-_Phase A — Foundation. Refs: §2.3, §4.3._
+- [ ] Implement config-driven transform pipeline (`Transform` interface, standard transforms, round-dependent modifiers)
+- [ ] Refactor objectives into registry-driven modules with `ObjectiveDefinition` struct
+- [ ] Add `GET /api/lidar/sweep/objectives` and `/transforms` endpoints
+- [ ] Complete Phase A remaining items (above) once transform pipeline is in place
 
-Expose the component-level breakdown that is already computed internally but not
-surfaced in API responses or stored in the database.
+#### Phase C — HINT Quality and Explainability (v1.0)
 
-**Score decomposition struct (`internal/lidar/sweep/score_explain.go` — new file)**
+- [ ] Round-over-round delta explanations
+- [ ] Multi-labeller agreement consistency checks
+- [ ] Label-coverage confidence penalty in scoring
+- [ ] Per-round score decomposition rendering (dashboard + Svelte, requires live data)
 
-- [x] Define `ScoreComponents` struct with explicit per-metric contributions:
-  - `DetectionRate`, `Fragmentation`, `FalsePositives`, `VelocityCoverage` (float64)
-  - `QualityPremium`, `TruncationRate`, `VelocityNoiseRate`, `StoppedRecovery` (float64)
-  - `CompositeScore` (float64) — the weighted sum
-  - `WeightsUsed` (`GroundTruthWeights`) — the weights applied
-- [x] Define `ScoreExplanation` struct:
-  - `Components` (`ScoreComponents`)
-  - `TopContributors` ([]string — top 3 metrics driving the score)
-  - `DeltaVsPrevious` (`*ScoreComponents`, nullable — diff vs prior round best)
-  - `LabelCoverageConfidence` (float64 — % of tracks labelled)
-- [x] Extend `ScoredResult` to include optional `Components *ScoreComponents`
+#### Phase D — Adaptive Search (v2.0)
 
-**Ground truth scorer integration**
+- [ ] Hybrid search strategy (broad exploration → tight exploitation) behind feature flag
+- [ ] Early stopping based on confidence intervals and score stability
 
-- [x] Add a parallel `groundTruthScorerDetailed` callback that returns `(float64, *ScoreComponents, error)` alongside the existing `groundTruthScorer` (keep the original signature for backward compatibility; the detailed variant is called when component storage is needed)
-- [x] Populate component breakdown during scoring in `auto.go` where objective is `"ground_truth"`
-- [ ] Populate component breakdown during HINT scoring in `hint.go` _(deferred — requires live integration testing)_
+#### Phase E — Governance + Promotion (v2.0)
 
-**API response changes**
-
-- [x] Include `score_components` in `GET /api/lidar/sweep/hint` state response (within `HINTRound` history entries via `BestScoreComponents` field)
-- [x] Include `score_components` in sweep result records returned by `GET /api/lidar/sweeps/{id}` (via `SweepRecord.ScoreComponents` field)
-- [x] Add new endpoint `GET /api/lidar/sweep/explain/{sweep_id}`:
-  - Returns score explanation for the sweep
-  - Includes component vector, objective name/version, label provenance
-
-### 9.3 — Extend HINT continue validation with class/time coverage checks
-
-_Phase C — HINT Quality and Explainability. Refs: §4.2._
-
-Currently `ContinueFromLabels` only enforces a percentage threshold. Add optional
-quality gates that check class diversity and temporal spread.
-
-**Backend (`internal/lidar/sweep/hint.go`)**
-
-- [x] Add optional fields to `HINTSweepRequest`:
-  - `MinClassCoverage map[string]int` — minimum labelled count per class (e.g. `{"vehicle": 3, "pedestrian": 1}`)
-  - `MinTemporalSpreadSecs float64` — minimum time span covered by labelled tracks
-- [x] Store these in `HINTState` so they survive across rounds
-- [x] In `ContinueFromLabels`, after the percentage check, add:
-  - Class coverage gate: verify `byClass` meets each key in `MinClassCoverage`; return descriptive error if not (e.g. `"class coverage not met: pedestrian has 0, need 1"`)
-  - Temporal spread gate: query min/max timestamps of labelled tracks; check `(max - min) >= MinTemporalSpreadSecs`; return descriptive error if not
-- [x] Both gates are optional (zero-value = disabled) so existing behaviour is preserved
-
-**Dashboard UI (`sweep_dashboard.html`, `sweep_dashboard.js`)**
-
-- [x] Add optional fields to HINT config card:
-  - Class coverage minimums (JSON input or simple key-value pairs)
-  - Temporal spread minimum (numeric input, seconds)
-- [x] Include these fields in the `handleStartHINT()` request payload
-- [x] Show gate status in the HINT progress card (which gates are met/unmet)
-
-_(Dashboard UI for gates deferred — backend validation is complete; dashboard inputs can be added when the gates are tested in production.)_
-
-**Tests**
-
-- [x] Unit test: `ContinueFromLabels` succeeds when all gates are met
-- [x] Unit test: `ContinueFromLabels` fails with descriptive error when class coverage is insufficient
-- [x] Unit test: `ContinueFromLabels` fails with descriptive error when temporal spread is insufficient
-- [x] Unit test: gates disabled (zero-value) — continue succeeds with just the percentage threshold
-
-### 9.4 — Explanation payload rendering in dashboard and Svelte sweeps page
-
-_Phase C — HINT Quality and Explainability. Refs: §2.3, §4.3._
-
-Surface the score decomposition and recommendation explanation in both UIs.
-
-**Sweep dashboard (`internal/lidar/monitor/html/sweep_dashboard.html`, `assets/sweep_dashboard.js`)**
-
-- [x] Add an "Explanation" card (visible in auto-tune and HINT modes after completion):
-  - Composite score with component table
-  - Top 3 contributing factors highlighted
-  - Label coverage confidence indicator
-- [ ] In HINT progress card, show per-round score decomposition in round history entries _(deferred — requires live data to verify rendering)_
-- [x] In recommendation card, add expandable "Why this recommendation?" section showing:
-  - Component breakdown table
-  - Delta vs previous round best (if available)
-
-**Svelte sweeps page (`web/src/routes/lidar/sweeps/+page.svelte`, `web/src/lib/api.ts`)**
-
-- [x] Add API function `getSweepExplanation(sweepId)` calling `GET /api/lidar/sweep/explain/{sweep_id}`
-- [x] In sweep detail panel, add "Score Breakdown" section:
-  - Table of component names + values + weights
-  - Visual indicator for top contributors
-  - Label coverage confidence badge
-- [ ] In HINT round history, show per-round `best_score` with expandable component detail _(deferred — requires live data)_
-- [ ] Add `recommendation_explanation` display in the recommendation section (if present) _(deferred — requires live data)_
-
-**Types (`web/src/lib/types/lidar.ts`)**
-
-- [x] Add `ScoreComponents` TypeScript interface
-- [x] Add `SweepExplanation` TypeScript interface (in `api.ts`)
-- [x] Extend `SweepRecord` with optional `score_components` field
-
----
-
-### Phase A backlog — Foundation (§5 Phase A)
-
-_Beyond 9.1–9.4, the following Phase A items remain:_
-
-- [x] Add provenance markers for carried-over labels (§4.1 — augment `label_confidence` with explicit `source` enum: `human_manual`, `carried_over`, `auto_suggested`)
-- [x] Persist confidence scores for carry-over matches (previously hardcoded `1.0`; now uses actual IoU)
-- [x] Define explicit schema contract for HINT round records (§2.1 — typed, versioned JSON) — `schema_contracts.go`
-- [x] Define explicit schema contract for objective component vectors (§2.1) — `schema_contracts.go`
-- [x] Define explicit schema contract for recommendation rationale payloads (§2.1) — `schema_contracts.go`
-- [ ] Persist schema version with every sweep (§2.1 — `schema_version` field on sweep record)
-
-### Phase B backlog — Transform + Objective Platform (§5 Phase B)
-
-- [ ] Implement Sweep Transform Pipeline engine (§2.2 — config-driven sequence of metric transforms before scoring)
-  - [ ] Define `Transform` interface with `Apply(metrics) → metrics`
-  - [ ] Implement standard transforms: normalisation, clipping, log scaling, class weighting
-  - [ ] Add round-dependent modifier transforms for HINT
-  - [ ] Wire pipeline into `auto.go` and `hint.go` scoring paths
-- [ ] Refactor objective implementations into registry-driven modules (§3.2 item 3)
-  - [ ] Define `ObjectiveDefinition` struct with name, version, formula, expected input features
-  - [ ] Register built-in objectives: `weighted`, `acceptance`, `ground_truth`
-  - [ ] Add `GET /api/lidar/sweep/objectives` endpoint (§6.2)
-- [ ] Add `GET /api/lidar/sweep/transforms` endpoint listing pipeline presets + versions (§6.2)
-- [ ] Add objective/transform version stamps in run artefacts
-
-### Phase C backlog — HINT Quality and Explainability (§5 Phase C)
-
-_Beyond 9.3–9.4:_
-
-- [ ] Expose round-over-round delta explanations (§4.3 — "what changed vs previous best")
-- [ ] Add agreement consistency checks where multiple labellers exist (§4.2)
-- [ ] Add label-coverage confidence penalty to scoring (§2.3)
-
-### Phase D backlog — Adaptive Search Expansion (§5 Phase D)
-
-- [ ] Add stochastic/hybrid search strategy behind a feature flag (§4.5)
-  - [ ] Round 1: broader exploratory search with random perturbation
-  - [ ] Round 2+: tighter exploitation with optional jitter around incumbent best
-- [ ] Add progressive narrowing ratio controls per round (§2.5)
-- [ ] Add early stopping based on confidence intervals and score stability (§2.5)
-- [ ] Compare compute-cost vs quality against pure grid narrowing
-
-### Phase E backlog — Governance + Promotion (§5 Phase E)
-
-- [ ] Add experiment promotion rules for applying optimal params to scenes (§3.2 item 6)
-- [ ] Add promotion criteria: minimum labels, confidence thresholds, quality checks
-- [ ] Add audit reports for "why recommendation was accepted"
-- [ ] Add canary mode for recommendation rollout in production scenes
-- [ ] Add artefact retention policy and traceable lineage
-
-### API additions backlog (§6.2)
-
-- [ ] `GET /api/lidar/sweep/{id}/explain` — score decomposition and parameter rationale (covered by 9.2/9.4)
-- [ ] `GET /api/lidar/sweep/objectives` — list available objective modules + versions (Phase B)
-- [ ] `GET /api/lidar/sweep/transforms` — list transform pipeline presets + versions (Phase B)
-
-### Risk mitigations to track (§7)
-
-- [ ] Enforce module boundaries between transform/objective/search to contain complexity (§7.1)
-- [ ] Implement progressive disclosure in UI — summary first, detail on demand (§7.2)
-- [ ] Add strict version stamping and back-compat replay tooling for score drift (§7.3)
-- [ ] Add priority labelling queues and label quality gates for HINT throughput (§7.4)
-
-### Success criteria to measure (§8)
-
-- [ ] Instrument optimisation efficiency: track number of combos evaluated to reach target quality
-- [ ] Instrument human efficiency: track labelling time per useful HINT round
-- [ ] Instrument trust: track operator acceptance rate of recommendations
-- [ ] Add replay tooling: ability to re-score historical sweeps with a different objective version
-
----
-
-### Work summary for this branch (9.1–9.4)
-
-| Item                              | Scope                                              | Key files                                                                                                 |
-| --------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **9.1** Schema/version stamps     | DB migration + persistence + struct population     | `migrations/000024_*.sql`, `sweep_store.go`, `auto.go`, `hint.go`, `runner.go`                            |
-| **9.2** Score component breakdown | New structs + scorer refactor + API                | `score_explain.go` (new), `objective.go`, `auto.go`, `hint.go`, `sweep_handlers.go`                       |
-| **9.3** Class/time coverage gates | HINT request/state extension + continue validation | `hint.go`, `hint_test.go`, `sweep_dashboard.js`, `sweep_dashboard.html`                                   |
-| **9.4** Explanation rendering     | Dashboard + Svelte UI                              | `sweep_dashboard.html`, `sweep_dashboard.js`, `sweep_dashboard.css`, `+page.svelte`, `api.ts`, `lidar.ts` |
-
-These actions preserve existing behaviour while laying platform foundations for
-scalable, interpretable, human-guided optimisation.
+- [ ] Experiment promotion rules, audit reports, canary mode
+- [ ] Artefact retention policy and traceable lineage

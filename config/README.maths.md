@@ -136,3 +136,4 @@ Code path:
 1. The config file is mandatory and complete-key validated in `internal/config/tuning.go`.
 2. Some settling constants are still code defaults (not file keys), notably freeze duration and lock/reacquisition defaults in L3.
 3. As L4 ground-surface modelling matures, expect additional dedicated ground-plane keys to be added to this mapping.
+4. **Breaking change ahead:** the flat config schema is being restructured into layer-scoped sub-objects (`l3`, `l4`, `l5`, `pipeline`, `optimisation`). See [`CONFIG-RESTRUCTURE.md`](CONFIG-RESTRUCTURE.md) for the migration plan.

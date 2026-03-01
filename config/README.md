@@ -9,6 +9,13 @@ For a direct mapping between config keys and the maths/algorithm docs, see:
 - [`README.maths.md`](README.maths.md)
 - [`../docs/maths/README.md`](../docs/maths/README.md)
 
+## Planned Restructure (Breaking Change)
+
+The flat config schema is being replaced with a **layer-scoped nested structure**
+to support multi-engine algorithm selection and layer-isolated evaluation.
+See [`CONFIG-RESTRUCTURE.md`](CONFIG-RESTRUCTURE.md) for the full migration plan,
+target schema, and implementation sequence.
+
 ## LiDAR Tuning Configuration
 
 `tuning.defaults.json` is the **single source of truth** for all tuning parameters. The Go binary **requires** a valid configuration file at startup — there are **no hardcoded fallback defaults for tuning keys** in the codebase. If the file cannot be loaded or is missing required keys, the process will not start.
