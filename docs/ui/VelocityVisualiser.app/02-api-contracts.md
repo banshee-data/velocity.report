@@ -205,7 +205,7 @@ message Track {
   // Features
   float height_p95_max = 22;
   float intensity_mean_avg = 23;
-  float avg_speed_mps = 24;      // running mean speed
+  float median_speed_mps = 24;   // p50 speed (was avg_speed_mps before v0.5.0)
   float peak_speed_mps = 25;
 
   // Classification
@@ -223,9 +223,8 @@ message Track {
   int32 heading_source = 35;
 
   // Speed percentiles (computed from track speed history)
-  float p50_speed_mps = 36;    // median speed (50th percentile)
-  float p85_speed_mps = 37;
-  float p98_speed_mps = 38;
+  float p85_speed_mps = 36;
+  float p98_speed_mps = 37;
 }
 
 enum TrackState {
