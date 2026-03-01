@@ -79,7 +79,7 @@ current status:
 1. ~~`Track.covariance_4x4`~~ — ✅ serialized (copied from `Covariance4x4` slice)
 2. ~~`Track.height_p95_max`~~ — ✅ serialized
 3. ~~`Track.intensity_mean_avg`~~ — ✅ serialized
-4. `Track.avg_speed_mps` — ✅ serialized (still field `24`; rename to `median_speed_mps` deferred to Phase C)
+4. ~~`Track.avg_speed_mps`~~ — ✅ renamed to `median_speed_mps` (field `24`); `p85_speed_mps` (36) and `p98_speed_mps` (37) added
 5. ~~`Track.peak_speed_mps`~~ — ✅ serialized
 6. ~~`Track.class_label`~~ — **Superseded.** Proto field `26` is now `ObjectClass object_class`
    (an `ObjectClass` enum, not a string). See [§4.5 ObjectClass enum](#45-objectclass-enum) below.
@@ -193,23 +193,23 @@ Preferred approach:
 3. If not implemented immediately, downgrade `supports_debug` claims or document
    capability granularity clearly.
 
-### Phase C: Speed summary schema + mapping (P1)
+### Phase C: Speed summary schema + mapping (P1) ✅
 
-1. Edit `proto/velocity_visualiser/v1/visualiser.proto`:
-   - `avg_speed_mps` -> `median_speed_mps` (field `24`)
-   - add `p85_speed_mps`
-   - add `p98_speed_mps`
-2. Regenerate protobuf code (Go and Swift generated bindings as applicable).
-3. Populate new fields from track `speedHistory`.
-4. Update adapter/model naming to keep semantics aligned.
+1. ~~Edit `proto/velocity_visualiser/v1/visualiser.proto`:~~
+   - ~~`avg_speed_mps` -> `median_speed_mps` (field `24`)~~
+   - ~~add `p85_speed_mps`~~
+   - ~~add `p98_speed_mps`~~
+2. ~~Regenerate protobuf code (Go and Swift generated bindings as applicable).~~
+3. ~~Populate new fields from track `speedHistory`.~~
+4. ~~Update adapter/model naming to keep semantics aligned.~~
 
-### Phase D: Swift client/UI parity (P2)
+### Phase D: Swift client/UI parity (P2) ✅
 
-1. Update Swift protobuf mapping for renamed/new track speed fields.
-2. Update inspector labels:
-   - `Average` -> `Median`
-   - add `p85`
-   - add `p98`
+1. ~~Update Swift protobuf mapping for renamed/new track speed fields.~~
+2. ~~Update inspector labels:~~
+   - ~~`Average` -> `Median`~~
+   - ~~add `p85`~~
+   - ~~add `p98`~~
 3. Keep UI resilient when new fields are absent (temporary mixed-version runs).
 
 ### Phase E: Test hardening (P1)
@@ -259,9 +259,9 @@ Preferred approach:
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
-- [ ] Update proto field `24` to `median_speed_mps`
-- [ ] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
-- [ ] Regenerate protobuf bindings (Go + Swift)
-- [ ] Compute/populate median/p85/p98 from track speed history
-- [ ] Update Swift visualiser inspector labels and values
+- [x] Update proto field `24` to `median_speed_mps`
+- [x] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
+- [x] Regenerate protobuf bindings (Go + Swift)
+- [x] Compute/populate median/p85/p98 from track speed history
+- [x] Update Swift visualiser inspector labels and values
 - [ ] Replace negative debug tests with positive end-to-end serialization tests

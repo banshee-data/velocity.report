@@ -203,19 +203,28 @@ message Track {
   float bbox_height = 20;          // metres, Z extent
 
   // Features
-  float height_p95_max = 21;
-  float intensity_mean_avg = 22;
-  float avg_speed_mps = 23;
-  float peak_speed_mps = 24;
+  float height_p95_max = 22;
+  float intensity_mean_avg = 23;
+  float median_speed_mps = 24;   // p50 speed (was avg_speed_mps before v0.5.0)
+  float peak_speed_mps = 25;
 
   // Classification
-  string class_label = 25;       // "pedestrian", "car", "cyclist", "bird", "other"
-  float class_confidence = 26;   // 0.0 - 1.0
+  ObjectClass object_class = 26; // classifier output or user label
+  float class_confidence = 27;   // 0.0 - 1.0
 
   // Quality metrics
   float track_length_metres = 28;
-  float track_duration_secs = 28;
-  int32 occlusion_count = 29;
+  float track_duration_secs = 29;
+  int32 occlusion_count = 30;
+  float confidence = 31;
+  OcclusionState occlusion_state = 32;
+  MotionModel motion_model = 33;
+  float alpha = 34;
+  int32 heading_source = 35;
+
+  // Speed percentiles (computed from track speed history)
+  float p85_speed_mps = 36;
+  float p98_speed_mps = 37;
 }
 
 enum TrackState {
