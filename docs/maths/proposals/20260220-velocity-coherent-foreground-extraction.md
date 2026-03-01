@@ -178,13 +178,37 @@ covariance-gated updates.
 
 Existing flat tuning keys are migrated into layer-scoped sub-objects (`l3`,
 `l4`, `l5`, `pipeline`). The `engine` field on each layer selects the
-algorithm variant. New `optimisation` block controls sweep strategy:
+algorithm variant; all engine parameters (common + engine-specific) live
+inside a block keyed by the engine name. The block is required when that
+engine is selected and absent otherwise. New `optimisation` block controls
+sweep strategy:
 
 ```json
 {
-  "l3": { "engine": "ema_track_assist_v2", "options": {} },
-  "l4": { "engine": "two_stage_mahalanobis_v2", "options": {} },
-  "l5": { "engine": "imm_cv_ca_v2", "options": {} },
+  "l3": {
+    "engine": "ema_track_assist_v2",
+    "ema_track_assist_v2": {
+      "background_update_fraction": 0.02,
+      "promotion_near_gate_low": 0.7,
+      "...": "(29 fields total: 26 common + 3 track-assist)"
+    }
+  },
+  "l4": {
+    "engine": "two_stage_mahalanobis_v2",
+    "two_stage_mahalanobis_v2": {
+      "foreground_dbscan_eps": 0.8,
+      "velocity_coherence_gate": 4.0,
+      "...": "(11 fields total: 9 common + 2 VC)"
+    }
+  },
+  "l5": {
+    "engine": "imm_cv_ca_v2",
+    "imm_cv_ca_v2": {
+      "gating_distance_squared": 36.0,
+      "transition_cv_to_ca": 0.05,
+      "...": "(27 fields total: 23 common + 4 IMM)"
+    }
+  },
   "optimisation": {
     "strategy": "accuracy_first_v1",
     "search_engine": "hybrid_grid_stochastic_v1",
@@ -192,6 +216,12 @@ algorithm variant. New `optimisation` block controls sweep strategy:
   }
 }
 ```
+
+All engine parameters live inside the engine block — the block is a
+self-describing snapshot where every field is enforced when present. Only the
+selected engine's block may be present (see CONFIG-RESTRUCTURE.md §3.1
+principles 5–6). The full field set per engine is defined in
+CONFIG-RESTRUCTURE.md §5.
 
 Allowed engine values:
 
