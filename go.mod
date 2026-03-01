@@ -3,20 +3,20 @@ module github.com/banshee-data/velocity.report
 go 1.25.6
 
 require (
-	github.com/go-echarts/go-echarts/v2 v2.6.7
+	github.com/go-echarts/go-echarts/v2 v2.7.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
-	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/stretchr/testify v1.11.1
 	github.com/tailscale/tailsql v0.0.0-20250804154109-d7a0426330bb
 	go.bug.st/serial v1.6.4
 	gonum.org/v1/gonum v0.17.0
 	gonum.org/v1/plot v0.16.0
-	google.golang.org/grpc v1.78.0
+	google.golang.org/grpc v1.79.1
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.44.3
+	modernc.org/sqlite v1.46.1
 	tailscale.com v1.95.0-pre
 )
 

@@ -47,7 +47,7 @@ packaging==25.0
     #   black
     #   matplotlib
     #   pytest
-pandas==3.0.0
+pandas==3.0.1
     # via
     #   -r requirements.in
     #   seaborn
@@ -85,11 +85,11 @@ requests==2.32.5
     # via
     #   -r requirements.in
     #   responses
-responses==0.25.8
+responses==0.26.0
     # via -r requirements.in
-ruff==0.14.14
+ruff==0.15.4
     # via -r requirements.in
-scipy==1.17.0
+scipy==1.17.1
     # via -r requirements.in
 seaborn==0.13.2
     # via -r requirements.in
