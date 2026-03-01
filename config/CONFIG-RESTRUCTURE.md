@@ -22,8 +22,9 @@ proposal introduces:
    selects the algorithm variant (e.g. `cv_kf_v1` vs `imm_cv_ca_v2`).
 3. **Optimisation strategy** — sweep/auto-tune gains a strategy profile and
    layer-scoping controls.
-4. **Engine-specific params** — each engine declares its own required fields
-   directly in the layer object (no optional sub-objects).
+4. **Engine-specific blocks** — each engine's full parameter set lives in a
+   sub-object keyed by the engine name; the block is mandatory when selected
+   and absent otherwise.
 
 This is a **clean break**. The flat schema is retired. There is no dual-read
 period, no compatibility shim, no migration path that preserves the old format
@@ -166,8 +167,8 @@ rejected as unknown keys.
 ### 3.5 Complete example (active engines, current production defaults)
 
 This uses the active engine for each layer (`ema_baseline_v1`, `dbscan_xy_v1`,
-`cv_kf_v1`, `rule_based_v1`). None of these engines have engine-specific
-parameters, so no engine blocks are needed. Values shown are current production
+`cv_kf_v1`, `rule_based_v1`). All engine parameters — common and engine-specific
+alike — live inside the engine block. Values shown are current production
 defaults. The canonical defaults will be maintained in `tuning.defaults.json` —
 this example is for structural reference only.
 
@@ -1021,7 +1022,7 @@ for the full statistical protocol.
 
 ## 8. Implementation Sequence
 
-### Phase 1 — Structural realignment (v0.5.1)
+### Phase 1 — Structural realignment (v0.5.0)
 
 Reorganise the existing 44 flat params into the versioned, layer-scoped,
 engine-selectable schema. No new parameters are added in this phase — the
@@ -1039,7 +1040,8 @@ config surface area is identical, only the structure changes.
 | 8    | Update `config-order-check` / `config-order-sync` for nested keys                                                   | Step 4     |
 | 9    | Update `config/README.md` and `config/README.maths.md`                                                              | Step 4     |
 | 10   | Update `/api/lidar/params` endpoint schema                                                                          | Step 6     |
-| 11   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    |
+| 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     |
+| 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    |
 
 ### Phase 2 — Essential new variable exposure (v0.6.0)
 
@@ -1052,10 +1054,10 @@ log a warning and are removed in a subsequent release.
 
 | Step | Description                                                                     | Depends on  |
 | ---- | ------------------------------------------------------------------------------- | ----------- |
-| 12   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     |
-| 13   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     |
-| 14   | Regenerate config files with new L1 and L3 fields                               | Steps 12–13 |
-| 15   | Update `config/README.md` with new field documentation                          | Step 14     |
+| 13   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     |
+| 14   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     |
+| 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 |
+| 16   | Update `config/README.md` with new field documentation                          | Step 15     |
 
 ### Phase 3 — Remaining variable exposure + L6 classification (v2.0)
 
@@ -1068,13 +1070,13 @@ is a candidate for replacement by an ML classifier (see
 
 | Step | Description                                                                       | Depends on  |
 | ---- | --------------------------------------------------------------------------------- | ----------- |
-| 16   | Add `L2Config` struct; wire frame-assembly constants through `FrameBuilder`       | Phase 2     |
-| 17   | Add `OcclusionThresholdNanos` to `L5Common`; wire through tracker                 | Phase 2     |
-| 18   | Add `DeletedTrackTTL`, `PruneInterval` to `PipelineConfig`; wire through pipeline | Phase 2     |
-| 19   | Add `L6Common` + `L6RuleBasedV1` struct; wire classification thresholds           | Phase 2     |
-| 20   | Add L6 engine to registry; update validation for engine-selectable L6             | Step 19     |
-| 21   | Regenerate config files with all Phase 3 fields                                   | Steps 16–20 |
-| 22   | Update `config/README.md` with Phase 3 field documentation                        | Step 21     |
+| 17   | Add `L2Config` struct; wire frame-assembly constants through `FrameBuilder`       | Phase 2     |
+| 18   | Add `OcclusionThresholdNanos` to `L5Common`; wire through tracker                 | Phase 2     |
+| 19   | Add `DeletedTrackTTL`, `PruneInterval` to `PipelineConfig`; wire through pipeline | Phase 2     |
+| 20   | Add `L6Common` + `L6RuleBasedV1` struct; wire classification thresholds           | Phase 2     |
+| 21   | Add L6 engine to registry; update validation for engine-selectable L6             | Step 20     |
+| 22   | Regenerate config files with all Phase 3 fields                                   | Steps 17–21 |
+| 23   | Update `config/README.md` with Phase 3 field documentation                        | Step 22     |
 
 ---
 
