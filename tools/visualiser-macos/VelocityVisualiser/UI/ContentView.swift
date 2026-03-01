@@ -1093,6 +1093,9 @@ struct TrackInspectorDetailCards: View {
                         DetailRow(
                             label: "Heading",
                             value: String(format: "%.1f°", t.headingRad * 180 / .pi))
+                        DetailRow(label: "Median", value: String(format: "%.1f m/s", t.medianSpeedMps))
+                        DetailRow(label: "p85", value: String(format: "%.1f m/s", t.p85SpeedMps))
+                        DetailRow(label: "p98", value: String(format: "%.1f m/s", t.p98SpeedMps))
                         DetailRow(label: "Peak", value: String(format: "%.1f m/s", t.peakSpeedMps))
                     }
                 }

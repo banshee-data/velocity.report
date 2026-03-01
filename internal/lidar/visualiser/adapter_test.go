@@ -1886,3 +1886,46 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackProcessing(t *testing.T) {
 		t.Error("expected to find a deleted track with fade-out alpha")
 	}
 }
+
+func TestSpeedPercentiles_Empty(t *testing.T) {
+	median, p85, p98 := speedPercentiles(nil)
+	if median != 0 || p85 != 0 || p98 != 0 {
+		t.Errorf("empty input: want (0,0,0), got (%f,%f,%f)", median, p85, p98)
+	}
+}
+
+func TestSpeedPercentiles_SingleValue(t *testing.T) {
+	median, p85, p98 := speedPercentiles([]float32{5.0})
+	if median != 5.0 || p85 != 5.0 || p98 != 5.0 {
+		t.Errorf("single value: want (5,5,5), got (%f,%f,%f)", median, p85, p98)
+	}
+}
+
+func TestSpeedPercentiles_TwentyValues(t *testing.T) {
+	// 1..20 sorted → median=speeds[10]=11, p85=speeds[floor(20*0.85)]=speeds[17]=18, p98=speeds[floor(20*0.98)]=speeds[19]=20
+	speeds := make([]float32, 20)
+	for i := range speeds {
+		speeds[i] = float32(i + 1)
+	}
+	median, p85, p98 := speedPercentiles(speeds)
+	if median != 11 {
+		t.Errorf("median: got %f, want 11", median)
+	}
+	if p85 != 18 {
+		t.Errorf("p85: got %f, want 18", p85)
+	}
+	if p98 != 20 {
+		t.Errorf("p98: got %f, want 20", p98)
+	}
+}
+
+func TestSpeedPercentiles_SortsInPlace(t *testing.T) {
+	speeds := []float32{10, 5, 8, 3, 1}
+	speedPercentiles(speeds)
+	// Verify sorted in-place
+	for i := 1; i < len(speeds); i++ {
+		if speeds[i] < speeds[i-1] {
+			t.Errorf("not sorted at index %d: %f < %f", i, speeds[i], speeds[i-1])
+		}
+	}
+}

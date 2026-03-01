@@ -652,6 +652,9 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 					HeightP95Max:      1.65,
 					IntensityMeanAvg:  42.0,
 					AvgSpeedMps:       4.2,
+					MedianSpeedMps:   3.8,
+					P85SpeedMps:      5.5,
+					P98SpeedMps:      6.2,
 					PeakSpeedMps:      6.8,
 					ObjectClass:       "car",
 					ClassConfidence:   0.92,
@@ -736,11 +739,17 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 	if tr.HeadingRad != 0.06 {
 		t.Errorf("HeadingRad: got %f, want 0.06", tr.HeadingRad)
 	}
-	if tr.AvgSpeedMps != 4.2 {
-		t.Errorf("AvgSpeedMps: got %f, want 4.2", tr.AvgSpeedMps)
+	if tr.MedianSpeedMps != 3.8 {
+		t.Errorf("MedianSpeedMps: got %f, want 3.8", tr.MedianSpeedMps)
 	}
 	if tr.PeakSpeedMps != 6.8 {
 		t.Errorf("PeakSpeedMps: got %f, want 6.8", tr.PeakSpeedMps)
+	}
+	if tr.P85SpeedMps != 5.5 {
+		t.Errorf("P85SpeedMps: got %f, want 5.5", tr.P85SpeedMps)
+	}
+	if tr.P98SpeedMps != 6.2 {
+		t.Errorf("P98SpeedMps: got %f, want 6.2", tr.P98SpeedMps)
 	}
 
 	// -- Covariance ------------------------------------------------------
