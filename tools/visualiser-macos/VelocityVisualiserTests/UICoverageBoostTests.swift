@@ -33,7 +33,8 @@ private func makeTrack(
         firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000, x: 10, y: 5, z: 0.5, vx: 8,
         vy: 0.5, vz: 0, speedMps: speed, headingRad: 0.1, covariance4x4: [], bboxLength: 4.5,
         bboxWidth: 1.8, bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6,
-        intensityMeanAvg: 50, avgSpeedMps: 7.5, peakSpeedMps: peakSpeed, classLabel: classLabel,
+        intensityMeanAvg: 50, medianSpeedMps: 7.5, peakSpeedMps: peakSpeed, p85SpeedMps: 8.0,
+        p98SpeedMps: 8.5, classLabel: classLabel,
         classConfidence: 0.95, trackLengthMetres: 150, trackDurationSecs: 20, occlusionCount: 0,
         confidence: 0.98, occlusionState: .none, motionModel: .cv, alpha: 1.0)
 }
@@ -697,6 +698,11 @@ struct ParseQualityFlagsTests {
 
     @Test func duplicatesCollapsed() {
         let result = parseQualityFlags("noisy,noisy,split")
+        #expect(result == ["noisy", "split"])
+    }
+
+    @Test func filtersWhitespaceOnlySegments() {
+        let result = parseQualityFlags("noisy, , split")
         #expect(result == ["noisy", "split"])
     }
 }
