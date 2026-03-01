@@ -528,8 +528,8 @@ func (a *FrameAdapter) adaptDebugFrame(debugFrame interface{}, timestamp time.Ti
 // speedPercentiles computes median (p50), p85, and p98 from a speed history
 // slice. The input is sorted in-place; callers must pass an owned copy (e.g.
 // from SpeedHistory() which already returns a copy).
-// Uses floor-based index selection consistent with the existing l6objects
-// ComputeSpeedPercentiles helper.
+// Uses floor-based index selection (picks upper-middle for even-length arrays)
+// consistent with l6objects.ComputeSpeedPercentiles.
 func speedPercentiles(speeds []float32) (median, p85, p98 float32) {
 	n := len(speeds)
 	if n == 0 {
