@@ -121,7 +121,7 @@ type TrackResponse struct {
 	ClassificationModel string               `json:"classification_model,omitempty"`
 	ObservationCount    int                  `json:"observation_count"`
 	AgeSeconds          float64              `json:"age_seconds"`
-	AvgSpeedMps         float32              `json:"avg_speed_mps"`
+	MedianSpeedMps      float32              `json:"median_speed_mps"`
 	PeakSpeedMps        float32              `json:"peak_speed_mps"`
 	BoundingBox         BBox                 `json:"bounding_box"`
 	OBBHeadingRad       float32              `json:"obb_heading_rad"`
@@ -226,10 +226,10 @@ type TrackSummaryResponse struct {
 
 // ClassSummary contains summary statistics for a single object class.
 type ClassSummary struct {
-	Count        int     `json:"count"`
-	AvgSpeedMps  float32 `json:"avg_speed_mps"`
-	PeakSpeedMps float32 `json:"peak_speed_mps"`
-	AvgDuration  float64 `json:"avg_duration_seconds"`
+	Count          int     `json:"count"`
+	MedianSpeedMps float32 `json:"median_speed_mps"`
+	PeakSpeedMps   float32 `json:"peak_speed_mps"`
+	AvgDuration    float64 `json:"avg_duration_seconds"`
 }
 
 // OverallSummary contains overall summary statistics across all tracks.
@@ -238,7 +238,7 @@ type OverallSummary struct {
 	ConfirmedCount int     `json:"confirmed_count"`
 	TentativeCount int     `json:"tentative_count"`
 	DeletedCount   int     `json:"deleted_count"`
-	AvgSpeedMps    float32 `json:"avg_speed_mps"`
+	MedianSpeedMps float32 `json:"median_speed_mps"`
 }
 
 // handleListTracks handles GET /api/lidar/tracks
@@ -786,7 +786,7 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		}
 		accum := byClass[class]
 		accum.count++
-		accum.totalSpeed += track.AvgSpeedMps
+		accum.totalSpeed += track.MedianSpeedMps
 		if track.PeakSpeedMps > accum.peakSpeed {
 			accum.peakSpeed = track.PeakSpeedMps
 		}
@@ -796,7 +796,7 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		}
 
 		// Overall
-		totalSpeed += track.AvgSpeedMps
+		totalSpeed += track.MedianSpeedMps
 		speedCount++
 	}
 
@@ -816,10 +816,10 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 			avgDuration = accum.totalDuration / float64(accum.count)
 		}
 		response.ByClass[class] = ClassSummary{
-			Count:        accum.count,
-			AvgSpeedMps:  avgSpeed,
-			PeakSpeedMps: accum.peakSpeed,
-			AvgDuration:  avgDuration,
+			Count:          accum.count,
+			MedianSpeedMps: avgSpeed,
+			PeakSpeedMps:   accum.peakSpeed,
+			AvgDuration:    avgDuration,
 		}
 	}
 
@@ -833,7 +833,7 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		ConfirmedCount: byState["confirmed"],
 		TentativeCount: byState["tentative"],
 		DeletedCount:   byState["deleted"],
-		AvgSpeedMps:    overallAvgSpeed,
+		MedianSpeedMps: overallAvgSpeed,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -996,7 +996,7 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 		ClassificationModel: track.ClassificationModel,
 		ObservationCount:    track.ObservationCount,
 		AgeSeconds:          spanSeconds,
-		AvgSpeedMps:         track.AvgSpeedMps,
+		MedianSpeedMps:      track.MedianSpeedMps,
 		PeakSpeedMps:        track.PeakSpeedMps,
 		BoundingBox:         bboxFromTrack(track),
 		OBBHeadingRad:       track.OBBHeadingRad,

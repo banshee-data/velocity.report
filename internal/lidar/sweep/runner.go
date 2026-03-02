@@ -54,27 +54,6 @@ type SweepRequest struct {
 	PCAPStartSecs    float64 `json:"pcap_start_secs,omitempty"`    // start offset in seconds
 	PCAPDurationSecs float64 `json:"pcap_duration_secs,omitempty"` // duration in seconds (-1 = full)
 
-	// Multi-mode: explicit values (legacy)
-	NoiseValues     []float64 `json:"noise_values,omitempty"`
-	ClosenessValues []float64 `json:"closeness_values,omitempty"`
-	NeighbourValues []int     `json:"neighbour_values,omitempty"`
-
-	// Single-variable sweep ranges (legacy)
-	NoiseStart     float64 `json:"noise_start,omitempty"`
-	NoiseEnd       float64 `json:"noise_end,omitempty"`
-	NoiseStep      float64 `json:"noise_step,omitempty"`
-	ClosenessStart float64 `json:"closeness_start,omitempty"`
-	ClosenessEnd   float64 `json:"closeness_end,omitempty"`
-	ClosenessStep  float64 `json:"closeness_step,omitempty"`
-	NeighbourStart int     `json:"neighbour_start,omitempty"`
-	NeighbourEnd   int     `json:"neighbour_end,omitempty"`
-	NeighbourStep  int     `json:"neighbour_step,omitempty"`
-
-	// Fixed values for single-variable sweeps (legacy)
-	FixedNoise     float64 `json:"fixed_noise,omitempty"`
-	FixedCloseness float64 `json:"fixed_closeness,omitempty"`
-	FixedNeighbour int     `json:"fixed_neighbour,omitempty"`
-
 	// Sampling
 	Iterations int    `json:"iterations"`  // samples per combo
 	Interval   string `json:"interval"`    // duration string e.g. "2s"
@@ -100,11 +79,6 @@ type ComboResult struct {
 
 	// Generic param values (new)
 	ParamValues map[string]interface{} `json:"param_values,omitempty"`
-
-	// Legacy fields (populated from ParamValues for backward compat)
-	Noise     float64 `json:"noise"`
-	Closeness float64 `json:"closeness"`
-	Neighbour int     `json:"neighbour"`
 
 	OverallAcceptMean   float64   `json:"overall_accept_mean"`
 	OverallAcceptStddev float64   `json:"overall_accept_stddev"`
@@ -305,74 +279,17 @@ func (r *Runner) start(ctx context.Context, req SweepRequest) error {
 		return fmt.Errorf("iterations must not exceed 500, got %d", req.Iterations)
 	}
 	if req.Mode == "" {
-		req.Mode = "multi"
+		req.Mode = "sweep"
 	}
 	if req.Seed == "" {
 		req.Seed = "true"
 	}
 
-	// Validate mode
-	switch req.Mode {
-	case "multi", "noise", "closeness", "neighbour", "params":
-		// supported modes
-	default:
-		return fmt.Errorf("unsupported sweep mode %q", req.Mode)
+	if len(req.Params) == 0 {
+		return fmt.Errorf("params required; legacy sweep modes removed in v0.5.0")
 	}
 
-	// Use generic params path if params are provided
-	if len(req.Params) > 0 {
-		return r.startGeneric(ctx, req, interval, settleTime)
-	}
-
-	// Legacy path: 3 fixed parameter dimensions
-	noiseCombos, closenessCombos, neighbourCombos := r.computeCombinations(req)
-
-	totalCombos := len(noiseCombos) * len(closenessCombos) * len(neighbourCombos)
-	if totalCombos == 0 {
-		return fmt.Errorf("no parameter combinations to sweep")
-	}
-	const maxCombos = 1000
-	if totalCombos > maxCombos {
-		return fmt.Errorf("parameter range too large: would generate %d combinations (max %d)", totalCombos, maxCombos)
-	}
-
-	// Now acquire lock for state modification
-	r.mu.Lock()
-	if r.state.Status == SweepStatusRunning {
-		r.mu.Unlock()
-		return ErrSweepAlreadyRunning
-	}
-
-	now := time.Now()
-	r.sweepID = uuid.New().String()
-	r.state = SweepState{
-		Status:      SweepStatusRunning,
-		StartedAt:   &now,
-		TotalCombos: totalCombos,
-		Results:     make([]ComboResult, 0, totalCombos),
-		Request:     &req,
-	}
-
-	sweepCtx, cancel := context.WithCancel(ctx)
-	r.cancel = cancel
-	r.mu.Unlock()
-
-	// Persist sweep start to database
-	if r.persister != nil {
-		reqJSON, err := json.Marshal(req)
-		if err != nil {
-			r.logger.Printf("[sweep] WARNING: Failed to marshal sweep request for persistence: %v", err)
-			reqJSON = []byte("{}")
-		}
-		if err := r.persister.SaveSweepStart(r.sweepID, r.backend.SensorID(), "sweep", reqJSON, now, "manual", ObjectiveVersion); err != nil {
-			r.logger.Printf("[sweep] WARNING: Failed to persist sweep start: %v", err)
-		}
-	}
-
-	// Run sweep in background
-	go r.run(sweepCtx, req, noiseCombos, closenessCombos, neighbourCombos, interval, settleTime)
-
-	return nil
+	return r.startGeneric(ctx, req, interval, settleTime)
 }
 
 // startGeneric handles the generic N-dimensional parameter sweep.
@@ -453,190 +370,6 @@ func (r *Runner) Stop() {
 		r.cancel()
 		r.cancel = nil
 	}
-}
-
-// run executes the legacy sweep in a background goroutine
-func (r *Runner) run(ctx context.Context, req SweepRequest, noiseCombos, closenessCombos []float64, neighbourCombos []int, interval, settleTime time.Duration) {
-	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
-	settleOnce := req.SettleMode == "once"
-	const regionRestoreWait = 2 * time.Second
-
-	buckets := r.backend.FetchBuckets()
-	sampler := NewSampler(r.backend, buckets, interval)
-
-	// Read total combos once to avoid race detector warnings
-	r.mu.RLock()
-	totalCombos := r.state.TotalCombos
-	r.mu.RUnlock()
-
-	comboNum := 0
-	seedToggle := false
-
-	for _, noise := range noiseCombos {
-		for _, closeness := range closenessCombos {
-			for _, neighbour := range neighbourCombos {
-				// Check for cancellation
-				select {
-				case <-ctx.Done():
-					r.mu.Lock()
-					r.state.Status = SweepStatusError
-					errMsg := fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum, totalCombos, ctx.Err())
-					r.state.Error = errMsg
-					now := time.Now()
-					r.state.CompletedAt = &now
-					r.mu.Unlock()
-					r.persistComplete("error", errMsg, nil)
-					return
-				default:
-				}
-
-				comboNum++
-				r.logger.Printf("[sweep] Combination %d/%d: noise=%.4f, closeness=%.2f, neighbour=%d",
-					comboNum, totalCombos, noise, closeness, neighbour)
-
-				// Determine seed
-				var seed bool
-				switch req.Seed {
-				case "true":
-					seed = true
-				case "false":
-					seed = false
-				case "toggle":
-					seed = seedToggle
-					seedToggle = !seedToggle
-				default:
-					seed = true
-				}
-
-				// Set parameters FIRST (before reset, so new config is active)
-				tuningParams := map[string]interface{}{
-					"noise_relative":              noise,
-					"closeness_multiplier":        closeness,
-					"neighbor_confirmation_count": neighbour,
-					"seed_from_first":             seed,
-				}
-				if err := r.backend.SetTuningParams(tuningParams); err != nil {
-					r.logger.Printf("[sweep] ERROR: Failed to set params: %v", err)
-					errMsg := fmt.Sprintf("combo %d: failed to set params: %v", comboNum, err)
-					r.mu.Lock()
-					r.state.Status = SweepStatusError
-					r.state.Error = errMsg
-					r.mu.Unlock()
-					r.persistComplete("error", errMsg, nil)
-					return
-				}
-
-				if isPCAP {
-					// Reset acceptance counters before each PCAP combination so metrics
-					// reflect only this combination's data (mirrors live mode at line 526).
-					if err := r.backend.ResetAcceptance(); err != nil {
-						r.logger.Printf("[sweep] WARNING: Failed to reset acceptance before PCAP: %v", err)
-						r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
-					}
-
-					// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
-					// Use "realtime" speed to ensure the full tracking pipeline (BackgroundManager,
-					// ForegroundForwarder, warmup) runs — "fastest" mode skips foreground extraction
-					// and produces 0 tracks.
-					if err := r.backend.StartPCAPReplayWithConfig(PCAPReplayConfig{
-						PCAPFile:         req.PCAPFile,
-						StartSeconds:     req.PCAPStartSecs,
-						DurationSeconds:  req.PCAPDurationSecs,
-						MaxRetries:       30,
-						AnalysisMode:     true,
-						SpeedMode:        "realtime",
-						DisableRecording: !req.EnableRecording,
-					}); err != nil {
-						r.logger.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum, err)
-						r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum, err))
-						continue
-					}
-
-					// Wait for PCAP replay to finish so all data is processed
-					if err := r.backend.WaitForPCAPComplete(120 * time.Second); err != nil {
-						r.logger.Printf("[sweep] WARNING: PCAP wait timeout for combo %d: %v", comboNum, err)
-						r.addWarning(fmt.Sprintf("combo %d: PCAP wait timeout: %v", comboNum, err))
-					}
-
-					// Settle after PCAP completion: full settle for first combo, short wait for subsequent in "once" mode
-					if settleOnce && comboNum > 1 {
-						time.Sleep(regionRestoreWait)
-					} else if settleTime > 0 {
-						time.Sleep(settleTime)
-					}
-				} else {
-					// Live mode: reset grid and acceptance, then wait for data
-					if err := r.backend.ResetGrid(); err != nil {
-						r.logger.Printf("[sweep] WARNING: Grid reset failed: %v", err)
-						r.addWarning(fmt.Sprintf("combo %d: grid reset failed: %v", comboNum+1, err))
-					}
-
-					if err := r.backend.ResetAcceptance(); err != nil {
-						r.logger.Printf("[sweep] WARNING: Failed to reset acceptance: %v", err)
-						r.addWarning(fmt.Sprintf("combo %d: reset acceptance failed: %v", comboNum+1, err))
-					}
-
-					// Settle: full settle for first combo, short wait for subsequent in "once" mode
-					if settleOnce && comboNum > 1 {
-						r.backend.WaitForGridSettle(regionRestoreWait)
-					} else {
-						r.backend.WaitForGridSettle(settleTime)
-					}
-				}
-
-				// Sample
-				cfg := SampleConfig{
-					Noise:      noise,
-					Closeness:  closeness,
-					Neighbour:  neighbour,
-					Iterations: req.Iterations,
-				}
-				results := sampler.Sample(cfg)
-
-				// Compute summary
-				combo := r.computeComboResult(noise, closeness, neighbour, results, buckets)
-
-				// Capture analysis run ID from the server (set during PCAP replay)
-				if isPCAP {
-					combo.RunID = r.backend.GetLastAnalysisRunID()
-				}
-
-				// Update state
-				r.mu.Lock()
-				r.state.Results = append(r.state.Results, combo)
-				r.state.CompletedCombos = comboNum
-				r.state.CurrentCombo = &combo
-				r.mu.Unlock()
-
-				// Release PCAP slot after each combo so the next combo can start
-				// a fresh replay. Without this, currentSource stays DataSourcePCAP
-				// and subsequent StartPCAPForSweep calls spin on the conflict retry
-				// loop until they time out.
-				if isPCAP {
-					if err := r.backend.StopPCAPReplay(); err != nil {
-						r.logger.Printf("[sweep] WARNING: Failed to stop PCAP after combo %d: %v", comboNum, err)
-					}
-				}
-			}
-		}
-	}
-
-	// Clean up: stop any lingering PCAP replay (covers early exits / errors)
-	if isPCAP {
-		if err := r.backend.StopPCAPReplay(); err != nil {
-			r.logger.Printf("[sweep] WARNING: Failed to stop PCAP: %v", err)
-		}
-	}
-
-	r.mu.Lock()
-	r.state.Status = SweepStatusComplete
-	now := time.Now()
-	r.state.CompletedAt = &now
-	r.mu.Unlock()
-	r.logger.Printf("[sweep] Sweep complete: %d combinations evaluated", comboNum)
-
-	// Persist completion to database
-	r.persistComplete("complete", "", nil)
 }
 
 // runGeneric executes the generic N-dimensional sweep.
@@ -779,7 +512,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		results := sampler.Sample(cfg)
 
 		// Compute summary with generic param values
-		combo := r.computeComboResult(noise, closeness, neighbour, results, buckets)
+		combo := r.computeComboResult(results, buckets)
 		combo.ParamValues = paramValues
 
 		// Capture analysis run ID from the server (set during PCAP replay)
@@ -824,12 +557,9 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 }
 
 // computeComboResult computes summary statistics for a parameter combination
-func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, results []SampleResult, buckets []string) ComboResult {
+func (r *Runner) computeComboResult(results []SampleResult, buckets []string) ComboResult {
 	combo := ComboResult{
-		Noise:     noise,
-		Closeness: closeness,
-		Neighbour: neighbour,
-		Buckets:   buckets,
+		Buckets: buckets,
 	}
 
 	if len(results) == 0 {
