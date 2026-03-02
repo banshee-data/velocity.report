@@ -4,12 +4,14 @@
 
 ## Goal
 
-Create a single, prioritised plan to reduce non-core operational surface area, focusing on:
+Create a single, prioritised plan to reduce non-core operational surface area and
+clean up backward compatibility debt, focusing on:
 
 1. Make targets
 2. `cmd/` applications and tools
 3. CLI flags
 4. Consolidation of metrics/stats/frontend surfaces
+5. Data model and API backward compatibility shims ([sub-plan](v050-backward-compatibility-shim-removal-plan.md))
 
 This plan is scoped to capabilities that are not essential to the core query-serving path (`cmd/radar` on `:8080` + SQLite-backed APIs).
 
@@ -126,9 +128,10 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 1. **`cmd/deploy` deprecation path** (start now; remove after #210 milestones)
 2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`)
-3. **`cmd/transit-backfill` and unowned tools cleanup**
-4. **LiDAR forwarding flag simplification**
-5. **Stats/plot/API-shortcut target consolidation after #252 parity**
+3. **Data model and API compat-shim removal** ([sub-plan](v050-backward-compatibility-shim-removal-plan.md)) — v0.5.0 breaking changes
+4. **`cmd/transit-backfill` and unowned tools cleanup**
+5. **LiDAR forwarding flag simplification**
+6. **Stats/plot/API-shortcut target consolidation after #252 parity**
 
 ## Migration Guidance: Deploy Tool → Image Pipeline
 
@@ -200,14 +203,19 @@ Once all four conditions are met, the following will be removed:
 
 ## v0.5.0 Breaking Changes Plan
 
-The following breaking changes are planned for the v0.5.0 release. They are documented here so that downstream consumers can prepare.
+The following breaking changes are planned for the v0.5.0 release. They are
+documented here so that downstream consumers can prepare.
+
+The full inventory of data model and API compat-shim removals is tracked in the
+sub-plan:
+[v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md).
 
 ### 1. Visualiser proto: `avg_speed_mps` → `median_speed_mps` (field 24)
 
-- **What:** Proto field 24 in `TrackedObject` is renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) are added.
-- **Impact:** macOS visualiser and any gRPC clients reading field 24 as an average must update to treat it as a median.
+- **What:** Proto field 24 in `TrackedObject` is renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) are added. The `AvgSpeedMps` compat shim in the internal model and REST API is removed.
+- **Impact:** macOS visualiser and any gRPC clients reading field 24 as an average must update to treat it as a median. REST API consumers reading `avg_speed_mps` must switch to `median_speed_mps`.
 - **Migration:** Update client code to use the new field name. The wire format is unchanged (same field number), so binary compatibility is preserved.
-- **Design doc:** [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- **Design docs:** [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avgspeedmps-in-visualiser-model-and-rest-api)
 
 ### 2. Deployment surface deprecated
 
@@ -221,11 +229,34 @@ The following breaking changes are planned for the v0.5.0 release. They are docu
 - **Impact:** None in v0.5.0. Removal planned for a future release after confirmation of zero active usage.
 - **Migration:** Use `velocity-report transits rebuild` instead.
 
-### No other breaking changes
+### 4. Sweep API: legacy request/result fields removed
+
+- **What:** Legacy sweep request fields (`noise_values`, `closeness_values`, `neighbour_values`, per-variable range fields, fixed-value fields) and legacy result fields (`noise`, `closeness`, `neighbour` at top level of `ComboResult`) are removed. The `computeCombinations()` legacy code path is deleted.
+- **Impact:** Any client sending sweep requests in the old per-variable format will receive errors. Sweep results no longer include top-level `noise`/`closeness`/`neighbour` keys.
+- **Migration:** Use the `param_values` map format for requests and results. See [shim removal §2](v050-backward-compatibility-shim-removal-plan.md#2-go-server--sweep-legacy-request-format).
+
+### 5. Report download: query-parameter endpoint removed
+
+- **What:** The legacy `/api/reports/{id}/download?file_type=pdf` endpoint is removed.
+- **Impact:** Callers using the query-parameter format will receive 404s.
+- **Migration:** Use the path-based format: `/api/reports/{id}/download/{filename}.pdf`. See [shim removal §3](v050-backward-compatibility-shim-removal-plan.md#3-go-server--legacy-download-endpoint-format).
+
+### 6. Stats API: bare-array response format removed
+
+- **What:** The stats API (`/api/radar/stats`) no longer returns a bare JSON array. It always returns `{ "metrics": [...], "histogram": {...} }`.
+- **Impact:** Any consumer expecting a bare `[...]` array will break. The Python PDF generator legacy format branch is also removed.
+- **Migration:** Parse the response as an object with a `metrics` key. See [shim removal §9, §13](v050-backward-compatibility-shim-removal-plan.md#9-python--legacy-api-response-format-handling).
+
+### 7. Sweep handler: malformed JSON now returns 400
+
+- **What:** The sweep handler previously silently ignored malformed JSON request bodies. It now returns `400 Bad Request`.
+- **Impact:** Callers sending invalid JSON will receive errors instead of silent acceptance.
+- **Migration:** Ensure sweep requests are valid JSON. See [shim removal §4](v050-backward-compatibility-shim-removal-plan.md#4-go-server--lenient-json-parsing-in-sweep-handler).
+
+### Unchanged in v0.5.0
 
 - No CLI flags are removed in v0.5.0.
 - No database schema breaking changes.
-- No API endpoint removals.
 - Privacy model is unchanged: local-only storage, no PII.
 
 ## Delivery Plan (Task Lists)
@@ -257,10 +288,26 @@ The following breaking changes are planned for the v0.5.0 release. They are docu
 - [ ] Group and document advanced transit worker flags
 - [ ] Simplify PDF mode flags for operators while keeping backward compatibility for one release
 
+### Project E (P1): Data model and API compat-shim removal
+
+Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md)
+
+- [ ] Remove Go server compat shims (AvgSpeedMps, sweep legacy fields, download query-param, lenient JSON, dead code)
+- [ ] Remove Svelte/web compat shims (BackgroundCell legacy fields, dual-format cache, sweep legacy field names)
+- [ ] Remove Python compat shims (legacy stats format, config dict helpers, pylatex stubs)
+- [ ] Remove macOS compat shims (regenerate Swift proto, legacy point buffer, playback defaults)
+- [ ] Validation pass: lint, test, build across all platforms
+
+Intersections with other projects:
+
+- Sweep legacy field removal (shim §2, §14) shares scope with Project C (#252 sweep migration). The shim removal covers server-side and frontend field-name changes; Project C covers full sweep UI migration.
+- Deploy executor compat methods (shim §5) deferred to Project B (deploy retirement gate).
+
 ## Decision Notes
 
 - This plan intentionally prioritises deprecation signalling first, then removal.
 - No privacy model changes are proposed: local-only storage and no PII remain unchanged.
 - Removal milestones are dependency-gated to avoid breaking existing deployments.
 - Phase 1 (Project A signalling + Project B gate definition) completed in v0.5.0.
-- Actual removal of deprecated surfaces is deferred to v0.7.0 after the retirement gate is satisfied.
+- Actual removal of deprecated deployment surfaces is deferred to v0.7.0 after the retirement gate is satisfied.
+- v0.5.0 also ships data model and API compat-shim removals (Project E). These are breaking changes coordinated as a single batch to avoid prolonged dual-format maintenance.
