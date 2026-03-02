@@ -522,16 +522,19 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		pbClusters := make([]*pb.Cluster, len(cs.Clusters))
 		for i, c := range cs.Clusters {
 			pbCluster := &pb.Cluster{
-				ClusterId:   c.ClusterID,
-				SensorId:    c.SensorID,
-				TimestampNs: c.TimestampNanos,
-				CentroidX:   c.CentroidX,
-				CentroidY:   c.CentroidY,
-				CentroidZ:   c.CentroidZ,
-				AabbLength:  c.AABBLength,
-				AabbWidth:   c.AABBWidth,
-				AabbHeight:  c.AABBHeight,
-				PointsCount: int32(c.PointsCount),
+				ClusterId:     c.ClusterID,
+				SensorId:      c.SensorID,
+				TimestampNs:   c.TimestampNanos,
+				CentroidX:     c.CentroidX,
+				CentroidY:     c.CentroidY,
+				CentroidZ:     c.CentroidZ,
+				AabbLength:    c.AABBLength,
+				AabbWidth:     c.AABBWidth,
+				AabbHeight:    c.AABBHeight,
+				PointsCount:   int32(c.PointsCount),
+				HeightP95:     c.HeightP95,
+				IntensityMean: c.IntensityMean,
+				SamplePoints:  c.SamplePoints,
 			}
 			if c.OBB != nil {
 				pbCluster.Obb = &pb.OrientedBoundingBox{
@@ -657,6 +660,65 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				RingElevations:   bg.GridMetadata.RingElevations,
 				SettlingComplete: bg.GridMetadata.SettlingComplete,
 			},
+		}
+	}
+
+	// Include debug overlays if requested
+	if req.IncludeDebug && frame.Debug != nil {
+		dbg := frame.Debug
+
+		pbAssoc := make([]*pb.AssociationCandidate, len(dbg.AssociationCandidates))
+		for i, a := range dbg.AssociationCandidates {
+			pbAssoc[i] = &pb.AssociationCandidate{
+				ClusterId: a.ClusterID,
+				TrackId:   a.TrackID,
+				Distance:  a.Distance,
+				Accepted:  a.Accepted,
+			}
+		}
+
+		pbGating := make([]*pb.GatingEllipse, len(dbg.GatingEllipses))
+		for i, g := range dbg.GatingEllipses {
+			pbGating[i] = &pb.GatingEllipse{
+				TrackId:     g.TrackID,
+				CenterX:     g.CenterX,
+				CenterY:     g.CenterY,
+				SemiMajor:   g.SemiMajor,
+				SemiMinor:   g.SemiMinor,
+				RotationRad: g.RotationRad,
+			}
+		}
+
+		pbResiduals := make([]*pb.InnovationResidual, len(dbg.Residuals))
+		for i, r := range dbg.Residuals {
+			pbResiduals[i] = &pb.InnovationResidual{
+				TrackId:           r.TrackID,
+				PredictedX:        r.PredictedX,
+				PredictedY:        r.PredictedY,
+				MeasuredX:         r.MeasuredX,
+				MeasuredY:         r.MeasuredY,
+				ResidualMagnitude: r.ResidualMagnitude,
+			}
+		}
+
+		pbPredictions := make([]*pb.StatePrediction, len(dbg.Predictions))
+		for i, p := range dbg.Predictions {
+			pbPredictions[i] = &pb.StatePrediction{
+				TrackId: p.TrackID,
+				X:       p.X,
+				Y:       p.Y,
+				Vx:      p.VX,
+				Vy:      p.VY,
+			}
+		}
+
+		pbFrame.Debug = &pb.DebugOverlaySet{
+			FrameId:               dbg.FrameID,
+			TimestampNs:           dbg.TimestampNanos,
+			AssociationCandidates: pbAssoc,
+			GatingEllipses:        pbGating,
+			Residuals:             pbResiduals,
+			Predictions:           pbPredictions,
 		}
 	}
 
