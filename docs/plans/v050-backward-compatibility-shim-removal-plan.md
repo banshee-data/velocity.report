@@ -5,13 +5,17 @@
 
 ## Status: In Progress
 
-**Completed (PR #336):**
+**Completed (PR #336 + proto contract work):**
 
 - Visualiser model `AvgSpeedMps` removed; `MedianSpeedMps` is sole central speed
 - Proto field 24 renamed `avg_speed_mps` → `median_speed_mps`; p85/p98 fields added
 - `classifyOrConvert()` updated to use `MedianSpeedMps`
+- Debug overlay serialisation in `frameBundleToProto` (gated by `IncludeDebug`)
+- Cluster feature fields (`HeightP95`, `IntensityMean`, `SamplePoints`) serialised
+- Positive serialisation tests replace negative debug tests
+- Swift proto regenerated with `medianSpeedMps`, `p85SpeedMps`, `p98SpeedMps`
 
-**Remaining:** REST API, TrackFeatures, track store, DB column drop, pcap-analyse (§1 below), sweep legacy fields (§2), and remaining shims (§3–15).
+**Remaining:** REST API, TrackFeatures, track store, DB column drop, pcap-analyse (§1 below), ContentView inspector rows (§15), sweep legacy fields (§2), and remaining shims (§3–17).
 
 ## Goal
 
@@ -54,15 +58,16 @@ Intersections with other parent-plan projects:
 
 ### 1. Go Server — `AvgSpeedMps` removal (all layers)
 
-| Item                 | Location                                            | Detail                                                                                                                              |
-| -------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Internal model field | `internal/lidar/visualiser/model.go:245`            | `AvgSpeedMps float32 // running mean for classifier/VRLOG compat` — exists alongside `MedianSpeedMps`, `P85SpeedMps`, `P98SpeedMps` |
-| REST API JSON field  | `internal/lidar/monitor/track_api.go:124`           | `AvgSpeedMps float32 json:"avg_speed_mps"` — exposed to web frontend                                                                |
-| TrackFeatures field  | `internal/lidar/l6objects/features.go:31`           | `AvgSpeedMps float32` in ML feature-vector struct; also in CSV header and export                                                    |
-| Track store (SQLite) | `internal/lidar/storage/sqlite/track_store.go`      | Reads/writes `avg_speed_mps` column in `lidar_tracks` and `lidar_run_tracks`                                                        |
-| DB column            | `internal/db/schema.sql:90,190`                     | `avg_speed_mps REAL` in both `lidar_run_tracks` and `lidar_tracks` (alongside `p50_speed_mps` which already stores the median)      |
-| pcap-analyse tool    | `cmd/tools/pcap-analyse/main.go:107`                | References `avg_speed_mps` in analysis output                                                                                       |
-| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233` | Field 24 already renamed to `median_speed_mps` in proto; Go model and DB have not caught up                                         |
+| Item                 | Location                                                       | Status | Detail                                                                                          |
+| -------------------- | -------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| Internal model field | `internal/lidar/visualiser/model.go:245`                       | ✅     | `AvgSpeedMps` removed; `MedianSpeedMps` is sole central speed field (PR #336)                   |
+| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233`            | ✅     | Field 24 renamed to `median_speed_mps`; p85/p98 fields added (36, 37) (PR #336)                 |
+| Swift proto regen    | `tools/visualiser-macos/.../Generated/visualiser.pb.swift:787` | ✅     | Generated code uses `medianSpeedMps`, `p85SpeedMps`, `p98SpeedMps`; no `avgSpeedMps` remains    |
+| REST API JSON field  | `internal/lidar/monitor/track_api.go:124`                      |        | `AvgSpeedMps float32 json:"avg_speed_mps"` — exposed to web frontend                            |
+| TrackFeatures field  | `internal/lidar/l6objects/features.go:31`                      |        | `AvgSpeedMps float32` in ML feature-vector struct; also in CSV header and export                |
+| Track store (SQLite) | `internal/lidar/storage/sqlite/track_store.go`                 |        | Reads/writes `avg_speed_mps` column in `lidar_tracks` and `lidar_run_tracks`                    |
+| DB column            | `internal/db/schema.sql:90,190`                                |        | `avg_speed_mps REAL` in both tables (alongside `p50_speed_mps` which already stores the median) |
+| pcap-analyse tool    | `cmd/tools/pcap-analyse/main.go:107`                           |        | References `avg_speed_mps` in analysis output                                                   |
 
 **Action:** Remove `AvgSpeedMps` everywhere — internal model, REST API, TrackFeatures,
 track store, pcap-analyse, and VRLOG writer. This is a breaking change. Add a DB
@@ -234,17 +239,18 @@ server-side removal (item 2).
 
 ---
 
-### 15. macOS Visualiser — `medianSpeedMps` field rename incomplete
+### 15. macOS Visualiser — `medianSpeedMps` field rename
 
-| Item                          | Location                                                       | Detail                                                                  |
-| ----------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Model comment                 | `tools/visualiser-macos/.../Models/Models.swift:230`           | `var medianSpeedMps: Float = 0  // p50 (was avgSpeedMps before v0.5.0)` |
-| Proto still uses old name     | `tools/visualiser-macos/.../Generated/visualiser.pb.swift:786` | Generated code still has `avgSpeedMps` (field 24)                       |
-| Client reads mismatched field | `tools/visualiser-macos/.../gRPC/VisualiserClient.swift:594`   | References `t.medianSpeedMps` but proto has `avgSpeedMps`               |
+| Item              | Location                                                       | Status | Detail                                                                    |
+| ----------------- | -------------------------------------------------------------- | ------ | ------------------------------------------------------------------------- |
+| Model field       | `tools/visualiser-macos/.../Models/Models.swift:230`           | ✅     | `var medianSpeedMps: Float = 0  // p50 (was avgSpeedMps before v0.5.0)`   |
+| Proto regenerated | `tools/visualiser-macos/.../Generated/visualiser.pb.swift:787` | ✅     | Generated code uses `medianSpeedMps` (field 24); `avgSpeedMps` removed    |
+| Client mapping    | `tools/visualiser-macos/.../gRPC/VisualiserClient.swift:594`   | ✅     | `medianSpeedMps: t.medianSpeedMps` — correctly mapped from proto          |
+| Inspector rows    | `tools/visualiser-macos/.../UI/ContentView.swift`              |        | Median/p85/p98 inspector rows not yet added (server populates the fields) |
 
-**Action:** Regenerate Swift protobuf from the updated `.proto` that already uses
-`median_speed_mps`. The Swift model already expects `medianSpeedMps` — the
-generated code just needs to catch up.
+**Action:** Re-add median/p85/p98 inspector `DetailRow` entries in the Velocity GroupBox
+of `ContentView.swift`. The server now populates the fields end-to-end
+(adapter → `frameBundleToProto` → proto → Swift client).
 
 ---
 
@@ -337,11 +343,12 @@ The following are **not** compat shims and should be retained:
 
 - [x] Inventory all compat shims across Go, Python, Svelte, macOS
 - [x] Classify as "remove in v0.5.0" vs "retain"
-- [ ] Review with maintainer
+- [x] Review with maintainer
 
 ### Phase 2 — Server-side removals (Go)
 
-- [ ] Remove `AvgSpeedMps` from `model.go`, `track_api.go`, `pcap-analyse`
+- [x] Remove `AvgSpeedMps` from visualiser `model.go` (PR #336)
+- [ ] Remove `AvgSpeedMps` from `track_api.go` and `pcap-analyse`
 - [ ] Remove `AvgSpeedMps` from `l6objects/features.go` (TrackFeatures struct + CSV export)
 - [ ] Remove `avg_speed_mps` reads/writes from `storage/sqlite/track_store.go` and `analysis_run.go`
 - [ ] Add DB migration to `DROP COLUMN avg_speed_mps` from `lidar_tracks` and `lidar_run_tracks`
@@ -368,10 +375,11 @@ The following are **not** compat shims and should be retained:
 
 ### Phase 5 — macOS removals (Swift)
 
-- [ ] Regenerate Swift protobuf from updated `.proto`
+- [x] Regenerate Swift protobuf from updated `.proto`
+- [x] Verify `medianSpeedMps` field reads correctly from regenerated proto
+- [ ] Re-add median/p85/p98 inspector rows in `ContentView.swift`
 - [ ] Remove legacy `pointBuffer` if composite renderer is complete
 - [ ] Update callers of `setPlaybackMode(.unknown)` legacy branch
-- [ ] Verify `medianSpeedMps` field reads correctly from regenerated proto
 
 ### Phase 6 — Validation
 
