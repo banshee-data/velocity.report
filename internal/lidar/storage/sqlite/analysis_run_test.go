@@ -143,7 +143,7 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 		FirstUnixNanos:       1000000000,
 		LastUnixNanos:        2000000000,
 		ObservationCount:     10,
-		MedianSpeedMps:       5.0,
+		AvgSpeedMps:          5.0,
 		PeakSpeedMps:         8.0,
 		BoundingBoxLengthAvg: 2.5,
 		BoundingBoxWidthAvg:  1.5,
@@ -179,8 +179,8 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 	if runTrack.ObservationCount != track.ObservationCount {
 		t.Errorf("ObservationCount mismatch")
 	}
-	if runTrack.MedianSpeedMps != track.MedianSpeedMps {
-		t.Errorf("MedianSpeedMps mismatch")
+	if runTrack.AvgSpeedMps != track.AvgSpeedMps {
+		t.Errorf("AvgSpeedMps mismatch")
 	}
 	if runTrack.ObjectClass != track.ObjectClass {
 		t.Errorf("ObjectClass mismatch")

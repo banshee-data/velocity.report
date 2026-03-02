@@ -226,7 +226,7 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 			StartUnixNanos:   1000,
 			EndUnixNanos:     2000,
 			ObservationCount: 10,
-			MedianSpeedMps:   5.0,
+			AvgSpeedMps:      5.0,
 			PeakSpeedMps:     8.0,
 			P50SpeedMps:      5.0,
 			P85SpeedMps:      6.5,
@@ -243,7 +243,7 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 			StartUnixNanos:   1500,
 			EndUnixNanos:     2500,
 			ObservationCount: 8,
-			MedianSpeedMps:   4.0,
+			AvgSpeedMps:      4.0,
 		},
 	}
 
@@ -649,7 +649,7 @@ func TestRunTrackFromTrackedObject_EmptySpeedHistory(t *testing.T) {
 		FirstUnixNanos:   1000,
 		LastUnixNanos:    2000,
 		ObservationCount: 5,
-		MedianSpeedMps:   5.0,
+		AvgSpeedMps:      5.0,
 	}
 	track.SetSpeedHistory([]float32{}) // Empty
 

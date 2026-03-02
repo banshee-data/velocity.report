@@ -39,7 +39,7 @@ func TestGetRunTrack_HappyPath(t *testing.T) {
 		StartUnixNanos:      1000,
 		EndUnixNanos:        2000,
 		ObservationCount:    10,
-		MedianSpeedMps:      5.5,
+		AvgSpeedMps:         5.5,
 		PeakSpeedMps:        8.0,
 		P50SpeedMps:         5.0,
 		P85SpeedMps:         7.0,
@@ -127,7 +127,7 @@ func TestPruneDeletedTracks_HappyPath(t *testing.T) {
 	// Insert a "deleted" track with old timestamp — should be pruned.
 	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES (?, ?, 'world', 'deleted', ?, ?, 5, 1.0, 2.0, 1.0, 1.5, 1.8, 0.1, 0.1, 0.1, 0.1, 0.1)`,
@@ -139,7 +139,7 @@ func TestPruneDeletedTracks_HappyPath(t *testing.T) {
 	// Insert a "deleted" track with recent timestamp — should NOT be pruned.
 	_, err = db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES (?, ?, 'world', 'deleted', ?, ?, 3, 1.0, 2.0, 1.0, 1.5, 1.8, 0.1, 0.1, 0.1, 0.1, 0.1)`,
@@ -151,7 +151,7 @@ func TestPruneDeletedTracks_HappyPath(t *testing.T) {
 	// Insert a "confirmed" track with old timestamp — should NOT be pruned.
 	_, err = db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES (?, ?, 'world', 'confirmed', ?, ?, 8, 1.0, 2.0, 1.0, 1.5, 1.8, 0.1, 0.1, 0.1, 0.1, 0.1)`,
@@ -379,7 +379,7 @@ func TestGetUnlabeledTracks_WithOptionalFields(t *testing.T) {
 		StartUnixNanos:      1000,
 		EndUnixNanos:        2000,
 		ObservationCount:    15,
-		MedianSpeedMps:      6.0,
+		AvgSpeedMps:         6.0,
 		PeakSpeedMps:        9.0,
 		ObjectClass:         "pedestrian",
 		ObjectConfidence:    0.88,
@@ -521,7 +521,7 @@ func TestClearTracks_HappyPath(t *testing.T) {
 	// Insert a track and observation.
 	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES ('ct-t1', 'ct-sensor', 'world', 'confirmed', 1000, 2000, 1, 1.0, 2.0, 1.0, 1.5, 1.8, 0.1, 0.1, 0.1, 0.1, 0.1)`)
@@ -597,7 +597,7 @@ func TestGetTrackObservations_HappyPath(t *testing.T) {
 	// Insert a track.
 	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES ('obs-t1', 'obs-sensor', 'world', 'confirmed', 1000, 2000, 2, 1.0, 2.0, 1.0, 1.5, 1.8, 0.1, 0.1, 0.1, 0.1, 0.1)`)
@@ -670,7 +670,7 @@ func TestGetTracksInRange_WithState(t *testing.T) {
 	// Insert a confirmed track with optional fields.
 	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model)
 		VALUES ('range-t1', 'range-sensor', 'world', 'confirmed', ?, ?, 5, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0, 'vehicle', 0.92, 'rule_based')`,
@@ -703,7 +703,7 @@ func TestGetTracksInRange_NoState(t *testing.T) {
 	// Insert a confirmed track.
 	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES ('range-t2', 'range-sensor2', 'world', 'confirmed', ?, ?, 5, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0)`,
@@ -715,7 +715,7 @@ func TestGetTracksInRange_NoState(t *testing.T) {
 	// Insert a deleted track — should be excluded when state is "".
 	_, err = db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES ('range-t3', 'range-sensor2', 'world', 'deleted', ?, ?, 5, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0)`,
@@ -927,7 +927,7 @@ func TestGetTracksInRange_WithObservations(t *testing.T) {
 	// Insert a track.
 	_, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state,
 		start_unix_nanos, end_unix_nanos, observation_count,
-		peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+		avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		height_p95_max, intensity_mean_avg)
 		VALUES ('obs-range-t1', 'obs-range-s', 'world', 'confirmed', ?, ?, 2, 3.0, 5.0, 3.0, 4.0, 4.5, 0.2, 0.15, 0.3, 0.25, 60.0)`,
@@ -1092,7 +1092,7 @@ func TestGetRunTracks_WithAllNullableFields(t *testing.T) {
 		StartUnixNanos:      1000,
 		EndUnixNanos:        2000,
 		ObservationCount:    10,
-		MedianSpeedMps:      5.5,
+		AvgSpeedMps:         5.5,
 		PeakSpeedMps:        8.0,
 		ObjectClass:         "vehicle",
 		ObjectConfidence:    0.95,

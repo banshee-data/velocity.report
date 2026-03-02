@@ -7,15 +7,31 @@
 
 **Completed (PR #336 + proto contract work):**
 
-- Visualiser model `AvgSpeedMps` removed; `MedianSpeedMps` is sole central speed
+- Visualiser model carries both `AvgSpeedMps` (running mean) and `MedianSpeedMps` (p50)
 - Proto field 24 renamed `avg_speed_mps` → `median_speed_mps`; p85/p98 fields added
-- `classifyOrConvert()` updated to use `MedianSpeedMps`
+- `classifyOrConvert()` uses `AvgSpeedMps` (running mean) for classification input
 - Debug overlay serialisation in `frameBundleToProto` (gated by `IncludeDebug`)
 - Cluster feature fields (`HeightP95`, `IntensityMean`, `SamplePoints`) serialised
 - Positive serialisation tests replace negative debug tests
 - Swift proto regenerated with `medianSpeedMps`, `p85SpeedMps`, `p98SpeedMps`
 
-**Remaining:** REST API, TrackFeatures, track store, DB column drop, pcap-analyse (§1 below), ContentView inspector rows (§15), sweep legacy fields (§2), and remaining shims (§3–17).
+**Decision — avg_speed_mps retained alongside p50_speed_mps:**
+
+Removing `avg_speed_mps` from the data model and algorithms was causing unintended
+side effects in classification, ground truth evaluation, and pipeline export.
+The running-average speed is a distinct metric from the p50 (median) speed: it
+weights outlier speeds differently and some downstream consumers depend on this
+behaviour. Both fields are now retained:
+
+- `avg_speed_mps` — running mean, computed incrementally per observation
+- `p50_speed_mps` — floor-based 50th percentile, computed from speed history
+
+Deprecation of `avg_speed_mps` is deferred to future work and should be
+investigated once all consumers have been audited for sensitivity to the
+metric change.
+
+**Remaining:** REST API cleanup (§3 download format), sweep legacy fields (§2),
+and remaining shims (§4–17).
 
 ## Goal
 
@@ -46,36 +62,49 @@ Intersections with other parent-plan projects:
   below) removes the old request/result field names. Project C covers the full
   sweep UI migration to the Svelte frontend. The field-name cleanup here is a
   prerequisite for clean Project C work.
-- **Proto contract plan:** The `AvgSpeedMps` → `MedianSpeedMps` rename (§1, §15
+- **Proto contract plan:** The `avg_speed_mps` field coexistence (§1, §15
   below) is also tracked in the
   [proto contract plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
   Phase C/D. That plan owns the gRPC serialisation and Swift proto regeneration;
-  this plan owns the REST API and internal model cleanup.
+  this plan owns the REST API and internal model cleanup. The proto field 24
+  was renamed to `median_speed_mps` but `avg_speed_mps` is retained in the
+  Go model, REST API, and database.
 
 ---
 
 ## Inventory of Backward Compatibility Shims
 
-### 1. Go Server — `AvgSpeedMps` removal (all layers)
+### 1. Go Server — `avg_speed_mps` / `p50_speed_mps` coexistence
 
-| Item                 | Location                                                       | Status | Detail                                                                                          |
-| -------------------- | -------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
-| Internal model field | `internal/lidar/visualiser/model.go:245`                       | ✅     | `AvgSpeedMps` removed; `MedianSpeedMps` is sole central speed field (PR #336)                   |
-| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233`            | ✅     | Field 24 renamed to `median_speed_mps`; p85/p98 fields added (36, 37) (PR #336)                 |
-| Swift proto regen    | `tools/visualiser-macos/.../Generated/visualiser.pb.swift:787` | ✅     | Generated code uses `medianSpeedMps`, `p85SpeedMps`, `p98SpeedMps`; no `avgSpeedMps` remains    |
-| REST API JSON field  | `internal/lidar/monitor/track_api.go:124`                      |        | `AvgSpeedMps float32 json:"avg_speed_mps"` — exposed to web frontend                            |
-| TrackFeatures field  | `internal/lidar/l6objects/features.go:31`                      |        | `AvgSpeedMps float32` in ML feature-vector struct; also in CSV header and export                |
-| Track store (SQLite) | `internal/lidar/storage/sqlite/track_store.go`                 |        | Reads/writes `avg_speed_mps` column in `lidar_tracks` and `lidar_run_tracks`                    |
-| DB column            | `internal/db/schema.sql:90,190`                                |        | `avg_speed_mps REAL` in both tables (alongside `p50_speed_mps` which already stores the median) |
-| pcap-analyse tool    | `cmd/tools/pcap-analyse/main.go:107`                           |        | References `avg_speed_mps` in analysis output                                                   |
+| Item                 | Location                                                       | Status | Detail                                                                                  |
+| -------------------- | -------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| Internal model field | `internal/lidar/visualiser/model.go:245`                       | ✅     | Both `AvgSpeedMps` (running mean) and `MedianSpeedMps` (p50) retained                   |
+| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233`            | ✅     | Field 24 renamed to `median_speed_mps`; p85/p98 fields added (36, 37)                   |
+| Swift proto regen    | `tools/visualiser-macos/.../Generated/visualiser.pb.swift:787` | ✅     | Generated code uses `medianSpeedMps`, `p85SpeedMps`, `p98SpeedMps`                      |
+| REST API JSON field  | `internal/lidar/monitor/track_api.go:124`                      | ✅     | Both `avg_speed_mps` and `median_speed_mps` emitted in track responses                  |
+| TrackFeatures field  | `internal/lidar/l6objects/features.go:31`                      | ✅     | `AvgSpeedMps` retained in ML feature-vector struct (classifier depends on running mean) |
+| Track store (SQLite) | `internal/lidar/storage/sqlite/track_store.go`                 | ✅     | Reads/writes `avg_speed_mps` column alongside `p50_speed_mps`                           |
+| DB column            | `internal/db/schema.sql:90,190`                                | ✅     | `avg_speed_mps REAL` retained in both tables alongside `p50_speed_mps`                  |
+| pcap-analyse tool    | `cmd/tools/pcap-analyse/main.go:107`                           | ✅     | Uses `AvgSpeedMps` from tracked objects                                                 |
 
-**Action:** Remove `AvgSpeedMps` everywhere — internal model, REST API, TrackFeatures,
-track store, pcap-analyse, and VRLOG writer. This is a breaking change. Add a DB
-migration to drop the `avg_speed_mps` column from `lidar_tracks` and
-`lidar_run_tracks` (using `ALTER TABLE ... DROP COLUMN`). Consumers should use
-`p50_speed_mps` (already populated) or `MedianSpeedMps` in the model. No
-backward compatibility shim is kept for VRLOG or classifiers — they must use the
-median/percentile fields.
+**Decision:** Both `avg_speed_mps` (running mean) and `p50_speed_mps` (median)
+are retained. They are semantically different metrics — the running mean weights
+all observations equally while the median is robust to outlier speeds. Removing
+`avg_speed_mps` caused unintended side effects in:
+
+- Classification: the `ClassificationFeatures.AvgSpeed` input uses running mean
+- Ground truth evaluation: velocity coverage checks use `AvgSpeedMps`
+- Pipeline export: VRLOG track export uses `AvgSpeedMps` for `SpeedMps`
+- Feature vectors: ML training data includes `avg_speed_mps` as a feature
+
+**Future work:** Investigate deprecation of `avg_speed_mps` as a separate effort
+once all consumers have been audited and migrated to `p50_speed_mps` where
+appropriate. This requires:
+
+1. Audit each consumer for sensitivity to the avg → p50 metric change
+2. Run classification accuracy comparison with p50 vs running mean
+3. Validate ground truth evaluation metrics are not degraded
+4. Coordinate with any downstream data consumers
 
 ---
 
@@ -298,19 +327,18 @@ The following are **not** compat shims and should be retained:
 
 ### REST API
 
-| Old                                                          | New                                         | Notes                                      |
-| ------------------------------------------------------------ | ------------------------------------------- | ------------------------------------------ |
-| `avg_speed_mps` in track responses                           | `median_speed_mps`                          | Semantic change: was running mean, now p50 |
-| `/api/reports/{id}/download?file_type=pdf`                   | `/api/reports/{id}/download/{filename}.pdf` | Query-param format removed                 |
-| Sweep results with `noise`/`closeness`/`neighbour` top-level | `param_values` map                          | All params keyed under `param_values`      |
-| Stats response as bare `[...]` array                         | `{ "metrics": [...], "histogram": {...} }`  | Old format removed                         |
+| Old                                                          | New                                         | Notes                                                |
+| ------------------------------------------------------------ | ------------------------------------------- | ---------------------------------------------------- |
+| `avg_speed_mps` only in track responses                      | Both `avg_speed_mps` and `median_speed_mps` | avg is running mean, median is p50; both now emitted |
+| `/api/reports/{id}/download?file_type=pdf`                   | `/api/reports/{id}/download/{filename}.pdf` | Query-param format removed                           |
+| Sweep results with `noise`/`closeness`/`neighbour` top-level | `param_values` map                          | All params keyed under `param_values`                |
+| Stats response as bare `[...]` array                         | `{ "metrics": [...], "histogram": {...} }`  | Old format removed                                   |
 
 ### Database schema
 
-| Old                              | New     | Notes                                           |
-| -------------------------------- | ------- | ----------------------------------------------- |
-| `lidar_tracks.avg_speed_mps`     | Dropped | Use `p50_speed_mps` instead (already populated) |
-| `lidar_run_tracks.avg_speed_mps` | Dropped | Use `p50_speed_mps` instead (already populated) |
+| Old                  | New                               | Notes                                             |
+| -------------------- | --------------------------------- | ------------------------------------------------- |
+| `avg_speed_mps` only | `avg_speed_mps` + `p50_speed_mps` | Both retained; avg is running mean, p50 is median |
 
 ### Protobuf (gRPC visualiser stream)
 
@@ -347,17 +375,17 @@ The following are **not** compat shims and should be retained:
 
 ### Phase 2 — Server-side removals (Go)
 
-- [x] Remove `AvgSpeedMps` from visualiser `model.go` (PR #336)
-- [ ] Remove `AvgSpeedMps` from `track_api.go` and `pcap-analyse`
-- [ ] Remove `AvgSpeedMps` from `l6objects/features.go` (TrackFeatures struct + CSV export)
-- [ ] Remove `avg_speed_mps` reads/writes from `storage/sqlite/track_store.go` and `analysis_run.go`
-- [ ] Add DB migration to `DROP COLUMN avg_speed_mps` from `lidar_tracks` and `lidar_run_tracks`
-- [ ] Remove sweep legacy request fields and `computeCombinations()`
-- [ ] Remove legacy sweep result fields from `ComboResult`
-- [ ] Remove download endpoint query-param path
-- [ ] Return 400 on malformed sweep JSON instead of swallowing errors
-- [ ] Delete `PacketHeader` struct and `AddPoints` removal comment
-- [ ] Evaluate and remove `lidar/aliases.go` if unused
+- [x] Retain `AvgSpeedMps` alongside `MedianSpeedMps` in visualiser `model.go`
+- [x] Retain `avg_speed_mps` and add `median_speed_mps` in `track_api.go` REST responses
+- [x] Retain `AvgSpeedMps` in `l6objects/features.go` (TrackFeatures struct + CSV export)
+- [x] Retain `avg_speed_mps` reads/writes in `storage/sqlite/track_store.go` and `analysis_run.go`
+- [x] Retain `avg_speed_mps` column in DB schema (no drop migration)
+- [x] Remove sweep legacy request fields and `computeCombinations()`
+- [x] Remove legacy sweep result fields from `ComboResult`
+- [x] Remove download endpoint query-param path
+- [x] Return 400 on malformed sweep JSON instead of swallowing errors
+- [x] Delete `PacketHeader` struct and `AddPoints` removal comment
+- [x] Evaluate and remove `lidar/aliases.go` if unused — **retained**: actively used by 9+ files (cmd/radar, integration tests, network listeners, visualiser)
 
 ### Phase 3 — Frontend removals (Svelte)
 

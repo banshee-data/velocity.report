@@ -134,7 +134,7 @@ func TestInsertAndGetTrack(t *testing.T) {
 		FirstUnixNanos:       1234567890000000000,
 		LastUnixNanos:        1234567900000000000,
 		ObservationCount:     10,
-		MedianSpeedMps:       8.5,
+		AvgSpeedMps:          8.5,
 		PeakSpeedMps:         12.0,
 		BoundingBoxLengthAvg: 4.0,
 		BoundingBoxWidthAvg:  2.0,
@@ -185,7 +185,7 @@ func TestUpdateTrack(t *testing.T) {
 		State:            TrackTentative,
 		FirstUnixNanos:   1234567890000000000,
 		ObservationCount: 3,
-		MedianSpeedMps:   5.0,
+		AvgSpeedMps:      5.0,
 	}
 	track.SetSpeedHistory([]float32{4, 5, 6})
 
@@ -197,7 +197,7 @@ func TestUpdateTrack(t *testing.T) {
 	// Update track
 	track.State = TrackConfirmed
 	track.ObservationCount = 10
-	track.MedianSpeedMps = 8.0
+	track.AvgSpeedMps = 8.0
 	track.ObjectClass = "pedestrian"
 	track.ObjectConfidence = 0.75
 	track.SetSpeedHistory([]float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7})

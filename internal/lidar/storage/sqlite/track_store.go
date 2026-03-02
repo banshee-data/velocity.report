@@ -93,11 +93,11 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		INSERT INTO lidar_tracks (
 			track_id, sensor_id, world_frame, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(track_id) DO UPDATE SET
 			sensor_id = excluded.sensor_id,
 			world_frame = excluded.world_frame,
@@ -105,6 +105,7 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 			start_unix_nanos = excluded.start_unix_nanos,
 			end_unix_nanos = excluded.end_unix_nanos,
 			observation_count = excluded.observation_count,
+			avg_speed_mps = excluded.avg_speed_mps,
 			peak_speed_mps = excluded.peak_speed_mps,
 			p50_speed_mps = excluded.p50_speed_mps,
 			p85_speed_mps = excluded.p85_speed_mps,
@@ -131,6 +132,7 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		track.FirstUnixNanos,
 		endNanos,
 		track.ObservationCount,
+		track.AvgSpeedMps,
 		track.PeakSpeedMps,
 		p50, p85, p95,
 		track.BoundingBoxLengthAvg,
@@ -159,6 +161,7 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 			track_state = ?,
 			end_unix_nanos = ?,
 			observation_count = ?,
+			avg_speed_mps = ?,
 			peak_speed_mps = ?,
 			p50_speed_mps = ?,
 			p85_speed_mps = ?,
@@ -182,6 +185,7 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		string(track.State),
 		endNanos,
 		track.ObservationCount,
+		track.AvgSpeedMps,
 		track.PeakSpeedMps,
 		p50, p85, p95,
 		track.BoundingBoxLengthAvg,
@@ -441,7 +445,7 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 		query = `
 			SELECT track_id, sensor_id, track_state,
 				start_unix_nanos, end_unix_nanos, observation_count,
-				p50_speed_mps, peak_speed_mps,
+				p50_speed_mps, avg_speed_mps, peak_speed_mps,
 				bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 				height_p95_max, intensity_mean_avg,
 				object_class, object_confidence, classification_model
@@ -454,7 +458,7 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 		query = `
 			SELECT track_id, sensor_id, track_state,
 				start_unix_nanos, end_unix_nanos, observation_count,
-				p50_speed_mps, peak_speed_mps,
+				p50_speed_mps, avg_speed_mps, peak_speed_mps,
 				bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 				height_p95_max, intensity_mean_avg,
 				object_class, object_confidence, classification_model
@@ -488,6 +492,7 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 			&endNanos,
 			&track.ObservationCount,
 			&track.MedianSpeedMps,
+			&track.AvgSpeedMps,
 			&track.PeakSpeedMps,
 			&track.BoundingBoxLengthAvg,
 			&track.BoundingBoxWidthAvg,
@@ -567,7 +572,7 @@ func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, end
 	query.WriteString(`
 		SELECT track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			p50_speed_mps, peak_speed_mps,
+			p50_speed_mps, avg_speed_mps, peak_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model
@@ -614,6 +619,7 @@ func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, end
 			&end,
 			&track.ObservationCount,
 			&track.MedianSpeedMps,
+			&track.AvgSpeedMps,
 			&track.PeakSpeedMps,
 			&track.BoundingBoxLengthAvg,
 			&track.BoundingBoxWidthAvg,

@@ -242,10 +242,11 @@ type Track struct {
 	// Features
 	HeightP95Max     float32
 	IntensityMeanAvg float32
-	MedianSpeedMps   float32 // Median (p50) from speed history; serialised to proto field 24
+	AvgSpeedMps      float32 // running mean for classifier/VRLOG compat
+	MedianSpeedMps   float32 // p50 from speed history (proto field 24)
+	P85SpeedMps      float32 // 85th percentile from speed history
+	P98SpeedMps      float32 // 98th percentile from speed history
 	PeakSpeedMps     float32
-	P85SpeedMps      float32
-	P98SpeedMps      float32
 
 	// Classification
 	ObjectClass     string
