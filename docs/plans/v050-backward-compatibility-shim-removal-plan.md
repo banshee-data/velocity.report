@@ -109,25 +109,26 @@ appropriate. This requires:
 **Future work — speed percentile consistency:**
 
 The p50/p85/p98 fields are computed and populated in several layers, but there
-are gaps and inconsistencies that should be addressed:
+are gaps that should be addressed:
 
-| Layer                             | p50                  | p85          | p98               | Notes                                                     |
-| --------------------------------- | -------------------- | ------------ | ----------------- | --------------------------------------------------------- |
-| L5 tracking (`tracking.go`)       | Computed             | Not computed | Not computed      | Only p50 via `p50OfSpeeds()`; p85/p98 remain zero         |
-| Visualiser adapter (`adapter.go`) | Computed             | Computed     | Computed          | Recomputes all three from `SpeedHistory()` for gRPC       |
-| SQLite storage (`track_store.go`) | Written              | Written      | Written (as p95)  | Uses `l6objects.ComputeSpeedPercentiles` on insert/update |
-| L6 objects (`classification.go`)  | Computed             | Computed     | Computed (as p95) | Feature vectors use p50/p85/p95                           |
-| REST API individual track         | Exposed              | Not exposed  | Not exposed       | Only `p50_speed_mps` in JSON response                     |
-| REST API summary endpoints        | Incorrect (uses avg) | Not exposed  | Not exposed       | `P50SpeedMps` is set to average speed, not actual p50     |
-| gRPC proto stream                 | Exposed              | Exposed      | Exposed           | All three populated via adapter                           |
+| Layer                             | p50                  | p85          | p98          | Notes                                                     |
+| --------------------------------- | -------------------- | ------------ | ------------ | --------------------------------------------------------- |
+| L5 tracking (`tracking.go`)       | Computed             | Not computed | Not computed | Only p50 via `p50OfSpeeds()`; p85/p98 remain zero         |
+| Visualiser adapter (`adapter.go`) | Computed             | Computed     | Computed     | Recomputes all three from `SpeedHistory()` for gRPC       |
+| SQLite storage (`track_store.go`) | Written              | Written      | Written      | Uses `l6objects.ComputeSpeedPercentiles` on insert/update |
+| L6 objects (`classification.go`)  | Computed             | Computed     | Computed     | Feature vectors use p50/p85/p98                           |
+| REST API individual track         | Exposed              | Not exposed  | Not exposed  | Only `p50_speed_mps` in JSON response                     |
+| REST API summary endpoints        | Incorrect (uses avg) | Not exposed  | Not exposed  | `P50SpeedMps` is set to average speed, not actual p50     |
+| gRPC proto stream                 | Exposed              | Exposed      | Exposed      | All three populated via adapter                           |
 
 Action items:
 
 1. **REST API**: Add `p85_speed_mps` to individual track response JSON
 2. **REST API summary**: Compute actual p50 for summary endpoints instead of
    using average speed as a proxy
-3. **p98 vs p95 inconsistency**: The visualiser adapter and gRPC proto use p98,
-   while l6objects and the database use p95 — reconcile to a single percentile
+3. ~~**p98 vs p95 inconsistency**~~: **Resolved** — all layers now use p98
+   (`ComputeSpeedPercentiles` threshold changed from 0.95 to 0.98, DB columns
+   renamed via migration 000030)
 4. **L5 tracking layer**: Consider computing p85/p98 at the tracking layer
    instead of only at the adapter layer, so all consumers get consistent values
 

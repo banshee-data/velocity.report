@@ -38,7 +38,7 @@ SQL-like DSLs are powerful but exclude non-technical users. JSON filter objects 
 
 There are two distinct kinds of speed percentile in the system. Confusing them leads to incorrect schema design:
 
-**Per-track profile percentiles** — computed from the ordered speed observations _within a single track_. If a LiDAR track has 100 frames of `speed_mps`, the p50/p85/p95 are percentiles of those 100 readings. These describe the speed _profile shape_ of one vehicle pass (e.g. "this car was mostly doing 28 mph but briefly hit 35 mph"). The existing `lidar_tracks` table stores these as `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps`. They are useful for behaviour classification (§5) but are _not_ the percentiles that traffic engineers reference.
+**Per-track profile percentiles** — computed from the ordered speed observations _within a single track_. If a LiDAR track has 100 frames of `speed_mps`, the p50/p85/p98 are percentiles of those 100 readings. These describe the speed _profile shape_ of one vehicle pass (e.g. "this car was mostly doing 28 mph but briefly hit 35 mph"). The existing `lidar_tracks` table stores these as `p50_speed_mps`, `p85_speed_mps`, `p98_speed_mps`. They are useful for behaviour classification (§5) but are _not_ the percentiles that traffic engineers reference.
 
 **Dataset-level percentiles** — computed across the _max speeds of many transits_. If a street has 1,000 vehicle transits in a week, the p85 is the 85th-percentile of those 1,000 max-speed values. This is the traffic-engineering standard for design speed. These percentiles **cannot be precomputed per-transit** because they depend on which transits are included — a TDL filter that restricts to "weekday mornings" or "lorries only" changes the population and therefore the percentiles.
 
@@ -109,7 +109,7 @@ transit {
 | `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                           | ❌ read-time join   |
 | `context.*`        | Computed from concurrent tracks at ingestion                                      | ✅                  |
 
-Note: the existing `lidar_tracks.p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` columns are _per-track profile percentiles_ — percentiles of the speed observations within a single track. They describe the speed profile shape and feed the behaviour classifier (§5), but are not exposed in the TDL abstract schema because users expect p85/p98 to mean dataset-level aggregates.
+Note: the existing `lidar_tracks.p50_speed_mps`, `p85_speed_mps`, `p98_speed_mps` columns are _per-track profile percentiles_ — percentiles of the speed observations within a single track. They describe the speed profile shape and feed the behaviour classifier (§5), but are not exposed in the TDL abstract schema because users expect p85/p98 to mean dataset-level aggregates.
 
 ## 4. Natural Language Syntax
 
