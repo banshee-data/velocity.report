@@ -88,7 +88,7 @@ func insertTestTrack(t *testing.T, db *sql.DB, trackID, sensorID, state string, 
 	_, err := db.Exec(`
 		INSERT INTO lidar_tracks (
 			track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos,
-			observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p98_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model
 		)

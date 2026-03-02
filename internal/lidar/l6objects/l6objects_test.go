@@ -21,8 +21,8 @@ func TestAliasesCompile(t *testing.T) {
 	}
 
 	// ComputeSpeedPercentiles alias.
-	p50, p85, p95 := l6objects.ComputeSpeedPercentiles([]float32{1, 2, 3, 4, 5})
-	if p50 <= 0 || p85 <= 0 || p95 <= 0 {
-		t.Fatalf("ComputeSpeedPercentiles returned invalid: p50=%f p85=%f p95=%f", p50, p85, p95)
+	p50, p85, p98 := l6objects.ComputeSpeedPercentiles([]float32{1, 2, 3, 4, 5})
+	if p50 <= 0 || p85 <= 0 || p98 <= 0 {
+		t.Fatalf("ComputeSpeedPercentiles returned invalid: p50=%f p85=%f p98=%f", p50, p85, p98)
 	}
 }
