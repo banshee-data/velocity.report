@@ -107,7 +107,7 @@ type TrackExport struct {
 	PeakSpeedMps  float32 `json:"peak_speed_mps"`
 	P50SpeedMps   float32 `json:"p50_speed_mps"`
 	P85SpeedMps   float32 `json:"p85_speed_mps"`
-	P95SpeedMps   float32 `json:"p95_speed_mps"`
+	P98SpeedMps   float32 `json:"p98_speed_mps"`
 	AvgHeight     float32 `json:"avg_height_m"`
 	AvgLength     float32 `json:"avg_length_m"`
 	AvgWidth      float32 `json:"avg_width_m"`
@@ -133,7 +133,7 @@ type SpeedStatistics struct {
 	MaxSpeed float32 `json:"max_speed_mps"`
 	P50Speed float32 `json:"p50_speed_mps"`
 	P85Speed float32 `json:"p85_speed_mps"`
-	P95Speed float32 `json:"p95_speed_mps"`
+	P98Speed float32 `json:"p98_speed_mps"`
 }
 
 // TrainingFrame represents a frame prepared for ML ingestion.
@@ -849,7 +849,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 		result.TracksByClass[class]++
 
 		// Export track data
-		p50, p85, p95 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
+		p50, p85, p98 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
 
 		trackExport := &TrackExport{
 			TrackID:      track.TrackID,
@@ -862,7 +862,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 			PeakSpeedMps: track.PeakSpeedMps,
 			P50SpeedMps:  p50,
 			P85SpeedMps:  p85,
-			P95SpeedMps:  p95,
+			P98SpeedMps:  p98,
 			AvgHeight:    track.BoundingBoxHeightAvg,
 			AvgLength:    track.BoundingBoxLengthAvg,
 			AvgWidth:     track.BoundingBoxWidthAvg,
@@ -1128,7 +1128,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
 
 	// Use the shared percentile computation from lidar package
-	p50, p85, p95 := l6objects.ComputeSpeedPercentiles(samples)
+	p50, p85, p98 := l6objects.ComputeSpeedPercentiles(samples)
 
 	n := len(sorted)
 	return SpeedStatistics{
@@ -1136,7 +1136,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 		MaxSpeed: sorted[n-1],
 		P50Speed: p50,
 		P85Speed: p85,
-		P95Speed: p95,
+		P98Speed: p98,
 	}
 }
 
@@ -1214,7 +1214,7 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 	header := []string{
 		"track_id", "class", "confidence", "start_time", "end_time",
 		"duration_secs", "observations", "peak_speed_mps",
-		"p50_speed_mps", "p85_speed_mps", "p95_speed_mps",
+		"p50_speed_mps", "p85_speed_mps", "p98_speed_mps",
 		"avg_height_m", "avg_length_m", "avg_width_m", "height_p95_max_m",
 	}
 	if err := w.Write(header); err != nil {
@@ -1234,7 +1234,7 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 			strconv.FormatFloat(float64(t.PeakSpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P50SpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P85SpeedMps), 'f', 2, 32),
-			strconv.FormatFloat(float64(t.P95SpeedMps), 'f', 2, 32),
+			strconv.FormatFloat(float64(t.P98SpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.AvgHeight), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgLength), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgWidth), 'f', 3, 32),
@@ -1322,12 +1322,12 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 		_, err := database.Exec(`
 			INSERT OR REPLACE INTO lidar_run_tracks
 			(run_id, track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-			 observation_count, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			 observation_count, peak_speed_mps, p50_speed_mps, p85_speed_mps, p98_speed_mps,
 			 bounding_box_height_avg, bounding_box_length_avg, bounding_box_width_avg,
 			 object_class, object_confidence)
 			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			runID, t.TrackID, t.Observations,
-			t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P95SpeedMps,
+			t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P98SpeedMps,
 			t.AvgHeight, t.AvgLength, t.AvgWidth,
 			t.Class, t.Confidence,
 		)

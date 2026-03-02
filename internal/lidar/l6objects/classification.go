@@ -99,7 +99,7 @@ type ClassificationFeatures struct {
 	PeakSpeed float32 // Peak speed
 	P50Speed  float32 // Median speed
 	P85Speed  float32 // 85th percentile speed
-	P95Speed  float32 // 95th percentile speed
+	P98Speed  float32 // 98th percentile speed
 
 	// Temporal features
 	ObservationCount int
@@ -237,7 +237,7 @@ func (tc *TrackClassifier) extractFeatures(track *TrackedObject) ClassificationF
 	// Compute speed percentiles from history using shared function
 	speedHistory := track.SpeedHistory()
 	if len(speedHistory) > 0 {
-		features.P50Speed, features.P85Speed, features.P95Speed = ComputeSpeedPercentiles(speedHistory)
+		features.P50Speed, features.P85Speed, features.P98Speed = ComputeSpeedPercentiles(speedHistory)
 	}
 
 	// Compute duration
@@ -505,7 +505,7 @@ func (tc *TrackClassifier) ClassifyAndUpdate(track *TrackedObject) {
 // Uses floor-based indexing for percentiles. For small arrays (n<3), all percentiles
 // may return similar values. For production use with precise percentile requirements,
 // consider using linear interpolation between neighboring values.
-func ComputeSpeedPercentiles(speedHistory []float32) (p50, p85, p95 float32) {
+func ComputeSpeedPercentiles(speedHistory []float32) (p50, p85, p98 float32) {
 	if len(speedHistory) == 0 {
 		return 0, 0, 0
 	}
@@ -523,11 +523,11 @@ func ComputeSpeedPercentiles(speedHistory []float32) (p50, p85, p95 float32) {
 	}
 	p85 = speeds[p85Idx]
 
-	p95Idx := int(math.Floor(float64(n) * 0.95))
-	if p95Idx >= n {
-		p95Idx = n - 1
+	p98Idx := int(math.Floor(float64(n) * 0.98))
+	if p98Idx >= n {
+		p98Idx = n - 1
 	}
-	p95 = speeds[p95Idx]
+	p98 = speeds[p98Idx]
 
 	return
 }
