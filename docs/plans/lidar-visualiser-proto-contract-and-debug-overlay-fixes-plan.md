@@ -178,13 +178,17 @@ Preferred approach:
 
 ## 6. Implementation Plan
 
-### Phase A: gRPC serializer parity (P0)
+### Phase A: gRPC serializer parity (P0) ✅
 
-1. Update `frameBundleToProto(...)` to serialize `FrameBundle.debug` when
-   `StreamRequest.include_debug=true`.
-2. Serialize all currently-dropped `Cluster` fields that are available in the
+1. ~~Update `frameBundleToProto(...)` to serialize `FrameBundle.debug` when
+   `StreamRequest.include_debug=true`.~~ ✅ Complete — debug overlays serialised
+   with all 4 sub-types (association, gating, residuals, predictions), gated by
+   `req.IncludeDebug`.
+2. ~~Serialize all currently-dropped `Cluster` fields that are available in the
    internal model (`height_p95`, `intensity_mean`; `sample_points` requires
-   adapter propagation first).
+   adapter propagation first).~~ ✅ Complete — `HeightP95`, `IntensityMean`, and
+   `SamplePoints` are now copied in `frameBundleToProto`. `SamplePoints` is wired
+   through but not populated upstream (l4perception does not fill it yet).
 3. ~~Serialize all currently-dropped `Track` fields that are already populated in
    the internal model.~~ ✅ Complete — all Track fields are now serialized
    including `ObjectClass` enum via `classifyOrConvert()`.
@@ -214,34 +218,33 @@ Preferred approach:
 3. ~~Populate new fields from track `speedHistory`.~~
 4. ~~Update adapter/model naming to keep semantics aligned.~~
 
-### Phase D: Swift client/UI parity (P2) — partially complete
+### Phase D: Swift client/UI parity (P2) ✅
 
 1. ~~Update Swift protobuf mapping for renamed/new track speed fields.~~
 2. ~~Update inspector labels:~~
    - ~~`Average` -> `Median`~~
    - ~~add `p85`~~
    - ~~add `p98`~~
-3. Keep UI resilient when new fields are absent (temporary mixed-version runs).
-4. **Blocked:** median/p85/p98 rows removed from the inspector because the Go
-   gRPC serializer does not yet populate `median_speed_mps`, `p85_speed_mps`, or
-   `p98_speed_mps` from the internal model's speed history. The Swift generated
-   protobuf also needs regeneration (still has `avgSpeedMps`). Once the server
-   populates these fields and Swift proto is regenerated, re-add the inspector
-   rows.
+3. ~~Keep UI resilient when new fields are absent (temporary mixed-version runs).~~
+4. ~~median/p85/p98 inspector rows re-added now that the server populates the
+   fields and Swift proto has been regenerated.~~
 
-### Phase E: Test hardening (P1)
+### Phase E: Test hardening (P1) ✅
 
-1. Replace "debug not converted" tests with positive serialization tests.
+1. ~~Replace "debug not converted" tests with positive serialization tests.
    `TestFrameBundleToProto_DebugNotConverted` and
    `TestFrameBundleToProto_DebugFieldAbsent` currently assert `Debug == nil`;
-   update these to assert non-nil debug output once serialization is implemented.
-2. Add round-trip field assertions for:
-   - debug overlays (`association`, `gating`, `residuals`, `predictions`)
-   - cluster feature fields
+   update these to assert non-nil debug output once serialization is implemented.~~
+   ✅ Complete — replaced with `TestFrameBundleToProto_DebugSerialised` (positive
+   round-trip), `TestFrameBundleToProto_DebugOmittedWhenNotRequested` (gating),
+   and `TestFrameBundleToProto_DebugNilInFrame` (nil input).
+2. ~~Add round-trip field assertions for:~~
+   - ~~debug overlays (`association`, `gating`, `residuals`, `predictions`)~~ ✅
+   - ~~cluster feature fields~~ ✅ `TestFrameBundleToProto_ClusterFeatureFields`
    - ~~track feature/classification/quality fields~~ ✅ `TestFrameBundleToProto_TrackFieldCompleteness`
-   - track speed summary fields (`median`, `peak`, `p85`, `p98`)
-3. Add a regression test for `include_debug=false` to ensure payload omission is
-   intentional and explicit.
+   - ~~track speed summary fields (`median`, `peak`, `p85`, `p98`)~~ ✅ covered in TrackFieldCompleteness
+3. ~~Add a regression test for `include_debug=false` to ensure payload omission is
+   intentional and explicit.~~ ✅ `TestFrameBundleToProto_DebugOmittedWhenNotRequested`
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
    `object_class_conversion_test.go` and `VisualiserClientTests.swift`.
 
@@ -251,8 +254,7 @@ Preferred approach:
    when debug data exists upstream.
 2. Swift visualiser receives and renders debug overlays without relying on local
    test-only stub data.
-3. Track inspector shows `Median`, `Peak`, `p85`, and `p98` from streamed data
-   (currently blocked — rows removed until server populates the fields).
+3. Track inspector shows `Median`, `Peak`, `p85`, and `p98` from streamed data.
 4. Protobuf serializer tests cover all non-trivial `Track` and `Cluster` fields
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
@@ -269,9 +271,9 @@ Preferred approach:
 
 ## 9. Task Checklist
 
-- [x] Add debug overlay protobuf serialisation in `frameBundleToProto(...)`
-- [x] Gate debug serialisation by `include_debug`
-- [x] Serialize missing `Cluster` feature fields (`height_p95`, `intensity_mean`, `sample_points`)
+- [ ] Add debug overlay protobuf serialization in `frameBundleToProto(...)`
+- [ ] Gate debug serialization by `include_debug`
+- [ ] Serialize missing `Cluster` feature fields (`height_p95`, `intensity_mean`, `sample_points`)
 - [x] Serialize missing `Track` feature/classification/quality fields
 - [x] Add `ObjectClass` enum to proto (9 classes + UNSPECIFIED) with `objectClassFromString()` / `classifyOrConvert()` conversion
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
@@ -279,9 +281,9 @@ Preferred approach:
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
 - [x] Update proto field `24` to `median_speed_mps`
 - [x] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
-- [x] Regenerate protobuf bindings (Go)
-- [x] Compute/populate median/p85/p98 from track speed history
-- [x] Remove `AvgSpeedMps` — breaking change for v0.5.x schema stabilisation
-- [ ] Regenerate Swift protobuf bindings (Phase D — requires macOS)
-- [ ] Update Swift visualiser inspector labels and values (Phase D)
-- [x] Replace negative debug tests with positive end-to-end serialisation tests
+- [x] Regenerate protobuf bindings (Go + Swift)
+- [ ] Compute/populate median/p85/p98 from track speed history in `frameBundleToProto`
+- [ ] Regenerate Swift protobuf from updated `.proto` (Swift generated code still has `avgSpeedMps`)
+- [ ] Re-add median/p85/p98 inspector rows in `ContentView.swift` once server populates them
+- [x] ~~Update Swift visualiser inspector labels and values~~ (rows removed — fields not yet populated)
+- [ ] Replace negative debug tests with positive end-to-end serialization tests
