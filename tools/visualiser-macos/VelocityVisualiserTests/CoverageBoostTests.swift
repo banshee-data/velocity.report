@@ -368,7 +368,7 @@ struct VisualiserClientDecodeTests {
         track.bboxHeadingRad = 0.062
         track.heightP95Max = 1.6
         track.intensityMeanAvg = 50.0
-        track.avgSpeedMps = 7.5
+        track.medianSpeedMps = 7.5
         track.peakSpeedMps = 9.0
         track.objectClass = .car
         track.classConfidence = 0.95
@@ -389,7 +389,7 @@ struct VisualiserClientDecodeTests {
         #expect(decodedTrack?.trackID == "t1")
         #expect(decodedTrack?.state == .confirmed)
         #expect(decodedTrack?.hits == 100)
-        #expect(decodedTrack?.avgSpeedMps == 7.5)
+        #expect(decodedTrack?.medianSpeedMps == 7.5)
         #expect(decodedTrack?.peakSpeedMps == 9.0)
         #expect(decodedTrack?.classLabel == "car")
         #expect(decodedTrack?.alpha == 0.85)
@@ -1028,8 +1028,8 @@ struct VisualiserClientDecodeTests {
             observationCount: 48, firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000,
             x: 10.0, y: 5.0, z: 0.5, vx: 8.0, vy: 0.5, vz: 0.0, speedMps: 8.0, headingRad: 0.1,
             covariance4x4: [], bboxLength: 4.5, bboxWidth: 1.8, bboxHeight: 1.5,
-            bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0, avgSpeedMps: 7.5,
-            peakSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
+            bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0, medianSpeedMps: 7.5,
+            peakSpeedMps: 9.0, p85SpeedMps: 8.0, p98SpeedMps: 8.5, classLabel: "vehicle", classConfidence: 0.95,
             trackLengthMetres: 150.0, trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98,
             occlusionState: .none, motionModel: .cv, alpha: 1.0)
         frame.tracks = TrackSet(
@@ -1457,8 +1457,8 @@ struct RunTrackTests {
             observationCount: 10, firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000,
             x: 10.0, y: 5.0, z: 0.5, vx: 5.0, vy: 0.0, vz: 0.0, speedMps: 5.0, headingRad: 0.0,
             covariance4x4: [], bboxLength: 4.0, bboxWidth: 1.8, bboxHeight: 1.5,
-            bboxHeadingRad: 0.0, heightP95Max: 1.5, intensityMeanAvg: 50.0, avgSpeedMps: 5.0,
-            peakSpeedMps: 6.0, classLabel: "", classConfidence: 0.0, trackLengthMetres: 50.0,
+            bboxHeadingRad: 0.0, heightP95Max: 1.5, intensityMeanAvg: 50.0, medianSpeedMps: 5.0,
+            peakSpeedMps: 6.0, p85SpeedMps: 5.5, p98SpeedMps: 5.8, classLabel: "", classConfidence: 0.0, trackLengthMetres: 50.0,
             trackDurationSecs: 10.0, occlusionCount: 0, confidence: 0.9, occlusionState: .none,
             motionModel: .cv, alpha: 1.0)
         frame.tracks = TrackSet(

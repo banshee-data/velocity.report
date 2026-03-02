@@ -1,6 +1,6 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Partially implemented — Track field parity and ObjectClass enum are complete; debug overlay serialization, cluster proto serialization, and speed summary rename remain
+**Status:** Complete — All Go-side phases (A, C, E) are done. Swift client updates (Phase D) and overlay mode behaviour (Phase B) remain as follow-up items.
 **Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
 **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 
@@ -269,9 +269,9 @@ Preferred approach:
 
 ## 9. Task Checklist
 
-- [ ] Add debug overlay protobuf serialization in `frameBundleToProto(...)`
-- [ ] Gate debug serialization by `include_debug`
-- [ ] Serialize missing `Cluster` feature fields (`height_p95`, `intensity_mean`, `sample_points`)
+- [x] Add debug overlay protobuf serialisation in `frameBundleToProto(...)`
+- [x] Gate debug serialisation by `include_debug`
+- [x] Serialize missing `Cluster` feature fields (`height_p95`, `intensity_mean`, `sample_points`)
 - [x] Serialize missing `Track` feature/classification/quality fields
 - [x] Add `ObjectClass` enum to proto (9 classes + UNSPECIFIED) with `objectClassFromString()` / `classifyOrConvert()` conversion
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
@@ -279,9 +279,9 @@ Preferred approach:
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
 - [x] Update proto field `24` to `median_speed_mps`
 - [x] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
-- [x] Regenerate protobuf bindings (Go + Swift)
-- [ ] Compute/populate median/p85/p98 from track speed history in `frameBundleToProto`
-- [ ] Regenerate Swift protobuf from updated `.proto` (Swift generated code still has `avgSpeedMps`)
-- [ ] Re-add median/p85/p98 inspector rows in `ContentView.swift` once server populates them
-- [x] ~~Update Swift visualiser inspector labels and values~~ (rows removed — fields not yet populated)
-- [ ] Replace negative debug tests with positive end-to-end serialization tests
+- [x] Regenerate protobuf bindings (Go)
+- [x] Compute/populate median/p85/p98 from track speed history
+- [x] Remove `AvgSpeedMps` — breaking change for v0.5.x schema stabilisation
+- [ ] Regenerate Swift protobuf bindings (Phase D — requires macOS)
+- [ ] Update Swift visualiser inspector labels and values (Phase D)
+- [x] Replace negative debug tests with positive end-to-end serialisation tests

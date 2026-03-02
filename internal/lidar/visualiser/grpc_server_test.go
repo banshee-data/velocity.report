@@ -612,7 +612,7 @@ func TestFrameBundleToProto_WithTracks(t *testing.T) {
 // TestFrameBundleToProto_TrackFieldCompleteness verifies that ALL Track
 // fields survive the model → proto conversion at the wire boundary.  This
 // regression test was added after discovering that 11 fields (PeakSpeedMps,
-// AvgSpeedMps, Hits, Confidence, Duration, Length, etc.) were silently
+// MedianSpeedMps, Hits, Confidence, Duration, Length, etc.) were silently
 // zero'd because the conversion in frameBundleToProto omitted them.
 func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 	frame := &FrameBundle{
@@ -651,7 +651,6 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 					BBoxHeadingRad:    0.1,
 					HeightP95Max:      1.65,
 					IntensityMeanAvg:  42.0,
-					AvgSpeedMps:       4.2,
 					MedianSpeedMps:    3.8,
 					P85SpeedMps:       5.5,
 					P98SpeedMps:       6.2,
