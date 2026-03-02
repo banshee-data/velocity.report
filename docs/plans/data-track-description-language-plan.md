@@ -99,15 +99,15 @@ transit {
 
 ### 3.1 Schema-to-Storage Mapping
 
-| Abstract field     | Source                                                                            | Stored per-transit? |
-| ------------------ | --------------------------------------------------------------------------------- | ------------------- |
-| `speed.max_mph`    | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237 | ✅                  |
-| `speed.mean_mph`   | `lidar_tracks.avg_speed_mps` × 2.237                                              | ✅                  |
-| `speed.profile[]`  | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos`                            | ❌ read-time join   |
-| `behaviour.style`  | Derived from `speed.profile[]` shape (§5)                                         | ✅                  |
-| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence`                     | ✅                  |
-| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                           | ❌ read-time join   |
-| `context.*`        | Computed from concurrent tracks at ingestion                                      | ✅                  |
+| Abstract field     | Source                                                                                                 | Stored per-transit? |
+| ------------------ | ------------------------------------------------------------------------------------------------------ | ------------------- |
+| `speed.max_mph`    | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237                      | ✅                  |
+| `speed.mean_mph`   | `lidar_tracks.p50_speed_mps` × 2.237 (note: `avg_speed_mps` dropped in v0.5.0; use p50 median instead) | ✅                  |
+| `speed.profile[]`  | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos`                                                 | ❌ read-time join   |
+| `behaviour.style`  | Derived from `speed.profile[]` shape (§5)                                                              | ✅                  |
+| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence`                                          | ✅                  |
+| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                                                | ❌ read-time join   |
+| `context.*`        | Computed from concurrent tracks at ingestion                                                           | ✅                  |
 
 Note: the existing `lidar_tracks.p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` columns are _per-track profile percentiles_ — percentiles of the speed observations within a single track. They describe the speed profile shape and feed the behaviour classifier (§5), but are not exposed in the TDL abstract schema because users expect p85/p98 to mean dataset-level aggregates.
 
