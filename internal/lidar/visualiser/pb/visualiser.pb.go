@@ -18,12 +18,11 @@
 package pb
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -1152,9 +1151,9 @@ type Track struct {
 	// 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
 	HeadingSource int32 `protobuf:"varint,35,opt,name=heading_source,json=headingSource,proto3" json:"heading_source,omitempty"`
 	// Speed percentiles (computed from track speed history)
-	P50SpeedMps   float32 `protobuf:"fixed32,38,opt,name=p50_speed_mps,json=p50SpeedMps,proto3" json:"p50_speed_mps,omitempty"` // 50th percentile (median) speed
-	P85SpeedMps   float32 `protobuf:"fixed32,36,opt,name=p85_speed_mps,json=p85SpeedMps,proto3" json:"p85_speed_mps,omitempty"` // 85th percentile speed
-	P98SpeedMps   float32 `protobuf:"fixed32,37,opt,name=p98_speed_mps,json=p98SpeedMps,proto3" json:"p98_speed_mps,omitempty"` // 98th percentile speed
+	P50SpeedMps   float32 `protobuf:"fixed32,36,opt,name=p50_speed_mps,json=p50SpeedMps,proto3" json:"p50_speed_mps,omitempty"` // 50th percentile (median) speed
+	P85SpeedMps   float32 `protobuf:"fixed32,37,opt,name=p85_speed_mps,json=p85SpeedMps,proto3" json:"p85_speed_mps,omitempty"` // 85th percentile speed
+	P98SpeedMps   float32 `protobuf:"fixed32,38,opt,name=p98_speed_mps,json=p98SpeedMps,proto3" json:"p98_speed_mps,omitempty"` // 98th percentile speed
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3287,9 +3286,9 @@ const file_visualiser_proto_rawDesc = "" +
 	"\fmotion_model\x18! \x01(\x0e2#.velocity.visualiser.v1.MotionModelR\vmotionModel\x12\x14\n" +
 	"\x05alpha\x18\" \x01(\x02R\x05alpha\x12%\n" +
 	"\x0eheading_source\x18# \x01(\x05R\rheadingSource\x12\"\n" +
-	"\rp85_speed_mps\x18$ \x01(\x02R\vp85SpeedMps\x12\"\n" +
-	"\rp98_speed_mps\x18% \x01(\x02R\vp98SpeedMps\x12\"\n" +
-	"\rp50_speed_mps\x18& \x01(\x02R\vp50SpeedMps\"K\n" +
+	"\rp50_speed_mps\x18$ \x01(\x02R\vp50SpeedMps\x12\"\n" +
+	"\rp85_speed_mps\x18% \x01(\x02R\vp85SpeedMps\x12\"\n" +
+	"\rp98_speed_mps\x18& \x01(\x02R\vp98SpeedMps\"K\n" +
 	"\n" +
 	"TrackPoint\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
