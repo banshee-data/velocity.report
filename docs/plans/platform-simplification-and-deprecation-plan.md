@@ -220,7 +220,7 @@ sub-plan:
 ### 2. Deployment surface deprecated
 
 - **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.7.0 or later, once the retirement gate is satisfied.
-- **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see stderr warnings. Scripts that parse stdout should be unaffected; warnings go to stderr.
+- **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see deprecation warnings on stdout. Scripts that parse stdout may need to be updated to ignore or handle these warning lines.
 - **Migration:** Begin planning migration to the image pipeline (#210) when available.
 
 ### 3. `cmd/transit-backfill` soft-deprecated
