@@ -324,7 +324,6 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			BBoxHeadingRad:    t.OBBHeadingRad, // Smoothed OBB heading
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
-			AvgSpeedMps:       t.AvgSpeedMps,
 			PeakSpeedMps:      t.PeakSpeedMps,
 			ObjectClass:       t.ObjectClass,
 			ClassConfidence:   t.ObjectConfidence,
@@ -409,7 +408,6 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			BBoxHeadingRad:    t.OBBHeadingRad,
 			HeightP95Max:      t.HeightP95Max,
 			IntensityMeanAvg:  t.IntensityMeanAvg,
-			AvgSpeedMps:       t.AvgSpeedMps,
 			PeakSpeedMps:      t.PeakSpeedMps,
 			ObjectClass:       t.ObjectClass,
 			ClassConfidence:   t.ObjectConfidence,
