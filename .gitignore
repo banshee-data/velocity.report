@@ -39,6 +39,7 @@ app-*
 velocity-report-*
 velocity-deploy*
 /visualiser-server
+/deploy
 mock_serial_port*
 /radar
 
