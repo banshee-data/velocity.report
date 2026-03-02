@@ -42,10 +42,11 @@ private func makeTrack(
         observationCount: 48, firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000, x: x,
         y: y, z: z, vx: 8.0, vy: 0.5, vz: 0.0, speedMps: speed, headingRad: headingRad,
         covariance4x4: [], bboxLength: bboxLength, bboxWidth: bboxWidth, bboxHeight: bboxHeight,
-        bboxHeadingRad: bboxHeading, heightP95Max: 1.6, intensityMeanAvg: 50.0, medianSpeedMps: 7.5,
-        peakSpeedMps: peakSpeed, p85SpeedMps: 8.0, p98SpeedMps: 8.5, classLabel: classLabel, classConfidence: 0.95,
-        trackLengthMetres: lengthMetres, trackDurationSecs: durationSecs, occlusionCount: 0,
-        confidence: confidence, occlusionState: .none, motionModel: .cv, alpha: 1.0)
+        bboxHeadingRad: bboxHeading, heightP95Max: 1.6, intensityMeanAvg: 50.0, p50SpeedMps: 7.5,
+        peakSpeedMps: peakSpeed, p85SpeedMps: 8.0, p98SpeedMps: 8.5, classLabel: classLabel,
+        classConfidence: 0.95, trackLengthMetres: lengthMetres, trackDurationSecs: durationSecs,
+        occlusionCount: 0, confidence: confidence, occlusionState: .none, motionModel: .cv,
+        alpha: 1.0)
 }
 
 /// Build a RunTrack for testing.

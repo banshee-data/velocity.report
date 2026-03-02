@@ -845,10 +845,10 @@ struct TrackInspectorFieldTests {
             lastSeenNanos: 2_000_000_000, x: 10.0, y: 5.0, z: 0.5, vx: 8.0, vy: 0.5, vz: 0.0,
             speedMps: 8.03, headingRad: 0.06, covariance4x4: [], bboxLength: 4.5, bboxWidth: 1.8,
             bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0,
-            medianSpeedMps: 7.5, peakSpeedMps: 9.0, p85SpeedMps: 8.0, p98SpeedMps: 8.5,
-            classLabel: "vehicle", classConfidence: 0.95,
-            trackLengthMetres: 150.0, trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98,
-            occlusionState: .none, motionModel: .cv, alpha: 1.0)
+            p50SpeedMps: 7.5, peakSpeedMps: 9.0, p85SpeedMps: 8.0, p98SpeedMps: 8.5,
+            classLabel: "vehicle", classConfidence: 0.95, trackLengthMetres: 150.0,
+            trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98, occlusionState: .none,
+            motionModel: .cv, alpha: 1.0)
     }
 
     @Test func peakSpeedIsNonZero() throws {

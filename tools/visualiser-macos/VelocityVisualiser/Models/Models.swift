@@ -227,7 +227,8 @@ struct Track {
 
     var heightP95Max: Float = 0
     var intensityMeanAvg: Float = 0
-    var medianSpeedMps: Float = 0  // p50 (was avgSpeedMps before v0.5.0)
+    var avgSpeedMps: Float = 0
+    var p50SpeedMps: Float = 0
     var peakSpeedMps: Float = 0
     var p85SpeedMps: Float = 0
     var p98SpeedMps: Float = 0
