@@ -991,7 +991,7 @@ CREATE TABLE IF NOT EXISTS lidar_tracks (
     peak_speed_mps REAL,
     p50_speed_mps REAL,  -- Median speed
     p85_speed_mps REAL,  -- 85th percentile
-    p95_speed_mps REAL,  -- 95th percentile
+    p98_speed_mps REAL,  -- 98th percentile
 
     -- Shape features (world frame averages)
     bounding_box_length_avg REAL,
@@ -1129,7 +1129,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 **Kinematic Features:**
 
 - Average speed (p50_speed_mps)
-- Peak speed (p95_speed_mps)
+- Peak speed (p98_speed_mps)
 - Speed variance
 - Acceleration magnitude
 
