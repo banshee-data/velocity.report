@@ -62,7 +62,7 @@ Measure vehicle speeds, make streets safer.
 - **Web Frontend** - Real-time data visualisation (Svelte)
 - **macOS Visualiser** - Native 3D visualisation for LiDAR tracking (M1+ Macs)
 
-The system collects vehicle speed data from radar/LiDAR sensors, stores it in SQLite, and provides multiple ways to visualise and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
+The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQLite, and provides multiple ways to visualise and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
 
 ## Privacy & Ethics
 
@@ -139,50 +139,50 @@ go run ./cmd/tools/visualiser-server -mode replay -log /path/to/recording.vrlog
 
 ```
 velocity.report/
-├── cmd/                               # Go CLI applications
-│   ├── radar/                         # Radar/LiDAR sensor integration
-│   ├── deploy/                        # Deployment management tool (deprecated)
-│   ├── sweep/                         # Parameter sweep utilities
-│   ├── tools/                         # Go utility tools
-│   │   ├── visualiser-server/         # Synthetic data generator
-│   │   ├── gen-vrlog/                 # Generate sample .vrlog recordings
-│   │   ├── pcap-analyse/              # PCAP packet analysis
-│   │   └── ...                        # Other utilities
-│   └── transit-backfill/              # Transit data backfill tool
-├── internal/                          # Go server internals (private packages)
-│   ├── api/                           # HTTP API endpoints
-│   ├── db/                            # SQLite database layer + migrations
-│   ├── radar/                         # Radar sensor logic
-│   ├── lidar/                         # LiDAR sensor logic + tracking
-│   │   └── visualiser/                # gRPC streaming for 3D visualisation
-│   │       └── recorder/              # Record/replay .vrlog files
-│   ├── monitoring/                    # System monitoring
-│   ├── security/                      # Path validation and security
-│   ├── serialmux/                     # Serial port multiplexing
-│   ├── units/                         # Unit conversion utilities
-│   └── version/                       # Version information
-├── web/                               # Svelte web frontend
-│   ├── src/                           # Frontend source code
-│   └── static/                        # Static assets
-├── tools/                             # Python tooling and native apps
-│   ├── pdf-generator/                 # PDF report generation (Python)
-│   │   ├── pdf_generator/             # Python package
-│   │   │   ├── cli/                   # CLI tools
-│   │   │   ├── core/                  # Core modules
-│   │   │   └── tests/                 # Test suite
-│   │   └── output/                    # Generated PDFs
-│   └── visualiser-macos/              # macOS LiDAR visualiser (Swift/Metal)
-│       ├── VelocityVisualiser/        # SwiftUI app
-│       │   ├── App/                   # Application entry
-│       │   ├── gRPC/                  # gRPC client
-│       │   ├── Rendering/             # Metal renderer
-│       │   └── UI/                    # SwiftUI views
-│       └── VelocityVisualiserTests/   # XCTest suite
-├── data/                              # Sample data and alignment utilities
-├── docs/                              # Internal project documentation
-├── public_html/                       # Public documentation site (Eleventy)
-├── scripts/                           # Development shell scripts
-└── static/                            # Static server assets
+├── cmd/                      # Go CLI applications
+│   ├── radar/                # Radar/LiDAR sensor integration
+│   ├── deploy/               # Deployment management tool
+│   ├── sweep/                # Parameter sweep utilities
+│   ├── tools/                # Go utility tools
+│   │   ├── visualiser-server/ # Synthetic data generator and replay server
+│   │   ├── gen-vrlog/        # Generate sample .vrlog recordings
+│   │   ├── pcap-analyse/     # PCAP packet analysis
+│   │   └── ...               # Other utilities
+│   └── transit-backfill/     # Transit data backfill tool
+├── internal/                 # Go server internals (private packages)
+│   ├── api/                  # HTTP API endpoints
+│   ├── db/                   # SQLite database layer + migrations
+│   ├── radar/                # Radar sensor logic
+│   ├── lidar/                # LiDAR sensor logic + tracking
+│   │   └── visualiser/       # gRPC streaming for 3D visualisation
+│   │       └── recorder/     # Record/replay .vrlog files
+│   ├── monitoring/           # System monitoring
+│   ├── security/             # Path validation and security
+│   ├── serialmux/            # Serial port multiplexing
+│   ├── units/                # Unit conversion utilities
+│   └── version/              # Version information
+├── web/                      # Svelte web frontend
+│   ├── src/                  # Frontend source code
+│   └── static/               # Static assets
+├── tools/                    # Python tooling and native apps
+│   ├── pdf-generator/        # PDF report generation (Python)
+│   │   ├── pdf_generator/    # Python package
+│   │   │   ├── cli/          # CLI tools
+│   │   │   ├── core/         # Core modules
+│   │   │   └── tests/        # Test suite
+│   │   └── output/           # Generated PDFs
+│   └── visualiser-macos/     # macOS LiDAR visualiser (Swift/Metal)
+│       ├── VelocityVisualiser/       # SwiftUI app
+│       │   ├── App/          # Application entry
+│       │   ├── gRPC/         # gRPC client
+│       │   ├── Rendering/    # Metal renderer
+│       │   └── UI/           # SwiftUI views
+│       └── VelocityVisualiserTests/  # XCTest suite
+├── data/                     # Sample data and alignment utilities
+├── docs/                     # Internal project documentation
+├── public_html/              # Public documentation site (Eleventy)
+├── scripts/                  # Development shell scripts
+└── static/                   # Static server assets
 ```
 
 ## Architecture
@@ -190,28 +190,28 @@ velocity.report/
 ### Data Flow
 
 ```
-   ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-   │     Sensors     │────►│     Go Server    │◄───►│ SQLite Database │
-   │ (Radar / LiDAR) │     │ (API/Processing) │     │  (Time-series)  │
-   └─────────────────┘     └──────────────────┘     └─────────────────┘
-                             │              │
-                     (HTTP)  │              │ (gRPC)
-                 ┌───────────┤              │
-                 ▼           ▼              ▼
-     ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐
-     │ Web Frontend │  │ PDF Reports  │  │ VelocityVisualiser │
-     │   (Svelte)   │  │ (Python/TeX) │  │    (macOS Swift)   │
-     └──────────────┘  └──────────────┘  └────────────────────┘
+   ┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
+   │     Sensors       │────►│     Go Server     │◄───►│  SQLite Database  │
+   │ (Radar / LIDAR)   │     │ (API/Processing)  │     │ (Time-series)     │
+   └───────────────────┘     └───────────────────┘     └───────────────────┘
+                                       │
+                                       │
+                     ┌─────────────────┴──────────────────┐
+                     │                                    │
+                     ▼                                    ▼
+     ┌─────────────────────────────┐       ┌─────────────────────────────┐
+     │        Web Frontend         │       │    Python PDF Generator     │
+     │   (Real-time via Svelte)    │       │ (Offline Reports via LaTeX) │
+     └─────────────────────────────┘       └─────────────────────────────┘
 ```
 
 ### Components
 
 **1. Go Server** (`/cmd/`, `/internal/`)
 
-- Collects data from radar/LiDAR sensors
+- Collects data from radar/LIDAR sensors
 - Stores time-series data in SQLite
 - Provides HTTP API for data access
-- Streams LiDAR frames to macOS visualiser via gRPC
 - Handles background processing tasks
 - Runs as systemd service on Raspberry Pi
 
@@ -229,13 +229,6 @@ velocity.report/
 - Interactive charts and graphs
 - Built with Svelte and TypeScript
 - Responsive design
-
-**4. macOS Visualiser** (`/tools/visualiser-macos/`)
-
-- Real-time 3D LiDAR point cloud rendering (Metal)
-- Object tracking and debug overlays via gRPC stream
-- Record/replay `.vrlog` files with seekable timeline
-- SwiftUI interface with inspector panels
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed architecture documentation.
 
@@ -362,16 +355,64 @@ See **[web/README.md](web/README.md)** for details.
 
 ### Go Server (Raspberry Pi)
 
-The Go server runs as a systemd service on Raspberry Pi:
+The Go server runs as a systemd service on Raspberry Pi. Use the new `velocity-deploy` tool for comprehensive deployment management.
+
+**Quick Start - Deploy to Raspberry Pi:**
+
+```sh
+# Build the binary and deployment tool
+make build-radar-linux
+make build-deploy
+
+# Deploy to remote Pi
+./velocity-deploy install \
+  --target pi@192.168.1.100 \
+  --ssh-key ~/.ssh/id_rsa \
+  --binary ./velocity-report-linux-arm64
+```
+
+**Or use Make shortcuts for local deployment:**
 
 ```sh
 make build-radar-linux
-# produces velocity-report-linux-arm64
+make deploy-install
 ```
 
-See **[public_html/src/guides/setup.md](public_html/src/guides/setup.md)** for the complete setup and deployment guide.
+The deployment will:
 
-> **Note:** The `velocity-deploy` tool and associated Make targets (`deploy-install`, `deploy-upgrade`, etc.) are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate). The replacement workflow is the Raspberry Pi image pipeline ([design doc](docs/plans/deploy-rpi-imager-fork-plan.md)).
+- Install the binary to `/usr/local/bin/velocity-report`
+- Create a dedicated service user and working directory
+- Install and enable the systemd service
+- Optionally migrate existing database
+
+**Upgrade to new version:**
+
+```sh
+make build-radar-linux
+./velocity-deploy upgrade --target pi@192.168.1.100 --binary ./velocity-report-linux-arm64
+```
+
+**Monitor service health:**
+
+```sh
+# Comprehensive health check
+./velocity-deploy health --target pi@192.168.1.100
+
+# Check status
+./velocity-deploy status --target pi@192.168.1.100
+
+# View logs
+sudo journalctl -u velocity-report.service -f
+```
+
+**See also:**
+
+- **[public_html/src/guides/setup.md](public_html/src/guides/setup.md)** - Complete setup and deployment guide
+- **[cmd/deploy/README.md](cmd/deploy/README.md)** - velocity-deploy CLI reference
+
+**Legacy deployment:**
+
+The previous `scripts/setup-radar-host.sh` script is still available but the new `velocity-deploy` tool is recommended for all deployments.
 
 ### Python PDF Generator
 
@@ -466,6 +507,8 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `build-radar-mac-intel` - Build for macOS AMD64 with pcap
 - `build-radar-local` - Build for local development with pcap
 - `build-tools` - Build sweep tool
+- `build-deploy` - Build velocity-deploy deployment manager
+- `build-deploy-linux` - Build velocity-deploy for Linux ARM64
 - `build-web` - Build web frontend (SvelteKit)
 - `build-docs` - Build documentation site (Eleventy)
 
@@ -497,6 +540,18 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `proto-gen` - Generate protobuf stubs for all languages
 - `proto-gen-go` - Generate Go protobuf stubs
 - `proto-gen-swift` - Generate Swift protobuf stubs (macOS visualiser)
+
+### Deployment Targets (deprecated)
+
+> These targets are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate) — not before v0.7.0.
+
+- `setup-radar` - Install server on this host (requires sudo, **deprecated**)
+- `deploy-install` - Install using velocity-deploy (**deprecated**)
+- `deploy-upgrade` - Upgrade using velocity-deploy (**deprecated**)
+- `deploy-status` - Check service status using velocity-deploy (**deprecated**)
+- `deploy-health` - Run health check using velocity-deploy (**deprecated**)
+- `deploy-install-latex` - Install LaTeX on remote target (**deprecated**)
+- `deploy-update-deps` - Update source, LaTeX, and Python deps on remote target (**deprecated**)
 
 ### Formatting Targets
 
@@ -550,6 +605,50 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `log-go-cat` - Cat most recent Go server log
 - `log-go-tail-all` - Tail most recent Go server log plus debug log
 - `git-fs` - Show the git files that differ from main
+
+### Data Visualisation Targets
+
+- `plot-noise-sweep` - Generate noise sweep line plot (FILE=data.csv)
+- `plot-multisweep` - Generate multi-parameter grid (FILE=data.csv)
+- `plot-noise-buckets` - Generate per-noise bar charts (FILE=data.csv)
+- `stats-live` - Capture live LiDAR snapshots (INTERVAL=10 DURATION=60)
+- `stats-pcap` - Capture PCAP replay snapshots (PCAP=file.pcap INTERVAL=5)
+
+### API Shortcut Targets (LiDAR HTTP API)
+
+**Grid endpoints:**
+
+- `api-grid-status` - Get grid status
+- `api-grid-reset` - Reset background grid
+- `api-grid-heatmap` - Get grid heatmap
+
+**Snapshot endpoints:**
+
+- `api-snapshot` - Get current snapshot
+- `api-snapshots` - List all snapshots
+
+**Acceptance endpoints:**
+
+- `api-acceptance` - Get acceptance metrics
+- `api-acceptance-reset` - Reset acceptance counters
+
+**Parameter endpoints:**
+
+- `api-params` - Get algorithm parameters
+- `api-params-set` - Set parameters (PARAMS='{}')
+
+**Persistence and export endpoints:**
+
+- `api-persist` - Trigger snapshot persistence
+- `api-export-snapshot` - Export specific snapshot
+- `api-export-next-frame` - Export next LiDAR frame
+
+**Status & data source endpoints:**
+
+- `api-status` - Get server status
+- `api-start-pcap` - Start PCAP replay (PCAP=file.pcap)
+- `api-stop-pcap` - Stop PCAP replay
+- `api-switch-data-source` - Switch live/pcap (SOURCE=live|pcap)
 
 Run `make help` or `make` to see all available targets with descriptions.
 
