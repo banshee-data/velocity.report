@@ -212,7 +212,7 @@ sub-plan:
 
 ### 1. Visualiser proto: `avg_speed_mps` → `median_speed_mps` (field 24)
 
-- **What:** Proto field 24 in `TrackedObject` is renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) are added. The `AvgSpeedMps` compat shim in the internal model and REST API is removed.
+- **What:** Proto field 24 in `TrackedObject` is renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) are added. The `AvgSpeedMps` field is removed from the internal model, REST API, ML feature struct, track store, and VRLOG writer. The `avg_speed_mps` DB column is dropped from `lidar_tracks` and `lidar_run_tracks` (replaced by the existing `p50_speed_mps` column).
 - **Impact:** macOS visualiser and any gRPC clients reading field 24 as an average must update to treat it as a median. REST API consumers reading `avg_speed_mps` must switch to `median_speed_mps`.
 - **Migration:** Update client code to use the new field name. The wire format is unchanged (same field number), so binary compatibility is preserved.
 - **Design docs:** [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avgspeedmps-in-visualiser-model-and-rest-api)
@@ -256,7 +256,6 @@ sub-plan:
 ### Unchanged in v0.5.0
 
 - No CLI flags are removed in v0.5.0.
-- No database schema breaking changes.
 - Privacy model is unchanged: local-only storage, no PII.
 
 ## Delivery Plan (Task Lists)

@@ -19,6 +19,8 @@ implemented in the gRPC stream path:
    `sample_points`) remain unserialised.
 4. `Track.avg_speed_mps` (field `24`) does not match desired semantics for the
    visualiser inspector; median and high-percentile summaries are more useful.
+   This field will be removed entirely (including from DB, REST API, and VRLOG) —
+   not kept for backward compatibility.
 5. `Track.class_label` (string) was replaced with `ObjectClass object_class`
    (enum, field `26`) with a 10-value enumeration. ✅ Implemented.
 
@@ -29,7 +31,8 @@ in the proto as a contract.
 
 1. Make protobuf stream output match the declared `visualiser.proto` contract.
 2. Restore debug overlays end-to-end (adapter -> gRPC -> Swift client -> renderer).
-3. Replace `Track.avg_speed_mps` with median semantics before `v0.5.0`.
+3. Replace `Track.avg_speed_mps` with median semantics before `v0.5.0`. Remove
+   `avg_speed_mps` from all layers (proto, model, DB, REST API, VRLOG).
 4. Add `p85` and `p98` speed summary fields for visual review.
 5. Add serialization tests that fail on future field drops.
 
@@ -148,11 +151,19 @@ Note: field `26` was originally listed as `class_label` (string). It is now
 `ObjectClass object_class` (enum). This change is already implemented and does
 not affect the speed summary rename.
 
+`avg_speed_mps` is removed everywhere — not kept for VRLOG or classifier
+backward compatibility. The DB column is dropped in a migration; the Go model
+field, REST API, ML feature struct, and VRLOG writer all switch to
+`median_speed_mps` / `p50_speed_mps`. See the
+[shim removal plan §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avgspeedmps-removal-all-layers)
+for the full removal inventory.
+
 Rationale:
 
 1. Median is more robust to noisy short-lived speed spikes than mean.
 2. `p85` and `p98` match speed-review workflows already used elsewhere.
-3. Avoiding broad tag churn limits accidental breakage even before `v0.5.0`.
+3. `p50_speed_mps` already exists in the DB schema alongside `avg_speed_mps`,
+   so the column drop is non-destructive — no data loss.
 
 ### 5.2 Percentile computation
 
