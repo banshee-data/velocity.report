@@ -351,7 +351,7 @@ func TestDownloadReport_InvalidFileType(t *testing.T) {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download?file_type=invalid", report.ID), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download/report.invalid", report.ID), nil)
 	w := httptest.NewRecorder()
 
 	server.downloadReport(w, req, report.ID, "invalid")
@@ -397,7 +397,7 @@ func TestDownloadReport_ZipNotAvailable(t *testing.T) {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download?file_type=zip", report.ID), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download/sources.zip", report.ID), nil)
 	w := httptest.NewRecorder()
 
 	server.downloadReport(w, req, report.ID, "zip")

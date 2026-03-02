@@ -270,7 +270,7 @@ func TestTrack_FullFields(t *testing.T) {
 		BBoxHeadingRad:    0.46,
 		HeightP95Max:      1.8,
 		IntensityMeanAvg:  100.0,
-		MedianSpeedMps:    2.0,
+		AvgSpeedMps:       2.0,
 		PeakSpeedMps:      3.0,
 		ObjectClass:       "car",
 		ClassConfidence:   0.95,

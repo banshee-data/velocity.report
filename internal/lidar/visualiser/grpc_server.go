@@ -67,7 +67,7 @@ func classifyOrConvert(t Track) pb.ObjectClass {
 		AvgLength:        t.BBoxLength,
 		AvgWidth:         t.BBoxWidth,
 		HeightP95:        t.HeightP95Max,
-		AvgSpeed:         t.MedianSpeedMps, // Median used as central speed; AvgSpeedMps removed in v0.5.x
+		AvgSpeed:         t.AvgSpeedMps,
 		PeakSpeed:        t.PeakSpeedMps,
 		ObservationCount: t.ObservationCount,
 	}

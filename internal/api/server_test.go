@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -1506,19 +1507,22 @@ func TestHandleReports_DownloadZipNotFound(t *testing.T) {
 	}
 }
 
-// TestHandleReports_DownloadLegacy tests GET /api/reports/{id}/download with file_type query param
-func TestHandleReports_DownloadLegacy(t *testing.T) {
+// TestHandleReports_DownloadWithoutFilename tests GET /api/reports/{id}/download without filename returns 400
+func TestHandleReports_DownloadWithoutFilename(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/reports/99999/download?file_type=pdf", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/99999/download", nil)
 	w := httptest.NewRecorder()
 
 	server.handleReports(w, req)
 
-	// Should return 404 for non-existent report
-	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404, got %d", w.Code)
+	// Should return 400 because filename is required in path
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "filename required") {
+		t.Errorf("Expected 'filename required' in response, got: %s", w.Body.String())
 	}
 }
 
