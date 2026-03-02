@@ -154,7 +154,7 @@ type TrackedObject struct {
 	HeightP95Max         float32
 	IntensityMeanAvg     float32
 	AvgSpeedMps          float32
-	MedianSpeedMps       float32
+	P50SpeedMps          float32
 	PeakSpeedMps         float32
 
 	// History of positions
@@ -922,7 +922,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Update speed statistics
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
 	track.AvgSpeedMps = ((n-1)*track.AvgSpeedMps + speed) / n
-	track.MedianSpeedMps = medianOfSpeeds(track.speedHistory)
+	track.P50SpeedMps = p50OfSpeeds(track.speedHistory)
 	if speed > track.PeakSpeedMps {
 		track.PeakSpeedMps = speed
 	}
@@ -1430,9 +1430,9 @@ func (track *TrackedObject) SpeedHistory() []float32 {
 	return result
 }
 
-// medianOfSpeeds returns the median (P50) of a speed history slice.
+// p50OfSpeeds returns the 50th percentile (median) of a speed history slice.
 // Returns 0 if the slice is empty. Does not modify the input.
-func medianOfSpeeds(speeds []float32) float32 {
+func p50OfSpeeds(speeds []float32) float32 {
 	if len(speeds) == 0 {
 		return 0
 	}

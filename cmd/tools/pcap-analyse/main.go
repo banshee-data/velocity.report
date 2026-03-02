@@ -97,45 +97,43 @@ type AnalysisResult struct {
 
 // TrackExport represents a track for export.
 type TrackExport struct {
-	TrackID        string  `json:"track_id"`
-	Class          string  `json:"class"`
-	Confidence     float32 `json:"confidence"`
-	StartTime      string  `json:"start_time"`
-	EndTime        string  `json:"end_time"`
-	DurationSecs   float64 `json:"duration_secs"`
-	Observations   int     `json:"observations"`
-	MedianSpeedMps float32 `json:"median_speed_mps"`
-	PeakSpeedMps   float32 `json:"peak_speed_mps"`
-	P50SpeedMps    float32 `json:"p50_speed_mps"`
-	P85SpeedMps    float32 `json:"p85_speed_mps"`
-	P95SpeedMps    float32 `json:"p95_speed_mps"`
-	AvgHeight      float32 `json:"avg_height_m"`
-	AvgLength      float32 `json:"avg_length_m"`
-	AvgWidth       float32 `json:"avg_width_m"`
-	HeightP95Max   float32 `json:"height_p95_max_m"`
-	StartX         float32 `json:"start_x_m"`
-	StartY         float32 `json:"start_y_m"`
-	EndX           float32 `json:"end_x_m"`
-	EndY           float32 `json:"end_y_m"`
-	TotalDistance  float32 `json:"total_distance_m"`
+	TrackID       string  `json:"track_id"`
+	Class         string  `json:"class"`
+	Confidence    float32 `json:"confidence"`
+	StartTime     string  `json:"start_time"`
+	EndTime       string  `json:"end_time"`
+	DurationSecs  float64 `json:"duration_secs"`
+	Observations  int     `json:"observations"`
+	PeakSpeedMps  float32 `json:"peak_speed_mps"`
+	P50SpeedMps   float32 `json:"p50_speed_mps"`
+	P85SpeedMps   float32 `json:"p85_speed_mps"`
+	P95SpeedMps   float32 `json:"p95_speed_mps"`
+	AvgHeight     float32 `json:"avg_height_m"`
+	AvgLength     float32 `json:"avg_length_m"`
+	AvgWidth      float32 `json:"avg_width_m"`
+	HeightP95Max  float32 `json:"height_p95_max_m"`
+	StartX        float32 `json:"start_x_m"`
+	StartY        float32 `json:"start_y_m"`
+	EndX          float32 `json:"end_x_m"`
+	EndY          float32 `json:"end_y_m"`
+	TotalDistance float32 `json:"total_distance_m"`
 }
 
 // ClassStats holds statistics for a classification category.
 type ClassStats struct {
 	Count           int     `json:"count"`
-	MedianSpeed     float32 `json:"median_speed_mps"`
+	P50Speed        float32 `json:"p50_speed_mps"`
 	AvgDuration     float32 `json:"avg_duration_secs"`
 	AvgObservations float32 `json:"avg_observations"`
 }
 
 // SpeedStatistics holds overall speed statistics.
 type SpeedStatistics struct {
-	MinSpeed    float32 `json:"min_speed_mps"`
-	MaxSpeed    float32 `json:"max_speed_mps"`
-	MedianSpeed float32 `json:"median_speed_mps"`
-	P50Speed    float32 `json:"p50_speed_mps"`
-	P85Speed    float32 `json:"p85_speed_mps"`
-	P95Speed    float32 `json:"p95_speed_mps"`
+	MinSpeed float32 `json:"min_speed_mps"`
+	MaxSpeed float32 `json:"max_speed_mps"`
+	P50Speed float32 `json:"p50_speed_mps"`
+	P85Speed float32 `json:"p85_speed_mps"`
+	P95Speed float32 `json:"p95_speed_mps"`
 }
 
 // TrainingFrame represents a frame prepared for ML ingestion.
@@ -854,29 +852,28 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 		p50, p85, p95 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
 
 		trackExport := &TrackExport{
-			TrackID:        track.TrackID,
-			Class:          class,
-			Confidence:     track.ObjectConfidence,
-			StartTime:      time.Unix(0, track.FirstUnixNanos).Format(time.RFC3339),
-			EndTime:        time.Unix(0, track.LastUnixNanos).Format(time.RFC3339),
-			DurationSecs:   float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9,
-			Observations:   track.ObservationCount,
-			MedianSpeedMps: track.MedianSpeedMps,
-			PeakSpeedMps:   track.PeakSpeedMps,
-			P50SpeedMps:    p50,
-			P85SpeedMps:    p85,
-			P95SpeedMps:    p95,
-			AvgHeight:      track.BoundingBoxHeightAvg,
-			AvgLength:      track.BoundingBoxLengthAvg,
-			AvgWidth:       track.BoundingBoxWidthAvg,
-			HeightP95Max:   track.HeightP95Max,
-			StartX:         track.X,
-			StartY:         track.Y,
+			TrackID:      track.TrackID,
+			Class:        class,
+			Confidence:   track.ObjectConfidence,
+			StartTime:    time.Unix(0, track.FirstUnixNanos).Format(time.RFC3339),
+			EndTime:      time.Unix(0, track.LastUnixNanos).Format(time.RFC3339),
+			DurationSecs: float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9,
+			Observations: track.ObservationCount,
+			PeakSpeedMps: track.PeakSpeedMps,
+			P50SpeedMps:  p50,
+			P85SpeedMps:  p85,
+			P95SpeedMps:  p95,
+			AvgHeight:    track.BoundingBoxHeightAvg,
+			AvgLength:    track.BoundingBoxLengthAvg,
+			AvgWidth:     track.BoundingBoxWidthAvg,
+			HeightP95Max: track.HeightP95Max,
+			StartX:       track.X,
+			StartY:       track.Y,
 		}
 		result.Tracks = append(result.Tracks, trackExport)
 
-		if track.MedianSpeedMps > 0 {
-			speedSamples = append(speedSamples, track.MedianSpeedMps)
+		if track.P50SpeedMps > 0 {
+			speedSamples = append(speedSamples, track.P50SpeedMps)
 		}
 	}
 
@@ -1104,14 +1101,14 @@ func computeClassStats(tracks []*TrackExport) map[string]ClassStats {
 		var sumSpeed, sumDuration float32
 		var sumObs int
 		for _, t := range classTracks {
-			sumSpeed += t.MedianSpeedMps
+			sumSpeed += t.P50SpeedMps
 			sumDuration += float32(t.DurationSecs)
 			sumObs += t.Observations
 		}
 		n := float32(len(classTracks))
 		stats[class] = ClassStats{
 			Count:           len(classTracks),
-			MedianSpeed:     sumSpeed / n,
+			P50Speed:        sumSpeed / n,
 			AvgDuration:     sumDuration / n,
 			AvgObservations: float32(sumObs) / n,
 		}
@@ -1125,27 +1122,21 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 		return SpeedStatistics{}
 	}
 
-	// Sort for min/max and average
+	// Sort for min/max
 	sorted := make([]float32, len(samples))
 	copy(sorted, samples)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
-
-	var sum float32
-	for _, s := range sorted {
-		sum += s
-	}
 
 	// Use the shared percentile computation from lidar package
 	p50, p85, p95 := l6objects.ComputeSpeedPercentiles(samples)
 
 	n := len(sorted)
 	return SpeedStatistics{
-		MinSpeed:    sorted[0],
-		MaxSpeed:    sorted[n-1],
-		MedianSpeed: sum / float32(n),
-		P50Speed:    p50,
-		P85Speed:    p85,
-		P95Speed:    p95,
+		MinSpeed: sorted[0],
+		MaxSpeed: sorted[n-1],
+		P50Speed: p50,
+		P85Speed: p85,
+		P95Speed: p95,
 	}
 }
 
@@ -1172,7 +1163,7 @@ func printSummary(result *AnalysisResult) {
 	fmt.Println("\nSpeed Statistics (confirmed tracks):")
 	fmt.Printf("  Min: %.2f m/s (%.1f km/h)\n", result.SpeedStats.MinSpeed, result.SpeedStats.MinSpeed*3.6)
 	fmt.Printf("  Max: %.2f m/s (%.1f km/h)\n", result.SpeedStats.MaxSpeed, result.SpeedStats.MaxSpeed*3.6)
-	fmt.Printf("  Median: %.2f m/s (%.1f km/h)\n", result.SpeedStats.MedianSpeed, result.SpeedStats.MedianSpeed*3.6)
+	fmt.Printf("  P50: %.2f m/s (%.1f km/h)\n", result.SpeedStats.P50Speed, result.SpeedStats.P50Speed*3.6)
 	fmt.Printf("  P85: %.2f m/s (%.1f km/h)\n", result.SpeedStats.P85Speed, result.SpeedStats.P85Speed*3.6)
 	fmt.Println()
 	if result.TrainingFrames > 0 {
@@ -1222,7 +1213,7 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 	// Header
 	header := []string{
 		"track_id", "class", "confidence", "start_time", "end_time",
-		"duration_secs", "observations", "median_speed_mps", "peak_speed_mps",
+		"duration_secs", "observations", "peak_speed_mps",
 		"p50_speed_mps", "p85_speed_mps", "p95_speed_mps",
 		"avg_height_m", "avg_length_m", "avg_width_m", "height_p95_max_m",
 	}
@@ -1240,7 +1231,6 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 			t.EndTime,
 			strconv.FormatFloat(t.DurationSecs, 'f', 2, 64),
 			strconv.Itoa(t.Observations),
-			strconv.FormatFloat(float64(t.MedianSpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.PeakSpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P50SpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P85SpeedMps), 'f', 2, 32),
