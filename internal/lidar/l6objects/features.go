@@ -39,7 +39,7 @@ type TrackFeatures struct {
 	// Speed percentiles
 	SpeedP50 float32
 	SpeedP85 float32
-	SpeedP95 float32
+	SpeedP98 float32
 }
 
 // ExtractClusterFeatures computes features from a cluster and its constituent points.
@@ -141,7 +141,7 @@ func ExtractTrackFeatures(track *TrackedObject) TrackFeatures {
 	// Speed percentiles and variance
 	speedHistory := track.SpeedHistory()
 	if len(speedHistory) > 0 {
-		f.SpeedP50, f.SpeedP85, f.SpeedP95 = ComputeSpeedPercentiles(speedHistory)
+		f.SpeedP50, f.SpeedP85, f.SpeedP98 = ComputeSpeedPercentiles(speedHistory)
 		f.SpeedVariance = computeVariance(speedHistory)
 	}
 
@@ -245,7 +245,7 @@ func SortedFeatureNames() []string {
 		"speed_variance",
 		"speed_p50",
 		"speed_p85",
-		"speed_p95",
+		"speed_p98",
 		"track_duration_secs",
 		"track_length_meters",
 		"heading_variance",
@@ -272,7 +272,7 @@ func (f TrackFeatures) ToVector() []float32 {
 		f.SpeedVariance,
 		f.SpeedP50,
 		f.SpeedP85,
-		f.SpeedP95,
+		f.SpeedP98,
 		f.TrackDurationSecs,
 		f.TrackLengthMeters,
 		f.HeadingVariance,
