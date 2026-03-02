@@ -337,7 +337,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 
 		// Compute speed percentiles from history
 		if sh := t.SpeedHistory(); len(sh) > 0 {
-			track.MedianSpeedMps, track.P85SpeedMps, track.P98SpeedMps = speedPercentiles(sh)
+			track.P50SpeedMps, track.P85SpeedMps, track.P98SpeedMps = speedPercentiles(sh)
 		}
 
 		// Copy covariance
@@ -421,7 +421,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 
 		// Compute speed percentiles from history
 		if sh := t.SpeedHistory(); len(sh) > 0 {
-			track.MedianSpeedMps, track.P85SpeedMps, track.P98SpeedMps = speedPercentiles(sh)
+			track.P50SpeedMps, track.P85SpeedMps, track.P98SpeedMps = speedPercentiles(sh)
 		}
 
 		ts.Tracks = append(ts.Tracks, track)
@@ -525,19 +525,19 @@ func (a *FrameAdapter) adaptDebugFrame(debugFrame interface{}, timestamp time.Ti
 	return overlay
 }
 
-// speedPercentiles computes median (p50), p85, and p98 from a speed history
+// speedPercentiles computes p50, p85, and p98 from a speed history
 // slice. The input is sorted in-place; callers must pass an owned copy (e.g.
 // from SpeedHistory() which already returns a copy).
 // Uses floor-based index selection (picks upper-middle for even-length arrays)
 // consistent with l6objects.ComputeSpeedPercentiles.
-func speedPercentiles(speeds []float32) (median, p85, p98 float32) {
+func speedPercentiles(speeds []float32) (p50, p85, p98 float32) {
 	n := len(speeds)
 	if n == 0 {
 		return 0, 0, 0
 	}
 	sort.Slice(speeds, func(i, j int) bool { return speeds[i] < speeds[j] })
 
-	median = speeds[n/2]
+	p50 = speeds[n/2]
 
 	p85Idx := int(math.Floor(float64(n) * 0.85))
 	if p85Idx >= n {
