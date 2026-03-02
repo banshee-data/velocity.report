@@ -1162,9 +1162,95 @@ func TestServer_SetReplayMode(t *testing.T) {
 // Tests for frameBundleToProto with Debug overlays
 // =============================================================================
 
-// Note: frameBundleToProto doesn't currently convert debug overlays to proto.
-// These tests verify the actual behaviour (Debug is not serialised).
-func TestFrameBundleToProto_DebugNotConverted(t *testing.T) {
+func TestFrameBundleToProto_DebugSerialised(t *testing.T) {
+	ts := time.Now().UnixNano()
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: ts,
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Debug: &DebugOverlaySet{
+			FrameID:        42,
+			TimestampNanos: ts,
+			AssociationCandidates: []AssociationCandidate{
+				{ClusterID: 1, TrackID: "track-001", Distance: 2.5, Accepted: true},
+				{ClusterID: 2, TrackID: "track-002", Distance: 5.0, Accepted: false},
+			},
+			GatingEllipses: []GatingEllipse{
+				{TrackID: "track-001", CenterX: 1.0, CenterY: 2.0, SemiMajor: 3.0, SemiMinor: 1.5, RotationRad: 0.5},
+			},
+			Residuals: []InnovationResidual{
+				{TrackID: "track-001", PredictedX: 10.0, PredictedY: 20.0, MeasuredX: 10.1, MeasuredY: 20.2, ResidualMagnitude: 0.22},
+			},
+			Predictions: []StatePrediction{
+				{TrackID: "track-001", X: 10.0, Y: 20.0, VX: 1.0, VY: 2.0},
+			},
+		},
+	}
+
+	req := &pb.StreamRequest{
+		IncludeDebug: true,
+	}
+
+	pbFrame := frameBundleToProto(frame, req)
+
+	if pbFrame.Debug == nil {
+		t.Fatal("expected non-nil Debug when IncludeDebug=true and frame.Debug is populated")
+	}
+
+	dbg := pbFrame.Debug
+	if dbg.FrameId != 42 {
+		t.Errorf("FrameId: got %d, want 42", dbg.FrameId)
+	}
+	if dbg.TimestampNs != ts {
+		t.Errorf("TimestampNs: got %d, want %d", dbg.TimestampNs, ts)
+	}
+
+	// Association candidates
+	if len(dbg.AssociationCandidates) != 2 {
+		t.Fatalf("AssociationCandidates: got %d, want 2", len(dbg.AssociationCandidates))
+	}
+	a := dbg.AssociationCandidates[0]
+	if a.ClusterId != 1 || a.TrackId != "track-001" || a.Distance != 2.5 || !a.Accepted {
+		t.Errorf("AssociationCandidates[0]: got %+v", a)
+	}
+	a1 := dbg.AssociationCandidates[1]
+	if a1.ClusterId != 2 || a1.Accepted {
+		t.Errorf("AssociationCandidates[1]: got %+v", a1)
+	}
+
+	// Gating ellipses
+	if len(dbg.GatingEllipses) != 1 {
+		t.Fatalf("GatingEllipses: got %d, want 1", len(dbg.GatingEllipses))
+	}
+	g := dbg.GatingEllipses[0]
+	if g.TrackId != "track-001" || g.CenterX != 1.0 || g.SemiMajor != 3.0 || g.RotationRad != 0.5 {
+		t.Errorf("GatingEllipses[0]: got %+v", g)
+	}
+
+	// Residuals
+	if len(dbg.Residuals) != 1 {
+		t.Fatalf("Residuals: got %d, want 1", len(dbg.Residuals))
+	}
+	r := dbg.Residuals[0]
+	if r.TrackId != "track-001" || r.PredictedX != 10.0 || r.MeasuredX != 10.1 || r.ResidualMagnitude != 0.22 {
+		t.Errorf("Residuals[0]: got %+v", r)
+	}
+
+	// Predictions
+	if len(dbg.Predictions) != 1 {
+		t.Fatalf("Predictions: got %d, want 1", len(dbg.Predictions))
+	}
+	p := dbg.Predictions[0]
+	if p.TrackId != "track-001" || p.X != 10.0 || p.Vx != 1.0 {
+		t.Errorf("Predictions[0]: got %+v", p)
+	}
+}
+
+func TestFrameBundleToProto_DebugOmittedWhenNotRequested(t *testing.T) {
 	frame := &FrameBundle{
 		FrameID:        1,
 		TimestampNanos: time.Now().UnixNano(),
@@ -1182,19 +1268,17 @@ func TestFrameBundleToProto_DebugNotConverted(t *testing.T) {
 		},
 	}
 
+	// Debug data exists in frame but IncludeDebug=false — should be omitted
 	req := &pb.StreamRequest{
-		IncludeDebug: true, // Even when requested, Debug is not converted (not implemented)
+		IncludeDebug: false,
 	}
-
 	pbFrame := frameBundleToProto(frame, req)
-
-	// Debug conversion is not implemented - verify it's nil
 	if pbFrame.Debug != nil {
-		t.Error("expected nil Debug (not yet implemented in frameBundleToProto)")
+		t.Error("expected nil Debug when IncludeDebug=false")
 	}
 }
 
-func TestFrameBundleToProto_DebugFieldAbsent(t *testing.T) {
+func TestFrameBundleToProto_DebugNilInFrame(t *testing.T) {
 	frame := &FrameBundle{
 		FrameID:        1,
 		TimestampNanos: time.Now().UnixNano(),
@@ -1203,17 +1287,77 @@ func TestFrameBundleToProto_DebugFieldAbsent(t *testing.T) {
 			FrameID:        "site/test",
 			ReferenceFrame: "ENU",
 		},
-		Debug: nil, // No debug data
+		Debug: nil,
+	}
+
+	// IncludeDebug=true but no debug data in frame
+	req := &pb.StreamRequest{
+		IncludeDebug: true,
+	}
+	pbFrame := frameBundleToProto(frame, req)
+	if pbFrame.Debug != nil {
+		t.Error("expected nil Debug when frame.Debug is nil")
+	}
+}
+
+func TestFrameBundleToProto_ClusterFeatureFields(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Clusters: &ClusterSet{
+			FrameID:        1,
+			TimestampNanos: time.Now().UnixNano(),
+			Method:         ClusteringDBSCAN,
+			Clusters: []Cluster{
+				{
+					ClusterID:      100,
+					SensorID:       "test-sensor",
+					TimestampNanos: time.Now().UnixNano(),
+					CentroidX:      1.0,
+					CentroidY:      2.0,
+					CentroidZ:      0.5,
+					AABBLength:     3.0,
+					AABBWidth:      2.0,
+					AABBHeight:     1.5,
+					PointsCount:    42,
+					HeightP95:      1.35,
+					IntensityMean:  128.5,
+					SamplePoints:   []float32{1.0, 2.0, 0.5, 1.1, 2.1, 0.6},
+				},
+			},
+		},
 	}
 
 	req := &pb.StreamRequest{
-		IncludeDebug: false,
+		IncludeClusters: true,
 	}
 
 	pbFrame := frameBundleToProto(frame, req)
 
-	if pbFrame.Debug != nil {
-		t.Error("expected nil Debug when IncludeDebug=false")
+	if pbFrame.Clusters == nil {
+		t.Fatal("expected non-nil Clusters")
+	}
+	if len(pbFrame.Clusters.Clusters) != 1 {
+		t.Fatalf("Clusters: got %d, want 1", len(pbFrame.Clusters.Clusters))
+	}
+
+	c := pbFrame.Clusters.Clusters[0]
+	if c.HeightP95 != 1.35 {
+		t.Errorf("HeightP95: got %f, want 1.35", c.HeightP95)
+	}
+	if c.IntensityMean != 128.5 {
+		t.Errorf("IntensityMean: got %f, want 128.5", c.IntensityMean)
+	}
+	if len(c.SamplePoints) != 6 {
+		t.Fatalf("SamplePoints: got %d elements, want 6", len(c.SamplePoints))
+	}
+	if c.SamplePoints[0] != 1.0 || c.SamplePoints[3] != 1.1 {
+		t.Errorf("SamplePoints: got %v", c.SamplePoints)
 	}
 }
 
