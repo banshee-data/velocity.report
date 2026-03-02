@@ -87,6 +87,7 @@ CREATE TABLE lidar_analysis_runs (
         , start_unix_nanos INTEGER NOT NULL
         , end_unix_nanos INTEGER
         , observation_count INTEGER
+        , avg_speed_mps REAL
         , peak_speed_mps REAL
         , p50_speed_mps REAL
         , p85_speed_mps REAL
@@ -186,6 +187,7 @@ CREATE TABLE lidar_analysis_runs (
         , start_unix_nanos INTEGER NOT NULL
         , end_unix_nanos INTEGER
         , observation_count INTEGER
+        , avg_speed_mps REAL
         , peak_speed_mps REAL
         , p50_speed_mps REAL
         , p85_speed_mps REAL

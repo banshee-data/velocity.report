@@ -1,6 +1,6 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Complete — All Go-side phases (A, C, E) are done. Swift client updates (Phase D) and overlay mode behaviour (Phase B) remain as follow-up items.
+**Status:** Partially implemented — Track field parity and ObjectClass enum are complete; debug overlay serialization, cluster proto serialization, and speed summary rename remain
 **Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
 **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 

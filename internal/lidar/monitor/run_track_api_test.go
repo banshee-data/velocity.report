@@ -45,7 +45,7 @@ func setupTestRun(t *testing.T, store *sqlite.AnalysisRunStore, runID string) {
 			StartUnixNanos:   1000000000,
 			EndUnixNanos:     2000000000,
 			ObservationCount: 10,
-			MedianSpeedMps:   5.5,
+			AvgSpeedMps:      5.5,
 			PeakSpeedMps:     8.0,
 		},
 		{
@@ -56,7 +56,7 @@ func setupTestRun(t *testing.T, store *sqlite.AnalysisRunStore, runID string) {
 			StartUnixNanos:   1500000000,
 			EndUnixNanos:     2500000000,
 			ObservationCount: 15,
-			MedianSpeedMps:   6.2,
+			AvgSpeedMps:      6.2,
 			PeakSpeedMps:     9.5,
 		},
 		{
@@ -67,7 +67,7 @@ func setupTestRun(t *testing.T, store *sqlite.AnalysisRunStore, runID string) {
 			StartUnixNanos:   2000000000,
 			EndUnixNanos:     2800000000,
 			ObservationCount: 5,
-			MedianSpeedMps:   3.1,
+			AvgSpeedMps:      3.1,
 			PeakSpeedMps:     4.5,
 		},
 	}

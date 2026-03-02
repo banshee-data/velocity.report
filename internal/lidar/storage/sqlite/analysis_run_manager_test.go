@@ -286,7 +286,7 @@ func TestRecordTrack(t *testing.T) {
 		FirstUnixNanos:    time.Now().UnixNano(),
 		LastUnixNanos:     time.Now().Add(5 * time.Second).UnixNano(),
 		ObservationCount:  50,
-		MedianSpeedMps:    10.5,
+		AvgSpeedMps:       10.5,
 		PeakSpeedMps:      15.2,
 		TrackLengthMeters: 52.5,
 		TrackDurationSecs: 5.0,

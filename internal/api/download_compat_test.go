@@ -111,7 +111,7 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 
 			// Test PDF download
 			t.Run("pdf", func(t *testing.T) {
-				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download?file_type=pdf", report.ID), nil)
+				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download/report.pdf", report.ID), nil)
 				w := httptest.NewRecorder()
 
 				server.downloadReport(w, req, report.ID, "pdf")
@@ -132,7 +132,7 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 
 			// Test ZIP download
 			t.Run("zip", func(t *testing.T) {
-				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download?file_type=zip", report.ID), nil)
+				req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/reports/%d/download/sources.zip", report.ID), nil)
 				w := httptest.NewRecorder()
 
 				server.downloadReport(w, req, report.ID, "zip")
