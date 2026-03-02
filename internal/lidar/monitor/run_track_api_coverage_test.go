@@ -47,7 +47,7 @@ func covInsertTrack(t *testing.T, ws *WebServer, runID, trackID string) {
 		SensorID:         "test-sensor",
 		TrackState:       "confirmed",
 		ObservationCount: 10,
-		AvgSpeedMps:      5.0,
+		MedianSpeedMps:   5.0,
 		PeakSpeedMps:     8.0,
 		StartUnixNanos:   1000000000,
 		EndUnixNanos:     2000000000,
@@ -1426,7 +1426,7 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 			TrackState:       "confirmed",
 			StartUnixNanos:   1000000000,
 			ObservationCount: 10,
-			AvgSpeedMps:      5.0,
+			MedianSpeedMps:   5.0,
 		}
 		if err := store.InsertRunTrack(track); err != nil {
 			t.Fatalf("InsertRunTrack %s: %v", rt.trackID, err)

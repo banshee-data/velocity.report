@@ -103,7 +103,7 @@ func TestExtractTrackFeatures_Basic(t *testing.T) {
 		BoundingBoxHeightAvg: 1.5,
 		HeightP95Max:         1.4,
 		IntensityMeanAvg:     130,
-		AvgSpeedMps:          8.5,
+		MedianSpeedMps:       8.5,
 		PeakSpeedMps:         12.0,
 		TrackDurationSecs:    10.0,
 		TrackLengthMeters:    85.0,
@@ -120,8 +120,8 @@ func TestExtractTrackFeatures_Basic(t *testing.T) {
 
 	f := ExtractTrackFeatures(track)
 
-	if f.AvgSpeedMps != 8.5 {
-		t.Errorf("AvgSpeedMps = %v, want 8.5", f.AvgSpeedMps)
+	if f.MedianSpeedMps != 8.5 {
+		t.Errorf("MedianSpeedMps = %v, want 8.5", f.MedianSpeedMps)
 	}
 	if f.PeakSpeedMps != 12.0 {
 		t.Errorf("PeakSpeedMps = %v, want 12.0", f.PeakSpeedMps)
@@ -146,7 +146,7 @@ func TestTrackFeatures_ToVector(t *testing.T) {
 	f := TrackFeatures{}
 	f.PointCount = 10
 	f.BBoxLength = 4.0
-	f.AvgSpeedMps = 8.0
+	f.MedianSpeedMps = 8.0
 
 	vec := f.ToVector()
 	names := SortedFeatureNames()
