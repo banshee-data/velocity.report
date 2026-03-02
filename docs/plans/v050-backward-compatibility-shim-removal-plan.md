@@ -1,5 +1,8 @@
 # v0.5.0 Backward Compatibility Shim Removal Plan
 
+**Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
+**Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields)
+
 ## Status: Draft
 
 ## Goal
@@ -15,9 +18,27 @@ interfaces going forward.
 
 ## Scope
 
-This plan covers **data model and API compat shims only** — not the deployment
-deprecation surface (covered in
-[platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md)).
+This plan covers **data model and API compat shims only**. It is a sub-plan of
+the [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md),
+which is the parent plan for all simplification work including deployment
+deprecation (Project B), frontend consolidation (Project C), and CLI
+simplification (Project D). This sub-plan corresponds to **Project E** in the
+parent.
+
+Intersections with other parent-plan projects:
+
+- **Project B (deploy retirement):** Deploy executor compat methods (§5 below)
+  are deferred to Project B and will be removed when the retirement gate is met.
+  No action in this plan beyond documenting them.
+- **Project C (#252 sweep migration):** Sweep legacy field removal (§2, §14
+  below) removes the old request/result field names. Project C covers the full
+  sweep UI migration to the Svelte frontend. The field-name cleanup here is a
+  prerequisite for clean Project C work.
+- **Proto contract plan:** The `AvgSpeedMps` → `MedianSpeedMps` rename (§1, §15
+  below) is also tracked in the
+  [proto contract plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+  Phase C/D. That plan owns the gRPC serialisation and Swift proto regeneration;
+  this plan owns the REST API and internal model cleanup.
 
 ---
 
@@ -348,5 +369,9 @@ The following are **not** compat shims and should be retained:
   "avg" when it is actually "median". This is acceptable since no pre-v0.5.0
   consumers exist in production.
 - Items gated on external dependencies (deploy retirement, frontend consolidation)
-  are excluded and tracked in the
-  [platform simplification plan](platform-simplification-and-deprecation-plan.md).
+  are excluded from this plan and tracked in the parent
+  [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md)
+  Projects B and C respectively.
+- The breaking changes in this sub-plan are summarised in the parent plan's
+  v0.5.0 Breaking Changes section (items 1, 4-7). That section is the
+  consumer-facing changelog; this document is the implementation detail.
