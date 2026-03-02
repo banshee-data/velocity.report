@@ -3,7 +3,14 @@
 **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
 **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields)
 
-## Status: Draft
+## Status: In Progress
+
+**Completed (PR #336):**
+- Visualiser model `AvgSpeedMps` removed; `MedianSpeedMps` is sole central speed
+- Proto field 24 renamed `avg_speed_mps` → `median_speed_mps`; p85/p98 fields added
+- `classifyOrConvert()` updated to use `MedianSpeedMps`
+
+**Remaining:** REST API, TrackFeatures, track store, DB column drop, pcap-analyse (§1 below), sweep legacy fields (§2), and remaining shims (§3–15).
 
 ## Goal
 
