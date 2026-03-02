@@ -668,7 +668,7 @@ func TestClearRuns(t *testing.T) {
 		StartUnixNanos:   1000000000,
 		EndUnixNanos:     2000000000,
 		ObservationCount: 10,
-		AvgSpeedMps:      5.5,
+		MedianSpeedMps:   5.5,
 		PeakSpeedMps:     8.0,
 	}
 	if err := store.InsertRunTrack(track1); err != nil {
@@ -683,7 +683,7 @@ func TestClearRuns(t *testing.T) {
 		StartUnixNanos:   3000000000,
 		EndUnixNanos:     4000000000,
 		ObservationCount: 15,
-		AvgSpeedMps:      6.2,
+		MedianSpeedMps:   6.2,
 		PeakSpeedMps:     9.0,
 	}
 	if err := store.InsertRunTrack(track2); err != nil {
@@ -698,7 +698,7 @@ func TestClearRuns(t *testing.T) {
 		StartUnixNanos:   5000000000,
 		EndUnixNanos:     6000000000,
 		ObservationCount: 20,
-		AvgSpeedMps:      7.0,
+		MedianSpeedMps:   7.0,
 		PeakSpeedMps:     10.0,
 	}
 	if err := store.InsertRunTrack(track3); err != nil {
@@ -834,7 +834,7 @@ func TestDeleteRun(t *testing.T) {
 		StartUnixNanos:   1000000000,
 		EndUnixNanos:     2000000000,
 		ObservationCount: 10,
-		AvgSpeedMps:      5.5,
+		MedianSpeedMps:   5.5,
 		PeakSpeedMps:     8.0,
 	}
 	if err := store.InsertRunTrack(track1); err != nil {
@@ -849,7 +849,7 @@ func TestDeleteRun(t *testing.T) {
 		StartUnixNanos:   3000000000,
 		EndUnixNanos:     4000000000,
 		ObservationCount: 15,
-		AvgSpeedMps:      6.2,
+		MedianSpeedMps:   6.2,
 		PeakSpeedMps:     9.0,
 	}
 	if err := store.InsertRunTrack(track2); err != nil {

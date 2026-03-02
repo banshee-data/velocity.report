@@ -267,8 +267,8 @@ func TestEvaluateGroundTruth(t *testing.T) {
 				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
-				{TrackID: "cand-2", StartUnixNanos: 3000, EndUnixNanos: 4000, AvgSpeedMps: 15.0},
+				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, MedianSpeedMps: 10.0},
+				{TrackID: "cand-2", StartUnixNanos: 3000, EndUnixNanos: 4000, MedianSpeedMps: 15.0},
 			},
 			expectedDetection: 1.0,
 			expectedFP:        0.0,
@@ -281,7 +281,7 @@ func TestEvaluateGroundTruth(t *testing.T) {
 				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
+				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, MedianSpeedMps: 10.0},
 			},
 			expectedDetection: 0.5,
 			expectedFP:        0.0,
@@ -293,9 +293,9 @@ func TestEvaluateGroundTruth(t *testing.T) {
 				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
-				{TrackID: "cand-2", StartUnixNanos: 5000, EndUnixNanos: 6000, AvgSpeedMps: 5.0},
-				{TrackID: "cand-3", StartUnixNanos: 7000, EndUnixNanos: 8000, AvgSpeedMps: 8.0},
+				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, MedianSpeedMps: 10.0},
+				{TrackID: "cand-2", StartUnixNanos: 5000, EndUnixNanos: 6000, MedianSpeedMps: 5.0},
+				{TrackID: "cand-3", StartUnixNanos: 7000, EndUnixNanos: 8000, MedianSpeedMps: 8.0},
 			},
 			expectedDetection: 1.0,
 			expectedFP:        0.666, // 2/3 unmatched
@@ -307,7 +307,7 @@ func TestEvaluateGroundTruth(t *testing.T) {
 				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0, QualityLabel: "good"},
+				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, MedianSpeedMps: 10.0, QualityLabel: "good"},
 			},
 			expectedDetection: 1.0,
 			expectedFP:        0.0,
@@ -321,7 +321,7 @@ func TestEvaluateGroundTruth(t *testing.T) {
 				{TrackID: "ref-3", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "noise"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
+				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, MedianSpeedMps: 10.0},
 			},
 			expectedDetection: 1.0, // Only car counts in reference
 			expectedFP:        0.0,
@@ -368,10 +368,10 @@ func TestEvaluateGroundTruthDetectionByClass(t *testing.T) {
 	}
 
 	candidate := []*sqlite.RunTrack{
-		{TrackID: "cand-v1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}, // Matches ref-v1
+		{TrackID: "cand-v1", StartUnixNanos: 1000, EndUnixNanos: 2000, MedianSpeedMps: 10.0}, // Matches ref-v1
 		// ref-v2 missed
-		{TrackID: "cand-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, AvgSpeedMps: 2.0}, // Matches ref-p1
-		{TrackID: "cand-o1", StartUnixNanos: 7000, EndUnixNanos: 8000, AvgSpeedMps: 5.0}, // Matches ref-o1
+		{TrackID: "cand-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, MedianSpeedMps: 2.0}, // Matches ref-p1
+		{TrackID: "cand-o1", StartUnixNanos: 7000, EndUnixNanos: 8000, MedianSpeedMps: 5.0}, // Matches ref-o1
 	}
 
 	score := EvaluateGroundTruth(reference, candidate, weights)

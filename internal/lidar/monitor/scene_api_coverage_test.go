@@ -1067,7 +1067,7 @@ func TestCov_HandleCreateSceneEvaluation_Success(t *testing.T) {
 			StartUnixNanos:   1000000000,
 			EndUnixNanos:     2000000000,
 			ObservationCount: 10,
-			AvgSpeedMps:      5.0,
+			MedianSpeedMps:   5.0,
 		}
 		if err := runStore.InsertRunTrack(track); err != nil {
 			t.Fatalf("insert track %s: %v", rt.trackID, err)
