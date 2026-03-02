@@ -6,6 +6,7 @@
 ## Status: In Progress
 
 **Completed (PR #336):**
+
 - Visualiser model `AvgSpeedMps` removed; `MedianSpeedMps` is sole central speed
 - Proto field 24 renamed `avg_speed_mps` → `median_speed_mps`; p85/p98 fields added
 - `classifyOrConvert()` updated to use `MedianSpeedMps`
