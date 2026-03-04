@@ -1341,7 +1341,10 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
 
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
         let generation = self.generation
-        Task { @MainActor [weak self] in
+        // Called from MainActor.run in streamFrames() — call directly
+        // to ensure backpressure (gRPC loop waits for processing to complete
+        // before reading the next frame, preventing unbounded task queueing).
+        MainActor.assumeIsolated { [weak self] in
             self?.appState?.onFrameReceived(frame, generation: generation)
         }
     }
