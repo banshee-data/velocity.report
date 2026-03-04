@@ -39,6 +39,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var debugAzMin, debugAzMax float32
 	var enableDebug bool
 	var enablePlots bool
+	var benchmarkMode bool
 
 	// Accept both JSON and form data
 	contentType := r.Header.Get("Content-Type")
@@ -57,6 +58,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			DebugAzMax      float32 `json:"debug_az_max"`
 			EnableDebug     bool    `json:"enable_debug"`
 			EnablePlots     bool    `json:"enable_plots"`
+			BenchmarkMode   bool    `json:"benchmark_mode"`
 		}
 		// Set defaults
 		req.DurationSeconds = -1
@@ -82,6 +84,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		debugAzMax = req.DebugAzMax
 		enableDebug = req.EnableDebug
 		enablePlots = req.EnablePlots
+		benchmarkMode = req.BenchmarkMode
 	} else {
 		// Parse form data (default for HTML forms)
 		if err := r.ParseForm(); err != nil {
@@ -130,6 +133,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		}
 		enableDebug = r.FormValue("enable_debug") == "true" || r.FormValue("enable_debug") == "1"
 		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
+		benchmarkMode = r.FormValue("benchmark_mode") == "true" || r.FormValue("benchmark_mode") == "1"
 	}
 
 	if speedMode == "" {
@@ -166,11 +170,12 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		mgr.SetSourcePath(pcapFile)
 	}
 
-	// Set analysis mode BEFORE startPCAPLocked so the goroutine inside can
-	// read it immediately without a race.
+	// Set analysis mode and benchmark mode BEFORE startPCAPLocked so the
+	// goroutine inside can read it immediately without a race.
 	ws.pcapMu.Lock()
 	ws.pcapAnalysisMode = analysisMode
 	ws.pcapMu.Unlock()
+	ws.pcapBenchmarkMode.Store(benchmarkMode)
 
 	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
 		var sErr *switchError
@@ -272,6 +277,7 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	analysisMode := ws.pcapAnalysisMode
 	ws.pcapAnalysisMode = false // Clear flag when stopping
 	ws.pcapMu.Unlock()
+	ws.pcapBenchmarkMode.Store(false) // Disable benchmark tracing when returning to live
 
 	if !analysisMode {
 		// Normal mode: always reset all state when stopping
