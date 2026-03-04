@@ -124,7 +124,7 @@ func TestSpeedHistory_Nil(t *testing.T) {
 	history := track.SpeedHistory()
 
 	if history != nil {
-		t.Errorf("Expected nil for nil speedHistory, got %v", history)
+		t.Errorf("Expected nil for nil speeds, got %v", history)
 	}
 }
 
