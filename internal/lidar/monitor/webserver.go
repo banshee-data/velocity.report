@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
@@ -100,8 +101,9 @@ type WebServer struct {
 	pcapInProgress       bool
 	pcapCancel           context.CancelFunc
 	pcapDone             chan struct{}
-	pcapAnalysisMode     bool // When true, preserve grid after PCAP completion
-	pcapDisableRecording bool // When true, skip VRLOG recording during PCAP replay
+	pcapAnalysisMode     bool        // When true, preserve grid after PCAP completion
+	pcapDisableRecording bool        // When true, skip VRLOG recording during PCAP replay
+	pcapBenchmarkMode    atomic.Bool // When true, enable pipeline performance tracing
 	pcapSpeedMode        string
 	pcapSpeedRatio       float64
 	pcapLastRunID        string // Last analysis run ID from PCAP replay (protected by pcapMu)
@@ -371,6 +373,13 @@ func (ws *WebServer) SetHINTRunner(runner HINTRunner) {
 // SetSweepStore sets the sweep store for persisting sweep results.
 func (ws *WebServer) SetSweepStore(store *sqlite.SweepStore) {
 	ws.sweepStore = store
+}
+
+// BenchmarkMode returns a pointer to the atomic.Bool controlling pipeline
+// performance tracing. The caller can pass this to TrackingPipelineConfig
+// so benchmark logging is toggled at runtime via the dashboard checkbox.
+func (ws *WebServer) BenchmarkMode() *atomic.Bool {
+	return &ws.pcapBenchmarkMode
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
