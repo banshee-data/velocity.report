@@ -549,10 +549,7 @@ func (fb *analysisFrameBuilder) SetMotorSpeed(rpm uint16) {
 // processCurrentFrame processes the accumulated points as a complete frame.
 // MUST be called while holding fb.mu lock (caller is responsible for locking).
 func (fb *analysisFrameBuilder) processCurrentFrame() {
-	var frameStart time.Time
-	if fb.benchmarkMode {
-		frameStart = time.Now()
-	}
+	frameStart := time.Now()
 
 	// Step 1: Foreground extraction
 	mask, err := fb.bgManager.ProcessFramePolarWithMask(fb.points)
@@ -566,6 +563,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	// Extract foreground points
 	foregroundPoints := l3grid.ExtractForegroundPoints(fb.points, mask)
 	foregroundCount := len(foregroundPoints)
+	fgDuration := time.Since(frameStart)
 
 	fb.result.TotalFrames++
 	fb.result.ForegroundPoints += foregroundCount
@@ -582,13 +580,12 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 
 	// Step 2: Transform to world frame
+	transformStart := time.Now()
 	worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, fb.config.SensorID)
+	transformDuration := time.Since(transformStart)
 
 	// Step 3: Cluster (respect runtime foreground clustering params)
-	var clusterStart time.Time
-	if fb.benchmarkMode {
-		clusterStart = time.Now()
-	}
+	clusterStart := time.Now()
 	dbscanParams := l4perception.DefaultDBSCANParams()
 	if fb.bgManager != nil {
 		p := fb.bgManager.GetParams()
@@ -600,8 +597,9 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 		}
 	}
 	clusters := l4perception.DBSCAN(worldPoints, dbscanParams)
+	clusterDuration := time.Since(clusterStart)
 	if fb.benchmarkMode {
-		atomic.AddInt64(&fb.clusterTimeNs, time.Since(clusterStart).Nanoseconds())
+		atomic.AddInt64(&fb.clusterTimeNs, clusterDuration.Nanoseconds())
 	}
 	fb.result.TotalClusters += len(clusters)
 
@@ -613,27 +611,23 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 
 	// Step 4: Track
-	var trackStart time.Time
-	if fb.benchmarkMode {
-		trackStart = time.Now()
-	}
+	trackStart := time.Now()
 	fb.tracker.Update(clusters, fb.frameStartTime)
+	trackDuration := time.Since(trackStart)
 	if fb.benchmarkMode {
-		atomic.AddInt64(&fb.trackTimeNs, time.Since(trackStart).Nanoseconds())
+		atomic.AddInt64(&fb.trackTimeNs, trackDuration.Nanoseconds())
 	}
 
 	// Step 5: Classify confirmed tracks
-	var classifyStart time.Time
-	if fb.benchmarkMode {
-		classifyStart = time.Now()
-	}
+	classifyStart := time.Now()
 	for _, track := range fb.tracker.GetConfirmedTracks() {
 		if track.ObjectClass == "" && track.ObservationCount >= 5 {
 			fb.classifier.ClassifyAndUpdate(track)
 		}
 	}
+	classifyDuration := time.Since(classifyStart)
 	if fb.benchmarkMode {
-		atomic.AddInt64(&fb.classifyTimeNs, time.Since(classifyStart).Nanoseconds())
+		atomic.AddInt64(&fb.classifyTimeNs, classifyDuration.Nanoseconds())
 	}
 
 	// Collect training data if requested
@@ -651,15 +645,25 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 		fb.trainingFrames = append(fb.trainingFrames, trainingFrame)
 	}
 
-	if fb.config.Verbose && fb.frameCount%100 == 0 {
-		log.Printf("Frame %d: %d points, %d foreground, %d clusters, %d tracks",
-			fb.frameCount, len(fb.points), foregroundCount,
-			len(clusters), len(fb.tracker.GetActiveTracks()))
+	// Record total frame processing time
+	totalMs := float64(time.Since(frameStart).Nanoseconds()) / 1e6
+	if fb.benchmarkMode {
+		fb.frameTimes = append(fb.frameTimes, totalMs)
 	}
 
-	// Record total frame processing time
-	if fb.benchmarkMode {
-		fb.frameTimes = append(fb.frameTimes, float64(time.Since(frameStart).Nanoseconds())/1e6)
+	// Per-frame timing trace: always-on for slow frames, periodic for verbose
+	activeTracks := len(fb.tracker.GetActiveTracks())
+	msOf := func(d time.Duration) float64 { return float64(d.Nanoseconds()) / 1e6 }
+	if totalMs > 50.0 {
+		log.Printf("[pcap-analyse] SLOW frame=%d total=%.1fms fg=%.1fms transform=%.1fms cluster=%.1fms track=%.1fms classify=%.1fms points=%d fg=%d clusters=%d tracks=%d",
+			fb.frameCount, totalMs, msOf(fgDuration), msOf(transformDuration),
+			msOf(clusterDuration), msOf(trackDuration), msOf(classifyDuration),
+			len(fb.points), foregroundCount, len(clusters), activeTracks)
+	} else if fb.config.Verbose && fb.frameCount%100 == 0 {
+		log.Printf("[pcap-analyse] frame=%d total=%.1fms fg=%.1fms transform=%.1fms cluster=%.1fms track=%.1fms classify=%.1fms points=%d fg=%d clusters=%d tracks=%d",
+			fb.frameCount, totalMs, msOf(fgDuration), msOf(transformDuration),
+			msOf(clusterDuration), msOf(trackDuration), msOf(classifyDuration),
+			len(fb.points), foregroundCount, len(clusters), activeTracks)
 	}
 }
 
