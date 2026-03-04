@@ -255,6 +255,12 @@ enum VisualiserClientError: Error, LocalizedError {
                     print("[VisualiserClient] ✅ Stream accepted, metadata: \(contents.metadata)")
 
                     var frameCount: UInt64 = 0
+                    var skippedFrames: UInt64 = 0
+                    // Throttle dispatched frames to ~30fps to keep MainActor
+                    // responsive for UI events (scroll, pause, interaction).
+                    // All gRPC messages are still consumed to prevent stream backlog.
+                    var lastDispatchTime = ContinuousClock.now
+                    let minFrameInterval: ContinuousClock.Duration = .milliseconds(33)
                     do {
                         for try await protoFrame in response.messages {
                             frameCount += 1
@@ -262,7 +268,7 @@ enum VisualiserClientError: Error, LocalizedError {
                             // Log every 100 frames
                             if frameCount % 100 == 1 {
                                 print(
-                                    "[VisualiserClient] 📊 Received frame \(frameCount): id=\(protoFrame.frameID), points=\(protoFrame.pointCloud.pointCount)"
+                                    "[VisualiserClient] 📊 Received frame \(frameCount): id=\(protoFrame.frameID), points=\(protoFrame.pointCloud.pointCount) (skipped=\(skippedFrames))"
                                 )
                             }
 
@@ -270,6 +276,16 @@ enum VisualiserClientError: Error, LocalizedError {
                             // then hop to MainActor only to notify the delegate.
                             guard let strongSelf = self else { continue }
                             let frame = strongSelf.decodeFrameBundle(protoFrame)
+
+                            // Throttle: skip dispatch if too soon since last frame.
+                            // This consumes gRPC messages (preventing backlog) but
+                            // avoids saturating MainActor when frames exceed 30fps.
+                            let now = ContinuousClock.now
+                            guard now - lastDispatchTime >= minFrameInterval else {
+                                skippedFrames += 1
+                                continue
+                            }
+                            lastDispatchTime = now
 
                             await MainActor.run { [weak strongSelf] in
                                 guard let self = strongSelf else { return }
