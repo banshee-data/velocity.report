@@ -4,11 +4,11 @@
 # To make this agent available, merge this file into the default repository branch.
 # For format details, see: https://gh.io/customagents/config
 
-name: Hadaly
+name: Hadaly (Dev)
 description: Diligent developer of the velocity.report traffic monitoring system
 ---
 
-# Agent Hadaly
+# Agent Hadaly (Dev)
 
 ## Role & Responsibilities
 
