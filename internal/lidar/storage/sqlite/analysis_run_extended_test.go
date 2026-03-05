@@ -845,3 +845,98 @@ func TestListRuns_WithAllFields(t *testing.T) {
 		t.Errorf("Failed to parse ParamsJSON: %v", err)
 	}
 }
+
+// --- PopulateSceneName ---
+
+func TestPopulateSceneName_BasicPCAP(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/recordings/kirk1.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "kirk1" {
+		t.Errorf("expected scene name 'kirk1', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_EmptyPath(t *testing.T) {
+	r := &AnalysisRun{SourcePath: ""}
+	r.PopulateSceneName()
+	if r.SceneName != "" {
+		t.Errorf("expected empty scene name for empty path, got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_MultipleDots(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/test.capture.2024.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "test.capture.2024" {
+		t.Errorf("expected 'test.capture.2024', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_NoExtension(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/recordings/kirk0"}
+	r.PopulateSceneName()
+	if r.SceneName != "kirk0" {
+		t.Errorf("expected 'kirk0', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_JustFilename(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "scene.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "scene" {
+		t.Errorf("expected 'scene', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_PopulatedOnGetRun(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	params := DefaultRunParams()
+
+	runID, err := manager.StartRun("/data/recordings/kirk1.pcap", params)
+	if err != nil {
+		t.Fatalf("StartRun failed: %v", err)
+	}
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatalf("CompleteRun failed: %v", err)
+	}
+
+	run, err := store.GetRun(runID)
+	if err != nil {
+		t.Fatalf("GetRun failed: %v", err)
+	}
+	if run.SceneName != "kirk1" {
+		t.Errorf("expected SceneName 'kirk1' from GetRun, got %q", run.SceneName)
+	}
+}
+
+func TestPopulateSceneName_PopulatedOnListRuns(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	params := DefaultRunParams()
+	store := NewAnalysisRunStore(db)
+
+	_, err := manager.StartRun("/data/recordings/kirk0.pcap", params)
+	if err != nil {
+		t.Fatalf("StartRun failed: %v", err)
+	}
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatalf("CompleteRun failed: %v", err)
+	}
+
+	runs, err := store.ListRuns(10)
+	if err != nil {
+		t.Fatalf("ListRuns failed: %v", err)
+	}
+	if len(runs) == 0 {
+		t.Fatal("expected at least one run")
+	}
+	if runs[0].SceneName != "kirk0" {
+		t.Errorf("expected SceneName 'kirk0' from ListRuns, got %q", runs[0].SceneName)
+	}
+}
