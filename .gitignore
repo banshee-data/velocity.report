@@ -33,9 +33,12 @@ logs/
 # Go Binaries & Build Artifacts
 # =============================================================================
 app-*
+/gen-vrlog
 /settling-eval
+/replay-server
 velocity-report-*
 velocity-deploy*
+/visualiser-server
 mock_serial_port*
 /radar
 
