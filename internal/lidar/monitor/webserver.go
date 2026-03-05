@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -665,10 +666,21 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/vrlog/stop", ws.handleVRLogStop},
 	}
 
+	// Go pprof routes for runtime profiling.
+	// Usage: go tool pprof http://HOST:PORT/debug/pprof/profile?seconds=30
+	pprofRoutes := []route{
+		{"/debug/pprof/", pprof.Index},
+		{"/debug/pprof/cmdline", pprof.Cmdline},
+		{"/debug/pprof/profile", pprof.Profile},
+		{"/debug/pprof/symbol", pprof.Symbol},
+		{"/debug/pprof/trace", pprof.Trace},
+	}
+
 	// Register all route groups
 	for _, group := range [][]route{
 		coreRoutes, snapshotRoutes, metricsRoutes, sweepRoutes,
 		gridRoutes, pcapRoutes, chartRoutes, debugRoutes, playbackRoutes,
+		pprofRoutes,
 	} {
 		for _, r := range group {
 			mux.HandleFunc(r.pattern, r.handler)
