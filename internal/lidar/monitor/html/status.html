@@ -337,7 +337,8 @@
               <div class="form-group">
                 <label>Speed Mode:</label>
                 <select name="speed_mode" id="pcap-speed-mode-{{.SensorID}}">
-                  <option value="fastest" selected>Fastest</option>
+                  <option value="fastest">Fastest (no pacing)</option>
+                  <option value="fast" selected>Fast (pipeline-paced)</option>
                   <option value="realtime">Realtime (1x)</option>
                   <option value="fixed">Fixed ratio</option>
                 </select>

@@ -23,6 +23,10 @@ type AnalysisRunManager struct {
 	totalFrames   int
 	totalClusters int
 	tracksSeen    map[string]bool // Track IDs seen during this run
+
+	// Frame timestamps for data duration (vs wall-clock processing time)
+	firstFrameNs int64 // timestamp of first frame (nanoseconds)
+	lastFrameNs  int64 // timestamp of last frame (nanoseconds)
 }
 
 // analysisRunManagers stores per-sensor analysis run managers.
@@ -99,16 +103,25 @@ func (m *AnalysisRunManager) StartRun(sourcePath string, params RunParams) (stri
 	m.totalFrames = 0
 	m.totalClusters = 0
 	m.tracksSeen = make(map[string]bool)
+	m.firstFrameNs = 0
+	m.lastFrameNs = 0
 
 	log.Printf("[AnalysisRunManager] Started run %s for %s", runID, sourcePath)
 	return runID, nil
 }
 
-// RecordFrame increments the frame count for the current run.
-func (m *AnalysisRunManager) RecordFrame() {
+// RecordFrame increments the frame count and tracks the frame timestamp.
+// The timestampNs is the data timestamp (e.g. PCAP packet time), not wall-clock.
+func (m *AnalysisRunManager) RecordFrame(timestampNs int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.totalFrames++
+	if timestampNs > 0 {
+		if m.firstFrameNs == 0 {
+			m.firstFrameNs = timestampNs
+		}
+		m.lastFrameNs = timestampNs
+	}
 }
 
 // RecordClusters increments the cluster count for the current run.
@@ -159,7 +172,15 @@ func (m *AnalysisRunManager) CompleteRun() error {
 	}
 
 	processingTime := time.Since(m.startTime)
-	durationSecs := processingTime.Seconds()
+
+	// Use data timestamps for duration (PCAP time, not wall-clock).
+	// Falls back to wall-clock only if no frame timestamps were recorded.
+	var durationSecs float64
+	if m.firstFrameNs > 0 && m.lastFrameNs > m.firstFrameNs {
+		durationSecs = float64(m.lastFrameNs-m.firstFrameNs) / 1e9
+	} else {
+		durationSecs = processingTime.Seconds()
+	}
 
 	confirmedCount := 0
 	for trackID := range m.tracksSeen {

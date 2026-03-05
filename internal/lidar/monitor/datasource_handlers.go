@@ -525,10 +525,16 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				defer restoreParams()
 			}
 
-			// Realtime or fixed ratio
+			// Realtime, fast, or fixed ratio
 			multiplier := speedRatio
 			if speedMode == "realtime" {
 				multiplier = 1.0
+			} else if speedMode == "fast" {
+				// Pipeline-paced: use a very high multiplier so the pacer
+				// imposes no artificial delay. The pipeline's backoff
+				// dynamically slows the pacer to match processing throughput,
+				// preventing frame drops while maximising speed.
+				multiplier = 1000.0
 			}
 			if multiplier <= 0 {
 				multiplier = 1.0
