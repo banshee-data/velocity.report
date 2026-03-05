@@ -690,3 +690,130 @@ func TestDroppedFrames_ResetClearsCounter(t *testing.T) {
 
 	fb.Close()
 }
+
+// --- SetBlockOnFrameChannel ---
+
+func TestSetBlockOnFrameChannel_DefaultFalse(t *testing.T) {
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-block-default",
+		FrameCallback:   func(f *LiDARFrame) {},
+		FrameChCapacity: 8,
+	})
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+	defer fb.Close()
+
+	// Default should be false (non-blocking / drop mode)
+	fb.mu.Lock()
+	val := fb.blockOnFrameChannel
+	fb.mu.Unlock()
+	if val {
+		t.Error("expected blockOnFrameChannel to be false by default")
+	}
+}
+
+func TestSetBlockOnFrameChannel_Toggle(t *testing.T) {
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-block-toggle",
+		FrameCallback:   func(f *LiDARFrame) {},
+		FrameChCapacity: 8,
+	})
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+	defer fb.Close()
+
+	fb.SetBlockOnFrameChannel(true)
+	fb.mu.Lock()
+	val := fb.blockOnFrameChannel
+	fb.mu.Unlock()
+	if !val {
+		t.Error("expected blockOnFrameChannel to be true after SetBlockOnFrameChannel(true)")
+	}
+
+	fb.SetBlockOnFrameChannel(false)
+	fb.mu.Lock()
+	val = fb.blockOnFrameChannel
+	fb.mu.Unlock()
+	if val {
+		t.Error("expected blockOnFrameChannel to be false after SetBlockOnFrameChannel(false)")
+	}
+}
+
+func TestBlockOnFrameChannel_BlocksUntilDrained(t *testing.T) {
+	// When blockOnFrameChannel is true, finalizeFrame should block
+	// instead of dropping frames when the channel is full.
+	blocker := make(chan struct{})
+	cb := func(f *LiDARFrame) {
+		<-blocker // block until released
+	}
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-block-blocks",
+		FrameCallback:   cb,
+		FrameChCapacity: 1,
+	})
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+
+	fb.SetBlockOnFrameChannel(true)
+
+	// Send one frame that the worker picks up and blocks on.
+	fb.frameCh <- &LiDARFrame{FrameID: "b0", SensorID: "test-block-blocks", PointCount: 1}
+	time.Sleep(10 * time.Millisecond) // let worker pick it up
+
+	// Fill the channel buffer (capacity 1).
+	fb.frameCh <- &LiDARFrame{FrameID: "b1", SensorID: "test-block-blocks", PointCount: 1}
+
+	// Now finalizeFrame should BLOCK (not drop) because the channel is full.
+	frame := &LiDARFrame{
+		FrameID:    "b2",
+		SensorID:   "test-block-blocks",
+		PointCount: 5000,
+		MinAzimuth: 0,
+		MaxAzimuth: 359.5,
+	}
+
+	done := make(chan struct{})
+	go func() {
+		fb.finalizeFrame(frame, "test-block")
+		close(done)
+	}()
+
+	// Should NOT complete immediately — finalizeFrame is blocking.
+	select {
+	case <-done:
+		t.Fatal("finalizeFrame returned immediately; expected it to block when channel is full")
+	case <-time.After(50 * time.Millisecond):
+		// Good, it's blocking.
+	}
+
+	// No frames should have been dropped.
+	if fb.DroppedFrames() != 0 {
+		t.Errorf("expected 0 dropped frames in blocking mode; got %d", fb.DroppedFrames())
+	}
+
+	// Unblock the worker — this drains the channel, unblocking finalizeFrame.
+	close(blocker)
+
+	select {
+	case <-done:
+		// Good, finalizeFrame completed after drain.
+	case <-time.After(2 * time.Second):
+		t.Fatal("finalizeFrame did not unblock after channel drained")
+	}
+
+	// Still no drops.
+	if fb.DroppedFrames() != 0 {
+		t.Errorf("expected 0 dropped frames after drain; got %d", fb.DroppedFrames())
+	}
+
+	fb.Close()
+}
