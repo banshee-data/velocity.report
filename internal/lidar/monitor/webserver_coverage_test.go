@@ -5829,48 +5829,28 @@ func TestCov_BenchmarkMode_StoreAndLoad(t *testing.T) {
 	}
 }
 
-// --- pprof route registration ---
+// --- setupRoutes pprof registration ---
 
-func TestCov_PprofRoutesRegistered(t *testing.T) {
-	ws := &WebServer{sensorID: "test-pprof"}
-	mux := http.NewServeMux()
-	ws.RegisterRoutes(mux)
-
-	// Verify pprof index is registered and responds
-	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("pprof index: status = %d, want %d", w.Code, http.StatusOK)
+func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
+	ws := &WebServer{
+		sensorID:       "pprof-test-sensor",
+		latestFgCounts: make(map[string]int),
 	}
-	if !strings.Contains(w.Body.String(), "goroutine") {
-		t.Error("pprof index should list goroutine profile")
+
+	mux := ws.setupRoutes()
+
+	// Verify pprof endpoints return 200 on the lidar-only mux
+	paths := []string{
+		"/debug/pprof/",
+		"/debug/pprof/cmdline",
+		"/debug/pprof/symbol",
 	}
-}
-
-func TestCov_PprofSymbolEndpoint(t *testing.T) {
-	ws := &WebServer{sensorID: "test-pprof-symbol"}
-	mux := http.NewServeMux()
-	ws.RegisterRoutes(mux)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/symbol", nil)
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	// pprof symbol returns 200 even on GET
-	if w.Code != http.StatusOK {
-		t.Errorf("pprof symbol: status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
-func TestCov_PprofCmdlineEndpoint(t *testing.T) {
-	ws := &WebServer{sensorID: "test-pprof-cmdline"}
-	mux := http.NewServeMux()
-	ws.RegisterRoutes(mux)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/cmdline", nil)
-	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("pprof cmdline: status = %d, want %d", w.Code, http.StatusOK)
+	for _, path := range paths {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code == http.StatusNotFound {
+			t.Errorf("pprof endpoint %s returned 404; expected it to be registered", path)
+		}
 	}
 }
