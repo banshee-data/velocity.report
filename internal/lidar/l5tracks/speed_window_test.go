@@ -183,3 +183,16 @@ func sortFloat32s(s []float32) {
 		}
 	}
 }
+
+func TestSpeedWindowZeroMaxLen(t *testing.T) {
+	sw := newSpeedWindow(0)
+	// Should not panic when maxLen is 0.
+	sw.Add(1.0)
+	sw.Add(2.0)
+	if sw.Len() != 0 {
+		t.Errorf("expected Len()=0 with maxLen=0, got %d", sw.Len())
+	}
+	if p := sw.P50(); p != 0 {
+		t.Errorf("expected P50()=0 with maxLen=0, got %f", p)
+	}
+}

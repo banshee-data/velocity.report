@@ -821,7 +821,7 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		response.ByClass[class] = ClassSummary{
 			Count:        accum.count,
 			AvgSpeedMps:  avgSpeed,
-			P50SpeedMps:  avgSpeed,
+			P50SpeedMps:  0, // TODO: compute true p50 from individual track P50SpeedMps values
 			PeakSpeedMps: accum.peakSpeed,
 			AvgDuration:  avgDuration,
 		}
@@ -838,7 +838,7 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		TentativeCount: byState["tentative"],
 		DeletedCount:   byState["deleted"],
 		AvgSpeedMps:    overallAvgSpeed,
-		P50SpeedMps:    overallAvgSpeed,
+		P50SpeedMps:    0, // TODO: compute true p50 from individual track P50SpeedMps values
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS lidar_run_tracks (
     start_unix_nanos INTEGER NOT NULL,
     end_unix_nanos INTEGER,
     observation_count INTEGER,
-    avg_speed_mps REAL, -- NOTE: dropped in v0.5.0; use p50_speed_mps instead
+    avg_speed_mps REAL, -- running mean; p50_speed_mps added alongside in v0.5.0
     peak_speed_mps REAL,
     p50_speed_mps REAL,
     p85_speed_mps REAL,
