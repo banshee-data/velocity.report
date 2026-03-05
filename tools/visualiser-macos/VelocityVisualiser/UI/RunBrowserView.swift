@@ -81,6 +81,17 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
                 }.padding()
                 Spacer()
             } else {
+                // Column headers
+                HStack(spacing: 0) {
+                    Text("Date").frame(width: 110, alignment: .leading)
+                    Text("Run").frame(width: 80, alignment: .leading)
+                    Text("Scene").frame(width: 80, alignment: .leading)
+                    Text("Duration").frame(width: 60, alignment: .trailing)
+                    Text("Tracks").frame(width: 50, alignment: .trailing)
+                    Spacer().frame(width: 70)  // Load button column
+                }.font(.caption).foregroundColor(.secondary).padding(.horizontal, 20).padding(
+                    .top, 6)
+
                 // Run list
                 List(runBrowserState.runs) { run in
                     RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
@@ -117,51 +128,48 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 500, height: 400).onAppear { Task { await runBrowserState.fetchRuns() } }
+        }.frame(width: 550, height: 400).onAppear { Task { await runBrowserState.fetchRuns() } }
     }
 
 }
 
-/// Row view for a single run in the list.
+/// Row view for a single run — 5-column table layout.
 @available(macOS 15.0, *) struct RunRowView: View {
     let run: AnalysisRun
     let isSelected: Bool
     let onSelect: () -> Void
 
     var body: some View {
-        HStack {
-            // Status indicator
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    StatusDot(status: run.status)
-                    Text(run.runId.truncated(12)).font(.system(.body, design: .monospaced))
-                        .lineLimit(1)
-                }
+        HStack(spacing: 0) {
+            // Col 1: Date/time
+            Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
+                width: 110, alignment: .leading
+            ).lineLimit(1)
 
-                Text(run.formattedDate).font(.caption).foregroundColor(.secondary)
-            }
+            // Col 2: 0xfirst6uuid with status dot
+            HStack(spacing: 4) {
+                StatusDot(status: run.status)
+                Text(run.shortHexId).font(.system(.caption, design: .monospaced)).lineLimit(1)
+            }.frame(width: 80, alignment: .leading)
 
-            Spacer()
+            // Col 3: Scene name
+            Text(run.sceneName ?? "-").font(.caption).frame(width: 80, alignment: .leading)
+                .lineLimit(1)
 
-            // Stats
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(run.totalTracks) tracks").font(.caption)
-                Text(runRowFormatDuration(run.durationSecs)).font(.caption).foregroundColor(
-                    .secondary)
-            }
+            // Col 4: Duration mm:ss
+            Text(runRowFormatDuration(run.durationSecs)).font(
+                .system(.caption, design: .monospaced)
+            ).frame(width: 60, alignment: .trailing)
 
-            // VRLOG indicator
-            if run.hasVRLog {
-                Image(systemName: "play.rectangle.fill").foregroundColor(.green).help(
-                    "VRLOG available")
-            } else {
-                Image(systemName: "play.rectangle").foregroundColor(.gray).help("No VRLOG")
-            }
+            // Col 5: Tracks count
+            Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
+                width: 50, alignment: .trailing)
 
             // Load button
             Button(action: onSelect) { Text(isSelected ? "Loaded" : "Load") }.buttonStyle(.bordered)
-                .disabled(isSelected)
-        }.padding(.vertical, 4).background(
+                .controlSize(.small).disabled(isSelected || !run.hasVRLog).frame(
+                    width: 70, alignment: .trailing)
+        }.padding(.vertical, 2).background(
             isSelected ? Color.accentColor.opacity(0.1) : Color.clear
         ).cornerRadius(4)
     }
