@@ -345,6 +345,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// --- Performance Tracing ---
 		// Timer starts after throttle check to capture only fully-processed frames.
 		// Only active when BenchmarkMode is enabled (zero overhead otherwise).
+		// All benchmark output uses opsf() (always visible) because the user
+		// explicitly opted in via the dashboard checkbox. Using tracef/diagf
+		// would hide output at the default --log-level=ops.
 		var ft *frameTimer
 		var emitTiming func(nPoints, nClusters, nTracks int)
 		if cfg.BenchmarkMode != nil && cfg.BenchmarkMode.Load() {
@@ -354,12 +357,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				totalMs := ft.TotalMs()
 				processedFrameCount++
 
-				tracef("[Pipeline] frame=%s total=%.1fms %s points=%d clusters=%d tracks=%d",
+				opsf("[Benchmark] frame=%s total=%.1fms %s points=%d clusters=%d tracks=%d",
 					frame.FrameID, totalMs, ft.Format(), nPoints, nClusters, nTracks)
 
 				if totalMs > slowFrameThresholdMs {
 					slowName, slowDur := ft.SlowestStage()
-					diagf("[Pipeline] SLOW frame=%s total=%.1fms slowest=%s(%.1fms) %s points=%d clusters=%d tracks=%d",
+					opsf("[Benchmark] SLOW frame=%s total=%.1fms slowest=%s(%.1fms) %s points=%d clusters=%d tracks=%d",
 						frame.FrameID, totalMs, slowName, float64(slowDur.Nanoseconds())/1e6,
 						ft.Format(), nPoints, nClusters, nTracks)
 				}
@@ -384,11 +387,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					if p95Idx >= len(window) {
 						p95Idx = len(window) - 1
 					}
-					var m runtime.MemStats
-					runtime.ReadMemStats(&m)
-					diagf("[Pipeline] health: processed=%d throttled=%d mean=%.1fms p95=%.1fms heap=%dMB goroutines=%d",
+					opsf("[Benchmark] health: processed=%d throttled=%d mean=%.1fms p95=%.1fms goroutines=%d",
 						processedFrameCount, throttledFrames.Load(), mean, window[p95Idx],
-						m.HeapAlloc/1024/1024, runtime.NumGoroutine())
+						runtime.NumGoroutine())
 				}
 
 				// Lag tracking: detect when processing falls behind frame arrival rate
@@ -400,7 +401,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						consecutiveBehind++
 						if consecutiveBehind >= 3 {
 							lagRatio := float64(frameDur) / float64(interFrameGap)
-							diagf("[Pipeline] BEHIND: lag=%.1fx (processing %.1fms, interval %.1fms) behind for %d frames",
+							opsf("[Benchmark] BEHIND: lag=%.1fx (processing %.1fms, interval %.1fms) behind for %d frames",
 								lagRatio, totalMs, float64(interFrameGap.Nanoseconds())/1e6, consecutiveBehind)
 						}
 					} else {
