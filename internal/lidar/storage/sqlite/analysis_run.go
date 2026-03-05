@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,6 +39,18 @@ type AnalysisRun struct {
 	ParentRunID      string          `json:"parent_run_id,omitempty"`
 	Notes            string          `json:"notes,omitempty"`
 	VRLogPath        string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
+
+	// Derived fields (not persisted in DB, computed on retrieval)
+	SceneName string `json:"scene_name,omitempty"` // Derived from SourcePath filename
+}
+
+// PopulateSceneName sets SceneName from SourcePath by extracting the base
+// filename without extension. E.g. "/data/kirk1.pcap" → "kirk1".
+func (r *AnalysisRun) PopulateSceneName() {
+	if r.SourcePath != "" {
+		base := filepath.Base(r.SourcePath)
+		r.SceneName = strings.TrimSuffix(base, filepath.Ext(base))
+	}
 }
 
 // RunParams captures all configurable parameters for reproducibility.
@@ -468,6 +481,8 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		run.VRLogPath = vrlogPath.String
 	}
 
+	run.PopulateSceneName()
+
 	return &run, nil
 }
 
@@ -536,6 +551,8 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 		if vrlogPath.Valid {
 			run.VRLogPath = vrlogPath.String
 		}
+
+		run.PopulateSceneName()
 
 		runs = append(runs, &run)
 	}
