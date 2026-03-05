@@ -1,9 +1,9 @@
 import sys
 import os
 
-# Ensure imports from internal/report/query_data resolve when running this file directly
-sys.path.insert(0, os.path.join(os.getcwd(), "internal/report/query_data"))
-from get_stats import _plot_stats_page
+# Ensure the pdf-generator package is importable when running this script directly
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools", "pdf-generator"))
+from pdf_generator.cli.main import _plot_stats_page
 import datetime
 
 # create synthetic stats with three segments separated by rows with null speeds
