@@ -116,6 +116,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	startTime := time.Now()
 	warmupRemaining := config.WarmupPackets
 	var backoffCount int64
+	var inBackoff bool // Track backoff state for recovery logging
 
 	// Offset-based seek: skip packets until we reach PacketOffset
 	skippingToOffset := config.PacketOffset > 0
@@ -234,6 +235,11 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				waitTime := targetWallElapsed - actualWallElapsed
 
 				if waitTime > 0 {
+					if inBackoff {
+						lidar.Opsf("[PCAP] Backoff cleared: pipeline caught up after %d backoffs (pcap=%.1fs wall=%.1fs)",
+							backoffCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
+						inBackoff = false
+					}
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
@@ -255,14 +261,27 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						yield = pcapBackoffMinYield
 					}
 					backoffCount++
-					if backoffCount%100 == 1 {
-						lidar.Diagf("[PCAP] Backoff: pipeline behind by %v, yielding %v (total backoffs: %d)", behindBy, yield, backoffCount)
+					if !inBackoff {
+						// First backoff in this sequence — always log
+						lidar.Opsf("[PCAP] Backoff: pipeline behind by %v, yielding %v (packets=%d pcap=%.1fs wall=%.1fs)",
+							behindBy, yield, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
+						inBackoff = true
+					} else if backoffCount%50 == 0 {
+						// Sustained backoff — log periodically
+						lidar.Opsf("[PCAP] Backoff: pipeline behind by %v, yielding %v (total backoffs: %d packets=%d pcap=%.1fs wall=%.1fs)",
+							behindBy, yield, backoffCount, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
 					}
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
 					case <-time.After(yield):
 					}
+				} else if inBackoff {
+					// waitTime is between -threshold and 0: still slightly behind
+					// but within tolerance. Log recovery.
+					lidar.Opsf("[PCAP] Backoff cleared: pipeline caught up after %d backoffs (pcap=%.1fs wall=%.1fs)",
+						backoffCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
+					inBackoff = false
 				}
 			}
 
