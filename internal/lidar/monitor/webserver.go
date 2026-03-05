@@ -655,6 +655,10 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		{"/debug/lidar/tracks", ws.handleTracksChart},
 	}
 
+	// Note: pprof endpoints (/debug/pprof/*) are registered by tsweb.Debugger()
+	// via db.AttachAdminRoutes() on the main mux. For the lidar-only server
+	// (setupRoutes), pprof is registered separately in setupRoutes().
+
 	// Playback API routes (VRLOG replay control)
 	playbackRoutes := []route{
 		{"GET /api/lidar/playback/status", ws.handlePlaybackStatus},
@@ -666,21 +670,10 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/vrlog/stop", ws.handleVRLogStop},
 	}
 
-	// Go pprof routes for runtime profiling.
-	// Usage: go tool pprof http://HOST:PORT/debug/pprof/profile?seconds=30
-	pprofRoutes := []route{
-		{"/debug/pprof/", pprof.Index},
-		{"/debug/pprof/cmdline", pprof.Cmdline},
-		{"/debug/pprof/profile", pprof.Profile},
-		{"/debug/pprof/symbol", pprof.Symbol},
-		{"/debug/pprof/trace", pprof.Trace},
-	}
-
 	// Register all route groups
 	for _, group := range [][]route{
 		coreRoutes, snapshotRoutes, metricsRoutes, sweepRoutes,
 		gridRoutes, pcapRoutes, chartRoutes, debugRoutes, playbackRoutes,
-		pprofRoutes,
 	} {
 		for _, r := range group {
 			mux.HandleFunc(r.pattern, r.handler)
@@ -728,11 +721,21 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 
 }
 
-// setupRoutes configures the HTTP routes and handlers
+// setupRoutes configures the HTTP routes and handlers for the lidar-only
+// server. pprof is registered here because tsweb.Debugger() only covers
+// the main mux (shared with radar admin); this server has its own mux.
 func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", ws.handleStatus)
 	ws.RegisterRoutes(mux)
+
+	// pprof endpoints for the lidar-only server
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
 	return mux
 }
 
