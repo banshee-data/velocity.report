@@ -35,6 +35,11 @@ export default ts.config(
 				parser: ts.parser,
 				svelteConfig
 			}
+		},
+		rules: {
+			// The core rule does not understand Svelte reactive assignments
+			// ($: x = …) and flags them as useless. Disable for .svelte files.
+			'no-useless-assignment': 'off'
 		}
 	}
 );
