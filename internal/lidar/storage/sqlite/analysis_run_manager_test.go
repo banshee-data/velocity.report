@@ -226,7 +226,7 @@ func TestRecordFrame(t *testing.T) {
 
 	// Record frames
 	for i := 0; i < 100; i++ {
-		manager.RecordFrame()
+		manager.RecordFrame(int64(1000000000 + i*100000000)) // 1s + i*100ms in nanos
 	}
 
 	// Verify internal counter
@@ -341,8 +341,9 @@ func TestCompleteRun(t *testing.T) {
 	}
 
 	// Record some activity
+	baseNs := int64(1700000000000000000) // ~2023 timestamp
 	for i := 0; i < 100; i++ {
-		manager.RecordFrame()
+		manager.RecordFrame(baseNs + int64(i)*100000000) // 100ms apart = 10s total
 	}
 	manager.RecordClusters(50)
 
@@ -361,7 +362,7 @@ func TestCompleteRun(t *testing.T) {
 		manager.RecordTrack(track)
 	}
 
-	// Sleep briefly to ensure measurable duration
+	// Sleep briefly to ensure measurable wall-clock (unused now since we use frame timestamps)
 	time.Sleep(10 * time.Millisecond)
 
 	// Complete the run
@@ -410,6 +411,12 @@ FROM lidar_analysis_runs WHERE run_id = ?`, runID).Scan(
 
 	if durationSecs <= 0 {
 		t.Errorf("Expected positive duration, got %f", durationSecs)
+	}
+
+	// Duration should be ~9.9 seconds (99 intervals × 100ms) from frame timestamps
+	expectedDuration := 9.9
+	if durationSecs < expectedDuration-0.5 || durationSecs > expectedDuration+0.5 {
+		t.Errorf("Expected duration ~%.1fs from frame timestamps, got %.1fs", expectedDuration, durationSecs)
 	}
 }
 

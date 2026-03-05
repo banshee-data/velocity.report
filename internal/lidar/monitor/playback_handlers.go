@@ -137,7 +137,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if speedMode == "" {
-		speedMode = "fastest"
+		speedMode = "fast"
 	}
 
 	if pcapFile == "" {

@@ -531,7 +531,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		// Record clusters for analysis run if active
 		if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
-			runManager.RecordFrame()
+			runManager.RecordFrame(frame.StartTimestamp.UnixNano())
 			runManager.RecordClusters(len(clusters))
 		}
 
