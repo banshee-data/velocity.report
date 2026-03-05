@@ -521,3 +521,89 @@ func TestFailRun_NoActiveRun(t *testing.T) {
 		t.Errorf("Expected FailRun to return nil with no active run, got: %v", err)
 	}
 }
+
+func TestCompleteRun_WallClockFallback(t *testing.T) {
+	// When RecordFrame is called with timestampNs=0, the wall-clock
+	// fallback path should be used for duration calculation.
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	params := DefaultRunParams()
+
+	runID, err := manager.StartRun("/path/to/test.pcap", params)
+	if err != nil {
+		t.Fatalf("StartRun failed: %v", err)
+	}
+
+	// Record frames with zero timestamps — should NOT set firstFrameNs/lastFrameNs
+	for i := 0; i < 10; i++ {
+		manager.RecordFrame(0)
+	}
+
+	// Small sleep so wall-clock duration > 0
+	time.Sleep(10 * time.Millisecond)
+
+	err = manager.CompleteRun()
+	if err != nil {
+		t.Fatalf("CompleteRun failed: %v", err)
+	}
+
+	// Verify duration uses wall-clock fallback (should be > 0 from time.Sleep)
+	var durationSecs float64
+	err = db.QueryRow("SELECT duration_secs FROM lidar_analysis_runs WHERE run_id = ?", runID).Scan(&durationSecs)
+	if err != nil {
+		t.Fatalf("Failed to query duration: %v", err)
+	}
+	if durationSecs <= 0 {
+		t.Errorf("Expected positive wall-clock duration, got %.4f", durationSecs)
+	}
+	// Wall-clock duration for zero timestamps should be short (< 5s)
+	if durationSecs > 5 {
+		t.Errorf("Wall-clock fallback duration unexpectedly high: %.1f", durationSecs)
+	}
+}
+
+func TestRecordFrame_ZeroTimestampIgnored(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	params := DefaultRunParams()
+
+	_, err := manager.StartRun("/path/to/test.pcap", params)
+	if err != nil {
+		t.Fatalf("StartRun failed: %v", err)
+	}
+
+	// Zero timestamps should not set firstFrameNs/lastFrameNs
+	manager.RecordFrame(0)
+	manager.RecordFrame(0)
+
+	manager.mu.RLock()
+	first := manager.firstFrameNs
+	last := manager.lastFrameNs
+	manager.mu.RUnlock()
+
+	if first != 0 {
+		t.Errorf("Expected firstFrameNs=0 for zero timestamps, got %d", first)
+	}
+	if last != 0 {
+		t.Errorf("Expected lastFrameNs=0 for zero timestamps, got %d", last)
+	}
+
+	// Now record a valid timestamp
+	manager.RecordFrame(1700000000000000000)
+
+	manager.mu.RLock()
+	first = manager.firstFrameNs
+	last = manager.lastFrameNs
+	manager.mu.RUnlock()
+
+	if first != 1700000000000000000 {
+		t.Errorf("Expected firstFrameNs set after valid timestamp, got %d", first)
+	}
+	if last != 1700000000000000000 {
+		t.Errorf("Expected lastFrameNs set after valid timestamp, got %d", last)
+	}
+}

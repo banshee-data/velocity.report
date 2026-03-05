@@ -5793,3 +5793,82 @@ func TestCov7_HandleTuningParams_MethodNotAllowed(t *testing.T) {
 	ws.handleTuningParams(w, req)
 	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
 }
+
+// --- BenchmarkMode accessor ---
+
+func TestCov_BenchmarkMode_ReturnsSamePointer(t *testing.T) {
+	ws := &WebServer{}
+	bm1 := ws.BenchmarkMode()
+	bm2 := ws.BenchmarkMode()
+
+	if bm1 != bm2 {
+		t.Error("expected BenchmarkMode() to return the same pointer on repeated calls")
+	}
+}
+
+func TestCov_BenchmarkMode_StoreAndLoad(t *testing.T) {
+	ws := &WebServer{}
+	bm := ws.BenchmarkMode()
+
+	// Default should be false
+	if bm.Load() {
+		t.Error("expected BenchmarkMode to default to false")
+	}
+
+	// Store true and verify
+	bm.Store(true)
+	if !bm.Load() {
+		t.Error("expected BenchmarkMode to be true after Store(true)")
+	}
+
+	// Verify through fresh accessor
+	if !ws.BenchmarkMode().Load() {
+		t.Error("expected BenchmarkMode to be true via second accessor call")
+	}
+}
+
+// --- pprof route registration ---
+
+func TestCov_PprofRoutesRegistered(t *testing.T) {
+	ws := &WebServer{sensorID: "test-pprof"}
+	mux := http.NewServeMux()
+	ws.RegisterRoutes(mux)
+
+	// Verify pprof index is registered and responds
+	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("pprof index: status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if !strings.Contains(w.Body.String(), "goroutine") {
+		t.Error("pprof index should list goroutine profile")
+	}
+}
+
+func TestCov_PprofSymbolEndpoint(t *testing.T) {
+	ws := &WebServer{sensorID: "test-pprof-symbol"}
+	mux := http.NewServeMux()
+	ws.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/symbol", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	// pprof symbol returns 200 even on GET
+	if w.Code != http.StatusOK {
+		t.Errorf("pprof symbol: status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestCov_PprofCmdlineEndpoint(t *testing.T) {
+	ws := &WebServer{sensorID: "test-pprof-cmdline"}
+	mux := http.NewServeMux()
+	ws.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/cmdline", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("pprof cmdline: status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
