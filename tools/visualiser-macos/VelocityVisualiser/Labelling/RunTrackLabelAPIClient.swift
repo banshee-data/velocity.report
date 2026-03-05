@@ -276,18 +276,25 @@ struct AnalysisRun: Codable, Identifiable {
     let errorMessage: String?
     let vrlogPath: String?
     let notes: String?
+    let sceneName: String?
 
     var id: String { runId }
 
     /// Whether this run has a VRLOG available for replay.
     var hasVRLog: Bool { vrlogPath != nil && !vrlogPath!.isEmpty }
 
-    /// Formatted creation date.
+    /// Formatted creation date (short).
     var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
-        formatter.timeStyle = .medium
+        formatter.timeStyle = .short
         return formatter.string(from: createdAt)
+    }
+
+    /// Short hex run ID prefix, e.g. "0x4ea0f3".
+    var shortHexId: String {
+        let prefix = String(runId.prefix(6))
+        return "0x\(prefix)"
     }
 }
 
