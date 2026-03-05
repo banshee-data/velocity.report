@@ -265,10 +265,26 @@ enum VisualiserClientError: Error, LocalizedError {
                         for try await protoFrame in response.messages {
                             frameCount += 1
 
+                            // Background snapshots are rare and critical for
+                            // rendering — always decode and dispatch them.
+                            let isBackground = protoFrame.frameType == .background
+
+                            // Throttle: skip foreground/full frames arriving
+                            // faster than 30fps. Check BEFORE decoding to avoid
+                            // wasting CPU on array copies for discarded frames.
+                            if !isBackground {
+                                let now = ContinuousClock.now
+                                guard now - lastDispatchTime >= minFrameInterval else {
+                                    skippedFrames += 1
+                                    continue
+                                }
+                                lastDispatchTime = now
+                            }
+
                             // Log every 100 frames
                             if frameCount % 100 == 1 {
                                 print(
-                                    "[VisualiserClient] 📊 Received frame \(frameCount): id=\(protoFrame.frameID), points=\(protoFrame.pointCloud.pointCount) (skipped=\(skippedFrames))"
+                                    "[VisualiserClient] frame \(frameCount): type=\(protoFrame.frameType) points=\(protoFrame.pointCloud.pointCount) skipped=\(skippedFrames)"
                                 )
                             }
 
@@ -276,16 +292,6 @@ enum VisualiserClientError: Error, LocalizedError {
                             // then hop to MainActor only to notify the delegate.
                             guard let strongSelf = self else { continue }
                             let frame = strongSelf.decodeFrameBundle(protoFrame)
-
-                            // Throttle: skip dispatch if too soon since last frame.
-                            // This consumes gRPC messages (preventing backlog) but
-                            // avoids saturating MainActor when frames exceed 30fps.
-                            let now = ContinuousClock.now
-                            guard now - lastDispatchTime >= minFrameInterval else {
-                                skippedFrames += 1
-                                continue
-                            }
-                            lastDispatchTime = now
 
                             await MainActor.run { [weak strongSelf] in
                                 guard let self = strongSelf else { return }
