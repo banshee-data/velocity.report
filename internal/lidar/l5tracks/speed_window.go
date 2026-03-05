@@ -29,8 +29,11 @@ func newSpeedWindow(maxLen int) *speedWindow {
 }
 
 // Add inserts a new speed observation. If the window is at capacity the
-// oldest observation is evicted first.
+// oldest observation is evicted first. No-op if maxLen is 0.
 func (sw *speedWindow) Add(speed float32) {
+	if sw.maxLen <= 0 {
+		return
+	}
 	if len(sw.queue) >= sw.maxLen {
 		// Evict oldest entry from both views.
 		oldest := sw.queue[0]

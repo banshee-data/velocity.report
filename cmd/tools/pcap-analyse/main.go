@@ -1326,11 +1326,12 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 		_, err := database.Exec(`
 			INSERT OR REPLACE INTO lidar_run_tracks
 			(run_id, track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-			 observation_count, peak_speed_mps, p50_speed_mps, p85_speed_mps, p98_speed_mps,
+			 observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p98_speed_mps,
 			 bounding_box_height_avg, bounding_box_length_avg, bounding_box_width_avg,
 			 object_class, object_confidence)
-			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			runID, t.TrackID, t.Observations,
+			t.P50SpeedMps, // avg_speed_mps — pcap-analyse does not compute running mean; use p50 as fallback
 			t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P98SpeedMps,
 			t.AvgHeight, t.AvgLength, t.AvgWidth,
 			t.Class, t.Confidence,

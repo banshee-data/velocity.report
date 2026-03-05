@@ -19,8 +19,10 @@ implemented in the gRPC stream path:
    `sample_points`) remain unserialised.
 4. `Track.avg_speed_mps` (field `24`) does not match desired semantics for the
    visualiser inspector; median and high-percentile summaries are more useful.
-   This field will be removed entirely (including from DB, REST API, and VRLOG) —
-   not kept for backward compatibility.
+   **Decision (PR #336):** field 24 is retained as `avg_speed_mps` (running mean);
+   `p50_speed_mps` (field 36), `p85_speed_mps` (37), and `p98_speed_mps` (38)
+   are added alongside it. See §5.1 and the
+   [shim removal plan](v050-backward-compatibility-shim-removal-plan.md) for rationale.
 5. `Track.class_label` (string) was replaced with `ObjectClass object_class`
    (enum, field `26`) with a 10-value enumeration. ✅ Implemented.
 
@@ -31,8 +33,9 @@ in the proto as a contract.
 
 1. Make protobuf stream output match the declared `visualiser.proto` contract.
 2. Restore debug overlays end-to-end (adapter -> gRPC -> Swift client -> renderer).
-3. Replace `Track.avg_speed_mps` with median semantics before `v0.5.0`. Remove
-   `avg_speed_mps` from all layers (proto, model, DB, REST API, VRLOG).
+3. Add `p50_speed_mps`, `p85_speed_mps`, and `p98_speed_mps` percentile fields
+   alongside `avg_speed_mps` before `v0.5.0`. Defer `avg_speed_mps` removal
+   to future work (see [shim removal plan](v050-backward-compatibility-shim-removal-plan.md)).
 4. Add `p85` and `p98` speed summary fields for visual review.
 5. Add serialization tests that fail on future field drops.
 

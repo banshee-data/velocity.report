@@ -33,6 +33,16 @@ metric change.
 **Remaining:** REST API cleanup (§3 download format), sweep legacy fields (§2),
 and remaining shims (§4–17).
 
+**Next steps (PR #336 review):**
+
+1. **P50 summary endpoint** — `handleTrackSummary` currently returns `p50_speed_mps: 0`
+   because a true median across tracks is not yet computed. Implementation deferred
+   until the summary endpoint audit is complete.
+2. **pcap-analyse avg_speed_mps** — INSERT now populates `avg_speed_mps` using p50
+   as a fallback (pcap-analyse does not compute a running mean).
+3. **speedWindow maxLen=0 guard** — Add() now returns early when maxLen ≤ 0 to
+   prevent a panic if `max_speed_history_length` is runtime-tuned to zero.
+
 ## Goal
 
 Audit and remove all backward compatibility shims, legacy field aliases, and
