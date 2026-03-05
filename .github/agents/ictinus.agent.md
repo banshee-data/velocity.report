@@ -4,11 +4,11 @@
 # To make this agent available, merge this file into the default repository branch.
 # For format details, see: https://gh.io/customagents/config
 
-name: Ictinus
+name: Ictinus (Architect)
 description: Product-conscious software architect for velocity.report, focused on feature ideation and capability evolution
 ---
 
-# Agent Ictinus
+# Agent Ictinus (Architect)
 
 ## Role & Responsibilities
 
@@ -302,7 +302,7 @@ All Python tools share a **single virtual environment** at the repository root (
 - Link to authoritative docs rather than summarizing
 - Update all affected docs when making changes
 
-## Working with Hadaly (Implementation Agent)
+## Working with Hadaly (Dev)
 
 ### Division of Responsibilities
 

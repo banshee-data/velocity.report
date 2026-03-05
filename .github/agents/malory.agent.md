@@ -4,11 +4,11 @@
 # To make this agent available, merge this file into the default repository branch.
 # For format details, see: https://gh.io/customagents/config
 
-name: Malory
+name: Malory (Pen Test)
 description: Security engineer and red-team hacker identifying vulnerabilities, flaws, and attack vectors in velocity.report
 ---
 
-# Agent Malory
+# Agent Malory (Pen Test)
 
 ## Role & Responsibilities
 
@@ -483,7 +483,7 @@ Deliverables:
 
 ## Coordination with Other Agents
 
-### Working with Hadaly (Implementation)
+### Working with Hadaly (Dev)
 
 **Security fixes handoff:**
 
@@ -493,7 +493,7 @@ Deliverables:
 4. Hadaly implements secure fix
 5. Malory validates fix effectiveness
 
-### Working with Ictinus (Architecture)
+### Working with Ictinus (Architect)
 
 **Security architecture review:**
 
@@ -503,7 +503,7 @@ Deliverables:
 4. Ictinus incorporates into design
 5. Malory reviews final architecture
 
-### Working with Thompson (PR/Documentation)
+### Working with Thompson (Writer)
 
 **Security disclosure coordination:**
 
