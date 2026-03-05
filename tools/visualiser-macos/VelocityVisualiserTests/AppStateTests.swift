@@ -1820,7 +1820,7 @@ import XCTest
         XCTAssertTrue(state.userLabels.isEmpty)
     }
 
-    func testAssignLabelToAllVisiblePopulatesCache() throws {
+    func testAssignLabelToAllVisiblePopulatesCache() async throws {
         let state = AppState()
         // Create a frame with tracks so filteredTracks is non-empty
         var frame = FrameBundle()
@@ -1831,7 +1831,9 @@ import XCTest
                 Track(trackID: "t-002", state: .confirmed),
                 Track(trackID: "t-003", state: .tentative),
             ], trails: [])
-        state.currentFrame = frame
+        // Use onFrameReceived so allSeenTracks is populated (filteredTracks reads from it)
+        state.onFrameReceived(frame)
+        await Task.yield()
 
         state.assignLabelToAllVisible("bicycle")
 
