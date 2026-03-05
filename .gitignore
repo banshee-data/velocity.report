@@ -42,6 +42,7 @@ velocity-deploy*
 /deploy
 mock_serial_port*
 /radar
+pcap-analyse
 
 # =============================================================================
 # Database Files
