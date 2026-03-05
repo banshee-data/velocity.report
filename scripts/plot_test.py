@@ -2,7 +2,9 @@ import sys
 import os
 
 # Ensure the pdf-generator package is importable when running this script directly
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools", "pdf-generator"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "tools", "pdf-generator")
+)
 from pdf_generator.cli.main import _plot_stats_page
 import datetime
 
