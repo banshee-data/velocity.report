@@ -377,7 +377,7 @@ struct StringTruncatedTests {
             runId: "run-zero", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 0, totalFrames: 0,
             totalClusters: 0, totalTracks: 0, confirmedTracks: 0, status: "running",
-            errorMessage: nil, vrlogPath: nil, notes: nil)
+            errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: nil)
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
     }
@@ -387,7 +387,7 @@ struct StringTruncatedTests {
             runId: "run-long", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 7200,
             totalFrames: 72000, totalClusters: 5000, totalTracks: 500, confirmedTracks: 400,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long")
+            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long", sceneName: nil)
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
     }
@@ -1024,7 +1024,7 @@ struct SerialiseFlagsTests {
             runId: runId, createdAt: Date(), sourceType: "vrlog", sourcePath: "/data/test.vrlog",
             sensorId: "sensor-1", durationSecs: durationSecs, totalFrames: 100, totalClusters: 50,
             totalTracks: totalTracks, confirmedTracks: 5, status: status, errorMessage: nil,
-            vrlogPath: vrlogPath, notes: nil)
+            vrlogPath: vrlogPath, notes: nil, sceneName: nil)
     }
 
     private func host<V: View>(_ view: V, state: AppState) {

@@ -71,6 +71,21 @@ struct AnalysisRunComputedPropertyTests {
         #expect(run.id == "run-test")
     }
 
+    @Test func shortHexIdFormat() throws {
+        let run = makeRun()
+        #expect(run.shortHexId == "0xrun-te")
+    }
+
+    @Test func shortHexIdWithUUID() throws {
+        let run = AnalysisRun(
+            runId: "4ea0f3ab-1234-5678-9abc-def012345678", createdAt: Date(), sourceType: "pcap",
+            sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
+            totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
+            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: "kirk1")
+        #expect(run.shortHexId == "0x4ea0f3")
+        #expect(run.sceneName == "kirk1")
+    }
+
     @Test func statusCompleted() throws {
         let run = makeRun(status: "completed")
         #expect(run.status == "completed")
@@ -104,7 +119,8 @@ struct AnalysisRunComputedPropertyTests {
             runId: "run-test", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes)
+            status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes,
+            sceneName: "test")
     }
 }
 
@@ -302,7 +318,8 @@ struct PlaybackStatusModelTests {
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil)
+            status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
+            sceneName: "test")
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
@@ -313,7 +330,7 @@ struct PlaybackStatusModelTests {
             runId: "run-002", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 60.0, totalFrames: 600, totalClusters: 200,
             totalTracks: 10, confirmedTracks: 8, status: "running", errorMessage: nil,
-            vrlogPath: nil, notes: nil)
+            vrlogPath: nil, notes: nil, sceneName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
@@ -324,7 +341,7 @@ struct PlaybackStatusModelTests {
             runId: "run-001", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 120.0, totalFrames: 1200, totalClusters: 500,
             totalTracks: 25, confirmedTracks: 20, status: "completed", errorMessage: nil,
-            vrlogPath: "/data/test.vrlog", notes: nil)
+            vrlogPath: "/data/test.vrlog", notes: nil, sceneName: "kirk0")
 
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
@@ -335,7 +352,7 @@ struct PlaybackStatusModelTests {
             runId: "run-003", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 5.0, totalFrames: 50, totalClusters: 10,
             totalTracks: 0, confirmedTracks: 0, status: "failed",
-            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil)
+            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil, sceneName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
