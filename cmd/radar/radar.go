@@ -725,6 +725,7 @@ func main() {
 		// dashboard checkbox can enable/disable trace logging at runtime.
 		if pipelineConfig != nil {
 			pipelineConfig.BenchmarkMode = lidarWebServer.BenchmarkMode()
+			pipelineConfig.DisableTrackPersistence = lidarWebServer.DisableTrackPersistenceFlag()
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.

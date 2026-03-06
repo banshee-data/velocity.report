@@ -165,6 +165,13 @@ type TrackingPipelineConfig struct {
 	// When nil or false, all timing logic is skipped (zero overhead).
 	// Toggle at runtime via atomic store; the pipeline checks each frame.
 	BenchmarkMode *atomic.Bool
+
+	// DisableTrackPersistence, when non-nil and true, skips all DB writes
+	// (InsertTrack / InsertTrackObservation) for the frame. Use during
+	// analysis replays and parameter sweeps to avoid polluting the
+	// production track store. Toggle at runtime via atomic store.
+	// When nil or false, normal persistence applies.
+	DisableTrackPersistence *atomic.Bool
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -558,6 +565,21 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		confirmedTracks := cfg.Tracker.GetConfirmedTracks()
 		tracef("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
 
+		// Open a per-frame transaction for batching all track/observation writes.
+		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay).
+		var (
+			dbTx       *sql.Tx
+			worldFrame string
+		)
+		if cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
+			worldFrame = fmt.Sprintf("site/%s", sensorID)
+			if tx, txErr := cfg.DB.Begin(); txErr != nil {
+				opsf("[Tracking] Failed to begin track persistence tx: %v", txErr)
+			} else {
+				dbTx = tx
+			}
+		}
+
 		for _, track := range confirmedTracks {
 			// Re-classify periodically as more observations accumulate.
 			// Run every 5 observations after the initial classification
@@ -591,9 +613,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			}
 
 			// Persist track to database
-			if cfg.DB != nil {
-				worldFrame := fmt.Sprintf("site/%s", sensorID)
-				if err := sqlite.InsertTrack(cfg.DB, track, worldFrame); err != nil {
+			if dbTx != nil {
+				if err := sqlite.InsertTrack(dbTx, track, worldFrame); err != nil {
 					opsf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
 				}
 
@@ -624,10 +645,16 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						HeightP95:         track.HeightP95Max,
 						IntensityMean:     track.IntensityMeanAvg,
 					}
-					if err := sqlite.InsertTrackObservation(cfg.DB, obs); err != nil {
+					if err := sqlite.InsertTrackObservation(dbTx, obs); err != nil {
 						opsf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
 					}
 				}
+			}
+		}
+
+		if dbTx != nil {
+			if err := dbTx.Commit(); err != nil {
+				opsf("[Tracking] Failed to commit track persistence tx: %v", err)
 			}
 		}
 
