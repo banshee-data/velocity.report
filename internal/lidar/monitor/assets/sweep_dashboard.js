@@ -232,6 +232,14 @@ var PARAM_SCHEMA = {
     defaultEnd: 500,
     desc: "Maximum number of simultaneous tracks the tracker maintains.",
   },
+  speed_ratio: {
+    type: "float64",
+    label: "Speed Ratio",
+    step: 0.25,
+    defaultStart: 0.25,
+    defaultEnd: 1.5,
+    desc: "PCAP replay speed multiplier (e.g. 0.5 = half speed, 1.0 = realtime, 1.5 = 1.5x). Requires PCAP mode.",
+  },
 };
 
 var paramNames = Object.keys(PARAM_SCHEMA);
@@ -283,6 +291,12 @@ var METRIC_KEYS = [
   "unbounded_point_stddev",
   "empty_box_ratio_mean",
   "empty_box_ratio_stddev",
+  "mean_occlusion_count_mean",
+  "mean_occlusion_count_stddev",
+  "max_occlusion_frames_mean",
+  "max_occlusion_frames_stddev",
+  "total_occlusions_mean",
+  "total_occlusions_stddev",
   "ground_truth_score",
   "detection_rate",
   "false_positive_rate",
