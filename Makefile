@@ -428,8 +428,8 @@ install-texlive-minimal:
 
 # Deploy: Install local minimal TeX tree on remote target (deprecated)
 deploy-install-latex-minimal:
-	@echo "⚠  DEPRECATED: deploy-install-latex-minimal will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo ""
+	@echo "⚠  DEPRECATED: deploy-install-latex-minimal — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
+	@echo "" >&2
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Error: TARGET not set. Usage: make deploy-install-latex-minimal TARGET=radar-ts"; \
 		exit 1; \
@@ -446,8 +446,8 @@ deploy-install-latex-minimal:
 
 # Deploy: Install LaTeX on remote target (deprecated)
 deploy-install-latex:
-	@echo "⚠  DEPRECATED: deploy-install-latex will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo ""
+	@echo "⚠  DEPRECATED: deploy-install-latex — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
+	@echo "" >&2
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Error: TARGET not set. Usage: make deploy-install-latex TARGET=radar-ts"; \
 		exit 1; \
@@ -466,8 +466,8 @@ deploy-install-latex:
 
 # Deploy: Update dependencies on remote target (deprecated)
 deploy-update-deps:
-	@echo "⚠  DEPRECATED: deploy-update-deps will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo ""
+	@echo "⚠  DEPRECATED: deploy-update-deps — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
+	@echo "" >&2
 	@if [ -z "$(TARGET)" ]; then \
 		echo "Error: TARGET not set. Usage: make deploy-update-deps TARGET=radar-ts"; \
 		exit 1; \
@@ -1248,9 +1248,9 @@ clean-python:
 
 # Legacy installation script (deprecated — will be removed after #210 image pipeline)
 setup-radar:
-	@echo "⚠  DEPRECATED: setup-radar will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo "   See docs/plans/platform-simplification-and-deprecation-plan.md for migration guidance."
-	@echo ""
+	@echo "⚠  DEPRECATED: setup-radar — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "   See docs/plans/platform-simplification-and-deprecation-plan.md for migration guidance." >&2
+	@echo "" >&2
 	@if [ ! -f "velocity-report-linux-arm64" ]; then \
 		echo "Error: velocity-report-linux-arm64 not found!"; \
 		echo "Run 'make build-radar-linux' first."; \
@@ -1266,8 +1266,8 @@ setup-radar:
 
 # Modern deployment using velocity-deploy (deprecated — will be removed after #210 image pipeline)
 deploy-install:
-	@echo "⚠  DEPRECATED: deploy-install will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo ""
+	@echo "⚠  DEPRECATED: deploy-install — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
@@ -1281,8 +1281,8 @@ deploy-install:
 	./velocity-deploy install --binary ./velocity-report-linux-arm64
 
 deploy-upgrade:
-	@echo "⚠  DEPRECATED: deploy-upgrade will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo ""
+	@echo "⚠  DEPRECATED: deploy-upgrade — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
@@ -1296,8 +1296,8 @@ deploy-upgrade:
 	./velocity-deploy upgrade --binary ./velocity-report-linux-arm64
 
 deploy-status:
-	@echo "⚠  DEPRECATED: deploy-status will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo ""
+	@echo "⚠  DEPRECATED: deploy-status — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \
@@ -1305,8 +1305,8 @@ deploy-status:
 	./velocity-deploy status
 
 deploy-health:
-	@echo "⚠  DEPRECATED: deploy-health will be removed once the Raspberry Pi image pipeline (#210) is operational."
-	@echo ""
+	@echo "⚠  DEPRECATED: deploy-health — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
 		make build-deploy; \

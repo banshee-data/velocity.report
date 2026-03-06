@@ -21,9 +21,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Fprintln(os.Stderr, "WARNING: velocity-deploy is deprecated and will be removed after the")
-	fmt.Fprintln(os.Stderr, "Raspberry Pi image pipeline (#210) is operational. Migrate to the image-based")
-	fmt.Fprintln(os.Stderr, "workflow described at docs/plans/platform-simplification-and-deprecation-plan.md")
+	fmt.Fprintln(os.Stderr, "WARNING: velocity-deploy is deprecated.")
+	fmt.Fprintln(os.Stderr, "Removal is gated on: (1) #210 image pipeline operational, (2) packaging confirmed,")
+	fmt.Fprintln(os.Stderr, "(3) migration period elapsed, (4) no active deploy-tool users — not before v0.7.0.")
+	fmt.Fprintln(os.Stderr, "See docs/plans/platform-simplification-and-deprecation-plan.md for details.")
 	fmt.Fprintln(os.Stderr, "")
 
 	command := flag.Arg(0)
