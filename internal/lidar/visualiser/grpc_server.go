@@ -116,6 +116,7 @@ type Server struct {
 	pcapTotalPackets  uint64
 	pcapStartNs       int64
 	pcapEndNs         int64
+	replayEpoch       uint64 // monotonically increasing; bumped on each new replay load
 
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
@@ -144,7 +145,9 @@ func (s *Server) SetReplayMode(enabled bool) {
 	s.playbackMu.Lock()
 	defer s.playbackMu.Unlock()
 	s.replayMode = enabled
-	if !enabled {
+	if enabled {
+		s.replayEpoch++
+	} else {
 		s.pcapCurrentPacket = 0
 		s.pcapTotalPackets = 0
 		s.pcapStartNs = 0
@@ -161,6 +164,7 @@ func (s *Server) SetVRLogMode(enabled bool) {
 	s.vrlogMode = enabled
 	if enabled {
 		s.replayMode = true
+		s.replayEpoch++
 		// Reset pause state so the new VRLOG replay starts playing
 		// immediately.  Without this, a previous Pause() RPC leaves
 		// s.paused=true and streamFromPublisher silently drops every
@@ -399,7 +403,14 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					CurrentFrameIndex: s.pcapCurrentPacket,
 					TotalFrames:       s.pcapTotalPackets,
 					Seekable:          false,
+					ReplayEpoch:       s.replayEpoch,
 				}
+				s.playbackMu.RUnlock()
+			}
+			// Stamp epoch on existing PlaybackInfo (e.g. from VRLOG recorder)
+			if s.replayMode && frame.PlaybackInfo != nil && frame.PlaybackInfo.ReplayEpoch == 0 {
+				s.playbackMu.RLock()
+				frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
 				s.playbackMu.RUnlock()
 			}
 
@@ -439,13 +450,23 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// to prevent oscillation between skip and normal modes.
 			if sendDuration.Milliseconds() > slowSendThresholdMs {
 				slowSends++
+				wasSkipping := cooldown.inSkipMode()
 				cooldown.recordSlow()
+				if !wasSkipping && cooldown.inSkipMode() {
+					lidar.Opsf("[gRPC] Client %s entering skip mode after %d slow sends (send=%v points=%d)",
+						clientID, slowSends, sendDuration, getPointCount(frame))
+				}
 				if sendDuration.Milliseconds() > sendTimeoutMs {
 					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f skip_mode=%v",
 						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, cooldown.inSkipMode())
 				}
 			} else {
+				wasSkipping := cooldown.inSkipMode()
 				cooldown.recordFast()
+				if wasSkipping && !cooldown.inSkipMode() {
+					lidar.Opsf("[gRPC] Client %s exiting skip mode after %d consecutive fast sends",
+						clientID, minConsecutiveFastSends)
+				}
 			}
 
 			// Periodic performance logging
@@ -639,6 +660,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
 			TotalFrames:       frame.PlaybackInfo.TotalFrames,
 			Seekable:          frame.PlaybackInfo.Seekable,
+			ReplayEpoch:       frame.PlaybackInfo.ReplayEpoch,
 		}
 	}
 
