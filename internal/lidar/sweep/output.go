@@ -32,6 +32,11 @@ type SampleResult struct {
 	ForegroundCaptureRatio float64
 	UnboundedPointRatio    float64
 	EmptyBoxRatio          float64
+
+	// Occlusion metrics
+	MeanOcclusionCount float64
+	MaxOcclusionFrames int
+	TotalOcclusions    int
 }
 
 // SweepParams holds the sweep parameters for a single test run.
