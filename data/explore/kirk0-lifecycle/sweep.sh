@@ -138,11 +138,11 @@ start_pcap() {
     -d "{\"pcap_file\":\"${PCAP_FILE}\",\"analysis_mode\":true,\"speed_mode\":\"realtime\",\"speed_ratio\":1.0}" | jq -c . || true
 }
 
-start_pcap_fastest() {
-  echo "  → Start pcap replay (analysis_mode=true, speed=fastest)"
+start_pcap_analysis() {
+  echo "  → Start pcap replay (analysis_mode=true, speed=analysis)"
   api_post "/api/lidar/pcap/start" \
     -H 'Content-Type: application/json' \
-    -d "{\"pcap_file\":\"${PCAP_FILE}\",\"analysis_mode\":true,\"speed_mode\":\"fastest\"}" | jq -c . || true
+    -d "{\"pcap_file\":\"${PCAP_FILE}\",\"analysis_mode\":true,\"speed_mode\":\"analysis\"}" | jq -c . || true
 }
 
 stop_pcap() {
@@ -239,8 +239,8 @@ if [ "$START_FROM" -le 1 ]; then
   # 4. Brief pause for reset
   sleep 1
 
-  # 5. Start pcap replay at fastest speed (just need the grid to settle)
-  start_pcap_fastest
+  # 5. Start pcap replay at analysis speed (just need the grid to settle)
+  start_pcap_analysis
 
   # 6. Wait for replay to complete
   wait_for_pcap_complete || true

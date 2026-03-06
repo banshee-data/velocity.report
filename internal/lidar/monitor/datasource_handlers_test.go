@@ -124,7 +124,7 @@ func TestStartPCAPForSweep_TimeoutWhenBusy(t *testing.T) {
 	ws.currentSource = DataSourcePCAP
 	ws.dataSourceMu.Unlock()
 
-	err := ws.StartPCAPForSweep("/dummy.pcap", false, "fastest", 1.0, 0, 0, 1, false)
+	err := ws.StartPCAPForSweep("/dummy.pcap", false, "analysis", 1.0, 0, 0, 1, false)
 	if err == nil {
 		t.Fatal("expected timeout error when PCAP already in progress")
 	}
@@ -174,7 +174,7 @@ func TestStartPCAPForSweep_SuccessPath(t *testing.T) {
 
 	// Start should succeed (goroutine will fail asynchronously reading the
 	// mostly-empty PCAP, but StartPCAPForSweep itself returns nil).
-	err := ws.StartPCAPForSweep("test.pcap", false, "fastest", 1.0, 0, 0, 1, false)
+	err := ws.StartPCAPForSweep("test.pcap", false, "analysis", 1.0, 0, 0, 1, false)
 	if err != nil {
 		t.Fatalf("StartPCAPForSweep() unexpected error: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestStartPCAPForSweep_AnalysisMode(t *testing.T) {
 	})
 	ws.setBaseContext(context.Background())
 
-	err := ws.StartPCAPForSweep("analysis.pcap", true, "fastest", 1.0, 0, 0, 1, true)
+	err := ws.StartPCAPForSweep("analysis.pcap", true, "analysis", 1.0, 0, 0, 1, true)
 	if err != nil {
 		t.Fatalf("StartPCAPForSweep() error: %v", err)
 	}
@@ -498,7 +498,7 @@ func TestStartPCAPForSweep_DefaultMaxRetries(t *testing.T) {
 	ws.setBaseContext(context.Background())
 
 	// maxRetries=0 triggers the default (60)
-	err := ws.StartPCAPForSweep("default.pcap", false, "fastest", 1.0, 0, 0, 0, false)
+	err := ws.StartPCAPForSweep("default.pcap", false, "analysis", 1.0, 0, 0, 0, false)
 	if err != nil {
 		t.Fatalf("StartPCAPForSweep(maxRetries=0) error: %v", err)
 	}
@@ -552,7 +552,7 @@ func TestStartPCAPForSweep_AnalysisModeWithDB(t *testing.T) {
 	ws.setBaseContext(context.Background())
 
 	// Start with analysis mode and recording enabled (disableRecording=false)
-	err := ws.StartPCAPForSweep("analysis.pcap", true, "fastest", 1.0, 0, 0, 1, false)
+	err := ws.StartPCAPForSweep("analysis.pcap", true, "analysis", 1.0, 0, 0, 1, false)
 	if err != nil {
 		t.Fatalf("StartPCAPForSweep() error: %v", err)
 	}
@@ -654,7 +654,7 @@ func TestStartPCAPLocked_AlreadyInProgress(t *testing.T) {
 	ws.pcapInProgress = true
 	ws.pcapMu.Unlock()
 
-	err := ws.startPCAPLocked("conflict.pcap", "fastest", 1.0, 0, 0, 0, 0, 0, 0, false, false)
+	err := ws.startPCAPLocked("conflict.pcap", "analysis", 1.0, 0, 0, 0, 0, 0, 0, false, false)
 	if err == nil {
 		t.Fatal("expected conflict error")
 	}
@@ -687,7 +687,7 @@ func TestStartPCAPLocked_NoBaseContext(t *testing.T) {
 	})
 	// Do NOT set base context
 
-	err := ws.startPCAPLocked("noctx.pcap", "fastest", 1.0, 0, 0, 0, 0, 0, 0, false, false)
+	err := ws.startPCAPLocked("noctx.pcap", "analysis", 1.0, 0, 0, 0, 0, 0, 0, false, false)
 	if err == nil {
 		t.Fatal("expected error for nil base context")
 	}
@@ -766,7 +766,7 @@ func TestStartPCAPForSweep_DisableRecording(t *testing.T) {
 	ws.setBaseContext(context.Background())
 
 	// disableRecording=true: recording callbacks should NOT fire
-	err := ws.StartPCAPForSweep("norec.pcap", true, "fastest", 1.0, 0, 0, 1, true)
+	err := ws.StartPCAPForSweep("norec.pcap", true, "analysis", 1.0, 0, 0, 1, true)
 	if err != nil {
 		t.Fatalf("StartPCAPForSweep() error: %v", err)
 	}
@@ -801,7 +801,7 @@ func TestStartPCAPForSweep_StartPCAPError(t *testing.T) {
 	ws.setBaseContext(context.Background())
 
 	// startPCAPLocked will fail because resolvePCAPPath will fail
-	err := ws.StartPCAPForSweep("missing.pcap", false, "fastest", 1.0, 0, 0, 1, false)
+	err := ws.StartPCAPForSweep("missing.pcap", false, "analysis", 1.0, 0, 0, 1, false)
 	if err == nil {
 		t.Fatal("expected error from startPCAPLocked failure")
 	}
@@ -890,7 +890,7 @@ func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
 	ws.currentSource = DataSourcePCAP
 	ws.dataSourceMu.Unlock()
 
-	err = ws.startPCAPLocked("callbacks.pcap", "fastest", 1.0, 0, 0,
+	err = ws.startPCAPLocked("callbacks.pcap", "analysis", 1.0, 0, 0,
 		0, 0, 0, 0, false, false)
 	if err != nil {
 		t.Fatalf("startPCAPLocked error: %v", err)
@@ -952,9 +952,9 @@ func TestStartPCAPLocked_RealtimeWithPlotsAndDebug(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	// enablePlots=true with plotsBaseDir → grid plotter init
-	// speedRatio=-1 with speedMode="fixed" → multiplier <= 0 → default to 1.0
+	// speedRatio=-1 with speedMode="scaled" → multiplier <= 0 → default to 1.0
 	// debugRingMin=1, debugRingMax=10 with enableDebug=false → "debug OFF" log
-	err := ws.startPCAPLocked("realtime.pcap", "fixed", -1.0, 0, 0,
+	err := ws.startPCAPLocked("realtime.pcap", "scaled", -1.0, 0, 0,
 		1, 10, 0, 0, false, true)
 	if err != nil {
 		t.Fatalf("startPCAPLocked error: %v", err)
@@ -995,7 +995,7 @@ func TestStartPCAPLocked_NonAnalysisWithPCAPStopped(t *testing.T) {
 	ws.currentSource = DataSourcePCAP
 	ws.dataSourceMu.Unlock()
 
-	err := ws.startPCAPLocked("stopcb.pcap", "fastest", 1.0, 0, 0,
+	err := ws.startPCAPLocked("stopcb.pcap", "analysis", 1.0, 0, 0,
 		0, 0, 0, 0, false, false)
 	if err != nil {
 		t.Fatalf("startPCAPLocked error: %v", err)
@@ -1033,7 +1033,7 @@ func TestStartPCAPForSweep_ResetStateError(t *testing.T) {
 	})
 	ws.setBaseContext(context.Background())
 
-	err := ws.StartPCAPForSweep("reset.pcap", false, "fastest", 1.0, 0, 0, 1, false)
+	err := ws.StartPCAPForSweep("reset.pcap", false, "analysis", 1.0, 0, 0, 1, false)
 	if err == nil {
 		t.Fatal("expected error from resetAllState with nil-grid manager")
 	}
@@ -1184,7 +1184,7 @@ func TestStartPCAPLocked_GridPlotterStartError(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	// enablePlots=true → gridPlotter.Start fails → gridPlotter set to nil
-	err := ws.startPCAPLocked("ploterr.pcap", "fastest", 1.0, 0, 0,
+	err := ws.startPCAPLocked("ploterr.pcap", "analysis", 1.0, 0, 0,
 		0, 0, 0, 0, false, true)
 	if err != nil {
 		t.Fatalf("startPCAPLocked error: %v", err)
@@ -1228,7 +1228,7 @@ func TestStartPCAPLocked_StartRunError(t *testing.T) {
 	ws.currentSource = DataSourcePCAP
 	ws.dataSourceMu.Unlock()
 
-	err := ws.startPCAPLocked("runerr.pcap", "fastest", 1.0, 0, 0,
+	err := ws.startPCAPLocked("runerr.pcap", "analysis", 1.0, 0, 0,
 		0, 0, 0, 0, false, false)
 	if err != nil {
 		t.Fatalf("startPCAPLocked error: %v", err)
