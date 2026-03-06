@@ -343,9 +343,9 @@ fi
 printf "idle_samples=%s\n" "$idle_samples" >>"$PHASE_LOG"
 
 printf "Starting PCAP replay: %s\n" "$PCAP_REQUEST_PATH"
-# Use "realtime" speed_mode so the full tracking pipeline runs (BackgroundManager
-# warmup, ForegroundForwarder, background parameter tuning). "fastest" mode
-# skips foreground extraction and produces 0 tracks.
+# Use "realtime" speed_mode so profiling reflects realistic pipeline timing
+# under normal sensor cadence. "analysis" runs at CPU speed with blocking
+# FrameBuilder, which distorts timing profiles.
 payload="$(jq -n --arg p "$PCAP_REQUEST_PATH" '{pcap_file:$p, speed_mode:"realtime", analysis_mode:true}')"
 echo "pcap_start_payload=$payload" >>"$PHASE_LOG"
 start_http_code="$(curl -sS -o "$PCAP_START_JSON" -w "%{http_code}" -X POST "$BASE_URL/api/lidar/pcap/start?sensor_id=$SENSOR_ID" \

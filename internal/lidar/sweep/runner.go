@@ -457,8 +457,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 			// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
 			// Starting PCAP internally resets all state (grid, frame builder), so no separate reset needed.
 			// Use "realtime" speed by default to ensure the full tracking pipeline (BackgroundManager,
-			// ForegroundForwarder, warmup) runs — "fastest" mode skips foreground extraction
-			// and produces 0 tracks.
+			// ForegroundForwarder, warmup) runs.
 			pcapCfg := PCAPReplayConfig{
 				PCAPFile:         req.PCAPFile,
 				StartSeconds:     req.PCAPStartSecs,
@@ -469,10 +468,10 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 				DisableRecording: !req.EnableRecording,
 			}
 
-			// If speed_ratio is a sweep variable, use "fixed" mode with the specified ratio
+			// If speed_ratio is a sweep variable, use "scaled" mode with the specified ratio
 			if sr, ok := paramValues["speed_ratio"]; ok {
 				if ratio, ok := toFloat64(sr); ok && ratio > 0 {
-					pcapCfg.SpeedMode = "fixed"
+					pcapCfg.SpeedMode = "scaled"
 					pcapCfg.SpeedRatio = ratio
 				}
 			}

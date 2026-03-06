@@ -241,7 +241,7 @@ func TestReplayConfig_Fields(t *testing.T) {
 	config := ReplayConfig{
 		StartSeconds:    5.5,
 		DurationSeconds: 120.0,
-		SpeedMode:       "fast",
+		SpeedMode:       "analysis",
 		SpeedRatio:      4.0,
 		AnalysisMode:    true,
 	}
@@ -252,8 +252,8 @@ func TestReplayConfig_Fields(t *testing.T) {
 	if config.DurationSeconds != 120.0 {
 		t.Errorf("Expected DurationSeconds 120.0, got %f", config.DurationSeconds)
 	}
-	if config.SpeedMode != "fast" {
-		t.Errorf("Expected SpeedMode 'fast', got '%s'", config.SpeedMode)
+	if config.SpeedMode != "analysis" {
+		t.Errorf("Expected SpeedMode 'analysis', got '%s'", config.SpeedMode)
 	}
 	if config.SpeedRatio != 4.0 {
 		t.Errorf("Expected SpeedRatio 4.0, got %f", config.SpeedRatio)

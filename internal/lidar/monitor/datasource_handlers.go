@@ -429,6 +429,13 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		disableRecording := ws.pcapDisableRecording
 		ws.pcapMu.Unlock()
 
+		// Disable DB track persistence during analysis replays and sweeps that
+		// have recording disabled — prevents polluting the production track store.
+		if isAnalysisMode || disableRecording {
+			ws.pcapDisableTrackPersistence.Store(true)
+			defer ws.pcapDisableTrackPersistence.Store(false)
+		}
+
 		var runID string
 		var recordingStarted bool
 		if isAnalysisMode && ws.analysisRunManager != nil {
@@ -505,7 +512,15 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		}
 
 		var err error
-		if speedMode == "fastest" {
+		if speedMode == "analysis" {
+			// Enable blocking frame channel so every frame is processed
+			// without silent drops. "analysis" uses no pacing (ReadPCAPFile
+			// reads at CPU speed), so back-pressure from the blocking channel
+			// is the only flow-control mechanism.
+			if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
+				fb.SetBlockOnFrameChannel(true)
+				defer fb.SetBlockOnFrameChannel(false)
+			}
 			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, countResult.Count, onProgress)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
@@ -525,17 +540,10 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				defer restoreParams()
 			}
 
-			// Realtime, fast, or fixed ratio
+			// Realtime or scaled ratio
 			multiplier := speedRatio
 			if speedMode == "realtime" {
 				multiplier = 1.0
-			} else if speedMode == "fast" {
-				// Pipeline-paced: use a very high multiplier so the pacer
-				// imposes no timing delay. Back-pressure comes from the
-				// FrameBuilder's blocking frame channel: AddPointsPolar
-				// blocks when the pipeline is busy, naturally throttling
-				// the PCAP reader to match processing throughput.
-				multiplier = 1000.0
 			}
 			if multiplier <= 0 {
 				multiplier = 1.0
@@ -596,15 +604,6 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				OnFrameCallback: onFrameCallback,
 				TotalPackets:    countResult.Count,
 				OnProgress:      onProgress,
-			}
-
-			// Enable blocking frame channel for pipeline-paced modes
-			// so that every frame is processed without drops.
-			if speedMode == "fast" {
-				if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
-					fb.SetBlockOnFrameChannel(true)
-					defer fb.SetBlockOnFrameChannel(false)
-				}
 			}
 
 			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)

@@ -3244,7 +3244,7 @@ func TestWebServer_HandlePCAPStart_WithRealFile(t *testing.T) {
 	server.setBaseContext(ctx)
 
 	// Request to start PCAP replay
-	body := `{"pcap_file": "kirk0.pcapng", "speed_mode": "fastest", "duration_seconds": 0.1}`
+	body := `{"pcap_file": "kirk0.pcapng", "speed_mode": "analysis", "duration_seconds": 0.1}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id="+sensorID, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -3289,7 +3289,7 @@ func TestWebServer_StartPCAPInternal(t *testing.T) {
 
 	// Test StartPCAPInternal with valid config
 	replayConfig := ReplayConfig{
-		SpeedMode:       "fastest",
+		SpeedMode:       "analysis",
 		DurationSeconds: 0.1,
 	}
 
@@ -3330,7 +3330,7 @@ func TestWebServer_StartPCAPInternal_NoBaseContext(t *testing.T) {
 	// Intentionally NOT setting base context
 
 	replayConfig := ReplayConfig{
-		SpeedMode:       "fastest",
+		SpeedMode:       "analysis",
 		DurationSeconds: 0.1,
 	}
 
@@ -3369,7 +3369,7 @@ func TestWebServer_StartPCAPInternal_AlreadyRunning(t *testing.T) {
 	server.setBaseContext(ctx)
 
 	replayConfig := ReplayConfig{
-		SpeedMode:       "fastest",
+		SpeedMode:       "analysis",
 		DurationSeconds: 1.0, // Longer duration to test conflict
 	}
 
@@ -3422,7 +3422,7 @@ func TestWebServer_HandlePCAPStop_Success(t *testing.T) {
 
 	// Start PCAP first
 	replayConfig := ReplayConfig{
-		SpeedMode:       "fastest",
+		SpeedMode:       "analysis",
 		DurationSeconds: 5.0,
 	}
 	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
@@ -3553,7 +3553,7 @@ func TestWebServer_HandleBackgroundGridPolar_WithPCAPData(t *testing.T) {
 
 	// Start brief PCAP to populate grid
 	replayConfig := ReplayConfig{
-		SpeedMode:       "fastest",
+		SpeedMode:       "analysis",
 		DurationSeconds: 0.2,
 	}
 	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
@@ -3892,7 +3892,7 @@ func TestWebServer_IsPCAPInProgress_Complete(t *testing.T) {
 
 	// Start PCAP
 	replayConfig := ReplayConfig{
-		SpeedMode:       "fastest",
+		SpeedMode:       "analysis",
 		DurationSeconds: 1.0,
 	}
 	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
