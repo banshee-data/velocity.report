@@ -371,3 +371,67 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 **Action:** Align all documentation to the actual minimum version (3.12 per `tox.ini`). Update ARCHITECTURE.md and CONTRIBUTING.md accordingly.
 
 **Effort:** 15 minutes
+
+---
+
+## 12. Light Mode / Theme Compliance
+
+### 12.1 TrackList hex ID invisible in light mode — Critical
+
+**Location:** `web/src/lib/components/lidar/TrackList.svelte:1033`
+
+The selected-track row uses a hardcoded `background-color: white` which makes the white hex track ID text invisible when the app is in light mode. The track ID badge text inherits a light colour that has no contrast against the white background.
+
+```css
+background-color: white; /* hardcoded — invisible in light mode */
+```
+
+**Action:** Replace `white` with a theme-aware CSS variable from svelte-ux (e.g. `hsl(var(--color-surface-200))` or `var(--surface-content)`) so the background adapts to both dark and light themes.
+
+**Effort:** 15 minutes
+
+### 12.2 MapPane canvas legend uses hardcoded `#fff` — High
+
+**Location:** `web/src/lib/components/lidar/MapPane.svelte:683, 698`
+
+The canvas legend text is drawn with `ctx.fillStyle = '#fff'`, making it invisible against light-mode backgrounds. The grid label at line 306 (`ctxLocal.strokeStyle = '#fff'`) has the same issue.
+
+```typescript
+ctx!.fillStyle = "#fff"; // legend key text (line 683)
+ctx!.fillStyle = "#fff"; // legend value text (line 698)
+ctxLocal.strokeStyle = "#fff"; // grid label (line 306)
+```
+
+**Action:** Read the current theme from svelte-ux's theme store and derive a contrasting fill colour. For canvas contexts that cannot use CSS variables directly, resolve the computed colour at render time (e.g. `getComputedStyle(canvas).getPropertyValue('--color-surface-content')`).
+
+**Effort:** 1–2 hours
+
+### 12.3 MapPane overlay panels assume dark background — Medium
+
+**Location:** `web/src/lib/components/lidar/MapPane.svelte:886, 899`
+
+Two absolutely-positioned overlay panels use `bg-black text-white` Tailwind classes. In light mode the opaque black panels clash with the lighter UI chrome.
+
+```svelte
+<div class="bg-opacity-75 ... bg-black ... text-white">  <!-- line 886 -->
+<div class="bg-opacity-80 ... bg-black ... text-white">  <!-- line 899 -->
+```
+
+**Action:** Replace `bg-black text-white` with theme-aware surface classes (e.g. `bg-surface-100/75 text-surface-content`) or use `surface-200` with appropriate opacity. The overlays sit atop a dark canvas, so a semi-transparent dark style may be acceptable in both themes — but should be reviewed visually.
+
+**Effort:** 30 minutes
+
+### 12.4 TimelinePane SVG text and stroke hardcoded white — High
+
+**Location:** `web/src/lib/components/lidar/TimelinePane.svelte:280, 303`
+
+SVG track labels use `class="fill-white"` and track lines use `stroke="white"`, making them invisible on light-mode backgrounds.
+
+```svelte
+<text class="fill-white text-xs font-medium" ...>   <!-- line 280 -->
+<line stroke="white" ...>                            <!-- line 303 -->
+```
+
+**Action:** Replace `fill-white` with `fill-current` and set the text colour via a theme-aware CSS class. Replace `stroke="white"` with `stroke="currentColor"` and apply a theme-aware class on the parent `<g>` or `<svg>`.
+
+**Effort:** 30 minutes

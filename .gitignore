@@ -41,6 +41,7 @@ velocity-deploy*
 /visualiser-server
 mock_serial_port*
 /radar
+pcap-analyse
 
 # =============================================================================
 # Database Files
@@ -150,6 +151,10 @@ tools/visualiser-macos/.swiftpm/
 # Generated protobuf files (regenerate with: make proto-gen-swift)
 tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift
 tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/*.swift.disabled
+
+# Generated at build time (rotates on every build); a placeholder is checked
+# in so the file exists, but the real output must not pollute commits
+tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift
 
 # DMG release artefacts (regenerate with: make dmg-mac)
 tools/visualiser-macos/build/*.dmg
