@@ -84,6 +84,12 @@ const (
 
 	// pcapBackoffMaxYield caps the per-packet yield to avoid stalling replay.
 	pcapBackoffMaxYield = 50 * time.Millisecond
+
+	// pcapStartupGracePeriod suppresses backoff during initial pipeline warm-up.
+	// The background grid and tracker need a few seconds to initialise; the
+	// extra processing time would otherwise trigger spurious backoff entries
+	// in the log that do not reflect steady-state performance.
+	pcapStartupGracePeriod = 3 * time.Second
 )
 
 // ReadPCAPFileRealtime reads and replays a PCAP file in real-time, respecting original packet timing.
@@ -158,12 +164,12 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				log.Printf("PCAP real-time replay complete: %d packets processed in %v (speed: %.1fx)", packetCount, elapsed, config.SpeedMultiplier)
 				if backoffCount > 0 {
 					backoffPct := float64(totalBackoffPackets) / float64(max(packetCount, 1)) * 100
-					pcapLog("Replay backoff summary: %d total backoffs, max_behind=%v, backoff_packets=%d/%d (%.1f%%), cumulative_yield=%v, time_breakdown: parse=%v frame=%v pacing=%v",
-						backoffCount, maxBehindBy, totalBackoffPackets, packetCount, backoffPct, cumulativeYield,
-						cumulativeParseTime, cumulativeFrameTime, cumulativePacingTime)
+					pcapLog("Replay backoff summary: %d total backoffs, max_behind=%.3fs, backoff_packets=%d/%d (%.1f%%), cumulative_yield=%.3fs, time_breakdown: parse=%.3fs frame=%.3fs pacing=%.3fs",
+						backoffCount, maxBehindBy.Seconds(), totalBackoffPackets, packetCount, backoffPct, cumulativeYield.Seconds(),
+						cumulativeParseTime.Seconds(), cumulativeFrameTime.Seconds(), cumulativePacingTime.Seconds())
 				}
 				// Final progress callback
-				if config.OnProgress != nil && config.TotalPackets > 0 {
+				if config.OnProgress != nil {
 					config.OnProgress(packetIndex, config.TotalPackets)
 				}
 				return nil
@@ -183,7 +189,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			}
 
 			// Report progress periodically (every 100 packets)
-			if config.OnProgress != nil && config.TotalPackets > 0 && packetIndex%100 == 0 {
+			if config.OnProgress != nil && packetIndex%100 == 0 {
 				config.OnProgress(packetIndex, config.TotalPackets)
 			}
 
@@ -265,7 +271,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					if inBackoff {
 						backoffSpan := packetCount - backoffPacketStart
 						totalBackoffPackets += backoffSpan
-						pcapLog("Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.1fs wall=%.1fs)",
+						pcapLog("Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.3fs wall=%.3fs)",
 							backoffCount, backoffSpan, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
 						inBackoff = false
 					}
@@ -277,7 +283,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						// Continue
 					}
 					cumulativePacingTime += time.Since(pacingStart)
-				} else if waitTime < -pcapBackoffThreshold {
+				} else if waitTime < -pcapBackoffThreshold && time.Since(replayStartTime) > pcapStartupGracePeriod {
 					// Pipeline is behind schedule. Apply dynamic backoff:
 					// yield proportionally to how far behind we are, capped
 					// at pcapBackoffMaxYield. This lets the pipeline drain
@@ -298,9 +304,9 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					if !inBackoff {
 						// First backoff in this sequence — log with time breakdown
 						diagPackets := packetCount - lastDiagPacket
-						pcapLog("Backoff: pipeline behind by %v, yielding %v (packets=%d pcap=%.1fs wall=%.1fs, since_last_diag=%d: parse=%v frame=%v pacing=%v)",
-							behindBy, yield, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds(),
-							diagPackets, cumulativeParseTime, cumulativeFrameTime, cumulativePacingTime)
+						pcapLog("Backoff: pipeline behind by %.3fs, yielding %.3fs (packets=%d pcap=%.3fs wall=%.3fs, since_last_diag=%d: parse=%.3fs frame=%.3fs pacing=%.3fs)",
+							behindBy.Seconds(), yield.Seconds(), packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds(),
+							diagPackets, cumulativeParseTime.Seconds(), cumulativeFrameTime.Seconds(), cumulativePacingTime.Seconds())
 						inBackoff = true
 						backoffPacketStart = packetCount
 						// Reset diagnostic counters
@@ -310,8 +316,8 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						cumulativePacingTime = 0
 					} else if backoffCount%50 == 0 {
 						// Sustained backoff — log periodically
-						pcapLog("Backoff: pipeline behind by %v, yielding %v (total backoffs: %d packets=%d pcap=%.1fs wall=%.1fs)",
-							behindBy, yield, backoffCount, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
+						pcapLog("Backoff: pipeline behind by %.3fs, yielding %.3fs (total backoffs: %d packets=%d pcap=%.3fs wall=%.3fs)",
+							behindBy.Seconds(), yield.Seconds(), backoffCount, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
 					}
 					select {
 					case <-ctx.Done():
@@ -324,7 +330,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					// but within tolerance. Log recovery with span info.
 					backoffSpan := packetCount - backoffPacketStart
 					totalBackoffPackets += backoffSpan
-					pcapLog("Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.1fs wall=%.1fs)",
+					pcapLog("Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.3fs wall=%.3fs)",
 						backoffCount, backoffSpan, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
 					inBackoff = false
 				}
