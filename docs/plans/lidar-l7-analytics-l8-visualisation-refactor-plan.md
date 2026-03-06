@@ -1,4 +1,4 @@
-# LiDAR L7 Analytics / L8 Visualization Refactor Plan
+# LiDAR L7 Analytics / L8 Visualisation Refactor Plan
 
 **Status:** Proposed implementation plan
 **Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06.
@@ -9,7 +9,7 @@
 velocity.report currently documents and implements a six-layer LiDAR model that ends at `L6 Objects`. The desired target is an eight-layer model that adds:
 
 - `L7 Analytics` for canonical traffic, safety, and run-analysis logic
-- `L8 Visualization` for operator-facing rendering, payload shaping, dashboards, and visual review workflows
+- `L8 Visualisation` for operator-facing rendering, payload shaping, dashboards, and visual review workflows
 
 This is a breaking architectural change, not just a terminology update. The main goal is to stop overloading `L6 Objects`, `storage/sqlite`, and `monitor/` with responsibilities that belong to analytics and presentation.
 
@@ -72,8 +72,8 @@ The repo already contains analytics and presentation logic that do not fit the c
 | `internal/lidar/storage/sqlite/analysis_run.go` | run comparison orchestration, percentiles, run-track summary logic | storage plus `L7 Analytics` service split |
 | `internal/lidar/storage/sqlite/analysis_run_compare.go` | parameter diffing for run comparison | likely `L7 Analytics` |
 | `internal/lidar/monitor/track_api.go` | track summary aggregation and response shaping | `L7 Analytics` plus `L8`/handler boundary |
-| `internal/lidar/monitor/chart_data.go` | chart-specific view-model shaping | `L8 Visualization` |
-| `internal/lidar/monitor/chart_api.go` | presentation-facing chart APIs | `L8 Visualization` |
+| `internal/lidar/monitor/chart_data.go` | chart-specific view-model shaping | `L8 Visualisation` |
+| `internal/lidar/monitor/chart_api.go` | presentation-facing chart APIs | `L8 Visualisation` |
 | `internal/lidar/monitor/scene_api.go` | scene CRUD plus evaluation/replay orchestration | mixed infra plus `L7` application services |
 | `internal/lidar/monitor/run_track_api.go` | run, labelling, evaluation, and comparison flows | mixed infra plus `L7` application services |
 
@@ -99,7 +99,7 @@ This means Phase 1 is not “invent L8 from nothing”. It is “formalize L8 ow
 | L5 | Tracks | temporal association, identity, lifecycle, motion estimation |
 | L6 | Objects | semantic actor interpretation and object-level quality/classification |
 | L7 | Analytics | canonical metrics, summaries, comparisons, scoring, evaluation logic |
-| L8 | Visualization | rendering, dashboards, review workflows, payload shaping, UI contracts |
+| L8 | Visualisation | rendering, dashboards, review workflows, payload shaping, UI contracts |
 
 ## Design Rules
 
@@ -107,7 +107,7 @@ This means Phase 1 is not “invent L8 from nothing”. It is “formalize L8 ow
 
 - `L(n)` may depend on `L(n-1)` and below, never upward.
 - `L7 Analytics` may depend on `L1` through `L6`, but must not depend on UI, HTML, Svelte, SwiftUI, or chart-library code.
-- `L8 Visualization` may consume canonical `L7` outputs and selected raw `L3`/`L5`/`L6` artifacts for debug rendering.
+- `L8 Visualisation` may consume canonical `L7` outputs and selected raw `L3`/`L5`/`L6` artifacts for debug rendering.
 - `L8` must not define canonical metrics, summaries, or comparisons.
 - `storage/sqlite` is infrastructure and persistence, not the permanent home of analytics logic.
 - `monitor/` is an application/integration boundary, not a canonical domain layer.
@@ -164,7 +164,7 @@ Initial `L7` candidates to move or extract:
 - labelling progress and run-evaluation summary types where they represent aggregates, not raw storage rows
 - parameter comparison helpers currently tied to run comparison
 
-### L8 Visualization
+### L8 Visualisation
 
 Keep the current L8 surface area explicit rather than forcing it all into one directory:
 
@@ -193,7 +193,7 @@ Provisional classification:
 | --- | --- |
 | `stats.go`, `datasource*.go`, `playback_handlers.go`, `export_handlers.go`, route registration in `webserver.go` | infrastructure/application |
 | `track_api.go`, `scene_api.go`, `run_track_api.go`, parts of `sweep_handlers.go` | thin HTTP layer over `L7` services |
-| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/` | `L8 Visualization` |
+| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/` | `L8 Visualisation` |
 
 ## Phased Implementation Plan
 
@@ -263,7 +263,7 @@ Provisional classification:
 - handlers delegate to explicit use-case logic
 - `L7` becomes the only canonical home of LiDAR run/summary/comparison analytics
 
-### Phase 4: Formalize the L8 Visualization Boundary
+### Phase 4: Formalize the L8 Visualisation Boundary
 
 ### Goals
 
@@ -281,7 +281,7 @@ Provisional classification:
 
 ### Outputs
 
-- the Go-side visualization boundary is documented and intentional
+- the Go-side visualisation boundary is documented and intentional
 - server-side chart and dashboard shaping is no longer mixed with analytics logic
 - client applications consume canonical analytics rather than recreating them
 
@@ -383,7 +383,7 @@ Provisional classification:
 - [ ] comparison logic delegates to `L7`
 - [ ] new or moved `L7` code has direct unit tests
 
-### L8 visualization boundary
+### L8 visualisation boundary
 
 - [ ] canonical `L8` surfaces documented for Go, proto, web, and macOS
 - [ ] server-side chart/view-model shaping has an explicit `L8` home
