@@ -1,7 +1,7 @@
 # LiDAR L7 Analytics / L8 Visualization Refactor Plan
 
 **Status:** Proposed implementation plan
-**Source:** Imported from `/Users/david/Library/Mobile Documents/com~apple~CloudDocs/Downloads/plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06.
+**Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06.
 **Scope:** LiDAR architecture docs, `internal/lidar`, `proto/velocity_visualiser/v1`, `web/`, and the macOS visualiser integration boundary.
 
 ## Executive Summary
