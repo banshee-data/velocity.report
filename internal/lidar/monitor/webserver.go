@@ -98,16 +98,17 @@ type WebServer struct {
 	baseCtx           context.Context
 
 	// PCAP replay state
-	pcapMu               sync.Mutex
-	pcapInProgress       bool
-	pcapCancel           context.CancelFunc
-	pcapDone             chan struct{}
-	pcapAnalysisMode     bool        // When true, preserve grid after PCAP completion
-	pcapDisableRecording bool        // When true, skip VRLOG recording during PCAP replay
-	pcapBenchmarkMode    atomic.Bool // When true, enable pipeline performance tracing
-	pcapSpeedMode        string
-	pcapSpeedRatio       float64
-	pcapLastRunID        string // Last analysis run ID from PCAP replay (protected by pcapMu)
+	pcapMu                      sync.Mutex
+	pcapInProgress              bool
+	pcapCancel                  context.CancelFunc
+	pcapDone                    chan struct{}
+	pcapAnalysisMode            bool        // When true, preserve grid after PCAP completion
+	pcapDisableRecording        bool        // When true, skip VRLOG recording during PCAP replay
+	pcapBenchmarkMode           atomic.Bool // When true, enable pipeline performance tracing
+	pcapDisableTrackPersistence atomic.Bool // When true, skip DB track/observation writes
+	pcapSpeedMode               string
+	pcapSpeedRatio              float64
+	pcapLastRunID               string // Last analysis run ID from PCAP replay (protected by pcapMu)
 
 	// PCAP progress tracking (protected by pcapMu)
 	pcapCurrentPacket uint64 // 0-based index of current packet
@@ -381,6 +382,14 @@ func (ws *WebServer) SetSweepStore(store *sqlite.SweepStore) {
 // so benchmark logging is toggled at runtime via the dashboard checkbox.
 func (ws *WebServer) BenchmarkMode() *atomic.Bool {
 	return &ws.pcapBenchmarkMode
+}
+
+// DisableTrackPersistenceFlag returns a pointer to the atomic.Bool that
+// suppresses DB track/observation writes. Wire this into
+// TrackingPipelineConfig.DisableTrackPersistence so analysis replays
+// and parameter sweeps do not pollute the production track store.
+func (ws *WebServer) DisableTrackPersistenceFlag() *atomic.Bool {
+	return &ws.pcapDisableTrackPersistence
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
