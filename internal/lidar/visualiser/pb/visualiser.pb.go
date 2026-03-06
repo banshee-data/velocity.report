@@ -2175,6 +2175,7 @@ type PlaybackInfo struct {
 	CurrentFrameIndex uint64                 `protobuf:"varint,6,opt,name=current_frame_index,json=currentFrameIndex,proto3" json:"current_frame_index,omitempty"` // current position in log (0-based)
 	TotalFrames       uint64                 `protobuf:"varint,7,opt,name=total_frames,json=totalFrames,proto3" json:"total_frames,omitempty"`                     // total frames in log
 	Seekable          bool                   `protobuf:"varint,8,opt,name=seekable,proto3" json:"seekable,omitempty"`                                              // true if seek/step is supported (e.g. .vrlog replay)
+	ReplayEpoch       uint64                 `protobuf:"varint,9,opt,name=replay_epoch,json=replayEpoch,proto3" json:"replay_epoch,omitempty"`                     // monotonically increasing epoch; bumped on each new replay load
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -2263,6 +2264,13 @@ func (x *PlaybackInfo) GetSeekable() bool {
 		return x.Seekable
 	}
 	return false
+}
+
+func (x *PlaybackInfo) GetReplayEpoch() uint64 {
+	if x != nil {
+		return x.ReplayEpoch
+	}
+	return 0
 }
 
 type FrameBundle struct {
@@ -3330,7 +3338,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vsource_file\x18\x02 \x01(\tR\n" +
 	"sourceFile\x12:\n" +
-	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\x93\x02\n" +
+	"\x06labels\x18\x03 \x03(\v2\".velocity.visualiser.v1.LabelEventR\x06labels\"\xb6\x02\n" +
 	"\fPlaybackInfo\x12\x17\n" +
 	"\ais_live\x18\x01 \x01(\bR\x06isLive\x12 \n" +
 	"\flog_start_ns\x18\x02 \x01(\x03R\n" +
@@ -3341,7 +3349,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x06paused\x18\x05 \x01(\bR\x06paused\x12.\n" +
 	"\x13current_frame_index\x18\x06 \x01(\x04R\x11currentFrameIndex\x12!\n" +
 	"\ftotal_frames\x18\a \x01(\x04R\vtotalFrames\x12\x1a\n" +
-	"\bseekable\x18\b \x01(\bR\bseekable\"\xc3\x05\n" +
+	"\bseekable\x18\b \x01(\bR\bseekable\x12!\n" +
+	"\freplay_epoch\x18\t \x01(\x04R\vreplayEpoch\"\xc3\x05\n" +
 	"\vFrameBundle\x12\x19\n" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +
