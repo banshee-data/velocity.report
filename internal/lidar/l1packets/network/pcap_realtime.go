@@ -110,6 +110,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	log.Printf("PCAP real-time replay: BPF filter set: %s (speed: %.1fx)", filterStr, config.SpeedMultiplier)
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	pcapLog := lidar.SubLogger("pcap")
 	var packetIndex uint64 // 0-based index across all matching packets
 	packetCount := 0
 	totalPoints := 0
@@ -121,6 +122,12 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	var backoffPacketStart int        // Packet count when current backoff sequence started
 	var totalBackoffPackets int       // Total packets processed during backoff sequences
 	var cumulativeYield time.Duration // Total time spent sleeping in backoff
+
+	// Diagnostic: track cumulative time spent in processing phases
+	var cumulativeParseTime time.Duration  // ParsePacket time
+	var cumulativeFrameTime time.Duration  // AddPointsPolar + SetMotorSpeed time
+	var cumulativePacingTime time.Duration // time.After sleep time (intended pacing)
+	var lastDiagPacket int                 // Last packet where diagnostics were logged
 
 	// Offset-based seek: skip packets until we reach PacketOffset
 	skippingToOffset := config.PacketOffset > 0
@@ -151,8 +158,9 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				log.Printf("PCAP real-time replay complete: %d packets processed in %v (speed: %.1fx)", packetCount, elapsed, config.SpeedMultiplier)
 				if backoffCount > 0 {
 					backoffPct := float64(totalBackoffPackets) / float64(max(packetCount, 1)) * 100
-					lidar.Opsf("[PCAP] Replay backoff summary: %d total backoffs, max_behind=%v, backoff_packets=%d/%d (%.1f%%), cumulative_yield=%v",
-						backoffCount, maxBehindBy, totalBackoffPackets, packetCount, backoffPct, cumulativeYield)
+					pcapLog("Replay backoff summary: %d total backoffs, max_behind=%v, backoff_packets=%d/%d (%.1f%%), cumulative_yield=%v, time_breakdown: parse=%v frame=%v pacing=%v",
+						backoffCount, maxBehindBy, totalBackoffPackets, packetCount, backoffPct, cumulativeYield,
+						cumulativeParseTime, cumulativeFrameTime, cumulativePacingTime)
 				}
 				// Final progress callback
 				if config.OnProgress != nil && config.TotalPackets > 0 {
@@ -257,16 +265,18 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					if inBackoff {
 						backoffSpan := packetCount - backoffPacketStart
 						totalBackoffPackets += backoffSpan
-						lidar.Opsf("[PCAP] Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.1fs wall=%.1fs)",
+						pcapLog("Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.1fs wall=%.1fs)",
 							backoffCount, backoffSpan, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
 						inBackoff = false
 					}
+					pacingStart := time.Now()
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
 					case <-time.After(waitTime):
 						// Continue
 					}
+					cumulativePacingTime += time.Since(pacingStart)
 				} else if waitTime < -pcapBackoffThreshold {
 					// Pipeline is behind schedule. Apply dynamic backoff:
 					// yield proportionally to how far behind we are, capped
@@ -286,14 +296,21 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 						maxBehindBy = behindBy
 					}
 					if !inBackoff {
-						// First backoff in this sequence — always log
-						lidar.Opsf("[PCAP] Backoff: pipeline behind by %v, yielding %v (packets=%d pcap=%.1fs wall=%.1fs)",
-							behindBy, yield, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
+						// First backoff in this sequence — log with time breakdown
+						diagPackets := packetCount - lastDiagPacket
+						pcapLog("Backoff: pipeline behind by %v, yielding %v (packets=%d pcap=%.1fs wall=%.1fs, since_last_diag=%d: parse=%v frame=%v pacing=%v)",
+							behindBy, yield, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds(),
+							diagPackets, cumulativeParseTime, cumulativeFrameTime, cumulativePacingTime)
 						inBackoff = true
 						backoffPacketStart = packetCount
+						// Reset diagnostic counters
+						lastDiagPacket = packetCount
+						cumulativeParseTime = 0
+						cumulativeFrameTime = 0
+						cumulativePacingTime = 0
 					} else if backoffCount%50 == 0 {
 						// Sustained backoff — log periodically
-						lidar.Opsf("[PCAP] Backoff: pipeline behind by %v, yielding %v (total backoffs: %d packets=%d pcap=%.1fs wall=%.1fs)",
+						pcapLog("Backoff: pipeline behind by %v, yielding %v (total backoffs: %d packets=%d pcap=%.1fs wall=%.1fs)",
 							behindBy, yield, backoffCount, packetCount, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
 					}
 					select {
@@ -307,7 +324,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					// but within tolerance. Log recovery with span info.
 					backoffSpan := packetCount - backoffPacketStart
 					totalBackoffPackets += backoffSpan
-					lidar.Opsf("[PCAP] Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.1fs wall=%.1fs)",
+					pcapLog("Backoff cleared: pipeline caught up after %d backoffs, span=%d packets (pcap=%.1fs wall=%.1fs)",
 						backoffCount, backoffSpan, pcapElapsed.Seconds(), actualWallElapsed.Seconds())
 					inBackoff = false
 				}
@@ -347,7 +364,9 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					tsParser.SetPacketTime(captureTime)
 				}
 
+				parseStart := time.Now()
 				points, err := parser.ParsePacket(payload)
+				cumulativeParseTime += time.Since(parseStart)
 				if err != nil {
 					log.Printf("Error parsing PCAP packet %d: %v", packetCount, err)
 					continue
@@ -374,11 +393,13 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				}
 
 				if frameBuilder != nil {
+					frameStart := time.Now()
 					frameBuilder.AddPointsPolar(points)
 					motorSpeed := parser.GetLastMotorSpeed()
 					if motorSpeed > 0 {
 						frameBuilder.SetMotorSpeed(motorSpeed)
 					}
+					cumulativeFrameTime += time.Since(frameStart)
 				}
 
 				// Foreground extraction & snapshot caching if background manager is available
