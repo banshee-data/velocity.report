@@ -1080,7 +1080,8 @@ private let logger = DevLogger(category: "AppState")
         let perfStart = ContinuousClock.now
         let eventGeneration = generation ?? playbackStateGeneration
         guard eventGeneration == playbackStateGeneration else {
-            logger.debug("Ignoring stale frame for generation \(eventGeneration)")
+            let epoch = frame.playbackInfo?.replayEpoch ?? 0
+            logger.debug("Ignoring stale frame for generation \(eventGeneration) (epoch=\(epoch))")
             return
         }
         // Update non-published frame data immediately (bypasses SwiftUI)

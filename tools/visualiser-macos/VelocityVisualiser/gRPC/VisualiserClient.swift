@@ -197,16 +197,25 @@ enum VisualiserClientError: Error, LocalizedError {
 
     private func startStreamingTask() {
         _streamTerminationNotified = false
+        // Capture the delegate at stream start so this entire stream
+        // is structurally bound to one handler for its lifetime.
+        // When restartGRPCStream() replaces the delegate and starts a
+        // new stream, the old stream keeps delivering to the old delegate
+        // (which carries the old generation → frames are dropped).
+        let streamDelegate = self.delegate
         let task = Task { [weak self] in
             guard let self = self else { return }
 
             do {
-                try await self.streamFrames()
+                try await self.streamFrames(streamDelegate: streamDelegate)
                 // Stream returned normally — notify replay finish.
                 // Also notified inside onResponse, but this is the
                 // belt-and-suspenders fallback (idempotent).
                 if !Task.isCancelled {
-                    await MainActor.run { self.handleStreamTermination(wasCancelled: false) }
+                    await MainActor.run {
+                        self.handleStreamTermination(
+                            wasCancelled: false, streamDelegate: streamDelegate)
+                    }
                 }
             } catch {
                 if !Task.isCancelled {
@@ -215,14 +224,14 @@ enum VisualiserClientError: Error, LocalizedError {
                     // Do not mark the stream as naturally finished here: this is
                     // an error path. Let EOF/normal completion paths invoke
                     // handleStreamTermination instead.
-                    await MainActor.run { self.delegate?.clientDidDisconnect(self, error: error) }
+                    await MainActor.run { streamDelegate?.clientDidDisconnect(self, error: error) }
                 }
             }
         }
         _streamTask.value = task
     }
 
-    private func streamFrames() async throws {
+    private func streamFrames(streamDelegate: VisualiserClientDelegate?) async throws {
         guard let grpcClient = _grpcClient.value else { throw VisualiserClientError.notConnected }
 
         // Create service client
@@ -290,12 +299,14 @@ enum VisualiserClientError: Error, LocalizedError {
 
                             // Decode proto to internal model off the main actor,
                             // then hop to MainActor only to notify the delegate.
+                            // The delegate was captured once at stream start (Fix 3),
+                            // structurally binding this entire stream to one handler.
                             guard let strongSelf = self else { continue }
                             let frame = strongSelf.decodeFrameBundle(protoFrame)
 
                             await MainActor.run { [weak strongSelf] in
                                 guard let self = strongSelf else { return }
-                                self.delegate?.client(self, didReceiveFrame: frame)
+                                streamDelegate?.client(self, didReceiveFrame: frame)
                             }
                         }
                         print(
@@ -312,7 +323,8 @@ enum VisualiserClientError: Error, LocalizedError {
                         )
                     }
 
-                    await self?.notifyStreamTerminationOnMainActor(wasCancelled: Task.isCancelled)
+                    await self?.notifyStreamTerminationOnMainActor(
+                        wasCancelled: Task.isCancelled, streamDelegate: streamDelegate)
 
                 case .failure(let error):
                     print("[VisualiserClient] ❌ Stream rejected: \(error)")
@@ -335,7 +347,9 @@ enum VisualiserClientError: Error, LocalizedError {
     /// for the current streaming task.  Reset in `startStreamingTask()`.
     private var _streamTerminationNotified = false
 
-    @MainActor func handleStreamTermination(wasCancelled: Bool) {
+    @MainActor func handleStreamTermination(
+        wasCancelled: Bool, streamDelegate: VisualiserClientDelegate? = nil
+    ) {
         // Only notify delegate of a natural finish (replay complete). If the task
         // was cancelled (e.g. restartStream()), the stream exit is intentional.
         guard !wasCancelled else {
@@ -349,12 +363,18 @@ enum VisualiserClientError: Error, LocalizedError {
             return
         }
         _streamTerminationNotified = true
-        delegate?.clientDidFinishStream(self)
+        // Use the stream-bound delegate if provided (Fix 3), falling back to
+        // current delegate for backwards compatibility with direct callers.
+        let targetDelegate = streamDelegate ?? delegate
+        targetDelegate?.clientDidFinishStream(self)
     }
 
-    func notifyStreamTerminationOnMainActor(wasCancelled: Bool) async {
+    func notifyStreamTerminationOnMainActor(
+        wasCancelled: Bool, streamDelegate: VisualiserClientDelegate? = nil
+    ) async {
         await MainActor.run { [weak self] in
-            self?.handleStreamTermination(wasCancelled: wasCancelled)
+            self?.handleStreamTermination(
+                wasCancelled: wasCancelled, streamDelegate: streamDelegate)
         }
     }
 
@@ -640,7 +660,8 @@ final class LockedState<Value>: @unchecked Sendable {
                 logEndNs: proto.playbackInfo.logEndNs,
                 playbackRate: proto.playbackInfo.playbackRate, paused: proto.playbackInfo.paused,
                 currentFrameIndex: proto.playbackInfo.currentFrameIndex,
-                totalFrames: proto.playbackInfo.totalFrames, seekable: proto.playbackInfo.seekable)
+                totalFrames: proto.playbackInfo.totalFrames, seekable: proto.playbackInfo.seekable,
+                replayEpoch: proto.playbackInfo.replayEpoch)
         }
 
         // Debug overlays
