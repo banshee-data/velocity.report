@@ -45,6 +45,12 @@ type TrackObservation struct {
 	IntensityMean     float32
 }
 
+// Executor is satisfied by both *sql.DB and *sql.Tx, allowing callers to pass
+// either directly or inside a batching transaction.
+type Executor interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
 // InsertCluster inserts a cluster into the database and returns its ID.
 func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 	query := `
@@ -83,7 +89,7 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 }
 
 // InsertTrack inserts a new track into the database.
-func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
+func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 	// Compute speed percentiles
 	p50, p85, p95 := ComputeSpeedPercentiles(track.SpeedHistory())
 
@@ -124,7 +130,7 @@ func InsertTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 	// This allows accurate time range queries for track history visualization
 	endNanos := track.LastUnixNanos
 
-	_, err := db.Exec(query,
+	_, err := exec.Exec(query,
 		track.TrackID,
 		track.SensorID,
 		worldFrame,
@@ -206,7 +212,7 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 }
 
 // InsertTrackObservation inserts a track observation into the database.
-func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
+func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 	query := `
 		INSERT OR REPLACE INTO lidar_track_obs (
 			track_id, ts_unix_nanos, world_frame,
@@ -217,7 +223,7 @@ func InsertTrackObservation(db *sql.DB, obs *TrackObservation) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := db.Exec(query,
+	_, err := exec.Exec(query,
 		obs.TrackID,
 		obs.TSUnixNanos,
 		obs.WorldFrame,
