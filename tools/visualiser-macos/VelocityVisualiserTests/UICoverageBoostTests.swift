@@ -33,9 +33,10 @@ private func makeTrack(
         firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000, x: 10, y: 5, z: 0.5, vx: 8,
         vy: 0.5, vz: 0, speedMps: speed, headingRad: 0.1, covariance4x4: [], bboxLength: 4.5,
         bboxWidth: 1.8, bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6,
-        intensityMeanAvg: 50, avgSpeedMps: 7.5, peakSpeedMps: peakSpeed, classLabel: classLabel,
-        classConfidence: 0.95, trackLengthMetres: 150, trackDurationSecs: 20, occlusionCount: 0,
-        confidence: 0.98, occlusionState: .none, motionModel: .cv, alpha: 1.0)
+        intensityMeanAvg: 50, p50SpeedMps: 7.5, peakSpeedMps: peakSpeed, p85SpeedMps: 8.0,
+        p98SpeedMps: 8.5, classLabel: classLabel, classConfidence: 0.95, trackLengthMetres: 150,
+        trackDurationSecs: 20, occlusionCount: 0, confidence: 0.98, occlusionState: .none,
+        motionModel: .cv, alpha: 1.0)
 }
 
 private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
@@ -377,7 +378,7 @@ struct StringTruncatedTests {
             runId: "run-zero", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 0, totalFrames: 0,
             totalClusters: 0, totalTracks: 0, confirmedTracks: 0, status: "running",
-            errorMessage: nil, vrlogPath: nil, notes: nil)
+            errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: nil)
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
     }
@@ -387,7 +388,7 @@ struct StringTruncatedTests {
             runId: "run-long", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 7200,
             totalFrames: 72000, totalClusters: 5000, totalTracks: 500, confirmedTracks: 400,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long")
+            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long", sceneName: nil)
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
     }
@@ -697,6 +698,11 @@ struct ParseQualityFlagsTests {
 
     @Test func duplicatesCollapsed() {
         let result = parseQualityFlags("noisy,noisy,split")
+        #expect(result == ["noisy", "split"])
+    }
+
+    @Test func filtersWhitespaceOnlySegments() {
+        let result = parseQualityFlags("noisy, , split")
         #expect(result == ["noisy", "split"])
     }
 }
@@ -1024,7 +1030,7 @@ struct SerialiseFlagsTests {
             runId: runId, createdAt: Date(), sourceType: "vrlog", sourcePath: "/data/test.vrlog",
             sensorId: "sensor-1", durationSecs: durationSecs, totalFrames: 100, totalClusters: 50,
             totalTracks: totalTracks, confirmedTracks: 5, status: status, errorMessage: nil,
-            vrlogPath: vrlogPath, notes: nil)
+            vrlogPath: vrlogPath, notes: nil, sceneName: nil)
     }
 
     private func host<V: View>(_ view: V, state: AppState) {

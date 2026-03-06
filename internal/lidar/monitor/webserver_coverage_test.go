@@ -2929,7 +2929,7 @@ func TestCov3_HandlePCAPStart_FormDataWithDebugParams(t *testing.T) {
 		stats:         NewPacketStats(),
 	}
 
-	form := strings.NewReader("pcap_file=test.pcap&speed_mode=fastest&speed_ratio=3.0&start_seconds=5&duration_seconds=20&debug_ring_min=2&debug_ring_max=8&debug_az_min=10&debug_az_max=350&enable_debug=true&enable_plots=1&analysis_mode=true")
+	form := strings.NewReader("pcap_file=test.pcap&speed_mode=analysis&speed_ratio=3.0&start_seconds=5&duration_seconds=20&debug_ring_min=2&debug_ring_max=8&debug_az_min=10&debug_az_max=350&enable_debug=true&enable_plots=1&analysis_mode=true")
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=cov3-pcapstart-form", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
@@ -3179,6 +3179,7 @@ func setupTrackDB(t *testing.T) *sql.DB {
 		start_unix_nanos INTEGER NOT NULL,
 		end_unix_nanos INTEGER,
 		observation_count INTEGER,
+		p50_speed_mps REAL,
 		avg_speed_mps REAL,
 		peak_speed_mps REAL,
 		bounding_box_length_avg REAL,
@@ -3278,20 +3279,20 @@ func TestCov3_HandleTracksChart_WithDBData(t *testing.T) {
 	now := time.Now().UnixNano()
 	_, err := rawDB.Exec(`INSERT INTO lidar_tracks
 		(track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-		 observation_count, avg_speed_mps, peak_speed_mps,
+		 observation_count, p50_speed_mps, avg_speed_mps, peak_speed_mps,
 		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		 height_p95_max, intensity_mean_avg)
-		VALUES ('t1', ?, 'active', ?, ?, 10, 1.5, 3.0, 0.5, 0.3, 0.4, 0.8, 90.0)`,
+		VALUES ('t1', ?, 'active', ?, ?, 10, 1.5, 1.5, 3.0, 0.5, 0.3, 0.4, 0.8, 90.0)`,
 		sensorID, now-1000000, now)
 	if err != nil {
 		t.Fatalf("insert track: %v", err)
 	}
 	_, err = rawDB.Exec(`INSERT INTO lidar_tracks
 		(track_id, sensor_id, track_state, start_unix_nanos,
-		 observation_count, avg_speed_mps, peak_speed_mps,
+		 observation_count, p50_speed_mps, avg_speed_mps, peak_speed_mps,
 		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		 height_p95_max, intensity_mean_avg)
-		VALUES ('t2', ?, 'completed', ?, 5, 0.8, 1.2, 0.4, 0.2, 0.3, 0.6, 70.0)`,
+		VALUES ('t2', ?, 'completed', ?, 5, 0.8, 0.8, 1.2, 0.4, 0.2, 0.3, 0.6, 70.0)`,
 		sensorID, now-2000000)
 	if err != nil {
 		t.Fatalf("insert track 2: %v", err)
@@ -3330,10 +3331,10 @@ func TestCov3_HandleTracksChart_WithStateFilter(t *testing.T) {
 	now := time.Now().UnixNano()
 	_, _ = rawDB.Exec(`INSERT INTO lidar_tracks
 		(track_id, sensor_id, track_state, start_unix_nanos,
-		 observation_count, avg_speed_mps, peak_speed_mps,
+		 observation_count, p50_speed_mps, avg_speed_mps, peak_speed_mps,
 		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		 height_p95_max, intensity_mean_avg)
-		VALUES ('t1', ?, 'active', ?, 8, 1.0, 2.0, 0.3, 0.3, 0.3, 0.7, 80.0)`,
+		VALUES ('t1', ?, 'active', ?, 8, 1.0, 1.0, 2.0, 0.3, 0.3, 0.3, 0.7, 80.0)`,
 		sensorID, now)
 
 	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks_chart?sensor_id="+sensorID+"&state=active", nil)
@@ -3812,6 +3813,7 @@ func setupCov4WebServer(t *testing.T) *WebServer {
 			start_unix_nanos INTEGER NOT NULL DEFAULT 0,
 			end_unix_nanos INTEGER DEFAULT 0,
 			observation_count INTEGER DEFAULT 0,
+			p50_speed_mps REAL DEFAULT 0,
 			avg_speed_mps REAL DEFAULT 0,
 			peak_speed_mps REAL DEFAULT 0,
 			bounding_box_length_avg REAL DEFAULT 0,
@@ -4277,8 +4279,8 @@ func TestCov4_HandleTracksChart_WithData(t *testing.T) {
 	now := time.Now().UnixNano()
 	for i := 0; i < 3; i++ {
 		_, err := ws.db.DB.Exec(
-			`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos, observation_count, avg_speed_mps, peak_speed_mps, bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg, height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model)
-			 VALUES (?, 'cov4-sensor', 'world', 'active', ?, ?, 5, 2.0, 3.0, 1.5, 0.8, 0.5, 1.0, 100.0, 'vehicle', 0.9, 'default')`,
+			`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos, observation_count, p50_speed_mps, avg_speed_mps, peak_speed_mps, bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg, height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model)
+			 VALUES (?, 'cov4-sensor', 'world', 'active', ?, ?, 5, 2.0, 2.0, 3.0, 1.5, 0.8, 0.5, 1.0, 100.0, 'vehicle', 0.9, 'default')`,
 			fmt.Sprintf("track-%d", i), now-int64(i)*1e9, now,
 		)
 		if err != nil {
@@ -5792,4 +5794,63 @@ func TestCov7_HandleTuningParams_MethodNotAllowed(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleTuningParams(w, req)
 	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+// --- BenchmarkMode accessor ---
+
+func TestCov_BenchmarkMode_ReturnsSamePointer(t *testing.T) {
+	ws := &WebServer{}
+	bm1 := ws.BenchmarkMode()
+	bm2 := ws.BenchmarkMode()
+
+	if bm1 != bm2 {
+		t.Error("expected BenchmarkMode() to return the same pointer on repeated calls")
+	}
+}
+
+func TestCov_BenchmarkMode_StoreAndLoad(t *testing.T) {
+	ws := &WebServer{}
+	bm := ws.BenchmarkMode()
+
+	// Default should be false
+	if bm.Load() {
+		t.Error("expected BenchmarkMode to default to false")
+	}
+
+	// Store true and verify
+	bm.Store(true)
+	if !bm.Load() {
+		t.Error("expected BenchmarkMode to be true after Store(true)")
+	}
+
+	// Verify through fresh accessor
+	if !ws.BenchmarkMode().Load() {
+		t.Error("expected BenchmarkMode to be true via second accessor call")
+	}
+}
+
+// --- setupRoutes pprof registration ---
+
+func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
+	ws := &WebServer{
+		sensorID:       "pprof-test-sensor",
+		latestFgCounts: make(map[string]int),
+	}
+
+	mux := ws.setupRoutes()
+
+	// Verify pprof endpoints return 200 on the lidar-only mux
+	paths := []string{
+		"/debug/pprof/",
+		"/debug/pprof/cmdline",
+		"/debug/pprof/symbol",
+	}
+	for _, path := range paths {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code == http.StatusNotFound {
+			t.Errorf("pprof endpoint %s returned 404; expected it to be registered", path)
+		}
+	}
 }

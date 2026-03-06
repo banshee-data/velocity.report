@@ -1,15 +1,17 @@
 # Simplification and Deprecation Plan
 
-## Status: Draft
+## Status: Approved (Phase 1 complete)
 
 ## Goal
 
-Create a single, prioritised plan to reduce non-core operational surface area, focusing on:
+Create a single, prioritised plan to reduce non-core operational surface area and
+clean up backward compatibility debt, focusing on:
 
 1. Make targets
 2. `cmd/` applications and tools
 3. CLI flags
 4. Consolidation of metrics/stats/frontend surfaces
+5. Data model and API backward compatibility shims ([sub-plan](v050-backward-compatibility-shim-removal-plan.md))
 
 This plan is scoped to capabilities that are not essential to the core query-serving path (`cmd/radar` on `:8080` + SQLite-backed APIs).
 
@@ -126,22 +128,148 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 1. **`cmd/deploy` deprecation path** (start now; remove after #210 milestones)
 2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`)
-3. **`cmd/transit-backfill` and unowned tools cleanup**
-4. **LiDAR forwarding flag simplification**
-5. **Stats/plot/API-shortcut target consolidation after #252 parity**
+3. **Data model and API compat-shim removal** ([sub-plan](v050-backward-compatibility-shim-removal-plan.md)) — v0.5.0 breaking changes
+4. **`cmd/transit-backfill` and unowned tools cleanup**
+5. **LiDAR forwarding flag simplification**
+6. **Stats/plot/API-shortcut target consolidation after #252 parity**
+
+## Migration Guidance: Deploy Tool → Image Pipeline
+
+The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`) are deprecated. The replacement workflow is the Raspberry Pi image pipeline ([#210](../BACKLOG.md), [design doc](deploy-rpi-imager-fork-plan.md)).
+
+### Current workflow (deprecated)
+
+1. Cross-compile binary: `make build-radar-linux`
+2. Build deploy tool: `make build-deploy`
+3. Copy binary and deploy tool to Pi or use SSH: `make deploy-install`
+4. Install LaTeX remotely: `make deploy-install-latex TARGET=<host>`
+5. Upgrade via SSH: `make deploy-upgrade`
+
+### Future workflow (image pipeline, #210)
+
+1. Build a complete Raspberry Pi image: `make build-image` (planned)
+2. Flash the image to an SD card using Raspberry Pi Imager or `dd`
+3. Boot the Pi — the service starts automatically with all dependencies pre-installed
+4. Upgrade by re-flashing a new image or using an over-the-air update mechanism (TBD)
+
+### Transition period
+
+- Both workflows are available until the removal gate (below) is met.
+- No new features will be added to `cmd/deploy` or the deprecated Make targets.
+- Critical bug fixes remain accepted during the transition.
+
+## Active Usage Assumptions
+
+### `cmd/transit-backfill`
+
+- **Current status:** One-off batch tool for backfilling `radar_data_transits` from historical `radar_data` events.
+- **Active production need:** None confirmed. The built-in hourly transit worker (`--enable-transit-worker`) and the `velocity-report transits rebuild` subcommand now cover the same use case.
+- **Recommendation:** Deprecate after v0.5.0. The `transits rebuild` subcommand in `cmd/radar` is the supported replacement.
+
+### `cmd/tools/scan_transits.go`
+
+- **Current status:** Scans for hourly periods with `radar_data` but no corresponding transit records and optionally backfills.
+- **Active production need:** None confirmed. Duplicates `cmd/transit-backfill` capability at a different granularity.
+- **Recommendation:** Deprecate alongside `cmd/transit-backfill`.
+
+### `cmd/sweep`
+
+- **Current status:** Parameter sweep utility for LiDAR tuning. Actively used for iterative sensor calibration.
+- **Active production need:** Yes — required until frontend sweep migration ([#252](../BACKLOG.md)) provides equivalent capability.
+- **Recommendation:** Retain until #252 parity, then review.
+
+### `cmd/tools/backfill_ring_elevations`
+
+- **Current status:** Backfills ring elevation data for LiDAR background grid.
+- **Active production need:** Low. Used during initial LiDAR setup, not ongoing operations.
+- **Recommendation:** Retain as maintenance tool; review when LiDAR foundations fix-it completes.
+
+## Deploy Retirement Gate
+
+Removal of `cmd/deploy`, its associated Make targets, and legacy deployment documentation is gated on **all** of the following conditions being met:
+
+1. **#210 image pipeline operational:** A working `make build-image` (or equivalent) target produces a bootable Raspberry Pi image with `velocity-report` binary, systemd service, database, and LaTeX pre-installed. The image must boot on a Raspberry Pi 4 and pass an integration check: service starts, API responds on `:8080`, and database is accessible.
+2. **Packaging path confirmed:** At least one successful end-to-end deployment has been performed using the image pipeline (flash → boot → service running → API responding).
+3. **Migration period elapsed:** At least one minor release (e.g. v0.7.0) has shipped with both the image pipeline and the deprecated deploy tool available, giving users time to migrate.
+4. **No active deploy-tool users:** No known deployments rely exclusively on `cmd/deploy` for upgrades (confirmed via release notes or user communication).
+
+Once all four conditions are met, the following will be removed:
+
+- `cmd/deploy/` directory and binary
+- `internal/deploy/` package
+- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`
+- `scripts/setup-radar-host.sh`
+- Deployment section from `README.md` (replaced by image pipeline instructions)
+
+## v0.5.0 Breaking Changes Plan
+
+The following breaking changes are planned for the v0.5.0 release. They are
+documented here so that downstream consumers can prepare.
+
+The full inventory of data model and API compat-shim removals is tracked in the
+sub-plan:
+[v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md).
+
+### 1. Visualiser proto: `avg_speed_mps` retained, `p50_speed_mps` added (field 36)
+
+- **What:** Proto field 24 (`avg_speed_mps`) is unchanged. Speed percentile fields added: `p50_speed_mps` (36), `p85_speed_mps` (37), `p98_speed_mps` (38). Both `AvgSpeedMps` (running mean) and `P50SpeedMps` (median) are retained in the internal model, REST API, and track store. The `avg_speed_mps` DB column is retained alongside `p50_speed_mps`.
+- **Impact:** macOS visualiser and any gRPC clients gain new fields 36–38 (p50/p85/p98). Field 24 (`avg_speed_mps`) is unchanged. REST API consumers gain `p50_speed_mps` alongside the existing `avg_speed_mps`.
+- **Migration:** Clients should read both `avg_speed_mps` (field 24, running mean) and `p50_speed_mps` (field 36, median). No breaking wire changes.
+- **Design docs:** [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avgspeedmps-in-visualiser-model-and-rest-api)
+
+### 2. Deployment surface deprecated
+
+- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.7.0 or later, once the retirement gate is satisfied.
+- **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see deprecation warnings on stdout. Scripts that parse stdout may need to be updated to ignore or handle these warning lines.
+- **Migration:** Begin planning migration to the image pipeline (#210) when available.
+
+### 3. `cmd/transit-backfill` soft-deprecated
+
+- **What:** `cmd/transit-backfill` is soft-deprecated. It continues to work but is no longer the recommended approach.
+- **Impact:** None in v0.5.0. Removal planned for a future release after confirmation of zero active usage.
+- **Migration:** Use `velocity-report transits rebuild` instead.
+
+### 4. Sweep API: legacy request/result fields removed
+
+- **What:** Legacy sweep request fields (`noise_values`, `closeness_values`, `neighbour_values`, per-variable range fields, fixed-value fields) and legacy result fields (`noise`, `closeness`, `neighbour` at top level of `ComboResult`) are removed. The `computeCombinations()` legacy code path is deleted.
+- **Impact:** Any client sending sweep requests in the old per-variable format will receive errors. Sweep results no longer include top-level `noise`/`closeness`/`neighbour` keys.
+- **Migration:** Use the `param_values` map format for requests and results. See [shim removal §2](v050-backward-compatibility-shim-removal-plan.md#2-go-server--sweep-legacy-request-format).
+
+### 5. Report download: query-parameter endpoint removed
+
+- **What:** The legacy `/api/reports/{id}/download?file_type=pdf` endpoint is removed.
+- **Impact:** Callers using the query-parameter format will receive 404s.
+- **Migration:** Use the path-based format: `/api/reports/{id}/download/{filename}.pdf`. See [shim removal §3](v050-backward-compatibility-shim-removal-plan.md#3-go-server--legacy-download-endpoint-format).
+
+### 6. Stats API: bare-array response format removed
+
+- **What:** The stats API (`/api/radar/stats`) no longer returns a bare JSON array. It always returns `{ "metrics": [...], "histogram": {...} }`.
+- **Impact:** Any consumer expecting a bare `[...]` array will break. The Python PDF generator legacy format branch is also removed.
+- **Migration:** Parse the response as an object with a `metrics` key. See [shim removal §9, §13](v050-backward-compatibility-shim-removal-plan.md#9-python--legacy-api-response-format-handling).
+
+### 7. Sweep handler: malformed JSON now returns 400
+
+- **What:** The sweep handler previously silently ignored malformed JSON request bodies. It now returns `400 Bad Request`.
+- **Impact:** Callers sending invalid JSON will receive errors instead of silent acceptance.
+- **Migration:** Ensure sweep requests are valid JSON. See [shim removal §4](v050-backward-compatibility-shim-removal-plan.md#4-go-server--lenient-json-parsing-in-sweep-handler).
+
+### Unchanged in v0.5.0
+
+- No CLI flags are removed in v0.5.0.
+- Privacy model is unchanged: local-only storage, no PII.
 
 ## Delivery Plan (Task Lists)
 
 ### Project A (P1): Deprecation readiness and signalling
 
-- [ ] Add deprecation notices to `setup-radar`, deploy targets, and `cmd/deploy` docs
-- [ ] Publish migration guidance: “deploy tool → image pipeline”
-- [ ] Freeze new feature work in `cmd/deploy` except critical fixes
-- [ ] Record active usage assumptions for `cmd/transit-backfill` and ad hoc tools
+- [x] Add deprecation notices to `setup-radar`, deploy targets, and `cmd/deploy` docs
+- [x] Publish migration guidance: “deploy tool → image pipeline”
+- [x] Freeze new feature work in `cmd/deploy` except critical fixes
+- [x] Record active usage assumptions for `cmd/transit-backfill` and ad hoc tools
 
 ### Project B (P1): Deploy retirement gate
 
-- [ ] Define explicit removal gate: #210 image pipeline operational + packaging path confirmed
+- [x] Define explicit removal gate: #210 image pipeline operational + packaging path confirmed
 - [ ] Remove legacy deploy targets once the gate is met
 - [ ] Remove `cmd/deploy` binary once migration period closes
 - [ ] Update setup/deployment docs to image-first workflow
@@ -159,8 +287,27 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 - [ ] Group and document advanced transit worker flags
 - [ ] Simplify PDF mode flags for operators while keeping backward compatibility for one release
 
+### Project E (P1): Data model and API compat-shim removal
+
+Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md)
+
+- [x] Retain `AvgSpeedMps` alongside `P50SpeedMps` in visualiser model, proto field 24 unchanged, p50/p85/p98 fields added (PR #336)
+- [ ] Remove `AvgSpeedMps` from REST API, TrackFeatures, track store, DB columns, pcap-analyse
+- [ ] Remove Svelte/web compat shims (BackgroundCell legacy fields, dual-format cache, sweep legacy field names)
+- [ ] Remove Python compat shims (legacy stats format, config dict helpers, pylatex stubs)
+- [ ] Remove macOS compat shims (regenerate Swift proto, legacy point buffer, playback defaults)
+- [ ] Validation pass: lint, test, build across all platforms
+
+Intersections with other projects:
+
+- Sweep legacy field removal (shim §2, §14) shares scope with Project C (#252 sweep migration). The shim removal covers server-side and frontend field-name changes; Project C covers full sweep UI migration.
+- Deploy executor compat methods (shim §5) deferred to Project B (deploy retirement gate).
+
 ## Decision Notes
 
 - This plan intentionally prioritises deprecation signalling first, then removal.
 - No privacy model changes are proposed: local-only storage and no PII remain unchanged.
 - Removal milestones are dependency-gated to avoid breaking existing deployments.
+- Phase 1 (Project A signalling + Project B gate definition) completed in v0.5.0.
+- Actual removal of deprecated deployment surfaces is deferred to v0.7.0 after the retirement gate is satisfied.
+- v0.5.0 also ships data model and API compat-shim removals (Project E). These are breaking changes coordinated as a single batch to avoid prolonged dual-format maintenance.

@@ -414,6 +414,7 @@ func TestUpdate_WithDebugCollector(t *testing.T) {
 		X:       0, Y: 0, VX: 1, VY: 0,
 		P:       [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
 		History: []TrackPoint{{X: 0, Y: 0, Timestamp: time.Now().UnixNano()}},
+		speeds:  newSpeedWindow(cfg.MaxSpeedHistoryLength),
 	}
 
 	cluster := WorldCluster{CentroidX: 0.5, CentroidY: 0}
@@ -443,6 +444,7 @@ func TestUpdate_NaNGuardResetsState(t *testing.T) {
 			0, 0, 0, 1,
 		},
 		History: []TrackPoint{{X: 0, Y: 0, Timestamp: time.Now().UnixNano()}},
+		speeds:  newSpeedWindow(cfg.MaxSpeedHistoryLength),
 	}
 
 	cluster := WorldCluster{CentroidX: 1, CentroidY: 1}

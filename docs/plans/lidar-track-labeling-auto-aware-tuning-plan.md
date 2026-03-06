@@ -132,7 +132,7 @@ lidar_transits
   transit_end_unix        DOUBLE NOT NULL
   max_speed_mps           REAL
   min_speed_mps           REAL
-  avg_speed_mps           REAL
+  avg_speed_mps           REAL    -- running mean; p50_speed_mps added alongside in v0.5.0
   p50_speed_mps           REAL
   p85_speed_mps           REAL
   p95_speed_mps           REAL

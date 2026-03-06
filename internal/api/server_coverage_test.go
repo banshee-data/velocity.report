@@ -611,7 +611,7 @@ func TestDownloadReport_InvalidFileTypeParam(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=invalid", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download/report.invalid", nil)
 	w := httptest.NewRecorder()
 
 	server.downloadReport(w, req, 1, "invalid")
@@ -1330,7 +1330,7 @@ func TestDownloadReport_NotFoundReport(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/reports/99999/download?file_type=pdf", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/99999/download/report.pdf", nil)
 	w := httptest.NewRecorder()
 	server.downloadReport(w, req, 99999, "pdf")
 
@@ -1651,7 +1651,7 @@ func TestDownloadReport_ZipMissing(t *testing.T) {
 		t.Fatalf("create report: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=zip", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download/sources.zip", nil)
 	w := httptest.NewRecorder()
 	server.downloadReport(w, req, report.ID, "zip")
 
@@ -1685,7 +1685,7 @@ func TestDownloadReport_FileNotFound(t *testing.T) {
 	}
 
 	// Try PDF download - file won't exist (may get 403 from path validation or 404)
-	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=pdf", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download/report.pdf", nil)
 	w := httptest.NewRecorder()
 	server.downloadReport(w, req, report.ID, "pdf")
 
@@ -1694,7 +1694,7 @@ func TestDownloadReport_FileNotFound(t *testing.T) {
 	}
 
 	// Try ZIP download - file won't exist (may get 403 from path validation or 404)
-	req2 := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=zip", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/reports/1/download/sources.zip", nil)
 	w2 := httptest.NewRecorder()
 	server.downloadReport(w2, req2, report.ID, "zip")
 
@@ -1899,7 +1899,7 @@ func TestDownloadReport_SuccessfulPDFDownload(t *testing.T) {
 	}()
 
 	// Download PDF
-	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=pdf", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/reports/1/download/report.pdf", nil)
 	w := httptest.NewRecorder()
 	server.downloadReport(w, req, report.ID, "pdf")
 
@@ -1911,7 +1911,7 @@ func TestDownloadReport_SuccessfulPDFDownload(t *testing.T) {
 	}
 
 	// Download ZIP
-	req2 := httptest.NewRequest(http.MethodGet, "/api/reports/1/download?file_type=zip", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/reports/1/download/sources.zip", nil)
 	w2 := httptest.NewRecorder()
 	server.downloadReport(w2, req2, report.ID, "zip")
 

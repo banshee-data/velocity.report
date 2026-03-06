@@ -116,6 +116,7 @@ type Server struct {
 	pcapTotalPackets  uint64
 	pcapStartNs       int64
 	pcapEndNs         int64
+	replayEpoch       uint64 // monotonically increasing; bumped on each new replay load
 
 	// Per-client overlay preferences (protected by preferenceMu)
 	clientPreferences map[string]*overlayPreferences
@@ -144,7 +145,9 @@ func (s *Server) SetReplayMode(enabled bool) {
 	s.playbackMu.Lock()
 	defer s.playbackMu.Unlock()
 	s.replayMode = enabled
-	if !enabled {
+	if enabled {
+		s.replayEpoch++
+	} else {
 		s.pcapCurrentPacket = 0
 		s.pcapTotalPackets = 0
 		s.pcapStartNs = 0
@@ -161,6 +164,7 @@ func (s *Server) SetVRLogMode(enabled bool) {
 	s.vrlogMode = enabled
 	if enabled {
 		s.replayMode = true
+		s.replayEpoch++
 		// Reset pause state so the new VRLOG replay starts playing
 		// immediately.  Without this, a previous Pause() RPC leaves
 		// s.paused=true and streamFromPublisher silently drops every
@@ -399,7 +403,14 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 					CurrentFrameIndex: s.pcapCurrentPacket,
 					TotalFrames:       s.pcapTotalPackets,
 					Seekable:          false,
+					ReplayEpoch:       s.replayEpoch,
 				}
+				s.playbackMu.RUnlock()
+			}
+			// Stamp epoch on existing PlaybackInfo (e.g. from VRLOG recorder)
+			if s.replayMode && frame.PlaybackInfo != nil && frame.PlaybackInfo.ReplayEpoch == 0 {
+				s.playbackMu.RLock()
+				frame.PlaybackInfo.ReplayEpoch = s.replayEpoch
 				s.playbackMu.RUnlock()
 			}
 
@@ -439,13 +450,23 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			// to prevent oscillation between skip and normal modes.
 			if sendDuration.Milliseconds() > slowSendThresholdMs {
 				slowSends++
+				wasSkipping := cooldown.inSkipMode()
 				cooldown.recordSlow()
+				if !wasSkipping && cooldown.inSkipMode() {
+					lidar.Opsf("[gRPC] Client %s entering skip mode after %d slow sends (send=%v points=%d)",
+						clientID, slowSends, sendDuration, getPointCount(frame))
+				}
 				if sendDuration.Milliseconds() > sendTimeoutMs {
 					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f skip_mode=%v",
 						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, cooldown.inSkipMode())
 				}
 			} else {
+				wasSkipping := cooldown.inSkipMode()
 				cooldown.recordFast()
+				if wasSkipping && !cooldown.inSkipMode() {
+					lidar.Opsf("[gRPC] Client %s exiting skip mode after %d consecutive fast sends",
+						clientID, minConsecutiveFastSends)
+				}
 			}
 
 			// Periodic performance logging
@@ -522,16 +543,19 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 		pbClusters := make([]*pb.Cluster, len(cs.Clusters))
 		for i, c := range cs.Clusters {
 			pbCluster := &pb.Cluster{
-				ClusterId:   c.ClusterID,
-				SensorId:    c.SensorID,
-				TimestampNs: c.TimestampNanos,
-				CentroidX:   c.CentroidX,
-				CentroidY:   c.CentroidY,
-				CentroidZ:   c.CentroidZ,
-				AabbLength:  c.AABBLength,
-				AabbWidth:   c.AABBWidth,
-				AabbHeight:  c.AABBHeight,
-				PointsCount: int32(c.PointsCount),
+				ClusterId:     c.ClusterID,
+				SensorId:      c.SensorID,
+				TimestampNs:   c.TimestampNanos,
+				CentroidX:     c.CentroidX,
+				CentroidY:     c.CentroidY,
+				CentroidZ:     c.CentroidZ,
+				AabbLength:    c.AABBLength,
+				AabbWidth:     c.AABBWidth,
+				AabbHeight:    c.AABBHeight,
+				PointsCount:   int32(c.PointsCount),
+				HeightP95:     c.HeightP95,
+				IntensityMean: c.IntensityMean,
+				SamplePoints:  c.SamplePoints,
 			}
 			if c.OBB != nil {
 				pbCluster.Obb = &pb.OrientedBoundingBox{
@@ -584,6 +608,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				HeightP95Max:      t.HeightP95Max,
 				IntensityMeanAvg:  t.IntensityMeanAvg,
 				AvgSpeedMps:       t.AvgSpeedMps,
+				P50SpeedMps:       t.P50SpeedMps,
 				PeakSpeedMps:      t.PeakSpeedMps,
 				ObjectClass:       classifyOrConvert(t),
 				ClassConfidence:   t.ClassConfidence,
@@ -595,6 +620,8 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				MotionModel:       pb.MotionModel(t.MotionModel),
 				Alpha:             t.Alpha,
 				HeadingSource:     int32(t.HeadingSource),
+				P85SpeedMps:       t.P85SpeedMps,
+				P98SpeedMps:       t.P98SpeedMps,
 			}
 		}
 
@@ -633,6 +660,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			CurrentFrameIndex: frame.PlaybackInfo.CurrentFrameIndex,
 			TotalFrames:       frame.PlaybackInfo.TotalFrames,
 			Seekable:          frame.PlaybackInfo.Seekable,
+			ReplayEpoch:       frame.PlaybackInfo.ReplayEpoch,
 		}
 	}
 
@@ -655,6 +683,65 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				RingElevations:   bg.GridMetadata.RingElevations,
 				SettlingComplete: bg.GridMetadata.SettlingComplete,
 			},
+		}
+	}
+
+	// Include debug overlays if requested
+	if req.IncludeDebug && frame.Debug != nil {
+		dbg := frame.Debug
+
+		pbAssoc := make([]*pb.AssociationCandidate, len(dbg.AssociationCandidates))
+		for i, a := range dbg.AssociationCandidates {
+			pbAssoc[i] = &pb.AssociationCandidate{
+				ClusterId: a.ClusterID,
+				TrackId:   a.TrackID,
+				Distance:  a.Distance,
+				Accepted:  a.Accepted,
+			}
+		}
+
+		pbGating := make([]*pb.GatingEllipse, len(dbg.GatingEllipses))
+		for i, g := range dbg.GatingEllipses {
+			pbGating[i] = &pb.GatingEllipse{
+				TrackId:     g.TrackID,
+				CenterX:     g.CenterX,
+				CenterY:     g.CenterY,
+				SemiMajor:   g.SemiMajor,
+				SemiMinor:   g.SemiMinor,
+				RotationRad: g.RotationRad,
+			}
+		}
+
+		pbResiduals := make([]*pb.InnovationResidual, len(dbg.Residuals))
+		for i, r := range dbg.Residuals {
+			pbResiduals[i] = &pb.InnovationResidual{
+				TrackId:           r.TrackID,
+				PredictedX:        r.PredictedX,
+				PredictedY:        r.PredictedY,
+				MeasuredX:         r.MeasuredX,
+				MeasuredY:         r.MeasuredY,
+				ResidualMagnitude: r.ResidualMagnitude,
+			}
+		}
+
+		pbPredictions := make([]*pb.StatePrediction, len(dbg.Predictions))
+		for i, p := range dbg.Predictions {
+			pbPredictions[i] = &pb.StatePrediction{
+				TrackId: p.TrackID,
+				X:       p.X,
+				Y:       p.Y,
+				Vx:      p.VX,
+				Vy:      p.VY,
+			}
+		}
+
+		pbFrame.Debug = &pb.DebugOverlaySet{
+			FrameId:               dbg.FrameID,
+			TimestampNs:           dbg.TimestampNanos,
+			AssociationCandidates: pbAssoc,
+			GatingEllipses:        pbGating,
+			Residuals:             pbResiduals,
+			Predictions:           pbPredictions,
 		}
 	}
 

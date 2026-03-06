@@ -21,6 +21,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Fprintln(os.Stderr, "WARNING: velocity-deploy is deprecated.")
+	fmt.Fprintln(os.Stderr, "Removal is gated on: (1) #210 image pipeline operational, (2) packaging confirmed,")
+	fmt.Fprintln(os.Stderr, "(3) migration period elapsed, (4) no active deploy-tool users — not before v0.7.0.")
+	fmt.Fprintln(os.Stderr, "See docs/plans/platform-simplification-and-deprecation-plan.md for details.")
+	fmt.Fprintln(os.Stderr, "")
+
 	command := flag.Arg(0)
 	args := flag.Args()[1:]
 

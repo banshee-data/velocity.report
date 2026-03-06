@@ -153,13 +153,14 @@ type TrackedObject struct {
 	HeightP95Max         float32
 	IntensityMeanAvg     float32
 	AvgSpeedMps          float32
+	P50SpeedMps          float32
 	PeakSpeedMps         float32
 
 	// History of positions
 	History []TrackPoint
 
-	// Speed history for percentile computation
-	speedHistory []float32
+	// Speed window for O(1) percentile queries
+	speeds *speedWindow
 
 	// OBB heading (smoothed via exponential moving average)
 	OBBHeadingRad float32       // Smoothed heading from oriented bounding box
@@ -252,6 +253,14 @@ type TrackingMetrics struct {
 	// EmptyBoxRatio is the fraction of active-track-frames where the track had
 	// no cluster association (coasting). Lower is better. [0, 1]
 	EmptyBoxRatio float32 `json:"empty_box_ratio"`
+
+	// Occlusion aggregate metrics across active tracks
+	// MeanOcclusionCount is the mean number of occlusion gaps (>200ms) per track
+	MeanOcclusionCount float32 `json:"mean_occlusion_count"`
+	// MaxOcclusionFrames is the longest occlusion gap (in frames) across all active tracks
+	MaxOcclusionFrames int `json:"max_occlusion_frames"`
+	// TotalOcclusions is the sum of OcclusionCount across all active tracks
+	TotalOcclusions int `json:"total_occlusions"`
 
 	// Per-track alignment breakdown
 	PerTrack []TrackAlignmentMetrics `json:"per_track,omitempty"`
@@ -920,6 +929,8 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Update speed statistics
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
 	track.AvgSpeedMps = ((n-1)*track.AvgSpeedMps + speed) / n
+	track.speeds.Add(speed)
+	track.P50SpeedMps = track.speeds.P50()
 	if speed > track.PeakSpeedMps {
 		track.PeakSpeedMps = speed
 	}
@@ -944,12 +955,6 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		if len(track.History) > t.Config.MaxTrackHistoryLength {
 			track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 		}
-	}
-
-	// Store speed history for percentile computation
-	track.speedHistory = append(track.speedHistory, speed)
-	if len(track.speedHistory) > t.Config.MaxSpeedHistoryLength {
-		track.speedHistory = track.speedHistory[1:]
 	}
 
 	// Velocity-Trail Alignment: Compare Kalman velocity heading with
@@ -1188,7 +1193,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 			Timestamp: nowNanos,
 		}},
 
-		speedHistory: make([]float32, 0, t.Config.MaxSpeedHistoryLength),
+		speeds: newSpeedWindow(t.Config.MaxSpeedHistoryLength),
 	}
 
 	// Initialise OBB heading and per-frame dimensions from cluster if available
@@ -1314,9 +1319,13 @@ func (t *Tracker) GetConfirmedTracks() []*TrackedObject {
 				copied.History = make([]TrackPoint, len(track.History))
 				copy(copied.History, track.History)
 			}
-			if len(track.speedHistory) > 0 {
-				copied.speedHistory = make([]float32, len(track.speedHistory))
-				copy(copied.speedHistory, track.speedHistory)
+			if track.speeds != nil {
+				sw := *track.speeds
+				sw.queue = make([]float32, len(track.speeds.queue))
+				copy(sw.queue, track.speeds.queue)
+				sw.sorted = make([]float32, len(track.speeds.sorted))
+				copy(sw.sorted, track.speeds.sorted)
+				copied.speeds = &sw
 			}
 			confirmed = append(confirmed, &copied)
 		}
@@ -1419,12 +1428,10 @@ func (track *TrackedObject) Heading() float32 {
 
 // SpeedHistory returns a copy of the track's speed history for percentile computation.
 func (track *TrackedObject) SpeedHistory() []float32 {
-	if track.speedHistory == nil {
+	if track.speeds == nil {
 		return nil
 	}
-	result := make([]float32, len(track.speedHistory))
-	copy(result, track.speedHistory)
-	return result
+	return track.speeds.Values()
 }
 
 // ComputeQualityMetrics calculates track quality metrics.
@@ -1514,6 +1521,12 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 		totalSpeedJitterSumSq += track.SpeedJitterSumSq
 		totalSpeedJitterCount += track.SpeedJitterCount
 
+		// Accumulate occlusion metrics across all active tracks
+		metrics.TotalOcclusions += track.OcclusionCount
+		if track.MaxOcclusionFrames > metrics.MaxOcclusionFrames {
+			metrics.MaxOcclusionFrames = track.MaxOcclusionFrames
+		}
+
 		if track.AlignmentSampleCount == 0 {
 			continue
 		}
@@ -1575,6 +1588,11 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	// Empty box: fraction of active-track-frames with no cluster association
 	if t.TotalBoxFrames > 0 {
 		metrics.EmptyBoxRatio = float32(t.EmptyBoxFrames) / float32(t.TotalBoxFrames)
+	}
+
+	// Mean occlusion count per active track
+	if metrics.ActiveTracks > 0 {
+		metrics.MeanOcclusionCount = float32(metrics.TotalOcclusions) / float32(metrics.ActiveTracks)
 	}
 
 	return metrics

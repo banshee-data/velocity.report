@@ -108,7 +108,7 @@ type TrackExport struct {
 	PeakSpeedMps  float32 `json:"peak_speed_mps"`
 	P50SpeedMps   float32 `json:"p50_speed_mps"`
 	P85SpeedMps   float32 `json:"p85_speed_mps"`
-	P95SpeedMps   float32 `json:"p95_speed_mps"`
+	P98SpeedMps   float32 `json:"p98_speed_mps"`
 	AvgHeight     float32 `json:"avg_height_m"`
 	AvgLength     float32 `json:"avg_length_m"`
 	AvgWidth      float32 `json:"avg_width_m"`
@@ -135,7 +135,7 @@ type SpeedStatistics struct {
 	AvgSpeed float32 `json:"avg_speed_mps"`
 	P50Speed float32 `json:"p50_speed_mps"`
 	P85Speed float32 `json:"p85_speed_mps"`
-	P95Speed float32 `json:"p95_speed_mps"`
+	P98Speed float32 `json:"p98_speed_mps"`
 }
 
 // TrainingFrame represents a frame prepared for ML ingestion.
@@ -549,10 +549,7 @@ func (fb *analysisFrameBuilder) SetMotorSpeed(rpm uint16) {
 // processCurrentFrame processes the accumulated points as a complete frame.
 // MUST be called while holding fb.mu lock (caller is responsible for locking).
 func (fb *analysisFrameBuilder) processCurrentFrame() {
-	var frameStart time.Time
-	if fb.benchmarkMode {
-		frameStart = time.Now()
-	}
+	frameStart := time.Now()
 
 	// Step 1: Foreground extraction
 	mask, err := fb.bgManager.ProcessFramePolarWithMask(fb.points)
@@ -566,6 +563,7 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	// Extract foreground points
 	foregroundPoints := l3grid.ExtractForegroundPoints(fb.points, mask)
 	foregroundCount := len(foregroundPoints)
+	fgDuration := time.Since(frameStart)
 
 	fb.result.TotalFrames++
 	fb.result.ForegroundPoints += foregroundCount
@@ -582,13 +580,12 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 
 	// Step 2: Transform to world frame
+	transformStart := time.Now()
 	worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, fb.config.SensorID)
+	transformDuration := time.Since(transformStart)
 
 	// Step 3: Cluster (respect runtime foreground clustering params)
-	var clusterStart time.Time
-	if fb.benchmarkMode {
-		clusterStart = time.Now()
-	}
+	clusterStart := time.Now()
 	dbscanParams := l4perception.DefaultDBSCANParams()
 	if fb.bgManager != nil {
 		p := fb.bgManager.GetParams()
@@ -600,8 +597,9 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 		}
 	}
 	clusters := l4perception.DBSCAN(worldPoints, dbscanParams)
+	clusterDuration := time.Since(clusterStart)
 	if fb.benchmarkMode {
-		atomic.AddInt64(&fb.clusterTimeNs, time.Since(clusterStart).Nanoseconds())
+		atomic.AddInt64(&fb.clusterTimeNs, clusterDuration.Nanoseconds())
 	}
 	fb.result.TotalClusters += len(clusters)
 
@@ -613,27 +611,23 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 	}
 
 	// Step 4: Track
-	var trackStart time.Time
-	if fb.benchmarkMode {
-		trackStart = time.Now()
-	}
+	trackStart := time.Now()
 	fb.tracker.Update(clusters, fb.frameStartTime)
+	trackDuration := time.Since(trackStart)
 	if fb.benchmarkMode {
-		atomic.AddInt64(&fb.trackTimeNs, time.Since(trackStart).Nanoseconds())
+		atomic.AddInt64(&fb.trackTimeNs, trackDuration.Nanoseconds())
 	}
 
 	// Step 5: Classify confirmed tracks
-	var classifyStart time.Time
-	if fb.benchmarkMode {
-		classifyStart = time.Now()
-	}
+	classifyStart := time.Now()
 	for _, track := range fb.tracker.GetConfirmedTracks() {
 		if track.ObjectClass == "" && track.ObservationCount >= 5 {
 			fb.classifier.ClassifyAndUpdate(track)
 		}
 	}
+	classifyDuration := time.Since(classifyStart)
 	if fb.benchmarkMode {
-		atomic.AddInt64(&fb.classifyTimeNs, time.Since(classifyStart).Nanoseconds())
+		atomic.AddInt64(&fb.classifyTimeNs, classifyDuration.Nanoseconds())
 	}
 
 	// Collect training data if requested
@@ -651,15 +645,25 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 		fb.trainingFrames = append(fb.trainingFrames, trainingFrame)
 	}
 
-	if fb.config.Verbose && fb.frameCount%100 == 0 {
-		log.Printf("Frame %d: %d points, %d foreground, %d clusters, %d tracks",
-			fb.frameCount, len(fb.points), foregroundCount,
-			len(clusters), len(fb.tracker.GetActiveTracks()))
+	// Record total frame processing time
+	totalMs := float64(time.Since(frameStart).Nanoseconds()) / 1e6
+	if fb.benchmarkMode {
+		fb.frameTimes = append(fb.frameTimes, totalMs)
 	}
 
-	// Record total frame processing time
-	if fb.benchmarkMode {
-		fb.frameTimes = append(fb.frameTimes, float64(time.Since(frameStart).Nanoseconds())/1e6)
+	// Per-frame timing trace: always-on for slow frames, periodic for verbose
+	activeTracks := len(fb.tracker.GetActiveTracks())
+	msOf := func(d time.Duration) float64 { return float64(d.Nanoseconds()) / 1e6 }
+	if totalMs > 50.0 {
+		log.Printf("[pcap-analyse] SLOW frame=%d total=%.1fms fg=%.1fms transform=%.1fms cluster=%.1fms track=%.1fms classify=%.1fms points=%d fg=%d clusters=%d tracks=%d",
+			fb.frameCount, totalMs, msOf(fgDuration), msOf(transformDuration),
+			msOf(clusterDuration), msOf(trackDuration), msOf(classifyDuration),
+			len(fb.points), foregroundCount, len(clusters), activeTracks)
+	} else if fb.config.Verbose && fb.frameCount%100 == 0 {
+		log.Printf("[pcap-analyse] frame=%d total=%.1fms fg=%.1fms transform=%.1fms cluster=%.1fms track=%.1fms classify=%.1fms points=%d fg=%d clusters=%d tracks=%d",
+			fb.frameCount, totalMs, msOf(fgDuration), msOf(transformDuration),
+			msOf(clusterDuration), msOf(trackDuration), msOf(classifyDuration),
+			len(fb.points), foregroundCount, len(clusters), activeTracks)
 	}
 }
 
@@ -851,7 +855,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 		result.TracksByClass[class]++
 
 		// Export track data
-		p50, p85, p95 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
+		p50, p85, p98 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
 
 		trackExport := &TrackExport{
 			TrackID:      track.TrackID,
@@ -865,7 +869,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 			PeakSpeedMps: track.PeakSpeedMps,
 			P50SpeedMps:  p50,
 			P85SpeedMps:  p85,
-			P95SpeedMps:  p95,
+			P98SpeedMps:  p98,
 			AvgHeight:    track.BoundingBoxHeightAvg,
 			AvgLength:    track.BoundingBoxLengthAvg,
 			AvgWidth:     track.BoundingBoxWidthAvg,
@@ -1136,7 +1140,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 	}
 
 	// Use the shared percentile computation from lidar package
-	p50, p85, p95 := l6objects.ComputeSpeedPercentiles(samples)
+	p50, p85, p98 := l6objects.ComputeSpeedPercentiles(samples)
 
 	n := len(sorted)
 	return SpeedStatistics{
@@ -1145,7 +1149,7 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 		AvgSpeed: sum / float32(n),
 		P50Speed: p50,
 		P85Speed: p85,
-		P95Speed: p95,
+		P98Speed: p98,
 	}
 }
 
@@ -1173,6 +1177,7 @@ func printSummary(result *AnalysisResult) {
 	fmt.Printf("  Min: %.2f m/s (%.1f km/h)\n", result.SpeedStats.MinSpeed, result.SpeedStats.MinSpeed*3.6)
 	fmt.Printf("  Max: %.2f m/s (%.1f km/h)\n", result.SpeedStats.MaxSpeed, result.SpeedStats.MaxSpeed*3.6)
 	fmt.Printf("  Avg: %.2f m/s (%.1f km/h)\n", result.SpeedStats.AvgSpeed, result.SpeedStats.AvgSpeed*3.6)
+	fmt.Printf("  P50: %.2f m/s (%.1f km/h)\n", result.SpeedStats.P50Speed, result.SpeedStats.P50Speed*3.6)
 	fmt.Printf("  P85: %.2f m/s (%.1f km/h)\n", result.SpeedStats.P85Speed, result.SpeedStats.P85Speed*3.6)
 	fmt.Println()
 	if result.TrainingFrames > 0 {
@@ -1223,7 +1228,7 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 	header := []string{
 		"track_id", "class", "confidence", "start_time", "end_time",
 		"duration_secs", "observations", "avg_speed_mps", "peak_speed_mps",
-		"p50_speed_mps", "p85_speed_mps", "p95_speed_mps",
+		"p50_speed_mps", "p85_speed_mps", "p98_speed_mps",
 		"avg_height_m", "avg_length_m", "avg_width_m", "height_p95_max_m",
 	}
 	if err := w.Write(header); err != nil {
@@ -1244,7 +1249,7 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 			strconv.FormatFloat(float64(t.PeakSpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P50SpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P85SpeedMps), 'f', 2, 32),
-			strconv.FormatFloat(float64(t.P95SpeedMps), 'f', 2, 32),
+			strconv.FormatFloat(float64(t.P98SpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.AvgHeight), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgLength), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgWidth), 'f', 3, 32),
@@ -1332,12 +1337,12 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 		_, err := database.Exec(`
 			INSERT OR REPLACE INTO lidar_run_tracks
 			(run_id, track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-			 observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			 observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p98_speed_mps,
 			 bounding_box_height_avg, bounding_box_length_avg, bounding_box_width_avg,
 			 object_class, object_confidence)
 			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			runID, t.TrackID, t.Observations,
-			t.AvgSpeedMps, t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P95SpeedMps,
+			t.AvgSpeedMps, t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P98SpeedMps,
 			t.AvgHeight, t.AvgLength, t.AvgWidth,
 			t.Class, t.Confidence,
 		)

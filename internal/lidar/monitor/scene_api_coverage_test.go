@@ -913,7 +913,7 @@ func setupTestSceneAPIDBWithEvaluations(t *testing.T) *db.DB {
 			peak_speed_mps REAL DEFAULT 0,
 			p50_speed_mps REAL DEFAULT 0,
 			p85_speed_mps REAL DEFAULT 0,
-			p95_speed_mps REAL DEFAULT 0,
+			p98_speed_mps REAL DEFAULT 0,
 			bounding_box_length_avg REAL DEFAULT 0,
 			bounding_box_width_avg REAL DEFAULT 0,
 			bounding_box_height_avg REAL DEFAULT 0,

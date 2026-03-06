@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -156,6 +158,20 @@ type TrackingPipelineConfig struct {
 	// that removes ground-plane and overhead-structure returns before
 	// clustering. Set to false to disable ground removal entirely.
 	RemoveGround bool
+
+	// BenchmarkMode, when non-nil and true, enables per-frame performance
+	// tracing: stage timing via FrameTimer, slow-frame alerts, periodic
+	// health summaries (heap/goroutines), and pipeline lag detection.
+	// When nil or false, all timing logic is skipped (zero overhead).
+	// Toggle at runtime via atomic store; the pipeline checks each frame.
+	BenchmarkMode *atomic.Bool
+
+	// DisableTrackPersistence, when non-nil and true, skips all DB writes
+	// (InsertTrack / InsertTrackObservation) for the frame. Use during
+	// analysis replays and parameter sweeps to avoid polluting the
+	// production track store. Toggle at runtime via atomic store.
+	// When nil or false, normal persistence applies.
+	DisableTrackPersistence *atomic.Bool
 }
 
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
@@ -213,6 +229,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// (Eps, MinPts, MaxInputPoints) from BackgroundParams still apply.
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
 
+	// Pipeline performance tracing state.
+	const slowFrameThresholdMs = 50.0 // emit diagf alert when frame exceeds this
+	const healthSummaryInterval = 100 // emit health summary every N processed frames
+	const timingWindowSize = 100      // rolling window for mean/p95 computation
+	var processedFrameCount uint64    // frames that passed throttle and were fully processed
+	var frameDurations []float64      // rolling window of frame durations (ms)
+	var lastFrameEndTime time.Time    // for lag ratio computation
+	var consecutiveBehind int         // consecutive frames where lag > 1.0
 	return func(frame *l2frames.LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -325,6 +349,77 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			lastProcessedTime = now
 		}
 
+		// --- Performance Tracing ---
+		// Timer starts after throttle check to capture only fully-processed frames.
+		// Only active when BenchmarkMode is enabled (zero overhead otherwise).
+		// All benchmark output uses opsf() (always visible) because the user
+		// explicitly opted in via the dashboard checkbox. Using tracef/diagf
+		// would hide output at the default --log-level=ops.
+		var ft *frameTimer
+		var emitTiming func(nPoints, nClusters, nTracks int)
+		if cfg.BenchmarkMode != nil && cfg.BenchmarkMode.Load() {
+			ft = newFrameTimer(frame.FrameID)
+			emitTiming = func(nPoints, nClusters, nTracks int) {
+				ft.End()
+				totalMs := ft.TotalMs()
+				processedFrameCount++
+
+				opsf("[Benchmark] frame=%s total=%.1fms %s points=%d clusters=%d tracks=%d",
+					frame.FrameID, totalMs, ft.Format(), nPoints, nClusters, nTracks)
+
+				if totalMs > slowFrameThresholdMs {
+					slowName, slowDur := ft.SlowestStage()
+					opsf("[Benchmark] SLOW frame=%s total=%.1fms slowest=%s(%.1fms) %s points=%d clusters=%d tracks=%d",
+						frame.FrameID, totalMs, slowName, float64(slowDur.Nanoseconds())/1e6,
+						ft.Format(), nPoints, nClusters, nTracks)
+				}
+
+				// Rolling window of frame durations
+				if len(frameDurations) >= timingWindowSize {
+					frameDurations = frameDurations[1:]
+				}
+				frameDurations = append(frameDurations, totalMs)
+
+				// Periodic health summary
+				if processedFrameCount%uint64(healthSummaryInterval) == 0 && len(frameDurations) > 0 {
+					window := make([]float64, len(frameDurations))
+					copy(window, frameDurations)
+					sort.Float64s(window)
+					var sum float64
+					for _, d := range window {
+						sum += d
+					}
+					mean := sum / float64(len(window))
+					p95Idx := int(float64(len(window)) * 0.95)
+					if p95Idx >= len(window) {
+						p95Idx = len(window) - 1
+					}
+					opsf("[Benchmark] health: processed=%d throttled=%d mean=%.1fms p95=%.1fms goroutines=%d",
+						processedFrameCount, throttledFrames.Load(), mean, window[p95Idx],
+						runtime.NumGoroutine())
+				}
+
+				// Lag tracking: detect when processing falls behind frame arrival rate
+				now := time.Now()
+				if !lastFrameEndTime.IsZero() {
+					interFrameGap := now.Sub(lastFrameEndTime)
+					frameDur := ft.Total()
+					if interFrameGap > 0 && frameDur > interFrameGap {
+						consecutiveBehind++
+						if consecutiveBehind >= 3 {
+							lagRatio := float64(frameDur) / float64(interFrameGap)
+							opsf("[Benchmark] BEHIND: lag=%.1fx (processing %.1fms, interval %.1fms) behind for %d frames",
+								lagRatio, totalMs, float64(interFrameGap.Nanoseconds())/1e6, consecutiveBehind)
+						}
+					} else {
+						consecutiveBehind = 0
+					}
+				}
+				lastFrameEndTime = now
+			}
+			ft.Stage("forward")
+		}
+
 		// Forward foreground points on 2370-style stream if configured
 		// Use isNilInterface to handle Go interface nil pitfall
 		if !isNilInterface(cfg.FgForwarder) {
@@ -355,6 +450,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		tracef("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 		// Stage 2: Transform to world coordinates
+		if ft != nil {
+			ft.Stage("transform")
+		}
 		worldPoints := l4perception.TransformToWorld(foregroundPoints, nil, sensorID)
 
 		// Stage 2b: Ground removal (vertical filtering)
@@ -380,6 +478,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		if len(filteredPoints) == 0 {
+			if emitTiming != nil {
+				emitTiming(len(foregroundPoints), 0, 0)
+			}
 			return
 		}
 
@@ -394,6 +495,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		// Stage 3: Clustering (runtime-tunable via background params)
+		if ft != nil {
+			ft.Stage("cluster")
+		}
 		dbscanParams := defaultDBSCANParams
 		params := cfg.BackgroundManager.GetParams()
 		if params.ForegroundMinClusterPoints > 0 {
@@ -417,6 +521,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if cfg.Tracker != nil {
 				cfg.Tracker.RecordFrameStats(len(filteredPoints), 0)
 			}
+			if emitTiming != nil {
+				emitTiming(len(foregroundPoints), 0, 0)
+			}
 			return
 		}
 
@@ -431,7 +538,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		// Record clusters for analysis run if active
 		if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
-			runManager.RecordFrame()
+			runManager.RecordFrame(frame.StartTimestamp.UnixNano())
 			runManager.RecordClusters(len(clusters))
 		}
 
@@ -439,15 +546,39 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		tracef("[Tracking] Clustered into %d objects", len(clusters))
 
 		// Stage 4: Track update
+		if ft != nil {
+			ft.Stage("track")
+		}
 		if cfg.Tracker == nil {
+			if emitTiming != nil {
+				emitTiming(len(foregroundPoints), len(clusters), 0)
+			}
 			return
 		}
 
 		cfg.Tracker.Update(clusters, frame.StartTimestamp)
 
 		// Stage 5: Classify and persist confirmed tracks
+		if ft != nil {
+			ft.Stage("classify")
+		}
 		confirmedTracks := cfg.Tracker.GetConfirmedTracks()
 		tracef("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
+
+		// Open a per-frame transaction for batching all track/observation writes.
+		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay).
+		var (
+			dbTx       *sql.Tx
+			worldFrame string
+		)
+		if cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
+			worldFrame = fmt.Sprintf("site/%s", sensorID)
+			if tx, txErr := cfg.DB.Begin(); txErr != nil {
+				opsf("[Tracking] Failed to begin track persistence tx: %v", txErr)
+			} else {
+				dbTx = tx
+			}
+		}
 
 		for _, track := range confirmedTracks {
 			// Re-classify periodically as more observations accumulate.
@@ -482,9 +613,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			}
 
 			// Persist track to database
-			if cfg.DB != nil {
-				worldFrame := fmt.Sprintf("site/%s", sensorID)
-				if err := sqlite.InsertTrack(cfg.DB, track, worldFrame); err != nil {
+			if dbTx != nil {
+				if err := sqlite.InsertTrack(dbTx, track, worldFrame); err != nil {
 					opsf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
 				}
 
@@ -515,10 +645,16 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						HeightP95:         track.HeightP95Max,
 						IntensityMean:     track.IntensityMeanAvg,
 					}
-					if err := sqlite.InsertTrackObservation(cfg.DB, obs); err != nil {
+					if err := sqlite.InsertTrackObservation(dbTx, obs); err != nil {
 						opsf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
 					}
 				}
+			}
+		}
+
+		if dbTx != nil {
+			if err := dbTx.Commit(); err != nil {
+				opsf("[Tracking] Failed to commit track persistence tx: %v", err)
 			}
 		}
 
@@ -527,6 +663,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		// Stage 6: Publish to visualiser (if enabled)
+		if ft != nil {
+			ft.Stage("publish")
+		}
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
 			// Adapt frame to FrameBundle
 			// Note: Debug collector is integrated in Tracker but requires explicit enablement
@@ -547,6 +686,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			// Create a minimal bundle just for LidarView forwarding
 			// This preserves the existing behavior when gRPC is disabled
 			cfg.LidarViewAdapter.PublishFrameBundle(nil, foregroundPoints)
+		}
+
+		if emitTiming != nil {
+			emitTiming(len(foregroundPoints), len(clusters), len(confirmedTracks))
 		}
 
 		// Stage 7: Periodic DB pruning of deleted tracks.

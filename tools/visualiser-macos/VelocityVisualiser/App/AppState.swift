@@ -1077,9 +1077,11 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Frame Handling
 
     func onFrameReceived(_ frame: FrameBundle, generation: UInt64? = nil) {
+        let perfStart = ContinuousClock.now
         let eventGeneration = generation ?? playbackStateGeneration
         guard eventGeneration == playbackStateGeneration else {
-            logger.debug("Ignoring stale frame for generation \(eventGeneration)")
+            let epoch = frame.playbackInfo?.replayEpoch ?? 0
+            logger.debug("Ignoring stale frame for generation \(eventGeneration) (epoch=\(epoch))")
             return
         }
         // Update non-published frame data immediately (bypasses SwiftUI)
@@ -1127,6 +1129,15 @@ private let logger = DevLogger(category: "AppState")
             }
         } else {
             newLabels = []
+        }
+
+        // Performance diagnostic: log per-frame processing cost periodically
+        let perfElapsed = ContinuousClock.now - perfStart
+        let perfMs = Double(perfElapsed.components.attoseconds) / 1e15
+        if frameCount % 60 == 0 {
+            logger.info(
+                "[Perf] frame \(self.frameCount) processed in \(String(format: "%.1f", perfMs))ms (fps=\(String(format: "%.1f", self.fps)) type=\(frame.frameType.rawValue) points=\(frame.pointCloud?.pointCount ?? 0) tracks=\(frame.tracks?.tracks.count ?? 0))"
+            )
         }
 
         // Defer @Published state mutations to the next run loop iteration
@@ -1341,7 +1352,10 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
 
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
         let generation = self.generation
-        Task { @MainActor [weak self] in
+        // Called from MainActor.run in streamFrames() — call directly
+        // to ensure backpressure (gRPC loop waits for processing to complete
+        // before reading the next frame, preventing unbounded task queueing).
+        MainActor.assumeIsolated { [weak self] in
             self?.appState?.onFrameReceived(frame, generation: generation)
         }
     }

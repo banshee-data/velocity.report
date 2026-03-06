@@ -138,6 +138,15 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 			if v, ok := trackMetrics["empty_box_ratio"]; ok {
 				result.EmptyBoxRatio = toFloat64FromMap(v)
 			}
+			if v, ok := trackMetrics["mean_occlusion_count"]; ok {
+				result.MeanOcclusionCount = toFloat64FromMap(v)
+			}
+			if v, ok := trackMetrics["max_occlusion_frames"]; ok {
+				result.MaxOcclusionFrames = toIntFromMap(v)
+			}
+			if v, ok := trackMetrics["total_occlusions"]; ok {
+				result.TotalOcclusions = toIntFromMap(v)
+			}
 		}
 
 		results = append(results, result)

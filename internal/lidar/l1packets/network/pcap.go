@@ -58,7 +58,7 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 				// End of PCAP file
 				elapsed := time.Since(startTime)
 				log.Printf("PCAP file reading complete: %d packets processed in %v", packetCount, elapsed)
-				if onProgress != nil && totalPackets > 0 {
+				if onProgress != nil {
 					onProgress(packetIndex, totalPackets)
 				}
 				return nil
@@ -76,7 +76,7 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 			}
 
 			// Report progress periodically (every 100 packets)
-			if onProgress != nil && totalPackets > 0 && packetIndex%100 == 0 {
+			if onProgress != nil && packetIndex%100 == 0 {
 				onProgress(packetIndex, totalPackets)
 			}
 

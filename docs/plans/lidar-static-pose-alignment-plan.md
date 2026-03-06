@@ -388,7 +388,7 @@ type TrackedObject struct {
     ClassificationModel string
 
     // Speed statistics (unchanged)
-    AvgSpeedMps  float32
+    AvgSpeedMps  float32 // running mean; P50SpeedMps added alongside in v0.5.0
     PeakSpeedMps float32
     speedHistory []float32
 

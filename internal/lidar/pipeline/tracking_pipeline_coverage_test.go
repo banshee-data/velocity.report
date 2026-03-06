@@ -1628,3 +1628,131 @@ func TestBackgroundDownsamplingPrePopulated(t *testing.T) {
 	}
 	cb(frame)
 }
+
+// TestTrackingPipelineConfig_BenchmarkMode_EmitsTimingLogs verifies that
+// enabling BenchmarkMode produces [Benchmark] log output via opsf.
+func TestTrackingPipelineConfig_BenchmarkMode_EmitsTimingLogs(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-benchmark-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	benchmarkMode := &atomic.Bool{}
+	benchmarkMode.Store(true)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		Classifier:        l6objects.NewTrackClassifier(),
+		RemoveGround:      false,
+		MaxFrameRate:      0,
+		BenchmarkMode:     benchmarkMode,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+
+	// Seed background
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("bench-seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+
+	// Send foreground frames to exercise full benchmark path
+	for i := 0; i < 3; i++ {
+		ts := now.Add(time.Duration(600+i*100) * time.Millisecond)
+		cb(makeForegroundFrame("bench-fg-"+string(rune('A'+i)), ts, 20.0, 5.0))
+	}
+
+	output := opsBuf.String()
+	if !strings.Contains(output, "[Benchmark]") {
+		t.Errorf("expected [Benchmark] log output when BenchmarkMode is enabled, got:\n%s", output)
+	}
+	if !strings.Contains(output, "total=") {
+		t.Errorf("expected timing output with 'total=' in [Benchmark] log")
+	}
+}
+
+// TestTrackingPipelineConfig_BenchmarkMode_Disabled_NoOutput verifies that
+// when BenchmarkMode is nil or false, no [Benchmark] logs are emitted.
+func TestTrackingPipelineConfig_BenchmarkMode_Disabled_NoOutput(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-benchmark-disabled-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	// BenchmarkMode nil — should produce zero benchmark output
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		RemoveGround:      false,
+		BenchmarkMode:     nil,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+	for i := 0; i < 3; i++ {
+		cb(makeStableFrame("nobench-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+
+	output := opsBuf.String()
+	if strings.Contains(output, "[Benchmark]") {
+		t.Errorf("unexpected [Benchmark] output when BenchmarkMode is nil:\n%s", output)
+	}
+}
+
+// TestTrackingPipelineConfig_BenchmarkMode_HealthSummary verifies the periodic
+// health summary is emitted after healthSummaryInterval processed frames.
+func TestTrackingPipelineConfig_BenchmarkMode_HealthSummary(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-benchmark-health-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	benchmarkMode := &atomic.Bool{}
+	benchmarkMode.Store(true)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		Classifier:        l6objects.NewTrackClassifier(),
+		RemoveGround:      false,
+		MaxFrameRate:      0,
+		BenchmarkMode:     benchmarkMode,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+
+	// Seed background quickly
+	for i := 0; i < 3; i++ {
+		cb(makeStableFrame("health-seed-"+fmt.Sprintf("%d", i), now.Add(time.Duration(i)*50*time.Millisecond), 20.0))
+	}
+
+	// Send 100+ foreground frames to trigger healthSummaryInterval (100)
+	for i := 0; i < 105; i++ {
+		ts := now.Add(time.Duration(200+i*50) * time.Millisecond)
+		cb(makeForegroundFrame("health-fg-"+fmt.Sprintf("%03d", i), ts, 20.0, 5.0+float64(i)*0.01))
+	}
+
+	output := opsBuf.String()
+	if !strings.Contains(output, "health:") {
+		t.Errorf("expected health summary after 100 processed frames, got:\n%s", output)
+	}
+	if !strings.Contains(output, "goroutines=") {
+		t.Errorf("expected goroutine count in health summary")
+	}
+}

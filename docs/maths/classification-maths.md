@@ -58,7 +58,7 @@ Features are extracted per-track from the observation history:
 | Peak speed        | $v_{\text{peak}}$ | m/s  | `PeakSpeedMps`                            |
 | P50 speed         | $v_{50}$          | m/s  | Median of speed history                   |
 | P85 speed         | $v_{85}$          | m/s  | 85th percentile                           |
-| P95 speed         | $v_{95}$          | m/s  | 95th percentile                           |
+| P98 speed         | $v_{98}$          | m/s  | 98th percentile                           |
 | Observation count | $n$               | —    | `ObservationCount`                        |
 | Duration          | $\Delta t$        | s    | `(LastUnixNanos - FirstUnixNanos) / 10^9` |
 
