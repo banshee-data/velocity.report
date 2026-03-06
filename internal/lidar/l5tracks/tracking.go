@@ -253,6 +253,14 @@ type TrackingMetrics struct {
 	// no cluster association (coasting). Lower is better. [0, 1]
 	EmptyBoxRatio float32 `json:"empty_box_ratio"`
 
+	// Occlusion aggregate metrics across active tracks
+	// MeanOcclusionCount is the mean number of occlusion gaps (>200ms) per track
+	MeanOcclusionCount float32 `json:"mean_occlusion_count"`
+	// MaxOcclusionFrames is the longest occlusion gap (in frames) across all active tracks
+	MaxOcclusionFrames int `json:"max_occlusion_frames"`
+	// TotalOcclusions is the sum of OcclusionCount across all active tracks
+	TotalOcclusions int `json:"total_occlusions"`
+
 	// Per-track alignment breakdown
 	PerTrack []TrackAlignmentMetrics `json:"per_track,omitempty"`
 }
@@ -1514,6 +1522,12 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 		totalSpeedJitterSumSq += track.SpeedJitterSumSq
 		totalSpeedJitterCount += track.SpeedJitterCount
 
+		// Accumulate occlusion metrics across all active tracks
+		metrics.TotalOcclusions += track.OcclusionCount
+		if track.MaxOcclusionFrames > metrics.MaxOcclusionFrames {
+			metrics.MaxOcclusionFrames = track.MaxOcclusionFrames
+		}
+
 		if track.AlignmentSampleCount == 0 {
 			continue
 		}
@@ -1575,6 +1589,11 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	// Empty box: fraction of active-track-frames with no cluster association
 	if t.TotalBoxFrames > 0 {
 		metrics.EmptyBoxRatio = float32(t.EmptyBoxFrames) / float32(t.TotalBoxFrames)
+	}
+
+	// Mean occlusion count per active track
+	if metrics.ActiveTracks > 0 {
+		metrics.MeanOcclusionCount = float32(metrics.TotalOcclusions) / float32(metrics.ActiveTracks)
 	}
 
 	return metrics
