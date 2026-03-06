@@ -20,7 +20,7 @@ const (
 type ReplayConfig struct {
 	StartSeconds    float64 // Start offset in seconds
 	DurationSeconds float64 // Duration to replay (-1 for entire file)
-	SpeedMode       string  // "realtime", "fast", "fastest" or custom speed
+	SpeedMode       string  // "realtime", "analysis", or "scaled"
 	SpeedRatio      float64 // Speed multiplier (e.g., 2.0 = 2x speed)
 	AnalysisMode    bool    // When true, preserve grid after completion
 

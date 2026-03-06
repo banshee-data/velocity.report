@@ -77,7 +77,7 @@ type FrameBuilder struct {
 	frameCh             chan *LiDARFrame  // serialises frame callback invocations
 	frameDone           chan struct{}     // closed when frameCallbackWorker exits
 	droppedFrames       atomic.Uint64     // count of frames dropped due to full channel (accessed atomically)
-	blockOnFrameChannel bool              // when true, block instead of dropping frames (PCAP fast mode)
+	blockOnFrameChannel bool              // when true, block instead of dropping frames (analysis mode)
 	exportNextFrameASC  bool              // flag to export next completed frame
 	exportBatchCount    int               // number of frames to export in batch
 	exportBatchExported int               // number of frames already exported in current batch
@@ -299,7 +299,7 @@ func (fb *FrameBuilder) DroppedFrames() uint64 {
 // SetBlockOnFrameChannel enables or disables blocking mode for the frame
 // callback channel. When true, finalizeFrame blocks until the pipeline
 // accepts the frame (true back-pressure). When false (default), frames
-// are dropped if the channel is full. Enable for PCAP "fast" mode to
+// are dropped if the channel is full. Enable for analysis mode to
 // ensure every frame is processed; disable for live mode where dropping
 // is acceptable to maintain real-time throughput.
 func (fb *FrameBuilder) SetBlockOnFrameChannel(block bool) {

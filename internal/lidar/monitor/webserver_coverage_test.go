@@ -2929,7 +2929,7 @@ func TestCov3_HandlePCAPStart_FormDataWithDebugParams(t *testing.T) {
 		stats:         NewPacketStats(),
 	}
 
-	form := strings.NewReader("pcap_file=test.pcap&speed_mode=fastest&speed_ratio=3.0&start_seconds=5&duration_seconds=20&debug_ring_min=2&debug_ring_max=8&debug_az_min=10&debug_az_max=350&enable_debug=true&enable_plots=1&analysis_mode=true")
+	form := strings.NewReader("pcap_file=test.pcap&speed_mode=analysis&speed_ratio=3.0&start_seconds=5&duration_seconds=20&debug_ring_min=2&debug_ring_max=8&debug_az_min=10&debug_az_max=350&enable_debug=true&enable_plots=1&analysis_mode=true")
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=cov3-pcapstart-form", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()

@@ -225,8 +225,8 @@ type PCAPReplayConfig struct {
 	DurationSeconds float64
 	MaxRetries      int
 	AnalysisMode    bool    // When true, preserve grid after PCAP completion
-	SpeedMode       string  // "fastest", "realtime", "fast", or "fixed" (default: server decides)
-	SpeedRatio      float64 // Multiplier for "fixed" mode (e.g. 0.5 = half speed)
+	SpeedMode       string  // "analysis", "realtime", or "scaled"
+	SpeedRatio      float64 // Multiplier for "scaled" mode (e.g. 0.5 = half speed)
 }
 
 // StartPCAPReplayWithConfig requests a PCAP replay with extended configuration.

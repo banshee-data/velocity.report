@@ -337,10 +337,9 @@
               <div class="form-group">
                 <label>Speed Mode:</label>
                 <select name="speed_mode" id="pcap-speed-mode-{{.SensorID}}">
-                  <option value="fastest">Fastest (no pacing)</option>
-                  <option value="fast" selected>Fast (pipeline-paced)</option>
-                  <option value="realtime">Realtime (1x)</option>
-                  <option value="fixed">Fixed ratio</option>
+                  <option value="analysis" selected>Analysis (no pacing)</option>
+                  <option value="realtime">Realtime (1×)</option>
+                  <option value="scaled">Scaled ratio</option>
                 </select>
               </div>
               <div class="form-group">
@@ -390,7 +389,7 @@
                 var ratio = document.getElementById('pcap-speed-ratio-{{.SensorID}}');
                 if (!select || !ratio) return;
                 function update() {
-                  ratio.disabled = (select.value !== 'fixed');
+                  ratio.disabled = (select.value !== 'scaled');
                 }
                 select.addEventListener('change', update);
                 update();

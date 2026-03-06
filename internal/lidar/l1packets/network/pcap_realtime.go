@@ -236,7 +236,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// Real-time pacing: compare wall clock elapsed with PCAP time elapsed.
 			// This accounts for processing time and avoids cumulative lag.
 			//
-			// For high speed multipliers (>= 100x, i.e. "fast" mode), skip
+			// For high speed multipliers (>= 100x), skip
 			// timing-based pacing entirely. Back-pressure comes from the
 			// FrameBuilder's blocking frame channel instead: when the pipeline
 			// can't keep up, AddPointsPolar blocks, naturally throttling the
