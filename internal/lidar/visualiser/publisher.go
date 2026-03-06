@@ -83,12 +83,13 @@ type Publisher struct {
 	vrlogWg           sync.WaitGroup
 
 	// Stats
-	frameCount     atomic.Uint64
-	clientCount    atomic.Int32
-	droppedFrames  atomic.Uint64
-	lastStatsTime  time.Time
-	lastFrameCount uint64 // Frame count at last stats log
-	lastStatsMu    sync.Mutex
+	frameCount       atomic.Uint64
+	clientCount      atomic.Int32
+	droppedFrames    atomic.Uint64
+	lastStatsTime    time.Time
+	lastFrameCount   uint64 // Frame count at last stats log
+	lastDroppedCount uint64 // Dropped count at last stats log
+	lastStatsMu      sync.Mutex
 
 	// Lifecycle
 	running atomic.Bool
@@ -619,6 +620,7 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 	if p.lastStatsTime.IsZero() {
 		p.lastStatsTime = now
 		p.lastFrameCount = frameCount
+		p.lastDroppedCount = p.droppedFrames.Load()
 		return
 	}
 
@@ -628,11 +630,20 @@ func (p *Publisher) logPeriodicStats(frameCount uint64, pointCount, trackCount, 
 		framesInInterval := frameCount - p.lastFrameCount
 		fps := float64(framesInInterval) / elapsed.Seconds()
 		dropped := p.droppedFrames.Load()
+		droppedInInterval := dropped - p.lastDroppedCount
 		clients := p.clientCount.Load()
-		lidar.Tracef("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
-			fps, framesInInterval, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
+		lidar.Tracef("[Visualiser] Stats: fps=%.1f frames=%d dropped=%d(%d total) clients=%d queue=%d/100 last_frame: points=%d tracks=%d clusters=%d",
+			fps, framesInInterval, droppedInInterval, dropped, clients, queueDepth, pointCount, trackCount, clusterCount)
+		if droppedInInterval > 0 && framesInInterval > 0 {
+			dropPct := float64(droppedInInterval) / float64(framesInInterval+droppedInInterval) * 100
+			if dropPct > 10 {
+				lidar.Opsf("[Visualiser] WARNING: high drop rate %.1f%% (%d/%d frames dropped in %.0fs)",
+					dropPct, droppedInInterval, framesInInterval+droppedInInterval, elapsed.Seconds())
+			}
+		}
 		p.lastStatsTime = now
 		p.lastFrameCount = frameCount
+		p.lastDroppedCount = dropped
 	}
 }
 
