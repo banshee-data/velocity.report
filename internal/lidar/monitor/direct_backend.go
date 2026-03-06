@@ -365,8 +365,12 @@ func (d *DirectBackend) StartPCAPReplayWithConfig(cfg sweep.PCAPReplayConfig) er
 	if speedMode == "" {
 		speedMode = "fast"
 	}
+	speedRatio := cfg.SpeedRatio
+	if speedRatio <= 0 {
+		speedRatio = 1.0
+	}
 	return d.ws.StartPCAPForSweep(
-		cfg.PCAPFile, cfg.AnalysisMode, speedMode,
+		cfg.PCAPFile, cfg.AnalysisMode, speedMode, speedRatio,
 		cfg.StartSeconds, cfg.DurationSeconds, cfg.MaxRetries,
 		cfg.DisableRecording)
 }

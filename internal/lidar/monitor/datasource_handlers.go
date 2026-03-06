@@ -97,7 +97,7 @@ func (ws *WebServer) StopPCAPInternal() {
 // It stops the live listener, resets all state (grid, frame builder, tracker),
 // and begins the replay. It retries on conflict (another PCAP in progress)
 // up to maxRetries times with 5-second delays.
-func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMode string,
+func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMode string, speedRatio float64,
 	startSeconds, durationSeconds float64, maxRetries int, disableRecording bool) error {
 
 	if maxRetries <= 0 {
@@ -130,7 +130,7 @@ func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speed
 			mgr.SetSourcePath(pcapFile)
 		}
 
-		if err := ws.startPCAPLocked(pcapFile, speedMode, 1.0, startSeconds, durationSeconds,
+		if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds,
 			0, 0, 0, 0, false, false); err != nil {
 			_ = ws.startLiveListenerLocked()
 			ws.dataSourceMu.Unlock()
