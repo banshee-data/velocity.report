@@ -212,15 +212,15 @@ sub-plan:
 
 ### 1. Visualiser proto: `avg_speed_mps` → `median_speed_mps` (field 24)
 
-- **What:** Proto field 24 in `TrackedObject` is renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) are added. The `AvgSpeedMps` field is removed from the internal model, REST API, ML feature struct, track store, and VRLOG writer. The `avg_speed_mps` DB column is dropped from `lidar_tracks` and `lidar_run_tracks` (replaced by the existing `p50_speed_mps` column).
-- **Impact:** macOS visualiser and any gRPC clients reading field 24 as an average must update to treat it as a median. REST API consumers reading `avg_speed_mps` must switch to `median_speed_mps`.
-- **Migration:** Update client code to use the new field name. The wire format is unchanged (same field number), so binary compatibility is preserved.
+- **What:** Planned (not yet implemented). Proto field 24 in the `Track` message will be renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) will be added. The `AvgSpeedMps` field will be removed from the internal model, REST API, ML feature struct, track store, and VRLOG writer. The `avg_speed_mps` DB column will be dropped from `lidar_tracks` and `lidar_run_tracks` (replaced by the existing `p50_speed_mps` column). Until this change lands, the proto contract remains unchanged (`Track.avg_speed_mps` on field 24, no percentile speed fields).
+- **Impact:** Once shipped, the macOS visualiser and any gRPC clients reading field 24 as an average must update to treat it as a median. REST API consumers reading `avg_speed_mps` must switch to `median_speed_mps`.
+- **Migration:** When upgrading to a build that includes this change, update client code to use the new field name. The wire format is unchanged (same field number), so binary compatibility is preserved.
 - **Design docs:** [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avgspeedmps-in-visualiser-model-and-rest-api)
 
 ### 2. Deployment surface deprecated
 
 - **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.7.0 or later, once the retirement gate is satisfied.
-- **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see deprecation warnings on stdout. Scripts that parse stdout may need to be updated to ignore or handle these warning lines.
+- **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see deprecation warnings on stderr. Scripts that parse stderr, or that treat any output as machine-readable, may need to be updated to ignore or handle these warning lines.
 - **Migration:** Begin planning migration to the image pipeline (#210) when available.
 
 ### 3. `cmd/transit-backfill` soft-deprecated
@@ -291,7 +291,7 @@ sub-plan:
 
 Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md)
 
-- [x] Remove `AvgSpeedMps` from visualiser model, proto field 24 rename, p85/p98 fields (PR #336)
+- [ ] Remove `AvgSpeedMps` from visualiser model, proto field 24 rename, p85/p98 fields (PR #336)
 - [ ] Remove `AvgSpeedMps` from REST API, TrackFeatures, track store, DB columns, pcap-analyse
 - [ ] Remove Svelte/web compat shims (BackgroundCell legacy fields, dual-format cache, sweep legacy field names)
 - [ ] Remove Python compat shims (legacy stats format, config dict helpers, pylatex stubs)

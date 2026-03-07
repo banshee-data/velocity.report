@@ -111,7 +111,7 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
-	@echo "DEPLOYMENT (deprecated — will be removed after #210 image pipeline lands):"
+	@echo "DEPLOYMENT (deprecated — removal gated on #210 image pipeline + packaging + migration period; not before v0.7.0):"
 	@echo "  setup-radar          Install server on this host (requires sudo, legacy, deprecated)"
 	@echo "  deploy-install       Install using velocity-deploy (deprecated)"
 	@echo "  deploy-upgrade       Upgrade using velocity-deploy (deprecated)"

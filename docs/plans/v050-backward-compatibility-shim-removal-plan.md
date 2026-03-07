@@ -5,10 +5,10 @@
 
 ## Status: In Progress
 
-**Completed (PR #336):**
+**Pending (planned for PR #336 — not yet merged):**
 
-- Visualiser model `AvgSpeedMps` removed; `MedianSpeedMps` is sole central speed
-- Proto field 24 renamed `avg_speed_mps` → `median_speed_mps`; p85/p98 fields added
+- Visualiser model `AvgSpeedMps` removal; `MedianSpeedMps` as sole central speed
+- Proto field 24 rename `avg_speed_mps` → `median_speed_mps`; p85/p98 fields to be added
 - `classifyOrConvert()` updated to use `MedianSpeedMps`
 
 **Remaining:** REST API, TrackFeatures, track store, DB column drop, pcap-analyse (§1 below), sweep legacy fields (§2), and remaining shims (§3–15).
@@ -62,7 +62,7 @@ Intersections with other parent-plan projects:
 | Track store (SQLite) | `internal/lidar/storage/sqlite/track_store.go`      | Reads/writes `avg_speed_mps` column in `lidar_tracks` and `lidar_run_tracks`                                                        |
 | DB column            | `internal/db/schema.sql:90,190`                     | `avg_speed_mps REAL` in both `lidar_run_tracks` and `lidar_tracks` (alongside `p50_speed_mps` which already stores the median)      |
 | pcap-analyse tool    | `cmd/tools/pcap-analyse/main.go:107`                | References `avg_speed_mps` in analysis output                                                                                       |
-| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233` | Field 24 already renamed to `median_speed_mps` in proto; Go model and DB have not caught up                                         |
+| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233` | Field 24 is `avg_speed_mps` (pending rename to `median_speed_mps`); p85/p98 fields to be added                                      |
 
 **Action:** Remove `AvgSpeedMps` everywhere — internal model, REST API, TrackFeatures,
 track store, pcap-analyse, and VRLOG writer. This is a breaking change. Add a DB
