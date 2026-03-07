@@ -933,3 +933,156 @@ export async function stopHINT(): Promise<void> {
 	const res = await fetch(`${API_BASE}/lidar/sweep/hint/stop`, { method: 'POST' });
 	if (!res.ok) throw new Error(`Failed to stop HINT: ${res.status}`);
 }
+
+// ─── Serial Configuration Types and API ─────────────────────────────────────
+
+export interface SerialConfig {
+	id: number;
+	name: string;
+	port_path: string;
+	baud_rate: number;
+	data_bits: number;
+	stop_bits: number;
+	parity: string;
+	enabled: boolean;
+	description: string;
+	sensor_model: string;
+	created_at: number;
+	updated_at: number;
+}
+
+export interface SerialConfigRequest {
+	name: string;
+	port_path: string;
+	baud_rate: number;
+	data_bits: number;
+	stop_bits: number;
+	parity: string;
+	enabled: boolean;
+	description: string;
+	sensor_model: string;
+}
+
+export interface SensorModel {
+	slug: string;
+	display_name: string;
+	has_doppler: boolean;
+	has_fmcw: boolean;
+	has_distance: boolean;
+	default_baud_rate: number;
+	init_commands: string[];
+	description: string;
+}
+
+export interface SerialDevice {
+	port_path: string;
+	friendly_name: string;
+	vendor_id?: string;
+	product_id?: string;
+	last_seen: number;
+}
+
+export interface SerialTestRequest {
+	port_path: string;
+	baud_rate: number;
+	data_bits: number;
+	stop_bits: number;
+	parity: string;
+	timeout_seconds: number;
+	auto_correct_baud: boolean;
+}
+
+export interface SerialCommandResult {
+	command: string;
+	response: string;
+	is_json: boolean;
+}
+
+export interface SerialTestResponse {
+	success: boolean;
+	port_path: string;
+	baud_rate: number;
+	test_duration_ms: number;
+	bytes_received?: number;
+	sample_data?: string;
+	raw_responses?: SerialCommandResult[];
+	error?: string;
+	message: string;
+	suggestion?: string;
+}
+
+export async function getSerialConfigs(): Promise<SerialConfig[]> {
+	const res = await fetch(`${API_BASE}/serial/configs`);
+	if (!res.ok) throw new Error(`Failed to fetch serial configs: ${res.status}`);
+	return res.json();
+}
+
+export async function getSerialConfig(id: number): Promise<SerialConfig> {
+	const res = await fetch(`${API_BASE}/serial/configs/${id}`);
+	if (!res.ok) throw new Error(`Failed to fetch serial config: ${res.status}`);
+	return res.json();
+}
+
+export async function createSerialConfig(config: SerialConfigRequest): Promise<SerialConfig> {
+	const res = await fetch(`${API_BASE}/serial/configs`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(config)
+	});
+	if (!res.ok) {
+		const error = await res.text();
+		throw new Error(`Failed to create serial config: ${error}`);
+	}
+	return res.json();
+}
+
+export async function updateSerialConfig(
+	id: number,
+	config: SerialConfigRequest
+): Promise<SerialConfig> {
+	const res = await fetch(`${API_BASE}/serial/configs/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(config)
+	});
+	if (!res.ok) {
+		const error = await res.text();
+		throw new Error(`Failed to update serial config: ${error}`);
+	}
+	return res.json();
+}
+
+export async function deleteSerialConfig(id: number): Promise<void> {
+	const res = await fetch(`${API_BASE}/serial/configs/${id}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) {
+		const error = await res.text();
+		throw new Error(`Failed to delete serial config: ${error}`);
+	}
+}
+
+export async function getSensorModels(): Promise<SensorModel[]> {
+	const res = await fetch(`${API_BASE}/serial/models`);
+	if (!res.ok) throw new Error(`Failed to fetch sensor models: ${res.status}`);
+	return res.json();
+}
+
+export async function getSerialDevices(): Promise<SerialDevice[]> {
+	const res = await fetch(`${API_BASE}/serial/devices`);
+	if (!res.ok) throw new Error(`Failed to fetch serial devices: ${res.status}`);
+	return res.json();
+}
+
+export async function testSerialPort(request: SerialTestRequest): Promise<SerialTestResponse> {
+	const res = await fetch(`${API_BASE}/serial/test`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request)
+	});
+	if (!res.ok) {
+		const error = await res.text();
+		throw new Error(`Failed to test serial port: ${error}`);
+	}
+	return res.json();
+}
