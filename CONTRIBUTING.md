@@ -24,34 +24,89 @@ All contributions must maintain these principles.
 ## Contributor Personas
 
 velocity.report spans sensor hardware, real-time data pipelines, web visualisation, machine learning, and deployment packaging. Many different skill sets can make a meaningful impact — you don't need to be an expert in all of them. Below are the contributor profiles that align with the project's current and planned work.
-
-### Systems Engineer (Go)
-
-The Go server is the backbone of velocity.report: it ingests sensor data, manages the SQLite database, serves the HTTP/gRPC API, and orchestrates the processing pipeline. Systems engineers work on data ingestion, API design, database schema and migrations, configuration management, and binary consolidation. Familiarity with concurrency patterns, serial/UDP protocols, and embedded database constraints (single-writer SQLite on a Raspberry Pi) is especially valuable.
-
-### Frontend Engineer (Svelte / TypeScript)
-
-The web frontend provides real-time dashboards, chart visualisation, and configuration interfaces. Frontend engineers work on Svelte 5 components, chart rendering with LayerChart and D3, Tailwind CSS styling, and responsive design. Current priorities include migrating legacy Go-embedded dashboards to Svelte, building new configuration UIs, and enforcing the project's design system. Experience with accessibility testing (axe-core, Playwright) is a plus.
-
-### Perception & Algorithm Engineer
-
-The LiDAR and radar processing pipeline turns raw sensor data into tracked objects with speed, heading, and classification. Perception engineers work on point-cloud clustering, Kalman-filtered tracking, object classification, sensor fusion, and spatial geometry. This includes algorithm design in Go, mathematical modelling (coordinate transforms, ground-plane projection), and optional Swift/Metal work on the macOS LiDAR visualiser. A background in robotics, computer vision, or signal processing is ideal.
+If you're new, pick the role that is closest to your background and start with its 3-5 core docs before diving into issues or plans.
 
 ### ML & Data Scientist
 
 As the project matures beyond rule-based classification, there is growing scope for machine learning: training vehicle classifiers on labelled track features, automated hyperparameter search for tracking algorithms, and evaluating model performance against ground-truth data. ML contributors work primarily in Python (scikit-learn, pandas) with Go integration for inference. Experience with feature engineering, model evaluation, and small-dataset techniques suits the project's privacy-first, local-only constraints.
 
-### Platform & DevOps Engineer
+**Read next:**
 
-velocity.report deploys to Raspberry Pi 4 hardware with no cloud infrastructure. Platform engineers work on CI/CD pipelines (GitHub Actions), cross-compilation for ARM64, Raspberry Pi image builds, one-line installers, release packaging, and systemd service management. The goal is zero-friction deployment: a community member downloads an SD card image, inserts it, and has a working traffic monitor. Shell scripting, Makefile fluency, and Linux systems experience are key.
+- [docs/plans/lidar-ml-classifier-training-plan.md](docs/plans/lidar-ml-classifier-training-plan.md) — the planned training pipeline and deployment model
+- [docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
+- [docs/maths/classification-maths.md](docs/maths/classification-maths.md) — the current rule-based feature set and decision thresholds
+- [docs/plans/label-vocabulary-consolidation-plan.md](docs/plans/label-vocabulary-consolidation-plan.md) — the canonical taxonomy and cross-surface label model
 
 ### Designer (UX & Data Visualisation)
 
 Good data visualisation turns speed measurements into stories that drive policy change. Designers contribute to information hierarchy, chart design, colour palettes, layout patterns, and accessibility. The project follows a documented [design contract](docs/ui/DESIGN.md) covering palette standards, component conventions, and UI states. Contributions range from Figma mockups and design system refinement to hands-on Svelte/CSS implementation. Experience with data-dense dashboards and accessibility standards (WCAG) is valuable.
 
+**Read next:**
+
+- [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the canonical design language across web, macOS, and report outputs
+- [docs/VISION.md](docs/VISION.md) — the product goals, target users, and reporting outcomes the UI needs to support
+- [docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the LiDAR visualiser
+- [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — the report surface and configuration model for generated outputs
+- [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md) — current implementation milestones and what the visualiser already supports
+
 ### Technical Writer
 
 Clear documentation lowers the barrier for new contributors and new deployments alike. Technical writers work on setup guides, architecture documentation, API references, design documents, and the public documentation site (Eleventy). The project maintains docs in Markdown with metadata validation gates. Good technical writing — especially the ability to explain sensor concepts to a non-technical neighbourhood advocate audience — has outsized impact.
+
+**Read next:**
+
+- [README.md](README.md) — project overview, component map, and contributor setup
+- [docs/README.md](docs/README.md) — documentation structure, ownership, and naming rules
+- [docs/plans/platform-documentation-standardization-plan.md](docs/plans/platform-documentation-standardization-plan.md) — the current documentation quality contract and validation gates
+- [public_html/README.md](public_html/README.md) — how the public docs site is built and organised
+- [public_html/src/guides/setup.md](public_html/src/guides/setup.md) — a representative public-facing guide to match tone, structure, and audience
+
+### Frontend Engineer (mac:Swift / js:Svelte)
+
+The web frontend provides real-time dashboards, chart visualisation, and configuration interfaces. Frontend engineers work on Svelte 5 components, chart rendering with LayerChart and D3, Tailwind CSS styling, and responsive design. Current priorities include migrating legacy Go-embedded dashboards to Svelte, building new configuration UIs, and enforcing the project's design system. Experience with accessibility testing (axe-core, Playwright) is a plus.
+
+**Read next:**
+
+- [web/README.md](web/README.md) — local frontend setup, build, and maintenance commands
+- [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the design contract for web, macOS, and report charts
+- [docs/ui/design-review-and-improvement.md](docs/ui/design-review-and-improvement.md) — current frontend design gaps and concrete follow-up work
+- [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md) — the roadmap for retiring legacy Go-embedded dashboards
+
+### Perception & Algorithm Engineer
+
+The LiDAR and radar processing pipeline turns raw sensor data into tracked objects with speed, heading, and classification. Perception engineers work on point-cloud clustering, Kalman-filtered tracking, object classification, sensor fusion, and spatial geometry. This includes algorithm design in Go, mathematical modelling (coordinate transforms, ground-plane projection), and optional Swift/Metal work on the macOS LiDAR visualiser. A background in robotics, computer vision, or signal processing is ideal.
+
+**Read next:**
+
+- [docs/lidar/README.md](docs/lidar/README.md) — entry point to the LiDAR subsystem docs
+- [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md) — the end-to-end LiDAR pipeline and component inventory
+- [docs/maths/README.md](docs/maths/README.md) — how the math-heavy layers fit together
+- [docs/maths/clustering-maths.md](docs/maths/clustering-maths.md) — clustering assumptions, geometry extraction, and complexity
+- [docs/maths/tracking-maths.md](docs/maths/tracking-maths.md) — Kalman filtering, gating, assignment, and lifecycle dynamics
+
+### Systems Engineer (Go)
+
+The Go server is the backbone of velocity.report: it ingests sensor data, manages the SQLite database, serves the HTTP/gRPC API, and orchestrates the processing pipeline. Systems engineers work on data ingestion, API design, database schema and migrations, configuration management, and binary consolidation. Familiarity with concurrency patterns, serial/UDP protocols, and embedded database constraints (single-writer SQLite on a Raspberry Pi) is especially valuable.
+
+**Read next:**
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — system boundaries, data flow, and deployment shape
+- [cmd/radar/README.md](cmd/radar/README.md) — the main binary, runtime flags, and service model
+- [docs/radar/cli-comprehensive-guide.md](docs/radar/cli-comprehensive-guide.md) — current CLI surface and planned consolidation
+- [internal/db/migrations/README.md](internal/db/migrations/README.md) — schema workflow, migration commands, and production safety
+- [config/README.md](config/README.md) — configuration contract and tuning parameter layout
+
+### Platform & DevOps Engineer
+
+velocity.report deploys to Raspberry Pi 4 hardware with no cloud infrastructure. Platform engineers work on CI/CD pipelines (GitHub Actions), cross-compilation for ARM64, Raspberry Pi image builds, one-line installers, release packaging, and systemd service management. The goal is zero-friction deployment: a community member downloads an SD card image, inserts it, and has a working traffic monitor. Shell scripting, Makefile fluency, and Linux systems experience are key.
+
+**Read next:**
+
+- [cmd/deploy/README.md](cmd/deploy/README.md) — deployment workflows, upgrade flow, rollback, and health checks
+- [docs/plans/deploy-distribution-packaging-plan.md](docs/plans/deploy-distribution-packaging-plan.md) — release packaging strategy and install model
+- [docs/plans/deploy-rpi-imager-fork-plan.md](docs/plans/deploy-rpi-imager-fork-plan.md) — Raspberry Pi image distribution and first-run experience
+- [docs/radar/architecture/networking.md](docs/radar/architecture/networking.md) — listener segmentation, trust model, and network hardening
+- [config/CONFIG-RESTRUCTURE.md](config/CONFIG-RESTRUCTURE.md) — upcoming config migration that affects packaging and runtime defaults
 
 ## Themes of Work
 
