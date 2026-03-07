@@ -1,24 +1,26 @@
-# LiDAR L7 Analytics / L8 Visualisation Refactor Plan
+# LiDAR L7 Analytics / L8 Presentation / L9 Client Tier Refactor Plan
 
 **Status:** Proposed implementation plan
-**Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06.
+**Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06. Updated 2026-03-07 to adopt a nine-layer model, rename `internal/lidar/visualiser/` to `internal/lidar/l8presentation/`, and introduce L9 as the documentation-only client-tier label.
 **Scope:** LiDAR architecture docs, `internal/lidar`, `proto/velocity_visualiser/v1`, `web/`, and the macOS visualiser integration boundary.
 
 ## Executive Summary
 
-velocity.report currently documents and implements a six-layer LiDAR model that ends at `L6 Objects`. The desired target is an eight-layer model that adds:
+velocity.report currently documents and implements a six-layer LiDAR model that ends at `L6 Objects`. The desired target is a nine-layer model that adds:
 
 - `L7 Analytics` for canonical traffic, safety, and run-analysis logic
-- `L8 Visualisation` for operator-facing rendering, payload shaping, dashboards, and visual review workflows
+- `L8 Presentation` for server-side operator-facing payload shaping, the gRPC stream contract, dashboards, debug views, and visual review workflows — canonical Go home is `internal/lidar/l8presentation/` (renamed from `internal/lidar/visualiser/`)
+- `L9 Client Tier` (documentation label only, no Go package) for downstream rendering consumers: browser (Svelte), native app (Swift/VeloVis), and report generation (Python PDF generator)
 
 This is a breaking architectural change, not just a terminology update. The main goal is to stop overloading `L6 Objects`, `storage/sqlite`, and `monitor/` with responsibilities that belong to analytics and presentation.
 
-The attached handover is directionally correct, but the repository review shows that the work needs to be more explicit about:
+The original plan was directionally correct, but the repository review shows that the work needs to be more explicit about:
 
 - the existing six-layer docs that must be updated
 - analytics logic that already exists but is currently misplaced
 - the fact that L8 already partially exists in `internal/lidar/visualiser/`, `proto/velocity_visualiser/v1/`, `web/`, and `tools/visualiser-macos/`
 - the mixed nature of `internal/lidar/monitor/`, which currently contains infrastructure, analytics-backed APIs, and presentation shaping
+- the L9 client tier, which is already enforced structurally by language and directory boundaries but must be named and documented so the dependency chain is explicit
 
 ## Repository Baseline Reviewed Against Current Code
 
@@ -77,29 +79,37 @@ The repo already contains analytics and presentation logic that do not fit the c
 | `monitor/scene_api.go`                     | scene CRUD plus evaluation/replay orchestration                    | mixed infra plus `L7` application services    |
 | `monitor/run_track_api.go`                 | run, labelling, evaluation, and comparison flows                   | mixed infra plus `L7` application services    |
 
-### L8 already exists in practice
+### L8 and L9 already exist in practice
 
-The current repository already has clear L8 consumers and adapters:
+The current repository already has clear L8 and L9 surfaces:
 
-- `internal/lidar/visualiser/` converts pipeline outputs into the canonical visualiser frame model and gRPC stream
-- `proto/velocity_visualiser/v1/visualiser.proto` defines the visualiser payload contract
-- `web/src/routes/lidar/*` implements browser-side LiDAR review and control workflows
-- `tools/visualiser-macos/` is the native operator-facing visualiser
+**Go-side L8 (to be renamed `internal/lidar/l8presentation/`):**
 
-This means Phase 1 is not “invent L8 from nothing”. It is “formalize L8 ownership, move misplaced server-side presentation shaping into it, and document it consistently”.
+- `internal/lidar/visualiser/` currently contains the gRPC stream adapter, proto frame encoding, the canonical server-side visualiser model, and playback/replay adapters — this is the core of L8 Presentation
+- `proto/velocity_visualiser/v1/visualiser.proto` defines the canonical gRPC contract boundary between Go L8 and L9 consumers
+- `internal/lidar/monitor/chart_data.go`, `chart_api.go`, `echarts_handlers.go`, `templates.go` — server-side chart and dashboard shaping that logically belongs to L8
 
-## Target Eight-Layer Model
+**L9 Client Tier (documentation-only label, no Go package):**
 
-| Layer | Label         | Responsibility                                                         |
-| ----- | ------------- | ---------------------------------------------------------------------- |
-| L1    | Packets       | wire transport, UDP capture, PCAP replay, packet parsing               |
-| L2    | Frames        | frame assembly, timestamps, geometry conversion, exports               |
-| L3    | Grid          | background model, foreground masking, persistence, drift, regions      |
-| L4    | Perception    | per-frame scene interpretation, clustering, OBBs, ground removal       |
-| L5    | Tracks        | temporal association, identity, lifecycle, motion estimation           |
-| L6    | Objects       | semantic actor interpretation and object-level quality/classification  |
-| L7    | Analytics     | canonical metrics, summaries, comparisons, scoring, evaluation logic   |
-| L8    | Visualisation | rendering, dashboards, review workflows, payload shaping, UI contracts |
+- `web/src/routes/lidar/*` — browser-side LiDAR review and control workflows (Svelte)
+- `tools/visualiser-macos/` — native operator-facing visualiser (Swift/Metal)
+- `tools/pdf-generator/` — report generation that consumes REST API outputs (Python)
+
+This means Phase 1 is not "invent L8 from nothing". It is "rename and formalise `internal/lidar/visualiser/` as `internal/lidar/l8presentation/`, absorb the misplaced chart/dashboard shaping, document the L9 boundary, and apply consistent naming across L1–L8".
+
+## Target Nine-Layer Model
+
+| Layer | Label        | Responsibility                                                                                                                                                                                  |
+| ----- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1    | Packets      | wire transport, UDP capture, PCAP replay, packet parsing                                                                                                                                        |
+| L2    | Frames       | frame assembly, timestamps, geometry conversion, exports                                                                                                                                        |
+| L3    | Grid         | background model, foreground masking, persistence, drift, regions                                                                                                                               |
+| L4    | Perception   | per-frame scene interpretation, clustering, OBBs, ground removal                                                                                                                                |
+| L5    | Tracks       | temporal association, identity, lifecycle, motion estimation                                                                                                                                    |
+| L6    | Objects      | semantic actor interpretation and object-level quality/classification                                                                                                                           |
+| L7    | Analytics    | canonical metrics, summaries, comparisons, scoring, evaluation logic                                                                                                                            |
+| L8    | Presentation | server-side payload shaping, gRPC stream contract, dashboards, debug views, review payloads — `internal/lidar/l8presentation/`                                                                  |
+| L9    | Client Tier  | **documentation label only — no Go package.** Rendering consumers: browser (Svelte), native (Swift/VeloVis), report gen (Python). Depend on L8 contracts; must not recompute canonical metrics. |
 
 ## Design Rules
 
@@ -107,8 +117,8 @@ This means Phase 1 is not “invent L8 from nothing”. It is “formalize L8 ow
 
 - `L(n)` may depend on `L(n-1)` and below, never upward.
 - `L7 Analytics` may depend on `L1` through `L6`, but must not depend on UI, HTML, Svelte, SwiftUI, or chart-library code.
-- `L8 Visualisation` may consume canonical `L7` outputs and selected raw `L3`/`L5`/`L6` artifacts for debug rendering.
-- `L8` must not define canonical metrics, summaries, or comparisons.
+- `L8 Presentation` may consume canonical `L7` outputs and selected raw `L3`/`L5`/`L6` artifacts for debug rendering. It must not define canonical metrics, summaries, or comparisons.
+- `L9 Client Tier` consumes the contracts published by `L8` (proto, JSON APIs). L9 code must not compute canonical analytics — if a metric is needed, the server must provide it via `L7`-backed `L8` endpoints.
 - `storage/sqlite` is infrastructure and persistence, not the permanent home of analytics logic.
 - `monitor/` is an application/integration boundary, not a canonical domain layer.
 
@@ -116,26 +126,30 @@ This means Phase 1 is not “invent L8 from nothing”. It is “formalize L8 ow
 
 - `L6` owns semantic interpretation of individual tracked actors.
 - `L7` owns aggregate meaning derived from tracks, runs, scenes, sweeps, and labels.
-- `L8` owns human-facing rendering, interaction flows, review payloads, dashboards, debug views, and visualiser/web contracts.
-- infrastructure owns transport, persistence, replay, runtime wiring, and process control.
+- `L8` owns server-side rendering payloads, the gRPC stream contract, chart/view-model shaping, HTTP presentation structs, and debug overlay payloads. Canonical Go home: `internal/lidar/l8presentation/`.
+- `L9` (documentation only) owns client rendering, interaction UX, and local display logic. Receives canonical data from `L8`; does not own analytics.
+- Infrastructure owns transport, persistence, replay, runtime wiring, and process control.
 
 ### Anti-patterns to avoid
 
 - canonical summary math embedded inside HTTP handlers
-- canonical metrics computed inside Svelte, Swift, or chart-specific code
+- canonical metrics computed inside Svelte, Swift, or chart-specific code (L9 computing what L7 should own)
 - SQL stores owning analytics algorithms
 - `monitor/` becoming a permanent catch-all for every LiDAR concern
 - moving files mechanically without clarifying ownership
+- `internal/lidar/visualiser/` being referenced by its old name after the rename to `l8presentation/`
 
 ## Corrections and Clarifications Relative to the Imported Handover
 
 The imported draft should be preserved in spirit, but these repo-specific corrections must be reflected in the checked-in plan:
 
-- `L8` is already partially implemented. The plan must formalize and clean up an existing boundary, not just “define” one.
+- `L8` is already partially implemented. The plan must formalise and clean up an existing boundary, not just "define" one.
+- The canonical Go package for `L8` is `internal/lidar/l8presentation/`, renamed from `internal/lidar/visualiser/`. All import paths referencing the old name must be updated.
 - run comparison is already implemented, but it currently lives in `L6` and `storage/sqlite`; that is a concrete migration target for `L7`.
-- `monitor/` is not just “transitional” in the abstract. It must be classified file-by-file into infra, `L7`-backed application services, and `L8` presentation code.
+- `monitor/` is not just "transitional" in the abstract. It must be classified file-by-file into infra, `L7`-backed application services, and `L8` presentation code.
 - the canonical layer doc path should stay stable if possible. Updating `docs/lidar/architecture/lidar-data-layer-model.md` in place is preferable to renaming it and creating widespread link churn.
-- the first pass should focus on LiDAR. The radar-focused PDF generator and site-report flow may be referenced as broader presentation consumers, but they should not block this LiDAR refactor.
+- the first pass should focus on LiDAR. The radar-focused PDF generator and site-report flow are L9 consumers and may be referenced as such, but they should not block this LiDAR refactor.
+- `L9` is documentation-only. No Go package is created. The client-tier boundary is already enforced structurally by language (JS/Swift/Python vs Go) and by `proto/velocity_visualiser/v1/` acting as the formal wire contract seam.
 
 ## Proposed Target Ownership Map
 
@@ -164,36 +178,67 @@ Initial `L7` candidates to move or extract:
 - labelling progress and run-evaluation summary types where they represent aggregates, not raw storage rows
 - parameter comparison helpers currently tied to run comparison
 
-### L8 Visualisation
+### L8 Presentation
 
-Keep the current L8 surface area explicit rather than forcing it all into one directory:
+Rename `internal/lidar/visualiser/` to `internal/lidar/l8presentation/`. This is a first-class Go package consistent with the `l1packets/` through `l7analytics/` naming scheme.
 
-- `internal/lidar/visualiser/` remains the canonical Go-side visualiser adapter boundary
-- `proto/velocity_visualiser/v1/` remains the canonical gRPC contract boundary
-- `web/` remains the browser UI
-- `tools/visualiser-macos/` remains the native visualiser client
+**What moves in from monitor/ during Phase 4:**
 
-For server-side presentation shaping, introduce one explicit home if the amount of Go-side L8 code continues to grow:
+- `internal/lidar/monitor/chart_data.go` — chart view-model shaping
+- `internal/lidar/monitor/chart_api.go` — presentation-facing chart response structs
+- `internal/lidar/monitor/echarts_handlers.go` — ECharts-specific formatting
+- `internal/lidar/monitor/templates.go` — HTML template rendering and assets
 
-- preferred option: `internal/lidar/l8presentation/`
+**What stays in `internal/lidar/l8presentation/` from the current `visualiser/` package:**
 
-If that package is not created in the first implementation pass, the plan must still explicitly classify the following as L8-owned code:
+- `adapter.go` — converts pipeline domain objects into the proto frame model
+- `frame_codec.go` — proto encoding
+- `grpc_server.go` — gRPC streaming server
+- `model.go` — canonical server-side visualiser data model (Track, FrameBundle, etc.)
+- `publisher.go`, `recorder/`, `replay.go` — stream publishing and replay infrastructure
+- `config.go` — L8 presentation configuration
+- `lidarview_adapter.go` — LidarView adapter
+- `pb/` — compiled proto bindings (stays co-located)
 
-- `internal/lidar/monitor/chart_data.go`
-- chart-specific response structs in `internal/lidar/monitor/chart_api.go`
-- ECharts/template assets and HTML dashboards in `internal/lidar/monitor/`
+**What `internal/lidar/l8presentation/` must not contain:**
+
+- canonical analytics, summary calculations, or comparison logic (those belong in `L7`)
+- infrastructure wiring, route registration, or HTTP multiplexing (those remain in `monitor/`)
+
+**Proto contract:**
+
+`proto/velocity_visualiser/v1/visualiser.proto` remains the formal contract seam between the Go `L8` package and L9 consumers. Changes to the proto are breaking changes for all L9 clients.
+
+### L9 Client Tier (documentation label only)
+
+`L9` has no Go package. It is a documentation label for the rendering consumers that sit downstream of the `L8` contract boundary.
+
+| L9 surface                | Language          | Consumes                                               |
+| ------------------------- | ----------------- | ------------------------------------------------------ |
+| `web/src/routes/lidar/`   | TypeScript/Svelte | HTTP JSON APIs and gRPC-Web stream from `L8`           |
+| `tools/visualiser-macos/` | Swift/Metal       | gRPC stream defined by `proto/velocity_visualiser/v1/` |
+| `tools/pdf-generator/`    | Python            | REST API endpoints backed by `L7` analytics            |
+
+**Rules for L9 surfaces:**
+
+- may call `L8` endpoints (REST, gRPC-Web) and render the results
+- must not recompute canonical metrics locally — request them from `L7`-backed `L8` endpoints instead
+- when a new summary field is needed, the correct fix is adding an `L7` helper and exposing it through an `L8` endpoint, not computing it in Svelte, Swift, or Python
+- the proto contract (`proto/velocity_visualiser/v1/`) is an explicit versioned seam; L9 clients must track breaking changes declared there
 
 ### monitor/ application split
 
-The long-term goal is not to delete `monitor/` immediately. It is to make its mixed ownership obvious and bounded.
+The long-term goal is not to delete `monitor/` immediately. It is to make its mixed ownership obvious and bounded, and to enforce the downward dependency chain by having handler code call into explicitly-layered packages rather than embedding logic directly.
 
 Provisional classification:
 
-| monitor area                                                                                                     | Likely target role                 |
-| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `stats.go`, `datasource*.go`, `playback_handlers.go`, `export_handlers.go`, route registration in `webserver.go` | infrastructure/application         |
-| `track_api.go`, `scene_api.go`, `run_track_api.go`, parts of `sweep_handlers.go`                                 | thin HTTP layer over `L7` services |
-| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/`                       | `L8 Visualisation`                 |
+| monitor area                                                                                                     | Likely target role                            | Dependency rule                                                                               |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `stats.go`, `datasource*.go`, `playback_handlers.go`, `export_handlers.go`, route registration in `webserver.go` | infrastructure/application                    | may import `L1`–`L8` as needed                                                                |
+| `track_api.go`, `scene_api.go`, `run_track_api.go`, parts of `sweep_handlers.go`                                 | thin HTTP layer over `L7` services            | must call `l7analytics/` for any summary or comparison math; no analytics embedded in handler |
+| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/`                       | `L8 Presentation` — move to `l8presentation/` | must call `l7analytics/` for metric values; may shape output for L9 consumers                 |
+
+**Enforcement expectation:** after Phase 4, no file in `monitor/` may contain summary statistics, comparison logic, or percentile calculations. Any handler that currently computes these must be refactored to call an `L7` function. This makes the API layer a thin translation boundary — request parsing, authorisation checks, and response serialisation only.
 
 ## Phased Implementation Plan
 
@@ -201,23 +246,26 @@ Provisional classification:
 
 ### Goals
 
-- make the eight-layer model the documented source of truth
+- make the nine-layer model the documented source of truth
 - preserve stable documentation paths where possible
-- record the breaking-change intent before code moves begin
+- record the L8 rename, L9 client-tier label, and breaking-change intent before code moves begin
 
 ### Work
 
-- update `docs/lidar/architecture/lidar-data-layer-model.md` from six layers to eight layers rather than creating a second competing canonical doc
-- update `docs/lidar/architecture/README.md` to describe `L1` through `L8`
+- update `docs/lidar/architecture/lidar-data-layer-model.md` from six layers to nine layers: add L7, L8 (renamed to Presentation), and L9 (Client Tier, documentation-only)
+- update `docs/lidar/architecture/README.md` to describe `L1` through `L9`
 - update `docs/lidar/README.md`, `docs/data/DATA_STRUCTURES.md`, and `docs/lidar/terminology.md`
 - update package doc comments in `internal/lidar/l1packets/doc.go` through `internal/lidar/l6objects/doc.go`
 - update any layer-language references in `ARCHITECTURE.md`, `README.md`, and `internal/lidar/aliases.go` if they describe the old model
+- document `internal/lidar/visualiser/` in the architecture docs as "will be renamed to `internal/lidar/l8presentation/` in Phase 4"
+- document the L9 client-tier surfaces in the architecture: `web/`, `tools/visualiser-macos/`, `tools/pdf-generator/`
 - add a breaking-change note and a short migration note for future implementers
 
 ### Outputs
 
-- a single canonical eight-layer architecture doc
+- a single canonical nine-layer architecture doc
 - no repo docs still describing the LiDAR architecture as six layers unless explicitly marked historical
+- `L8 Presentation` and `L9 Client Tier` documented with ownership rules and the planned rename noted
 - a documented target interpretation of `monitor/` as transitional/application code
 
 ### Phase 2: Add the Canonical L7 Analytics Boundary
@@ -263,27 +311,34 @@ Provisional classification:
 - handlers delegate to explicit use-case logic
 - `L7` becomes the only canonical home of LiDAR run/summary/comparison analytics
 
-### Phase 4: Formalize the L8 Visualisation Boundary
+### Phase 4: Formalise the L8 Presentation Boundary
 
 ### Goals
 
-- make presentation shaping explicit
+- rename `internal/lidar/visualiser/` to `internal/lidar/l8presentation/`
+- absorb the misplaced presentation code from `monitor/` into the explicit L8 home
 - keep canonical metrics out of UI and chart code
 
 ### Work
 
-- document `internal/lidar/visualiser/`, `proto/velocity_visualiser/v1/`, `web/`, and `tools/visualiser-macos/` as the primary L8 surfaces
-- decide whether to create `internal/lidar/l8presentation/` for server-side payload shaping
-- move chart-specific structs and transformation helpers from `internal/lidar/monitor/chart_data.go` and related code into the chosen L8 home
-- review `internal/lidar/visualiser/adapter.go` and `grpc_server.go` to confirm they only adapt and format existing domain outputs
-- review `web/src/lib/api.ts`, `web/src/lib/types/lidar.ts`, and LiDAR route code to ensure canonical analytics are supplied by the server, not recomputed in the client
-- keep debug overlays and view-model shaping in L8 even when they directly consume `L3`, `L5`, or `L6` artifacts
+- rename `internal/lidar/visualiser/` to `internal/lidar/l8presentation/` and update all import paths
+  - only two external callers require import-path updates: `cmd/radar/radar.go` and `cmd/tools/visualiser-server/main.go`
+- move chart and dashboard presentation code from `monitor/` into `internal/lidar/l8presentation/`:
+  - `monitor/chart_data.go` — coordinate transforms, polar/cartesian downsampling, chart view-model structs
+  - `monitor/chart_api.go` — presentation-facing chart response structs
+  - `monitor/echarts_handlers.go` — ECharts-specific formatting and series helpers
+  - `monitor/templates.go` — HTML template rendering and embedded assets
+- update `monitor/` callers of moved chart code to import from `l8presentation/`
+- review `internal/lidar/l8presentation/adapter.go` and `grpc_server.go` to confirm they only adapt and format existing domain outputs; note `grpc_server.go` imports `l6objects` for classification during VRLOG replay — this is acceptable L6→L8 usage
+- review `web/src/lib/api.ts`, `web/src/lib/types/lidar.ts`, and LiDAR route code to confirm canonical analytics are supplied by the server, not recomputed in the client
+- keep debug overlays and view-model shaping in `l8presentation/` even when they directly consume `L3`, `L5`, or `L6` artifacts
 
 ### Outputs
 
-- the Go-side visualisation boundary is documented and intentional
-- server-side chart and dashboard shaping is no longer mixed with analytics logic
-- client applications consume canonical analytics rather than recreating them
+- `internal/lidar/visualiser/` no longer exists; all callers use `internal/lidar/l8presentation/`
+- server-side chart and dashboard shaping has a single, named home
+- `monitor/` no longer contains presentation-layer types or coordinate transforms
+- client applications consume canonical analytics from `L7`-backed `L8` endpoints
 
 ### Phase 5: Decompose monitor/ into Explicit Roles
 
@@ -330,7 +385,7 @@ Provisional classification:
 
 ## Recommended Sequencing
 
-1. update the canonical docs to the eight-layer model
+1. update the canonical docs to the nine-layer model
 2. create `internal/lidar/l7analytics/`
 3. move obvious `L7` code out of `l6objects`, `storage/sqlite`, and handler files
 4. formalize the L8 boundary and re-home server-side presentation shaping
@@ -343,7 +398,7 @@ Provisional classification:
 
 - broad rename churn with little ownership value
 - moving storage and handler code at the same time without enough tests
-- blurring `L6` versus `L7` around “quality” and training-curation helpers
+- blurring `L6` versus `L7` around "quality" and training-curation helpers: `l6objects/quality.go` mixes per-track quality predicates (clearly L6) with `RunStatistics` / `ComputeRunStatistics` (15+ run-level aggregate fields — these are L7). The split must be deliberate: object-level predicates stay in L6; aggregate run metrics move to `l7analytics/summary.go`
 - breaking web or visualiser clients by changing response shapes and contracts too aggressively
 
 ### Guardrails
@@ -352,7 +407,80 @@ Provisional classification:
 - prefer extracting logic first, then relocating files if the ownership benefit is clear
 - keep response contracts compatible where possible during the transition
 - do not let `storage/sqlite` or `monitor/` become the fallback home for new analytics
-- document deferred moves explicitly instead of leaving hidden architectural debt
+- document deferred moves explicitly instead of leaving hidden architectural debt — the inventory below is the concrete record of what remains and where it belongs
+
+## Concrete Tech Debt Inventory
+
+This table records every known ownership mismatch in the current codebase with the exact file and the concrete function or logic that needs to move. Future work must address all of these to complete the structural refactor.
+
+### Misplaced L7 logic in L6
+
+| File                                         | Code that needs to move                                                                     | Target in `l7analytics/`                                 | Callers to update                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------- |
+| `internal/lidar/l6objects/comparison.go`     | `RunComparison`, `TrackMatch`, `TrackSplit`, `TrackMerge` types                             | `types.go` or `comparison.go`                            | `storage/sqlite/analysis_run_compare.go`, `monitor/run_track_api.go` |
+| `internal/lidar/l6objects/comparison.go`     | `ComputeTemporalIoU` function                                                               | `comparison.go`                                          | same as above                                                        |
+| `internal/lidar/l6objects/quality.go`        | `RunStatistics` struct and `ComputeRunStatistics` function (15+ aggregate run-level fields) | `summary.go`                                             | `storage/sqlite/analysis_run.go`, `monitor/track_api.go`             |
+| `internal/lidar/l6objects/classification.go` | `ComputeSpeedPercentiles` at callsite near line 508                                         | caller delegates to `l7analytics/percentiles.go` instead | any code calling the classification helper for percentile math       |
+
+**L6 after this move:** retains per-object quality predicates, per-object classification, and per-track attributes. Does not own run-level aggregates or comparison orchestration.
+
+### Misplaced L7 logic in storage
+
+| File                                                    | Code that needs to move                                                                                 | Target                                                              | Notes                                                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `internal/lidar/storage/sqlite/track_store.go`          | `p50, p85, p95 := ComputeSpeedPercentiles(t.SpeedHistory())` called inline during `InsertTrack()`       | caller passes pre-computed values from `l7analytics/percentiles.go` | percentile math should not live in the persistence path                                                        |
+| `internal/lidar/storage/sqlite/analysis_run.go`         | `ComputeSpeedPercentiles` call inline at line ~226 during run persistence                               | same as above                                                       | same problem as `track_store.go`                                                                               |
+| `internal/lidar/storage/sqlite/analysis_run.go`         | run comparison orchestration logic currently mixed with storage                                         | `l7analytics/comparison.go` service function                        | storage should store and load, not orchestrate comparison                                                      |
+| `internal/lidar/storage/sqlite/analysis_run_compare.go` | Hungarian algorithm for track matching, temporal IoU calculation at persistence layer (lines 1042–1216) | `l7analytics/comparison.go`                                         | this is the most substantial misplacement: a full combinatorial matching algorithm lives in the SQLite package |
+
+**storage/sqlite after this move:** stores and retrieves data; calls `l7analytics` helpers for any derived values it must persist; does not own analytics algorithms.
+
+### Misplaced L8 presentation logic in monitor/
+
+| File                                         | Code that needs to move                                                                                                                  | Target in `l8presentation/`    |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `internal/lidar/monitor/chart_data.go`       | all chart view-model structs, polar/cartesian coordinate transforms, downsampling helpers, `PreparePolarChartData` and related functions | `l8presentation/chart_data.go` |
+| `internal/lidar/monitor/chart_api.go`        | presentation-facing chart response structs                                                                                               | `l8presentation/chart_api.go`  |
+| `internal/lidar/monitor/echarts_handlers.go` | ECharts-specific series formatting and response helpers                                                                                  | `l8presentation/echarts.go`    |
+| `internal/lidar/monitor/templates.go`        | HTML template rendering, embedded template assets                                                                                        | `l8presentation/templates.go`  |
+
+**monitor/ after this move:** retains route registration, request parsing, authorisation checks, response serialisation, and infrastructure wiring. Does not contain chart structs, coordinate math, or ECharts helpers.
+
+### visualiser/ → l8presentation/ rename: affected files
+
+The directory `internal/lidar/visualiser/` becomes `internal/lidar/l8presentation/`. Files that stay (all kept, just under the new path):
+
+| File                   | Role                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `adapter.go`           | converts pipeline domain objects into the proto frame model                                        |
+| `frame_codec.go`       | proto frame encoding                                                                               |
+| `grpc_server.go`       | gRPC streaming server (imports `l6objects` for VRLOG classification — acceptable L6→L8 dependency) |
+| `model.go`             | canonical server-side data model (Track, FrameBundle, etc.)                                        |
+| `publisher.go`         | stream publishing                                                                                  |
+| `recorder/`            | stream recording infrastructure                                                                    |
+| `replay.go`            | PCAP and VRLOG replay adapters                                                                     |
+| `config.go`            | L8 presentation configuration                                                                      |
+| `lidarview_adapter.go` | LidarView export adapter                                                                           |
+| `pb/`                  | compiled proto bindings (co-located, stays)                                                        |
+
+**External callers that require import-path updates (exhaustive):**
+
+| Caller                                | Import to change                                              |
+| ------------------------------------- | ------------------------------------------------------------- |
+| `cmd/radar/radar.go`                  | `internal/lidar/visualiser` → `internal/lidar/l8presentation` |
+| `cmd/tools/visualiser-server/main.go` | `internal/lidar/visualiser` → `internal/lidar/l8presentation` |
+
+No other files outside `internal/lidar/` import `internal/lidar/visualiser/` directly. The rename is low-risk.
+
+### Deferred moves (explicitly out of scope for the initial phases)
+
+These ownership issues are noted here to avoid hidden architectural debt, but are not blocking for the initial phases:
+
+| Item                                                                                    | Current location | Correct owner                          | Why deferred                                                                |
+| --------------------------------------------------------------------------------------- | ---------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `monitor/gridplotter.go` — grid visualisation and colorisation                          | `monitor/`       | `l8presentation/`                      | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
+| Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
+| Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | mixed infra + `L7` application service | scene CRUD stays in infra; evaluation logic needs extraction                |
 
 ## Non-Goals
 
@@ -366,8 +494,8 @@ Provisional classification:
 
 ### Docs and architecture
 
-- [ ] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the eight-layer model
-- [ ] `docs/lidar/architecture/README.md` updated to describe `L1` through `L8`
+- [ ] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the nine-layer model
+- [ ] `docs/lidar/architecture/README.md` updated to describe `L1` through `L9`
 - [ ] `docs/lidar/README.md`, `docs/data/DATA_STRUCTURES.md`, and `docs/lidar/terminology.md` updated
 - [ ] relevant package doc comments under `internal/lidar/` updated
 - [ ] breaking-change rationale documented
@@ -383,11 +511,11 @@ Provisional classification:
 - [ ] comparison logic delegates to `L7`
 - [ ] new or moved `L7` code has direct unit tests
 
-### L8 visualisation boundary
+### L8 presentation boundary
 
-- [ ] canonical `L8` surfaces documented for Go, proto, web, and macOS
-- [ ] server-side chart/view-model shaping has an explicit `L8` home
-- [ ] `chart_data.go`-style presentation helpers are no longer treated as analytics code
+- [ ] `internal/lidar/visualiser/` renamed to `internal/lidar/l8presentation/`; import paths in `cmd/radar/radar.go` and `cmd/tools/visualiser-server/main.go` updated
+- [ ] server-side chart/view-model shaping has an explicit `L8` home in `l8presentation/`
+- [ ] `chart_data.go`-style presentation helpers are no longer in `monitor/`
 - [ ] clients do not compute canonical summary metrics locally
 - [ ] debug and dashboard payload shaping is explicitly classified as `L8`
 
