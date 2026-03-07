@@ -4,7 +4,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5 (Platform Hardening)
 
-- v0.5.0 backward compatibility shim removal — remove `AvgSpeedMps` from REST API/track store/DB, sweep legacy fields, deploy executor compat methods — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
+- v0.5.0 backward compatibility shim removal — remove `AvgSpeedMps` from REST API/track store/DB, sweep legacy fields — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 
