@@ -1,6 +1,17 @@
 # v0.5.0 Backward Compatibility Shim Removal Plan
 
-## Status: Draft
+**Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
+**Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields)
+
+## Status: In Progress
+
+**Pending (planned for PR #336 — not yet merged):**
+
+- Visualiser model `AvgSpeedMps` removal; `MedianSpeedMps` as sole central speed
+- Proto field 24 rename `avg_speed_mps` → `median_speed_mps`; p85/p98 fields to be added
+- `classifyOrConvert()` updated to use `MedianSpeedMps`
+
+**Remaining:** REST API, TrackFeatures, track store, DB column drop, pcap-analyse (§1 below), sweep legacy fields (§2), and remaining shims (§3–15).
 
 ## Goal
 
@@ -15,26 +26,51 @@ interfaces going forward.
 
 ## Scope
 
-This plan covers **data model and API compat shims only** — not the deployment
-deprecation surface (covered in
-[platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md)).
+This plan covers **data model and API compat shims only**. It is a sub-plan of
+the [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md),
+which is the parent plan for all simplification work including deployment
+deprecation (Project B), frontend consolidation (Project C), and CLI
+simplification (Project D). This sub-plan corresponds to **Project E** in the
+parent.
+
+Intersections with other parent-plan projects:
+
+- **Project B (deploy retirement):** Deploy executor compat methods (§5 below)
+  are deferred to Project B and will be removed when the retirement gate is met.
+  No action in this plan beyond documenting them.
+- **Project C (#252 sweep migration):** Sweep legacy field removal (§2, §14
+  below) removes the old request/result field names. Project C covers the full
+  sweep UI migration to the Svelte frontend. The field-name cleanup here is a
+  prerequisite for clean Project C work.
+- **Proto contract plan:** The `AvgSpeedMps` → `MedianSpeedMps` rename (§1, §15
+  below) is also tracked in the
+  [proto contract plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+  Phase C/D. That plan owns the gRPC serialisation and Swift proto regeneration;
+  this plan owns the REST API and internal model cleanup.
 
 ---
 
 ## Inventory of Backward Compatibility Shims
 
-### 1. Go Server — `AvgSpeedMps` in visualiser model and REST API
+### 1. Go Server — `AvgSpeedMps` removal (all layers)
 
 | Item                 | Location                                            | Detail                                                                                                                              |
 | -------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Internal model field | `internal/lidar/visualiser/model.go:245`            | `AvgSpeedMps float32 // running mean for classifier/VRLOG compat` — exists alongside `MedianSpeedMps`, `P85SpeedMps`, `P98SpeedMps` |
 | REST API JSON field  | `internal/lidar/monitor/track_api.go:124`           | `AvgSpeedMps float32 json:"avg_speed_mps"` — exposed to web frontend                                                                |
+| TrackFeatures field  | `internal/lidar/l6objects/features.go:31`           | `AvgSpeedMps float32` in ML feature-vector struct; also in CSV header and export                                                    |
+| Track store (SQLite) | `internal/lidar/storage/sqlite/track_store.go`      | Reads/writes `avg_speed_mps` column in `lidar_tracks` and `lidar_run_tracks`                                                        |
+| DB column            | `internal/db/schema.sql:90,190`                     | `avg_speed_mps REAL` in both `lidar_run_tracks` and `lidar_tracks` (alongside `p50_speed_mps` which already stores the median)      |
 | pcap-analyse tool    | `cmd/tools/pcap-analyse/main.go:107`                | References `avg_speed_mps` in analysis output                                                                                       |
-| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233` | Field 24 already renamed to `median_speed_mps` in proto, but Go model still carries `AvgSpeedMps` for "VRLOG compat"                |
+| Proto field rename   | `proto/velocity_visualiser/v1/visualiser.proto:233` | Field 24 is `avg_speed_mps` (pending rename to `median_speed_mps`); p85/p98 fields to be added                                      |
 
-**Action:** Remove `AvgSpeedMps` from the internal model, REST API, and
-pcap-analyse. Consumers should use `MedianSpeedMps` (p50), `P85SpeedMps`, or
-`P98SpeedMps` as appropriate. Update VRLOG writer to emit `median_speed_mps`.
+**Action:** Remove `AvgSpeedMps` everywhere — internal model, REST API, TrackFeatures,
+track store, pcap-analyse, and VRLOG writer. This is a breaking change. Add a DB
+migration to drop the `avg_speed_mps` column from `lidar_tracks` and
+`lidar_run_tracks` (using `ALTER TABLE ... DROP COLUMN`). Consumers should use
+`p50_speed_mps` (already populated) or `MedianSpeedMps` in the model. No
+backward compatibility shim is kept for VRLOG or classifiers — they must use the
+median/percentile fields.
 
 ---
 
@@ -263,6 +299,13 @@ The following are **not** compat shims and should be retained:
 | Sweep results with `noise`/`closeness`/`neighbour` top-level | `param_values` map                          | All params keyed under `param_values`      |
 | Stats response as bare `[...]` array                         | `{ "metrics": [...], "histogram": {...} }`  | Old format removed                         |
 
+### Database schema
+
+| Old                              | New     | Notes                                           |
+| -------------------------------- | ------- | ----------------------------------------------- |
+| `lidar_tracks.avg_speed_mps`     | Dropped | Use `p50_speed_mps` instead (already populated) |
+| `lidar_run_tracks.avg_speed_mps` | Dropped | Use `p50_speed_mps` instead (already populated) |
+
 ### Protobuf (gRPC visualiser stream)
 
 | Old                       | New                                        | Notes                               |
@@ -299,6 +342,9 @@ The following are **not** compat shims and should be retained:
 ### Phase 2 — Server-side removals (Go)
 
 - [ ] Remove `AvgSpeedMps` from `model.go`, `track_api.go`, `pcap-analyse`
+- [ ] Remove `AvgSpeedMps` from `l6objects/features.go` (TrackFeatures struct + CSV export)
+- [ ] Remove `avg_speed_mps` reads/writes from `storage/sqlite/track_store.go` and `analysis_run.go`
+- [ ] Add DB migration to `DROP COLUMN avg_speed_mps` from `lidar_tracks` and `lidar_run_tracks`
 - [ ] Remove sweep legacy request fields and `computeCombinations()`
 - [ ] Remove legacy sweep result fields from `ComboResult`
 - [ ] Remove download endpoint query-param path
@@ -348,5 +394,9 @@ The following are **not** compat shims and should be retained:
   "avg" when it is actually "median". This is acceptable since no pre-v0.5.0
   consumers exist in production.
 - Items gated on external dependencies (deploy retirement, frontend consolidation)
-  are excluded and tracked in the
-  [platform simplification plan](platform-simplification-and-deprecation-plan.md).
+  are excluded from this plan and tracked in the parent
+  [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md)
+  Projects B and C respectively.
+- The breaking changes in this sub-plan are summarised in the parent plan's
+  v0.5.0 Breaking Changes section (items 1, 4-7). That section is the
+  consumer-facing changelog; this document is the implementation detail.

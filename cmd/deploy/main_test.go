@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/version"
+	appver "github.com/banshee-data/velocity.report/internal/version"
 )
 
 func TestMain_VersionCommand(t *testing.T) {
 	// Test that version constant is defined
-	if version.Version == "" {
+	if appver.Version == "" {
 		t.Error("version constant should not be empty")
 	}
 }
@@ -138,12 +138,12 @@ func TestMain_FlagDefaults(t *testing.T) {
 }
 
 func TestMain_VersionConstant(t *testing.T) {
-	if version.Version != "0.1.0" {
-		t.Logf("Note: version changed from 0.1.0 to %s", version.Version)
+	if appver.Version != "0.1.0" {
+		t.Logf("Note: version changed from 0.1.0 to %s", appver.Version)
 	}
 
 	// Version should follow semver format (loosely)
-	if !strings.Contains(version.Version, ".") && version.Version != "dev" {
+	if !strings.Contains(appver.Version, ".") && appver.Version != "dev" {
 		t.Error("version should contain at least one dot (semver format)")
 	}
 }

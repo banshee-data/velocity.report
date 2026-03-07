@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/version"
+	appver "github.com/banshee-data/velocity.report/internal/version"
 )
 
 var DebugMode bool
@@ -20,6 +20,13 @@ func main() {
 		printUsage()
 		os.Exit(1)
 	}
+
+	fmt.Fprintln(os.Stderr, "WARNING: velocity-deploy is deprecated.")
+	fmt.Fprintln(os.Stderr, "Removal is gated on: (1) #210 image pipeline operational, (2) packaging confirmed,")
+	fmt.Fprintln(os.Stderr, "(3) migration period elapsed, (4) no active deploy-tool users — not before v0.7.0.")
+	fmt.Fprintln(os.Stderr, "See https://github.com/banshee-data/velocity.report/blob/main/docs/plans/platform-simplification-and-deprecation-plan.md for details.")
+	fmt.Fprintf(os.Stderr, "Running velocity-deploy version %s (git SHA: %s).\n", appver.Version, appver.GitSHA)
+	fmt.Fprintln(os.Stderr, "")
 
 	command := flag.Arg(0)
 	args := flag.Args()[1:]
@@ -42,7 +49,7 @@ func main() {
 	case "config":
 		handleConfig(args)
 	case "version":
-		fmt.Printf("velocity-deploy version %s (git SHA: %s)\n", version.Version, version.GitSHA)
+		fmt.Printf("velocity-deploy version %s (git SHA: %s)\n", appver.Version, appver.GitSHA)
 	case "help":
 		printUsage()
 	default:
