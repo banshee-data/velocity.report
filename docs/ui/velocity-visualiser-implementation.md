@@ -392,7 +392,7 @@ See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/
 - [x] `lidar_labels` table schema migration
 - [x] Label API endpoints (POST/GET/PUT/DELETE)
 - [x] Label filtering by track_id, time range, class
-- [x] JSON export endpoint for ML pipeline
+- [x] JSON export endpoint for benchmark and classification research tooling
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
 > **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labeling-auto-aware-tuning-plan.md`](../plans/lidar-track-labeling-auto-aware-tuning-plan.md) Phase 1.1.
@@ -402,7 +402,7 @@ See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/
 - [x] All debug overlays render correctly
 - [x] Labels persist in SQLite database
 - [x] Labels accessible from both visualiser and web UI
-- [x] Export produces valid JSON for ML pipeline
+- [x] Export produces valid JSON for benchmark and classification research tooling
 - [x] Labelling workflow < 3 seconds per track
 
 **Estimated Dev-Days**: 12 (8 Track A + 4 Track B)

@@ -23,19 +23,20 @@ All contributions must maintain these principles.
 
 ## Contributor Personas
 
-velocity.report spans sensor hardware, real-time data pipelines, web visualisation, machine learning, and deployment packaging. Many different skill sets can make a meaningful impact — you don't need to be an expert in all of them. Below are the contributor profiles that align with the project's current and planned work.
+velocity.report spans sensor hardware, real-time data pipelines, web visualisation, data science, and deployment packaging. Many different skill sets can make a meaningful impact — you don't need to be an expert in all of them. Below are the contributor profiles that align with the project's current and planned work.
 If you're new, pick the role that is closest to your background and start with its 3-5 core docs before diving into issues or plans.
 
-### ML & Data Scientist
+### Data Scientist
 
-As the project matures beyond rule-based classification, there is growing scope for machine learning: training vehicle classifiers on labelled track features, automated hyperparameter search for tracking algorithms, and evaluating model performance against ground-truth data. ML contributors work primarily in Python (scikit-learn, pandas) with Go integration for inference. Experience with feature engineering, model evaluation, and small-dataset techniques suits the project's privacy-first, local-only constraints.
+Data science work in velocity.report is closer to an actuarial or quantitative-analysis role than an ML-ops role. The critical path is explicit metrics, labelled ground truth, reproducible replay-based comparisons, and transparent algorithms whose parameters and thresholds remain exposed and tunable. Future classification work exists, but it is not on the critical path and must earn its place by beating the current rule-based baseline with auditable features and reproducible scorecards rather than introducing black boxes into the pipeline.
 
 **Read next:**
 
-- [docs/plans/lidar-ml-classifier-training-plan.md](docs/plans/lidar-ml-classifier-training-plan.md) — the planned training pipeline and deployment model
+- [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md) — the repo-wide data science stance: metrics first, no black boxes on the critical path
 - [docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
-- [docs/maths/classification-maths.md](docs/maths/classification-maths.md) — the current rule-based feature set and decision thresholds
-- [docs/plans/label-vocabulary-consolidation-plan.md](docs/plans/label-vocabulary-consolidation-plan.md) — the canonical taxonomy and cross-surface label model
+- [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md) — the metric and schema model for derived transit statistics
+- [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md) — collected metrics, objectives, and decision-making for tuning
+- [docs/maths/classification-maths.md](docs/maths/classification-maths.md) — the current transparent classification baseline and thresholds
 
 ### Designer (UX & Data Visualisation)
 
