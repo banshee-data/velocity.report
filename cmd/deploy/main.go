@@ -10,8 +10,6 @@ import (
 	appver "github.com/banshee-data/velocity.report/internal/version"
 )
 
-const version = "1.0.0"
-
 var DebugMode bool
 
 func main() {
