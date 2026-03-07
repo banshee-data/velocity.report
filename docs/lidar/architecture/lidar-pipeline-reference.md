@@ -1,6 +1,6 @@
 # LiDAR Pipeline Reference
 
-Complete reference for the velocity.report LiDAR processing pipeline: data flow, component inventory, production deployment architecture, and ML pipeline design.
+Complete reference for the velocity.report LiDAR processing pipeline: data flow, component inventory, production deployment architecture, and the metrics-first data science boundaries around tuning and future classification work.
 
 ---
 
@@ -9,9 +9,9 @@ Complete reference for the velocity.report LiDAR processing pipeline: data flow,
 ```
 PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → Track → Classify → API
                                                                                  ↓
-                                                                          JSON/CSV Export
+                                                                  JSON/CSV Export + Labelled Runs
                                                                                  ↓
-                                                                        Training Data Blobs
+                                                                    Scorecards / Replay Benchmarks
 ```
 
 ## Existing Components
@@ -47,100 +47,61 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 │                                                                 │
 │  [UDP:2369] → [LIDAR Pipeline] → [Local SQLite] → [REST API]   │
 │                      ↓                   ↓                      │
-│                [ML Classifier]    [Training Data]               │
+│        [Rule-Based + Tunable L6]  [Runs / Labels / Metrics]    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                                  ↓
-                        [Data Consolidation]
+                   [Replay Packs / Consolidated Analysis]
                                  ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Central Server                             │
+│               Offline Analysis / Research Workstation           │
 │                                                                 │
-│  [Consolidated DB] → [Labelling UI] → [Model Training]         │
-│                           ↓              ↓                      │
-│                    [Labelled Tracks] → [New Model]              │
-│                                           ↓                     │
-│                              [Model Distribution]               │
+│  [Reference Runs] → [Scorecards / Threshold Studies]            │
+│                           ↓                                     │
+│             [Optional Classification Research]                  │
+│                           ↓                                     │
+│     [Deploy Only If It Beats Transparent Baseline]              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Model Update Flow:**
+**Metrics and Threshold Update Flow:**
 
 1. Collect labelled tracks from labelling UI
-2. Train new model version
-3. Evaluate on validation set
-4. If metrics improve: version the model, distribute to edge nodes, update
-   `classification_model` field in new tracks
+2. Re-run the same scenes with explicit parameter bundles
+3. Compare scorecards: detection, fragmentation, false positives, velocity
+   coverage, and stability
+4. Version the winning thresholds/params and document the metric deltas
 5. Monitor production metrics → collect new edge cases → repeat
 
-## Complete ML Pipeline Data Flow
+**Optional classification research** may use the same labelled runs and exported
+features, but it is not on the critical path. Any candidate model must beat the
+current rule-based baseline on fixed replay packs before deployment is even
+considered.
+
+## Metrics-First Data Science and Optional Classification Flow
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                         COMPLETE ML PIPELINE                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────┐    ┌───────────┐    ┌──────────┐    ┌──────────────────┐   │
-│  │  PCAP   │───→│   Parse   │───→│  Frame   │───→│    Background    │   │
-│  │  Live   │    │           │    │ Builder  │    │    Subtraction   │   │
-│  └─────────┘    └───────────┘    └──────────┘    └────────┬─────────┘   │
-│                                                           │             │
-│                                                           ▼             │
-│  ┌─────────────────┐    ┌──────────┐    ┌──────────────────────────┐    │
-│  │   Foreground    │◄───│  Mask    │◄───│   ProcessFramePolarWith  │    │
-│  │     Points      │    │          │    │         Mask()           │    │
-│  └────────┬────────┘    └──────────┘    └──────────────────────────┘    │
-│           │                                                             │
-│           ▼                                                             │
-│  ┌─────────────────┐    ┌──────────────────┐    ┌──────────────────┐    │
-│  │  TransformTo    │───→│     DBSCAN       │───→│     Tracker      │    │
-│  │    World()      │    │   Clustering     │    │    Update()      │    │
-│  └─────────────────┘    └──────────────────┘    └────────┬─────────┘    │
-│                                                          │              │
-│                                                          ▼              │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     ANALYSIS RUN (Phase 3.7)                    │    │
-│  │                                                                 │    │
-│  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
-│  │   │  params_json│    │  lidar_run_    │    │ Split/Merge     │  │    │
-│  │   │   (all cfg) │    │    tracks      │    │   Detection     │  │    │
-│  │   └─────────────┘    └────────────────┘    └─────────────────┘  │    │
-│  │                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                    │
-│                                    ▼                                    │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    LABELLING UI (Phase 4.0)                     │    │
-│  │                                                                 │    │
-│  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
-│  │   │   Track     │    │    Label       │    │   Quality       │  │    │
-│  │   │  Browser    │───→│   Assignment   │───→│   Marking       │  │    │
-│  │   └─────────────┘    └────────────────┘    └─────────────────┘  │    │
-│  │                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                    │
-│                                    ▼                                    │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                  ML TRAINING (Phase 4.1)                        │    │
-│  │                                                                 │    │
-│  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
-│  │   │  Feature    │    │    Model       │    │   Deployed      │  │    │
-│  │   │ Extraction  │───→│   Training     │───→│    Model        │  │    │
-│  │   └─────────────┘    └────────────────┘    └─────────────────┘  │    │
-│  │                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                    │                                    │
-│                                    ▼                                    │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │               PARAMETER TUNING (Phase 4.2)                      │    │
-│  │                                                                 │    │
-│  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
-│  │   │  Parameter  │    │   Run          │    │   Optimal       │  │    │
-│  │   │   Grid      │───→│  Comparison    │───→│  Parameters     │  │    │
-│  │   └─────────────┘    └────────────────┘    └─────────────────┘  │    │
-│  │                                                                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│               METRICS-FIRST DATA SCIENCE WORKFLOW                    │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  PCAP / Live UDP                                                     │
+│        ↓                                                             │
+│  Parse → Frame → Background → Cluster → Track → Rule-Based Classify  │
+│        ↓                                                             │
+│  Analysis Run (params_json + run tracks + diagnostics)               │
+│        ↓                                                             │
+│  Labelling UI (detection + quality + split/merge review)             │
+│        ↓                                                             │
+│  Scorecards / Replay Benchmarks                                      │
+│        ├─ threshold studies                                          │
+│        ├─ parameter tuning                                           │
+│        └─ report metric validation                                   │
+│        ↓                                                             │
+│  Optional classification research                                    │
+│        ↓                                                             │
+│  Deploy only if benchmark wins are reproducible and explainable      │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
 ```

@@ -30,7 +30,7 @@ Protocol specifications and data formats.
 
 Development progress and future planning.
 
-- **ML pipeline roadmap** (Phases 4.0–4.3: labelling UI, training, tuning)
+- **Metrics-first data science roadmap** (Phases 4.0–4.3: labelling UI, scorecards, optional classification research, tuning)
 - **Development log** with implementation notes
 
 ### `future/`
@@ -78,7 +78,7 @@ Tracking pipeline refactor and upgrade proposals.
 | System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                                                             |
 | Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                                                   |
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                             |
-| ML pipeline             | [architecture/ml-solver-expansion.md](architecture/ml-solver-expansion.md)                                                                   |
+| Data science plan       | [../plans/platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md)                                 |
 | Packet format           | [HESAI_PACKET_FORMAT.md](../data/HESAI_PACKET_FORMAT.md)                                                                                     |
 | **macOS Visualiser**    | [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md)               |
 | **API Contracts**       | [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md)                                         |

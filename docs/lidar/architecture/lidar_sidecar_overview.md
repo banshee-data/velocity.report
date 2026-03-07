@@ -1,7 +1,7 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
 **Status:** Phase 3.9 completed — All core features operational
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → ML data export → Analysis Runs → Sweep/Auto-Tune
+**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → classification research data export → Analysis Runs → Sweep/Auto-Tune
 
 ---
 
@@ -80,7 +80,7 @@
 - ✅ **Unit Tests**: Comprehensive tracking tests in `internal/lidar/tracking_test.go`
 - ✅ **Location**: `internal/lidar/tracking.go`
 
-### ✅ **ML Training Data Support (COMPLETED)**
+### ✅ **Classification Research Data Support (COMPLETED)**
 
 - ✅ **`ForegroundFrame`**: Export struct for foreground points with metadata
 - ✅ **`EncodeForegroundBlob()`/`DecodeForegroundBlob()`**: Compact binary encoding (8 bytes/point)
@@ -88,7 +88,7 @@
 - ✅ **Unit Tests**: `internal/lidar/training_data_test.go`
 - ✅ **Location**: `internal/lidar/training_data.go`
 
-> **Note:** Pose validation and quality-based filtering are planned for a future phase. Training data is stored in polar (sensor) frame for pose independence.
+> **Note:** Pose validation and quality-based filtering are planned for a future phase. Export data is stored in polar (sensor) frame for pose independence.
 
 ### ✅ **Phase 3.3: SQL Schema & Database Persistence (COMPLETED)**
 
@@ -133,7 +133,7 @@
 - ✅ **Track Categorization**: Classify tracks as pedestrian, car, bird, other
 - ✅ **Speed Statistics**: P50/P85/P95 percentile computation per track
 - ✅ **Export Formats**: JSON (full analysis), CSV (track table), training data (binary blobs)
-- ✅ **ML Data Export**: Foreground point cloud blobs for model training
+- ✅ **Classification Research Export**: Foreground point cloud blobs for offline experiments
 - ✅ **Database Persistence**: Optional SQLite storage for batch analysis results
 - ✅ **Location**: `cmd/tools/pcap-analyze/main.go`
 
@@ -148,7 +148,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 
 - ✅ **`AnalysisRun` Type**: Complete analysis session with `params_json` storing all LIDAR parameters
 - ✅ **`RunParams` Type**: Versioned parameter configuration (background, clustering, tracking, classification)
-- ✅ **`RunTrack` Type**: Track data with user labels and quality flags for ML training
+- ✅ **`RunTrack` Type**: Track data with user labels and quality flags for reproducible ground truth and optional classification research
 - ✅ **`AnalysisRunStore`**: Database operations for runs and tracks
   - `InsertRun()`, `CompleteRun()`, `GetRun()`, `ListRuns()`
   - `InsertRunTrack()`, `GetRunTracks()`, `UpdateTrackLabel()`
@@ -179,11 +179,11 @@ pcap-analyze -pcap capture.pcap -output ./results
 - ✅ **Sweep dashboard**: ECharts bar charts, heatmaps, results table (`sweep_dashboard.html`)
 - ✅ **PARAM_SCHEMA**: Sane default ranges for all numeric parameters
 
-### 📋 **Phase 4: Track Labelling & ML Pipeline (PLANNED)**
+### 📋 **Phase 4: Track Labelling, Metrics, and Optional Classification (PLANNED)**
 
 - **Phase 4.0: Track Labelling UI** — Wire existing label API routes, scene management, Svelte labelling controls
 - **Phase 4.0: LiDAR Transit Table** — `lidar_transits` table for dashboard integration
-- **Phase 4.1: ML Classifier Training** — Feature extraction, Python training, Go deployment
+- **Phase 4.1: Optional Classification Benchmarking** — feature extraction, offline comparisons, and deployment only if the transparent baseline is beaten reproducibly
 - **Multi-Sensor Architecture**: Support multiple LiDAR sensors per machine
 - **Local Persistence**: Each sensor stores data in local SQLite database
 - **Database Unification**: Merge data from multiple local databases for analysis
@@ -195,7 +195,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 - **Production Deployment**: Documentation for multi-node edge deployment
 - ✅ **Track Visualisation UI**: SvelteKit components for track history playback (implemented)
 
-> **See also:** [LiDAR Pipeline Reference](lidar-pipeline-reference.md) for Phase 4.0-4.3 plans ([labelling](../../plans/lidar-track-labeling-auto-aware-tuning-plan.md), [ML training](../../plans/lidar-ml-classifier-training-plan.md), [parameter tuning](../../plans/lidar-parameter-tuning-optimisation-plan.md), production deployment)
+> **See also:** [LiDAR Pipeline Reference](lidar-pipeline-reference.md) for Phase 4.0-4.3 plans ([labelling](../../plans/lidar-track-labeling-auto-aware-tuning-plan.md), [metrics-first data science](../../plans/platform-data-science-metrics-first-plan.md), [optional classification](../../plans/lidar-ml-classifier-training-plan.md), [parameter tuning](../../plans/lidar-parameter-tuning-optimisation-plan.md), production deployment)
 
 ---
 
@@ -205,7 +205,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 cmd/radar/radar.go                 ✅ # LiDAR integration with --enable-lidar flag
 cmd/bg-sweep/main.go               ✅ # Single-parameter sweep tool for tuning
 cmd/bg-multisweep/main.go          ✅ # Multi-parameter grid search tool
-cmd/tools/pcap-analyze/main.go     ✅ # PCAP batch analysis for ML data export (Phase 3.6)
+cmd/tools/pcap-analyze/main.go     ✅ # PCAP batch analysis for scorecards and optional classification export (Phase 3.6)
 internal/lidar/network/listener.go ✅ # UDP socket and packet processing
 internal/lidar/network/forwarder.go✅ # UDP packet forwarding to LidarView
 internal/lidar/network/pcap.go     ✅ # PCAP file reading with BPF filtering
@@ -229,7 +229,7 @@ internal/lidar/sweep/runner.go     ✅ # Parameter sweep runner with settle mode
 internal/lidar/sweep/auto.go       ✅ # Auto-tuner with grid narrowing (Phase 3.9)
 internal/lidar/sweep/objective.go   ✅ # Multi-objective scoring (Phase 3.9)
 internal/lidar/sweep/sampler.go    ✅ # Parameter sampling (Phase 3.9)
-internal/lidar/training_data.go    ✅ # ML training data export and encoding
+internal/lidar/training_data.go    ✅ # Classification research data export and encoding
 internal/lidar/export.go           ✅ # ASC point cloud export
 internal/lidar/arena.go            ✅ # Data structures for clustering and tracking
 internal/db/db.go                  ✅ # Database schema and BgSnapshot persistence
@@ -366,7 +366,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **Speed Statistics**: Average speed, peak speed, history for percentile computation
 - **Aggregated Features**: Bounding box averages, height P95 max, intensity mean average
 
-### ML Training Data (✅ Complete)
+### Classification Research Data (✅ Complete)
 
 - **Location**: `internal/lidar/training_data.go`
 - **`ForegroundFrame`**: Export struct for foreground points with metadata
@@ -374,7 +374,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **`TrainingDataFilter`**: Filtering training data by sensor, sequence, foreground count
 - **Storage Format**: Polar (sensor) frame for pose independence
 
-> **Future Work:** Pose validation and quality-based filtering for ML datasets are planned for a future phase.
+> **Future Work:** Pose validation and quality-based filtering for classification research datasets are planned for a future phase.
 
 ---
 
@@ -1075,7 +1075,7 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 - ✅ **World Transform** (Phase 3.0): `TransformToWorld()` with identity transform
 - ✅ **DBSCAN Clustering** (Phase 3.1): `SpatialIndex`, `DBSCAN()`, `WorldCluster`
 - ✅ **Kalman Tracking** (Phase 3.2): `Tracker`, `TrackedObject`, lifecycle management
-- ✅ **ML Training Data Support**: `ForegroundFrame`, compact encoding, sensor-frame storage
+- ✅ **Classification Research Data Support**: `ForegroundFrame`, compact encoding, sensor-frame storage
 
 ### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5)**
 
@@ -1085,7 +1085,7 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 - ✅ **World Transform**: `TransformToWorld()` with identity transform (Phase 3.0)
 - ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbor queries (Phase 3.1)
 - ✅ **Tracking**: `Tracker` with Kalman filter and lifecycle management (Phase 3.2)
-- ✅ **ML Training Data**: `ForegroundFrame` export with compact binary encoding
+- ✅ **Classification Research Data**: `ForegroundFrame` export with compact binary encoding
 - ✅ **SQL Schema**: `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables (Phase 3.3)
 - ✅ **Track Persistence**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()` functions (Phase 3.3)
 - ✅ **Classification**: `TrackClassifier` for pedestrian/car/bird/other labels (Phase 3.4)
