@@ -6,7 +6,7 @@
 
 Reproducible analysis runs with versioned parameter configurations, allowing
 comparison across runs with different parameters and detection of track
-splits/merges. This was Phase 3.7 of the LiDAR ML pipeline.
+splits/merges. This was Phase 3.7 of the LiDAR metrics-first data science workstream.
 
 ## Related Documents
 

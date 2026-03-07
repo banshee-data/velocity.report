@@ -170,7 +170,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 
 ### 📋 Remaining Components
 
-1. **Track Labeling UI** - Manual annotation interface for ML training (Phase 4.0)
+1. **Track Labeling UI** - Manual annotation interface for reproducible classification research and scorecards (Phase 4.0)
 
 ---
 
@@ -1424,7 +1424,7 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.3   | SQL Schema & Persistence | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
 | 3.4   | Classification           | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes                      |
 | 3.5   | REST API Endpoints       | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries                 |
-| 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing, ML data export                      |
+| 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing and classification research export    |
 | 3.8   | Track Visualisation UI   | 2-3 days | ✅ Complete | MapPane, TrackList, TimelinePane components, pagination, playback                 |
 | Test  | Integration Testing      | 2-3 days | 📋 Planned  | End-to-end tests, performance validation                                          |
 
@@ -1441,7 +1441,7 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 6. ✅ **SQL Schema Ready** - Database persistence with `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables
 7. ✅ **Classification Active** - Rule-based classifier for pedestrian, car, bird, other
 8. ✅ **REST Endpoints** - HTTP handlers for track/cluster API access
-9. ✅ **PCAP Analysis Tool** - CLI tool for batch track categorisation and ML data export
+9. ✅ **PCAP Analysis Tool** - CLI tool for batch track categorisation and classification research export
 10. ✅ **Track Visualisation UI** - SvelteKit components for track history playback
 11. 📋 **Production Ready** - All tests passing, documented, deployed
 
@@ -1598,7 +1598,7 @@ MeasurementNoise      = [0.2, 0.2]
 #### Training Data Schema
 
 ```sql
--- Foreground point cloud sequences for ML training
+-- Foreground point cloud sequences for classification research
 CREATE TABLE IF NOT EXISTS lidar_training_frames (
     frame_id INTEGER PRIMARY KEY,
     sensor_id TEXT NOT NULL,
@@ -1630,7 +1630,7 @@ CREATE INDEX idx_training_sequence ON lidar_training_frames(frame_sequence_id);
 #### Export Functions
 
 ```go
-// ForegroundFrame represents a single frame of foreground points for training
+// ForegroundFrame represents a single frame of foreground points for classification research
 type ForegroundFrame struct {
     SensorID         string
     TSUnixNanos      int64
@@ -1640,7 +1640,7 @@ type ForegroundFrame struct {
     BackgroundPoints int
 }
 
-// ExportForegroundFrame exports foreground points in polar coordinates for ML training
+// ExportForegroundFrame exports foreground points in polar coordinates for classification research
 func ExportForegroundFrame(polarPoints []PointPolar, mask []bool, sensorID string, ts time.Time) *ForegroundFrame {
     foreground := ExtractForegroundPoints(polarPoints, mask)
 
@@ -1663,7 +1663,7 @@ func ExportForegroundFrame(polarPoints []PointPolar, mask []bool, sensorID strin
 1. **Pose Validation:** Validate sensor calibration quality based on RMSE metrics
 2. **Quality Assessment:** Categorize pose quality (Excellent/Good/Fair/Poor)
 3. **Transform Gating:** Gate world-frame transformations by pose quality
-4. **Training Data Filtering:** Filter ML training data by pose quality
+4. **Training Data Filtering:** Filter classification research data by pose quality
 
 #### Design Rationale
 
