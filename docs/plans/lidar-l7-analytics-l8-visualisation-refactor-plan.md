@@ -64,18 +64,18 @@ The six-layer model is still the canonical language in multiple places, includin
 
 The repo already contains analytics and presentation logic that do not fit the current documented ownership:
 
-| Current location | Current responsibility | Target ownership |
-| --- | --- | --- |
-| `internal/lidar/l6objects/comparison.go` | run comparison types and temporal IoU helpers | `L7 Analytics` |
-| `internal/lidar/l6objects/quality.go` | mixed per-track quality helpers and run-level aggregate statistics | split between `L6 Objects` and `L7 Analytics` |
-| `internal/lidar/storage/sqlite/track_store.go` | speed percentile calculation during persistence | `L7 Analytics` helper called by storage |
-| `internal/lidar/storage/sqlite/analysis_run.go` | run comparison orchestration, percentiles, run-track summary logic | storage plus `L7 Analytics` service split |
-| `internal/lidar/storage/sqlite/analysis_run_compare.go` | parameter diffing for run comparison | likely `L7 Analytics` |
-| `internal/lidar/monitor/track_api.go` | track summary aggregation and response shaping | `L7 Analytics` plus `L8`/handler boundary |
-| `internal/lidar/monitor/chart_data.go` | chart-specific view-model shaping | `L8 Visualisation` |
-| `internal/lidar/monitor/chart_api.go` | presentation-facing chart APIs | `L8 Visualisation` |
-| `internal/lidar/monitor/scene_api.go` | scene CRUD plus evaluation/replay orchestration | mixed infra plus `L7` application services |
-| `internal/lidar/monitor/run_track_api.go` | run, labelling, evaluation, and comparison flows | mixed infra plus `L7` application services |
+| Current location (under `internal/lidar/`) | Current responsibility                                             | Target ownership                              |
+| ------------------------------------------ | ------------------------------------------------------------------ | --------------------------------------------- |
+| `l6objects/comparison.go`                  | run comparison types and temporal IoU helpers                      | `L7 Analytics`                                |
+| `l6objects/quality.go`                     | mixed per-track quality helpers and run-level aggregate statistics | split between `L6 Objects` and `L7 Analytics` |
+| `storage/sqlite/track_store.go`            | speed percentile calculation during persistence                    | `L7 Analytics` helper called by storage       |
+| `storage/sqlite/analysis_run.go`           | run comparison orchestration, percentiles, run-track summary logic | storage plus `L7 Analytics` service split     |
+| `storage/sqlite/analysis_run_compare.go`   | parameter diffing for run comparison                               | likely `L7 Analytics`                         |
+| `monitor/track_api.go`                     | track summary aggregation and response shaping                     | `L7 Analytics` plus `L8`/handler boundary     |
+| `monitor/chart_data.go`                    | chart-specific view-model shaping                                  | `L8 Visualisation`                            |
+| `monitor/chart_api.go`                     | presentation-facing chart APIs                                     | `L8 Visualisation`                            |
+| `monitor/scene_api.go`                     | scene CRUD plus evaluation/replay orchestration                    | mixed infra plus `L7` application services    |
+| `monitor/run_track_api.go`                 | run, labelling, evaluation, and comparison flows                   | mixed infra plus `L7` application services    |
 
 ### L8 already exists in practice
 
@@ -90,16 +90,16 @@ This means Phase 1 is not “invent L8 from nothing”. It is “formalize L8 ow
 
 ## Target Eight-Layer Model
 
-| Layer | Label | Responsibility |
-| --- | --- | --- |
-| L1 | Packets | wire transport, UDP capture, PCAP replay, packet parsing |
-| L2 | Frames | frame assembly, timestamps, geometry conversion, exports |
-| L3 | Grid | background model, foreground masking, persistence, drift, regions |
-| L4 | Perception | per-frame scene interpretation, clustering, OBBs, ground removal |
-| L5 | Tracks | temporal association, identity, lifecycle, motion estimation |
-| L6 | Objects | semantic actor interpretation and object-level quality/classification |
-| L7 | Analytics | canonical metrics, summaries, comparisons, scoring, evaluation logic |
-| L8 | Visualisation | rendering, dashboards, review workflows, payload shaping, UI contracts |
+| Layer | Label         | Responsibility                                                         |
+| ----- | ------------- | ---------------------------------------------------------------------- |
+| L1    | Packets       | wire transport, UDP capture, PCAP replay, packet parsing               |
+| L2    | Frames        | frame assembly, timestamps, geometry conversion, exports               |
+| L3    | Grid          | background model, foreground masking, persistence, drift, regions      |
+| L4    | Perception    | per-frame scene interpretation, clustering, OBBs, ground removal       |
+| L5    | Tracks        | temporal association, identity, lifecycle, motion estimation           |
+| L6    | Objects       | semantic actor interpretation and object-level quality/classification  |
+| L7    | Analytics     | canonical metrics, summaries, comparisons, scoring, evaluation logic   |
+| L8    | Visualisation | rendering, dashboards, review workflows, payload shaping, UI contracts |
 
 ## Design Rules
 
@@ -189,11 +189,11 @@ The long-term goal is not to delete `monitor/` immediately. It is to make its mi
 
 Provisional classification:
 
-| monitor area | Likely target role |
-| --- | --- |
-| `stats.go`, `datasource*.go`, `playback_handlers.go`, `export_handlers.go`, route registration in `webserver.go` | infrastructure/application |
-| `track_api.go`, `scene_api.go`, `run_track_api.go`, parts of `sweep_handlers.go` | thin HTTP layer over `L7` services |
-| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/` | `L8 Visualisation` |
+| monitor area                                                                                                     | Likely target role                 |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `stats.go`, `datasource*.go`, `playback_handlers.go`, `export_handlers.go`, route registration in `webserver.go` | infrastructure/application         |
+| `track_api.go`, `scene_api.go`, `run_track_api.go`, parts of `sweep_handlers.go`                                 | thin HTTP layer over `L7` services |
+| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/`                       | `L8 Visualisation`                 |
 
 ## Phased Implementation Plan
 
