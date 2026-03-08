@@ -243,9 +243,9 @@ type Track struct {
 	HeightP95Max     float32
 	IntensityMeanAvg float32
 	AvgSpeedMps      float32 // running mean (proto field 24)
-	P50SpeedMps      float32 // p50 from speed history (proto field 38)
-	P85SpeedMps      float32 // 85th percentile from speed history
-	P98SpeedMps      float32 // 98th percentile from speed history
+	P50SpeedMps      float32 // p50 from speed history (proto field 36)
+	P85SpeedMps      float32 // 85th percentile from speed history (proto field 37)
+	P98SpeedMps      float32 // 98th percentile from speed history (proto field 38)
 	PeakSpeedMps     float32
 
 	// Classification
