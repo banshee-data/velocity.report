@@ -1440,7 +1440,7 @@ CREATE TABLE IF NOT EXISTS lidar_velocity_coherent_tracks (
     observation_count INTEGER,
 
     -- Kinematics (world frame)
-    avg_speed_mps REAL,
+    avg_speed_mps REAL, -- Running-mean speed; retained alongside p50_speed_mps (median)
     peak_speed_mps REAL,
     p50_speed_mps REAL,
     p85_speed_mps REAL,

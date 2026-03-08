@@ -132,7 +132,7 @@ lidar_transits
   transit_end_unix        DOUBLE NOT NULL
   max_speed_mps           REAL
   min_speed_mps           REAL
-  avg_speed_mps           REAL
+  avg_speed_mps           REAL    -- retained as running mean; p50_speed_mps is primary percentile metric
   p50_speed_mps           REAL
   p85_speed_mps           REAL
   p95_speed_mps           REAL
