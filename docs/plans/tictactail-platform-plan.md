@@ -21,7 +21,7 @@ app-specific code.
 The split should be:
 
 1. `tictactail`: all aggregation, live refresh, history rendering, alignment,
-   colors, spinner, and output mechanics
+   colours, spinner, and output mechanics
 2. application emitter/projector: choose keys and feed flat samples
 3. thin adapter: CLI command or route glue
 
@@ -37,7 +37,7 @@ The VRLOG checker should be a small import/config layer on top of this.
 - tail-style history output
 - live footer refresh loop
 - aligned columns between history rows and live footer
-- ANSI coloring for persisted rows
+- ANSI colouring for persisted rows
 - moon-phase live spinner
 - TTY vs non-TTY behaviour
 - performance-sensitive local aggregation
@@ -341,15 +341,15 @@ Use moon phases on the live footer only:
 
 Persisted history rows do not use spinner frames.
 
-### Color
+### Colour
 
-Persisted history rows keep ANSI colors when stdout is a TTY:
+Persisted history rows keep ANSI colours when stdout is a TTY:
 
 - green for ok
 - yellow for warn
 - red for fail
 
-The live footer uses the spinner prefix instead of a colored status dot.
+The live footer uses the spinner prefix instead of a coloured status dot.
 
 ### Alignment
 

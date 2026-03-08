@@ -20,7 +20,7 @@ under the main binary as first-class subcommands.
 
 This command should be built on the generic TicTacTail platform described in
 [tictactail-platform-plan.md](../../plans/tictactail-platform-plan.md). All
-live/footer rendering, history layout, alignment, color, spinner, and refresh
+live/footer rendering, history layout, alignment, colour, spinner, and refresh
 policy should live there. VRLOG should only provide emitted keys, projection,
 and validation rules.
 
