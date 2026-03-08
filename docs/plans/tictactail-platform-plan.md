@@ -285,7 +285,7 @@ type windowState struct {
 	WindowSeconds int
 	WindowID      int64
 	Latest        map[string]Value
-	Sums          map[string]float64
+	Sums          map[string]int64
 }
 ```
 
