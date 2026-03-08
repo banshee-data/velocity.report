@@ -20,7 +20,11 @@ type speedWindow struct {
 
 // newSpeedWindow creates a speed window with the given maximum length.
 // Both internal slices are pre-allocated to avoid repeated growth.
+// maxLen values below zero are clamped to zero (no observations stored).
 func newSpeedWindow(maxLen int) *speedWindow {
+	if maxLen < 0 {
+		maxLen = 0
+	}
 	return &speedWindow{
 		queue:  make([]float32, 0, maxLen),
 		sorted: make([]float32, 0, maxLen),
@@ -29,8 +33,11 @@ func newSpeedWindow(maxLen int) *speedWindow {
 }
 
 // Add inserts a new speed observation. If the window is at capacity the
-// oldest observation is evicted first.
+// oldest observation is evicted first. No-op when maxLen is zero.
 func (sw *speedWindow) Add(speed float32) {
+	if sw.maxLen <= 0 {
+		return
+	}
 	if len(sw.queue) >= sw.maxLen {
 		// Evict oldest entry from both views.
 		oldest := sw.queue[0]
