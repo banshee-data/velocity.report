@@ -3,10 +3,10 @@
 ## Goal
 
 Add a VRLOG inspection command as a subcommand of the main `velocity-report`
- binary, not as a separate tool binary. The command should validate VRLOG
- structure and format version, analyse contents in real time, and present the
- results in a tail-style terminal stream suitable for both existing `.vrlog`
- recordings and live streams.
+binary, not as a separate tool binary. The command should validate VRLOG
+structure and format version, analyse contents in real time, and present the
+results in a tail-style terminal stream suitable for both existing `.vrlog`
+recordings and live streams.
 
 Proposed command family:
 
@@ -16,13 +16,13 @@ velocity-report vrlog check --live [stream flags]
 ```
 
 This should be the reference pattern for future `/cmd` tools that need to move
- under the main binary as first-class subcommands.
+under the main binary as first-class subcommands.
 
 This command should be built on the generic TicTacTail platform described in
- [tictactail-platform-plan.md](../../plans/tictactail-platform-plan.md). All
- live/footer rendering, history layout, alignment, color, spinner, and refresh
- policy should live there. VRLOG should only provide emitted keys, projection,
- and validation rules.
+[tictactail-platform-plan.md](../../plans/tictactail-platform-plan.md). All
+live/footer rendering, history layout, alignment, color, spinner, and refresh
+policy should live there. VRLOG should only provide emitted keys, projection,
+and validation rules.
 
 ## Why Put It In The Main Binary
 
@@ -68,7 +68,7 @@ Recommended flags for `vrlog check`:
 ## Dispatch / Package Layout
 
 Keep command dispatch in `cmd/radar/radar.go`, but split generic aggregation
- from VRLOG-specific reporting.
+from VRLOG-specific reporting.
 
 Proposed layout:
 
@@ -137,9 +137,9 @@ Checks:
 - rolling operational stats
 
 Live mode should not pretend to validate on-disk artefacts such as
- `header.json/index.bin`; it validates the stream against the same logical
- frame contract and reports that it is checking a live source rather than a
- recorded archive.
+`header.json/index.bin`; it validates the stream against the same logical
+frame contract and reports that it is checking a live source rather than a
+recorded archive.
 
 ## Emitted Keys
 
@@ -172,12 +172,12 @@ Rendered forms may collapse generic suffix pairs:
 - `er_inc` -> `er`
 
 VRLOG should emit those exact flat keys into `tictactail`. No key mapping should
- exist in the platform.
+exist in the platform.
 
 ## Metrics To Show
 
 The VRLOG layer should define the domain metrics and emit them directly into
- TicTacTail. Keep the row contract flat, one-layer, and key/value only.
+TicTacTail. Keep the row contract flat, one-layer, and key/value only.
 
 The command should explicitly separate three classes of metrics:
 
@@ -232,8 +232,8 @@ Toggle options:
 - keyboard toggle while running: `s` flips `30 <-> 3`
 
 The requested `3 / 30 seconds` behaviour should still use rolling windows, not
- lifetime averages, but the stream should emit only the currently selected
- window size.
+lifetime averages, but the stream should emit only the currently selected
+window size.
 
 Implementation:
 
@@ -244,10 +244,10 @@ Implementation:
 - live line always shows the currently active `ag=<seconds>`
 
 Do not force `3s/30s` into the same history line. The primary read should be
- temporal: one line per completed selected chunk.
+temporal: one line per completed selected chunk.
 
 TicTacTail should keep both windows hot internally so VRLOG can flip between
- `30` and `3` with no cold start.
+`30` and `3` with no cold start.
 
 Recommended live-line fields:
 
@@ -261,7 +261,7 @@ Recommended live-line fields:
 ## Handling Metrics Not Represented In The File
 
 This is the main correctness constraint: the command must not imply that a
- downstream-computed signal was stored in the VRLOG if it was not.
+downstream-computed signal was stored in the VRLOG if it was not.
 
 Plan:
 
@@ -329,7 +329,7 @@ Recommended behaviour:
 - when `--no-ui` is set, keep only the aggregate and event rows
 
 This makes the command act like `tail -f` with structure, rather than like a
- full-screen dashboard.
+full-screen dashboard.
 
 ## Phased Delivery
 
@@ -377,6 +377,6 @@ This makes the command act like `tail -f` with structure, rather than like a
 ## Recommendation
 
 Start with `velocity-report vrlog check <path>` inside the main binary and make
- the checker architecture source-agnostic from day one. That gives a clean
- template for other former `cmd/tools/*` features while avoiding a one-off file
- validator that later has to be rewritten for live streams.
+the checker architecture source-agnostic from day one. That gives a clean
+template for other former `cmd/tools/*` features while avoiding a one-off file
+validator that later has to be rewritten for live streams.

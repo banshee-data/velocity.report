@@ -15,8 +15,8 @@ Use `TicTacTail` in code/docs unless we later have a strong reason to rename it.
 ## Goal
 
 Build a generic platform that takes flat key/value samples, refreshes a live
- footer quickly, emits aligned history rows, and keeps the heavy logic outside
- app-specific code.
+footer quickly, emits aligned history rows, and keeps the heavy logic outside
+app-specific code.
 
 The split should be:
 
@@ -372,7 +372,7 @@ This is why alignment logic belongs in TicTacTail rather than the application.
 ### Pair Formatting
 
 TicTacTail may apply generic suffix conventions in the renderer without renaming
- keys.
+keys.
 
 Allowed generic formatting rules:
 
@@ -534,4 +534,4 @@ Beyond VRLOG:
 ## Recommendation
 
 Adopt `TicTacTail` as the working package/repo name, move all visual/tail/live
- contract details here, and keep VRLOG as a thin emitter/projector on top.
+contract details here, and keep VRLOG as a thin emitter/projector on top.
