@@ -4,7 +4,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5 (Platform Hardening)
 
-- v0.5.0 backward compatibility shim removal — remove `AvgSpeedMps` from REST API/track store/DB, sweep legacy fields — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
+- v0.5.0 backward compatibility shim removal — reset the track speed contract (`peak` → `max`, no public track percentiles), sweep legacy fields, and remove deploy executor compat methods — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 
@@ -14,6 +14,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 - Visualiser performance and scene health metrics — timeline and VR log metrics — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardization-plan.md) `M`
+- Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, rename raw `peak` → `max`, and define replacement track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
+- Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts
 

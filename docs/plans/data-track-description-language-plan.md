@@ -36,13 +36,32 @@ SQL-like DSLs are powerful but exclude non-technical users. JSON filter objects 
 
 ### 2.2 Speed Measurement Model
 
-There are two distinct kinds of speed percentile in the system. Confusing them leads to incorrect schema design:
+Percentiles should be reserved for grouped speed summaries across many transits.
+Reusing `p50/p85/p98` terminology on a single track creates the exact ambiguity
+this plan is trying to avoid.
 
-**Per-track profile percentiles** — computed from the ordered speed observations _within a single track_. If a LiDAR track has 100 frames of `speed_mps`, the p50/p85/p95 are percentiles of those 100 readings. These describe the speed _profile shape_ of one vehicle pass (e.g. "this car was mostly doing 28 mph but briefly hit 35 mph"). The existing `lidar_tracks` table stores these as `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps`. They are useful for behaviour classification (§5) but are _not_ the percentiles that traffic engineers reference.
+**Track-level speed summaries** — a single LiDAR track can still expose speed
+descriptors, but they should use distinct non-percentile names and formulas.
+The working direction is a pair of robust measures such as a
+`typical_observed_speed` and a `reliable_peak_speed`, both designed to reject
+outliers and use the temporal/spatial context of the observation sequence.
+These track-level metrics are separate from traffic-engineering percentiles and
+should not be named `p50/p85/p98`.
 
-**Dataset-level percentiles** — computed across the _max speeds of many transits_. If a street has 1,000 vehicle transits in a week, the p85 is the 85th-percentile of those 1,000 max-speed values. This is the traffic-engineering standard for design speed. These percentiles **cannot be precomputed per-transit** because they depend on which transits are included — a TDL filter that restricts to "weekday mornings" or "lorries only" changes the population and therefore the percentiles.
+**Dataset-level percentiles** — computed across the _max speeds of many
+transits_. If a street has 1,000 vehicle transits in a week, the p85 is the
+85th-percentile of those 1,000 max-speed values. This is the
+traffic-engineering standard for design speed. These percentiles **cannot be
+precomputed per-transit** because they depend on which transits are included —
+a TDL filter that restricts to "weekday mornings" or "lorries only" changes the
+population and therefore the percentiles.
 
-The TDL stores **one scalar speed per transit**: `max_speed_mph` (the absolute peak observed speed for that vehicle pass). Dataset-level aggregates (p50, p85, p98, max) are computed at query time over the `max_speed_mph` values of the filtered transit set. On a Raspberry Pi with SQLite, computing percentiles over a sorted column of a few thousand rows takes single-digit milliseconds — precomputation is unnecessary.
+The TDL stores **one scalar speed per transit**: `max_speed_mph` (the absolute
+peak observed speed for that vehicle pass). Dataset-level aggregates (p50, p85,
+p98, max) are computed at query time over the `max_speed_mph` values of the
+filtered transit set. On a Raspberry Pi with SQLite, computing percentiles over
+a sorted column of a few thousand rows takes single-digit milliseconds —
+precomputation is unnecessary.
 
 ## 3. Abstract Transit Schema
 
@@ -99,17 +118,20 @@ transit {
 
 ### 3.1 Schema-to-Storage Mapping
 
-| Abstract field     | Source                                                                            | Stored per-transit? |
-| ------------------ | --------------------------------------------------------------------------------- | ------------------- |
-| `speed.max_mph`    | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237 | ✅                  |
-| `speed.mean_mph`   | `lidar_tracks.avg_speed_mps` × 2.237                                              | ✅                  |
-| `speed.profile[]`  | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos`                            | ❌ read-time join   |
-| `behaviour.style`  | Derived from `speed.profile[]` shape (§5)                                         | ✅                  |
-| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence`                     | ✅                  |
-| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                           | ❌ read-time join   |
-| `context.*`        | Computed from concurrent tracks at ingestion                                      | ✅                  |
+| Abstract field     | Source                                                                                                                                         | Stored per-transit? |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `speed.max_mph`    | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237                                                              | ✅                  |
+| `speed.mean_mph`   | `lidar_tracks.avg_speed_mps` × 2.237 (current proxy; a dedicated track-level "typical observed speed" metric should replace this once defined) | ✅                  |
+| `speed.profile[]`  | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos`                                                                                         | ❌ read-time join   |
+| `behaviour.style`  | Derived from `speed.profile[]` shape (§5)                                                                                                      | ✅                  |
+| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence`                                                                                  | ✅                  |
+| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                                                                                        | ❌ read-time join   |
+| `context.*`        | Computed from concurrent tracks at ingestion                                                                                                   | ✅                  |
 
-Note: the existing `lidar_tracks.p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` columns are _per-track profile percentiles_ — percentiles of the speed observations within a single track. They describe the speed profile shape and feed the behaviour classifier (§5), but are not exposed in the TDL abstract schema because users expect p85/p98 to mean dataset-level aggregates.
+Note: the current `lidar_tracks.p50_speed_mps`, `p85_speed_mps`, `p98_speed_mps`
+columns are legacy implementation details slated for removal from the canonical
+track model. They should not be exposed in the TDL, proto contracts, or new
+public APIs.
 
 ## 4. Natural Language Syntax
 
@@ -225,16 +247,21 @@ The TDL supports natural-language terms for vehicle behaviours. These terms requ
 
 Translating sensor data into natural-language behaviour terms requires three levels of abstraction:
 
-| Level                     | Name                    | Input                            | Output                                                                            | Example                                                                           |
-| ------------------------- | ----------------------- | -------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **L0 — Observation**      | Per-frame measurement   | Raw sensor readings              | `(x, y, speed_mps, heading_rad, ts)`                                              | A single LiDAR observation at frame 1042                                          |
-| **L1 — Transit metric**   | Per-transit scalar      | Ordered L0 observations          | `max_mph`, `mean_mph`, `duration_s`, `speed_delta`, per-track profile percentiles | Stored per-transit; profile percentiles feed behaviour classifier                 |
-| **L2 — Behaviour label**  | Semantic classification | L1 metrics + speed profile shape | `steady`, `braking`, `erratic`, `stopped`, `yielded`                              | Human-readable driving-style tag                                                  |
-| **L3 — Scene descriptor** | Cross-transit narrative | Multiple L2 labels + context     | _"73% of vehicles exceed 30 mph during school run"_                               | Aggregate statement for reports; percentiles (p50/p85/p98) computed at query time |
+| Level                     | Name                    | Input                            | Output                                                                              | Example                                                                           |
+| ------------------------- | ----------------------- | -------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **L0 — Observation**      | Per-frame measurement   | Raw sensor readings              | `(x, y, speed_mps, heading_rad, ts)`                                                | A single LiDAR observation at frame 1042                                          |
+| **L1 — Transit metric**   | Per-transit scalar      | Ordered L0 observations          | `max_mph`, `mean_mph`, `duration_s`, `speed_delta`, track speed summary descriptors | Stored per-transit; track descriptors remain distinct from aggregate percentiles  |
+| **L2 — Behaviour label**  | Semantic classification | L1 metrics + speed profile shape | `steady`, `braking`, `erratic`, `stopped`, `yielded`                                | Human-readable driving-style tag                                                  |
+| **L3 — Scene descriptor** | Cross-transit narrative | Multiple L2 labels + context     | _"73% of vehicles exceed 30 mph during school run"_                                 | Aggregate statement for reports; percentiles (p50/p85/p98) computed at query time |
 
 **L0** already exists — `lidar_track_obs` and `radar_data` store per-frame data.
 
-**L1** is partially implemented — `lidar_tracks` stores per-track profile percentiles (p50/p85/p95) and peak speed; `radar_data_transits` stores max/min speed. The fused transit record will carry `max_speed_mph` and `mean_speed_mph` as per-transit scalars. Per-track profile percentiles remain internal to the behaviour classifier and are not exposed via the TDL.
+**L1** is partially implemented — `lidar_tracks` stores `avg_speed_mps` and
+`peak_speed_mps`, plus legacy per-track `p50/p85/p98` fields that are slated
+for removal; `radar_data_transits` stores max/min speed. The fused transit
+record will carry `max_speed_mph` and `mean_speed_mph` as per-transit scalars.
+New public APIs should not expose per-track percentiles; replacement track-level
+speed descriptors will be defined separately.
 
 **L2** is the critical new layer. It requires:
 
@@ -278,7 +305,7 @@ For the natural-language parser to resolve behaviour terms, it needs:
 
 Behaviour labels (L2) are derived, not manually applied. The labelling pipeline runs at transit finalisation:
 
-1. **At transit close** (radar or LiDAR track completion), store `max_speed_mph` and `mean_speed_mph` in the fused transit record. Per-track profile percentiles (p50/p85/p95 of observations within the track) are stored internally for the behaviour classifier but not in the abstract transit schema.
+1. **At transit close** (radar or LiDAR track completion), store `max_speed_mph` and `mean_speed_mph` in the fused transit record. Do not persist per-track percentile fields in the abstract transit schema; if track-level speed descriptors are needed, use dedicated non-percentile metrics once defined.
 2. **Run the speed-profile analyser** over `speed.profile[]` to assign a `behaviour.style` label.
 3. **Run the stop detector** to set `behaviour.stopped` and `behaviour.yielded` flags.
 4. **Run the conflict detector** over concurrent tracks to populate `context.nearest_object_distance_m` and `context.nearest_object_class`.
