@@ -1214,7 +1214,6 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	// URL formats:
 	//   /api/reports - list all recent reports
 	//   /api/reports/123 - get report metadata
-	//   /api/reports/123/download - download PDF file (legacy, with query param)
 	//   /api/reports/123/download/filename.pdf - download file with filename in URL
 	//   /api/reports/site/456 - list reports for site 456
 	path := strings.TrimPrefix(r.URL.Path, "/api/reports")
@@ -1255,13 +1254,9 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle download action with optional file type (pdf or zip)
-	// Supports both:
-	//   /api/reports/123/download?file_type=pdf (legacy with query param)
-	//   /api/reports/123/download/velocity.report_*.pdf (new with filename in path)
+	// Handle download action: /api/reports/123/download/filename.pdf
 	if len(parts) >= 2 && parts[1] == "download" {
 		if r.Method == http.MethodGet {
-			// New format: filename in URL path
 			if len(parts) == 3 {
 				// Extract file type from filename extension
 				filename := parts[2]
@@ -1272,12 +1267,8 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 				s.downloadReport(w, r, reportID, fileType)
 				return
 			}
-			// Legacy format: file_type query parameter (defaults to "pdf")
-			fileType := r.URL.Query().Get("file_type")
-			if fileType == "" {
-				fileType = "pdf"
-			}
-			s.downloadReport(w, r, reportID, fileType)
+			// No filename in path — reject
+			s.writeJSONError(w, http.StatusBadRequest, "filename required in download path; use /api/reports/{id}/download/{filename}")
 		} else {
 			s.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		}

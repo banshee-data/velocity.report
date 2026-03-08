@@ -91,7 +91,7 @@ CREATE TABLE lidar_analysis_runs (
         , peak_speed_mps REAL
         , p50_speed_mps REAL
         , p85_speed_mps REAL
-        , p95_speed_mps REAL
+        , p98_speed_mps REAL
         , bounding_box_length_avg REAL
         , bounding_box_width_avg REAL
         , bounding_box_height_avg REAL
@@ -191,7 +191,7 @@ CREATE TABLE lidar_analysis_runs (
         , peak_speed_mps REAL
         , p50_speed_mps REAL
         , p85_speed_mps REAL
-        , p95_speed_mps REAL
+        , p98_speed_mps REAL
         , bounding_box_length_avg REAL
         , bounding_box_width_avg REAL
         , bounding_box_height_avg REAL

@@ -297,7 +297,7 @@ func TestComputeSpeedPercentiles(t *testing.T) {
 	// Test with 20 values
 	speeds := []float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 
-	p50, p85, p95 := ComputeSpeedPercentiles(speeds)
+	p50, p85, p98 := ComputeSpeedPercentiles(speeds)
 
 	// P50 (median) should be around 10-11
 	if p50 < 10 || p50 > 11 {
@@ -309,17 +309,17 @@ func TestComputeSpeedPercentiles(t *testing.T) {
 		t.Errorf("Expected P85 around 17, got %.2f", p85)
 	}
 
-	// P95 should be around 19
-	if p95 < 18 || p95 > 20 {
-		t.Errorf("Expected P95 around 19, got %.2f", p95)
+	// P98 should be around 19-20
+	if p98 < 18 || p98 > 20 {
+		t.Errorf("Expected P98 around 19-20, got %.2f", p98)
 	}
 }
 
 func TestComputeSpeedPercentiles_Empty(t *testing.T) {
-	p50, p85, p95 := ComputeSpeedPercentiles([]float32{})
+	p50, p85, p98 := ComputeSpeedPercentiles([]float32{})
 
-	if p50 != 0 || p85 != 0 || p95 != 0 {
-		t.Errorf("Expected all zeros for empty input, got p50=%.2f, p85=%.2f, p95=%.2f", p50, p85, p95)
+	if p50 != 0 || p85 != 0 || p98 != 0 {
+		t.Errorf("Expected all zeros for empty input, got p50=%.2f, p85=%.2f, p98=%.2f", p50, p85, p98)
 	}
 }
 

@@ -19,6 +19,10 @@ implemented in the gRPC stream path:
    `sample_points`) remain unserialised.
 4. `Track.avg_speed_mps` (field `24`) does not match desired semantics for the
    visualiser inspector; median and high-percentile summaries are more useful.
+   **Decision:** `avg_speed_mps` is retained as a running mean (useful for classification
+   and ground-truth evaluation); `p50_speed_mps` (field 36), `p85_speed_mps` (field 37),
+   and `p98_speed_mps` (field 38) have been added to provide percentile semantics.
+   Removal of `avg_speed_mps` is deferred pending full consumer audit.
 5. `Track.class_label` (string) was replaced with `ObjectClass object_class`
    (enum, field `26`) with a 10-value enumeration. ✅ Implemented.
 
@@ -29,7 +33,10 @@ in the proto as a contract.
 
 1. Make protobuf stream output match the declared `visualiser.proto` contract.
 2. Restore debug overlays end-to-end (adapter -> gRPC -> Swift client -> renderer).
-3. Replace `Track.avg_speed_mps` with median semantics before `v0.5.0`.
+3. ~~Replace `Track.avg_speed_mps` with median semantics before `v0.5.0`. Remove
+   `avg_speed_mps` from all layers (proto, model, DB, REST API, VRLOG).~~ **Revised:**
+   `avg_speed_mps` retained as running mean; `p50_speed_mps`, `p85_speed_mps`, and
+   `p98_speed_mps` added as percentile fields. ✅ Implemented.
 4. Add `p85` and `p98` speed summary fields for visual review.
 5. Add serialization tests that fail on future field drops.
 
@@ -79,7 +86,7 @@ current status:
 1. ~~`Track.covariance_4x4`~~ — ✅ serialized (copied from `Covariance4x4` slice)
 2. ~~`Track.height_p95_max`~~ — ✅ serialized
 3. ~~`Track.intensity_mean_avg`~~ — ✅ serialized
-4. ~~`Track.avg_speed_mps`~~ — ✅ renamed to `median_speed_mps` (field `24`); `p85_speed_mps` (36) and `p98_speed_mps` (37) added
+4. ~~`Track.avg_speed_mps`~~ — ✅ field `24` stays `avg_speed_mps` (unchanged); `p50_speed_mps` (36), `p85_speed_mps` (37), `p98_speed_mps` (38) added
 5. ~~`Track.peak_speed_mps`~~ — ✅ serialized
 6. ~~`Track.class_label`~~ — **Superseded.** Proto field `26` is now `ObjectClass object_class`
    (an `ObjectClass` enum, not a string). See [§4.5 ObjectClass enum](#45-objectclass-enum) below.
@@ -139,7 +146,7 @@ Test coverage:
 
 Change `Track` speed summary fields in `visualiser.proto`:
 
-1. Replace field `24` from `avg_speed_mps` to `median_speed_mps`.
+1. Keep field `24` as `avg_speed_mps` (unchanged). Add `p50_speed_mps` as field `36`.
 2. Keep `peak_speed_mps` on field `25`.
 3. Add `p85_speed_mps` and `p98_speed_mps` as new fields (use new field numbers,
    do not renumber unrelated fields).
@@ -148,11 +155,17 @@ Note: field `26` was originally listed as `class_label` (string). It is now
 `ObjectClass object_class` (enum). This change is already implemented and does
 not affect the speed summary rename.
 
+`avg_speed_mps` is retained alongside `p50_speed_mps`. Both are semantically
+distinct metrics (running mean vs p50 median). See the
+[shim removal plan §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avg_speed_mps--p50_speed_mps-coexistence)
+for the full coexistence inventory.
+
 Rationale:
 
 1. Median is more robust to noisy short-lived speed spikes than mean.
 2. `p85` and `p98` match speed-review workflows already used elsewhere.
-3. Avoiding broad tag churn limits accidental breakage even before `v0.5.0`.
+3. `p50_speed_mps` already exists in the DB schema alongside `avg_speed_mps`,
+   so the column drop is non-destructive — no data loss.
 
 ### 5.2 Percentile computation
 
@@ -160,20 +173,33 @@ Current helper computes `p50`, `p85`, `p95`. This plan adds `p98` support.
 
 Preferred approach:
 
-1. Introduce a visualiser-oriented helper that computes `median/p85/p98` from
+1. Introduce a visualiser-oriented helper that computes `p50/p85/p98` from
    track `speedHistory`.
 2. Keep existing `p95` helper behavior where other subsystems still rely on it.
 3. Document percentile indexing method (floor vs interpolation) in code/tests.
 
+**Implementation status:** The `speedPercentiles()` helper in
+`adapter.go` computes p50/p85/p98 and populates the gRPC stream. The L5
+tracking layer (`tracking.go`) only computes p50; p85/p98 remain zero at that
+layer and are filled by the adapter on each frame. The REST API (`track_api.go`)
+only exposes `p50_speed_mps` per track and its summary endpoints incorrectly
+assign average speed to `P50SpeedMps`. See
+[shim removal plan §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avg_speed_mps--p50_speed_mps-coexistence)
+future work table for the full layer-by-layer gap analysis.
+
 ## 6. Implementation Plan
 
-### Phase A: gRPC serializer parity (P0)
+### Phase A: gRPC serializer parity (P0) ✅
 
-1. Update `frameBundleToProto(...)` to serialize `FrameBundle.debug` when
-   `StreamRequest.include_debug=true`.
-2. Serialize all currently-dropped `Cluster` fields that are available in the
+1. ~~Update `frameBundleToProto(...)` to serialize `FrameBundle.debug` when
+   `StreamRequest.include_debug=true`.~~ ✅ Complete — debug overlays serialised
+   with all 4 sub-types (association, gating, residuals, predictions), gated by
+   `req.IncludeDebug`.
+2. ~~Serialize all currently-dropped `Cluster` fields that are available in the
    internal model (`height_p95`, `intensity_mean`; `sample_points` requires
-   adapter propagation first).
+   adapter propagation first).~~ ✅ Complete — `HeightP95`, `IntensityMean`, and
+   `SamplePoints` are now copied in `frameBundleToProto`. `SamplePoints` is wired
+   through but not populated upstream (l4perception does not fill it yet).
 3. ~~Serialize all currently-dropped `Track` fields that are already populated in
    the internal model.~~ ✅ Complete — all Track fields are now serialized
    including `ObjectClass` enum via `classifyOrConvert()`.
@@ -196,7 +222,8 @@ Preferred approach:
 ### Phase C: Speed summary schema + mapping (P1) ✅
 
 1. ~~Edit `proto/velocity_visualiser/v1/visualiser.proto`:~~
-   - ~~`avg_speed_mps` -> `median_speed_mps` (field `24`)~~
+   - ~~field `24` stays `avg_speed_mps` (unchanged)~~
+   - ~~add `p50_speed_mps` (field `36`)~~
    - ~~add `p85_speed_mps`~~
    - ~~add `p98_speed_mps`~~
 2. ~~Regenerate protobuf code (Go and Swift generated bindings as applicable).~~
@@ -207,24 +234,29 @@ Preferred approach:
 
 1. ~~Update Swift protobuf mapping for renamed/new track speed fields.~~
 2. ~~Update inspector labels:~~
-   - ~~`Average` -> `Median`~~
+   - ~~`Average` -> `p50`~~
    - ~~add `p85`~~
    - ~~add `p98`~~
-3. Keep UI resilient when new fields are absent (temporary mixed-version runs).
+3. ~~Keep UI resilient when new fields are absent (temporary mixed-version runs).~~
+4. ~~p50/p85/p98 inspector rows re-added now that the server populates the
+   fields and Swift proto has been regenerated.~~
 
-### Phase E: Test hardening (P1)
+### Phase E: Test hardening (P1) ✅
 
-1. Replace "debug not converted" tests with positive serialization tests.
+1. ~~Replace "debug not converted" tests with positive serialization tests.
    `TestFrameBundleToProto_DebugNotConverted` and
    `TestFrameBundleToProto_DebugFieldAbsent` currently assert `Debug == nil`;
-   update these to assert non-nil debug output once serialization is implemented.
-2. Add round-trip field assertions for:
-   - debug overlays (`association`, `gating`, `residuals`, `predictions`)
-   - cluster feature fields
+   update these to assert non-nil debug output once serialization is implemented.~~
+   ✅ Complete — replaced with `TestFrameBundleToProto_DebugSerialised` (positive
+   round-trip), `TestFrameBundleToProto_DebugOmittedWhenNotRequested` (gating),
+   and `TestFrameBundleToProto_DebugNilInFrame` (nil input).
+2. ~~Add round-trip field assertions for:~~
+   - ~~debug overlays (`association`, `gating`, `residuals`, `predictions`)~~ ✅
+   - ~~cluster feature fields~~ ✅ `TestFrameBundleToProto_ClusterFeatureFields`
    - ~~track feature/classification/quality fields~~ ✅ `TestFrameBundleToProto_TrackFieldCompleteness`
-   - track speed summary fields (`median`, `peak`, `p85`, `p98`)
-3. Add a regression test for `include_debug=false` to ensure payload omission is
-   intentional and explicit.
+   - ~~track speed summary fields (`p50`, `peak`, `p85`, `p98`)~~ ✅ covered in TrackFieldCompleteness
+3. ~~Add a regression test for `include_debug=false` to ensure payload omission is
+   intentional and explicit.~~ ✅ `TestFrameBundleToProto_DebugOmittedWhenNotRequested`
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
    `object_class_conversion_test.go` and `VisualiserClientTests.swift`.
 
@@ -234,7 +266,7 @@ Preferred approach:
    when debug data exists upstream.
 2. Swift visualiser receives and renders debug overlays without relying on local
    test-only stub data.
-3. Track inspector shows `Median`, `Peak`, `p85`, and `p98` from streamed data.
+3. Track inspector shows `p50`, `Peak`, `p85`, and `p98` from streamed data.
 4. Protobuf serializer tests cover all non-trivial `Track` and `Cluster` fields
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
@@ -242,7 +274,7 @@ Preferred approach:
 ## 8. Risks and Open Questions
 
 1. Mixed-version client/server compatibility during local development:
-   rename of field `24` changes semantics immediately.
+   new fields 36–38 (`p50/p85/p98_speed_mps`) are absent from old servers.
 2. Percentile method consistency:
    `p98` may differ slightly between floor-index and interpolated definitions.
 3. Overlay mode scope:
@@ -259,9 +291,10 @@ Preferred approach:
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
-- [x] Update proto field `24` to `median_speed_mps`
-- [x] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
+- [x] Keep proto field `24` as `avg_speed_mps`; add `p50_speed_mps` (36), `p85_speed_mps` (37), `p98_speed_mps` (38)
 - [x] Regenerate protobuf bindings (Go + Swift)
-- [x] Compute/populate median/p85/p98 from track speed history
-- [x] Update Swift visualiser inspector labels and values
+- [ ] Compute/populate p50/p85/p98 from track speed history in `frameBundleToProto`
+- [ ] Regenerate Swift protobuf from updated `.proto` (Swift generated code still has `avgSpeedMps`)
+- [ ] Re-add p50/p85/p98 inspector rows in `ContentView.swift` once server populates them
+- [x] ~~Update Swift visualiser inspector labels and values~~ (rows removed — fields not yet populated)
 - [ ] Replace negative debug tests with positive end-to-end serialization tests

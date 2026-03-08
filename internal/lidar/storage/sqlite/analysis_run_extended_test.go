@@ -230,7 +230,7 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 			PeakSpeedMps:     8.0,
 			P50SpeedMps:      5.0,
 			P85SpeedMps:      6.5,
-			P95SpeedMps:      7.5,
+			P98SpeedMps:      7.5,
 			ObjectClass:      "car",
 			ObjectConfidence: 0.85,
 			LinkedTrackIDs:   []string{"track-2"},

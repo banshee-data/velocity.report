@@ -331,7 +331,7 @@ func (MotionModel) EnumDescriptor() ([]byte, []int) {
 
 // ObjectClass enumerates all valid object classifications.
 // Used by both the rule-based classifier (output) and human label annotations (input).
-// Classifier classes: PEDESTRIAN..MOTORCYCLIST, DYNAMIC.  User-only label: NOISE.
+// All 9 classes are user-assignable. Classifier outputs: DYNAMIC..MOTORCYCLIST.
 type ObjectClass int32
 
 const (
@@ -1133,7 +1133,7 @@ type Track struct {
 	// Features
 	HeightP95Max     float32 `protobuf:"fixed32,22,opt,name=height_p95_max,json=heightP95Max,proto3" json:"height_p95_max,omitempty"`
 	IntensityMeanAvg float32 `protobuf:"fixed32,23,opt,name=intensity_mean_avg,json=intensityMeanAvg,proto3" json:"intensity_mean_avg,omitempty"`
-	AvgSpeedMps      float32 `protobuf:"fixed32,24,opt,name=avg_speed_mps,json=avgSpeedMps,proto3" json:"avg_speed_mps,omitempty"`
+	AvgSpeedMps      float32 `protobuf:"fixed32,24,opt,name=avg_speed_mps,json=avgSpeedMps,proto3" json:"avg_speed_mps,omitempty"` // running mean speed
 	PeakSpeedMps     float32 `protobuf:"fixed32,25,opt,name=peak_speed_mps,json=peakSpeedMps,proto3" json:"peak_speed_mps,omitempty"`
 	// Classification
 	ObjectClass     ObjectClass `protobuf:"varint,26,opt,name=object_class,json=objectClass,proto3,enum=velocity.visualiser.v1.ObjectClass" json:"object_class,omitempty"` // classifier output or user label
@@ -1150,6 +1150,10 @@ type Track struct {
 	// Heading source (for debug rendering: colour-code boxes by heading origin)
 	// 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
 	HeadingSource int32 `protobuf:"varint,35,opt,name=heading_source,json=headingSource,proto3" json:"heading_source,omitempty"`
+	// Speed percentiles (computed from track speed history)
+	P50SpeedMps   float32 `protobuf:"fixed32,36,opt,name=p50_speed_mps,json=p50SpeedMps,proto3" json:"p50_speed_mps,omitempty"` // 50th percentile (median) speed
+	P85SpeedMps   float32 `protobuf:"fixed32,37,opt,name=p85_speed_mps,json=p85SpeedMps,proto3" json:"p85_speed_mps,omitempty"` // 85th percentile speed
+	P98SpeedMps   float32 `protobuf:"fixed32,38,opt,name=p98_speed_mps,json=p98SpeedMps,proto3" json:"p98_speed_mps,omitempty"` // 98th percentile speed
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1425,6 +1429,27 @@ func (x *Track) GetAlpha() float32 {
 func (x *Track) GetHeadingSource() int32 {
 	if x != nil {
 		return x.HeadingSource
+	}
+	return 0
+}
+
+func (x *Track) GetP50SpeedMps() float32 {
+	if x != nil {
+		return x.P50SpeedMps
+	}
+	return 0
+}
+
+func (x *Track) GetP85SpeedMps() float32 {
+	if x != nil {
+		return x.P85SpeedMps
+	}
+	return 0
+}
+
+func (x *Track) GetP98SpeedMps() float32 {
+	if x != nil {
+		return x.P98SpeedMps
 	}
 	return 0
 }
@@ -3215,7 +3240,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12;\n" +
 	"\bclusters\x18\x03 \x03(\v2\x1f.velocity.visualiser.v1.ClusterR\bclusters\x12@\n" +
-	"\x06method\x18\x04 \x01(\x0e2(.velocity.visualiser.v1.ClusteringMethodR\x06method\"\xf6\t\n" +
+	"\x06method\x18\x04 \x01(\x0e2(.velocity.visualiser.v1.ClusteringMethodR\x06method\"\xe2\n" +
+	"\n" +
 	"\x05Track\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x1b\n" +
 	"\tsensor_id\x18\x02 \x01(\tR\bsensorId\x128\n" +
@@ -3259,7 +3285,10 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x0focclusion_state\x18  \x01(\x0e2&.velocity.visualiser.v1.OcclusionStateR\x0eocclusionState\x12F\n" +
 	"\fmotion_model\x18! \x01(\x0e2#.velocity.visualiser.v1.MotionModelR\vmotionModel\x12\x14\n" +
 	"\x05alpha\x18\" \x01(\x02R\x05alpha\x12%\n" +
-	"\x0eheading_source\x18# \x01(\x05R\rheadingSource\"K\n" +
+	"\x0eheading_source\x18# \x01(\x05R\rheadingSource\x12\"\n" +
+	"\rp50_speed_mps\x18$ \x01(\x02R\vp50SpeedMps\x12\"\n" +
+	"\rp85_speed_mps\x18% \x01(\x02R\vp85SpeedMps\x12\"\n" +
+	"\rp98_speed_mps\x18& \x01(\x02R\vp98SpeedMps\"K\n" +
 	"\n" +
 	"TrackPoint\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +

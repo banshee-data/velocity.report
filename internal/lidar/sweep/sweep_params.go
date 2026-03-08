@@ -6,60 +6,6 @@ import (
 	"strings"
 )
 
-// computeCombinations computes parameter combinations from legacy request format.
-func (r *Runner) computeCombinations(req SweepRequest) ([]float64, []float64, []int) {
-	var noiseCombos, closenessCombos []float64
-	var neighbourCombos []int
-
-	switch req.Mode {
-	case "multi":
-		noiseCombos = req.NoiseValues
-		closenessCombos = req.ClosenessValues
-		neighbourCombos = req.NeighbourValues
-
-		if len(noiseCombos) == 0 {
-			if req.NoiseStep > 0 {
-				noiseCombos = GenerateRange(req.NoiseStart, req.NoiseEnd, req.NoiseStep)
-			}
-		}
-		if len(closenessCombos) == 0 {
-			if req.ClosenessStep > 0 {
-				closenessCombos = GenerateRange(req.ClosenessStart, req.ClosenessEnd, req.ClosenessStep)
-			}
-		}
-		if len(neighbourCombos) == 0 {
-			if req.NeighbourStep > 0 {
-				neighbourCombos = GenerateIntRange(req.NeighbourStart, req.NeighbourEnd, req.NeighbourStep)
-			}
-		}
-	case "noise":
-		noiseCombos = GenerateRange(req.NoiseStart, req.NoiseEnd, req.NoiseStep)
-		closenessCombos = []float64{req.FixedCloseness}
-		neighbourCombos = []int{req.FixedNeighbour}
-	case "closeness":
-		noiseCombos = []float64{req.FixedNoise}
-		closenessCombos = GenerateRange(req.ClosenessStart, req.ClosenessEnd, req.ClosenessStep)
-		neighbourCombos = []int{req.FixedNeighbour}
-	case "neighbour":
-		noiseCombos = []float64{req.FixedNoise}
-		closenessCombos = []float64{req.FixedCloseness}
-		neighbourCombos = GenerateIntRange(req.NeighbourStart, req.NeighbourEnd, req.NeighbourStep)
-	}
-
-	// Defaults if still empty
-	if len(noiseCombos) == 0 {
-		noiseCombos = []float64{0.005, 0.01, 0.02}
-	}
-	if len(closenessCombos) == 0 {
-		closenessCombos = []float64{1.5, 2.0, 2.5}
-	}
-	if len(neighbourCombos) == 0 {
-		neighbourCombos = []int{0, 1, 2}
-	}
-
-	return noiseCombos, closenessCombos, neighbourCombos
-}
-
 // expandSweepParam expands sweep param range into values.
 func expandSweepParam(sp *SweepParam) error {
 	if len(sp.Values) > 0 {

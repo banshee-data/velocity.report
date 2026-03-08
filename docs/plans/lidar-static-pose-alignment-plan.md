@@ -387,10 +387,13 @@ type TrackedObject struct {
     ObjectConfidence float32
     ClassificationModel string
 
-    // Speed statistics (unchanged)
-    AvgSpeedMps  float32
+    // Speed statistics — avg_speed_mps retained as running mean alongside p50/p85/p98
+    AvgSpeedMps  float32  // running mean (retained, deferred removal)
+    P50SpeedMps  float32  // 50th percentile from speedWindow
+    P85SpeedMps  float32  // 85th percentile from speedWindow
+    P98SpeedMps  float32  // 98th percentile from speedWindow
     PeakSpeedMps float32
-    speedHistory []float32
+    // speedHistory replaced by bounded speedWindow in l5tracks
 
     // Quality metrics (unchanged)
     ObservationCount int

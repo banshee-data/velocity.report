@@ -104,11 +104,10 @@ type TrackExport struct {
 	EndTime       string  `json:"end_time"`
 	DurationSecs  float64 `json:"duration_secs"`
 	Observations  int     `json:"observations"`
-	AvgSpeedMps   float32 `json:"avg_speed_mps"`
 	PeakSpeedMps  float32 `json:"peak_speed_mps"`
 	P50SpeedMps   float32 `json:"p50_speed_mps"`
 	P85SpeedMps   float32 `json:"p85_speed_mps"`
-	P95SpeedMps   float32 `json:"p95_speed_mps"`
+	P98SpeedMps   float32 `json:"p98_speed_mps"`
 	AvgHeight     float32 `json:"avg_height_m"`
 	AvgLength     float32 `json:"avg_length_m"`
 	AvgWidth      float32 `json:"avg_width_m"`
@@ -123,7 +122,7 @@ type TrackExport struct {
 // ClassStats holds statistics for a classification category.
 type ClassStats struct {
 	Count           int     `json:"count"`
-	AvgSpeed        float32 `json:"avg_speed_mps"`
+	P50Speed        float32 `json:"p50_speed_mps"`
 	AvgDuration     float32 `json:"avg_duration_secs"`
 	AvgObservations float32 `json:"avg_observations"`
 }
@@ -132,10 +131,9 @@ type ClassStats struct {
 type SpeedStatistics struct {
 	MinSpeed float32 `json:"min_speed_mps"`
 	MaxSpeed float32 `json:"max_speed_mps"`
-	AvgSpeed float32 `json:"avg_speed_mps"`
 	P50Speed float32 `json:"p50_speed_mps"`
 	P85Speed float32 `json:"p85_speed_mps"`
-	P95Speed float32 `json:"p95_speed_mps"`
+	P98Speed float32 `json:"p98_speed_mps"`
 }
 
 // TrainingFrame represents a frame prepared for ML ingestion.
@@ -851,7 +849,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 		result.TracksByClass[class]++
 
 		// Export track data
-		p50, p85, p95 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
+		p50, p85, p98 := l6objects.ComputeSpeedPercentiles(track.SpeedHistory())
 
 		trackExport := &TrackExport{
 			TrackID:      track.TrackID,
@@ -861,11 +859,10 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 			EndTime:      time.Unix(0, track.LastUnixNanos).Format(time.RFC3339),
 			DurationSecs: float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9,
 			Observations: track.ObservationCount,
-			AvgSpeedMps:  track.AvgSpeedMps,
 			PeakSpeedMps: track.PeakSpeedMps,
 			P50SpeedMps:  p50,
 			P85SpeedMps:  p85,
-			P95SpeedMps:  p95,
+			P98SpeedMps:  p98,
 			AvgHeight:    track.BoundingBoxHeightAvg,
 			AvgLength:    track.BoundingBoxLengthAvg,
 			AvgWidth:     track.BoundingBoxWidthAvg,
@@ -875,8 +872,8 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 		}
 		result.Tracks = append(result.Tracks, trackExport)
 
-		if track.AvgSpeedMps > 0 {
-			speedSamples = append(speedSamples, track.AvgSpeedMps)
+		if track.P50SpeedMps > 0 {
+			speedSamples = append(speedSamples, track.P50SpeedMps)
 		}
 	}
 
@@ -1104,14 +1101,14 @@ func computeClassStats(tracks []*TrackExport) map[string]ClassStats {
 		var sumSpeed, sumDuration float32
 		var sumObs int
 		for _, t := range classTracks {
-			sumSpeed += t.AvgSpeedMps
+			sumSpeed += t.P50SpeedMps
 			sumDuration += float32(t.DurationSecs)
 			sumObs += t.Observations
 		}
 		n := float32(len(classTracks))
 		stats[class] = ClassStats{
 			Count:           len(classTracks),
-			AvgSpeed:        sumSpeed / n,
+			P50Speed:        sumSpeed / n,
 			AvgDuration:     sumDuration / n,
 			AvgObservations: float32(sumObs) / n,
 		}
@@ -1125,27 +1122,21 @@ func computeSpeedStats(samples []float32) SpeedStatistics {
 		return SpeedStatistics{}
 	}
 
-	// Sort for min/max and average
+	// Sort for min/max
 	sorted := make([]float32, len(samples))
 	copy(sorted, samples)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
 
-	var sum float32
-	for _, s := range sorted {
-		sum += s
-	}
-
 	// Use the shared percentile computation from lidar package
-	p50, p85, p95 := l6objects.ComputeSpeedPercentiles(samples)
+	p50, p85, p98 := l6objects.ComputeSpeedPercentiles(samples)
 
 	n := len(sorted)
 	return SpeedStatistics{
 		MinSpeed: sorted[0],
 		MaxSpeed: sorted[n-1],
-		AvgSpeed: sum / float32(n),
 		P50Speed: p50,
 		P85Speed: p85,
-		P95Speed: p95,
+		P98Speed: p98,
 	}
 }
 
@@ -1172,7 +1163,7 @@ func printSummary(result *AnalysisResult) {
 	fmt.Println("\nSpeed Statistics (confirmed tracks):")
 	fmt.Printf("  Min: %.2f m/s (%.1f km/h)\n", result.SpeedStats.MinSpeed, result.SpeedStats.MinSpeed*3.6)
 	fmt.Printf("  Max: %.2f m/s (%.1f km/h)\n", result.SpeedStats.MaxSpeed, result.SpeedStats.MaxSpeed*3.6)
-	fmt.Printf("  Avg: %.2f m/s (%.1f km/h)\n", result.SpeedStats.AvgSpeed, result.SpeedStats.AvgSpeed*3.6)
+	fmt.Printf("  P50: %.2f m/s (%.1f km/h)\n", result.SpeedStats.P50Speed, result.SpeedStats.P50Speed*3.6)
 	fmt.Printf("  P85: %.2f m/s (%.1f km/h)\n", result.SpeedStats.P85Speed, result.SpeedStats.P85Speed*3.6)
 	fmt.Println()
 	if result.TrainingFrames > 0 {
@@ -1222,8 +1213,8 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 	// Header
 	header := []string{
 		"track_id", "class", "confidence", "start_time", "end_time",
-		"duration_secs", "observations", "avg_speed_mps", "peak_speed_mps",
-		"p50_speed_mps", "p85_speed_mps", "p95_speed_mps",
+		"duration_secs", "observations", "peak_speed_mps",
+		"p50_speed_mps", "p85_speed_mps", "p98_speed_mps",
 		"avg_height_m", "avg_length_m", "avg_width_m", "height_p95_max_m",
 	}
 	if err := w.Write(header); err != nil {
@@ -1240,11 +1231,10 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 			t.EndTime,
 			strconv.FormatFloat(t.DurationSecs, 'f', 2, 64),
 			strconv.Itoa(t.Observations),
-			strconv.FormatFloat(float64(t.AvgSpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.PeakSpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P50SpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.P85SpeedMps), 'f', 2, 32),
-			strconv.FormatFloat(float64(t.P95SpeedMps), 'f', 2, 32),
+			strconv.FormatFloat(float64(t.P98SpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.AvgHeight), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgLength), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgWidth), 'f', 3, 32),
@@ -1332,12 +1322,12 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 		_, err := database.Exec(`
 			INSERT OR REPLACE INTO lidar_run_tracks
 			(run_id, track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-			 observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			 observation_count, peak_speed_mps, p50_speed_mps, p85_speed_mps, p98_speed_mps,
 			 bounding_box_height_avg, bounding_box_length_avg, bounding_box_width_avg,
 			 object_class, object_confidence)
-			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			runID, t.TrackID, t.Observations,
-			t.AvgSpeedMps, t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P95SpeedMps,
+			t.PeakSpeedMps, t.P50SpeedMps, t.P85SpeedMps, t.P98SpeedMps,
 			t.AvgHeight, t.AvgLength, t.AvgWidth,
 			t.Class, t.Confidence,
 		)

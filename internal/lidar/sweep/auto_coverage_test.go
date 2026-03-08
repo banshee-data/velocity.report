@@ -554,7 +554,7 @@ func TestAutoTuner_PersistComplete_WithData(t *testing.T) {
 	at.SetPersister(mp)
 	at.sweepID = "test-123"
 
-	results := []ComboResult{{Noise: 0.01, Closeness: 3.0}}
+	results := []ComboResult{{OverallAcceptMean: 0.85}}
 	rec := map[string]interface{}{"noise": 0.01}
 	errMsg := "something went wrong"
 	at.persistComplete("error", results, rec, &errMsg)
@@ -678,7 +678,7 @@ func TestAutoTuner_GetAutoTuneState_DeepCopy(t *testing.T) {
 
 	// Mutate copy
 	state.RoundResults[0].BestScore = 999
-	state.Results[0].Noise = 999
+	state.Results[0].OverallAcceptMean = 999
 	state.Recommendation["p"] = 999
 
 	// Original should be unchanged
@@ -686,7 +686,7 @@ func TestAutoTuner_GetAutoTuneState_DeepCopy(t *testing.T) {
 	if originalState.RoundResults[0].BestScore == 999 {
 		t.Error("deep copy failed - round results mutated")
 	}
-	if originalState.Results[0].Noise == 999 {
+	if originalState.Results[0].OverallAcceptMean == 999 {
 		t.Error("deep copy failed - results mutated")
 	}
 }
