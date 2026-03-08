@@ -187,8 +187,11 @@ func (ws *WebServer) handleAutoTuneResume(w http.ResponseWriter, r *http.Request
 	}
 	if r.Body != nil {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
-			return
+			// Allow empty body (io.EOF), but reject malformed JSON.
+			if !errors.Is(err, io.EOF) {
+				ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+				return
+			}
 		}
 	}
 
