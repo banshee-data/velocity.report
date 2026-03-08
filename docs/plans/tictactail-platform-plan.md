@@ -38,7 +38,7 @@ The VRLOG checker should be a small import/config layer on top of this.
 - live footer refresh loop
 - aligned columns between history rows and live footer
 - ANSI colouring for persisted rows
-- moon-phase live spinner
+- configurable live spinner styles
 - TTY vs non-TTY behaviour
 - performance-sensitive local aggregation
 
@@ -153,27 +153,32 @@ type Value any
 type Row map[string]Value
 
 type Sample struct {
-	Ts   time.Time
-	Vals Row
+  Ts   time.Time
+  Vals Row
 }
 
 type Config struct {
-	Source        string
-	Windows       []int
-	DefaultWindow int
-	RefreshHz     int
-	Columns       []string
+  Source        string
+  Windows       []int
+  DefaultWindow int
+  RefreshHz     int
+  SpinnerStyle  string
+  Columns       []string
 }
 
 type Engine interface {
-	Add(sample Sample) ([]Row, error)
-	Live(now time.Time) Row
-	SetWindow(seconds int) error
-	Window() int
+  Add(sample Sample) ([]Row, error)
+  Live(now time.Time) Row
+  SetWindow(seconds int) error
+  Window() int
 }
 ```
 
 `Columns` is ordering only. It is not key mapping.
+
+`SpinnerStyle` selects `moon`, `braille8`, or `ascii`. The zero value
+defaults to `moon`, but the renderer should fall back to `ascii` when Unicode
+output is disabled or unsafe.
 
 ## Input Structures
 
@@ -333,11 +338,28 @@ The refresh rate affects only footer redraw cadence, not aggregation math.
 
 ### Spinner
 
-Use moon phases on the live footer only:
+Spinner frames are configurable for the live footer only.
+
+Default `moon` style:
 
 ```text
 🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘
 ```
+
+Optional `braille8` snake-chase style:
+
+```text
+⣾ ⣽ ⣻ ⢿ ⡿ ⣟ ⣯ ⣷
+```
+
+Optional `ascii` style for non-Unicode output:
+
+```text
+| / - \
+```
+
+Use `ascii` when Unicode output is disabled, the terminal is not UTF-8 clean,
+or plain-text logs matter more than visual polish.
 
 Persisted history rows do not use spinner frames.
 
@@ -349,7 +371,8 @@ Persisted history rows keep ANSI colours when stdout is a TTY:
 - yellow for warn
 - red for fail
 
-The live footer uses the spinner prefix instead of a coloured status dot.
+The live footer uses the selected spinner prefix instead of a coloured status
+dot.
 
 ### Alignment
 
@@ -511,11 +534,12 @@ Minimal integration should look like:
 
 ```go
 tail := tictactail.New(tictactail.Config{
-	Source:        "vrlog",
-	Windows:       []int{3, 30},
-	DefaultWindow: 30,
-	RefreshHz:     20,
-	Columns:       []string{"ag", "fr", "fps", "ch", "tr", "cl", "fg", "bg", "st", "dr", "er"},
+  Source:        "vrlog",
+  Windows:       []int{3, 30},
+  DefaultWindow: 30,
+  RefreshHz:     20,
+  SpinnerStyle:  "moon",
+  Columns:       []string{"ag", "fr", "fps", "ch", "tr", "cl", "fg", "bg", "st", "dr", "er"},
 })
 ```
 
