@@ -71,18 +71,18 @@ struct AnalysisRunComputedPropertyTests {
         #expect(run.id == "run-test")
     }
 
-    @Test func shortHexIdFormat() throws {
+    @Test func shortIdPrefixFormat() throws {
         let run = makeRun()
-        #expect(run.shortHexId == "0xrun-te")
+        #expect(run.shortIdPrefix == "0xrun-te")
     }
 
-    @Test func shortHexIdWithUUID() throws {
+    @Test func shortIdPrefixWithUUID() throws {
         let run = AnalysisRun(
             runId: "4ea0f3ab-1234-5678-9abc-def012345678", createdAt: Date(), sourceType: "pcap",
             sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
             totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: "kirk1")
-        #expect(run.shortHexId == "0x4ea0f3")
+        #expect(run.shortIdPrefix == "0x4ea0f3")
         #expect(run.sceneName == "kirk1")
     }
 

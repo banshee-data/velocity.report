@@ -154,7 +154,7 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
             // Col 1: 0xfirst6uuid with status dot
             HStack(spacing: 4) {
                 StatusDot(status: run.status)
-                Text(run.shortHexId).font(.system(.caption, design: .monospaced)).lineLimit(1)
+                Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(1)
             }.frame(width: 80, alignment: .leading)
 
             // Col 2: Date/time (space-padded for monospaced alignment)

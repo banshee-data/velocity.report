@@ -299,8 +299,8 @@ struct AnalysisRun: Codable, Identifiable {
         return String(format: "%2d %@ %2d:%02d %@", day, monthNames[month - 1], h12, minute, ampm)
     }
 
-    /// Short hex run ID prefix, e.g. "0x4ea0f3".
-    var shortHexId: String {
+    /// Short run ID prefix for compact display, e.g. "0x4ea0f3".
+    var shortIdPrefix: String {
         let prefix = String(runId.prefix(6))
         return "0x\(prefix)"
     }
