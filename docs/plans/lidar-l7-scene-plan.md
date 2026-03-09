@@ -20,7 +20,7 @@ L7 is the key architectural addition in the ten-layer model. It introduces a **p
 
 1. **Static geometry** — ground surface polygons, building footprints, walls, fences, vegetation volumes, kerbs. Derived from L4 perception outputs accumulated over many frames. Stored as vector features with hierarchical LOD (0–3). See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
 
-2. **Dynamic canonical objects** — long-lived vehicle/pedestrian geometry inferred from merged L5 tracks. A single car observed across 200 frames produces one canonical object with refined dimensions, not 200 per-frame clusters. See [PROMPT-vector-scene.md](PROMPT-vector-scene.md).
+2. **Dynamic canonical objects** — long-lived vehicle/pedestrian geometry inferred from merged L5 tracks. A single car observed across 200 frames produces one canonical object with refined dimensions, not 200 per-frame clusters. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
 
 3. **External priors** — geometry imported from OpenStreetMap (S3DB building outlines, road axes), community GeoJSON, or manual survey. Priors are treated as low-confidence initial features that observation evidence can validate, refine, or reject.
 

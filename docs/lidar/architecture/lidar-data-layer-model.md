@@ -140,7 +140,7 @@ L8  Analytics ─ Traffic metrics, run comparison, scoring
  │               Scene-contextualised statistics ("speed on Main St")
  │               Parameter sweep evaluation, run diffing
  │
-L9  Presentation Server-side payload shaping
+L9  Presentation ─ Server-side payload shaping
  │               gRPC FrameUpdate stream to VelocityVisualiser
  │               ECharts data, chart view-models, debug overlays
  │               Dashboard API responses
@@ -212,7 +212,7 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 | L5 Tracks       | `internal/lidar/l5tracks/`       | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                     | ✅     |
 | L6 Objects      | `internal/lidar/l6objects/`      | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                         | ✅     |
 | L7 Scene        | `internal/lidar/l7scene/`        | _To be created_ — canonical scene model, priors ingestion, multi-sensor merge                                             | 📋     |
-| L8 Analytics    | `internal/lidar/l8analytics/`    | _To be created_ — migrate from `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`          | 📋     |
+| L8 Analytics    | `internal/lidar/l8analytics/`    | _Canonical package to be created — existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
 | L9 Presentation | `internal/lidar/l9presentation/` | _Rename from `internal/lidar/visualiser/`_ — `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`             | 🔄     |
 | L10 Client      | _(no Go package)_                | `web/` (Svelte), `tools/visualiser-macos/` (Swift), `tools/pdf-generator/` (Python)                                       | 📄     |
 

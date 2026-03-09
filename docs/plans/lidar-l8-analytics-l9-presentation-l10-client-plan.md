@@ -74,8 +74,8 @@ The repo already contains analytics and presentation logic that do not fit the c
 | `storage/sqlite/analysis_run.go`           | run comparison orchestration, percentiles, run-track summary logic | storage plus `L8 Analytics` service split     |
 | `storage/sqlite/analysis_run_compare.go`   | parameter diffing for run comparison                               | likely `L8 Analytics`                         |
 | `monitor/track_api.go`                     | track summary aggregation and response shaping                     | `L8 Analytics` plus `L9`/handler boundary     |
-| `monitor/chart_data.go`                    | chart-specific view-model shaping                                  | `L9 Visualisation`                            |
-| `monitor/chart_api.go`                     | presentation-facing chart APIs                                     | `L9 Visualisation`                            |
+| `monitor/chart_data.go`                    | chart-specific view-model shaping                                  | `L9 Presentation`                             |
+| `monitor/chart_api.go`                     | presentation-facing chart APIs                                     | `L9 Presentation`                             |
 | `monitor/scene_api.go`                     | scene CRUD plus evaluation/replay orchestration                    | mixed infra plus `L8` application services    |
 | `monitor/run_track_api.go`                 | run, labelling, evaluation, and comparison flows                   | mixed infra plus `L8` application services    |
 
@@ -323,7 +323,7 @@ Provisional classification:
 ### Work
 
 - rename `internal/lidar/visualiser/` to `internal/lidar/l9presentation/` and update all import paths
-  - only two external callers require import-path updates: `cmd/radar/radar.go` and `cmd/tools/visualiser-server/main.go`
+  - external callers requiring import-path updates include: `cmd/radar/radar.go`, `cmd/tools/visualiser-server/main.go`, and `cmd/tools/gen-vrlog/main.go`
 - move chart and dashboard presentation code from `monitor/` into `internal/lidar/l9presentation/`:
   - `monitor/chart_data.go` — coordinate transforms, polar/cartesian downsampling, chart view-model structs
   - `monitor/chart_api.go` — presentation-facing chart response structs
@@ -479,7 +479,7 @@ These ownership issues are noted here to avoid hidden architectural debt, but ar
 
 | Item                                                                                    | Current location | Correct owner           | Why deferred                                                                |
 | --------------------------------------------------------------------------------------- | ---------------- | ----------------------- | --------------------------------------------------------------------------- |
-| `monitor/gridplotter.go` — grid visualisation and colorisation                          | `monitor/`       | `l9presentation/`       | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
+| `monitor/gridplotter.go` — grid visualisation and colourisation                         | `monitor/`       | `l9presentation/`       | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
 | Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l8analytics/labels.go` | extraction requires splitting aggregation from transport; Phase 3 follow-up |
 | Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | `l8analytics/labels.go` | extraction requires splitting aggregation from transport; Phase 3 follow-up |
 
