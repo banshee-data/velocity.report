@@ -566,12 +566,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		tracef("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
 
 		// Open a per-frame transaction for batching all track/observation writes.
-		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay).
+		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay)
+		// or when there are no confirmed tracks to persist.
 		var (
 			dbTx       *sql.Tx
 			worldFrame string
 		)
-		if cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
+		if len(confirmedTracks) > 0 && cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
 			worldFrame = fmt.Sprintf("site/%s", sensorID)
 			if tx, txErr := cfg.DB.Begin(); txErr != nil {
 				opsf("[Tracking] Failed to begin track persistence tx: %v", txErr)

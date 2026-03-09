@@ -10,7 +10,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,6 +27,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/version"
+	"tailscale.com/tsweb"
 )
 
 // ParamDef defines a configuration parameter for display and editing
@@ -665,8 +665,8 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	}
 
 	// Note: pprof endpoints (/debug/pprof/*) are registered by tsweb.Debugger()
-	// via db.AttachAdminRoutes() on the main mux. For the lidar-only server
-	// (setupRoutes), pprof is registered separately in setupRoutes().
+	// via db.AttachAdminRoutes() on the main mux, and by setupRoutes() on
+	// the lidar-only server mux.
 
 	// Playback API routes (VRLOG replay control)
 	playbackRoutes := []route{
@@ -731,19 +731,17 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 }
 
 // setupRoutes configures the HTTP routes and handlers for the lidar-only
-// server. pprof is registered here because tsweb.Debugger() only covers
-// the main mux (shared with radar admin); this server has its own mux.
+// server. pprof and debug endpoints are registered via tsweb.Debugger(),
+// matching the radar admin server's access control (tailscale-only).
 func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", ws.handleStatus)
 	ws.RegisterRoutes(mux)
 
-	// pprof endpoints for the lidar-only server
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	// Register pprof and debug endpoints via tsweb.Debugger, which
+	// restricts access to loopback and authenticated Tailscale peers
+	// — same mechanism as the radar admin server.
+	tsweb.Debugger(mux)
 
 	return mux
 }
