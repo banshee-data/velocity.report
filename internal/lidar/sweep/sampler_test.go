@@ -445,3 +445,43 @@ func TestSampler_Sample_ExcessiveIterationsClamp(t *testing.T) {
 		})
 	}
 }
+
+func TestSampler_Sample_OcclusionMetrics(t *testing.T) {
+	backend := &mockBackend{
+		acceptanceMetrics: map[string]interface{}{
+			"AcceptCounts":    []interface{}{100.0},
+			"RejectCounts":    []interface{}{10.0},
+			"Totals":          []interface{}{110.0},
+			"AcceptanceRates": []interface{}{0.909},
+		},
+		gridStatus: map[string]interface{}{
+			"background_count": 50.0,
+		},
+		trackingMetrics: map[string]interface{}{
+			"active_tracks":        2.0,
+			"mean_occlusion_count": 3.5,
+			"max_occlusion_frames": 12.0,
+			"total_occlusions":     7.0,
+		},
+	}
+	buckets := []string{"1"}
+	s := NewSampler(backend, buckets, 10*time.Millisecond)
+
+	cfg := SampleConfig{
+		Iterations: 1,
+	}
+
+	results := s.Sample(cfg)
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+	if results[0].MeanOcclusionCount != 3.5 {
+		t.Errorf("MeanOcclusionCount = %f, want 3.5", results[0].MeanOcclusionCount)
+	}
+	if results[0].MaxOcclusionFrames != 12 {
+		t.Errorf("MaxOcclusionFrames = %d, want 12", results[0].MaxOcclusionFrames)
+	}
+	if results[0].TotalOcclusions != 7 {
+		t.Errorf("TotalOcclusions = %d, want 7", results[0].TotalOcclusions)
+	}
+}

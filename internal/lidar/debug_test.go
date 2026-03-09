@@ -284,11 +284,101 @@ func TestConcurrentStreamWrites(t *testing.T) {
 	}
 }
 
+// TestSubLogger_WithWriter verifies that SubLogger returns a function that
+// writes to the ops writer with the expected "[lidar/subtag] " prefix.
+func TestSubLogger_WithWriter(t *testing.T) {
+	defer resetLoggers()
+
+	var buf bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &buf})
+
+	logFunc := SubLogger("pcap")
+	logFunc("packet %d processed", 42)
+
+	output := buf.String()
+	if !strings.Contains(output, "[lidar/pcap]") {
+		t.Errorf("expected prefix [lidar/pcap], got: %q", output)
+	}
+	if !strings.Contains(output, "packet 42 processed") {
+		t.Errorf("expected message content, got: %q", output)
+	}
+}
+
+// TestSubLogger_NilWriter verifies that SubLogger returns a no-op when
+// the ops writer is nil.
+func TestSubLogger_NilWriter(t *testing.T) {
+	defer resetLoggers()
+
+	SetLogWriters(LogWriters{}) // all nil
+	logFunc := SubLogger("pcap")
+	// Should not panic
+	logFunc("this should be silently discarded: %d", 99)
+}
+
+// TestSubLoggers_AllWriters verifies that SubLoggers returns three functions
+// that each write to their respective stream with the correct prefix.
+func TestSubLoggers_AllWriters(t *testing.T) {
+	defer resetLoggers()
+
+	var opsBuf, diagBuf, traceBuf bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &opsBuf, Diag: &diagBuf, Trace: &traceBuf})
+
+	ops, diag, trace := SubLoggers("vis")
+
+	ops("ops %s", "event")
+	diag("diag %s", "event")
+	trace("trace %s", "event")
+
+	if !strings.Contains(opsBuf.String(), "[lidar/vis]") {
+		t.Errorf("ops output missing prefix: %q", opsBuf.String())
+	}
+	if !strings.Contains(opsBuf.String(), "ops event") {
+		t.Errorf("ops output missing message: %q", opsBuf.String())
+	}
+
+	if !strings.Contains(diagBuf.String(), "[lidar/vis]") {
+		t.Errorf("diag output missing prefix: %q", diagBuf.String())
+	}
+
+	if !strings.Contains(traceBuf.String(), "[lidar/vis]") {
+		t.Errorf("trace output missing prefix: %q", traceBuf.String())
+	}
+}
+
+// TestSubLoggers_PartialWriters verifies that SubLoggers returns no-ops
+// for streams without writers, while still logging on configured ones.
+func TestSubLoggers_PartialWriters(t *testing.T) {
+	defer resetLoggers()
+
+	var opsBuf bytes.Buffer
+	SetLogWriters(LogWriters{Ops: &opsBuf}) // only ops, diag+trace nil
+
+	ops, diag, trace := SubLoggers("partial")
+
+	ops("ops message")
+	diag("diag message")   // should be no-op
+	trace("trace message") // should be no-op
+
+	if !strings.Contains(opsBuf.String(), "ops message") {
+		t.Errorf("expected ops output, got: %q", opsBuf.String())
+	}
+	// diag and trace should not have written to the ops buffer
+	if strings.Contains(opsBuf.String(), "diag message") {
+		t.Errorf("diag message should not appear in ops buffer")
+	}
+	if strings.Contains(opsBuf.String(), "trace message") {
+		t.Errorf("trace message should not appear in ops buffer")
+	}
+}
+
 // resetLoggers clears all loggers to a clean state for test isolation.
 func resetLoggers() {
 	mu.Lock()
 	opsLogger = nil
 	diagLogger = nil
 	traceLogger = nil
+	opsWriter = nil
+	diagWriter = nil
+	traceWriter = nil
 	mu.Unlock()
 }

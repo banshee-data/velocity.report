@@ -1665,3 +1665,82 @@ func TestEmptyObjectClassBecomesUnspecified(t *testing.T) {
 		})
 	}
 }
+
+// TestServer_SetReplayMode_IncrementsEpoch verifies that enabling replay mode
+// increments the replayEpoch counter each time.
+func TestServer_SetReplayMode_IncrementsEpoch(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	server := NewServer(pub)
+
+	if server.replayEpoch != 0 {
+		t.Fatalf("expected replayEpoch=0 initially, got %d", server.replayEpoch)
+	}
+
+	server.SetReplayMode(true)
+	if server.replayEpoch != 1 {
+		t.Errorf("expected replayEpoch=1 after first enable, got %d", server.replayEpoch)
+	}
+
+	server.SetReplayMode(false) // disable should not change epoch
+	server.SetReplayMode(true)  // re-enable
+	if server.replayEpoch != 2 {
+		t.Errorf("expected replayEpoch=2 after second enable, got %d", server.replayEpoch)
+	}
+}
+
+// TestServer_SetVRLogMode_EpochAndPause verifies VRLog mode side effects:
+// sets replayMode, increments replayEpoch, and resets paused state.
+func TestServer_SetVRLogMode_EpochAndPause(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	server := NewServer(pub)
+
+	// Simulate a previous pause
+	server.playbackMu.Lock()
+	server.paused = true
+	server.playbackMu.Unlock()
+
+	server.SetVRLogMode(true)
+
+	if !server.vrlogMode {
+		t.Error("expected vrlogMode=true")
+	}
+	if !server.replayMode {
+		t.Error("expected replayMode=true when vrlogMode enabled")
+	}
+	if server.replayEpoch != 1 {
+		t.Errorf("expected replayEpoch=1, got %d", server.replayEpoch)
+	}
+	if server.paused {
+		t.Error("expected paused=false after SetVRLogMode(true) — should reset")
+	}
+
+	// Disable VRLog mode
+	server.SetVRLogMode(false)
+	if server.vrlogMode {
+		t.Error("expected vrlogMode=false after disable")
+	}
+	// replayMode is NOT reset by SetVRLogMode(false) — only by SetReplayMode(false)
+}
+
+// TestFrameBundleToProto_ReplayEpoch verifies that the ReplayEpoch field
+// is serialised into the PlaybackInfo proto.
+func TestFrameBundleToProto_ReplayEpoch(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID: 42,
+		PlaybackInfo: &PlaybackInfo{
+			TotalFrames:       100,
+			CurrentFrameIndex: 50,
+			ReplayEpoch:       7,
+		},
+	}
+	req := &pb.StreamRequest{}
+	proto := frameBundleToProto(frame, req)
+	if proto.PlaybackInfo == nil {
+		t.Fatal("expected PlaybackInfo in proto")
+	}
+	if proto.PlaybackInfo.ReplayEpoch != 7 {
+		t.Errorf("expected ReplayEpoch=7, got %d", proto.PlaybackInfo.ReplayEpoch)
+	}
+}

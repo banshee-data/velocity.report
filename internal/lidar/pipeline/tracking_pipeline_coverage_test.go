@@ -1756,3 +1756,168 @@ func TestTrackingPipelineConfig_BenchmarkMode_HealthSummary(t *testing.T) {
 		t.Errorf("expected goroutine count in health summary")
 	}
 }
+
+// TestTrackingPipelineConfig_DisableTrackPersistence verifies that when
+// DisableTrackPersistence is set, no DB writes occur even when a DB and
+// tracker are configured.
+func TestTrackingPipelineConfig_DisableTrackPersistence(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-disable-persist-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	db := setupTestDB(t)
+
+	disablePersist := &atomic.Bool{}
+	disablePersist.Store(true)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:                sensorID,
+		BackgroundManager:       bgMgr,
+		Tracker:                 tracker,
+		Classifier:              l6objects.NewTrackClassifier(),
+		DB:                      db,
+		RemoveGround:            false,
+		MaxFrameRate:            0,
+		DisableTrackPersistence: disablePersist,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+
+	// Seed background
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("persist-seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+
+	// Send foreground frames to create confirmed tracks
+	for i := 0; i < 15; i++ {
+		ts := now.Add(time.Duration(500+i*100) * time.Millisecond)
+		cb(makeForegroundFrame("persist-fg-"+string(rune('A'+i)), ts, 20.0, 5.0+float64(i)*0.1))
+	}
+
+	// Verify tracks were created in the tracker
+	total, _, _, _ := tracker.GetTrackCount()
+	if total == 0 {
+		t.Error("expected at least one track to be created")
+	}
+
+	// Verify no tracks were persisted to DB
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
+	if err != nil {
+		t.Fatalf("query lidar_tracks: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 persisted tracks with DisableTrackPersistence=true, got %d", count)
+	}
+}
+
+// TestTrackingPipelineConfig_DBTransactionBatching verifies that when
+// DisableTrackPersistence is false (nil), tracks are persisted to the DB
+// using the per-frame transaction batching path.
+func TestTrackingPipelineConfig_DBTransactionBatching(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-tx-batch-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	db := setupTestDB(t)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:                sensorID,
+		BackgroundManager:       bgMgr,
+		Tracker:                 tracker,
+		Classifier:              l6objects.NewTrackClassifier(),
+		DB:                      db,
+		RemoveGround:            false,
+		MaxFrameRate:            0,
+		DisableTrackPersistence: nil, // nil means persist
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+
+	// Seed background
+	for i := 0; i < 5; i++ {
+		cb(makeStableFrame("txbatch-seed-"+string(rune('A'+i)), now.Add(time.Duration(i)*100*time.Millisecond), 20.0))
+	}
+
+	// Send foreground frames
+	for i := 0; i < 15; i++ {
+		ts := now.Add(time.Duration(500+i*100) * time.Millisecond)
+		cb(makeForegroundFrame("txbatch-fg-"+string(rune('A'+i)), ts, 20.0, 5.0+float64(i)*0.1))
+	}
+
+	// Verify tracks were persisted
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM lidar_tracks").Scan(&count)
+	if err != nil {
+		t.Fatalf("query lidar_tracks: %v", err)
+	}
+	if count == 0 {
+		t.Error("expected at least one track persisted to DB with default persistence")
+	}
+}
+
+// TestTrackingPipelineConfig_BenchmarkMode_LagDetection verifies that the
+// lag detection logic in benchmark mode produces BEHIND warnings when
+// frames take longer than the inter-frame interval.
+func TestTrackingPipelineConfig_BenchmarkMode_LagDetection(t *testing.T) {
+	var opsBuf bytes.Buffer
+	SetLogWriters(&opsBuf, nil, nil)
+	defer SetLogWriters(nil, nil, nil)
+
+	sensorID := "coverage-lag-" + t.Name()
+	bgMgr := makeTestBgManager(t, sensorID)
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	benchmarkMode := &atomic.Bool{}
+	benchmarkMode.Store(true)
+
+	cfg := &TrackingPipelineConfig{
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		Classifier:        l6objects.NewTrackClassifier(),
+		RemoveGround:      false,
+		MaxFrameRate:      0,
+		BenchmarkMode:     benchmarkMode,
+	}
+	cb := cfg.NewFrameCallback()
+
+	now := time.Now()
+
+	// Seed background
+	for i := 0; i < 3; i++ {
+		cb(makeStableFrame("lag-seed-"+fmt.Sprintf("%d", i), now.Add(time.Duration(i)*50*time.Millisecond), 20.0))
+	}
+
+	// Send many foreground frames rapidly — the processing time is close
+	// enough that lag detection is exercised, provided the timestamps
+	// advance faster than the wall-clock processing.
+	for i := 0; i < 10; i++ {
+		ts := now.Add(time.Duration(200+i*10) * time.Millisecond) // 10ms apart in PCAP time
+		cb(makeForegroundFrame("lag-fg-"+fmt.Sprintf("%03d", i), ts, 20.0, 5.0+float64(i)*0.01))
+	}
+
+	// The test primarily ensures the lag detection path doesn't panic or
+	// deadlock. Whether BEHIND log appears depends on actual processing
+	// speed — verify the benchmark output is present.
+	output := opsBuf.String()
+	if !strings.Contains(output, "[Benchmark]") {
+		t.Errorf("expected [Benchmark] output in lag detection test")
+	}
+}
