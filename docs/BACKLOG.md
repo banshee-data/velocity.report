@@ -19,6 +19,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v0.5.1 (Product)
 
 - [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
+- Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
+- Visualiser performance and scene health metrics — timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardization-plan.md) `M`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
@@ -147,4 +149,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#328] (#326) P0 ObjectClass schema alignment, label vocabulary consolidation Phases 1–3.1 — [design doc](plans/label-vocabulary-consolidation-plan.md) [AV plan §P0](plans/lidar-av-lidar-integration-plan.md)
 - [#328] Visualiser track field serialisation — all Track fields now round-trip in `frameBundleToProto`, `TestFrameBundleToProto_TrackFieldCompleteness` added — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#328] Visualiser `ObjectClass` enum — 9-class enum on proto field 26, `objectClassFromString` / `classifyOrConvert` conversion, Go + Swift tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
-- [#344] Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#330] Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#336] Visualiser proto contract parity + debug overlays — `FrameBundle.debug` streaming, cluster/track field serialisation, `avg_speed_mps` → `median_speed_mps` + p85/p98 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#336] v0.5.0 breaking changes — proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#352] PCAP analysis replay hardening — blocking frame channel for zero-drop analysis, speed-mode rename (fastest→analysis, fixed→scaled), SpeedRatio API, per-phase backoff logging with SubLogger, batched track DB writes, disable persistence during analysis runs, replay epoch tracking, FrameBuilder deadlock fix `M`
+- [#352] Benchmark mode and runtime profiling — BenchmarkMode toggle for performance tracing, pprof HTTP routes, heap-allocation tracking in health summary `S`
+- [#352] Occlusion aggregate metrics — per-frame occlusion stats in TrackingMetrics and sweep pipeline; speed_ratio sweep variable; dashboard exposure `S`
