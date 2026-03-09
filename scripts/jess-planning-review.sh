@@ -40,6 +40,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if ! [[ "$SINCE_DAYS" =~ ^[0-9]+$ ]]; then
+  echo "--since-days must be a non-negative integer" >&2
+  exit 1
+fi
+
 count_nonempty_lines() {
   awk 'NF { count++ } END { print count + 0 }'
 }
@@ -124,8 +129,24 @@ touch \
 REPO_ROOT=$(git rev-parse --show-toplevel)
 BACKLOG_FILE="$REPO_ROOT/docs/BACKLOG.md"
 DECISIONS_FILE="$REPO_ROOT/docs/DECISIONS.md"
+PLANS_DIR="$REPO_ROOT/docs/plans"
 
-find "$REPO_ROOT/docs/plans" -maxdepth 1 -type f -name '*.md' | sort >"$ALL_PLANS"
+if [[ ! -d "$PLANS_DIR" ]]; then
+  echo "Expected planning docs directory at $PLANS_DIR" >&2
+  exit 1
+fi
+
+if [[ ! -f "$BACKLOG_FILE" ]]; then
+  echo "Expected backlog file at $BACKLOG_FILE" >&2
+  exit 1
+fi
+
+if [[ ! -f "$DECISIONS_FILE" ]]; then
+  echo "Expected decisions file at $DECISIONS_FILE" >&2
+  exit 1
+fi
+
+find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' | sort >"$ALL_PLANS"
 git log --since="${SINCE_DAYS} days ago" --name-only --pretty=format: -- docs/plans 2>/dev/null \
   | grep '^docs/plans/.*\.md$' \
   | sort -u >"$TOUCHED_PLANS" || true
@@ -197,7 +218,7 @@ awk -F '\t' '
   }
 ' "$SECTION_COUNTS" >"$SPLIT_CANDIDATES"
 
-grep -RniE '(^#+ .*Open Questions)|\bTBD\b|\bTODO\b|\bFIXME\b|decision needed|unresolved|open question' "$REPO_ROOT/docs/plans" >"$DECISION_MARKERS" || true
+grep -RniE '(^#+ .*Open Questions)|\bTBD\b|\bTODO\b|\bFIXME\b|decision needed|unresolved|open question' "$PLANS_DIR" >"$DECISION_MARKERS" || true
 
 TOTAL_PLAN_COUNT=$(wc -l <"$ALL_PLANS" | tr -d ' ')
 TOUCHED_PLAN_COUNT=$(wc -l <"$TOUCHED_PLANS" | tr -d ' ')

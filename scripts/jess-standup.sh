@@ -45,6 +45,13 @@ join_lines() {
   awk 'NF { if (count++) printf(", "); printf("%s", $0) } END { if (!count) printf("-") }'
 }
 
+escape_markdown_table_cell() {
+  local value="${1:-}"
+  value=${value//\\/\\\\}
+  value=${value//|/\\|}
+  printf "%s" "$value"
+}
+
 shorten_path() {
   local path="${1:-}"
   if [[ -z "$path" ]]; then
@@ -126,11 +133,11 @@ print_worktree_rows() {
           marker=" (current)"
         fi
         printf '| `%s%s` | `%s` | `%s` | %s |\n' \
-          "$(shorten_path "$path")" \
+          "$(escape_markdown_table_cell "$(shorten_path "$path")")" \
           "$marker" \
-          "$ref_label" \
+          "$(escape_markdown_table_cell "$ref_label")" \
           "${head:0:10}" \
-          "$subject"
+          "$(escape_markdown_table_cell "$subject")"
       fi
       path=""
       head=""
@@ -169,11 +176,11 @@ print_worktree_rows() {
       marker=" (current)"
     fi
     printf '| `%s%s` | `%s` | `%s` | %s |\n' \
-      "$(shorten_path "$path")" \
+      "$(escape_markdown_table_cell "$(shorten_path "$path")")" \
       "$marker" \
-      "$ref_label" \
+      "$(escape_markdown_table_cell "$ref_label")" \
       "${head:0:10}" \
-      "$subject"
+      "$(escape_markdown_table_cell "$subject")"
   fi
 }
 
@@ -250,14 +257,14 @@ while IFS=$'\t' read -r branch upstream _subject; do
   ahead_up=0
   behind_up=0
   if [[ -n "$upstream" ]]; then
-    read -r behind_up ahead_up < <(git rev-list --left-right --count "$upstream"...$branch 2>/dev/null || printf "0 0\n")
+    read -r behind_up ahead_up < <(git rev-list --left-right --count "${upstream}...${branch}" 2>/dev/null || printf "0 0\n")
     if (( ahead_up > 0 || behind_up > 0 )); then
       UPSTREAM_DIVERGENCE_COUNT=$((UPSTREAM_DIVERGENCE_COUNT + 1))
     fi
   fi
 
   worktree_path=$(worktree_path_for_branch "$branch")
-  read -r behind_main ahead_main < <(git rev-list --left-right --count "$MAIN_REF"...$branch 2>/dev/null || printf "0 0\n")
+  read -r behind_main ahead_main < <(git rev-list --left-right --count "${MAIN_REF}...${branch}" 2>/dev/null || printf "0 0\n")
   if [[ -n "$worktree_path" ]] && (( ahead_main > 0 || behind_main > 0 )); then
     CHECKED_OUT_MAIN_DIVERGENCE_COUNT=$((CHECKED_OUT_MAIN_DIVERGENCE_COUNT + 1))
   fi
@@ -280,7 +287,10 @@ while IFS=$'\t' read -r branch upstream _subject; do
     else
       worktree_label=$(shorten_path "$worktree_path")
     fi
-    BRANCH_ROWS="${BRANCH_ROWS}| \`${branch}\` | \`${upstream}\` | +${ahead_up} / -${behind_up} | +${ahead_main} / -${behind_main} | ${worktree_label} |\n"
+    branch_cell=$(escape_markdown_table_cell "$branch")
+    upstream_cell=$(escape_markdown_table_cell "$upstream")
+    worktree_cell=$(escape_markdown_table_cell "$worktree_label")
+    BRANCH_ROWS="${BRANCH_ROWS}| \`${branch_cell}\` | \`${upstream_cell}\` | +${ahead_up} / -${behind_up} | +${ahead_main} / -${behind_main} | ${worktree_cell} |\n"
     DISPLAYED_BRANCHES=$((DISPLAYED_BRANCHES + 1))
   fi
 done < <(git for-each-ref --format='%(refname:short)%09%(upstream:short)%09%(contents:subject)' refs/heads)
