@@ -28,7 +28,7 @@ The current `pcap-analyse` tool (`cmd/tools/pcap-analyse/main.go`, ~53 KB) proce
 
 - CSV tracks (vehicle trajectories)
 - JSON results (detection summary)
-- Training data (foreground blobs for ML)
+- Foreground research blobs for offline benchmarks and experiments
 
 Existing export infrastructure:
 

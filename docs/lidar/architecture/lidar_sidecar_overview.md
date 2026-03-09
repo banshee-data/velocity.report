@@ -84,7 +84,7 @@
 
 - ✅ **`ForegroundFrame`**: Export struct for foreground points with metadata
 - ✅ **`EncodeForegroundBlob()`/`DecodeForegroundBlob()`**: Compact binary encoding (8 bytes/point)
-- ✅ **`TrainingDataFilter`**: Filtering training data by sensor, sequence, foreground count
+- ✅ **`TrainingDataFilter`**: Filtering exported research frames by sensor, sequence, and foreground count
 - ✅ **Unit Tests**: `internal/lidar/training_data_test.go`
 - ✅ **Location**: `internal/lidar/training_data.go`
 
@@ -132,8 +132,8 @@
 - ✅ **Full Pipeline Processing**: Parse → Frame → Background → Cluster → Track → Classify
 - ✅ **Track Categorization**: Classify tracks as pedestrian, car, bird, other
 - ✅ **Speed Statistics**: P50/P85/P95 percentile computation per track
-- ✅ **Export Formats**: JSON (full analysis), CSV (track table), training data (binary blobs)
-- ✅ **Classification Research Export**: Foreground point cloud blobs for offline experiments
+- ✅ **Export Formats**: JSON (full analysis), CSV (track table), foreground research blobs (binary)
+- ✅ **Classification Research Export**: Foreground point-cloud blobs for offline benchmarks and experiments
 - ✅ **Database Persistence**: Optional SQLite storage for batch analysis results
 - ✅ **Location**: `cmd/tools/pcap-analyze/main.go`
 
@@ -371,7 +371,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **Location**: `internal/lidar/training_data.go`
 - **`ForegroundFrame`**: Export struct for foreground points with metadata
 - **Compact Encoding**: 8 bytes per point (vs ~40+ bytes for struct)
-- **`TrainingDataFilter`**: Filtering training data by sensor, sequence, foreground count
+- **`TrainingDataFilter`**: Filtering exported research frames by sensor, sequence, and foreground count
 - **Storage Format**: Polar (sensor) frame for pose independence
 
 > **Future Work:** Pose validation and quality-based filtering for classification research datasets are planned for a future phase.

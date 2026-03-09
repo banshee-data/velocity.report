@@ -335,7 +335,7 @@ This requires storing raw foreground points alongside clusters, which is not cur
 > Use labelled tracks to train classification models.
 
 - [ ] **8.1** Feature extraction: speed profile, bbox dimensions, duration, heading changes, trajectory shape
-- [ ] **8.2** Export labelled tracks as training data (CSV/JSON format for external ML)
+- [ ] **8.2** Export labelled tracks as research datasets (CSV/JSON for external analysis and ML experiments)
 - [ ] **8.3** Integrate trained model: load model weights, classify tracks in real-time
 - [ ] **8.4** Classification confidence thresholds: auto-label high-confidence, flag low-confidence for review
 

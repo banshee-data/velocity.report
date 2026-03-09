@@ -28,7 +28,7 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | Track Store           | `internal/lidar/storage/sqlite/track_store.go`     | ✅ Complete |
 | REST API              | `internal/lidar/monitor/track_api.go`              | ✅ Complete |
 | PCAP Analyse Tool     | `cmd/tools/pcap-analyze/main.go`                   | ✅ Complete |
-| Training Data Export  | `internal/lidar/adapters/training_data.go`         | ✅ Complete |
+| Research Data Export  | `internal/lidar/adapters/training_data.go`         | ✅ Complete |
 | Analysis Run Store    | `internal/lidar/storage/sqlite/analysis_run.go`    | ✅ Complete |
 | Sweep Runner          | `internal/lidar/sweep/runner.go`                   | ✅ Complete |
 | Auto-Tuner            | `internal/lidar/sweep/auto.go`                     | ✅ Complete |

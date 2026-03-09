@@ -47,7 +47,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
     - [A. Data Structures](#a-data-structures)
     - [B. Configuration Parameters](#b-configuration-parameters)
     - [C. Related Documentation](#c-related-documentation)
-    - [D. ML Training Data Storage](#d-ml-training-data-storage)
+    - [D. Classification Research Data Storage](#d-classification-research-data-storage)
     - [E. Future Work: Pose Validation](#e-future-work-pose-validation)
 
 ---
@@ -119,17 +119,17 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Speed statistics (average, peak, history for percentiles)
 - ✅ Unit tests in `internal/lidar/tracking_test.go`
 
-#### ML Training Data Support
+#### Classification Research Data Support
 
 - **Implementation:** `internal/lidar/training_data.go`
 - ✅ `ForegroundFrame` struct for exporting foreground points
 - ✅ `EncodeForegroundBlob()`/`DecodeForegroundBlob()` - compact binary encoding (8 bytes/point)
-- ✅ `TrainingDataFilter` for filtering training data
-- ✅ Unit tests for training data encoding
+- ✅ `TrainingDataFilter` for filtering exported research frames
+- ✅ Unit tests for foreground export encoding
 
 > **Future Work:** Pose validation and quality assessment will be implemented in a future phase.
-> The current implementation stores training data in polar (sensor) frame, which is pose-independent.
-> This allows training data to remain valid even if the sensor pose changes.
+> The current implementation stores research export data in polar (sensor) frame, which is pose-independent.
+> This keeps exported foreground data valid even if the sensor pose changes.
 
 ### ✅ Completed (Phases 3.3 - 3.5)
 
@@ -1467,8 +1467,8 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.8     | `web/src/lib/components/lidar/TrackList.svelte`            | Track list with filters and pagination           |
 | 3.8     | `web/src/lib/components/lidar/TimelinePane.svelte`         | Timeline with playback controls                  |
 | 3.8     | `web/src/routes/lidar/tracks/+page.svelte`                 | Track history playback page                      |
-| ML      | `internal/lidar/training_data.go`                          | Training data export and encoding                |
-| ML      | `internal/lidar/training_data_test.go`                     | Unit tests for training data                     |
+| ML      | `internal/lidar/training_data.go`                          | Classification research export and encoding      |
+| ML      | `internal/lidar/training_data_test.go`                     | Unit tests for research export encoding          |
 
 ---
 
@@ -1581,21 +1581,21 @@ MeasurementNoise      = [0.2, 0.2]
 - `internal/lidar/l3grid/background.go` - Background grid implementation
 - `internal/lidar/l5tracks/types.go` - Track data structures
 
-### D. ML Training Data Storage
+### D. Classification Research Data Storage
 
 #### Storage Recommendation: Sensor Frame (Polar)
 
-**Training data should be stored in sensor frame (polar coordinates)** for the following reasons:
+**Classification research data should be stored in sensor frame (polar coordinates)** for the following reasons:
 
 1. **Pose Independence:** Polar data is independent of external calibration. If the pose changes (sensor moved, recalibrated), historical polar data remains valid and can be re-transformed.
 
-2. **Reusability:** Training data collected from one installation can be reused when the pose is updated, without needing to recollect or retransform.
+2. **Reusability:** Research data collected from one installation can be reused when the pose is updated, without needing to recollect or retransform.
 
 3. **Compact Representation:** Polar coordinates (distance, azimuth, elevation, ring) are a compact, lossless representation of sensor measurements.
 
-4. **Transform on Demand:** World-frame data can always be regenerated from polar data + current pose at training time.
+4. **Transform on Demand:** World-frame data can always be regenerated from polar data plus the current pose during offline analysis or model training.
 
-#### Training Data Schema
+#### Research Data Schema
 
 ```sql
 -- Foreground point cloud sequences for classification research
@@ -1663,13 +1663,13 @@ func ExportForegroundFrame(polarPoints []PointPolar, mask []bool, sensorID strin
 1. **Pose Validation:** Validate sensor calibration quality based on RMSE metrics
 2. **Quality Assessment:** Categorize pose quality (Excellent/Good/Fair/Poor)
 3. **Transform Gating:** Gate world-frame transformations by pose quality
-4. **Training Data Filtering:** Filter classification research data by pose quality
+4. **Research Data Filtering:** Filter classification research data by pose quality
 
 #### Design Rationale
 
 The current implementation stores all data in polar (sensor) frame, which is pose-independent. This design choice:
 
-1. **Preserves Data Validity:** Training data remains valid even if the sensor pose changes
+1. **Preserves Data Validity:** Classification research data remains valid even if the sensor pose changes
 2. **Simplifies Schema:** No pose foreign keys required in the database
 3. **Enables Future Enhancement:** Pose can be added later without data migration
 
@@ -1677,14 +1677,14 @@ The current implementation stores all data in polar (sensor) frame, which is pos
 
 When pose validation is implemented:
 
-| RMSE (meters) | Quality   | Usage Recommendation                    |
-| ------------- | --------- | --------------------------------------- |
-| < 0.05        | Excellent | Use for all downstream processing       |
-| 0.05 - 0.15   | Good      | Use for tracking and training           |
-| 0.15 - 0.30   | Fair      | Use for tracking; exclude from training |
-| > 0.30        | Poor      | Manual recalibration required           |
+| RMSE (meters) | Quality   | Usage Recommendation                  |
+| ------------- | --------- | ------------------------------------- |
+| < 0.05        | Excellent | Use for all downstream processing     |
+| 0.05 - 0.15   | Good      | Use for tracking and research export  |
+| 0.15 - 0.30   | Fair      | Use for tracking; exclude from export |
+| > 0.30        | Poor      | Manual recalibration required         |
 
-**Current Status:** Training data stored in polar (sensor) frame. World-frame transformations use identity transform (sensor frame = world frame).
+**Current Status:** Classification research data is stored in polar (sensor) frame. World-frame transformations use identity transform (sensor frame = world frame).
 
 ---
 

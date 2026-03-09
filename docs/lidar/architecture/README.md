@@ -21,7 +21,7 @@ Cross-cutting packages:
 | ----------------- | ------------------------------------------------------------------------------- |
 | `pipeline/`       | Orchestration via stage interfaces (`ForegroundStage`, `PerceptionStage`, etc.) |
 | `storage/sqlite/` | DB repositories: scene, track, evaluation, sweep, analysis run stores           |
-| `adapters/`       | Transport and IO: export, training data, ground truth evaluation                |
+| `adapters/`       | Transport and IO: export, research data, ground truth evaluation                |
 | `sweep/`          | Parameter sweep runner and auto-tuner (interface-only layer coupling)           |
 | `monitor/`        | HTTP server, API handlers, ECharts dashboards, data source management           |
 
