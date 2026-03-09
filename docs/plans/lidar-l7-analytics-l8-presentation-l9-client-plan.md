@@ -480,9 +480,9 @@ These ownership issues are noted here to avoid hidden architectural debt, but ar
 | --------------------------------------------------------------------------------------- | ---------------- | -------------------------------------- | --------------------------------------------------------------------------- |
 | `monitor/gridplotter.go` — grid visualisation and colorisation                          | `monitor/`       | `l8presentation/`                      | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
 | Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
-| Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | mixed infra + `L7` application service | scene CRUD stays in infra; evaluation logic needs extraction                |
+| Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
 
-## Full monitor/ Deprecation Analysis
+## Full monitor/ deprecation analysis
 
 ### Package Census
 
@@ -676,7 +676,7 @@ Full `monitor/` deprecation spans **Phases 4–7** of the broader nine-layer pla
 #### Phase 4.5: Extract L8 Presentation from monitor/ (prerequisite: Phase 4 rename complete)
 
 1. Define a `ChartDataProvider` interface in `l8presentation/` with the methods the chart handlers need (grid snapshots, tracker state, stats, sensor ID)
-2. Move `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `gridplotter.go`, `templates.go`, `html/`, `assets/` into `l8presentation/`
+2. Move `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/` into `l8presentation/` (keep `gridplotter.go` in `monitor/` per Phase 4 deferred moves; migrate it in the Phase 4 follow-up)
 3. Convert chart handler methods from `(ws *WebServer)` receivers to standalone functions or methods on a local struct that accepts `ChartDataProvider`
 4. Update `webserver.go`'s route table to register L8 handlers via the interface
 5. Move corresponding tests; verify all chart endpoints still pass
