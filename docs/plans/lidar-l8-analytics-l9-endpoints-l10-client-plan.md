@@ -2,7 +2,7 @@
 
 **Status:** Proposed implementation plan — **layer numbers updated 2026-03-08**
 **Layers:** L8 Analytics, L9 Endpoints, L10 Client
-**Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06. Updated 2026-03-07 to adopt a nine-layer model. **Updated 2026-03-08:** Renumbered to ten-layer model — L7 Scene inserted, previous L7→L8, L8→L9, L9→L10. All body references updated. File renamed from `lidar-l7-analytics-l8-presentation-l9-client-plan.md`. **Updated 2026-07-13:** L9 renamed from Presentation to Endpoints; file renamed from `lidar-l8-analytics-l9-presentation-l10-client-plan.md`.
+**Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06. Updated 2026-03-07 to adopt a nine-layer model. **Updated 2026-03-08:** Renumbered to ten-layer model — L7 Scene inserted, previous L7→L8, L8→L9, L9→L10. All body references updated. File renamed from `lidar-l7-analytics-l8-presentation-l9-client-plan.md`. **Updated 2026-03-09:** L9 renamed from Presentation to Endpoints; file renamed from `lidar-l8-analytics-l9-presentation-l10-client-plan.md`.
 **Scope:** LiDAR architecture docs, `internal/lidar`, `proto/velocity_visualiser/v1`, `web/`, and the macOS visualiser integration boundary.
 
 ## Executive Summary

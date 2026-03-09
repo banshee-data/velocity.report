@@ -299,7 +299,7 @@ Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compat
 v0.5.0 under three items: "v0.5.0 backward compatibility shim removal"
 (web/Python/macOS fallback removal), "Visualiser track proto parity" (proto
 rename, percentile back-out, binding regeneration), and "v0.5.0 breaking
-changes" (AvgSpeedMps removal across Go/REST/DB/pcap). The sub-plan retains the
+changes" (`transit-backfill` soft-deprecation, breaking-changes release notes). The sub-plan retains the
 full implementation detail.
 
 Intersections with other projects:

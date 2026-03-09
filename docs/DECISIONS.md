@@ -96,6 +96,10 @@ Ship one coordinated breaking-change sweep; keep no temporary dual-format shims 
 
 Reflash-only upgrades in the current plan; over-the-air updates are deferred to a later milestone — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
 
+### D-23 — TicTacTail platform extraction
+
+Generic cadenced aggregation + live surface + aligned history engine, extracted from VRLOG checker; in-repo `pkg/tictactail` — [platform plan](plans/tictactail-platform-plan.md)
+
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |
