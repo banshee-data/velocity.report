@@ -1,58 +1,74 @@
-# LiDAR ML Classifier Training
+# LiDAR Classification Benchmarking and Optional Model Training
 
-## Status: Planned
+This document describes the optional future classification research lane for LiDAR tracks. It is intentionally downstream of the main pipeline: rule-based classification remains the deployed baseline until a candidate approach wins on reproducible benchmarks and stays explainable.
 
-## Summary
+**Status:** Deferred / optional research lane
+**Related:** [Metrics-First Data Science Plan](platform-data-science-metrics-first-plan.md), [Backlog](../BACKLOG.md), [Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning](lidar-track-labeling-auto-aware-tuning-plan.md), [Classification Maths](../maths/classification-maths.md)
 
-Train an ML model to replace rule-based classification using labelled track
-data. This is Phase 4.1 of the LiDAR ML pipeline, targeting the v2.0
-milestone.
+## Purpose
 
-## Related Documents
+Evaluate whether future classification methods can improve on the current transparent rule-based classifier without introducing black boxes into the runtime. This work is not on the critical path for deployment.
 
-- [Backlog](../BACKLOG.md) — milestone placement (v2.0)
-- [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md) — provides the run/track storage consumed by training
-- [Track Labelling & Auto-Aware Tuning](lidar-track-labeling-auto-aware-tuning-plan.md) — generates the labelled data this pipeline requires
-- [Parameter Tuning & Optimisation](lidar-parameter-tuning-optimisation-plan.md) — can run in parallel
+## Guardrails
 
----
+1. The live pipeline keeps the current rule-based classifier as the default and fallback path.
+2. Candidate methods must use documented, exportable feature vectors.
+3. Benchmark wins must be demonstrated on fixed replay packs and labelled runs.
+4. Deployment is allowed only when metric gains are reproducible and the decision path remains explainable.
+5. Opaque end-to-end models are out of scope for this lane.
 
 ## Dependencies
 
-- Phase 4.0 (Track Labelling UI) must produce labelled tracks before training
-  can begin.
-- Analysis run infrastructure (Phase 3.7, ✅ implemented) provides the
-  `lidar_run_tracks` table with `user_label` and `label_confidence` fields.
+- Phase 4.0 track labelling must continue producing reference-quality labels.
+- Analysis runs must persist params, metrics, and dataset provenance so comparisons can be replayed later.
+- The rule-based baseline in `internal/lidar/l6objects/classification.go` remains the comparison target for every experiment.
 
----
-
-## Training Data Pipeline
+## Benchmark Data Flow
 
 ```
-Labelled Tracks (DB) → Feature Extraction → Training Dataset → Model Training → Model Deployment
+Labelled Tracks → Feature Extraction → Benchmark Dataset
+                                        ↓
+                          Rule-Based Baseline vs Candidate
+                                        ↓
+                              Reproducible Scorecards
+                                        ↓
+                         Optional Deployment Proposal
 ```
 
-## Feature Vector
+## Feature Set
 
-Extract features from labelled tracks for ML training:
+Candidate methods may only use documented track features such as:
 
-- **Spatial features (shape):** bounding box length/width/height averages,
-  height p95 max, aspect ratios (XY, XZ)
-- **Kinematic features (motion):** avg/peak/p50/p85/p95 speed, speed variance,
-  max acceleration, heading variance
+- **Spatial features:** bounding box length/width/height averages, height p95 max, aspect ratios (XY, XZ)
+- **Kinematic features:** avg/peak/p50/p85/p95 speed, speed variance, max acceleration, heading variance
 - **Temporal features:** duration, observation count, observations per second
 - **Intensity features:** mean average, variance
 
-## Model Approach
+These features must stay exportable so the same benchmark can be rerun outside the model training code.
 
-- **Algorithm:** RandomForest classifier (scikit-learn) as initial baseline
-- **Validation:** 5-fold cross-validation, F1-weighted scoring
-- **Export:** joblib serialisation with versioned metadata
-- **Deployment:** Go-side `ClassifierFactory` selects between rule-based and ML
-  classifiers, with automatic fallback to rule-based on error
+## Candidate Approach
 
-## Implementation Location
+Start with interpretable, feature-based methods:
 
-- `tools/ml-training/features.py` — feature extraction
-- `tools/ml-training/train_classifier.py` — training script
-- `internal/lidar/ml_classifier.go` — Go-side model loading and inference
+- threshold tables derived from labelled data,
+- scorecard-driven refinements of the existing rule-based classifier,
+- logistic regression, shallow trees, or similarly auditable models.
+
+More complex models should be considered only if they still provide clear feature provenance and materially outperform the transparent baseline.
+
+## Promotion Gate
+
+Before any candidate reaches deployment review, it must:
+
+1. beat the current rule-based baseline on the agreed scorecard,
+2. avoid regressions in critical classes or noise handling,
+3. be reproducible from versioned inputs and feature exports,
+4. ship with enough metadata to audit why a class decision was made.
+
+If any of those conditions fail, the result stays research-only.
+
+## Expected Implementation Areas
+
+- `tools/ml-training/features.py` — feature extraction and benchmark dataset generation
+- `tools/ml-training/train_classifier.py` — offline experiments
+- `internal/lidar/ml_classifier.go` — future runtime integration only if the promotion gate is passed

@@ -1,6 +1,6 @@
 # LiDAR Pipeline Reference
 
-Complete reference for the velocity.report LiDAR processing pipeline: data flow, component inventory, production deployment architecture, and ML pipeline design.
+Complete reference for the velocity.report LiDAR processing pipeline: data flow, component inventory, production deployment architecture, and the metrics-first data science boundaries around tuning and future classification work.
 
 ---
 
@@ -9,9 +9,9 @@ Complete reference for the velocity.report LiDAR processing pipeline: data flow,
 ```
 PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → Track → Classify → API
                                                                                  ↓
-                                                                          JSON/CSV Export
+                                                                  JSON/CSV Export + Labelled Runs
                                                                                  ↓
-                                                                        Training Data Blobs
+                                                                    Scorecards / Replay Benchmarks
 ```
 
 ## Existing Components
@@ -28,7 +28,7 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | Track Store           | `internal/lidar/storage/sqlite/track_store.go`     | ✅ Complete |
 | REST API              | `internal/lidar/monitor/track_api.go`              | ✅ Complete |
 | PCAP Analyse Tool     | `cmd/tools/pcap-analyze/main.go`                   | ✅ Complete |
-| Training Data Export  | `internal/lidar/adapters/training_data.go`         | ✅ Complete |
+| Research Data Export  | `internal/lidar/adapters/training_data.go`         | ✅ Complete |
 | Analysis Run Store    | `internal/lidar/storage/sqlite/analysis_run.go`    | ✅ Complete |
 | Sweep Runner          | `internal/lidar/sweep/runner.go`                   | ✅ Complete |
 | Auto-Tuner            | `internal/lidar/sweep/auto.go`                     | ✅ Complete |
@@ -47,38 +47,43 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 │                                                                 │
 │  [UDP:2369] → [LIDAR Pipeline] → [Local SQLite] → [REST API]   │
 │                      ↓                   ↓                      │
-│                [ML Classifier]    [Training Data]               │
+│        [Rule-Based + Tunable L6]  [Runs / Labels / Metrics]    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                                  ↓
-                        [Data Consolidation]
+                   [Replay Packs / Consolidated Analysis]
                                  ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Central Server                             │
+│               Offline Analysis / Research Workstation           │
 │                                                                 │
-│  [Consolidated DB] → [Labelling UI] → [Model Training]         │
-│                           ↓              ↓                      │
-│                    [Labelled Tracks] → [New Model]              │
-│                                           ↓                     │
-│                              [Model Distribution]               │
+│  [Reference Runs] → [Scorecards / Threshold Studies]            │
+│                           ↓                                     │
+│             [Optional Classification Research]                  │
+│                           ↓                                     │
+│     [Deploy Only If It Beats Transparent Baseline]              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Model Update Flow:**
+**Metrics and Threshold Update Flow:**
 
 1. Collect labelled tracks from labelling UI
-2. Train new model version
-3. Evaluate on validation set
-4. If metrics improve: version the model, distribute to edge nodes, update
-   `classification_model` field in new tracks
+2. Re-run the same scenes with explicit parameter bundles
+3. Compare scorecards: detection, fragmentation, false positives, velocity
+   coverage, and stability
+4. Version the winning thresholds/params and document the metric deltas
 5. Monitor production metrics → collect new edge cases → repeat
 
-## Complete ML Pipeline Data Flow
+**Optional classification research** may use the same labelled runs and exported
+features, but it is not on the critical path. Any candidate model must beat the
+current rule-based baseline on fixed replay packs before deployment is even
+considered.
+
+## Metrics-First Data Science and Optional Classification Flow
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                         COMPLETE ML PIPELINE                            │
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   METRICS-FIRST DATA SCIENCE WORKFLOW                   │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │  ┌─────────┐    ┌───────────┐    ┌──────────┐    ┌──────────────────┐   │
@@ -87,20 +92,19 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 │  └─────────┘    └───────────┘    └──────────┘    └────────┬─────────┘   │
 │                                                           │             │
 │                                                           ▼             │
-│  ┌─────────────────┐    ┌──────────┐    ┌──────────────────────────┐    │
-│  │   Foreground    │◄───│  Mask    │◄───│   ProcessFramePolarWith  │    │
-│  │     Points      │    │          │    │         Mask()           │    │
-│  └────────┬────────┘    └──────────┘    └──────────────────────────┘    │
-│           │                                                             │
-│           ▼                                                             │
 │  ┌─────────────────┐    ┌──────────────────┐    ┌──────────────────┐    │
-│  │  TransformTo    │───→│     DBSCAN       │───→│     Tracker      │    │
-│  │    World()      │    │   Clustering     │    │    Update()      │    │
+│  │   Foreground    │───→│     DBSCAN       │───→│     Tracker      │    │
+│  │     Points      │    │   Clustering     │    │    Update()      │    │
 │  └─────────────────┘    └──────────────────┘    └────────┬─────────┘    │
 │                                                          │              │
 │                                                          ▼              │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │              Rule-Based Classify (L6)                            │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                    │                                    │
+│                                    ▼                                    │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                     ANALYSIS RUN (Phase 3.7)                    │    │
+│  │                     ANALYSIS RUN                                │    │
 │  │                                                                 │    │
 │  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
 │  │   │  params_json│    │  lidar_run_    │    │ Split/Merge     │  │    │
@@ -111,7 +115,7 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 │                                    │                                    │
 │                                    ▼                                    │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    LABELLING UI (Phase 4.0)                     │    │
+│  │                    LABELLING UI                                 │    │
 │  │                                                                 │    │
 │  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
 │  │   │   Track     │    │    Label       │    │   Quality       │  │    │
@@ -122,23 +126,20 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 │                                    │                                    │
 │                                    ▼                                    │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                  ML TRAINING (Phase 4.1)                        │    │
+│  │               SCORECARDS / REPLAY BENCHMARKS                    │    │
 │  │                                                                 │    │
 │  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
-│  │   │  Feature    │    │    Model       │    │   Deployed      │  │    │
-│  │   │ Extraction  │───→│   Training     │───→│    Model        │  │    │
+│  │   │  Threshold  │    │   Parameter    │    │  Report Metric  │  │    │
+│  │   │   Studies   │    │    Tuning      │    │   Validation    │  │    │
 │  │   └─────────────┘    └────────────────┘    └─────────────────┘  │    │
 │  │                                                                 │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                    │                                    │
 │                                    ▼                                    │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │               PARAMETER TUNING (Phase 4.2)                      │    │
+│  │           OPTIONAL CLASSIFICATION RESEARCH                      │    │
 │  │                                                                 │    │
-│  │   ┌─────────────┐    ┌────────────────┐    ┌─────────────────┐  │    │
-│  │   │  Parameter  │    │   Run          │    │   Optimal       │  │    │
-│  │   │   Grid      │───→│  Comparison    │───→│  Parameters     │  │    │
-│  │   └─────────────┘    └────────────────┘    └─────────────────┘  │    │
+│  │   Deploy only if benchmark wins are reproducible & explainable  │    │
 │  │                                                                 │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                         │

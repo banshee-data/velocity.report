@@ -8,6 +8,10 @@ Long-term product direction for velocity.report, guiding backlog pruning and pri
 
 Help neighbourhood change-makers measure and report on street-level vehicle behaviour — with no cameras, no licence plates, and no personally identifiable information. Measurements stay local, the user owns the data, and reports are compelling enough to drive policy change.
 
+### 1.1 Data Science Principle
+
+The project favours transparent, replayable, metrics-driven analysis over opaque inference. Core pipeline logic must remain inspectable and tunable; future classification research is allowed only as an optional lane that competes against explicit rule-based baselines on fixed scorecards and never becomes a black box dependency for the reporting pipeline.
+
 ## 2. End-State Goal
 
 A deployment on a residential street produces:
@@ -41,12 +45,12 @@ The fused radar record is the **primary speed measurement** for every transit.
 
 The LiDAR pipeline (L1–L6) progressively adds spatial context:
 
-| Capability                   | Pipeline Layer          | Description                                                            | Current Status                 |
-| ---------------------------- | ----------------------- | ---------------------------------------------------------------------- | ------------------------------ |
-| **Detection & clustering**   | L3 grid → L4 perception | Foreground extraction, DBSCAN clustering, OBB geometry                 | ✅ Implemented                 |
-| **Tracking**                 | L5 tracks               | Kalman-filtered multi-frame identity, speed profile, trail             | ✅ Implemented                 |
-| **Classification**           | L6 objects              | Category, size, vehicle class (rule-based; ML planned)                 | ✅ Rule-based; ML deferred     |
-| **Long-track speed profile** | L5 tracks               | Per-observation speed, heading, and bounding box over the full transit | ✅ Stored in `lidar_track_obs` |
+| Capability                   | Pipeline Layer          | Description                                                            | Current Status                   |
+| ---------------------------- | ----------------------- | ---------------------------------------------------------------------- | -------------------------------- |
+| **Detection & clustering**   | L3 grid → L4 perception | Foreground extraction, DBSCAN clustering, OBB geometry                 | ✅ Implemented                   |
+| **Tracking**                 | L5 tracks               | Kalman-filtered multi-frame identity, speed profile, trail             | ✅ Implemented                   |
+| **Classification**           | L6 objects              | Category, size, vehicle class (rule-based; optional model research)    | ✅ Rule-based; research deferred |
+| **Long-track speed profile** | L5 tracks               | Per-observation speed, heading, and bounding box over the full transit | ✅ Stored in `lidar_track_obs`   |
 
 As LiDAR matures, it contributes:
 
@@ -136,7 +140,8 @@ This vision document should inform prioritisation in `BACKLOG.md`:
 | Vision pillar                       | Supports                                                                                                                      | Deprioritises                                            |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | **Radar feed expansion** (§3.1)     | FFT ingestion, multi-feed simultaneous capture                                                                                | Features unrelated to sensor data quality                |
-| **LiDAR maturation** (§3.2)         | ML classifier, track labelling QC, sweep system polish                                                                        | Cosmetic visualiser features without tracking value      |
+| **LiDAR maturation** (§3.2)         | Metrics-first tuning, track labelling QC, optional classification benchmarking                                                | Cosmetic visualiser features without tracking value      |
+| **Data science principle** (§1.1)   | Replay packs, scorecards, explicit thresholds, auditable transit metrics                                                      | Opaque model work that bypasses reproducible evaluation  |
 | **Sensor fusion** (§3.3)            | Fused transit schema, temporal association logic                                                                              | Single-sensor features that duplicate fused capabilities |
 | **Storage minimalism** (§4)         | Polyline vector scene, point-cloud ephemeral policy                                                                           | Long-term point-cloud storage, large BLOB tables         |
 | **Track Description Language** (§5) | Abstract transit schema, JSON filter API, aggregation endpoints — [design doc](plans/data-track-description-language-plan.md) | Raw-SQL user interfaces, ad-hoc query endpoints          |

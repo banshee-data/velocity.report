@@ -6,8 +6,9 @@
 
 **Related documents:**
 
+- Repo-wide data science stance: [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md)
 - Auto-tuning (Phases 1–2 implemented): [`../lidar/operations/auto-tuning.md`](../lidar/operations/auto-tuning.md)
-- ML pipeline phases: [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md)
+- Pipeline reference: [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md)
 - Tracking upgrades (6/9 implemented): [`../lidar/troubleshooting/01-tracking-upgrades.md`](../lidar/troubleshooting/01-tracking-upgrades.md)
 
 Previous plan (bigger charts + sane auto-tuner defaults) is complete.
@@ -165,7 +166,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
   - `quality_label` allowed: `perfect`, `good`, `truncated`, `noisy_velocity`, `stopped_recovered`
   - Reject requests with invalid label strings (prevent "Good_Vehicle" vs "good_vehicle" data quality issues)
 - [x] **1.4** Add `scene_id` and `source_file` columns to `lidar_labels` table
-  - Clarify: `lidar_labels` is for frame-level annotation (ML training), `lidar_run_tracks.user_label` is for track-level ground truth (auto-tuning)
+  - Clarify: `lidar_labels` is for frame-level annotation (optional classification research), `lidar_run_tracks.user_label` is for track-level ground truth (auto-tuning)
 - [x] **1.5** Fix macOS `LabelAPIClient.swift` schema mismatch: align `startFrameID`/`endFrameID` with `start_timestamp_ns`/`end_timestamp_ns`
 - [x] **1.6** Add REST API endpoints for `lidar_run_tracks` labelling:
   - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label` — set `user_label`, `quality_label`, `label_confidence`
@@ -334,7 +335,7 @@ This requires storing raw foreground points alongside clusters, which is not cur
 > Use labelled tracks to train classification models.
 
 - [ ] **8.1** Feature extraction: speed profile, bbox dimensions, duration, heading changes, trajectory shape
-- [ ] **8.2** Export labelled tracks as training data (CSV/JSON format for external ML)
+- [ ] **8.2** Export labelled tracks as research datasets (CSV/JSON for external analysis and ML experiments)
 - [ ] **8.3** Integrate trained model: load model weights, classify tracks in real-time
 - [ ] **8.4** Classification confidence thresholds: auto-label high-confidence, flag low-confidence for review
 
@@ -434,7 +435,7 @@ Track labelling uses **two independent label fields** on `lidar_run_tracks` for 
 1. **`user_label`** — Detection correctness (is this the right object?)
 2. **`quality_label`** — Measurement quality (how good is the track for this object?)
 
-The labels are scoped to a specific analysis run, so run_tracks is the natural home. The `lidar_labels` table is reserved for frame-level annotation (ML training on raw sensor data), not track-level labelling (auto-tuning ground truth).
+The labels are scoped to a specific analysis run, so run_tracks is the natural home. The `lidar_labels` table is reserved for frame-level annotation (optional classification research on raw sensor data), not track-level labelling (auto-tuning ground truth).
 
 #### Detection Labels (`user_label`)
 

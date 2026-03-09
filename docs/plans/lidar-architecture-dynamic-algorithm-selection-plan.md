@@ -6,7 +6,7 @@
 
 - [`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`](../plans/lidar-velocity-coherent-foreground-extraction-plan.md) — Original design vision
 - [Backlog](../BACKLOG.md) — milestone placement
-- [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md) — ML pipeline phases
+- [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md) — metrics-first pipeline phases
 
 ---
 

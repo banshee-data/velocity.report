@@ -6,16 +6,16 @@
 
 The current LiDAR pipeline forwards foreground points to **LidarView** (Hesai's visualisation tool) on port 2370 via `internal/lidar/network/foreground_forwarder.go`. While useful for basic point cloud inspection, LidarView has significant limitations for **tracking development and debugging**:
 
-| Limitation                     | Impact                                                                        |
-| ------------------------------ | ----------------------------------------------------------------------------- |
-| **No object overlays**         | Cannot render bounding boxes, cluster hulls, or track IDs                     |
-| **No velocity visualisation**  | Cannot display speed vectors, heading arrows, or motion trails                |
-| **No track lifecycle display** | Cannot distinguish tentative/confirmed/deleted tracks                         |
-| **No debug artifacts**         | Cannot visualise association candidates, gating ellipses, or Kalman residuals |
-| **No labelling workflow**      | Cannot annotate tracks for classifier training                                |
-| **No replay controls**         | Cannot seek, pause, or single-step through recorded data                      |
-| **No deterministic replay**    | Cannot reproduce exact frame/track sequences for regression tests             |
-| **Packet-level encoding**      | Loses semantic information (tracks, clusters) in Pandar40P packet format      |
+| Limitation                     | Impact                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| **No object overlays**         | Cannot render bounding boxes, cluster hulls, or track IDs                      |
+| **No velocity visualisation**  | Cannot display speed vectors, heading arrows, or motion trails                 |
+| **No track lifecycle display** | Cannot distinguish tentative/confirmed/deleted tracks                          |
+| **No debug artifacts**         | Cannot visualise association candidates, gating ellipses, or Kalman residuals  |
+| **No labelling workflow**      | Cannot annotate tracks for reproducible classification research and benchmarks |
+| **No replay controls**         | Cannot seek, pause, or single-step through recorded data                       |
+| **No deterministic replay**    | Cannot reproduce exact frame/track sequences for regression tests              |
+| **Packet-level encoding**      | Loses semantic information (tracks, clusters) in Pandar40P packet format       |
 
 ### Why a macOS-Native Visualiser
 
@@ -32,7 +32,7 @@ A **dedicated 3D visualisation tool** that:
 1. Renders point clouds, clusters, and tracks with rich overlays
 2. Supports both live streaming and deterministic replay
 3. Exposes debug artifacts for algorithm tuning
-4. Enables track labelling for classifier training
+4. Enables track labelling for reproducible classification research and scorecards
 5. Consumes a **stable, versioned API** from the Go pipeline
 
 ---
@@ -89,7 +89,7 @@ A **dedicated 3D visualisation tool** that:
 
 ### Workflow C: Labelling/Classification Iteration Loop
 
-**Scenario**: Training a classifier to distinguish pedestrians from vehicles. Need labelled track segments.
+**Scenario**: Building labelled reference data to evaluate classification ideas and tuning scorecards. Need labelled track segments.
 
 **Steps**:
 
@@ -101,7 +101,7 @@ A **dedicated 3D visualisation tool** that:
 5. Optionally mark track segment boundaries (start/end frames)
 6. Labels stored in Go backend SQLite database via REST API (`POST /api/lidar/labels`)
    - Shared with web UI for cross-platform access
-7. Export labels as JSON for training pipeline (via `GET /api/lidar/labels/export`):
+7. Export labels as JSON for offline benchmark and classification research workflows (via `GET /api/lidar/labels/export`):
    ```json
    {
      "track_id": "track_42",
@@ -110,7 +110,7 @@ A **dedicated 3D visualisation tool** that:
      "end_timestamp_ns": 1234567891000000
    }
    ```
-8. Re-run classifier with new training data
+8. Re-run the benchmark or candidate classifier with the updated labelled data
 9. Visualise classification results overlaid on point cloud
 
 **UX targets**:
@@ -118,7 +118,7 @@ A **dedicated 3D visualisation tool** that:
 - **Quick labelling**: <3 seconds per track annotation
 - **Keyboard shortcuts**: `1-9` for common classes
 - **Undo support**: `Cmd+Z` to revert last label
-- **Export to JSON/CSV**: Shareable with ML pipeline
+- **Export to JSON/CSV**: Shareable with benchmark and classification research tooling
 
 ---
 
@@ -159,15 +159,15 @@ A **dedicated 3D visualisation tool** that:
 
 **DO NOT**:
 
-| Avoided Scope                             | Rationale                                         |
-| ----------------------------------------- | ------------------------------------------------- |
-| Full SLAM / global mapping / loop closure | Out of scope for static sensor deployment         |
-| Cloud services, auth, accounts, telemetry | Privacy-first design; local-only                  |
-| End-to-end pipeline rewrite               | Incremental refactor behind interfaces            |
-| Complex ML training UI                    | External ML pipeline; visualiser is for labelling |
-| Proprietary SDKs or paid dependencies     | Open-source first                                 |
-| Remote networking beyond localhost        | Security and simplicity; future extension only    |
-| Web-based visualiser                      | Performance and integration constraints           |
+| Avoided Scope                             | Rationale                                                        |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| Full SLAM / global mapping / loop closure | Out of scope for static sensor deployment                        |
+| Cloud services, auth, accounts, telemetry | Privacy-first design; local-only                                 |
+| End-to-end pipeline rewrite               | Incremental refactor behind interfaces                           |
+| Complex training UI                       | External benchmark/research tooling; visualiser is for labelling |
+| Proprietary SDKs or paid dependencies     | Open-source first                                                |
+| Remote networking beyond localhost        | Security and simplicity; future extension only                   |
+| Web-based visualiser                      | Performance and integration constraints                          |
 
 **PRESERVE**:
 

@@ -389,7 +389,7 @@ func ExtractClusterFeatures(cluster WorldCluster, points []WorldPoint) ClusterFe
 func ExtractTrackFeatures(track *TrackedObject) TrackFeatures
 ```
 
-**API Output**: Optional `features` field in `Track` proto for training data export.
+**API Output**: Optional `features` field in `Track` proto for offline research export.
 
 ---
 

@@ -405,7 +405,7 @@
 
 - Documented LiDAR background grid export standards and format options.
 - Added pcap-split tool design specification (1,094 lines) for PCAP file segmentation.
-- Defined training data export formats for ML pipeline.
+- Defined foreground research export formats for offline benchmarking and ML work.
 
 ## December 2, 2025 - CLI Architecture Guide
 
@@ -448,7 +448,7 @@
 
 - Implemented `cmd/tools/pcap-analyze/main.go` for batch PCAP processing through full tracking pipeline.
 - Full pipeline: parse UDP → build frames → background subtraction → clustering → tracking → classification.
-- Added output formats: JSON (complete results), CSV (track table), binary (training data blobs).
+- Added output formats: JSON (complete results), CSV (track table), binary foreground research blobs.
 - Computed speed percentiles (P50/P85/P95) per track.
 - Added `SpeedHistory()` getter to `TrackedObject` for external percentile computation.
 - Added `GetAllTracks()` method to `Tracker` for retrieving all tracks including deleted.
@@ -460,7 +460,7 @@
 - Removed pose-related fields from `ForegroundFrame`, `TrainingFrameMetadata`, `TrainingDataFilter`, `TrackObservation`, `WorldCluster`, `TrackSummary`.
 - Updated SQL schemas to remove `pose_id` columns from `lidar_clusters`, `lidar_tracks`, `lidar_track_obs`.
 - Updated `track_store.go` and `track_api.go` to use simplified signatures.
-- Training data stored in polar (sensor) frame, which is pose-independent.
+- Research export data stored in polar (sensor) frame, which is pose-independent.
 
 ## November 30, 2025 - Phase 3.5 Track/Cluster REST API
 
@@ -487,7 +487,7 @@
 - Phase 3.1: Implemented `SpatialIndex` with Szudzik pairing, `DBSCAN()` with eps=0.6m, minPts=12.
 - Phase 3.2: Implemented Kalman tracking with `TrackedObject`, `Tracker`, Mahalanobis gating.
 - Added track lifecycle: Tentative → Confirmed → Deleted with hits/misses counting.
-- Added ML training data support: `ForegroundFrame`, `EncodeForegroundBlob()`/`DecodeForegroundBlob()`.
+- Added classification research export support: `ForegroundFrame`, `EncodeForegroundBlob()`/`DecodeForegroundBlob()`.
 
 ## November 29, 2025 - Distribution & Tracking Plans
 
