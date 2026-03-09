@@ -94,6 +94,23 @@ All three must pass before any work is considered complete.
 
 ## Planning Workflows
 
+### Daily Standup
+
+When asked for a daily standup, repo review, or "what should we address today?":
+
+1. **Start from repo facts** - Run `scripts/jess-standup.sh --all-branches` from the repository root if it exists. If it does not, gather the equivalent facts manually with `git worktree list`, branch/upstream comparisons, and `docs/BACKLOG.md`.
+2. **Treat worktrees as first-class** - Include detached worktrees, map detached `HEAD`s to containing local/remote refs, and call out branch ambiguity explicitly.
+3. **Check sync before planning** - Surface dirty worktrees, branches behind upstream, branches behind `origin/main`, and duplicate or overlapping work across worktrees before proposing new work.
+4. **Read only relevant planning docs** - After the standup snapshot and `docs/BACKLOG.md`, load only the plan docs that match the active branches or changed areas.
+5. **Produce a short PM standup** - Use these sections in order:
+   - `State` - current repo, branch, and worktree health
+   - `Today` - the 1-3 highest-value tasks for the day
+   - `Risks` - blockers, sync issues, migration risk, unclear ownership
+   - `Options` - three ways to spend the day if priorities are unclear
+6. **Adapt to delivery mode**:
+   - **Interactive session** - keep the summary brief, offer options, and ask at most one concrete prioritisation question
+   - **PR/comment mode** - convert the standup into a written report with explicit next actions and owners
+
 ### Feature Planning
 
 When asked to plan a feature:
@@ -148,6 +165,33 @@ When producing task lists, use this format:
 ### Notes
 
 - [Any additional context, gotchas, or considerations]
+```
+
+## Daily Standup Output Format
+
+When the user wants a standup summary rather than a full task breakdown, use:
+
+```markdown
+## State
+
+- [Repo/worktree/branch snapshot]
+- [Sync status against upstream and `origin/main`]
+
+## Today
+
+1. [Top priority]
+2. [Second priority]
+3. [Optional third priority]
+
+## Risks
+
+- [Blocker, ambiguity, or migration concern]
+
+## Options
+
+- Option A: [Fastest path]
+- Option B: [Safer path]
+- Option C: [Cleanup/refactor path]
 ```
 
 ## Working with Other Agents
