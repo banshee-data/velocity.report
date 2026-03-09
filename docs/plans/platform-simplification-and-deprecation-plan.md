@@ -210,12 +210,12 @@ The full inventory of data model and API compat-shim removals is tracked in the
 sub-plan:
 [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md).
 
-### 1. Visualiser proto: `avg_speed_mps` → `median_speed_mps` (field 24)
+### 1. Visualiser proto: percentile-style additions withdrawn from track contract
 
-- **What:** Planned (not yet implemented). Proto field 24 in the `Track` message will be renamed from `avg_speed_mps` to `median_speed_mps`. New fields `p85_speed_mps` (36) and `p98_speed_mps` (37) will be added. The `AvgSpeedMps` field will be removed from the internal model, REST API, ML feature struct, track store, and VRLOG writer. The `avg_speed_mps` DB column will be dropped from `lidar_tracks` and `lidar_run_tracks` (replaced by the existing `p50_speed_mps` column). Until this change lands, the proto contract remains unchanged (`Track.avg_speed_mps` on field 24, no percentile speed fields).
-- **Impact:** Once shipped, the macOS visualiser and any gRPC clients reading field 24 as an average must update to treat it as a median. REST API consumers reading `avg_speed_mps` must switch to `median_speed_mps`.
-- **Migration:** When upgrading to a build that includes this change, update client code to use the new field name. The wire format is unchanged (same field number), so binary compatibility is preserved.
-- **Design docs:** [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--avgspeedmps-in-visualiser-model-and-rest-api)
+- **What:** The proposed branch-local percentile-style track speed additions are not the direction to ship. Percentiles are reserved for grouped/report aggregates only. The stable track speed contract remains `avg_speed_mps` (field 24) plus the raw maximum, which should be renamed from `peak_speed_mps` (field 25 today) to `max_speed_mps` before merge if the contract is still unshipped.
+- **Impact:** gRPC and REST clients should not adopt branch-local percentile-labelled track speed fields as a stable contract. Existing aggregate/report percentile work is unaffected.
+- **Migration:** Treat `avg_speed_mps` and the raw maximum (`max_speed_mps` after rename; `peak_speed_mps` only as a temporary branch-local name) as the only stable per-track speed summary fields for now. The branch-local percentile-style additions should be backed out before merge.
+- **Design docs:** [speed-percentile-aggregation-alignment-plan.md](speed-percentile-aggregation-alignment-plan.md), [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--track-speed-contract-reset)
 
 ### 2. Deployment surface deprecated
 

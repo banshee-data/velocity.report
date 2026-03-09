@@ -415,12 +415,12 @@ This table records every known ownership mismatch in the current codebase with t
 
 ### Misplaced L7 logic in L6
 
-| File                                         | Code that needs to move                                                                     | Target in `l7analytics/`                                 | Callers to update                                                    |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------- |
-| `internal/lidar/l6objects/comparison.go`     | `RunComparison`, `TrackMatch`, `TrackSplit`, `TrackMerge` types                             | `types.go` or `comparison.go`                            | `storage/sqlite/analysis_run_compare.go`, `monitor/run_track_api.go` |
-| `internal/lidar/l6objects/comparison.go`     | `ComputeTemporalIoU` function                                                               | `comparison.go`                                          | same as above                                                        |
-| `internal/lidar/l6objects/quality.go`        | `RunStatistics` struct and `ComputeRunStatistics` function (15+ aggregate run-level fields) | `summary.go`                                             | `storage/sqlite/analysis_run.go`, `monitor/track_api.go`             |
-| `internal/lidar/l6objects/classification.go` | `ComputeSpeedPercentiles` at callsite near line 508                                         | caller delegates to `l7analytics/percentiles.go` instead | any code calling the classification helper for percentile math       |
+| File                                         | Code that needs to move                                                                     | Target in `l7analytics/`                                 | Callers to update                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `internal/lidar/l6objects/comparison.go`     | `RunComparison`, `TrackMatch`, `TrackSplit`, `TrackMerge` types                             | `types.go` or `comparison.go`                            | `storage/sqlite/analysis_run_compare.go`, `monitor/run_track_api.go`     |
+| `internal/lidar/l6objects/comparison.go`     | `ComputeTemporalIoU` function                                                               | `comparison.go`                                          | same as above                                                            |
+| `internal/lidar/l6objects/quality.go`        | `RunStatistics` struct and `ComputeRunStatistics` function (15+ aggregate run-level fields) | `summary.go`                                             | `storage/sqlite/analysis_run.go`, `monitor/track_api.go`                 |
+| `internal/lidar/l6objects/classification.go` | legacy speed-summary helper at callsite near line 508                                       | caller delegates to `l7analytics/percentiles.go` instead | any code calling the classification helper for legacy speed-summary math |
 
 **L6 after this move:** retains per-object quality predicates, per-object classification, and per-track attributes. Does not own run-level aggregates or comparison orchestration.
 
@@ -428,8 +428,8 @@ This table records every known ownership mismatch in the current codebase with t
 
 | File                                                    | Code that needs to move                                                                                 | Target                                                              | Notes                                                                                                          |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `internal/lidar/storage/sqlite/track_store.go`          | `p50, p85, p95 := ComputeSpeedPercentiles(t.SpeedHistory())` called inline during `InsertTrack()`       | caller passes pre-computed values from `l7analytics/percentiles.go` | percentile math should not live in the persistence path                                                        |
-| `internal/lidar/storage/sqlite/analysis_run.go`         | `ComputeSpeedPercentiles` call inline at line ~226 during run persistence                               | same as above                                                       | same problem as `track_store.go`                                                                               |
+| `internal/lidar/storage/sqlite/track_store.go`          | legacy single-track speed-summary math called inline during `InsertTrack()`                             | caller passes pre-computed values from `l7analytics/percentiles.go` | percentile math should not live in the persistence path                                                        |
+| `internal/lidar/storage/sqlite/analysis_run.go`         | legacy speed-summary helper call inline at line ~226 during run persistence                             | same as above                                                       | same problem as `track_store.go`                                                                               |
 | `internal/lidar/storage/sqlite/analysis_run.go`         | run comparison orchestration logic currently mixed with storage                                         | `l7analytics/comparison.go` service function                        | storage should store and load, not orchestrate comparison                                                      |
 | `internal/lidar/storage/sqlite/analysis_run_compare.go` | Hungarian algorithm for track matching, temporal IoU calculation at persistence layer (lines 1042–1216) | `l7analytics/comparison.go`                                         | this is the most substantial misplacement: a full combinatorial matching algorithm lives in the SQLite package |
 
@@ -476,11 +476,11 @@ No other files outside `internal/lidar/` import `internal/lidar/visualiser/` dir
 
 These ownership issues are noted here to avoid hidden architectural debt, but are not blocking for the initial phases:
 
-| Item                                                                                    | Current location | Correct owner                          | Why deferred                                                                |
-| --------------------------------------------------------------------------------------- | ---------------- | -------------------------------------- | --------------------------------------------------------------------------- |
-| `monitor/gridplotter.go` — grid visualisation and colorisation                          | `monitor/`       | `l8presentation/`                      | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
-| Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
-| Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
+| Item                                                                                    | Current location | Correct owner           | Why deferred                                                                |
+| --------------------------------------------------------------------------------------- | ---------------- | ----------------------- | --------------------------------------------------------------------------- |
+| `monitor/gridplotter.go` — grid visualisation and colorisation                          | `monitor/`       | `l8presentation/`       | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
+| Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l7analytics/labels.go` | extraction requires splitting aggregation from transport; Phase 3 follow-up |
+| Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | `l7analytics/labels.go` | extraction requires splitting aggregation from transport; Phase 3 follow-up |
 
 ## Full monitor/ deprecation analysis
 

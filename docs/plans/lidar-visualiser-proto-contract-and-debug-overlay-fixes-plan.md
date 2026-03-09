@@ -1,8 +1,13 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Partially implemented — Track field parity and ObjectClass enum are complete; debug overlay serialization, cluster proto serialization, and speed summary rename remain
-**Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
+**Status:** Partially implemented — debug overlay and field-parity work remain valid; the superseded track speed-label expansion should not merge
+**Scope:** gRPC/protobuf contract parity for visualiser streaming and debug overlays before `v0.5.0`; track-level speed metric redesign is now separate work
 **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+
+**Update (March 8, 2026):** The speed-summary portion of this plan is
+superseded. Track-level aggregate-percentile labels will not ship. Percentiles are
+reserved for grouped/report aggregates only, and any branch-local proto/model/UI
+work that adds superseded single-track speed-label fields should be backed out before merge.
 
 ## 1. Problem
 
@@ -17,8 +22,10 @@ implemented in the gRPC stream path:
    are dropped during protobuf serialization.~~ Track fields are now fully
    serialized; Cluster feature fields (`height_p95`, `intensity_mean`,
    `sample_points`) remain unserialised.
-4. `Track.avg_speed_mps` (field `24`) does not match desired semantics for the
-   visualiser inspector; median and high-percentile summaries are more useful.
+4. The branch-local `Track` speed-summary expansion moved in the wrong
+   direction. Aggregate percentile labels should not be added to the public
+   proto contract; track speed metrics need a separate redesign with distinct
+   non-percentile names.
 5. `Track.class_label` (string) was replaced with `ObjectClass object_class`
    (enum, field `26`) with a 10-value enumeration. ✅ Implemented.
 
@@ -29,8 +36,9 @@ in the proto as a contract.
 
 1. Make protobuf stream output match the declared `visualiser.proto` contract.
 2. Restore debug overlays end-to-end (adapter -> gRPC -> Swift client -> renderer).
-3. Replace `Track.avg_speed_mps` with median semantics before `v0.5.0`.
-4. Add `p85` and `p98` speed summary fields for visual review.
+3. Keep track-level speed fields limited to a stable non-percentile contract
+   while the redesign is pending.
+4. Do not ship track-level aggregate-percentile label additions from this branch.
 5. Add serialization tests that fail on future field drops.
 
 ## 3. Non-Goals
@@ -79,7 +87,10 @@ current status:
 1. ~~`Track.covariance_4x4`~~ — ✅ serialized (copied from `Covariance4x4` slice)
 2. ~~`Track.height_p95_max`~~ — ✅ serialized
 3. ~~`Track.intensity_mean_avg`~~ — ✅ serialized
-4. ~~`Track.avg_speed_mps`~~ — ✅ renamed to `median_speed_mps` (field `24`); `p85_speed_mps` (36) and `p98_speed_mps` (37) added
+4. ~~`Track` speed summary fields~~ — Branch-local serialization exists for the
+   superseded percentile-field direction, but that contract reset still needs
+   to be backed out before merge. The stable merge-target direction remains
+   `avg_speed_mps` plus the raw maximum field for now.
 5. ~~`Track.peak_speed_mps`~~ — ✅ serialized
 6. ~~`Track.class_label`~~ — **Superseded.** Proto field `26` is now `ObjectClass object_class`
    (an `ObjectClass` enum, not a string). See [§4.5 ObjectClass enum](#45-objectclass-enum) below.
@@ -137,33 +148,24 @@ Test coverage:
 
 ### 5.1 Track speed summary fields
 
-Change `Track` speed summary fields in `visualiser.proto`:
+Revised direction for `Track` speed fields in `visualiser.proto`:
 
-1. Replace field `24` from `avg_speed_mps` to `median_speed_mps`.
-2. Keep `peak_speed_mps` on field `25`.
-3. Add `p85_speed_mps` and `p98_speed_mps` as new fields (use new field numbers,
-   do not renumber unrelated fields).
+1. Keep field `24` as `avg_speed_mps` (running mean) for now.
+2. Rename the current raw `peak_speed_mps` field on `Track` to `max_speed_mps`
+   before merge if the contract is still unshipped.
+3. Do **not** ship single-track aggregate-percentile label additions in the merge target. If
+   fields `36-38` exist on this branch, they should be backed out before merge.
+4. Reserve the name `peak_speed_mps` for a future filtered/context-aware
+   top-speed metric if that measure is later added on a new field number.
+5. Define any replacement track-level speed fields in a separate redesign, with
+   names that are distinct from report/group percentiles.
 
-Note: field `26` was originally listed as `class_label` (string). It is now
-`ObjectClass object_class` (enum). This change is already implemented and does
-not affect the speed summary rename.
+### 5.2 Aggregate-only percentile rule
 
-Rationale:
-
-1. Median is more robust to noisy short-lived speed spikes than mean.
-2. `p85` and `p98` match speed-review workflows already used elsewhere.
-3. Avoiding broad tag churn limits accidental breakage even before `v0.5.0`.
-
-### 5.2 Percentile computation
-
-Current helper computes `p50`, `p85`, `p95`. This plan adds `p98` support.
-
-Preferred approach:
-
-1. Introduce a visualiser-oriented helper that computes `median/p85/p98` from
-   track `speedHistory`.
-2. Keep existing `p95` helper behavior where other subsystems still rely on it.
-3. Document percentile indexing method (floor vs interpolation) in code/tests.
+Percentile computation still applies to grouped/report surfaces, but not to the
+`Track` message itself. Any future track metric redesign must use distinct
+terminology. The branch-local `speedPercentiles()` helper and related bindings
+should not be treated as the merge target for the visualiser contract.
 
 ## 6. Implementation Plan
 
@@ -193,24 +195,24 @@ Preferred approach:
 3. If not implemented immediately, downgrade `supports_debug` claims or document
    capability granularity clearly.
 
-### Phase C: Speed summary schema + mapping (P1) ✅
+### Phase C: Track speed summary schema (Superseded - do not merge)
 
-1. ~~Edit `proto/velocity_visualiser/v1/visualiser.proto`:~~
-   - ~~`avg_speed_mps` -> `median_speed_mps` (field `24`)~~
-   - ~~add `p85_speed_mps`~~
-   - ~~add `p98_speed_mps`~~
-2. ~~Regenerate protobuf code (Go and Swift generated bindings as applicable).~~
-3. ~~Populate new fields from track `speedHistory`.~~
-4. ~~Update adapter/model naming to keep semantics aligned.~~
+1. Back out branch-local `Track` percentile fields from `visualiser.proto` and
+   regenerated bindings before merge.
+2. Rename the raw track maximum field from `peak_speed_mps` to `max_speed_mps`
+   while the contract is still unshipped.
+3. Remove Swift/client/UI dependencies on aggregate percentile labels in track speed surfaces.
+4. Revisit track-level speed metrics in a separate redesign once replacement
+   non-percentile names and formulas are defined.
 
-### Phase D: Swift client/UI parity (P2) ✅
+### Phase D: Swift client/UI parity (P2)
 
-1. ~~Update Swift protobuf mapping for renamed/new track speed fields.~~
-2. ~~Update inspector labels:~~
-   - ~~`Average` -> `Median`~~
-   - ~~add `p85`~~
-   - ~~add `p98`~~
-3. Keep UI resilient when new fields are absent (temporary mixed-version runs).
+1. Keep the Swift client resilient while the branch-local percentile additions
+   are being backed out.
+2. Update UI labels and model names to use `max` for the raw maximum track
+   speed.
+3. Ensure the inspector does not standardise on aggregate percentile labels for track speed surfaces.
+
 
 ### Phase E: Test hardening (P1)
 
@@ -222,7 +224,7 @@ Preferred approach:
    - debug overlays (`association`, `gating`, `residuals`, `predictions`)
    - cluster feature fields
    - ~~track feature/classification/quality fields~~ ✅ `TestFrameBundleToProto_TrackFieldCompleteness`
-   - track speed summary fields (`median`, `peak`, `p85`, `p98`)
+   - merge-target track speed summary fields (`avg_speed_mps` plus the raw maximum field)
 3. Add a regression test for `include_debug=false` to ensure payload omission is
    intentional and explicit.
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
@@ -234,7 +236,8 @@ Preferred approach:
    when debug data exists upstream.
 2. Swift visualiser receives and renders debug overlays without relying on local
    test-only stub data.
-3. Track inspector shows `Median`, `Peak`, `p85`, and `p98` from streamed data.
+3. Track inspector shows the stable non-percentile track speed fields from
+   streamed data and does not standardise on aggregate percentile labels for a single track.
 4. Protobuf serializer tests cover all non-trivial `Track` and `Cluster` fields
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
@@ -242,7 +245,9 @@ Preferred approach:
 ## 8. Risks and Open Questions
 
 1. Mixed-version client/server compatibility during local development:
-   rename of field `24` changes semantics immediately.
+   backing out the branch-local speed-summary expansion can temporarily leave
+   generated clients or local UI code out of sync until proto bindings are
+   regenerated together.
 2. Percentile method consistency:
    `p98` may differ slightly between floor-index and interpolated definitions.
 3. Overlay mode scope:
@@ -259,9 +264,8 @@ Preferred approach:
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
-- [x] Update proto field `24` to `median_speed_mps`
-- [x] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
-- [x] Regenerate protobuf bindings (Go + Swift)
-- [x] Compute/populate median/p85/p98 from track speed history
-- [x] Update Swift visualiser inspector labels and values
+- [ ] Back out the branch-local track speed-summary field expansion before merge
+- [ ] Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields
+- [ ] Remove branch-local percentile-style track computation and propagation from the merge-target contract work
+- [ ] Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields
 - [ ] Replace negative debug tests with positive end-to-end serialization tests

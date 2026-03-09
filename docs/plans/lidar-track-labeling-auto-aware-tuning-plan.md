@@ -27,7 +27,7 @@ The end goal is a `lidar_transits` table (analogous to `radar_data_transits`) fo
 
 ### Database tables
 
-- `lidar_tracks` — confirmed/tentative/deleted tracks with speed percentiles, quality metrics, classification
+- `lidar_tracks` — confirmed/tentative/deleted tracks with speed summaries, quality metrics, classification
 - `lidar_track_obs` — per-frame observations (position, velocity, bbox, heading)
 - `lidar_run_tracks` — run-scoped tracks with label fields: `user_label`, `quality_label`, `label_confidence`, `labeler_id`, `labeled_at`, `linked_track_ids`
 - `lidar_analysis_runs` — analysis sessions tied to a PCAP source + params
@@ -134,9 +134,6 @@ lidar_transits
   max_speed_mps           REAL
   min_speed_mps           REAL
   avg_speed_mps           REAL
-  p50_speed_mps           REAL
-  p85_speed_mps           REAL
-  p95_speed_mps           REAL
   track_length_m          REAL
   observation_count       INTEGER
   object_class            TEXT
