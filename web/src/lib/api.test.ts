@@ -1416,7 +1416,7 @@ describe('api', () => {
 							observation_count: 15,
 							age_seconds: 3.5,
 							avg_speed_mps: 2.5,
-							peak_speed_mps: 3.2,
+							max_speed_mps: 3.2,
 							bounding_box: {
 								length: 4.5,
 								width: 2.0,
@@ -1520,7 +1520,7 @@ describe('api', () => {
 					observation_count: 20,
 					age_seconds: 5.0,
 					avg_speed_mps: 2.8,
-					peak_speed_mps: 3.5,
+					max_speed_mps: 3.5,
 					bounding_box: {
 						length: 0.6,
 						width: 0.4,
@@ -1684,7 +1684,7 @@ describe('api', () => {
 							observation_count: 25,
 							age_seconds: 6.0,
 							avg_speed_mps: 1.6,
-							peak_speed_mps: 2.0,
+							max_speed_mps: 2.0,
 							bounding_box: {
 								length: 4.5,
 								width: 2.0,
