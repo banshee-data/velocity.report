@@ -191,7 +191,7 @@ pcap-analyze -pcap capture.pcap -output ./results
 - **Cross-Sensor Association**: Track objects as they move between sensor coverage areas
 - **Distributed Storage**: Copy/consolidate data from edge nodes for whole-street analysis
 - **Performance Profiling**: Optimize for multi-sensor concurrent processing
-- **Memory Optimization**: Efficient handling of 100+ tracks across multiple sensors
+- **Memory Optimisation**: Efficient handling of 100+ tracks across multiple sensors
 - **Production Deployment**: Documentation for multi-node edge deployment
 - ✅ **Track Visualisation UI**: SvelteKit components for track history playback (implemented)
 
@@ -288,7 +288,7 @@ web/src/routes/lidar/tracks/       ✅ # Track history playback page with pagina
 ### Database Persistence (✅ Complete)
 
 - **SQLite with WAL**: High-performance concurrent access
-- **Performance Optimized**: Prepared statements, batch inserts
+- **Performance Optimised**: Prepared statements, batch inserts
 
 ### Background Model & Classification (✅ Complete)
 
@@ -311,7 +311,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **Classification**: Each observation is classified as background or foreground
 - **Foreground Mask**: `ProcessFramePolarWithMask()` returns per-point boolean mask
 - **Foreground Extraction**: `ExtractForegroundPoints()` filters points using mask
-- **Spatial filtering**: Same-ring neighbor vote (configurable via NeighborConfirmationCount)
+- **Spatial filtering**: Same-ring neighbour vote (configurable via NeighborConfirmationCount)
 - **Temporal filtering**: Cell freezing after large divergence (configurable via FreezeDurationNanos)
 - **Learning**: EMA update of cell statistics when observation is background-like (BackgroundUpdateFraction)
 - **Grid**: 40 rings × 1800 azimuth bins (0.2° resolution)
@@ -324,7 +324,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 - ✅ Background model learning and updating
 - ✅ Foreground/background classification per observation
-- ✅ Neighbor confirmation voting
+- ✅ Neighbour confirmation voting
 - ✅ Cell freezing on large divergence
 - ✅ Acceptance metrics for parameter tuning
 - ✅ **Foreground mask extraction** (`ProcessFramePolarWithMask()`)
@@ -344,7 +344,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **Location**: `internal/lidar/clustering.go`
 - **Algorithm**: DBSCAN with required spatial index
 - **Euclidean clustering**: eps = 0.6m (configurable), minPts = 12 (configurable)
-- **`SpatialIndex`**: Grid-based indexing using Szudzik pairing with zigzag encoding for O(1) neighbor queries
+- **`SpatialIndex`**: Grid-based indexing using Szudzik pairing with zigzag encoding for O(1) neighbour queries
 - **Per-cluster metrics**: centroid, bounding box (length/width/height), height_p95, intensity_mean
 - **`WorldCluster`** struct with all required features
 - **2D Clustering**: Uses (x, y) for clustering, z for height features only
@@ -441,11 +441,11 @@ curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40
 
 ---
 
-## Grid Analysis & Visualization
+## Grid Analysis & Visualisation
 
 ### Grid Heatmap API
 
-The grid heatmap API aggregates the fine-grained background grid (40 rings × 1800 azimuth bins = 72,000 cells) into coarse spatial buckets for visualization and analysis.
+The grid heatmap API aggregates the fine-grained background grid (40 rings × 1800 azimuth bins = 72,000 cells) into coarse spatial buckets for visualisation and analysis.
 
 **Endpoint**: `GET /api/lidar/grid_heatmap`
 
@@ -494,9 +494,9 @@ The grid heatmap API aggregates the fine-grained background grid (40 rings × 18
 }
 ```
 
-### Visualization Tools
+### Visualisation Tools
 
-**Polar Heatmap**: Ring vs Azimuth visualization showing fill/settle rates
+**Polar Heatmap**: Ring vs Azimuth visualisation showing fill/settle rates
 
 ```bash
 python3 tools/grid-heatmap/plot_grid_heatmap.py \
@@ -505,7 +505,7 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
   --metric unsettled_ratio
 ```
 
-**Cartesian Heatmap**: X-Y spatial visualization showing physical location patterns
+**Cartesian Heatmap**: X-Y spatial visualisation showing physical location patterns
 
 ```bash
 python3 tools/grid-heatmap/plot_grid_heatmap.py \
@@ -515,7 +515,7 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
   --metric fill_rate
 ```
 
-**Full Dashboard**: Comprehensive 4K-optimised visualization with multiple views
+**Full Dashboard**: Comprehensive 4K-optimised visualisation with multiple views
 
 ```bash
 # Single snapshot
@@ -560,7 +560,7 @@ python3 plot_noise_sweep.py sweep-results.csv
 python3 plot_noise_buckets.py sweep-results.csv
 ```
 
-**Convergence Analysis**: Analyze neighbor/closeness parameter impact
+**Convergence Analysis**: Analyse neighbour/closeness parameter impact
 
 ```bash
 # Data analysis scripts for parameter tuning
@@ -570,8 +570,8 @@ tools/data-analysis/*.py
 ### Use Cases
 
 1. **Spatial Pattern Analysis**: Identify regions not filling or settling properly
-2. **Parameter Tuning**: Visualize impact of noise/closeness/neighbor parameters
-3. **Diagnostic Visualization**: Create heatmaps for filled vs settled cells
+2. **Parameter Tuning**: Visualize impact of noise/closeness/neighbour parameters
+3. **Diagnostic Visualisation**: Create heatmaps for filled vs settled cells
 4. **Anomaly Detection**: Find unexpected patterns in grid population
 5. **Temporal Analysis**: Track grid settlement progress during warmup
 6. **PCAP Snapshot Mode**: Periodic captures with configurable interval/duration, auto-numbered output directories
@@ -620,7 +620,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
 3. **Acceptance Decisions**:
    - `[ProcessFramePolar:decision]`: Per-cell acceptance/rejection details
    - `[ProcessFramePolar:summary]`: Frame-level acceptance rates
-   - Includes: cell state, closeness threshold, neighbor confirmation
+   - Includes: cell state, closeness threshold, neighbour confirmation
 
 4. **Frame Delivery**:
    - `[FrameBuilder:finalize]`: Frame completion events
@@ -646,7 +646,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
   - Cold start rejection: Empty cells (TimesSeenCount=0) reject observations until seeded
   - Empty cells rejecting before seeding (check `SeedFromFirstObservation` via `--lidar-seed-from-first` flag)
   - Tight thresholds at long range (check `NoiseRelativeFraction`)
-  - Strict neighbor confirmation (check `NeighborConfirmationCount` - neighbor=2 requires 2 of 2 neighbors)
+  - Strict neighbour confirmation (check `NeighborConfirmationCount` - neighbor=2 requires 2 of 2 neighbors)
   - NoiseRelativeFraction too strict (0.01 = 1% may be too tight for real sensor noise at long ranges)
 - Analysis: After settling period, rates typically converge to 99.8%+
 
@@ -658,7 +658,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
   - `minFramePoints` threshold too high for sparse data (default: 1000 points)
   - Buffer timeout too long for fast PCAP replay (bufferTimeout: 500ms)
   - Eviction bug (now fixed - frames were deleted without callback)
-- Buffer behavior: Frames wait for `bufferTimeout` before cleanup timer finalizes them
+- Buffer behaviour: Frames wait for `bufferTimeout` before cleanup timer finalizes them
 - Fast PCAP replay: At 5k+ pkt/s, buffer may fill before cleanup timer fires (consider reducing CleanupInterval to 50ms)
 
 **PCAP Replay Issues**:
@@ -673,7 +673,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
 
 ### Performance Tuning
 
-**PCAP Replay Optimization**:
+**PCAP Replay Optimisation**:
 
 ```bash
 # Lower minFramePoints for sparse data
@@ -965,12 +965,12 @@ Key test coverage:
 2. **Parameter Sweep Integration**:
    - Use `bg-sweep` tool for single-parameter sweeps (noise_relative)
    - Use `bg-multisweep` tool for multi-parameter sweeps (noise, closeness, neighbors)
-   - Analyze acceptance metrics to identify optimal thresholds
-   - Document settling behavior with real-world data
+   - Analyse acceptance metrics to identify optimal thresholds
+   - Document settling behaviour with real-world data
 
 3. **Threshold Identification**:
-   - Analyze cars PCAP for vehicle detection thresholds
-   - Analyze pedestrians PCAP for human detection thresholds
+   - Analyse cars PCAP for vehicle detection thresholds
+   - Analyse pedestrians PCAP for human detection thresholds
    - Identify optimal NoiseRelativeFraction values
    - Tune ClosenessSensitivityMultiplier for best separation
    - Optimize NeighborConfirmationCount for noise reduction
@@ -1016,7 +1016,7 @@ These PCAP files will be used to:
 1. Identify optimal NoiseRelativeFraction values for distance-adaptive noise handling
 2. Tune ClosenessSensitivityMultiplier for best foreground/background separation
 3. Optimize NeighborConfirmationCount for spatial filtering effectiveness
-4. Analyze background settling behavior with real-world motion patterns
+4. Analyse background settling behaviour with real-world motion patterns
 5. Validate parameter choices across different target types (vehicles vs. pedestrians)
 
 ### Database Schema Overview
@@ -1049,7 +1049,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 - **World Frame Tracking**: Unified tracking across sensor coverage areas
 - **Cross-Intersection Analysis**: Track objects moving between multiple intersections
 - **Radar Integration**: Modular architecture allows future radar fusion
-- **Production Optimization**: Memory pooling and advanced configuration options
+- **Production Optimisation**: Memory pooling and advanced configuration options
 
 ---
 
@@ -1065,7 +1065,7 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 - ✅ **Performance**: Meets real-time processing requirements
 - ✅ **Testing**: Comprehensive test coverage for implemented components
 - ✅ **Configuration**: Flexible deployment options
-- ✅ **Background Classification**: Distance-adaptive foreground/background classification with neighbor voting
+- ✅ **Background Classification**: Distance-adaptive foreground/background classification with neighbour voting
 - ✅ **Background Learning**: EMA-based background model updates with cell freezing
 - ✅ **Persistence**: Background grid snapshots with versioning
 - ✅ **Parameter Tuning**: Runtime-adjustable parameters via HTTP API
@@ -1080,10 +1080,10 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 ### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5)**
 
 - ✅ **PCAP Reading**: File-based replay with BPF filtering (Phase 2.5)
-- ✅ **Parameter Optimization**: Runtime-adjustable via HTTP API (Phase 2.5)
+- ✅ **Parameter Optimisation**: Runtime-adjustable via HTTP API (Phase 2.5)
 - ✅ **Foreground Extraction**: `ProcessFramePolarWithMask()` and `ExtractForegroundPoints()` (Phase 2.9)
 - ✅ **World Transform**: `TransformToWorld()` with identity transform (Phase 3.0)
-- ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbor queries (Phase 3.1)
+- ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbour queries (Phase 3.1)
 - ✅ **Tracking**: `Tracker` with Kalman filter and lifecycle management (Phase 3.2)
 - ✅ **Classification Research Data**: `ForegroundFrame` export with compact binary encoding
 - ✅ **SQL Schema**: `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables (Phase 3.3)
@@ -1095,7 +1095,7 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 
 - 📋 **Pose Validation**: Sensor calibration quality assessment and RMSE-based filtering
 - 📋 **Pose-Based Transform**: 4x4 homogeneous matrix transform from sensor to world frame
-- 📋 **UI Visualization**: Track display components in web frontend
+- 📋 **UI Visualisation**: Track display components in web frontend
 - 📋 **Multi-Sensor (Phase 4)**: Support multiple sensors per machine with local databases
 - 📋 **Database Unification**: Consolidate data from distributed edge nodes
 - 📋 **Cross-Sensor Tracking**: Track objects across multiple sensor coverage areas

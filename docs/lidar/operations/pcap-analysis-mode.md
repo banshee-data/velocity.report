@@ -20,8 +20,8 @@ The LiDAR system supports two modes for PCAP replay:
 
 - **Track Analysis** - Identify and study vehicle trajectories from historical data
 - **Background Characterization** - Build accurate background models from known-quiet periods
-- **Object Detection Tuning** - Analyze detection thresholds with real-world data
-- **Scene Comparison** - Compare PCAP-analyzed background with live data overlay
+- **Object Detection Tuning** - Analyse detection thresholds with real-world data
+- **Scene Comparison** - Compare PCAP-analysed background with live data overlay
 - **Historical Investigation** - Study specific incidents or traffic patterns
 
 ## API Endpoints
@@ -80,7 +80,7 @@ Data source values:
 POST /api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p
 ```
 
-Switches from PCAP analysis mode back to live UDP data **without resetting the grid**. This allows you to overlay live traffic on top of the PCAP-analyzed background.
+Switches from PCAP analysis mode back to live UDP data **without resetting the grid**. This allows you to overlay live traffic on top of the PCAP-analysed background.
 
 **Response:**
 

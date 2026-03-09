@@ -1,4 +1,4 @@
-# Documentation Standardization Plan
+# Documentation Standardisation Plan
 
 **Layers:** Cross-cutting (documentation)
 
@@ -6,7 +6,7 @@ Controlled process to stabilise documentation structure and metadata quality by 
 
 ## 1. Objective
 
-Reduce documentation churn and prevent low-signal edits by applying one repeatable contract for structure, metadata, and migration behavior.
+Reduce documentation churn and prevent low-signal edits by applying one repeatable contract for structure, metadata, and migration behaviour.
 
 ## 2. Scope
 

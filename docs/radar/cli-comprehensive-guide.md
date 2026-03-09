@@ -197,7 +197,7 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 - `--noise-start`, `--noise-end`, `--noise-step` - Noise sweep parameters
 - `--closeness-start`, `--closeness-end`, `--closeness-step` - Closeness sweep
-- `--neighbor-start`, `--neighbor-end`, `--neighbor-step` - Neighbor sweep
+- `--neighbor-start`, `--neighbor-end`, `--neighbor-step` - Neighbour sweep
 
 **Fixed Values (for single-variable sweeps):**
 
@@ -213,7 +213,7 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 **Seed Control:**
 
-- `--seed true` - Seed behavior: `true`, `false`, or `toggle`
+- `--seed true` - Seed behaviour: `true`, `false`, or `toggle`
 
 **Total:** 20+ flags
 
@@ -1504,7 +1504,7 @@ token = "vrt_abc123..."
    - Test all migration operations with new structure
 
 3. Add explicit `help` subcommand
-   - Show organized help by command and category
+   - Show organised help by command and category
    - Include flag groupings (core, radar, lidar, tuning)
    - Test help output for clarity
 
@@ -1588,7 +1588,7 @@ curl -I http://localhost:8080/api/v1/sites | grep X-API-Version
 
 - [ ] All old targets still work via aliases
 - [ ] New targets work identically to old ones
-- [ ] `make help` shows organized, clear output
+- [ ] `make help` shows organised, clear output
 - [ ] Documentation updated with migration path
 
 **Testing:**
@@ -1672,13 +1672,13 @@ velocity-report --config bad.toml serve  # Should show clear error
 2. Migrate sweep functionality
    - Move sweep logic to `internal/tools/sweep/`
    - Implement `velocity-tools sweep` subcommand
-   - Preserve all existing flags and behavior
+   - Preserve all existing flags and behaviour
    - Test against existing sweep scripts
 
 3. Migrate backfill utilities
    - Add `backfill-transits` subcommand
    - Add `backfill-elevations` subcommand
-   - Preserve all flags and behavior
+   - Preserve all flags and behaviour
 
 4. Integrate deploy functionality
    - Move deploy logic to `internal/tools/deploy/`

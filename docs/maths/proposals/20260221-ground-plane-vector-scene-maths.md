@@ -217,7 +217,7 @@ The current L3 grid is an exponential moving update model (often described as EW
 Use L3 as a reliability prior for L4 input selection:
 
 1. Prefer points from cells with stronger evidence (`TimesSeenCount`, lower spread, not frozen).
-2. De-prioritize or reject cells in freeze/reacquisition turbulence windows.
+2. De-prioritise or reject cells in freeze/reacquisition turbulence windows.
 3. Preserve a shadow raw-point channel to avoid lock-in if L3 baseline drifts.
 
 ### 7.1 Weighted coupling example

@@ -61,11 +61,11 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - **Grid Structure:** 40 rings × 1800 azimuth bins (0.2° resolution) = 72,000 cells
 - **Coordinate System:** **Purely polar** (ring index, azimuth bin, range in meters)
 - **Learning Algorithm:** Exponential Moving Average (EMA) for range/spread tracking
-- **Classification:** Distance-adaptive threshold with same-ring neighbor voting
+- **Classification:** Distance-adaptive threshold with same-ring neighbour voting
 - **Persistence:** Automatic snapshots to `lidar_bg_snapshot` table
 - **Location:** `internal/lidar/background.go`
 
-**Critical Constraint:** Background grid **never** stores or uses Cartesian/world coordinates. All EMA updates, neighbor voting, and classification occur in polar space.
+**Critical Constraint:** Background grid **never** stores or uses Cartesian/world coordinates. All EMA updates, neighbour voting, and classification occur in polar space.
 
 #### Current Capabilities
 
@@ -170,7 +170,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 
 ### 📋 Remaining Components
 
-1. **Track Labeling UI** - Manual annotation interface for reproducible classification research and scorecards (Phase 4.0)
+1. **Track Labelling UI** - Manual annotation interface for reproducible classification research and scorecards (Phase 4.0)
 
 ---
 
@@ -232,7 +232,7 @@ UDP Packets → Frame Builder → ProcessFramePolar → [Foreground Mask]
 
 ### Key Design Decisions
 
-1. **Background in Polar:** Stable sensor geometry, efficient ring-based neighbor queries
+1. **Background in Polar:** Stable sensor geometry, efficient ring-based neighbour queries
 2. **Clustering in World:** Consistent Euclidean distances, stable reference frame
 3. **Tracking in World:** Velocity estimation requires fixed coordinate system
 4. **No Reverse Transform:** World frame components never convert back to polar
@@ -478,8 +478,8 @@ Spatial clustering of foreground world points to detect distinct objects.
 **Spatial Index:** **Required** (not optional)
 
 - Implementation: Regular grid with cell size ≈ `eps` (0.6m)
-- Region queries examine only current cell + 8 neighbors (2D) or 26 neighbors (3D)
-- Replaces O(n²) brute-force neighbor search
+- Region queries examine only current cell + 8 neighbours (2D) or 26 neighbours (3D)
+- Replaces O(n²) brute-force neighbour search
 
 ### Implementation
 
@@ -1121,7 +1121,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 
 - Bounding box dimensions (length, width, height) in meters
 - Height p95 (95th percentile Z coordinate)
-- Point density (points per cubic meter)
+- Point density (points per cubic metre)
 
 **Kinematic Features:**
 

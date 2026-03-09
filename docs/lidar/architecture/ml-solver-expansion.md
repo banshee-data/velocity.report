@@ -57,7 +57,7 @@ However, the plan currently behaves mostly as a **feature plan**, not yet a **pl
 1. **Scoring logic risks growing monolithic.**
    As more HINT-specific scoring and weighting heuristics are added, objective code can become difficult to audit and compare over time.
 2. **Feature transformations are implicit.**
-   There is no explicit transform layer for derived signals used by objective/scoring (e.g., round-normalized metrics, class imbalance corrections, uncertainty penalties).
+   There is no explicit transform layer for derived signals used by objective/scoring (e.g., round-normalised metrics, class imbalance corrections, uncertainty penalties).
 3. **Explainability is currently output-oriented, not decomposition-oriented.**
    The system can show aggregate scores, but needs score component decomposition and “top contributing factors” to improve operator trust and labelling quality.
 4. **Experiment schema versioning is under-specified.**

@@ -4,7 +4,7 @@
 
 Deprecate `internal/lidar/arena.go` and replace it with layer-aligned type files that match `docs/lidar/architecture/lidar-data-layer-model.md`.
 
-This design keeps runtime behavior unchanged while making ownership and intent of shared models much clearer.
+This design keeps runtime behaviour unchanged while making ownership and intent of shared models much clearer.
 
 ## Why this is needed
 
@@ -12,7 +12,7 @@ This design keeps runtime behavior unchanged while making ownership and intent o
 
 - Live shared domain types used across runtime paths
 - Legacy sidecar/container types not used by runtime
-- Historical roadmap comments (including "Phase" markers) that no longer describe current code behavior
+- Historical roadmap comments (including "Phase" markers) that no longer describe current code behaviour
 
 This reduces readability and makes model ownership ambiguous.
 
@@ -65,7 +65,7 @@ Notes:
 ## Migration Plan
 
 1. Create the four layer-aligned type files and copy active type definitions unchanged.
-2. Compile and run LiDAR package tests to confirm no behavior drift.
+2. Compile and run LiDAR package tests to confirm no behaviour drift.
 3. Delete `internal/lidar/arena.go`.
 4. Delete arena-only tests tied to removed dead types (`arena_test.go`, `arena_extended_test.go`).
 5. Add a guard check in CI/docs linting to prevent re-introducing `arena.go`-style mixed files.
@@ -91,7 +91,7 @@ Primary regression risk is accidental field drift while copying structs. This is
 1. `arena.go` no longer exists.
 2. Active shared types are grouped by L2/L3/L4 aligned files.
 3. Removed symbols have no runtime references.
-4. LiDAR tests pass with unchanged behavior.
+4. LiDAR tests pass with unchanged behaviour.
 5. Documentation references to `arena.go` are updated to new file ownership.
 
 ## Completion Status (2026-02-17)

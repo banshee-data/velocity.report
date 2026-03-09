@@ -50,7 +50,7 @@ Distance is 2D Euclidean in `(x,y)`:
 
 `d2(i,j) = (x_i-x_j)^2 + (y_i-y_j)^2`
 
-`j` is a neighbor if `d2(i,j) <= eps^2`.
+`j` is a neighbour if `d2(i,j) <= eps^2`.
 
 ### 4.2 Core rule
 
@@ -71,7 +71,7 @@ Neighborhood query checks only 3x3 adjacent cells around the seed cell, giving p
 Implementation uses medoid-like centroid:
 
 1. compute arithmetic mean `m`,
-2. choose real point minimizing `||p_i - m||^2`.
+2. choose real point minimising `||p_i - m||^2`.
 
 This avoids non-physical centroids for non-convex point sets.
 

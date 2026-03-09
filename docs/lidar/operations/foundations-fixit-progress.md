@@ -23,7 +23,7 @@ Stabilize documentation and implementation boundaries so downstream work depends
 ### High
 
 1. Velocity-coherent algorithm remains proposal-only; runtime selector is not active on `main`.
-2. Dynamic algorithm selection docs contain branch-history details that can be misread as implemented behavior.
+2. Dynamic algorithm selection docs contain branch-history details that can be misread as implemented behaviour.
 
 ### Medium
 

@@ -1,4 +1,4 @@
-# Unified Plan: Seekable Replay and Swift-Native Track Labeling
+# Unified Plan: Seekable Replay and Swift-Native Track Labelling
 
 Unifies:
 
@@ -45,19 +45,19 @@ Enable operators to label tracks while viewing 3D evolution in the macOS Swift a
 
 ## Options Compared
 
-### Option 1: Existing baseline (VRLOG replay + web-driven timeline/labeling)
+### Option 1: Existing baseline (VRLOG replay + web-driven timeline/labelling)
 
 - Keep current direction from the original VRLOG plan.
-- Web tracks page is primary timeline and labeling UI.
+- Web tracks page is primary timeline and labelling UI.
 - Swift app mostly consumes streamed frames.
 
-### Option 2: VRLOG-backed replay + Swift-native labeling (recommended)
+### Option 2: VRLOG-backed replay + Swift-native labelling (recommended)
 
 - Keep VRLOG as canonical seekable replay format.
-- Move primary labeling workflow into Swift app.
-- Reuse backend run-track labeling APIs and replay controls.
+- Move primary labelling workflow into Swift app.
+- Reuse backend run-track labelling APIs and replay controls.
 
-### Option 3: Swift-native labeling + direct PCAP seek
+### Option 3: Swift-native labelling + direct PCAP seek
 
 - Skip VRLOG conversion/recording.
 - Add true random seek over PCAP replay with state rebuild.
@@ -70,18 +70,18 @@ Scoring: `1 (worst)` to `5 (best)`.
 
 | Option                                  | Maintainability | UX (label + scrub) | Performance | Notes                                                                                                                            |
 | --------------------------------------- | --------------- | ------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Baseline VRLOG + web-driven workflow | 3               | 2                  | 4           | Backend is straightforward, but operators context-switch between Swift 3D view and web labeling/timeline.                        |
-| 2. VRLOG + Swift-native labeling        | 4               | 5                  | 4           | Best operator flow; robust seek semantics via VRLOG. Requires Swift-side API integration and run browser work.                   |
+| 1. Baseline VRLOG + web-driven workflow | 3               | 2                  | 4           | Backend is straightforward, but operators context-switch between Swift 3D view and web labelling/timeline.                       |
+| 2. VRLOG + Swift-native labelling       | 4               | 5                  | 4           | Best operator flow; robust seek semantics via VRLOG. Requires Swift-side API integration and run browser work.                   |
 | 3. Direct PCAP seek                     | 2               | 3                  | 2           | High risk and complexity: seek must rebuild time-dependent state (background/tracker/warmup), likely high latency and fragility. |
 
 ## Single Recommendation
 
-Pursue **Option 2: VRLOG-backed replay with Swift-native labeling**.
+Pursue **Option 2: VRLOG-backed replay with Swift-native labelling**.
 
 Why:
 
 - **Maintainability**: one canonical seekable replay substrate (VRLOG).
-- **Usability**: labeling happens where 3D behavior is inspected.
+- **Usability**: labelling happens where 3D behaviour is inspected.
 - **Performance**: avoids repeated random-access PCAP decode + state reconstruction during scrub.
 
 Option 1 remains a migration path/fallback. Option 3 is explicitly deferred.
@@ -274,7 +274,7 @@ Routes:
 
 `cmd/radar/radar.go` wires callbacks to server/publisher.
 
-## Phase 4: Swift App as Primary Labeling UI
+## Phase 4: Swift App as Primary Labelling UI
 
 ### 4.1 Replay loading in Swift
 
@@ -291,7 +291,7 @@ Add run browser and replay loader:
 - load selected run replay
 - surface run id in app state
 
-### 4.2 Run-track labeling client in Swift
+### 4.2 Run-track labelling client in Swift
 
 Add `RunTrackLabelAPIClient` for:
 
@@ -300,12 +300,12 @@ Add `RunTrackLabelAPIClient` for:
 - update split/merge flags
 - fetch labelling progress
 
-Connect 3D selection to run-track labeling actions in side panel.
+Connect 3D selection to run-track labelling actions in side panel.
 
 ### 4.3 Keep existing `LabelAPIClient` scoped
 
 - keep for free-form label events only
-- avoid mixing stores for the same labeling workflow
+- avoid mixing stores for the same labelling workflow
 
 ## Phase 5: Web Parity (Optional / Secondary)
 
@@ -316,7 +316,7 @@ Keep or extend web playback controls for parity/fallback:
 - `web/src/routes/lidar/tracks/+page.svelte`: optional backend playback sync
 - `web/src/routes/lidar/runs/+page.svelte`: replay entry affordance
 
-Web is secondary; Swift is primary labeling workflow.
+Web is secondary; Swift is primary labelling workflow.
 
 ---
 
@@ -358,7 +358,7 @@ Phase 0 (label contract)
 4. During VRLOG replay, suppress periodic background snapshots.
 5. Ensure path validation on VRLOG load endpoints.
 6. Reject VRLOG load while PCAP replay is active.
-7. Keep one canonical labeling store per workflow to avoid data divergence.
+7. Keep one canonical labelling store per workflow to avoid data divergence.
 
 ---
 
@@ -372,7 +372,7 @@ Phase 0 (label contract)
 | DB migration            | `internal/db/migrations/000023_add_vrlog_path.*.sql`                                                                                     | Add/drop `vrlog_path`                                                |
 | Orchestration API       | `internal/lidar/monitor/webserver.go`                                                                                                    | recording/playback callbacks + routes + status model                 |
 | Wiring                  | `cmd/radar/radar.go`                                                                                                                     | recorder lifecycle + replay callback wiring                          |
-| Swift app               | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` and new API client(s)                                                     | run browser state, replay load flow, run-track labeling integration  |
+| Swift app               | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` and new API client(s)                                                     | run browser state, replay load flow, run-track labelling integration |
 | Optional web parity     | `web/src/lib/types/lidar.ts`, `web/src/lib/api.ts`, `web/src/routes/lidar/tracks/+page.svelte`, `web/src/routes/lidar/runs/+page.svelte` | playback status sync and replay controls                             |
 
 ---
@@ -386,7 +386,7 @@ Phase 0 (label contract)
 5. Loading replay by run id sets replay mode and `seekable=true`.
 6. gRPC `Seek`/`Pause`/`Play`/`SetRate` work in main runtime.
 7. Swift app can scrub/step and labels persist via run-track endpoints.
-8. Labeling progress reflects Swift-authored labels through existing run APIs.
+8. Labelling progress reflects Swift-authored labels through existing run APIs.
 
 ---
 

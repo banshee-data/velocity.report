@@ -16,7 +16,7 @@ Runtime operations and debugging.
 - **PCAP analysis mode** for background characterisation
 - **Performance regression testing** for pipeline benchmarking
 - **Auto-tuning** parameter sweep and iterative grid narrowing
-- **Settling time optimization** for efficient parameter sweeps
+- **Settling time optimisation** for efficient parameter sweeps
 - **Tracking status** and known issues
 
 ### `reference/`

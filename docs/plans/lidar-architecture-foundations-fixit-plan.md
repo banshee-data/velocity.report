@@ -26,13 +26,13 @@ Exit criteria:
 
 ## Phase 3: Vector Workstream Hardening
 
-1. Keep region-adaptive behavior validated on `ProcessFramePolarWithMask`.
-2. Add regression checks for region override behavior in replay/golden tests.
+1. Keep region-adaptive behaviour validated on `ProcessFramePolarWithMask`.
+2. Add regression checks for region override behaviour in replay/golden tests.
 3. Document L3->L4 confidence handoff assumptions in maths docs.
 
 Exit criteria:
 
-- Region-adaptive behavior remains covered by tests on production path.
+- Region-adaptive behaviour remains covered by tests on production path.
 
 ## Phase 4: Velocity Workstream Pre-Implementation Gate
 

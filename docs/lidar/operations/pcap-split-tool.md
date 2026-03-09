@@ -851,7 +851,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 
 ## Technical Considerations
 
-### Performance Optimization
+### Performance Optimisation
 
 **1. Streaming Processing**
 
@@ -1029,7 +1029,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 
 ### Phase 4: Polish and Documentation (Week 4)
 
-**4.1 Performance Optimization**
+**4.1 Performance Optimisation**
 
 - Profile and optimise hot paths
 - Memory usage optimisation
@@ -1099,7 +1099,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - More accurate transition detection
 - Adaptive thresholds per environment
 
-**4. Visualization**
+**4. Visualisation**
 
 - Web UI for segment review
 - Interactive timeline of motion/static periods

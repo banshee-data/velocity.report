@@ -614,7 +614,7 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 - **L-Shape Fitting for Vehicles:** Zhang, X., et al. (2017), "Real-Time Vehicle Detection and Tracking Using 3D LiDAR"
   Alternative to PCA for elongated objects; assumes L-shaped returns.
 
-- **Track-Level Shape Refinement:** Held, D., et al. (2016), "Robust Real-Time Tracking Combining 3D Shape, Color, and Motion"
+- **Track-Level Shape Refinement:** Held, D., et al. (2016), "Robust Real-Time Tracking Combining 3D Shape, Colour, and Motion"
   Uses shape consistency across frames; similar philosophy to this proposal.
 
 ### 11.3 Internal References

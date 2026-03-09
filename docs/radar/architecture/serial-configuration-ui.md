@@ -51,7 +51,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Purpose:** Abstraction over serial port with multiplexing for multiple subscribers
 - **Implementation:** Generic `SerialMux[T SerialPorter]` with real, mock, and disabled modes
 - **Current Configuration:** Hardcoded at startup via `--port` CLI flag (default: `/dev/ttySC1`)
-- **Baud Rate:** Currently hardcoded in serial port initialization (19200 for OPS243A)
+- **Baud Rate:** Currently hardcoded in serial port initialisation (19200 for OPS243A)
 
 **Initialisation Flow (cmd/radar/radar.go:105-118):**
 
@@ -168,7 +168,7 @@ VALUES (
 **Rationale:**
 
 - **Sensor Model Slugs:** Use simple text identifiers (`ops243-a`, `ops243-c`) validated via SQLite CHECK constraint
-- **Application-Side Logic:** Sensor capabilities and initialization commands stored in application code, not database
+- **Application-Side Logic:** Sensor capabilities and initialisation commands stored in application code, not database
 - **CHECK Constraint:** Validates sensor model values at database level without requiring separate table
 - **Migration-Friendly:** Adding new sensor models only requires application update, not database migration
 - **Serial Settings (8N1):** Standard configuration for OPS243A radar (8 data bits, No parity, 1 stop bit)
@@ -180,7 +180,7 @@ VALUES (
 
 **Sensor Model Information (Application Code):**
 
-The application will define sensor model capabilities and initialization commands:
+The application will define sensor model capabilities and initialisation commands:
 
 ```go
 type SensorModel struct {
@@ -303,7 +303,7 @@ var SupportedSensorModels = map[string]SensorModel{
    - **Notes:**
      - Enumerates `/dev/tty*` and `/dev/serial*` devices via udev/sysfs
      - Filters out any `port_path` already present in `radar_serial_config`
-     - Includes basic USB metadata (vendor/product) when available for UI labeling
+     - Includes basic USB metadata (vendor/product) when available for UI labelling
 
 7. **List Sensor Models**
    - **Method:** `GET`
@@ -514,7 +514,7 @@ var SupportedSensorModels = map[string]SensorModel{
 **Auto-Detection Algorithm:**
 
 1. **Enumerate Devices:** Call `GET /api/serial/devices` to retrieve all available `/dev/tty*` paths not already stored in `radar_serial_config`
-2. **Prioritize Likely Matches:** Sort by USB metadata (vendor/product IDs known for OPS243) and stable names (`/dev/serial/by-id/*`)
+2. **Prioritise Likely Matches:** Sort by USB metadata (vendor/product IDs known for OPS243) and stable names (`/dev/serial/by-id/*`)
 3. **Probe Each Port:**
    - For each unassigned port, iterate through [9600, 19200, 38400, 57600, 115200]
    - Send safe query commands (`??`, `I?`) without changing device state
@@ -559,7 +559,7 @@ var SupportedSensorModels = map[string]SensorModel{
      - "Cancel" - Discards changes
 
 3. **Test Results Display**
-   - Show test results inline with color-coded success/failure
+   - Show test results inline with colour-coded success/failure
    - Display diagnostic messages and suggestions
    - Show sample data received from device
 
@@ -591,14 +591,14 @@ var SupportedSensorModels = map[string]SensorModel{
 
 **Requirement:** Load serial configuration from database at startup
 
-**Current Behavior:**
+**Current Behaviour:**
 
 ```go
 // cmd/radar/radar.go:35
 port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 ```
 
-**New Behavior:**
+**New Behaviour:**
 
 1. **Startup Sequence:**
    - Initialise database connection
@@ -712,7 +712,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 **Deliverables:**
 
 1. Migration file with `radar_serial_config` table schema
-2. Database initialization with default HAT configuration
+2. Database initialisation with default HAT configuration
 3. Go server loads config from database at startup
 4. Backward compatibility with CLI flag fallback
 
@@ -812,7 +812,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 **Options:**
 
 - **A) Non-destructive read-only testing** (Selected)
-- **B) Full initialization sequence**
+- **B) Full initialisation sequence**
 - **C) No testing, just configuration storage**
 
 **Rationale for Read-Only Testing:**
@@ -821,9 +821,9 @@ Sensor models are defined in the application code (as shown in the rationale sec
 - ✅ Won't interfere with live data collection
 - ✅ Fast feedback for users
 - ✅ Detects most common issues (port, permissions, baud rate)
-- ❌ Doesn't validate full initialization sequence
+- ❌ Doesn't validate full initialisation sequence
 
-**Rejected:** Full initialization could disrupt live data collection. No testing provides poor user experience.
+**Rejected:** Full initialisation could disrupt live data collection. No testing provides poor user experience.
 
 ### Decision 3: Baud Rate Configuration
 

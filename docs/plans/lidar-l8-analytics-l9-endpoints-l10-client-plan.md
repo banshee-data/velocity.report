@@ -302,7 +302,7 @@ Provisional classification:
 
 - update `internal/lidar/storage/sqlite/track_store.go` to call `L8` helpers for percentile math
 - slim `internal/lidar/storage/sqlite/analysis_run.go` so it stores and loads data, but does not own comparison logic
-- move `compareParams` and run comparison orchestration into `L8` if they remain canonical analytics behavior
+- move `compareParams` and run comparison orchestration into `L8` if they remain canonical analytics behaviour
 - extract track summary aggregation from `internal/lidar/monitor/track_api.go` into `L8`
 - extract run-labelling and run-evaluation aggregate logic from `internal/lidar/monitor/run_track_api.go` and `scene_api.go` into `L8`-backed services
 - keep handler files responsible for request parsing, response codes, and transport concerns only

@@ -46,7 +46,7 @@ Initial component weights:
 
 Formula:
 
-- `score_raw = sum(component_i * weight_i)` where each component is normalized `0-1`.
+- `score_raw = sum(component_i * weight_i)` where each component is normalised `0-1`.
 - `score = clamp(round(score_raw), 0, 100)`.
 - `quality_grade` buckets:
   - `A` >= 90
@@ -164,7 +164,7 @@ UI additions:
   - grade,
   - top reason codes,
   - last computed timestamp/version.
-- Track list row badge color by grade.
+- Track list row badge colour by grade.
 - Optional sort toggle: `quality asc|desc`.
 
 ## Web Parity
@@ -212,7 +212,7 @@ Logs:
 - [ ] Implement scorer package in `internal/lidar/qc/scoring.go`
 - [ ] Add store methods in `internal/lidar/analysis_run.go`
 - [ ] Add recompute worker and trigger hooks
-- [ ] Update run-track serialization for new fields
+- [ ] Update run-track serialisation for new fields
 
 ### API
 

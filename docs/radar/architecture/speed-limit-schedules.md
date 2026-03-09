@@ -630,7 +630,7 @@ _Enhancement:_ Add schedule templates:
 - "Work Zone (9-5)" - 08:00-17:00, Mon-Fri
 - Custom templates saved per user
 
-**3. Schedule Visualization**
+**3. Schedule Visualisation**
 
 _Problem:_ Grid of schedules is hard to understand at a glance.
 
@@ -805,7 +805,7 @@ _Enhancement:_ Multi-zone support:
 
 - Schedules can be CRUD independently from site updates
 - Simpler API client code (fewer nested operations)
-- Better RESTful resource modeling
+- Better RESTful resource modelling
 - Easier to add bulk operations later
 - Matches existing pattern (site_reports is also separate)
 
@@ -847,7 +847,7 @@ _Enhancement:_ Multi-zone support:
 
 ## Performance Considerations
 
-### Query Optimization
+### Query Optimisation
 
 **Index Strategy:**
 
@@ -1174,4 +1174,4 @@ CREATE TABLE IF NOT EXISTS site (
 **Document Version:** 1.0
 **Last Updated:** 2025-12-01
 **Implementation Status:** ❌ Not Implemented (Design Specification Only)
-**Future Work Status:** 📋 Ready for implementation when prioritized
+**Future Work Status:** 📋 Ready for implementation when prioritised

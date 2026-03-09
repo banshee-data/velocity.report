@@ -40,7 +40,7 @@ curl -s "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40p" | jq 
 ## 4. Validate and Compare
 
 1. Run a representative live session or replay golden PCAP.
-2. Check jitter, fragmentation, misalignment, and empty-box behavior.
+2. Check jitter, fragmentation, misalignment, and empty-box behaviour.
 3. Keep a changelog per parameter set and outcome.
 
 For structured sweeps:

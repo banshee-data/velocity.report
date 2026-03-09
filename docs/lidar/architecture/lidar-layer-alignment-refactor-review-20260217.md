@@ -156,7 +156,7 @@ Outcome:
 
 Problem:
 
-- Global registries hide source-of-truth wiring and make behavior context-dependent (`internal/lidar/analysis_run_manager.go:28`).
+- Global registries hide source-of-truth wiring and make behaviour context-dependent (`internal/lidar/analysis_run_manager.go:28`).
 
 Opportunity:
 
@@ -170,8 +170,8 @@ Outcome:
 
 Problem:
 
-- Comments like "Phase X" drift over time and conflict with current behavior.
-- Some comments advertise placeholders where behavior has already changed.
+- Comments like "Phase X" drift over time and conflict with current behaviour.
+- Some comments advertise placeholders where behaviour has already changed.
 
 Opportunity:
 
@@ -190,7 +190,7 @@ Guardrail:
 
 Problem:
 
-- Large stateful Svelte files combine fetching, playback, labeling, and rendering (`web/src/routes/lidar/tracks/+page.svelte:1`, `web/src/lib/components/lidar/TrackList.svelte:1`).
+- Large stateful Svelte files combine fetching, playback, labelling, and rendering (`web/src/routes/lidar/tracks/+page.svelte:1`, `web/src/lib/components/lidar/TrackList.svelte:1`).
 
 Opportunity:
 

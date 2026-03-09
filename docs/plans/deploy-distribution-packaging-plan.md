@@ -114,7 +114,7 @@ ssh pi "cd /path/to/repo && sudo make setup-radar"
 - ❌ Utility tools (transit-backfill, backfill_ring_elevations) not easily discoverable
 - ❌ No versioned releases or GitHub Release automation
 - ❌ Web build must succeed before Go binary can build (assets.go dependency)
-- ❌ No standardized installation path for Python scripts
+- ❌ No standardised installation path for Python scripts
 - ❌ Unclear which tools are for end-users vs. developers
 
 ### 1.3 Deployment Model
@@ -326,7 +326,7 @@ velocity-report grid-heatmap   # Heatmap visualization
 
 ### ~~Approach D: Hybrid Model (Subcommands + Separate Utilities)~~
 
-**Description:** Core functionality in main binary, specialized tools as separate binaries or scripts.
+**Description:** Core functionality in main binary, specialised tools as separate binaries or scripts.
 
 **Structure:**
 
@@ -392,7 +392,7 @@ velocity-report help           # Show help
 #### Python Scripts (Installed):
 
 - `pdf-generator/pdf_generator/` - Python package
-- `grid-heatmap/` scripts - Visualization tools
+- `grid-heatmap/` scripts - Visualisation tools
 
 ### 4.2 Directory Layout (Installed System)
 
@@ -1729,4 +1729,4 @@ This distribution and packaging plan provides a clear path to transform velocity
 - Phase 5: 1 week (Testing & rollout)
 - **Total: 4-6 weeks to v1.0.0**
 
-This plan prioritizes maintainability, user experience, and alignment with industry best practices while minimizing disruption to existing users and developers.
+This plan prioritises maintainability, user experience, and alignment with industry best practices while minimising disruption to existing users and developers.

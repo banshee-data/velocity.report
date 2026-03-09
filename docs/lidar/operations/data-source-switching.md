@@ -107,7 +107,7 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
 
 - **Remove** `lidarPCAPMode` CLI flag entirely
 - Always pass UDP listener config to WebServer
-- WebServer starts UDP listener on initialization (live mode default)
+- WebServer starts UDP listener on initialisation (live mode default)
 - WebServer manages stopping/starting UDP listener when switching sources
 - Cleaner architecture: data source is runtime config, not startup flag
 
@@ -250,7 +250,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - Add PCAP start/stop handlers and status endpoint
    - Add UDP listener lifecycle management
    - Update `setupRoutes()` to register PCAP and status endpoints
-   - Modify `Start()` to initialize in live mode (start UDP listener)
+   - Modify `Start()` to initialise in live mode (start UDP listener)
    - Update status endpoint to include data_source, pcap_file, pcap_in_progress
 
 2. **`cmd/radar/radar.go`** (~40 lines changed)
@@ -329,7 +329,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 2. **Switching to PCAP automatically starts replay** ✅
    - Yes, if `pcap_file` provided in request body
-   - Matches current behavior, intuitive UX
+   - Matches current behaviour, intuitive UX
 
 3. **Block switching during PCAP replay** ✅
    - Return 409 Conflict if PCAP currently running
@@ -355,13 +355,13 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 ## Risks & Mitigations
 
-| Risk                              | Impact                   | Mitigation                                          |
-| --------------------------------- | ------------------------ | --------------------------------------------------- |
-| Race condition during switch      | Data corruption          | Strict mutex locking, well-tested                   |
-| UDP socket leak                   | Resource exhaustion      | Proper context cancellation, defer cleanup          |
-| **Breaking change removes flag**  | **User workflows break** | **Clear migration guide, version notes**            |
-| PCAP blocking (409) during switch | User confusion           | Clear error message, document retry pattern         |
-| Grid reset timing                 | Lost recent data         | Document behavior, provide confirmation in response |
+| Risk                              | Impact                   | Mitigation                                           |
+| --------------------------------- | ------------------------ | ---------------------------------------------------- |
+| Race condition during switch      | Data corruption          | Strict mutex locking, well-tested                    |
+| UDP socket leak                   | Resource exhaustion      | Proper context cancellation, defer cleanup           |
+| **Breaking change removes flag**  | **User workflows break** | **Clear migration guide, version notes**             |
+| PCAP blocking (409) during switch | User confusion           | Clear error message, document retry pattern          |
+| Grid reset timing                 | Lost recent data         | Document behaviour, provide confirmation in response |
 
 ## Timeline Estimate
 

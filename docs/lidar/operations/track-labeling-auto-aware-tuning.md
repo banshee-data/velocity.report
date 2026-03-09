@@ -1,12 +1,12 @@
-# Track Labeling and Auto-Tuning Status
+# Track Labelling and Auto-Tuning Status
 
 **Status:** Implemented/Operational Baseline (with follow-up phases tracked separately)
 **Last Updated:** February 21, 2026
 
 ## Implemented
 
-- Track labeling workflow integrated with run browser and label APIs
-- Analysis-run integration for labeling and replay flows
+- Track labelling workflow integrated with run browser and label APIs
+- Analysis-run integration for labelling and replay flows
 - Core auto-tuning workflow integrated in operations paths
 - Supporting runtime and storage pieces landed for current production usage
 

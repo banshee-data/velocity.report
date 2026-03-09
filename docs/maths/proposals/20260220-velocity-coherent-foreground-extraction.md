@@ -146,7 +146,7 @@ For acceleration:
 
 `q_a = exp(-lambda_a * tr(P_aa))`
 
-Innovation consistency via normalized innovation squared:
+Innovation consistency via normalised innovation squared:
 
 `NIS_k = y_k^T * S_k^{-1} * y_k`
 

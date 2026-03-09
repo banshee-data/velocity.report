@@ -218,7 +218,7 @@ if abs(observed - baseline) > closenessThreshold {
 **Result:** Deadlock where:
 
 1. Closeness threshold allows points to update background
-2. Neighbor voting rejects isolated foreground points
+2. Neighbour voting rejects isolated foreground points
 3. Vehicle edges (with <7 neighbors) are **perpetually misclassified**
 
 ---

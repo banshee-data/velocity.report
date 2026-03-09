@@ -253,7 +253,7 @@ Canonical config/maths mapping source:
 | **Streaming**       | Built-in server-streaming RPC |
 | **Type safety**     | Generated Swift + Go stubs    |
 
-### 3.2 Why REST for Labeling and Metadata
+### 3.2 Why REST for Labelling and Metadata
 
 | Requirement               | REST Advantage                            |
 | ------------------------- | ----------------------------------------- |
@@ -455,12 +455,12 @@ velocity-report --lidar-forward-enabled --grpc-enabled
 
 Since LidarView shows raw points and the visualiser shows semantic data, direct visual comparison isn't possible. Instead, compare:
 
-| Metric            | LidarView                   | Visualiser                  | Comparison                      |
-| ----------------- | --------------------------- | --------------------------- | ------------------------------- |
-| Point count/frame | Packet analysis             | `PointCloudFrame.x.len()`   | Should match (if no decimation) |
-| Foreground count  | N/A (all points same color) | Foreground classification   | N/A                             |
-| Track count       | N/A                         | `TrackSet.tracks.len()`     | Compare with DB                 |
-| Cluster count     | N/A                         | `ClusterSet.clusters.len()` | Compare with DB                 |
+| Metric            | LidarView                    | Visualiser                  | Comparison                      |
+| ----------------- | ---------------------------- | --------------------------- | ------------------------------- |
+| Point count/frame | Packet analysis              | `PointCloudFrame.x.len()`   | Should match (if no decimation) |
+| Foreground count  | N/A (all points same colour) | Foreground classification   | N/A                             |
+| Track count       | N/A                          | `TrackSet.tracks.len()`     | Compare with DB                 |
+| Cluster count     | N/A                          | `ClusterSet.clusters.len()` | Compare with DB                 |
 
 ### 6.3 Regression Testing
 
