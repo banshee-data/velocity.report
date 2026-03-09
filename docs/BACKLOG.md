@@ -7,6 +7,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - v0.5.0 backward compatibility shim removal — reset the track speed contract (`peak` → `max`, no aggregate percentile labels on public track surfaces), sweep legacy fields, and remove deploy executor compat methods — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
+- Layer dependency hygiene — move `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fix L1→L4 and L3→L4 import violations (~15 prod files, ~6 test files) — [design doc](plans/lidar-layer-dependency-hygiene-plan.md) `M`
 
 ## v0.5.1 (Product)
 
@@ -18,6 +19,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts
+- L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-presentation-l10-client-plan.md) `L`
 
 ## v0.6 (Deployment & Packaging)
 
@@ -30,6 +32,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - Config restructure Phase 2 — expose L1 sensor/network and L3 background/foreground constants as tuning params; deprecate CLI flags — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
+- L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9presentation/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-presentation-l10-client-plan.md) `L`
 
 ## v0.7 (Unified Frontend)
 
@@ -68,6 +71,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
 - Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
 - E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md) `M`
+- L7 Scene layer — persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture — [design doc](plans/lidar-l7-scene-plan.md) `XL`
 
 ## v2.0 (Advanced Perception & Connected)
 
