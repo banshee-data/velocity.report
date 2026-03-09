@@ -6,16 +6,16 @@
 
 The current LiDAR pipeline forwards foreground points to **LidarView** (Hesai's visualisation tool) on port 2370 via `internal/lidar/network/foreground_forwarder.go`. While useful for basic point cloud inspection, LidarView has significant limitations for **tracking development and debugging**:
 
-| Limitation                     | Impact                                                                        |
-| ------------------------------ | ----------------------------------------------------------------------------- |
-| **No object overlays**         | Cannot render bounding boxes, cluster hulls, or track IDs                     |
-| **No velocity visualisation**  | Cannot display speed vectors, heading arrows, or motion trails                |
-| **No track lifecycle display** | Cannot distinguish tentative/confirmed/deleted tracks                         |
-| **No debug artifacts**         | Cannot visualise association candidates, gating ellipses, or Kalman residuals |
+| Limitation                     | Impact                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| **No object overlays**         | Cannot render bounding boxes, cluster hulls, or track IDs                      |
+| **No velocity visualisation**  | Cannot display speed vectors, heading arrows, or motion trails                 |
+| **No track lifecycle display** | Cannot distinguish tentative/confirmed/deleted tracks                          |
+| **No debug artifacts**         | Cannot visualise association candidates, gating ellipses, or Kalman residuals  |
 | **No labelling workflow**      | Cannot annotate tracks for reproducible classification research and benchmarks |
-| **No replay controls**         | Cannot seek, pause, or single-step through recorded data                      |
-| **No deterministic replay**    | Cannot reproduce exact frame/track sequences for regression tests             |
-| **Packet-level encoding**      | Loses semantic information (tracks, clusters) in Pandar40P packet format      |
+| **No replay controls**         | Cannot seek, pause, or single-step through recorded data                       |
+| **No deterministic replay**    | Cannot reproduce exact frame/track sequences for regression tests              |
+| **Packet-level encoding**      | Loses semantic information (tracks, clusters) in Pandar40P packet format       |
 
 ### Why a macOS-Native Visualiser
 
@@ -159,15 +159,15 @@ A **dedicated 3D visualisation tool** that:
 
 **DO NOT**:
 
-| Avoided Scope                             | Rationale                                         |
-| ----------------------------------------- | ------------------------------------------------- |
-| Full SLAM / global mapping / loop closure | Out of scope for static sensor deployment         |
-| Cloud services, auth, accounts, telemetry | Privacy-first design; local-only                  |
-| End-to-end pipeline rewrite               | Incremental refactor behind interfaces            |
+| Avoided Scope                             | Rationale                                                        |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| Full SLAM / global mapping / loop closure | Out of scope for static sensor deployment                        |
+| Cloud services, auth, accounts, telemetry | Privacy-first design; local-only                                 |
+| End-to-end pipeline rewrite               | Incremental refactor behind interfaces                           |
 | Complex training UI                       | External benchmark/research tooling; visualiser is for labelling |
-| Proprietary SDKs or paid dependencies     | Open-source first                                 |
-| Remote networking beyond localhost        | Security and simplicity; future extension only    |
-| Web-based visualiser                      | Performance and integration constraints           |
+| Proprietary SDKs or paid dependencies     | Open-source first                                                |
+| Remote networking beyond localhost        | Security and simplicity; future extension only                   |
+| Web-based visualiser                      | Performance and integration constraints                          |
 
 **PRESERVE**:
 

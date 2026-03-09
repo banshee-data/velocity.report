@@ -45,12 +45,12 @@ The fused radar record is the **primary speed measurement** for every transit.
 
 The LiDAR pipeline (L1–L6) progressively adds spatial context:
 
-| Capability                   | Pipeline Layer          | Description                                                            | Current Status                 |
-| ---------------------------- | ----------------------- | ---------------------------------------------------------------------- | ------------------------------ |
-| **Detection & clustering**   | L3 grid → L4 perception | Foreground extraction, DBSCAN clustering, OBB geometry                 | ✅ Implemented                 |
-| **Tracking**                 | L5 tracks               | Kalman-filtered multi-frame identity, speed profile, trail             | ✅ Implemented                 |
+| Capability                   | Pipeline Layer          | Description                                                            | Current Status                   |
+| ---------------------------- | ----------------------- | ---------------------------------------------------------------------- | -------------------------------- |
+| **Detection & clustering**   | L3 grid → L4 perception | Foreground extraction, DBSCAN clustering, OBB geometry                 | ✅ Implemented                   |
+| **Tracking**                 | L5 tracks               | Kalman-filtered multi-frame identity, speed profile, trail             | ✅ Implemented                   |
 | **Classification**           | L6 objects              | Category, size, vehicle class (rule-based; optional model research)    | ✅ Rule-based; research deferred |
-| **Long-track speed profile** | L5 tracks               | Per-observation speed, heading, and bounding box over the full transit | ✅ Stored in `lidar_track_obs` |
+| **Long-track speed profile** | L5 tracks               | Per-observation speed, heading, and bounding box over the full transit | ✅ Stored in `lidar_track_obs`   |
 
 As LiDAR matures, it contributes:
 

@@ -1424,7 +1424,7 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 | 3.3   | SQL Schema & Persistence | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
 | 3.4   | Classification           | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes                      |
 | 3.5   | REST API Endpoints       | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries                 |
-| 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing and classification research export    |
+| 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing and classification research export   |
 | 3.8   | Track Visualisation UI   | 2-3 days | ✅ Complete | MapPane, TrackList, TimelinePane components, pagination, playback                 |
 | Test  | Integration Testing      | 2-3 days | 📋 Planned  | End-to-end tests, performance validation                                          |
 
