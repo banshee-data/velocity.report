@@ -15,8 +15,8 @@ Use `TicTacTail` in code/docs unless we later have a strong reason to rename it.
 ## Goal
 
 Build a generic platform that takes flat key/value samples, refreshes a live
-surface quickly, emits aligned history rows, and keeps the heavy logic outside
-app-specific code.
+surface quickly, emits aligned history rows for one active aggregate window,
+and keeps the heavy logic outside app-specific code.
 
 The split should be:
 
@@ -32,16 +32,17 @@ The VRLOG checker should be a small import/config layer on top of this.
 `TicTacTail` should own all generic behaviour:
 
 - ingesting flat timestamped samples
-- maintaining one or more hot aggregation windows
+- maintaining one active aggregation window
 - producing aggregate rows and live snapshots
 - tail-style history output
 - live/status refresh loop
-- split-pane TTY layout with slow/fast/live/status bands
-- aligned columns between history panes and the live pane
+- one main TTY history pane plus a one-line live row and one-line status bar
+- aligned columns between aggregate history and the live row
 - ANSI colouring for persisted rows
 - configurable live spinner styles
-- bounded per-window redraw caches for resize handling
+- one bounded history cache for resize handling
 - TTY vs non-TTY behaviour
+- startup schema scan, fixed-size allocation, and hard byte limits
 - performance-sensitive local aggregation
 
 If the UI contract is generic, it belongs here, not in the VRLOG-specific doc.
@@ -109,6 +110,8 @@ Everything else is application payload and must remain unchanged.
 convert to or from `time.Time` internally, but the wire and engine-facing
 format stays integer nanoseconds.
 
+`ts_nanos` is mandatory on every input row. Rows without it are rejected.
+
 ## No Mapping
 
 TicTacTail should never rename keys.
@@ -123,7 +126,8 @@ Examples:
 - long: `frames`, `fps`, `chunk_cur`, `chunk_tot`, `tracks`
 
 TicTacTail stores and renders whatever keys it is given.
-There is no special `ag` alias; windowed rows render as `win_s=<seconds>`.
+There is no special `ag` alias; aggregate rows carry raw `win_s=<seconds>`,
+though a single-pane renderer may hide it by default.
 
 ## Value Semantics
 
@@ -134,7 +138,7 @@ TicTacTail only understands two application field kinds:
 
 Rule:
 
-- keys ending in `_inc` are summed within each configured window as integer
+- keys ending in `_inc` are summed within the active window as integer
   counters
 - all other non-reserved keys are latest measures
 
@@ -168,14 +172,16 @@ type Row map[string]ScalarValue
 
 type Config struct {
   Source        string
-  WindowSeconds []int
+  WindowSeconds int
   RefreshHz     int
   SpinnerStyle  string
   Columns       []string
+  HistoryRows   int
+  MaxBytes      int
 }
 
 type Engine interface {
-  Add(row Row) ([]Row, error)
+  Add(row Row) (*Row, error)
   Live(nowNanos int64) Row
 }
 ```
@@ -183,10 +189,16 @@ type Engine interface {
 `ScalarValue` is validated at ingest. Nested objects, arrays, structs, and
 non-integer `_inc` values are rejected.
 
-`WindowSeconds` lists all hot aggregate buckets kept in parallel. The initial
-TTY layout assumes `3` and `30`.
+`WindowSeconds` selects the single active aggregate bucket. Changing it resets
+the current bucket state and starts a fresh window.
 
 `Columns` is ordering only. It is not key mapping.
+
+`HistoryRows` bounds the aggregate history cache used for resize reflow.
+
+`MaxBytes` is a hard cap on internal allocation after schema freeze. Rows that
+would exceed the cap, introduce new keys after freeze, or change a key's value
+type are rejected.
 
 `SpinnerStyle` selects `moon`, `braille8`, or `ascii`. The zero value
 defaults to `moon`, but the renderer should fall back to `ascii` when Unicode
@@ -243,26 +255,25 @@ Meaning:
 
 ## Aggregation Model
 
-TicTacTail should keep multiple windows hot and emit rows for every configured
-window on cutover.
+TicTacTail should keep one active aggregate window and emit one row when that
+window closes.
 
 Initial default:
 
-- fast window `3`
-- slow window `30`
+- aggregate window `30`
 
 Behaviour:
 
-- maintain state for configured windows such as `3` and `30`
-- update all hot windows on every sample
-- emit an aggregate row whenever any configured window closes
+- maintain state for one configured window such as `30`
+- update the active window on every sample
+- emit one aggregate row whenever the active window closes
 - stamp emitted rows with raw `win_s`
-- allow renderers to route `3` second rows and `30` second rows into different
-  panes without changing keys
+- if `WindowSeconds` changes, drop the partial bucket, reset measures and
+  counters, and start a fresh window immediately
 
 ### Window Rules
 
-For each window:
+For the active window:
 
 - measure fields keep latest value seen in that window
 - `_inc` fields keep running integer sums in that window
@@ -275,7 +286,8 @@ At cutover:
 
 At live refresh:
 
-- the live row shows the latest unwindowed sample snapshot
+- the live row shows the latest measures plus the current in-window `_inc`
+  counts before flush
 - the live row is not required to carry `win_s`
 
 ## Local Aggregation Implementation
@@ -284,21 +296,31 @@ Use a single-owner aggregation loop.
 
 Suggested model:
 
-- one ingest goroutine owns all window state
+- one ingest goroutine owns schema state and the active window
 - `Add()` forwards rows into that owner
-- the owner updates all hot windows
+- the owner updates the active window
 - the owner publishes immutable live snapshots
 - the renderer reads snapshots at configured refresh cadence
-- the renderer keeps bounded per-window redraw caches for resize handling
+- the renderer keeps one bounded history cache for resize handling
+- startup rows are scanned once to freeze key and type layout before steady
+  state ingest
+- after schema freeze, allocations are fixed and bounded by `MaxBytes`
 
-Per-window state:
+Internal state:
 
 ```go
+type fieldKind uint8
+
+type fieldSpec struct {
+  Key  string
+  Kind fieldKind
+}
+
 type windowState struct {
   WindowSeconds int
   WindowID      int64
-  Latest        map[string]ScalarValue
-  Sums          map[string]int64
+  Latest        []ScalarValue
+  Sums          []int64
 }
 ```
 
@@ -306,22 +328,26 @@ Renderer-side cache:
 
 ```go
 type rowCache struct {
-  WindowSeconds int
-  Rows          []Row // bounded ring buffer, newest last
+  Rows     []Row // bounded ring buffer, newest last
+  Head     int
+  Count    int
+  MaxBytes int
 }
 ```
 
-Use one bounded cache per rendered aggregate bucket, for example `3` and `30`.
-Caches overlap in time and exist only to repopulate panes after resize. Older
-history remains available through terminal scrollback or optional log sinks,
-not by keeping an unbounded in-memory copy.
+The engine freezes a key/type schema during startup, allocates fixed slots for
+measures and counters, and rejects later rows that introduce unknown keys or
+type drift. The history cache is a single bounded ring used only to repaint the
+main pane after resize. Older history remains available through terminal
+scrollback or optional log sinks, not by keeping an unbounded in-memory copy.
 
 Update rule:
 
 - reserved key -> route specially
-- `ts_nanos` -> parse once as `int64` and use as the source of truth
-- key ends in `_inc` -> numeric add into `Sums`
-- otherwise -> overwrite `Latest`
+- `ts_nanos` -> must parse as `int64` and is the source of truth
+- key ends in `_inc` -> numeric add into indexed `Sums`
+- otherwise -> overwrite indexed `Latest`
+- unknown keys or type drift after schema freeze -> reject row
 
 Cutover rule:
 
@@ -334,8 +360,9 @@ Why this is efficient:
 - suffix check only
 - no nested traversal
 - no key mapping
-- renderer can use atomic snapshot copies instead of sharing mutable maps
+- fixed slices after schema freeze instead of unbounded mutable maps
 - resize cost is bounded by cache size rather than replay length
+- no unbounded buffer growth in steady state
 
 ## Rendering Contract
 
@@ -343,20 +370,20 @@ TicTacTail owns the visual contract too.
 
 ### Output Shape
 
-TicTacTail should support both a simple line-oriented stream and a split-pane
+TicTacTail should support both a simple line-oriented stream and a single-pane
 TTY surface.
 
 Default interactive TTY layout:
 
-1. top pane: `30` second aggregates, using the remaining terminal height
-2. middle pane: recent `3` second aggregates, capped at `10` visible rows
-3. lower pane: one-line live snapshot
-4. bottom bar: one-line status/input bar, Vim-like in feel
+1. main pane: aggregate history, using the remaining terminal height
+2. lower row: one-line live snapshot
+3. bottom bar: one-line status bar, status-only in v1
 
-The logical `30` second history is unbounded, but only the rows that fit in the
-available height are visible at once. Bounded per-window caches are used only
-to repaint recent rows after a resize; terminal scrollback or log sinks remain
-the long-lived record.
+Event rows render inline in the main history pane. The logical history is
+unbounded, but only the rows that fit in the available height are visible at
+once. A single bounded cache is used only to repaint recent rows after a
+resize; the renderer uses the normal screen with scrollback rather than an
+alternate screen.
 
 ### Refresh Cadence
 
@@ -370,14 +397,13 @@ Default:
 
 - `20 Hz` for interactive live use
 
-The refresh rate affects only live-pane and status-bar redraw cadence, not
-aggregation math.
-The `3` second and `30` second panes repaint only when new rows arrive or the
-terminal size changes.
+The refresh rate affects only live-row and status-bar redraw cadence, not
+aggregation math. The main pane repaints only when a new aggregate or event row
+arrives or the terminal size changes.
 
 ### Spinner
 
-Spinner frames are configurable for the live pane only.
+Spinner frames are configurable for the live row only.
 
 Default `moon` style:
 
@@ -410,21 +436,20 @@ Persisted history rows keep ANSI colours when stdout is a TTY:
 - yellow for warn
 - red for fail
 
-The live pane uses the selected spinner prefix instead of a coloured status
+The live row uses the selected spinner prefix instead of a coloured status
 dot.
 
 ### Alignment
 
-TicTacTail should align slow history, fast history, and live-pane columns to
-the same row shape where possible.
+TicTacTail should align main history and live-row columns to the same row shape
+where possible.
 
-If panes render:
+If the TTY surface renders:
 
 ```text
-🟢 12:00:30 win_s=30 fr=6014 fps=200 ch=7/19 tr=13 cl=21 fg=6312 bg=41077 st=0.87 dr=0 er=1
-🟢 12:00:27 win_s=3  fr=602  fps=201 ch=7/19 tr=15 cl=24 fg=6620 bg=41201 st=n/a  dr=0 er=0
-🌔 live          frame=6341/18210 fps=201 ch=7/19 tr=15 cl=24 fg=6620 bg=41201 run
--- NORMAL -- src=vrlog q quit / filter
+🟢 12:00:30 fr=6014 fps=200 ch=7/19 tr=13 cl=21 fg=6312 bg=41077 st=0.87 dr=0 er=1
+🌔 live      frame=6341/18210 fr=311 fps=201 ch=7/19 tr=15 cl=24 fg=6620 bg=41201 run
+status src=vrlog win=30 rows=200 tty=on
 ```
 
 This is why alignment logic belongs in TicTacTail rather than the application.
@@ -444,23 +469,21 @@ Examples:
 - `ch_cur` + `ch_tot` -> `ch=7/19`
 - `frame_cur` + `frame_tot` -> `frame=6341/18210`
 - `fr_inc` -> `fr=6014`
-- `win_s` -> `win_s=30`
+- `win_s` -> `win_s=30` when explicitly enabled in the renderer
 
 This is formatting, not key remapping.
 
 ### Resize And Cache Behaviour
 
-The renderer should keep separate bounded caches for each configured aggregate
-window, at least one for `3` second rows and one for `30` second rows.
+The renderer should keep one bounded cache for aggregate history.
 
 Rules:
 
-- the `3` second cache must exceed the visible `10` row pane height
-- the `30` second cache should be bounded by row count or memory budget, never
-  unbounded
-- caches may overlap in time because both windows describe the same source at
-  different granularities
-- a resize should re-slice cached rows into panes without replaying input
+- cache size is fixed at startup from `HistoryRows` and discovered row shape
+- total allocated bytes must stay within `MaxBytes`
+- cache capacity never grows after startup
+- a resize should re-slice cached rows into the main pane without replaying
+  input
 - if the new terminal size exceeds cached history, show the newest rows and
   leave older rows in scrollback
 
@@ -468,14 +491,13 @@ Rules:
 
 If stdout is not a TTY:
 
-- disable the pane compositor
-- emit `3` second rows, `30` second rows, and event rows as line-oriented
-  output
+- disable the TTY compositor
+- emit aggregate rows and event rows as line-oriented output
 - optionally sample live rows at a lower cadence for logs
 
 ## Output Examples
 
-Aggregate row (`30` second bucket):
+Aggregate row (configured bucket, here `30` seconds):
 
 ```json
 {
@@ -498,29 +520,6 @@ Aggregate row (`30` second bucket):
 }
 ```
 
-Aggregate row (`3` second bucket):
-
-```json
-{
-  "kind": "agg",
-  "ts_nanos": 1741435233000000000,
-  "win_s": 3,
-  "sev": "ok",
-  "src": "vrlog",
-  "fr_inc": 602,
-  "fps": 201.0,
-  "ch_cur": 7,
-  "ch_tot": 19,
-  "tr": 15,
-  "cl": 24,
-  "fg": 6620,
-  "bg": 41201,
-  "st": null,
-  "dr_inc": 0,
-  "er_inc": 0
-}
-```
-
 Live row:
 
 ```json
@@ -539,6 +538,7 @@ Live row:
   "fg": 6620,
   "bg": 41201,
   "st": null,
+  "fr_inc": 311,
   "dr_inc": 0,
   "er_inc": 1
 }
@@ -562,35 +562,39 @@ Validate:
 - acceptable live/status responsiveness
 - minimal file-processing overhead as refresh increases
 - stable allocation behaviour
-- predictable resize reflow cost from bounded caches
+- predictable resize reflow cost from one bounded cache
+- no allocation growth after schema freeze
 
 ### Required Benchmarks
 
 - `BenchmarkEngineAdd_FileReplay`
-- `BenchmarkLivePaneRender_5Hz`
-- `BenchmarkLivePaneRender_10Hz`
-- `BenchmarkLivePaneRender_20Hz`
-- `BenchmarkPaneResizeReflow`
+- `BenchmarkLiveRowRender_5Hz`
+- `BenchmarkLiveRowRender_10Hz`
+- `BenchmarkLiveRowRender_20Hz`
+- `BenchmarkMainPaneResizeReflow`
 - `BenchmarkFileReplayWithUI_5Hz`
 - `BenchmarkFileReplayWithUI_10Hz`
 - `BenchmarkFileReplayWithUI_20Hz`
 
 ### Required Tests
 
-- live pane updates at configured cadence
-- `3` second and `30` second rows cut over correctly and independently
+- live row updates at configured cadence
+- aggregate rows cut over correctly for the configured window
+- changing `WindowSeconds` resets current measures and sums
 - `_inc` values reset on cutover
-- measures always reflect latest value in each hot window
-- the `3` second pane never renders more than `10` visible rows
+- measures always reflect the latest value in the active window
+- schema freezes on startup and rejects new keys or type drift
 - resize reflows from cache without replaying the source
 - aggregate rows are identical regardless of `5/10/20 Hz`
+- internal buffers stay within `MaxBytes`
 
 ### Acceptance Criteria
 
 - renderer work stays decoupled from ingest
 - `20 Hz` live/status redraw is responsive
-- panes redraw only on append or resize
+- the main pane redraws only on append or resize
 - bounded caches stay within configured limits
+- no unbounded allocation growth after schema freeze
 - `20 Hz` does not materially distort file replay throughput
 - if it does, file mode gets a lower default refresh than interactive TTY mode
 
@@ -618,17 +622,21 @@ Minimal integration should look like:
 ```go
 tail := tictactail.New(tictactail.Config{
   Source:        "vrlog",
-  WindowSeconds: []int{3, 30},
+  WindowSeconds: 30,
   RefreshHz:     20,
   SpinnerStyle:  "moon",
-  Columns:       []string{"win_s", "fr", "fps", "ch", "tr", "cl", "fg", "bg", "st", "dr", "er"},
+  Columns:       []string{"fr", "fps", "ch", "tr", "cl", "fg", "bg", "st", "dr", "er"},
+  HistoryRows:   200,
+  MaxBytes:      1 << 20,
 })
 ```
 
-The initial renderer then places `30` second rows in the long-history pane and
-`3` second rows in the recent pane.
+The renderer then shows aggregate history in the main pane, one live row, and
+one status bar.
 
-Then the adapter just feeds projected samples and starts the renderer.
+Then the adapter just feeds projected samples and starts the renderer. If the
+adapter changes `WindowSeconds`, the engine resets the current bucket and
+starts a fresh one.
 
 ## Complexity Review
 
@@ -638,41 +646,37 @@ Then the adapter just feeds projected samples and starts the renderer.
 - raw `ts_nanos` plus scalar values keep the wire shape simple and language
   neutral
 - integer counters avoid accidental floating-point drift in aggregate totals
-- concurrent `3` second and `30` second buckets support fast and slow views at
-  the same time
-- bounded caches let the UI recover from terminal resizes without replaying the
-  source
+- a single active window keeps the public API and renderer simpler
+- bounded caches and fixed allocations reduce leak risk and make memory use
+  predictable
+- normal-screen rendering keeps scrollback available without extra TTY policy
 
 ### Costs And Shortcomings
 
 - the public row contract is still runtime-validated rather than compile-time
   enforced
-- split-pane terminal UI is materially more complex than a simple footer-only
-  tail UI
+- startup schema freeze means unexpected new keys or type changes require a
+  restart or explicit reinitialisation
 - bounded caches improve resize behaviour but cannot recreate arbitrarily old
   history after a large resize
-- keeping multiple hot windows and redraw caches increases memory pressure
-- a generic library can easily grow too much UI policy if pane behaviour is not
-  kept disciplined
+- a single-window design trades some flexibility for a smaller, safer surface
+- a generic library can still grow too much UI policy if renderer options are
+  not kept disciplined
 
-### Questions To Resolve
+### Resolved V1 Decisions
 
-- should `ts_nanos` be mandatory on every input row, or may adapters stamp it
-  if the source omits it?
-- should live rows remain strictly unwindowed, or may they optionally expose
-  running `3` second / `30` second counters too?
-- what cache budget should each window get: fixed rows, fixed bytes, or dynamic
-  by terminal size?
-- should the bottom status/input bar accept commands in v1, or remain
-  status-only until later?
-- should pane mode use the normal screen with scrollback, or an alternate
-  screen when interactive input is enabled?
-- how should immediate event rows appear when panes are active: inline,
-  transient overlay, or a dedicated event lane?
-- should `win_s` always be visible in rendered aggregate rows, or may some
-  consumers hide it when pane position already implies the bucket?
-- where is the boundary between generic pane policy in `tictactail` and
-  application-specific behaviour in the adapter?
+- `ts_nanos` is mandatory on every input row.
+- the live row shows latest measures plus current in-window counts before
+  flush.
+- cache size is fixed at startup from configured row count and discovered row
+  shape, with a hard byte ceiling.
+- the bottom bar is status-only in v1.
+- the TTY surface uses the normal screen with scrollback.
+- immediate event rows render inline in the single main pane.
+- rendered rows do not need to show `win_s` by default when one window is
+  active.
+- the library should provide a small set of safe renderer and cache options,
+  while adapters own app-specific wiring, commands, and payload meaning.
 
 ## Likely Consumers
 
@@ -682,9 +686,11 @@ Beyond VRLOG:
 - sweep progress tails
 - deploy progress / health tails
 - transit rebuild tails
-- generic operator CLIs with history + live panes
+- generic operator CLIs with history + live row output
 
 ## Recommendation
 
-Adopt `TicTacTail` as the working package/repo name, move all visual/tail/live
-contract details here, and keep VRLOG as a thin emitter/projector on top.
+Adopt `TicTacTail` as the working package/repo name, keep the first version to
+one active aggregate window and one main pane, keep the API small, and keep
+memory and buffer use strictly bounded. VRLOG should remain a thin
+emitter/projector on top.
