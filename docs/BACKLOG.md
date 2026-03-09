@@ -9,29 +9,27 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v0.5.0 (Platform Hardening)
 
 - v0.5.0 backward compatibility shim removal — report download URL migration, `BackgroundCell` legacy TS fields, bare-array stats cache fallback, sweep dashboard legacy field names, Python legacy stats format / config dict helpers / pylatex stubs, macOS legacy playback mode — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
-- Visualiser track proto parity — rename `peak_speed_mps` → `max_speed_mps` (D-19), back out branch-local percentile fields, regenerate proto bindings (Go + Swift) — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
-- v0.5.0 breaking changes — `transit-backfill` soft-deprecation notice, breaking-changes release notes — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
-- Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
-- Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
-- Layer dependency hygiene — move `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fix L1→L4 and L3→L4 import violations (~15 prod files, ~6 test files) — [design doc](plans/lidar-layer-dependency-hygiene-plan.md) `M`
 - Schema simplification (migration 000030) — drop dead per-track percentile columns (`p50/p85/p95_speed_mps`), drop always-NULL quality columns from `lidar_tracks`, rename `peak_speed_mps` → `max_speed_mps` on both track tables — [design doc](plans/schema-simplification-migration-030-plan.md) `M`
+- Visualiser track proto parity — rename `peak_speed_mps` → `max_speed_mps` (D-19), back out branch-local percentile fields, regenerate proto bindings (Go + Swift) — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
+- Layer dependency hygiene — move `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fix L1→L4 and L3→L4 import violations (~15 prod files, ~6 test files) — [design doc](plans/lidar-layer-dependency-hygiene-plan.md) `M`
+- v0.5.0 breaking changes — `transit-backfill` soft-deprecation notice, breaking-changes release notes — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
+- Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
+- Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 
 ## v0.5.1 (Product)
 
 - [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
-- Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
-- Visualiser performance and scene health metrics — timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
+- L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-client-plan.md) `L`
 - SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardization-plan.md) `M`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
-- L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-client-plan.md) `L`
 
 ## v0.5.2 (Debug)
 
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
-- Visualiser performance and scene health metrics — timeline and VR log metrics — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
+- Visualiser performance and scene health metrics — timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - Visualiser debug overlay + cluster proto follow-through — finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 
 ## v0.6 (Deployment & Packaging)
@@ -85,7 +83,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
 - E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md) `M`
 
-## v1.0 (?? Scene + Algo)
+## v1.0 (Vector Scene + VC)
 
 - L7 Scene layer — persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture — [design doc](plans/lidar-l7-scene-plan.md) `XL`
 - Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
