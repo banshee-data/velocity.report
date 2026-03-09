@@ -303,6 +303,12 @@ export interface AnalysisRun {
 	error_message?: string;
 	parent_run_id?: string;
 	notes?: string;
+	label_rollup?: {
+		total: number;
+		classified: number;
+		tagged_only: number;
+		unlabelled: number;
+	};
 }
 
 /** Run track with labelling fields */
@@ -337,6 +343,12 @@ export interface LabellingProgress {
 	labelled: number;
 	progress_pct: number;
 	by_class: Record<string, number>;
+	label_rollup?: {
+		total: number;
+		classified: number;
+		tagged_only: number;
+		unlabelled: number;
+	};
 }
 
 /** Missed region: area where an object should have been tracked but wasn't */
