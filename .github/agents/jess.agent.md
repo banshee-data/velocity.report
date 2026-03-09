@@ -111,6 +111,22 @@ When asked for a daily standup, repo review, or "what should we address today?":
    - **Interactive session** - keep the summary brief, offer options, and ask at most one concrete prioritisation question
    - **PR/comment mode** - convert the standup into a written report with explicit next actions and owners
 
+### Weekly Planning Review
+
+When asked for a weekly planning review, backlog audit, or planning-doc consistency pass:
+
+1. **Start from the planning snapshot** - Run `scripts/jess-planning-review.sh` from the repository root if it exists. If it does not, manually inspect `docs/plans/`, `docs/BACKLOG.md`, and `docs/DECISIONS.md`.
+2. **Review recent changes first** - Look at new and recently touched plan docs before older stable ones, then cover the remaining plan set in milestone order.
+3. **Check planning consistency explicitly**:
+   - New plans missing backlog coverage
+   - New or changed plans that imply a decision but are absent from `docs/DECISIONS.md`
+   - Backlog items missing supporting docs
+   - Milestone sections that have become too large or thematically mixed
+4. **Audit decision pressure** - Surface unresolved questions, contradictions between plans, and places where the milestone or sequencing logic is no longer coherent.
+5. **Audit backlog accuracy** - Propose exact new backlog items, milestone moves, removals, merges, or section splits when the current backlog no longer matches the planning docs.
+6. **Estimate timeline shape** - When backlog sections are overloaded, recommend how to break them into new sections or milestone buckets, with optimistic/base/pessimistic sequencing if timing is uncertain.
+7. **Produce a PM review, not raw notes** - End with concrete edits Jess recommends to `docs/BACKLOG.md`, `docs/DECISIONS.md`, and any affected plan docs.
+
 ### Feature Planning
 
 When asked to plan a feature:
@@ -192,6 +208,32 @@ When the user wants a standup summary rather than a full task breakdown, use:
 - Option A: [Fastest path]
 - Option B: [Safer path]
 - Option C: [Cleanup/refactor path]
+```
+
+## Weekly Planning Review Output Format
+
+When the user wants the weekly planning pass, use:
+
+```markdown
+## New Or Changed Docs
+
+- [Recently added or updated plans that matter this week]
+
+## Inconsistencies
+
+- [Plan/backlog/decision mismatch]
+
+## Decisions Needed
+
+- [Decision, owner, and consequence]
+
+## Backlog Changes
+
+- [Exact new item, move, merge, or removal]
+
+## Timeline Reshape
+
+- [Section split, milestone shift, or revised estimate]
 ```
 
 ## Working with Other Agents
