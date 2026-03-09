@@ -56,6 +56,13 @@ func isNilInterface(i interface{}) bool {
 // backward-compatible alias packages.
 var IsNilInterface = isNilInterface
 
+// heapBytes returns the current heap allocation in bytes.
+func heapBytes() uint64 {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return m.HeapAlloc
+}
+
 // ---------------------------------------------------------------------------
 // Stage interfaces — layer-aligned contracts for the tracking pipeline.
 //
@@ -394,9 +401,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					if p95Idx >= len(window) {
 						p95Idx = len(window) - 1
 					}
-					opsf("[Benchmark] health: processed=%d throttled=%d mean=%.1fms p95=%.1fms goroutines=%d",
+					opsf("[Benchmark] health: processed=%d throttled=%d mean=%.1fms p95=%.1fms heap=%.1fMB goroutines=%d",
 						processedFrameCount, throttledFrames.Load(), mean, window[p95Idx],
-						runtime.NumGoroutine())
+						float64(heapBytes())/1024/1024, runtime.NumGoroutine())
 				}
 
 				// Lag tracking: detect when processing falls behind frame arrival rate
