@@ -62,9 +62,15 @@ pushed to a channel (capacity **32**).
 | Non-blocking (default) | `select` on channel; drops if full | Yes — at burst speeds     |
 | Blocking (`analysis`)  | Blocks until pipeline accepts      | None — full back-pressure |
 
-**Quality impact:** Dropped frames = missed observations for the tracker.
-A track with `MaxMisses=3` (tentative) can be deleted by just 3 consecutive
-drops. In non-blocking mode at >1x speeds, burst drops are likely.
+**Quality impact:** Dropped frames never reach `Tracker.Update()`, so they do
+**not** increment the miss counter or directly consume the miss budget.
+The actual risk is observational: the tracker receives no data for those frames,
+so fast-moving objects may travel beyond the gating radius during the gap,
+causing association failure on the next processed frame (which _does_ increment
+misses). In non-blocking mode at >1x speeds, burst drops are likely, and a
+sustained burst can produce enough consecutive association failures to delete
+a tentative track (`MaxMisses=3`). This is distinct from processed-but-
+unassociated frames, where `AdvanceMisses()` is called explicitly.
 
 ### 3. MaxFrameRate Throttle (`tracking_pipeline.go:323–343`)
 
@@ -109,16 +115,23 @@ Clamped at `MaxPredictDt=0.5s` to prevent covariance explosion.
 
 **How speed affects dt:**
 
-- **Analysis mode + throttle:** Throttled frames don't call `Tracker.Update`, so
-  `LastUpdateNanos` isn't advanced. When the next frame passes the throttle,
-  `dt` = time since last processed frame. At 25fps cap, dt ~40ms regardless
-  of replay speed.
-- **Realtime/Scaled mode + drops:** If FrameBuilder drops frames, dt stretches.
-  At 2x speed with occasional drops, dt might jump to 100-200ms, widening the
-  gating ellipse and increasing the chance of mis-association.
-- **Sub-1x speeds:** dt is smaller than real-time (e.g. ~100ms at 0.5x with
-  10Hz sensor). This tightens gating — good for accuracy, but could miss
-  legitimate fast-moving objects at the edge of the gate.
+- **Analysis mode + throttle:** `dt` is computed from PCAP capture timestamps,
+  not wall-clock time. When the throttle skips N frames, the next processed
+  frame's capture timestamp jumps by N × sensor cadence (e.g. 5 skipped frames
+  at 10 Hz → dt = 500 ms before clamping). `MaxPredictDt=0.5s` caps the actual
+  predict step, but the gap still means the track coasts further between
+  observations. At a 25 fps throttle cap with a 10 Hz sensor, no frames are
+  skipped (sensor rate < cap), so dt ≈ 100 ms. At higher effective frame rates
+  (e.g. analysis processing a 20 Hz sensor), the throttle skips every other
+  frame, doubling dt to ~100 ms.
+- **Realtime/Scaled mode + drops:** Dropped frames are invisible to the tracker.
+  The next delivered frame's capture timestamp jumps by the drop gap, stretching
+  dt. At 2× speed with occasional drops, dt might reach 200-400 ms (then
+  clamped), widening the gating ellipse and increasing mis-association risk.
+- **Sub-1x speeds:** dt is unchanged — it reflects the fixed sensor cadence
+  in the PCAP capture timestamps (e.g. ~100 ms at 10 Hz), regardless of
+  wall-clock replay speed. Gating behaves identically to 1× for the same
+  sensor.
 
 **The predict step uses dt:**
 
