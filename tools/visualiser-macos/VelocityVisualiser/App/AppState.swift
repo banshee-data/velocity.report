@@ -271,6 +271,7 @@ private let logger = DevLogger(category: "AppState")
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
     private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
+    let runBrowserState = RunBrowserState()
     private var queuedSeekProgress: Double?
     private var playbackStateGeneration: UInt64 = 0
     private var lastSeenReplayEpoch: UInt64 = 0
@@ -968,6 +969,8 @@ private let logger = DevLogger(category: "AppState")
                 if let runID = currentRunID {
                     _ = try await runTrackLabelClient.updateLabel(
                         runID: runID, trackID: trackID, userLabel: label)
+                    runBrowserState.applySuccessfulLabelUpdate(
+                        runID: runID, trackID: trackID, userLabel: label)
                     logger.info(
                         "Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
                 } else {
@@ -994,6 +997,8 @@ private let logger = DevLogger(category: "AppState")
                 do {
                     if let runID = currentRunID {
                         _ = try await runTrackLabelClient.updateLabel(
+                            runID: runID, trackID: track.trackID, userLabel: label)
+                        runBrowserState.applySuccessfulLabelUpdate(
                             runID: runID, trackID: track.trackID, userLabel: label)
                     } else {
                         _ = try await labelClient.createLabel(
@@ -1022,6 +1027,8 @@ private let logger = DevLogger(category: "AppState")
         Task {
             do {
                 _ = try await runTrackLabelClient.updateLabel(
+                    runID: runID, trackID: trackID, qualityLabel: quality)
+                runBrowserState.applySuccessfulLabelUpdate(
                     runID: runID, trackID: trackID, qualityLabel: quality)
                 logger.info("Quality '\(quality)' saved for track \(trackID)")
             } catch { logger.error("Failed to save quality: \(error.localizedDescription)") }
