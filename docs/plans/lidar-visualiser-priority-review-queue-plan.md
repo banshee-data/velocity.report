@@ -1,6 +1,7 @@
 # Design: Priority Review Queue by Uncertainty and Impact (Feature 8)
 
 **Status:** Proposed (February 2026)
+**Layers:** L9 Endpoints
 
 ## Objective
 

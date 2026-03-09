@@ -1,6 +1,7 @@
 # v0.5.0 Backward Compatibility Shim Removal Plan
 
 **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
+**Layers:** Cross-cutting (API, protobuf, database)
 **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
 ## Status: In Progress

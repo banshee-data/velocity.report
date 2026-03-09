@@ -1,6 +1,7 @@
 # Design: Ghost Trails and Velocity Uncertainty Cones (Feature 5)
 
 **Status:** Proposed (February 2026)
+**Layers:** L9 Endpoints, L10 Client
 
 ## Objective
 

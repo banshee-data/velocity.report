@@ -1,6 +1,7 @@
 # Design: Timeline Event Bar (Feature 2)
 
 **Status:** Proposed (February 2026)
+**Layers:** L9 Endpoints
 
 ## Objective
 

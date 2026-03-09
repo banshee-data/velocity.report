@@ -1,5 +1,7 @@
 # LiDAR Foundations Fix-It Plan
 
+**Layers:** Cross-cutting (documentation and configuration)
+
 Planned follow-up execution to align LiDAR documentation with implementation truth and close outstanding foundation gaps.
 
 ## Phase 1: Documentation Truth Alignment

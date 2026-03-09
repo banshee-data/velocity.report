@@ -1,6 +1,7 @@
 # Motion Capture Architecture - Future Specification
 
 **Status:** Future Work (Not in Current Release)
+**Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks
 **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)
 **Purpose:** Long-term architecture specification for motion capture scenarios
 

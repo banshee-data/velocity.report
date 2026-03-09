@@ -2,6 +2,7 @@
 
 **Document Version:** 1.0
 **Status:** Proposed Architecture
+**Layers:** Cross-cutting (deployment infrastructure)
 
 ---
 

@@ -2,6 +2,8 @@
 
 ## Status: Approved (Phase 1 complete)
 
+**Layers:** Cross-cutting (platform)
+
 ## Goal
 
 Create a single, prioritised plan to reduce non-core operational surface area and

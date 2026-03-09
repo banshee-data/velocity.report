@@ -1,6 +1,7 @@
 # PDF Generation Migration to Go
 
 **Status:** Draft — awaiting review before implementation
+**Layers:** Cross-cutting (reporting infrastructure)
 **Related Documents:**
 
 - [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (D-08)

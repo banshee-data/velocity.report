@@ -75,6 +75,8 @@ The production pipeline uses four math-heavy layers:
   — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
 - [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
   — Overlap analysis, interference risks, and a single-settlement architecture with shared lifecycle per surface-region key.
+- Bodies in Motion Maths (proposal — to be written)
+  — CA/CTRV state equations, IMM blending and transition matrix, corridor probability model, sparse-cluster gating extensions, and scene-graph relation confidence accumulation. [Design doc](../plans/lidar-bodies-in-motion-plan.md).
 
 ---
 

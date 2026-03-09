@@ -1,6 +1,7 @@
 # Velocity-Coherent Foreground Extraction
 
 **Status:** Implementation In Progress (Core Phases 1–5 Simplified; Phases 0, 6–7 Pending)
+**Layers:** L3 Grid, L4 Perception
 **Original Design Date:** December 15, 2025
 **Plan Version:** 2.0 (February 21, 2026)
 **Author:** Ictinus (Product Architecture Agent)

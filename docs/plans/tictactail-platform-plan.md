@@ -1,5 +1,7 @@
 # TicTacTail Platform Plan
 
+**Layers:** Cross-cutting (platform library)
+
 ## Working Name
 
 Selected working name: `TicTacTail`

@@ -1,5 +1,6 @@
 # Coverage Improvement Plan: 95.5% Target
 
+**Layers:** Cross-cutting (testing infrastructure)
 **Goal:** Raise every `internal/`, web, Python, and macOS package/module/file
 to ≥ 95.5% line coverage.
 

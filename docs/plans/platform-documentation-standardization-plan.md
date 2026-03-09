@@ -1,5 +1,7 @@
 # Documentation Standardization Plan
 
+**Layers:** Cross-cutting (documentation)
+
 Controlled process to stabilise documentation structure and metadata quality by reconciling branch drift against main, preserving authoritative summaries, and enforcing repeatable review gates.
 
 ## 1. Objective

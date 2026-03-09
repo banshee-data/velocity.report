@@ -1,6 +1,7 @@
 # Design: Performance and Scene Health Metrics in Timeline and VR Logs
 
 **Status:** Proposed (February 2026)
+**Layers:** L8 Analytics, L9 Endpoints
 
 ## Objective
 
