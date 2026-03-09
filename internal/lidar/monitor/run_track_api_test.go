@@ -309,6 +309,22 @@ func TestListRuns(t *testing.T) {
 	if int(count) != 3 {
 		t.Errorf("expected 3 runs, got %d", int(count))
 	}
+
+	runsResult, ok := result["runs"].([]interface{})
+	if !ok || len(runsResult) == 0 {
+		t.Fatalf("expected runs array in response, got %T", result["runs"])
+	}
+	firstRun, ok := runsResult[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected first run object, got %T", runsResult[0])
+	}
+	rollup, ok := firstRun["label_rollup"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected label_rollup object, got %T", firstRun["label_rollup"])
+	}
+	if int(rollup["total"].(float64)) != 3 {
+		t.Errorf("expected label_rollup total 3, got %v", rollup["total"])
+	}
 }
 
 // TestLabellingProgress tests the labelling progress endpoint
@@ -320,9 +336,12 @@ func TestLabellingProgress(t *testing.T) {
 	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
-	// Label one track
+	// Label one track and add quality-only feedback to another.
 	if err := store.UpdateTrackLabel(runID, "track-001", "car", "good", 0.95, "test-user", "human_manual"); err != nil {
 		t.Fatalf("failed to label track: %v", err)
+	}
+	if err := store.UpdateTrackLabel(runID, "track-002", "", "noisy", 0.95, "test-user", "human_manual"); err != nil {
+		t.Fatalf("failed to add quality label: %v", err)
 	}
 
 	testDB := &db.DB{DB: sqlDB}
@@ -352,8 +371,8 @@ func TestLabellingProgress(t *testing.T) {
 	}
 
 	labelled, ok := result["labelled"].(float64)
-	if !ok || int(labelled) != 1 {
-		t.Errorf("expected labelled 1, got %v", result["labelled"])
+	if !ok || int(labelled) != 2 {
+		t.Errorf("expected labelled 2, got %v", result["labelled"])
 	}
 
 	progressPct, ok := result["progress_pct"].(float64)
@@ -361,7 +380,7 @@ func TestLabellingProgress(t *testing.T) {
 		t.Fatalf("expected progress_pct to be a number, got %T", result["progress_pct"])
 	}
 
-	expectedPct := 100.0 / 3.0 // 1 out of 3 tracks labelled
+	expectedPct := 200.0 / 3.0 // 2 out of 3 tracks labelled
 	if progressPct < expectedPct-0.1 || progressPct > expectedPct+0.1 {
 		t.Errorf("expected progress_pct ~%.2f%%, got %.2f%%", expectedPct, progressPct)
 	}
@@ -374,6 +393,20 @@ func TestLabellingProgress(t *testing.T) {
 	goodVehicleCount, ok := byClass["car"].(float64)
 	if !ok || int(goodVehicleCount) != 1 {
 		t.Errorf("expected car count 1, got %v", byClass["car"])
+	}
+
+	rollup, ok := result["label_rollup"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected label_rollup to be a map, got %T", result["label_rollup"])
+	}
+	if int(rollup["classified"].(float64)) != 1 {
+		t.Errorf("expected classified 1, got %v", rollup["classified"])
+	}
+	if int(rollup["tagged_only"].(float64)) != 1 {
+		t.Errorf("expected tagged_only 1, got %v", rollup["tagged_only"])
+	}
+	if int(rollup["unlabelled"].(float64)) != 1 {
+		t.Errorf("expected unlabelled 1, got %v", rollup["unlabelled"])
 	}
 }
 
