@@ -186,7 +186,13 @@ func (ws *WebServer) handleAutoTuneResume(w http.ResponseWriter, r *http.Request
 		SweepID string `json:"sweep_id"`
 	}
 	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&body) // ignore decode errors for backwards compat
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			// Allow empty body (io.EOF), but reject malformed JSON.
+			if !errors.Is(err, io.EOF) {
+				ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+				return
+			}
+		}
 	}
 
 	if err := ws.autoTuneRunner.Resume(context.Background(), body.SweepID); err != nil {
