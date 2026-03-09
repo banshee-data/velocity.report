@@ -152,7 +152,9 @@ The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-in
 1. Build a complete Raspberry Pi image: `make build-image` (planned)
 2. Flash the image to an SD card using Raspberry Pi Imager or `dd`
 3. Boot the Pi — the service starts automatically with all dependencies pre-installed
-4. Upgrade by re-flashing a new image or using an over-the-air update mechanism (TBD)
+4. Upgrade by re-flashing a new image. Over-the-air updates are explicitly
+   deferred to a later milestone and are not part of the current replacement
+   workflow.
 
 ### Transition period
 

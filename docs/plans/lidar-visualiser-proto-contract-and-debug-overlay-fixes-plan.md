@@ -1,8 +1,8 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Partially implemented — debug overlay and field-parity work remain valid; the superseded track speed-label expansion should not merge
+**Status:** Partially implemented — Track field parity, ObjectClass enum, and speed summary rename are complete; debug overlay serialization, cluster proto serialization, and positive end-to-end serializer tests remain
 **Layers:** L9 Endpoints
-**Scope:** gRPC/protobuf contract parity for visualiser streaming and debug overlays before `v0.5.0`; track-level speed metric redesign is now separate work
+**Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
 **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 
 **Update (March 8, 2026):** The speed-summary portion of this plan is
@@ -188,13 +188,17 @@ should not be treated as the merge target for the visualiser contract.
 
 ### Phase B: Overlay mode behavior (P1)
 
-1. Decide whether `SetOverlayModes(...)` should:
-   - filter server payload emission, or
-   - remain client-side only and be documented as advisory.
-2. If server-side filtering is implemented, apply stored preferences in
-   `frameBundleToProto(...)` / stream path for debug subsets.
-3. If not implemented immediately, downgrade `supports_debug` claims or document
-   capability granularity clearly.
+Decision recorded in [DECISIONS.md](../DECISIONS.md): `include_debug` gates
+whether debug payloads are emitted by the server. `SetOverlayModes(...)`
+remains client-side/advisory and does not drive server-side subset filtering.
+
+1. Gate `FrameBundle.debug` serialization strictly on
+   `StreamRequest.include_debug`.
+2. Do not apply stored overlay preferences in `frameBundleToProto(...)` or the
+   stream path; the client is responsible for filtering/rendering overlay
+   subsets locally.
+3. Document `supports_debug` as stream-level capability, not per-overlay
+   server-side filtering support.
 
 ### Phase C: Track speed summary schema (Superseded - do not merge)
 
@@ -250,9 +254,9 @@ should not be treated as the merge target for the visualiser contract.
    regenerated together.
 2. Percentile method consistency:
    `p98` may differ slightly between floor-index and interpolated definitions.
-3. Overlay mode scope:
-   server-side filtering may be unnecessary if renderer-side toggles are already
-   sufficient, but proto/API naming should then be clarified.
+3. Capability wording:
+   `supports_debug` and overlay-mode docs must make the client-side/advisory
+   behavior explicit to avoid implying server-side subset filtering.
 
 ## 9. Task Checklist
 

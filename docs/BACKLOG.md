@@ -20,6 +20,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts
 - L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-client-plan.md) `L`
+- Visualiser debug overlay + cluster proto follow-through — finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serializer tests before `v0.5.0` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 
 ## v0.6 (Deployment & Packaging)
 
