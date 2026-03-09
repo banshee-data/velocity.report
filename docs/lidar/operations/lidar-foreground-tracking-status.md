@@ -131,6 +131,6 @@ warmupMultiplier = 1.0 + 3.0 * (100 - count) / 100
 
 See [LiDAR Pipeline Reference](../architecture/lidar-pipeline-reference.md) for Phase 4.0+ features:
 
-- Track labeling UI
+- Track labelling UI
 - Optional classification benchmarking
 - Parameter optimisation with grid search

@@ -34,7 +34,7 @@ To keep foundations stable, split into two independent workstreams with one narr
 Owns:
 
 - L3 cell settlement/reliability model
-- region adaptation behavior
+- region adaptation behaviour
 - future L4 ground-surface/vector-scene representations
 
 Must not depend on:
@@ -72,7 +72,7 @@ Use a single foreground extractor contract:
 - input: frame points + timestamp
 - output: foreground mask + extractor metrics
 
-Pipeline keeps downstream behavior identical (transform, ground filter, clustering, tracking, persistence) and swaps only the foreground source.
+Pipeline keeps downstream behaviour identical (transform, ground filter, clustering, tracking, persistence) and swaps only the foreground source.
 
 ## 3. Gaps Found
 
@@ -80,12 +80,12 @@ Pipeline keeps downstream behavior identical (transform, ground filter, clusteri
 
 Resolution:
 
-- `ProcessFramePolarWithMask` now applies per-region overrides for noise, neighbor confirmation, and settle alpha (`internal/lidar/l3grid/foreground.go`).
+- `ProcessFramePolarWithMask` now applies per-region overrides for noise, neighbour confirmation, and settle alpha (`internal/lidar/l3grid/foreground.go`).
 - Added regression test: `internal/lidar/l3grid/foreground_test.go`.
 
 Impact:
 
-- Production behavior now aligns with adaptive-region maths and operations docs.
+- Production behaviour now aligns with adaptive-region maths and operations docs.
 
 ### [High] Velocity-coherent design docs and code state are inconsistent/fragmented
 
@@ -151,7 +151,7 @@ Evidence:
 
 - snapshot-id export path returns not implemented (`internal/lidar/monitor/export_handlers.go:28`).
 - track point-cloud export placeholders (`internal/lidar/adapters/track_export.go:62`, `internal/lidar/adapters/track_export.go:208`).
-- recorder still uses JSON placeholder serialization and linear seek (`internal/lidar/visualiser/recorder/recorder.go:121`, `internal/lidar/visualiser/recorder/recorder.go:361`).
+- recorder still uses JSON placeholder serialisation and linear seek (`internal/lidar/visualiser/recorder/recorder.go:121`, `internal/lidar/visualiser/recorder/recorder.go:361`).
 
 Impact:
 

@@ -269,6 +269,6 @@ Note on naming: this repository does **not** contain a `config/tracking.json` fi
 
 ## What Is Intentionally Not Here
 
-- Endpoint contracts, serialization schemas, and UI payload shaping.
+- Endpoint contracts, serialisation schemas, and UI payload shaping.
 - Storage-oriented table/column walkthroughs unless mathematically required.
 - Feature backlog and implementation scheduling (kept in plans/architecture docs).

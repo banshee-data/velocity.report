@@ -57,7 +57,7 @@ This design incorporates security fixes for critical vulnerabilities identified 
 
 ### Overview
 
-This design implements defense-in-depth security measures to protect against common attack vectors in partition management and USB storage operations. All security fixes are marked with CVE references in the code sections below.
+This design implements defence-in-depth security measures to protect against common attack vectors in partition management and USB storage operations. All security fixes are marked with CVE references in the code sections below.
 
 ### Critical Security Fixes
 
@@ -471,7 +471,7 @@ CREATE VIEW radar_data_all AS
 -- radar_data_transits_all
 ```
 
-**Query Optimization:**
+**Query Optimisation:**
 
 ```sql
 -- SQLite query planner uses WHERE clauses to skip irrelevant partitions
@@ -1407,7 +1407,7 @@ These API endpoints are designed for future web UI development:
 - Visual timeline of partitions (attached vs available)
 - Drag-and-drop attach/detach interface
 - Progress bars for consolidation jobs
-- Disk space visualization (tiered storage)
+- Disk space visualisation (tiered storage)
 - Query performance metrics per partition
 
 **Consolidation Wizard:**
@@ -2434,7 +2434,7 @@ To manage the scope of this architecture, the implementation is divided into **5
 
 - `radar_data_transits` sessionization may span partition boundaries
 - Late-arriving sessionization updates need handling
-- Trade-off: include derived tables in partition vs keep centralized
+- Trade-off: include derived tables in partition vs keep centralised
 
 ---
 
@@ -2501,7 +2501,7 @@ CREATE TABLE radar_data_2025_01 PARTITION OF radar_data
 
 **Pros:**
 
-- Optimized for time-series data
+- Optimised for time-series data
 - Built-in downsampling and retention policies
 - Compression and aggregation features
 
@@ -2759,7 +2759,7 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
 1. Implement partition rotation logic in Go
 2. Test with synthetic data (simulated months of readings)
 3. Benchmark query performance (single-file vs partitioned)
-4. Validate union view query planner behavior
+4. Validate union view query planner behaviour
 5. Test failure scenarios (rotation failure, corruption)
 
 **Deliverables:**
@@ -2782,7 +2782,7 @@ func QueryCompressedPartition(partitionPath string) (*sql.DB, error) {
 
 **Backward Compatibility:**
 
-- Default: disabled (single-file behavior)
+- Default: disabled (single-file behaviour)
 - Flag-enabled: partitioning active
 - Rollback: disable flag, union views continue to work
 
@@ -2936,7 +2936,7 @@ WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
 **Current:** ⚠️ Slow due to large database size
 **Partitioned:** ⚠️ Slower due to 12 partitions, but predictable
 
-**Query Optimization Strategies:**
+**Query Optimisation Strategies:**
 
 1. **Partition Pruning:** WHERE clauses with time ranges skip irrelevant partitions
 2. **Indexed Timestamps:** Each partition has index on `write_timestamp`
@@ -3276,7 +3276,7 @@ func PreflightChecks() error {
    - **Proposal:** Start with monthly, add quarterly as option
 
 2. **Derived Tables in Partitions:**
-   - **Question:** Include `radar_data_transits` in partitions or keep centralized?
+   - **Question:** Include `radar_data_transits` in partitions or keep centralised?
    - **Trade-off:** Simplicity vs late-arriving sessionization updates
    - **Proposal:** Include in partitions, accept rare update failures
 
@@ -3327,7 +3327,7 @@ func PreflightChecks() error {
 - [ATTACH DATABASE](https://www.sqlite.org/lang_attach.html)
 - [Limits: Maximum Number of Attached Databases](https://www.sqlite.org/limits.html#max_attached)
 - [Write-Ahead Logging (WAL)](https://www.sqlite.org/wal.html)
-- [Query Planning and Optimization](https://www.sqlite.org/queryplanner.html)
+- [Query Planning and Optimisation](https://www.sqlite.org/queryplanner.html)
 
 ### Partitioning Patterns
 

@@ -9,7 +9,7 @@
 The repository currently has **two conflicting Python virtual environment approaches**:
 
 1. **Root-level venv** (`.venv/`) - Intended for shared use by all Python tools
-   - Referenced by: Makefile data visualization targets, `scripts/venv-init.sh`, `scripts/install-data-deps.sh`
+   - Referenced by: Makefile data visualisation targets, `scripts/venv-init.sh`, `scripts/install-data-deps.sh`
    - Used by: `data/multisweep-graph/`, plotting scripts
    - **Issue**: Not created by main setup workflows
 
@@ -271,7 +271,7 @@ Replace Python setup section:
 ````markdown
 ### Python Development
 
-The repository uses a **single shared Python virtual environment** for all Python tools (PDF generator, data visualization, analysis scripts).
+The repository uses a **single shared Python virtual environment** for all Python tools (PDF generator, data visualisation, analysis scripts).
 
 **Setup:**
 
@@ -290,7 +290,7 @@ source .venv/bin/activate
 
 - PDF generation: PyLaTeX, reportlab
 - Data analysis: pandas, numpy, scipy
-- Visualization: matplotlib, seaborn
+- Visualisation: matplotlib, seaborn
 - Testing: pytest, pytest-cov
 - Formatting: black, ruff
 
@@ -403,7 +403,7 @@ make install-python
 make pdf-config
 make pdf-test
 
-# Data visualization (need test data)
+# Data visualisation (need test data)
 make plot-noise-sweep FILE=test.csv
 make plot-multisweep FILE=test.csv
 

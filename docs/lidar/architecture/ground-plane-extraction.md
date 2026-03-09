@@ -73,7 +73,7 @@ Both methods support **online updates** without storing all historical points, e
 
 **Rationale for local fitting:**
 
-- San Francisco's streets have **known high-curvature zones** (steep hills, curved intersections). A global plane solver would fail or require expensive iterative optimization.
+- San Francisco's streets have **known high-curvature zones** (steep hills, curved intersections). A global plane solver would fail or require expensive iterative optimisation.
 - Local tiles can have different Z-heights and orientations (e.g., driveway ramps, kerbs, speed humps).
 - Independent tile fitting is **parallelizable** and **incrementally updatable**, matching the streaming data model.
 
@@ -285,7 +285,7 @@ EMPTY → ACCUMULATING → SETTLED → LOCKED_BASELINE
 Tiles settle **independently**; there is no spatial coupling during convergence. However, a tile's **confidence score** can inform its neighbours:
 
 - If a tile has high planarity and many observations, adjacent tiles can seed their plane normals from the settled neighbour (orientation hint) to accelerate convergence.
-- This is an **optional optimization** and not required for correctness.
+- This is an **optional optimisation** and not required for correctness.
 
 ---
 
@@ -569,7 +569,7 @@ type HeightBandFilter struct {
 
 ### Export Formats
 
-The ground plane grid must support export for visualization and analysis:
+The ground plane grid must support export for visualisation and analysis:
 
 **1. ASC Raster Grid** (existing format used by background grid):
 

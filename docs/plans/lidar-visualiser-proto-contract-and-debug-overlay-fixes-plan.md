@@ -1,8 +1,8 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Partially implemented — debug overlay and field-parity work remain valid; the superseded track speed-label expansion should not merge
+**Status:** Partially implemented — Track field parity, ObjectClass enum, and `peak` → `max` rename are complete; debug overlay serialisation, cluster proto serialisation, and positive end-to-end serialiser tests remain
 **Layers:** L9 Endpoints
-**Scope:** gRPC/protobuf contract parity for visualiser streaming and debug overlays before `v0.5.0`; track-level speed metric redesign is now separate work
+**Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
 **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 
 **Update (March 8, 2026):** The speed-summary portion of this plan is
@@ -15,13 +15,13 @@ work that adds superseded single-track speed-label fields should be backed out b
 The visualiser protobuf schema advertises fields and controls that are not fully
 implemented in the gRPC stream path:
 
-1. `FrameBundle.debug` exists in protobuf but is not serialized from the Go
+1. `FrameBundle.debug` exists in protobuf but is not serialised from the Go
    visualiser server.
 2. `StreamRequest.include_debug` and `SetOverlayModes(...)` are accepted but are
    not applied to streamed payloads.
 3. ~~Several `Track` and `Cluster` fields are populated in the internal model but
-   are dropped during protobuf serialization.~~ Track fields are now fully
-   serialized; Cluster feature fields (`height_p95`, `intensity_mean`,
+   are dropped during protobuf serialisation.~~ Track fields are now fully
+   serialised; Cluster feature fields (`height_p95`, `intensity_mean`,
    `sample_points`) remain unserialised.
 4. The branch-local `Track` speed-summary expansion moved in the wrong
    direction. Aggregate percentile labels should not be added to the public
@@ -40,7 +40,7 @@ in the proto as a contract.
 3. Keep track-level speed fields limited to a stable non-percentile contract
    while the redesign is pending.
 4. Do not ship track-level aggregate-percentile label additions from this branch.
-5. Add serialization tests that fail on future field drops.
+5. Add serialisation tests that fail on future field drops.
 
 ## 3. Non-Goals
 
@@ -54,17 +54,17 @@ in the proto as a contract.
 
 1. `FrameAdapter.adaptDebugFrame(...)` builds `DebugOverlaySet` correctly.
 2. `frameBundleToProto(...)` does not map `frame.Debug` into `pb.FrameBundle.Debug`.
-3. Existing tests explicitly assert the broken behavior (`Debug == nil`).
+3. Existing tests explicitly assert the broken behaviour (`Debug == nil`).
 
 ### 4.2 Overlay mode controls
 
 1. `SetOverlayModes(...)` stores preferences only.
-2. Stored preferences are not used during stream serialization/filtering.
+2. Stored preferences are not used during stream serialisation/filtering.
 3. `supports_debug=true` can mislead clients when debug payloads are absent.
 
 ### 4.3 Cluster field parity
 
-Declared but currently not serialized in `frameBundleToProto(...)`:
+Declared but currently not serialised in `frameBundleToProto(...)`:
 
 1. `Cluster.height_p95`
 2. `Cluster.intensity_mean`
@@ -81,25 +81,25 @@ Notes:
 
 ### 4.4 Track field parity
 
-**Resolved.** All Track fields declared in `visualiser.proto` are now serialized
+**Resolved.** All Track fields declared in `visualiser.proto` are now serialised
 by `frameBundleToProto(...)` in `grpc_server.go`. The original gap list and
 current status:
 
-1. ~~`Track.covariance_4x4`~~ — ✅ serialized (copied from `Covariance4x4` slice)
-2. ~~`Track.height_p95_max`~~ — ✅ serialized
-3. ~~`Track.intensity_mean_avg`~~ — ✅ serialized
-4. ~~`Track` speed summary fields~~ — Branch-local serialization exists for the
+1. ~~`Track.covariance_4x4`~~ — ✅ serialised (copied from `Covariance4x4` slice)
+2. ~~`Track.height_p95_max`~~ — ✅ serialised
+3. ~~`Track.intensity_mean_avg`~~ — ✅ serialised
+4. ~~`Track` speed summary fields~~ — Branch-local serialisation exists for the
    superseded percentile-field direction, but that contract reset still needs
    to be backed out before merge. The stable merge-target direction remains
    `avg_speed_mps` plus the raw maximum field for now.
-5. ~~`Track.peak_speed_mps`~~ — ✅ serialized
+5. ~~`Track.peak_speed_mps`~~ — ✅ serialised
 6. ~~`Track.class_label`~~ — **Superseded.** Proto field `26` is now `ObjectClass object_class`
    (an `ObjectClass` enum, not a string). See [§4.5 ObjectClass enum](#45-objectclass-enum) below.
-7. ~~`Track.class_confidence`~~ — ✅ serialized
-8. ~~`Track.track_length_metres`~~ — ✅ serialized
-9. ~~`Track.track_duration_secs`~~ — ✅ serialized
-10. ~~`Track.occlusion_count`~~ — ✅ serialized
-11. ~~`Track.occlusion_state`~~ — ✅ serialized (as `pb.OcclusionState` enum)
+7. ~~`Track.class_confidence`~~ — ✅ serialised
+8. ~~`Track.track_length_metres`~~ — ✅ serialised
+9. ~~`Track.track_duration_secs`~~ — ✅ serialised
+10. ~~`Track.occlusion_count`~~ — ✅ serialised
+11. ~~`Track.occlusion_state`~~ — ✅ serialised (as `pb.OcclusionState` enum)
 
 Test coverage: `TestFrameBundleToProto_TrackFieldCompleteness` in
 `grpc_server_test.go` asserts every Track field round-trips correctly.
@@ -170,56 +170,54 @@ should not be treated as the merge target for the visualiser contract.
 
 ## 6. Implementation Plan
 
-### Phase A: gRPC serializer parity (P0)
+### Phase A: gRPC serialiser parity (P0)
 
-1. Update `frameBundleToProto(...)` to serialize `FrameBundle.debug` when
+1. Update `frameBundleToProto(...)` to serialise `FrameBundle.debug` when
    `StreamRequest.include_debug=true`.
 2. Serialize all currently-dropped `Cluster` fields that are available in the
    internal model (`height_p95`, `intensity_mean`; `sample_points` requires
    adapter propagation first).
 3. ~~Serialize all currently-dropped `Track` fields that are already populated in
-   the internal model.~~ ✅ Complete — all Track fields are now serialized
+   the internal model.~~ ✅ Complete — all Track fields are now serialised
    including `ObjectClass` enum via `classifyOrConvert()`.
 4. ~~Add/expand tests for `FrameBundle.background`, `frame_type`, and
-   `background_seq`.~~ ✅ Complete — background snapshot serialization implemented
+   `background_seq`.~~ ✅ Complete — background snapshot serialisation implemented
    in `frameBundleToProto(...)` (M3.5).
 5. ~~Add `ObjectClass` enum conversion with `objectClassFromString()` and
    `classifyOrConvert()` for VRLOG backward compatibility.~~ ✅ Complete.
 
-### Phase B: Overlay mode behavior (P1)
+### Phase B: Overlay mode behaviour (P1)
 
-1. Decide whether `SetOverlayModes(...)` should:
-   - filter server payload emission, or
-   - remain client-side only and be documented as advisory.
-2. If server-side filtering is implemented, apply stored preferences in
-   `frameBundleToProto(...)` / stream path for debug subsets.
-3. If not implemented immediately, downgrade `supports_debug` claims or document
-   capability granularity clearly.
+Decision recorded in [DECISIONS.md](../DECISIONS.md): `include_debug` gates
+whether debug payloads are emitted by the server. `SetOverlayModes(...)`
+remains client-side/advisory and does not drive server-side subset filtering.
 
-### Phase C: Track speed summary schema (Superseded - do not merge)
+1. Gate `FrameBundle.debug` serialisation strictly on
+   `StreamRequest.include_debug`.
+2. Do not apply stored overlay preferences in `frameBundleToProto(...)` or the
+   stream path; the client is responsible for filtering/rendering overlay
+   subsets locally.
+3. Document `supports_debug` as stream-level capability, not per-overlay
+   server-side filtering support.
 
-1. Back out branch-local `Track` percentile fields from `visualiser.proto` and
-   regenerated bindings before merge.
-2. Rename the raw track maximum field from `peak_speed_mps` to `max_speed_mps`
-   while the contract is still unshipped.
-3. Remove Swift/client/UI dependencies on aggregate percentile labels in track speed surfaces.
-4. Revisit track-level speed metrics in a separate redesign once replacement
-   non-percentile names and formulas are defined.
+### Phase C: Track speed summary schema — Retired
 
-### Phase D: Swift client/UI parity (P2)
+**Retired:** This scope is now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0
+under "Visualiser track proto parity". The proto rename, percentile back-out, and
+binding regeneration are owned by that backlog item.
 
-1. Keep the Swift client resilient while the branch-local percentile additions
-   are being backed out.
-2. Update UI labels and model names to use `max` for the raw maximum track
-   speed.
-3. Ensure the inspector does not standardise on aggregate percentile labels for track speed surfaces.
+### Phase D: Swift client/UI parity — Retired
+
+**Retired:** Swift-side `peak` → `max` rename and inspector label updates are
+now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0 under "Visualiser track proto
+parity".
 
 ### Phase E: Test hardening (P1)
 
-1. Replace "debug not converted" tests with positive serialization tests.
+1. Replace "debug not converted" tests with positive serialisation tests.
    `TestFrameBundleToProto_DebugNotConverted` and
    `TestFrameBundleToProto_DebugFieldAbsent` currently assert `Debug == nil`;
-   update these to assert non-nil debug output once serialization is implemented.
+   update these to assert non-nil debug output once serialisation is implemented.
 2. Add round-trip field assertions for:
    - debug overlays (`association`, `gating`, `residuals`, `predictions`)
    - cluster feature fields
@@ -238,7 +236,7 @@ should not be treated as the merge target for the visualiser contract.
    test-only stub data.
 3. Track inspector shows the stable non-percentile track speed fields from
    streamed data and does not standardise on aggregate percentile labels for a single track.
-4. Protobuf serializer tests cover all non-trivial `Track` and `Cluster` fields
+4. Protobuf serialiser tests cover all non-trivial `Track` and `Cluster` fields
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
 
@@ -250,22 +248,22 @@ should not be treated as the merge target for the visualiser contract.
    regenerated together.
 2. Percentile method consistency:
    `p98` may differ slightly between floor-index and interpolated definitions.
-3. Overlay mode scope:
-   server-side filtering may be unnecessary if renderer-side toggles are already
-   sufficient, but proto/API naming should then be clarified.
+3. Capability wording:
+   `supports_debug` and overlay-mode docs must make the client-side/advisory
+   behaviour explicit to avoid implying server-side subset filtering.
 
 ## 9. Task Checklist
 
-- [ ] Add debug overlay protobuf serialization in `frameBundleToProto(...)`
-- [ ] Gate debug serialization by `include_debug`
+- [ ] Add debug overlay protobuf serialisation in `frameBundleToProto(...)`
+- [ ] Gate debug serialisation by `include_debug`
 - [ ] Serialize missing `Cluster` feature fields (`height_p95`, `intensity_mean`, `sample_points`)
 - [x] Serialize missing `Track` feature/classification/quality fields
 - [x] Add `ObjectClass` enum to proto (9 classes + UNSPECIFIED) with `objectClassFromString()` / `classifyOrConvert()` conversion
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
-- [ ] Back out the branch-local track speed-summary field expansion before merge
-- [ ] Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields
-- [ ] Remove branch-local percentile-style track computation and propagation from the merge-target contract work
-- [ ] Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields
-- [ ] Replace negative debug tests with positive end-to-end serialization tests
+- ~~Back out the branch-local track speed-summary field expansion before merge~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Remove branch-local percentile-style track computation and propagation from the merge-target contract work~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- [ ] Replace negative debug tests with positive end-to-end serialisation tests

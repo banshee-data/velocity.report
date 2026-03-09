@@ -111,12 +111,12 @@ When `auto_correct_baud: true` is set in test request, the system queries the de
 All command responses are logged, including both JSON and non-JSON formats. This is essential because:
 
 - Query commands like `I?` return non-JSON text (e.g., "19200")
-- Device may not be in JSON mode before initialization
+- Device may not be in JSON mode before initialisation
 - Raw responses provide diagnostic information for troubleshooting
 
 ## Auto-Detection (FR4)
 
-1. `GET /api/serial/devices` enumerates `/dev/tty*` and `/dev/serial*` entries, removes anything already saved in `radar_serial_config`, and returns USB metadata for labeling
+1. `GET /api/serial/devices` enumerates `/dev/tty*` and `/dev/serial*` entries, removes anything already saved in `radar_serial_config`, and returns USB metadata for labelling
 2. `POST /api/serial/auto-detect` iterates through the remaining device paths, probing each at common baud rates using safe commands (`??`, `I?`)
 3. On success, returns the detected `port_path`, `detected_baud_rate`, inferred `sensor_model`, and raw responses for diagnostics
 4. On failure, reports the ports tested and the ones excluded because they are already assigned, along with troubleshooting suggestions

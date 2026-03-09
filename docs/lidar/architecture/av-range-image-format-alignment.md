@@ -40,7 +40,7 @@ Range Image Structure (per-lidar):
 
 **Key Characteristics:**
 
-- Range image organizes point cloud in spherical coordinates
+- Range image organises point cloud in spherical coordinates
 - Rows = inclination (elevation), Columns = azimuth
 - Row 0 = maximum inclination, center column = forward (+X axis)
 - Separate range image for each return
@@ -106,7 +106,7 @@ Dual Return Packet (10 blocks = 5 azimuth positions):
 
 - Points stored in polar form (`PointPolar`) with azimuth, elevation, distance
 - Frames accumulated as unordered point lists
-- Background grid uses polar organization (rings × azimuth bins)
+- Background grid uses polar organisation (rings × azimuth bins)
 
 **Gap:**
 AV format expects 2D image with:
@@ -130,7 +130,7 @@ channel[3] = is_in_nlz       = always -1 (not applicable)
 
 ### 4. No-Label Zone (NLZ) (Not Applicable)
 
-The `is_in_nlz` channel marks points that are inside "no-label zones" in AV labeling pipelines. This is annotation metadata, not sensor data. For velocity.report:
+The `is_in_nlz` channel marks points that are inside "no-label zones" in AV labelling pipelines. This is annotation metadata, not sensor data. For velocity.report:
 
 - **Default value:** -1 (not in NLZ)
 - **No implementation needed** unless integrating with external annotation systems

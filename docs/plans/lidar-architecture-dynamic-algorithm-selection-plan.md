@@ -179,9 +179,9 @@ type VelocityEstimationConfig struct {
 
 1. Build spatial index for previous frame
 2. For each current point, find candidates within `SearchRadius`
-3. Score candidates by distance + velocity consistency with neighbors
+3. Score candidates by distance + velocity consistency with neighbours
 4. Select best correspondence, compute velocity vector
-5. Assign confidence based on match quality and neighbor consistency
+5. Assign confidence based on match quality and neighbour consistency
 
 ### 2.5 Frame History (`frame_history.go`, ~190 lines)
 
@@ -528,7 +528,7 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 | `internal/lidar/frame_history.go`                | 191   | `FrameHistory` circular buffer, `PointWithVelocity`, `VelocityFrame` |
 | `internal/lidar/velocity_estimation.go`          | 418   | Point correspondence and velocity estimation                         |
 | `internal/lidar/extractor_test.go`               | 264   | Unit tests for extractors and utilities                              |
-| `internal/lidar/tracking_pipeline_logic_test.go` | 136   | Pipeline initialization tests                                        |
+| `internal/lidar/tracking_pipeline_logic_test.go` | 136   | Pipeline initialisation tests                                        |
 | `internal/lidar/monitor/webserver_algo_test.go`  | 78    | Algorithm API endpoint tests                                         |
 | `cmd/tools/algo-compare/main.go`                 | 340   | Algorithm comparison CLI (build tag: pcap)                           |
 | `internal/db/migrations/000013_*.sql`            | ~40   | Algorithm comparison tables                                          |

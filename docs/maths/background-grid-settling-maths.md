@@ -78,7 +78,7 @@ For each point:
 4. Background-like if any is true:
    - inside locked window,
    - `delta <= tau_warm`,
-   - neighbor confirmation threshold reached.
+   - neighbour confirmation threshold reached.
 5. Deadlock breaker:
    if low confidence floor + repeated FG pressure + not extreme divergence,
    force relearning to prevent stale ghost baselines.
@@ -87,7 +87,7 @@ For each point:
 
 ### 7.1 Background update (accepted)
 
-If empty cell and seeding enabled: initialize from first observation.
+If empty cell and seeding enabled: initialise from first observation.
 
 Else exponential update:
 
@@ -158,7 +158,7 @@ Mathematically this is a piecewise-parameter model over the polar grid.
    - Operationally useful but not a calibrated probability.
 4. **Freeze/lock thresholds are policy parameters**
    - Strongly affect adaptation-vs-stability tradeoff.
-5. **Same-ring neighbor confirmation**
+5. **Same-ring neighbour confirmation**
    - Reduces cross-elevation bias but can miss vertical consistency cues.
 
 ## 12. Interface to L4 Ground Plane

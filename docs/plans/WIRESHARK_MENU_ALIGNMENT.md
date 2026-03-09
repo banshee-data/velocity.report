@@ -1,6 +1,6 @@
 # Wireshark Menu Alignment Plan
 
-**Layers:** L10 Client (macOS visualiser)
+**Layers:** L10 Clients (macOS visualiser)
 
 > **Purpose:** Compare VelocityVisualiser menu structure with Wireshark's proven
 > menu design patterns to identify gaps, adopt relevant conventions, and align
@@ -22,7 +22,7 @@
 | **View**       | Toolbars, Full Screen, Panes, Time Display Format, Name Resolution, Zoom, Colours |
 | **Go**         | Go to Packet, Next/Prev Packet, First/Last, Conversation Nav, Auto Scroll         |
 | **Capture**    | Options, Start, Stop, Restart, Capture Filters, Refresh Interfaces                |
-| **Analyze**    | Display Filters, Apply/Prepare Filter, Follow Stream, Decode As, Expert Info      |
+| **Analyse**    | Display Filters, Apply/Prepare Filter, Follow Stream, Decode As, Expert Info      |
 | **Statistics** | File Properties, Protocol Hierarchy, Conversations, Endpoints, I/O Graphs, Plots  |
 | **Telephony**  | VoIP Calls, RTP, SCTP, SIP, GSM, LTE, MTP3 (protocol-specific)                    |
 | **Wireless**   | Bluetooth, WLAN Traffic                                                           |
@@ -122,7 +122,7 @@ or proposed). Categories:
 | Capture Filters    | —                        | ⬜     | BPF filters N/A                   |
 | Refresh Interfaces | —                        | ⬜     | Network interfaces N/A            |
 
-### Analyze Menu
+### Analyse Menu
 
 | Wireshark Item          | VV Equivalent | Status | Notes                                          |
 | ----------------------- | ------------- | ------ | ---------------------------------------------- |

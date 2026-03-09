@@ -3,7 +3,7 @@
 ## February 26, 2026 - Replay EOF Debugging, Build Metadata CI/Test Plumbing & Format Docs
 
 - Added `docs/data/DATA_STRUCTURES.md` and `docs/data/VRLOG_FORMAT.md`, and updated LiDAR architecture/documentation references to the new data format docs.
-- Expanded macOS visualiser diagnostics while debugging replay EOF behavior: added `DevLogger` (replacing `os.Logger`) and increased logging coverage in `AppState`, `ContentView`, `RunBrowserView`, and `RunBrowserState`.
+- Expanded macOS visualiser diagnostics while debugging replay EOF behaviour: added `DevLogger` (replacing `os.Logger`) and increased logging coverage in `AppState`, `ContentView`, `RunBrowserView`, and `RunBrowserState`.
 - Simplified debug log output in `AppState` by removing privacy-attribute noise and improving message formatting clarity.
 - Added detailed `VisualiserClient` replay RPC diagnostics (`seek()` / `play()` / stream restart path) including connection-state and response logging.
 - Hardened replay restart handling in `AppState`: on replay completion, it tries `seek(logStartTimestamp)` + `play()` first and falls back to a full gRPC stream restart if RPCs fail or no playback RPC client is available.
@@ -19,7 +19,7 @@
 - Added up/down arrow key track navigation (`selectNextTrack` / `selectPreviousTrack`) using `trackListOrder` published by `TrackListView`, so navigation follows the visible sort order (first-seen or peak-speed).
 - Consolidated Track Inspector and Label Panel: removed duplicate track/run ID display; header now shows full run ID in grey; label section uses "Labels" subheading instead of separate "Label Track" panel.
 - Reorganised Track Inspector components and enhanced data display (3D bounding-box labels, sparkline colour coding, speed display logic).
-- Added replay completion handling across Go + macOS visualiser playback: server pauses at EOF instead of closing the stream, macOS playback controls/AppState detect replay completion, and replay state tests were updated for the new behavior.
+- Added replay completion handling across Go + macOS visualiser playback: server pauses at EOF instead of closing the stream, macOS playback controls/AppState detect replay completion, and replay state tests were updated for the new behaviour.
 - Added/expanded build metadata plumbing for the macOS visualiser: generated `BuildInfo.swift` during macOS builds, ignored generated `BuildInfo.swift` in git, and surfaced build information in `AboutView`.
 - Improved playback/replay robustness diagnostics: enhanced `VisualiserClient` stream handling/error logging and `AppState` replay completion detection with additional tests.
 - Added rendering options / UI controls for velocity arrows and updated related Swift tests.
@@ -432,14 +432,14 @@
 - Created `RunTrack` type extending track data with user labels and quality flags for ML training.
 - Implemented `AnalysisRunStore` with database operations: `InsertRun()`, `CompleteRun()`, `GetRun()`, `ListRuns()`.
 - Added track management: `InsertRunTrack()`, `GetRunTracks()`, `UpdateTrackLabel()`.
-- Created labeling progress API: `GetLabelingProgress()`, `GetUnlabeledTracks()`.
+- Created labelling progress API: `GetLabelingProgress()`, `GetUnlabeledTracks()`.
 - Added split/merge detection types: `RunComparison`, `TrackSplit`, `TrackMerge` for run comparison.
-- Renumbered phases: 4.0→3.7 (Analysis Run), 4.1→4.0 (Labeling UI), 4.2→4.1 (ML Training).
+- Renumbered phases: 4.0→3.7 (Analysis Run), 4.1→4.0 (Labelling UI), 4.2→4.1 (ML Training).
 
 ## December 1, 2025 - ML Pipeline Roadmap
 
 - Created comprehensive ML Pipeline Roadmap documentation (now tracked in `docs/lidar/operations/track-labeling-ui-implementation.md` and related LiDAR plan docs).
-- Planned Phase 4.0 Track Labeling UI: SvelteKit routes, track browser, trajectory viewer, labeling panel.
+- Planned Phase 4.0 Track Labelling UI: SvelteKit routes, track browser, trajectory viewer, labelling panel.
 - Planned Phase 4.1 ML Classifier Training: feature extraction, Python training pipeline, Go model deployment.
 - Planned Phase 4.2 Parameter Tuning: grid search, quality metrics, objective function optimisation.
 - Recommended implementation order: ✅3.7 → 4.0 → 4.2 (parallel) → 4.1 → 4.3.
@@ -630,7 +630,7 @@
 - Persisted per-ring elevation angles (`ring_elevations_json`) with each `lidar_bg_snapshot`.
 - Centralised snapshot-to-ASC export with elevation fallbacks.
 - Added backfill tool for populating `ring_elevations_json` in existing snapshots.
-- Improved `ProcessFramePolar`: restrict neighbor confirmation to same-ring, update spread EMA relative to previous mean.
+- Improved `ProcessFramePolar`: restrict neighbour confirmation to same-ring, update spread EMA relative to previous mean.
 - Fixed concurrent SQLite update pattern to avoid SQLITE_BUSY.
 
 ## September 21, 2025 - Server & SerialMux Consolidation
@@ -656,7 +656,7 @@
 - Added managers discoverable via `GetBackgroundManager`/`RegisterBackgroundManager`.
 - Implemented snapshot serialisation (gob + gzip) with `Persist` method.
 - Added `InsertBgSnapshot` in lidar DB layer.
-- Implemented `ProcessFramePolar`: bin by ring/azimuth, EMA updates, neighbor-confirmation, freezing heuristics.
+- Implemented `ProcessFramePolar`: bin by ring/azimuth, EMA updates, neighbour-confirmation, freezing heuristics.
 
 ## September 18, 2025 - Polar-First Refactor
 

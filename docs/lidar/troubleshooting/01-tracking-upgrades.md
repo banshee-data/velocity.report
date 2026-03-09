@@ -179,7 +179,7 @@ func ConnectedComponents(points []WorldPoint, resolution float64) []WorldCluster
 
 ### 2.3 Association Upgrades
 
-**Current**: Greedy nearest-neighbor with Mahalanobis gating.
+**Current**: Greedy nearest-neighbour with Mahalanobis gating.
 
 **Proposed**: Optimal assignment via Hungarian algorithm.
 

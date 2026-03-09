@@ -6,7 +6,7 @@
 
 ## 1. Problem Statement
 
-Today, L3 and proposed L4 both perform settling-like behavior:
+Today, L3 and proposed L4 both perform settling-like behaviour:
 
 - L3 settles a **range-baseline model** (EMA/EWA, freeze/lock, warmup suppression).
 - L4 settles a **surface-geometry model** (plane fit confidence, temporal stability).
@@ -20,14 +20,14 @@ Running them independently creates duplicated work and inconsistent readiness st
 1. Warmup windows and temporal gating.
 2. Confidence accumulation from repeated observations.
 3. Outlier handling (reject/freeze/reacquire patterns).
-4. Slow-lock behavior for long-running static scenes.
+4. Slow-lock behaviour for long-running static scenes.
 
 ## 2.2 Where problems occur
 
 1. **Double-settling latency**
    - If L4 only trusts settled L3 points and then applies its own settling timer, effective convergence is delayed.
 2. **State disagreement**
-   - L3 may be "stable" while L4 is "unsettled" (or vice versa), making downstream behavior discontinuous.
+   - L3 may be "stable" while L4 is "unsettled" (or vice versa), making downstream behaviour discontinuous.
 3. **Feedback starvation**
    - L3 rejection can starve L4 geometry updates, which then cannot help refine dynamic ground thresholds.
 4. **Config coupling drift**
@@ -107,7 +107,7 @@ Unify stage-control parameters:
 - warmup duration/frames,
 - freeze duration and threshold multiplier,
 - lock entry threshold,
-- reacquisition boost behavior.
+- reacquisition boost behaviour.
 
 Keep model-specific parameters separate:
 
@@ -166,7 +166,7 @@ No second L4-only warmup timer should remain after merge.
 
 ## 9. Migration Plan
 
-1. **Phase A (No behavior change):**
+1. **Phase A (No behaviour change):**
    Add shared `SettlementCore` telemetry in parallel with existing logic.
 2. **Phase B (Control unification):**
    Route warmup/freeze/lock transitions through shared lifecycle; keep model math unchanged.
@@ -191,4 +191,4 @@ No second L4-only warmup timer should remain after merge.
 - Share one lifecycle controller and one confidence substrate, including region
   confidence tied to polygon/polyline-aware assignment.
 
-This yields lower interference, less duplicated logic, and clearer operational behavior.
+This yields lower interference, less duplicated logic, and clearer operational behaviour.

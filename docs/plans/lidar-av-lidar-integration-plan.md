@@ -14,7 +14,7 @@
 The features in this document (28-class taxonomy, Parquet ingestion, NLZ zones, shape completion, occlusion handling) are specifically for:
 
 1. Importing AV datasets (Waymo, nuScenes) for ML training
-2. Research applications requiring AV-compatible labeling
+2. Research applications requiring AV-compatible labelling
 
 **For traffic monitoring deployments**, the simpler velocity-coherent approach is sufficient:
 
@@ -84,7 +84,7 @@ Each labeled object is represented by a **7-Degree-of-Freedom (7-DOF) bounding b
 
 #### Labeled Object Classes (AV Industry Standard Compatible)
 
-The velocity.report system aligns with **AV industry standard** labeling specifications, supporting the full 28 fine-grained semantic categories. Instance segmentation labels are provided for Vehicle, Pedestrian, and Cyclist classes, consistent across sensors and over time.
+The velocity.report system aligns with **AV industry standard** labelling specifications, supporting the full 28 fine-grained semantic categories. Instance segmentation labels are provided for Vehicle, Pedestrian, and Cyclist classes, consistent across sensors and over time.
 
 **Core Object Classes (Instance Segmented):**
 
@@ -859,7 +859,7 @@ func ComputeMetrics(predictions []BoundingBox7DOF, labels []ObjectLabel) AVMetri
 
 ### Objective
 
-Create a command-line tool for analyzing LIDAR frames with AV standard-compatible output.
+Create a command-line tool for analysing LIDAR frames with AV standard-compatible output.
 
 ### 5.1 Frame Analyzer Command
 
@@ -1158,7 +1158,7 @@ func (ece *EuclideanClusterExtractor) growRegion(points []WorldPoint, seed int, 
 
 ### 6.3 Octree Spatial Index
 
-**Implementation for efficient 3D neighbor queries:**
+**Implementation for efficient 3D neighbour queries:**
 
 ```go
 // OctreeNode represents a node in the octree spatial index
@@ -1609,7 +1609,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 | **7-DOF box math**      | IoU, containment, corners      | 🆕 New    | P0 - Required |
 | **av-import CLI**       | Import AV standard data        | 🆕 New    | P0 - Required |
 | **Polygon containment** | NLZ point checking             | 🆕 New    | P1 - High     |
-| **frame-analyzer CLI**  | Analyze frames                 | 🆕 New    | P1 - High     |
+| **frame-analyzer CLI**  | Analyse frames                 | 🆕 New    | P1 - High     |
 
 ### Optional Tools and Libraries
 
@@ -1629,7 +1629,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 | 7-DOF box math   | Build in Go                | Simple math, no dependencies needed |
 | NLZ polygon math | Build in Go                | Simple ray-casting algorithm        |
 | TFRecord export  | Use TensorFlow Go bindings | Standard ML format                  |
-| Visualization    | Defer to external tools    | CloudCompare, Open3D exist          |
+| Visualisation    | Defer to external tools    | CloudCompare, Open3D exist          |
 
 ---
 
@@ -1698,7 +1698,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 1. **Radar Integration**: Integrate radar detections with LiDAR for velocity validation
 2. **Sensor Fusion**: Combine LiDAR and radar detections for improved tracking
 3. **Domain Adaptation**: Transfer AV dataset models to Hesai P40 sensor
-4. **Active Learning**: Prioritize labeling based on model uncertainty
+4. **Active Learning**: Prioritise labelling based on model uncertainty
 
 ### Privacy Alignment
 

@@ -21,7 +21,7 @@ The production pipeline uses a vertical height-band filter in world/sensor frame
 - reject points below floor (ground-plane returns and low artifacts)
 - reject points above ceiling (overhead returns)
 
-Default behavior is provided by `DefaultHeightBandFilter()`; overrides are wired through pipeline config (`HeightBandFloor`, `HeightBandCeiling`, `RemoveGround`).
+Default behaviour is provided by `DefaultHeightBandFilter()`; overrides are wired through pipeline config (`HeightBandFloor`, `HeightBandCeiling`, `RemoveGround`).
 
 ## Runtime Characteristics
 

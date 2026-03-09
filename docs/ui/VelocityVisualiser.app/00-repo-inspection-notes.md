@@ -322,4 +322,4 @@ The visualiser integration uses two transport channels:
 - **gRPC** (port 50051): Point cloud streaming for real-time rendering
 - **REST API** (port 8080): Label CRUD operations, shared with web UI
 
-This separation ensures labeling data is centrally stored in the Go backend SQLite database and accessible from both the macOS visualiser and web interface.
+This separation ensures labelling data is centrally stored in the Go backend SQLite database and accessible from both the macOS visualiser and web interface.

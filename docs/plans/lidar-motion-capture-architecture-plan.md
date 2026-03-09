@@ -297,7 +297,7 @@ v_measured = v_object + v_sensor
 
 **Example (Vehicle-Mounted LIDAR):**
 
-- Vehicle traveling at 20 m/s forward
+- Vehicle travelling at 20 m/s forward
 - Stationary parked car in sensor view
 - Measured velocity: -20 m/s (car appears to move backward)
 - **Actual object velocity: 0 m/s** (car is stationary)
@@ -708,7 +708,7 @@ type TrackObservation3D struct {
 - Full 13-state tracker [x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz]
 - Quaternion prediction (integration)
 - Orientation estimation from point clouds
-- Quaternion normalization in Kalman filter
+- Quaternion normalisation in Kalman filter
 
 **Estimated Effort:** 4-5 weeks
 
@@ -832,7 +832,7 @@ type TrackObservation3D struct {
    - 100+ Hz possible
 
 4. **SLAM (Simultaneous Localization and Mapping)**
-   - LIDAR-based self-localization
+   - LIDAR-based self-localisation
    - No external sensors needed
    - Most computationally expensive
 
@@ -860,7 +860,7 @@ This architecture specification provides a complete roadmap for adding motion ca
 
 **Current Release Focus:** Static pose alignment (see `static-pose-alignment-plan.md`)
 
-**AV Industry Standard Compatibility:** Full alignment with AV industry standard labeling specifications (see `av-lidar-integration-plan.md`)
+**AV Industry Standard Compatibility:** Full alignment with AV industry standard labelling specifications (see `av-lidar-integration-plan.md`)
 
 **Future Work (This Document):**
 

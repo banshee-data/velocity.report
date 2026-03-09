@@ -2,7 +2,7 @@
 
 ## Status: Draft
 
-**Layers:** L9 Endpoints, L10 Client
+**Layers:** L9 Endpoints, L10 Clients
 
 ## Problem Statement
 
@@ -151,7 +151,7 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 - Radar-only binary still ships LiDAR JavaScript (dead code in the bundle)
 - Requires a capabilities API and conditional navigation logic
 - Requires runtime capability refresh and backend lifecycle management for hot-enable/disable
-- LiDAR routes must return an explicit "LiDAR disabled" response and must not initialize hardware when disabled
+- LiDAR routes must return an explicit "LiDAR disabled" response and must not initialise hardware when disabled
 - Single `package.json` may accumulate LiDAR-specific dependencies over time
 
 ### ~~Option C: One Svelte App with Build-Time LiDAR Exclusion~~
@@ -210,7 +210,7 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 
 Option B is the clear winner. The single-app approach avoids duplication, keeps the build simple, and provides the best user experience. The minor downside — shipping ~50KB of unused LiDAR JavaScript in radar-only deploys — is negligible compared to the maintenance cost of two separate applications or custom build tooling.
 
-The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/*` must return a clear "LiDAR disabled" response and must not initialize hardware when LiDAR is off. Direct URL access to `/app/lidar/*` should show a friendly disabled state. This pairs with runtime capability refresh so hot-enable/disable is reflected without restarting the radar process.
+The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/*` must return a clear "LiDAR disabled" response and must not initialise hardware when LiDAR is off. Direct URL access to `/app/lidar/*` should show a friendly disabled state. This pairs with runtime capability refresh so hot-enable/disable is reflected without restarting the radar process.
 
 ## Migration Plan
 
@@ -230,7 +230,7 @@ Add a `/api/capabilities` endpoint (or extend `/api/config`) that reports which 
 
 Capabilities must reflect runtime transitions (disabled, starting, ready, error) so LiDAR can be enabled or disabled without restarting the radar process. A backend lifecycle manager should own start/stop of LiDAR pipelines and must not interrupt radar logging or streaming.
 
-Update the root `+layout.svelte` to fetch capabilities on load and conditionally render LiDAR navigation items. Add periodic refresh (or SSE) so the UI updates when LiDAR comes online. When `lidar` is disabled, the sidebar shows only radar routes and all `/api/lidar/*` endpoints return a clear "LiDAR disabled" response without initializing hardware.
+Update the root `+layout.svelte` to fetch capabilities on load and conditionally render LiDAR navigation items. Add periodic refresh (or SSE) so the UI updates when LiDAR comes online. When `lidar` is disabled, the sidebar shows only radar routes and all `/api/lidar/*` endpoints return a clear "LiDAR disabled" response without initialising hardware.
 
 **Files changed:**
 
@@ -396,12 +396,12 @@ Checklist:
 - [ ] Define the capabilities schema and state machine (disabled, starting, ready, error) and document the contract in `docs/`.
 - [ ] Implement a backend LiDAR lifecycle manager that can start/stop LiDAR pipelines without interrupting radar logging/stream.
 - [ ] Implement `/api/capabilities` (or extend `/api/config`) with unit tests for default values and hardware-off scenarios.
-- [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initializing hardware).
+- [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initialising hardware).
 - [ ] Add `getCapabilities()` to `web/src/lib/api.ts` with retry/backoff and error handling.
 - [ ] Update `web/src/routes/+layout.svelte` to gate LiDAR nav items, including a loading state and a fallback when the endpoint fails.
 - [ ] Add a shared "LiDAR not enabled" empty-state component for direct route access.
 - [ ] Add UI capability refresh (poll or SSE) and handle transitional states (starting, error).
-- [ ] Add route-level lazy loading for LiDAR routes to minimize radar-only initial load.
+- [ ] Add route-level lazy loading for LiDAR routes to minimise radar-only initial load.
 - [ ] Verify radar-only UX on Pi 4 (startup time, sidebar items, zero broken links).
 - [ ] Add tests that hot-enable/disable LiDAR does not interrupt radar logging.
 
@@ -415,7 +415,7 @@ Checklist:
 - [ ] Build `/app/lidar/status` with svelte-ux form components and validations.
 - [ ] Implement/extend status APIs for read/write, ensuring param updates are atomic and validated server-side.
 - [ ] Add PCAP replay controls and diagnostic link directory parity with the old page.
-- [ ] Add error states, loading states, and form reset/rollback behavior.
+- [ ] Add error states, loading states, and form reset/rollback behaviour.
 - [ ] Confirm feature parity with the Go-template version and remove/redirect old links.
 - [ ] Add API integration tests and basic UI regression checks for status workflows.
 
@@ -428,7 +428,7 @@ Checklist:
 - [ ] Inventory existing API usage and data assumptions from `regions_dashboard.js`.
 - [ ] Port `regions_dashboard.js` Canvas rendering into `RegionsCanvas.svelte` with resize handling.
 - [ ] Wire data loading, caching, and refresh cadence to existing APIs.
-- [ ] Recreate hover/selection, legend, and tooltip behavior.
+- [ ] Recreate hover/selection, legend, and tooltip behaviour.
 - [ ] Validate performance on Pi 4 (fps, memory) with realistic data.
 - [ ] Add basic UI tests for interactions and empty/error states.
 
@@ -496,7 +496,7 @@ Checklist:
 | LayerChart lacks heatmap support for sweep charts          | High       | Medium | Use raw Canvas/SVG within Svelte component; LayerChart isn't required for every chart                       |
 | Sweep dashboard polling logic is complex to port           | Medium     | Medium | Svelte stores + `setInterval` can replicate the polling pattern; consider SSE for future improvement        |
 | Hot-enable/disable LiDAR disrupts radar logging            | Medium     | High   | Introduce a LiDAR lifecycle manager with start/stop isolation and tests that assert radar stream continuity |
-| `/api/lidar/*` endpoints initialize hardware when disabled | Low        | High   | Enforce capability gating server-side; return explicit "LiDAR disabled" and never initialize when disabled  |
+| `/api/lidar/*` endpoints initialise hardware when disabled | Low        | High   | Enforce capability gating server-side; return explicit "LiDAR disabled" and never initialise when disabled  |
 | Sweep UI performance on Pi 4 regresses                     | Medium     | Medium | Data decimation, chart throttling, polling backoff, and lazy render of off-screen charts                    |
 | API parity gaps surface late in migration                  | Medium     | Medium | API/schema inventory before each migration, plus acceptance tests using real data                           |
 | UI capability state drifts from runtime reality            | Medium     | Low    | Capability refresh via polling or SSE; handle transitional states (starting/error)                          |

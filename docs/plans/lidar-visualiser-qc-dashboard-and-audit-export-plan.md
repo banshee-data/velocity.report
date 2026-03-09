@@ -140,7 +140,7 @@ Add read-only summary widgets and export button.
 ### Data and Migrations
 
 - [ ] Add `lidar_qc_audit_log` table and indexes
-- [ ] Add `lidar_qc_run_summary` materialized summary table
+- [ ] Add `lidar_qc_run_summary` materialised summary table
 - [ ] Add migration tests and schema docs update
 
 ### Backend

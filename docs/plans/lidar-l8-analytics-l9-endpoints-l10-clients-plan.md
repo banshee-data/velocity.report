@@ -1,8 +1,8 @@
-# LiDAR L8 Analytics / L9 Endpoints / L10 Client Tier Refactor Plan
+# LiDAR L8 Analytics / L9 Endpoints / L10 Clients Refactor Plan
 
 **Status:** Proposed implementation plan — **layer numbers updated 2026-03-08**
-**Layers:** L8 Analytics, L9 Endpoints, L10 Client
-**Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06. Updated 2026-03-07 to adopt a nine-layer model. **Updated 2026-03-08:** Renumbered to ten-layer model — L7 Scene inserted, previous L7→L8, L8→L9, L9→L10. All body references updated. File renamed from `lidar-l7-analytics-l8-presentation-l9-client-plan.md`. **Updated 2026-07-13:** L9 renamed from Presentation to Endpoints; file renamed from `lidar-l8-analytics-l9-presentation-l10-client-plan.md`.
+**Layers:** L8 Analytics, L9 Endpoints, L10 Clients
+**Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06. Updated 2026-03-07 to adopt a nine-layer model. **Updated 2026-03-08:** Renumbered to ten-layer model — L7 Scene inserted, previous L7→L8, L8→L9, L9→L10. All body references updated. File renamed from `lidar-l7-analytics-l8-presentation-l9-client-plan.md`. **Updated 2026-03-09:** L9 renamed from Presentation to Endpoints; file renamed from `lidar-l8-analytics-l9-presentation-l10-client-plan.md`.
 **Scope:** LiDAR architecture docs, `internal/lidar`, `proto/velocity_visualiser/v1`, `web/`, and the macOS visualiser integration boundary.
 
 ## Executive Summary
@@ -11,7 +11,7 @@ velocity.report currently documents and implements a six-layer LiDAR model that 
 
 - `L8 Analytics` for canonical traffic, safety, and run-analysis logic
 - `L9 Endpoints` for server-side operator-facing payload shaping, the gRPC stream contract, dashboards, debug views, and visual review workflows — canonical Go home is `internal/lidar/l9endpoints/` (renamed from `internal/lidar/visualiser/`)
-- `L10 Client Tier` (documentation label only, no Go package) for downstream rendering consumers: browser (Svelte), native app (Swift/VeloVis), and report generation (Python PDF generator)
+- `L10 Clients` (documentation label only, no Go package) for downstream rendering consumers: browser (Svelte), native app (Swift/VeloVis), and report generation (Python PDF generator)
 
 This is a breaking architectural change, not just a terminology update. The main goal is to stop overloading `L6 Objects`, `storage/sqlite`, and `monitor/` with responsibilities that belong to analytics and endpoint.
 
@@ -21,7 +21,7 @@ The original plan was directionally correct, but the repository review shows tha
 - analytics logic that already exists but is currently misplaced
 - the fact that L9 already partially exists in `internal/lidar/visualiser/`, `proto/velocity_visualiser/v1/`, `web/`, and `tools/visualiser-macos/`
 - the mixed nature of `internal/lidar/monitor/`, which currently contains infrastructure, analytics-backed APIs, and endpoint shaping
-- the L10 client tier, which is already enforced structurally by language and directory boundaries but must be named and documented so the dependency chain is explicit
+- the L10 Clients layer, which is already enforced structurally by language and directory boundaries but must be named and documented so the dependency chain is explicit
 
 ## Repository Baseline Reviewed Against Current Code
 
@@ -82,15 +82,15 @@ The repo already contains analytics and endpoint logic that do not fit the curre
 
 ### L9 and L10 already exist in practice
 
-The current repository already has clear L9 and L10 surfaces:
+The current repository already has clear L9 and L10 Clients:
 
 **Go-side L9 (to be renamed `internal/lidar/l9endpoints/`):**
 
 - `internal/lidar/visualiser/` currently contains the gRPC stream adapter, proto frame encoding, the canonical server-side visualiser model, and playback/replay adapters — this is the core of L9 Endpoints
-- `proto/velocity_visualiser/v1/visualiser.proto` defines the canonical gRPC contract boundary between Go L9 and L10 consumers
+- `proto/velocity_visualiser/v1/visualiser.proto` defines the canonical gRPC contract boundary between Go L9 and L10 Clients
 - `internal/lidar/monitor/chart_data.go`, `chart_api.go`, `echarts_handlers.go`, `templates.go` — server-side chart and dashboard shaping that logically belongs to L9
 
-**L10 Client Tier (documentation-only label, no Go package):**
+**L10 Clients (documentation-only label, no Go package):**
 
 - `web/src/routes/lidar/*` — browser-side LiDAR review and control workflows (Svelte)
 - `tools/visualiser-macos/` — native operator-facing visualiser (Swift/Metal)
@@ -100,18 +100,18 @@ This means Phase 1 is not "invent L9 from nothing". It is "rename and formalise 
 
 ## Target Ten-Layer Model
 
-| Layer | Label       | Responsibility                                                                                                                                                                                  |
-| ----- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| L1    | Packets     | wire transport, UDP capture, PCAP replay, packet parsing                                                                                                                                        |
-| L2    | Frames      | frame assembly, timestamps, geometry conversion, exports                                                                                                                                        |
-| L3    | Grid        | background model, foreground masking, persistence, drift, regions                                                                                                                               |
-| L4    | Perception  | per-frame scene interpretation, clustering, OBBs, ground removal                                                                                                                                |
-| L5    | Tracks      | temporal association, identity, lifecycle, motion estimation                                                                                                                                    |
-| L6    | Objects     | semantic actor interpretation and object-level quality/classification                                                                                                                           |
-| L7    | Scene       | persistent evidence-accumulated world model; static geometry, canonical objects, external priors, multi-sensor fusion. See [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md)                     |
-| L8    | Analytics   | canonical metrics, summaries, comparisons, scoring, evaluation logic                                                                                                                            |
-| L9    | Endpoints   | server-side payload shaping, gRPC stream contract, dashboards, debug views, review payloads — `internal/lidar/l9endpoints/`                                                                     |
-| L10   | Client Tier | **documentation label only — no Go package.** Rendering consumers: browser (Svelte), native (Swift/VeloVis), report gen (Python). Depend on L9 contracts; must not recompute canonical metrics. |
+| Layer | Label      | Responsibility                                                                                                                                                                                  |
+| ----- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1    | Packets    | wire transport, UDP capture, PCAP replay, packet parsing                                                                                                                                        |
+| L2    | Frames     | frame assembly, timestamps, geometry conversion, exports                                                                                                                                        |
+| L3    | Grid       | background model, foreground masking, persistence, drift, regions                                                                                                                               |
+| L4    | Perception | per-frame scene interpretation, clustering, OBBs, ground removal                                                                                                                                |
+| L5    | Tracks     | temporal association, identity, lifecycle, motion estimation                                                                                                                                    |
+| L6    | Objects    | semantic actor interpretation and object-level quality/classification                                                                                                                           |
+| L7    | Scene      | persistent evidence-accumulated world model; static geometry, canonical objects, external priors, multi-sensor fusion. See [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md)                     |
+| L8    | Analytics  | canonical metrics, summaries, comparisons, scoring, evaluation logic                                                                                                                            |
+| L9    | Endpoints  | server-side payload shaping, gRPC stream contract, dashboards, debug views, review payloads — `internal/lidar/l9endpoints/`                                                                     |
+| L10   | Clients    | **documentation label only — no Go package.** Rendering consumers: browser (Svelte), native (Swift/VeloVis), report gen (Python). Depend on L9 contracts; must not recompute canonical metrics. |
 
 ## Design Rules
 
@@ -120,7 +120,7 @@ This means Phase 1 is not "invent L9 from nothing". It is "rename and formalise 
 - `L(n)` may depend on `L(n-1)` and below, never upward.
 - `L8 Analytics` may depend on `L1` through `L6`, but must not depend on UI, HTML, Svelte, SwiftUI, or chart-library code.
 - `L9 Endpoints` may consume canonical `L8` outputs and selected raw `L3`/`L5`/`L6` artifacts for debug rendering. It must not define canonical metrics, summaries, or comparisons.
-- `L10 Client Tier` consumes the contracts published by `L9` (proto, JSON APIs). L10 code must not compute canonical analytics — if a metric is needed, the server must provide it via `L8`-backed `L9` endpoints.
+- `L10 Clients` consumes the contracts published by `L9` (proto, JSON APIs). L10 code must not compute canonical analytics — if a metric is needed, the server must provide it via `L8`-backed `L9` endpoints.
 - `storage/sqlite` is infrastructure and persistence, not the permanent home of analytics logic.
 - `monitor/` is an application/integration boundary, not a canonical domain layer.
 
@@ -150,7 +150,7 @@ The imported draft should be preserved in spirit, but these repo-specific correc
 - run comparison is already implemented, but it currently lives in `L6` and `storage/sqlite`; that is a concrete migration target for `L8`.
 - `monitor/` is not just "transitional" in the abstract. It must be classified file-by-file into infra, `L8`-backed application services, and `L9` endpoint code.
 - the canonical layer doc path should stay stable if possible. Updating `docs/lidar/architecture/lidar-data-layer-model.md` in place is preferable to renaming it and creating widespread link churn.
-- the first pass should focus on LiDAR. The radar-focused PDF generator and site-report flow are L10 consumers and may be referenced as such, but they should not block this LiDAR refactor.
+- the first pass should focus on LiDAR. The radar-focused PDF generator and site-report flow are L10 Clients and may be referenced as such, but they should not block this LiDAR refactor.
 - `L10` is documentation-only. No Go package is created. The client-tier boundary is already enforced structurally by language (JS/Swift/Python vs Go) and by `proto/velocity_visualiser/v1/` acting as the formal wire contract seam.
 
 ## Proposed Target Ownership Map
@@ -209,9 +209,9 @@ Rename `internal/lidar/visualiser/` to `internal/lidar/l9endpoints/`. This is a 
 
 **Proto contract:**
 
-`proto/velocity_visualiser/v1/visualiser.proto` remains the formal contract seam between the Go `L9` package and L10 consumers. Changes to the proto are breaking changes for all L10 clients.
+`proto/velocity_visualiser/v1/visualiser.proto` remains the formal contract seam between the Go `L9` package and L10 Clients. Changes to the proto are breaking changes for all L10 Clients.
 
-### L10 Client Tier (documentation label only)
+### L10 Clients (documentation label only)
 
 `L10` has no Go package. It is a documentation label for the rendering consumers that sit downstream of the `L9` contract boundary.
 
@@ -221,12 +221,12 @@ Rename `internal/lidar/visualiser/` to `internal/lidar/l9endpoints/`. This is a 
 | `tools/visualiser-macos/` | Swift/Metal       | gRPC stream defined by `proto/velocity_visualiser/v1/` |
 | `tools/pdf-generator/`    | Python            | REST API endpoints backed by `L8` analytics            |
 
-**Rules for L10 surfaces:**
+**Rules for L10 Clients:**
 
 - may call `L9` endpoints (REST, gRPC-Web) and render the results
 - must not recompute canonical metrics locally — request them from `L8`-backed `L9` endpoints instead
 - when a new summary field is needed, the correct fix is adding an `L8` helper and exposing it through an `L9` endpoint, not computing it in Svelte, Swift, or Python
-- the proto contract (`proto/velocity_visualiser/v1/`) is an explicit versioned seam; L10 clients must track breaking changes declared there
+- the proto contract (`proto/velocity_visualiser/v1/`) is an explicit versioned seam; L10 Clients must track breaking changes declared there
 
 ### monitor/ application split
 
@@ -238,7 +238,7 @@ Provisional classification:
 | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `stats.go`, `datasource*.go`, `playback_handlers.go`, `export_handlers.go`, route registration in `webserver.go` | infrastructure/application              | may import `L1`–`L9` as needed                                                                |
 | `track_api.go`, `scene_api.go`, `run_track_api.go`, parts of `sweep_handlers.go`                                 | thin HTTP layer over `L8` services      | must call `l8analytics/` for any summary or comparison math; no analytics embedded in handler |
-| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/`                       | `L9 Endpoints` — move to `l9endpoints/` | must call `l8analytics/` for metric values; may shape output for L10 consumers                |
+| `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `templates.go`, `html/`, `assets/`                       | `L9 Endpoints` — move to `l9endpoints/` | must call `l8analytics/` for metric values; may shape output for L10 Clients                  |
 
 **Enforcement expectation:** after Phase 4, no file in `monitor/` may contain summary statistics, comparison logic, or percentile calculations. Any handler that currently computes these must be refactored to call an `L8` function. This makes the API layer a thin translation boundary — request parsing, authorisation checks, and response serialisation only.
 
@@ -250,24 +250,24 @@ Provisional classification:
 
 - make the ten-layer model the documented source of truth
 - preserve stable documentation paths where possible
-- record the L9 rename, L10 client-tier label, and breaking-change intent before code moves begin
+- record the L9 rename, L10 Clients label, and breaking-change intent before code moves begin
 
 ### Work
 
-- update `docs/lidar/architecture/lidar-data-layer-model.md` from six layers to ten layers: add L7 (Scene), L8 (Analytics), L9 (renamed to Endpoints), and L10 (Client Tier, documentation-only)
+- update `docs/lidar/architecture/lidar-data-layer-model.md` from six layers to ten layers: add L7 (Scene), L8 (Analytics), L9 (renamed to Endpoints), and L10 (Clients, documentation-only)
 - update `docs/lidar/architecture/README.md` to describe `L1` through `L10`
 - update `docs/lidar/README.md`, `docs/data/DATA_STRUCTURES.md`, and `docs/lidar/terminology.md`
 - update package doc comments in `internal/lidar/l1packets/doc.go` through `internal/lidar/l6objects/doc.go`
 - update any layer-language references in `ARCHITECTURE.md`, `README.md`, and `internal/lidar/aliases.go` if they describe the old model
 - document `internal/lidar/visualiser/` in the architecture docs as "will be renamed to `internal/lidar/l9endpoints/` in Phase 4"
-- document the L10 client-tier surfaces in the architecture: `web/`, `tools/visualiser-macos/`, `tools/pdf-generator/`
+- document the L10 Clients surfaces in the architecture: `web/`, `tools/visualiser-macos/`, `tools/pdf-generator/`
 - add a breaking-change note and a short migration note for future implementers
 
 ### Outputs
 
 - a single canonical ten-layer architecture doc
 - no repo docs still describing the LiDAR architecture as six layers unless explicitly marked historical
-- `L9 Endpoints` and `L10 Client Tier` documented with ownership rules and the planned rename noted
+- `L9 Endpoints` and `L10 Clients` documented with ownership rules and the planned rename noted
 - a documented target interpretation of `monitor/` as transitional/application code
 
 ### Phase 2: Add the Canonical L8 Analytics Boundary
@@ -302,7 +302,7 @@ Provisional classification:
 
 - update `internal/lidar/storage/sqlite/track_store.go` to call `L8` helpers for percentile math
 - slim `internal/lidar/storage/sqlite/analysis_run.go` so it stores and loads data, but does not own comparison logic
-- move `compareParams` and run comparison orchestration into `L8` if they remain canonical analytics behavior
+- move `compareParams` and run comparison orchestration into `L8` if they remain canonical analytics behaviour
 - extract track summary aggregation from `internal/lidar/monitor/track_api.go` into `L8`
 - extract run-labelling and run-evaluation aggregate logic from `internal/lidar/monitor/run_track_api.go` and `scene_api.go` into `L8`-backed services
 - keep handler files responsible for request parsing, response codes, and transport concerns only

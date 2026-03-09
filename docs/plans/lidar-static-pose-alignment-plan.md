@@ -2,10 +2,10 @@
 
 **Status:** DEFERRED - See Simplification Notes Below
 **Layers:** L4 Perception, L5 Tracks, L6 Objects
-**Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualization
+**Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualisation
 **Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data
 **Source of Truth:** See `av-lidar-integration-plan.md` for 7DOF schema specification
-**AV Compatibility:** Aligned with AV industry standard labeling specifications
+**AV Compatibility:** Aligned with AV industry standard labelling specifications
 
 ---
 
@@ -52,7 +52,7 @@ This document outlines **Step 1** of the LIDAR ML pipeline: Reading Hesai Pandar
 
 **AV Industry Standard Compatibility:**
 
-This implementation supports the AV industry standard labeling specification with:
+This implementation supports the AV industry standard labelling specification with:
 
 - 28 fine-grained semantic categories (see `av-lidar-integration-plan.md`)
 - Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
@@ -60,10 +60,10 @@ This implementation supports the AV industry standard labeling specification wit
 - Shape completion for occluded surfaces (see Phase 7 of `av-lidar-integration-plan.md`)
 
 **Current State:** Production-deployed Hesai PCAP processing with 2D tracking
-**Release Scope:** Extend to 7-DOF tracks and visualize in Svelte UI
+**Release Scope:** Extend to 7-DOF tracks and visualise in Svelte UI
 **Next Steps:** Frame sequence extraction, classifier training, integration (future phases)
 
-**Key Deliverable:** Real-time visualization of 7-DOF bounding boxes from Hesai sensor data
+**Key Deliverable:** Real-time visualisation of 7-DOF bounding boxes from Hesai sensor data
 
 ---
 
@@ -224,7 +224,7 @@ type TrackedObject struct {
 | **Z tracking**       | Assumed ground plane | Add Z to Kalman state   | Medium     |
 | **Oriented box**     | Axis-aligned         | Compute along heading   | Medium     |
 | **Database schema**  | Old format           | Add 7DOF columns        | Low        |
-| **UI visualization** | Rectangles           | Oriented boxes + arrows | Medium     |
+| **UI visualisation** | Rectangles           | Oriented boxes + arrows | Medium     |
 | **Object classes**   | 4 classes            | Support AV class enum   | Low        |
 
 ### Alignment with av-lidar-integration-plan.md
@@ -712,12 +712,12 @@ func updateTrackWith7Variables(
 - ✅ Static pose created at startup (if not exists)
 - ✅ Clusters stored with pose_id reference
 - ✅ Observations stored with pose_id reference
-- ✅ Verify identity transform behavior unchanged
+- ✅ Verify identity transform behaviour unchanged
 
 **Exit Criteria:**
 
 - Static sensors populate pose_id
-- All tracking behavior unchanged
+- All tracking behaviour unchanged
 - Database queries show pose_id populated
 
 **Estimated Effort:** 2-3 days
@@ -792,7 +792,7 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NO
    - Audit trail for calibration changes
 
 3. **Production Safety**
-   - Zero functional changes (identity transform behavior unchanged)
+   - Zero functional changes (identity transform behaviour unchanged)
    - All existing tests pass
    - Rollback possible if issues found
 
@@ -869,7 +869,7 @@ Week 1:
 **Technical:**
 
 - ✅ All existing tests pass
-- ✅ Static tracking behavior unchanged
+- ✅ Static tracking behaviour unchanged
 - ✅ pose_id populated for new measurements
 - ✅ NULL pose_id handled correctly (legacy data)
 
@@ -1024,7 +1024,7 @@ sudo systemctl start velocity-report
 
 ---
 
-### PR #4: Svelte UI Visualization (Week 3)
+### PR #4: Svelte UI Visualisation (Week 3)
 
 **Files:**
 
@@ -1037,7 +1037,7 @@ sudo systemctl start velocity-report
 - [ ] Add heading arrow indicators
 - [ ] Display 7DOF values in track detail panel (center_x/y/z, length, width, height, heading)
 - [ ] Color-code by object class
-- [ ] Add Z-height visualization (color gradient or label)
+- [ ] Add Z-height visualisation (colour gradient or label)
 
 **Exit Criteria:**
 
@@ -1084,7 +1084,7 @@ sudo systemctl start velocity-report
 
 - Tool to identify tracks lasting 9+ frames
 - Export sequences in format matching AV dataset
-- Ready for manual labeling or classifier training
+- Ready for manual labelling or classifier training
 
 **Phase 3:** Build ML Classifier (4-6 weeks)
 

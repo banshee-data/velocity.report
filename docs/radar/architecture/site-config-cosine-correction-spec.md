@@ -23,7 +23,7 @@ Users need the ability to:
 - Ability to correct measurement errors discovered after the fact
 - Professional reports that account for configuration variations
 - Confidence in data accuracy for decision-making
-- **Accurate Trend Analysis:** When comparing traffic data pre- and post-intervention, or week-over-week, ensures that sensor adjustments don't masquerade as changes in driver behavior.
+- **Accurate Trend Analysis:** When comparing traffic data pre- and post-intervention, or week-over-week, ensures that sensor adjustments don't masquerade as changes in driver behaviour.
 
 ## Current System Capabilities
 
@@ -173,7 +173,7 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 1.  **Unit Tests:**
     - Test cosine math logic.
     - Test period overlap prevention.
-    - Test "No Config" fallback behavior.
+    - Test "No Config" fallback behaviour.
 2.  **Comparison Tests:**
     - Create synthetic data with known speeds.
     - Simulate a sensor move (Change in angle).

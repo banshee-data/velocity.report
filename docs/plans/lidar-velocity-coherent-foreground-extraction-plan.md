@@ -265,7 +265,7 @@ The algorithm supports two processing modes:
 
 ### Objective by finding correspondences between consecutive frames.
 
-### Algorithm: Nearest-Neighbor with Velocity Constraint
+### Algorithm: Nearest-Neighbour with Velocity Constraint
 
 ```go
 // PointVelocity represents a point with estimated velocity
@@ -348,7 +348,7 @@ func EstimatePointVelocities(
 Velocity confidence is computed based on:
 
 1. **Spatial distance**: Closer correspondences are more confident
-2. **Velocity consistency**: Similar velocity to neighbors increases confidence
+2. **Velocity consistency**: Similar velocity to neighbours increases confidence
 3. **Magnitude plausibility**: Reject physically impossible velocities (>50 m/s for vehicles)
 
 ```go

@@ -45,6 +45,11 @@ indefinite dual-format support.
 **Principle:** rip the bandaid off. One version bump, one migration guide, clean
 interfaces going forward.
 
+Decision recorded in [DECISIONS.md](../DECISIONS.md): `v0.5.0` ships one
+coordinated breaking-change sweep. No temporary dual-format shims are retained
+after the cut except DB upgrade detection and architecturally necessary aliases
+listed in "Items Explicitly NOT Removed" below.
+
 ## Scope
 
 This plan covers **data model and API compat shims only**. It is a sub-plan of

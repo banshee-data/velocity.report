@@ -1,4 +1,4 @@
-# SQLite Client Standardization Plan
+# SQLite Client Standardisation Plan
 
 **Layers:** Cross-cutting (database infrastructure)
 
@@ -12,7 +12,7 @@ Use one canonical set of SQLite interfacing code for the shared schema in `inter
   - `internal/lidar/storage/sqlite`
   - Test DB bootstrap/helpers that duplicate schema, PRAGMAs, or migration baselines
 - Out of scope:
-  - Changing API behavior/response formats
+  - Changing API behaviour/response formats
   - Reworking non-SQL business logic
 
 ## Current Duplication and Boundary Leaks
@@ -79,7 +79,7 @@ Effort: 2 days
 - [ ] Create `internal/db` label repository methods for CRUD/list/export over `lidar_labels`.
 - [ ] Refactor `internal/api/lidar_labels.go` to call repository methods only.
 - [ ] Move label validation constants/helpers out of `internal/api` to a shared non-API package if needed by monitor handlers.
-- [ ] Keep endpoint behavior unchanged with regression tests.
+- [ ] Keep endpoint behaviour unchanged with regression tests.
 
 ### Phase 3: Consolidate LiDAR SQLite Implementations
 
@@ -88,7 +88,7 @@ Effort: 4-6 days
 - [ ] Migrate `internal/lidar/storage/sqlite` SQL implementations to canonical `internal/db` repositories.
 - [ ] Keep compatibility wrappers temporarily in `internal/lidar/storage/sqlite` (thin adapters) to reduce blast radius.
 - [ ] Remove direct `*sql.DB` plumbing from call sites where feasible (inject repo/facade instead).
-- [ ] Preserve retry-on-busy behavior as shared helper in canonical DB layer.
+- [ ] Preserve retry-on-busy behaviour as shared helper in canonical DB layer.
 
 ### Phase 4: Unify Test DB Setup
 
@@ -96,7 +96,7 @@ Effort: 2-3 days
 
 - [ ] Provide one shared test DB factory using canonical schema + migration version discovery.
 - [ ] Replace inline `CREATE TABLE` test setups for labels/scenes/sweeps with shared setup where practical.
-- [ ] Standardize on one SQLite driver for tests unless a specific test needs driver-specific behavior.
+- [ ] Standardize on one SQLite driver for tests unless a specific test needs driver-specific behaviour.
 - [ ] Remove hardcoded `latestMigrationVersion := 15` patterns.
 
 ### Phase 5: Cleanup and Enforce
@@ -118,7 +118,7 @@ Assumption: one engineer, focused effort, with CI available.
 ## Risks
 
 - Hidden coupling in LiDAR monitor handlers may surface during repository injection.
-- Behavior drift from inconsistent historical error handling (`sql.ErrNoRows` vs wrapped messages vs `nil,nil`).
+- Behaviour drift from inconsistent historical error handling (`sql.ErrNoRows` vs wrapped messages vs `nil,nil`).
 - Test failures from schema assumptions currently encoded in hand-written table definitions.
 
 ## Success Criteria
@@ -127,4 +127,4 @@ Assumption: one engineer, focused effort, with CI available.
 - [ ] One canonical DB setup path for PRAGMAs/migrations.
 - [ ] One canonical repository set for schema-backed tables.
 - [ ] Tests no longer rely on hardcoded migration version constants.
-- [ ] Existing API behavior and LiDAR workflows pass regression tests.
+- [ ] Existing API behaviour and LiDAR workflows pass regression tests.

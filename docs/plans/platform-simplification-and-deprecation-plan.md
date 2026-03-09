@@ -152,7 +152,9 @@ The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-in
 1. Build a complete Raspberry Pi image: `make build-image` (planned)
 2. Flash the image to an SD card using Raspberry Pi Imager or `dd`
 3. Boot the Pi — the service starts automatically with all dependencies pre-installed
-4. Upgrade by re-flashing a new image or using an over-the-air update mechanism (TBD)
+4. Upgrade by re-flashing a new image. Over-the-air updates are explicitly
+   deferred to a later milestone and are not part of the current replacement
+   workflow.
 
 ### Transition period
 
@@ -289,16 +291,16 @@ sub-plan:
 - [ ] Group and document advanced transit worker flags
 - [ ] Simplify PDF mode flags for operators while keeping backward compatibility for one release
 
-### Project E (P1): Data model and API compat-shim removal
+### Project E (P1): Data model and API compat-shim removal — Retired to Backlog
 
 Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md)
 
-- [ ] Remove `AvgSpeedMps` from visualiser model, proto field 24 rename, p85/p98 fields (PR #336)
-- [ ] Remove `AvgSpeedMps` from REST API, TrackFeatures, track store, DB columns, pcap-analyse
-- [ ] Remove Svelte/web compat shims (BackgroundCell legacy fields, dual-format cache, sweep legacy field names)
-- [ ] Remove Python compat shims (legacy stats format, config dict helpers, pylatex stubs)
-- [ ] Remove macOS compat shims (regenerate Swift proto, legacy point buffer, playback defaults)
-- [ ] Validation pass: lint, test, build across all platforms
+**Retired:** Task tracking for Project E has moved to [BACKLOG.md](../BACKLOG.md)
+v0.5.0 under three items: "v0.5.0 backward compatibility shim removal"
+(web/Python/macOS fallback removal), "Visualiser track proto parity" (proto
+rename, percentile back-out, binding regeneration), and "v0.5.0 breaking
+changes" (`transit-backfill` soft-deprecation, breaking-changes release notes). The sub-plan retains the
+full implementation detail.
 
 Intersections with other projects:
 

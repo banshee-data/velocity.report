@@ -2,18 +2,18 @@
 
 ## Overview
 
-The LiDAR background grid now supports **adaptive region-based parameters** that automatically segment the sensor's field of view into regions with different settling characteristics, and apply optimized parameters to each region.
+The LiDAR background grid now supports **adaptive region-based parameters** that automatically segment the sensor's field of view into regions with different settling characteristics, and apply optimised parameters to each region.
 
 This feature addresses the challenge of varying environmental conditions within a single sensor frame: trees and glass have high variance and require looser noise thresholds, while stable surfaces like walls need tighter thresholds for better foreground detection.
 
 ## Key Features
 
 - **Automatic Region Identification**: Segments the frame into contiguous regions based on variance characteristics during the settling period
-- **Dynamic Parameter Assignment**: Each region gets optimized values for noise tolerance, neighbor confirmation, and settling rate
+- **Dynamic Parameter Assignment**: Each region gets optimised values for noise tolerance, neighbour confirmation, and settling rate
 - **Static After Settling**: Regions are identified once during warmup and remain fixed thereafter (appropriate for static sensors)
 - **Persistence & Restoration**: Regions are automatically persisted to database with scene hash and restored on subsequent runs from the same location, eliminating the ~30 second settling period
 - **Configurable Limits**: Maximum 50 regions per frame to ensure performance
-- **Debug Visualization**: API endpoint to inspect region boundaries and parameters
+- **Debug Visualisation**: API endpoint to inspect region boundaries and parameters
 
 ## How It Works
 
@@ -39,9 +39,9 @@ When settling completes, regions are automatically identified:
 
 2. **Create contiguous regions**: Uses breadth-first search (BFS) to group adjacent cells with the same variance category into connected regions
 
-3. **Merge if needed**: If more than 50 regions are identified, smallest regions are merged with their nearest neighbors
+3. **Merge if needed**: If more than 50 regions are identified, smallest regions are merged with their nearest neighbours
 
-4. **Assign parameters**: Each region receives optimized parameters based on its variance category
+4. **Assign parameters**: Each region receives optimised parameters based on its variance category
 
 ### 3. Parameter Application (During Runtime)
 
@@ -62,11 +62,11 @@ if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
 
 ## Parameter Scaling by Region Type
 
-| Region Type                  | NoiseRelativeFraction | NeighborConfirmationCount | SettleUpdateFraction | Rationale                                                                                                 |
-| ---------------------------- | --------------------- | ------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Stable** (low variance)    | 0.8× base             | base                      | 1.5× base            | Tighter threshold for better foreground detection; faster settling                                        |
-| **Variable** (medium)        | 1.0× base             | base                      | 1.0× base            | Standard parameters                                                                                       |
-| **Volatile** (high variance) | 2.0× base             | base + 2                  | 0.5× base            | Looser threshold to avoid false positives; more neighbor confirmation; slower settling to handle variance |
+| Region Type                  | NoiseRelativeFraction | NeighborConfirmationCount | SettleUpdateFraction | Rationale                                                                                                  |
+| ---------------------------- | --------------------- | ------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Stable** (low variance)    | 0.8× base             | base                      | 1.5× base            | Tighter threshold for better foreground detection; faster settling                                         |
+| **Variable** (medium)        | 1.0× base             | base                      | 1.0× base            | Standard parameters                                                                                        |
+| **Volatile** (high variance) | 2.0× base             | base + 2                  | 0.5× base            | Looser threshold to avoid false positives; more neighbour confirmation; slower settling to handle variance |
 
 Example with base parameters (`NoiseRelativeFraction=0.01`, `NeighborConfirmationCount=3`, `BackgroundUpdateFraction=0.02`):
 
@@ -138,7 +138,7 @@ curl http://localhost:8081/debug/lidar/background/regions?sensor_id=hesai-01&inc
 
 ### Visualize Regions
 
-Use the grid mapping to visualize which cells belong to which region:
+Use the grid mapping to visualise which cells belong to which region:
 
 ```python
 import json
