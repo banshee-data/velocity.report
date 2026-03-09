@@ -997,10 +997,13 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web
+.PHONY: lint lint-go lint-python lint-web lint-docs
 
-lint: lint-go lint-python lint-web
+lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
+
+lint-docs: ## Check British English spelling in docs/
+	@python3 scripts/check-british-spelling.py
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
