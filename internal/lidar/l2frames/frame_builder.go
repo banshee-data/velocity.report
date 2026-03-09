@@ -597,6 +597,18 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 	// Calculate completeness metrics
 	fb.calculateFrameCompleteness(frame)
 
+	// In blocking mode (analysis replay), bypass the buffer entirely and
+	// send the frame directly to the pipeline. The buffer exists for live
+	// mode to handle out-of-order backfill packets, but analysis mode
+	// processes packets sequentially. Without this shortcut the PCAP
+	// reader fills the 10-frame buffer faster than the pipeline drains it,
+	// silently overwriting intermediate frames and delivering only ~12%
+	// of the rotations.
+	if fb.blockOnFrameChannel {
+		fb.finalizeFrame(frame, "direct_blocking")
+		return
+	}
+
 	// Move to buffer for potential backfill
 	fb.frameBuffer[frame.FrameID] = frame
 
