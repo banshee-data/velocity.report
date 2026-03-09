@@ -158,8 +158,9 @@ func TestListRuns(t *testing.T) {
 
 	// Insert multiple runs with different timestamps
 	for i := 0; i < 5; i++ {
+		runID := "run-list-" + string(rune('a'+i))
 		run := &AnalysisRun{
-			RunID:      "run-list-" + string(rune('a'+i)),
+			RunID:      runID,
 			CreatedAt:  time.Now().Add(time.Duration(i) * time.Hour),
 			SourceType: "pcap",
 			SensorID:   "sensor-1",
@@ -168,6 +169,17 @@ func TestListRuns(t *testing.T) {
 		}
 		if err := store.InsertRun(run); err != nil {
 			t.Fatalf("InsertRun failed: %v", err)
+		}
+		if i == 4 {
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-classified", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 1, UserLabel: "car", LabelSource: "human_manual"}); err != nil {
+				t.Fatalf("InsertRunTrack failed: %v", err)
+			}
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-tagged", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 2, QualityLabel: "noisy", LabelSource: "human_manual"}); err != nil {
+				t.Fatalf("InsertRunTrack failed: %v", err)
+			}
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-carried", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 3, UserLabel: "bus", LabelSource: "carried_over"}); err != nil {
+				t.Fatalf("InsertRunTrack failed: %v", err)
+			}
 		}
 	}
 
@@ -186,6 +198,21 @@ func TestListRuns(t *testing.T) {
 		if runs[0].CreatedAt.Before(runs[1].CreatedAt) {
 			t.Error("Runs should be in descending order by created_at")
 		}
+	}
+	if runs[0].LabelRollup == nil {
+		t.Fatal("Expected label rollup on listed runs")
+	}
+	if runs[0].LabelRollup.Total != 3 {
+		t.Errorf("Expected rollup total 3, got %d", runs[0].LabelRollup.Total)
+	}
+	if runs[0].LabelRollup.Classified != 1 {
+		t.Errorf("Expected classified 1, got %d", runs[0].LabelRollup.Classified)
+	}
+	if runs[0].LabelRollup.TaggedOnly != 1 {
+		t.Errorf("Expected tagged_only 1, got %d", runs[0].LabelRollup.TaggedOnly)
+	}
+	if runs[0].LabelRollup.Unlabelled != 1 {
+		t.Errorf("Expected unlabelled 1, got %d", runs[0].LabelRollup.Unlabelled)
 	}
 }
 
@@ -413,7 +440,8 @@ func TestGetLabelingProgress(t *testing.T) {
 
 	// Label some tracks
 	store.UpdateTrackLabel("run-progress", "track-1", "car", "", 0.9, "user-1", "human_manual")
-	store.UpdateTrackLabel("run-progress", "track-2", "pedestrian", "", 0.8, "user-1", "human_manual")
+	store.UpdateTrackLabel("run-progress", "track-2", "", "noisy", 0.8, "user-1", "human_manual")
+	store.UpdateTrackLabel("run-progress", "track-3", "pedestrian", "", 0.8, "hint-carryover", "carried_over")
 
 	// Get progress
 	total, labeled, byClass, err := store.GetLabelingProgress("run-progress")
@@ -430,8 +458,8 @@ func TestGetLabelingProgress(t *testing.T) {
 	if byClass["car"] != 1 {
 		t.Errorf("Car count mismatch: got %d, want 1", byClass["car"])
 	}
-	if byClass["pedestrian"] != 1 {
-		t.Errorf("Pedestrian count mismatch: got %d, want 1", byClass["pedestrian"])
+	if byClass["pedestrian"] != 0 {
+		t.Errorf("Pedestrian count mismatch: got %d, want 0", byClass["pedestrian"])
 	}
 }
 

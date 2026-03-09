@@ -41,7 +41,25 @@ type AnalysisRun struct {
 	VRLogPath        string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
 
 	// Derived fields (not persisted in DB, computed on retrieval)
-	SceneName string `json:"scene_name,omitempty"` // Derived from SourcePath filename
+	SceneName   string          `json:"scene_name,omitempty"`   // Derived from SourcePath filename
+	LabelRollup *RunLabelRollup `json:"label_rollup,omitempty"` // Derived from run-track labels
+}
+
+// RunLabelRollup summarises the current human labelling state for a run.
+// Counts are mutually exclusive and always sum to Total.
+type RunLabelRollup struct {
+	Total      int `json:"total"`
+	Classified int `json:"classified"`
+	TaggedOnly int `json:"tagged_only"`
+	Unlabelled int `json:"unlabelled"`
+}
+
+// LabelledCount returns tracks with any human-applied label state.
+func (r *RunLabelRollup) LabelledCount() int {
+	if r == nil {
+		return 0
+	}
+	return r.Classified + r.TaggedOnly
 }
 
 // PopulateSceneName sets SceneName from SourcePath by extracting the base
@@ -53,6 +71,16 @@ func (r *AnalysisRun) PopulateSceneName() {
 	} else {
 		r.SceneName = ""
 	}
+}
+
+const (
+	manualLabelSourcePredicate = "(label_source IS NULL OR label_source = '' OR label_source = 'human_manual')"
+	manualClassPredicate       = manualLabelSourcePredicate + " AND user_label IS NOT NULL AND user_label != '' AND user_label NOT IN ('split', 'merge')"
+	manualTagPredicate         = manualLabelSourcePredicate + " AND ((quality_label IS NOT NULL AND TRIM(quality_label) != '') OR (user_label IN ('split', 'merge')) OR is_split_candidate = 1 OR is_merge_candidate = 1 OR (linked_track_ids IS NOT NULL AND linked_track_ids != '' AND linked_track_ids != '[]'))"
+)
+
+func isMissingRunTracksTableErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "no such table: lidar_run_tracks")
 }
 
 // RunParams captures all configurable parameters for reproducibility.
@@ -477,6 +505,11 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 	}
 
 	run.PopulateSceneName()
+	labelRollup, err := s.GetRunLabelRollup(runID)
+	if err != nil {
+		return nil, err
+	}
+	run.LabelRollup = labelRollup
 
 	return &run, nil
 }
@@ -554,6 +587,10 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate runs: %w", err)
+	}
+
+	if err := s.populateRunLabelRollups(runs); err != nil {
+		return nil, err
 	}
 
 	return runs, nil
@@ -892,30 +929,26 @@ func (s *AnalysisRunStore) UpdateTrackQualityFlags(runID, trackID string, isSpli
 func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int, byClass map[string]int, err error) {
 	byClass = make(map[string]int)
 
-	// Get total and labeled counts
-	query := `
-		SELECT
-			COUNT(*) as total,
-			SUM(CASE WHEN user_label IS NOT NULL AND user_label != '' THEN 1 ELSE 0 END) as labeled
-		FROM lidar_run_tracks
-		WHERE run_id = ?
-	`
-
-	err = s.db.QueryRow(query, runID).Scan(&total, &labeled)
+	rollup, err := s.GetRunLabelRollup(runID)
 	if err != nil {
-		return 0, 0, nil, fmt.Errorf("get labeling counts: %w", err)
+		return 0, 0, nil, err
 	}
+	total = rollup.Total
+	labeled = rollup.LabelledCount()
 
 	// Get counts by user label
-	query = `
+	query := `
 		SELECT user_label, COUNT(*) as count
 		FROM lidar_run_tracks
-		WHERE run_id = ? AND user_label IS NOT NULL AND user_label != ''
+		WHERE run_id = ? AND ` + manualClassPredicate + `
 		GROUP BY user_label
 	`
 
 	rows, err := s.db.Query(query, runID)
 	if err != nil {
+		if isMissingRunTracksTableErr(err) {
+			return total, labeled, byClass, nil
+		}
 		return total, labeled, nil, fmt.Errorf("get label counts: %w", err)
 	}
 	defer rows.Close()
@@ -930,6 +963,87 @@ func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int
 	}
 
 	return total, labeled, byClass, nil
+}
+
+// GetRunLabelRollup returns the current human labelling state for one run.
+func (s *AnalysisRunStore) GetRunLabelRollup(runID string) (*RunLabelRollup, error) {
+	query := `
+		SELECT
+			COUNT(*) as total,
+			COALESCE(SUM(CASE WHEN ` + manualClassPredicate + ` THEN 1 ELSE 0 END), 0) as classified,
+			COALESCE(SUM(CASE WHEN NOT (` + manualClassPredicate + `) AND ` + manualTagPredicate + ` THEN 1 ELSE 0 END), 0) as tagged_only
+		FROM lidar_run_tracks
+		WHERE run_id = ?
+	`
+
+	var rollup RunLabelRollup
+	if err := s.db.QueryRow(query, runID).Scan(&rollup.Total, &rollup.Classified, &rollup.TaggedOnly); err != nil {
+		if isMissingRunTracksTableErr(err) {
+			return &RunLabelRollup{}, nil
+		}
+		return nil, fmt.Errorf("get run label rollup: %w", err)
+	}
+	rollup.Unlabelled = rollup.Total - rollup.Classified - rollup.TaggedOnly
+	if rollup.Unlabelled < 0 {
+		rollup.Unlabelled = 0
+	}
+	return &rollup, nil
+}
+
+func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
+	if len(runs) == 0 {
+		return nil
+	}
+
+	byID := make(map[string]*AnalysisRun, len(runs))
+	args := make([]interface{}, 0, len(runs))
+	placeholders := make([]string, 0, len(runs))
+	for _, run := range runs {
+		byID[run.RunID] = run
+		run.LabelRollup = &RunLabelRollup{}
+		args = append(args, run.RunID)
+		placeholders = append(placeholders, "?")
+	}
+
+	query := `
+		SELECT
+			run_id,
+			COUNT(*) as total,
+			COALESCE(SUM(CASE WHEN ` + manualClassPredicate + ` THEN 1 ELSE 0 END), 0) as classified,
+			COALESCE(SUM(CASE WHEN NOT (` + manualClassPredicate + `) AND ` + manualTagPredicate + ` THEN 1 ELSE 0 END), 0) as tagged_only
+		FROM lidar_run_tracks
+		WHERE run_id IN (` + strings.Join(placeholders, ",") + `)
+		GROUP BY run_id
+	`
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		if isMissingRunTracksTableErr(err) {
+			return nil
+		}
+		return fmt.Errorf("list run label rollups: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var runID string
+		var rollup RunLabelRollup
+		if err := rows.Scan(&runID, &rollup.Total, &rollup.Classified, &rollup.TaggedOnly); err != nil {
+			return fmt.Errorf("scan run label rollup: %w", err)
+		}
+		rollup.Unlabelled = rollup.Total - rollup.Classified - rollup.TaggedOnly
+		if rollup.Unlabelled < 0 {
+			rollup.Unlabelled = 0
+		}
+		if run := byID[runID]; run != nil {
+			run.LabelRollup = &rollup
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate run label rollups: %w", err)
+	}
+
+	return nil
 }
 
 // GetUnlabeledTracks returns tracks that need labeling.

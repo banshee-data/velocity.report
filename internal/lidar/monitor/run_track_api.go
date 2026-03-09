@@ -394,6 +394,11 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get labelling progress: %v", err))
 		return
 	}
+	labelRollup, err := store.GetRunLabelRollup(runID)
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get label rollup: %v", err))
+		return
+	}
 
 	// Calculate progress percentage
 	progressPct := 0.0
@@ -407,6 +412,7 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 		"total":        total,
 		"labelled":     labelled,
 		"by_class":     byClass,
+		"label_rollup": labelRollup,
 		"progress_pct": progressPct,
 	})
 }
