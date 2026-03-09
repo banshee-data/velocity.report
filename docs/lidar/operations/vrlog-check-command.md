@@ -20,7 +20,7 @@ under the main binary as first-class subcommands.
 
 This command should be built on the generic TicTacTail platform described in
 [tictactail-platform-plan.md](../../plans/tictactail-platform-plan.md). All
-live/footer rendering, history layout, alignment, colour, spinner, and refresh
+live/status rendering, pane layout, alignment, colour, spinner, and refresh
 policy should live there. VRLOG should only provide emitted keys, projection,
 and validation rules.
 
@@ -57,10 +57,13 @@ Recommended flags for `vrlog check`:
 - `--live`: consume live frames instead of a `.vrlog` directory.
 - `--sensor-id <id>`: required in live mode where needed.
 - `--refresh-hz <n>`: default `20`; common values `5`, `10`, and `20`.
-- `--agg-window <seconds>`: active aggregation window in integer seconds,
+- `--fast-window <seconds>`: fast aggregate pane window in integer seconds,
+  default `3`.
+- `--slow-window <seconds>`: slow aggregate pane window in integer seconds,
   default `30`.
-- `--speed fast`: shorthand for `--agg-window 3`.
-- `--no-ui`: disable the live footer and print line-oriented logs only.
+- `--recent-lines <n>`: maximum visible rows in the fast aggregate pane,
+  default `10`.
+- `--no-ui`: disable the split-pane UI and print line-oriented logs only.
 - `--json`: machine-readable final summary for CI or scripting.
 - `--strict`: treat warnings such as unknown fields or version mismatches as
   failures.
@@ -145,6 +148,8 @@ recorded archive.
 
 Preferred emitted keys for VRLOG:
 
+- reserved keys from TicTacTail: `ts_nanos`, `kind`, `sev`, `src`, `win_s`
+
 - `fr_inc`
 - `frame_cur`
 - `frame_tot`
@@ -219,37 +224,40 @@ Not represented directly in VRLOG and must be labelled as derived:
 
 ## Aggregation Window
 
-Aggregation should be single-window at a time, not dual-window by default.
+VRLOG should keep both a fast and a slow aggregate window hot at all times.
 
-Default:
+Defaults:
 
-- active aggregation window = `30`
+- fast window = `3`
+- slow window = `30`
 
-Toggle options:
+The stream should emit both rolling windows, not a single selected window.
 
-- CLI: `--agg-window 3` or `--agg-window 30`
-- CLI shorthand: `--speed fast` sets `3`
-- keyboard toggle while running: `s` flips `30 <-> 3`
+TTY layout:
+
+- top pane: `30` second aggregates, using the remaining height
+- middle pane: recent `3` second aggregates, capped at `10` visible rows
+- lower pane: one-line live snapshot
+- bottom bar: one-line status/input bar
 
 The requested `3 / 30 seconds` behaviour should still use rolling windows, not
-lifetime averages, but the stream should emit only the currently selected
-window size.
+lifetime averages.
 
 Implementation:
 
-- keep accumulators for both `3` and `30` second windows so toggling is instant
-- only emit rows for the active window
-- default active window is `30`
-- when toggled to `3`, start emitting `3` second rows until toggled back
-- live line always shows the currently active `ag=<seconds>`
+- keep accumulators for both `3` and `30` second windows
+- emit `win_s=3` rows into the recent pane
+- emit `win_s=30` rows into the long-history pane
+- keep bounded caches for both buckets so resizes can repaint without replay
+- keep the live pane unwindowed and driven by the latest sample state
 
-Do not force `3s/30s` into the same history line. The primary read should be
-temporal: one line per completed selected chunk.
+Do not collapse `3` second and `30` second buckets into one synthetic history
+line. The primary read should remain temporal: one row per completed window.
 
-TicTacTail should keep both windows hot internally so VRLOG can flip between
-`30` and `3` with no cold start.
+TicTacTail should keep both windows hot internally so VRLOG can show fast and
+slow history at the same time with no cold start.
 
-Recommended live-line fields:
+Recommended live-pane fields:
 
 - current frame progress
 - instantaneous fps
@@ -316,20 +324,22 @@ Exit behaviour:
 - exit `1` for validation fail
 - exit `2` for command/runtime error
 
-## Logging Alongside The Live Line
+## Logging Alongside The Live Surface
 
 Support both the tail stream and periodic machine-readable or plain-text logs.
 
 Recommended behaviour:
 
-- live line redraw at `15-20 Hz`
-- emit one compact aggregate row whenever the active window closes
+- live pane and status bar redraw at `15-20 Hz`
+- emit one compact `3` second aggregate row whenever the fast window closes
+- emit one compact `30` second aggregate row whenever the slow window closes
 - emit immediate event rows for structural failures, decode failures, and mode
   transitions
 - when `--no-ui` is set, keep only the aggregate and event rows
 
-This makes the command act like `tail -f` with structure, rather than like a
-full-screen dashboard.
+This makes the command act like a structured terminal surface rather than a
+full-screen dashboard while still preserving line-oriented output when UI is
+disabled.
 
 ## Phased Delivery
 
@@ -338,9 +348,9 @@ full-screen dashboard.
 - Add `velocity-report vrlog check <path>`
 - Validate structure and version
 - Decode all frames
-- Emit tail-style aggregate rows using active window selection
-- Add a bottom live line for TTYs
-- Support `30` default and `3` fast mode
+- Emit tail-style `3` second and `30` second aggregate rows
+- Add split-pane TTY output with slow history, recent history, live, and status
+  bars
 
 ### Phase 2: Live Stream Checker
 
@@ -348,7 +358,8 @@ full-screen dashboard.
 - Plug into publisher or pipeline stream
 - Reuse the same stats model and tail renderer
 - Add runtime-only counters
-- Support runtime `s` toggle for `30 <-> 3`
+- Reuse the same split-pane layout in live mode
+- Decide whether the status/input bar is status-only or accepts commands
 
 ### Phase 3: Derived Metrics
 
@@ -364,11 +375,14 @@ full-screen dashboard.
 
 ## Key Implementation Risks
 
-- `20 Hz` redraw can waste CPU if more than the live line is rewritten on every
-  tick. Keep redraw scoped to the footer only.
+- `20 Hz` redraw can waste CPU if more than the live pane and status bar are
+  rewritten on every tick. Keep history pane redraw scoped to row append and
+  resize.
 - live mode and file mode do not expose identical truth; provenance must remain
   explicit.
 - terminals vary in emoji width handling. Keep an ASCII fallback.
+- pane layout and resize reflow add complexity; bounded caches need explicit
+  budgets and tests.
 - bottom-line control can get messy when other goroutines print concurrently.
   Funnel all output through one renderer.
 - long scans need deterministic summaries even when live redraw is disabled or
