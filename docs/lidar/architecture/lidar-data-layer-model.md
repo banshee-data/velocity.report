@@ -26,7 +26,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L7    | **Scene**      | Persistent canonical world model — accumulated geometry, priors, and multi-sensor fusion | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned     |
 | L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🔄 Partial     |
 | L9    | **Endpoints**  | Server-side payload shaping, gRPC stream, dashboards, debug views                        | gRPC `FrameUpdate`, chart view-models, ECharts payloads                                   | 🔄 Partial     |
-| L10   | **Client**     | Downstream rendering consumers (documentation label — no Go package)                     | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 📄 Doc-only    |
+| L10   | **Clients**    | Downstream rendering consumers (documentation label — no Go package)                     | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 📄 Doc-only    |
 
 ### Design rationale for ten layers
 
@@ -48,7 +48,7 @@ The decision to place Scene at L7 (rather than above Analytics) reflects data fl
 - OSM priors and external map data → **L7 Scene** (ingested as prior features, refined by observation)
 - Run statistics, comparisons, percentiles → **L8 Analytics**
 - gRPC streams, chart data, dashboard payloads → **L9 Endpoints**
-- Browser, native app, PDF → **L10 Client**
+- Browser, native app, PDF → **L10 Clients**
 - VRLOG recordings span **L2–L6** (frame bundles, perception outputs, tracks, objects)
 - LidarView exports primarily sit at **L2** (frame/geometry view)
 
@@ -140,12 +140,12 @@ L8  Analytics ─ Traffic metrics, run comparison, scoring
  │               Scene-contextualised statistics ("speed on Main St")
  │               Parameter sweep evaluation, run diffing
  │
-L9  Endpoints ─── Server-side payload shaping
+L9  Endpoints ─ Server-side payload shaping
  │               gRPC FrameUpdate stream to VelocityVisualiser
  │               ECharts data, chart view-models, debug overlays
  │               Dashboard API responses
  │
-L10 Client ──── Downstream renderers (no Go package)
+L10 Clients ─── Downstream renderers (no Go package)
                  Browser: Svelte web frontend
                  Native: Swift/Metal VelocityVisualiser
                  Reports: Python PDF generator
@@ -214,7 +214,7 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 | L7 Scene      | `internal/lidar/l7scene/`      | _To be created_ — canonical scene model, priors ingestion, multi-sensor merge                                                                               | 📋     |
 | L8 Analytics  | `internal/lidar/l8analytics/`  | _Canonical package to be created — existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
 | L9 Endpoints  | `internal/lidar/l9endpoints/`  | _Rename from `internal/lidar/visualiser/`_ — `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`                                               | 🔄     |
-| L10 Client    | _(no Go package)_              | `web/` (Svelte), `tools/visualiser-macos/` (Swift), `tools/pdf-generator/` (Python)                                                                         | 📄     |
+| L10 Clients   | _(no Go package)_              | `web/` (Svelte), `tools/visualiser-macos/` (Swift), `tools/pdf-generator/` (Python)                                                                         | 📄     |
 
 Cross-cutting packages:
 
@@ -376,7 +376,7 @@ The following layer numbers and names are **permanently assigned**. Implementati
 | L7     | Scene      | Persistent canonical world model     | v1.0 (planned) | Multi-frame, multi-sensor, priors            |
 | L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0         | Currently in `monitor/`; run comparison, IoU |
 | L9     | Endpoints  | Server-side payload shaping          | v0.1.0         | `monitor/` dashboards; `visualiser/` gRPC    |
-| L10    | Client     | Downstream renderers                 | v0.1.0         | Web frontend shipped with first release      |
+| L10    | Clients    | Downstream renderers                 | v0.1.0         | Web frontend shipped with first release      |
 
 ### Rules for future evolution
 
