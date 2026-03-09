@@ -1133,7 +1133,9 @@ private let logger = DevLogger(category: "AppState")
 
         // Performance diagnostic: log per-frame processing cost periodically
         let perfElapsed = ContinuousClock.now - perfStart
-        let perfMs = Double(perfElapsed.components.attoseconds) / 1e15
+        let perfMs =
+            Double(perfElapsed.components.seconds) * 1000 + Double(
+                perfElapsed.components.attoseconds) / 1e15
         if frameCount % 60 == 0 {
             logger.info(
                 "[Perf] frame \(self.frameCount) processed in \(String(format: "%.1f", perfMs))ms (fps=\(String(format: "%.1f", self.fps)) type=\(frame.frameType.rawValue) points=\(frame.pointCloud?.pointCount ?? 0) tracks=\(frame.tracks?.tracks.count ?? 0))"
