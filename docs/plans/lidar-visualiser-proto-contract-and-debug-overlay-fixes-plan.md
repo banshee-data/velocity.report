@@ -200,23 +200,17 @@ remains client-side/advisory and does not drive server-side subset filtering.
 3. Document `supports_debug` as stream-level capability, not per-overlay
    server-side filtering support.
 
-### Phase C: Track speed summary schema (Superseded - do not merge)
+### Phase C: Track speed summary schema — Retired
 
-1. Back out branch-local `Track` percentile fields from `visualiser.proto` and
-   regenerated bindings before merge.
-2. Rename the raw track maximum field from `peak_speed_mps` to `max_speed_mps`
-   while the contract is still unshipped.
-3. Remove Swift/client/UI dependencies on aggregate percentile labels in track speed surfaces.
-4. Revisit track-level speed metrics in a separate redesign once replacement
-   non-percentile names and formulas are defined.
+**Retired:** This scope is now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0
+under "Track speed contract reset". The proto rename, percentile back-out, and
+binding regeneration are owned by that backlog item.
 
-### Phase D: Swift client/UI parity (P2)
+### Phase D: Swift client/UI parity — Retired
 
-1. Keep the Swift client resilient while the branch-local percentile additions
-   are being backed out.
-2. Update UI labels and model names to use `max` for the raw maximum track
-   speed.
-3. Ensure the inspector does not standardise on aggregate percentile labels for track speed surfaces.
+**Retired:** Swift-side `peak` → `max` rename and inspector label updates are
+now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0 under "Track speed contract
+reset".
 
 ### Phase E: Test hardening (P1)
 
@@ -268,8 +262,8 @@ remains client-side/advisory and does not drive server-side subset filtering.
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
-- [ ] Back out the branch-local track speed-summary field expansion before merge
-- [ ] Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields
-- [ ] Remove branch-local percentile-style track computation and propagation from the merge-target contract work
-- [ ] Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields
+- ~~Back out the branch-local track speed-summary field expansion before merge~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Remove branch-local percentile-style track computation and propagation from the merge-target contract work~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
 - [ ] Replace negative debug tests with positive end-to-end serialisation tests

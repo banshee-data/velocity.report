@@ -291,16 +291,15 @@ sub-plan:
 - [ ] Group and document advanced transit worker flags
 - [ ] Simplify PDF mode flags for operators while keeping backward compatibility for one release
 
-### Project E (P1): Data model and API compat-shim removal
+### Project E (P1): Data model and API compat-shim removal — Retired to Backlog
 
 Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md)
 
-- [ ] Remove `AvgSpeedMps` from visualiser model, proto field 24 rename, p85/p98 fields (PR #336)
-- [ ] Remove `AvgSpeedMps` from REST API, TrackFeatures, track store, DB columns, pcap-analyse
-- [ ] Remove Svelte/web compat shims (BackgroundCell legacy fields, dual-format cache, sweep legacy field names)
-- [ ] Remove Python compat shims (legacy stats format, config dict helpers, pylatex stubs)
-- [ ] Remove macOS compat shims (regenerate Swift proto, legacy point buffer, playback defaults)
-- [ ] Validation pass: lint, test, build across all platforms
+**Retired:** Task tracking for Project E has moved to [BACKLOG.md](../BACKLOG.md)
+v0.5.0 under two items: "Track speed contract reset" (proto rename, percentile
+back-out, AvgSpeedMps removal across Go/REST/DB/pcap) and "v0.5.0 compat shim
+sweep" (download URL, web/Python/macOS fallbacks). The sub-plan retains the full
+implementation detail.
 
 Intersections with other projects:
 
