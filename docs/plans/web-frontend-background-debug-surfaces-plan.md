@@ -1,6 +1,7 @@
 # Frontend Background Debug Surfaces Plan
 
 **Status:** Planning-only (no implementation in this branch)
+**Layers:** L3 Grid, L9 Endpoints, L10 Client
 **Scope:** Swift visualiser debugging outputs for background settlement
 **Related:** [`docs/ui/VelocityVisualiser.app/02-api-contracts.md`](../ui/VelocityVisualiser.app/02-api-contracts.md), [`docs/ui/velocity-visualiser-architecture.md`](../ui/velocity-visualiser-architecture.md), [`docs/ui/velocity-visualiser-implementation.md`](../ui/velocity-visualiser-implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
 

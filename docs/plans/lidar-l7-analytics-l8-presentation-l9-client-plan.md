@@ -1,6 +1,7 @@
 # LiDAR L7 Analytics / L8 Presentation / L9 Client Tier Refactor Plan
 
 **Status:** Proposed implementation plan
+**Layers:** L8 Analytics, L9 Endpoints, L10 Client
 **Source:** Imported from the original planning document `plan-l7-l8.md`, then reviewed against the repository state on 2026-03-06. Updated 2026-03-07 to adopt a nine-layer model, rename `internal/lidar/visualiser/` to `internal/lidar/l8presentation/`, and introduce L9 as the documentation-only client-tier label.
 **Scope:** LiDAR architecture docs, `internal/lidar`, `proto/velocity_visualiser/v1`, `web/`, and the macOS visualiser integration boundary.
 

@@ -2,6 +2,8 @@
 
 ## Status: Draft
 
+**Layers:** L9 Endpoints, L10 Client
+
 ## Problem Statement
 
 The project has three distinct web surfaces for LiDAR functionality:

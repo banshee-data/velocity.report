@@ -1,6 +1,7 @@
 # velocity.report Raspberry Pi Imager — Design Document
 
 > **Status:** Draft
+> **Layers:** Cross-cutting (deployment infrastructure)
 > **Author:** Ictinus (Product Architecture)
 > **Date:** 2026-02-11
 > **Relates to:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2,

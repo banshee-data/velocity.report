@@ -1,6 +1,7 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
 **Status:** Partially implemented — debug overlay and field-parity work remain valid; the superseded track speed-label expansion should not merge
+**Layers:** L9 Endpoints
 **Scope:** gRPC/protobuf contract parity for visualiser streaming and debug overlays before `v0.5.0`; track-level speed metric redesign is now separate work
 **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 

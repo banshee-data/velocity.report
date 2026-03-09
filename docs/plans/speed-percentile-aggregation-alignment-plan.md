@@ -1,6 +1,7 @@
 # Speed Percentile Aggregation Alignment Plan
 
 **Status:** Proposed - design reset documented; implementation and contract rework pending
+**Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
 **Scope:** reserve percentiles for grouped/report aggregates only, back out the old single-track speed-label proto/API work, rename raw `peak` to `max`, define replacement track-level speed metrics, and keep one canonical aggregate percentile path
 **Related:** [Track Description Language plan](data-track-description-language-plan.md), [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [Metrics Registry and Observability Plan](metrics-registry-and-observability-plan.md), [Executive Decisions Register](../DECISIONS.md), [radar percentile queries](../../internal/db/queries_histograms.md)
 

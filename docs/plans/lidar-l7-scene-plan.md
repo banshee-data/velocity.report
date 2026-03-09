@@ -2,6 +2,7 @@
 
 **Status:** 📋 Planned — v1.0
 **Created:** 2026-03-08
+**Layers:** L7 Scene
 **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
 **Maths index:** [docs/maths/README.md](../maths/README.md)
 
@@ -110,18 +111,18 @@ Real-world traffic monitoring benefits from multiple sensors covering different 
 
 ### Layer impact of multi-sensor fusion
 
-| Layer           | Single-sensor (today)               | Multi-sensor (future)                                                                               |
-| --------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
-| L1 Packets      | One UDP stream                      | Multiple streams, each sensor on its own port/interface                                             |
-| L2 Frames       | One frame pipeline                  | Parallel frame pipelines, each in sensor-local coordinates                                          |
-| L3 Grid         | One background grid                 | Per-sensor grids (polar coordinates are sensor-specific)                                            |
-| L4 Perception   | One set of clusters                 | Per-sensor clusters in sensor-local frames                                                          |
-| L5 Tracks       | One `TrackSet`                      | Per-sensor `TrackSet` instances with sensor-local track IDs                                         |
-| L6 Objects      | Per-sensor classification           | Per-sensor classification (unchanged)                                                               |
-| **L7 Scene**    | **Single-sensor accumulated scene** | **Merged scene: cross-sensor track association, unified coordinate frame, fused canonical objects** |
-| L8 Analytics    | Scene-contextualised metrics        | Multi-sensor coverage statistics, cross-sensor consistency metrics                                  |
-| L9 Presentation | Single-sensor gRPC stream           | Merged multi-sensor stream, per-sensor debug views                                                  |
-| L10 Client      | Renders one pipeline                | Renders merged scene with per-sensor toggle overlays                                                |
+| Layer         | Single-sensor (today)               | Multi-sensor (future)                                                                               |
+| ------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| L1 Packets    | One UDP stream                      | Multiple streams, each sensor on its own port/interface                                             |
+| L2 Frames     | One frame pipeline                  | Parallel frame pipelines, each in sensor-local coordinates                                          |
+| L3 Grid       | One background grid                 | Per-sensor grids (polar coordinates are sensor-specific)                                            |
+| L4 Perception | One set of clusters                 | Per-sensor clusters in sensor-local frames                                                          |
+| L5 Tracks     | One `TrackSet`                      | Per-sensor `TrackSet` instances with sensor-local track IDs                                         |
+| L6 Objects    | Per-sensor classification           | Per-sensor classification (unchanged)                                                               |
+| **L7 Scene**  | **Single-sensor accumulated scene** | **Merged scene: cross-sensor track association, unified coordinate frame, fused canonical objects** |
+| L8 Analytics  | Scene-contextualised metrics        | Multi-sensor coverage statistics, cross-sensor consistency metrics                                  |
+| L9 Endpoints  | Single-sensor gRPC stream           | Merged multi-sensor stream, per-sensor debug views                                                  |
+| L10 Client    | Renders one pipeline                | Renders merged scene with per-sensor toggle overlays                                                |
 
 **Key architectural principle:** L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusively at L7, where observations from all sensors merge into a single canonical scene. This keeps the real-time per-sensor pipeline simple and avoids premature coordinate transforms in the low-level layers.
 

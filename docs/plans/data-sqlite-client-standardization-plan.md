@@ -1,5 +1,7 @@
 # SQLite Client Standardization Plan
 
+**Layers:** Cross-cutting (database infrastructure)
+
 Use one canonical set of SQLite interfacing code for the shared schema in `internal/db/schema.sql`, and remove direct SQL access from `internal/api`.
 
 ## Scope

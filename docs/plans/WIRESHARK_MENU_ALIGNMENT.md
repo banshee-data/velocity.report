@@ -1,5 +1,7 @@
 # Wireshark Menu Alignment Plan
 
+**Layers:** L10 Client (macOS visualiser)
+
 > **Purpose:** Compare VelocityVisualiser menu structure with Wireshark's proven
 > menu design patterns to identify gaps, adopt relevant conventions, and align
 > keyboard shortcuts where appropriate.

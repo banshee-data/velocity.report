@@ -2,6 +2,8 @@
 
 ## Status: Planned
 
+**Layers:** Cross-cutting (L3 Grid, L4 Perception, L5 Tracks)
+
 ## Summary
 
 Systematically explore parameter space to optimise track quality metrics. This

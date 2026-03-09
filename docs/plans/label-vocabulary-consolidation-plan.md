@@ -1,7 +1,7 @@
 # Label Vocabulary Consolidation Plan
 
 **Status:** Phase 1–3.1 completed · Phase 4–5 planned
-**Layer:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
+**Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
 **Related:** [Classification Maths](../maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
 
 ## Problem (resolved)

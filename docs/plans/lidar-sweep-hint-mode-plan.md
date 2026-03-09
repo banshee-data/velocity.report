@@ -1,6 +1,7 @@
 # HINT Sweep Mode — Remaining Polish Items
 
 **Status**: Complete (57/57 items complete) ✅
+**Layers:** Cross-cutting (L8 Analytics infrastructure)
 
 **Full design and implementation status:** [`docs/lidar/operations/hint-sweep-mode.md`](../lidar/operations/hint-sweep-mode.md)
 

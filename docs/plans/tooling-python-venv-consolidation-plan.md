@@ -1,6 +1,7 @@
 # Python Virtual Environment Consolidation Plan
 
 **Status**: Complete
+**Layers:** Cross-cutting (tooling)
 **Goal**: Consolidate from dual Python venv system to single shared repository-level venv
 
 ## Problem Summary

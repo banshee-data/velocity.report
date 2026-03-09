@@ -19,7 +19,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts
-- L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-presentation-l10-client-plan.md) `L`
+- L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-client-plan.md) `L`
 
 ## v0.6 (Deployment & Packaging)
 
@@ -32,7 +32,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - Config restructure Phase 2 — expose L1 sensor/network and L3 background/foreground constants as tuning params; deprecate CLI flags — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
-- L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9presentation/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-presentation-l10-client-plan.md) `L`
+- L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9endpoints/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-client-plan.md) `L`
 
 ## v0.7 (Unified Frontend)
 
