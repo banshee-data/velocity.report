@@ -2,6 +2,8 @@
 
 Single source of truth for project-wide work items in velocity.report. Where available, tasks link to a design document using syntax `[#$pr] (#$issue) $title - $task [design doc]($url)`; tasks without a design doc use just the backlog entry and effort tag. Individual docs in `plans/` describe single projects, not priority lists.
 
+**Governance:** Never delete agreed backlog items — split, consolidate, or complete them. Outstanding agreed work stays tracked here until delivered. When consolidating overlapping items, create distinct non-overlapping work units and move completed sub-tasks to the Complete section. Design documents may retire scope by marking phases complete or out-of-scope and linking to the PR where the scope change landed.
+
 ## v0.5.0 (Platform Hardening)
 
 - v0.5.0 backward compatibility shim removal — reset the track speed contract (`peak` → `max`, no aggregate percentile labels on public track surfaces), sweep legacy fields, and remove deploy executor compat methods — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
@@ -71,6 +73,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - (#122) Database monitoring UI — daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard `M`
 - (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters `M`
 - (#324) Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
+- Threshold-based speed alerts — configurable alerting for speed threshold violations `M`
 - Test coverage ≥ 95.5% — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](plans/platform-quality-coverage-improvement-plan.md) `L`
 - Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
 - Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
@@ -78,12 +81,11 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v1.0 (?? Scene + Algo)
 
+- L7 Scene layer — persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture — [design doc](plans/lidar-l7-scene-plan.md) `XL`
 - Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
 - Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
 - Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
-- L7 Scene layer — persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture — [design doc](plans/lidar-l7-scene-plan.md) `XL`
-- Threshold-based speed alerts — configurable alerting for speed threshold violations `M`
 
 ## v2.0 (Advanced Perception & Connected)
 
