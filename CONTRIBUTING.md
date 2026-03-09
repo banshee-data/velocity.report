@@ -42,12 +42,14 @@ Data science work in velocity.report is closer to an actuarial or quantitative-a
 
 Good data visualisation turns speed measurements into stories that drive policy change. Designers contribute to information hierarchy, chart design, colour palettes, layout patterns, and accessibility. The project follows a documented [design contract](docs/ui/DESIGN.md) covering palette standards, component conventions, and UI states. Contributions range from Figma mockups and design system refinement to hands-on Svelte/CSS implementation. Experience with data-dense dashboards and accessibility standards (WCAG) is valuable.
 
+Design work also extends to the **PDF report pipeline**: the Python-based PDF generator uses matplotlib to produce speed distribution charts, percentile histograms, and heatmaps embedded in LaTeX reports submitted to local authorities. Designers ensure these charts share the same palette, typography conventions, and visual language as the web dashboards so that the brand is consistent across all output surfaces.
+
 **Read next:**
 
 - [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the canonical design language across web, macOS, and report outputs
 - [docs/VISION.md](docs/VISION.md) — the product goals, target users, and reporting outcomes the UI needs to support
+- [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — the report surface, chart pipeline, and configuration model for generated outputs
 - [docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the LiDAR visualiser
-- [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — the report surface and configuration model for generated outputs
 - [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md) — current implementation milestones and what the visualiser already supports
 
 ### Technical Writer
@@ -62,9 +64,15 @@ Clear documentation lowers the barrier for new contributors and new deployments 
 - [public_html/README.md](public_html/README.md) — how the public docs site is built and organised
 - [public_html/src/guides/setup.md](public_html/src/guides/setup.md) — a representative public-facing guide to match tone, structure, and audience
 
-### Frontend Engineer (mac:Swift / js:Svelte)
+### Frontend Engineer (mac:Swift / js:Svelte / py:matplotlib)
 
-The web frontend provides real-time dashboards, chart visualisation, and configuration interfaces. Frontend engineers work on Svelte 5 components, chart rendering with LayerChart and D3, Tailwind CSS styling, and responsive design. Current priorities include migrating legacy Go-embedded dashboards to Svelte, building new configuration UIs, and enforcing the project's design system. Experience with accessibility testing (axe-core, Playwright) is a plus.
+Frontend engineers work across three surfaces: the **Svelte web application**, the **macOS LiDAR visualiser** (Swift/Metal), and the **PDF report charts** (Python/matplotlib).
+
+The web frontend provides real-time dashboards, chart visualisation, and configuration interfaces. Web engineers work on Svelte 5 components, chart rendering with LayerChart and D3, Tailwind CSS styling, and responsive design. Current priorities include migrating legacy Go-embedded dashboards to Svelte, building new configuration UIs, and enforcing the project's design system. Experience with accessibility testing (axe-core, Playwright) is a plus.
+
+The macOS visualiser (VelocityVisualiser.app) is a native Swift application using Metal for real-time 3D rendering of LiDAR point clouds, tracked objects, and cluster boundaries. It communicates with the Go server via REST/WebSocket APIs. Swift engineers work on scene rendering, camera controls, overlay HUDs, and track playback. Familiarity with Metal/SceneKit, AppKit, and Xcode is valuable.
+
+The PDF report pipeline uses Python and matplotlib to generate publication-quality speed distribution charts, percentile histograms, and heatmaps that are embedded in LaTeX reports for local authority submissions. Frontend engineers maintain chart builders, colour palette alignment with the web dashboards, and the data transformation layer that feeds matplotlib. Familiarity with matplotlib styling, LaTeX integration, and the project's canonical percentile palette is useful.
 
 **Read next:**
 
@@ -72,6 +80,10 @@ The web frontend provides real-time dashboards, chart visualisation, and configu
 - [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the design contract for web, macOS, and report charts
 - [docs/ui/design-review-and-improvement.md](docs/ui/design-review-and-improvement.md) — current frontend design gaps and concrete follow-up work
 - [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md) — the roadmap for retiring legacy Go-embedded dashboards
+- [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — PDF report pipeline, chart builders, and configuration
+- [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) — macOS visualiser setup, build, and architecture
+- [docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the visualiser
+- [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md) — current implementation milestones
 
 ### Perception & Algorithm Engineer
 
@@ -85,29 +97,22 @@ The LiDAR and radar processing pipeline turns raw sensor data into tracked objec
 - [docs/maths/clustering-maths.md](docs/maths/clustering-maths.md) — clustering assumptions, geometry extraction, and complexity
 - [docs/maths/tracking-maths.md](docs/maths/tracking-maths.md) — Kalman filtering, gating, assignment, and lifecycle dynamics
 
-### Systems Engineer (Go)
+### Platform Engineer (Go / DevOps)
 
-The Go server is the backbone of velocity.report: it ingests sensor data, manages the SQLite database, serves the HTTP/gRPC API, and orchestrates the processing pipeline. Systems engineers work on data ingestion, API design, database schema and migrations, configuration management, and binary consolidation. Familiarity with concurrency patterns, serial/UDP protocols, and embedded database constraints (single-writer SQLite on a Raspberry Pi) is especially valuable.
+The Go server is the backbone of velocity.report: it ingests sensor data, manages the SQLite database, serves the HTTP/gRPC API, and orchestrates the processing pipeline. Platform engineers own the full stack from server internals to production deployment — data ingestion, API design, database schema and migrations, configuration management, binary consolidation, CI/CD pipelines (GitHub Actions), cross-compilation for ARM64, Raspberry Pi image builds, one-line installers, release packaging, and systemd service management. The goal is zero-friction deployment: a community member downloads an SD card image, inserts it, and has a working traffic monitor.
+
+Observability is a growing priority: Prometheus metrics integration, structured logging, health-check endpoints, and resource monitoring on constrained edge hardware. Familiarity with concurrency patterns, serial/UDP protocols, embedded database constraints (single-writer SQLite on a Raspberry Pi), shell scripting, and Makefile fluency is valuable.
 
 **Read next:**
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system boundaries, data flow, and deployment shape
 - [cmd/radar/README.md](cmd/radar/README.md) — the main binary, runtime flags, and service model
+- [cmd/deploy/README.md](cmd/deploy/README.md) — deployment workflows, upgrade flow, rollback, and health checks
 - [docs/radar/cli-comprehensive-guide.md](docs/radar/cli-comprehensive-guide.md) — current CLI surface and planned consolidation
 - [internal/db/migrations/README.md](internal/db/migrations/README.md) — schema workflow, migration commands, and production safety
 - [config/README.md](config/README.md) — configuration contract and tuning parameter layout
-
-### Platform & DevOps Engineer
-
-velocity.report deploys to Raspberry Pi 4 hardware with no cloud infrastructure. Platform engineers work on CI/CD pipelines (GitHub Actions), cross-compilation for ARM64, Raspberry Pi image builds, one-line installers, release packaging, and systemd service management. The goal is zero-friction deployment: a community member downloads an SD card image, inserts it, and has a working traffic monitor. Shell scripting, Makefile fluency, and Linux systems experience are key.
-
-**Read next:**
-
-- [cmd/deploy/README.md](cmd/deploy/README.md) — deployment workflows, upgrade flow, rollback, and health checks
 - [docs/plans/deploy-distribution-packaging-plan.md](docs/plans/deploy-distribution-packaging-plan.md) — release packaging strategy and install model
-- [docs/plans/deploy-rpi-imager-fork-plan.md](docs/plans/deploy-rpi-imager-fork-plan.md) — Raspberry Pi image distribution and first-run experience
 - [docs/radar/architecture/networking.md](docs/radar/architecture/networking.md) — listener segmentation, trust model, and network hardening
-- [config/CONFIG-RESTRUCTURE.md](config/CONFIG-RESTRUCTURE.md) — upcoming config migration that affects packaging and runtime defaults
 
 ## Themes of Work
 
