@@ -67,6 +67,23 @@ shorten_path() {
   printf "%s" "$path"
 }
 
+make_temp_file() {
+  local temp_file=""
+
+  if temp_file=$(mktemp 2>/dev/null); then
+    printf "%s\n" "$temp_file"
+    return 0
+  fi
+
+  if temp_file=$(mktemp -t velocity-report-jess-standup 2>/dev/null); then
+    printf "%s\n" "$temp_file"
+    return 0
+  fi
+
+  echo "Failed to create temporary file with mktemp" >&2
+  exit 1
+}
+
 pick_main_ref() {
   if git show-ref --verify --quiet refs/remotes/origin/main; then
     printf "origin/main"
@@ -223,6 +240,8 @@ CURRENT_BRANCH=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
 MAIN_REF=$(pick_main_ref)
 MAIN_SHORT=$(git rev-parse --short "$MAIN_REF")
 MAIN_SUBJECT=$(git log -1 --pretty=%s "$MAIN_REF")
+BRANCH_ROWS_FILE=$(make_temp_file)
+trap 'rm -f "$BRANCH_ROWS_FILE"' EXIT
 WORKTREE_PORCELAIN=$(git worktree list --porcelain)
 WORKTREE_COUNT=$(printf "%s\n" "$WORKTREE_PORCELAIN" | awk '/^worktree / { count++ } END { print count + 0 }')
 DETACHED_WORKTREE_COUNT=$(printf "%s\n" "$WORKTREE_PORCELAIN" | awk '/^detached$/ { count++ } END { print count + 0 }')
@@ -248,7 +267,6 @@ fi
 
 CURRENT_DIFF_HIGHLIGHTS=$(git diff --name-status "$MAIN_REF"...HEAD | head -n 10 || true)
 
-BRANCH_ROWS=""
 DISPLAYED_BRANCHES=0
 UPSTREAM_DIVERGENCE_COUNT=0
 CHECKED_OUT_MAIN_DIVERGENCE_COUNT=0
@@ -292,7 +310,14 @@ while IFS=$'\t' read -r branch upstream _subject; do
     branch_cell=$(escape_markdown_table_cell "$branch")
     upstream_cell=$(escape_markdown_table_cell "$upstream")
     worktree_cell=$(escape_markdown_table_cell "$worktree_label")
-    BRANCH_ROWS="${BRANCH_ROWS}| ${branch_cell} | ${upstream_cell} | +${ahead_up} / -${behind_up} | +${ahead_main} / -${behind_main} | ${worktree_cell} |\n"
+    printf '| %s | %s | +%s / -%s | +%s / -%s | %s |\n' \
+      "$branch_cell" \
+      "$upstream_cell" \
+      "$ahead_up" \
+      "$behind_up" \
+      "$ahead_main" \
+      "$behind_main" \
+      "$worktree_cell" >>"$BRANCH_ROWS_FILE"
     DISPLAYED_BRANCHES=$((DISPLAYED_BRANCHES + 1))
   fi
 done < <(git for-each-ref --format='%(refname:short)%09%(upstream:short)%09%(contents:subject)' refs/heads)
@@ -339,8 +364,8 @@ else
 fi
 printf "| Branch | Upstream | Vs upstream | Vs %s | Worktree |\n" "$MAIN_REF"
 printf "| --- | --- | --- | --- | --- |\n"
-if [[ -n "$BRANCH_ROWS" ]]; then
-  printf "%b" "$BRANCH_ROWS"
+if [[ -s "$BRANCH_ROWS_FILE" ]]; then
+  cat "$BRANCH_ROWS_FILE"
 else
   printf '| `-` | `-` | +0 / -0 | +0 / -0 | - |\n'
 fi

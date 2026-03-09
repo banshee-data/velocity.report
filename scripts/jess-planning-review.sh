@@ -63,8 +63,15 @@ make_temp_dir() {
 }
 
 collect_decision_markers() {
-  if grep -RniP '(^#+ .*Open Questions)|\b(TBD|TODO|FIXME)\b|decision needed|unresolved|open question' "$PLANS_DIR" >"$DECISION_MARKERS" 2>/dev/null; then
+  local grep_status=0
+
+  grep -RniP '(^#+ .*Open Questions)|\b(TBD|TODO|FIXME)\b|decision needed|unresolved|open question' "$PLANS_DIR" >"$DECISION_MARKERS" 2>/dev/null || grep_status=$?
+  if (( grep_status <= 1 )); then
     return
+  fi
+
+  if (( grep_status != 2 )); then
+    return "$grep_status"
   fi
 
   grep -RniE '(^#+ .*Open Questions)|((^|[^A-Za-z0-9_])(TBD|TODO|FIXME)([^A-Za-z0-9_]|$))|decision needed|unresolved|open question' "$PLANS_DIR" >"$DECISION_MARKERS" || true
