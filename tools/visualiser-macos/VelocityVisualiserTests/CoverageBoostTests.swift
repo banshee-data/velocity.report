@@ -369,7 +369,7 @@ struct VisualiserClientDecodeTests {
         track.heightP95Max = 1.6
         track.intensityMeanAvg = 50.0
         track.avgSpeedMps = 7.5
-        track.peakSpeedMps = 9.0
+        track.maxSpeedMps = 9.0
         track.objectClass = .car
         track.classConfidence = 0.95
         track.trackLengthMetres = 150.0
@@ -390,7 +390,7 @@ struct VisualiserClientDecodeTests {
         #expect(decodedTrack?.state == .confirmed)
         #expect(decodedTrack?.hits == 100)
         #expect(decodedTrack?.avgSpeedMps == 7.5)
-        #expect(decodedTrack?.peakSpeedMps == 9.0)
+        #expect(decodedTrack?.maxSpeedMps == 9.0)
         #expect(decodedTrack?.classLabel == "car")
         #expect(decodedTrack?.alpha == 0.85)
     }
@@ -1029,7 +1029,7 @@ struct VisualiserClientDecodeTests {
             x: 10.0, y: 5.0, z: 0.5, vx: 8.0, vy: 0.5, vz: 0.0, speedMps: 8.0, headingRad: 0.1,
             covariance4x4: [], bboxLength: 4.5, bboxWidth: 1.8, bboxHeight: 1.5,
             bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0, avgSpeedMps: 7.5,
-            peakSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
+            maxSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
             trackLengthMetres: 150.0, trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98,
             occlusionState: .none, motionModel: .cv, alpha: 1.0)
         frame.tracks = TrackSet(
@@ -1263,7 +1263,7 @@ struct RunTrackTests {
             runId: "run-1", trackId: "t1", sensorId: "s1", userLabel: "good_vehicle",
             qualityLabel: "perfect", labelConfidence: 0.95, labelerId: "user-1",
             startUnixNanos: 1_000_000_000, endUnixNanos: 2_000_000_000, totalObservations: 50,
-            durationSecs: 10.0, avgSpeedMps: 10.0, peakSpeedMps: 12.0, isSplitCandidate: false,
+            durationSecs: 10.0, avgSpeedMps: 10.0, maxSpeedMps: 12.0, isSplitCandidate: false,
             isMergeCandidate: false)
 
         #expect(track.isLabelled == true)
@@ -1274,7 +1274,7 @@ struct RunTrackTests {
             runId: "run-1", trackId: "t2", sensorId: "s1", userLabel: nil, qualityLabel: nil,
             labelConfidence: nil, labelerId: nil, startUnixNanos: 1_000_000_000,
             endUnixNanos: 2_000_000_000, totalObservations: 50, durationSecs: 10.0,
-            avgSpeedMps: nil, peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            avgSpeedMps: nil, maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
 
         #expect(track.isLabelled == false)
     }
@@ -1284,7 +1284,7 @@ struct RunTrackTests {
             runId: "run-1", trackId: "unique-track-id", sensorId: "s1", userLabel: nil,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
 
         #expect(track.id == "unique-track-id")
     }
@@ -1462,7 +1462,7 @@ struct RunTrackTests {
             x: 10.0, y: 5.0, z: 0.5, vx: 5.0, vy: 0.0, vz: 0.0, speedMps: 5.0, headingRad: 0.0,
             covariance4x4: [], bboxLength: 4.0, bboxWidth: 1.8, bboxHeight: 1.5,
             bboxHeadingRad: 0.0, heightP95Max: 1.5, intensityMeanAvg: 50.0, avgSpeedMps: 5.0,
-            peakSpeedMps: 6.0, classLabel: "", classConfidence: 0.0, trackLengthMetres: 50.0,
+            maxSpeedMps: 6.0, classLabel: "", classConfidence: 0.0, trackLengthMetres: 50.0,
             trackDurationSecs: 10.0, occlusionCount: 0, confidence: 0.9, occlusionState: .none,
             motionModel: .cv, alpha: 1.0)
         frame.tracks = TrackSet(

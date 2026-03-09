@@ -152,7 +152,7 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: true, isMergeCandidate: false)
+            maxSpeedMps: nil, isSplitCandidate: true, isMergeCandidate: false)
         #expect(track.isSplitCandidate == true)
         #expect(track.isMergeCandidate == false)
     }
@@ -162,7 +162,7 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: false, isMergeCandidate: true)
+            maxSpeedMps: nil, isSplitCandidate: false, isMergeCandidate: true)
         #expect(track.isSplitCandidate == false)
         #expect(track.isMergeCandidate == true)
     }
@@ -172,13 +172,13 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: "car",
             qualityLabel: "good", labelConfidence: 0.95, labelerId: "david",
             startUnixNanos: 1_000_000_000, endUnixNanos: 5_000_000_000, totalObservations: 40,
-            durationSecs: 4.0, avgSpeedMps: 8.5, peakSpeedMps: 12.0, isSplitCandidate: false,
+            durationSecs: 4.0, avgSpeedMps: 8.5, maxSpeedMps: 12.0, isSplitCandidate: false,
             isMergeCandidate: false)
         #expect(track.qualityLabel == "good")
         #expect(track.labelConfidence == 0.95)
         #expect(track.durationSecs == 4.0)
         #expect(track.avgSpeedMps == 8.5)
-        #expect(track.peakSpeedMps == 12.0)
+        #expect(track.maxSpeedMps == 12.0)
     }
 
     private func makeTrack(userLabel: String? = nil) -> RunTrack {
@@ -186,7 +186,7 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: userLabel,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
     }
 }
 

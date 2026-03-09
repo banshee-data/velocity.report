@@ -216,14 +216,14 @@ private let logger = DevLogger(category: "AppState")
     struct TrackSample {
         let frameIndex: UInt64
         let speedMps: Float
-        let peakSpeedMps: Float
+        let maxSpeedMps: Float
         let headingDeg: Float
     }
 
     /// Ring buffer of recent samples per track (keyed by trackID).
     private(set) var trackHistory: [String: [TrackSample]] = [:]
     /// Persistent all-time peak speed per track (survives ring-buffer eviction).
-    private(set) var trackPeakSpeed: [String: Float] = [:]
+    private(set) var trackMaxSpeed: [String: Float] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     /// Accumulated tracks across all frames in the current session/replay.
@@ -532,7 +532,7 @@ private let logger = DevLogger(category: "AppState")
         trackCount = 0
         cacheStatus = ""
         trackHistory = [:]
-        trackPeakSpeed = [:]
+        trackMaxSpeed = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         renderer?.clearTransientData()
@@ -552,7 +552,7 @@ private let logger = DevLogger(category: "AppState")
         resetPlaybackState(mode: .unknown)
         frameCount = 0
         trackHistory = [:]
-        trackPeakSpeed = [:]
+        trackMaxSpeed = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         userLabels = [:]
@@ -1207,7 +1207,7 @@ private let logger = DevLogger(category: "AppState")
 
                 let sample = TrackSample(
                     frameIndex: currentFrameIndex, speedMps: track.speedMps,
-                    peakSpeedMps: track.peakSpeedMps, headingDeg: track.headingRad * 180 / .pi)
+                    maxSpeedMps: track.maxSpeedMps, headingDeg: track.headingRad * 180 / .pi)
                 var samples = trackHistory[track.trackID] ?? []
                 // Remove any samples at or beyond the current frame index
                 // (handles backward seeks and steps)
@@ -1219,10 +1219,8 @@ private let logger = DevLogger(category: "AppState")
                 trackHistory[track.trackID] = samples
 
                 // Update persistent peak speed (survives ring-buffer eviction)
-                let prevPeak = trackPeakSpeed[track.trackID] ?? 0
-                if track.peakSpeedMps > prevPeak {
-                    trackPeakSpeed[track.trackID] = track.peakSpeedMps
-                }
+                let prevMax = trackMaxSpeed[track.trackID] ?? 0
+                if track.maxSpeedMps > prevMax { trackMaxSpeed[track.trackID] = track.maxSpeedMps }
             }
         } else {
             inViewTrackIDs = []

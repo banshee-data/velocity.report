@@ -635,7 +635,7 @@ final class LockedState<Value>: @unchecked Sendable {
                         bboxWidth: t.bboxWidth, bboxHeight: t.bboxHeight,
                         bboxHeadingRad: t.bboxHeadingRad, heightP95Max: t.heightP95Max,
                         intensityMeanAvg: t.intensityMeanAvg, avgSpeedMps: t.avgSpeedMps,
-                        peakSpeedMps: t.peakSpeedMps, classLabel: objectClassLabel(t.objectClass),
+                        maxSpeedMps: t.maxSpeedMps, classLabel: objectClassLabel(t.objectClass),
                         classConfidence: t.classConfidence, trackLengthMetres: t.trackLengthMetres,
                         trackDurationSecs: t.trackDurationSecs,
                         occlusionCount: Int(t.occlusionCount), confidence: t.confidence,

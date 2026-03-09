@@ -25,27 +25,27 @@ import XCTest
 
 private func makeTrack(
     id: String = "trk_00001234", state: TrackState = .confirmed, speed: Float = 8.0,
-    peakSpeed: Float = 9.0, classLabel: String = "car"
+    maxSpeed: Float = 9.0, classLabel: String = "car"
 ) -> Track {
     Track(
         trackID: id, sensorID: "s1", state: state, hits: 50, misses: 2, observationCount: 48,
         firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000, x: 10, y: 5, z: 0.5, vx: 8,
         vy: 0.5, vz: 0, speedMps: speed, headingRad: 0.1, covariance4x4: [], bboxLength: 4.5,
         bboxWidth: 1.8, bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6,
-        intensityMeanAvg: 50, avgSpeedMps: 7.5, peakSpeedMps: peakSpeed, classLabel: classLabel,
+        intensityMeanAvg: 50, avgSpeedMps: 7.5, maxSpeedMps: maxSpeed, classLabel: classLabel,
         classConfidence: 0.95, trackLengthMetres: 150, trackDurationSecs: 20, occlusionCount: 0,
         confidence: 0.98, occlusionState: .none, motionModel: .cv, alpha: 1.0)
 }
 
 private func makeRunTrack(
     trackId: String = "trk_00001234", userLabel: String? = nil, qualityLabel: String? = nil,
-    peakSpeed: Double? = 12.0, startNanos: Int64? = 1_000_000_000
+    maxSpeed: Double? = 12.0, startNanos: Int64? = 1_000_000_000
 ) -> RunTrack {
     RunTrack(
         runId: "run-1", trackId: trackId, sensorId: "s1", userLabel: userLabel,
         qualityLabel: qualityLabel, labelConfidence: nil, labelerId: nil,
         startUnixNanos: startNanos, endUnixNanos: 2_000_000_000, totalObservations: 50,
-        durationSecs: 10, avgSpeedMps: 10, peakSpeedMps: peakSpeed, isSplitCandidate: false,
+        durationSecs: 10, avgSpeedMps: 10, maxSpeedMps: maxSpeed, isSplitCandidate: false,
         isMergeCandidate: false)
 }
 
@@ -376,40 +376,40 @@ final class ComputeRanksTests: XCTestCase {
 final class BuildRunModeSpeedEntriesTests: XCTestCase {
 
     func testUsesMaxOfAllSources() {
-        let runTracks = [makeRunTrack(trackId: "trk_a", peakSpeed: 5.0)]
-        let frameTrack = makeTrack(id: "trk_a", peakSpeed: 8.0)
+        let runTracks = [makeRunTrack(trackId: "trk_a", maxSpeed: 5.0)]
+        let frameTrack = makeTrack(id: "trk_a", maxSpeed: 8.0)
         let frameTrackByID = ["trk_a": frameTrack]
-        let trackPeakSpeed: [String: Float] = ["trk_a": 10.0]
+        let trackMaxSpeed: [String: Float] = ["trk_a": 10.0]
 
         let result = buildRunModeSpeedEntries(
-            runTracks: runTracks, frameTrackByID: frameTrackByID, trackPeakSpeed: trackPeakSpeed)
+            runTracks: runTracks, frameTrackByID: frameTrackByID, trackMaxSpeed: trackMaxSpeed)
 
         XCTAssertEqual(result.count, 1)
         XCTAssertEqual(result[0].peak, 10.0)  // persistent is highest
     }
 
     func testFallsBackToAPISpeed() {
-        let runTracks = [makeRunTrack(trackId: "trk_a", peakSpeed: 7.0)]
+        let runTracks = [makeRunTrack(trackId: "trk_a", maxSpeed: 7.0)]
         let result = buildRunModeSpeedEntries(
-            runTracks: runTracks, frameTrackByID: [:], trackPeakSpeed: [:])
+            runTracks: runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertEqual(result[0].peak, 7.0)
     }
 
-    func testNilAPIPeakSpeedUsesZero() {
-        let runTracks = [makeRunTrack(trackId: "trk_a", peakSpeed: nil)]
+    func testNilAPIMaxSpeedUsesZero() {
+        let runTracks = [makeRunTrack(trackId: "trk_a", maxSpeed: nil)]
         let result = buildRunModeSpeedEntries(
-            runTracks: runTracks, frameTrackByID: [:], trackPeakSpeed: [:])
+            runTracks: runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertEqual(result[0].peak, 0.0)
     }
 
     func testSortedDescending() {
         let runTracks = [
-            makeRunTrack(trackId: "trk_a", peakSpeed: 5.0),
-            makeRunTrack(trackId: "trk_b", peakSpeed: 15.0),
-            makeRunTrack(trackId: "trk_c", peakSpeed: 10.0),
+            makeRunTrack(trackId: "trk_a", maxSpeed: 5.0),
+            makeRunTrack(trackId: "trk_b", maxSpeed: 15.0),
+            makeRunTrack(trackId: "trk_c", maxSpeed: 10.0),
         ]
         let result = buildRunModeSpeedEntries(
-            runTracks: runTracks, frameTrackByID: [:], trackPeakSpeed: [:])
+            runTracks: runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertEqual(result.map(\.id), ["trk_b", "trk_c", "trk_a"])
     }
 }
@@ -419,22 +419,22 @@ final class BuildRunModeSpeedEntriesTests: XCTestCase {
 final class BuildFrameModeSpeedEntriesTests: XCTestCase {
 
     func testUsesMaxOfTrackAndPersistent() {
-        let tracks = [makeTrack(id: "trk_a", peakSpeed: 5.0)]
-        let result = buildFrameModeSpeedEntries(tracks: tracks, trackPeakSpeed: ["trk_a": 12.0])
+        let tracks = [makeTrack(id: "trk_a", maxSpeed: 5.0)]
+        let result = buildFrameModeSpeedEntries(tracks: tracks, trackMaxSpeed: ["trk_a": 12.0])
         XCTAssertEqual(result[0].peak, 12.0)
     }
 
     func testFallsBackToTrackPeak() {
-        let tracks = [makeTrack(id: "trk_a", peakSpeed: 8.0)]
-        let result = buildFrameModeSpeedEntries(tracks: tracks, trackPeakSpeed: [:])
+        let tracks = [makeTrack(id: "trk_a", maxSpeed: 8.0)]
+        let result = buildFrameModeSpeedEntries(tracks: tracks, trackMaxSpeed: [:])
         XCTAssertEqual(result[0].peak, 8.0)
     }
 
     func testSortedDescending() {
         let tracks = [
-            makeTrack(id: "trk_a", peakSpeed: 3.0), makeTrack(id: "trk_b", peakSpeed: 9.0),
+            makeTrack(id: "trk_a", maxSpeed: 3.0), makeTrack(id: "trk_b", maxSpeed: 9.0),
         ]
-        let result = buildFrameModeSpeedEntries(tracks: tracks, trackPeakSpeed: [:])
+        let result = buildFrameModeSpeedEntries(tracks: tracks, trackMaxSpeed: [:])
         XCTAssertEqual(result.map(\.id), ["trk_b", "trk_a"])
     }
 }
@@ -531,94 +531,94 @@ final class FrameTrackTagsTests: XCTestCase {
 final class BestRunTrackSpeedTests: XCTestCase {
 
     func testAllSourcesCombined() {
-        let frameTrack = makeTrack(id: "trk_a", peakSpeed: 5.0)
+        let frameTrack = makeTrack(id: "trk_a", maxSpeed: 5.0)
         let result = bestRunTrackSpeed(
-            trackId: "trk_a", apiPeakSpeed: 3.0, frameTrack: frameTrack,
-            trackPeakSpeed: ["trk_a": 8.0])
+            trackId: "trk_a", apiMaxSpeed: 3.0, frameTrack: frameTrack,
+            trackMaxSpeed: ["trk_a": 8.0])
         XCTAssertEqual(result, 8.0)
     }
 
     func testNoSourcesReturnsNil() {
         let result = bestRunTrackSpeed(
-            trackId: "trk_a", apiPeakSpeed: nil, frameTrack: nil, trackPeakSpeed: [:])
+            trackId: "trk_a", apiMaxSpeed: nil, frameTrack: nil, trackMaxSpeed: [:])
         XCTAssertNil(result)
     }
 
     func testOnlyAPISpeed() {
         let result = bestRunTrackSpeed(
-            trackId: "trk_a", apiPeakSpeed: 7.5, frameTrack: nil, trackPeakSpeed: [:])
+            trackId: "trk_a", apiMaxSpeed: 7.5, frameTrack: nil, trackMaxSpeed: [:])
         XCTAssertEqual(result, 7.5)
     }
 
     func testOnlyLiveSpeed() {
-        let frameTrack = makeTrack(id: "trk_a", peakSpeed: 12.0)
+        let frameTrack = makeTrack(id: "trk_a", maxSpeed: 12.0)
         let result = bestRunTrackSpeed(
-            trackId: "trk_a", apiPeakSpeed: nil, frameTrack: frameTrack, trackPeakSpeed: [:])
+            trackId: "trk_a", apiMaxSpeed: nil, frameTrack: frameTrack, trackMaxSpeed: [:])
         XCTAssertEqual(result, 12.0)
     }
 
     func testOnlyPersistentSpeed() {
         let result = bestRunTrackSpeed(
-            trackId: "trk_a", apiPeakSpeed: nil, frameTrack: nil, trackPeakSpeed: ["trk_a": 6.5])
+            trackId: "trk_a", apiMaxSpeed: nil, frameTrack: nil, trackMaxSpeed: ["trk_a": 6.5])
         XCTAssertEqual(result, 6.5)
     }
 }
 
-// MARK: - sortTracksByPeakSpeed Tests
+// MARK: - sortTracksByMaxSpeed Tests
 
-final class SortTracksByPeakSpeedTests: XCTestCase {
+final class SortTracksByMaxSpeedTests: XCTestCase {
 
     func testSortsDescending() {
         let tracks = [
-            makeTrack(id: "trk_slow", peakSpeed: 3.0), makeTrack(id: "trk_fast", peakSpeed: 15.0),
-            makeTrack(id: "trk_mid", peakSpeed: 8.0),
+            makeTrack(id: "trk_slow", maxSpeed: 3.0), makeTrack(id: "trk_fast", maxSpeed: 15.0),
+            makeTrack(id: "trk_mid", maxSpeed: 8.0),
         ]
-        let sorted = sortTracksByPeakSpeed(tracks, trackPeakSpeed: [:])
+        let sorted = sortTracksByMaxSpeed(tracks, trackMaxSpeed: [:])
         XCTAssertEqual(sorted.map(\.trackID), ["trk_fast", "trk_mid", "trk_slow"])
     }
 
     func testPersistentPeakOverrides() {
         let tracks = [
-            makeTrack(id: "trk_a", peakSpeed: 3.0), makeTrack(id: "trk_b", peakSpeed: 10.0),
+            makeTrack(id: "trk_a", maxSpeed: 3.0), makeTrack(id: "trk_b", maxSpeed: 10.0),
         ]
         // trk_a has a higher persistent peak
-        let sorted = sortTracksByPeakSpeed(tracks, trackPeakSpeed: ["trk_a": 20.0])
+        let sorted = sortTracksByMaxSpeed(tracks, trackMaxSpeed: ["trk_a": 20.0])
         XCTAssertEqual(sorted.map(\.trackID), ["trk_a", "trk_b"])
     }
 
     func testEmptyInput() {
-        let sorted = sortTracksByPeakSpeed([], trackPeakSpeed: [:])
+        let sorted = sortTracksByMaxSpeed([], trackMaxSpeed: [:])
         XCTAssertTrue(sorted.isEmpty)
     }
 }
 
-// MARK: - sortRunTracksByPeakSpeed Tests
+// MARK: - sortRunTracksByMaxSpeed Tests
 
-final class SortRunTracksByPeakSpeedTests: XCTestCase {
+final class SortRunTracksByMaxSpeedTests: XCTestCase {
 
     func testSortsDescending() {
         let runTracks = [
-            makeRunTrack(trackId: "trk_a", peakSpeed: 5.0),
-            makeRunTrack(trackId: "trk_b", peakSpeed: 15.0),
+            makeRunTrack(trackId: "trk_a", maxSpeed: 5.0),
+            makeRunTrack(trackId: "trk_b", maxSpeed: 15.0),
         ]
-        let sorted = sortRunTracksByPeakSpeed(runTracks, frameTrackByID: [:], trackPeakSpeed: [:])
+        let sorted = sortRunTracksByMaxSpeed(runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertEqual(sorted.map(\.trackId), ["trk_b", "trk_a"])
     }
 
     func testUsesLiveFrameSpeed() {
         let runTracks = [
-            makeRunTrack(trackId: "trk_a", peakSpeed: 5.0),
-            makeRunTrack(trackId: "trk_b", peakSpeed: 3.0),
+            makeRunTrack(trackId: "trk_a", maxSpeed: 5.0),
+            makeRunTrack(trackId: "trk_b", maxSpeed: 3.0),
         ]
-        let frameTrackByID = ["trk_b": makeTrack(id: "trk_b", peakSpeed: 20.0)]
-        let sorted = sortRunTracksByPeakSpeed(
-            runTracks, frameTrackByID: frameTrackByID, trackPeakSpeed: [:])
+        let frameTrackByID = ["trk_b": makeTrack(id: "trk_b", maxSpeed: 20.0)]
+        let sorted = sortRunTracksByMaxSpeed(
+            runTracks, frameTrackByID: frameTrackByID, trackMaxSpeed: [:])
         XCTAssertEqual(sorted.map(\.trackId), ["trk_b", "trk_a"])
     }
 
     func testNilAPIPeakHandled() {
-        let runTracks = [makeRunTrack(trackId: "trk_a", peakSpeed: nil)]
-        let sorted = sortRunTracksByPeakSpeed(runTracks, frameTrackByID: [:], trackPeakSpeed: [:])
+        let runTracks = [makeRunTrack(trackId: "trk_a", maxSpeed: nil)]
+        let sorted = sortRunTracksByMaxSpeed(runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertEqual(sorted.count, 1)
     }
 }
@@ -786,30 +786,30 @@ final class KeyActionEnumTests: XCTestCase {
     }
 }
 
-// MARK: - sortRunTracksByPeakSpeed with live frame data
+// MARK: - sortRunTracksByMaxSpeed with live frame data
 
-final class SortRunTracksByPeakSpeedLiveTests: XCTestCase {
+final class SortRunTracksByMaxSpeedLiveTests: XCTestCase {
 
     func testUsesAllThreeSpeedSources() {
         let runTracks = [
-            makeRunTrack(trackId: "trk_a", peakSpeed: 5.0),
-            makeRunTrack(trackId: "trk_b", peakSpeed: 3.0),
-            makeRunTrack(trackId: "trk_c", peakSpeed: 1.0),
+            makeRunTrack(trackId: "trk_a", maxSpeed: 5.0),
+            makeRunTrack(trackId: "trk_b", maxSpeed: 3.0),
+            makeRunTrack(trackId: "trk_c", maxSpeed: 1.0),
         ]
-        let frameTrackByID = ["trk_c": makeTrack(id: "trk_c", peakSpeed: 20.0)]
-        let trackPeakSpeed: [String: Float] = ["trk_b": 15.0]
-        let sorted = sortRunTracksByPeakSpeed(
-            runTracks, frameTrackByID: frameTrackByID, trackPeakSpeed: trackPeakSpeed)
+        let frameTrackByID = ["trk_c": makeTrack(id: "trk_c", maxSpeed: 20.0)]
+        let trackMaxSpeed: [String: Float] = ["trk_b": 15.0]
+        let sorted = sortRunTracksByMaxSpeed(
+            runTracks, frameTrackByID: frameTrackByID, trackMaxSpeed: trackMaxSpeed)
         // trk_c has live frame 20, trk_b has persistent 15, trk_a has API 5
         XCTAssertEqual(sorted.map(\.trackId), ["trk_c", "trk_b", "trk_a"])
     }
 
-    func testCompactMapHandlesNilPeakSpeed() {
+    func testCompactMapHandlesNilMaxSpeed() {
         let runTracks = [
-            makeRunTrack(trackId: "trk_a", peakSpeed: nil),
-            makeRunTrack(trackId: "trk_b", peakSpeed: 10.0),
+            makeRunTrack(trackId: "trk_a", maxSpeed: nil),
+            makeRunTrack(trackId: "trk_b", maxSpeed: 10.0),
         ]
-        let sorted = sortRunTracksByPeakSpeed(runTracks, frameTrackByID: [:], trackPeakSpeed: [:])
+        let sorted = sortRunTracksByMaxSpeed(runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertEqual(sorted.map(\.trackId), ["trk_b", "trk_a"])
     }
 }
@@ -832,21 +832,21 @@ final class EdgeCaseHelperTests: XCTestCase {
     }
 
     func testBestRunTrackSpeedFrameTrackHighest() {
-        let frameTrack = makeTrack(id: "trk_a", peakSpeed: 25.0)
+        let frameTrack = makeTrack(id: "trk_a", maxSpeed: 25.0)
         let result = bestRunTrackSpeed(
-            trackId: "trk_a", apiPeakSpeed: 10.0, frameTrack: frameTrack,
-            trackPeakSpeed: ["trk_a": 15.0])
+            trackId: "trk_a", apiMaxSpeed: 10.0, frameTrack: frameTrack,
+            trackMaxSpeed: ["trk_a": 15.0])
         XCTAssertEqual(result, 25.0)
     }
 
     func testBuildFrameModeSpeedEntriesEmpty() {
-        let result = buildFrameModeSpeedEntries(tracks: [], trackPeakSpeed: [:])
+        let result = buildFrameModeSpeedEntries(tracks: [], trackMaxSpeed: [:])
         XCTAssertTrue(result.isEmpty)
     }
 
     func testBuildRunModeSpeedEntriesEmpty() {
         let result = buildRunModeSpeedEntries(
-            runTracks: [], frameTrackByID: [:], trackPeakSpeed: [:])
+            runTracks: [], frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertTrue(result.isEmpty)
     }
 

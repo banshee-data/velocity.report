@@ -110,7 +110,7 @@ struct RunTrackModelTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: "car",
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.isLabelled == true)
     }
 
@@ -119,7 +119,7 @@ struct RunTrackModelTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.isLabelled == false)
     }
 
@@ -128,7 +128,7 @@ struct RunTrackModelTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: "",
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.isLabelled == false)
     }
 
@@ -137,7 +137,7 @@ struct RunTrackModelTests {
             runId: "run-001", trackId: "track-abc", sensorId: "hesai-01", userLabel: nil,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.id == "track-abc")
     }
 }
@@ -283,7 +283,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                     "total_observations": 40,
                     "duration_secs": 4.0,
                     "avg_speed_mps": 8.5,
-                    "peak_speed_mps": 12.0,
+                    "max_speed_mps": 12.0,
                     "is_split_candidate": false,
                     "is_merge_candidate": false
                 }],
@@ -342,7 +342,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                 "total_observations": 30,
                 "duration_secs": 3.0,
                 "avg_speed_mps": 5.0,
-                "peak_speed_mps": 8.0,
+                "max_speed_mps": 8.0,
                 "is_split_candidate": true,
                 "is_merge_candidate": false
             }

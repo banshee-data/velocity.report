@@ -2607,7 +2607,7 @@ import XCTest
         Track(
             trackID: id, sensorID: "sensor-1", state: state, hits: 10, misses: 0,
             observationCount: 10, firstSeenNanos: firstSeen, lastSeenNanos: firstSeen + 5_000_000,
-            speedMps: speed, peakSpeedMps: speed + 1, classLabel: "car")
+            speedMps: speed, maxSpeedMps: speed + 1, classLabel: "car")
     }
 
     // MARK: - Core Persistence

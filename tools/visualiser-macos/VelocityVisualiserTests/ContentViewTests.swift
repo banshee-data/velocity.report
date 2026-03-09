@@ -740,12 +740,12 @@ struct SparklineViewTests {
             frameID: 1, timestampNanos: 100,
             tracks: [
                 Track(
-                    trackID: "trk_00001234", state: .confirmed, speedMps: 28.8, peakSpeedMps: 28.8,
+                    trackID: "trk_00001234", state: .confirmed, speedMps: 28.8, maxSpeedMps: 28.8,
                     classLabel: "car")
             ], trails: [])
         state.currentFrame = frame
 
-        // The track list displays max(peakSpeedMps, persistentPeak) and a lineLimit(1)
+        // The track list displays max(maxSpeedMps, persistentPeak) and a lineLimit(1)
         // prevents wrapping even with the "▲" climb indicator present.
         host(TrackListView(), state: state)
     }
@@ -761,13 +761,13 @@ struct SparklineViewTests {
             frameID: 1, timestampNanos: 100,
             tracks: [
                 Track(
-                    trackID: "trk_0000aaaa", state: .confirmed, speedMps: 1.0, peakSpeedMps: 1.0,
+                    trackID: "trk_0000aaaa", state: .confirmed, speedMps: 1.0, maxSpeedMps: 1.0,
                     classLabel: ""),
                 Track(
-                    trackID: "trk_0000bbbb", state: .confirmed, speedMps: 28.8, peakSpeedMps: 28.8,
+                    trackID: "trk_0000bbbb", state: .confirmed, speedMps: 28.8, maxSpeedMps: 28.8,
                     classLabel: "car"),
                 Track(
-                    trackID: "trk_0000cccc", state: .tentative, speedMps: 9.9, peakSpeedMps: 9.9,
+                    trackID: "trk_0000cccc", state: .tentative, speedMps: 9.9, maxSpeedMps: 9.9,
                     classLabel: "truck"),
             ], trails: [])
         state.currentFrame = frame
@@ -833,7 +833,7 @@ struct SparklineViewTests {
 
 /// Verify that the Track fields displayed in TrackInspectorView are
 /// non-zero when the model is populated.  This is a model-level regression
-/// test: the gRPC server previously serialised zero values for PeakSpeedMps,
+/// test: the gRPC server previously serialised zero values for MaxSpeedMps,
 /// Hits, Confidence, Duration, and Length because the proto conversion
 /// omitted those fields.
 struct TrackInspectorFieldTests {
@@ -845,14 +845,14 @@ struct TrackInspectorFieldTests {
             lastSeenNanos: 2_000_000_000, x: 10.0, y: 5.0, z: 0.5, vx: 8.0, vy: 0.5, vz: 0.0,
             speedMps: 8.03, headingRad: 0.06, covariance4x4: [], bboxLength: 4.5, bboxWidth: 1.8,
             bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6, intensityMeanAvg: 50.0,
-            avgSpeedMps: 7.5, peakSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
+            avgSpeedMps: 7.5, maxSpeedMps: 9.0, classLabel: "vehicle", classConfidence: 0.95,
             trackLengthMetres: 150.0, trackDurationSecs: 20.0, occlusionCount: 0, confidence: 0.98,
             occlusionState: .none, motionModel: .cv, alpha: 1.0)
     }
 
-    @Test func peakSpeedIsNonZero() throws {
+    @Test func maxSpeedIsNonZero() throws {
         let t = populatedTrack()
-        #expect(t.peakSpeedMps > 0, "peakSpeedMps must be populated")
+        #expect(t.maxSpeedMps > 0, "maxSpeedMps must be populated")
     }
 
     @Test func hitsIsNonZero() throws {
@@ -892,7 +892,7 @@ struct TrackInspectorFieldTests {
             $0.trackID == "trk-inspector-test"
         })
         #expect(found != nil, "track must be findable by ID")
-        #expect(found!.peakSpeedMps == 9.0)
+        #expect(found!.maxSpeedMps == 9.0)
         #expect(found!.hits == 50)
         #expect(found!.confidence == 0.98)
         #expect(found!.trackDurationSecs == 20.0)

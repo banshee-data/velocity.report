@@ -321,7 +321,7 @@ struct RunTrack: Codable, Identifiable {
     let totalObservations: Int?
     let durationSecs: Double?
     let avgSpeedMps: Double?
-    let peakSpeedMps: Double?
+    let maxSpeedMps: Double?
     let isSplitCandidate: Bool?
     let isMergeCandidate: Bool?
 

@@ -46,7 +46,7 @@ struct TrackExtendedTests {
         track.heightP95Max = 1.8
         track.intensityMeanAvg = 120.0
         track.avgSpeedMps = 8.5
-        track.peakSpeedMps = 15.0
+        track.maxSpeedMps = 15.0
         track.trackLengthMetres = 125.0
         track.trackDurationSecs = 30.0
         track.occlusionCount = 5
@@ -55,7 +55,7 @@ struct TrackExtendedTests {
         #expect(track.heightP95Max == 1.8)
         #expect(track.intensityMeanAvg == 120.0)
         #expect(track.avgSpeedMps == 8.5)
-        #expect(track.peakSpeedMps == 15.0)
+        #expect(track.maxSpeedMps == 15.0)
         #expect(track.trackLengthMetres == 125.0)
         #expect(track.trackDurationSecs == 30.0)
         #expect(track.occlusionCount == 5)
