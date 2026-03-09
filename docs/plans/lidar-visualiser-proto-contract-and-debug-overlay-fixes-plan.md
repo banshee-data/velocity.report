@@ -203,14 +203,14 @@ remains client-side/advisory and does not drive server-side subset filtering.
 ### Phase C: Track speed summary schema — Retired
 
 **Retired:** This scope is now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0
-under "Track speed contract reset". The proto rename, percentile back-out, and
+under "Visualiser track proto parity". The proto rename, percentile back-out, and
 binding regeneration are owned by that backlog item.
 
 ### Phase D: Swift client/UI parity — Retired
 
 **Retired:** Swift-side `peak` → `max` rename and inspector label updates are
-now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0 under "Track speed contract
-reset".
+now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0 under "Visualiser track proto
+parity".
 
 ### Phase E: Test hardening (P1)
 

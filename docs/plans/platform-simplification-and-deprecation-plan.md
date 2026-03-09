@@ -296,10 +296,11 @@ sub-plan:
 Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md)
 
 **Retired:** Task tracking for Project E has moved to [BACKLOG.md](../BACKLOG.md)
-v0.5.0 under two items: "Track speed contract reset" (proto rename, percentile
-back-out, AvgSpeedMps removal across Go/REST/DB/pcap) and "v0.5.0 compat shim
-sweep" (download URL, web/Python/macOS fallbacks). The sub-plan retains the full
-implementation detail.
+v0.5.0 under three items: "v0.5.0 backward compatibility shim removal"
+(web/Python/macOS fallback removal), "Visualiser track proto parity" (proto
+rename, percentile back-out, binding regeneration), and "v0.5.0 breaking
+changes" (AvgSpeedMps removal across Go/REST/DB/pcap). The sub-plan retains the
+full implementation detail.
 
 Intersections with other projects:
 
