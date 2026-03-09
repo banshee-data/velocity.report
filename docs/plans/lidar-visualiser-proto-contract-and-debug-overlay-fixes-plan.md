@@ -87,7 +87,10 @@ current status:
 1. ~~`Track.covariance_4x4`~~ — ✅ serialized (copied from `Covariance4x4` slice)
 2. ~~`Track.height_p95_max`~~ — ✅ serialized
 3. ~~`Track.intensity_mean_avg`~~ — ✅ serialized
-4. ~~`Track.avg_speed_mps`~~ — ✅ renamed to `median_speed_mps` (field `24`); `p85_speed_mps` (36) and `p98_speed_mps` (37) added
+4. ~~`Track` speed summary fields~~ — Branch-local serialization exists for the
+   superseded percentile-field direction, but that contract reset still needs
+   to be backed out before merge. The stable merge-target direction remains
+   `avg_speed_mps` plus the raw maximum field for now.
 5. ~~`Track.peak_speed_mps`~~ — ✅ serialized
 6. ~~`Track.class_label`~~ — **Superseded.** Proto field `26` is now `ObjectClass object_class`
    (an `ObjectClass` enum, not a string). See [§4.5 ObjectClass enum](#45-objectclass-enum) below.
@@ -221,7 +224,7 @@ should not be treated as the merge target for the visualiser contract.
    - debug overlays (`association`, `gating`, `residuals`, `predictions`)
    - cluster feature fields
    - ~~track feature/classification/quality fields~~ ✅ `TestFrameBundleToProto_TrackFieldCompleteness`
-   - track speed summary fields (`median`, `peak`, `p85`, `p98`)
+   - merge-target track speed summary fields (`avg_speed_mps` plus the raw maximum field)
 3. Add a regression test for `include_debug=false` to ensure payload omission is
    intentional and explicit.
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
@@ -233,7 +236,8 @@ should not be treated as the merge target for the visualiser contract.
    when debug data exists upstream.
 2. Swift visualiser receives and renders debug overlays without relying on local
    test-only stub data.
-3. Track inspector shows `Median`, `Peak`, `p85`, and `p98` from streamed data.
+3. Track inspector shows the stable non-percentile track speed fields from
+   streamed data and does not standardise on per-track `p50/p85/p98` labels.
 4. Protobuf serializer tests cover all non-trivial `Track` and `Cluster` fields
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
@@ -241,7 +245,9 @@ should not be treated as the merge target for the visualiser contract.
 ## 8. Risks and Open Questions
 
 1. Mixed-version client/server compatibility during local development:
-   rename of field `24` changes semantics immediately.
+   backing out the branch-local speed-summary expansion can temporarily leave
+   generated clients or local UI code out of sync until proto bindings are
+   regenerated together.
 2. Percentile method consistency:
    `p98` may differ slightly between floor-index and interpolated definitions.
 3. Overlay mode scope:
@@ -258,9 +264,8 @@ should not be treated as the merge target for the visualiser contract.
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
-- [x] Update proto field `24` to `median_speed_mps`
-- [x] Add `p85_speed_mps` and `p98_speed_mps` to `Track`
-- [x] Regenerate protobuf bindings (Go + Swift)
-- [x] Compute/populate median/p85/p98 from track speed history
-- [x] Update Swift visualiser inspector labels and values
+- [ ] Back out the branch-local track speed-summary field expansion before merge
+- [ ] Regenerate protobuf bindings (Go + Swift) after removing superseded track percentile fields
+- [ ] Remove branch-local track percentile computation and propagation from the merge-target contract work
+- [ ] Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields
 - [ ] Replace negative debug tests with positive end-to-end serialization tests

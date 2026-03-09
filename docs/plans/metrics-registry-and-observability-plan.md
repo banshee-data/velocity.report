@@ -148,9 +148,6 @@ consistently:
 | `pcap_analysis` | Offline replay/analysis mode with preserved analysis state |
 | `vrlog`         | Replay of recorded frame bundles                           |
 
-Assumption: the request's `brlog` wording maps to the repo's existing `vrlog`
-term.
-
 ### 9.1 Allowed export/filter labels
 
 | Label            | Why it is allowed                              |

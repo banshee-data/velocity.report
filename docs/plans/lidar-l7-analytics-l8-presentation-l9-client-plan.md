@@ -476,11 +476,11 @@ No other files outside `internal/lidar/` import `internal/lidar/visualiser/` dir
 
 These ownership issues are noted here to avoid hidden architectural debt, but are not blocking for the initial phases:
 
-| Item                                                                                    | Current location | Correct owner                          | Why deferred                                                                |
-| --------------------------------------------------------------------------------------- | ---------------- | -------------------------------------- | --------------------------------------------------------------------------- |
-| `monitor/gridplotter.go` — grid visualisation and colorisation                          | `monitor/`       | `l8presentation/`                      | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
-| Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
-| Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
+| Item                                                                                    | Current location | Correct owner           | Why deferred                                                                |
+| --------------------------------------------------------------------------------------- | ---------------- | ----------------------- | --------------------------------------------------------------------------- |
+| `monitor/gridplotter.go` — grid visualisation and colorisation                          | `monitor/`       | `l8presentation/`       | requires understanding grid overlay contracts; defer to Phase 4 follow-up   |
+| Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l7analytics/labels.go` | extraction requires splitting aggregation from transport; Phase 3 follow-up |
+| Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | `l7analytics/labels.go` | extraction requires splitting aggregation from transport; Phase 3 follow-up |
 
 ## Full monitor/ deprecation analysis
 
