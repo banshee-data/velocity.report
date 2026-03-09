@@ -320,9 +320,6 @@ export interface RunTrack {
 	observation_count: number;
 	avg_speed_mps: number;
 	peak_speed_mps: number;
-	p50_speed_mps: number;
-	p85_speed_mps: number;
-	p95_speed_mps: number;
 	bounding_box_length_avg: number;
 	bounding_box_width_avg: number;
 	bounding_box_height_avg: number;

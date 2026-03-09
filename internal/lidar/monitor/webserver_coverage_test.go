@@ -5827,7 +5827,7 @@ func TestCov_BenchmarkMode_StoreAndLoad(t *testing.T) {
 	}
 }
 
-// --- setupRoutes pprof registration ---
+// --- setupRoutes pprof registration via tsweb.Debugger ---
 
 func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
 	ws := &WebServer{
@@ -5837,7 +5837,9 @@ func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
 
 	mux := ws.setupRoutes()
 
-	// Verify pprof endpoints return 200 on the lidar-only mux
+	// Verify pprof endpoints are registered via tsweb.Debugger on the lidar-only mux.
+	// tsweb enforces AllowDebugAccess (loopback + Tailscale peers);
+	// httptest requests come from loopback so they are permitted.
 	paths := []string{
 		"/debug/pprof/",
 		"/debug/pprof/cmdline",
@@ -5848,7 +5850,7 @@ func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
 		if rec.Code == http.StatusNotFound {
-			t.Errorf("pprof endpoint %s returned 404; expected it to be registered", path)
+			t.Errorf("pprof endpoint %s returned 404; expected it to be registered via tsweb.Debugger", path)
 		}
 	}
 }

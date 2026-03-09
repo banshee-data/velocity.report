@@ -105,9 +105,9 @@ func TestComputeSpeedStats_BasicValues(t *testing.T) {
 	if stats.P85Speed != 9.0 {
 		t.Errorf("expected P85Speed=9.0, got %f", stats.P85Speed)
 	}
-	// P98: floor(10*0.98) = floor(9.8) = 9 => sorted[9] = 10
-	if stats.P98Speed != 10.0 {
-		t.Errorf("expected P98Speed=10.0, got %f", stats.P98Speed)
+	// P95: floor(10*0.95) = floor(9.5) = 9 => sorted[9] = 10
+	if stats.P95Speed != 10.0 {
+		t.Errorf("expected P95Speed=10.0, got %f", stats.P95Speed)
 	}
 }
 
@@ -150,18 +150,17 @@ func TestComputeSpeedStats_AvgDiffersFromP50(t *testing.T) {
 	}
 }
 
-func TestComputeClassStats_UsesAvgNotP50(t *testing.T) {
-	// Verify that ClassStats.AvgSpeed uses AvgSpeedMps (the running mean),
-	// not P50SpeedMps (the median). The two fields are distinct.
+func TestComputeClassStats_UsesAvg(t *testing.T) {
+	// Verify that ClassStats.AvgSpeed uses AvgSpeedMps (the running mean).
 	tracks := []*TrackExport{
-		{Class: "vehicle", AvgSpeedMps: 10.0, P50SpeedMps: 9.0},
-		{Class: "vehicle", AvgSpeedMps: 20.0, P50SpeedMps: 18.0},
+		{Class: "vehicle", AvgSpeedMps: 10.0},
+		{Class: "vehicle", AvgSpeedMps: 20.0},
 	}
 
 	stats := computeClassStats(tracks)
 	v := stats["vehicle"]
 
-	// Should be mean of AvgSpeedMps: (10+20)/2 = 15, NOT mean of P50SpeedMps
+	// Should be mean of AvgSpeedMps: (10+20)/2 = 15
 	if math.Abs(float64(v.AvgSpeed)-15.0) > 0.01 {
 		t.Errorf("expected AvgSpeed=15.0 (from AvgSpeedMps), got %f", v.AvgSpeed)
 	}

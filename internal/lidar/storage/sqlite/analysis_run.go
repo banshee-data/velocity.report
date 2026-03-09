@@ -208,9 +208,6 @@ type RunTrack struct {
 	ObservationCount     int     `json:"observation_count"`
 	AvgSpeedMps          float32 `json:"avg_speed_mps"`
 	PeakSpeedMps         float32 `json:"peak_speed_mps"`
-	P50SpeedMps          float32 `json:"p50_speed_mps,omitempty"`
-	P85SpeedMps          float32 `json:"p85_speed_mps,omitempty"`
-	P95SpeedMps          float32 `json:"p95_speed_mps,omitempty"`
 	BoundingBoxLengthAvg float32 `json:"bounding_box_length_avg"`
 	BoundingBoxWidthAvg  float32 `json:"bounding_box_width_avg"`
 	BoundingBoxHeightAvg float32 `json:"bounding_box_height_avg"`
@@ -236,7 +233,6 @@ type RunTrack struct {
 
 // RunTrackFromTrackedObject creates a RunTrack from a TrackedObject.
 func RunTrackFromTrackedObject(runID string, t *TrackedObject) *RunTrack {
-	p50, p85, p95 := ComputeSpeedPercentiles(t.SpeedHistory())
 	return &RunTrack{
 		RunID:                runID,
 		TrackID:              t.TrackID,
@@ -247,9 +243,6 @@ func RunTrackFromTrackedObject(runID string, t *TrackedObject) *RunTrack {
 		ObservationCount:     t.ObservationCount,
 		AvgSpeedMps:          t.AvgSpeedMps,
 		PeakSpeedMps:         t.PeakSpeedMps,
-		P50SpeedMps:          p50,
-		P85SpeedMps:          p85,
-		P95SpeedMps:          p95,
 		BoundingBoxLengthAvg: t.BoundingBoxLengthAvg,
 		BoundingBoxWidthAvg:  t.BoundingBoxWidthAvg,
 		BoundingBoxHeightAvg: t.BoundingBoxHeightAvg,
@@ -578,14 +571,14 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 		INSERT INTO lidar_run_tracks (
 			run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			avg_speed_mps, peak_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	var endNanos interface{}
@@ -610,9 +603,6 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 			track.ObservationCount,
 			track.AvgSpeedMps,
 			track.PeakSpeedMps,
-			track.P50SpeedMps,
-			track.P85SpeedMps,
-			track.P95SpeedMps,
 			track.BoundingBoxLengthAvg,
 			track.BoundingBoxWidthAvg,
 			track.BoundingBoxHeightAvg,
@@ -643,7 +633,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	query := `
 		SELECT run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			avg_speed_mps, peak_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
@@ -678,9 +668,6 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 			&track.ObservationCount,
 			&track.AvgSpeedMps,
 			&track.PeakSpeedMps,
-			&track.P50SpeedMps,
-			&track.P85SpeedMps,
-			&track.P95SpeedMps,
 			&track.BoundingBoxLengthAvg,
 			&track.BoundingBoxWidthAvg,
 			&track.BoundingBoxHeightAvg,
@@ -752,7 +739,7 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 	query := `
 		SELECT run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			avg_speed_mps, peak_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
@@ -778,9 +765,6 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 		&track.ObservationCount,
 		&track.AvgSpeedMps,
 		&track.PeakSpeedMps,
-		&track.P50SpeedMps,
-		&track.P85SpeedMps,
-		&track.P95SpeedMps,
 		&track.BoundingBoxLengthAvg,
 		&track.BoundingBoxWidthAvg,
 		&track.BoundingBoxHeightAvg,
@@ -951,7 +935,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	query := `
 		SELECT run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			avg_speed_mps, peak_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
@@ -987,9 +971,6 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			&track.ObservationCount,
 			&track.AvgSpeedMps,
 			&track.PeakSpeedMps,
-			&track.P50SpeedMps,
-			&track.P85SpeedMps,
-			&track.P95SpeedMps,
 			&track.BoundingBoxLengthAvg,
 			&track.BoundingBoxWidthAvg,
 			&track.BoundingBoxHeightAvg,

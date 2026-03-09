@@ -228,9 +228,6 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 			ObservationCount: 10,
 			AvgSpeedMps:      5.0,
 			PeakSpeedMps:     8.0,
-			P50SpeedMps:      5.0,
-			P85SpeedMps:      6.5,
-			P95SpeedMps:      7.5,
 			ObjectClass:      "car",
 			ObjectConfidence: 0.85,
 			LinkedTrackIDs:   []string{"track-2"},
@@ -655,8 +652,8 @@ func TestRunTrackFromTrackedObject_EmptySpeedHistory(t *testing.T) {
 
 	runTrack := RunTrackFromTrackedObject("run-1", track)
 
-	if runTrack.P50SpeedMps != 0 {
-		t.Errorf("P50SpeedMps should be 0 for empty history, got %f", runTrack.P50SpeedMps)
+	if runTrack.AvgSpeedMps != 5.0 {
+		t.Errorf("AvgSpeedMps should be 5.0, got %f", runTrack.AvgSpeedMps)
 	}
 }
 

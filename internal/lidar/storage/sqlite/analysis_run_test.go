@@ -185,11 +185,6 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 	if runTrack.ObjectClass != track.ObjectClass {
 		t.Errorf("ObjectClass mismatch")
 	}
-
-	// Verify percentiles were computed
-	if runTrack.P50SpeedMps <= 0 {
-		t.Errorf("P50SpeedMps should be computed")
-	}
 }
 
 func TestAnalysisRun_JSONParams(t *testing.T) {

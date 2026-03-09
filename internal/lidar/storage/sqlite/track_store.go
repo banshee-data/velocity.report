@@ -90,20 +90,17 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 
 // InsertTrack inserts a new track into the database.
 func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
-	// Compute speed percentiles
-	p50, p85, p95 := ComputeSpeedPercentiles(track.SpeedHistory())
-
 	// Use ON CONFLICT DO UPDATE to avoid cascade deleting observations
 	// (INSERT OR REPLACE would delete the row first, triggering cascade delete on lidar_track_obs)
 	query := `
 		INSERT INTO lidar_tracks (
 			track_id, sensor_id, world_frame, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			avg_speed_mps, peak_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(track_id) DO UPDATE SET
 			sensor_id = excluded.sensor_id,
 			world_frame = excluded.world_frame,
@@ -113,9 +110,6 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 			observation_count = excluded.observation_count,
 			avg_speed_mps = excluded.avg_speed_mps,
 			peak_speed_mps = excluded.peak_speed_mps,
-			p50_speed_mps = excluded.p50_speed_mps,
-			p85_speed_mps = excluded.p85_speed_mps,
-			p95_speed_mps = excluded.p95_speed_mps,
 			bounding_box_length_avg = excluded.bounding_box_length_avg,
 			bounding_box_width_avg = excluded.bounding_box_width_avg,
 			bounding_box_height_avg = excluded.bounding_box_height_avg,
@@ -140,7 +134,6 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 		track.ObservationCount,
 		track.AvgSpeedMps,
 		track.PeakSpeedMps,
-		p50, p85, p95,
 		track.BoundingBoxLengthAvg,
 		track.BoundingBoxWidthAvg,
 		track.BoundingBoxHeightAvg,
@@ -159,9 +152,6 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 
 // UpdateTrack updates an existing track in the database.
 func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
-	// Compute speed percentiles
-	p50, p85, p95 := ComputeSpeedPercentiles(track.SpeedHistory())
-
 	query := `
 		UPDATE lidar_tracks SET
 			track_state = ?,
@@ -169,9 +159,6 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 			observation_count = ?,
 			avg_speed_mps = ?,
 			peak_speed_mps = ?,
-			p50_speed_mps = ?,
-			p85_speed_mps = ?,
-			p95_speed_mps = ?,
 			bounding_box_length_avg = ?,
 			bounding_box_width_avg = ?,
 			bounding_box_height_avg = ?,
@@ -193,7 +180,6 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		track.ObservationCount,
 		track.AvgSpeedMps,
 		track.PeakSpeedMps,
-		p50, p85, p95,
 		track.BoundingBoxLengthAvg,
 		track.BoundingBoxWidthAvg,
 		track.BoundingBoxHeightAvg,
