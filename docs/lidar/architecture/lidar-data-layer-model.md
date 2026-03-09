@@ -230,7 +230,7 @@ Backward-compatible type aliases remain in the parent `internal/lidar/` package 
 
 ### Layer dependency rule
 
-Each layer package may only import from layers below it — never upward or sideways. L1 may import L2 (for return types); L3 may import L1–L2; L4 may import L1–L3; and so on. Cross-cutting packages (`pipeline/`, `storage/`, `adapters/`) are exempt.
+Each layer package may only import from lower-numbered layers — never upward or sideways. For example: L2 may import L1 (for return types); L3 may import L1–L2; L4 may import L1–L3; and so on. Cross-cutting packages (`pipeline/`, `storage/`, `adapters/`) are exempt.
 
 **Known violations:** Several L1–L3 files currently import types from L4 (`PointPolar`, `Point`, `SphericalToCartesian`). These are sensor-frame primitives that belong at L2. A migration plan is tracked in [lidar-layer-dependency-hygiene-plan.md](../../plans/lidar-layer-dependency-hygiene-plan.md).
 
