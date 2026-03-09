@@ -144,10 +144,11 @@ func (s *Server) EnableSyntheticMode(sensorID string) {
 func (s *Server) SetReplayMode(enabled bool) {
 	s.playbackMu.Lock()
 	defer s.playbackMu.Unlock()
+	wasEnabled := s.replayMode
 	s.replayMode = enabled
-	if enabled {
+	if enabled && !wasEnabled {
 		s.replayEpoch++
-	} else {
+	} else if !enabled {
 		s.pcapCurrentPacket = 0
 		s.pcapTotalPackets = 0
 		s.pcapStartNs = 0
@@ -161,10 +162,13 @@ func (s *Server) SetReplayMode(enabled bool) {
 func (s *Server) SetVRLogMode(enabled bool) {
 	s.playbackMu.Lock()
 	defer s.playbackMu.Unlock()
+	wasReplay := s.replayMode
 	s.vrlogMode = enabled
 	if enabled {
 		s.replayMode = true
-		s.replayEpoch++
+		if !wasReplay {
+			s.replayEpoch++
+		}
 		// Reset pause state so the new VRLOG replay starts playing
 		// immediately.  Without this, a previous Pause() RPC leaves
 		// s.paused=true and streamFromPublisher silently drops every

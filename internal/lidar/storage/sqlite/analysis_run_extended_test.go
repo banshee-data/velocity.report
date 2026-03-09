@@ -861,6 +861,19 @@ func TestPopulateSceneName_EmptyPath(t *testing.T) {
 	}
 }
 
+func TestPopulateSceneName_ClearsStaleValue(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/kirk1.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "kirk1" {
+		t.Fatalf("setup: expected 'kirk1', got %q", r.SceneName)
+	}
+	r.SourcePath = ""
+	r.PopulateSceneName()
+	if r.SceneName != "" {
+		t.Errorf("expected empty scene name after clearing SourcePath, got %q", r.SceneName)
+	}
+}
+
 func TestPopulateSceneName_MultipleDots(t *testing.T) {
 	r := &AnalysisRun{SourcePath: "/data/test.capture.2024.pcap"}
 	r.PopulateSceneName()

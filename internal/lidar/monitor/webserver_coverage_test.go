@@ -1102,6 +1102,38 @@ func TestCov2_HandlePCAPStart_AlreadyActive(t *testing.T) {
 	}
 }
 
+func TestCov2_HandlePCAPStart_InvalidSpeedMode_JSON(t *testing.T) {
+	ws := &WebServer{sensorID: "test-sensor"}
+	body, _ := json.Marshal(map[string]string{"pcap_file": "/tmp/test.pcap", "speed_mode": "fastest"})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=test-sensor", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws.handlePCAPStart(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(w.Body.String(), "unsupported speed_mode") {
+		t.Errorf("expected unsupported speed_mode error, got: %s", w.Body.String())
+	}
+}
+
+func TestCov2_HandlePCAPStart_InvalidSpeedMode_Form(t *testing.T) {
+	ws := &WebServer{sensorID: "test-sensor"}
+	form := url.Values{}
+	form.Set("pcap_file", "/tmp/test.pcap")
+	form.Set("speed_mode", "fixed")
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=test-sensor", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	ws.handlePCAPStart(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(w.Body.String(), "unsupported speed_mode") {
+		t.Errorf("expected unsupported speed_mode error, got: %s", w.Body.String())
+	}
+}
+
 // --- handlePCAPStop ---
 
 func TestCov2_HandlePCAPStop_WrongSensorID(t *testing.T) {

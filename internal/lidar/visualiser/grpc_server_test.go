@@ -1667,7 +1667,8 @@ func TestEmptyObjectClassBecomesUnspecified(t *testing.T) {
 }
 
 // TestServer_SetReplayMode_IncrementsEpoch verifies that enabling replay mode
-// increments the replayEpoch counter each time.
+// increments the replayEpoch counter only on false→true transitions, making
+// the method idempotent when called repeatedly with true.
 func TestServer_SetReplayMode_IncrementsEpoch(t *testing.T) {
 	cfg := DefaultConfig()
 	pub := NewPublisher(cfg)
@@ -1680,6 +1681,12 @@ func TestServer_SetReplayMode_IncrementsEpoch(t *testing.T) {
 	server.SetReplayMode(true)
 	if server.replayEpoch != 1 {
 		t.Errorf("expected replayEpoch=1 after first enable, got %d", server.replayEpoch)
+	}
+
+	// Redundant enable should NOT increment (idempotent)
+	server.SetReplayMode(true)
+	if server.replayEpoch != 1 {
+		t.Errorf("expected replayEpoch=1 after redundant enable, got %d", server.replayEpoch)
 	}
 
 	server.SetReplayMode(false) // disable should not change epoch

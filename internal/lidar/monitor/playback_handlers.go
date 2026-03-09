@@ -140,6 +140,14 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		speedMode = "analysis"
 	}
 
+	switch speedMode {
+	case "analysis", "realtime", "scaled":
+		// valid
+	default:
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("unsupported speed_mode %q: must be analysis, realtime, or scaled", speedMode))
+		return
+	}
+
 	if pcapFile == "" {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'pcap_file' in request body")
 		return

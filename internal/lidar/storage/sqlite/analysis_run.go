@@ -50,6 +50,8 @@ func (r *AnalysisRun) PopulateSceneName() {
 	if r.SourcePath != "" {
 		base := filepath.Base(r.SourcePath)
 		r.SceneName = strings.TrimSuffix(base, filepath.Ext(base))
+	} else {
+		r.SceneName = ""
 	}
 }
 

@@ -578,6 +578,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		var (
 			dbTx       *sql.Tx
 			worldFrame string
+			txFailed   bool
 		)
 		if len(confirmedTracks) > 0 && cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
 			worldFrame = fmt.Sprintf("site/%s", sensorID)
@@ -621,9 +622,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			}
 
 			// Persist track to database
-			if dbTx != nil {
+			if dbTx != nil && !txFailed {
 				if err := sqlite.InsertTrack(dbTx, track, worldFrame); err != nil {
 					opsf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
+					txFailed = true
 				}
 
 				// Only persist observations for tracks that were matched to a
@@ -655,13 +657,18 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					}
 					if err := sqlite.InsertTrackObservation(dbTx, obs); err != nil {
 						opsf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
+						txFailed = true
 					}
 				}
 			}
 		}
 
 		if dbTx != nil {
-			if err := dbTx.Commit(); err != nil {
+			if txFailed {
+				if err := dbTx.Rollback(); err != nil {
+					opsf("[Tracking] Failed to rollback track persistence tx: %v", err)
+				}
+			} else if err := dbTx.Commit(); err != nil {
 				opsf("[Tracking] Failed to commit track persistence tx: %v", err)
 			}
 		}
