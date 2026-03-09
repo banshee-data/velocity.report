@@ -213,7 +213,6 @@ should not be treated as the merge target for the visualiser contract.
    speed.
 3. Ensure the inspector does not standardise on aggregate percentile labels for track speed surfaces.
 
-
 ### Phase E: Test hardening (P1)
 
 1. Replace "debug not converted" tests with positive serialization tests.
