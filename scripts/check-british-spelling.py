@@ -109,7 +109,7 @@ REPLACEMENTS: dict[str, str] = {
 _sorted_keys = sorted(REPLACEMENTS, key=len, reverse=True)
 WORD_RE = re.compile(r"\b(" + "|".join(re.escape(k) for k in _sorted_keys) + r")\b")
 
-FENCE_RE = re.compile(r"^(\s*)(```|~~~)")
+FENCE_RE = re.compile(r"^(\s*)(`{3,}|~{3,})")
 
 
 # ── Context guards ──────────────────────────────────────────────────────
@@ -212,11 +212,19 @@ def process_file(filepath: str, *, fix: bool = False) -> list[tuple[int, str, st
     changes: list[tuple[int, str, str]] = []
     new_lines: list[str] = []
     in_fence = False
+    fence_marker = ""
 
     for lineno, line in enumerate(lines, 1):
-        # Track fenced code blocks (``` or ~~~)
-        if FENCE_RE.match(line):
-            in_fence = not in_fence
+        # Track fenced code blocks (``` / ~~~, including 4+ char fences)
+        m = FENCE_RE.match(line)
+        if m:
+            marker = m.group(2)
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker[0] == fence_marker[0] and len(marker) >= len(fence_marker):
+                in_fence = False
+                fence_marker = ""
             new_lines.append(line)
             continue
 
