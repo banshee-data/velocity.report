@@ -27,12 +27,13 @@ velocity.report covers sensor hardware, real-time data pipelines, web visualisat
 
 ### Data Scientist
 
-Data science in velocity.report is about measurement, evaluation, and clear decision-making, not black-box models. The priority is explicit metrics, labelled ground truth, reproducible replay-based comparisons, and algorithms whose thresholds stay visible and tunable.
+Data science in velocity.report is about making the live pipeline more measurable, reproducible, and explainable. The settled foundation is already documented: polar background settling, ground and cluster geometry, Kalman-plus-Hungarian tracking, and a rule-based classifier with explicit features and thresholds. The aim is not to replace that with a black box, but to improve it through labelled reference sets, replayable scorecards, threshold studies, drift analysis, and traffic-engineering metrics that hold up in reports and technical review.
 
-Machine learning may matter later, but it is not on the critical path today. Any new classification approach must clearly beat the current rule-based baseline and remain easy to audit, explain, and reproduce.
+New research follows a proposal-first framework: write down the maths, define the layer boundary, state the evaluation contract, and compare against the current baseline on fixed replay packs. Current research areas include geometry-coherent tracking, velocity-coherent foreground extraction, ground-plane and vector-scene maths, and optional offline classification research. Any future model must stay auditable, beat the transparent baseline on reproducible benchmarks, and preserve a tunable fallback path at runtime.
 
 Read next:
 
+- [docs/maths/README.md](docs/maths/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md) — the repo-wide data science stance: metrics first, no black boxes on the critical path
 - [docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
 - [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md) — the metric and schema model for derived transit statistics
