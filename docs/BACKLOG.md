@@ -4,11 +4,13 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 **Governance:** Never delete agreed backlog items — split, consolidate, or complete them. Outstanding agreed work stays tracked here until delivered. When consolidating overlapping items, create distinct non-overlapping work units and move completed sub-tasks to the Complete section. Design documents may retire scope by marking phases complete or out-of-scope and linking to the PR where the scope change landed.
 
+**Formatting:** Backlog items describe outstanding work only. When sub-tasks complete, move them to the Complete section and simplify the parent item to show only what remains. Do not use strikethrough to track done sub-tasks inline — the Complete section is the record of delivered work.
+
 ## v0.5.0 (Platform Hardening)
 
-- v0.5.0 backward compatibility shim removal — reset the track speed contract (`peak` → `max`, no aggregate percentile labels on public track surfaces), sweep legacy fields, and remove deploy executor compat methods — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
-- Visualiser track proto parity — `ObjectClass` enum, track field serialisation, `peak_speed_mps` → `max_speed_mps` (D-19) — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
-- v0.5.0 breaking changes — proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- v0.5.0 backward compatibility shim removal — report download URL migration, `BackgroundCell` legacy TS fields, bare-array stats cache fallback, sweep dashboard legacy field names, Python legacy stats format / config dict helpers / pylatex stubs, macOS legacy playback mode — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
+- Visualiser track proto parity — rename `peak_speed_mps` → `max_speed_mps` (D-19), back out branch-local percentile fields, regenerate proto bindings (Go + Swift) — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
+- v0.5.0 breaking changes — `transit-backfill` soft-deprecation notice, breaking-changes release notes — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 - Layer dependency hygiene — move `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fix L1→L4 and L3→L4 import violations (~15 prod files, ~6 test files) — [design doc](plans/lidar-layer-dependency-hygiene-plan.md) `M`
@@ -20,7 +22,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
-- Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts
+- Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 - L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-client-plan.md) `L`
 
 ## v0.5.2 (Debug)
@@ -36,11 +38,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Single `velocity-report` binary + subcommands — unified CLI with radar/lidar/pdf subcommands — [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script — curl-based installer with automatic platform detection — [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - Geometry-coherent tracking (P1 maths, D-04) — spatial consistency in track association — [proposal](maths/proposals/20260222-geometry-coherent-tracking.md) `M`
-- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; track doc/Make cleanup only (Project A already complete) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
+- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - Config restructure Phase 2 — expose L1 sensor/network and L3 background/foreground constants as tuning params; deprecate CLI flags — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 - L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9endpoints/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-client-plan.md) `L`
+- `transit-backfill` removal — remove `cmd/transit-backfill` after confirming zero active usage; `velocity-report transits rebuild` is the replacement — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ## v0.7 (Unified Frontend)
 
@@ -65,7 +68,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - PDF generation migration to Go — replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting — [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - Transit deduplication (D-03) — duplicate transit record prevention — [design doc](radar/architecture/transit-deduplication.md) `M`
 - GitHub Releases CI pipeline — automated binary builds and release packaging — [design doc](plans/deploy-distribution-packaging-plan.md) `M`
-- TicTacTail Phase 1 incubation — in-repo pkg/tictactail engine + bounded cache + VRLOG thin adapter extraction — [design doc](plans/tictactail-platform-plan.md) `M`
+- TicTacTail Phase 1 incubation (D-23) — in-repo pkg/tictactail engine + bounded cache + VRLOG thin adapter extraction — [design doc](plans/tictactail-platform-plan.md) `M`
 
 ## v0.9.0 (Production-Ready)
 
@@ -115,8 +118,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
-- ?? [#000] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
-
+- [#144] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
+- [#240] Visualiser background snapshot serialisation — `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints) — review doc item 4 — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
 - [#280] Arena.go deprecation — [design doc](lidar/architecture/arena-go-deprecation-and-layered-type-layout-design-20260217.md)
 - [#280] L1–L6 layer alignment and code migration — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
@@ -134,12 +137,13 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#286] Shared CSS standard classes — vr-page, vr-toolbar, vr-stat-grid, vr-chart-card in app.css — [design doc §2.1](ui/design-review-and-improvement.md)
 - [#286] Shared palette module — palette.ts exports PERCENTILE_COLOURS, LEGEND_ORDER with tests — [design doc §1.3](ui/design-review-and-improvement.md)
 - [#286] Web palette compliance — palette.ts created with canonical DESIGN.md §3.3 values; colorMap/cRange removed — [design doc §1.1](ui/design-review-and-improvement.md)
-- [#287] LiDAR logging stream split — explicit Opsf/Diagf/Tracef call sites replacing Debugf/classifier — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
-- [#287] LiDAR logging stream split — ops/debug/trace streams with routing rubric — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
+- [#287] LiDAR logging stream split — Opsf/Diagf/Tracef streams replacing Debugf/classifier, with ops/debug/trace routing rubric — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
 - [#291] PR template design checklist — add DESIGN.md §9 UI/chart checklist to .github/PULL_REQUEST_TEMPLATE.md — [design doc §8.2](ui/design-review-and-improvement.md)
 - [#319] Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](lidar/operations/settling-time-optimization.md)
 - [#320] Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md)
 - [#328] SWEEP/HINT platform hardening (Phase 5–6) — transform pipeline, objective registry, explainability — [design doc](plans/lidar-sweep-hint-mode-plan.md)
 - [#328] HINT sweep polish — 11 remaining polish items — [design doc](lidar/operations/hint-sweep-mode.md)
 - [#328] (#326) P0 ObjectClass schema alignment, label vocabulary consolidation Phases 1–3.1 — [design doc](plans/label-vocabulary-consolidation-plan.md) [AV plan §P0](plans/lidar-av-lidar-integration-plan.md)
+- [#328] Visualiser track field serialisation — all Track fields now round-trip in `frameBundleToProto`, `TestFrameBundleToProto_TrackFieldCompleteness` added — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#328] Visualiser `ObjectClass` enum — 9-class enum on proto field 26, `objectClassFromString` / `classifyOrConvert` conversion, Go + Swift tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#344] Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md)
