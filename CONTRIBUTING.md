@@ -6,9 +6,9 @@ Thank you for your interest in contributing to velocity.report! This document ou
 
 [![Discord](https://img.shields.io/discord/1387513267496419359?logo=discord&label=chat%20on%20discord)](https://discord.gg/XXh6jXVFkt)
 
-- **Discord** — Join our [Discord server](https://discord.gg/XXh6jXVFkt) for real-time discussion, questions, and community support
-- **GitHub Issues** — Report bugs, request features, and track the project roadmap
-- **GitHub Discussions** — For longer-form conversations and ideas
+- Discord — Join our [Discord server](https://discord.gg/XXh6jXVFkt) for real-time discussion, questions, and community support
+- GitHub Issues — Report bugs, request features, and track the project roadmap
+- GitHub Discussions — For longer-form conversations and ideas
 
 ## Privacy Principles
 
@@ -23,14 +23,15 @@ All contributions must maintain these principles.
 
 ## Contributor Personas
 
-velocity.report spans sensor hardware, real-time data pipelines, web visualisation, data science, and deployment packaging. Many different skill sets can make a meaningful impact — you don't need to be an expert in all of them. Below are the contributor profiles that align with the project's current and planned work.
-If you're new, pick the role that is closest to your background and start with its 3-5 core docs before diving into issues or plans.
+velocity.report covers sensor hardware, real-time data pipelines, web visualisation, data science, and deployment. You do not need to know all of these areas to contribute. Pick the role closest to your background, then start with that section's core documents before diving into issues or plans.
 
 ### Data Scientist
 
-Data science work in velocity.report is closer to an actuarial or quantitative-analysis role than an ML-ops role. The critical path is explicit metrics, labelled ground truth, reproducible replay-based comparisons, and transparent algorithms whose parameters and thresholds remain exposed and tunable. Future classification work exists, but it is not on the critical path and must earn its place by beating the current rule-based baseline with auditable features and reproducible scorecards rather than introducing black boxes into the pipeline.
+Data science in velocity.report is about measurement, evaluation, and clear decision-making, not black-box models. The priority is explicit metrics, labelled ground truth, reproducible replay-based comparisons, and algorithms whose thresholds stay visible and tunable.
 
-**Read next:**
+Machine learning may matter later, but it is not on the critical path today. Any new classification approach must clearly beat the current rule-based baseline and remain easy to audit, explain, and reproduce.
+
+Read next:
 
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md) — the repo-wide data science stance: metrics first, no black boxes on the critical path
 - [docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
@@ -40,11 +41,11 @@ Data science work in velocity.report is closer to an actuarial or quantitative-a
 
 ### Designer (UX & Data Visualisation)
 
-Good data visualisation turns speed measurements into stories that drive policy change. Designers contribute to information hierarchy, chart design, colour palettes, layout patterns, and accessibility. The project follows a documented [design contract](docs/ui/DESIGN.md) covering palette standards, component conventions, and UI states. Contributions range from Figma mockups and design system refinement to hands-on Svelte/CSS implementation. Experience with data-dense dashboards and accessibility standards (WCAG) is valuable.
+Designers help turn speed data into clear, persuasive stories that support safer-street advocacy. This includes information hierarchy, chart design, colour, layout, accessibility, and design system consistency across the product. Contributions can range from Figma exploration to direct Svelte and CSS implementation.
 
-Design work also extends to the **PDF report pipeline**: the Python-based PDF generator uses matplotlib to produce speed distribution charts, percentile histograms, and heatmaps embedded in LaTeX reports submitted to local authorities. Designers ensure these charts share the same palette, typography conventions, and visual language as the web dashboards so that the brand is consistent across all output surfaces.
+Design work also includes the **PDF report pipeline**. The charts and report visuals should match the web dashboard in palette, typography, and overall visual language so every output feels consistent and professional.
 
-**Read next:**
+Read next:
 
 - [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the canonical design language across web, macOS, and report outputs
 - [docs/VISION.md](docs/VISION.md) — the product goals, target users, and reporting outcomes the UI needs to support
@@ -54,9 +55,11 @@ Design work also extends to the **PDF report pipeline**: the Python-based PDF ge
 
 ### Technical Writer
 
-Clear documentation lowers the barrier for new contributors and new deployments alike. Technical writers work on setup guides, architecture documentation, API references, design documents, and the public documentation site (Eleventy). The project maintains docs in Markdown with metadata validation gates. Good technical writing — especially the ability to explain sensor concepts to a non-technical neighbourhood advocate audience — has outsized impact.
+Technical writers make the project easier to understand, contribute to, and deploy. They work on setup guides, architecture docs, API references, design documents, and the public documentation site. Clear writing has high impact here, especially when it helps non-technical neighbourhood advocates understand how the system works and why it matters.
 
-**Read next:**
+The project expects documentation to stay structured, accurate, and in step with the code. Writers who can simplify sensor and traffic concepts without losing precision are especially valuable.
+
+Read next:
 
 - [README.md](README.md) — project overview, component map, and contributor setup
 - [docs/README.md](docs/README.md) — documentation structure, ownership, and naming rules
@@ -64,32 +67,13 @@ Clear documentation lowers the barrier for new contributors and new deployments 
 - [public_html/README.md](public_html/README.md) — how the public docs site is built and organised
 - [public_html/src/guides/setup.md](public_html/src/guides/setup.md) — a representative public-facing guide to match tone, structure, and audience
 
-### Frontend Engineer (mac:Swift / js:Svelte / py:matplotlib)
-
-Frontend engineers work across three surfaces: the **Svelte web application**, the **macOS LiDAR visualiser** (Swift/Metal), and the **PDF report charts** (Python/matplotlib).
-
-The web frontend provides real-time dashboards, chart visualisation, and configuration interfaces. Web engineers work on Svelte 5 components, chart rendering with LayerChart and D3, Tailwind CSS styling, and responsive design. Current priorities include migrating legacy Go-embedded dashboards to Svelte, building new configuration UIs, and enforcing the project's design system. Experience with accessibility testing (axe-core, Playwright) is a plus.
-
-The macOS visualiser (VelocityVisualiser.app) is a native Swift application using Metal for real-time 3D rendering of LiDAR point clouds, tracked objects, and cluster boundaries. It communicates with the Go server via REST/WebSocket APIs. Swift engineers work on scene rendering, camera controls, overlay HUDs, and track playback. Familiarity with Metal/SceneKit, AppKit, and Xcode is valuable.
-
-The PDF report pipeline uses Python and matplotlib to generate publication-quality speed distribution charts, percentile histograms, and heatmaps that are embedded in LaTeX reports for local authority submissions. Frontend engineers maintain chart builders, colour palette alignment with the web dashboards, and the data transformation layer that feeds matplotlib. Familiarity with matplotlib styling, LaTeX integration, and the project's canonical percentile palette is useful.
-
-**Read next:**
-
-- [web/README.md](web/README.md) — local frontend setup, build, and maintenance commands
-- [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the design contract for web, macOS, and report charts
-- [docs/ui/design-review-and-improvement.md](docs/ui/design-review-and-improvement.md) — current frontend design gaps and concrete follow-up work
-- [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md) — the roadmap for retiring legacy Go-embedded dashboards
-- [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — PDF report pipeline, chart builders, and configuration
-- [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) — macOS visualiser setup, build, and architecture
-- [docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the visualiser
-- [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md) — current implementation milestones
-
 ### Perception & Algorithm Engineer
 
-The LiDAR and radar processing pipeline turns raw sensor data into tracked objects with speed, heading, and classification. Perception engineers work on point-cloud clustering, Kalman-filtered tracking, object classification, sensor fusion, and spatial geometry. This includes algorithm design in Go, mathematical modelling (coordinate transforms, ground-plane projection), and optional Swift/Metal work on the macOS LiDAR visualiser. A background in robotics, computer vision, or signal processing is ideal.
+Perception and algorithm engineers turn raw radar and LiDAR data into tracked objects with speed, heading, and classification. This includes clustering, tracking, classification, sensor fusion, and the spatial maths needed to make those steps reliable.
 
-**Read next:**
+Most of this work happens in Go, with some optional Swift and Metal work for the macOS visualiser. A background in robotics, computer vision, signal processing, or applied geometry is a strong fit.
+
+Read next:
 
 - [docs/lidar/README.md](docs/lidar/README.md) — entry point to the LiDAR subsystem docs
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md) — the end-to-end LiDAR pipeline and component inventory
@@ -97,13 +81,13 @@ The LiDAR and radar processing pipeline turns raw sensor data into tracked objec
 - [docs/maths/clustering-maths.md](docs/maths/clustering-maths.md) — clustering assumptions, geometry extraction, and complexity
 - [docs/maths/tracking-maths.md](docs/maths/tracking-maths.md) — Kalman filtering, gating, assignment, and lifecycle dynamics
 
-### Platform Engineer (Go / DevOps)
+### Platform Engineer
 
-The Go server is the backbone of velocity.report: it ingests sensor data, manages the SQLite database, serves the HTTP/gRPC API, and orchestrates the processing pipeline. Platform engineers own the full stack from server internals to production deployment — data ingestion, API design, database schema and migrations, configuration management, binary consolidation, CI/CD pipelines (GitHub Actions), cross-compilation for ARM64, Raspberry Pi image builds, one-line installers, release packaging, and systemd service management. The goal is zero-friction deployment: a community member downloads an SD card image, inserts it, and has a working traffic monitor.
+Platform engineers work on the Go server and the systems around it. That includes sensor ingestion, APIs, database work, configuration, deployment, packaging, CI, and release workflows. The aim is simple, reliable deployment on low-cost hardware, especially Raspberry Pi systems used by community advocates.
 
-Observability is a growing priority: Prometheus metrics integration, structured logging, health-check endpoints, and resource monitoring on constrained edge hardware. Familiarity with concurrency patterns, serial/UDP protocols, embedded database constraints (single-writer SQLite on a Raspberry Pi), shell scripting, and Makefile fluency is valuable.
+This role also covers operational quality: observability, logging, health checks, and reliable behaviour on constrained devices. Experience with concurrency, serial or UDP protocols, SQLite, shell tooling, and deployment automation is especially relevant.
 
-**Read next:**
+Read next:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system boundaries, data flow, and deployment shape
 - [cmd/radar/README.md](cmd/radar/README.md) — the main binary, runtime flags, and service model
@@ -113,6 +97,23 @@ Observability is a growing priority: Prometheus metrics integration, structured 
 - [config/README.md](config/README.md) — configuration contract and tuning parameter layout
 - [docs/plans/deploy-distribution-packaging-plan.md](docs/plans/deploy-distribution-packaging-plan.md) — release packaging strategy and install model
 - [docs/radar/architecture/networking.md](docs/radar/architecture/networking.md) — listener segmentation, trust model, and network hardening
+
+### Frontend Engineer (js:Svelte / mac:Swift / py:matplotlib)
+
+Frontend work spans three surfaces: the **Svelte web app**, the **macOS LiDAR visualiser**, and the **PDF report charts**. Across all three, the goal is the same: present complex traffic data clearly, consistently, and accessibly.
+
+Web contributors build real-time dashboards, charts, and configuration flows in Svelte. macOS contributors work on the native visualiser, including rendering, playback, and overlays. PDF chart work uses Python and matplotlib to produce report-ready visuals that match the project's design system. Experience in any one of these areas is useful; contributors do not need to cover all three.
+
+Read next:
+
+- [web/README.md](web/README.md) — local frontend setup, build, and maintenance commands
+- [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the design contract for web, macOS, and report charts
+- [docs/ui/design-review-and-improvement.md](docs/ui/design-review-and-improvement.md) — current frontend design gaps and concrete follow-up work
+- [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md) — the roadmap for retiring legacy Go-embedded dashboards
+- [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — PDF report pipeline, chart builders, and configuration
+- [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) — macOS visualiser setup, build, and architecture
+- [docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the visualiser
+- [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md) — current implementation milestones
 
 ## Themes of Work
 
@@ -128,11 +129,11 @@ Turning raw sensor feeds into meaningful objects: clustering point clouds, maint
 
 ### Web Frontend & Visualisation
 
-Building and maintaining the Svelte web application: real-time dashboards, interactive charts, configuration interfaces, and design system enforcement. Includes migrating legacy Go-embedded dashboards to Svelte, improving responsiveness, and ensuring accessibility.
+Building and maintaining the Svelte web app and the macOS visualiser: real-time dashboards, interactive charts, configuration interfaces, native LiDAR playback, overlays, and design system enforcement. This also includes migrating legacy Go-embedded dashboards to Svelte, improving responsiveness, and ensuring accessibility.
 
 ### Report Generation & Data Export
 
-Producing professional PDF speed reports suitable for local authority submissions, and providing data export (CSV, GeoJSON) for external analysis. Spans LaTeX templating, chart rendering, and query-scoped report generation.
+Producing professional PDF speed reports suitable for local authority submissions, and providing data export (CSV, GeoJSON) for external analysis. This spans the Python and matplotlib chart pipeline, LaTeX templating, and query-scoped report generation.
 
 ### Deployment, Packaging & Platform
 
@@ -148,7 +149,7 @@ Writing and maintaining setup guides, architecture docs, design documents, and t
 
 ## Roadmap
 
-Project roadmap and planned features are tracked in [GitHub Issues](https://github.com/banshee-data/velocity.report/issues). Look for issues labelled:
+Project roadmap and planned features are tracked in [GitHub Issues](https://github.com/banshee-data/velocity.report/issues). Useful labels include:
 
 - `enhancement` — New features and improvements
 - `bug` — Known issues to fix
@@ -179,6 +180,9 @@ make install-python
 
 # Web frontend
 make install-web
+
+# Public docs site
+make install-docs
 ```
 
 See the [README](README.md) for detailed setup instructions.
@@ -187,7 +191,7 @@ See the [README](README.md) for detailed setup instructions.
 
 ### Code Formatting
 
-We use automated formatters for consistency:
+We use standard formatters by language:
 
 | Language   | Formatter           |
 | ---------- | ------------------- |
@@ -195,7 +199,7 @@ We use automated formatters for consistency:
 | Python     | `black` + `ruff`    |
 | JavaScript | `prettier` + ESLint |
 
-**Before committing:**
+Before committing:
 
 ```bash
 make format    # Auto-format all code
@@ -233,7 +237,7 @@ Prefix commit messages with the primary language or purpose:
 [prefix] Description of change
 ```
 
-**Allowed prefixes:**
+Allowed prefixes:
 
 | Prefix   | Use Case                                                                               |
 | -------- | -------------------------------------------------------------------------------------- |
@@ -254,7 +258,7 @@ Prefix commit messages with the primary language or purpose:
 | `[exe]`  | Command execution which generates machine edits (e.g. npm install)                     |
 | `[ai]`   | AI-authored edits (Copilot/Codex only) — Required in addition to language/purpose tags |
 
-**Examples:**
+Examples:
 
 ```
 [go] add retry logic to serial port manager
@@ -263,11 +267,11 @@ Prefix commit messages with the primary language or purpose:
 [py][sql] add site configuration schema and report support
 ```
 
-**Multiple tags:** When a commit affects multiple languages, include all relevant tags. Prefer splitting into separate commits when practical.
+Multiple tags are fine when a commit affects more than one language or subsystem. Prefer splitting them when practical.
 
 ## Design Language
 
-All UI and chart work must follow the design contract in **[DESIGN.md](docs/ui/DESIGN.md)**. Key requirements:
+All UI and chart work must follow the design contract in [docs/ui/DESIGN.md](docs/ui/DESIGN.md). Key requirements:
 
 - Use the **canonical percentile colour palette** (DESIGN.md §3.3) for all chart stacks.
 - Follow the **information hierarchy**: context header → control strip → primary workspace → detail/inspector.
@@ -276,7 +280,7 @@ All UI and chart work must follow the design contract in **[DESIGN.md](docs/ui/D
 - Extract repeated class bundles into **shared standard classes** (DESIGN.md §5.5).
 - Include explicit **loading/empty/error states** for charts.
 
-See DESIGN.md §9 for the full UI/chart PR checklist.
+See `DESIGN.md` section 9 for the full UI and chart PR checklist.
 
 ## Pull Request Process
 
@@ -321,8 +325,9 @@ velocity.report/
 ├── cmd/                  # Go CLI applications
 ├── internal/             # Go server internals
 ├── web/                  # Svelte web frontend
+├── public_html/          # Public documentation site (Eleventy)
 ├── tools/pdf-generator/  # Python PDF generation
-├── docs/                 # Documentation site (Eleventy)
+├── docs/                 # Internal documentation, plans, and architecture notes
 └── scripts/              # Utility scripts
 ```
 
@@ -330,18 +335,18 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed system design.
 
 ## Documentation
 
-When changing functionality, update ALL relevant docs:
+When changing functionality, update all relevant docs:
 
 - Main [README.md](README.md)
-- Component READMEs (e.g., `web/README.md`, `tools/pdf-generator/README.md`)
+- Component READMEs such as [web/README.md](web/README.md), [tools/pdf-generator/README.md](tools/pdf-generator/README.md), and [public_html/README.md](public_html/README.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md) for design changes
-- [docs/src/guides/](docs/src/guides/) for user-facing guides
+- [public_html/src/guides/](public_html/src/guides/) for user-facing guides
 
 ## Getting Help
 
-- **Discord** — Best for quick questions and discussion: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
-- **GitHub Issues** — For bugs and feature requests
-- **Code Review** — We're happy to provide guidance on PRs
+- Discord — Best for quick questions and discussion: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
+- GitHub Issues — For bugs and feature requests
+- Code Review — We're happy to provide guidance on PRs
 
 ## License
 
