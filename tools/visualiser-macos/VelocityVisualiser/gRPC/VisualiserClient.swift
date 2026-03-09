@@ -268,8 +268,9 @@ enum VisualiserClientError: Error, LocalizedError {
                     // Throttle dispatched frames to ~30fps to keep MainActor
                     // responsive for UI events (scroll, pause, interaction).
                     // All gRPC messages are still consumed to prevent stream backlog.
-                    var lastDispatchTime = ContinuousClock.now
+                    // Initialise to the past so the very first frame is dispatched immediately.
                     let minFrameInterval: ContinuousClock.Duration = .milliseconds(33)
+                    var lastDispatchTime = ContinuousClock.now - minFrameInterval
                     do {
                         for try await protoFrame in response.messages {
                             frameCount += 1
