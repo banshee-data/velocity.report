@@ -783,7 +783,11 @@ func TestBlockOnFrameChannel_BlocksUntilDrained(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
+		// finalizeFrame expects fb.mu to be held (it temporarily releases
+		// the lock around blocking sends to avoid deadlocks).
+		fb.mu.Lock()
 		fb.finalizeFrame(frame, "test-block")
+		fb.mu.Unlock()
 		close(done)
 	}()
 
@@ -815,5 +819,67 @@ func TestBlockOnFrameChannel_BlocksUntilDrained(t *testing.T) {
 		t.Errorf("expected 0 dropped frames after drain; got %d", fb.DroppedFrames())
 	}
 
+	fb.Close()
+}
+
+func TestBlockOnFrameChannel_ResetNotBlocked(t *testing.T) {
+	// Regression: blocking send on a full channel must not hold fb.mu,
+	// so concurrent operations like Reset() can still make progress.
+	blocker := make(chan struct{})
+	cb := func(f *LiDARFrame) {
+		<-blocker // hold the worker
+	}
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-block-reset",
+		FrameCallback:   cb,
+		FrameChCapacity: 1,
+	})
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+
+	fb.SetBlockOnFrameChannel(true)
+
+	// Fill: worker picks up one frame and blocks; channel buffer holds one more.
+	fb.frameCh <- &LiDARFrame{FrameID: "r0", SensorID: "test-block-reset", PointCount: 1}
+	time.Sleep(10 * time.Millisecond)
+	fb.frameCh <- &LiDARFrame{FrameID: "r1", SensorID: "test-block-reset", PointCount: 1}
+
+	// Start a finalizeFrame that will block on the full channel.
+	finalizeDone := make(chan struct{})
+	go func() {
+		fb.mu.Lock()
+		fb.finalizeFrame(&LiDARFrame{
+			FrameID:    "r2",
+			SensorID:   "test-block-reset",
+			PointCount: 5000,
+			MinAzimuth: 0,
+			MaxAzimuth: 359.5,
+		}, "test-block")
+		fb.mu.Unlock()
+		close(finalizeDone)
+	}()
+
+	time.Sleep(20 * time.Millisecond) // let the goroutine reach the blocking send
+
+	// Reset() needs fb.mu — it must succeed quickly despite the blocked send.
+	resetDone := make(chan struct{})
+	go func() {
+		fb.Reset()
+		close(resetDone)
+	}()
+
+	select {
+	case <-resetDone:
+		// Good: Reset was not blocked by the channel send.
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Reset() deadlocked — blocking send is still holding fb.mu")
+	}
+
+	// Unblock the worker so the finalise goroutine and channel drain.
+	close(blocker)
+	<-finalizeDone
 	fb.Close()
 }

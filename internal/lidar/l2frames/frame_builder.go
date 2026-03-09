@@ -814,9 +814,17 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			// Blocking mode (PCAP fast): wait for pipeline to accept the
 			// frame, providing true back-pressure to the packet reader.
 			// This prevents frame drops during analysis runs where every
-			// frame must be processed. Safe because the callback worker
-			// does not acquire fb.mu.
+			// frame must be processed.
+			//
+			// Release fb.mu before the blocking send to avoid holding the
+			// lock while waiting. Without this, a full channel deadlocks
+			// operations that need fb.mu (cleanup timer, Reset, source
+			// switching) and prevents PCAP cancellation from progressing.
+			// Safe because the callback worker does not acquire fb.mu, and
+			// all finalizeFrame work is complete before this point.
+			fb.mu.Unlock()
 			fb.frameCh <- frame
+			fb.mu.Lock()
 		} else {
 			select {
 			case fb.frameCh <- frame:
