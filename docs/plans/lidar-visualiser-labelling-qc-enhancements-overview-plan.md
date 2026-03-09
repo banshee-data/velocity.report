@@ -1,7 +1,7 @@
 # Labelling + QC Enhancements (Features 1, 2, 3, 5, 7, 8, 10)
 
 **Status:** Proposed (February 2026)
-**Layers:** L9 Endpoints, L10 Client
+**Layers:** L9 Endpoints, L10 Clients
 
 ## Scope
 

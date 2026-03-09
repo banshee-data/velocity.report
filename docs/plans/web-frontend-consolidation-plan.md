@@ -2,7 +2,7 @@
 
 ## Status: Draft
 
-**Layers:** L9 Endpoints, L10 Client
+**Layers:** L9 Endpoints, L10 Clients
 
 ## Problem Statement
 

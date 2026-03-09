@@ -1,6 +1,6 @@
 # Server Manager — Plan
 
-**Layers:** L10 Client (macOS visualiser)
+**Layers:** L10 Clients (macOS visualiser)
 
 > **Feature:** Multi-server connection management for VelocityVisualiser
 >

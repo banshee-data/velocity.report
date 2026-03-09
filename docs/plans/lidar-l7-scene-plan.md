@@ -122,7 +122,7 @@ Real-world traffic monitoring benefits from multiple sensors covering different 
 | **L7 Scene**  | **Single-sensor accumulated scene** | **Merged scene: cross-sensor track association, unified coordinate frame, fused canonical objects** |
 | L8 Analytics  | Scene-contextualised metrics        | Multi-sensor coverage statistics, cross-sensor consistency metrics                                  |
 | L9 Endpoints  | Single-sensor gRPC stream           | Merged multi-sensor stream, per-sensor debug views                                                  |
-| L10 Client    | Renders one pipeline                | Renders merged scene with per-sensor toggle overlays                                                |
+| L10 Clients   | Renders one pipeline                | Renders merged scene with per-sensor toggle overlays                                                |
 
 **Key architectural principle:** L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusively at L7, where observations from all sensors merge into a single canonical scene. This keeps the real-time per-sensor pipeline simple and avoids premature coordinate transforms in the low-level layers.
 
