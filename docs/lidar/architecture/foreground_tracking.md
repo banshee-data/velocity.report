@@ -151,7 +151,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Classification features: height, length, width, speed, duration
 - ✅ Configurable thresholds for each class
 - ✅ `ClassifyAndUpdate()` for track classification integration
-- ✅ `ComputeSpeedPercentiles()` for P50/P85/P95 speed computation
+- ✅ Speed-history-derived summary features for classification
 - ✅ Unit tests in `internal/lidar/classification_test.go`
 
 #### Phase 3.5: REST API Endpoints
@@ -989,9 +989,6 @@ CREATE TABLE IF NOT EXISTS lidar_tracks (
     -- Kinematics (world frame)
     avg_speed_mps REAL,
     peak_speed_mps REAL,
-    p50_speed_mps REAL,  -- Median speed
-    p85_speed_mps REAL,  -- 85th percentile
-    p95_speed_mps REAL,  -- 95th percentile
 
     -- Shape features (world frame averages)
     bounding_box_length_avg REAL,
@@ -1128,8 +1125,8 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 
 **Kinematic Features:**
 
-- Average speed (p50_speed_mps)
-- Peak speed (p95_speed_mps)
+- Average speed (`avg_speed_mps`)
+- Raw maximum speed (`peak_speed_mps`)
 - Speed variance
 - Acceleration magnitude
 

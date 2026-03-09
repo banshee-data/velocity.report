@@ -22,8 +22,8 @@ The immediate failure case is speed:
 
 - `peak` is used today for a raw track maximum
 - `max` already means a raw maximum in aggregate/report surfaces
-- `p50/p85/p98` have leaked into per-track work even though they should be
-  aggregate-only for speed
+- aggregate percentile labels have leaked into per-track work even though they
+  should be aggregate-only for speed
 
 Without one design owner for metric names and definitions, every new surface
 risks inventing a slightly different meaning.
@@ -54,7 +54,7 @@ risks inventing a slightly different meaning.
 | `typical`      | Robust central estimate after metric-specific filtering                                           | Track, scene, or session metrics                   | Use when the metric is intentionally not a mean or percentile     |
 | `max`          | Raw observed maximum with no outlier rejection                                                    | Any level                                          | `max` is the canonical raw-maximum term repo-wide                 |
 | `peak`         | Filtered or context-aware top value                                                               | Only when the filtering rule is explicitly defined | Reserve for future filtered metrics, not raw maxima               |
-| `p50/p85/p98`  | Percentiles across a population of values                                                         | Aggregate/report/transit/grouped outputs           | For speed, do not use these on a single track                     |
+| `p50/p85/p98`  | Percentiles across a population of values                                                         | Aggregate/report/transit/grouped outputs           | For speed, keep these labels on grouped/report outputs only       |
 | `p95`          | Valid percentile term in general, but not the canonical high-speed percentile for speed reporting | Family-specific                                    | `height_p95` can stay; speed `p95` is historical-only legacy      |
 | unit suffixes  | Explicit physical units in the leaf name                                                          | Any level                                          | Prefer `_mps`, `_mph`, `_ms`, `_count`, `_ratio`, `_m`            |
 
@@ -94,16 +94,16 @@ These are the design anchors this plan should enforce first.
 
 ## 7. Consistency Across Pipeline Strata
 
-| Stratum                   | What must stay consistent                                        | Example failure                                                                   |
-| ------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Docs and plans            | Name, level, definition, migration status                        | One doc says `peak`, another says `max`                                           |
-| SQL schema and migrations | Stored meaning and units                                         | `peak_speed_mps` treated as filtered in one place and raw in another              |
-| Go domain/storage code    | Computation and field semantics                                  | A percentile helper exported as a track "typical" measure                         |
-| Proto/JSON contracts      | Public field name and level semantics                            | Track proto exposes `p98_speed_mps` while docs say percentiles are aggregate-only |
-| Web/Swift clients         | Labels and field names                                           | UI says "Peak speed" while API means raw max                                      |
-| Reports/TDL/query layers  | Formula and source population                                    | Report `p98` derived from bucket percentiles instead of grouped raw speeds        |
-| Logs and VRLOG overlays   | Diagnostic names aligned with canonical meaning                  | Trace logs keep old alias names after public rename                               |
-| Future exporters          | Exported metric name and label policy derived from canonical ids | Exporter invents `speed_peak` even though the canonical term is `max`             |
+| Stratum                   | What must stay consistent                                        | Example failure                                                                                    |
+| ------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Docs and plans            | Name, level, definition, migration status                        | One doc says `peak`, another says `max`                                                            |
+| SQL schema and migrations | Stored meaning and units                                         | `peak_speed_mps` treated as filtered in one place and raw in another                               |
+| Go domain/storage code    | Computation and field semantics                                  | A percentile helper exported as a track "typical" measure                                          |
+| Proto/JSON contracts      | Public field name and level semantics                            | Track proto exposes percentile-labelled speed fields while docs say percentiles are aggregate-only |
+| Web/Swift clients         | Labels and field names                                           | UI says "Peak speed" while API means raw max                                                       |
+| Reports/TDL/query layers  | Formula and source population                                    | Report `p98` derived from bucket percentiles instead of grouped raw speeds                         |
+| Logs and VRLOG overlays   | Diagnostic names aligned with canonical meaning                  | Trace logs keep old alias names after public rename                                                |
+| Future exporters          | Exported metric name and label policy derived from canonical ids | Exporter invents `speed_peak` even though the canonical term is `max`                              |
 
 ## 8. Enforcement Strategy
 
@@ -122,7 +122,7 @@ No new public metric should merge unless:
 | Check                       | What it enforces                                                                             | Delivery shape                                              |
 | --------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | Alias audit                 | Deprecated names only appear where the migration plan allows them                            | Start with `rg`-based review checklist; later add CI        |
-| Percentile-boundary audit   | Track speed surfaces cannot introduce `p50/p85/p98` publicly                                 | Start with design review; later add CI guard                |
+| Percentile-boundary audit   | Track speed surfaces cannot introduce aggregate percentile labels publicly                   | Start with design review; later add CI guard                |
 | Surface completeness check  | Stable public metrics must list their concrete names across SQL/API/proto/UI/report surfaces | Start in this plan; later move to machine-readable registry |
 | Tag cardinality guard       | High-cardinality ids and file paths stay out of exported labels                              | Implement when exporter work begins                         |
 | Export name synthesis check | User-defined prefix plus canonical id must remain unique and ASCII-safe                      | Implement with exporter dry-run tooling                     |
@@ -278,13 +278,13 @@ Recommended future override path:
 ### Phase 1 - Speed Naming Reset
 
 - [ ] Rename raw public `peak_speed_mps` to `max_speed_mps` on unshipped surfaces.
-- [ ] Keep `p50/p85/p98` off all public track-level speed contracts.
+- [ ] Keep aggregate percentile labels off all public track-level speed contracts.
 - [ ] Record the replacement track metrics and formulas once decided.
 
 ### Phase 2 - Consistency Checks
 
 - [ ] Add a lightweight `metrics-lint` task or review script.
-- [ ] Fail the check if new public track speed percentiles appear.
+- [ ] Fail the check if new public track speed contracts reuse aggregate percentile labels.
 - [ ] Fail the check if deprecated aliases appear outside an approved migration window.
 
 ### Phase 3 - Observability Stubs

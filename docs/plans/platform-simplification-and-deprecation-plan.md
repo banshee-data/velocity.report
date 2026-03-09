@@ -210,11 +210,11 @@ The full inventory of data model and API compat-shim removals is tracked in the
 sub-plan:
 [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md).
 
-### 1. Visualiser proto: percentile field additions withdrawn from track contract
+### 1. Visualiser proto: percentile-style additions withdrawn from track contract
 
-- **What:** The proposed track-level `p50_speed_mps` / `p85_speed_mps` / `p98_speed_mps` additions are not the direction to ship. Percentiles are reserved for grouped/report aggregates only. The stable track speed contract remains `avg_speed_mps` (field 24) plus the raw maximum, which should be renamed from `peak_speed_mps` (field 25 today) to `max_speed_mps` before merge if the contract is still unshipped.
-- **Impact:** gRPC and REST clients should not adopt branch-local track percentile fields as a stable contract. Existing aggregate/report percentile work is unaffected.
-- **Migration:** Treat `avg_speed_mps` and the raw maximum (`max_speed_mps` after rename; `peak_speed_mps` only as a temporary branch-local name) as the only stable per-track speed summary fields for now. Track-level percentile additions should be backed out before merge.
+- **What:** The proposed branch-local percentile-style track speed additions are not the direction to ship. Percentiles are reserved for grouped/report aggregates only. The stable track speed contract remains `avg_speed_mps` (field 24) plus the raw maximum, which should be renamed from `peak_speed_mps` (field 25 today) to `max_speed_mps` before merge if the contract is still unshipped.
+- **Impact:** gRPC and REST clients should not adopt branch-local percentile-labelled track speed fields as a stable contract. Existing aggregate/report percentile work is unaffected.
+- **Migration:** Treat `avg_speed_mps` and the raw maximum (`max_speed_mps` after rename; `peak_speed_mps` only as a temporary branch-local name) as the only stable per-track speed summary fields for now. The branch-local percentile-style additions should be backed out before merge.
 - **Design docs:** [speed-percentile-aggregation-alignment-plan.md](speed-percentile-aggregation-alignment-plan.md), [lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md), [shim removal §1](v050-backward-compatibility-shim-removal-plan.md#1-go-server--track-speed-contract-reset)
 
 ### 2. Deployment surface deprecated

@@ -40,7 +40,7 @@ Labelled Tracks → Feature Extraction → Benchmark Dataset
 Candidate methods may only use documented track features such as:
 
 - **Spatial features:** bounding box length/width/height averages, height p95 max, aspect ratios (XY, XZ)
-- **Kinematic features:** avg/peak/p50/p85/p95 speed, speed variance, max acceleration, heading variance
+- **Kinematic features:** average/raw-maximum speed, speed-profile descriptors, speed variance, max acceleration, heading variance
 - **Temporal features:** duration, observation count, observations per second
 - **Intensity features:** mean average, variance
 

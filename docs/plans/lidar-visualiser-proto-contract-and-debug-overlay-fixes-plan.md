@@ -1,13 +1,13 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Partially implemented — debug overlay and field-parity work remain valid; the track percentile field expansion is superseded and should not merge
+**Status:** Partially implemented — debug overlay and field-parity work remain valid; the superseded track speed-label expansion should not merge
 **Scope:** gRPC/protobuf contract parity for visualiser streaming and debug overlays before `v0.5.0`; track-level speed metric redesign is now separate work
 **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 
 **Update (March 8, 2026):** The speed-summary portion of this plan is
-superseded. Track-level `p50/p85/p98` fields will not ship. Percentiles are
+superseded. Track-level aggregate-percentile labels will not ship. Percentiles are
 reserved for grouped/report aggregates only, and any branch-local proto/model/UI
-work that adds track percentile fields should be backed out before merge.
+work that adds superseded single-track speed-label fields should be backed out before merge.
 
 ## 1. Problem
 
@@ -23,7 +23,7 @@ implemented in the gRPC stream path:
    serialized; Cluster feature fields (`height_p95`, `intensity_mean`,
    `sample_points`) remain unserialised.
 4. The branch-local `Track` speed-summary expansion moved in the wrong
-   direction. Track-level percentile fields should not be added to the public
+   direction. Aggregate percentile labels should not be added to the public
    proto contract; track speed metrics need a separate redesign with distinct
    non-percentile names.
 5. `Track.class_label` (string) was replaced with `ObjectClass object_class`
@@ -38,7 +38,7 @@ in the proto as a contract.
 2. Restore debug overlays end-to-end (adapter -> gRPC -> Swift client -> renderer).
 3. Keep track-level speed fields limited to a stable non-percentile contract
    while the redesign is pending.
-4. Do not ship track-level `p50/p85/p98` additions from this branch.
+4. Do not ship track-level aggregate-percentile label additions from this branch.
 5. Add serialization tests that fail on future field drops.
 
 ## 3. Non-Goals
@@ -153,7 +153,7 @@ Revised direction for `Track` speed fields in `visualiser.proto`:
 1. Keep field `24` as `avg_speed_mps` (running mean) for now.
 2. Rename the current raw `peak_speed_mps` field on `Track` to `max_speed_mps`
    before merge if the contract is still unshipped.
-3. Do **not** ship per-track `p50/p85/p98` additions in the merge target. If
+3. Do **not** ship single-track aggregate-percentile label additions in the merge target. If
    fields `36-38` exist on this branch, they should be backed out before merge.
 4. Reserve the name `peak_speed_mps` for a future filtered/context-aware
    top-speed metric if that measure is later added on a new field number.
@@ -201,7 +201,7 @@ should not be treated as the merge target for the visualiser contract.
    regenerated bindings before merge.
 2. Rename the raw track maximum field from `peak_speed_mps` to `max_speed_mps`
    while the contract is still unshipped.
-3. Remove Swift/client/UI dependencies on track `p50/p85/p98`.
+3. Remove Swift/client/UI dependencies on aggregate percentile labels in track speed surfaces.
 4. Revisit track-level speed metrics in a separate redesign once replacement
    non-percentile names and formulas are defined.
 
@@ -211,7 +211,7 @@ should not be treated as the merge target for the visualiser contract.
    are being backed out.
 2. Update UI labels and model names to use `max` for the raw maximum track
    speed.
-3. Ensure the inspector does not standardise on per-track `p50/p85/p98`
+3. Ensure the inspector does not standardise on aggregate percentile labels for track speed surfaces.
    terminology.
 
 ### Phase E: Test hardening (P1)
@@ -237,7 +237,7 @@ should not be treated as the merge target for the visualiser contract.
 2. Swift visualiser receives and renders debug overlays without relying on local
    test-only stub data.
 3. Track inspector shows the stable non-percentile track speed fields from
-   streamed data and does not standardise on per-track `p50/p85/p98` labels.
+   streamed data and does not standardise on aggregate percentile labels for a single track.
 4. Protobuf serializer tests cover all non-trivial `Track` and `Cluster` fields
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
@@ -265,7 +265,7 @@ should not be treated as the merge target for the visualiser contract.
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
 - [ ] Back out the branch-local track speed-summary field expansion before merge
-- [ ] Regenerate protobuf bindings (Go + Swift) after removing superseded track percentile fields
-- [ ] Remove branch-local track percentile computation and propagation from the merge-target contract work
+- [ ] Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields
+- [ ] Remove branch-local percentile-style track computation and propagation from the merge-target contract work
 - [ ] Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields
 - [ ] Replace negative debug tests with positive end-to-end serialization tests

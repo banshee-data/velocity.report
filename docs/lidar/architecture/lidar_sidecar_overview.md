@@ -76,7 +76,7 @@
 - ✅ **Mahalanobis distance gating** for cluster-to-track association
 - ✅ **Kalman predict/update** with constant velocity model
 - ✅ **Track lifecycle management**: hits/misses counting, promotion, deletion
-- ✅ **Speed statistics**: Average, peak, and history for percentile computation
+- ✅ **Speed statistics**: Average, raw maximum, and speed-history-derived summaries
 - ✅ **Unit Tests**: Comprehensive tracking tests in `internal/lidar/tracking_test.go`
 - ✅ **Location**: `internal/lidar/tracking.go`
 
@@ -108,7 +108,7 @@
 - ✅ **Object Classes**: `pedestrian`, `car`, `bird`, `other`
 - ✅ **Classification Features**: height, length, width, speed, duration, observation count
 - ✅ **Confidence Scoring**: Per-class confidence based on feature match quality
-- ✅ **Speed Percentiles**: `ComputeSpeedPercentiles()` for P50/P85/P95
+- ✅ **Speed Summary Features**: derived from track speed history for classification
 - ✅ **Classification Integration**: `ClassifyAndUpdate()` for track field updates
 - ✅ **Unit Tests**: `internal/lidar/classification_test.go`
 - ✅ **Location**: `internal/lidar/classification.go`
@@ -131,7 +131,7 @@
 - ✅ **`pcap-analyze` CLI Tool**: Batch PCAP processing for track categorisation
 - ✅ **Full Pipeline Processing**: Parse → Frame → Background → Cluster → Track → Classify
 - ✅ **Track Categorization**: Classify tracks as pedestrian, car, bird, other
-- ✅ **Speed Statistics**: P50/P85/P95 percentile computation per track
+- ✅ **Speed Statistics**: Track speed-summary feature computation
 - ✅ **Export Formats**: JSON (full analysis), CSV (track table), foreground research blobs (binary)
 - ✅ **Classification Research Export**: Foreground point-cloud blobs for offline benchmarks and experiments
 - ✅ **Database Persistence**: Optional SQLite storage for batch analysis results

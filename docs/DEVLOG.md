@@ -449,8 +449,8 @@
 - Implemented `cmd/tools/pcap-analyze/main.go` for batch PCAP processing through full tracking pipeline.
 - Full pipeline: parse UDP → build frames → background subtraction → clustering → tracking → classification.
 - Added output formats: JSON (complete results), CSV (track table), binary foreground research blobs.
-- Computed speed percentiles (P50/P85/P95) per track.
-- Added `SpeedHistory()` getter to `TrackedObject` for external percentile computation.
+- Computed track speed-summary features from speed history.
+- Added `SpeedHistory()` getter to `TrackedObject` for external speed-summary computation.
 - Added `GetAllTracks()` method to `Tracker` for retrieving all tracks including deleted.
 - Added build tag `pcap` to `integration_test.go` for conditional test execution.
 
@@ -477,7 +477,7 @@
 - Implemented persistence in `track_store.go`: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()`, `InsertTrackObservation()`.
 - Added queries: `GetActiveTracks()`, `GetTrackObservations()`, `GetRecentClusters()`.
 - Implemented rule-based classification in `classification.go` with object classes: pedestrian, car, bird, other.
-- Added `ComputeSpeedPercentiles()` for P50/P85/P95 from speed history.
+- Added speed-history summary computation for track classification features.
 - Added `ObjectClass`, `ObjectConfidence`, `ClassificationModel` fields to `TrackedObject`.
 
 ## November 30, 2025 - Phases 2.9-3.2 Foreground Tracking Pipeline

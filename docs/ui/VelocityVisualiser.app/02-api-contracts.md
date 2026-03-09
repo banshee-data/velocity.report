@@ -205,7 +205,7 @@ message Track {
   // Features
   float height_p95_max = 22;
   float intensity_mean_avg = 23;
-  float median_speed_mps = 24;   // p50 speed (was avg_speed_mps before v0.5.0)
+  float avg_speed_mps = 24;      // running mean speed
   float peak_speed_mps = 25;
 
   // Classification
@@ -222,9 +222,8 @@ message Track {
   float alpha = 34;
   int32 heading_source = 35;
 
-  // Speed percentiles (computed from track speed history)
-  float p85_speed_mps = 36;
-  float p98_speed_mps = 37;
+  // Documented track speed contract stays non-percentile.
+  // Superseded branch-local speed-summary additions are intentionally omitted.
 }
 
 enum TrackState {

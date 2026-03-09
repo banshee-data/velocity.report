@@ -37,7 +37,7 @@ SQL-like DSLs are powerful but exclude non-technical users. JSON filter objects 
 ### 2.2 Speed Measurement Model
 
 Percentiles should be reserved for grouped speed summaries across many transits.
-Reusing `p50/p85/p98` terminology on a single track creates the exact ambiguity
+Reusing aggregate percentile terminology on a single track creates the exact ambiguity
 this plan is trying to avoid.
 
 **Track-level speed summaries** — a single LiDAR track can still expose speed
@@ -46,7 +46,7 @@ The working direction is a pair of robust measures such as a
 `typical_observed_speed` and a `reliable_peak_speed`, both designed to reject
 outliers and use the temporal/spatial context of the observation sequence.
 These track-level metrics are separate from traffic-engineering percentiles and
-should not be named `p50/p85/p98`.
+should not reuse aggregate percentile labels.
 
 **Dataset-level percentiles** — computed across the _max speeds of many
 transits_. If a street has 1,000 vehicle transits in a week, the p85 is the
@@ -128,10 +128,9 @@ transit {
 | `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                                                                                        | ❌ read-time join   |
 | `context.*`        | Computed from concurrent tracks at ingestion                                                                                                   | ✅                  |
 
-Note: the current `lidar_tracks.p50_speed_mps`, `p85_speed_mps`, `p98_speed_mps`
-columns are legacy implementation details slated for removal from the canonical
-track model. They should not be exposed in the TDL, proto contracts, or new
-public APIs.
+Note: the current legacy percentile-labelled track columns are implementation
+details slated for removal from the canonical track model. They should not be
+exposed in the TDL, proto contracts, or new public APIs.
 
 ## 4. Natural Language Syntax
 
@@ -257,10 +256,10 @@ Translating sensor data into natural-language behaviour terms requires three lev
 **L0** already exists — `lidar_track_obs` and `radar_data` store per-frame data.
 
 **L1** is partially implemented — `lidar_tracks` stores `avg_speed_mps` and
-`peak_speed_mps`, plus legacy per-track `p50/p85/p98` fields that are slated
+`peak_speed_mps`, plus legacy percentile-labelled track fields that are slated
 for removal; `radar_data_transits` stores max/min speed. The fused transit
 record will carry `max_speed_mph` and `mean_speed_mph` as per-transit scalars.
-New public APIs should not expose per-track percentiles; replacement track-level
+New public APIs should not expose legacy single-track speed-label fields; replacement track-level
 speed descriptors will be defined separately.
 
 **L2** is the critical new layer. It requires:
@@ -305,7 +304,7 @@ For the natural-language parser to resolve behaviour terms, it needs:
 
 Behaviour labels (L2) are derived, not manually applied. The labelling pipeline runs at transit finalisation:
 
-1. **At transit close** (radar or LiDAR track completion), store `max_speed_mph` and `mean_speed_mph` in the fused transit record. Do not persist per-track percentile fields in the abstract transit schema; if track-level speed descriptors are needed, use dedicated non-percentile metrics once defined.
+1. **At transit close** (radar or LiDAR track completion), store `max_speed_mph` and `mean_speed_mph` in the fused transit record. Do not persist legacy single-track speed-label fields in the abstract transit schema; if track-level speed descriptors are needed, use dedicated non-percentile metrics once defined.
 2. **Run the speed-profile analyser** over `speed.profile[]` to assign a `behaviour.style` label.
 3. **Run the stop detector** to set `behaviour.stopped` and `behaviour.yielded` flags.
 4. **Run the conflict detector** over concurrent tracks to populate `context.nearest_object_distance_m` and `context.nearest_object_class`.

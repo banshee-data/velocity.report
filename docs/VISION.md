@@ -85,14 +85,14 @@ When only one sensor is available the record degrades gracefully — radar-only 
 
 Raw point clouds are ephemeral processing inputs. They are **never stored beyond the current analysis run**. Long-term storage holds only:
 
-| Data                   | Representation                                      | Storage                   |
-| ---------------------- | --------------------------------------------------- | ------------------------- |
-| **Radar events**       | JSON (`raw_event`)                                  | `radar_data`              |
-| **Radar objects**      | JSON (classifier, speed envelope, duration)         | `radar_objects`           |
-| **Radar transits**     | Aggregate (speed, magnitude, point count)           | `radar_data_transits`     |
-| **LiDAR tracks**       | Summary statistics (speed percentiles, bbox, class) | `lidar_tracks`            |
-| **LiDAR observations** | Per-frame (x, y, z, vx, vy, speed, heading, bbox)   | `lidar_track_obs`         |
-| **Fused transits**     | Combined record with sensor provenance              | ⬜ Schema not yet defined |
+| Data                   | Representation                                    | Storage                   |
+| ---------------------- | ------------------------------------------------- | ------------------------- |
+| **Radar events**       | JSON (`raw_event`)                                | `radar_data`              |
+| **Radar objects**      | JSON (classifier, speed envelope, duration)       | `radar_objects`           |
+| **Radar transits**     | Aggregate (speed, magnitude, point count)         | `radar_data_transits`     |
+| **LiDAR tracks**       | Summary statistics (speed summaries, bbox, class) | `lidar_tracks`            |
+| **LiDAR observations** | Per-frame (x, y, z, vx, vy, speed, heading, bbox) | `lidar_track_obs`         |
+| **Fused transits**     | Combined record with sensor provenance            | ⬜ Schema not yet defined |
 
 ### 4.2 Polyline Vector Scene
 

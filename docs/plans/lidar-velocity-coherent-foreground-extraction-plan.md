@@ -1314,7 +1314,7 @@ Both track sources are:
 1. **Stored independently** in separate database tables
 2. **Queryable via API** with a `source` parameter to select which algorithm
 3. **Comparable in dashboards** for performance evaluation
-4. **Compatible with the same downstream analysis** (speed percentiles, classification, etc.)
+4. **Compatible with the same downstream analysis** (speed summaries, classification, etc.)
 
 ```go
 // GET /api/lidar/tracks?source=background_subtraction
@@ -1442,9 +1442,6 @@ CREATE TABLE IF NOT EXISTS lidar_velocity_coherent_tracks (
     -- Kinematics (world frame)
     avg_speed_mps REAL,
     peak_speed_mps REAL,
-    p50_speed_mps REAL,
-    p85_speed_mps REAL,
-    p95_speed_mps REAL,
 
     -- Velocity estimation quality
     avg_velocity_confidence REAL,
