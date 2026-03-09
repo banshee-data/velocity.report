@@ -482,10 +482,273 @@ These ownership issues are noted here to avoid hidden architectural debt, but ar
 | Labelling-progress and evaluation-summary aggregate types in `monitor/run_track_api.go` | `monitor/`       | `l7analytics/labels.go`                | extraction requires splitting aggregation from transport; Phase 3 follow-up |
 | Scene CRUD vs. evaluation orchestration in `monitor/scene_api.go`                       | `monitor/`       | mixed infra + `L7` application service | scene CRUD stays in infra; evaluation logic needs extraction                |
 
+## Full monitor/ Deprecation Analysis
+
+### Package Census
+
+`internal/lidar/monitor/` currently contains **10,154 lines** of production Go code across 19 files, **24,682 lines** of tests across 22 test files, and **6,757 lines** of embedded web assets (HTML templates, CSS, JavaScript including `echarts.min.js`). It is the single largest package in the LiDAR subsystem.
+
+Only two external callers import the package:
+
+| Caller               | What it uses                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `cmd/radar/radar.go` | `WebServer`, `WebServerConfig`, `NewWebServer`, `NewPacketStats`, `NewDirectBackend` |
+| `cmd/sweep/main.go`  | `Client`, `NewClient`, `NewClientBackend`, `BackgroundParams`, `TrackingParams`      |
+
+This means the blast radius of any refactor is narrow at the import boundary — there are only two consumers to update — but wide internally because `WebServer` is a 1,854-line god struct that directly wires together nearly every LiDAR concern.
+
+### Is Full Deprecation Possible?
+
+**Yes, but it requires replacing `monitor/` with three to four focused packages, not deleting it outright.** The package currently conflates four distinct roles:
+
+1. **HTTP server infrastructure** — route registration, middleware, request/response helpers, data source lifecycle
+2. **L7-backed application handlers** — REST APIs that should delegate to `l7analytics/` for business logic
+3. **L8 presentation** — chart shaping, ECharts rendering, HTML dashboards, debug overlays, grid plotting
+4. **Client SDK** — an HTTP client and in-process backend for sweep tooling
+
+Each role has a natural home. No code needs to be discarded — it all needs to be re-homed.
+
+### File-by-File Ownership Map
+
+#### Role 1 — Infrastructure / Application Wiring
+
+These files own HTTP lifecycle, route registration, data source management, and process control. They form the residual "server" package after extraction.
+
+| File                     | Lines | Responsibility                                                                                                  | Target package                          |
+| ------------------------ | ----- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `webserver.go`           | 1,854 | god struct: route table, config, state management, status handlers, tuning param GET/POST, health, JSON helpers | split — see breakdown below             |
+| `datasource.go`          | 395   | `DataSource` enum, `ReplayConfig`, `DataSourceManager` interface, `RealDataSourceManager`, mock                 | `internal/lidar/server/`                |
+| `datasource_handlers.go` | 687   | live UDP start/stop, PCAP replay goroutine management, state reset, `StartPCAPForSweep`                         | `internal/lidar/server/`                |
+| `playback_handlers.go`   | 586   | VRLOG/PCAP playback control: pause, play, seek, rate, load/stop                                                 | `internal/lidar/server/`                |
+| `mock_background.go`     | 163   | `BackgroundManagerProvider` interface abstraction, mock for testing                                             | `internal/lidar/server/`                |
+| `stats.go`               | 155   | `PacketStats`, `StatsSnapshot`, thread-safe counters, `FormatWithCommas`                                        | `internal/lidar/server/` or `pipeline/` |
+
+**webserver.go decomposition** — this is the hardest file. It must be split into:
+
+- **Route table and server lifecycle** (~400 lines) → `internal/lidar/server/server.go`
+- **Status/health handlers** (~150 lines) → `internal/lidar/server/status.go`
+- **Tuning parameter handlers** (~300 lines) → `internal/lidar/server/tuning.go`
+- **State management and reset** (~200 lines) → `internal/lidar/server/state.go`
+- **JSON response helpers** (`writeJSON`, `writeJSONError`) (~50 lines) → shared `httputil/` or `internal/lidar/server/`
+- **Configuration struct** (`WebServerConfig`, `ParamDef`, `PlaybackStatusInfo`) → `internal/lidar/server/config.go`
+- **Remaining handler-glue** (~750 lines of `setupRoutes`, CORS, middleware, form parsing) → `internal/lidar/server/routes.go`
+
+#### Role 2 — L7-Backed Application Handlers (REST API Layer)
+
+These files expose REST endpoints whose business logic should delegate to `l7analytics/`. After Phase 3, they contain only request parsing, authorisation, response serialisation, and `l7analytics` calls.
+
+| File                 | Lines | Responsibility                                                                                                | Target package                                                                           |
+| -------------------- | ----- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `track_api.go`       | 1,071 | track listing, single-track detail, observation overlays, cluster listing, **summary statistics computation** | `internal/lidar/server/` (handlers) + `l7analytics/` (summary logic)                     |
+| `run_track_api.go`   | 793   | analysis run CRUD, track labelling, evaluation orchestration, missed region reporting, **labelling progress** | `internal/lidar/server/` (handlers) + `l7analytics/` (evaluation & labelling aggregates) |
+| `scene_api.go`       | 460   | scene CRUD, scene replay, scene evaluation creation, **evaluation orchestration**                             | `internal/lidar/server/` (CRUD handlers) + `l7analytics/` (evaluation service)           |
+| `sweep_handlers.go`  | 497   | sweep/auto-tune/HINT lifecycle handlers                                                                       | `internal/lidar/server/` (thin transport only)                                           |
+| `export_handlers.go` | 391   | snapshot/frame/foreground ASCII export, snapshot listing/cleanup                                              | `internal/lidar/server/` (transport only)                                                |
+| `pcap_files_api.go`  | 109   | list available PCAP files with scene-usage flags                                                              | `internal/lidar/server/` (transport only)                                                |
+
+**Key extraction work in these files:**
+
+- `track_api.go` embeds `TrackSummaryResponse`, `ClassSummary`, `OverallSummary` computation inline. The aggregate statistics (speed percentiles, class-level counts, overall summary) are L7 analytics. The response types and JSON serialisation are transport.
+- `run_track_api.go` computes `handleLabellingProgress` and `handleEvaluateRun` inline. Labelling-progress aggregation and evaluation orchestration are L7. The HTTP handler shell remains.
+- `scene_api.go` mixes scene CRUD (infrastructure — stays) with `handleCreateSceneEvaluation` (L7 orchestration — extract).
+
+#### Role 3 — L8 Presentation
+
+These files produce visualisation payloads, render HTML dashboards, generate chart data, and drive debug overlays. They belong in `internal/lidar/l8presentation/`.
+
+| File                  | Lines  | Responsibility                                                                                         | Target                          |
+| --------------------- | ------ | ------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| `chart_api.go`        | 375    | HTTP handlers returning JSON for polar, heatmap, foreground, cluster, traffic charts; `Prepare*` funcs | `l8presentation/chart_api.go`   |
+| `chart_data.go`       | 231    | `PolarChartData`, `HeatmapChartData`, `ClustersChartData`, `TrafficMetrics`; coordinate transforms     | `l8presentation/chart_data.go`  |
+| `echarts_handlers.go` | 580    | go-echarts rendering: polar, heatmap, foreground, cluster, track, region charts; debug dashboard HTML  | `l8presentation/echarts.go`     |
+| `gridplotter.go`      | 632    | `GridPlotter`: time-series grid cell sampling during PCAP replay, PNG plot generation                  | `l8presentation/gridplotter.go` |
+| `templates.go`        | 195    | `TemplateProvider`, `AssetProvider` interfaces; `EmbeddedTemplateProvider`, mock implementations       | `l8presentation/templates.go`   |
+| `html/` directory     | ~400   | dashboard.html, regions_dashboard.html, status.html, sweep_dashboard.html                              | `l8presentation/html/`          |
+| `assets/` directory   | ~6,350 | CSS, JS, echarts.min.js                                                                                | `l8presentation/assets/`        |
+
+#### Role 4 — Client SDK
+
+These files provide an HTTP client and in-process adapter for the sweep/auto-tune tooling. They are consumed by `cmd/sweep/main.go` and `cmd/radar/radar.go`.
+
+| File                | Lines | Responsibility                                                                             | Target package                                                   |
+| ------------------- | ----- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `client.go`         | 554   | `Client`: HTTP client wrapping all monitor endpoints; `BackgroundParams`, `TrackingParams` | `internal/lidar/client/` or `internal/lidar/sweep/client.go`     |
+| `direct_backend.go` | 426   | `DirectBackend`: in-process `sweep.SweepBackend` implementation avoiding HTTP round-trips  | `internal/lidar/sweep/direct.go` or stays co-located with server |
+
+**Decision point:** `Client` and `DirectBackend` both implement `sweep.SweepBackend`. They could live in `internal/lidar/sweep/` alongside the existing sweep package, or in a new `internal/lidar/client/` package. The key constraint is that `DirectBackend` holds a pointer to `WebServer`, so it must be in the same package as the server or accept an interface.
+
+### Proposed Target Package Structure
+
+After full deprecation of `monitor/`, the code redistributes into:
+
+```
+internal/lidar/
+├── server/                    # NEW — HTTP application server (replaces monitor/)
+│   ├── server.go              # Server struct, lifecycle, route table
+│   ├── config.go              # WebServerConfig, ParamDef, PlaybackStatusInfo
+│   ├── routes.go              # setupRoutes, middleware, CORS
+│   ├── state.go               # resetAllState, state management
+│   ├── status.go              # health, status handlers
+│   ├── tuning.go              # tuning parameter GET/POST
+│   ├── datasource.go          # DataSource enum, DataSourceManager, RealDataSourceManager
+│   ├── datasource_handlers.go # live/PCAP lifecycle handlers
+│   ├── playback.go            # VRLOG/PCAP playback control handlers
+│   ├── export.go              # snapshot/frame export handlers
+│   ├── pcap_files.go          # PCAP file listing
+│   ├── sweep.go               # sweep/auto-tune/HINT handlers
+│   ├── tracks.go              # track listing/detail handlers (delegates to l7analytics)
+│   ├── runs.go                # analysis run CRUD/labelling handlers (delegates to l7analytics)
+│   ├── scenes.go              # scene CRUD handlers (delegates to l7analytics for evaluation)
+│   ├── stats.go               # PacketStats, StatsSnapshot
+│   ├── background.go          # BackgroundManagerProvider interface, mock
+│   ├── client.go              # HTTP client SDK
+│   └── direct_backend.go      # in-process sweep backend
+├── l7analytics/               # NEW — canonical analytics (Phases 2–3)
+│   ├── doc.go
+│   ├── types.go
+│   ├── percentiles.go
+│   ├── summary.go
+│   ├── comparison.go
+│   └── labels.go
+├── l8presentation/            # RENAMED from visualiser/ + absorbed chart/dashboard code (Phase 4)
+│   ├── adapter.go             # existing — pipeline → proto frame conversion
+│   ├── frame_codec.go         # existing — proto encoding
+│   ├── grpc_server.go         # existing — gRPC streaming
+│   ├── model.go               # existing — server-side visualiser data model
+│   ├── publisher.go           # existing — stream publishing
+│   ├── recorder/              # existing — stream recording
+│   ├── replay.go              # existing — PCAP/VRLOG replay
+│   ├── config.go              # existing — L8 config
+│   ├── lidarview_adapter.go   # existing — LidarView export
+│   ├── pb/                    # existing — compiled proto bindings
+│   ├── chart_api.go           # FROM monitor/ — chart JSON endpoints
+│   ├── chart_data.go          # FROM monitor/ — chart data transforms
+│   ├── echarts.go             # FROM monitor/ — go-echarts rendering
+│   ├── gridplotter.go         # FROM monitor/ — grid time-series plotting
+│   ├── templates.go           # FROM monitor/ — template/asset providers
+│   ├── html/                  # FROM monitor/ — dashboard templates
+│   └── assets/                # FROM monitor/ — CSS, JS, echarts.min.js
+```
+
+### Blocking Dependencies and Circular-Import Risks
+
+The main risk in full deprecation is that `WebServer` is a god struct that every handler file attaches methods to. Splitting it requires:
+
+1. **Defining a `Server` struct in `internal/lidar/server/`** that owns the same fields (tracker, classifier, grid manager, DB, stats, data source manager, sweep runners, etc.)
+2. **Handler files in `server/` attach methods to `Server`** — this is a mechanical rename from `(ws *WebServer)` to `(s *Server)`.
+3. **`l8presentation/` chart handlers can no longer be methods on `Server`** because they live in a different package. They must either:
+   - Accept dependencies via function parameters (functional handlers registered in the route table)
+   - Accept a small interface that `Server` satisfies (e.g., `ChartDataProvider` with methods like `GetBackgroundManager()`, `GetTracker()`)
+   - Be registered as closures that capture the required dependencies during `setupRoutes()`
+
+   The interface approach is cleanest — `l8presentation/` defines the interface it needs, and `server/` satisfies it.
+
+4. **`DirectBackend` holds a `*WebServer` pointer.** After the rename to `Server`, it must hold `*Server` instead. If `DirectBackend` stays in `server/`, no import cycle. If it moves to `sweep/`, it needs an interface.
+
+5. **`Client` has no import risk** — it only uses `net/http` and `sweep.SweepBackend`. It can live anywhere.
+
+### webserver.go Decomposition: The Critical Path
+
+`webserver.go` at 1,854 lines is the single hardest file. It contains:
+
+| Responsibility                             | Approx. lines | Target                            |
+| ------------------------------------------ | ------------- | --------------------------------- |
+| `WebServer` struct definition and fields   | ~80           | `server/server.go`                |
+| `WebServerConfig`, `ParamDef`              | ~40           | `server/config.go`                |
+| `NewWebServer` constructor                 | ~100          | `server/server.go`                |
+| `setupRoutes` (full route table)           | ~180          | `server/routes.go`                |
+| CORS middleware                            | ~30           | `server/routes.go`                |
+| `handleStatus`, `handleHealth`             | ~80           | `server/status.go`                |
+| `handleTuningParams` (GET/POST)            | ~300          | `server/tuning.go`                |
+| `resetAllState`, `resetBackgroundGrid`     | ~120          | `server/state.go`                 |
+| `writeJSON`, `writeJSONError`, helpers     | ~60           | `server/server.go` or `httputil/` |
+| `Start`, `RegisterRoutes`                  | ~50           | `server/server.go`                |
+| form parsing, sensor resolution            | ~100          | `server/routes.go`                |
+| `SetTracker`, `SetClassifier`, `Set*`      | ~60           | `server/server.go`                |
+| foreground count tracking                  | ~40           | `server/state.go`                 |
+| `PlaybackStatusInfo`, playback status JSON | ~80           | `server/config.go`                |
+| remaining handler-glue and misc            | ~434          | distributed across target files   |
+
+### Sequencing Full Deprecation
+
+Full `monitor/` deprecation spans **Phases 4–7** of the broader nine-layer plan (Phases 1–3 do not touch monitor's package boundary, only extract logic from its handlers):
+
+#### Phase 4.5: Extract L8 Presentation from monitor/ (prerequisite: Phase 4 rename complete)
+
+1. Define a `ChartDataProvider` interface in `l8presentation/` with the methods the chart handlers need (grid snapshots, tracker state, stats, sensor ID)
+2. Move `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `gridplotter.go`, `templates.go`, `html/`, `assets/` into `l8presentation/`
+3. Convert chart handler methods from `(ws *WebServer)` receivers to standalone functions or methods on a local struct that accepts `ChartDataProvider`
+4. Update `webserver.go`'s route table to register L8 handlers via the interface
+5. Move corresponding tests; verify all chart endpoints still pass
+
+   **Estimated scope:** ~2,013 lines of production code, ~2,500+ lines of tests, plus 6,757 lines of embedded assets.
+
+#### Phase 5.5: Create server/ Package and Migrate Infrastructure
+
+1. Create `internal/lidar/server/` with `Server` struct mirroring `WebServer`'s fields
+2. Move infrastructure files first: `datasource.go`, `datasource_handlers.go`, `stats.go`, `mock_background.go`, `playback_handlers.go`
+3. Split `webserver.go` into `server.go`, `config.go`, `routes.go`, `state.go`, `status.go`, `tuning.go`
+4. Rename `WebServer` → `Server`, `WebServerConfig` → `Config`, `NewWebServer` → `New`
+5. Move `client.go` and `direct_backend.go` into `server/` (or a separate `client/` package)
+6. Update `cmd/radar/radar.go` and `cmd/sweep/main.go` to import `server` instead of `monitor`
+7. Move corresponding tests
+
+   **Estimated scope:** ~4,295 lines of production code (datasource.go 395, datasource_handlers.go 687, stats.go 155, mock_background.go 163, playback_handlers.go 586, webserver.go 1,854, client.go 554, direct_backend.go 426 — minus L8 code already moved).
+
+#### Phase 6.5: Migrate Remaining Handlers to server/
+
+1. Move `track_api.go`, `run_track_api.go`, `scene_api.go`, `sweep_handlers.go`, `export_handlers.go`, `pcap_files_api.go` into `server/`
+2. Verify all handler methods now call `l7analytics/` for business logic (prerequisite: Phase 3 complete)
+3. Move corresponding tests
+4. Move `testdata/` directory
+
+   **Estimated scope:** ~3,321 lines of production code, ~15,000+ lines of tests.
+
+#### Phase 7: Delete monitor/ and Remove Type Aliases
+
+1. Verify no imports of `internal/lidar/monitor` remain
+2. Delete `internal/lidar/monitor/` directory
+3. If any external tools or scripts reference the old path, add a one-line `doc.go` with a deprecation notice pointing to `server/` and `l8presentation/`
+4. Update `ARCHITECTURE.md`, `docs/lidar/README.md`, and any docs referencing `monitor/`
+
+### Risk Assessment for Full Deprecation
+
+| Risk                                                                    | Severity | Mitigation                                                                                                                    |
+| ----------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `WebServer` god struct makes splitting error-prone                      | High     | split incrementally: infrastructure first, then handlers one-by-one; keep tests green after each move                         |
+| chart handlers need access to `Server` internals                        | Medium   | define small interfaces (`ChartDataProvider`) rather than passing `*Server` across package boundaries                         |
+| 24,682 lines of tests are tightly coupled to `WebServer`                | High     | move tests alongside their production code; use search-and-replace for receiver renames; run full test suite after each phase |
+| `DirectBackend` holds `*WebServer` pointer                              | Low      | keep `DirectBackend` in `server/` package; rename receiver to `*Server`                                                       |
+| two external callers must update imports                                | Low      | mechanical change; only `cmd/radar/radar.go` and `cmd/sweep/main.go`                                                          |
+| embedded assets require `embed` directives to move                      | Medium   | `//go:embed` paths are relative to the file; move `html/` and `assets/` alongside the Go files that embed them                |
+| route table in `setupRoutes` references handlers from multiple packages | Medium   | register L8 handlers via closure or interface adapter in `routes.go`; all other handlers remain methods on `Server`           |
+
+### Decision: Rename to `server/` or Keep `monitor/`?
+
+**Recommendation: rename to `internal/lidar/server/`.** Reasons:
+
+- "monitor" was chosen when the package was purely an operator-facing debug dashboard. It now owns data source lifecycle, PCAP replay, sweep orchestration, track APIs, scene management, and the full REST surface. "monitor" no longer describes its responsibility.
+- "server" is accurate: it is the HTTP server application layer for the LiDAR subsystem.
+- The name `server` also makes the dependency direction obvious: `server/` imports `l7analytics/` and `l8presentation/`, never the reverse.
+- The rename happens naturally during the Phase 5.5 migration — no extra churn.
+
+**Alternative considered: keep `monitor/` but narrow it.** This avoids the rename churn, but leaves a misleading package name and requires explaining to every new contributor why the HTTP server is called "monitor". The rename cost is paid once; the confusion cost is paid forever.
+
+### Effort Estimate and Phasing Summary
+
+| Phase     | What moves                               | Production lines | Test lines (est.) | Prerequisites    |
+| --------- | ---------------------------------------- | ---------------- | ----------------- | ---------------- |
+| Phase 4.5 | L8 presentation code → `l8presentation/` | ~2,013           | ~2,500            | Phase 4 (rename) |
+| Phase 5.5 | infrastructure + client → `server/`      | ~4,295           | ~10,000           | Phase 4.5        |
+| Phase 6.5 | remaining handlers → `server/`           | ~3,321           | ~12,000           | Phases 3 + 5.5   |
+| Phase 7   | delete `monitor/`, update docs           | 0 (deletion)     | 0                 | Phase 6.5        |
+| **Total** |                                          | **~10,154**      | **~24,682**       |                  |
+
+Full deprecation is achievable but must be sequenced after the L7 and L8 boundaries are established (Phases 2–4). Attempting it before L7 exists would simply move the misplaced analytics logic from `monitor/` into `server/` — same problem, different directory name.
+
 ## Non-Goals
 
 - full rewrite of the LiDAR subsystem
-- full removal of `monitor/` in one pass
 - broad mechanical renaming with no ownership improvement
 - major redesign of the web app or macOS visualiser unrelated to the layer split
 - refactoring the radar-focused PDF generator as a prerequisite for the LiDAR layer split
@@ -519,13 +782,43 @@ These ownership issues are noted here to avoid hidden architectural debt, but ar
 - [ ] clients do not compute canonical summary metrics locally
 - [ ] debug and dashboard payload shaping is explicitly classified as `L8`
 
-### monitor/ decomposition
+### monitor/ decomposition and full deprecation
 
-- [ ] each `monitor/` file is classified as infra/application, `L7`-backed API, or `L8` presentation
-- [ ] infrastructure-oriented files remain in `monitor/`
+- [ ] each `monitor/` file is classified as infra/application, `L7`-backed API, or `L8` presentation (see file-by-file ownership map)
 - [ ] mixed handlers call extracted services instead of embedding analytics math
 - [ ] deferred moves are documented with explicit destinations
 - [ ] no new upward dependency violations are introduced
+
+#### Phase 4.5 — L8 presentation extraction
+
+- [ ] `ChartDataProvider` interface defined in `l8presentation/`
+- [ ] `chart_api.go`, `chart_data.go`, `echarts_handlers.go`, `gridplotter.go`, `templates.go` moved to `l8presentation/`
+- [ ] `html/` and `assets/` directories moved to `l8presentation/`; `//go:embed` directives updated
+- [ ] chart handler methods converted from `(ws *WebServer)` receivers to interface-backed handlers
+- [ ] route table in `webserver.go` registers L8 handlers via interface adapter
+- [ ] all chart endpoint tests pass from new location
+
+#### Phase 5.5 — server/ package creation and infrastructure migration
+
+- [ ] `internal/lidar/server/` package created with `Server` struct
+- [ ] `WebServer` renamed to `Server`; `WebServerConfig` renamed to `Config`
+- [ ] `webserver.go` split into `server.go`, `config.go`, `routes.go`, `state.go`, `status.go`, `tuning.go`
+- [ ] `datasource.go`, `datasource_handlers.go`, `playback_handlers.go`, `stats.go`, `mock_background.go` moved to `server/`
+- [ ] `client.go` and `direct_backend.go` moved to `server/` (or `client/` if interface extraction preferred)
+- [ ] `cmd/radar/radar.go` and `cmd/sweep/main.go` updated to import `server` instead of `monitor`
+
+#### Phase 6.5 — remaining handler migration
+
+- [ ] `track_api.go`, `run_track_api.go`, `scene_api.go`, `sweep_handlers.go`, `export_handlers.go`, `pcap_files_api.go` moved to `server/`
+- [ ] all handler methods confirmed to delegate analytics to `l7analytics/`
+- [ ] `testdata/` directory moved to `server/testdata/`
+- [ ] all tests pass from new locations
+
+#### Phase 7 — delete monitor/
+
+- [ ] no imports of `internal/lidar/monitor` remain in the repository
+- [ ] `internal/lidar/monitor/` directory deleted
+- [ ] `ARCHITECTURE.md`, `docs/lidar/README.md`, and all docs updated to reference `server/` and `l8presentation/`
 
 ### Generated artifacts and verification
 
