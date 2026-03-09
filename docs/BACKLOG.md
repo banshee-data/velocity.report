@@ -83,6 +83,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Config restructure Phase 3 — expose L2/L5/pipeline constants and L6 classification thresholds once classifier strategy is settled — [design doc](../config/CONFIG-RESTRUCTURE.md) `S`
 - Parameter tuning optimisation (Phase 4.2) — automated hyperparameter search and optimisation — [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
 - Dynamic algorithm selection — runtime algorithm switching based on scene conditions — [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
+- Bodies in motion — L5 IMM kinematic extensions (CV/CA/CTRV), L7 scene-constrained path prediction, sparse-cluster track linking at range, and scene-graph geometric relations — [design doc](plans/lidar-bodies-in-motion-plan.md) `L`
 - Threshold-based speed alerts — configurable alerting for speed threshold violations `M`
 - Peak-hour and seasonal trend analysis — temporal pattern detection and analysis `M`
 

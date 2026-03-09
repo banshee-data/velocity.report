@@ -206,7 +206,96 @@ This aligns OSM building outlines and road geometry to the sensor's local coordi
 
 ---
 
-## 4. References
+## 4. Scene-constrained physics and geometric relationships
+
+L7 is also the natural home for two concerns that cannot live in lower layers: **physics-constrained trajectory prediction** and **persistent geometric relationships** (the scene graph).
+
+### 4.1 Physics motion model — layer placement
+
+Single-object kinematics (richer Kalman state vectors) belong at L5 — that is a per-track concern. But once prediction needs to account for scene geometry or multi-object interactions, L7 owns it because only L7 holds the accumulated road polygons, kerb boundaries, structure walls, and the set of all canonical objects.
+
+| Scope                                                            | Layer        | Responsibility                                                                                    |
+| ---------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
+| Single-object kinematics (CV, CA, CTRV, IMM)                     | L5 Tracks    | Per-track state estimator; extends the existing Kalman state vector                               |
+| Scene-constrained prediction (road-following, kerb clipping)     | **L7 Scene** | Clips kinematic trajectory fans to physically plausible corridors defined by accumulated geometry |
+| Multi-object interaction (following distance, gap acceptance)    | **L7 Scene** | Requires simultaneous visibility of all canonical objects plus road topology                      |
+| Post-hoc kinematic analysis (braking events, stopping distances) | L8 Analytics | Derived measurements over historical L5/L7 state                                                  |
+
+The prediction pipeline flows:
+
+```
+L5 kinematic prediction (unconstrained trajectory fan)
+    ↓
+L7 scene constraint (clip to road polygon, respect kerb boundaries)
+    ↓
+L7 interaction constraint (adjust for leading vehicle, gap acceptance)
+    ↓
+L7 constrained path probability distribution
+```
+
+**Design doc:** [lidar-bodies-in-motion-plan.md](lidar-bodies-in-motion-plan.md) expands this into a full implementation plan including sparse-cluster track linking and path prediction. **Maths proposal:** [bodies-in-motion-maths](../maths/proposals/) (to be written).
+
+### 4.2 Scene graph — geometric constraint relationships
+
+"Cluster expected to touch ground plane" and "height above ground / base clamped" are instances of typed spatial relationships between features of different classes. The set of these relationships forms a scene graph.
+
+**Per-frame queries (L4 — stateless):**
+
+L4 owns the primitive geometric queries that run every frame:
+
+- `GroundSurface.QueryHeightAboveGround(x, y, z)` — point height relative to local ground
+- Per-frame ground-contact check: "is this cluster's lowest point within 20 cm of the ground surface?"
+- Base-Z clamping during cluster extraction: `cluster.BaseZ = max(clusterMinZ, groundZ)`
+
+These are stateless and do not require accumulated geometry or cross-frame state.
+
+**Accumulated relationships (L7 — stateful):**
+
+The persistent relationship graph lives at L7 because it represents evidence accumulated over many frames:
+
+```
+Feature A          Relation              Feature B
+─────────────────────────────────────────────────────
+Cluster         → contacts_ground →     GroundPolygon
+Cluster         → occluded_by    →     StructureFeature
+Track           → follows_road   →     GroundPolygon
+Track           → constrained_by →     GroundPolygon     (base Z clamped)
+CanonicalObject → rests_on       →     GroundPolygon
+CanonicalObject → bounded_by     →     StructureFeature  (cannot pass through)
+VolumeFeature   → rooted_in      →     GroundPolygon     (tree base on ground)
+```
+
+Each relation carries accumulated confidence and relation-specific parameters:
+
+- `contacts_ground` — expected base-Z offset from ground surface (typically ~0 for vehicles)
+- `follows_road` — corridor width constraint
+- `occluded_by` — occlusion angle range
+
+**Key distinction:** L4 answers "what is the ground height here?" (stateless query). L7 answers "this object consistently contacts this ground polygon" (accumulated evidence) and uses that relationship to constrain predicted paths.
+
+### 4.3 Ground-contact flow through the layers
+
+```
+L3 Background Grid
+    ↓ settled polar cells with height statistics
+L4 Perception
+    ├── GroundSurface.QueryHeightAboveGround(x, y, z)     ← per-frame primitive
+    ├── Cluster extraction: baseZ = max(clusterMinZ, groundZ)  ← per-frame clamp
+    └── Per-frame observation: "cluster C contacts ground at (x,y)"
+         ↓
+L5 Tracks
+    ├── Track state: z-component constrained by ground query
+    └── Predicted base-Z uses ground surface as floor constraint
+         ↓
+L7 Scene
+    ├── Accumulated relation: CanonicalObject → contacts_ground → GroundPolygon
+    ├── Refined base offset (Welford mean of observed base-Z minus ground-Z)
+    └── Physics constraint: predicted path base-Z follows ground polygon slope
+```
+
+---
+
+## 5. References
 
 ### Scene and map construction
 
@@ -227,6 +316,15 @@ This aligns OSM building outlines and road geometry to the sensor's local coordi
 | Reid (1979) — An algorithm for tracking multiple targets (IEEE TAC)                          | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association        |
 | Kim & Liu (2017) — Cooperative multi-robot observation of targets                            | Decentralised track fusion across sensor nodes; relevant to our distributed edge architecture     |
 | Dames & Kumar (2017) — Detecting, localising, and tracking an unknown number of targets      | Multi-sensor PHD filter; advanced alternative to our proposed gating-based approach               |
+
+### Physics-constrained prediction and scene graphs
+
+| Reference                                                                                                 | Relevance                                                                                              |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Lefèvre et al. (2014) — A survey on motion prediction and risk assessment for intelligent vehicles        | Taxonomy of physics-based, manoeuvre-based, and interaction-aware prediction; frames our L5→L7 split   |
+| Schöller et al. (2020) — What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction | Surprisingly strong CV baseline; validates our L5 CV/CA starting point before adding scene constraints |
+| Salzmann et al. (2020) — Trajectron++: Dynamically-Feasible Trajectory Forecasting (ECCV 2020)            | Scene-conditioned trajectory prediction with dynamics integration; our L7 scene-constrained path model |
+| Liang et al. (2020) — Learning lane graph representations for motion forecasting (ECCV 2020)              | Lane-graph topology for trajectory prediction; relevant to our road-polygon corridor constraints       |
 
 ### Mathematical methods
 
