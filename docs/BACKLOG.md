@@ -2,9 +2,11 @@
 
 Single source of truth for project-wide work items in velocity.report. Where available, tasks link to a design document using syntax `[#$pr] (#$issue) $title - $task [design doc]($url)`; tasks without a design doc use just the backlog entry and effort tag. Individual docs in `plans/` describe single projects, not priority lists.
 
-## v0.5 (Platform Hardening)
+## v0.5.0 (Platform Hardening)
 
 - v0.5.0 backward compatibility shim removal — reset the track speed contract (`peak` → `max`, no aggregate percentile labels on public track surfaces), sweep legacy fields, and remove deploy executor compat methods — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
+- Visualiser track proto parity — `ObjectClass` enum, track field serialisation, `peak_speed_mps` → `max_speed_mps` (D-19) — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- v0.5.0 breaking changes — proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings — [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 - Layer dependency hygiene — move `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fix L1→L4 and L3→L4 import violations (~15 prod files, ~6 test files) — [design doc](plans/lidar-layer-dependency-hygiene-plan.md) `M`
@@ -61,20 +63,23 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Transit deduplication (D-03) — duplicate transit record prevention — [design doc](radar/architecture/transit-deduplication.md) `M`
 - GitHub Releases CI pipeline — automated binary builds and release packaging — [design doc](plans/deploy-distribution-packaging-plan.md) `M`
 
-## v1.0 (Production-Ready)
+## v0.9.0 (Production-Ready)
 
 - (#8) Data management (backup/archiving) — define backup destinations, read historical archives and rollup SQLite files from remote HTTP location `M`
 - (#122) Database monitoring UI — daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard `M`
 - (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters `M`
 - (#324) Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - Test coverage ≥ 95.5% — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](plans/platform-quality-coverage-improvement-plan.md) `L`
+- Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
+- Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
+- E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md) `M`
+
+## v1.0 (?? Scene + Algo)
+
 - Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
 - Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
 - Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
-- Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
-- Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
-- E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md) `M`
 - L7 Scene layer — persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture — [design doc](plans/lidar-l7-scene-plan.md) `XL`
 
 ## v2.0 (Advanced Perception & Connected)
@@ -131,6 +136,4 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#328] SWEEP/HINT platform hardening (Phase 5–6) — transform pipeline, objective registry, explainability — [design doc](plans/lidar-sweep-hint-mode-plan.md)
 - [#328] HINT sweep polish — 11 remaining polish items — [design doc](lidar/operations/hint-sweep-mode.md)
 - [#328] (#326) P0 ObjectClass schema alignment, label vocabulary consolidation Phases 1–3.1 — [design doc](plans/label-vocabulary-consolidation-plan.md) [AV plan §P0](plans/lidar-av-lidar-integration-plan.md)
-- [#330] Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md)
-- [#336] Visualiser track proto parity — `ObjectClass` enum, track field serialisation, `peak_speed_mps` → `max_speed_mps` (D-19) — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
-- [#336] v0.5.0 breaking changes — proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#344] Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md)
