@@ -49,6 +49,27 @@ count_nonempty_lines() {
   awk 'NF { count++ } END { print count + 0 }'
 }
 
+make_temp_dir() {
+  if TMP_DIR=$(mktemp -d 2>/dev/null); then
+    return 0
+  fi
+
+  if TMP_DIR=$(mktemp -d -t velocity-report-jess-planning-review 2>/dev/null); then
+    return 0
+  fi
+
+  echo "Failed to create temporary directory with mktemp" >&2
+  exit 1
+}
+
+collect_decision_markers() {
+  if grep -RniP '(^#+ .*Open Questions)|\b(TBD|TODO|FIXME)\b|decision needed|unresolved|open question' "$PLANS_DIR" >"$DECISION_MARKERS" 2>/dev/null; then
+    return
+  fi
+
+  grep -RniE '(^#+ .*Open Questions)|((^|[^A-Za-z0-9_])(TBD|TODO|FIXME)([^A-Za-z0-9_]|$))|decision needed|unresolved|open question' "$PLANS_DIR" >"$DECISION_MARKERS" || true
+}
+
 print_path_list_with_commit() {
   local list_file="$1"
 
@@ -99,7 +120,7 @@ print_backlog_gap_list() {
   done <"$list_file"
 }
 
-TMP_DIR=$(mktemp -d)
+make_temp_dir
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 ALL_PLANS="$TMP_DIR/all_plans.txt"
@@ -218,7 +239,7 @@ awk -F '\t' '
   }
 ' "$SECTION_COUNTS" >"$SPLIT_CANDIDATES"
 
-grep -RniE '(^#+ .*Open Questions)|\bTBD\b|\bTODO\b|\bFIXME\b|decision needed|unresolved|open question' "$PLANS_DIR" >"$DECISION_MARKERS" || true
+collect_decision_markers
 
 TOTAL_PLAN_COUNT=$(wc -l <"$ALL_PLANS" | tr -d ' ')
 TOUCHED_PLAN_COUNT=$(wc -l <"$TOUCHED_PLANS" | tr -d ' ')

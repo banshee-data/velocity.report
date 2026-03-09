@@ -49,6 +49,8 @@ escape_markdown_table_cell() {
   local value="${1:-}"
   value=${value//\\/\\\\}
   value=${value//|/\\|}
+  value=${value//$'\n'/ }
+  value=${value//$'\r'/ }
   printf "%s" "$value"
 }
 
@@ -132,7 +134,7 @@ print_worktree_rows() {
         if [[ "$path" == "$REPO_ROOT" ]]; then
           marker=" (current)"
         fi
-        printf '| `%s%s` | `%s` | `%s` | %s |\n' \
+        printf '| %s%s | %s | `%s` | %s |\n' \
           "$(escape_markdown_table_cell "$(shorten_path "$path")")" \
           "$marker" \
           "$(escape_markdown_table_cell "$ref_label")" \
@@ -175,7 +177,7 @@ print_worktree_rows() {
     if [[ "$path" == "$REPO_ROOT" ]]; then
       marker=" (current)"
     fi
-    printf '| `%s%s` | `%s` | `%s` | %s |\n' \
+    printf '| %s%s | %s | `%s` | %s |\n' \
       "$(escape_markdown_table_cell "$(shorten_path "$path")")" \
       "$marker" \
       "$(escape_markdown_table_cell "$ref_label")" \
@@ -192,7 +194,7 @@ print_backlog_horizon() {
 
   awk '
     /^## / {
-      if ($0 ~ /^## Complete$/ || $0 ~ /^## v∞\.0 /) {
+      if ($0 ~ /^## Complete$/ || $0 ~ /waybacklog/) {
         next
       }
       if (sections >= 2) {
@@ -290,7 +292,7 @@ while IFS=$'\t' read -r branch upstream _subject; do
     branch_cell=$(escape_markdown_table_cell "$branch")
     upstream_cell=$(escape_markdown_table_cell "$upstream")
     worktree_cell=$(escape_markdown_table_cell "$worktree_label")
-    BRANCH_ROWS="${BRANCH_ROWS}| \`${branch_cell}\` | \`${upstream_cell}\` | +${ahead_up} / -${behind_up} | +${ahead_main} / -${behind_main} | ${worktree_cell} |\n"
+    BRANCH_ROWS="${BRANCH_ROWS}| ${branch_cell} | ${upstream_cell} | +${ahead_up} / -${behind_up} | +${ahead_main} / -${behind_main} | ${worktree_cell} |\n"
     DISPLAYED_BRANCHES=$((DISPLAYED_BRANCHES + 1))
   fi
 done < <(git for-each-ref --format='%(refname:short)%09%(upstream:short)%09%(contents:subject)' refs/heads)
@@ -318,7 +320,7 @@ if [[ -n "$CURRENT_DIFF_HIGHLIGHTS" ]]; then
   printf "### Current Diff Highlights\n\n"
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
-    printf -- '- `%s`\n' "$line"
+    printf -- '- %s\n' "$(escape_markdown_table_cell "$line")"
   done <<<"$CURRENT_DIFF_HIGHLIGHTS"
   printf "\n"
 fi
