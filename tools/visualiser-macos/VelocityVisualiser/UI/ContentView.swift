@@ -98,7 +98,7 @@ struct ContentView: View {
             handleKeyPress(.toggleLabels, appState: appState)
         }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }  // Run browser sheet
             .sheet(isPresented: $appState.showRunBrowser) {
-                RunBrowserView().environmentObject(appState)
+                RunBrowserView(state: appState.runBrowserState).environmentObject(appState)
             }
     }
 }

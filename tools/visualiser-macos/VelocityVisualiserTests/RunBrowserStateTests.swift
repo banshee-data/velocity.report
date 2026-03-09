@@ -287,4 +287,105 @@ import XCTest
         XCTAssertEqual(state.runs.count, 1)
         XCTAssertEqual(state.runs[0].runId, "run-refresh")
     }
+
+    func testPrimeTrackCacheBuildsRollupFromTracks() async throws {
+        let client = makeMockRunTrackClient()
+        let state = RunBrowserState(apiClient: client)
+        state.runs = [
+            AnalysisRun(
+                runId: "run-001", createdAt: Date(), sourceType: "vrlog",
+                sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 30.0,
+                totalFrames: 300, totalClusters: 100, totalTracks: 3, confirmedTracks: 3,
+                status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
+                sceneName: "test")
+        ]
+
+        let tracksJSON = """
+            {
+                "run_id": "run-001",
+                "tracks": [
+                    {
+                        "run_id": "run-001",
+                        "track_id": "track-001",
+                        "sensor_id": "hesai-01",
+                        "user_label": "car",
+                        "label_source": "human_manual"
+                    },
+                    {
+                        "run_id": "run-001",
+                        "track_id": "track-002",
+                        "sensor_id": "hesai-01",
+                        "quality_label": "noisy",
+                        "label_source": "human_manual"
+                    },
+                    {
+                        "run_id": "run-001",
+                        "track_id": "track-003",
+                        "sensor_id": "hesai-01"
+                    }
+                ],
+                "count": 3
+            }
+            """
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertTrue(request.url!.path.contains("api/lidar/runs/run-001/tracks"))
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, tracksJSON.data(using: .utf8)!)
+        }
+
+        await state.primeTrackCache(runID: "run-001")
+
+        XCTAssertEqual(state.runs[0].labelRollup?.classified, 1)
+        XCTAssertEqual(state.runs[0].labelRollup?.taggedOnly, 1)
+        XCTAssertEqual(state.runs[0].labelRollup?.unlabelled, 1)
+    }
+
+    func testApplySuccessfulLabelUpdateUpdatesLocalRollup() async throws {
+        let client = makeMockRunTrackClient()
+        let state = RunBrowserState(apiClient: client)
+        state.runs = [
+            AnalysisRun(
+                runId: "run-001", createdAt: Date(), sourceType: "vrlog",
+                sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 30.0,
+                totalFrames: 300, totalClusters: 100, totalTracks: 3, confirmedTracks: 3,
+                status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
+                sceneName: "test")
+        ]
+
+        let tracksJSON = """
+            {
+                "run_id": "run-001",
+                "tracks": [
+                    {
+                        "run_id": "run-001",
+                        "track_id": "track-001",
+                        "sensor_id": "hesai-01",
+                        "user_label": "car",
+                        "label_source": "human_manual"
+                    },
+                    {
+                        "run_id": "run-001",
+                        "track_id": "track-002",
+                        "sensor_id": "hesai-01"
+                    }
+                ],
+                "count": 2
+            }
+            """
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, tracksJSON.data(using: .utf8)!)
+        }
+
+        await state.primeTrackCache(runID: "run-001")
+        state.applySuccessfulLabelUpdate(runID: "run-001", trackID: "track-002", qualityLabel: "split")
+
+        XCTAssertEqual(state.runs[0].labelRollup?.classified, 1)
+        XCTAssertEqual(state.runs[0].labelRollup?.taggedOnly, 1)
+        XCTAssertEqual(state.runs[0].labelRollup?.unlabelled, 0)
+    }
 }
