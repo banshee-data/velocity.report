@@ -211,9 +211,9 @@ metric id.
 
 Pattern:
 
-`<prefix>_<normalized_metric_id>`
+`<prefix>_<normalised_metric_id>`
 
-Normalization rule:
+Normalisation rule:
 
 - replace `.` with `_`
 - preserve the canonical leaf name

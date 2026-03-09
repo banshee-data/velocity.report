@@ -212,7 +212,7 @@ should not be treated as the merge target for the visualiser contract.
 2. Update UI labels and model names to use `max` for the raw maximum track
    speed.
 3. Ensure the inspector does not standardise on aggregate percentile labels for track speed surfaces.
-   terminology.
+
 
 ### Phase E: Test hardening (P1)
 
