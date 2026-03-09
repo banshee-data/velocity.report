@@ -50,10 +50,10 @@ func TestTracker_SpeedComputation_Avg(t *testing.T) {
 		t.Errorf("expected AvgSpeedMps > 0, got %f", track.AvgSpeedMps)
 	}
 
-	// PeakSpeedMps >= AvgSpeedMps (peak is never below average)
-	if track.PeakSpeedMps < track.AvgSpeedMps {
-		t.Errorf("expected PeakSpeedMps(%f) >= AvgSpeedMps(%f)",
-			track.PeakSpeedMps, track.AvgSpeedMps)
+	// MaxSpeedMps >= AvgSpeedMps (peak is never below average)
+	if track.MaxSpeedMps < track.AvgSpeedMps {
+		t.Errorf("expected MaxSpeedMps(%f) >= AvgSpeedMps(%f)",
+			track.MaxSpeedMps, track.AvgSpeedMps)
 	}
 
 	// Speed history has one entry per update() call. The first observation

@@ -243,7 +243,7 @@ type Track struct {
 	HeightP95Max     float32
 	IntensityMeanAvg float32
 	AvgSpeedMps      float32
-	PeakSpeedMps     float32
+	MaxSpeedMps      float32
 
 	// Classification
 	ObjectClass     string

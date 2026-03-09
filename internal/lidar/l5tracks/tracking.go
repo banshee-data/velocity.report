@@ -153,7 +153,7 @@ type TrackedObject struct {
 	HeightP95Max         float32
 	IntensityMeanAvg     float32
 	AvgSpeedMps          float32
-	PeakSpeedMps         float32
+	MaxSpeedMps          float32
 
 	// History of positions
 	History []TrackPoint
@@ -928,8 +928,8 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Update speed statistics
 	speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
 	track.AvgSpeedMps = ((n-1)*track.AvgSpeedMps + speed) / n
-	if speed > track.PeakSpeedMps {
-		track.PeakSpeedMps = speed
+	if speed > track.MaxSpeedMps {
+		track.MaxSpeedMps = speed
 	}
 
 	// Speed jitter: measure frame-to-frame speed change

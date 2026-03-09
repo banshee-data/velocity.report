@@ -144,7 +144,7 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 		LastUnixNanos:        2000000000,
 		ObservationCount:     10,
 		AvgSpeedMps:          5.0,
-		PeakSpeedMps:         8.0,
+		MaxSpeedMps:          8.0,
 		BoundingBoxLengthAvg: 2.5,
 		BoundingBoxWidthAvg:  1.5,
 		BoundingBoxHeightAvg: 1.7,

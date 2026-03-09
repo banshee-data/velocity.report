@@ -227,7 +227,7 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 			EndUnixNanos:     2000,
 			ObservationCount: 10,
 			AvgSpeedMps:      5.0,
-			PeakSpeedMps:     8.0,
+			MaxSpeedMps:      8.0,
 			ObjectClass:      "car",
 			ObjectConfidence: 0.85,
 			LinkedTrackIDs:   []string{"track-2"},

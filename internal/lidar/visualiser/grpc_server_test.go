@@ -611,7 +611,7 @@ func TestFrameBundleToProto_WithTracks(t *testing.T) {
 
 // TestFrameBundleToProto_TrackFieldCompleteness verifies that ALL Track
 // fields survive the model → proto conversion at the wire boundary.  This
-// regression test was added after discovering that 11 fields (PeakSpeedMps,
+// regression test was added after discovering that 11 fields (MaxSpeedMps,
 // AvgSpeedMps, Hits, Confidence, Duration, Length, etc.) were silently
 // zero'd because the conversion in frameBundleToProto omitted them.
 func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
@@ -652,7 +652,7 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 					HeightP95Max:      1.65,
 					IntensityMeanAvg:  42.0,
 					AvgSpeedMps:       4.2,
-					PeakSpeedMps:      6.8,
+					MaxSpeedMps:       6.8,
 					ObjectClass:       "car",
 					ClassConfidence:   0.92,
 					TrackLengthMetres: 55.0,
@@ -739,8 +739,8 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 	if tr.AvgSpeedMps != 4.2 {
 		t.Errorf("AvgSpeedMps: got %f, want 4.2", tr.AvgSpeedMps)
 	}
-	if tr.PeakSpeedMps != 6.8 {
-		t.Errorf("PeakSpeedMps: got %f, want 6.8", tr.PeakSpeedMps)
+	if tr.MaxSpeedMps != 6.8 {
+		t.Errorf("MaxSpeedMps: got %f, want 6.8", tr.MaxSpeedMps)
 	}
 
 	// -- Covariance ------------------------------------------------------

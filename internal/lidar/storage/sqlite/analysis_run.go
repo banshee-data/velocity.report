@@ -207,7 +207,7 @@ type RunTrack struct {
 	EndUnixNanos         int64   `json:"end_unix_nanos,omitempty"`
 	ObservationCount     int     `json:"observation_count"`
 	AvgSpeedMps          float32 `json:"avg_speed_mps"`
-	PeakSpeedMps         float32 `json:"peak_speed_mps"`
+	MaxSpeedMps          float32 `json:"max_speed_mps"`
 	BoundingBoxLengthAvg float32 `json:"bounding_box_length_avg"`
 	BoundingBoxWidthAvg  float32 `json:"bounding_box_width_avg"`
 	BoundingBoxHeightAvg float32 `json:"bounding_box_height_avg"`
@@ -242,7 +242,7 @@ func RunTrackFromTrackedObject(runID string, t *TrackedObject) *RunTrack {
 		EndUnixNanos:         t.LastUnixNanos,
 		ObservationCount:     t.ObservationCount,
 		AvgSpeedMps:          t.AvgSpeedMps,
-		PeakSpeedMps:         t.PeakSpeedMps,
+		MaxSpeedMps:          t.MaxSpeedMps,
 		BoundingBoxLengthAvg: t.BoundingBoxLengthAvg,
 		BoundingBoxWidthAvg:  t.BoundingBoxWidthAvg,
 		BoundingBoxHeightAvg: t.BoundingBoxHeightAvg,
@@ -602,7 +602,7 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 			endNanos,
 			track.ObservationCount,
 			track.AvgSpeedMps,
-			track.PeakSpeedMps,
+			track.MaxSpeedMps,
 			track.BoundingBoxLengthAvg,
 			track.BoundingBoxWidthAvg,
 			track.BoundingBoxHeightAvg,
@@ -667,7 +667,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 			&endNanos,
 			&track.ObservationCount,
 			&track.AvgSpeedMps,
-			&track.PeakSpeedMps,
+			&track.MaxSpeedMps,
 			&track.BoundingBoxLengthAvg,
 			&track.BoundingBoxWidthAvg,
 			&track.BoundingBoxHeightAvg,
@@ -764,7 +764,7 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 		&endNanos,
 		&track.ObservationCount,
 		&track.AvgSpeedMps,
-		&track.PeakSpeedMps,
+		&track.MaxSpeedMps,
 		&track.BoundingBoxLengthAvg,
 		&track.BoundingBoxWidthAvg,
 		&track.BoundingBoxHeightAvg,
@@ -970,7 +970,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			&endNanos,
 			&track.ObservationCount,
 			&track.AvgSpeedMps,
-			&track.PeakSpeedMps,
+			&track.MaxSpeedMps,
 			&track.BoundingBoxLengthAvg,
 			&track.BoundingBoxWidthAvg,
 			&track.BoundingBoxHeightAvg,

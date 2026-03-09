@@ -173,7 +173,7 @@ func TestClassifyOrConvert_EmptyLabel_Reclassifies(t *testing.T) {
 				BBoxWidth:        2.0,
 				BBoxHeight:       1.5,
 				AvgSpeedMps:      12.0,
-				PeakSpeedMps:     15.0,
+				MaxSpeedMps:      15.0,
 			},
 			expected: pb.ObjectClass_OBJECT_CLASS_CAR,
 		},
@@ -186,7 +186,7 @@ func TestClassifyOrConvert_EmptyLabel_Reclassifies(t *testing.T) {
 				BBoxWidth:        0.3,
 				BBoxHeight:       0.2,
 				AvgSpeedMps:      0.5,
-				PeakSpeedMps:     0.8,
+				MaxSpeedMps:      0.8,
 			},
 			expected: pb.ObjectClass_OBJECT_CLASS_BIRD,
 		},
@@ -199,7 +199,7 @@ func TestClassifyOrConvert_EmptyLabel_Reclassifies(t *testing.T) {
 				BBoxWidth:        0.5,
 				BBoxHeight:       1.7,
 				AvgSpeedMps:      1.2,
-				PeakSpeedMps:     2.0,
+				MaxSpeedMps:      2.0,
 			},
 			expected: pb.ObjectClass_OBJECT_CLASS_PEDESTRIAN,
 		},
@@ -237,7 +237,7 @@ func TestClassifyOrConvert_EmptyLabel_NotUnspecified(t *testing.T) {
 		BBoxWidth:        1.5,
 		BBoxHeight:       1.2,
 		AvgSpeedMps:      8.0,
-		PeakSpeedMps:     12.0,
+		MaxSpeedMps:      12.0,
 	}
 	result := classifyOrConvert(track)
 	if result == pb.ObjectClass_OBJECT_CLASS_UNSPECIFIED {

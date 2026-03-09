@@ -331,7 +331,7 @@ func (MotionModel) EnumDescriptor() ([]byte, []int) {
 
 // ObjectClass enumerates all valid object classifications.
 // Used by both the rule-based classifier (output) and human label annotations (input).
-// Classifier classes: PEDESTRIAN..MOTORCYCLIST, DYNAMIC.  User-only label: NOISE.
+// All 9 classes are user-assignable. Classifier outputs: DYNAMIC..MOTORCYCLIST.
 type ObjectClass int32
 
 const (
@@ -1134,7 +1134,7 @@ type Track struct {
 	HeightP95Max     float32 `protobuf:"fixed32,22,opt,name=height_p95_max,json=heightP95Max,proto3" json:"height_p95_max,omitempty"`
 	IntensityMeanAvg float32 `protobuf:"fixed32,23,opt,name=intensity_mean_avg,json=intensityMeanAvg,proto3" json:"intensity_mean_avg,omitempty"`
 	AvgSpeedMps      float32 `protobuf:"fixed32,24,opt,name=avg_speed_mps,json=avgSpeedMps,proto3" json:"avg_speed_mps,omitempty"`
-	PeakSpeedMps     float32 `protobuf:"fixed32,25,opt,name=peak_speed_mps,json=peakSpeedMps,proto3" json:"peak_speed_mps,omitempty"`
+	MaxSpeedMps      float32 `protobuf:"fixed32,25,opt,name=max_speed_mps,json=maxSpeedMps,proto3" json:"max_speed_mps,omitempty"`
 	// Classification
 	ObjectClass     ObjectClass `protobuf:"varint,26,opt,name=object_class,json=objectClass,proto3,enum=velocity.visualiser.v1.ObjectClass" json:"object_class,omitempty"` // classifier output or user label
 	ClassConfidence float32     `protobuf:"fixed32,27,opt,name=class_confidence,json=classConfidence,proto3" json:"class_confidence,omitempty"`                            // 0.0 - 1.0
@@ -1352,9 +1352,9 @@ func (x *Track) GetAvgSpeedMps() float32 {
 	return 0
 }
 
-func (x *Track) GetPeakSpeedMps() float32 {
+func (x *Track) GetMaxSpeedMps() float32 {
 	if x != nil {
-		return x.PeakSpeedMps
+		return x.MaxSpeedMps
 	}
 	return 0
 }
@@ -3223,7 +3223,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"\bframe_id\x18\x01 \x01(\x04R\aframeId\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12;\n" +
 	"\bclusters\x18\x03 \x03(\v2\x1f.velocity.visualiser.v1.ClusterR\bclusters\x12@\n" +
-	"\x06method\x18\x04 \x01(\x0e2(.velocity.visualiser.v1.ClusteringMethodR\x06method\"\xf6\t\n" +
+	"\x06method\x18\x04 \x01(\x0e2(.velocity.visualiser.v1.ClusteringMethodR\x06method\"\xf4\t\n" +
 	"\x05Track\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x1b\n" +
 	"\tsensor_id\x18\x02 \x01(\tR\bsensorId\x128\n" +
@@ -3254,8 +3254,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x10bbox_heading_rad\x18\x15 \x01(\x02R\x0ebboxHeadingRad\x12$\n" +
 	"\x0eheight_p95_max\x18\x16 \x01(\x02R\fheightP95Max\x12,\n" +
 	"\x12intensity_mean_avg\x18\x17 \x01(\x02R\x10intensityMeanAvg\x12\"\n" +
-	"\ravg_speed_mps\x18\x18 \x01(\x02R\vavgSpeedMps\x12$\n" +
-	"\x0epeak_speed_mps\x18\x19 \x01(\x02R\fpeakSpeedMps\x12F\n" +
+	"\ravg_speed_mps\x18\x18 \x01(\x02R\vavgSpeedMps\x12\"\n" +
+	"\rmax_speed_mps\x18\x19 \x01(\x02R\vmaxSpeedMps\x12F\n" +
 	"\fobject_class\x18\x1a \x01(\x0e2#.velocity.visualiser.v1.ObjectClassR\vobjectClass\x12)\n" +
 	"\x10class_confidence\x18\x1b \x01(\x02R\x0fclassConfidence\x12.\n" +
 	"\x13track_length_metres\x18\x1c \x01(\x02R\x11trackLengthMetres\x12.\n" +

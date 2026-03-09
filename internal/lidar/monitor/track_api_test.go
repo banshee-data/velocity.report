@@ -797,7 +797,7 @@ func TestTrackAPI_TrackToResponse(t *testing.T) {
 		VX:                   1.0,
 		VY:                   0.5,
 		AvgSpeedMps:          2.5,
-		PeakSpeedMps:         3.0,
+		MaxSpeedMps:          3.0,
 		ObservationCount:     10,
 		FirstUnixNanos:       now.Add(-time.Second).UnixNano(),
 		LastUnixNanos:        now.UnixNano(),

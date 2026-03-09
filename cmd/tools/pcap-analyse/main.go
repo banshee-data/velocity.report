@@ -105,7 +105,7 @@ type TrackExport struct {
 	DurationSecs  float64 `json:"duration_secs"`
 	Observations  int     `json:"observations"`
 	AvgSpeedMps   float32 `json:"avg_speed_mps"`
-	PeakSpeedMps  float32 `json:"peak_speed_mps"`
+	MaxSpeedMps   float32 `json:"max_speed_mps"`
 	AvgHeight     float32 `json:"avg_height_m"`
 	AvgLength     float32 `json:"avg_length_m"`
 	AvgWidth      float32 `json:"avg_width_m"`
@@ -860,7 +860,7 @@ func collectTrackResults(frameBuilder *analysisFrameBuilder, result *AnalysisRes
 			DurationSecs: float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9,
 			Observations: track.ObservationCount,
 			AvgSpeedMps:  track.AvgSpeedMps,
-			PeakSpeedMps: track.PeakSpeedMps,
+			MaxSpeedMps:  track.MaxSpeedMps,
 			AvgHeight:    track.BoundingBoxHeightAvg,
 			AvgLength:    track.BoundingBoxLengthAvg,
 			AvgWidth:     track.BoundingBoxWidthAvg,
@@ -1217,7 +1217,7 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 	// Header
 	header := []string{
 		"track_id", "class", "confidence", "start_time", "end_time",
-		"duration_secs", "observations", "avg_speed_mps", "peak_speed_mps",
+		"duration_secs", "observations", "avg_speed_mps", "max_speed_mps",
 		"avg_height_m", "avg_length_m", "avg_width_m", "height_p95_max_m",
 	}
 	if err := w.Write(header); err != nil {
@@ -1235,7 +1235,7 @@ func exportTracksCSV(path string, tracks []*TrackExport) error {
 			strconv.FormatFloat(t.DurationSecs, 'f', 2, 64),
 			strconv.Itoa(t.Observations),
 			strconv.FormatFloat(float64(t.AvgSpeedMps), 'f', 2, 32),
-			strconv.FormatFloat(float64(t.PeakSpeedMps), 'f', 2, 32),
+			strconv.FormatFloat(float64(t.MaxSpeedMps), 'f', 2, 32),
 			strconv.FormatFloat(float64(t.AvgHeight), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgLength), 'f', 3, 32),
 			strconv.FormatFloat(float64(t.AvgWidth), 'f', 3, 32),
@@ -1328,7 +1328,7 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 			 object_class, object_confidence)
 			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			runID, t.TrackID, t.Observations,
-			t.AvgSpeedMps, t.PeakSpeedMps,
+			t.AvgSpeedMps, t.MaxSpeedMps,
 			t.AvgHeight, t.AvgLength, t.AvgWidth,
 			t.Class, t.Confidence,
 		)

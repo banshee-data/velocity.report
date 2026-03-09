@@ -95,11 +95,11 @@ type ClassificationFeatures struct {
 	HeightP95 float32 // Maximum P95 height
 
 	// Kinematic features
-	AvgSpeed  float32 // Average speed
-	PeakSpeed float32 // Peak speed
-	P50Speed  float32 // Median speed
-	P85Speed  float32 // 85th percentile speed
-	P95Speed  float32 // 95th percentile speed
+	AvgSpeed float32 // Average speed
+	MaxSpeed float32 // Max speed
+	P50Speed float32 // Median speed
+	P85Speed float32 // 85th percentile speed
+	P95Speed float32 // 95th percentile speed
 
 	// Temporal features
 	ObservationCount int
@@ -230,7 +230,7 @@ func (tc *TrackClassifier) extractFeatures(track *TrackedObject) ClassificationF
 		AvgWidth:         track.BoundingBoxWidthAvg,
 		HeightP95:        track.HeightP95Max,
 		AvgSpeed:         track.AvgSpeedMps,
-		PeakSpeed:        track.PeakSpeedMps,
+		MaxSpeed:         track.MaxSpeedMps,
 		ObservationCount: track.ObservationCount,
 	}
 
@@ -278,7 +278,7 @@ func (tc *TrackClassifier) birdConfidence(f ClassificationFeatures) float32 {
 func (tc *TrackClassifier) isBus(f ClassificationFeatures) bool {
 	isVeryLong := f.AvgLength > BusLengthMin
 	isWide := f.AvgWidth > BusWidthMin
-	isFast := f.AvgSpeed > VehicleSpeedMin || f.PeakSpeed > VehicleSpeedMin*1.5
+	isFast := f.AvgSpeed > VehicleSpeedMin || f.MaxSpeed > VehicleSpeedMin*1.5
 	isTall := f.AvgHeight > VehicleHeightMin
 
 	return isVeryLong && isWide && (isFast || isTall)
@@ -317,7 +317,7 @@ func (tc *TrackClassifier) isTruck(f ClassificationFeatures) bool {
 	isLong := f.AvgLength > TruckLengthMin
 	isWide := f.AvgWidth > TruckWidthMin
 	isTall := f.AvgHeight > TruckHeightMin
-	isFast := f.AvgSpeed > VehicleSpeedMin || f.PeakSpeed > VehicleSpeedMin*1.5
+	isFast := f.AvgSpeed > VehicleSpeedMin || f.MaxSpeed > VehicleSpeedMin*1.5
 
 	return isLong && isWide && isTall && isFast
 }
@@ -350,7 +350,7 @@ func (tc *TrackClassifier) truckConfidence(f ClassificationFeatures) float32 {
 func (tc *TrackClassifier) isVehicle(f ClassificationFeatures) bool {
 	// Large size AND high speed
 	isLarge := f.AvgLength > VehicleLengthMin || f.AvgWidth > VehicleWidthMin
-	isFast := f.AvgSpeed > VehicleSpeedMin || f.PeakSpeed > VehicleSpeedMin*1.5
+	isFast := f.AvgSpeed > VehicleSpeedMin || f.MaxSpeed > VehicleSpeedMin*1.5
 	isTall := f.AvgHeight > VehicleHeightMin
 
 	return (isLarge && isFast) || (isLarge && isTall)
@@ -372,7 +372,7 @@ func (tc *TrackClassifier) vehicleConfidence(f ClassificationFeatures) float32 {
 	if f.AvgSpeed > 10.0 {
 		confidence += 0.1
 	}
-	if f.PeakSpeed > 15.0 {
+	if f.MaxSpeed > 15.0 {
 		confidence += 0.05
 	}
 
@@ -450,7 +450,7 @@ func (tc *TrackClassifier) motorcyclistConfidence(f ClassificationFeatures) floa
 	}
 
 	// Higher peak speed distinguishes from cyclist
-	if f.PeakSpeed > 12.0 {
+	if f.MaxSpeed > 12.0 {
 		confidence += 0.05
 	}
 

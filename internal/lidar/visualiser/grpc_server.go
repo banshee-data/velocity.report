@@ -68,7 +68,7 @@ func classifyOrConvert(t Track) pb.ObjectClass {
 		AvgWidth:         t.BBoxWidth,
 		HeightP95:        t.HeightP95Max,
 		AvgSpeed:         t.AvgSpeedMps,
-		PeakSpeed:        t.PeakSpeedMps,
+		MaxSpeed:         t.MaxSpeedMps,
 		ObservationCount: t.ObservationCount,
 	}
 	if t.LastSeenNanos > t.FirstSeenNanos {
@@ -605,7 +605,7 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				HeightP95Max:      t.HeightP95Max,
 				IntensityMeanAvg:  t.IntensityMeanAvg,
 				AvgSpeedMps:       t.AvgSpeedMps,
-				PeakSpeedMps:      t.PeakSpeedMps,
+				MaxSpeedMps:       t.MaxSpeedMps,
 				ObjectClass:       classifyOrConvert(t),
 				ClassConfidence:   t.ClassConfidence,
 				TrackLengthMetres: t.TrackLengthMetres,
