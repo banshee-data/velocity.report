@@ -145,6 +145,18 @@ func TestComputeDistStats(t *testing.T) {
 			}
 		}
 	})
+	t.Run("two values", func(t *testing.T) {
+		ds := computeDistStats([]float64{1.0, 3.0})
+		if ds == nil {
+			t.Fatal("expected non-nil")
+		}
+		if ds.Samples != 2 {
+			t.Errorf("samples = %d, want 2", ds.Samples)
+		}
+		if ds.Min != 1.0 || ds.Max != 3.0 {
+			t.Errorf("min/max = %v/%v, want 1/3", ds.Min, ds.Max)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +322,95 @@ func TestGenerateReportInvalidPath(t *testing.T) {
 	_, _, err := GenerateReport("/nonexistent/path.vrlog")
 	if err == nil {
 		t.Fatal("expected error for invalid path")
+	}
+}
+
+func TestGenerateReportWriteError(t *testing.T) {
+	tmpDir := t.TempDir()
+	vrlogPath := createTestVrlog(t, tmpDir, 3)
+
+	// Make the vrlog directory read-only so analysis.json can't be written
+	if err := os.Chmod(vrlogPath, 0o555); err != nil {
+		t.Skipf("cannot set read-only permissions: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(vrlogPath, 0o755) })
+
+	_, _, err := GenerateReport(vrlogPath)
+	if err == nil {
+		t.Fatal("expected error writing to read-only vrlog directory")
+	}
+}
+
+func TestGenerateReportCorruptFrames(t *testing.T) {
+	// Create a valid vrlog, then corrupt the chunk file to trigger
+	// a non-EOF ReadFrame error.
+	tmpDir := t.TempDir()
+	vrlogPath := createTestVrlog(t, tmpDir, 5)
+
+	// Find and corrupt the chunk file
+	framesDir := filepath.Join(vrlogPath, "frames")
+	entries, err := os.ReadDir(framesDir)
+	if err != nil {
+		t.Fatalf("read frames dir: %v", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			p := filepath.Join(framesDir, e.Name())
+			// Overwrite with garbage
+			if err := os.WriteFile(p, []byte("corrupted data"), 0o644); err != nil {
+				t.Fatalf("corrupt chunk: %v", err)
+			}
+		}
+	}
+
+	// Update index to point to the corrupt data
+	idxPath := filepath.Join(vrlogPath, "index.bin")
+	if _, err := os.Stat(idxPath); err == nil {
+		// Truncate to force re-read of corrupt data
+		os.WriteFile(idxPath, []byte{0, 0, 0, 0, 0, 0, 0, 0}, 0o644)
+	}
+
+	_, _, err = GenerateReport(vrlogPath)
+	// May or may not error depending on how corruption manifests,
+	// but should not panic.
+	_ = err
+}
+
+func TestGenerateReportNegativeDuration(t *testing.T) {
+	// Create a vrlog, then hack header.json so EndNs < StartNs
+	// to exercise the negative duration fallback.
+	tmpDir := t.TempDir()
+	vrlogPath := createTestVrlog(t, tmpDir, 5)
+
+	headerPath := filepath.Join(vrlogPath, "header.json")
+	data, err := os.ReadFile(headerPath)
+	if err != nil {
+		t.Fatalf("read header: %v", err)
+	}
+
+	var hdr map[string]interface{}
+	if err := json.Unmarshal(data, &hdr); err != nil {
+		t.Fatalf("parse header: %v", err)
+	}
+	// Set end_ns < start_ns to trigger negative duration fallback
+	hdr["start_ns"] = float64(2_000_000_000_000)
+	hdr["end_ns"] = float64(1_000_000_000_000)
+	modified, err := json.Marshal(hdr)
+	if err != nil {
+		t.Fatalf("marshal header: %v", err)
+	}
+	if err := os.WriteFile(headerPath, modified, 0o644); err != nil {
+		t.Fatalf("write header: %v", err)
+	}
+
+	report, _, err := GenerateReport(vrlogPath)
+	if err != nil {
+		t.Fatalf("GenerateReport: %v", err)
+	}
+
+	// Duration should be computed from frame timestamps (positive)
+	if report.Recording.DurationSecs < 0 {
+		t.Errorf("duration_secs = %v, want >= 0 (fallback should fix negative duration)", report.Recording.DurationSecs)
 	}
 }
 
