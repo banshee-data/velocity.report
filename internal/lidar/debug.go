@@ -13,11 +13,23 @@ type LogWriters struct {
 	Trace io.Writer
 }
 
+// taggedLogger pairs a standard log.Logger (no prefix) with a tag string
+// that is prepended to the format string at each call site. This ensures the
+// tag appears after the timestamp, not before it.
+type taggedLogger struct {
+	logger *log.Logger
+	tag    string
+}
+
+func (tl *taggedLogger) printf(format string, args ...interface{}) {
+	tl.logger.Printf(tl.tag+format, args...)
+}
+
 var (
 	mu          sync.RWMutex
-	opsLogger   *log.Logger
-	diagLogger  *log.Logger
-	traceLogger *log.Logger
+	opsLogger   *taggedLogger
+	diagLogger  *taggedLogger
+	traceLogger *taggedLogger
 	opsWriter   io.Writer
 	diagWriter  io.Writer
 	traceWriter io.Writer
@@ -31,13 +43,13 @@ func SetLogWriters(w LogWriters) {
 	opsWriter = w.Ops
 	diagWriter = w.Diag
 	traceWriter = w.Trace
-	opsLogger = newLogger("[lidar] ", w.Ops)
-	diagLogger = newLogger("[lidar] ", w.Diag)
-	traceLogger = newLogger("[lidar] ", w.Trace)
+	opsLogger = newTaggedLogger("[lidar] ", w.Ops)
+	diagLogger = newTaggedLogger("[lidar] ", w.Diag)
+	traceLogger = newTaggedLogger("[lidar] ", w.Trace)
 }
 
 // SubLogger returns an ops-level Printf-compatible function with a combined
-// tag prefix, e.g. SubLogger("pcap") yields "[lidar/pcap] " prefix.
+// tag prefix, e.g. SubLogger("pcap") yields "[lidar/pcap] " tag.
 // Returns a no-op if the ops writer is nil.
 func SubLogger(subtag string) func(format string, args ...interface{}) {
 	mu.RLock()
@@ -46,8 +58,8 @@ func SubLogger(subtag string) func(format string, args ...interface{}) {
 	if w == nil {
 		return func(string, ...interface{}) {}
 	}
-	l := log.New(w, "[lidar/"+subtag+"] ", log.LstdFlags|log.Lmicroseconds)
-	return l.Printf
+	tl := newTaggedLogger("[lidar/"+subtag+"] ", w)
+	return tl.printf
 }
 
 // SubLoggers returns ops/diag/trace Printf-compatible functions with a
@@ -58,32 +70,38 @@ func SubLoggers(subtag string) (ops, diag, trace func(format string, args ...int
 	ow, dw, tw := opsWriter, diagWriter, traceWriter
 	mu.RUnlock()
 	noop := func(string, ...interface{}) {}
-	prefix := "[lidar/" + subtag + "] "
-	flags := log.LstdFlags | log.Lmicroseconds
+	tag := "[lidar/" + subtag + "] "
 	if ow != nil {
-		ops = log.New(ow, prefix, flags).Printf
+		tl := newTaggedLogger(tag, ow)
+		ops = tl.printf
 	} else {
 		ops = noop
 	}
 	if dw != nil {
-		diag = log.New(dw, prefix, flags).Printf
+		tl := newTaggedLogger(tag, dw)
+		diag = tl.printf
 	} else {
 		diag = noop
 	}
 	if tw != nil {
-		trace = log.New(tw, prefix, flags).Printf
+		tl := newTaggedLogger(tag, tw)
+		trace = tl.printf
 	} else {
 		trace = noop
 	}
 	return
 }
 
-// newLogger creates a *log.Logger for a given writer, or returns nil if w is nil.
-func newLogger(prefix string, w io.Writer) *log.Logger {
+// newTaggedLogger creates a taggedLogger for a given writer, or returns nil
+// if w is nil. The tag is prepended to each log message after the timestamp.
+func newTaggedLogger(tag string, w io.Writer) *taggedLogger {
 	if w == nil {
 		return nil
 	}
-	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
+	return &taggedLogger{
+		logger: log.New(w, "", log.LstdFlags|log.Lmicroseconds),
+		tag:    tag,
+	}
 }
 
 // Opsf logs to the ops stream (actionable warnings, errors, lifecycle events).
@@ -92,7 +110,7 @@ func Opsf(format string, args ...interface{}) {
 	l := opsLogger
 	mu.RUnlock()
 	if l != nil {
-		l.Printf(format, args...)
+		l.printf(format, args...)
 	}
 }
 
@@ -102,7 +120,7 @@ func Diagf(format string, args ...interface{}) {
 	l := diagLogger
 	mu.RUnlock()
 	if l != nil {
-		l.Printf(format, args...)
+		l.printf(format, args...)
 	}
 }
 
@@ -112,6 +130,6 @@ func Tracef(format string, args ...interface{}) {
 	l := traceLogger
 	mu.RUnlock()
 	if l != nil {
-		l.Printf(format, args...)
+		l.printf(format, args...)
 	}
 }

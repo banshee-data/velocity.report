@@ -5,45 +5,53 @@ import (
 	"log"
 )
 
+type taggedLogger struct {
+	logger *log.Logger
+	tag    string
+}
+
 var (
-	opsLogger   *log.Logger
-	diagLogger  *log.Logger
-	traceLogger *log.Logger
+	opsLogger   *taggedLogger
+	diagLogger  *taggedLogger
+	traceLogger *taggedLogger
 )
 
 // SetLogWriters configures the three logging streams for the l3grid package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = newLogger("[l3grid] ", ops)
-	diagLogger = newLogger("[l3grid] ", diag)
-	traceLogger = newLogger("[l3grid] ", trace)
+	opsLogger = newTaggedLogger("[l3grid] ", ops)
+	diagLogger = newTaggedLogger("[l3grid] ", diag)
+	traceLogger = newTaggedLogger("[l3grid] ", trace)
 }
 
-func newLogger(prefix string, w io.Writer) *log.Logger {
+func newTaggedLogger(tag string, w io.Writer) *taggedLogger {
 	if w == nil {
 		return nil
 	}
-	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
+	return &taggedLogger{
+		logger: log.New(w, "", log.LstdFlags|log.Lmicroseconds),
+		tag:    tag,
+	}
 }
 
 // opsf logs to the ops stream (actionable warnings, errors, data loss).
 func opsf(format string, args ...interface{}) {
 	if opsLogger != nil {
-		opsLogger.Printf(format, args...)
+		opsLogger.logger.Printf(opsLogger.tag+format, args...)
 	}
 }
 
 // diagf logs to the diag stream (day-to-day diagnostics, tuning context).
 func diagf(format string, args ...interface{}) {
 	if diagLogger != nil {
-		diagLogger.Printf(format, args...)
+		diagLogger.logger.Printf(diagLogger.tag+format, args...)
 	}
 }
 
 // tracef logs to the trace stream (high-frequency packet/frame telemetry).
 func tracef(format string, args ...interface{}) {
 	if traceLogger != nil {
-		traceLogger.Printf(format, args...)
+		traceLogger.logger.Printf(traceLogger.tag+format, args...)
 	}
 }
 
