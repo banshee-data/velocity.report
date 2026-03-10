@@ -104,6 +104,26 @@ indicate faster-than-real-time replay; below 1.0 indicates slower. Omitted
 
 ---
 
+### Percentile and DistStats Policy
+
+All `DistStats` blocks (§3, §4, §6) compute distribution statistics over a
+**population** of values — never over a single track's observations.
+Percentile fields are conditional on sample count:
+
+| Field | Minimum samples | Why                                                                              |
+| ----- | --------------- | -------------------------------------------------------------------------------- |
+| `p50` | 3               | Median is meaningless with 1–2 values                                            |
+| `p85` | 8               | 85th percentile needs a reasonable tail                                          |
+| `p98` | 50              | The headline high-speed metric; statistically meaningless below ~50 observations |
+
+For speed specifically, the **only** surface for percentiles is the aggregate
+speed histogram (§6), computed over each track's `max_speed_mps`. The core
+metric is **p98 of track max speeds** — the fastest speed exceeded by only 2%
+of observed vehicles. Per-track speed is described by `avg_speed_mps`,
+`max_speed_mps`, variance, and jitter — never by percentile labels.
+
+---
+
 ## 3. Frame Summary
 
 Aggregate statistics across all frames in the recording.
@@ -288,8 +308,15 @@ This enables:
 - Comparison of speed profiles between matched tracks across runs.
 - Variance and RMS jitter computation (§12.1).
 
-Note: percentiles are only meaningful across groups of tracks (§4, §6), not
-within a single track's observation sequence.
+**Percentile policy:** Percentiles (p50, p85, p98) are **never** computed on a
+single track's speed samples. They are only meaningful — and only emitted —
+across a **population** of tracks. The core metric is **p98 of track max
+speeds** over a window of 50+ observations (see §6). Per-track speed is
+summarised by `avg_speed_mps`, `max_speed_mps`, and jitter/variance metrics
+— never by percentile labels.
+
+See [Speed Percentile Aggregation Alignment Plan](../../docs/plans/speed-percentile-aggregation-alignment-plan.md)
+for the governing design decision.
 
 ---
 
@@ -297,6 +324,12 @@ within a single track's observation sequence.
 
 Aggregate speed distribution across all confirmed tracks, using each track's
 `max_speed_mps`. Bin width is configurable (default 1 m/s).
+
+The `percentiles` block computes p50/p85/p98 over the population of track max
+speeds. **This is the only context in which speed percentiles are computed.**
+The headline metric — **p98** — requires at least 50 tracks to be emitted
+(see `DistStats` thresholds in §3). Per-track speed is summarised by
+`avg_speed_mps` and `max_speed_mps`, never by percentile labels.
 
 ```jsonc
 {
