@@ -309,9 +309,12 @@ Aggregate speed distribution across all confirmed tracks, using each track's
     { "lower": 4.0, "upper": 5.0, "count": 1 },
   ],
   "percentiles": {
+    "samples": 27,
+    "min": 1.2,
+    "avg": 4.1,
     "p50": 3.2,
     "p85": 6.8,
-    "p98": 8.9,
+    "max": 8.9,
   },
   "total_tracks": 27,
 }
@@ -617,3 +620,62 @@ These require new fields on `visualiser.Track` propagated from
 | `spatial_distance_m`     | §8.3    | float64 | Mean Euclidean distance between interpolated positions   |
 | split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection            |
 | quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)           |
+
+### 12.4 Future — PCAP Segment Identity
+
+To verify that two `.vrlog` recordings were generated from exactly the same
+PCAP packet range (enabling high-integrity A/B comparison), store a
+fingerprint of the source PCAP segment in the header.
+
+| Field                | Type   | Description                                          |
+| -------------------- | ------ | ---------------------------------------------------- |
+| `pcap_file_hash`     | string | SHA-256 of the entire PCAP file                      |
+| `first_packet_hash`  | string | SHA-256 of the first UDP payload in the packet range |
+| `first_packet_ts`    | int64  | Timestamp (ns) of the first packet                   |
+| `first_packet_index` | int64  | 0-based packet number within the PCAP file           |
+| `last_packet_hash`   | string | SHA-256 of the last UDP payload in the packet range  |
+| `last_packet_ts`     | int64  | Timestamp (ns) of the last packet                    |
+| `last_packet_index`  | int64  | 0-based packet number within the PCAP file           |
+
+Two recordings whose first/last packet hashes, timestamps, indices, and file
+hash all match are guaranteed to originate from the same source data.
+
+**Future extension:** a rolling hash (or Merkle root) of all packets in the
+played range. This provides stronger integrity but requires reading all
+packets at recording time, which adds I/O overhead.
+
+**Implementation notes:**
+
+- Store in `LogHeader` under a `pcap_identity` nested object.
+- Populate during PCAP replay in `cmd/radar/radar.go` via the existing
+  `pcap.Reader` — capture first/last packet metadata and the file hash.
+- Comparison tool (§8) can auto-verify identity match before comparing.
+
+### 12.5 Future — Track Centroid Trajectory
+
+To programmatically match tracks across recordings even when the tracker
+fragments observations into different track IDs, store the approximate
+spatial trajectory of each track's centroid.
+
+| Field                 | Section | Type  | Description                                           |
+| --------------------- | ------- | ----- | ----------------------------------------------------- |
+| `centroid_trajectory` | §5      | array | Sampled `[timestamp_ns, x, y]` tuples along the track |
+
+This enables:
+
+- **Cross-run track correlation:** overlay centroid paths from two recordings
+  and match tracks by spatial proximity + temporal overlap, even when the
+  tracker produces different fragmentation.
+- **Spatial clustering:** group tracks from separate runs that pass through
+  the same physical region, identifying whether different track IDs likely
+  correspond to the same real-world object.
+
+**Implementation notes:**
+
+- Sample at ~1 Hz (every 10th frame at 10 Hz LiDAR) to keep payload small.
+  For a 60 s track at 1 Hz = 60 tuples of `[int64, float32, float32]`.
+- Matching algorithm: for each pair of runs, slide a temporal window and
+  compute mean Euclidean distance between nearest-timestamp centroids.
+  Pairs below a threshold (e.g. 2 m) are candidate matches.
+- Complement the existing Hungarian matching (§8.3 temporal IoU) with a
+  spatial distance term weighted by centroid proximity.
