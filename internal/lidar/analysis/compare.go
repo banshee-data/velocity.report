@@ -3,6 +3,7 @@ package analysis
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -15,12 +16,15 @@ import (
 // CompareReports loads analysis.json from two .vrlog directories and produces
 // a ComparisonReport. If outPath is empty the caller is responsible for
 // serialisation; otherwise the report is written to outPath.
+//
+// If analysis.json does not yet exist for either input, it is generated
+// automatically via [GenerateReport].
 func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
-	reportA, err := LoadAnalysis(pathA)
+	reportA, err := loadOrGenerate(pathA)
 	if err != nil {
 		return nil, fmt.Errorf("load A: %w", err)
 	}
-	reportB, err := LoadAnalysis(pathB)
+	reportB, err := loadOrGenerate(pathB)
 	if err != nil {
 		return nil, fmt.Errorf("load B: %w", err)
 	}
@@ -251,6 +255,22 @@ func LoadAnalysis(vrlogPath string) (*AnalysisReport, error) {
 		return nil, fmt.Errorf("parse %s: %w", p, err)
 	}
 	return &report, nil
+}
+
+// loadOrGenerate returns the cached analysis if analysis.json exists,
+// otherwise runs GenerateReport to create it.
+func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
+	report, err := LoadAnalysis(vrlogPath)
+	if err == nil {
+		return report, nil
+	}
+	// analysis.json missing or corrupt — generate it.
+	log.Printf("Generating analysis for %s ...", vrlogPath)
+	report, _, genErr := GenerateReport(vrlogPath)
+	if genErr != nil {
+		return nil, genErr
+	}
+	return report, nil
 }
 
 func pearsonR(xs, ys []float64) float64 {
