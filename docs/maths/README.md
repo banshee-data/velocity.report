@@ -73,6 +73,8 @@ The production pipeline uses four math-heavy layers:
   — Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence, low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
 - [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
   — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
+- [Reflective Sign Pose Anchors](proposals/20260310-reflective-sign-pose-anchor-maths.md)
+  — Use high-reflectivity, near-planar static signs as polygon anchors for frame-to-frame micro-pose estimation, a cached stability signal for L3 settling/reset control, shake diagnostics, and optional replay/runtime correction.
 - [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
   — Overlap analysis, interference risks, and a single-settlement architecture with shared lifecycle per surface-region key.
 - Bodies in Motion Maths (proposal — to be written)
@@ -164,6 +166,24 @@ one freeze/thaw policy, one confidence substrate — two model outputs.
 **Why fourth:** Infrastructure simplification that reduces operational
 complexity and config coupling drift. Less user-visible impact on its own,
 but lowers the complexity cost of P3.
+
+### Candidate Add-on — Reflective Sign Pose Anchors
+
+**Source:** [20260310-reflective-sign-pose-anchor-maths.md](proposals/20260310-reflective-sign-pose-anchor-maths.md)
+**Layers:** L2 Frames, L3 Grid, L4 Perception, L7 Scene, L8 Analytics
+**Status:** Proposal — not started
+**Effort:** M (estimated)
+**Dependencies:** Best with L7 scene anchors; analytics-only mode can start earlier
+
+Uses highly reflective static signs as polygon anchors to estimate frame-level
+micro-pose error, publish a cached stability signal for L3 warmup/reacquire
+control, publish shake diagnostics, and optionally correct replay/live
+geometry. This is not a replacement for static pose configuration or full
+ego-motion; it is a stationary-sensor stability aid.
+
+**Why it matters:** It gives the system a physically meaningful static
+reference for mount vibration, transform drift, and noise diagnosis using a
+scene element that is already common in roadside deployments.
 
 ### Maintenance — OBB Heading Stability Review (remaining items)
 
