@@ -56,6 +56,22 @@ type TrackSummary struct {
 	TrackDurationSecs  *DistStats        `json:"track_duration_secs,omitempty"`
 	TrackLengthMetres  *DistStats        `json:"track_length_metres,omitempty"`
 	Occlusion          *OcclusionSummary `json:"occlusion"`
+
+	// Implementable-now aggregate blocks (§12.1)
+	Jitter    *JitterSummary    `json:"jitter,omitempty"`
+	Alignment *AlignmentSummary `json:"alignment,omitempty"`
+}
+
+// JitterSummary captures aggregate RMS jitter across confirmed tracks.
+type JitterSummary struct {
+	HeadingJitterDeg *DistStats `json:"heading_jitter_deg,omitempty"`
+	SpeedJitterMps   *DistStats `json:"speed_jitter_mps,omitempty"`
+}
+
+// AlignmentSummary captures aggregate alignment stats across confirmed tracks.
+type AlignmentSummary struct {
+	AlignmentMeanDeg  *DistStats `json:"alignment_mean_deg,omitempty"`
+	MisalignmentRatio *DistStats `json:"misalignment_ratio,omitempty"`
 }
 
 // OcclusionSummary captures aggregate occlusion metrics.
@@ -82,6 +98,13 @@ type TrackDetail struct {
 	AvgSpeedMps  float32   `json:"avg_speed_mps"`
 	PeakSpeedMps float32   `json:"peak_speed_mps"`
 	SpeedSamples []float32 `json:"speed_samples,omitempty"`
+
+	// Implementable-now jitter/alignment metrics (§12.1)
+	SpeedVariance     float32 `json:"speed_variance"`
+	HeadingJitterDeg  float32 `json:"heading_jitter_deg"`
+	SpeedJitterMps    float32 `json:"speed_jitter_mps"`
+	AlignmentMeanDeg  float32 `json:"alignment_mean_deg"`
+	MisalignmentRatio float32 `json:"misalignment_ratio"`
 
 	StartX            float32 `json:"start_x"`
 	StartY            float32 `json:"start_y"`
@@ -186,9 +209,20 @@ type MatchPair struct {
 
 // SpeedDelta is §8.4.
 type SpeedDelta struct {
-	MeanAbsSpeedDeltaMps float64 `json:"mean_abs_speed_delta_mps"`
-	MaxAbsSpeedDeltaMps  float64 `json:"max_abs_speed_delta_mps"`
-	SpeedCorrelation     float64 `json:"speed_correlation"`
+	MeanAbsSpeedDeltaMps    float64            `json:"mean_abs_speed_delta_mps"`
+	MaxAbsSpeedDeltaMps     float64            `json:"max_abs_speed_delta_mps"`
+	SpeedCorrelation        float64            `json:"speed_correlation"`
+	HistogramEarthMoverDist float64            `json:"histogram_earth_mover_distance"`
+	PerPair                 []MatchedPairSpeed `json:"per_pair,omitempty"`
+}
+
+// MatchedPairSpeed is one row in the per_pair array for §8.4.
+type MatchedPairSpeed struct {
+	ATrackID      string  `json:"a_track_id"`
+	BTrackID      string  `json:"b_track_id"`
+	AAvgSpeedMps  float64 `json:"a_avg_speed_mps"`
+	BAvgSpeedMps  float64 `json:"b_avg_speed_mps"`
+	SpeedDeltaMps float64 `json:"speed_delta_mps"`
 }
 
 // QualityDelta is §8.5.

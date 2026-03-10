@@ -700,3 +700,270 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 		t.Error("expected 'car' in classification distribution")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// speedVariance
+// ---------------------------------------------------------------------------
+
+func TestSpeedVariance(t *testing.T) {
+	t.Run("empty returns 0", func(t *testing.T) {
+		if v := speedVariance(nil); v != 0 {
+			t.Errorf("speedVariance(nil) = %v, want 0", v)
+		}
+	})
+	t.Run("single value returns 0", func(t *testing.T) {
+		if v := speedVariance([]float32{5.0}); v != 0 {
+			t.Errorf("speedVariance([5]) = %v, want 0", v)
+		}
+	})
+	t.Run("uniform values have zero variance", func(t *testing.T) {
+		v := speedVariance([]float32{3.0, 3.0, 3.0, 3.0})
+		if v > 1e-6 {
+			t.Errorf("speedVariance(uniform) = %v, want ~0", v)
+		}
+	})
+	t.Run("known variance", func(t *testing.T) {
+		// values [1,2,3,4,5]: mean=3, population variance = (4+1+0+1+4)/5 = 2
+		v := speedVariance([]float32{1, 2, 3, 4, 5})
+		if math.Abs(float64(v)-2.0) > 1e-5 {
+			t.Errorf("speedVariance([1,2,3,4,5]) = %v, want 2", v)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// headingJitterDeg
+// ---------------------------------------------------------------------------
+
+func TestHeadingJitterDeg(t *testing.T) {
+	t.Run("empty returns 0", func(t *testing.T) {
+		if v := headingJitterDeg(nil); v != 0 {
+			t.Errorf("headingJitterDeg(nil) = %v, want 0", v)
+		}
+	})
+	t.Run("single value returns 0", func(t *testing.T) {
+		if v := headingJitterDeg([]float32{1.0}); v != 0 {
+			t.Errorf("headingJitterDeg([1]) = %v, want 0", v)
+		}
+	})
+	t.Run("constant heading has zero jitter", func(t *testing.T) {
+		v := headingJitterDeg([]float32{1.0, 1.0, 1.0})
+		if v > 1e-4 {
+			t.Errorf("headingJitterDeg(constant) = %v, want ~0", v)
+		}
+	})
+	t.Run("known jitter 90 deg change each frame", func(t *testing.T) {
+		// Each step is π/2 rad = 90°; RMS of [90, 90] = 90
+		pi2 := float32(math.Pi / 2)
+		v := headingJitterDeg([]float32{0, pi2, 0, pi2})
+		if math.Abs(float64(v)-90.0) > 1.0 {
+			t.Errorf("headingJitterDeg = %v, want ~90", v)
+		}
+	})
+	t.Run("wrap-around near +pi", func(t *testing.T) {
+		// Jump from just below +π to just above -π (wrap-around, ~0 true change)
+		just := float32(math.Pi - 0.01)
+		wrapped := float32(-math.Pi + 0.01)
+		v := headingJitterDeg([]float32{just, wrapped})
+		// True angular change is ~0.02 rad ≈ 1.15 deg
+		if v > 2.0 {
+			t.Errorf("headingJitterDeg wrap-around = %v deg, want < 2", v)
+		}
+	})
+	t.Run("wrap-around near -pi", func(t *testing.T) {
+		// Jump from -π+ε to π-ε (wrap in opposite direction, also ~0 true change)
+		neg := float32(-math.Pi + 0.01)
+		pos := float32(math.Pi - 0.01)
+		v := headingJitterDeg([]float32{neg, pos})
+		if v > 2.0 {
+			t.Errorf("headingJitterDeg wrap-around neg = %v deg, want < 2", v)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// speedJitterMps
+// ---------------------------------------------------------------------------
+
+func TestSpeedJitterMps(t *testing.T) {
+	t.Run("empty returns 0", func(t *testing.T) {
+		if v := speedJitterMps(nil); v != 0 {
+			t.Errorf("speedJitterMps(nil) = %v, want 0", v)
+		}
+	})
+	t.Run("single value returns 0", func(t *testing.T) {
+		if v := speedJitterMps([]float32{5.0}); v != 0 {
+			t.Errorf("speedJitterMps([5]) = %v, want 0", v)
+		}
+	})
+	t.Run("constant speed has zero jitter", func(t *testing.T) {
+		v := speedJitterMps([]float32{3.0, 3.0, 3.0})
+		if v > 1e-5 {
+			t.Errorf("speedJitterMps(constant) = %v, want ~0", v)
+		}
+	})
+	t.Run("known jitter", func(t *testing.T) {
+		// Alternating [1, 3, 1, 3] — diffs are always 2; RMS = 2
+		v := speedJitterMps([]float32{1, 3, 1, 3})
+		if math.Abs(float64(v)-2.0) > 1e-5 {
+			t.Errorf("speedJitterMps([1,3,1,3]) = %v, want 2", v)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// alignmentMetrics
+// ---------------------------------------------------------------------------
+
+func TestAlignmentMetrics(t *testing.T) {
+	t.Run("fewer than 2 observations returns zero", func(t *testing.T) {
+		m, r := alignmentMetrics([]float32{1}, []float32{1}, []float32{1}, []float32{1})
+		if m != 0 || r != 0 {
+			t.Errorf("alignmentMetrics single = (%v, %v), want (0, 0)", m, r)
+		}
+	})
+	t.Run("empty slices returns zero", func(t *testing.T) {
+		m, r := alignmentMetrics(nil, nil, nil, nil)
+		if m != 0 || r != 0 {
+			t.Errorf("alignmentMetrics nil = (%v, %v), want (0, 0)", m, r)
+		}
+	})
+	t.Run("zero displacement skipped", func(t *testing.T) {
+		// All samples at same position → displacement = 0, all skipped → (0,0)
+		m, r := alignmentMetrics(
+			[]float32{0, 0, 0},
+			[]float32{0, 0, 0},
+			[]float32{1, 1, 1},
+			[]float32{0, 0, 0},
+		)
+		if m != 0 || r != 0 {
+			t.Errorf("alignmentMetrics zero-disp = (%v, %v), want (0, 0)", m, r)
+		}
+	})
+	t.Run("zero velocity skipped", func(t *testing.T) {
+		// Object moves but reported velocity is zero → all samples skipped
+		m, r := alignmentMetrics(
+			[]float32{0, 1, 2},
+			[]float32{0, 0, 0},
+			[]float32{0, 0, 0},
+			[]float32{0, 0, 0},
+		)
+		if m != 0 || r != 0 {
+			t.Errorf("alignmentMetrics zero-vel = (%v, %v), want (0, 0)", m, r)
+		}
+	})
+	t.Run("perfect alignment returns ~0 degrees", func(t *testing.T) {
+		// Moving in +x direction, velocity also +x
+		m, r := alignmentMetrics(
+			[]float32{0, 1, 2, 3},
+			[]float32{0, 0, 0, 0},
+			[]float32{1, 1, 1, 1},
+			[]float32{0, 0, 0, 0},
+		)
+		if m > 1.0 {
+			t.Errorf("perfect alignment mean = %v deg, want ~0", m)
+		}
+		if r != 0 {
+			t.Errorf("perfect alignment misalign_ratio = %v, want 0", r)
+		}
+	})
+	t.Run("90 degree misalignment", func(t *testing.T) {
+		// Moving in +x, velocity in +y → 90° misalignment
+		m, r := alignmentMetrics(
+			[]float32{0, 1, 2, 3},
+			[]float32{0, 0, 0, 0},
+			[]float32{0, 0, 0, 0},
+			[]float32{1, 1, 1, 1},
+		)
+		if math.Abs(float64(m)-90.0) > 1.0 {
+			t.Errorf("90deg misalign mean = %v, want ~90", m)
+		}
+		if r != 1.0 {
+			t.Errorf("90deg misalign ratio = %v, want 1.0", r)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Integration: jitter/alignment present in generated report
+// ---------------------------------------------------------------------------
+
+func TestGenerateReportJitterAlignmentMetrics(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "jitter-test.vrlog")
+
+	rec, err := recorder.NewRecorder(basePath, "sensor-jitter")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+
+	baseTime := int64(1_000_000_000_000)
+	const nFrames = 8
+	for i := 0; i < nFrames; i++ {
+		ts := baseTime + int64(i)*100_000_000
+		// Track with varying speed and heading to exercise jitter metrics
+		heading := float32(float64(i) * math.Pi / 4) // 0,45,90,... degrees
+		speed := float32(2.0 + float64(i)*0.5)
+		frame := &visualiser.FrameBundle{
+			TimestampNanos: ts,
+			Tracks: &visualiser.TrackSet{
+				Tracks: []visualiser.Track{
+					{
+						TrackID:          "j1",
+						State:            visualiser.TrackStateConfirmed,
+						SpeedMps:         speed,
+						HeadingRad:       heading,
+						X:                float32(i),
+						Y:                0,
+						VX:               speed,
+						VY:               0,
+						AvgSpeedMps:      speed,
+						PeakSpeedMps:     speed,
+						ObservationCount: i + 1,
+						Hits:             i + 1,
+						FirstSeenNanos:   baseTime,
+						LastSeenNanos:    ts,
+					},
+				},
+			},
+		}
+		if err := rec.Record(frame); err != nil {
+			t.Fatalf("Record frame %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	report, _, err := GenerateReport(basePath)
+	if err != nil {
+		t.Fatalf("GenerateReport: %v", err)
+	}
+
+	// Jitter and alignment summaries should be populated
+	if report.TrackSummary.Jitter == nil {
+		t.Fatal("expected non-nil Jitter block in TrackSummary")
+	}
+	if report.TrackSummary.Alignment == nil {
+		t.Fatal("expected non-nil Alignment block in TrackSummary")
+	}
+
+	// Per-track metrics should be populated
+	for _, td := range report.Tracks {
+		if td.TrackID == "j1" {
+			if td.SpeedVariance <= 0 {
+				t.Errorf("speed_variance = %v, want > 0", td.SpeedVariance)
+			}
+			if td.HeadingJitterDeg <= 0 {
+				t.Errorf("heading_jitter_deg = %v, want > 0", td.HeadingJitterDeg)
+			}
+			if td.SpeedJitterMps <= 0 {
+				t.Errorf("speed_jitter_mps = %v, want > 0", td.SpeedJitterMps)
+			}
+			// Alignment should be ~0 (moving in +X with VX>0)
+			if td.AlignmentMeanDeg > 10.0 {
+				t.Errorf("alignment_mean_deg = %v, want ~0 (well-aligned)", td.AlignmentMeanDeg)
+			}
+		}
+	}
+}

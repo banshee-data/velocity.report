@@ -176,6 +176,17 @@ Aggregate statistics across all confirmed tracks.
     "max_occlusion_count": 8, // highest per-track occlusion count
     "total_occlusions": 32,
   },
+
+  // Jitter and alignment aggregates (§12.1 — now implemented)
+  "jitter": {
+    "heading_jitter_deg": { "min": 0.0, "max": 12.1, "avg": 3.5, "p50": 2.8, "p85": 7.4, "p98": 11.2, "samples": 27 },
+    "speed_jitter_mps":   { "min": 0.0, "max": 1.8,  "avg": 0.3, "p50": 0.2, "p85": 0.7, "p98": 1.4,  "samples": 27 },
+  },
+
+  "alignment": {
+    "alignment_mean_deg":  { "min": 0.0, "max": 45.1, "avg": 8.2, "p50": 6.1, "p85": 18.4, "p98": 38.2, "samples": 27 },
+    "misalignment_ratio":  { "min": 0.0, "max": 0.42, "avg": 0.04, "p50": 0.02, "p85": 0.1, "p98": 0.3, "samples": 27 },
+  },
 }
 ```
 
@@ -205,6 +216,13 @@ One entry per track (all states). Sorted by `first_seen_ns` ascending.
     "avg_speed_mps": 8.4,
     "peak_speed_mps": 9.1,
     "speed_samples": [8.1, 8.3, 8.5, ...],     // per-frame Kalman speed (m/s)
+
+    // Jitter and alignment (§12.1 — now implemented)
+    "speed_variance": 0.12,                     // population variance of speed_samples (m/s)²
+    "heading_jitter_deg": 3.5,                  // RMS frame-to-frame heading change (degrees)
+    "speed_jitter_mps": 0.3,                    // RMS frame-to-frame speed change (m/s)
+    "alignment_mean_deg": 8.2,                  // mean angle between velocity and displacement vectors
+    "misalignment_ratio": 0.04,                 // fraction of frames where alignment > 45°
 
     // Geometry
     "start_x": 12.3, "start_y": -4.5,
@@ -386,9 +404,19 @@ Per-matched-pair and aggregate speed comparison.
 
 ```jsonc
 {
-  "mean_abs_speed_delta_mps": 0.41, // MAE across matched pairs
+  "mean_abs_speed_delta_mps": 0.41,   // MAE across matched pairs
   "max_abs_speed_delta_mps": 1.2,
-  "speed_correlation": 0.97, // Pearson r of avg_speed
+  "speed_correlation": 0.97,           // Pearson r of avg_speed
+  "histogram_earth_mover_distance": 0.35, // Wasserstein-1 distance between speed histograms
+  "per_pair": [
+    {
+      "a_track_id": "t-001",
+      "b_track_id": "t-042",
+      "a_avg_speed_mps": 8.4,
+      "b_avg_speed_mps": 8.7,
+      "speed_delta_mps": 0.3
+    }
+  ]
 }
 ```
 
@@ -509,14 +537,14 @@ between interpolated track positions at shared timestamps. Full spatial IoU
 
 ## 12. Future Phase — Additional Metrics
 
-Metrics are split into two tiers: **now** (implementable with current
-`visualiser.Track` fields and analyser frame data) and **future** (requiring new
-fields on `visualiser.Track` or upstream tracker changes).
+Metrics are split into two tiers: **implemented** (now live in the report) and
+**future** (requiring new fields on `visualiser.Track` or upstream tracker
+changes).
 
-### 12.1 Implementable Now
+### 12.1 Implemented — Jitter, Alignment, and Histogram EMD
 
-These require only per-frame computation in the analyser — all input data is
-already present in recorded `.vrlog` frames.
+These are computed from existing per-frame data and are now present in the
+report and comparison outputs.
 
 | Field                            | Section | Type    | Description                                                |
 | -------------------------------- | ------- | ------- | ---------------------------------------------------------- |

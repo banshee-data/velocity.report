@@ -781,3 +781,140 @@ func TestCompareReportsVersionAndTimestamp(t *testing.T) {
 		t.Error("generated_at is empty")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// histogramEMD
+// ---------------------------------------------------------------------------
+
+func TestHistogramEMD(t *testing.T) {
+	makeBins := func(lower, upper float64, count int) []HistogramBin {
+		return []HistogramBin{{Lower: lower, Upper: upper, Count: count}}
+	}
+
+	t.Run("both empty returns 0", func(t *testing.T) {
+		a := SpeedHistogram{}
+		b := SpeedHistogram{}
+		if v := histogramEMD(a, b); v != 0 {
+			t.Errorf("histogramEMD(empty,empty) = %v, want 0", v)
+		}
+	})
+	t.Run("a empty returns 0", func(t *testing.T) {
+		b := SpeedHistogram{Bins: makeBins(0, 1, 5)}
+		if v := histogramEMD(SpeedHistogram{}, b); v != 0 {
+			t.Errorf("histogramEMD(empty, b) = %v, want 0", v)
+		}
+	})
+	t.Run("b empty returns 0", func(t *testing.T) {
+		a := SpeedHistogram{Bins: makeBins(0, 1, 5)}
+		if v := histogramEMD(a, SpeedHistogram{}); v != 0 {
+			t.Errorf("histogramEMD(a, empty) = %v, want 0", v)
+		}
+	})
+	t.Run("zero count in a returns 0", func(t *testing.T) {
+		a := SpeedHistogram{Bins: makeBins(0, 1, 0)}
+		b := SpeedHistogram{Bins: makeBins(0, 1, 5)}
+		if v := histogramEMD(a, b); v != 0 {
+			t.Errorf("histogramEMD(zero-count-a) = %v, want 0", v)
+		}
+	})
+	t.Run("zero count in b returns 0", func(t *testing.T) {
+		a := SpeedHistogram{Bins: makeBins(0, 1, 5)}
+		b := SpeedHistogram{Bins: makeBins(0, 1, 0)}
+		if v := histogramEMD(a, b); v != 0 {
+			t.Errorf("histogramEMD(zero-count-b) = %v, want 0", v)
+		}
+	})
+	t.Run("identical histograms return 0", func(t *testing.T) {
+		bins := []HistogramBin{
+			{Lower: 0, Upper: 1, Count: 3},
+			{Lower: 1, Upper: 2, Count: 7},
+		}
+		a := SpeedHistogram{BinWidthMps: 1, Bins: bins}
+		b := SpeedHistogram{BinWidthMps: 1, Bins: bins}
+		if v := histogramEMD(a, b); v > 1e-9 {
+			t.Errorf("histogramEMD(identical) = %v, want 0", v)
+		}
+	})
+	t.Run("non-overlapping histograms have positive EMD", func(t *testing.T) {
+		// A: all mass in [0,1), B: all mass in [3,4)
+		a := SpeedHistogram{Bins: makeBins(0, 1, 10)}
+		b := SpeedHistogram{Bins: makeBins(3, 4, 10)}
+		v := histogramEMD(a, b)
+		if v <= 0 {
+			t.Errorf("histogramEMD(non-overlapping) = %v, want > 0", v)
+		}
+	})
+	t.Run("shifted by one bin has positive EMD", func(t *testing.T) {
+		a := SpeedHistogram{Bins: []HistogramBin{{Lower: 0, Upper: 1, Count: 10}}}
+		b := SpeedHistogram{Bins: []HistogramBin{{Lower: 1, Upper: 2, Count: 10}}}
+		v := histogramEMD(a, b)
+		// Analytically: all of A's mass moves 1 unit, so EMD = 1.0
+		if math.Abs(v-1.0) > 0.01 {
+			t.Errorf("histogramEMD(shifted-by-1) = %v, want ~1.0", v)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Integration: per_pair and histogram_earth_mover_distance in CompareReports
+// ---------------------------------------------------------------------------
+
+func TestCompareReportsImplementableNowMetrics(t *testing.T) {
+	tmpDir := t.TempDir()
+	baseTime := int64(1_000_000_000_000)
+
+	tracksA := []visualiser.Track{
+		{
+			TrackID:          "m1",
+			State:            visualiser.TrackStateConfirmed,
+			SpeedMps:         5.0,
+			AvgSpeedMps:      5.0,
+			ObservationCount: 10,
+			Hits:             10,
+			FirstSeenNanos:   baseTime,
+			LastSeenNanos:    baseTime + 1_000_000_000,
+		},
+	}
+	tracksB := []visualiser.Track{
+		{
+			TrackID:          "m2",
+			State:            visualiser.TrackStateConfirmed,
+			SpeedMps:         7.0,
+			AvgSpeedMps:      7.0,
+			ObservationCount: 10,
+			Hits:             10,
+			FirstSeenNanos:   baseTime,
+			LastSeenNanos:    baseTime + 1_000_000_000,
+		},
+	}
+
+	pathA := createTestVrlogWithTracks(t, tmpDir, "impl-a.vrlog", tracksA, 10, baseTime)
+	pathB := createTestVrlogWithTracks(t, tmpDir, "impl-b.vrlog", tracksB, 10, baseTime)
+
+	cmp, err := CompareReports(pathA, pathB, "")
+	if err != nil {
+		t.Fatalf("CompareReports: %v", err)
+	}
+
+	// HistogramEarthMoverDist should be non-negative
+	if cmp.SpeedDelta.HistogramEarthMoverDist < 0 {
+		t.Errorf("histogram_earth_mover_distance = %v, want >= 0", cmp.SpeedDelta.HistogramEarthMoverDist)
+	}
+
+	// PerPair should be populated when there are matched pairs
+	if cmp.TrackMatching.MatchedPairs > 0 {
+		if len(cmp.SpeedDelta.PerPair) != cmp.TrackMatching.MatchedPairs {
+			t.Errorf("len(per_pair) = %d, want %d (matched_pairs)",
+				len(cmp.SpeedDelta.PerPair), cmp.TrackMatching.MatchedPairs)
+		}
+		for i, pp := range cmp.SpeedDelta.PerPair {
+			if pp.ATrackID == "" || pp.BTrackID == "" {
+				t.Errorf("per_pair[%d] has empty track ID", i)
+			}
+			expectedDelta := math.Abs(pp.AAvgSpeedMps - pp.BAvgSpeedMps)
+			if math.Abs(pp.SpeedDeltaMps-expectedDelta) > 1e-9 {
+				t.Errorf("per_pair[%d].speed_delta = %v, want %v", i, pp.SpeedDeltaMps, expectedDelta)
+			}
+		}
+	}
+}

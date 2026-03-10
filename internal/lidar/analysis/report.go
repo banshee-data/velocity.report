@@ -44,6 +44,9 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		firstX, firstY      float32
 		lastX, lastY        float32
 		speeds              []float32
+		headings            []float32 // per-frame HeadingRad, for jitter
+		xs, ys              []float32 // per-frame position, for alignment
+		vxs, vys            []float32 // per-frame velocity, for alignment
 		bboxL, bboxW, bboxH []float32
 		peakSpeed           float32
 		heightP95Max        float32
@@ -114,6 +117,11 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				acc.lastX = t.X
 				acc.lastY = t.Y
 				acc.speeds = append(acc.speeds, t.SpeedMps)
+				acc.headings = append(acc.headings, t.HeadingRad)
+				acc.xs = append(acc.xs, t.X)
+				acc.ys = append(acc.ys, t.Y)
+				acc.vxs = append(acc.vxs, t.VX)
+				acc.vys = append(acc.vys, t.VY)
 				acc.bboxL = append(acc.bboxL, t.BBoxLength)
 				acc.bboxW = append(acc.bboxW, t.BBoxWidth)
 				acc.bboxH = append(acc.bboxH, t.BBoxHeight)
@@ -154,15 +162,19 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 
 	// Collect summary accumulators for confirmed tracks
 	var (
-		confirmedObsCounts []float64
-		confirmedDurations []float64
-		confirmedLengths   []float64
-		totalOcclusions    int
-		maxOccCountGlobal  int
-		sumOcclusionCount  float64
-		confirmedCount     int
-		tentativeCount     int
-		deletedCount       int
+		confirmedObsCounts    []float64
+		confirmedDurations    []float64
+		confirmedLengths      []float64
+		totalOcclusions       int
+		maxOccCountGlobal     int
+		sumOcclusionCount     float64
+		confirmedCount        int
+		tentativeCount        int
+		deletedCount          int
+		confirmedHeadJitters  []float64
+		confirmedSpeedJitters []float64
+		confirmedAlignMeans   []float64
+		confirmedMisalignRats []float64
 	)
 
 	classDist := make(map[string]*classAccum)
@@ -171,6 +183,13 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		dur := float64(acc.lastSeen-acc.firstSeen) / 1e9
 
 		avgSpeed := meanFloat32(acc.speeds)
+
+		// §12.1 per-track implementable-now metrics
+		speedVar := speedVariance(acc.speeds)
+		headJitter := headingJitterDeg(acc.headings)
+		speedJitter := speedJitterMps(acc.speeds)
+		alignMean, misalignRatio := alignmentMetrics(acc.xs, acc.ys, acc.vxs, acc.vys)
+
 		td := TrackDetail{
 			TrackID:           id,
 			State:             trackStateName(acc.state),
@@ -185,6 +204,11 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			AvgSpeedMps:       avgSpeed,
 			PeakSpeedMps:      acc.peakSpeed,
 			SpeedSamples:      acc.speeds,
+			SpeedVariance:     speedVar,
+			HeadingJitterDeg:  headJitter,
+			SpeedJitterMps:    speedJitter,
+			AlignmentMeanDeg:  alignMean,
+			MisalignmentRatio: misalignRatio,
 			StartX:            acc.firstX,
 			StartY:            acc.firstY,
 			EndX:              acc.lastX,
@@ -214,6 +238,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			if acc.occlusionCount > maxOccCountGlobal {
 				maxOccCountGlobal = acc.occlusionCount
 			}
+			confirmedHeadJitters = append(confirmedHeadJitters, float64(headJitter))
+			confirmedSpeedJitters = append(confirmedSpeedJitters, float64(speedJitter))
+			confirmedAlignMeans = append(confirmedAlignMeans, float64(alignMean))
+			confirmedMisalignRats = append(confirmedMisalignRats, float64(misalignRatio))
 			// Classification distribution
 			cls := acc.objectClass
 			if cls == "" {
@@ -350,6 +378,14 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				MaxOcclusionCount:  maxOccCountGlobal,
 				TotalOcclusions:    totalOcclusions,
 			},
+			Jitter: &JitterSummary{
+				HeadingJitterDeg: computeDistStats(confirmedHeadJitters),
+				SpeedJitterMps:   computeDistStats(confirmedSpeedJitters),
+			},
+			Alignment: &AlignmentSummary{
+				AlignmentMeanDeg:  computeDistStats(confirmedAlignMeans),
+				MisalignmentRatio: computeDistStats(confirmedMisalignRats),
+			},
 		},
 		Tracks: trackDetails,
 		SpeedHistogram: SpeedHistogram{
@@ -483,4 +519,95 @@ func buildSpeedHistogram(speeds []float32, binWidth float64) []HistogramBin {
 	}
 
 	return bins
+}
+
+// speedVariance computes the population variance of speed samples.
+func speedVariance(speeds []float32) float32 {
+	if len(speeds) < 2 {
+		return 0
+	}
+	mean := float64(meanFloat32(speeds))
+	var sumSq float64
+	for _, s := range speeds {
+		d := float64(s) - mean
+		sumSq += d * d
+	}
+	return float32(sumSq / float64(len(speeds)))
+}
+
+// headingJitterDeg computes the RMS of frame-to-frame angular heading changes
+// in degrees. Angular wrap-around is handled by normalising the diff to [-π, π].
+func headingJitterDeg(headings []float32) float32 {
+	if len(headings) < 2 {
+		return 0
+	}
+	var sumSq float64
+	for i := 1; i < len(headings); i++ {
+		diff := float64(headings[i]) - float64(headings[i-1])
+		// Normalise to [-π, π]
+		for diff > math.Pi {
+			diff -= 2 * math.Pi
+		}
+		for diff < -math.Pi {
+			diff += 2 * math.Pi
+		}
+		sumSq += diff * diff
+	}
+	rmsRad := math.Sqrt(sumSq / float64(len(headings)-1))
+	return float32(rmsRad * 180.0 / math.Pi)
+}
+
+// speedJitterMps computes the RMS of frame-to-frame speed changes in m/s.
+func speedJitterMps(speeds []float32) float32 {
+	if len(speeds) < 2 {
+		return 0
+	}
+	var sumSq float64
+	for i := 1; i < len(speeds); i++ {
+		d := float64(speeds[i]) - float64(speeds[i-1])
+		sumSq += d * d
+	}
+	return float32(math.Sqrt(sumSq / float64(len(speeds)-1)))
+}
+
+// alignmentMetrics computes the mean alignment angle (degrees) between the
+// instantaneous velocity vector and the displacement vector, and the fraction
+// of frames where this angle exceeds 45°.
+// Requires at least 2 observations with non-zero velocity.
+func alignmentMetrics(xs, ys, vxs, vys []float32) (meanDeg float32, misalignRatio float32) {
+	n := len(xs)
+	if n < 2 || len(ys) < 2 || len(vxs) < 2 || len(vys) < 2 {
+		return 0, 0
+	}
+	var sumAngle float64
+	var nMisalign int
+	var nValid int
+	for i := 1; i < n; i++ {
+		dx := float64(xs[i]) - float64(xs[i-1])
+		dy := float64(ys[i]) - float64(ys[i-1])
+		vx := float64(vxs[i])
+		vy := float64(vys[i])
+
+		dispMag := math.Sqrt(dx*dx + dy*dy)
+		velMag := math.Sqrt(vx*vx + vy*vy)
+		if dispMag < 1e-6 || velMag < 1e-6 {
+			continue
+		}
+
+		// Angle between displacement and velocity vectors using atan2
+		cross := dx*vy - dy*vx
+		dot := dx*vx + dy*vy
+		angle := math.Abs(math.Atan2(math.Abs(cross), dot))
+		angleDeg := angle * 180.0 / math.Pi
+
+		sumAngle += angleDeg
+		if angleDeg > 45.0 {
+			nMisalign++
+		}
+		nValid++
+	}
+	if nValid == 0 {
+		return 0, 0
+	}
+	return float32(sumAngle / float64(nValid)), float32(nMisalign) / float32(nValid)
 }

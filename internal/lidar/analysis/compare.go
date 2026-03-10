@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
@@ -147,17 +148,18 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 	}
 
 	// Speed correlation (Pearson r)
+	// Index speeds by track ID for O(1) lookup in correlation and per_pair.
+	speedByA := make(map[string]float64, len(tracksA))
+	for _, t := range tracksA {
+		speedByA[t.id] = float64(t.avgSpeed)
+	}
+	speedByB := make(map[string]float64, len(tracksB))
+	for _, t := range tracksB {
+		speedByB[t.id] = float64(t.avgSpeed)
+	}
+
 	speedCorr := 0.0
 	if len(matches) >= 2 {
-		// Index speeds by track ID to avoid O(matches × tracks) lookups.
-		speedByA := make(map[string]float64, len(tracksA))
-		for _, t := range tracksA {
-			speedByA[t.id] = float64(t.avgSpeed)
-		}
-		speedByB := make(map[string]float64, len(tracksB))
-		for _, t := range tracksB {
-			speedByB[t.id] = float64(t.avgSpeed)
-		}
 		xs := make([]float64, len(matches))
 		ys := make([]float64, len(matches))
 		for i, m := range matches {
@@ -166,6 +168,23 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 		}
 		speedCorr = pearsonR(xs, ys)
 	}
+
+	// Per-pair speed breakdown (§8.4)
+	perPair := make([]MatchedPairSpeed, 0, len(matches))
+	for _, m := range matches {
+		aSpd := speedByA[m.ATrackID]
+		bSpd := speedByB[m.BTrackID]
+		perPair = append(perPair, MatchedPairSpeed{
+			ATrackID:      m.ATrackID,
+			BTrackID:      m.BTrackID,
+			AAvgSpeedMps:  aSpd,
+			BAvgSpeedMps:  bSpd,
+			SpeedDeltaMps: math.Abs(aSpd - bSpd),
+		})
+	}
+
+	// Earth Mover Distance (Wasserstein-1) between speed histograms (§8.4)
+	emd := histogramEMD(reportA.SpeedHistogram, reportB.SpeedHistogram)
 
 	// Quality delta (§8.5)
 	aObs := reportA.TrackSummary.ObservationCount
@@ -211,9 +230,11 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 			Matches:      matches,
 		},
 		SpeedDelta: SpeedDelta{
-			MeanAbsSpeedDeltaMps: meanAbsDelta,
-			MaxAbsSpeedDeltaMps:  maxAbsDelta,
-			SpeedCorrelation:     speedCorr,
+			MeanAbsSpeedDeltaMps:    meanAbsDelta,
+			MaxAbsSpeedDeltaMps:     maxAbsDelta,
+			SpeedCorrelation:        speedCorr,
+			HistogramEarthMoverDist: emd,
+			PerPair:                 perPair,
 		},
 		QualityDelta: QualityDelta{
 			FragmentationRatio: DeltaPair{
@@ -295,4 +316,72 @@ func pearsonR(xs, ys []float64) float64 {
 		return 0
 	}
 	return num / den
+}
+
+// histogramEMD computes the Wasserstein-1 (Earth Mover's Distance) between
+// two speed histograms. Both histograms are normalised to unit mass before
+// comparison. Returns 0 if either histogram is empty.
+//
+// The algorithm merges the bin boundaries of both histograms into a single
+// sorted grid, normalises the counts to form probability mass functions, then
+// integrates |CDF_A(x) − CDF_B(x)| dx across all bins.
+func histogramEMD(a, b SpeedHistogram) float64 {
+	if len(a.Bins) == 0 || len(b.Bins) == 0 {
+		return 0
+	}
+
+	// Collect all unique bin boundaries from both histograms.
+	boundarySet := make(map[float64]struct{})
+	for _, bin := range a.Bins {
+		boundarySet[bin.Lower] = struct{}{}
+		boundarySet[bin.Upper] = struct{}{}
+	}
+	for _, bin := range b.Bins {
+		boundarySet[bin.Lower] = struct{}{}
+		boundarySet[bin.Upper] = struct{}{}
+	}
+
+	boundaries := make([]float64, 0, len(boundarySet))
+	for v := range boundarySet {
+		boundaries = append(boundaries, v)
+	}
+	sort.Float64s(boundaries)
+
+	if len(boundaries) < 2 {
+		return 0
+	}
+
+	// Build a lookup: bin lower → normalised mass for A and B.
+	totalA := 0
+	for _, bin := range a.Bins {
+		totalA += bin.Count
+	}
+	totalB := 0
+	for _, bin := range b.Bins {
+		totalB += bin.Count
+	}
+	if totalA == 0 || totalB == 0 {
+		return 0
+	}
+
+	massA := make(map[float64]float64, len(a.Bins))
+	for _, bin := range a.Bins {
+		massA[bin.Lower] = float64(bin.Count) / float64(totalA)
+	}
+	massB := make(map[float64]float64, len(b.Bins))
+	for _, bin := range b.Bins {
+		massB[bin.Lower] = float64(bin.Count) / float64(totalB)
+	}
+
+	// Walk merged grid accumulating CDFs and integrating |CDF_A - CDF_B|.
+	var cdfA, cdfB float64
+	var emd float64
+	for i := 0; i+1 < len(boundaries); i++ {
+		lo := boundaries[i]
+		width := boundaries[i+1] - lo
+		cdfA += massA[lo]
+		cdfB += massB[lo]
+		emd += math.Abs(cdfA-cdfB) * width
+	}
+	return emd
 }
