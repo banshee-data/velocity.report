@@ -80,6 +80,7 @@ private let logger = DevLogger(category: "AppState")
     @Published var currentFrameID: UInt64 = 0
     @Published var playbackMode: PlaybackMode = .live
     @Published fileprivate(set) var hasPlaybackMetadata: Bool = false
+    @Published private(set) var replayFrameEncoding: String?
 
     // For replay mode
     @Published var logStartTimestamp: Int64 = 0
@@ -323,6 +324,10 @@ private let logger = DevLogger(category: "AppState")
         return max(0, min(1, Double(currentFrameIndex) / denom))
     }
 
+    var shouldShowLegacyJSONReplayBadge: Bool {
+        displayPlaybackMode == .replaySeekable && replayFrameEncoding == "json"
+    }
+
     var canInteractWithSeekSlider: Bool {
         displayPlaybackMode == .replaySeekable && (hasValidTimelineRange || hasFrameIndexProgress)
             && !playbackControlsBusy
@@ -341,6 +346,7 @@ private let logger = DevLogger(category: "AppState")
 
     fileprivate func setPlaybackMode(_ mode: PlaybackMode) {
         playbackMode = mode
+        if mode != .replaySeekable { replayFrameEncoding = nil }
         switch mode {
         case .unknown:
             // Preserve the last known flags until playback metadata arrives.
@@ -355,6 +361,10 @@ private let logger = DevLogger(category: "AppState")
             isLive = false
             isSeekable = true
         }
+    }
+
+    func setReplayFrameEncoding(_ frameEncoding: String?) {
+        replayFrameEncoding = frameEncoding?.lowercased()
     }
 
     private func inferPlaybackMode(isLive: Bool, seekable: Bool) -> PlaybackMode {
@@ -378,6 +388,7 @@ private let logger = DevLogger(category: "AppState")
         logEndTimestamp = 0
         currentFrameIndex = 0
         totalFrames = 0
+        replayFrameEncoding = nil
         inFlightPlaybackCommand = nil
         commandStartedAt = nil
         pendingSeekTargetTimestamp = nil

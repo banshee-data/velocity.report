@@ -50,26 +50,32 @@ private let logger = DevLogger(category: "RunBrowserState")
     }
 
     /// Load a run for VRLOG replay.
-    func loadRunForReplay(_ runID: String) async -> Bool {
+    func loadRunForReplay(_ runID: String) async -> VRLogLoadResponse? {
         guard runs.first(where: { $0.runId == runID }) != nil else {
             error = "Run not found"
-            return false
+            return nil
         }
 
         isLoadingReplay = true
         error = nil
 
         do {
-            try await apiClient.loadVRLog(runID: runID)
+            let loadResponse = try await apiClient.loadVRLog(runID: runID)
             selectedRunID = runID
-            logger.info("Loaded VRLOG for run \(runID)")
+            let frameEncoding = (loadResponse.frameEncoding ?? "unknown").lowercased()
+            if frameEncoding == "json" {
+                logger.warning(
+                    "Loaded VRLOG for run \(runID) using legacy JSON frames; replay will be slower")
+            } else {
+                logger.info("Loaded VRLOG for run \(runID) using \(frameEncoding) frames")
+            }
             isLoadingReplay = false
-            return true
+            return loadResponse
         } catch {
             self.error = "Failed to load VRLOG: \(error.localizedDescription)"
             logger.error("Failed to load VRLOG: \(error.localizedDescription)")
             isLoadingReplay = false
-            return false
+            return nil
         }
     }
 

@@ -9,16 +9,18 @@ import SwiftUI
 private let runBrowserLogger = DevLogger(category: "RunBrowser")
 
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
-    runID: String, appState: AppState, loadRunForReplay: @escaping @MainActor () async -> Bool
+    runID: String, appState: AppState,
+    loadRunForReplay: @escaping @MainActor () async -> VRLogLoadResponse?
 ) async {
     runBrowserLogger.debug("loadRunForReplayAndUpdateAppState() — runID=\(runID)")
     // Reset stale playback state before loading the new VRLOG.
     // This clears isPaused, replayFinished, progress, timestamps.
     appState.prepareForNewReplay()
 
-    let success = await loadRunForReplay()
-    runBrowserLogger.debug("loadRunForReplay returned success=\(success)")
-    if success {
+    let loadResponse = await loadRunForReplay()
+    runBrowserLogger.debug("loadRunForReplay returned success=\(loadResponse != nil)")
+    if let loadResponse {
+        appState.setReplayFrameEncoding(loadResponse.frameEncoding)
         // Update app state to indicate we're in VRLOG replay mode
         appState.isLive = false
         // Set currentRunID so labels route to run-track API
@@ -124,6 +126,7 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
                         Task {
                             await runBrowserState.stopReplay()
                             await MainActor.run {
+                                appState.setReplayFrameEncoding(nil)
                                 appState.isLive = true
                                 appState.currentRunID = nil
                             }

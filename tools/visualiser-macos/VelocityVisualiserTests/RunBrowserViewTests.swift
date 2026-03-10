@@ -286,12 +286,16 @@ struct PlaybackStatusModelTests {
         state.currentTimestamp = 123
         state.currentRunID = nil
 
-        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { true }
+        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) {
+            VRLogLoadResponse(
+                success: true, vrlogPath: "/data/run-123.vrlog", frameEncoding: "json")
+        }
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 1)
         XCTAssertFalse(state.isLive)
         XCTAssertEqual(state.currentRunID, "run-123")
+        XCTAssertEqual(state.replayFrameEncoding, "json")
         XCTAssertFalse(state.isPaused)
         XCTAssertFalse(state.replayFinished)
         XCTAssertEqual(state.currentTimestamp, 0)
@@ -302,12 +306,13 @@ struct PlaybackStatusModelTests {
         state.currentRunID = nil
         state.isLive = true
 
-        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { false }
+        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { nil }
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
         XCTAssertTrue(state.isLive)
         XCTAssertNil(state.currentRunID)
+        XCTAssertNil(state.replayFrameEncoding)
     }
 }
 
