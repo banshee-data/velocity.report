@@ -340,29 +340,34 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
 @available(macOS 15.0, *) @MainActor final class PlaybackModeBadgeViewCoverageTests: XCTestCase {
 
     func testLiveMode() throws {
-        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: true)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "LIVE", mode: .live, isConnected: true, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testReplayNonSeekable() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isConnected: true)
+            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isConnected: true,
+            showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testReplaySeekable() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "REPLAY (VRLOG)", mode: .replaySeekable, isConnected: true)
+            modeLabel: "REPLAY (VRLOG)", mode: .replaySeekable, isConnected: true,
+            showsLegacyJSONWarning: true)
         let _ = view.body
     }
 
     func testUnknownMode() throws {
-        let view = PlaybackModeBadgeView(modeLabel: "??", mode: .unknown, isConnected: true)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "??", mode: .unknown, isConnected: true, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testDisconnected() throws {
-        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: false)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "LIVE", mode: .live, isConnected: false, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 }
