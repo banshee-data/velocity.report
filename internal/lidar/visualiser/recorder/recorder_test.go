@@ -2,6 +2,8 @@
 package recorder
 
 import (
+	"encoding/binary"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -48,6 +50,69 @@ func testFrameBundle(frameID uint64, timestampNanos int64) *visualiser.FrameBund
 				},
 			},
 		},
+	}
+}
+
+func writeSingleFrameLog(t *testing.T, basePath string, frame *visualiser.FrameBundle, payload []byte) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Join(basePath, "frames"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	header := LogHeader{
+		Version:      VRLOGFormatVersion,
+		CreatedNs:    time.Now().UnixNano(),
+		SensorID:     frame.SensorID,
+		TotalFrames:  1,
+		StartNs:      frame.TimestampNanos,
+		EndNs:        frame.TimestampNanos,
+		BuildVersion: "test",
+	}
+	header.CoordinateFrame.FrameID = frame.CoordinateFrame.FrameID
+	header.CoordinateFrame.ReferenceFrame = frame.CoordinateFrame.ReferenceFrame
+
+	headerData, err := json.Marshal(header)
+	if err != nil {
+		t.Fatalf("json.Marshal(header) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(basePath, "header.json"), headerData, 0o644); err != nil {
+		t.Fatalf("WriteFile(header.json) error = %v", err)
+	}
+
+	indexFile, err := os.Create(filepath.Join(basePath, "index.bin"))
+	if err != nil {
+		t.Fatalf("Create(index.bin) error = %v", err)
+	}
+	defer indexFile.Close()
+
+	entry := IndexEntry{FrameID: frame.FrameID, TimestampNs: frame.TimestampNanos, ChunkID: 0, Offset: 0}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.FrameID); err != nil {
+		t.Fatalf("binary.Write(FrameID) error = %v", err)
+	}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.TimestampNs); err != nil {
+		t.Fatalf("binary.Write(TimestampNs) error = %v", err)
+	}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.ChunkID); err != nil {
+		t.Fatalf("binary.Write(ChunkID) error = %v", err)
+	}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.Offset); err != nil {
+		t.Fatalf("binary.Write(Offset) error = %v", err)
+	}
+
+	chunkFile, err := os.Create(filepath.Join(basePath, "frames", "chunk_0000.pb"))
+	if err != nil {
+		t.Fatalf("Create(chunk_0000.pb) error = %v", err)
+	}
+	defer chunkFile.Close()
+
+	var lenBuf [4]byte
+	binary.LittleEndian.PutUint32(lenBuf[:], uint32(len(payload)))
+	if _, err := chunkFile.Write(lenBuf[:]); err != nil {
+		t.Fatalf("Write(frame length) error = %v", err)
+	}
+	if _, err := chunkFile.Write(payload); err != nil {
+		t.Fatalf("Write(frame payload) error = %v", err)
 	}
 }
 
@@ -311,6 +376,67 @@ func TestNewReplayer(t *testing.T) {
 
 	if rep.CurrentFrame() != 0 {
 		t.Errorf("CurrentFrame() = %d, want 0", rep.CurrentFrame())
+	}
+}
+
+func TestNewReplayerDetectsProtoEncoding(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor-01")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	frame := testFrameBundle(1, time.Now().UnixNano())
+	if err := rec.Record(frame); err != nil {
+		t.Fatalf("Record() error = %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	if rep.FrameEncoding() != FrameEncodingProto {
+		t.Errorf("FrameEncoding() = %q, want %q", rep.FrameEncoding(), FrameEncodingProto)
+	}
+}
+
+func TestNewReplayerDetectsLegacyJSONEncoding(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "legacy-json-log")
+
+	frame := testFrameBundle(7, time.Now().UnixNano())
+	payload, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatalf("json.Marshal(frame) error = %v", err)
+	}
+	writeSingleFrameLog(t, basePath, frame, payload)
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	if rep.FrameEncoding() != FrameEncodingJSON {
+		t.Fatalf("FrameEncoding() = %q, want %q", rep.FrameEncoding(), FrameEncodingJSON)
+	}
+
+	restored, err := rep.ReadFrame()
+	if err != nil {
+		t.Fatalf("ReadFrame() error = %v", err)
+	}
+	if restored.FrameID != frame.FrameID {
+		t.Errorf("ReadFrame().FrameID = %d, want %d", restored.FrameID, frame.FrameID)
+	}
+	if restored.SensorID != frame.SensorID {
+		t.Errorf("ReadFrame().SensorID = %q, want %q", restored.SensorID, frame.SensorID)
 	}
 }
 
