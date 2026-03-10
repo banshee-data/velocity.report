@@ -8,7 +8,6 @@ package analysis
 type AnalysisReport struct {
 	Version     string `json:"version"`
 	GeneratedAt string `json:"generated_at"`
-	ToolVersion string `json:"tool_version"`
 	Source      string `json:"source"`
 
 	Recording                  RecordingMeta         `json:"recording"`
@@ -21,6 +20,7 @@ type AnalysisReport struct {
 
 // RecordingMeta is §2 in the spec.
 type RecordingMeta struct {
+	FormatVersion       string  `json:"format_version"`
 	SensorID            string  `json:"sensor_id"`
 	TotalFrames         uint64  `json:"total_frames"`
 	CreatedNs           int64   `json:"created_ns"`

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // FileExtension is the extension for velocity.report log files.
@@ -88,7 +89,7 @@ func NewRecorder(basePath, sensorID string) (*Recorder, error) {
 		currentChunk: -1,
 		index:        make([]IndexEntry, 0),
 		header: LogHeader{
-			Version:   "1.0",
+			Version:   version.Version,
 			CreatedNs: time.Now().UnixNano(),
 			SensorID:  sensorID,
 		},
