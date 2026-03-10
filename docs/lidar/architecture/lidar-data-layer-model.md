@@ -47,11 +47,9 @@ flowchart TB
     classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
     classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
     classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
-    classDef hidden fill:transparent,stroke:transparent,color:transparent;
 
     subgraph L1["L1 Packets"]
         direction LR
-        S1[""]
         A11["LiDAR UDP ingest ✅"]
         A12["PCAP replay ✅"]
         R11["Radar serial ingest ✅"]
@@ -59,7 +57,6 @@ flowchart TB
 
     subgraph L2["L2 Frames"]
         direction LR
-        S2[""]
         A21["Frame assembly ✅"]
         A22["Polar to Cartesian ✅"]
         A23["ASC / LidarView export ✅"]
@@ -67,14 +64,12 @@ flowchart TB
 
     subgraph L3["L3 Grid"]
         direction LR
-        S3[""]
         A31["Polar EMA background ✅"]
         A32["Settling / drift gates ✅"]
     end
 
     subgraph L4["L4 Perception"]
         direction LR
-        S4[""]
         A41["Height-band ground filter ✅"]
         A42["DBSCAN clustering ✅"]
         A43["PCA / OBB geometry ✅"]
@@ -82,7 +77,6 @@ flowchart TB
 
     subgraph L5["L5 Tracks"]
         direction LR
-        S5[""]
         A51["Hungarian assignment ✅"]
         A52["CV Kalman tracking ✅"]
         A53["Occlusion coasting ✅"]
@@ -90,7 +84,6 @@ flowchart TB
 
     subgraph L6["L6 Objects"]
         direction LR
-        S6[""]
         A61["LiDAR features / confidence ✅"]
         A62["LiDAR rule classes (bird, pedestrian, cyclist, motorcyclist, car, truck, bus, dynamic) ✅"]
         A63["LiDAR run stats ✅"]
@@ -99,13 +92,11 @@ flowchart TB
 
     subgraph L7["L7 Scene"]
         direction LR
-        S7[""]
         A71["Reserved / no current code"]
     end
 
     subgraph L8["L8 Analytics"]
         direction LR
-        S8[""]
         A81["Traffic metrics / chart prep ✅"]
         A82["Run diffs / temporal IoU 🔄"]
         R81["Radar speed stats / histograms ✅"]
@@ -113,7 +104,6 @@ flowchart TB
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        S9[""]
         A91["gRPC frame streams 🔄"]
         A92["LiDAR REST / dashboard APIs 🔄"]
         R91["Radar stats / report APIs ✅"]
@@ -121,28 +111,17 @@ flowchart TB
 
     subgraph L10["L10 Clients"]
         direction LR
-        S10[""]
         A101["Swift visualiser 📄"]
         A102["Svelte LiDAR views 📄"]
         R101["Svelte report UI 📄"]
         R102["PDF generator 📄"]
     end
 
-    S1 ~~~ S2
-    S2 ~~~ S3
-    S3 ~~~ S4
-    S4 ~~~ S5
-    S5 ~~~ S6
-    S6 ~~~ S7
-    S7 ~~~ S8
-    S8 ~~~ S9
-    S9 ~~~ S10
-
     A11 --> A21
     A12 --> A21
     A21 --> A22
     A22 --> A23
-    A22 --> A31
+    A21 --> A31
     A31 --> A32
     A32 --> A41
     A41 --> A42
@@ -153,7 +132,8 @@ flowchart TB
     A53 --> A61
     A61 --> A62
     A62 --> A63
-    A63 --> A81
+    A63 -.-> A71
+    A71 -.-> A81
     A63 --> A82
     A53 --> A91
     A81 --> A92
@@ -167,7 +147,6 @@ flowchart TB
     R91 --> R101
     R91 --> R102
 
-    class S1,S2,S3,S4,S5,S6,S7,S8,S9,S10 hidden;
     class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,R81,R91 implemented;
     class A82,A91,A92 partial;
     class A71 gap;
@@ -181,7 +160,7 @@ flowchart TB
 - Grey: reserved layer slot with no current runtime code.
 - Beige `📄`: downstream/client surface rather than a core runtime layer package.
 - Solid arrows: dominant current-code flow through that branch.
-- Dashed arrows: current-code branch that skips intermediate layers in the canonical stack.
+- Dashed arrows: layout/reference links through non-runtime layer gaps or branches that skip some runtime layers.
 
 ## Layered Concept and Literature Status
 
