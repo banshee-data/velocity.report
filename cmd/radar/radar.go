@@ -604,7 +604,17 @@ func main() {
 			UDPListenerConfig: udpListenerConfig,
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 			OnPCAPStarted: func() {
+				// Stop any active VRLOG replay so its frames don't
+				// interleave with the new PCAP pipeline frames.
+				if visualiserPublisher != nil && visualiserPublisher.IsVRLogActive() {
+					visualiserPublisher.StopVRLogReplay()
+					log.Printf("[Visualiser] Stopped VRLOG replay before PCAP start")
+				}
 				if visualiserServer != nil {
+					// Clear VRLOG mode and force a fresh replay epoch so
+					// clients recognise the source change.
+					visualiserServer.SetVRLogMode(false)
+					visualiserServer.SetReplayMode(false)
 					visualiserServer.SetReplayMode(true)
 					log.Printf("[Visualiser] PCAP started — switched to replay mode")
 				}
