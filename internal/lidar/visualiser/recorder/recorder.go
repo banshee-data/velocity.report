@@ -18,6 +18,12 @@ import (
 // FileExtension is the extension for velocity.report log files.
 const FileExtension = ".vrlog"
 
+// VRLOGFormatVersion is the wire-format version written into header.json.
+// Bump this when the on-disk layout (index, chunk encoding, header schema)
+// changes in a backwards-incompatible way. This is independent of the
+// application version (version.Version).
+const VRLOGFormatVersion = "0.5"
+
 // ChunkSize is the number of frames per chunk file (soft limit).
 // Chunks may contain fewer frames if maxChunkWriteBytes is reached first.
 const ChunkSize = 1000
@@ -96,7 +102,7 @@ func NewRecorder(basePath, sensorID string) (*Recorder, error) {
 		currentChunk: -1,
 		index:        make([]IndexEntry, 0),
 		header: LogHeader{
-			Version:      version.Version,
+			Version:      VRLOGFormatVersion,
 			CreatedNs:    time.Now().UnixNano(),
 			SensorID:     sensorID,
 			BuildVersion: version.Version,

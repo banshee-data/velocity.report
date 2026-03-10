@@ -77,7 +77,7 @@ Copied from `header.json` plus derived fields.
 
 ```jsonc
 {
-  "format_version": "0.5.0-pre16", // version from .vrlog/header.json
+  "format_version": "0.5", // VRLOG wire-format version from .vrlog/header.json
   "sensor_id": "hesai-01",
   "total_frames": 1800,
   "created_ns": 1740000000000000000, // wall-clock time header was written
@@ -123,13 +123,13 @@ Aggregate statistics across all frames in the recording.
 
   "frame_interval_ms": {
     // inter-frame gap distribution
-    "min": 95.2,
-    "max": 112.8,
-    "avg": 100.1,
-    "p50": 100.0,
-    "p85": 103.2,
-    "p98": 110.1,
     "samples": 1799,
+    "min": 95.2,
+    "avg": 100.1,
+    "p50": 100.0, // present when samples >= 3
+    "p85": 103.2, // present when samples >= 8
+    "p98": 110.1, // present when samples >= 50
+    "max": 112.8,
   },
 }
 ```
@@ -151,32 +151,32 @@ Aggregate statistics across all confirmed tracks.
 
   "observation_count": {
     // per confirmed track
+    "samples": 27,
     "min": 4,
-    "max": 87,
     "avg": 18.3,
     "p50": 14,
     "p85": 38,
-    "p98": 52,
+    "max": 87,
   },
 
   "track_duration_secs": {
     // per confirmed track
+    "samples": 27,
     "min": 0.4,
-    "max": 8.7,
     "avg": 1.83,
     "p50": 1.4,
     "p85": 3.8,
-    "p98": 5.2,
+    "max": 8.7,
   },
 
   "track_length_metres": {
     // cumulative displacement
+    "samples": 27,
     "min": 0.1,
-    "max": 42.5,
     "avg": 8.7,
     "p50": 5.2,
     "p85": 18.4,
-    "p98": 30.1,
+    "max": 42.5,
   },
 
   "occlusion": {
@@ -188,43 +188,39 @@ Aggregate statistics across all confirmed tracks.
   // Jitter and alignment aggregates (§12.1 — now implemented)
   "jitter": {
     "heading_jitter_deg": {
+      "samples": 27,
       "min": 0.0,
-      "max": 12.1,
       "avg": 3.5,
       "p50": 2.8,
       "p85": 7.4,
-      "p98": 11.2,
-      "samples": 27,
+      "max": 12.1,
     },
     "speed_jitter_mps": {
+      "samples": 27,
       "min": 0.0,
-      "max": 1.8,
       "avg": 0.3,
       "p50": 0.2,
       "p85": 0.7,
-      "p98": 1.4,
-      "samples": 27,
+      "max": 1.8,
     },
   },
 
   "alignment": {
     "alignment_mean_deg": {
+      "samples": 27,
       "min": 0.0,
-      "max": 45.1,
       "avg": 8.2,
       "p50": 6.1,
       "p85": 18.4,
-      "p98": 38.2,
-      "samples": 27,
+      "max": 45.1,
     },
     "misalignment_ratio": {
+      "samples": 27,
       "min": 0.0,
-      "max": 0.42,
       "avg": 0.04,
       "p50": 0.02,
       "p85": 0.1,
-      "p98": 0.3,
-      "samples": 27,
+      "max": 0.42,
     },
   },
 }
