@@ -28,7 +28,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L9    | **Endpoints**  | Server-side payload shaping, gRPC stream, dashboards, debug views                        | gRPC `FrameUpdate`, chart view-models, ECharts payloads                                   | 🔄 Partial     |
 | L10   | **Clients**    | Downstream rendering consumers (documentation label — no Go package)                     | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 📄 Doc-only    |
 
-## Canonical L1-L10 Stack Chart
+## Canonical L1-L10 Stack Reference
 
 The table above is the canonical L1-L10 stack reference. This section remains
 as the stable anchor for summaries that refer to the locked layer ordering.
@@ -47,22 +47,19 @@ flowchart TD
     classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
     classDef planned fill:#dce8ff,stroke:#3567a8,color:#17345c;
     classDef proposal fill:#ffe4cc,stroke:#b8631b,color:#5b2d00;
-    classDef reference fill:#eceff3,stroke:#6b7280,color:#374151;
     classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
 
     subgraph L1["L1 Packets"]
         direction LR
-        A11["Packet-driver split ✅"]
-        A12["Live UDP + PCAP replay ✅"]
-        A13["Multi-sensor transport envelopes 📋"]
+        A11["UDP packet ingestion ✅"]
+        A12["PCAP replay ✅"]
     end
 
     subgraph L2["L2 Frames"]
         direction LR
-        A21["Sequential frame assembly ✅"]
-        A22["Cartesian transforms / export ✅"]
-        A23["Time alignment / sequencing ✅"]
-        A24["Ego-motion compensation ➖"]
+        A21["Frame assembly ✅"]
+        A22["Polar → Cartesian ✅"]
+        A23["ASC / LidarView export ✅"]
     end
 
     subgraph L3["L3 Grid"]
@@ -86,7 +83,7 @@ flowchart TD
 
     subgraph L5["L5 Tracks"]
         direction LR
-        A51["CV Kalman state ✅"]
+        A51["CV Kalman tracking ✅"]
         A52["Hungarian assignment ✅"]
         A53["Occlusion coasting ✅"]
         A54["CA / CTRV / IMM models 📋"]
@@ -94,9 +91,10 @@ flowchart TD
 
     subgraph L6["L6 Objects"]
         direction LR
-        A61["Rule-based semantic labels ✅"]
-        A62["Track quality / comparison ✅"]
-        A63["AV 28-class mapping 🔄"]
+        A61["Feature accumulation / confidence ✅"]
+        A62["Local classes: car / pedestrian / cyclist / bird / other ✅"]
+        A63["Quality scoring / comparison ✅"]
+        A64["AV 28-class mapping 🔄"]
     end
 
     subgraph L7["L7 Scene"]
@@ -118,40 +116,35 @@ flowchart TD
     subgraph L9["L9 Endpoints"]
         direction LR
         A91["gRPC frame streams 🔄"]
-        A92["REST / dashboard payloads 🔄"]
-        A93["Debug surfaces / overlays 🔄"]
+        A92["REST / dashboard + report payloads 🔄"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
         A101["Swift visualiser 📄"]
         A102["Web dashboards 📄"]
-        A103["PDF / export clients 📄"]
+        A103["PDF reports 📄"]
     end
 
     A11 --> A21
-    A12 --> A23
-    A13 -.-> A23
+    A12 --> A21
 
+    A21 --> A22
+    A22 --> A23
     A21 --> A31
-    A22 --> A41
-    A22 --> A42
-    A23 --> A52
-    A23 -.-> A24
-    A24 -.-> A72
 
     A31 --> A32
-    A32 --> A42
     A32 --> A33
     A34 --> A32
-    A35 --> A32
+    A35 -.-> A32
+    A31 --> A41
 
     A41 --> A44
     A42 --> A43
+    A41 --> A42
     A43 --> A52
     A44 --> A45
-    A45 --> A71
-    A46 --> A74
+    A41 -.-> A46
 
     A52 --> A51
     A51 --> A53
@@ -159,31 +152,34 @@ flowchart TD
     A53 --> A61
 
     A61 --> A62
-    A63 --> A72
+    A62 --> A63
+    A63 --> A64
+    A63 --> A71
 
+    A64 --> A72
     A33 --> A71
     A71 --> A72
     A73 --> A72
-    A74 --> A83
+    A46 -.-> A74
     A74 -.-> A35
 
     A72 --> A81
-    A72 --> A82
-    A83 --> A93
-    A84 --> A91
     A81 --> A91
+    A81 --> A82
+    A81 --> A84
+    A74 -.-> A83
     A82 --> A92
+    A83 --> A92
+    A84 --> A92
 
     A91 --> A101
     A92 --> A102
-    A93 --> A101
-    A93 --> A103
+    A92 --> A103
 
-    class A11,A12,A21,A22,A23,A31,A32,A33,A34,A41,A42,A43,A51,A52,A53,A61,A62 implemented;
-    class A63,A81,A82,A84,A91,A92,A93 partial;
-    class A13,A44,A45,A54,A71,A72,A73 planned;
+    class A11,A12,A21,A22,A23,A31,A32,A33,A34,A41,A42,A43,A51,A52,A53,A61,A62,A63 implemented;
+    class A64,A81,A82,A84,A91,A92 partial;
+    class A44,A45,A54,A71,A72,A73 planned;
     class A35,A46,A74,A83 proposal;
-    class A24 reference;
     class A101,A102,A103 client;
 ```
 
@@ -193,7 +189,6 @@ flowchart TD
 - Amber `🔄`: partially implemented, export-facing, or active but incomplete.
 - Blue `📋`: planned but not yet active in the main runtime.
 - Orange `🧪`: proposal or experimental research path.
-- Grey `➖`: contextual or reference-only concept.
 - Beige `📄`: downstream/client surface rather than a core runtime layer package.
 - Solid arrows: dominant active/runtime flow.
 - Dashed arrows: future, optional, or reference extension.
