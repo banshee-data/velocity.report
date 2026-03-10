@@ -50,9 +50,9 @@ flowchart TB
 
     subgraph L1["L1 Packets"]
         direction LR
+        R11["Radar serial ingest ✅"]
         A11["LiDAR UDP ingest ✅"]
         A12["PCAP replay ✅"]
-        R11["Radar serial ingest ✅"]
     end
 
     subgraph L2["L2 Frames"]
@@ -84,10 +84,10 @@ flowchart TB
 
     subgraph L6["L6 Objects"]
         direction LR
+        R61["Radar objects DB / transit sessionization ✅"]
         A61["LiDAR features / confidence ✅"]
         A62["LiDAR rule classes ✅"]
         A63["LiDAR run stats ✅"]
-        R61["Radar objects DB / transit sessionization ✅"]
     end
 
     subgraph L7["L7 Scene"]
@@ -97,29 +97,29 @@ flowchart TB
 
     subgraph L8["L8 Analytics"]
         direction LR
+        R81["Radar speed stats / histograms ✅"]
         A81["Traffic metrics / chart prep ✅"]
         A82["Run diffs / temporal IoU 🔄"]
         A83["Sweep scoring / auto-tune / HINT ✅"]
-        R81["Radar speed stats / histograms ✅"]
     end
 
     subgraph L9["L9 Endpoints"]
         direction LR
+        R91["Radar REST / report APIs ✅"]
         A91["gRPC frame streams 🔄"]
         A92["LiDAR REST APIs 🔄"]
-        R91["Radar REST / report APIs ✅"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
-        A101["Swift visualiser 📄"]
         subgraph L10S["Svelte clients"]
             direction LR
+            R101["Svelte report UI 📄"]
             A102["Svelte LiDAR views 📄"]
             A103["Svelte sweep / HINT UI 📄"]
-            R101["Svelte report UI 📄"]
         end
         R102["PDF generator 📄"]
+        A101["Swift visualiser 📄"]
     end
 
     A11 --> A21
