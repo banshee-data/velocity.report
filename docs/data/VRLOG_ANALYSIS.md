@@ -79,12 +79,20 @@ Copied from `header.json` plus derived fields.
 {
   "sensor_id": "hesai-01",
   "total_frames": 1800,
+  "created_ns": 1740000000000000000, // wall-clock time header was written
   "start_ns": 1740000000000000000,
   "end_ns": 1740000180000000000,
   "duration_secs": 180.0, // (end_ns − start_ns) / 1e9
+  "frame_rate_hz": 9.28, // total_frames / duration_secs
+  "inferred_replay_speed": 0.928, // frame_rate_hz / 10.0 (nominal LiDAR Hz)
   "coordinate_frame": "ENU",
 }
 ```
+
+`inferred_replay_speed` approximates the PCAP replay speed multiplier used when
+the recording was created. A value near 1.0 means real-time; values above 1.0
+indicate faster-than-real-time replay; below 1.0 indicates slower. Omitted
+(zero) when the frame rate cannot be determined.
 
 ---
 
@@ -501,42 +509,54 @@ between interpolated track positions at shared timestamps. Full spatial IoU
 
 ## 12. Future Phase — Additional Metrics
 
-The following metrics are specified here for future implementation. They require
-either new fields on `visualiser.Track` (propagated from `l5tracks.TrackedObject`)
-or additional per-frame computation in the analyser. None are emitted in the
-current version.
+Metrics are split into two tiers: **now** (implementable with current
+`visualiser.Track` fields and analyser frame data) and **future** (requiring new
+fields on `visualiser.Track` or upstream tracker changes).
 
-### Per-Track Quality Indicators (§5 extensions)
+### 12.1 Implementable Now
 
-| Field                  | Type    | Description                                          | Prerequisite                                               |
-| ---------------------- | ------- | ---------------------------------------------------- | ---------------------------------------------------------- |
-| `alignment_mean_deg`   | float32 | Mean angle between velocity and displacement vectors | Compute from per-frame heading vs displacement in analyser |
-| `misalignment_ratio`   | float32 | Fraction of samples where alignment > 45°            | Same as above                                              |
-| `heading_jitter_deg`   | float32 | RMS frame-to-frame heading change                    | Compute from per-frame `HeadingRad` deltas                 |
-| `speed_jitter_mps`     | float32 | RMS frame-to-frame speed change                      | Compute from per-frame `SpeedMps` deltas                   |
-| `merge_candidate`      | bool    | Track flagged as a merge artefact                    | Propagate `MergeCandidate` from `l5tracks.TrackedObject`   |
-| `split_candidate`      | bool    | Track flagged as a split artefact                    | Propagate `SplitCandidate` from `l5tracks.TrackedObject`   |
-| `max_occlusion_frames` | int     | Longest consecutive missed-frame gap                 | Track per-gap duration in `l5tracks` or analyser           |
+These require only per-frame computation in the analyser — all input data is
+already present in recorded `.vrlog` frames.
 
-### Track Summary Extensions (§4)
+| Field                            | Section | Type    | Description                                                |
+| -------------------------------- | ------- | ------- | ---------------------------------------------------------- |
+| `speed_variance`                 | §5      | float32 | Variance of per-frame speed samples for each track         |
+| `heading_jitter_deg`             | §5      | float32 | RMS frame-to-frame heading change (from `HeadingRad`)      |
+| `speed_jitter_mps`               | §5      | float32 | RMS frame-to-frame speed change (from `SpeedMps`)          |
+| `alignment_mean_deg`             | §5      | float32 | Mean angle between velocity vector and displacement        |
+| `misalignment_ratio`             | §5      | float32 | Fraction of samples where alignment > 45°                  |
+| `jitter` block                   | §4      | object  | Aggregate RMS heading/speed jitter across confirmed tracks |
+| `alignment` block                | §4      | object  | Aggregate alignment stats across confirmed tracks          |
+| `histogram_earth_mover_distance` | §8.4    | float64 | Wasserstein-1 distance between speed histograms            |
+| `per_pair`                       | §8.4    | array   | Per-matched-pair speed breakdown with both A and B speeds  |
 
-- **`alignment`** block: `mean_alignment_deg`, `misalignment_ratio`, `total_samples` —
-  aggregate velocity-vs-displacement alignment across confirmed tracks.
-- **`jitter`** block: `heading_jitter_deg`, `speed_jitter_mps` — aggregate RMS
-  frame-to-frame deltas across confirmed tracks.
-- **`merge_split`** block: `merge_candidates`, `split_candidates` — counts of tracks
-  flagged by the tracker. Requires flags on `visualiser.Track`.
+### 12.2 Implementable with Vrlog Header Changes
 
-### Comparison Extensions (§8)
+These require extending `LogHeader` to store provenance at recording time.
 
-- **§8.2 Frame-level matching**: `matched_frame_pairs`, `a_unmatched_frames`,
-  `b_unmatched_frames` — nearest-timestamp pairing with configurable tolerance (±50 ms).
-- **§8.3 Split/merge detection**: cross-run split and merge candidate arrays using
-  temporal coverage analysis (see split/merge algorithms in earlier spec revisions).
-- **§8.3 `spatial_distance_m`**: mean Euclidean distance between interpolated track
-  positions at shared timestamps.
-- **§8.4 `histogram_earth_mover_distance`**: Wasserstein-1 distance between speed
-  histograms.
-- **§8.4 `per_pair`**: per-matched-pair speed breakdown with both A and B speeds.
-- **§8.5 Quality delta extensions**: `mean_alignment_deg`, `misalignment_ratio`,
-  `heading_jitter_deg`, `speed_jitter_mps` deltas (once §4 alignment/jitter blocks exist).
+| Field           | Section | Type    | Description                                            |
+| --------------- | ------- | ------- | ------------------------------------------------------ |
+| `source_type`   | §2      | string  | Recording source: `"live"`, `"pcap"`, or `"synthetic"` |
+| `pcap_path`     | §2      | string  | Original PCAP filename (when source is pcap)           |
+| `playback_rate` | §2      | float32 | Configured replay speed multiplier at recording time   |
+| `tuning_hash`   | §2      | string  | SHA-256 of the tuning config active during recording   |
+| `build_version` | §2      | string  | velocity.report version that created the recording     |
+
+Note: `inferred_replay_speed` (now in §2) provides a best-effort estimate from
+frame timing. Explicit `playback_rate` in the header would be authoritative.
+
+### 12.3 Future — Requires Upstream Tracker Changes
+
+These require new fields on `visualiser.Track` propagated from
+`l5tracks.TrackedObject` or additional per-frame computation.
+
+| Field                    | Section | Type    | Prerequisite                                             |
+| ------------------------ | ------- | ------- | -------------------------------------------------------- |
+| `merge_candidate`        | §5      | bool    | Propagate `MergeCandidate` from `l5tracks.TrackedObject` |
+| `split_candidate`        | §5      | bool    | Propagate `SplitCandidate` from `l5tracks.TrackedObject` |
+| `max_occlusion_frames`   | §5      | int     | Track per-gap duration in `l5tracks` or analyser         |
+| `merge_split` block      | §4      | object  | Aggregate merge/split candidate counts                   |
+| `matched_frame_pairs`    | §8.2    | int     | Frame-level nearest-timestamp pairing (±50 ms tolerance) |
+| `spatial_distance_m`     | §8.3    | float64 | Mean Euclidean distance between interpolated positions   |
+| split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection            |
+| quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)           |
