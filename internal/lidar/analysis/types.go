@@ -103,10 +103,10 @@ type BBoxDims struct {
 
 // SpeedHistogram is §6 in the spec.
 type SpeedHistogram struct {
-	BinWidthMps float64          `json:"bin_width_mps"`
-	Bins        []HistogramBin   `json:"bins"`
-	Percentiles SpeedPercentiles `json:"percentiles"`
-	TotalTracks int              `json:"total_tracks"`
+	BinWidthMps float64        `json:"bin_width_mps"`
+	Bins        []HistogramBin `json:"bins"`
+	Percentiles *DistStats     `json:"percentiles"`
+	TotalTracks int            `json:"total_tracks"`
 }
 
 // HistogramBin is a single bin in the speed histogram.
@@ -114,13 +114,6 @@ type HistogramBin struct {
 	Lower float64 `json:"lower"`
 	Upper float64 `json:"upper"`
 	Count int     `json:"count"`
-}
-
-// SpeedPercentiles captures P50/P85/P95 speeds.
-type SpeedPercentiles struct {
-	P50 float32 `json:"p50"`
-	P85 float32 `json:"p85"`
-	P95 float32 `json:"p95"`
 }
 
 // ClassStats is §7 in the spec — per-class aggregates.

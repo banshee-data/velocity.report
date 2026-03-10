@@ -10,7 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
 	"github.com/banshee-data/velocity.report/internal/version"
@@ -245,8 +244,12 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 	binWidth := 1.0
 	histogram := buildSpeedHistogram(confirmedSpeeds, binWidth)
 
-	// Speed percentiles across confirmed tracks
-	p50, p85, p95 := l6objects.ComputeSpeedPercentiles(confirmedSpeeds)
+	// Speed percentiles across confirmed tracks (reuse computeDistStats for P50/P85/P98)
+	speedVals := make([]float64, len(confirmedSpeeds))
+	for i, s := range confirmedSpeeds {
+		speedVals[i] = float64(s)
+	}
+	speedDist := computeDistStats(speedVals)
 
 	// Classification distribution
 	classDistOut := make(map[string]ClassStats, len(classDist))
@@ -336,7 +339,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		SpeedHistogram: SpeedHistogram{
 			BinWidthMps: binWidth,
 			Bins:        histogram,
-			Percentiles: SpeedPercentiles{P50: p50, P85: p85, P95: p95},
+			Percentiles: speedDist,
 			TotalTracks: confirmedCount,
 		},
 		ClassificationDistribution: classDistOut,
