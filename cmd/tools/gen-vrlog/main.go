@@ -19,6 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create recorder: %v", err)
 	}
+	rec.SetProvenance("synthetic", "", "", 0)
 	defer func() {
 		if err := rec.Close(); err != nil {
 			log.Printf("Failed to close recorder: %v", err)

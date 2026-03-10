@@ -87,6 +87,13 @@ Copied from `header.json` plus derived fields.
   "frame_rate_hz": 9.28, // total_frames / duration_secs
   "inferred_replay_speed": 0.928, // frame_rate_hz / 10.0 (nominal LiDAR Hz)
   "coordinate_frame": "ENU",
+
+  // Provenance (from header.json)
+  "source_type": "pcap", // "live", "pcap", or "synthetic"
+  "pcap_path": "site-capture.pcap", // original PCAP filename (basename)
+  "playback_rate": 1.0, // configured replay speed multiplier
+  "tuning_hash": "a1b2c3d4e5f6...", // SHA-256 of tuning config JSON
+  "build_version": "0.5.0-pre16", // velocity.report version that recorded
 }
 ```
 
@@ -583,20 +590,21 @@ report and comparison outputs.
 | `histogram_earth_mover_distance` | §8.4    | float64 | Wasserstein-1 distance between speed histograms            |
 | `per_pair`                       | §8.4    | array   | Per-matched-pair speed breakdown with both A and B speeds  |
 
-### 12.2 Implementable with Vrlog Header Changes
+### 12.2 Implemented — Header Provenance Fields
 
-These require extending `LogHeader` to store provenance at recording time.
+These fields are stored in `LogHeader` at recording time and copied into §2
+recording metadata by the analyser.
 
 | Field           | Section | Type    | Description                                            |
 | --------------- | ------- | ------- | ------------------------------------------------------ |
 | `source_type`   | §2      | string  | Recording source: `"live"`, `"pcap"`, or `"synthetic"` |
 | `pcap_path`     | §2      | string  | Original PCAP filename (when source is pcap)           |
-| `playback_rate` | §2      | float32 | Configured replay speed multiplier at recording time   |
+| `playback_rate` | §2      | float64 | Configured replay speed multiplier at recording time   |
 | `tuning_hash`   | §2      | string  | SHA-256 of the tuning config active during recording   |
 | `build_version` | §2      | string  | velocity.report version that created the recording     |
 
-Note: `inferred_replay_speed` (now in §2) provides a best-effort estimate from
-frame timing. Explicit `playback_rate` in the header would be authoritative.
+Note: `inferred_replay_speed` (in §2) provides a best-effort estimate from
+frame timing. `playback_rate` from the header is authoritative when present.
 
 ### 12.3 Future — Requires Upstream Tracker Changes
 

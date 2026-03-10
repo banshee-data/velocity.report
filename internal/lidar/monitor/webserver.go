@@ -341,6 +341,27 @@ func (ws *WebServer) baseContext() context.Context {
 	return ws.baseCtx
 }
 
+// CurrentSource returns the active data source type.
+func (ws *WebServer) CurrentSource() DataSource {
+	ws.dataSourceMu.RLock()
+	defer ws.dataSourceMu.RUnlock()
+	return ws.currentSource
+}
+
+// CurrentPCAPFile returns the path of the active PCAP file (empty if none).
+func (ws *WebServer) CurrentPCAPFile() string {
+	ws.dataSourceMu.RLock()
+	defer ws.dataSourceMu.RUnlock()
+	return ws.currentPCAPFile
+}
+
+// PCAPSpeedRatio returns the configured PCAP playback speed ratio.
+func (ws *WebServer) PCAPSpeedRatio() float64 {
+	ws.pcapMu.Lock()
+	defer ws.pcapMu.Unlock()
+	return ws.pcapSpeedRatio
+}
+
 // SetTracker sets the tracker reference for direct config access via /api/lidar/params.
 // Also propagates to trackAPI if available.
 func (ws *WebServer) SetTracker(tracker *l5tracks.Tracker) {

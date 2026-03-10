@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -318,6 +319,10 @@ func main() {
 		log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration from %s", *configFile)
+
+	// Compute tuning config hash for VRLOG provenance.
+	tuningJSON, _ := json.Marshal(tuningCfg)
+	tuningHash := fmt.Sprintf("%x", sha256.Sum256(tuningJSON))
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
@@ -674,6 +679,21 @@ func main() {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
 					return
 				}
+
+				// Set recording provenance from current webserver state.
+				sourceType := "live"
+				pcapPath := ""
+				playbackRate := 0.0
+				if lidarWebServer != nil {
+					src := lidarWebServer.CurrentSource()
+					if src == monitor.DataSourcePCAP || src == monitor.DataSourcePCAPAnalysis {
+						sourceType = "pcap"
+						pcapPath = filepath.Base(lidarWebServer.CurrentPCAPFile())
+						playbackRate = lidarWebServer.PCAPSpeedRatio()
+					}
+				}
+				rec.SetProvenance(sourceType, pcapPath, tuningHash, playbackRate)
+
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)

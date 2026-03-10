@@ -30,6 +30,13 @@ type RecordingMeta struct {
 	FrameRateHz         float64 `json:"frame_rate_hz"`
 	InferredReplaySpeed float64 `json:"inferred_replay_speed,omitempty"`
 	CoordinateFrame     string  `json:"coordinate_frame"`
+
+	// Provenance (§12.2)
+	SourceType   string  `json:"source_type,omitempty"`
+	PCAPPath     string  `json:"pcap_path,omitempty"`
+	PlaybackRate float64 `json:"playback_rate,omitempty"`
+	TuningHash   string  `json:"tuning_hash,omitempty"`
+	BuildVersion string  `json:"build_version,omitempty"`
 }
 
 // FrameSummary is §3 in the spec.
@@ -150,15 +157,17 @@ type ClassStats struct {
 	AvgObservations float64 `json:"avg_observations"`
 }
 
-// DistStats captures min/max/avg/p50/p85/p98 for a distribution.
+// DistStats captures distribution statistics. Percentiles are conditionally
+// included based on sample count: p50 requires 3+, p85 requires 8+,
+// p98 requires 50+ samples.
 type DistStats struct {
-	Min     float64 `json:"min"`
-	Max     float64 `json:"max"`
-	Avg     float64 `json:"avg"`
-	P50     float64 `json:"p50"`
-	P85     float64 `json:"p85"`
-	P98     float64 `json:"p98"`
-	Samples int     `json:"samples"`
+	Samples int      `json:"samples"`
+	Min     float64  `json:"min"`
+	Avg     float64  `json:"avg"`
+	P50     *float64 `json:"p50,omitempty"`
+	P85     *float64 `json:"p85,omitempty"`
+	P98     *float64 `json:"p98,omitempty"`
+	Max     float64  `json:"max"`
 }
 
 // ---------------------------------------------------------------------------
