@@ -40,9 +40,8 @@ and emits a `comparison.json` to stdout (or a specified path).
 
 ```jsonc
 {
-  "version": "1.0",
+  "version": "0.5.0-pre16", // velocity.report version that generated this report
   "generated_at": "2026-03-09T21:19:03Z", // ISO 8601
-  "tool_version": "0.5.0-pre16", // velocity.report version
   "source": "sample.vrlog", // basename of the .vrlog directory
 
   "recording": {
@@ -78,6 +77,7 @@ Copied from `header.json` plus derived fields.
 
 ```jsonc
 {
+  "format_version": "0.5.0-pre16", // version from .vrlog/header.json
   "sensor_id": "hesai-01",
   "total_frames": 1800,
   "created_ns": 1740000000000000000, // wall-clock time header was written
@@ -368,7 +368,7 @@ When `vrlog-analyse compare a.vrlog b.vrlog` is invoked, the tool reads both
 
 ```jsonc
 {
-  "version": "1.0",
+  "version": "0.5.0-pre16",
   "generated_at": "2026-03-09T21:30:00Z",
   "run_a": "analysis-run.vrlog",
   "run_b": "realtime-run.vrlog",

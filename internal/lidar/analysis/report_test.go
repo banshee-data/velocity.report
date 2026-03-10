@@ -9,6 +9,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // ---------------------------------------------------------------------------
@@ -284,8 +285,8 @@ func TestGenerateReport(t *testing.T) {
 	}
 
 	// Basic structural assertions
-	if report.Version != "1.0" {
-		t.Errorf("version = %q, want %q", report.Version, "1.0")
+	if report.Version != version.Version {
+		t.Errorf("version = %q, want %q", report.Version, version.Version)
 	}
 	if report.GeneratedAt == "" {
 		t.Error("generated_at is empty")

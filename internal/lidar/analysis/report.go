@@ -125,13 +125,14 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				acc.bboxL = append(acc.bboxL, t.BBoxLength)
 				acc.bboxW = append(acc.bboxW, t.BBoxWidth)
 				acc.bboxH = append(acc.bboxH, t.BBoxHeight)
-				// Older .vrlog frames may lack the renamed max-speed field.
-				maxSpeedCandidate := t.MaxSpeedMps
-				if maxSpeedCandidate == 0 {
-					maxSpeedCandidate = t.SpeedMps
-				}
-				if maxSpeedCandidate > acc.maxSpeed {
-					acc.maxSpeed = maxSpeedCandidate
+					// Older .vrlog frames may lack the renamed max-speed field.
+					maxSpeedCandidate := t.MaxSpeedMps
+					if maxSpeedCandidate == 0 {
+						maxSpeedCandidate = t.SpeedMps
+					}
+					if maxSpeedCandidate > acc.maxSpeed {
+						acc.maxSpeed = maxSpeedCandidate
+					}
 				}
 				if t.HeightP95Max > acc.heightP95Max {
 					acc.heightP95Max = t.HeightP95Max
@@ -207,7 +208,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			LastSeenNs:        acc.lastSeen,
 			DurationSecs:      dur,
 			AvgSpeedMps:       avgSpeed,
-					MaxSpeedMps:       acc.maxSpeed,
+			MaxSpeedMps:       acc.maxSpeed,
 			SpeedSamples:      acc.speeds,
 			SpeedVariance:     speedVar,
 			HeadingJitterDeg:  headJitter,
@@ -347,11 +348,11 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 	}
 
 	report := &AnalysisReport{
-		Version:     "1.0",
+		Version:     version.Version,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		ToolVersion: version.Version,
 		Source:      filepath.Base(vrlogPath),
 		Recording: RecordingMeta{
+			FormatVersion:       header.Version,
 			SensorID:            header.SensorID,
 			TotalFrames:         header.TotalFrames,
 			CreatedNs:           header.CreatedNs,

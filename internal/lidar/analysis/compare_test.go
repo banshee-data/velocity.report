@@ -9,6 +9,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // ---------------------------------------------------------------------------
@@ -75,7 +76,7 @@ func TestLoadAnalysis(t *testing.T) {
 		}
 
 		report := &AnalysisReport{
-			Version: "1.0",
+			Version: version.Version,
 			Source:  "test.vrlog",
 			Recording: RecordingMeta{
 				SensorID:    "sensor-1",
@@ -104,8 +105,8 @@ func TestLoadAnalysis(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadAnalysis: %v", err)
 		}
-		if loaded.Version != "1.0" {
-			t.Errorf("version = %q, want 1.0", loaded.Version)
+		if loaded.Version != version.Version {
+			t.Errorf("version = %q, want %s", loaded.Version, version.Version)
 		}
 		if loaded.Recording.SensorID != "sensor-1" {
 			t.Errorf("sensor_id = %q, want sensor-1", loaded.Recording.SensorID)
@@ -175,7 +176,7 @@ func TestLoadOrGenerate(t *testing.T) {
 		}
 
 		report := &AnalysisReport{
-			Version: "1.0",
+			Version: version.Version,
 			Source:  "cached.vrlog",
 		}
 		data, _ := json.MarshalIndent(report, "", "  ")
@@ -528,8 +529,8 @@ func TestCompareReportsWriteOutput(t *testing.T) {
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("parse output JSON: %v", err)
 	}
-	if parsed.Version != "1.0" {
-		t.Errorf("version = %q, want 1.0", parsed.Version)
+	if parsed.Version != version.Version {
+		t.Errorf("version = %q, want %s", parsed.Version, version.Version)
 	}
 }
 
@@ -833,8 +834,8 @@ func TestCompareReportsVersionAndTimestamp(t *testing.T) {
 		t.Fatalf("CompareReports: %v", err)
 	}
 
-	if cmp.Version != "1.0" {
-		t.Errorf("version = %q, want 1.0", cmp.Version)
+	if cmp.Version != version.Version {
+		t.Errorf("version = %q, want %s", cmp.Version, version.Version)
 	}
 	if cmp.GeneratedAt == "" {
 		t.Error("generated_at is empty")
