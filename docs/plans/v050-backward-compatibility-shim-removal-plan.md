@@ -14,24 +14,23 @@ raw `peak_speed_mps` to `max_speed_mps` on unshipped contracts.
 
 ## Tracking Snapshot
 
-| Outcome                            | Sections        | Notes                                                                                                                                                             |
-| ---------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Removed in code                    | §2, §4, §6, §7  | The Go-side sweep request/result cleanup is already landed; malformed sweep JSON now returns `400`; `PacketHeader` and the stale `AddPoints` compat note are gone |
-| Pending                            | §3, §9-§14, §17 | Consumer migrations and fallback/test cleanup still need implementation                                                                                           |
-| Deferred / retained                | §5, §8, §16     | Either owned by another plan or still an active implementation path rather than a removable shim today                                                            |
-| Superseded / back out before merge | §1, §15         | Unmerged single-track speed-label surfaces should be backed out; raw `peak` to `max` rename is tracked separately                                                 |
+| Outcome                            | Sections        | Notes                                                                                                                                                    |
+| ---------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Removed in code                    | §4, §7          | Malformed sweep JSON now returns `400`; the stale `AddPoints` compat note is gone                                                                         |
+| Pending                            | §2, §3, §6, §9-§14, §17 | Server-side sweep legacy fields, report-download follow-through, `PacketHeader`, and consumer migrations/fallback cleanup still need implementation |
+| Deferred / retained                | §5, §8, §16     | Either owned by another plan or still an active implementation path rather than a removable shim today                                                   |
+| Superseded / back out before merge | §1, §15         | Unmerged single-track speed-label surfaces should be backed out; raw `peak` to `max` rename is tracked separately                                        |
 
 ## Shim Work Already Removed
 
-| Shim                                                                 | Section | Notes                                                                                                    |
-| -------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| Sweep legacy request fields and result aliases removed from Go types | §2      | `SweepRequest` now uses `Params`; `ComboResult` now uses `param_values`; `computeCombinations()` is gone |
-| Lenient sweep JSON parsing removed                                   | §4      | Empty body (`io.EOF`) is still tolerated, but malformed JSON now returns `400 Bad Request`               |
-| Deprecated packet header reference struct removed                    | §6      | `PacketHeader` no longer exists in `extract.go`                                                          |
-| Stale `AddPoints` removal note deleted                               | §7      | `frame_builder.go` no longer carries the compat comment                                                  |
+| Shim                                   | Section | Notes                                                                                      |
+| -------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| Lenient sweep JSON parsing removed     | §4      | Empty body (`io.EOF`) is still tolerated, but malformed JSON now returns `400 Bad Request` |
+| Stale `AddPoints` removal note deleted | §7      | `frame_builder.go` no longer carries the compat comment                                    |
 
-**Remaining:** finish the report-download migration end-to-end, remove the
-remaining Python/web/macOS fallback code, and back out the unmerged single-track
+**Remaining:** finish the server-side sweep cleanup, finish the report-download
+migration end-to-end, decide/delete `PacketHeader`, remove the remaining
+Python/web/macOS fallback code, and back out the unmerged single-track
 percentile-style surfaces.
 
 ## Goal
@@ -110,14 +109,15 @@ non-percentile names and formulas.
 
 ### 2. Go Server — Sweep legacy request format
 
-| Item                             | Location                               | Status  | Detail                                                                                                                            |
-| -------------------------------- | -------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Removed | `SweepRequest` no longer carries `NoiseValues`, `ClosenessValues`, `NeighbourValues`, range triples, or fixed-value compat fields |
-| Legacy result fields             | `internal/lidar/sweep/runner.go`       | Removed | `ComboResult` now exposes `param_values` only; top-level `Noise` / `Closeness` / `Neighbour` aliases are gone                     |
-| Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Removed | `expandSweepParam()` / `cartesianProduct()` replaced the old `computeCombinations()` logic                                        |
+| Item                             | Location                               | Status  | Detail                                                                                                                                      |
+| -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Pending | `SweepRequest` still exposes `Mode`, `noise_values`, per-variable range fields, and fixed-value compatibility fields                        |
+| Legacy result fields             | `internal/lidar/sweep/runner.go`       | Pending | `ComboResult` still exposes top-level `Noise` / `Closeness` / `Neighbour` aliases alongside `param_values`                                 |
+| Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Pending | `computeCombinations()` and the mode-specific expansion path are still present on `main`                                                   |
 
-**Action:** Go-side request/result compat cleanup is complete. The remaining
-sweep fallback work is frontend-only and is tracked in §14.
+**Action:** Server-side request/result compat cleanup is still pending. Remove
+the legacy request/result fields, delete `computeCombinations()` /
+`sweep_params.go`, and then finish the dashboard/test fallback cleanup in §14.
 
 ---
 
@@ -161,11 +161,12 @@ warning.
 
 ### 6. Go Server — Deprecated packet header struct
 
-| Item                  | Location                                    | Status  | Detail                                                    |
-| --------------------- | ------------------------------------------- | ------- | --------------------------------------------------------- |
-| `PacketHeader` struct | `internal/lidar/l1packets/parse/extract.go` | Removed | The unused reference-only struct has already been deleted |
+| Item                  | Location                                    | Status  | Detail                                                                 |
+| --------------------- | ------------------------------------------- | ------- | ---------------------------------------------------------------------- |
+| `PacketHeader` struct | `internal/lidar/l1packets/parse/extract.go` | Pending | The deprecated reference-only struct still exists on `main`            |
 
-**Action:** None.
+**Action:** Either delete it before `v0.5.0` or explicitly defer/retain it;
+until then this plan should treat the removal as pending.
 
 ---
 
@@ -336,7 +337,7 @@ The following are **not** compat shims and should be retained:
 | Area                    | Target state                                                        | Status  | Notes                          |
 | ----------------------- | ------------------------------------------------------------------- | ------- | ------------------------------ |
 | Sweep JSON parsing      | Malformed JSON rejected with `400`                                  | Removed | Landed                         |
-| Packet parsing          | `PacketHeader` deleted                                              | Removed | Landed                         |
+| Packet parsing          | `PacketHeader` deleted                                              | Pending | Deprecated reference-only struct still exists on `main` |
 | Frame builder docs      | Stale `AddPoints` compat note removed                               | Removed | Landed                         |
 | Background grid TS type | Optional legacy fields removed                                      | Pending | Web-only cleanup               |
 | Python PDF generator    | Dict-only stats payload, no dict-conversion shims, no PyLaTeX stubs | Pending | Needs dedicated Python cleanup |
@@ -353,10 +354,11 @@ The following are **not** compat shims and should be retained:
 
 ### Phase 2 — Server-side removals (Go)
 
-- [x] Remove sweep legacy request fields and `computeCombinations()`
-- [x] Remove legacy sweep result fields from `ComboResult`
+- [ ] Remove sweep legacy request fields and `computeCombinations()`
+- [ ] Remove legacy sweep result fields from `ComboResult`
 - [x] Return 400 on malformed sweep JSON instead of swallowing errors
-- [x] Delete `PacketHeader` struct and `AddPoints` removal comment
+- [ ] Delete `PacketHeader` struct
+- [x] Delete stale `AddPoints` removal comment
 - [x] Evaluate `lidar/aliases.go` outcome — retained and documented as an active package-boundary choice
 - [ ] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
 - [ ] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename
