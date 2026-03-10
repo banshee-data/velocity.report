@@ -40,7 +40,7 @@ export interface Track {
 	age_seconds: number;
 	/** Average speed over track lifetime (meters/second) */
 	avg_speed_mps: number;
-	/** Peak speed observed (meters/second) */
+	/** Max speed observed (meters/second) */
 	max_speed_mps: number;
 	/** PCA-derived oriented bounding box heading (radians) */
 	obb_heading_rad: number;
