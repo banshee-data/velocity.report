@@ -36,82 +36,78 @@ top, L10 at the bottom**.
 
 ```mermaid
 flowchart TD
-    subgraph SensorTier["Sensor / Runtime Tier"]
-        direction TB
-        L1["L1 Packets\nwire transport / capture\n✅ Implemented"]
-        L2["L2 Frames\ntime-coherent frame assembly\n✅ Implemented"]
-        L3["L3 Grid\nbackground / foreground state\n✅ Implemented"]
-        L4["L4 Perception\nper-frame geometry and measurements\n✅ Implemented"]
-        L5["L5 Tracks\nidentity and motion continuity\n✅ Implemented"]
-        L6["L6 Objects\nsemantic interpretation\n✅ Implemented"]
-        L1 --> L2 --> L3 --> L4 --> L5 --> L6
-    end
-
-    subgraph SceneTier["Scene Tier"]
-        direction TB
-        L7["L7 Scene\npersistent world model / priors / fusion\n📋 Planned"]
-    end
-
-    subgraph ConsumptionTier["Consumption Tier"]
-        direction TB
-        L8["L8 Analytics\ncomparison / scoring / metrics\n🔄 Partial"]
-        L9["L9 Endpoints\npayload shaping / APIs / streams\n🔄 Partial"]
-        L10["L10 Clients\nweb / native / PDF consumers\n📄 Doc-only"]
-        L8 --> L9 --> L10
-    end
-
-    L6 --> L7 --> L8
+    L1["L1 Packets"] --> L2["L2 Frames"] --> L3["L3 Grid"] --> L4["L4 Perception"] --> L5["L5 Tracks"] --> L6["L6 Objects"] --> L7["L7 Scene"] --> L8["L8 Analytics"] --> L9["L9 Endpoints"] --> L10["L10 Clients"]
 ```
 
 ## Segmented Concept Status Chart
 
 This chart is the compact concept/status breakdown. It is intentionally more
-granular than the stack chart: each bubble is a paper family, algorithm family,
-or repo concept, marked by whether it is active, partial, planned, or merely a
-reference point.
+granular than the stack chart: each square is a paper family, algorithm family,
+or repo concept, marked with an emoji-only status cue inside its layer box.
 
 ```mermaid
 flowchart TD
-    subgraph S1["L1-L2 Sensor / Frame Concepts"]
+    subgraph L1["L1 Packets"]
         direction LR
-        C11(("UDP / PCAP split\n✅ active"))
-        C12(("Range-image frame assembly\n✅ active"))
-        C13(("Ego-motion compensation\nnot needed for static mounts"))
+        C11["UDP / PCAP split ✅"]
     end
 
-    subgraph S2["L3 Grid Concepts"]
+    subgraph L2["L2 Frames"]
         direction LR
-        C21(("EMA / GMM-style background\n✅ active"))
-        C22(("Foreground ratio / drift heuristics\n✅ active"))
-        C23(("Anchor stability input\nsign / wall / ground\n🧪 proposal"))
-        C24(("OctoMap / TSDF alternatives\nreference only"))
+        C12["Range-image frame assembly ✅"]
+        C13["Ego-motion compensation ➖"]
     end
 
-    subgraph S3["L4 Perception Concepts"]
+    subgraph L3["L3 Grid"]
         direction LR
-        C31(("DBSCAN clustering\n✅ active"))
-        C32(("Height-band ground filter\n✅ active"))
-        C33(("Tile-plane / vector-scene ground\n📋 proposal"))
-        C34(("Static surface anchor extraction\n🧪 proposal"))
+        C21["EMA / GMM-style background ✅"]
+        C22["Foreground ratio / drift heuristics ✅"]
+        C23["Anchor stability input 🧪"]
+        C24["OctoMap / TSDF alternatives 📚"]
     end
 
-    subgraph S4["L5-L6 Tracking / Object Concepts"]
+    subgraph L4["L4 Perception"]
         direction LR
-        C41(("CV Kalman + Hungarian\n✅ active"))
-        C42(("CA / CTRV / IMM motion models\n📋 proposal"))
-        C43(("Rule-based labels\n✅ active"))
-        C44(("AV 28-class mapping\n🔄 partial / export-facing"))
+        C31["DBSCAN clustering ✅"]
+        C32["Height-band ground filter ✅"]
+        C33["Tile-plane / vector-scene ground 📋"]
+        C34["Static surface anchor extraction 🧪"]
     end
 
-    subgraph S5["L7-L10 Scene / Consumption Concepts"]
+    subgraph L5["L5 Tracks"]
         direction LR
-        C51(("Persistent scene / priors\n📋 planned"))
-        C52(("Run comparison / IoU / scorecards\n🔄 partial"))
-        C53(("REST / gRPC / dashboards\n🔄 partial"))
-        C54(("Svelte / Swift / PDF clients\n📄 active consumers"))
+        C41["CV Kalman + Hungarian ✅"]
+        C42["CA / CTRV / IMM motion models 📋"]
     end
 
-    C12 --> C21 --> C31 --> C41 --> C51 --> C52 --> C53 --> C54
+    subgraph L6["L6 Objects"]
+        direction LR
+        C43["Rule-based labels ✅"]
+        C44["AV 28-class mapping 🔄"]
+    end
+
+    subgraph L7["L7 Scene"]
+        direction LR
+        C51["Persistent scene / priors 📋"]
+    end
+
+    subgraph L8["L8 Analytics"]
+        direction LR
+        C52["Run comparison / IoU / scorecards 🔄"]
+    end
+
+    subgraph L9["L9 Endpoints"]
+        direction LR
+        C53["REST / gRPC / dashboards 🔄"]
+    end
+
+    subgraph L10["L10 Clients"]
+        direction LR
+        C54["Svelte / Swift / PDF clients 📄"]
+    end
+
+    C11 --> C12 --> C21 --> C31 --> C41 --> C43 --> C51 --> C52 --> C53 --> C54
+    C13 --> C12
     C23 --> C21
     C34 --> C51
     C44 --> C51
