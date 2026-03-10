@@ -342,38 +342,22 @@ func TestGenerateReportWriteError(t *testing.T) {
 }
 
 func TestGenerateReportCorruptFrames(t *testing.T) {
-	// Create a valid vrlog, then corrupt the chunk file to trigger
-	// a non-EOF ReadFrame error.
+	// Create a valid vrlog, then truncate the chunk file to trigger
+	// a non-EOF ReadFrame error (frame offset/length validation).
 	tmpDir := t.TempDir()
 	vrlogPath := createTestVrlog(t, tmpDir, 5)
 
-	// Find and corrupt the chunk file
-	framesDir := filepath.Join(vrlogPath, "frames")
-	entries, err := os.ReadDir(framesDir)
-	if err != nil {
-		t.Fatalf("read frames dir: %v", err)
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			p := filepath.Join(framesDir, e.Name())
-			// Overwrite with garbage
-			if err := os.WriteFile(p, []byte("corrupted data"), 0o644); err != nil {
-				t.Fatalf("corrupt chunk: %v", err)
-			}
-		}
+	// Truncate the chunk file to a few bytes so the replayer hits
+	// "invalid frame offset" or "invalid frame length"
+	chunkPath := filepath.Join(vrlogPath, "frames", "chunk_0000.pb")
+	if err := os.Truncate(chunkPath, 2); err != nil {
+		t.Fatalf("truncate chunk: %v", err)
 	}
 
-	// Update index to point to the corrupt data
-	idxPath := filepath.Join(vrlogPath, "index.bin")
-	if _, err := os.Stat(idxPath); err == nil {
-		// Truncate to force re-read of corrupt data
-		os.WriteFile(idxPath, []byte{0, 0, 0, 0, 0, 0, 0, 0}, 0o644)
+	_, _, err := GenerateReport(vrlogPath)
+	if err == nil {
+		t.Fatal("expected error from corrupt chunk data")
 	}
-
-	_, _, err = GenerateReport(vrlogPath)
-	// May or may not error depending on how corruption manifests,
-	// but should not panic.
-	_ = err
 }
 
 func TestGenerateReportNegativeDuration(t *testing.T) {
