@@ -207,7 +207,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			LastSeenNs:        acc.lastSeen,
 			DurationSecs:      dur,
 			AvgSpeedMps:       avgSpeed,
-			MaxSpeedMps:       acc.maxSpeed,
+					MaxSpeedMps:       acc.maxSpeed,
 			SpeedSamples:      acc.speeds,
 			SpeedVariance:     speedVar,
 			HeadingJitterDeg:  headJitter,
