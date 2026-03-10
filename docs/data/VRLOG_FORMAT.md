@@ -6,7 +6,7 @@ A **`.vrlog`** file is a directory-based recording format for LiDAR frame data. 
 timestamped `FrameBundle` snapshots from the velocity.report perception pipeline, enabling
 seekable replay, labelling, and offline analysis.
 
-**Version:** 1.0
+**Version:** 0.5
 **Source:** [`internal/lidar/visualiser/recorder/recorder.go`](../../internal/lidar/visualiser/recorder/recorder.go)
 
 ## Directory Layout
@@ -27,7 +27,7 @@ JSON object written when the recorder closes. Contains log-level metadata.
 
 | Field              | Type    | Description                                                            |
 | ------------------ | ------- | ---------------------------------------------------------------------- |
-| `version`          | string  | Format version (currently `"1.0"`)                                     |
+| `version`          | string  | Format version (currently `"0.5"`)                                     |
 | `created_ns`       | int64   | Wall-clock creation time (Unix nanoseconds)                            |
 | `sensor_id`        | string  | Sensor identifier (e.g. `"hesai-01"`)                                  |
 | `total_frames`     | uint64  | Total number of frames in the recording                                |
@@ -51,7 +51,7 @@ JSON object written when the recorder closes. Contains log-level metadata.
 
 ```json
 {
-  "version": "1.0",
+  "version": "0.5",
   "created_ns": 1740000000000000000,
   "sensor_id": "hesai-01",
   "total_frames": 12345,
@@ -106,7 +106,7 @@ delimiters beyond the length prefix.
 
 ### Serialisation Format
 
-**Current (v1.0):** JSON-serialised `FrameBundle` (Go `encoding/json`).
+**Current (v0.5):** JSON-serialised `FrameBundle` (Go `encoding/json`).
 
 > **Note:** The TODO in the source code indicates a future migration to
 > Protocol Buffers for the on-disk frame encoding. The `.pb` file extension
