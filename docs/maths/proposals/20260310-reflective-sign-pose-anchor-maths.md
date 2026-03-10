@@ -176,7 +176,7 @@ One simple combined confidence is:
 
 `q_anchor = q_I * C_plane * C_vert * C_static`
 
-where `q_I` is a normalized reflectivity confidence.
+where `q_I` is a normalised reflectivity confidence.
 
 This multiplicative form is intentionally conservative: a candidate should not
 become an anchor by intensity alone.
@@ -223,7 +223,7 @@ This penalizes lateral drift within the sign plane.
 
 ### 5.4 Robust objective
 
-Estimate `xi_t` by minimizing:
+Estimate `xi_t` by minimising:
 
 `J(xi_t) = sum_j sum_i w_ij * rho( r_plane(i,j)^2 / sigma_plane_j^2 + r_poly(i,j)^2 / sigma_poly_j^2 ) + xi_t^T Lambda^-1 xi_t`
 
@@ -241,7 +241,7 @@ Solve with weighted Gauss-Newton or iteratively reweighted least squares.
 Accept correction only if:
 
 1. enough independent anchors are visible,
-2. residual decreases materially after optimization,
+2. residual decreases materially after optimisation,
 3. `||t|| <= tau_trans`,
 4. `||r|| <= tau_rot`,
 5. anchor coverage is not dominated by one tiny patch.
@@ -281,7 +281,7 @@ Why cache it:
 
 1. one-frame spikes should not cause grid resets;
 2. anchor visibility may drop briefly due to occlusion;
-3. L3 needs sustained-state semantics, not raw optimizer output;
+3. L3 needs sustained-state semantics, not raw optimiser output;
 4. region restore and background persistence need a held decision with TTL,
    not a single-frame boolean.
 
@@ -355,7 +355,7 @@ Existing L3 cell state already tracks:
 - recent foreground pressure,
 - locked baseline state.
 
-These remain useful because they capture **cell-local** behavior. The new
+These remain useful because they capture **cell-local** behaviour. The new
 anchor signal is different: it is a **global frame-stability** estimate.
 
 ### 7.1 Separation of roles
