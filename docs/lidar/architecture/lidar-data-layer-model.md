@@ -1,7 +1,7 @@
 # LiDAR Data Layer Model (Ten Layers)
 
 **Status:** Canonical reference — layer numbers are locked for codebase stability from v0.5.0 onwards.
-**Last updated:** 2026-03-08
+**Last updated:** 2026-03-10
 
 ## Purpose
 
@@ -25,8 +25,175 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L6    | **Objects**    | Semantic object interpretation and dataset mapping                                       | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented |
 | L7    | **Scene**      | Persistent canonical world model — accumulated geometry, priors, and multi-sensor fusion | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned     |
 | L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🔄 Partial     |
-| L9    | **Endpoints**  | Server-side payload shaping, gRPC stream, dashboards, debug views                        | gRPC `FrameUpdate`, chart view-models, ECharts payloads                                   | 🔄 Partial     |
+| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                   | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🔄 Partial     |
 | L10   | **Clients**    | Downstream rendering consumers (documentation label — no Go package)                     | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 📄 Doc-only    |
+
+## Canonical L1-L10 Stack Reference
+
+The table above is the canonical L1-L10 stack reference. This section remains
+as the stable anchor for summaries that refer to the locked layer ordering.
+The concept chart below is the primary visual reference.
+
+## Segmented Concept Status Chart
+
+This is the primary visual breakdown for the layer model. It shows only
+current-code components in the repository today. L7 is kept as an explicit
+empty slot so the canonical L1-L10 stack remains visually fixed even though
+that layer has no runtime implementation yet.
+
+```mermaid
+flowchart TB
+    classDef implemented fill:#dff3e4,stroke:#2f6b3b,color:#183a1f;
+    classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
+    classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
+    classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
+
+    subgraph L1["L1 Packets"]
+        direction LR
+        R11["Radar serial ingest ✅"]
+        A11["LiDAR UDP ingest ✅"]
+        A12["PCAP replay ✅"]
+    end
+
+    subgraph L2["L2 Frames"]
+        direction LR
+        A21["Frame assembly ✅"]
+        A22["Polar to Cartesian ✅"]
+        A23["ASC / LidarView export ✅"]
+    end
+
+    subgraph L3["L3 Grid"]
+        direction LR
+        A31["Polar EMA background ✅"]
+        A32["Settling / drift gates ✅"]
+    end
+
+    subgraph L4["L4 Perception"]
+        direction LR
+        A41["Height-band ground filter ✅"]
+        A42["DBSCAN clustering ✅"]
+        A43["PCA / OBB geometry ✅"]
+    end
+
+    subgraph L5["L5 Tracks"]
+        direction LR
+        A51["Hungarian assignment ✅"]
+        A52["CV Kalman tracking ✅"]
+        A53["Occlusion coasting ✅"]
+    end
+
+    subgraph L6["L6 Objects"]
+        direction LR
+        R61["Radar objects DB / transit sessionization ✅"]
+        A61["LiDAR features / confidence ✅"]
+        A62["LiDAR rule classes ✅"]
+        A63["LiDAR run stats ✅"]
+    end
+
+    subgraph L7["L7 Scene"]
+        direction LR
+        A71["Reserved / no current code"]
+    end
+
+    subgraph L8["L8 Analytics"]
+        direction LR
+        R81["Radar speed stats / histograms ✅"]
+        A81["Traffic metrics / chart prep ✅"]
+        A82["Run diffs / temporal IoU 🔄"]
+        A83["Sweep scoring / auto-tune / HINT ✅"]
+    end
+
+    subgraph L9["L9 Endpoints"]
+        direction LR
+        R91["Radar REST / report APIs ✅"]
+        A91["gRPC frame streams 🔄"]
+        A92["LiDAR REST APIs 🔄"]
+    end
+
+    subgraph L10["L10 Clients"]
+        direction LR
+        subgraph L10S["Svelte clients"]
+            direction LR
+            R101["Svelte report UI 📄"]
+            A102["Svelte LiDAR views 📄"]
+            A103["Svelte sweep / HINT UI 📄"]
+        end
+        R102["PDF generator 📄"]
+        A101["Swift visualiser 📄"]
+    end
+
+    A11 --> A21
+    A12 --> A21
+    A21 --> A22
+    A21 --> A23
+    A22 --> A31
+    A31 --> A32
+    A32 --> A41
+    A41 --> A42
+    A42 --> A43
+    A43 --> A51
+    A51 --> A52
+    A52 --> A53
+    A53 --> A61
+    A61 --> A62
+    A62 --> A63
+    A63 -.-> A71
+    A71 -.-> A81
+    A63 --> A82
+    A63 --> A83
+    A53 --> A91
+    A63 --> A91
+    A81 --> A92
+    A82 --> A92
+    A83 --> A92
+    A91 --> A101
+    A92 --> A101
+    A92 --> A102
+    A92 --> A103
+
+    R11 -.-> R61
+    R61 --> R81
+    R81 --> R91
+    R91 --> R101
+    R91 --> R102
+
+    class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,A83,R81,R91 implemented;
+    class A82,A91,A92 partial;
+    class A71 gap;
+    class A101,A102,A103,R101,R102 client;
+```
+
+**Legend**
+
+- Green `✅`: implemented in the current runtime.
+- Amber `🔄`: current code exists, but the layer surface is still partial or evolving.
+- Grey: reserved layer slot with no current runtime code.
+- Beige `📄`: downstream/client surface rather than a core runtime layer package.
+- Solid arrows: dominant current-code flow through that branch.
+- Dashed arrows: layout/reference links through non-runtime layer gaps or branches that skip some runtime layers.
+
+## Layered Concept and Literature Status
+
+The ten-layer table above shows where layers live. The concept chart shows
+which ideas within those layers are active. This table makes the
+paper/concept mapping explicit.
+
+| Layer(s) | Concept family | Representative papers / standards | Repo status |
+| --- | --- | --- | --- |
+| L1 | Packet-driver split | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula` | ✅ Implemented |
+| L2 | Range-image / sequential frame assembly | RangeNet++, SemanticKITTI temporal framing | ✅ Implemented |
+| L3 | Single-component adaptive background model in polar space | Stauffer-Grimson GMM lineage, OctoMap as contrast | ✅ Implemented |
+| L3 | Direct frame-stability / shake input into settling | Reflective sign and static-surface pose-anchor proposal | 🧪 Proposal |
+| L4 | DBSCAN + PCA/OBB clustering | DBSCAN, PCL clustering, PCA | ✅ Implemented |
+| L4 | Height-band ground removal | Simplified ground-filter family | ✅ Implemented |
+| L4-L7 | Tile-plane / vector-scene geometry | Patchwork, ground-plane fitting, vector-scene planning | 📋 Proposed |
+| L5 | CV Kalman + Hungarian tracking | Kalman, Hungarian, SORT, AB3DMOT | ✅ Implemented |
+| L5 | CA / CTRV / IMM motion extensions | IMM / multi-model tracking literature | 📋 Proposed |
+| L6 | Rule-based semantic interpretation | Local heuristic classifier | ✅ Implemented |
+| L6 | AV taxonomy / 28-class mapping | SemanticKITTI, KITTI, nuScenes mappings | 🔄 Partial |
+| L7 | Persistent scene, priors, fusion | HD-map / scene-accumulation literature, OSM priors | 📋 Planned |
+| L8 | Run comparison, scorecards, evaluation | CLEAR MOT, KITTI-style comparison, temporal IoU | 🔄 Partial |
+| L9-L10 | Endpoint shaping and client rendering | gRPC / dashboard / visualisation surface patterns | 🔄 Partial to active |
 
 ### Design rationale for ten layers
 
@@ -239,6 +406,12 @@ Each layer package may only import from lower-numbered layers — never upward o
 ## Algorithm heritage and literature alignment
 
 Each layer's algorithms align with established research in LiDAR processing, 3D object detection, and multi-object tracking. This section maps velocity.report's implementation choices to the relevant literature, providing both justification and pointers for future contributors.
+
+Use the references above as the fast visual index:
+
+- the **ten-layer table** answers where a capability belongs;
+- the **concept chart** answers which bodies of work are implemented, partial,
+  planned, proposed, or merely contextual.
 
 ### L1 Packets — sensor transport
 

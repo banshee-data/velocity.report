@@ -31,6 +31,18 @@ Data science in velocity.report is about making the live pipeline more measurabl
 
 New research follows a proposal-first framework: write down the maths, define the layer boundary, state the evaluation contract, and compare against the current baseline on fixed replay packs. Current research areas include geometry-coherent tracking, velocity-coherent foreground extraction, ground-plane and vector-scene maths, and optional offline classification research. Any future model must stay auditable, beat the transparent baseline on reproducible benchmarks, and preserve a tunable fallback path at runtime.
 
+Open questions that currently need evidence-backed work include:
+
+- whether the 2026-02-22 OBB fixes are good enough in replay, or whether geometry-coherent tracking is still required to stop rotating bounding boxes;
+- how radar + LiDAR fusion should be scored and staged: per-track association first, or later L7 scene/canonical-object fusion;
+- when the current height-band ground filter is no longer good enough, and what replay/static-export evidence justifies moving to tile-plane and vector-scene maths;
+- how OSM/community geometry priors should be diffed, reviewed, signed, and exported without weakening provenance;
+- whether highly reflective signs can be promoted into stable pose anchors for shake estimation, how far the intensity gate can be relaxed when signs are absent, whether walls, facades, or road geometry provide enough fallback redundancy without confusing the model with clutter or occlusion, and whether a cached back-edge into lower layers is worth weakening strict one-way layer guarantees;
+- whether velocity-coherent extraction beats the current baseline on fixed PCAP/VRLOG packs strongly enough to justify runtime adoption;
+- which config values are actually supported by repeatable scorecards, when they were last compared, and what artifact set was used.
+
+When contributing in this area, include the question being answered, the observed result, the exact parameter/config bundle, the validation date, and the replay artifacts used (`.pcap`, `.vrlog`, scene IDs, run IDs, baselines, and any LFS-backed files).
+
 Read next:
 
 - [docs/maths/README.md](docs/maths/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals

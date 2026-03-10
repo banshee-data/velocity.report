@@ -73,6 +73,8 @@ The production pipeline uses four math-heavy layers:
   — Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence, low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
 - [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
   — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
+- [Reflective Sign and Static Surface Pose Anchors](proposals/20260310-reflective-sign-pose-anchor-maths.md)
+  — Use sign-first reflective anchors with controlled fallback to walls, facades, and ground-support surfaces for frame-to-frame micro-pose estimation; the base case stops at L7/L8 diagnostics, while the reference extension adds a cached stability signal for L3 settling/reset control.
 - [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
   — Overlap analysis, interference risks, and a single-settlement architecture with shared lifecycle per surface-region key.
 - Bodies in Motion Maths (proposal — to be written)
@@ -164,6 +166,27 @@ one freeze/thaw policy, one confidence substrate — two model outputs.
 **Why fourth:** Infrastructure simplification that reduces operational
 complexity and config coupling drift. Less user-visible impact on its own,
 but lowers the complexity cost of P3.
+
+### Candidate Add-on — Reflective Sign and Static Surface Pose Anchors
+
+**Source:** [20260310-reflective-sign-pose-anchor-maths.md](proposals/20260310-reflective-sign-pose-anchor-maths.md)
+**Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene, L8 Analytics
+**Status:** Proposal — not started
+**Effort:** M (estimated)
+**Dependencies:** Best with L7 scene anchors; analytics-only mode can start earlier
+
+Uses highly reflective static signs as the preferred anchors, then falls back
+through reflective patches, wall/facade planes, and low-authority ground
+support when signs are absent or occluded. The strict base case keeps this in
+L7/L8 as diagnostics and scorecards only; the reference extension publishes a
+cached stability signal for L3 warmup/reacquire control and may optionally
+correct replay/live geometry. This is not a replacement for static pose
+configuration or full ego-motion; it is a stationary-sensor stability aid.
+
+**Why it matters:** It gives the system a physically meaningful static
+reference for mount vibration, transform drift, and noise diagnosis even in
+sign-poor scenes, provided there is enough persistent wall, facade, or ground
+structure to build a redundant anchor set.
 
 ### Maintenance — OBB Heading Stability Review (remaining items)
 
