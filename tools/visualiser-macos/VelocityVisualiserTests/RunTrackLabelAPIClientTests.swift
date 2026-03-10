@@ -549,10 +549,18 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
             }
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            return (response, Data())
+            let body = """
+                {
+                    "success": true,
+                    "vrlog_path": "/data/run-001.vrlog",
+                    "frame_encoding": "json"
+                }
+                """
+            return (response, body.data(using: .utf8)!)
         }
 
-        try await client.loadVRLog(runID: "run-001")
+        let loadResponse = try await client.loadVRLog(runID: "run-001")
+        XCTAssertEqual(loadResponse.frameEncoding, "json")
     }
 
     func testLoadVRLogServerError() async throws {

@@ -147,11 +147,18 @@ import XCTest
             XCTAssertTrue(request.url!.path.contains("api/lidar/vrlog/load"))
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            return (response, Data())
+            let body = """
+                {
+                    "success": true,
+                    "vrlog_path": "/data/test.vrlog",
+                    "frame_encoding": "proto"
+                }
+                """
+            return (response, body.data(using: .utf8)!)
         }
 
-        let success = await state.loadRunForReplay("run-001")
-        XCTAssertTrue(success)
+        let loadResponse = await state.loadRunForReplay("run-001")
+        XCTAssertEqual(loadResponse?.frameEncoding, "proto")
         XCTAssertEqual(state.selectedRunID, "run-001")
         XCTAssertFalse(state.isLoadingReplay)
         XCTAssertNil(state.error)
@@ -162,8 +169,8 @@ import XCTest
         let state = RunBrowserState(apiClient: client)
         // Runs list is empty — run won't be found
 
-        let success = await state.loadRunForReplay("nonexistent-run")
-        XCTAssertFalse(success)
+        let loadResponse = await state.loadRunForReplay("nonexistent-run")
+        XCTAssertNil(loadResponse)
         XCTAssertEqual(state.error, "Run not found")
         XCTAssertNil(state.selectedRunID)
     }
@@ -208,8 +215,8 @@ import XCTest
             return (response, Data())
         }
 
-        let success = await state.loadRunForReplay("run-002")
-        XCTAssertFalse(success)
+        let loadResponse = await state.loadRunForReplay("run-002")
+        XCTAssertNil(loadResponse)
         XCTAssertNotNil(state.error)
         XCTAssertTrue(state.error!.contains("Failed to load VRLOG"))
         XCTAssertFalse(state.isLoadingReplay)

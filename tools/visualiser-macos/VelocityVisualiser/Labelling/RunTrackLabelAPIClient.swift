@@ -169,7 +169,7 @@ class RunTrackLabelAPIClient {
     // MARK: - VRLOG Playback Operations
 
     /// Load a VRLOG for replay by run ID.
-    func loadVRLog(runID: String) async throws {
+    func loadVRLog(runID: String) async throws -> VRLogLoadResponse {
         let url = baseURL.appendingPathComponent("api/lidar/vrlog/load")
 
         var request = URLRequest(url: url)
@@ -177,11 +177,15 @@ class RunTrackLabelAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["run_id": runID])
 
-        let (_, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(VRLogLoadResponse.self, from: data)
     }
 
     /// Stop VRLOG replay.
@@ -394,4 +398,11 @@ struct PlaybackStatus: Codable {
     let logStartNs: Int64
     let logEndNs: Int64
     let vrlogPath: String?
+}
+
+/// Response returned after loading a VRLOG for replay.
+struct VRLogLoadResponse: Codable {
+    let success: Bool
+    let vrlogPath: String?
+    let frameEncoding: String?
 }

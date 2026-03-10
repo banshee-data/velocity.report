@@ -955,7 +955,8 @@ struct PlaybackControlsView: View {
 
             // Mode indicator (only show when connected)
             PlaybackModeBadgeView(
-                modeLabel: ui.modeLabel, mode: ui.mode, isConnected: ui.isConnected)
+                modeLabel: ui.modeLabel, mode: ui.mode, isConnected: ui.isConnected,
+                showsLegacyJSONWarning: appState.shouldShowLegacyJSONReplayBadge)
         }.padding(.horizontal).padding(.vertical, 8).background(
             Color(nsColor: .controlBackgroundColor))
     }
@@ -1049,6 +1050,7 @@ struct ModeIndicatorView: View {
     let modeLabel: String
     let mode: AppState.PlaybackMode
     let isConnected: Bool
+    let showsLegacyJSONWarning: Bool
 
     private var foreground: Color {
         switch mode {
@@ -1061,9 +1063,19 @@ struct ModeIndicatorView: View {
 
     var body: some View {
         if isConnected {
-            Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground).padding(
-                .horizontal, 8
-            ).padding(.vertical, 2).background(foreground.opacity(0.16)).cornerRadius(4)
+            HStack(spacing: 6) {
+                Text(modeLabel).font(.caption).fontWeight(.bold).foregroundColor(foreground)
+                    .padding(.horizontal, 8).padding(.vertical, 2).background(
+                        foreground.opacity(0.16)
+                    ).cornerRadius(4)
+
+                if showsLegacyJSONWarning {
+                    Text("JSON").font(.caption2).fontWeight(.bold).foregroundColor(.orange).padding(
+                        .horizontal, 8
+                    ).padding(.vertical, 2).background(Color.orange.opacity(0.16)).cornerRadius(4)
+                        .help("Legacy JSON VRLOG detected — replay will be slower")
+                }
+            }
         }
     }
 }
