@@ -333,10 +333,12 @@ struct AnalysisRun: Codable, Identifiable {
         return String(format: "%2d %@ %2d:%02d %@", day, monthNames[month - 1], h12, minute, ampm)
     }
 
-    /// Short run ID prefix for compact display, e.g. "0x4ea0f3".
+    /// Short run ID prefix for compact display — first 8 chars (up to first dash).
     var shortIdPrefix: String {
-        let prefix = String(runId.prefix(6))
-        return "0x\(prefix)"
+        if let dashIdx = runId.firstIndex(of: "-") {
+            return String(runId[runId.startIndex..<dashIdx])
+        }
+        return String(runId.prefix(8))
     }
 }
 
