@@ -98,29 +98,22 @@ type FrameSummary struct {
 
 // TrackSummary is §4 in the spec.
 type TrackSummary struct {
-	TotalTracks        int                `json:"total_tracks"`
-	ConfirmedTracks    int                `json:"confirmed_tracks"`
-	TentativeTracks    int                `json:"tentative_tracks"`
-	DeletedTracks      int                `json:"deleted_tracks"`
-	FragmentationRatio float64            `json:"fragmentation_ratio"`
-	ObservationCount   *DistStats         `json:"observation_count,omitempty"`
-	TrackDurationSecs  *DistStats         `json:"track_duration_secs,omitempty"`
-	TrackLengthMetres  *DistStats         `json:"track_length_metres,omitempty"`
-	Occlusion          *OcclusionSummary  `json:"occlusion"`
-	MergeSplit         *MergeSplitSummary `json:"merge_split"`
+	TotalTracks        int               `json:"total_tracks"`
+	ConfirmedTracks    int               `json:"confirmed_tracks"`
+	TentativeTracks    int               `json:"tentative_tracks"`
+	DeletedTracks      int               `json:"deleted_tracks"`
+	FragmentationRatio float64           `json:"fragmentation_ratio"`
+	ObservationCount   *DistStats        `json:"observation_count,omitempty"`
+	TrackDurationSecs  *DistStats        `json:"track_duration_secs,omitempty"`
+	TrackLengthMetres  *DistStats        `json:"track_length_metres,omitempty"`
+	Occlusion          *OcclusionSummary `json:"occlusion"`
 }
 
 // OcclusionSummary captures aggregate occlusion metrics.
 type OcclusionSummary struct {
 	MeanOcclusionCount float64 `json:"mean_occlusion_count"`
-	MaxOcclusionFrames int     `json:"max_occlusion_frames"`
+	MaxOcclusionCount  int     `json:"max_occlusion_count"`
 	TotalOcclusions    int     `json:"total_occlusions"`
-}
-
-// MergeSplitSummary captures merge/split candidate counts.
-type MergeSplitSummary struct {
-	MergeCandidates int `json:"merge_candidates"`
-	SplitCandidates int `json:"split_candidates"`
 }
 
 // TrackDetail is §5 in the spec — one entry per track.
@@ -150,10 +143,9 @@ type TrackDetail struct {
 	AvgBBox      BBoxDims `json:"avg_bbox"`
 	HeightP95Max float32  `json:"height_p95_max"`
 
-	OcclusionCount     int     `json:"occlusion_count"`
-	MaxOcclusionFrames int     `json:"max_occlusion_frames"`
-	MotionModel        string  `json:"motion_model"`
-	Confidence         float32 `json:"confidence"`
+	OcclusionCount int     `json:"occlusion_count"`
+	MotionModel    string  `json:"motion_model"`
+	Confidence     float32 `json:"confidence"`
 }
 
 // BBoxDims captures averaged bounding box dimensions.
@@ -306,7 +298,6 @@ func runReport(vrlogPath string) error {
 		peakSpeed           float32
 		heightP95Max        float32
 		occlusionCount      int
-		maxOccFrames        int
 		motionModel         visualiser.MotionModel
 		confidence          float32
 		hits, misses        int
@@ -417,10 +408,8 @@ func runReport(vrlogPath string) error {
 		confirmedDurations []float64
 		confirmedLengths   []float64
 		totalOcclusions    int
-		maxOccFramesGlobal int
+		maxOccCountGlobal  int
 		sumOcclusionCount  float64
-		mergeCandidates    int
-		splitCandidates    int
 		confirmedCount     int
 		tentativeCount     int
 		deletedCount       int
@@ -472,8 +461,8 @@ func runReport(vrlogPath string) error {
 			confirmedLengths = append(confirmedLengths, float64(acc.trackLengthM))
 			totalOcclusions += acc.occlusionCount
 			sumOcclusionCount += float64(acc.occlusionCount)
-			if acc.occlusionCount > maxOccFramesGlobal {
-				maxOccFramesGlobal = acc.occlusionCount
+			if acc.occlusionCount > maxOccCountGlobal {
+				maxOccCountGlobal = acc.occlusionCount
 			}
 			// Classification distribution
 			cls := acc.objectClass
@@ -588,12 +577,8 @@ func runReport(vrlogPath string) error {
 			TrackLengthMetres:  computeDistStats(confirmedLengths),
 			Occlusion: &OcclusionSummary{
 				MeanOcclusionCount: meanOcc,
-				MaxOcclusionFrames: maxOccFramesGlobal,
+				MaxOcclusionCount:  maxOccCountGlobal,
 				TotalOcclusions:    totalOcclusions,
-			},
-			MergeSplit: &MergeSplitSummary{
-				MergeCandidates: mergeCandidates,
-				SplitCandidates: splitCandidates,
 			},
 		},
 		Tracks: trackDetails,

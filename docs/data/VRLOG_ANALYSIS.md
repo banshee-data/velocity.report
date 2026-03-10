@@ -165,24 +165,8 @@ Aggregate statistics across all confirmed tracks.
 
   "occlusion": {
     "mean_occlusion_count": 1.2, // missed frames per track
-    "max_occlusion_frames": 8, // longest single gap
+    "max_occlusion_count": 8, // highest per-track occlusion count
     "total_occlusions": 32,
-  },
-
-  "alignment": {
-    "mean_alignment_deg": 12.5, // velocity ↔ displacement angle
-    "misalignment_ratio": 0.08, // fraction of samples > 45°
-    "total_samples": 480,
-  },
-
-  "jitter": {
-    "heading_jitter_deg": 4.2, // RMS frame-to-frame heading Δ
-    "speed_jitter_mps": 0.35, // RMS frame-to-frame speed Δ
-  },
-
-  "merge_split": {
-    "merge_candidates": 2, // tracks flagged as merged
-    "split_candidates": 3, // tracks flagged as split
   },
 }
 ```
@@ -227,13 +211,6 @@ One entry per track (all states). Sorted by `first_seen_ns` ascending.
 
     // Quality indicators
     "occlusion_count": 1,
-    "max_occlusion_frames": 1,
-    "alignment_mean_deg": 8.3,
-    "misalignment_ratio": 0.02,
-    "heading_jitter_deg": 3.1,
-    "speed_jitter_mps": 0.28,
-    "merge_candidate": false,
-    "split_candidate": false,
     "motion_model": "CV",                       // CV | CA
     "confidence": 0.88
   }
@@ -364,16 +341,8 @@ Temporal alignment between the two recordings.
   "temporal_overlap_secs": 175.2, // intersection of time ranges
   "temporal_union_secs": 180.0, // union of time ranges
   "temporal_iou": 0.973, // overlap / union  [0, 1]
-
-  "matched_frame_pairs": 1740, // frames within ±50ms of counterpart
-  "a_unmatched_frames": 60, // frames in A with no B counterpart
-  "b_unmatched_frames": 10,
 }
 ```
-
-Frame matching uses nearest-timestamp pairing with a configurable tolerance
-(default ±50 ms). This allows comparison between recordings at slightly
-different frame rates.
 
 ### 8.3 Track Matching
 
@@ -395,50 +364,13 @@ algorithm and temporal IoU (threshold 0.3, matching
       "a_track_id": "t-001",
       "b_track_id": "t-042",
       "temporal_iou": 0.87,
-      "spatial_distance_m": 0.42, // mean position distance (metres)
       "speed_delta_mps": 0.3, // |avg_speed_A − avg_speed_B|
       "observation_ratio": 0.95, // min(obs) / max(obs)
       "class_match": true, // same object_class?
     },
   ],
-
-  "split_candidates": [
-    {
-      "source_run": "a",
-      "original_track": "t-005",
-      "split_tracks": ["t-051", "t-052"], // in the other run
-      "combined_temporal_iou": 0.91,
-      "split_point_x": 5.2,
-      "split_point_y": -3.1,
-    },
-  ],
-
-  "merge_candidates": [
-    {
-      "source_run": "b",
-      "merged_track": "t-042",
-      "source_tracks": ["t-003", "t-004"], // in the other run
-      "combined_temporal_iou": 0.88,
-      "merge_point_x": -2.1,
-      "merge_point_y": 6.5,
-    },
-  ],
 }
 ```
-
-#### Split Detection Algorithm
-
-A track $t_A$ in run A is a **split candidate** when two or more tracks in run B
-each have temporal IoU > 0.2 with $t_A$ but none exceeds the 1:1 matching
-threshold individually. The tracks are confirmed as splits when their combined
-temporal coverage ≥ 80% of $t_A$'s lifetime:
-
-$$\frac{\sum_i \text{duration}(t_{B_i} \cap t_A)}{\text{duration}(t_A)} \geq 0.8$$
-
-#### Merge Detection Algorithm
-
-The inverse: a single track $t_B$ in run B overlaps with two or more tracks in
-run A, and their combined temporal coverage reaches ≥ 80% of $t_B$'s lifetime.
 
 ### 8.4 Speed Delta
 
@@ -449,24 +381,8 @@ Per-matched-pair and aggregate speed comparison.
   "mean_abs_speed_delta_mps": 0.41, // MAE across matched pairs
   "max_abs_speed_delta_mps": 1.2,
   "speed_correlation": 0.97, // Pearson r of avg_speed
-
-  "histogram_earth_mover_distance": 0.35, // EMD between §6 histograms (m/s)
-
-  "per_pair": [
-    {
-      "a_track": "t-001",
-      "b_track": "t-042",
-      "a_avg_mps": 8.4,
-      "b_avg_mps": 8.1,
-      "delta": 0.3,
-    },
-  ],
 }
 ```
-
-The **Earth Mover's Distance** (Wasserstein-1) between the two speed histograms
-provides a single scalar capturing distributional shift, independent of bin
-alignment.
 
 ### 8.5 Quality Delta
 
@@ -476,15 +392,11 @@ Comparison of aggregate quality metrics from §4.
 {
   "fragmentation_ratio": { "a": 0.286, "b": 0.25, "delta": -0.036 },
   "mean_observations": { "a": 18.3, "b": 19.1, "delta": 0.8 },
-  "mean_alignment_deg": { "a": 12.5, "b": 11.8, "delta": -0.7 },
-  "misalignment_ratio": { "a": 0.08, "b": 0.07, "delta": -0.01 },
-  "heading_jitter_deg": { "a": 4.2, "b": 3.9, "delta": -0.3 },
-  "speed_jitter_mps": { "a": 0.35, "b": 0.32, "delta": -0.03 },
   "mean_occlusion_count": { "a": 1.2, "b": 1.0, "delta": -0.2 },
 }
 ```
 
-Negative delta = B is better (lower jitter / fragmentation).
+Negative delta = B is better (lower fragmentation).
 
 ---
 
@@ -584,3 +496,47 @@ each frame, enabling efficient alignment without loading frame payloads.
 evaluator. The analysis report computes a simple proxy: mean Euclidean distance
 between interpolated track positions at shared timestamps. Full spatial IoU
 (bounding-box overlap at each frame) is deferred to a later iteration.
+
+---
+
+## 12. Future Phase — Additional Metrics
+
+The following metrics are specified here for future implementation. They require
+either new fields on `visualiser.Track` (propagated from `l5tracks.TrackedObject`)
+or additional per-frame computation in the analyser. None are emitted in the
+current version.
+
+### Per-Track Quality Indicators (§5 extensions)
+
+| Field                  | Type    | Description                                          | Prerequisite                                               |
+| ---------------------- | ------- | ---------------------------------------------------- | ---------------------------------------------------------- |
+| `alignment_mean_deg`   | float32 | Mean angle between velocity and displacement vectors | Compute from per-frame heading vs displacement in analyser |
+| `misalignment_ratio`   | float32 | Fraction of samples where alignment > 45°            | Same as above                                              |
+| `heading_jitter_deg`   | float32 | RMS frame-to-frame heading change                    | Compute from per-frame `HeadingRad` deltas                 |
+| `speed_jitter_mps`     | float32 | RMS frame-to-frame speed change                      | Compute from per-frame `SpeedMps` deltas                   |
+| `merge_candidate`      | bool    | Track flagged as a merge artefact                    | Propagate `MergeCandidate` from `l5tracks.TrackedObject`   |
+| `split_candidate`      | bool    | Track flagged as a split artefact                    | Propagate `SplitCandidate` from `l5tracks.TrackedObject`   |
+| `max_occlusion_frames` | int     | Longest consecutive missed-frame gap                 | Track per-gap duration in `l5tracks` or analyser           |
+
+### Track Summary Extensions (§4)
+
+- **`alignment`** block: `mean_alignment_deg`, `misalignment_ratio`, `total_samples` —
+  aggregate velocity-vs-displacement alignment across confirmed tracks.
+- **`jitter`** block: `heading_jitter_deg`, `speed_jitter_mps` — aggregate RMS
+  frame-to-frame deltas across confirmed tracks.
+- **`merge_split`** block: `merge_candidates`, `split_candidates` — counts of tracks
+  flagged by the tracker. Requires flags on `visualiser.Track`.
+
+### Comparison Extensions (§8)
+
+- **§8.2 Frame-level matching**: `matched_frame_pairs`, `a_unmatched_frames`,
+  `b_unmatched_frames` — nearest-timestamp pairing with configurable tolerance (±50 ms).
+- **§8.3 Split/merge detection**: cross-run split and merge candidate arrays using
+  temporal coverage analysis (see split/merge algorithms in earlier spec revisions).
+- **§8.3 `spatial_distance_m`**: mean Euclidean distance between interpolated track
+  positions at shared timestamps.
+- **§8.4 `histogram_earth_mover_distance`**: Wasserstein-1 distance between speed
+  histograms.
+- **§8.4 `per_pair`**: per-matched-pair speed breakdown with both A and B speeds.
+- **§8.5 Quality delta extensions**: `mean_alignment_deg`, `misalignment_ratio`,
+  `heading_jitter_deg`, `speed_jitter_mps` deltas (once §4 alignment/jitter blocks exist).
