@@ -25,15 +25,20 @@ seekable replay, labelling, and offline analysis.
 
 JSON object written when the recorder closes. Contains log-level metadata.
 
-| Field              | Type   | Description                                     |
-| ------------------ | ------ | ----------------------------------------------- |
-| `version`          | string | Format version (currently `"1.0"`)              |
-| `created_ns`       | int64  | Wall-clock creation time (Unix nanoseconds)     |
-| `sensor_id`        | string | Sensor identifier (e.g. `"hesai-01"`)           |
-| `total_frames`     | uint64 | Total number of frames in the recording         |
-| `start_ns`         | int64  | Timestamp of the first frame (Unix nanoseconds) |
-| `end_ns`           | int64  | Timestamp of the last frame (Unix nanoseconds)  |
-| `coordinate_frame` | object | Coordinate frame metadata (see below)           |
+| Field              | Type    | Description                                                            |
+| ------------------ | ------- | ---------------------------------------------------------------------- |
+| `version`          | string  | Format version (currently `"1.0"`)                                     |
+| `created_ns`       | int64   | Wall-clock creation time (Unix nanoseconds)                            |
+| `sensor_id`        | string  | Sensor identifier (e.g. `"hesai-01"`)                                  |
+| `total_frames`     | uint64  | Total number of frames in the recording                                |
+| `start_ns`         | int64   | Timestamp of the first frame (Unix nanoseconds)                        |
+| `end_ns`           | int64   | Timestamp of the last frame (Unix nanoseconds)                         |
+| `coordinate_frame` | object  | Coordinate frame metadata (see below)                                  |
+| `source_type`      | string  | Recording source: `"live"`, `"pcap"`, `"synthetic"` (omitted if empty) |
+| `pcap_path`        | string  | Original PCAP filename, basename only (omitted if empty)               |
+| `playback_rate`    | float64 | Configured replay speed multiplier (omitted if 0)                      |
+| `tuning_hash`      | string  | SHA-256 hex digest of the tuning config JSON (omitted if empty)        |
+| `build_version`    | string  | velocity.report version that created the recording                     |
 
 ### coordinate_frame
 
@@ -55,7 +60,12 @@ JSON object written when the recorder closes. Contains log-level metadata.
   "coordinate_frame": {
     "frame_id": "site/hesai-01",
     "reference_frame": "ENU"
-  }
+  },
+  "source_type": "pcap",
+  "pcap_path": "site-capture-2026-03-10.pcap",
+  "playback_rate": 1.0,
+  "tuning_hash": "a1b2c3d4e5f6...",
+  "build_version": "0.5.0-pre16"
 }
 ```
 

@@ -41,6 +41,13 @@ type LogHeader struct {
 		FrameID        string `json:"frame_id"`
 		ReferenceFrame string `json:"reference_frame"`
 	} `json:"coordinate_frame"`
+
+	// Provenance fields — recording context written at start time.
+	SourceType   string  `json:"source_type,omitempty"`   // "live", "pcap", or "synthetic"
+	PCAPPath     string  `json:"pcap_path,omitempty"`     // original PCAP filename (basename)
+	PlaybackRate float64 `json:"playback_rate,omitempty"` // configured replay speed multiplier
+	TuningHash   string  `json:"tuning_hash,omitempty"`   // SHA-256 of tuning config JSON
+	BuildVersion string  `json:"build_version,omitempty"` // velocity.report version that wrote this
 }
 
 // IndexEntry is an entry in the seek index.
@@ -89,9 +96,10 @@ func NewRecorder(basePath, sensorID string) (*Recorder, error) {
 		currentChunk: -1,
 		index:        make([]IndexEntry, 0),
 		header: LogHeader{
-			Version:   version.Version,
-			CreatedNs: time.Now().UnixNano(),
-			SensorID:  sensorID,
+			Version:      version.Version,
+			CreatedNs:    time.Now().UnixNano(),
+			SensorID:     sensorID,
+			BuildVersion: version.Version,
 		},
 	}
 
@@ -264,6 +272,17 @@ func (r *Recorder) FrameCount() uint64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.frameCount
+}
+
+// SetProvenance sets recording-time provenance fields on the header.
+// Must be called before Close (which writes header.json).
+func (r *Recorder) SetProvenance(sourceType, pcapPath, tuningHash string, playbackRate float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.header.SourceType = sourceType
+	r.header.PCAPPath = pcapPath
+	r.header.TuningHash = tuningHash
+	r.header.PlaybackRate = playbackRate
 }
 
 // serializeFrame serializes a FrameBundle to bytes.
