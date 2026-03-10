@@ -387,7 +387,8 @@ struct StringTruncatedTests {
             runId: "run-long", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 7200,
             totalFrames: 72000, totalClusters: 5000, totalTracks: 500, confirmedTracks: 400,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long", sceneName: nil)
+            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long",
+            sceneName: nil)
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
     }
@@ -933,18 +934,21 @@ struct SerialiseFlagsTests {
 
 @available(macOS 15.0, *) @MainActor final class PlaybackModeBadgeAdditionalTests: XCTestCase {
     func testLiveMode() {
-        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: true)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "LIVE", mode: .live, isConnected: true, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testSeekableMode() {
         let view = PlaybackModeBadgeView(
-            modeLabel: "VRLOG", mode: .replaySeekable, isConnected: true)
+            modeLabel: "VRLOG", mode: .replaySeekable, isConnected: true,
+            showsLegacyJSONWarning: true)
         let _ = view.body
     }
 
     func testDisconnected() {
-        let view = PlaybackModeBadgeView(modeLabel: "?", mode: .unknown, isConnected: false)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "?", mode: .unknown, isConnected: false, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 }
