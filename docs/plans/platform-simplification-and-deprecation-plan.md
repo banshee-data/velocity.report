@@ -237,7 +237,7 @@ sub-plan:
 
 - **What:** `v0.5.0` is still intended to remove legacy sweep request fields (`noise_values`, `closeness_values`, `neighbour_values`, per-variable range fields, fixed-value fields) and legacy result fields (`noise`, `closeness`, `neighbour` at top level of `ComboResult`). The `computeCombinations()` legacy code path should be deleted as part of that cleanup.
 - **Impact:** Once this lands, any client sending sweep requests in the old per-variable format will receive errors. Sweep results will no longer include top-level `noise`/`closeness`/`neighbour` keys.
-- **Migration:** Use the `param_values` map format for requests and results. See [shim removal §2](v050-backward-compatibility-shim-removal-plan.md#2-go-server--sweep-legacy-request-format).
+- **Migration:** For sweep requests, use the `params: []SweepParam` request shape; for sweep results, use the `param_values` map on `ComboResult`. See [shim removal §2](v050-backward-compatibility-shim-removal-plan.md#2-go-server--sweep-legacy-request-format).
 
 ### 5. Report download: query-parameter endpoint removed
 

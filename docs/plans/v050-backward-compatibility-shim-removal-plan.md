@@ -23,10 +23,10 @@ raw `peak_speed_mps` to `max_speed_mps` on unshipped contracts.
 
 ## Shim Work Already Removed
 
-| Shim                                   | Section | Notes                                                                                      |
-| -------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
-| Lenient sweep JSON parsing removed     | §4      | Empty body (`io.EOF`) is still tolerated, but malformed JSON now returns `400 Bad Request` |
-| Stale `AddPoints` removal note deleted | §7      | `frame_builder.go` no longer carries the compat comment                                    |
+| Shim                                   | Section | Notes                                                                                                 |
+| -------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| Lenient sweep JSON parsing removed     | §4      | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone   |
+| Stale `AddPoints` removal note deleted | §7      | `frame_builder.go` no longer carries the compat comment                                               |
 
 **Remaining:** finish the server-side sweep cleanup, finish the report-download
 migration end-to-end, decide/delete `PacketHeader`, remove the remaining
@@ -116,9 +116,10 @@ non-percentile names and formulas.
 | Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Pending | `computeCombinations()` and the mode-specific expansion path are still present on `main`                                                   |
 
 **Action:** Server-side request/result compat cleanup is still pending. Remove
-the legacy request/result fields, delete `computeCombinations()` /
-`sweep_params.go`, and then finish the dashboard/test fallback cleanup in §14.
-
+the legacy request/result fields, remove `computeCombinations()` and the legacy
+mode-specific expansion path from `sweep_params.go` (only deleting or splitting
+the file once the non-legacy helpers have been moved), and then finish the
+dashboard/test fallback cleanup in §14.
 ---
 
 ### 3. Go Server + Web — Legacy download endpoint format
