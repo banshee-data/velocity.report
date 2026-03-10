@@ -1,5 +1,7 @@
 package analysis
 
+import "encoding/json"
+
 // ---------------------------------------------------------------------------
 // Report types
 // ---------------------------------------------------------------------------
@@ -96,7 +98,7 @@ type TrackDetail struct {
 	DurationSecs     float64 `json:"duration_secs"`
 
 	AvgSpeedMps  float32   `json:"avg_speed_mps"`
-	PeakSpeedMps float32   `json:"peak_speed_mps"`
+	MaxSpeedMps  float32   `json:"max_speed_mps"`
 	SpeedSamples []float32 `json:"speed_samples,omitempty"`
 
 	// Implementable-now jitter/alignment metrics (§12.1)
@@ -118,6 +120,31 @@ type TrackDetail struct {
 	OcclusionCount int     `json:"occlusion_count"`
 	MotionModel    string  `json:"motion_model"`
 	Confidence     float32 `json:"confidence"`
+}
+
+// UnmarshalJSON accepts the legacy peak_speed_mps key from pre-rename
+// analysis.json files while emitting only max_speed_mps going forward.
+func (td *TrackDetail) UnmarshalJSON(data []byte) error {
+	type trackDetailAlias TrackDetail
+	aux := struct {
+		*trackDetailAlias
+		LegacyPeakSpeedMps      *float32 `json:"peak_speed_mps"`
+		LegacyPeakSpeedMpsCamel *float32 `json:"PeakSpeedMps"`
+	}{
+		trackDetailAlias: (*trackDetailAlias)(td),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if td.MaxSpeedMps == 0 {
+		switch {
+		case aux.LegacyPeakSpeedMps != nil:
+			td.MaxSpeedMps = *aux.LegacyPeakSpeedMps
+		case aux.LegacyPeakSpeedMpsCamel != nil:
+			td.MaxSpeedMps = *aux.LegacyPeakSpeedMpsCamel
+		}
+	}
+	return nil
 }
 
 // BBoxDims captures averaged bounding box dimensions.

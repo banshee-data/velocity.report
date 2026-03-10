@@ -246,7 +246,7 @@ One entry per track (all states). Sorted by `first_seen_ns` ascending.
 
     // Kinematics
     "avg_speed_mps": 8.4,
-    "peak_speed_mps": 9.1,
+    "max_speed_mps": 9.1,
     "speed_samples": [8.1, 8.3, 8.5, ...],     // per-frame Kalman speed (m/s)
 
     // Jitter and alignment (§12.1 — now implemented)

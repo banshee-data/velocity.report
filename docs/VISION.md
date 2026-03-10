@@ -36,7 +36,7 @@ The OmniPreSense OPS243 sensor provides three complementary data feeds:
 All three feeds should be ingested simultaneously so that a single vehicle pass yields:
 
 - a speed trace (magnitude over time),
-- an object record (start, end, peak speed, classifier),
+- an object record (start, end, maximum speed, classifier),
 - an FFT signature (spectral shape for multi-target disambiguation).
 
 The fused radar record is the **primary speed measurement** for every transit.

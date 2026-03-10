@@ -206,7 +206,7 @@ message Track {
   float height_p95_max = 22;
   float intensity_mean_avg = 23;
   float avg_speed_mps = 24;      // running mean speed
-  float peak_speed_mps = 25;
+  float max_speed_mps = 25;
 
   // Classification
   ObjectClass object_class = 26; // classifier output or user label

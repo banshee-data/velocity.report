@@ -222,7 +222,7 @@ private let logger = DevLogger(category: "AppState")
 
     /// Ring buffer of recent samples per track (keyed by trackID).
     private(set) var trackHistory: [String: [TrackSample]] = [:]
-    /// Persistent all-time peak speed per track (survives ring-buffer eviction).
+    /// Persistent all-time max speed per track (survives ring-buffer eviction).
     private(set) var trackMaxSpeed: [String: Float] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
@@ -1233,7 +1233,7 @@ private let logger = DevLogger(category: "AppState")
                 }
                 trackHistory[track.trackID] = samples
 
-                // Update persistent peak speed (survives ring-buffer eviction)
+                // Update persistent max speed (survives ring-buffer eviction)
                 let prevMax = trackMaxSpeed[track.trackID] ?? 0
                 if track.maxSpeedMps > prevMax { trackMaxSpeed[track.trackID] = track.maxSpeedMps }
             }

@@ -377,7 +377,7 @@ type ClusterFeatures struct {
 type TrackFeatures struct {
     ClusterFeatures       // aggregated over observations
     AvgSpeedMps           float32
-    PeakSpeedMps          float32
+    MaxSpeedMps           float32
     SpeedVariance         float32
     TrackDurationSecs     float32
     TrackLengthMeters     float32

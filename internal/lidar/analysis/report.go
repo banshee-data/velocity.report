@@ -48,7 +48,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		xs, ys              []float32 // per-frame position, for alignment
 		vxs, vys            []float32 // per-frame velocity, for alignment
 		bboxL, bboxW, bboxH []float32
-		peakSpeed           float32
+		maxSpeed            float32
 		heightP95Max        float32
 		occlusionCount      int
 		motionModel         visualiser.MotionModel
@@ -125,8 +125,13 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				acc.bboxL = append(acc.bboxL, t.BBoxLength)
 				acc.bboxW = append(acc.bboxW, t.BBoxWidth)
 				acc.bboxH = append(acc.bboxH, t.BBoxHeight)
-				if t.MaxSpeedMps > acc.peakSpeed {
-					acc.peakSpeed = t.MaxSpeedMps
+				// Older .vrlog frames may lack the renamed max-speed field.
+				maxSpeedCandidate := t.MaxSpeedMps
+				if maxSpeedCandidate == 0 {
+					maxSpeedCandidate = t.SpeedMps
+				}
+				if maxSpeedCandidate > acc.maxSpeed {
+					acc.maxSpeed = maxSpeedCandidate
 				}
 				if t.HeightP95Max > acc.heightP95Max {
 					acc.heightP95Max = t.HeightP95Max
@@ -202,7 +207,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			LastSeenNs:        acc.lastSeen,
 			DurationSecs:      dur,
 			AvgSpeedMps:       avgSpeed,
-			PeakSpeedMps:      acc.peakSpeed,
+			MaxSpeedMps:       acc.maxSpeed,
 			SpeedSamples:      acc.speeds,
 			SpeedVariance:     speedVar,
 			HeadingJitterDeg:  headJitter,

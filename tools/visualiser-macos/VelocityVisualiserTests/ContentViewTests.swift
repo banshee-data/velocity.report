@@ -729,7 +729,7 @@ struct SparklineViewTests {
         host(TrackListView(), state: state)
     }
 
-    /// Ensures a track item with a high peak speed (28.8 m/s) and a climb arrow
+    /// Ensures a track item with a high max speed (28.8 m/s) and a climb arrow
     /// renders on a single line without wrapping or layout errors.
     func testTrackListItemHighSpeedDoesNotWrap() throws {
         let state = AppState()

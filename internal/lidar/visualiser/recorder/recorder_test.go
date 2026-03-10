@@ -229,6 +229,32 @@ func TestDeserializeFrameInvalidData(t *testing.T) {
 	}
 }
 
+func TestDeserializeFrameLegacyPeakSpeedMps(t *testing.T) {
+	frame, err := deserializeFrame([]byte(`{
+		"FrameID": 7,
+		"TimestampNanos": 12345,
+		"SensorID": "legacy-sensor",
+		"Tracks": {
+			"Tracks": [
+				{
+					"TrackID": "legacy-track",
+					"SpeedMps": 4.5,
+					"PeakSpeedMps": 6.75
+				}
+			]
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("deserializeFrame() error = %v", err)
+	}
+	if frame.Tracks == nil || len(frame.Tracks.Tracks) != 1 {
+		t.Fatalf("expected one restored track, got %#v", frame.Tracks)
+	}
+	if got := frame.Tracks.Tracks[0].MaxSpeedMps; got != 6.75 {
+		t.Errorf("MaxSpeedMps = %v, want 6.75", got)
+	}
+}
+
 func TestNewReplayer(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "test-log")

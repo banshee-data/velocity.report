@@ -3,6 +3,7 @@
 package visualiser
 
 import (
+	"encoding/json"
 	"sync/atomic"
 	"time"
 )
@@ -260,6 +261,31 @@ type Track struct {
 	// Rendering hints
 	Alpha         float32 // Opacity [0,1]; 1.0 = fully visible, used for fade-out
 	HeadingSource int     // Source of heading: 0=PCA, 1=velocity, 2=displacement, 3=locked
+}
+
+// UnmarshalJSON keeps legacy .vrlog frames readable after the raw max-speed
+// field rename from PeakSpeedMps to MaxSpeedMps.
+func (t *Track) UnmarshalJSON(data []byte) error {
+	type trackAlias Track
+	aux := struct {
+		*trackAlias
+		LegacyPeakSpeedMps      *float32 `json:"PeakSpeedMps"`
+		LegacyPeakSpeedMpsSnake *float32 `json:"peak_speed_mps"`
+	}{
+		trackAlias: (*trackAlias)(t),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if t.MaxSpeedMps == 0 {
+		switch {
+		case aux.LegacyPeakSpeedMps != nil:
+			t.MaxSpeedMps = *aux.LegacyPeakSpeedMps
+		case aux.LegacyPeakSpeedMpsSnake != nil:
+			t.MaxSpeedMps = *aux.LegacyPeakSpeedMpsSnake
+		}
+	}
+	return nil
 }
 
 // TrackState represents the lifecycle state of a track.
