@@ -574,7 +574,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -718,7 +718,7 @@ vrlog-analyse:
 # Compare two .vrlog analyses — prints comparison JSON to stdout or to a file.
 # Usage: make vrlog-compare VRLOG_A=/path/a.vrlog VRLOG_B=/path/b.vrlog [COMPARE_OUT=output.json]
 vrlog-compare:
-	@test -n "$(VRLOG_A)" -a -n "$(VRLOG_B)" || { echo "Error: VRLOG_A and VRLOG_B required. Usage: make vrlog-compare VRLOG_A=a.vrlog VRLOG_B=b.vrlog"; exit 1; }
+	@[ -n "$(VRLOG_A)" ] && [ -n "$(VRLOG_B)" ] || { echo "Error: VRLOG_A and VRLOG_B required. Usage: make vrlog-compare VRLOG_A=a.vrlog VRLOG_B=b.vrlog"; exit 1; }
 	go run ./cmd/tools/vrlog-analyse compare "$(VRLOG_A)" "$(VRLOG_B)" $(if $(COMPARE_OUT),-o $(COMPARE_OUT))
 
 # =============================================================================

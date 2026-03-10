@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -300,7 +301,8 @@ func validateAnalysisSchema(data []byte) error {
 }
 
 // loadOrGenerate returns the cached analysis if analysis.json exists,
-// otherwise runs GenerateReport to create it.
+// otherwise runs GenerateReport to create it. Regenerates for any error
+// including missing file, corrupt JSON, or stale schema.
 func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 	report, err := LoadAnalysis(vrlogPath)
 	if err == nil {
@@ -313,6 +315,18 @@ func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 		return nil, genErr
 	}
 	return report, nil
+}
+
+// isJSONError returns true if the error chain contains a JSON syntax or
+// unmarshal type error.
+func isJSONError(err error) bool {
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		switch e.(type) {
+		case *json.SyntaxError, *json.UnmarshalTypeError:
+			return true
+		}
+	}
+	return false
 }
 
 func pearsonR(xs, ys []float64) float64 {

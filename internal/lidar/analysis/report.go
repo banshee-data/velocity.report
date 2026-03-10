@@ -207,7 +207,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			LastSeenNs:        acc.lastSeen,
 			DurationSecs:      dur,
 			AvgSpeedMps:       avgSpeed,
-			MaxSpeedMps:       acc.maxSpeed,
+					MaxSpeedMps:       acc.maxSpeed,
 			SpeedSamples:      acc.speeds,
 			SpeedVariance:     speedVar,
 			HeadingJitterDeg:  headJitter,
@@ -313,6 +313,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			durationSecs = float64(frameTimestamps[len(frameTimestamps)-1]-frameTimestamps[0]) / 1e9
 		}
 	}
+	// Clamp to 0 for single-frame or degenerate recordings.
+	if durationSecs < 0 {
+		durationSecs = 0
+	}
 
 	avgPtsPerFrame := 0.0
 	avgFGPerFrame := 0.0
@@ -383,14 +387,6 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				MaxOcclusionCount:  maxOccCountGlobal,
 				TotalOcclusions:    totalOcclusions,
 			},
-			Jitter: &JitterSummary{
-				HeadingJitterDeg: computeDistStats(confirmedHeadJitters),
-				SpeedJitterMps:   computeDistStats(confirmedSpeedJitters),
-			},
-			Alignment: &AlignmentSummary{
-				AlignmentMeanDeg:  computeDistStats(confirmedAlignMeans),
-				MisalignmentRatio: computeDistStats(confirmedMisalignRats),
-			},
 		},
 		Tracks: trackDetails,
 		SpeedHistogram: SpeedHistogram{
@@ -400,6 +396,21 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			TotalTracks: confirmedCount,
 		},
 		ClassificationDistribution: classDistOut,
+	}
+
+	// Only populate jitter/alignment aggregates when there are confirmed tracks
+	// with data, so that omitempty correctly omits them when empty.
+	if len(confirmedHeadJitters) > 0 || len(confirmedSpeedJitters) > 0 {
+		report.TrackSummary.Jitter = &JitterSummary{
+			HeadingJitterDeg: computeDistStats(confirmedHeadJitters),
+			SpeedJitterMps:   computeDistStats(confirmedSpeedJitters),
+		}
+	}
+	if len(confirmedAlignMeans) > 0 || len(confirmedMisalignRats) > 0 {
+		report.TrackSummary.Alignment = &AlignmentSummary{
+			AlignmentMeanDeg:  computeDistStats(confirmedAlignMeans),
+			MisalignmentRatio: computeDistStats(confirmedMisalignRats),
+		}
 	}
 
 	outPath := filepath.Join(vrlogPath, "analysis.json")

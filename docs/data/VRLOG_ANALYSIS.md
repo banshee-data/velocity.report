@@ -67,7 +67,8 @@ and emits a `comparison.json` to stdout (or a specified path).
 ```
 
 All speeds are in **m/s**. All timestamps are **Unix nanoseconds** (int64) unless
-otherwise noted. Distances are in **metres**. Angles are in **radians**.
+otherwise noted. Distances are in **metres**. Angles are in **radians** for raw
+headings (`heading_rad`); fields suffixed `_deg` are in **degrees**.
 
 ---
 
@@ -291,7 +292,7 @@ and replaced with a per-track percentile summary:
 "speed_percentiles": {
   "p50": 8.4,
   "p85": 8.8,
-  "p95": 9.0
+  "p98": 9.0
 }
 ```
 
@@ -315,7 +316,7 @@ Aggregate speed distribution across all confirmed tracks, using each track's
   "percentiles": {
     "p50": 3.2,
     "p85": 6.8,
-    "p95": 8.9,
+    "p98": 8.9,
   },
   "total_tracks": 27,
 }
@@ -493,16 +494,15 @@ vrlog-analyse report sample.vrlog --compact
 
 ## 10. Relationship to Existing Infrastructure
 
-| Component                                                                                  | Role                                            | Reuse                                |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------ |
-| [`l6objects.ComputeTemporalIoU`](../../internal/lidar/l6objects/comparison.go)             | Temporal overlap for track matching             | Direct call                          |
-| [`l6objects.ComputeSpeedPercentiles`](../../internal/lidar/l6objects/speed_percentiles.go) | Speed percentile computation                    | Direct call                          |
-| [`l5tracks.HungarianAssign`](../../internal/lidar/l5tracks/hungarian.go)                   | Optimal bipartite track matching                | Direct call                          |
-| [`l6objects.RunComparison`](../../internal/lidar/l6objects/comparison.go)                  | Split/merge/match structs                       | Extend or wrap                       |
-| [`adapters.EvaluateGroundTruth`](../../internal/lidar/adapters/ground_truth.go)            | Ground truth scoring with weights               | Pattern reference (not direct reuse) |
-| [`recorder.Replayer`](../../internal/lidar/visualiser/recorder/recorder.go)                | Read `.vrlog` frames sequentially               | Direct call                          |
-| [`visualiser.FrameBundle`](../../internal/lidar/visualiser/model.go)                       | Canonical frame model with Track, Cluster data  | Direct consumption                   |
-| [`pcap-analyse`](../../cmd/tools/pcap-analyse/main.go)                                     | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
+| Component                                                                       | Role                                            | Reuse                                |
+| ------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------ |
+| [`l6objects.ComputeTemporalIoU`](../../internal/lidar/l6objects/comparison.go)  | Temporal overlap for track matching             | Direct call                          |
+| [`l5tracks.HungarianAssign`](../../internal/lidar/l5tracks/hungarian.go)        | Optimal bipartite track matching                | Direct call                          |
+| [`l6objects.RunComparison`](../../internal/lidar/l6objects/comparison.go)       | Split/merge/match structs                       | Extend or wrap                       |
+| [`adapters.EvaluateGroundTruth`](../../internal/lidar/adapters/ground_truth.go) | Ground truth scoring with weights               | Pattern reference (not direct reuse) |
+| [`recorder.Replayer`](../../internal/lidar/visualiser/recorder/recorder.go)     | Read `.vrlog` frames sequentially               | Direct call                          |
+| [`visualiser.FrameBundle`](../../internal/lidar/visualiser/model.go)            | Canonical frame model with Track, Cluster data  | Direct consumption                   |
+| [`pcap-analyse`](../../cmd/tools/pcap-analyse/main.go)                          | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
 
 ### What vrlog-analyse adds beyond pcap-analyse
 
@@ -512,7 +512,7 @@ the perception outputs (tracks, clusters, points) without re-running the pipelin
 This means:
 
 - **Deterministic** — same `.vrlog` always produces the same analysis.
-- **Fast** — no signal processing, just JSON deserialization and metric computation.
+- **Fast** — no signal processing, just JSON deserialisation and metric computation.
 - **Offline-first** — `.vrlog` files can be shared, archived, and re-analysed.
 - **Two-file comparison** — direct structural comparison without database state.
 
@@ -552,11 +552,12 @@ per-track `speed_samples` array. For the aggregate histogram (§6), each track
 contributes its `AvgSpeedMps` (mean of `speed_samples`), not individual frame
 readings.
 
-### Frame Matching for Comparison
+### Frame Matching for Comparison (Future)
 
-When comparing two `.vrlog` files, frames are paired by nearest timestamp
-within a tolerance window. The index.bin provides O(1) timestamp lookup for
-each frame, enabling efficient alignment without loading frame payloads.
+The current comparator operates on precomputed `analysis.json` reports and does
+not perform frame-level matching. A future iteration may pair frames by nearest
+timestamp within a tolerance window, using the `index.bin` for O(1) timestamp
+lookup.
 
 ### Spatial Distance (Future)
 
