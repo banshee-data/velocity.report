@@ -106,10 +106,8 @@ flowchart TB
     subgraph L9["L9 Endpoints"]
         direction LR
         A91["gRPC frame streams 🔄"]
-        A92["LiDAR REST / dashboard APIs 🔄"]
-        A93["LiDAR sweep / HINT APIs ✅"]
-        A94["LiDAR run / label / replay REST ✅"]
-        R91["Radar stats / report APIs ✅"]
+        A92["LiDAR REST APIs 🔄"]
+        R91["Radar REST / report APIs ✅"]
     end
 
     subgraph L10["L10 Clients"]
@@ -143,17 +141,15 @@ flowchart TB
     A71 -.-> A81
     A63 --> A82
     A63 --> A83
-    A53 -->|"track state / geometry"| A91
-    A63 -->|"class / confidence in FrameUpdate"| A91
-    A63 -->|"run-track / label data"| A94
+    A53 --> A91
+    A63 --> A91
     A81 --> A92
     A82 --> A92
-    A91 -->|"live frame stream"| A101
-    A92 -->|"JSON / dashboards"| A102
+    A83 --> A92
+    A91 --> A101
+    A92 --> A101
+    A92 --> A102
     A92 --> A103
-    A83 --> A93
-    A93 -->|"sweep / HINT control"| A103
-    A94 -->|"runs / labels / replay helpers"| A101
 
     R11 -.-> R61
     R61 --> R81
@@ -161,7 +157,7 @@ flowchart TB
     R91 --> R101
     R91 --> R102
 
-    class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,A83,A93,A94,R81,R91 implemented;
+    class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,A83,R81,R91 implemented;
     class A82,A91,A92 partial;
     class A71 gap;
     class A101,A102,A103,R101,R102 client;
