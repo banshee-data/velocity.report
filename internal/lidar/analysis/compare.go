@@ -1,0 +1,278 @@
+package analysis
+
+import (
+	"encoding/json"
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+)
+
+// CompareReports loads analysis.json from two .vrlog directories and produces
+// a ComparisonReport. If outPath is empty the caller is responsible for
+// serialisation; otherwise the report is written to outPath.
+func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
+	reportA, err := LoadAnalysis(pathA)
+	if err != nil {
+		return nil, fmt.Errorf("load A: %w", err)
+	}
+	reportB, err := LoadAnalysis(pathB)
+	if err != nil {
+		return nil, fmt.Errorf("load B: %w", err)
+	}
+
+	// Frame overlap (§8.2)
+	aStart := reportA.Recording.StartNs
+	aEnd := reportA.Recording.EndNs
+	bStart := reportB.Recording.StartNs
+	bEnd := reportB.Recording.EndNs
+
+	overlap := l6objects.ComputeTemporalIoU(aStart, aEnd, bStart, bEnd)
+
+	overlapStart := max(aStart, bStart)
+	overlapEnd := min(aEnd, bEnd)
+	overlapSecs := 0.0
+	if overlapEnd > overlapStart {
+		overlapSecs = float64(overlapEnd-overlapStart) / 1e9
+	}
+	unionStart := min(aStart, bStart)
+	unionEnd := max(aEnd, bEnd)
+	unionSecs := float64(unionEnd-unionStart) / 1e9
+
+	// Track matching (§8.3) — build lightweight track descriptors for Hungarian
+	type trackDesc struct {
+		id       string
+		startNs  int64
+		endNs    int64
+		avgSpeed float32
+		obsCount int
+		class    string
+	}
+
+	extractTracks := func(r *AnalysisReport) []trackDesc {
+		out := make([]trackDesc, 0, len(r.Tracks))
+		for _, t := range r.Tracks {
+			if t.State != "confirmed" {
+				continue
+			}
+			out = append(out, trackDesc{
+				id:       t.TrackID,
+				startNs:  t.FirstSeenNs,
+				endNs:    t.LastSeenNs,
+				avgSpeed: t.AvgSpeedMps,
+				obsCount: t.ObservationCount,
+				class:    t.ObjectClass,
+			})
+		}
+		return out
+	}
+
+	tracksA := extractTracks(reportA)
+	tracksB := extractTracks(reportB)
+
+	// Build cost matrix for Hungarian matching
+	const iouThreshold = 0.3
+	const forbiddenCost float32 = 1e18
+
+	costMatrix := make([][]float32, len(tracksA))
+	iouMatrix := make([][]float64, len(tracksA))
+	for i, tA := range tracksA {
+		costMatrix[i] = make([]float32, len(tracksB))
+		iouMatrix[i] = make([]float64, len(tracksB))
+		for j, tB := range tracksB {
+			iou := l6objects.ComputeTemporalIoU(tA.startNs, tA.endNs, tB.startNs, tB.endNs)
+			iouMatrix[i][j] = iou
+			if iou > iouThreshold {
+				costMatrix[i][j] = float32(1.0 - iou)
+			} else {
+				costMatrix[i][j] = forbiddenCost
+			}
+		}
+	}
+
+	var matches []MatchPair
+	matchedA := make(map[int]bool)
+	matchedB := make(map[int]bool)
+
+	if len(tracksA) > 0 && len(tracksB) > 0 {
+		assignments := l5tracks.HungarianAssign(costMatrix)
+		for i, j := range assignments {
+			if j >= 0 && j < len(tracksB) && costMatrix[i][j] < forbiddenCost {
+				tA := tracksA[i]
+				tB := tracksB[j]
+
+				obsMin := tA.obsCount
+				obsMax := tB.obsCount
+				if obsMin > obsMax {
+					obsMin, obsMax = obsMax, obsMin
+				}
+				obsRatio := 0.0
+				if obsMax > 0 {
+					obsRatio = float64(obsMin) / float64(obsMax)
+				}
+
+				matches = append(matches, MatchPair{
+					ATrackID:         tA.id,
+					BTrackID:         tB.id,
+					TemporalIoU:      iouMatrix[i][j],
+					SpeedDeltaMps:    math.Abs(float64(tA.avgSpeed) - float64(tB.avgSpeed)),
+					ObservationRatio: obsRatio,
+					ClassMatch:       tA.class == tB.class,
+				})
+				matchedA[i] = true
+				matchedB[j] = true
+			}
+		}
+	}
+
+	// Speed delta (§8.4)
+	var sumAbsDelta, maxAbsDelta float64
+	for _, m := range matches {
+		if m.SpeedDeltaMps > maxAbsDelta {
+			maxAbsDelta = m.SpeedDeltaMps
+		}
+		sumAbsDelta += m.SpeedDeltaMps
+	}
+	meanAbsDelta := 0.0
+	if len(matches) > 0 {
+		meanAbsDelta = sumAbsDelta / float64(len(matches))
+	}
+
+	// Speed correlation (Pearson r)
+	speedCorr := 0.0
+	if len(matches) >= 2 {
+		// Index speeds by track ID to avoid O(matches × tracks) lookups.
+		speedByA := make(map[string]float64, len(tracksA))
+		for _, t := range tracksA {
+			speedByA[t.id] = float64(t.avgSpeed)
+		}
+		speedByB := make(map[string]float64, len(tracksB))
+		for _, t := range tracksB {
+			speedByB[t.id] = float64(t.avgSpeed)
+		}
+		xs := make([]float64, len(matches))
+		ys := make([]float64, len(matches))
+		for i, m := range matches {
+			xs[i] = speedByA[m.ATrackID]
+			ys[i] = speedByB[m.BTrackID]
+		}
+		speedCorr = pearsonR(xs, ys)
+	}
+
+	// Quality delta (§8.5)
+	aObs := reportA.TrackSummary.ObservationCount
+	bObs := reportB.TrackSummary.ObservationCount
+	aOcc := reportA.TrackSummary.Occlusion
+	bOcc := reportB.TrackSummary.Occlusion
+
+	meanObsA := 0.0
+	meanObsB := 0.0
+	if aObs != nil {
+		meanObsA = aObs.Avg
+	}
+	if bObs != nil {
+		meanObsB = bObs.Avg
+	}
+	meanOccA := 0.0
+	meanOccB := 0.0
+	if aOcc != nil {
+		meanOccA = aOcc.MeanOcclusionCount
+	}
+	if bOcc != nil {
+		meanOccB = bOcc.MeanOcclusionCount
+	}
+
+	comparison := &ComparisonReport{
+		Version:     "1.0",
+		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		RunA:        filepath.Base(pathA),
+		RunB:        filepath.Base(pathB),
+		FrameOverlap: FrameOverlap{
+			AFrames:          reportA.FrameSummary.TotalFrames,
+			BFrames:          reportB.FrameSummary.TotalFrames,
+			TemporalOverlapS: overlapSecs,
+			TemporalUnionS:   unionSecs,
+			TemporalIoU:      overlap,
+		},
+		TrackMatching: TrackMatching{
+			ATotalTracks: len(tracksA),
+			BTotalTracks: len(tracksB),
+			MatchedPairs: len(matches),
+			AOnlyTracks:  len(tracksA) - len(matchedA),
+			BOnlyTracks:  len(tracksB) - len(matchedB),
+			Matches:      matches,
+		},
+		SpeedDelta: SpeedDelta{
+			MeanAbsSpeedDeltaMps: meanAbsDelta,
+			MaxAbsSpeedDeltaMps:  maxAbsDelta,
+			SpeedCorrelation:     speedCorr,
+		},
+		QualityDelta: QualityDelta{
+			FragmentationRatio: DeltaPair{
+				A:     reportA.TrackSummary.FragmentationRatio,
+				B:     reportB.TrackSummary.FragmentationRatio,
+				Delta: reportB.TrackSummary.FragmentationRatio - reportA.TrackSummary.FragmentationRatio,
+			},
+			MeanObservations: DeltaPair{
+				A: meanObsA, B: meanObsB, Delta: meanObsB - meanObsA,
+			},
+			MeanOcclusionCount: DeltaPair{
+				A: meanOccA, B: meanOccB, Delta: meanOccB - meanOccA,
+			},
+		},
+	}
+
+	if outPath != "" {
+		data, err := json.MarshalIndent(comparison, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("marshal comparison: %w", err)
+		}
+		if err := os.WriteFile(outPath, data, 0o644); err != nil {
+			return nil, fmt.Errorf("write %s: %w", outPath, err)
+		}
+	}
+
+	return comparison, nil
+}
+
+// LoadAnalysis reads analysis.json from inside a .vrlog directory.
+func LoadAnalysis(vrlogPath string) (*AnalysisReport, error) {
+	p := filepath.Join(vrlogPath, "analysis.json")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", p, err)
+	}
+	var report AnalysisReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", p, err)
+	}
+	return &report, nil
+}
+
+func pearsonR(xs, ys []float64) float64 {
+	n := len(xs)
+	if n < 2 {
+		return 0
+	}
+
+	var sumX, sumY, sumXY, sumX2, sumY2 float64
+	for i := 0; i < n; i++ {
+		sumX += xs[i]
+		sumY += ys[i]
+		sumXY += xs[i] * ys[i]
+		sumX2 += xs[i] * xs[i]
+		sumY2 += ys[i] * ys[i]
+	}
+
+	nf := float64(n)
+	num := nf*sumXY - sumX*sumY
+	den := math.Sqrt((nf*sumX2 - sumX*sumX) * (nf*sumY2 - sumY*sumY))
+	if den == 0 {
+		return 0
+	}
+	return num / den
+}
