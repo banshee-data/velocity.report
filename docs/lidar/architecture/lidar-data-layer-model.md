@@ -36,18 +36,16 @@ The concept chart below is the primary visual reference.
 
 ## Segmented Concept Status Chart
 
-This is the primary visual breakdown for the layer model. It focuses on bodies
-of work, concepts, and algorithm families rather than package names alone.
-Solid arrows show the dominant active/runtime flow; dashed arrows show future,
-planned, or reference extensions.
+This is the primary visual breakdown for the layer model. It shows only
+concepts backed by code in the repository today, and it is arranged around a
+single top-to-bottom spine so the layers stay visually stacked from L1 to L10.
 
 ```mermaid
 flowchart TD
     classDef implemented fill:#dff3e4,stroke:#2f6b3b,color:#183a1f;
     classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
-    classDef planned fill:#dce8ff,stroke:#3567a8,color:#17345c;
-    classDef proposal fill:#ffe4cc,stroke:#b8631b,color:#5b2d00;
     classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
+    classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
 
     subgraph L1["L1 Packets"]
         direction LR
@@ -58,17 +56,14 @@ flowchart TD
     subgraph L2["L2 Frames"]
         direction LR
         A21["Frame assembly ✅"]
-        A22["Polar → Cartesian ✅"]
-        A23["ASC / LidarView export ✅"]
+        A22["Polar → Cartesian / export ✅"]
     end
 
     subgraph L3["L3 Grid"]
         direction LR
         A31["Polar EMA background ✅"]
-        A32["Warmup / freeze / lock / reacquire ✅"]
-        A33["Region persistence / restore ✅"]
-        A34["Foreground ratio / drift integrity ✅"]
-        A35["Anchor-informed stability 🧪"]
+        A32["Settling lifecycle ✅"]
+        A33["Persistence / drift checks ✅"]
     end
 
     subgraph L4["L4 Perception"]
@@ -76,122 +71,61 @@ flowchart TD
         A41["Height-band ground filter ✅"]
         A42["DBSCAN clustering ✅"]
         A43["PCA / OBB geometry ✅"]
-        A44["Tile-plane ground 📋"]
-        A45["Vector-scene extraction 📋"]
-        A46["Static surface anchor extraction 🧪"]
     end
 
     subgraph L5["L5 Tracks"]
         direction LR
-        A51["CV Kalman tracking ✅"]
-        A52["Hungarian assignment ✅"]
+        A51["Hungarian assignment ✅"]
+        A52["CV Kalman tracking ✅"]
         A53["Occlusion coasting ✅"]
-        A54["CA / CTRV / IMM models 📋"]
     end
 
     subgraph L6["L6 Objects"]
         direction LR
-        A61["Feature accumulation / confidence ✅"]
-        A62["Local classes: car / pedestrian / cyclist / bird / other ✅"]
-        A63["Quality scoring / comparison ✅"]
-        A64["AV 28-class mapping 🔄"]
+        A61["Feature extraction / confidence ✅"]
+        A62["Rule-based classes: bird / pedestrian / cyclist / motorcyclist / car / truck / bus / dynamic ✅"]
+        A63["Quality metrics / run statistics ✅"]
     end
 
     subgraph L7["L7 Scene"]
         direction LR
-        A71["Persistent scene features 📋"]
-        A72["Canonical object merge 📋"]
-        A73["OSM / map priors 📋"]
-        A74["Anchor cache / priors 🧪"]
+        A71["No current code"]
     end
 
     subgraph L8["L8 Analytics"]
         direction LR
         A81["Run scorecards / diffs 🔄"]
-        A82["Traffic metrics / percentiles 🔄"]
-        A83["Shake diagnostics 🧪"]
-        A84["Temporal IoU / evaluation 🔄"]
+        A82["Temporal IoU / overlap 🔄"]
     end
 
     subgraph L9["L9 Endpoints"]
         direction LR
         A91["gRPC frame streams 🔄"]
-        A92["REST / dashboard + report payloads 🔄"]
+        A92["REST APIs / dashboard payloads 🔄"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
         A101["Swift visualiser 📄"]
-        A102["Web dashboards 📄"]
-        A103["PDF reports 📄"]
+        A102["Svelte web lidar views 📄"]
     end
 
-    A11 --> A21
-    A12 --> A21
-
-    A21 --> A22
-    A22 --> A23
-    A21 --> A31
-
-    A31 --> A32
-    A32 --> A33
-    A34 --> A32
-    A35 -.-> A32
-    A31 --> A41
-
-    A41 --> A44
-    A42 --> A43
-    A41 --> A42
-    A43 --> A52
-    A44 --> A45
-    A41 -.-> A46
-
-    A52 --> A51
-    A51 --> A53
-    A54 -.-> A51
-    A53 --> A61
-
-    A61 --> A62
-    A62 --> A63
-    A63 --> A64
-    A63 --> A71
-
-    A64 --> A72
-    A33 --> A71
-    A71 --> A72
-    A73 --> A72
-    A46 -.-> A74
-    A74 -.-> A35
-
-    A72 --> A81
-    A81 --> A91
-    A81 --> A82
-    A81 --> A84
-    A74 -.-> A83
-    A82 --> A92
-    A83 --> A92
-    A84 --> A92
-
-    A91 --> A101
+    A11 --> A12 --> A21 --> A22 --> A31 --> A32 --> A33 --> A41 --> A42 --> A43 --> A51 --> A52 --> A53 --> A61 --> A62 --> A63 --> A71 --> A81 --> A82 --> A91 --> A92 --> A101
     A92 --> A102
-    A92 --> A103
 
-    class A11,A12,A21,A22,A23,A31,A32,A33,A34,A41,A42,A43,A51,A52,A53,A61,A62,A63 implemented;
-    class A64,A81,A82,A84,A91,A92 partial;
-    class A44,A45,A54,A71,A72,A73 planned;
-    class A35,A46,A74,A83 proposal;
-    class A101,A102,A103 client;
+    class A11,A12,A21,A22,A31,A32,A33,A41,A42,A43,A51,A52,A53,A61,A62,A63 implemented;
+    class A81,A82,A91,A92 partial;
+    class A71 gap;
+    class A101,A102 client;
 ```
 
 **Legend**
 
 - Green `✅`: implemented in the current runtime.
 - Amber `🔄`: partially implemented, export-facing, or active but incomplete.
-- Blue `📋`: planned but not yet active in the main runtime.
-- Orange `🧪`: proposal or experimental research path.
+- Grey: layer exists in the model but has no current code in this path.
 - Beige `📄`: downstream/client surface rather than a core runtime layer package.
-- Solid arrows: dominant active/runtime flow.
-- Dashed arrows: future, optional, or reference extension.
+- Arrows: dominant current-code flow from L1 down to L10.
 
 ## Layered Concept and Literature Status
 
