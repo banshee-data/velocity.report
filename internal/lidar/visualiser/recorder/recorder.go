@@ -35,6 +35,20 @@ const ChunkSize = 1000
 // threshold is checked.
 const maxChunkWriteBytes = 150 * 1024 * 1024 // 150 MB
 
+// maxChunkSize is the maximum chunk size accepted by the replayer.
+const maxChunkSize = 200 * 1024 * 1024 // 200 MB
+
+// FrameEncoding identifies the on-disk frame payload format used by a VRLOG.
+type FrameEncoding string
+
+const (
+	FrameEncodingUnknown FrameEncoding = "unknown"
+	FrameEncodingProto   FrameEncoding = "proto"
+	FrameEncodingJSON    FrameEncoding = "json"
+)
+
+type frameDecoderFunc func([]byte) (*visualiser.FrameBundle, error)
+
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
 	Version         string `json:"version"`
@@ -291,16 +305,30 @@ func (r *Recorder) SetProvenance(sourceType, pcapPath, tuningHash string, playba
 	r.header.PlaybackRate = playbackRate
 }
 
-// serializeFrame serializes a FrameBundle to bytes.
-// TODO: Replace with proper protobuf serialization when generated.
+// serializeFrame serializes a FrameBundle to protobuf wire format.
 func serializeFrame(frame *visualiser.FrameBundle) ([]byte, error) {
-	// Placeholder: use JSON for now
-	return json.Marshal(frame)
+	return serializeFrameProto(frame)
 }
 
-// deserializeFrame deserializes bytes to a FrameBundle.
-// TODO: Replace with proper protobuf deserialization when generated.
+// deserializeFrame deserialises bytes to a FrameBundle.
+// Accepts both protobuf and legacy JSON formats, probing protobuf first.
 func deserializeFrame(data []byte) (*visualiser.FrameBundle, error) {
+	encoding, err := detectFrameEncoding(data)
+	if err != nil {
+		return nil, err
+	}
+
+	switch encoding {
+	case FrameEncodingProto:
+		return deserializeFrameProto(data)
+	case FrameEncodingJSON:
+		return deserializeFrameJSON(data)
+	default:
+		return nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
+	}
+}
+
+func deserializeFrameJSON(data []byte) (*visualiser.FrameBundle, error) {
 	var frame visualiser.FrameBundle
 	if err := json.Unmarshal(data, &frame); err != nil {
 		return nil, err
@@ -308,11 +336,111 @@ func deserializeFrame(data []byte) (*visualiser.FrameBundle, error) {
 	return &frame, nil
 }
 
+func detectFrameEncoding(data []byte) (FrameEncoding, error) {
+	if frame, err := deserializeFrameProto(data); err == nil && looksLikeFrameBundle(frame) {
+		return FrameEncodingProto, nil
+	}
+
+	if frame, err := deserializeFrameJSON(data); err == nil && looksLikeFrameBundle(frame) {
+		return FrameEncodingJSON, nil
+	}
+
+	return FrameEncodingUnknown, fmt.Errorf("could not detect frame encoding")
+}
+
+func looksLikeFrameBundle(frame *visualiser.FrameBundle) bool {
+	if frame == nil {
+		return false
+	}
+
+	return frame.FrameID != 0 ||
+		frame.TimestampNanos != 0 ||
+		frame.SensorID != "" ||
+		frame.CoordinateFrame.FrameID != "" ||
+		frame.CoordinateFrame.ReferenceFrame != "" ||
+		frame.PointCloud != nil ||
+		frame.Clusters != nil ||
+		frame.Tracks != nil ||
+		frame.PlaybackInfo != nil ||
+		frame.Background != nil ||
+		frame.FrameType != 0 ||
+		frame.BackgroundSeq != 0
+}
+
+func detectReplayerFrameDecoder(basePath string, index []IndexEntry) (FrameEncoding, frameDecoderFunc, error) {
+	if len(index) == 0 {
+		return FrameEncodingUnknown, deserializeFrameProto, nil
+	}
+
+	payload, err := readIndexedFramePayload(basePath, index[0])
+	if err != nil {
+		return FrameEncodingUnknown, nil, err
+	}
+
+	encoding, err := detectFrameEncoding(payload)
+	if err != nil {
+		return FrameEncodingUnknown, nil, err
+	}
+
+	switch encoding {
+	case FrameEncodingProto:
+		return encoding, deserializeFrameProto, nil
+	case FrameEncodingJSON:
+		return encoding, deserializeFrameJSON, nil
+	default:
+		return FrameEncodingUnknown, nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
+	}
+}
+
+func readIndexedFramePayload(basePath string, entry IndexEntry) ([]byte, error) {
+	chunkPath := filepath.Join(basePath, "frames", fmt.Sprintf("chunk_%04d.pb", entry.ChunkID))
+	f, err := os.Open(chunkPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open chunk: %w", err)
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat chunk: %w", err)
+	}
+	if info.Size() > maxChunkSize {
+		return nil, fmt.Errorf("chunk file too large: %d bytes (max %d)", info.Size(), maxChunkSize)
+	}
+
+	frameOffset := int64(entry.Offset)
+	if frameOffset+4 > info.Size() {
+		return nil, fmt.Errorf("invalid frame offset")
+	}
+
+	var lenBuf [4]byte
+	if _, err := f.ReadAt(lenBuf[:], frameOffset); err != nil {
+		return nil, fmt.Errorf("failed to read frame length: %w", err)
+	}
+
+	frameLen := binary.LittleEndian.Uint32(lenBuf[:])
+	frameStart := frameOffset + 4
+	frameEnd := frameStart + int64(frameLen)
+	if frameEnd > info.Size() {
+		return nil, fmt.Errorf("invalid frame length")
+	}
+
+	payload := make([]byte, frameLen)
+	if _, err := f.ReadAt(payload, frameStart); err != nil {
+		return nil, fmt.Errorf("failed to read frame payload: %w", err)
+	}
+
+	return payload, nil
+}
+
 // Replayer reads FrameBundles from a log file.
 type Replayer struct {
 	basePath string
 	header   LogHeader
 	index    []IndexEntry
+
+	frameEncoding FrameEncoding
+	frameDecoder  frameDecoderFunc
 
 	// Playback state
 	currentFrame uint64
@@ -374,6 +502,13 @@ func NewReplayer(basePath string) (*Replayer, error) {
 		r.index = append(r.index, entry)
 	}
 
+	frameEncoding, frameDecoder, err := detectReplayerFrameDecoder(basePath, r.index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect frame encoding: %w", err)
+	}
+	r.frameEncoding = frameEncoding
+	r.frameDecoder = frameDecoder
+
 	return r, nil
 }
 
@@ -385,6 +520,11 @@ func (r *Replayer) Header() LogHeader {
 // TotalFrames returns the total number of frames in the log.
 func (r *Replayer) TotalFrames() uint64 {
 	return r.header.TotalFrames
+}
+
+// FrameEncoding returns the detected frame encoding for the loaded VRLOG.
+func (r *Replayer) FrameEncoding() FrameEncoding {
+	return r.frameEncoding
 }
 
 // CurrentFrame returns the current frame index.
@@ -460,7 +600,11 @@ func (r *Replayer) ReadFrame() (*visualiser.FrameBundle, error) {
 	}
 
 	frameData := r.chunkData[offset : offset+frameLen]
-	frame, err := deserializeFrame(frameData)
+	if r.frameDecoder == nil {
+		return nil, fmt.Errorf("frame decoder not initialised")
+	}
+
+	frame, err := r.frameDecoder(frameData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize frame: %w", err)
 	}
@@ -495,9 +639,6 @@ func (r *Replayer) loadChunk(chunkIdx int) error {
 		return fmt.Errorf("failed to stat chunk: %w", err)
 	}
 
-	// Limit chunk size to 200MB to prevent DoS via malicious chunk files.
-	// Dense LiDAR frames (17k+ foreground points) can produce chunks > 100MB.
-	const maxChunkSize = 200 * 1024 * 1024
 	if info.Size() > maxChunkSize {
 		return fmt.Errorf("chunk file too large: %d bytes (max %d)", info.Size(), maxChunkSize)
 	}
