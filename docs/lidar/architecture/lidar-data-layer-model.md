@@ -85,7 +85,7 @@ flowchart TB
     subgraph L6["L6 Objects"]
         direction LR
         A61["LiDAR features / confidence ✅"]
-        A62["LiDAR rule classes (bird, pedestrian, cyclist, motorcyclist, car, truck, bus, dynamic) ✅"]
+        A62["LiDAR rule classes ✅"]
         A63["LiDAR run stats ✅"]
         R61["Radar objects DB / transit sessionization ✅"]
     end
@@ -99,6 +99,7 @@ flowchart TB
         direction LR
         A81["Traffic metrics / chart prep ✅"]
         A82["Run diffs / temporal IoU 🔄"]
+        A83["Sweep scoring / auto-tune / HINT ✅"]
         R81["Radar speed stats / histograms ✅"]
     end
 
@@ -106,6 +107,7 @@ flowchart TB
         direction LR
         A91["gRPC frame streams 🔄"]
         A92["LiDAR REST / dashboard APIs 🔄"]
+        A93["LiDAR sweep / HINT APIs ✅"]
         R91["Radar stats / report APIs ✅"]
     end
 
@@ -113,6 +115,7 @@ flowchart TB
         direction LR
         A101["Swift visualiser 📄"]
         A102["Svelte LiDAR views 📄"]
+        A103["Svelte sweep / HINT UI 📄"]
         R101["Svelte report UI 📄"]
         R102["PDF generator 📄"]
     end
@@ -135,11 +138,15 @@ flowchart TB
     A63 -.-> A71
     A71 -.-> A81
     A63 --> A82
+    A63 --> A83
     A53 --> A91
     A81 --> A92
     A82 --> A92
     A91 --> A101
     A92 --> A102
+    A92 --> A103
+    A83 --> A93
+    A93 --> A103
 
     R11 -.-> R61
     R61 --> R81
@@ -147,10 +154,10 @@ flowchart TB
     R91 --> R101
     R91 --> R102
 
-    class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,R81,R91 implemented;
+    class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,A83,A93,R81,R91 implemented;
     class A82,A91,A92 partial;
     class A71 gap;
-    class A101,A102,R101,R102 client;
+    class A101,A102,A103,R101,R102 client;
 ```
 
 **Legend**
