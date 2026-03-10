@@ -300,7 +300,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 		name           string
 		method         string
 		body           string
-		onLoad         func(string) error
+		onLoad         func(string) (string, error)
 		vrlogSafeDir   string
 		expectedStatus int
 	}{
@@ -316,7 +316,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			name:           "POST with vrlog_path succeeds",
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
-			onLoad:         func(path string) error { return nil },
+			onLoad:         func(path string) (string, error) { return "proto", nil },
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusOK,
 		},
@@ -324,7 +324,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			name:           "POST with relative path returns bad request",
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "relative/path.vrlog"}`,
-			onLoad:         func(path string) error { return nil },
+			onLoad:         func(path string) (string, error) { return "proto", nil },
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -332,7 +332,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			name:           "POST with load error returns internal error",
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`,
-			onLoad:         func(path string) error { return errors.New("load failed") },
+			onLoad:         func(path string) (string, error) { return "", errors.New("load failed") },
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -340,7 +340,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			name:           "POST with path outside allowed directory returns bad request",
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/tmp/test.vrlog"}`,
-			onLoad:         func(path string) error { return nil },
+			onLoad:         func(path string) (string, error) { return "proto", nil },
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -348,7 +348,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			name:           "POST with directory traversal returns bad request",
 			method:         http.MethodPost,
 			body:           `{"vrlog_path": "/var/lib/velocity-report/../../../etc/passwd"}`,
-			onLoad:         func(path string) error { return nil },
+			onLoad:         func(path string) (string, error) { return "proto", nil },
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -356,7 +356,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			name:           "POST with no run_id or vrlog_path returns bad request",
 			method:         http.MethodPost,
 			body:           `{}`,
-			onLoad:         func(path string) error { return nil },
+			onLoad:         func(path string) (string, error) { return "proto", nil },
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -364,7 +364,7 @@ func TestHandleVRLogLoad(t *testing.T) {
 			name:           "POST with invalid body returns bad request",
 			method:         http.MethodPost,
 			body:           `invalid json`,
-			onLoad:         func(path string) error { return nil },
+			onLoad:         func(path string) (string, error) { return "proto", nil },
 			vrlogSafeDir:   "/var/lib/velocity-report",
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -384,6 +384,15 @@ func TestHandleVRLogLoad(t *testing.T) {
 
 			if w.Code != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+			if tt.expectedStatus == http.StatusOK {
+				var resp map[string]interface{}
+				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+					t.Fatalf("failed to decode response body: %v", err)
+				}
+				if got := resp["frame_encoding"]; got != "proto" {
+					t.Errorf("expected frame_encoding=proto, got %v", got)
+				}
 			}
 		})
 	}
@@ -433,7 +442,7 @@ func TestHandleVRLogStop(t *testing.T) {
 func TestHandleVRLogLoadWithRunID(t *testing.T) {
 	t.Run("POST with run_id but no db returns internal error", func(t *testing.T) {
 		ws := &WebServer{
-			onVRLogLoad:  func(path string) error { return nil },
+			onVRLogLoad:  func(path string) (string, error) { return "proto", nil },
 			vrlogSafeDir: "/var/lib/velocity-report",
 			db:           nil, // No database configured
 		}

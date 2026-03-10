@@ -570,15 +570,20 @@ func (ws *WebServer) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 
 	vrlogPath = cleanedPath
 
-	if err := ws.onVRLogLoad(vrlogPath); err != nil {
+	frameEncoding, err := ws.onVRLogLoad(vrlogPath)
+	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load vrlog: %v", err))
 		return
+	}
+	if frameEncoding == "" {
+		frameEncoding = "unknown"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":    true,
-		"vrlog_path": vrlogPath,
+		"success":        true,
+		"vrlog_path":     vrlogPath,
+		"frame_encoding": frameEncoding,
 	})
 }
 
