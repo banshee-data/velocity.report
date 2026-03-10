@@ -21,12 +21,15 @@ type AnalysisReport struct {
 
 // RecordingMeta is §2 in the spec.
 type RecordingMeta struct {
-	SensorID        string  `json:"sensor_id"`
-	TotalFrames     uint64  `json:"total_frames"`
-	StartNs         int64   `json:"start_ns"`
-	EndNs           int64   `json:"end_ns"`
-	DurationSecs    float64 `json:"duration_secs"`
-	CoordinateFrame string  `json:"coordinate_frame"`
+	SensorID            string  `json:"sensor_id"`
+	TotalFrames         uint64  `json:"total_frames"`
+	CreatedNs           int64   `json:"created_ns"`
+	StartNs             int64   `json:"start_ns"`
+	EndNs               int64   `json:"end_ns"`
+	DurationSecs        float64 `json:"duration_secs"`
+	FrameRateHz         float64 `json:"frame_rate_hz"`
+	InferredReplaySpeed float64 `json:"inferred_replay_speed,omitempty"`
+	CoordinateFrame     string  `json:"coordinate_frame"`
 }
 
 // FrameSummary is §3 in the spec.

@@ -296,18 +296,34 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		}
 	}
 
+	// Compute frame rate and inferred replay speed.
+	// The LiDAR nominally runs at ~10 Hz. If the actual frame rate differs
+	// significantly, the recording was likely replayed at a non-1x speed.
+	const nominalHz = 10.0
+	frameRateHz := 0.0
+	if durationSecs > 0 {
+		frameRateHz = float64(frameCount) / durationSecs
+	}
+	inferredReplaySpeed := 0.0
+	if frameRateHz > 0 {
+		inferredReplaySpeed = frameRateHz / nominalHz
+	}
+
 	report := &AnalysisReport{
 		Version:     "1.0",
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		ToolVersion: version.Version,
 		Source:      filepath.Base(vrlogPath),
 		Recording: RecordingMeta{
-			SensorID:        header.SensorID,
-			TotalFrames:     header.TotalFrames,
-			StartNs:         header.StartNs,
-			EndNs:           header.EndNs,
-			DurationSecs:    durationSecs,
-			CoordinateFrame: header.CoordinateFrame.ReferenceFrame,
+			SensorID:            header.SensorID,
+			TotalFrames:         header.TotalFrames,
+			CreatedNs:           header.CreatedNs,
+			StartNs:             header.StartNs,
+			EndNs:               header.EndNs,
+			DurationSecs:        durationSecs,
+			FrameRateHz:         frameRateHz,
+			InferredReplaySpeed: inferredReplaySpeed,
+			CoordinateFrame:     header.CoordinateFrame.ReferenceFrame,
 		},
 		FrameSummary: FrameSummary{
 			TotalFrames:                 frameCount,
