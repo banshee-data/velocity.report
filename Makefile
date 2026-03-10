@@ -42,7 +42,7 @@ help:
 	@echo "  deploy-install-latex-minimal Copy local minimal TeX tree to remote target (deprecated)"
 	@echo "  validate-tex-minimal Compare report output between full and minimal TeX"
 	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target (deprecated)"
-	@echo "  install-web          Install web dependencies into the shared worktree cache (pnpm/npm)"
+	@echo "  install-web          Install web dependencies (shared cache via pnpm; local via npm)"
 	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo ""
@@ -538,6 +538,7 @@ install-web:
 	@if command -v pnpm >/dev/null 2>&1; then \
 		$(WEB_CACHE_SCRIPT) install; \
 		elif command -v npm >/dev/null 2>&1; then \
+			echo "pnpm not found; npm will install web dependencies locally in this worktree."; \
 			cd $(WEB_DIR) && npm install; \
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \

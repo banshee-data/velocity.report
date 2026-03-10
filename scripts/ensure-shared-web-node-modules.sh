@@ -15,7 +15,9 @@ log() {
 }
 
 COMMON_WORKTREE_ROOT=$(
-	git -C "${REPO_ROOT}" worktree list --porcelain | awk '
+	{
+		git -C "${REPO_ROOT}" worktree list --porcelain 2>/dev/null || true
+	} | awk '
 		/^worktree / {
 			sub("^worktree ", "", $0)
 			print $0
@@ -23,7 +25,23 @@ COMMON_WORKTREE_ROOT=$(
 		}
 	'
 )
-COMMON_WEB_DIR="${VELOCITY_SHARED_WEB_DIR:-${COMMON_WORKTREE_ROOT}/web}"
+if [ -z "${COMMON_WORKTREE_ROOT}" ]; then
+	COMMON_WORKTREE_ROOT="${REPO_ROOT}"
+fi
+
+if [ -n "${VELOCITY_SHARED_WEB_DIR:-}" ]; then
+	COMMON_WEB_DIR="${VELOCITY_SHARED_WEB_DIR}"
+elif [ -d "${COMMON_WORKTREE_ROOT}/web" ]; then
+	COMMON_WEB_DIR="${COMMON_WORKTREE_ROOT}/web"
+else
+	COMMON_WEB_DIR="${WEB_DIR}"
+fi
+
+if [ ! -d "${COMMON_WEB_DIR}" ]; then
+	printf 'Shared web directory not found: %s\n' "${COMMON_WEB_DIR}" >&2
+	exit 1
+fi
+
 SHARED_NODE_MODULES="${COMMON_WEB_DIR}/node_modules"
 WORKTREE_NODE_MODULES="${WEB_DIR}/node_modules"
 
