@@ -33,8 +33,8 @@ Cross-cutting packages:
 
 **Dependency rule**: `L(n)` may depend on `L(n-1)` and below, never upward. SQL/DB code lives in `storage/`, not in domain layers.
 
-For the full layer model specification, including the canonical top-to-bottom
-L1→L10 stack chart, the segmented concept/status chart, and the
+For the full layer model specification, including the canonical L1→L10 stack
+reference, the detailed concept/algorithm status chart, and the
 implementation-vs-literature breakdown, see
 [lidar-data-layer-model.md](lidar-data-layer-model.md).
 
@@ -44,7 +44,7 @@ implementation-vs-literature breakdown, see
 
 | Document                                                                                                             | Scope                                                                          |
 | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical ten-layer model with stack chart, concept/status chart, and package mapping |
+| [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical ten-layer model with stack reference, concept/algorithm chart, and package mapping |
 | [lidar-layer-alignment-refactor-review-20260217.md](lidar-layer-alignment-refactor-review-20260217.md)               | Layer alignment review: completed migration, complexity analysis, file splits  |
 | [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams      |
 | [foreground_tracking.md](foreground_tracking.md)                                                                     | Foreground extraction and tracking pipeline design                             |

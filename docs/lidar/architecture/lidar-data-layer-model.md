@@ -30,94 +30,179 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## Canonical L1-L10 Stack Chart
 
-This is the canonical top-to-bottom stack view. When diagrams elsewhere discuss
-LiDAR layers, they should stay visually anchored to this ordering: **L1 at the
-top, L10 at the bottom**.
-
-```mermaid
-flowchart TD
-    L1["L1 Packets"] --> L2["L2 Frames"] --> L3["L3 Grid"] --> L4["L4 Perception"] --> L5["L5 Tracks"] --> L6["L6 Objects"] --> L7["L7 Scene"] --> L8["L8 Analytics"] --> L9["L9 Endpoints"] --> L10["L10 Clients"]
-```
+The table above is the canonical L1-L10 stack reference. This section remains
+as the stable anchor for summaries that refer to the locked layer ordering.
+The concept chart below is the primary visual reference.
 
 ## Segmented Concept Status Chart
 
-This chart is the compact concept/status breakdown. It is intentionally more
-granular than the stack chart: each square is a paper family, algorithm family,
-or repo concept, marked with an emoji-only status cue inside its layer box.
+This is the primary visual breakdown for the layer model. It focuses on bodies
+of work, concepts, and algorithm families rather than package names alone.
+Solid arrows show the dominant active/runtime flow; dashed arrows show future,
+planned, or reference extensions.
 
 ```mermaid
 flowchart TD
+    classDef implemented fill:#dff3e4,stroke:#2f6b3b,color:#183a1f;
+    classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
+    classDef planned fill:#dce8ff,stroke:#3567a8,color:#17345c;
+    classDef proposal fill:#ffe4cc,stroke:#b8631b,color:#5b2d00;
+    classDef reference fill:#eceff3,stroke:#6b7280,color:#374151;
+    classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
+
     subgraph L1["L1 Packets"]
         direction LR
-        C11["UDP / PCAP split ✅"]
+        A11["Packet-driver split ✅"]
+        A12["Live UDP + PCAP replay ✅"]
+        A13["Multi-sensor transport envelopes 📋"]
     end
 
     subgraph L2["L2 Frames"]
         direction LR
-        C12["Range-image frame assembly ✅"]
-        C13["Ego-motion compensation ➖"]
+        A21["Sequential frame assembly ✅"]
+        A22["Cartesian transforms / export ✅"]
+        A23["Time alignment / sequencing ✅"]
+        A24["Ego-motion compensation ➖"]
     end
 
     subgraph L3["L3 Grid"]
         direction LR
-        C21["EMA / GMM-style background ✅"]
-        C22["Foreground ratio / drift heuristics ✅"]
-        C23["Anchor stability input 🧪"]
-        C24["OctoMap / TSDF alternatives 📚"]
+        A31["Polar EMA background ✅"]
+        A32["Warmup / freeze / lock / reacquire ✅"]
+        A33["Region persistence / restore ✅"]
+        A34["Foreground ratio / drift integrity ✅"]
+        A35["Anchor-informed stability 🧪"]
     end
 
     subgraph L4["L4 Perception"]
         direction LR
-        C31["DBSCAN clustering ✅"]
-        C32["Height-band ground filter ✅"]
-        C33["Tile-plane / vector-scene ground 📋"]
-        C34["Static surface anchor extraction 🧪"]
+        A41["Height-band ground filter ✅"]
+        A42["DBSCAN clustering ✅"]
+        A43["PCA / OBB geometry ✅"]
+        A44["Tile-plane ground 📋"]
+        A45["Vector-scene extraction 📋"]
+        A46["Static surface anchor extraction 🧪"]
     end
 
     subgraph L5["L5 Tracks"]
         direction LR
-        C41["CV Kalman + Hungarian ✅"]
-        C42["CA / CTRV / IMM motion models 📋"]
+        A51["CV Kalman state ✅"]
+        A52["Hungarian assignment ✅"]
+        A53["Occlusion coasting ✅"]
+        A54["CA / CTRV / IMM models 📋"]
     end
 
     subgraph L6["L6 Objects"]
         direction LR
-        C43["Rule-based labels ✅"]
-        C44["AV 28-class mapping 🔄"]
+        A61["Rule-based semantic labels ✅"]
+        A62["Track quality / comparison ✅"]
+        A63["AV 28-class mapping 🔄"]
     end
 
     subgraph L7["L7 Scene"]
         direction LR
-        C51["Persistent scene / priors 📋"]
+        A71["Persistent scene features 📋"]
+        A72["Canonical object merge 📋"]
+        A73["OSM / map priors 📋"]
+        A74["Anchor cache / priors 🧪"]
     end
 
     subgraph L8["L8 Analytics"]
         direction LR
-        C52["Run comparison / IoU / scorecards 🔄"]
+        A81["Run scorecards / diffs 🔄"]
+        A82["Traffic metrics / percentiles 🔄"]
+        A83["Shake diagnostics 🧪"]
+        A84["Temporal IoU / evaluation 🔄"]
     end
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        C53["REST / gRPC / dashboards 🔄"]
+        A91["gRPC frame streams 🔄"]
+        A92["REST / dashboard payloads 🔄"]
+        A93["Debug surfaces / overlays 🔄"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
-        C54["Svelte / Swift / PDF clients 📄"]
+        A101["Swift visualiser 📄"]
+        A102["Web dashboards 📄"]
+        A103["PDF / export clients 📄"]
     end
 
-    C11 --> C12 --> C21 --> C31 --> C41 --> C43 --> C51 --> C52 --> C53 --> C54
-    C13 --> C12
-    C23 --> C21
-    C34 --> C51
-    C44 --> C51
+    A11 --> A21
+    A12 --> A23
+    A13 -.-> A23
+
+    A21 --> A31
+    A22 --> A41
+    A22 --> A42
+    A23 --> A52
+    A23 -.-> A24
+    A24 -.-> A72
+
+    A31 --> A32
+    A32 --> A42
+    A32 --> A33
+    A34 --> A32
+    A35 --> A32
+
+    A41 --> A44
+    A42 --> A43
+    A43 --> A52
+    A44 --> A45
+    A45 --> A71
+    A46 --> A74
+
+    A52 --> A51
+    A51 --> A53
+    A54 -.-> A51
+    A53 --> A61
+
+    A61 --> A62
+    A63 --> A72
+
+    A33 --> A71
+    A71 --> A72
+    A73 --> A72
+    A74 --> A83
+    A74 -.-> A35
+
+    A72 --> A81
+    A72 --> A82
+    A83 --> A93
+    A84 --> A91
+    A81 --> A91
+    A82 --> A92
+
+    A91 --> A101
+    A92 --> A102
+    A93 --> A101
+    A93 --> A103
+
+    class A11,A12,A21,A22,A23,A31,A32,A33,A34,A41,A42,A43,A51,A52,A53,A61,A62 implemented;
+    class A63,A81,A82,A84,A91,A92,A93 partial;
+    class A13,A44,A45,A54,A71,A72,A73 planned;
+    class A35,A46,A74,A83 proposal;
+    class A24 reference;
+    class A101,A102,A103 client;
 ```
+
+**Legend**
+
+- Green `✅`: implemented in the current runtime.
+- Amber `🔄`: partially implemented, export-facing, or active but incomplete.
+- Blue `📋`: planned but not yet active in the main runtime.
+- Orange `🧪`: proposal or experimental research path.
+- Grey `➖`: contextual or reference-only concept.
+- Beige `📄`: downstream/client surface rather than a core runtime layer package.
+- Solid arrows: dominant active/runtime flow.
+- Dashed arrows: future, optional, or reference extension.
 
 ## Layered Concept and Literature Status
 
-The stack chart shows where layers live. The segmented chart shows which ideas
-within those layers are active. This table makes the paper/concept mapping
-explicit.
+The ten-layer table above shows where layers live. The concept chart shows
+which ideas within those layers are active. This table makes the
+paper/concept mapping explicit.
 
 | Layer(s) | Concept family | Representative papers / standards | Repo status |
 | --- | --- | --- | --- |
@@ -348,11 +433,11 @@ Each layer package may only import from lower-numbered layers — never upward o
 
 Each layer's algorithms align with established research in LiDAR processing, 3D object detection, and multi-object tracking. This section maps velocity.report's implementation choices to the relevant literature, providing both justification and pointers for future contributors.
 
-Use the charts above as the fast visual index:
+Use the references above as the fast visual index:
 
-- the **stack chart** answers where a capability belongs;
-- the **segmented chart** answers whether a paper/concept family is active,
-  partial, planned, or just contextual.
+- the **ten-layer table** answers where a capability belongs;
+- the **concept chart** answers which bodies of work are implemented, partial,
+  planned, proposed, or merely contextual.
 
 ### L1 Packets — sensor transport
 
