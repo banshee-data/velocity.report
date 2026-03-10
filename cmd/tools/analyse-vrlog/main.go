@@ -193,13 +193,14 @@ type ClassStats struct {
 	AvgObservations float64 `json:"avg_observations"`
 }
 
-// DistStats captures min/max/avg/p50/p95 for a distribution.
+// DistStats captures min/max/avg/p50/p85/p98 for a distribution.
 type DistStats struct {
 	Min     float64 `json:"min"`
 	Max     float64 `json:"max"`
 	Avg     float64 `json:"avg"`
 	P50     float64 `json:"p50"`
-	P95     float64 `json:"p95"`
+	P85     float64 `json:"p85"`
+	P98     float64 `json:"p98"`
 	Samples int     `json:"samples"`
 }
 
@@ -582,9 +583,9 @@ func runReport(vrlogPath string) error {
 			TentativeTracks:    tentativeCount,
 			DeletedTracks:      deletedCount,
 			FragmentationRatio: fragRatio,
-			ObservationCount:   computeDistStatsFromFloat(confirmedObsCounts),
-			TrackDurationSecs:  computeDistStatsFromFloat(confirmedDurations),
-			TrackLengthMetres:  computeDistStatsFromFloat(confirmedLengths),
+			ObservationCount:   computeDistStats(confirmedObsCounts),
+			TrackDurationSecs:  computeDistStats(confirmedDurations),
+			TrackLengthMetres:  computeDistStats(confirmedLengths),
 			Occlusion: &OcclusionSummary{
 				MeanOcclusionCount: meanOcc,
 				MaxOcclusionFrames: maxOccFramesGlobal,
@@ -641,14 +642,14 @@ func runCompare(pathA, pathB, outPath string) error {
 
 	overlap := l6objects.ComputeTemporalIoU(aStart, aEnd, bStart, bEnd)
 
-	overlapStart := max64(aStart, bStart)
-	overlapEnd := min64(aEnd, bEnd)
+	overlapStart := max(aStart, bStart)
+	overlapEnd := min(aEnd, bEnd)
 	overlapSecs := 0.0
 	if overlapEnd > overlapStart {
 		overlapSecs = float64(overlapEnd-overlapStart) / 1e9
 	}
-	unionStart := min64(aStart, bStart)
-	unionEnd := max64(aEnd, bEnd)
+	unionStart := min(aStart, bStart)
+	unionEnd := max(aEnd, bEnd)
 	unionSecs := float64(unionEnd-unionStart) / 1e9
 
 	// Track matching (§8.3) — build lightweight track descriptors for Hungarian
@@ -753,22 +754,20 @@ func runCompare(pathA, pathB, outPath string) error {
 	// Speed correlation (Pearson r)
 	speedCorr := 0.0
 	if len(matches) >= 2 {
+		// Index speeds by track ID to avoid O(matches × tracks) lookups.
+		speedByA := make(map[string]float64, len(tracksA))
+		for _, t := range tracksA {
+			speedByA[t.id] = float64(t.avgSpeed)
+		}
+		speedByB := make(map[string]float64, len(tracksB))
+		for _, t := range tracksB {
+			speedByB[t.id] = float64(t.avgSpeed)
+		}
 		xs := make([]float64, len(matches))
 		ys := make([]float64, len(matches))
 		for i, m := range matches {
-			// Find original speeds from tracks
-			for _, tA := range tracksA {
-				if tA.id == m.ATrackID {
-					xs[i] = float64(tA.avgSpeed)
-					break
-				}
-			}
-			for _, tB := range tracksB {
-				if tB.id == m.BTrackID {
-					ys[i] = float64(tB.avgSpeed)
-					break
-				}
-			}
+			xs[i] = speedByA[m.ATrackID]
+			ys[i] = speedByB[m.BTrackID]
 		}
 		speedCorr = pearsonR(xs, ys)
 	}
@@ -926,24 +925,23 @@ func computeDistStats(vals []float64) *DistStats {
 		sum += v
 	}
 
-	p50Idx := n / 2
-	p95Idx := int(math.Floor(float64(n) * 0.95))
-	if p95Idx >= n {
-		p95Idx = n - 1
+	percentileIdx := func(p float64) int {
+		idx := int(math.Floor(float64(n) * p))
+		if idx >= n {
+			idx = n - 1
+		}
+		return idx
 	}
 
 	return &DistStats{
 		Min:     sorted[0],
 		Max:     sorted[n-1],
 		Avg:     sum / float64(n),
-		P50:     sorted[p50Idx],
-		P95:     sorted[p95Idx],
+		P50:     sorted[percentileIdx(0.50)],
+		P85:     sorted[percentileIdx(0.85)],
+		P98:     sorted[percentileIdx(0.98)],
 		Samples: n,
 	}
-}
-
-func computeDistStatsFromFloat(vals []float64) *DistStats {
-	return computeDistStats(vals)
 }
 
 func buildSpeedHistogram(speeds []float32, binWidth float64) []HistogramBin {
@@ -967,6 +965,9 @@ func buildSpeedHistogram(speeds []float32, binWidth float64) []HistogramBin {
 
 	for _, s := range speeds {
 		idx := int(float64(s) / binWidth)
+		if idx < 0 {
+			idx = 0
+		}
 		if idx >= nBins {
 			idx = nBins - 1
 		}
@@ -998,18 +999,4 @@ func pearsonR(xs, ys []float64) float64 {
 		return 0
 	}
 	return num / den
-}
-
-func max64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min64(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
 }

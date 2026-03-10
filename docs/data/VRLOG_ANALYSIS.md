@@ -13,7 +13,7 @@ designed to be:
 - **Toolable** — flat per-track rows export trivially to CSV; histograms render
   directly in plotting libraries.
 
-**Status:** Draft — not yet implemented.
+**Status:** Draft — initial implementation landed; spec and code may diverge until stable.
 **Target tool:** `cmd/tools/analyse-vrlog/` (new CLI).
 **Companion spec:** [`VRLOG_FORMAT.md`](VRLOG_FORMAT.md) — recording wire format.
 
@@ -111,8 +111,8 @@ Aggregate statistics across all frames in the recording.
     "max": 112.8,
     "avg": 100.1,
     "p50": 100.0,
-    "p95": 105.3,
-    "p99": 110.1,
+    "p85": 103.2,
+    "p98": 110.1,
     "samples": 1799,
   },
 }
@@ -139,7 +139,8 @@ Aggregate statistics across all confirmed tracks.
     "max": 87,
     "avg": 18.3,
     "p50": 14,
-    "p95": 52,
+    "p85": 38,
+    "p98": 52,
   },
 
   "track_duration_secs": {
@@ -148,7 +149,8 @@ Aggregate statistics across all confirmed tracks.
     "max": 8.7,
     "avg": 1.83,
     "p50": 1.4,
-    "p95": 5.2,
+    "p85": 3.8,
+    "p98": 5.2,
   },
 
   "track_length_metres": {
@@ -157,7 +159,8 @@ Aggregate statistics across all confirmed tracks.
     "max": 42.5,
     "avg": 8.7,
     "p50": 5.2,
-    "p95": 30.1,
+    "p85": 18.4,
+    "p98": 30.1,
   },
 
   "occlusion": {
