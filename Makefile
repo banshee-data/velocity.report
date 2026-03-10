@@ -58,6 +58,8 @@ help:
 	@echo ""
 	@echo "VISUALISER TOOLS:"
 	@echo "  record-sample        Generate sample .vrlog file for testing"
+	@echo "  vrlog-analyse        Generate analysis.json for a .vrlog (VRLOG=path)"
+	@echo "  vrlog-compare        Compare two .vrlog analyses (VRLOG_A=path VRLOG_B=path)"
 	@echo ""
 	@echo "TESTING:"
 	@echo "  test                 Run all tests (Go + Python + Web + macOS)"
@@ -132,7 +134,8 @@ help:
 	@echo "  stats-live           Capture live LiDAR snapshots"
 	@echo "  stats-pcap           Capture PCAP replay snapshots (PCAP=file.pcap)"
 	@echo "  profile-macos-lidar  Poll Go/Swift process metrics, then auto-start PCAP replay"
-	@echo "  run-pcap-stats       PCAP capture stats — frame rate, RPM (FILE=path)"
+	@echo "  run-pcap-stats       PCAP capture stats — frame rate, RPM (PCAP=path)"
+	@echo "  run-pcap-stats-10s   PCAP per-10s frame rate (PCAP=path)"
 	@echo ""
 	@echo "API SHORTCUTS (LiDAR HTTP API):"
 	@echo "  api-grid-status      Get grid status"
@@ -691,6 +694,18 @@ record-sample:
 	@echo "Output: $(RECORD_OUTPUT)"
 	@echo "Frames: $(RECORD_FRAMES)"
 	go run ./cmd/tools/gen-vrlog -o $(RECORD_OUTPUT) -n $(RECORD_FRAMES)
+
+# Analyse a .vrlog recording — generates analysis.json inside the .vrlog directory.
+# Usage: make vrlog-analyse VRLOG=/path/to/recording.vrlog
+vrlog-analyse:
+	@test -n "$(VRLOG)" || { echo "Error: VRLOG required. Usage: make vrlog-analyse VRLOG=/path/to/recording.vrlog"; exit 1; }
+	go run ./cmd/tools/vrlog-analyse report "$(VRLOG)"
+
+# Compare two .vrlog analyses — prints comparison JSON to stdout or to a file.
+# Usage: make vrlog-compare VRLOG_A=/path/a.vrlog VRLOG_B=/path/b.vrlog [COMPARE_OUT=output.json]
+vrlog-compare:
+	@test -n "$(VRLOG_A)" -a -n "$(VRLOG_B)" || { echo "Error: VRLOG_A and VRLOG_B required. Usage: make vrlog-compare VRLOG_A=a.vrlog VRLOG_B=b.vrlog"; exit 1; }
+	go run ./cmd/tools/vrlog-analyse compare "$(VRLOG_A)" "$(VRLOG_B)" $(if $(COMPARE_OUT),-o $(COMPARE_OUT))
 
 # =============================================================================
 # TESTING

@@ -1,9 +1,9 @@
-// Command analyse-vrlog generates analysis reports from .vrlog recordings.
+// Command vrlog-analyse generates analysis reports from .vrlog recordings.
 //
 // Usage:
 //
-//	analyse-vrlog report <path.vrlog>              # generate analysis.json
-//	analyse-vrlog compare <a.vrlog> <b.vrlog>      # compare two recordings
+//	vrlog-analyse report <path.vrlog>              # generate analysis.json
+//	vrlog-analyse compare <a.vrlog> <b.vrlog>      # compare two recordings
 package main
 
 import (
@@ -18,8 +18,8 @@ import (
 func main() {
 	if len(os.Args) < 3 {
 		fmt.Fprintf(os.Stderr, "Usage:\n")
-		fmt.Fprintf(os.Stderr, "  analyse-vrlog report <path.vrlog>\n")
-		fmt.Fprintf(os.Stderr, "  analyse-vrlog compare <a.vrlog> <b.vrlog> [-o output.json]\n")
+		fmt.Fprintf(os.Stderr, "  vrlog-analyse report <path.vrlog>\n")
+		fmt.Fprintf(os.Stderr, "  vrlog-analyse compare <a.vrlog> <b.vrlog> [-o output.json]\n")
 		os.Exit(1)
 	}
 
