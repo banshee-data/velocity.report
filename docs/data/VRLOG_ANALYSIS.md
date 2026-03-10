@@ -281,27 +281,19 @@ One entry per track (all states). Sorted by `first_seen_ns` ascending.
 The `speed_samples` array contains one Kalman-derived speed per observation frame.
 This enables:
 
-- Per-track speed histograms and percentile computation downstream.
 - Jitter visualisation (plot speed over time).
 - Comparison of speed profiles between matched tracks across runs.
+- Variance and RMS jitter computation (§12.1).
 
-For recordings with > 10,000 total observations, speed samples MAY be omitted
-and replaced with a per-track percentile summary:
-
-```jsonc
-"speed_percentiles": {
-  "p50": 8.4,
-  "p85": 8.8,
-  "p98": 9.0
-}
-```
+Note: percentiles are only meaningful across groups of tracks (§4, §6), not
+within a single track's observation sequence.
 
 ---
 
 ## 6. Speed Histogram
 
 Aggregate speed distribution across all confirmed tracks, using each track's
-`avg_speed_mps`. Bin width is configurable (default 1 m/s).
+`max_speed_mps`. Bin width is configurable (default 1 m/s).
 
 ```jsonc
 {
