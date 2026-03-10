@@ -2,9 +2,11 @@
 
 Current architecture documentation for the velocity.report LiDAR subsystem.
 
-## Six-Layer Model
+## Ten-Layer Model
 
-The LiDAR pipeline uses a six-layer model. Each layer has a canonical Go package under `internal/lidar/`:
+The LiDAR pipeline now uses the canonical ten-layer model. The active
+single-sensor runtime still lives mostly in L1-L6, while L7-L10 define scene,
+analytics, endpoint, and client responsibilities.
 
 | Layer         | Package         | Responsibility                                                          |
 | ------------- | --------------- | ----------------------------------------------------------------------- |
@@ -14,6 +16,10 @@ The LiDAR pipeline uses a six-layer model. Each layer has a canonical Go package
 | L4 Perception | `l4perception/` | Per-frame object primitives: DBSCAN clustering, OBB, ground removal     |
 | L5 Tracks     | `l5tracks/`     | Multi-frame identity: Kalman tracking, Hungarian assignment, lifecycle  |
 | L6 Objects    | `l6objects/`    | Semantic interpretation: classification, quality scoring, comparison    |
+| L7 Scene      | `l7scene/`      | Persistent world model, priors, canonical geometry, multi-sensor fusion |
+| L8 Analytics  | `l8analytics/`  | Canonical metrics, scoring, run comparison                              |
+| L9 Endpoints  | `l9endpoints/`  | Server-side payload shaping, APIs, dashboards, streams                  |
+| L10 Clients   | _(no Go pkg)_   | Web, native, and PDF consumers                                          |
 
 Cross-cutting packages:
 
@@ -27,7 +33,10 @@ Cross-cutting packages:
 
 **Dependency rule**: `L(n)` may depend on `L(n-1)` and below, never upward. SQL/DB code lives in `storage/`, not in domain layers.
 
-For the full layer model specification, see [lidar-data-layer-model.md](lidar-data-layer-model.md).
+For the full layer model specification, including the canonical top-to-bottom
+L1→L10 stack chart, the segmented concept/status chart, and the
+implementation-vs-literature breakdown, see
+[lidar-data-layer-model.md](lidar-data-layer-model.md).
 
 ## Architecture Documents
 
@@ -35,7 +44,7 @@ For the full layer model specification, see [lidar-data-layer-model.md](lidar-da
 
 | Document                                                                                                             | Scope                                                                          |
 | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical six-layer model with package mapping                                 |
+| [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical ten-layer model with stack chart, concept/status chart, and package mapping |
 | [lidar-layer-alignment-refactor-review-20260217.md](lidar-layer-alignment-refactor-review-20260217.md)               | Layer alignment review: completed migration, complexity analysis, file splits  |
 | [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams      |
 | [foreground_tracking.md](foreground_tracking.md)                                                                     | Foreground extraction and tracking pipeline design                             |

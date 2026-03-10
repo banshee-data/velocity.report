@@ -6,7 +6,7 @@ Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P integrati
 
 ### `architecture/`
 
-Core system design and implementation specifications. See [architecture/README.md](architecture/README.md) for the consolidated architecture overview including the six-layer model and current package layout.
+Core system design and implementation specifications. See [architecture/README.md](architecture/README.md) for the consolidated architecture overview, and [architecture/lidar-data-layer-model.md](architecture/lidar-data-layer-model.md) for the canonical ten-layer stack chart plus the segmented concept/paper status breakdown.
 
 ### `operations/`
 
@@ -75,6 +75,9 @@ Tracking pipeline refactor and upgrade proposals.
 
 | Topic                   | Document                                                                                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layer stack chart       | [architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-chart](architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-chart) |
+| Concept/status chart    | [architecture/lidar-data-layer-model.md#segmented-concept-status-chart](architecture/lidar-data-layer-model.md#segmented-concept-status-chart) |
+| Paper/status mapping    | [architecture/lidar-data-layer-model.md#layered-concept-and-literature-status](architecture/lidar-data-layer-model.md#layered-concept-and-literature-status) |
 | System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                                                             |
 | Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                                                   |
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                             |

@@ -313,7 +313,7 @@ downstream symptoms:
 Anchor-based shake is more direct. It says "the sensor moved" instead of "the
 grid is behaving strangely."
 
-### 6.2 Raw-frame side path
+### 6.2 Raw-frame side path, anchored to the full L1-L10 stack
 
 If the stability signal is meant to protect L3, anchor extraction cannot rely
 only on post-L3 foreground outputs because static reflective signs are exactly
@@ -328,17 +328,47 @@ So the intended data path is:
 5. let L3 consume that signal before it commits to learning/restore actions.
 
 ```mermaid
-flowchart LR
-    L2["L2 Raw Frame"] --> A["Reflective Anchor Extractor"]
-    L2 --> G["L3 EWA/EMA Grid"]
-    A --> M["Anchor Matcher"]
-    L7["L7 Cached Sign Anchors"] --> M
+flowchart TD
+    subgraph L1["L1 Packets"]
+        P["UDP / PCAP / serial transport"]
+    end
+    subgraph L2["L2 Frames"]
+        F["LiDARFrame\nraw-frame side tap\noptional micro-pose apply"]
+    end
+    subgraph L3["L3 Grid"]
+        G["EWA / EMA grid\nwarmup / freeze / lock / reacquire\nconsumes FrameStabilitySignal"]
+    end
+    subgraph L4["L4 Perception"]
+        A["Reflective anchor extraction"]
+    end
+    subgraph L5["L5 Tracks"]
+        T["Track continuity\nindirect downstream benefit"]
+    end
+    subgraph L6["L6 Objects"]
+        O["Optional 28-class\nsign semantic"]
+    end
+    subgraph L7["L7 Scene"]
+        H["Persistent sign polygons\nanchor cache"]
+    end
+    subgraph L8["L8 Analytics"]
+        N["Shake metrics\nscorecards\ncomparison"]
+    end
+    subgraph L9["L9 Endpoints"]
+        E["APIs / debug surfaces"]
+    end
+    subgraph L10["L10 Clients"]
+        C["Web / Swift / PDF"]
+    end
+
+    P --> F --> G --> A --> T --> O --> H --> N --> E --> C
+    F -. "raw side tap" .-> A
+    A --> M["Anchor matcher / estimator"]
+    H --> M
     M --> S["FrameStabilitySignal"]
     S --> G
-    S --> C["Optional Micro-Pose Correction"]
-    C --> G
-    S --> L8["L8 Analytics / Diagnostics"]
-    M --> L7
+    S --> N
+    S --> E
+    M --> H
 ```
 
 ## 7. Unification with EWA / Grid Signals

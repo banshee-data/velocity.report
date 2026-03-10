@@ -1,7 +1,7 @@
 # LiDAR Data Layer Model (Ten Layers)
 
 **Status:** Canonical reference — layer numbers are locked for codebase stability from v0.5.0 onwards.
-**Last updated:** 2026-03-08
+**Last updated:** 2026-03-10
 
 ## Purpose
 
@@ -27,6 +27,118 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🔄 Partial     |
 | L9    | **Endpoints**  | Server-side payload shaping, gRPC stream, dashboards, debug views                        | gRPC `FrameUpdate`, chart view-models, ECharts payloads                                   | 🔄 Partial     |
 | L10   | **Clients**    | Downstream rendering consumers (documentation label — no Go package)                     | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 📄 Doc-only    |
+
+## Canonical L1-L10 Stack Chart
+
+This is the canonical top-to-bottom stack view. When diagrams elsewhere discuss
+LiDAR layers, they should stay visually anchored to this ordering: **L1 at the
+top, L10 at the bottom**.
+
+```mermaid
+flowchart TD
+    subgraph SensorTier["Sensor / Runtime Tier"]
+        direction TB
+        L1["L1 Packets\nwire transport / capture\n✅ Implemented"]
+        L2["L2 Frames\ntime-coherent frame assembly\n✅ Implemented"]
+        L3["L3 Grid\nbackground / foreground state\n✅ Implemented"]
+        L4["L4 Perception\nper-frame geometry and measurements\n✅ Implemented"]
+        L5["L5 Tracks\nidentity and motion continuity\n✅ Implemented"]
+        L6["L6 Objects\nsemantic interpretation\n✅ Implemented"]
+        L1 --> L2 --> L3 --> L4 --> L5 --> L6
+    end
+
+    subgraph SceneTier["Scene Tier"]
+        direction TB
+        L7["L7 Scene\npersistent world model / priors / fusion\n📋 Planned"]
+    end
+
+    subgraph ConsumptionTier["Consumption Tier"]
+        direction TB
+        L8["L8 Analytics\ncomparison / scoring / metrics\n🔄 Partial"]
+        L9["L9 Endpoints\npayload shaping / APIs / streams\n🔄 Partial"]
+        L10["L10 Clients\nweb / native / PDF consumers\n📄 Doc-only"]
+        L8 --> L9 --> L10
+    end
+
+    L6 --> L7 --> L8
+```
+
+## Segmented Concept Status Chart
+
+This chart is the compact concept/status breakdown. It is intentionally more
+granular than the stack chart: each bubble is a paper family, algorithm family,
+or repo concept, marked by whether it is active, partial, planned, or merely a
+reference point.
+
+```mermaid
+flowchart TD
+    subgraph S1["L1-L2 Sensor / Frame Concepts"]
+        direction LR
+        C11(("UDP / PCAP split\n✅ active"))
+        C12(("Range-image frame assembly\n✅ active"))
+        C13(("Ego-motion compensation\nnot needed for static mounts"))
+    end
+
+    subgraph S2["L3 Grid Concepts"]
+        direction LR
+        C21(("EMA / GMM-style background\n✅ active"))
+        C22(("Foreground ratio / drift heuristics\n✅ active"))
+        C23(("Anchor stability input\n🧪 proposal"))
+        C24(("OctoMap / TSDF alternatives\nreference only"))
+    end
+
+    subgraph S3["L4 Perception Concepts"]
+        direction LR
+        C31(("DBSCAN clustering\n✅ active"))
+        C32(("Height-band ground filter\n✅ active"))
+        C33(("Tile-plane / vector-scene ground\n📋 proposal"))
+        C34(("Reflective sign extraction\n🧪 proposal"))
+    end
+
+    subgraph S4["L5-L6 Tracking / Object Concepts"]
+        direction LR
+        C41(("CV Kalman + Hungarian\n✅ active"))
+        C42(("CA / CTRV / IMM motion models\n📋 proposal"))
+        C43(("Rule-based labels\n✅ active"))
+        C44(("AV 28-class mapping\n🔄 partial / export-facing"))
+    end
+
+    subgraph S5["L7-L10 Scene / Consumption Concepts"]
+        direction LR
+        C51(("Persistent scene / priors\n📋 planned"))
+        C52(("Run comparison / IoU / scorecards\n🔄 partial"))
+        C53(("REST / gRPC / dashboards\n🔄 partial"))
+        C54(("Svelte / Swift / PDF clients\n📄 active consumers"))
+    end
+
+    C12 --> C21 --> C31 --> C41 --> C51 --> C52 --> C53 --> C54
+    C23 --> C21
+    C34 --> C51
+    C44 --> C51
+```
+
+## Layered Concept and Literature Status
+
+The stack chart shows where layers live. The segmented chart shows which ideas
+within those layers are active. This table makes the paper/concept mapping
+explicit.
+
+| Layer(s) | Concept family | Representative papers / standards | Repo status |
+| --- | --- | --- | --- |
+| L1 | Packet-driver split | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula` | ✅ Implemented |
+| L2 | Range-image / sequential frame assembly | RangeNet++, SemanticKITTI temporal framing | ✅ Implemented |
+| L3 | Single-component adaptive background model in polar space | Stauffer-Grimson GMM lineage, OctoMap as contrast | ✅ Implemented |
+| L3 | Direct frame-stability / shake input into settling | Reflective sign pose-anchor proposal | 🧪 Proposal |
+| L4 | DBSCAN + PCA/OBB clustering | DBSCAN, PCL clustering, PCA | ✅ Implemented |
+| L4 | Height-band ground removal | Simplified ground-filter family | ✅ Implemented |
+| L4-L7 | Tile-plane / vector-scene geometry | Patchwork, ground-plane fitting, vector-scene planning | 📋 Proposed |
+| L5 | CV Kalman + Hungarian tracking | Kalman, Hungarian, SORT, AB3DMOT | ✅ Implemented |
+| L5 | CA / CTRV / IMM motion extensions | IMM / multi-model tracking literature | 📋 Proposed |
+| L6 | Rule-based semantic interpretation | Local heuristic classifier | ✅ Implemented |
+| L6 | AV taxonomy / 28-class mapping | SemanticKITTI, KITTI, nuScenes mappings | 🔄 Partial |
+| L7 | Persistent scene, priors, fusion | HD-map / scene-accumulation literature, OSM priors | 📋 Planned |
+| L8 | Run comparison, scorecards, evaluation | CLEAR MOT, KITTI-style comparison, temporal IoU | 🔄 Partial |
+| L9-L10 | Endpoint shaping and client rendering | gRPC / dashboard / visualisation surface patterns | 🔄 Partial to active |
 
 ### Design rationale for ten layers
 
@@ -239,6 +351,12 @@ Each layer package may only import from lower-numbered layers — never upward o
 ## Algorithm heritage and literature alignment
 
 Each layer's algorithms align with established research in LiDAR processing, 3D object detection, and multi-object tracking. This section maps velocity.report's implementation choices to the relevant literature, providing both justification and pointers for future contributors.
+
+Use the charts above as the fast visual index:
+
+- the **stack chart** answers where a capability belongs;
+- the **segmented chart** answers whether a paper/concept family is active,
+  partial, planned, or just contextual.
 
 ### L1 Packets — sensor transport
 
