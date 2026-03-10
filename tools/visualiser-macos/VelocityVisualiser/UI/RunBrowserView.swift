@@ -151,7 +151,7 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
 
     var body: some View {
         HStack(spacing: 0) {
-            // Col 1: 0xfirst6uuid with status dot
+            // Col 1: short UUID prefix with status dot
             HStack(spacing: 4) {
                 StatusDot(status: run.status)
                 Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(1)

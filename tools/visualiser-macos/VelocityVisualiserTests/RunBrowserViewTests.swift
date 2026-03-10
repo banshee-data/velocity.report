@@ -73,7 +73,8 @@ struct AnalysisRunComputedPropertyTests {
 
     @Test func shortIdPrefixFormat() throws {
         let run = makeRun()
-        #expect(run.shortIdPrefix == "0xrun-te")
+        // "run-test" → up to first dash = "run"
+        #expect(run.shortIdPrefix == "run")
     }
 
     @Test func shortIdPrefixWithUUID() throws {
@@ -82,7 +83,8 @@ struct AnalysisRunComputedPropertyTests {
             sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
             totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: "kirk1")
-        #expect(run.shortIdPrefix == "0x4ea0f3")
+        // UUID: first 8 chars up to first dash
+        #expect(run.shortIdPrefix == "4ea0f3ab")
         #expect(run.sceneName == "kirk1")
     }
 
