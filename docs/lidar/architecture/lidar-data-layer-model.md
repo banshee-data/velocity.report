@@ -25,7 +25,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L6    | **Objects**    | Semantic object interpretation and dataset mapping                                       | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented |
 | L7    | **Scene**      | Persistent canonical world model — accumulated geometry, priors, and multi-sensor fusion | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned     |
 | L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🔄 Partial     |
-| L9    | **Endpoints**  | Server-side payload shaping, gRPC stream, dashboards, debug views                        | gRPC `FrameUpdate`, chart view-models, ECharts payloads                                   | 🔄 Partial     |
+| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                   | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🔄 Partial     |
 | L10   | **Clients**    | Downstream rendering consumers (documentation label — no Go package)                     | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 📄 Doc-only    |
 
 ## Canonical L1-L10 Stack Reference
@@ -37,37 +37,44 @@ The concept chart below is the primary visual reference.
 ## Segmented Concept Status Chart
 
 This is the primary visual breakdown for the layer model. It shows only
-concepts backed by code in the repository today, and it is arranged around a
-single top-to-bottom spine so the layers stay visually stacked from L1 to L10.
+current-code components in the repository today. L7 is kept as an explicit
+empty slot so the canonical L1-L10 stack remains visually fixed even though
+that layer has no runtime implementation yet.
 
 ```mermaid
-flowchart TD
+flowchart TB
     classDef implemented fill:#dff3e4,stroke:#2f6b3b,color:#183a1f;
     classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
     classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
     classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
+    classDef hidden fill:transparent,stroke:transparent,color:transparent;
 
     subgraph L1["L1 Packets"]
         direction LR
-        A11["UDP packet ingestion ✅"]
+        S1[""]
+        A11["LiDAR UDP ingest ✅"]
         A12["PCAP replay ✅"]
+        R11["Radar serial ingest ✅"]
     end
 
     subgraph L2["L2 Frames"]
         direction LR
+        S2[""]
         A21["Frame assembly ✅"]
-        A22["Polar → Cartesian / export ✅"]
+        A22["Polar to Cartesian ✅"]
+        A23["ASC / LidarView export ✅"]
     end
 
     subgraph L3["L3 Grid"]
         direction LR
+        S3[""]
         A31["Polar EMA background ✅"]
-        A32["Settling lifecycle ✅"]
-        A33["Persistence / drift checks ✅"]
+        A32["Settling / drift gates ✅"]
     end
 
     subgraph L4["L4 Perception"]
         direction LR
+        S4[""]
         A41["Height-band ground filter ✅"]
         A42["DBSCAN clustering ✅"]
         A43["PCA / OBB geometry ✅"]
@@ -75,6 +82,7 @@ flowchart TD
 
     subgraph L5["L5 Tracks"]
         direction LR
+        S5[""]
         A51["Hungarian assignment ✅"]
         A52["CV Kalman tracking ✅"]
         A53["Occlusion coasting ✅"]
@@ -82,50 +90,98 @@ flowchart TD
 
     subgraph L6["L6 Objects"]
         direction LR
-        A61["Feature extraction / confidence ✅"]
-        A62["Rule-based classes: bird / pedestrian / cyclist / motorcyclist / car / truck / bus / dynamic ✅"]
-        A63["Quality metrics / run statistics ✅"]
+        S6[""]
+        A61["LiDAR features / confidence ✅"]
+        A62["LiDAR rule classes (bird, pedestrian, cyclist, motorcyclist, car, truck, bus, dynamic) ✅"]
+        A63["LiDAR run stats ✅"]
+        R61["Radar objects DB / transit sessionization ✅"]
     end
 
     subgraph L7["L7 Scene"]
         direction LR
-        A71["No current code"]
+        S7[""]
+        A71["Reserved / no current code"]
     end
 
     subgraph L8["L8 Analytics"]
         direction LR
-        A81["Run scorecards / diffs 🔄"]
-        A82["Temporal IoU / overlap 🔄"]
+        S8[""]
+        A81["Traffic metrics / chart prep ✅"]
+        A82["Run diffs / temporal IoU 🔄"]
+        R81["Radar speed stats / histograms ✅"]
     end
 
     subgraph L9["L9 Endpoints"]
         direction LR
+        S9[""]
         A91["gRPC frame streams 🔄"]
-        A92["REST APIs / dashboard payloads 🔄"]
+        A92["LiDAR REST / dashboard APIs 🔄"]
+        R91["Radar stats / report APIs ✅"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
+        S10[""]
         A101["Swift visualiser 📄"]
-        A102["Svelte web lidar views 📄"]
+        A102["Svelte LiDAR views 📄"]
+        R101["Svelte report UI 📄"]
+        R102["PDF generator 📄"]
     end
 
-    A11 --> A12 --> A21 --> A22 --> A31 --> A32 --> A33 --> A41 --> A42 --> A43 --> A51 --> A52 --> A53 --> A61 --> A62 --> A63 --> A71 --> A81 --> A82 --> A91 --> A92 --> A101
+    S1 ~~~ S2
+    S2 ~~~ S3
+    S3 ~~~ S4
+    S4 ~~~ S5
+    S5 ~~~ S6
+    S6 ~~~ S7
+    S7 ~~~ S8
+    S8 ~~~ S9
+    S9 ~~~ S10
+
+    A11 --> A21
+    A12 --> A21
+    A21 --> A22
+    A22 --> A23
+    A22 --> A31
+    A31 --> A32
+    A32 --> A41
+    A41 --> A42
+    A42 --> A43
+    A43 --> A51
+    A51 --> A52
+    A52 --> A53
+    A53 --> A61
+    A61 --> A62
+    A62 --> A63
+    A63 --> A81
+    A63 --> A82
+    A53 --> A91
+    A81 --> A92
+    A82 --> A92
+    A91 --> A101
     A92 --> A102
 
-    class A11,A12,A21,A22,A31,A32,A33,A41,A42,A43,A51,A52,A53,A61,A62,A63 implemented;
-    class A81,A82,A91,A92 partial;
+    R11 -.-> R61
+    R61 --> R81
+    R81 --> R91
+    R91 --> R101
+    R91 --> R102
+
+    class S1,S2,S3,S4,S5,S6,S7,S8,S9,S10 hidden;
+    class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,R81,R91 implemented;
+    class A82,A91,A92 partial;
     class A71 gap;
-    class A101,A102 client;
+    class A101,A102,R101,R102 client;
 ```
 
 **Legend**
 
 - Green `✅`: implemented in the current runtime.
-- Amber `🔄`: partially implemented, export-facing, or active but incomplete.
-- Grey: layer exists in the model but has no current code in this path.
+- Amber `🔄`: current code exists, but the layer surface is still partial or evolving.
+- Grey: reserved layer slot with no current runtime code.
 - Beige `📄`: downstream/client surface rather than a core runtime layer package.
-- Arrows: dominant current-code flow from L1 down to L10.
+- Solid arrows: dominant current-code flow through that branch.
+- Dashed arrows: current-code branch that skips intermediate layers in the canonical stack.
 
 ## Layered Concept and Literature Status
 
