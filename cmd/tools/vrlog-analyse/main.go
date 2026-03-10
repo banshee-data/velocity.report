@@ -28,11 +28,10 @@ func main() {
 	cmd := os.Args[1]
 	switch cmd {
 	case "report":
-		report, outPath, err := analysis.GenerateReport(os.Args[2])
+		_, outPath, err := analysis.GenerateReport(os.Args[2])
 		if err != nil {
 			log.Fatalf("report failed: %v", err)
 		}
-		_ = report
 		log.Printf("Wrote %s", outPath)
 
 	case "compare":
@@ -40,7 +39,10 @@ func main() {
 			log.Fatalf("compare requires two .vrlog paths")
 		}
 		outPath := ""
-		if len(os.Args) >= 6 && os.Args[4] == "-o" {
+		if len(os.Args) >= 5 && os.Args[4] == "-o" {
+			if len(os.Args) < 6 {
+				log.Fatalf("-o requires an output path argument")
+			}
 			outPath = os.Args[5]
 		}
 		comparison, err := analysis.CompareReports(os.Args[2], os.Args[3], outPath)
