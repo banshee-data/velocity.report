@@ -273,6 +273,7 @@ private let logger = DevLogger(category: "AppState")
     private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
     private var queuedSeekProgress: Double?
     private var playbackStateGeneration: UInt64 = 0
+    private var lastSeenReplayEpoch: UInt64 = 0
 
     // MARK: - Run State
 
@@ -1178,6 +1179,20 @@ private let logger = DevLogger(category: "AppState")
             totalFrames = playbackInfo.totalFrames
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
+
+            // Detect replay source change (e.g. VRLOG→PCAP transition).
+            // When the epoch advances, clear accumulated track state so stale
+            // history from the previous replay doesn't contaminate the new one.
+            let epoch = playbackInfo.replayEpoch
+            if epoch > 0 && epoch != lastSeenReplayEpoch {
+                logger.info(
+                    "Replay epoch changed \(lastSeenReplayEpoch) → \(epoch), clearing track state")
+                lastSeenReplayEpoch = epoch
+                trackHistory.removeAll()
+                trackMaxSpeed.removeAll()
+                allSeenTracks.removeAll()
+                inViewTrackIDs = []
+            }
 
             // Log mode on first frame
             if frameCount == 1 {
