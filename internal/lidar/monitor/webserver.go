@@ -152,7 +152,7 @@ type WebServer struct {
 	onPlaybackPlay    func()
 	onPlaybackSeek    func(timestampNs int64) error
 	onPlaybackRate    func(rate float32)
-	onVRLogLoad       func(vrlogPath string) error
+	onVRLogLoad       func(vrlogPath string) (string, error)
 	onVRLogStop       func()
 	getPlaybackStatus func() *PlaybackStatusInfo
 
@@ -237,7 +237,7 @@ type WebServerConfig struct {
 	OnPlaybackPlay    func()
 	OnPlaybackSeek    func(timestampNs int64) error
 	OnPlaybackRate    func(rate float32)
-	OnVRLogLoad       func(vrlogPath string) error
+	OnVRLogLoad       func(vrlogPath string) (string, error)
 	OnVRLogStop       func()
 	GetPlaybackStatus func() *PlaybackStatusInfo
 }
