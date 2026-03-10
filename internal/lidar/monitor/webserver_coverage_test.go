@@ -1334,7 +1334,7 @@ func TestCov2_HandleVRLogLoad_NoCallback(t *testing.T) {
 }
 
 func TestCov2_HandleVRLogLoad_BadJSON(t *testing.T) {
-	ws := &WebServer{onVRLogLoad: func(string) error { return nil }}
+	ws := &WebServer{onVRLogLoad: func(string) (string, error) { return "proto", nil }}
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader("{bad"))
 	w := httptest.NewRecorder()
 	ws.handleVRLogLoad(w, req)
@@ -1345,7 +1345,7 @@ func TestCov2_HandleVRLogLoad_BadJSON(t *testing.T) {
 
 func TestCov2_HandleVRLogLoad_EmptyPath(t *testing.T) {
 	ws := &WebServer{
-		onVRLogLoad:  func(string) error { return nil },
+		onVRLogLoad:  func(string) (string, error) { return "proto", nil },
 		vrlogSafeDir: "/tmp",
 	}
 	body, _ := json.Marshal(map[string]string{"vrlog_path": ""})
@@ -2522,7 +2522,7 @@ func TestCov3_ResetAllState_WithTracker(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_WithRunID_NoDB(t *testing.T) {
 	ws := &WebServer{
-		onVRLogLoad: func(string) error { return nil },
+		onVRLogLoad: func(string) (string, error) { return "proto", nil },
 	}
 	body := `{"run_id": "test-run-123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
@@ -2536,7 +2536,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_NoDB(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_WithRunID_NotFound(t *testing.T) {
 	ws := setupCov3WebServer(t)
-	ws.onVRLogLoad = func(string) error { return nil }
+	ws.onVRLogLoad = func(string) (string, error) { return "proto", nil }
 	body := `{"run_id": "nonexistent"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -2549,7 +2549,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_NotFound(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_WithRunID_EmptyVRLogPath(t *testing.T) {
 	ws := setupCov3WebServer(t)
-	ws.onVRLogLoad = func(string) error { return nil }
+	ws.onVRLogLoad = func(string) (string, error) { return "proto", nil }
 
 	// Insert a run without vrlog_path
 	_, err := ws.db.Exec(
@@ -2573,7 +2573,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_EmptyVRLogPath(t *testing.T) {
 func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 	ws := setupCov3WebServer(t)
 	loadedPath := ""
-	ws.onVRLogLoad = func(p string) error { loadedPath = p; return nil }
+	ws.onVRLogLoad = func(p string) (string, error) { loadedPath = p; return "proto", nil }
 	ws.vrlogSafeDir = "/var/lib/velocity-report"
 
 	// Insert a run with vrlog_path
@@ -2600,7 +2600,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_WithPath_Relative(t *testing.T) {
 	ws := &WebServer{
-		onVRLogLoad:  func(string) error { return nil },
+		onVRLogLoad:  func(string) (string, error) { return "proto", nil },
 		vrlogSafeDir: "/var/lib/velocity-report",
 	}
 	body := `{"vrlog_path": "relative/path.vrlog"}`
@@ -2615,7 +2615,7 @@ func TestCov3_HandleVRLogLoad_WithPath_Relative(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_WithPath_OutsideSafeDir(t *testing.T) {
 	ws := &WebServer{
-		onVRLogLoad:  func(string) error { return nil },
+		onVRLogLoad:  func(string) (string, error) { return "proto", nil },
 		vrlogSafeDir: "/var/lib/velocity-report",
 	}
 	body := `{"vrlog_path": "/etc/passwd"}`
@@ -2631,7 +2631,7 @@ func TestCov3_HandleVRLogLoad_WithPath_OutsideSafeDir(t *testing.T) {
 func TestCov3_HandleVRLogLoad_WithPath_Success(t *testing.T) {
 	loadedPath := ""
 	ws := &WebServer{
-		onVRLogLoad:  func(p string) error { loadedPath = p; return nil },
+		onVRLogLoad:  func(p string) (string, error) { loadedPath = p; return "proto", nil },
 		vrlogSafeDir: "/var/lib/velocity-report",
 	}
 	body := `{"vrlog_path": "/var/lib/velocity-report/data/test.vrlog"}`
@@ -2649,7 +2649,7 @@ func TestCov3_HandleVRLogLoad_WithPath_Success(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_LoadError(t *testing.T) {
 	ws := &WebServer{
-		onVRLogLoad:  func(string) error { return fmt.Errorf("load failed") },
+		onVRLogLoad:  func(string) (string, error) { return "", fmt.Errorf("load failed") },
 		vrlogSafeDir: "/var/lib/velocity-report",
 	}
 	body := `{"vrlog_path": "/var/lib/velocity-report/test.vrlog"}`
@@ -2664,7 +2664,7 @@ func TestCov3_HandleVRLogLoad_LoadError(t *testing.T) {
 
 func TestCov3_HandleVRLogLoad_NoRunIDNoPath(t *testing.T) {
 	ws := &WebServer{
-		onVRLogLoad: func(string) error { return nil },
+		onVRLogLoad: func(string) (string, error) { return "proto", nil },
 	}
 	body := `{}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
