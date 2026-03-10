@@ -129,7 +129,7 @@ As of March 10, 2026, the highest-value open questions are:
 4. **Geometry priors plan review**
    How should OSM and community geometry priors be diffed, shifted, signed, reviewed, and exported (`.osc`, GeoJSON, synthetic aggregates) so that the workflow is useful without weakening provenance or manual review gates?
 5. **Reflective and static-surface anchors**
-   LiDAR intensity is available throughout the pipeline, but it is still unclear whether high-return signs can be turned into reliable static pose anchors, how far the threshold can be relaxed when signs are absent, and whether walls, facades, or road geometry provide enough redundant fallback structure without causing false resets under occlusion.
+   LiDAR intensity is available throughout the pipeline, but it is still unclear whether high-return signs can be turned into reliable static pose anchors, how far the threshold can be relaxed when signs are absent, whether walls, facades, or road geometry provide enough redundant fallback structure without causing false resets under occlusion, and whether a cached runtime signal back into lower layers is worth the architectural cost.
 6. **Velocity coherence**
    Velocity-coherent extraction remains proposal/planning material on the main runtime path. What benchmark pack, scorecard, and acceptance gates would prove that it beats the current foreground-plus-DBSCAN baseline strongly enough to adopt?
 7. **Config-value provenance**

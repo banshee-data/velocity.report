@@ -44,43 +44,70 @@ monitoring.
 
 ## 2. Architectural Boundary and Runtime Control
 
-The proposal keeps the existing ten-layer model intact.
+The proposal keeps the existing ten-layer model intact, but it should be read
+in two stages: a strict base case and a cache-backed reference case.
+
+### 2.1 Base case: no cache to prior layers
+
+This is the conservative architecture and should be treated as the default
+proposal shape until evidence justifies anything stronger.
 
 1. **L2 Frames**
-   Provide a raw-frame side tap for static-anchor extraction, and optionally
-   consume accepted micro-pose corrections before downstream transforms.
-2. **L3 Grid**
-   Consume a cached per-frame stability signal to modulate warmup, freeze,
-   lock, region restore, snapshot persistence, and reset/reacquire policy.
-3. **L4 Perception**
+   Provide a raw-frame side tap for static-anchor extraction.
+2. **L4 Perception**
    Detect sign, facade, wall, and ground-support anchor candidates from the
    current frame using intensity, planarity, verticality, persistence, and
    occlusion cues.
-4. **L5 Tracks**
-   Optionally consume the stability state for downstream trust/debug decisions.
-   Track continuity also helps explain whether apparent motion is global frame
-   shake or true object motion.
-5. **L6 Objects**
+3. **L6 Objects**
    If AV-style semantics are needed, a true sign candidate may map to the
    28-class `sign` taxonomy here. Non-sign anchors do not require an L6 label.
-6. **L7 Scene**
+4. **L7 Scene**
    Persist the anchor as a static polygon, plane patch, edge, or support
-   surface with uncertainty, provenance, and accumulated geometry. The anchor
-   itself belongs in L7, not L8.
-7. **L8 Analytics**
+   surface with uncertainty, provenance, and accumulated geometry.
+5. **L8 Analytics**
    Publish shake amplitudes, anchor residuals, confidence trends, and
    before/after comparison metrics.
 
-This resolves the layer question directly:
+In the base case:
 
 - the semantic "sign" label is an L6 object label;
 - the persistent anchor used for alignment is an L7 scene feature;
 - the shake summary is an L8 analytic;
-- the lower-layer consumer should read only a narrow cached
-  `FrameStabilitySignal`, not the full L7 anchor geometry.
+- L3 and other earlier layers do **not** consume anchor-derived runtime state.
 
-That last point matters. If L3 must react quickly, it needs a low-bandwidth
-runtime control signal, not a dependency on high-level scene storage.
+This preserves the strongest version of the layering guarantee: later layers
+observe and score the runtime, but they do not feed decisions back into earlier
+layers.
+
+```mermaid
+flowchart TD
+    L2["L2 Frames\nraw side tap"] --> L4["L4 Perception\nstatic-anchor extraction"]
+    L4 --> L6["L6 Objects\noptional sign semantic"]
+    L6 --> L7["L7 Scene\nanchor persistence"]
+    L7 --> L8["L8 Analytics\nshake metrics / scorecards"]
+```
+
+### 2.2 Reference case: cached runtime control signal
+
+This is the stronger operational design, but it should be treated as a
+reference extension rather than the assumed base architecture.
+
+1. **L2 Frames**
+   Still provide the raw-frame side tap, and may optionally consume accepted
+   micro-pose corrections before downstream transforms.
+2. **L3 Grid**
+   Consume a cached per-frame stability signal to modulate warmup, freeze,
+   lock, region restore, snapshot persistence, and reset/reacquire policy.
+3. **L5 Tracks**
+   May optionally consume the stability state for downstream trust/debug
+   decisions. Track continuity also helps explain whether apparent motion is
+   global frame shake or true object motion.
+4. **L7 Scene / L8 Analytics**
+   Continue to own anchor persistence, diagnostics, and scoring.
+
+In the reference case, lower-layer consumers still read only a narrow cached
+`FrameStabilitySignal`, not the full L7 anchor geometry. That is the intended
+containment boundary if the cache is adopted at all.
 
 ## 3. Anchor Representation
 
@@ -384,7 +411,11 @@ Independence should mean more than raw count. Require diversity across:
 A good practical guard is: do not trust three clusters on the same wall plane
 as equivalent to three anchors spread across different parts of the scene.
 
-## 6. FrameStabilitySignal: Cached Runtime Contract
+## 6. Reference Extension: FrameStabilitySignal Cached Runtime Contract
+
+The base case of this proposal stops at L7/L8 anchor persistence and
+diagnostics. Everything in this section is the stronger reference design where
+that evidence is cached and published back to earlier runtime layers.
 
 The raw per-frame estimate `xi_t*` is noisy. Maintain filtered estimate:
 
@@ -436,7 +467,7 @@ Recommended analytics and runtime fields:
 These metrics belong naturally in L8 Analytics, but the cached state itself is
 also a runtime control signal for L3/L2.
 
-### 6.1 Why L3 should not wait for symptoms
+### 6.1 Why the reference case pushes into L3
 
 Today the grid already has indirect motion heuristics such as foreground-ratio
 and locked-baseline drift checks. Those are useful fallbacks, but they are
@@ -450,7 +481,7 @@ downstream symptoms:
 Anchor-based shake is more direct. It says "the sensor moved" instead of "the
 grid is behaving strangely."
 
-### 6.2 Raw-frame side path, anchored to the full L1-L10 stack
+### 6.2 Reference data path, anchored to the full L1-L10 stack
 
 If the stability signal is meant to protect L3, anchor extraction cannot rely
 only on post-L3 foreground outputs because static reflective surfaces are
@@ -510,8 +541,8 @@ flowchart TD
 
 ## 7. Unification with EWA / Grid Signals
 
-The anchor signal should not replace existing L3 EWA/EMA evidence. It should
-modulate it.
+In the reference case, the cached anchor signal should not replace existing L3
+EWA/EMA evidence. It should modulate it.
 
 Existing L3 cell state already tracks:
 
@@ -866,19 +897,22 @@ Known failure modes:
 
 1. **Phase A - Analytics first**
    Detect candidates, persist anchor observations, and publish shake metrics
-   without changing runtime geometry.
+   without changing runtime geometry or feeding state back to earlier layers.
 2. **Phase B - Sign-first threshold ladder**
    Implement the adaptive high-to-mid intensity ladder and record which anchor
    family is active in each frame.
 3. **Phase C - Occlusion and fallback anchors**
    Add wall/facade/ground-support families plus explicit occlusion handling and
    redundancy scorecards.
-4. **Phase D - Runtime stability signal**
+4. **Phase D - Layering decision gate**
+   Compare the strict base case against the cache-backed reference case and
+   decide whether the runtime back-edge is justified at all.
+5. **Phase E - Runtime stability signal**
    Publish cached `FrameStabilitySignal` and let L3 consume it for
    warmup/freeze/reacquire/reset policy, without changing point coordinates.
-5. **Phase E - Replay correction**
+6. **Phase F - Replay correction**
    Apply `xi_hat_t` during offline replay/export to measure benefit safely.
-6. **Phase F - Runtime correction**
+7. **Phase G - Runtime correction**
    Feed accepted micro-pose updates into the live transform path only if the
    replay scorecard shows a clear win and failure gating is strong.
 
@@ -886,3 +920,13 @@ This keeps the proposal aligned with the repo's metrics-first contract: use the
 anchor ladder to explain and measure sensor shake first, then let lower layers
 react to that instability, and only then earn the right to correct runtime
 geometry.
+
+## 15. Open Questions
+
+1. **Is the cache worth the layering cost?**
+   The strict base case keeps the one-direction layer guarantee intact: anchors
+   live in L7/L8 and only produce diagnostics. The reference case adds a narrow
+   cached back-edge (`FrameStabilitySignal`) into earlier runtime layers such as
+   L3. What measured gain in false-reset reduction, reacquire latency, static
+   jitter, or operational clarity would justify weakening the "later layers do
+   not feed earlier layers" guarantee?
