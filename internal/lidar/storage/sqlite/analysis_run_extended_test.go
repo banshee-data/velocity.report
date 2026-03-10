@@ -227,10 +227,7 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 			EndUnixNanos:     2000,
 			ObservationCount: 10,
 			AvgSpeedMps:      5.0,
-			PeakSpeedMps:     8.0,
-			P50SpeedMps:      5.0,
-			P85SpeedMps:      6.5,
-			P95SpeedMps:      7.5,
+			MaxSpeedMps:      8.0,
 			ObjectClass:      "car",
 			ObjectConfidence: 0.85,
 			LinkedTrackIDs:   []string{"track-2"},
@@ -655,8 +652,8 @@ func TestRunTrackFromTrackedObject_EmptySpeedHistory(t *testing.T) {
 
 	runTrack := RunTrackFromTrackedObject("run-1", track)
 
-	if runTrack.P50SpeedMps != 0 {
-		t.Errorf("P50SpeedMps should be 0 for empty history, got %f", runTrack.P50SpeedMps)
+	if runTrack.AvgSpeedMps != 5.0 {
+		t.Errorf("AvgSpeedMps should be 5.0, got %f", runTrack.AvgSpeedMps)
 	}
 }
 
@@ -843,5 +840,113 @@ func TestListRuns_WithAllFields(t *testing.T) {
 	var parsedParams RunParams
 	if err := json.Unmarshal(r.ParamsJSON, &parsedParams); err != nil {
 		t.Errorf("Failed to parse ParamsJSON: %v", err)
+	}
+}
+
+// --- PopulateSceneName ---
+
+func TestPopulateSceneName_BasicPCAP(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/recordings/kirk1.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "kirk1" {
+		t.Errorf("expected scene name 'kirk1', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_EmptyPath(t *testing.T) {
+	r := &AnalysisRun{SourcePath: ""}
+	r.PopulateSceneName()
+	if r.SceneName != "" {
+		t.Errorf("expected empty scene name for empty path, got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_ClearsStaleValue(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/kirk1.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "kirk1" {
+		t.Fatalf("setup: expected 'kirk1', got %q", r.SceneName)
+	}
+	r.SourcePath = ""
+	r.PopulateSceneName()
+	if r.SceneName != "" {
+		t.Errorf("expected empty scene name after clearing SourcePath, got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_MultipleDots(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/test.capture.2024.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "test.capture.2024" {
+		t.Errorf("expected 'test.capture.2024', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_NoExtension(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "/data/recordings/kirk0"}
+	r.PopulateSceneName()
+	if r.SceneName != "kirk0" {
+		t.Errorf("expected 'kirk0', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_JustFilename(t *testing.T) {
+	r := &AnalysisRun{SourcePath: "scene.pcap"}
+	r.PopulateSceneName()
+	if r.SceneName != "scene" {
+		t.Errorf("expected 'scene', got %q", r.SceneName)
+	}
+}
+
+func TestPopulateSceneName_PopulatedOnGetRun(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	params := DefaultRunParams()
+
+	runID, err := manager.StartRun("/data/recordings/kirk1.pcap", params)
+	if err != nil {
+		t.Fatalf("StartRun failed: %v", err)
+	}
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatalf("CompleteRun failed: %v", err)
+	}
+
+	run, err := store.GetRun(runID)
+	if err != nil {
+		t.Fatalf("GetRun failed: %v", err)
+	}
+	if run.SceneName != "kirk1" {
+		t.Errorf("expected SceneName 'kirk1' from GetRun, got %q", run.SceneName)
+	}
+}
+
+func TestPopulateSceneName_PopulatedOnListRuns(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "test-sensor")
+	params := DefaultRunParams()
+	store := NewAnalysisRunStore(db)
+
+	_, err := manager.StartRun("/data/recordings/kirk0.pcap", params)
+	if err != nil {
+		t.Fatalf("StartRun failed: %v", err)
+	}
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatalf("CompleteRun failed: %v", err)
+	}
+
+	runs, err := store.ListRuns(10)
+	if err != nil {
+		t.Fatalf("ListRuns failed: %v", err)
+	}
+	if len(runs) == 0 {
+		t.Fatal("expected at least one run")
+	}
+	if runs[0].SceneName != "kirk0" {
+		t.Errorf("expected SceneName 'kirk0' from ListRuns, got %q", runs[0].SceneName)
 	}
 }

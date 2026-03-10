@@ -31,7 +31,7 @@ import XCTest
 /// Build a fully-populated Track for testing.
 private func makeTrack(
     id: String = "trk_00001234", state: TrackState = .confirmed, speed: Float = 8.0,
-    peakSpeed: Float = 9.0, classLabel: String = "car", x: Float = 10.0, y: Float = 5.0,
+    maxSpeed: Float = 9.0, classLabel: String = "car", x: Float = 10.0, y: Float = 5.0,
     z: Float = 0.5, hits: Int = 50, misses: Int = 2, confidence: Float = 0.98,
     durationSecs: Float = 20.0, lengthMetres: Float = 150.0, headingRad: Float = 0.1,
     bboxLength: Float = 4.5, bboxWidth: Float = 1.8, bboxHeight: Float = 1.5,
@@ -43,7 +43,7 @@ private func makeTrack(
         y: y, z: z, vx: 8.0, vy: 0.5, vz: 0.0, speedMps: speed, headingRad: headingRad,
         covariance4x4: [], bboxLength: bboxLength, bboxWidth: bboxWidth, bboxHeight: bboxHeight,
         bboxHeadingRad: bboxHeading, heightP95Max: 1.6, intensityMeanAvg: 50.0, avgSpeedMps: 7.5,
-        peakSpeedMps: peakSpeed, classLabel: classLabel, classConfidence: 0.95,
+        maxSpeedMps: maxSpeed, classLabel: classLabel, classConfidence: 0.95,
         trackLengthMetres: lengthMetres, trackDurationSecs: durationSecs, occlusionCount: 0,
         confidence: confidence, occlusionState: .none, motionModel: .cv, alpha: 1.0)
 }
@@ -51,13 +51,13 @@ private func makeTrack(
 /// Build a RunTrack for testing.
 private func makeRunTrack(
     runId: String = "run-123", trackId: String = "trk_00001234", userLabel: String? = nil,
-    qualityLabel: String? = nil, peakSpeed: Double? = 12.0, labelerId: String? = nil
+    qualityLabel: String? = nil, maxSpeed: Double? = 12.0, labelerId: String? = nil
 ) -> RunTrack {
     RunTrack(
         runId: runId, trackId: trackId, sensorId: "sensor-1", userLabel: userLabel,
         qualityLabel: qualityLabel, labelConfidence: nil, labelerId: labelerId,
         startUnixNanos: 1_000_000_000, endUnixNanos: 2_000_000_000, totalObservations: 50,
-        durationSecs: 10.0, avgSpeedMps: 10.0, peakSpeedMps: peakSpeed, isSplitCandidate: false,
+        durationSecs: 10.0, avgSpeedMps: 10.0, maxSpeedMps: maxSpeed, isSplitCandidate: false,
         isMergeCandidate: false)
 }
 
@@ -881,9 +881,9 @@ struct LabelButtonCoverageTests {
         let state = AppState()
         state.currentRunID = nil
         state.currentFrame = makeFrame(tracks: [
-            makeTrack(id: "trk_00001111", state: .confirmed, speed: 8.0, peakSpeed: 10.0),
-            makeTrack(id: "trk_00002222", state: .tentative, speed: 3.0, peakSpeed: 4.0),
-            makeTrack(id: "trk_00003333", state: .deleted, speed: 0.0, peakSpeed: 0.5),
+            makeTrack(id: "trk_00001111", state: .confirmed, speed: 8.0, maxSpeed: 10.0),
+            makeTrack(id: "trk_00002222", state: .tentative, speed: 3.0, maxSpeed: 4.0),
+            makeTrack(id: "trk_00003333", state: .deleted, speed: 0.0, maxSpeed: 0.5),
         ])
         hostView(TrackListView(), state: state)
     }
@@ -913,11 +913,11 @@ struct LabelButtonCoverageTests {
         hostView(TrackListView(), state: state)
     }
 
-    func testFrameModeWithPeakSpeedTracking() throws {
+    func testFrameModeWithMaxSpeedTracking() throws {
         let state = AppState()
         state.currentRunID = nil
-        // trackPeakSpeed is private(set), we can set it via onFrameReceived
-        let track = makeTrack(id: "trk_0000pk", speed: 5.0, peakSpeed: 5.0)
+        // trackMaxSpeed is private(set), we can set it via onFrameReceived
+        let track = makeTrack(id: "trk_0000pk", speed: 5.0, maxSpeed: 5.0)
         state.currentFrame = makeFrame(tracks: [track])
         hostView(TrackListView(), state: state)
     }
@@ -1034,7 +1034,7 @@ struct SparklineViewCoverageTests {
         hostView(TrackHistoryGraphView(trackID: "t-static"), state: state)
     }
 
-    func testGraphViewWithPeakSpeed() async throws {
+    func testGraphViewWithMaxSpeed() async throws {
         let state = AppState()
         state.isLive = false
         for i: UInt64 in 0..<5 {
@@ -1049,7 +1049,7 @@ struct SparklineViewCoverageTests {
                 tracks: [
                     Track(
                         trackID: "t-peak", state: .confirmed, speedMps: Float(i) * 3.0,
-                        headingRad: Float(i) * 0.3, peakSpeedMps: 12.0)
+                        headingRad: Float(i) * 0.3, maxSpeedMps: 12.0)
                 ], trails: [])
             state.onFrameReceived(frame)
             await Task.yield()
@@ -1301,7 +1301,7 @@ struct TrackSortOrderTests {
     @Test func allCases() throws {
         #expect(TrackSortOrder.allCases.count == 2)
         #expect(TrackSortOrder.firstSeen.rawValue == "First seen")
-        #expect(TrackSortOrder.peakSpeed.rawValue == "Max velocity")
+        #expect(TrackSortOrder.maxSpeed.rawValue == "Max velocity")
     }
 }
 

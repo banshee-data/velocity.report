@@ -4,7 +4,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
-	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 )
 
 // Type aliases to avoid import cycles.
@@ -45,9 +44,6 @@ const (
 )
 
 // Function aliases for cross-layer utilities.
-
-// ComputeSpeedPercentiles calculates speed percentiles from a history of speed values.
-var ComputeSpeedPercentiles = l6objects.ComputeSpeedPercentiles
 
 // HungarianAssign performs Hungarian algorithm assignment.
 var HungarianAssign = l5tracks.HungarianAssign

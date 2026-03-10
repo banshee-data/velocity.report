@@ -122,7 +122,7 @@ type TrackResponse struct {
 	ObservationCount    int                  `json:"observation_count"`
 	AgeSeconds          float64              `json:"age_seconds"`
 	AvgSpeedMps         float32              `json:"avg_speed_mps"`
-	PeakSpeedMps        float32              `json:"peak_speed_mps"`
+	MaxSpeedMps         float32              `json:"max_speed_mps"`
 	BoundingBox         BBox                 `json:"bounding_box"`
 	OBBHeadingRad       float32              `json:"obb_heading_rad"`
 	HeadingSource       int                  `json:"heading_source,omitempty"` // 0=PCA, 1=velocity, 2=displacement, 3=locked
@@ -226,10 +226,10 @@ type TrackSummaryResponse struct {
 
 // ClassSummary contains summary statistics for a single object class.
 type ClassSummary struct {
-	Count        int     `json:"count"`
-	AvgSpeedMps  float32 `json:"avg_speed_mps"`
-	PeakSpeedMps float32 `json:"peak_speed_mps"`
-	AvgDuration  float64 `json:"avg_duration_seconds"`
+	Count       int     `json:"count"`
+	AvgSpeedMps float32 `json:"avg_speed_mps"`
+	MaxSpeedMps float32 `json:"max_speed_mps"`
+	AvgDuration float64 `json:"avg_duration_seconds"`
 }
 
 // OverallSummary contains overall summary statistics across all tracks.
@@ -787,8 +787,8 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		accum := byClass[class]
 		accum.count++
 		accum.totalSpeed += track.AvgSpeedMps
-		if track.PeakSpeedMps > accum.peakSpeed {
-			accum.peakSpeed = track.PeakSpeedMps
+		if track.MaxSpeedMps > accum.maxSpeed {
+			accum.maxSpeed = track.MaxSpeedMps
 		}
 		if track.LastUnixNanos > 0 && track.FirstUnixNanos > 0 {
 			duration := float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
@@ -816,10 +816,10 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 			avgDuration = accum.totalDuration / float64(accum.count)
 		}
 		response.ByClass[class] = ClassSummary{
-			Count:        accum.count,
-			AvgSpeedMps:  avgSpeed,
-			PeakSpeedMps: accum.peakSpeed,
-			AvgDuration:  avgDuration,
+			Count:       accum.count,
+			AvgSpeedMps: avgSpeed,
+			MaxSpeedMps: accum.maxSpeed,
+			AvgDuration: avgDuration,
 		}
 	}
 
@@ -997,7 +997,7 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 		ObservationCount:    track.ObservationCount,
 		AgeSeconds:          spanSeconds,
 		AvgSpeedMps:         track.AvgSpeedMps,
-		PeakSpeedMps:        track.PeakSpeedMps,
+		MaxSpeedMps:         track.MaxSpeedMps,
 		BoundingBox:         bboxFromTrack(track),
 		OBBHeadingRad:       track.OBBHeadingRad,
 		HeadingSource:       int(track.HeadingSource),
@@ -1031,7 +1031,7 @@ func bboxFromTrack(track *l5tracks.TrackedObject) BBox {
 type classSummaryAccum struct {
 	count         int
 	totalSpeed    float32
-	peakSpeed     float32
+	maxSpeed      float32
 	totalDuration float64
 }
 

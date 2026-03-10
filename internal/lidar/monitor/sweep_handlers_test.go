@@ -738,6 +738,53 @@ func TestHINTHandlers_Continue(t *testing.T) {
 	})
 }
 
+func TestHandleAutoTuneResume_MalformedJSON(t *testing.T) {
+	runner := &mockSweepHandlerRunner{}
+	ws := &WebServer{autoTuneRunner: runner}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/resume",
+		strings.NewReader(`{invalid json}`))
+	w := httptest.NewRecorder()
+
+	ws.handleAutoTuneResume(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected %d, got %d body=%s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if runner.resumeCalls != 0 {
+		t.Errorf("Resume should not be called on malformed JSON, got %d calls", runner.resumeCalls)
+	}
+}
+
+func TestHandleAutoTuneResume_EmptyBody(t *testing.T) {
+	runner := &mockSweepHandlerRunner{}
+	ws := &WebServer{autoTuneRunner: runner}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/resume", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleAutoTuneResume(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected %d, got %d body=%s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if runner.resumeCalls != 1 {
+		t.Errorf("expected 1 Resume call, got %d", runner.resumeCalls)
+	}
+}
+
+func TestHandleAutoTuneResume_NoRunner(t *testing.T) {
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/resume", nil)
+	w := httptest.NewRecorder()
+
+	ws.handleAutoTuneResume(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected %d, got %d", http.StatusServiceUnavailable, w.Code)
+	}
+}
+
 func TestHINTHandlers_Stop(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runner := &mockHINTRunner{}

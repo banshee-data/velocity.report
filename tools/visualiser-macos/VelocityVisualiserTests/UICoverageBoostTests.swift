@@ -26,14 +26,14 @@ import XCTest
 
 private func makeTrack(
     id: String = "trk_00001234", state: TrackState = .confirmed, speed: Float = 8.0,
-    peakSpeed: Float = 9.0, classLabel: String = "car", hits: Int = 50
+    maxSpeed: Float = 9.0, classLabel: String = "car", hits: Int = 50
 ) -> Track {
     Track(
         trackID: id, sensorID: "s1", state: state, hits: hits, misses: 2, observationCount: 48,
         firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000, x: 10, y: 5, z: 0.5, vx: 8,
         vy: 0.5, vz: 0, speedMps: speed, headingRad: 0.1, covariance4x4: [], bboxLength: 4.5,
         bboxWidth: 1.8, bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6,
-        intensityMeanAvg: 50, avgSpeedMps: 7.5, peakSpeedMps: peakSpeed, classLabel: classLabel,
+        intensityMeanAvg: 50, avgSpeedMps: 7.5, maxSpeedMps: maxSpeed, classLabel: classLabel,
         classConfidence: 0.95, trackLengthMetres: 150, trackDurationSecs: 20, occlusionCount: 0,
         confidence: 0.98, occlusionState: .none, motionModel: .cv, alpha: 1.0)
 }
@@ -49,13 +49,13 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
 
 private func makeRunTrack(
     trackId: String = "trk_00001234", userLabel: String? = nil, qualityLabel: String? = nil,
-    peakSpeed: Double? = 12.0, labelerId: String? = nil
+    maxSpeed: Double? = 12.0, labelerId: String? = nil
 ) -> RunTrack {
     RunTrack(
         runId: "run-1", trackId: trackId, sensorId: "s1", userLabel: userLabel,
         qualityLabel: qualityLabel, labelConfidence: nil, labelerId: labelerId,
         startUnixNanos: 1_000_000_000, endUnixNanos: 2_000_000_000, totalObservations: 50,
-        durationSecs: 10, avgSpeedMps: 10, peakSpeedMps: peakSpeed, isSplitCandidate: false,
+        durationSecs: 10, avgSpeedMps: 10, maxSpeedMps: maxSpeed, isSplitCandidate: false,
         isMergeCandidate: false)
 }
 
@@ -377,7 +377,7 @@ struct StringTruncatedTests {
             runId: "run-zero", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 0, totalFrames: 0,
             totalClusters: 0, totalTracks: 0, confirmedTracks: 0, status: "running",
-            errorMessage: nil, vrlogPath: nil, notes: nil)
+            errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: nil)
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
     }
@@ -387,7 +387,7 @@ struct StringTruncatedTests {
             runId: "run-long", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 7200,
             totalFrames: 72000, totalClusters: 5000, totalTracks: 500, confirmedTracks: 400,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long")
+            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long", sceneName: nil)
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
     }
@@ -530,13 +530,13 @@ struct StringTruncatedTests {
 
 @available(macOS 15.0, *) @MainActor final class TrackListViewAdditionalTests: XCTestCase {
 
-    func testFrameModeWithPeakSpeedSortOrder() throws {
+    func testFrameModeWithMaxSpeedSortOrder() throws {
         let state = AppState()
         state.currentRunID = nil
         state.currentFrame = makeFrame(tracks: [
-            makeTrack(id: "trk_00001111", speed: 3.0, peakSpeed: 5.0),
-            makeTrack(id: "trk_00002222", speed: 10.0, peakSpeed: 15.0),
-            makeTrack(id: "trk_00003333", speed: 1.0, peakSpeed: 1.0),
+            makeTrack(id: "trk_00001111", speed: 3.0, maxSpeed: 5.0),
+            makeTrack(id: "trk_00002222", speed: 10.0, maxSpeed: 15.0),
+            makeTrack(id: "trk_00003333", speed: 1.0, maxSpeed: 1.0),
         ])
         hostView(TrackListView(), state: state)
     }
@@ -822,8 +822,8 @@ struct SerialiseFlagsTests {
 
     func testFrameModeWithTracks() {
         let state = AppState()
-        let t1 = makeTrack(id: "trk_a", peakSpeed: 10.0)
-        let t2 = makeTrack(id: "trk_b", peakSpeed: 5.0)
+        let t1 = makeTrack(id: "trk_a", maxSpeed: 10.0)
+        let t2 = makeTrack(id: "trk_b", maxSpeed: 5.0)
         state.currentFrame = makeFrame(tracks: [t1, t2])
 
         let result = computeUpdatedRanks(
@@ -836,8 +836,8 @@ struct SerialiseFlagsTests {
 
     func testRunModeWithRunTracks() {
         let state = AppState()
-        let rt1 = makeRunTrack(trackId: "trk_a", peakSpeed: 15.0)
-        let rt2 = makeRunTrack(trackId: "trk_b", peakSpeed: 8.0)
+        let rt1 = makeRunTrack(trackId: "trk_a", maxSpeed: 15.0)
+        let rt2 = makeRunTrack(trackId: "trk_b", maxSpeed: 8.0)
         let frameByID: [String: Track] = [:]
 
         let result = computeUpdatedRanks(
@@ -850,7 +850,7 @@ struct SerialiseFlagsTests {
     func testFrameModeWithFilters() {
         let state = AppState()
         state.filterMinHits = 10
-        let t1 = makeTrack(id: "trk_a", peakSpeed: 10.0, hits: 20)
+        let t1 = makeTrack(id: "trk_a", maxSpeed: 10.0, hits: 20)
         state.currentFrame = makeFrame(tracks: [t1])
 
         let result = computeUpdatedRanks(
@@ -862,8 +862,8 @@ struct SerialiseFlagsTests {
 
     func testClimbDetection() {
         let state = AppState()
-        let t1 = makeTrack(id: "trk_a", peakSpeed: 5.0)
-        let t2 = makeTrack(id: "trk_b", peakSpeed: 10.0)
+        let t1 = makeTrack(id: "trk_a", maxSpeed: 5.0)
+        let t2 = makeTrack(id: "trk_b", maxSpeed: 10.0)
         state.currentFrame = makeFrame(tracks: [t1, t2])
 
         // Initial ranks: trk_b rank 0, trk_a rank 1
@@ -872,7 +872,7 @@ struct SerialiseFlagsTests {
             previousRanks: [:])
 
         // Now trk_a surpasses trk_b
-        let t1Fast = makeTrack(id: "trk_a", peakSpeed: 15.0)
+        let t1Fast = makeTrack(id: "trk_a", maxSpeed: 15.0)
         state.currentFrame = makeFrame(tracks: [t1Fast, t2])
 
         let updated = computeUpdatedRanks(
@@ -1024,7 +1024,7 @@ struct SerialiseFlagsTests {
             runId: runId, createdAt: Date(), sourceType: "vrlog", sourcePath: "/data/test.vrlog",
             sensorId: "sensor-1", durationSecs: durationSecs, totalFrames: 100, totalClusters: 50,
             totalTracks: totalTracks, confirmedTracks: 5, status: status, errorMessage: nil,
-            vrlogPath: vrlogPath, notes: nil)
+            vrlogPath: vrlogPath, notes: nil, sceneName: nil)
     }
 
     private func host<V: View>(_ view: V, state: AppState) {

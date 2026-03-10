@@ -808,6 +808,37 @@ func TestPublisher_LogPeriodicStats(t *testing.T) {
 	}
 }
 
+// TestPublisher_LogPeriodicStats_DroppedTracking verifies that the periodic
+// stats logger tracks dropped frame counts per interval and updates
+// lastDroppedCount correctly.
+func TestPublisher_LogPeriodicStats_DroppedTracking(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	// Initialise stats baseline
+	pub.logPeriodicStats(0, 100, 5, 2, 10)
+
+	// Simulate some dropped frames
+	pub.droppedFrames.Store(20)
+
+	// Advance time past the logging interval
+	pub.lastStatsMu.Lock()
+	pub.lastStatsTime = time.Now().Add(-6 * time.Second)
+	pub.lastStatsMu.Unlock()
+
+	// Log stats — should record the dropped count
+	pub.logPeriodicStats(100, 500, 10, 5, 20)
+
+	pub.lastStatsMu.Lock()
+	lastDropped := pub.lastDroppedCount
+	pub.lastStatsMu.Unlock()
+
+	if lastDropped != 20 {
+		t.Errorf("expected lastDroppedCount=20, got %d", lastDropped)
+	}
+}
+
 // TestPublisher_VRLogReplay_PlaybackInfoPreserved verifies that the VRLOG
 // replay loop preserves PlaybackInfo fields (LogStartNs, LogEndNs,
 // TotalFrames, CurrentFrameIndex, Seekable) set by the FrameReader.

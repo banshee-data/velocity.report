@@ -243,7 +243,7 @@ type Track struct {
 	HeightP95Max     float32
 	IntensityMeanAvg float32
 	AvgSpeedMps      float32
-	PeakSpeedMps     float32
+	MaxSpeedMps      float32
 
 	// Classification
 	ObjectClass     string
@@ -359,7 +359,8 @@ type PlaybackInfo struct {
 	Paused            bool
 	CurrentFrameIndex uint64 // 0-based index in log
 	TotalFrames       uint64
-	Seekable          bool // true when seek/step is supported (e.g. .vrlog replay)
+	Seekable          bool   // true when seek/step is supported (e.g. .vrlog replay)
+	ReplayEpoch       uint64 // monotonically increasing; bumped on each new replay load
 }
 
 // NewFrameBundle creates a new FrameBundle with the given metadata.

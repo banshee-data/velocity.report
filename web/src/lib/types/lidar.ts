@@ -40,8 +40,8 @@ export interface Track {
 	age_seconds: number;
 	/** Average speed over track lifetime (meters/second) */
 	avg_speed_mps: number;
-	/** Peak speed observed (meters/second) */
-	peak_speed_mps: number;
+	/** Max speed observed (meters/second) */
+	max_speed_mps: number;
 	/** PCA-derived oriented bounding box heading (radians) */
 	obb_heading_rad: number;
 	/**
@@ -319,10 +319,7 @@ export interface RunTrack {
 	end_unix_nanos: number;
 	observation_count: number;
 	avg_speed_mps: number;
-	peak_speed_mps: number;
-	p50_speed_mps: number;
-	p85_speed_mps: number;
-	p95_speed_mps: number;
+	max_speed_mps: number;
 	bounding_box_length_avg: number;
 	bounding_box_width_avg: number;
 	bounding_box_height_avg: number;

@@ -363,10 +363,14 @@ func (d *DirectBackend) SetTuningParams(params map[string]interface{}) error {
 func (d *DirectBackend) StartPCAPReplayWithConfig(cfg sweep.PCAPReplayConfig) error {
 	speedMode := cfg.SpeedMode
 	if speedMode == "" {
-		speedMode = "fastest"
+		speedMode = "analysis"
+	}
+	speedRatio := cfg.SpeedRatio
+	if speedRatio <= 0 {
+		speedRatio = 1.0
 	}
 	return d.ws.StartPCAPForSweep(
-		cfg.PCAPFile, cfg.AnalysisMode, speedMode,
+		cfg.PCAPFile, cfg.AnalysisMode, speedMode, speedRatio,
 		cfg.StartSeconds, cfg.DurationSeconds, cfg.MaxRetries,
 		cfg.DisableRecording)
 }

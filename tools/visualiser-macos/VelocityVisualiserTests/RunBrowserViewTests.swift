@@ -71,6 +71,21 @@ struct AnalysisRunComputedPropertyTests {
         #expect(run.id == "run-test")
     }
 
+    @Test func shortIdPrefixFormat() throws {
+        let run = makeRun()
+        #expect(run.shortIdPrefix == "0xrun-te")
+    }
+
+    @Test func shortIdPrefixWithUUID() throws {
+        let run = AnalysisRun(
+            runId: "4ea0f3ab-1234-5678-9abc-def012345678", createdAt: Date(), sourceType: "pcap",
+            sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
+            totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
+            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: "kirk1")
+        #expect(run.shortIdPrefix == "0x4ea0f3")
+        #expect(run.sceneName == "kirk1")
+    }
+
     @Test func statusCompleted() throws {
         let run = makeRun(status: "completed")
         #expect(run.status == "completed")
@@ -104,7 +119,8 @@ struct AnalysisRunComputedPropertyTests {
             runId: "run-test", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes)
+            status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes,
+            sceneName: "test")
     }
 }
 
@@ -136,7 +152,7 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: true, isMergeCandidate: false)
+            maxSpeedMps: nil, isSplitCandidate: true, isMergeCandidate: false)
         #expect(track.isSplitCandidate == true)
         #expect(track.isMergeCandidate == false)
     }
@@ -146,7 +162,7 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: false, isMergeCandidate: true)
+            maxSpeedMps: nil, isSplitCandidate: false, isMergeCandidate: true)
         #expect(track.isSplitCandidate == false)
         #expect(track.isMergeCandidate == true)
     }
@@ -156,13 +172,13 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: "car",
             qualityLabel: "good", labelConfidence: 0.95, labelerId: "david",
             startUnixNanos: 1_000_000_000, endUnixNanos: 5_000_000_000, totalObservations: 40,
-            durationSecs: 4.0, avgSpeedMps: 8.5, peakSpeedMps: 12.0, isSplitCandidate: false,
+            durationSecs: 4.0, avgSpeedMps: 8.5, maxSpeedMps: 12.0, isSplitCandidate: false,
             isMergeCandidate: false)
         #expect(track.qualityLabel == "good")
         #expect(track.labelConfidence == 0.95)
         #expect(track.durationSecs == 4.0)
         #expect(track.avgSpeedMps == 8.5)
-        #expect(track.peakSpeedMps == 12.0)
+        #expect(track.maxSpeedMps == 12.0)
     }
 
     private func makeTrack(userLabel: String? = nil) -> RunTrack {
@@ -170,7 +186,7 @@ struct RunTrackComputedPropertyTests {
             runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: userLabel,
             qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
             endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
-            peakSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
     }
 }
 
@@ -302,7 +318,8 @@ struct PlaybackStatusModelTests {
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil)
+            status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
+            sceneName: "test")
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
@@ -313,7 +330,7 @@ struct PlaybackStatusModelTests {
             runId: "run-002", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 60.0, totalFrames: 600, totalClusters: 200,
             totalTracks: 10, confirmedTracks: 8, status: "running", errorMessage: nil,
-            vrlogPath: nil, notes: nil)
+            vrlogPath: nil, notes: nil, sceneName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
@@ -324,7 +341,7 @@ struct PlaybackStatusModelTests {
             runId: "run-001", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 120.0, totalFrames: 1200, totalClusters: 500,
             totalTracks: 25, confirmedTracks: 20, status: "completed", errorMessage: nil,
-            vrlogPath: "/data/test.vrlog", notes: nil)
+            vrlogPath: "/data/test.vrlog", notes: nil, sceneName: "kirk0")
 
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
@@ -335,7 +352,7 @@ struct PlaybackStatusModelTests {
             runId: "run-003", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 5.0, totalFrames: 50, totalClusters: 10,
             totalTracks: 0, confirmedTracks: 0, status: "failed",
-            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil)
+            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil, sceneName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body

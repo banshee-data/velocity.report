@@ -77,6 +77,7 @@ type FrameBuilder struct {
 	frameCh             chan *LiDARFrame  // serialises frame callback invocations
 	frameDone           chan struct{}     // closed when frameCallbackWorker exits
 	droppedFrames       atomic.Uint64     // count of frames dropped due to full channel (accessed atomically)
+	blockOnFrameChannel bool              // when true, block instead of dropping frames (analysis mode)
 	exportNextFrameASC  bool              // flag to export next completed frame
 	exportBatchCount    int               // number of frames to export in batch
 	exportBatchExported int               // number of frames already exported in current batch
@@ -293,6 +294,18 @@ func (fb *FrameBuilder) Close() {
 // callback channel. Useful for post-run diagnostics.
 func (fb *FrameBuilder) DroppedFrames() uint64 {
 	return fb.droppedFrames.Load()
+}
+
+// SetBlockOnFrameChannel enables or disables blocking mode for the frame
+// callback channel. When true, finalizeFrame blocks until the pipeline
+// accepts the frame (true back-pressure). When false (default), frames
+// are dropped if the channel is full. Enable for analysis mode to
+// ensure every frame is processed; disable for live mode where dropping
+// is acceptable to maintain real-time throughput.
+func (fb *FrameBuilder) SetBlockOnFrameChannel(block bool) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.blockOnFrameChannel = block
 }
 
 // Reset clears all buffered frame state. This should be called when switching
@@ -584,6 +597,18 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 	// Calculate completeness metrics
 	fb.calculateFrameCompleteness(frame)
 
+	// In blocking mode (analysis replay), bypass the buffer entirely and
+	// send the frame directly to the pipeline. The buffer exists for live
+	// mode to handle out-of-order backfill packets, but analysis mode
+	// processes packets sequentially. Without this shortcut the PCAP
+	// reader fills the 10-frame buffer faster than the pipeline drains it,
+	// silently overwriting intermediate frames and delivering only ~12%
+	// of the rotations.
+	if fb.blockOnFrameChannel {
+		fb.finalizeFrame(frame, "direct_blocking")
+		return
+	}
+
 	// Move to buffer for potential backfill
 	fb.frameBuffer[frame.FrameID] = frame
 
@@ -797,14 +822,31 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 	if fb.frameCallback != nil && fb.frameCh != nil {
 		tracef("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
 			frame.FrameID, frame.PointCount, frame.SensorID)
-		select {
-		case fb.frameCh <- frame:
-		default:
-			// Channel full — drop frame to avoid blocking frame assembly.
-			// This handles back-pressure when the tracking pipeline cannot
-			// keep up with frame arrival rate.
-			count := fb.droppedFrames.Add(1)
-			opsf("[FrameBuilder] Dropped frame %s: callback queue full (total dropped: %d)", frame.FrameID, count)
+		if fb.blockOnFrameChannel {
+			// Blocking mode (PCAP fast): wait for pipeline to accept the
+			// frame, providing true back-pressure to the packet reader.
+			// This prevents frame drops during analysis runs where every
+			// frame must be processed.
+			//
+			// Release fb.mu before the blocking send to avoid holding the
+			// lock while waiting. Without this, a full channel deadlocks
+			// operations that need fb.mu (cleanup timer, Reset, source
+			// switching) and prevents PCAP cancellation from progressing.
+			// Safe because the callback worker does not acquire fb.mu, and
+			// all finalizeFrame work is complete before this point.
+			fb.mu.Unlock()
+			fb.frameCh <- frame
+			fb.mu.Lock()
+		} else {
+			select {
+			case fb.frameCh <- frame:
+			default:
+				// Channel full — drop frame to avoid blocking frame assembly.
+				// This handles back-pressure when the tracking pipeline cannot
+				// keep up with frame arrival rate.
+				count := fb.droppedFrames.Add(1)
+				opsf("[FrameBuilder] Dropped frame %s: callback queue full (total dropped: %d)", frame.FrameID, count)
+			}
 		}
 	}
 }

@@ -19,8 +19,7 @@ func makeMockRunTrackClient() -> RunTrackLabelAPIClient {
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [MockURLProtocol.self]
     let session = URLSession(configuration: config)
-    return RunTrackLabelAPIClient(
-        baseURL: URL(string: "http://localhost:8080")!, session: session)
+    return RunTrackLabelAPIClient(baseURL: URL(string: "http://localhost:8080")!, session: session)
 }
 
 // MARK: - Initialisation Tests
@@ -59,9 +58,7 @@ struct RunTrackLabelAPIClientErrorTests {
     }
 
     @Test func decodingFailedErrorDescription() throws {
-        struct TestError: Error, LocalizedError {
-            var errorDescription: String? { "bad data" }
-        }
+        struct TestError: Error, LocalizedError { var errorDescription: String? { "bad data" } }
         let error = RunTrackLabelAPIClient.APIError.decodingFailed(TestError())
         #expect(error.errorDescription?.contains("bad data") == true)
     }
@@ -95,14 +92,13 @@ struct AnalysisRunModelTests {
         #expect(run.id == run.runId)
     }
 
-    private func makeRun(
-        vrlogPath: String? = "/some/path.vrlog"
-    ) -> AnalysisRun {
+    private func makeRun(vrlogPath: String? = "/some/path.vrlog") -> AnalysisRun {
         AnalysisRun(
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil)
+            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil, sceneName: nil
+        )
     }
 }
 
@@ -111,41 +107,37 @@ struct AnalysisRunModelTests {
 struct RunTrackModelTests {
     @Test func isLabelledWithLabel() throws {
         let track = RunTrack(
-            runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: "car", qualityLabel: nil, labelConfidence: nil,
-            labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
-            durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil, isSplitCandidate: nil,
-            isMergeCandidate: nil)
+            runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: "car",
+            qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
+            endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.isLabelled == true)
     }
 
     @Test func isLabelledFalseWhenNil() throws {
         let track = RunTrack(
-            runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: nil, qualityLabel: nil, labelConfidence: nil,
-            labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
-            durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil, isSplitCandidate: nil,
-            isMergeCandidate: nil)
+            runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: nil,
+            qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
+            endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.isLabelled == false)
     }
 
     @Test func isLabelledFalseWhenEmpty() throws {
         let track = RunTrack(
-            runId: "run-001", trackId: "track-001", sensorId: "hesai-01",
-            userLabel: "", qualityLabel: nil, labelConfidence: nil,
-            labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
-            durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil, isSplitCandidate: nil,
-            isMergeCandidate: nil)
+            runId: "run-001", trackId: "track-001", sensorId: "hesai-01", userLabel: "",
+            qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
+            endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.isLabelled == false)
     }
 
     @Test func identifiableUsesTrackId() throws {
         let track = RunTrack(
-            runId: "run-001", trackId: "track-abc", sensorId: "hesai-01",
-            userLabel: nil, qualityLabel: nil, labelConfidence: nil,
-            labelerId: nil, startUnixNanos: nil, endUnixNanos: nil, totalObservations: nil,
-            durationSecs: nil, avgSpeedMps: nil, peakSpeedMps: nil, isSplitCandidate: nil,
-            isMergeCandidate: nil)
+            runId: "run-001", trackId: "track-abc", sensorId: "hesai-01", userLabel: nil,
+            qualityLabel: nil, labelConfidence: nil, labelerId: nil, startUnixNanos: nil,
+            endUnixNanos: nil, totalObservations: nil, durationSecs: nil, avgSpeedMps: nil,
+            maxSpeedMps: nil, isSplitCandidate: nil, isMergeCandidate: nil)
         #expect(track.id == "track-abc")
     }
 }
@@ -291,7 +283,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                     "total_observations": 40,
                     "duration_secs": 4.0,
                     "avg_speed_mps": 8.5,
-                    "peak_speed_mps": 12.0,
+                    "max_speed_mps": 12.0,
                     "is_split_candidate": false,
                     "is_merge_candidate": false
                 }],
@@ -350,7 +342,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                 "total_observations": 30,
                 "duration_secs": 3.0,
                 "avg_speed_mps": 5.0,
-                "peak_speed_mps": 8.0,
+                "max_speed_mps": 8.0,
                 "is_split_candidate": true,
                 "is_merge_candidate": false
             }
@@ -403,7 +395,8 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
             """
         MockURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.httpMethod, "PUT")
-            XCTAssertTrue(request.url!.path.contains("api/lidar/runs/run-001/tracks/track-001/label"))
+            XCTAssertTrue(
+                request.url!.path.contains("api/lidar/runs/run-001/tracks/track-001/label"))
 
             // Verify request body
             if let body = request.httpBody,
@@ -419,8 +412,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         }
 
         let result = try await client.updateLabel(
-            runID: "run-001", trackID: "track-001",
-            userLabel: "car", qualityLabel: "good")
+            runID: "run-001", trackID: "track-001", userLabel: "car", qualityLabel: "good")
         XCTAssertEqual(result.status, "updated")
         XCTAssertEqual(result.userLabel, "car")
     }

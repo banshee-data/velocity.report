@@ -104,7 +104,7 @@ func TestExtractTrackFeatures_Basic(t *testing.T) {
 		HeightP95Max:         1.4,
 		IntensityMeanAvg:     130,
 		AvgSpeedMps:          8.5,
-		PeakSpeedMps:         12.0,
+		MaxSpeedMps:          12.0,
 		TrackDurationSecs:    10.0,
 		TrackLengthMeters:    85.0,
 		OcclusionCount:       2,
@@ -123,8 +123,8 @@ func TestExtractTrackFeatures_Basic(t *testing.T) {
 	if f.AvgSpeedMps != 8.5 {
 		t.Errorf("AvgSpeedMps = %v, want 8.5", f.AvgSpeedMps)
 	}
-	if f.PeakSpeedMps != 12.0 {
-		t.Errorf("PeakSpeedMps = %v, want 12.0", f.PeakSpeedMps)
+	if f.MaxSpeedMps != 12.0 {
+		t.Errorf("MaxSpeedMps = %v, want 12.0", f.MaxSpeedMps)
 	}
 	// Occlusion ratio = 2 / (20 + 2) ≈ 0.0909
 	expectedOccRatio := float32(2.0 / 22.0)

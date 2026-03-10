@@ -546,6 +546,9 @@ func TestComputeComboResult(t *testing.T) {
 			ForegroundCaptureRatio: 0.8,
 			UnboundedPointRatio:    0.2,
 			EmptyBoxRatio:          0.1,
+			MeanOcclusionCount:     1.5,
+			MaxOcclusionFrames:     10,
+			TotalOcclusions:        3,
 		},
 		{
 			AcceptanceRates:        []float64{0.90, 0.80, 0.60},
@@ -557,6 +560,9 @@ func TestComputeComboResult(t *testing.T) {
 			ForegroundCaptureRatio: 0.6,
 			UnboundedPointRatio:    0.4,
 			EmptyBoxRatio:          0.3,
+			MeanOcclusionCount:     2.5,
+			MaxOcclusionFrames:     20,
+			TotalOcclusions:        5,
 		},
 	}
 
@@ -622,6 +628,24 @@ func TestComputeComboResult(t *testing.T) {
 	// Empty box ratio: mean of 0.1 and 0.3 = 0.2
 	if math.Abs(combo.EmptyBoxRatioMean-0.2) > 0.001 {
 		t.Errorf("expected empty_box_ratio_mean ~0.2, got %f", combo.EmptyBoxRatioMean)
+	}
+
+	// Occlusion metrics: mean_occlusion_count mean of 1.5 and 2.5 = 2.0
+	if math.Abs(combo.MeanOcclusionCountMean-2.0) > 0.001 {
+		t.Errorf("expected mean_occlusion_count_mean ~2.0, got %f", combo.MeanOcclusionCountMean)
+	}
+	if combo.MeanOcclusionCountStddev <= 0 {
+		t.Error("expected nonzero mean_occlusion_count_stddev")
+	}
+
+	// max_occlusion_frames: mean of 10 and 20 = 15
+	if math.Abs(combo.MaxOcclusionFramesMean-15.0) > 0.001 {
+		t.Errorf("expected max_occlusion_frames_mean ~15, got %f", combo.MaxOcclusionFramesMean)
+	}
+
+	// total_occlusions: mean of 3 and 5 = 4
+	if math.Abs(combo.TotalOcclusionsMean-4.0) > 0.001 {
+		t.Errorf("expected total_occlusions_mean ~4, got %f", combo.TotalOcclusionsMean)
 	}
 }
 

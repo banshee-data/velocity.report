@@ -407,8 +407,9 @@ func main() {
 		var frameBuilder *l2frames.FrameBuilder
 		var tracker *l5tracks.Tracker
 		var classifier *l6objects.TrackClassifier
-		var visualiserServer *visualiser.Server       // Hoisted so WebServerConfig callbacks can reference it
-		var visualiserPublisher *visualiser.Publisher // Hoisted so OnVRLogLoad callback can reference it
+		var pipelineConfig *pipeline.TrackingPipelineConfig // hoisted so BenchmarkMode can be wired post-webserver creation
+		var visualiserServer *visualiser.Server             // Hoisted so WebServerConfig callbacks can reference it
+		var visualiserPublisher *visualiser.Publisher       // Hoisted so OnVRLogLoad callback can reference it
 		var vrlogRecorderMu sync.Mutex
 		var vrlogRecorder *recorder.Recorder
 		var vrlogRecorderPath string
@@ -514,7 +515,7 @@ func main() {
 			}
 
 			// Create tracking pipeline callback with all necessary dependencies
-			pipelineConfig := &pipeline.TrackingPipelineConfig{
+			pipelineConfig = &pipeline.TrackingPipelineConfig{
 				BackgroundManager:   backgroundManager,
 				FgForwarder:         foregroundForwarder,
 				Tracker:             tracker,
@@ -603,7 +604,17 @@ func main() {
 			UDPListenerConfig: udpListenerConfig,
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 			OnPCAPStarted: func() {
+				// Stop any active VRLOG replay so its frames don't
+				// interleave with the new PCAP pipeline frames.
+				if visualiserPublisher != nil && visualiserPublisher.IsVRLogActive() {
+					visualiserPublisher.StopVRLogReplay()
+					log.Printf("[Visualiser] Stopped VRLOG replay before PCAP start")
+				}
 				if visualiserServer != nil {
+					// Clear VRLOG mode and force a fresh replay epoch so
+					// clients recognise the source change.
+					visualiserServer.SetVRLogMode(false)
+					visualiserServer.SetReplayMode(false)
 					visualiserServer.SetReplayMode(true)
 					log.Printf("[Visualiser] PCAP started — switched to replay mode")
 				}
@@ -719,6 +730,12 @@ func main() {
 		}
 		if classifier != nil {
 			lidarWebServer.SetClassifier(classifier)
+		}
+		// Wire benchmark mode toggle from webserver to pipeline so the
+		// dashboard checkbox can enable/disable trace logging at runtime.
+		if pipelineConfig != nil {
+			pipelineConfig.BenchmarkMode = lidarWebServer.BenchmarkMode()
+			pipelineConfig.DisableTrackPersistence = lidarWebServer.DisableTrackPersistenceFlag()
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.

@@ -29,7 +29,7 @@ type TrackFeatures struct {
 
 	// Kinematic features
 	AvgSpeedMps       float32
-	PeakSpeedMps      float32
+	MaxSpeedMps       float32
 	SpeedVariance     float32
 	TrackDurationSecs float32
 	TrackLengthMeters float32
@@ -128,7 +128,7 @@ func ExtractTrackFeatures(track *TrackedObject) TrackFeatures {
 
 	// Kinematic features
 	f.AvgSpeedMps = track.AvgSpeedMps
-	f.PeakSpeedMps = track.PeakSpeedMps
+	f.MaxSpeedMps = track.MaxSpeedMps
 	f.TrackDurationSecs = track.TrackDurationSecs
 	f.TrackLengthMeters = track.TrackLengthMeters
 
@@ -241,7 +241,7 @@ func SortedFeatureNames() []string {
 		"compactness",
 		"vertical_spread",
 		"avg_speed_mps",
-		"peak_speed_mps",
+		"max_speed_mps",
 		"speed_variance",
 		"speed_p50",
 		"speed_p85",
@@ -268,7 +268,7 @@ func (f TrackFeatures) ToVector() []float32 {
 		f.Compactness,
 		f.VerticalSpread,
 		f.AvgSpeedMps,
-		f.PeakSpeedMps,
+		f.MaxSpeedMps,
 		f.SpeedVariance,
 		f.SpeedP50,
 		f.SpeedP85,

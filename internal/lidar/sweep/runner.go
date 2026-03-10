@@ -134,6 +134,14 @@ type ComboResult struct {
 	UnboundedPointStddev    float64 `json:"unbounded_point_stddev"`
 	EmptyBoxRatioMean       float64 `json:"empty_box_ratio_mean"`
 	EmptyBoxRatioStddev     float64 `json:"empty_box_ratio_stddev"`
+
+	// Occlusion metrics
+	MeanOcclusionCountMean   float64 `json:"mean_occlusion_count_mean"`
+	MeanOcclusionCountStddev float64 `json:"mean_occlusion_count_stddev"`
+	MaxOcclusionFramesMean   float64 `json:"max_occlusion_frames_mean"`
+	MaxOcclusionFramesStddev float64 `json:"max_occlusion_frames_stddev"`
+	TotalOcclusionsMean      float64 `json:"total_occlusions_mean"`
+	TotalOcclusionsStddev    float64 `json:"total_occlusions_stddev"`
 }
 
 // AnalysisRunCreator creates analysis runs for sweep combinations.
@@ -715,10 +723,9 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		if isPCAP {
 			// PCAP mode: replay per-combination with analysis_mode so grid is preserved after completion.
 			// Starting PCAP internally resets all state (grid, frame builder), so no separate reset needed.
-			// Use "realtime" speed to ensure the full tracking pipeline (BackgroundManager,
-			// ForegroundForwarder, warmup) runs — "fastest" mode skips foreground extraction
-			// and produces 0 tracks.
-			if err := r.backend.StartPCAPReplayWithConfig(PCAPReplayConfig{
+			// Use "realtime" speed by default to ensure the full tracking pipeline (BackgroundManager,
+			// ForegroundForwarder, warmup) runs.
+			pcapCfg := PCAPReplayConfig{
 				PCAPFile:         req.PCAPFile,
 				StartSeconds:     req.PCAPStartSecs,
 				DurationSeconds:  req.PCAPDurationSecs,
@@ -726,7 +733,17 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 				AnalysisMode:     true,
 				SpeedMode:        "realtime",
 				DisableRecording: !req.EnableRecording,
-			}); err != nil {
+			}
+
+			// If speed_ratio is a sweep variable, use "scaled" mode with the specified ratio
+			if sr, ok := paramValues["speed_ratio"]; ok {
+				if ratio, ok := toFloat64(sr); ok && ratio > 0 {
+					pcapCfg.SpeedMode = "scaled"
+					pcapCfg.SpeedRatio = ratio
+				}
+			}
+
+			if err := r.backend.StartPCAPReplayWithConfig(pcapCfg); err != nil {
 				r.logger.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum+1, err)
 				r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum+1, err))
 				continue
@@ -925,6 +942,27 @@ func (r *Runner) computeComboResult(noise, closeness float64, neighbour int, res
 		ebVals[ri] = r.EmptyBoxRatio
 	}
 	combo.EmptyBoxRatioMean, combo.EmptyBoxRatioStddev = MeanStddev(ebVals)
+
+	// Occlusion: mean occlusion count
+	occMeanVals := make([]float64, len(results))
+	for ri, r := range results {
+		occMeanVals[ri] = r.MeanOcclusionCount
+	}
+	combo.MeanOcclusionCountMean, combo.MeanOcclusionCountStddev = MeanStddev(occMeanVals)
+
+	// Occlusion: max occlusion frames
+	occMaxVals := make([]float64, len(results))
+	for ri, r := range results {
+		occMaxVals[ri] = float64(r.MaxOcclusionFrames)
+	}
+	combo.MaxOcclusionFramesMean, combo.MaxOcclusionFramesStddev = MeanStddev(occMaxVals)
+
+	// Occlusion: total occlusions
+	occTotalVals := make([]float64, len(results))
+	for ri, r := range results {
+		occTotalVals[ri] = float64(r.TotalOcclusions)
+	}
+	combo.TotalOcclusionsMean, combo.TotalOcclusionsStddev = MeanStddev(occTotalVals)
 
 	return combo
 }

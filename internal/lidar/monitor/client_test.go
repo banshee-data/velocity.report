@@ -877,6 +877,35 @@ func TestClient_StartPCAPReplayWithConfig_DefaultsAndOptionalFields(t *testing.T
 	})
 }
 
+func TestClient_StartPCAPReplayWithConfig_SpeedFields(t *testing.T) {
+	var received map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.Client(), server.URL, "sensor1")
+	err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{
+		PCAPFile:   "captures/sample.pcapng",
+		SpeedMode:  "scaled",
+		SpeedRatio: 2.5,
+		MaxRetries: 1,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if received["speed_mode"] != "scaled" {
+		t.Errorf("speed_mode = %v, want \"scaled\"", received["speed_mode"])
+	}
+	if received["speed_ratio"].(float64) != 2.5 {
+		t.Errorf("speed_ratio = %v, want 2.5", received["speed_ratio"])
+	}
+}
+
 func TestClient_RequestCreationErrors(t *testing.T) {
 	c := NewClient(nil, "://bad-url", "sensor1")
 

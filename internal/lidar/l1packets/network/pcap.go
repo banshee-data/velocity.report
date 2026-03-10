@@ -58,7 +58,7 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 				// End of PCAP file
 				elapsed := time.Since(startTime)
 				log.Printf("PCAP file reading complete: %d packets processed in %v", packetCount, elapsed)
-				if onProgress != nil && totalPackets > 0 {
+				if onProgress != nil {
 					onProgress(packetIndex, totalPackets)
 				}
 				return nil
@@ -76,7 +76,7 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 			}
 
 			// Report progress periodically (every 100 packets)
-			if onProgress != nil && totalPackets > 0 && packetIndex%100 == 0 {
+			if onProgress != nil && packetIndex%100 == 0 {
 				onProgress(packetIndex, totalPackets)
 			}
 
@@ -86,12 +86,13 @@ func ReadPCAPFile(ctx context.Context, pcapFile string, udpPort int, parser Pars
 				firstPacketTime = captureTime
 				if startSeconds > 0 {
 					startThreshold = firstPacketTime.Add(time.Duration(startSeconds * float64(time.Second)))
+				} else {
+					// When no start offset, use first packet time as the baseline
+					// so duration thresholds are relative to the actual capture.
+					startThreshold = firstPacketTime
 				}
 				if durationSeconds > 0 {
 					endThreshold = startThreshold.Add(time.Duration(durationSeconds * float64(time.Second)))
-				} else if startSeconds > 0 {
-					// If start is set but duration is -1, play until end
-					endThreshold = time.Time{}
 				}
 			}
 

@@ -669,7 +669,7 @@ func TestClearRuns(t *testing.T) {
 		EndUnixNanos:     2000000000,
 		ObservationCount: 10,
 		AvgSpeedMps:      5.5,
-		PeakSpeedMps:     8.0,
+		MaxSpeedMps:      8.0,
 	}
 	if err := store.InsertRunTrack(track1); err != nil {
 		t.Fatalf("failed to insert track1: %v", err)
@@ -684,7 +684,7 @@ func TestClearRuns(t *testing.T) {
 		EndUnixNanos:     4000000000,
 		ObservationCount: 15,
 		AvgSpeedMps:      6.2,
-		PeakSpeedMps:     9.0,
+		MaxSpeedMps:      9.0,
 	}
 	if err := store.InsertRunTrack(track2); err != nil {
 		t.Fatalf("failed to insert track2: %v", err)
@@ -699,7 +699,7 @@ func TestClearRuns(t *testing.T) {
 		EndUnixNanos:     6000000000,
 		ObservationCount: 20,
 		AvgSpeedMps:      7.0,
-		PeakSpeedMps:     10.0,
+		MaxSpeedMps:      10.0,
 	}
 	if err := store.InsertRunTrack(track3); err != nil {
 		t.Fatalf("failed to insert track3: %v", err)
@@ -835,7 +835,7 @@ func TestDeleteRun(t *testing.T) {
 		EndUnixNanos:     2000000000,
 		ObservationCount: 10,
 		AvgSpeedMps:      5.5,
-		PeakSpeedMps:     8.0,
+		MaxSpeedMps:      8.0,
 	}
 	if err := store.InsertRunTrack(track1); err != nil {
 		t.Fatalf("failed to insert track1: %v", err)
@@ -850,7 +850,7 @@ func TestDeleteRun(t *testing.T) {
 		EndUnixNanos:     4000000000,
 		ObservationCount: 15,
 		AvgSpeedMps:      6.2,
-		PeakSpeedMps:     9.0,
+		MaxSpeedMps:      9.0,
 	}
 	if err := store.InsertRunTrack(track2); err != nil {
 		t.Fatalf("failed to insert track2: %v", err)

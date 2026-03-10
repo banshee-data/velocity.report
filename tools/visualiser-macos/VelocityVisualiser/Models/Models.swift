@@ -228,7 +228,7 @@ struct Track {
     var heightP95Max: Float = 0
     var intensityMeanAvg: Float = 0
     var avgSpeedMps: Float = 0
-    var peakSpeedMps: Float = 0
+    var maxSpeedMps: Float = 0
 
     var classLabel: String = ""
     var classConfidence: Float = 0
@@ -319,6 +319,7 @@ struct PlaybackInfo {
     var currentFrameIndex: UInt64 = 0  // 0-based index in log
     var totalFrames: UInt64 = 0
     var seekable: Bool = false  // true when seek/step is supported (e.g. .vrlog replay)
+    var replayEpoch: UInt64 = 0  // monotonically increasing; bumped on each new replay load
 }
 
 // MARK: - Labels

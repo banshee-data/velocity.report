@@ -15,7 +15,7 @@ func TestTrackClassifier_Classify_Bird(t *testing.T) {
 		BoundingBoxLengthAvg: 0.4,
 		BoundingBoxWidthAvg:  0.3,
 		AvgSpeedMps:          0.5, // Low speed
-		PeakSpeedMps:         0.8,
+		MaxSpeedMps:          0.8,
 	}
 	track.SetSpeedHistory([]float32{0.3, 0.5, 0.4, 0.6, 0.5, 0.4, 0.5, 0.6, 0.5, 0.4})
 
@@ -43,7 +43,7 @@ func TestTrackClassifier_Classify_Vehicle(t *testing.T) {
 		BoundingBoxLengthAvg: 4.5,  // Typical car length
 		BoundingBoxWidthAvg:  2.0,  // Typical car width
 		AvgSpeedMps:          10.0, // ~36 km/h
-		PeakSpeedMps:         15.0,
+		MaxSpeedMps:          15.0,
 	}
 
 	// Fill speed history
@@ -74,7 +74,7 @@ func TestTrackClassifier_Classify_Pedestrian(t *testing.T) {
 		BoundingBoxLengthAvg: 0.5, // Small footprint
 		BoundingBoxWidthAvg:  0.5,
 		AvgSpeedMps:          1.5, // Walking speed ~5.4 km/h
-		PeakSpeedMps:         2.5,
+		MaxSpeedMps:          2.5,
 	}
 
 	// Fill speed history
@@ -105,7 +105,7 @@ func TestTrackClassifier_Classify_Bus(t *testing.T) {
 		BoundingBoxLengthAvg: 10.0, // Very long (bus)
 		BoundingBoxWidthAvg:  2.5,  // Wide
 		AvgSpeedMps:          8.0,  // ~29 km/h
-		PeakSpeedMps:         12.0,
+		MaxSpeedMps:          12.0,
 	}
 
 	speeds := make([]float32, 25)
@@ -136,7 +136,7 @@ func TestTrackClassifier_Classify_Cyclist(t *testing.T) {
 		BoundingBoxLengthAvg: 1.4, // Short bike (below motorcyclist 1.5 m threshold)
 		BoundingBoxWidthAvg:  0.6, // Narrow
 		AvgSpeedMps:          5.0, // ~18 km/h
-		PeakSpeedMps:         7.0,
+		MaxSpeedMps:          7.0,
 	}
 
 	speeds := make([]float32, 15)
@@ -166,7 +166,7 @@ func TestTrackClassifier_Classify_Truck(t *testing.T) {
 		BoundingBoxLengthAvg: 6.5, // Longer than a car (>5.5 m)
 		BoundingBoxWidthAvg:  2.3, // Wider than a car (>2.0 m)
 		AvgSpeedMps:          9.0, // ~32 km/h
-		PeakSpeedMps:         14.0,
+		MaxSpeedMps:          14.0,
 	}
 
 	speeds := make([]float32, 20)
@@ -196,7 +196,7 @@ func TestTrackClassifier_Classify_Motorcyclist(t *testing.T) {
 		BoundingBoxLengthAvg: 2.2,  // Motorcycle length (>1.5 m)
 		BoundingBoxWidthAvg:  0.8,  // Narrow (<1.2 m)
 		AvgSpeedMps:          12.0, // ~43 km/h (faster than cyclist)
-		PeakSpeedMps:         18.0,
+		MaxSpeedMps:          18.0,
 	}
 
 	speeds := make([]float32, 20)
@@ -226,7 +226,7 @@ func TestTrackClassifier_Classify_Other(t *testing.T) {
 		BoundingBoxLengthAvg: 1.5,
 		BoundingBoxWidthAvg:  1.0,
 		AvgSpeedMps:          4.0, // Too fast for pedestrian, too slow for car
-		PeakSpeedMps:         5.0,
+		MaxSpeedMps:          5.0,
 	}
 	track.SetSpeedHistory([]float32{3.5, 4.0, 4.2, 3.8, 4.0, 4.5, 4.0, 3.8, 4.2, 4.0})
 
@@ -271,7 +271,7 @@ func TestTrackClassifier_ClassifyAndUpdate(t *testing.T) {
 		BoundingBoxLengthAvg: 4.5,
 		BoundingBoxWidthAvg:  2.0,
 		AvgSpeedMps:          12.0,
-		PeakSpeedMps:         18.0,
+		MaxSpeedMps:          18.0,
 	}
 
 	speeds := make([]float32, 20)
@@ -335,7 +335,7 @@ func TestClassifyFeatures_MatchesClassify(t *testing.T) {
 		BoundingBoxLengthAvg: 4.5,
 		BoundingBoxWidthAvg:  2.0,
 		AvgSpeedMps:          12.0,
-		PeakSpeedMps:         15.0,
+		MaxSpeedMps:          15.0,
 	}
 
 	fromTrack := classifier.Classify(track)
@@ -363,7 +363,7 @@ func TestClassifyFeatures_AllClasses(t *testing.T) {
 			desc: "bird",
 			features: ClassificationFeatures{
 				AvgHeight: 0.2, AvgLength: 0.3, AvgWidth: 0.3,
-				AvgSpeed: 0.5, PeakSpeed: 0.8, ObservationCount: 10,
+				AvgSpeed: 0.5, MaxSpeed: 0.8, ObservationCount: 10,
 			},
 			expected: ClassBird,
 		},
@@ -371,7 +371,7 @@ func TestClassifyFeatures_AllClasses(t *testing.T) {
 			desc: "car",
 			features: ClassificationFeatures{
 				AvgHeight: 1.5, AvgLength: 4.5, AvgWidth: 2.0,
-				AvgSpeed: 12.0, PeakSpeed: 15.0, ObservationCount: 20,
+				AvgSpeed: 12.0, MaxSpeed: 15.0, ObservationCount: 20,
 			},
 			expected: ClassCar,
 		},
@@ -379,7 +379,7 @@ func TestClassifyFeatures_AllClasses(t *testing.T) {
 			desc: "pedestrian",
 			features: ClassificationFeatures{
 				AvgHeight: 1.7, AvgLength: 0.5, AvgWidth: 0.5,
-				AvgSpeed: 1.2, PeakSpeed: 2.0, ObservationCount: 15,
+				AvgSpeed: 1.2, MaxSpeed: 2.0, ObservationCount: 15,
 			},
 			expected: ClassPedestrian,
 		},
@@ -387,7 +387,7 @@ func TestClassifyFeatures_AllClasses(t *testing.T) {
 			desc: "bus",
 			features: ClassificationFeatures{
 				AvgHeight: 3.0, AvgLength: 10.0, AvgWidth: 2.5,
-				AvgSpeed: 8.0, PeakSpeed: 12.0, ObservationCount: 30,
+				AvgSpeed: 8.0, MaxSpeed: 12.0, ObservationCount: 30,
 			},
 			expected: ClassBus,
 		},
@@ -395,7 +395,7 @@ func TestClassifyFeatures_AllClasses(t *testing.T) {
 			desc: "too few observations → dynamic",
 			features: ClassificationFeatures{
 				AvgHeight: 1.5, AvgLength: 4.5, AvgWidth: 2.0,
-				AvgSpeed: 12.0, PeakSpeed: 15.0, ObservationCount: 1,
+				AvgSpeed: 12.0, MaxSpeed: 15.0, ObservationCount: 1,
 			},
 			expected: ClassDynamic,
 		},

@@ -144,7 +144,7 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 		LastUnixNanos:        2000000000,
 		ObservationCount:     10,
 		AvgSpeedMps:          5.0,
-		PeakSpeedMps:         8.0,
+		MaxSpeedMps:          8.0,
 		BoundingBoxLengthAvg: 2.5,
 		BoundingBoxWidthAvg:  1.5,
 		BoundingBoxHeightAvg: 1.7,
@@ -184,11 +184,6 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 	}
 	if runTrack.ObjectClass != track.ObjectClass {
 		t.Errorf("ObjectClass mismatch")
-	}
-
-	// Verify percentiles were computed
-	if runTrack.P50SpeedMps <= 0 {
-		t.Errorf("P50SpeedMps should be computed")
 	}
 }
 

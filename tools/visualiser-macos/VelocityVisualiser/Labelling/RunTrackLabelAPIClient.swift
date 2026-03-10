@@ -276,18 +276,33 @@ struct AnalysisRun: Codable, Identifiable {
     let errorMessage: String?
     let vrlogPath: String?
     let notes: String?
+    let sceneName: String?
 
     var id: String { runId }
 
     /// Whether this run has a VRLOG available for replay.
     var hasVRLog: Bool { vrlogPath != nil && !vrlogPath!.isEmpty }
 
-    /// Formatted creation date.
+    /// Formatted creation date with space-padded components for monospaced alignment.
+    /// Produces fixed-width strings like " 5 Mar  2:30 PM" / "12 Jan 10:15 AM".
     var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .medium
-        return formatter.string(from: createdAt)
+        let cal = Calendar.current
+        let day = cal.component(.day, from: createdAt)
+        let month = cal.component(.month, from: createdAt)
+        let hour = cal.component(.hour, from: createdAt)
+        let minute = cal.component(.minute, from: createdAt)
+        let monthNames = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ]
+        let h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour)
+        let ampm = hour < 12 ? "AM" : "PM"
+        return String(format: "%2d %@ %2d:%02d %@", day, monthNames[month - 1], h12, minute, ampm)
+    }
+
+    /// Short run ID prefix for compact display, e.g. "0x4ea0f3".
+    var shortIdPrefix: String {
+        let prefix = String(runId.prefix(6))
+        return "0x\(prefix)"
     }
 }
 
@@ -306,7 +321,7 @@ struct RunTrack: Codable, Identifiable {
     let totalObservations: Int?
     let durationSecs: Double?
     let avgSpeedMps: Double?
-    let peakSpeedMps: Double?
+    let maxSpeedMps: Double?
     let isSplitCandidate: Bool?
     let isMergeCandidate: Bool?
 

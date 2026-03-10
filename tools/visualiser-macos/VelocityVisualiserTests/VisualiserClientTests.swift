@@ -596,7 +596,7 @@ struct ObjectClassConversionTests {
             misses: 0, observationCount: 5, firstSeenNanos: 0, lastSeenNanos: 100_000_000, x: 0,
             y: 0, z: 0, vx: 0, vy: 0, vz: 0, speedMps: 0, headingRad: 0, covariance4x4: [],
             bboxLength: 1, bboxWidth: 1, bboxHeight: 1, bboxHeadingRad: 0, heightP95Max: 0,
-            intensityMeanAvg: 0, avgSpeedMps: 0, peakSpeedMps: 0, classLabel: "",  // Empty = unspecified
+            intensityMeanAvg: 0, avgSpeedMps: 0, maxSpeedMps: 0, classLabel: "",  // Empty = unspecified
             classConfidence: 0, trackLengthMetres: 10, trackDurationSecs: 1.0, occlusionCount: 0,
             confidence: 0.5, occlusionState: .none, motionModel: .cv, alpha: 1.0,
             headingSource: .pca)
@@ -616,7 +616,7 @@ struct ObjectClassConversionTests {
                 misses: 0, observationCount: 8, firstSeenNanos: 0, lastSeenNanos: 100_000_000, x: 0,
                 y: 0, z: 0, vx: 1, vy: 0, vz: 0, speedMps: 1.0, headingRad: 0, covariance4x4: [],
                 bboxLength: 1, bboxWidth: 1, bboxHeight: 1, bboxHeadingRad: 0, heightP95Max: 0,
-                intensityMeanAvg: 0, avgSpeedMps: 1.0, peakSpeedMps: 2.0,
+                intensityMeanAvg: 0, avgSpeedMps: 1.0, maxSpeedMps: 2.0,
                 classLabel: classification,  // Has classification
                 classConfidence: 0.9, trackLengthMetres: 50, trackDurationSecs: 5.0,
                 occlusionCount: 0, confidence: 0.95, occlusionState: .none, motionModel: .cv,

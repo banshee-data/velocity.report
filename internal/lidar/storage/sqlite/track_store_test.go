@@ -135,7 +135,7 @@ func TestInsertAndGetTrack(t *testing.T) {
 		LastUnixNanos:        1234567900000000000,
 		ObservationCount:     10,
 		AvgSpeedMps:          8.5,
-		PeakSpeedMps:         12.0,
+		MaxSpeedMps:          12.0,
 		BoundingBoxLengthAvg: 4.0,
 		BoundingBoxWidthAvg:  2.0,
 		BoundingBoxHeightAvg: 1.5,

@@ -271,7 +271,7 @@ func TestTrack_FullFields(t *testing.T) {
 		HeightP95Max:      1.8,
 		IntensityMeanAvg:  100.0,
 		AvgSpeedMps:       2.0,
-		PeakSpeedMps:      3.0,
+		MaxSpeedMps:       3.0,
 		ObjectClass:       "car",
 		ClassConfidence:   0.95,
 		TrackLengthMetres: 25.0,

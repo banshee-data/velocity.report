@@ -1102,6 +1102,38 @@ func TestCov2_HandlePCAPStart_AlreadyActive(t *testing.T) {
 	}
 }
 
+func TestCov2_HandlePCAPStart_InvalidSpeedMode_JSON(t *testing.T) {
+	ws := &WebServer{sensorID: "test-sensor"}
+	body, _ := json.Marshal(map[string]string{"pcap_file": "/tmp/test.pcap", "speed_mode": "fastest"})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=test-sensor", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws.handlePCAPStart(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(w.Body.String(), "unsupported speed_mode") {
+		t.Errorf("expected unsupported speed_mode error, got: %s", w.Body.String())
+	}
+}
+
+func TestCov2_HandlePCAPStart_InvalidSpeedMode_Form(t *testing.T) {
+	ws := &WebServer{sensorID: "test-sensor"}
+	form := url.Values{}
+	form.Set("pcap_file", "/tmp/test.pcap")
+	form.Set("speed_mode", "fixed")
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=test-sensor", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	ws.handlePCAPStart(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(w.Body.String(), "unsupported speed_mode") {
+		t.Errorf("expected unsupported speed_mode error, got: %s", w.Body.String())
+	}
+}
+
 // --- handlePCAPStop ---
 
 func TestCov2_HandlePCAPStop_WrongSensorID(t *testing.T) {
@@ -2929,7 +2961,7 @@ func TestCov3_HandlePCAPStart_FormDataWithDebugParams(t *testing.T) {
 		stats:         NewPacketStats(),
 	}
 
-	form := strings.NewReader("pcap_file=test.pcap&speed_mode=fastest&speed_ratio=3.0&start_seconds=5&duration_seconds=20&debug_ring_min=2&debug_ring_max=8&debug_az_min=10&debug_az_max=350&enable_debug=true&enable_plots=1&analysis_mode=true")
+	form := strings.NewReader("pcap_file=test.pcap&speed_mode=analysis&speed_ratio=3.0&start_seconds=5&duration_seconds=20&debug_ring_min=2&debug_ring_max=8&debug_az_min=10&debug_az_max=350&enable_debug=true&enable_plots=1&analysis_mode=true")
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=cov3-pcapstart-form", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
@@ -5792,4 +5824,65 @@ func TestCov7_HandleTuningParams_MethodNotAllowed(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleTuningParams(w, req)
 	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+// --- BenchmarkMode accessor ---
+
+func TestCov_BenchmarkMode_ReturnsSamePointer(t *testing.T) {
+	ws := &WebServer{}
+	bm1 := ws.BenchmarkMode()
+	bm2 := ws.BenchmarkMode()
+
+	if bm1 != bm2 {
+		t.Error("expected BenchmarkMode() to return the same pointer on repeated calls")
+	}
+}
+
+func TestCov_BenchmarkMode_StoreAndLoad(t *testing.T) {
+	ws := &WebServer{}
+	bm := ws.BenchmarkMode()
+
+	// Default should be false
+	if bm.Load() {
+		t.Error("expected BenchmarkMode to default to false")
+	}
+
+	// Store true and verify
+	bm.Store(true)
+	if !bm.Load() {
+		t.Error("expected BenchmarkMode to be true after Store(true)")
+	}
+
+	// Verify through fresh accessor
+	if !ws.BenchmarkMode().Load() {
+		t.Error("expected BenchmarkMode to be true via second accessor call")
+	}
+}
+
+// --- setupRoutes pprof registration via tsweb.Debugger ---
+
+func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
+	ws := &WebServer{
+		sensorID:       "pprof-test-sensor",
+		latestFgCounts: make(map[string]int),
+	}
+
+	mux := ws.setupRoutes()
+
+	// Verify pprof endpoints are registered via tsweb.Debugger on the lidar-only mux.
+	// tsweb enforces AllowDebugAccess (loopback + Tailscale peers);
+	// httptest requests come from loopback so they are permitted.
+	paths := []string{
+		"/debug/pprof/",
+		"/debug/pprof/cmdline",
+		"/debug/pprof/symbol",
+	}
+	for _, path := range paths {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code == http.StatusNotFound {
+			t.Errorf("pprof endpoint %s returned 404; expected it to be registered via tsweb.Debugger", path)
+		}
+	}
 }

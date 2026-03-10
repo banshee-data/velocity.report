@@ -216,14 +216,14 @@ private let logger = DevLogger(category: "AppState")
     struct TrackSample {
         let frameIndex: UInt64
         let speedMps: Float
-        let peakSpeedMps: Float
+        let maxSpeedMps: Float
         let headingDeg: Float
     }
 
     /// Ring buffer of recent samples per track (keyed by trackID).
     private(set) var trackHistory: [String: [TrackSample]] = [:]
     /// Persistent all-time peak speed per track (survives ring-buffer eviction).
-    private(set) var trackPeakSpeed: [String: Float] = [:]
+    private(set) var trackMaxSpeed: [String: Float] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     /// Accumulated tracks across all frames in the current session/replay.
@@ -273,6 +273,7 @@ private let logger = DevLogger(category: "AppState")
     private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
     private var queuedSeekProgress: Double?
     private var playbackStateGeneration: UInt64 = 0
+    private var lastSeenReplayEpoch: UInt64 = 0
 
     // MARK: - Run State
 
@@ -532,7 +533,7 @@ private let logger = DevLogger(category: "AppState")
         trackCount = 0
         cacheStatus = ""
         trackHistory = [:]
-        trackPeakSpeed = [:]
+        trackMaxSpeed = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         renderer?.clearTransientData()
@@ -552,7 +553,7 @@ private let logger = DevLogger(category: "AppState")
         resetPlaybackState(mode: .unknown)
         frameCount = 0
         trackHistory = [:]
-        trackPeakSpeed = [:]
+        trackMaxSpeed = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         userLabels = [:]
@@ -1077,9 +1078,11 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Frame Handling
 
     func onFrameReceived(_ frame: FrameBundle, generation: UInt64? = nil) {
+        let perfStart = ContinuousClock.now
         let eventGeneration = generation ?? playbackStateGeneration
         guard eventGeneration == playbackStateGeneration else {
-            logger.debug("Ignoring stale frame for generation \(eventGeneration)")
+            let epoch = frame.playbackInfo?.replayEpoch ?? 0
+            logger.debug("Ignoring stale frame for generation \(eventGeneration) (epoch=\(epoch))")
             return
         }
         // Update non-published frame data immediately (bypasses SwiftUI)
@@ -1129,6 +1132,17 @@ private let logger = DevLogger(category: "AppState")
             newLabels = []
         }
 
+        // Performance diagnostic: log per-frame processing cost periodically
+        let perfElapsed = ContinuousClock.now - perfStart
+        let perfMs =
+            Double(perfElapsed.components.seconds) * 1000 + Double(
+                perfElapsed.components.attoseconds) / 1e15
+        if frameCount % 60 == 0 {
+            logger.info(
+                "[Perf] frame \(self.frameCount) processed in \(String(format: "%.1f", perfMs))ms (fps=\(String(format: "%.1f", self.fps)) type=\(frame.frameType.rawValue) points=\(frame.pointCloud?.pointCount ?? 0) tracks=\(frame.tracks?.tracks.count ?? 0))"
+            )
+        }
+
         // Defer @Published state mutations to the next run loop iteration
         // to avoid SwiftUI AttributeGraph cycles during view updates.
         Task { [weak self] in
@@ -1166,6 +1180,20 @@ private let logger = DevLogger(category: "AppState")
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
 
+            // Detect replay source change (e.g. VRLOG→PCAP transition).
+            // When the epoch advances, clear accumulated track state so stale
+            // history from the previous replay doesn't contaminate the new one.
+            let epoch = playbackInfo.replayEpoch
+            if epoch > 0 && epoch != lastSeenReplayEpoch {
+                logger.info(
+                    "Replay epoch changed \(lastSeenReplayEpoch) → \(epoch), clearing track state")
+                lastSeenReplayEpoch = epoch
+                trackHistory.removeAll()
+                trackMaxSpeed.removeAll()
+                allSeenTracks.removeAll()
+                inViewTrackIDs = []
+            }
+
             // Log mode on first frame
             if frameCount == 1 {
                 let mode = isLive ? "LIVE" : "REPLAY"
@@ -1194,7 +1222,7 @@ private let logger = DevLogger(category: "AppState")
 
                 let sample = TrackSample(
                     frameIndex: currentFrameIndex, speedMps: track.speedMps,
-                    peakSpeedMps: track.peakSpeedMps, headingDeg: track.headingRad * 180 / .pi)
+                    maxSpeedMps: track.maxSpeedMps, headingDeg: track.headingRad * 180 / .pi)
                 var samples = trackHistory[track.trackID] ?? []
                 // Remove any samples at or beyond the current frame index
                 // (handles backward seeks and steps)
@@ -1206,10 +1234,8 @@ private let logger = DevLogger(category: "AppState")
                 trackHistory[track.trackID] = samples
 
                 // Update persistent peak speed (survives ring-buffer eviction)
-                let prevPeak = trackPeakSpeed[track.trackID] ?? 0
-                if track.peakSpeedMps > prevPeak {
-                    trackPeakSpeed[track.trackID] = track.peakSpeedMps
-                }
+                let prevMax = trackMaxSpeed[track.trackID] ?? 0
+                if track.maxSpeedMps > prevMax { trackMaxSpeed[track.trackID] = track.maxSpeedMps }
             }
         } else {
             inViewTrackIDs = []
@@ -1341,7 +1367,10 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
 
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle) {
         let generation = self.generation
-        Task { @MainActor [weak self] in
+        // Called from MainActor.run in streamFrames() — call directly
+        // to ensure backpressure (gRPC loop waits for processing to complete
+        // before reading the next frame, preventing unbounded task queueing).
+        MainActor.assumeIsolated { [weak self] in
             self?.appState?.onFrameReceived(frame, generation: generation)
         }
     }

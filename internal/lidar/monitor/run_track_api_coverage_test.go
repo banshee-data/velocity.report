@@ -48,7 +48,7 @@ func covInsertTrack(t *testing.T, ws *WebServer, runID, trackID string) {
 		TrackState:       "confirmed",
 		ObservationCount: 10,
 		AvgSpeedMps:      5.0,
-		PeakSpeedMps:     8.0,
+		MaxSpeedMps:      8.0,
 		StartUnixNanos:   1000000000,
 		EndUnixNanos:     2000000000,
 	}

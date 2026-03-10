@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
@@ -26,6 +27,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/version"
+	"tailscale.com/tsweb"
 )
 
 // ParamDef defines a configuration parameter for display and editing
@@ -96,15 +98,17 @@ type WebServer struct {
 	baseCtx           context.Context
 
 	// PCAP replay state
-	pcapMu               sync.Mutex
-	pcapInProgress       bool
-	pcapCancel           context.CancelFunc
-	pcapDone             chan struct{}
-	pcapAnalysisMode     bool // When true, preserve grid after PCAP completion
-	pcapDisableRecording bool // When true, skip VRLOG recording during PCAP replay
-	pcapSpeedMode        string
-	pcapSpeedRatio       float64
-	pcapLastRunID        string // Last analysis run ID from PCAP replay (protected by pcapMu)
+	pcapMu                      sync.Mutex
+	pcapInProgress              bool
+	pcapCancel                  context.CancelFunc
+	pcapDone                    chan struct{}
+	pcapAnalysisMode            bool        // When true, preserve grid after PCAP completion
+	pcapDisableRecording        bool        // When true, skip VRLOG recording during PCAP replay
+	pcapBenchmarkMode           atomic.Bool // When true, enable pipeline performance tracing
+	pcapDisableTrackPersistence atomic.Bool // When true, skip DB track/observation writes
+	pcapSpeedMode               string
+	pcapSpeedRatio              float64
+	pcapLastRunID               string // Last analysis run ID from PCAP replay (protected by pcapMu)
 
 	// PCAP progress tracking (protected by pcapMu)
 	pcapCurrentPacket uint64 // 0-based index of current packet
@@ -371,6 +375,21 @@ func (ws *WebServer) SetHINTRunner(runner HINTRunner) {
 // SetSweepStore sets the sweep store for persisting sweep results.
 func (ws *WebServer) SetSweepStore(store *sqlite.SweepStore) {
 	ws.sweepStore = store
+}
+
+// BenchmarkMode returns a pointer to the atomic.Bool controlling pipeline
+// performance tracing. The caller can pass this to TrackingPipelineConfig
+// so benchmark logging is toggled at runtime via the dashboard checkbox.
+func (ws *WebServer) BenchmarkMode() *atomic.Bool {
+	return &ws.pcapBenchmarkMode
+}
+
+// DisableTrackPersistenceFlag returns a pointer to the atomic.Bool that
+// suppresses DB track/observation writes. Wire this into
+// TrackingPipelineConfig.DisableTrackPersistence so analysis replays
+// and parameter sweeps do not pollute the production track store.
+func (ws *WebServer) DisableTrackPersistenceFlag() *atomic.Bool {
+	return &ws.pcapDisableTrackPersistence
 }
 
 // updateLatestFgCounts refreshes cached foreground counts for the status UI.
@@ -645,6 +664,10 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 		{"/debug/lidar/tracks", ws.handleTracksChart},
 	}
 
+	// Note: pprof endpoints (/debug/pprof/*) are registered by tsweb.Debugger()
+	// via db.AttachAdminRoutes() on the main mux, and by setupRoutes() on
+	// the lidar-only server mux.
+
 	// Playback API routes (VRLOG replay control)
 	playbackRoutes := []route{
 		{"GET /api/lidar/playback/status", ws.handlePlaybackStatus},
@@ -707,11 +730,19 @@ func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 
 }
 
-// setupRoutes configures the HTTP routes and handlers
+// setupRoutes configures the HTTP routes and handlers for the lidar-only
+// server. pprof and debug endpoints are registered via tsweb.Debugger(),
+// matching the radar admin server's access control (tailscale-only).
 func (ws *WebServer) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", ws.handleStatus)
 	ws.RegisterRoutes(mux)
+
+	// Register pprof and debug endpoints via tsweb.Debugger, which
+	// restricts access to loopback and authenticated Tailscale peers
+	// — same mechanism as the radar admin server.
+	tsweb.Debugger(mux)
+
 	return mux
 }
 
