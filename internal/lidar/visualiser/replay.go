@@ -121,6 +121,11 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 			return status.Errorf(codes.Internal, "replay error: %v", err)
 		}
 
+		// Skip background snapshot frames during VRLOG replay.
+		if frame.FrameType == FrameTypeBackground {
+			continue
+		}
+
 		// Rate control: sleep to match playback rate
 		if lastFrameTime > 0 && rate > 0 {
 			frameDelta := time.Duration(float64(frame.TimestampNanos-lastFrameTime) / float64(rate))

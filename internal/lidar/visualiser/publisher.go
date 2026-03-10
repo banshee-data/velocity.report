@@ -62,9 +62,10 @@ type Publisher struct {
 	clientsMu sync.RWMutex
 
 	// Background snapshot management (M3.5)
-	backgroundMgr      BackgroundManagerInterface
-	lastBackgroundSeq  uint64
-	lastBackgroundSent time.Time
+	backgroundMgr           BackgroundManagerInterface
+	lastBackgroundSeq       uint64
+	lastBackgroundSent      time.Time
+	lastForegroundTimestamp int64 // most recent foreground frame's TimestampNanos
 
 	// Frame recording
 	recorder   FrameRecorder
@@ -346,6 +347,15 @@ func (p *Publisher) vrlogReplayLoop() {
 			return
 		}
 
+		// Skip background snapshot frames during VRLOG replay.
+		// Background data in the VRLOG carries wall-clock timestamps that
+		// break rate control, and the client already holds its cached
+		// background from the live session. Skipping these avoids the
+		// CPU cost of deserializing + re-serializing ~2.4 MB JSON blobs.
+		if frame.FrameType == FrameTypeBackground {
+			continue
+		}
+
 		// Rate control: sleep to match playback rate
 		if lastFrameTime > 0 && rate > 0 {
 			frameDelta := time.Duration(float64(frame.TimestampNanos-lastFrameTime) / float64(rate))
@@ -433,10 +443,18 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 		return fmt.Errorf("background snapshot has incorrect type: %T", snapshotDataRaw)
 	}
 
-	// Create a frame bundle with background type
+	// Create a frame bundle with background type.
+	// Use the most recent foreground frame timestamp instead of the snapshot's
+	// wall-clock time. This prevents timestamp inversion in VRLOGs when
+	// recording PCAP replays (background uses time.Now(), foreground uses
+	// PCAP timestamps).
+	ts := snapshot.TimestampNanos
+	if p.lastForegroundTimestamp != 0 {
+		ts = p.lastForegroundTimestamp
+	}
 	bundle := &FrameBundle{
 		FrameID:        p.frameCount.Add(1),
-		TimestampNanos: snapshot.TimestampNanos,
+		TimestampNanos: ts,
 		SensorID:       p.config.SensorID,
 		FrameType:      FrameTypeBackground,
 		Background:     snapshot,
@@ -546,6 +564,12 @@ func (p *Publisher) Publish(frame interface{}) {
 		if err := p.sendBackgroundSnapshot(); err != nil {
 			opsf("[Visualiser] Failed to send background snapshot: %v", err)
 		}
+	}
+
+	// Track the most recent foreground frame timestamp so background
+	// snapshots can inherit it instead of using wall-clock time.
+	if frameBundle.FrameType != FrameTypeBackground {
+		p.lastForegroundTimestamp = frameBundle.TimestampNanos
 	}
 
 	// Determine frame type — only set if not already specified.
