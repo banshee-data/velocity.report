@@ -37,7 +37,7 @@ Open questions that currently need evidence-backed work include:
 - how radar + LiDAR fusion should be scored and staged: per-track association first, or later L7 scene/canonical-object fusion;
 - when the current height-band ground filter is no longer good enough, and what replay/static-export evidence justifies moving to tile-plane and vector-scene maths;
 - how OSM/community geometry priors should be diffed, reviewed, signed, and exported without weakening provenance;
-- whether highly reflective signs can be promoted from a simple intensity-plus-planarity cue into stable pose anchors for shake estimation, without confusing them with other retroreflective clutter;
+- whether highly reflective signs can be promoted into stable pose anchors for shake estimation, how far the intensity gate can be relaxed when signs are absent, and whether walls, facades, or road geometry provide enough fallback redundancy without confusing the model with clutter or occlusion;
 - whether velocity-coherent extraction beats the current baseline on fixed PCAP/VRLOG packs strongly enough to justify runtime adoption;
 - which config values are actually supported by repeatable scorecards, when they were last compared, and what artifact set was used.
 

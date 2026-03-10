@@ -83,7 +83,7 @@ flowchart TD
         direction LR
         C21(("EMA / GMM-style background\n✅ active"))
         C22(("Foreground ratio / drift heuristics\n✅ active"))
-        C23(("Anchor stability input\n🧪 proposal"))
+        C23(("Anchor stability input\nsign / wall / ground\n🧪 proposal"))
         C24(("OctoMap / TSDF alternatives\nreference only"))
     end
 
@@ -92,7 +92,7 @@ flowchart TD
         C31(("DBSCAN clustering\n✅ active"))
         C32(("Height-band ground filter\n✅ active"))
         C33(("Tile-plane / vector-scene ground\n📋 proposal"))
-        C34(("Reflective sign extraction\n🧪 proposal"))
+        C34(("Static surface anchor extraction\n🧪 proposal"))
     end
 
     subgraph S4["L5-L6 Tracking / Object Concepts"]
@@ -128,7 +128,7 @@ explicit.
 | L1 | Packet-driver split | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula` | ✅ Implemented |
 | L2 | Range-image / sequential frame assembly | RangeNet++, SemanticKITTI temporal framing | ✅ Implemented |
 | L3 | Single-component adaptive background model in polar space | Stauffer-Grimson GMM lineage, OctoMap as contrast | ✅ Implemented |
-| L3 | Direct frame-stability / shake input into settling | Reflective sign pose-anchor proposal | 🧪 Proposal |
+| L3 | Direct frame-stability / shake input into settling | Reflective sign and static-surface pose-anchor proposal | 🧪 Proposal |
 | L4 | DBSCAN + PCA/OBB clustering | DBSCAN, PCL clustering, PCA | ✅ Implemented |
 | L4 | Height-band ground removal | Simplified ground-filter family | ✅ Implemented |
 | L4-L7 | Tile-plane / vector-scene geometry | Patchwork, ground-plane fitting, vector-scene planning | 📋 Proposed |
