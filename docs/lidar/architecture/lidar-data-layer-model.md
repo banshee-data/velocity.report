@@ -114,17 +114,20 @@ flowchart TB
     subgraph L10["L10 Clients"]
         direction LR
         A101["Swift visualiser 📄"]
-        A102["Svelte LiDAR views 📄"]
-        A103["Svelte sweep / HINT UI 📄"]
-        R101["Svelte report UI 📄"]
+        subgraph L10S["Svelte clients"]
+            direction LR
+            A102["Svelte LiDAR views 📄"]
+            A103["Svelte sweep / HINT UI 📄"]
+            R101["Svelte report UI 📄"]
+        end
         R102["PDF generator 📄"]
     end
 
     A11 --> A21
     A12 --> A21
     A21 --> A22
-    A22 --> A23
-    A21 --> A31
+    A21 --> A23
+    A22 --> A31
     A31 --> A32
     A32 --> A41
     A41 --> A42
