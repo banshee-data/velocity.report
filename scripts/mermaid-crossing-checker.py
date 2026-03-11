@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Mermaid flowchart edge-crossing checker.
+"""Mermaid flowchart edge-order linter.
 
-Parses a Mermaid flowchart block from a Markdown file, extracts the node
-declaration order and all edges, then detects potential visual crossings
-and suggests a corrected edge ordering.
+Parses a Mermaid flowchart block from a Markdown file and reports
+edge-declaration-order issues that may cause visual line crossings.
 
 Usage:
     python scripts/mermaid-crossing-checker.py [FILE]
@@ -11,40 +10,20 @@ Usage:
 If FILE is omitted it defaults to
     docs/lidar/architecture/lidar-data-layer-model.md
 
-Layout model (how Dagre/Mermaid decides positions)
-──────────────────────────────────────────────────
-Mermaid delegates to Dagre, which implements the Sugiyama layered-graph
-algorithm.  The steps that matter for crossing:
+What this checks
+────────────────
+Mermaid delegates layout to Dagre (Sugiyama algorithm).  Edge
+declaration order biases the crossing-minimisation sweep: earlier
+edges pull their target nodes leftward.
 
-  1. **Rank assignment** — each node gets a vertical rank (layer).
-     Subgraph membership and edge direction determine rank.
+This script checks one actionable invariant:
 
-  2. **Initial ordering** — within each rank, nodes are ordered by their
-     *source-file declaration order*.  This is the part we can control.
+  For edges sharing the SAME SOURCE and targeting the SAME SUBGRAPH,
+  they should be declared in left-to-right target position order.
 
-  3. **Crossing minimisation** — Dagre runs a barycenter sweep (usually
-     2–4 passes) that tries to reorder nodes within a rank to reduce
-     crossings.  It starts from the initial ordering and is sensitive to
-     *edge declaration order*: earlier edges have more influence.
-
-  4. **Coordinate assignment** — final X positions are computed.
-
-Rules for crossing-free layout:
-
-  • At every rank boundary, the left-to-right source positions should
-    match the left-to-right target positions.  If source A is left of
-    source B, their targets should also maintain that relative order —
-    otherwise the two edges cross.
-
-  • *Edge declaration order* should follow a consistent left-to-right
-    sweep of sources.  Declare all edges from the leftmost source first,
-    then the next source, etc.  Within a source, declare edges in the
-    order their targets appear left-to-right.
-
-  • *Node declaration order* within a subgraph should match the desired
-    left-to-right visual position.
-
-This script checks exactly these invariants and reports violations.
+It does NOT suggest node reorderings or full edge re-sorts — those
+changes are too disruptive and unreliable. Fix reported issues by
+swapping the indicated edge declarations.
 """
 
 from __future__ import annotations
@@ -54,6 +33,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Types
@@ -76,40 +56,18 @@ class Edge:
 class Subgraph:
     name: str
     nodes: list[str] = field(default_factory=list)
-    direction: str = "TB"  # TB, BT, LR, or RL
-
-
-@dataclass
-class Crossing:
-    edge_a: Edge
-    edge_b: Edge
-    reason: str
+    direction: str = "TB"
 
 
 # ──────────────────────────────────────────────────────────────────────
 # Parser
 # ──────────────────────────────────────────────────────────────────────
 
-_NODE_DEF = re.compile(
-    r"^\s+([A-Za-z_]\w*)\s*\[",
-)
-
-_EDGE = re.compile(
-    r"^\s+([A-Za-z_]\w*)\s+(-->|-.->)\s+([A-Za-z_]\w*)",
-)
-
-_SUBGRAPH_START = re.compile(
-    r"^\s+subgraph\s+(\S+)",
-)
-
-_SUBGRAPH_END = re.compile(
-    r"^\s+end\s*$",
-)
-
-_DIRECTION = re.compile(
-    r"^\s+direction\s+(TB|BT|LR|RL)",
-)
-
+_NODE_DEF = re.compile(r"^\s+([A-Za-z_]\w*)\s*\[")
+_EDGE = re.compile(r"^\s+([A-Za-z_]\w*)\s+(-->|-.->)\s+([A-Za-z_]\w*)")
+_SUBGRAPH_START = re.compile(r"^\s+subgraph\s+(\S+)")
+_SUBGRAPH_END = re.compile(r"^\s+end\s*$")
+_DIRECTION = re.compile(r"^\s+direction\s+(TB|BT|LR|RL)")
 _MERMAID_START = re.compile(r"^```mermaid\s*$")
 _MERMAID_END = re.compile(r"^```\s*$")
 
@@ -122,7 +80,7 @@ def parse_mermaid(lines: list[str]) -> tuple[
 ]:
     """Extract nodes, subgraphs, and edges from the *first* mermaid block."""
     in_mermaid = False
-    subgraph_stack: list[str] = []  # stack of subgraph names
+    subgraph_stack: list[str] = []
     global_node_order: list[str] = []
     node_to_subgraph: dict[str, str] = {}
     subgraphs: dict[str, Subgraph] = {}
@@ -137,9 +95,8 @@ def parse_mermaid(lines: list[str]) -> tuple[
             continue
 
         if _MERMAID_END.match(line):
-            break  # only process the first mermaid block
+            break
 
-        # Subgraph boundaries
         m = _SUBGRAPH_START.match(line)
         if m:
             sg_name = m.group(1)
@@ -152,21 +109,18 @@ def parse_mermaid(lines: list[str]) -> tuple[
                 subgraph_stack.pop()
             continue
 
-        # Skip direction declarations
         m = _DIRECTION.match(line)
         if m:
             if subgraph_stack:
                 subgraphs[subgraph_stack[-1]].direction = m.group(1)
             continue
 
-        # Edge
         m = _EDGE.match(line)
         if m:
             src, arrow, dst = m.group(1), m.group(2), m.group(3)
             edges.append(Edge(src=src, dst=dst, line_no=i, dashed=(arrow == "-.->")))
             continue
 
-        # Node definition
         m = _NODE_DEF.match(line)
         if m:
             node_id = m.group(1)
@@ -181,52 +135,7 @@ def parse_mermaid(lines: list[str]) -> tuple[
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Rank inference
-# ──────────────────────────────────────────────────────────────────────
-
-
-def infer_ranks(
-    subgraphs: dict[str, Subgraph],
-    node_to_subgraph: dict[str, str],
-    global_node_order: list[str],
-) -> dict[str, int]:
-    """Approximate rank from declaration order.
-
-    Nodes in the same subgraph share a rank.  Free-floating nodes get a
-    rank based on their declaration position RELATIVE to surrounding
-    subgraphs (not after all subgraphs) so that nodes declared between
-    two subgraphs get intermediate ranks.
-    """
-    # Build the interleaved rank sequence.  Walk global_node_order and
-    # assign a new rank each time we enter a different subgraph or see
-    # a free node.
-    rank_counter = 0
-    last_sg: str | None = None  # track subgraph to detect transitions
-    sg_rank_assigned: dict[str, int] = {}
-    node_rank: dict[str, int] = {}
-
-    for node in global_node_order:
-        sg = node_to_subgraph.get(node)
-        if sg is not None:
-            # Node belongs to a subgraph
-            if sg not in sg_rank_assigned:
-                # First time seeing this subgraph — assign rank
-                if last_sg != sg:
-                    sg_rank_assigned[sg] = rank_counter
-                    rank_counter += 1
-                    last_sg = sg
-            node_rank[node] = sg_rank_assigned[sg]
-        else:
-            # Free-floating node — gets its own rank at current position
-            node_rank[node] = rank_counter
-            rank_counter += 1
-            last_sg = None
-
-    return node_rank
-
-
-# ──────────────────────────────────────────────────────────────────────
-# Position index  (declaration order within a rank)
+# Position index
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -235,172 +144,19 @@ def build_position_index(
     subgraphs: dict[str, Subgraph],
     node_to_subgraph: dict[str, str],
 ) -> dict[str, int]:
-    """Return a mapping from node_id → left-to-right position within its
-    rank (subgraph).  Lower numbers are further left."""
+    """node_id → left-to-right position within its subgraph."""
     pos: dict[str, int] = {}
     for sg in subgraphs.values():
         for i, node in enumerate(sg.nodes):
             pos[node] = i
-
-    # Free-floating nodes: each alone in its rank, position 0
     for node in global_node_order:
         if node not in pos:
             pos[node] = 0
-
     return pos
 
 
-def build_centered_positions(
-    subgraphs: dict[str, Subgraph],
-    global_node_order: list[str],
-    node_to_subgraph: dict[str, str],
-    edges: list[Edge],
-) -> dict[str, float]:
-    """Return centred positions for cross-rank comparison.
-
-    For LR fan-out subgraphs (no internal edges), nodes spread
-    horizontally and get centred positions -N/2 .. +N/2.
-
-    For TB subgraphs, or LR subgraphs whose internal edges form a chain
-    (pipeline), nodes stack vertically and all get position 0.0 — they
-    share a single column in the rendered layout.
-    """
-    cpos: dict[str, float] = {}
-
-    for sg in subgraphs.values():
-        n = len(sg.nodes)
-        if n == 0:
-            continue
-
-        # Detect internal edges (both src and dst in this subgraph)
-        sg_set = set(sg.nodes)
-        has_internal = any(e.src in sg_set and e.dst in sg_set for e in edges)
-
-        # TB direction or pipeline chain → vertical stack → all at 0
-        if sg.direction in ("TB", "BT") or has_internal:
-            for node in sg.nodes:
-                cpos[node] = 0.0
-        else:
-            # LR fan-out: spread horizontally
-            for i, node in enumerate(sg.nodes):
-                cpos[node] = i - (n - 1) / 2.0
-
-    for node in global_node_order:
-        if node not in cpos:
-            cpos[node] = 0.0
-
-    return cpos
-
-
 # ──────────────────────────────────────────────────────────────────────
-# Crossing detector
-# ──────────────────────────────────────────────────────────────────────
-
-
-def detect_crossings(
-    edges: list[Edge],
-    node_rank: dict[str, int],
-    node_pos: dict[str, int],
-    node_to_subgraph: dict[str, str],
-    centered_pos: dict[str, float] | None = None,
-) -> list[Crossing]:
-    """Find pairs of edges that cross, including multi-rank skip edges.
-
-    For edges spanning multiple ranks, virtual nodes are interpolated at
-    each intermediate rank.  Two edges cross at a rank boundary when
-    their positions swap order between source-rank and target-rank.
-
-    Uses centred positions (``centered_pos``) for cross-rank comparison
-    when available; falls back to raw ``node_pos`` otherwise.
-    """
-    if centered_pos is None:
-        centered_pos = {n: float(p) for n, p in node_pos.items()}
-
-    crossings: list[Crossing] = []
-
-    # Pre-compute (src_rank, dst_rank, centred_src, centred_dst) for
-    # every edge so we can interpolate at any intermediate rank.
-    @dataclass
-    class EdgeInfo:
-        edge: Edge
-        src_rank: int
-        dst_rank: int
-        src_cpos: float
-        dst_cpos: float
-
-        def pos_at_rank(self, r: int) -> float:
-            """Linearly interpolated position at rank *r*."""
-            span = self.dst_rank - self.src_rank
-            if span == 0:
-                return self.src_cpos
-            t = (r - self.src_rank) / span
-            return self.src_cpos + t * (self.dst_cpos - self.src_cpos)
-
-    infos: list[EdgeInfo] = []
-    for e in edges:
-        sr = node_rank.get(e.src)
-        dr = node_rank.get(e.dst)
-        if sr is None or dr is None:
-            continue
-        infos.append(
-            EdgeInfo(
-                edge=e,
-                src_rank=sr,
-                dst_rank=dr,
-                src_cpos=centered_pos.get(e.src, 0.0),
-                dst_cpos=centered_pos.get(e.dst, 0.0),
-            )
-        )
-
-    # Check every pair of edges for crossing at any shared rank boundary.
-    seen: set[tuple[int, int]] = set()
-    for i, a in enumerate(infos):
-        for b in infos[i + 1 :]:
-            # Determine shared rank range
-            lo = max(min(a.src_rank, a.dst_rank), min(b.src_rank, b.dst_rank))
-            hi = min(max(a.src_rank, a.dst_rank), max(b.src_rank, b.dst_rank))
-            if lo >= hi:
-                continue  # no shared rank span
-
-            # Check each boundary in the shared range
-            crossed = False
-            for r in range(lo, hi):
-                pa_upper = a.pos_at_rank(r)
-                pb_upper = b.pos_at_rank(r)
-                pa_lower = a.pos_at_rank(r + 1)
-                pb_lower = b.pos_at_rank(r + 1)
-
-                # Skip when edges are at the same position (ambiguous)
-                if pa_upper == pb_upper or pa_lower == pb_lower:
-                    continue
-
-                # Crossing: relative order flips between upper and lower
-                if (pa_upper - pb_upper) * (pa_lower - pb_lower) < 0:
-                    crossed = True
-                    break
-
-            if crossed:
-                key = (a.edge.line_no, b.edge.line_no)
-                if key not in seen:
-                    seen.add(key)
-                    crossings.append(
-                        Crossing(
-                            edge_a=a.edge,
-                            edge_b=b.edge,
-                            reason=(
-                                f"{a.edge.src}({a.src_cpos:+.1f}) → "
-                                f"{a.edge.dst}({a.dst_cpos:+.1f})  crosses  "
-                                f"{b.edge.src}({b.src_cpos:+.1f}) → "
-                                f"{b.edge.dst}({b.dst_cpos:+.1f})"
-                            ),
-                        )
-                    )
-
-    return crossings
-
-
-# ──────────────────────────────────────────────────────────────────────
-# Edge-order linter
+# Edge-order linter  (the only check that matters)
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -409,8 +165,8 @@ def lint_edge_order(
     node_pos: dict[str, int],
     node_to_subgraph: dict[str, str],
 ) -> list[str]:
-    """Check that edges from the same source to the same target rank are
-    declared in target position order (left-to-right)."""
+    """Check edges from the same source targeting the same subgraph are
+    declared in left-to-right target position order."""
     warnings: list[str] = []
     by_src: dict[str, list[Edge]] = defaultdict(list)
     for e in edges:
@@ -419,8 +175,7 @@ def lint_edge_order(
     for src, src_edges in by_src.items():
         if len(src_edges) < 2:
             continue
-        # Only compare edges whose targets are in the same subgraph
-        # (same rank), since cross-rank position comparison is meaningless.
+        # Group by target subgraph
         by_target_sg: dict[str, list[Edge]] = defaultdict(list)
         for e in src_edges:
             sg = node_to_subgraph.get(e.dst, f"__free_{e.dst}")
@@ -436,97 +191,12 @@ def lint_edge_order(
                 pb = node_pos.get(eb.dst, 0)
                 if pa > pb:
                     warnings.append(
-                        f"  {ea}  declared before  {eb}  "
-                        f"but target {ea.dst}(pos {pa}) is right of {eb.dst}(pos {pb}) — swap"
+                        f"  SWAP  {ea}  ↔  {eb}\n"
+                        f"        target {ea.dst}(pos {pa}) is right of "
+                        f"{eb.dst}(pos {pb})"
                     )
 
     return warnings
-
-
-# ──────────────────────────────────────────────────────────────────────
-# Suggested edge ordering
-# ──────────────────────────────────────────────────────────────────────
-
-
-def suggest_edge_order(
-    edges: list[Edge],
-    node_pos: dict[str, int],
-    node_rank: dict[str, int],
-) -> list[Edge]:
-    """Return edges sorted to minimise crossings.
-
-    Sort key: (src_rank, src_pos, dst_rank, dst_pos).
-    This ensures a consistent left-to-right sweep at every rank
-    boundary.
-    """
-
-    def sort_key(e: Edge) -> tuple[int, int, int, int, int]:
-        return (
-            node_rank.get(e.src, 999),
-            node_pos.get(e.src, 0),
-            node_rank.get(e.dst, 999),
-            node_pos.get(e.dst, 0),
-            0 if not e.dashed else 1,  # solid before dashed
-        )
-
-    return sorted(edges, key=sort_key)
-
-
-# ──────────────────────────────────────────────────────────────────────
-# Node-order suggestions
-# ──────────────────────────────────────────────────────────────────────
-
-
-def suggest_node_reorder(
-    subgraphs: dict[str, Subgraph],
-    edges: list[Edge],
-    node_to_subgraph: dict[str, str],
-    node_pos: dict[str, int],
-    node_rank: dict[str, int],
-) -> dict[str, list[str]]:
-    """For each subgraph, suggest a node order that aligns with the
-    majority of incoming/outgoing edge targets.
-
-    Heuristic: order nodes by the median position of the nodes they
-    connect to in *adjacent* ranks (parents above, children below).
-
-    Sequential chains (A→B→C within the same subgraph) are detected and
-    preserved as a unit, since reordering them would break pipeline flow.
-    """
-    suggestions: dict[str, list[str]] = {}
-
-    for sg_name, sg in subgraphs.items():
-        if len(sg.nodes) < 2:
-            continue
-
-        # Detect internal edges (both src and dst in this subgraph).
-        # Subgraphs with internal edges are pipeline-like — their node
-        # order is semantically meaningful and should not be reordered.
-        sg_set = set(sg.nodes)
-        has_internal_edges = any(e.src in sg_set and e.dst in sg_set for e in edges)
-        if has_internal_edges:
-            continue
-
-        # Pure fan-out subgraph (no internal edges): order nodes by the
-        # barycenter of their external neighbours.
-
-        def node_barycenter(node: str) -> float:
-            positions: list[float] = []
-            for e in edges:
-                if e.src == node and e.dst not in sg_set:
-                    positions.append(node_pos.get(e.dst, 0))
-                if e.dst == node and e.src not in sg_set:
-                    positions.append(node_pos.get(e.src, 0))
-            if not positions:
-                return node_pos.get(node, 0)
-            return sum(positions) / len(positions)
-
-        proposed = sorted(sg.nodes, key=node_barycenter)
-
-        if proposed != sg.nodes:
-            suggestions[sg_name] = proposed
-
-    return suggestions
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -549,11 +219,7 @@ def main() -> None:
         print("No Mermaid edges found in file.", file=sys.stderr)
         sys.exit(1)
 
-    node_rank = infer_ranks(subgraphs, node_to_subgraph, global_node_order)
     node_pos = build_position_index(global_node_order, subgraphs, node_to_subgraph)
-    centered_pos = build_centered_positions(
-        subgraphs, global_node_order, node_to_subgraph, edges
-    )
 
     # ── Report ────────────────────────────────────────────────────────
 
@@ -562,8 +228,8 @@ def main() -> None:
         f"{len(subgraphs)} subgraphs, {len(edges)} edges\n"
     )
 
-    # 1. Show current node positions
-    print("═══ Node positions (declaration order within rank) ═══")
+    # Show current node positions
+    print("═══ Node positions (declaration order) ═══")
     for sg_name, sg in subgraphs.items():
         if not sg.nodes:
             continue
@@ -571,62 +237,17 @@ def main() -> None:
         print(f"  {sg_name:20s} │ {positions}")
     print()
 
-    # 2. Detect crossings
-    crossings = detect_crossings(
-        edges, node_rank, node_pos, node_to_subgraph, centered_pos
-    )
-    if crossings:
-        print(f"═══ {len(crossings)} potential crossing(s) detected ═══")
-        for c in crossings:
-            print(f"  ✗ {c.reason}")
-            print(f"      {c.edge_a}")
-            print(f"      {c.edge_b}")
-        print()
-    else:
-        print("═══ No crossings detected ═══\n")
-
-    # 3. Edge declaration order lint
+    # Edge-order lint
     warnings = lint_edge_order(edges, node_pos, node_to_subgraph)
     if warnings:
-        print(f"═══ {len(warnings)} edge-order warning(s) ═══")
+        print(f"═══ {len(warnings)} edge-order issue(s) — swap these ═══")
         for w in warnings:
             print(w)
         print()
-
-    # 4. Suggested node reorder
-    node_suggestions = suggest_node_reorder(
-        subgraphs,
-        edges,
-        node_to_subgraph,
-        node_pos,
-        node_rank,
-    )
-    if node_suggestions:
-        print("═══ Suggested node reorder (within subgraph) ═══")
-        for sg_name, proposed in node_suggestions.items():
-            current = subgraphs[sg_name].nodes
-            print(f"  {sg_name}:")
-            print(f"    current:  {' → '.join(current)}")
-            print(f"    proposed: {' → '.join(proposed)}")
-        print()
-
-    # 5. Suggested edge order
-    suggested = suggest_edge_order(edges, node_pos, node_rank)
-    if [e.line_no for e in suggested] != [e.line_no for e in edges]:
-        print("═══ Suggested edge declaration order ═══")
-        print("(sorted by src_rank, src_pos, dst_rank, dst_pos)\n")
-        for e in suggested:
-            arrow = "-.->" if e.dashed else " -->"
-            print(f"    {e.src:6s} {arrow} {e.dst}")
-        print()
-    else:
-        print("═══ Edge declaration order is already optimal ═══\n")
-
-    # Exit code
-    if crossings or warnings:
         sys.exit(1)
-    print("All clear — no crossings or order warnings.")
-    sys.exit(0)
+    else:
+        print("All clear — no edge-order issues found.")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
