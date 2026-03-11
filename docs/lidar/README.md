@@ -83,8 +83,8 @@ Tracking pipeline refactor and upgrade proposals.
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                                             |
 | Data science plan       | [../plans/platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md)                                                 |
 | Packet format           | [HESAI_PACKET_FORMAT.md](../data/HESAI_PACKET_FORMAT.md)                                                                                                     |
-| **macOS Visualiser**    | [../ui/velocity-visualiser-app/01-problem-and-user-workflows.md](../ui/velocity-visualiser-app/01-problem-and-user-workflows.md)                               |
-| **API Contracts**       | [../ui/velocity-visualiser-app/02-api-contracts.md](../ui/velocity-visualiser-app/02-api-contracts.md)                                                         |
+| **macOS Visualiser**    | [../ui/velocity-visualiser-app/01-problem-and-user-workflows.md](../ui/velocity-visualiser-app/01-problem-and-user-workflows.md)                             |
+| **API Contracts**       | [../ui/velocity-visualiser-app/02-api-contracts.md](../ui/velocity-visualiser-app/02-api-contracts.md)                                                       |
 | **Labelling + QC Plan** | [../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)                 |
 | **Tracking Upgrades**   | [troubleshooting/01-tracking-upgrades.md](troubleshooting/01-tracking-upgrades.md)                                                                           |
 | **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                                                                       |
