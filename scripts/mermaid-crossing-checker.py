@@ -232,6 +232,30 @@ def build_position_index(
     return pos
 
 
+def build_centered_positions(
+    subgraphs: dict[str, Subgraph],
+    global_node_order: list[str],
+    node_to_subgraph: dict[str, str],
+) -> dict[str, float]:
+    """Return centred positions for cross-rank comparison.
+
+    Within each rank, positions are centred around 0 so that ranks with
+    different node counts remain comparable (e.g. a 3-node rank spans
+    -1..+1, a 5-node rank spans -2..+2).
+    """
+    cpos: dict[str, float] = {}
+    for sg in subgraphs.values():
+        n = len(sg.nodes)
+        for i, node in enumerate(sg.nodes):
+            cpos[node] = i - (n - 1) / 2.0
+
+    for node in global_node_order:
+        if node not in cpos:
+            cpos[node] = 0.0
+
+    return cpos
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Crossing detector
 # ──────────────────────────────────────────────────────────────────────
@@ -242,50 +266,96 @@ def detect_crossings(
     node_rank: dict[str, int],
     node_pos: dict[str, int],
     node_to_subgraph: dict[str, str],
+    centered_pos: dict[str, float] | None = None,
 ) -> list[Crossing]:
-    """Find pairs of edges that cross.
+    """Find pairs of edges that cross, including multi-rank skip edges.
 
-    Two edges cross when they connect the same pair of ranks and the
-    source order is opposite to the target order.
+    For edges spanning multiple ranks, virtual nodes are interpolated at
+    each intermediate rank.  Two edges cross at a rank boundary when
+    their positions swap order between source-rank and target-rank.
+
+    Uses centred positions (``centered_pos``) for cross-rank comparison
+    when available; falls back to raw ``node_pos`` otherwise.
     """
+    if centered_pos is None:
+        centered_pos = {n: float(p) for n, p in node_pos.items()}
+
     crossings: list[Crossing] = []
 
-    # Group edges by (src_rank, dst_rank) — only edges spanning the
-    # same rank gap can cross each other.
-    by_rank_pair: dict[tuple[int, int], list[Edge]] = defaultdict(list)
+    # Pre-compute (src_rank, dst_rank, centred_src, centred_dst) for
+    # every edge so we can interpolate at any intermediate rank.
+    @dataclass
+    class EdgeInfo:
+        edge: Edge
+        src_rank: int
+        dst_rank: int
+        src_cpos: float
+        dst_cpos: float
+
+        def pos_at_rank(self, r: int) -> float:
+            """Linearly interpolated position at rank *r*."""
+            span = self.dst_rank - self.src_rank
+            if span == 0:
+                return self.src_cpos
+            t = (r - self.src_rank) / span
+            return self.src_cpos + t * (self.dst_cpos - self.src_cpos)
+
+    infos: list[EdgeInfo] = []
     for e in edges:
-        if e.src not in node_rank or e.dst not in node_rank:
+        sr = node_rank.get(e.src)
+        dr = node_rank.get(e.dst)
+        if sr is None or dr is None:
             continue
-        key = (node_rank[e.src], node_rank[e.dst])
-        by_rank_pair[key].append(e)
+        infos.append(
+            EdgeInfo(
+                edge=e,
+                src_rank=sr,
+                dst_rank=dr,
+                src_cpos=centered_pos.get(e.src, 0.0),
+                dst_cpos=centered_pos.get(e.dst, 0.0),
+            )
+        )
 
-    for _rank_pair, group in by_rank_pair.items():
-        if len(group) < 2:
-            continue
-        for i, ea in enumerate(group):
-            for eb in group[i + 1 :]:
-                src_a = node_pos.get(ea.src, 0)
-                src_b = node_pos.get(eb.src, 0)
-                dst_a = node_pos.get(ea.dst, 0)
-                dst_b = node_pos.get(eb.dst, 0)
+    # Check every pair of edges for crossing at any shared rank boundary.
+    seen: set[tuple[int, int]] = set()
+    for i, a in enumerate(infos):
+        for b in infos[i + 1 :]:
+            # Determine shared rank range
+            lo = max(min(a.src_rank, a.dst_rank), min(b.src_rank, b.dst_rank))
+            hi = min(max(a.src_rank, a.dst_rank), max(b.src_rank, b.dst_rank))
+            if lo >= hi:
+                continue  # no shared rank span
 
-                # Same source or same target — no crossing from *these* two
-                if ea.src == eb.src or ea.dst == eb.dst:
+            # Check each boundary in the shared range
+            crossed = False
+            for r in range(lo, hi):
+                pa_upper = a.pos_at_rank(r)
+                pb_upper = b.pos_at_rank(r)
+                pa_lower = a.pos_at_rank(r + 1)
+                pb_lower = b.pos_at_rank(r + 1)
+
+                # Skip when edges are at the same position (ambiguous)
+                if pa_upper == pb_upper or pa_lower == pb_lower:
                     continue
 
-                # Crossing: src order disagrees with dst order
-                if (src_a - src_b) * (dst_a - dst_b) < 0:
-                    sg_src = node_to_subgraph.get(ea.src, "(free)")
-                    sg_dst = node_to_subgraph.get(ea.dst, "(free)")
+                # Crossing: relative order flips between upper and lower
+                if (pa_upper - pb_upper) * (pa_lower - pb_lower) < 0:
+                    crossed = True
+                    break
+
+            if crossed:
+                key = (a.edge.line_no, b.edge.line_no)
+                if key not in seen:
+                    seen.add(key)
                     crossings.append(
                         Crossing(
-                            edge_a=ea,
-                            edge_b=eb,
+                            edge_a=a.edge,
+                            edge_b=b.edge,
                             reason=(
-                                f"{ea.src}(pos {src_a}) → {ea.dst}(pos {dst_a}) "
-                                f"crosses "
-                                f"{eb.src}(pos {src_b}) → {eb.dst}(pos {dst_b})  "
-                                f"[src rank: {sg_src}, dst rank: {sg_dst}]"
+                                f"{a.edge.src}({a.src_cpos:+.1f}) → "
+                                f"{a.edge.dst}({a.dst_cpos:+.1f})  crosses  "
+                                f"{b.edge.src}({b.src_cpos:+.1f}) → "
+                                f"{b.edge.dst}({b.dst_cpos:+.1f})"
                             ),
                         )
                     )
@@ -445,6 +515,9 @@ def main() -> None:
 
     node_rank = infer_ranks(subgraphs, node_to_subgraph, global_node_order)
     node_pos = build_position_index(global_node_order, subgraphs, node_to_subgraph)
+    centered_pos = build_centered_positions(
+        subgraphs, global_node_order, node_to_subgraph
+    )
 
     # ── Report ────────────────────────────────────────────────────────
 
@@ -463,7 +536,9 @@ def main() -> None:
     print()
 
     # 2. Detect crossings
-    crossings = detect_crossings(edges, node_rank, node_pos, node_to_subgraph)
+    crossings = detect_crossings(
+        edges, node_rank, node_pos, node_to_subgraph, centered_pos
+    )
     if crossings:
         print(f"═══ {len(crossings)} potential crossing(s) detected ═══")
         for c in crossings:
