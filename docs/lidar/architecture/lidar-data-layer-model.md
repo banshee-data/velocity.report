@@ -105,9 +105,7 @@ flowchart TB
     subgraph L5["L5 Tracks"]
         direction LR
         L5a["Radar sessionization"]
-        L5b["Kalman predict"]
-        L5c["Hungarian assign"]
-        L5d["Kalman update"]
+        L5b["Kalman / Hungarian"]
         L5e["Coherence gating"]
         L5f["Track lifecycle"]
         L5g["Quality metrics"]
@@ -172,9 +170,7 @@ flowchart TB
     L4c --> L4d
     L4d --> L4e
     L4e --> L5b
-    L5b --> L5c
-    L5c --> L5d
-    L5d --> L5e
+    L5b --> L5e
     L5e --> L5f
     L5f --> L5g
     L5g --> L6a
@@ -192,13 +188,13 @@ flowchart TB
     L7a -.-> L9c
     L8b --> L9b
     L9c --> L10c
-    L9b --> L10c
     L9b --> L10b
+    L9b --> L10d
+    L9b --> L10c
 
     L8a --> L9a
     L9a --> L10a
     L9a --> L10b
-    L9b --> L10d
 
     style P0_sensors fill:none,stroke:none,color:transparent
     style P0_io fill:none,stroke:none,color:transparent
