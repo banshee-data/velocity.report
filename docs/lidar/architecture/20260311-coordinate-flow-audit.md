@@ -24,25 +24,25 @@ floating-point accuracy penalty from repeated back-and-forth inversion.
 
 ## Canonical Coordinate Forms
 
-| Form | Struct(s) | Package(s) | Meaning |
-| --- | --- | --- | --- |
-| Packet polar | `PointPolar` | `internal/lidar/l1packets/parse`, `internal/lidar/l4perception` | Sensor-local spherical-style point: channel, azimuth, elevation, distance, plus intensity and packet/time hints (timestamp, block/UDP sequencing, raw block azimuth) |
-| Frame Cartesian | `Point`, `LiDARFrame.Points` | `internal/lidar/l2frames` | Sensor-local Cartesian point cloud with original polar metadata still attached |
-| World Cartesian | `WorldPoint`, `WorldCluster`, `TrackedObject` | `internal/lidar/l4perception`, `internal/lidar/l5tracks`, `internal/lidar/l6objects` | Cartesian geometry used for clustering, tracking, persistence |
+| Form            | Struct(s)                                     | Package(s)                                                                           | Meaning                                                                                                                                                              |
+| --------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Packet polar    | `PointPolar`                                  | `internal/lidar/l1packets/parse`, `internal/lidar/l4perception`                      | Sensor-local spherical-style point: channel, azimuth, elevation, distance, plus intensity and packet/time hints (timestamp, block/UDP sequencing, raw block azimuth) |
+| Frame Cartesian | `Point`, `LiDARFrame.Points`                  | `internal/lidar/l2frames`                                                            | Sensor-local Cartesian point cloud with original polar metadata still attached                                                                                       |
+| World Cartesian | `WorldPoint`, `WorldCluster`, `TrackedObject` | `internal/lidar/l4perception`, `internal/lidar/l5tracks`, `internal/lidar/l6objects` | Cartesian geometry used for clustering, tracking, persistence                                                                                                        |
 
 ## Critical Path Flowchart
 
 ```mermaid
-flowchart LR
-    A["L1 Parse\ninternal/lidar/l1packets/parse\nUDP packet -> []PointPolar\nsensor polar"] --> B["L2 Frame Build\ninternal/lidar/l2frames\nAddPointsPolar()\nPointPolar -> Point\nsensor Cartesian"]
-    B --> C["LiDARFrame\ninternal/lidar/l2frames\nframe.Points []Point\nsensor Cartesian + copied polar metadata"]
-    C --> D["Pipeline Re-wrap\ninternal/lidar/pipeline\nframe.Points -> []PointPolar\ncopy Distance/Azimuth/Elevation only"]
-    D --> E["L3 Foreground Mask\ninternal/lidar/l3grid\nProcessFramePolarWithMask()\nsensor polar"]
-    E --> F["Foreground subset\n[]PointPolar\nsensor polar"]
-    F --> G["L4 Transform\ninternal/lidar/l4perception\nTransformToWorld()\npolar -> world Cartesian"]
-    G --> H["Ground / Voxel / DBSCAN\ninternal/lidar/l4perception\nworld Cartesian"]
-    H --> I["L5 Tracks\ninternal/lidar/l5tracks\nworld Cartesian / float32 state"]
-    I --> J["L6 Objects + DB\ninternal/lidar/l6objects + storage\nworld Cartesian summaries"]
+flowchart TD
+    A["L1 Parse: UDP bytes → []PointPolar (sensor polar)"] --> B["L2 AddPointsPolar(): PointPolar → Point (sensor Cartesian)"]
+    B --> C["LiDARFrame.Points: []Point (sensor Cartesian + polar metadata)"]
+    C --> D["Pipeline re-wrap: frame.Points → []PointPolar (copy stored polar fields — no inverse trig)"]
+    D --> E["L3 ProcessFramePolarWithMask(): foreground mask (sensor polar)"]
+    E --> F["Foreground subset: []PointPolar (sensor polar)"]
+    F --> G["L4 TransformToWorld(): []PointPolar → []WorldPoint (world Cartesian)"]
+    G --> H["Ground filter / Voxel / DBSCAN: []WorldPoint → []WorldCluster (world Cartesian)"]
+    H --> I["L5 Tracks: []WorldCluster → TrackedObject (world Cartesian, float32 state)"]
+    I --> J["L6 Objects + DB: world Cartesian summaries"]
 ```
 
 ## Branch Flowchart
@@ -51,41 +51,41 @@ These are not all part of the tracking-critical chain.
 
 ```mermaid
 flowchart TD
-    A["LiDARFrame.Points\nL2 sensor Cartesian"] --> B["gRPC point cloud\ninternal/lidar/visualiser/adapter\nuses frame.Points directly"]
-    A --> C["ASC frame export\nL2 export path\nuses Cartesian points"]
+    A["LiDARFrame.Points (L2 sensor Cartesian)"] --> B["gRPC point cloud — visualiser/adapter (L2 Cartesian direct)"]
+    A --> C["ASC frame export — l2frames/export.go (Cartesian)"]
 
-    D["L3 foreground polar subset"] --> E["Foreground UDP forwarder\ninternal/lidar/l1packets/network\nkeeps polar, rebuilds packets"]
-    D --> F["Foreground snapshot store\ninternal/lidar/l3grid\nstores raw polar"]
-    F --> G["Debug chart / ASC export\nlazy polar -> Cartesian projection on access"]
+    D["L3 foreground subset: []PointPolar (sensor polar)"] --> E["Foreground UDP forwarder — keeps polar, rebuilds packets"]
+    D --> F["Foreground snapshot store — l3grid (raw polar)"]
+    F --> G["Debug chart / ASC export (lazy polar → Cartesian on access)"]
 
-    H["L3 background grid cells\npolar grid"] --> I["Background ASC export\npolar grid -> Cartesian only for export"]
+    H["L3 background grid cells (polar grid)"] --> I["Background ASC export (polar grid → Cartesian for export only)"]
 ```
 
 ## Critical Chain Matrix
 
-| Step | Module / file | Input form | Output form | Critical tracking chain | Transform performed | Accuracy note |
-| --- | --- | --- | --- | --- | --- | --- |
-| Packet parse | `internal/lidar/l1packets/parse/extract.go` | UDP bytes | `[]PointPolar` | Yes | No Cartesian math yet | Source form is polar |
-| Frame ingest | `internal/lidar/l2frames/frame_builder.go` `AddPointsPolar()` | `[]PointPolar` | `[]Point` inside `LiDARFrame` | Yes | `polar -> sensor Cartesian` | First trig projection |
-| Frame storage | `internal/lidar/l2frames/frame_builder.go` `LiDARFrame.Points` | `Point` | `Point` | Yes | None | Original polar metadata is retained in each `Point` |
-| Pipeline re-wrap | `internal/lidar/pipeline/tracking_pipeline.go` | `frame.Points []Point` | `[]PointPolar` | Yes | No inverse trig; just copy stored polar fields | No extra numeric loss here |
-| Foreground extraction | `internal/lidar/l3grid/foreground.go` | `[]PointPolar` | `mask []bool` | Yes | None | Pure polar classification |
-| Foreground subset | `internal/lidar/l3grid` helper via pipeline | `[]PointPolar + mask` | `foreground []PointPolar` | Yes | None | Still polar |
-| World transform | `internal/lidar/l4perception/cluster.go` `TransformToWorld()` | `[]PointPolar` | `[]WorldPoint` | Yes | `polar -> sensor Cartesian -> world Cartesian` | Second trig projection; currently identity pose by default |
-| Ground filter | `internal/lidar/l4perception/ground.go` | `[]WorldPoint` | `[]WorldPoint` | Yes | None | Operates in Cartesian |
-| Voxel / DBSCAN | `internal/lidar/l4perception/voxel.go`, `cluster.go` | `[]WorldPoint` | `[]WorldCluster` | Yes | None | Cluster summaries narrow to `float32` |
-| Tracking | `internal/lidar/l5tracks/tracking.go` | `[]WorldCluster` | `TrackedObject` | Yes | None | Track state stored as `float32` |
-| Classification / persistence | `internal/lidar/l6objects`, `storage/sqlite`, pipeline | tracks / clusters | DB rows, labels | Yes | None | World-frame outputs only |
+| Step                         | Module / file                                                  | Input form             | Output form                   | Critical tracking chain | Transform performed                            | Accuracy note                                              |
+| ---------------------------- | -------------------------------------------------------------- | ---------------------- | ----------------------------- | ----------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| Packet parse                 | `internal/lidar/l1packets/parse/extract.go`                    | UDP bytes              | `[]PointPolar`                | Yes                     | No Cartesian math yet                          | Source form is polar                                       |
+| Frame ingest                 | `internal/lidar/l2frames/frame_builder.go` `AddPointsPolar()`  | `[]PointPolar`         | `[]Point` inside `LiDARFrame` | Yes                     | `polar -> sensor Cartesian`                    | First trig projection                                      |
+| Frame storage                | `internal/lidar/l2frames/frame_builder.go` `LiDARFrame.Points` | `Point`                | `Point`                       | Yes                     | None                                           | Original polar metadata is retained in each `Point`        |
+| Pipeline re-wrap             | `internal/lidar/pipeline/tracking_pipeline.go`                 | `frame.Points []Point` | `[]PointPolar`                | Yes                     | No inverse trig; just copy stored polar fields | No extra numeric loss here                                 |
+| Foreground extraction        | `internal/lidar/l3grid/foreground.go`                          | `[]PointPolar`         | `mask []bool`                 | Yes                     | None                                           | Pure polar classification                                  |
+| Foreground subset            | `internal/lidar/l3grid` helper via pipeline                    | `[]PointPolar + mask`  | `foreground []PointPolar`     | Yes                     | None                                           | Still polar                                                |
+| World transform              | `internal/lidar/l4perception/cluster.go` `TransformToWorld()`  | `[]PointPolar`         | `[]WorldPoint`                | Yes                     | `polar -> sensor Cartesian -> world Cartesian` | Second trig projection; currently identity pose by default |
+| Ground filter                | `internal/lidar/l4perception/ground.go`                        | `[]WorldPoint`         | `[]WorldPoint`                | Yes                     | None                                           | Operates in Cartesian                                      |
+| Voxel / DBSCAN               | `internal/lidar/l4perception/voxel.go`, `cluster.go`           | `[]WorldPoint`         | `[]WorldCluster`              | Yes                     | None                                           | Cluster summaries narrow to `float32`                      |
+| Tracking                     | `internal/lidar/l5tracks/tracking.go`                          | `[]WorldCluster`       | `TrackedObject`               | Yes                     | None                                           | Track state stored as `float32`                            |
+| Classification / persistence | `internal/lidar/l6objects`, `storage/sqlite`, pipeline         | tracks / clusters      | DB rows, labels               | Yes                     | None                                           | World-frame outputs only                                   |
 
 ## Side-Branch Matrix
 
-| Branch | Module / file | Input form | Output form | In critical chain | Transform performed | Note |
-| --- | --- | --- | --- | --- | --- | --- |
-| gRPC point cloud | `internal/lidar/visualiser/adapter.go` | `frame.Points []Point` | point cloud arrays | No | None | Uses L2 Cartesian directly |
-| LidarView UDP foreground forward | `internal/lidar/visualiser/lidarview_adapter.go`, `internal/lidar/l1packets/network/foreground_forwarder.go` | foreground `[]PointPolar` | rebuilt UDP packets | No | No Cartesian math | Preserves packet-like polar path |
-| Foreground debug snapshot | `internal/lidar/l3grid/foreground_snapshot.go` | foreground/background `[]PointPolar` | lazy projected XYZ | No | Polar -> Cartesian on access | Debug-only projection |
-| Background ASC export | `internal/lidar/l3grid/background_export.go` | polar grid cells | ASC XYZ points | No | Polar grid -> Cartesian | Export-only projection |
-| Frame ASC export | `internal/lidar/l2frames/export.go` | Cartesian points | ASC XYZ points | No | Conditional polar -> Cartesian | Reprojects XYZ from stored polar when Z is all zero; otherwise uses existing L2 frame geometry |
+| Branch                           | Module / file                                                                                                | Input form                           | Output form         | In critical chain | Transform performed            | Note                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ------------------- | ----------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| gRPC point cloud                 | `internal/lidar/visualiser/adapter.go`                                                                       | `frame.Points []Point`               | point cloud arrays  | No                | None                           | Uses L2 Cartesian directly                                                                     |
+| LidarView UDP foreground forward | `internal/lidar/visualiser/lidarview_adapter.go`, `internal/lidar/l1packets/network/foreground_forwarder.go` | foreground `[]PointPolar`            | rebuilt UDP packets | No                | No Cartesian math              | Preserves packet-like polar path                                                               |
+| Foreground debug snapshot        | `internal/lidar/l3grid/foreground_snapshot.go`                                                               | foreground/background `[]PointPolar` | lazy projected XYZ  | No                | Polar -> Cartesian on access   | Debug-only projection                                                                          |
+| Background ASC export            | `internal/lidar/l3grid/background_export.go`                                                                 | polar grid cells                     | ASC XYZ points      | No                | Polar grid -> Cartesian        | Export-only projection                                                                         |
+| Frame ASC export                 | `internal/lidar/l2frames/export.go`                                                                          | Cartesian points                     | ASC XYZ points      | No                | Conditional polar -> Cartesian | Reprojects XYZ from stored polar when Z is all zero; otherwise uses existing L2 frame geometry |
 
 ## Exact Transform Count
 
@@ -151,11 +151,11 @@ Reasons:
 
 Order-of-magnitude comparison at `200 m` range:
 
-| Quantity | Approximate scale |
-| --- | --- |
-| Sensor distance quantisation | `4e-3 m` |
-| `float32` position ulp near 200 m | about `2.4e-5 m` |
-| `float64` position ulp near 200 m | about `4e-14 m` |
+| Quantity                          | Approximate scale |
+| --------------------------------- | ----------------- |
+| Sensor distance quantisation      | `4e-3 m`          |
+| `float32` position ulp near 200 m | about `2.4e-5 m`  |
+| `float64` position ulp near 200 m | about `4e-14 m`   |
 
 In practical terms, the duplicated L2 and L4 projections are a CPU / design issue, not an accuracy issue.
 
@@ -180,13 +180,13 @@ The main risk is semantic and architectural, not numeric:
 
 ## Accuracy Verdict
 
-| Concern | Verdict |
-| --- | --- |
-| Multiple inverse/forward flip-flops causing cumulative point drift | No |
-| Redundant forward trig projections in critical chain | Yes |
-| Material geometry loss from current double projection | No |
-| CPU / allocation overhead from duplicated representation work | Yes |
-| Later float32 summary / track state narrowing | Yes, but minor relative to LiDAR quantisation |
+| Concern                                                            | Verdict                                       |
+| ------------------------------------------------------------------ | --------------------------------------------- |
+| Multiple inverse/forward flip-flops causing cumulative point drift | No                                            |
+| Redundant forward trig projections in critical chain               | Yes                                           |
+| Material geometry loss from current double projection              | No                                            |
+| CPU / allocation overhead from duplicated representation work      | Yes                                           |
+| Later float32 summary / track state narrowing                      | Yes, but minor relative to LiDAR quantisation |
 
 ## What To Change If The Goal Is "One Projection"
 

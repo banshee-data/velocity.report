@@ -171,3 +171,19 @@ For long-running static traffic monitoring:
 2. allow enough confirmed-track coasting to survive brief occlusions,
 3. monitor jitter/alignment metrics continuously,
 4. co-tune with clustering and L3 foreground thresholds, not in isolation.
+
+## 11. References
+
+| Reference                       | BibTeX key        | Relevance                                                                                      |
+| ------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
+| Kalman (1960)                   | `Kalman1960`      | Original Kalman filter predict-update cycle (Sections 2–3)                                     |
+| Kuhn (1955)                     | `Kuhn1955`        | Hungarian method for global assignment (Section 4)                                             |
+| Munkres (1957)                  | `Munkres1957`     | Munkres reformulation of Hungarian assignment; our `hungarian.go` implementation follows this  |
+| Mahalanobis (1936)              | `Mahalanobis1936` | Mahalanobis distance used in gating (Section 3)                                                |
+| Weng et al. (2020)              | `Weng2020`        | AB3DMOT — Kalman+Hungarian 3D MOT baseline our architecture closely follows                    |
+| Bewley et al. (2016)            | `Bewley2016`      | SORT — 2D Kalman+Hungarian lifecycle model; our lifecycle (Section 5) follows SORT conventions |
+| Bernardin & Stiefelhagen (2008) | `Bernardin2008`   | CLEAR MOT metrics (MOTA, MOTP) used in L8 run comparisons                                      |
+| Blom & Bar-Shalom (1988)        | `Blom1988`        | IMM algorithm — foundation for planned `imm_cv_ca_v2` motion-model extension (Section 10)      |
+| Rauch et al. (1965)             | `Rauch1965`       | RTS smoother — evaluation-only path in planned `imm_cv_ca_rts_eval_v2` (Section 10)            |
+
+Full BibTeX entries: [docs/references.bib](../references.bib)

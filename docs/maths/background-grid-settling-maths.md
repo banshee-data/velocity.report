@@ -168,3 +168,14 @@ For long-running static mapping, L4 should consume L3 with reliability weighting
 `w_L3 = h(n_c, s_c, frozen_state, locked_state, recent_fg_c)`
 
 This allows L4 to maintain geometric consistency even when L3 is temporarily unstable or reacquiring.
+
+## 13. References
+
+| Reference                 | BibTeX key      | Relevance                                                                             |
+| ------------------------- | --------------- | ------------------------------------------------------------------------------------- |
+| Stauffer & Grimson (1999) | `Stauffer1999`  | Adaptive GMM background subtraction; our single-component EMA is a simplified variant |
+| Sack & Burgard (2004)     | `Sack2004`      | Background subtraction for static LiDAR; validates the EMA-on-range approach          |
+| Pomerleau et al. (2014)   | `Pomerleau2014` | Long-term map maintenance; related to our background settling and drift correction    |
+| Welford (1962)            | `Welford1962`   | Numerically stable online variance algorithm; reference for Section 7 running update  |
+
+Full BibTeX entries: [docs/references.bib](../references.bib)

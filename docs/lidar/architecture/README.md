@@ -42,17 +42,17 @@ implementation-vs-literature breakdown, see
 
 ### Current (active)
 
-| Document                                                                                                             | Scope                                                                          |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Document                                                                                                             | Scope                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | [lidar-data-layer-model.md](lidar-data-layer-model.md)                                                               | Canonical ten-layer model with stack reference, concept/algorithm chart, and package mapping |
-| [lidar-layer-alignment-refactor-review-20260217.md](lidar-layer-alignment-refactor-review-20260217.md)               | Layer alignment review: completed migration, complexity analysis, file splits  |
-| [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams      |
-| [foreground_tracking.md](foreground_tracking.md)                                                                     | Foreground extraction and tracking pipeline design                             |
-| [lidar-background-grid-standards.md](lidar-background-grid-standards.md)                                             | Background grid format comparison with industry standards                      |
-| [HESAI_PACKET_FORMAT.md](../../data/HESAI_PACKET_FORMAT.md)                                                          | Hesai Pandar40P UDP packet format reference (moved to docs/data/)              |
-| [lidar_sidecar_overview.md](lidar_sidecar_overview.md)                                                               | System-level overview of the LiDAR sidecar architecture                        |
-| [network-configuration.md](network-configuration.md)                                                                 | Network interface selection, diagnostics, and hot-reload plan for UDP listener |
-| [multi-model-ingestion-and-configuration.md](multi-model-ingestion-and-configuration.md)                             | Proposed path for supporting 3–10 LiDAR models with distinct packet formats    |
+| [lidar-layer-alignment-refactor-review-20260217.md](lidar-layer-alignment-refactor-review-20260217.md)               | Layer alignment review: completed migration, complexity analysis, file splits                |
+| [lidar-logging-stream-split-and-rubric-design-20260217.md](lidar-logging-stream-split-and-rubric-design-20260217.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams                    |
+| [foreground_tracking.md](foreground_tracking.md)                                                                     | Foreground extraction and tracking pipeline design                                           |
+| [lidar-background-grid-standards.md](lidar-background-grid-standards.md)                                             | Background grid format comparison with industry standards                                    |
+| [HESAI_PACKET_FORMAT.md](../../data/HESAI_PACKET_FORMAT.md)                                                          | Hesai Pandar40P UDP packet format reference (moved to docs/data/)                            |
+| [lidar_sidecar_overview.md](lidar_sidecar_overview.md)                                                               | System-level overview of the LiDAR sidecar architecture                                      |
+| [network-configuration.md](network-configuration.md)                                                                 | Network interface selection, diagnostics, and hot-reload plan for UDP listener               |
+| [multi-model-ingestion-and-configuration.md](multi-model-ingestion-and-configuration.md)                             | Proposed path for supporting 3–10 LiDAR models with distinct packet formats                  |
 
 ### Historical (completed designs)
 

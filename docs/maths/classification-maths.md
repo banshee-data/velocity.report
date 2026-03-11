@@ -278,3 +278,14 @@ recordings or live data) are converted directly without re-classification.
 - Replace rule-based classifier with ML model (feature vector is
   designed to be export-compatible)
 - Expose label taxonomy via API endpoint for frontend consumption
+
+## 11. References
+
+| Reference            | BibTeX key   | Relevance                                                                                                                |
+| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Geiger et al. (2012) | `Geiger2012` | KITTI 3D object detection benchmark; class definitions (car, pedestrian, cyclist) used in threshold calibration          |
+| Caesar et al. (2020) | `Caesar2020` | nuScenes 23-class AV taxonomy; our local classes map to this for evaluation compatibility                                |
+| Behley et al. (2019) | `Behley2019` | SemanticKITTI 28-class taxonomy; AV compatibility mapping target                                                         |
+| Lang et al. (2019)   | `Lang2019`   | PointPillars — learned detector occupying the same architectural slot as our rule-based L6; future replacement candidate |
+
+Full BibTeX entries: [docs/references.bib](../references.bib)
