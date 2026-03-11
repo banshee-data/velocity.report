@@ -81,24 +81,8 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.Se
 			return
 		}
 
-		// Convert cartesian Points → PointPolar for the background grid.
-		polar := make([]l2frames.PointPolar, len(frame.Points))
-		for i, p := range frame.Points {
-			polar[i] = l2frames.PointPolar{
-				Channel:         p.Channel,
-				Azimuth:         p.Azimuth,
-				Elevation:       p.Elevation,
-				Distance:        p.Distance,
-				Intensity:       p.Intensity,
-				Timestamp:       p.Timestamp.UnixNano(),
-				BlockID:         p.BlockID,
-				UDPSequence:     p.UDPSequence,
-				RawBlockAzimuth: p.RawBlockAzimuth,
-			}
-		}
-
-		// Feed the background model.
-		bgMgr.ProcessFramePolar(polar)
+		// Use the frame-owned polar representation directly.
+		bgMgr.ProcessFramePolar(frame.PolarPoints)
 
 		mu.Lock()
 		frameCount++

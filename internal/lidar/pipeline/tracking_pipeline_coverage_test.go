@@ -134,11 +134,13 @@ func TestTrackingPipelineConfig_NewFrameCallback_NoBackgroundManager(t *testing.
 	cfg := &TrackingPipelineConfig{SensorID: "test-no-bgmgr"}
 	cb := cfg.NewFrameCallback()
 
+	pts := []l2frames.Point{
+		{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: time.Now()},
+	}
 	frame := &l2frames.LiDARFrame{
-		FrameID: "test-frame",
-		Points: []l2frames.Point{
-			{Channel: 1, Azimuth: 90.0, Distance: 5.0, Intensity: 80, Timestamp: time.Now()},
-		},
+		FrameID:     "test-frame",
+		PolarPoints: pointsToPolar(pts),
+		Points:      pts,
 	}
 
 	// Should not panic; exits after polar conversion when BackgroundManager is nil.
@@ -172,6 +174,26 @@ const fgChannel = 1
 // fgAzimuth is the single azimuth used by foreground points.
 const fgAzimuth = 180.0
 
+// pointsToPolar derives a PolarPoints slice from a Cartesian Points slice.
+// Used by test frame constructors so frames carry both representations.
+func pointsToPolar(points []l2frames.Point) []l2frames.PointPolar {
+	polar := make([]l2frames.PointPolar, len(points))
+	for i, p := range points {
+		polar[i] = l2frames.PointPolar{
+			Channel:         p.Channel,
+			Azimuth:         p.Azimuth,
+			Elevation:       p.Elevation,
+			Distance:        p.Distance,
+			Intensity:       p.Intensity,
+			Timestamp:       p.Timestamp.UnixNano(),
+			BlockID:         p.BlockID,
+			UDPSequence:     p.UDPSequence,
+			RawBlockAzimuth: p.RawBlockAzimuth,
+		}
+	}
+	return polar
+}
+
 // makeStableFrame creates a frame with points at a stable background distance.
 // It includes both a spread of channels/azimuths AND the exact foreground cell
 // (fgChannel / fgAzimuth) so the background model is seeded for that cell.
@@ -202,11 +224,10 @@ func makeStableFrame(id string, ts time.Time, distance float64) *l2frames.LiDARF
 	return &l2frames.LiDARFrame{
 		FrameID:        id,
 		StartTimestamp: ts,
+		PolarPoints:    pointsToPolar(points),
 		Points:         points,
 	}
 }
-
-// makeForegroundFrame creates a frame with stable background + a tight cluster
 // of foreground points at a very different distance (closer). All foreground
 // points hit the SAME grid cell (fgChannel / fgAzimuth) that was seeded by
 // makeStableFrame. Points are slightly spread in distance so the resulting world
@@ -240,11 +261,10 @@ func makeForegroundFrame(id string, ts time.Time, bgDist, fgDist float64) *l2fra
 	return &l2frames.LiDARFrame{
 		FrameID:        id,
 		StartTimestamp: ts,
+		PolarPoints:    pointsToPolar(points),
 		Points:         points,
 	}
 }
-
-// makeDenseFrame creates a frame with >5000 background points spread across
 // all 16 channels × 350 azimuths, plus 20 foreground points. This exercises
 // the background downsampling branches (stride and cap).
 func makeDenseFrame(id string, ts time.Time, bgDist, fgDist float64) *l2frames.LiDARFrame {
@@ -273,11 +293,10 @@ func makeDenseFrame(id string, ts time.Time, bgDist, fgDist float64) *l2frames.L
 	return &l2frames.LiDARFrame{
 		FrameID:        id,
 		StartTimestamp: ts,
+		PolarPoints:    pointsToPolar(points),
 		Points:         points,
 	}
 }
-
-// setupTestDB creates a temporary SQLite database for pipeline testing.
 func setupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	tmpDir := t.TempDir()
@@ -837,12 +856,14 @@ func TestTrackingPipelineConfig_NilMaskEarlyReturn(t *testing.T) {
 	now := time.Now()
 
 	// Send a frame with a real point so it reaches ProcessFramePolarWithMask.
+	pts := []l2frames.Point{
+		{Channel: 1, Azimuth: 0, Distance: 10.0, Intensity: 100, Timestamp: now},
+	}
 	frame := &l2frames.LiDARFrame{
 		FrameID:        "nil-mask-frame",
 		StartTimestamp: now,
-		Points: []l2frames.Point{
-			{Channel: 1, Azimuth: 0, Distance: 10.0, Intensity: 100, Timestamp: now},
-		},
+		PolarPoints:    pointsToPolar(pts),
+		Points:         pts,
 	}
 	cb(frame)
 
@@ -1153,6 +1174,7 @@ func testFramePrePopulated(n int) *l2frames.LiDARFrame {
 	}
 	return &l2frames.LiDARFrame{
 		FrameID:        "test-frame",
+		PolarPoints:    pointsToPolar(points),
 		Points:         points,
 		StartTimestamp: now,
 		MinAzimuth:     0,
@@ -1184,6 +1206,7 @@ func clusterFramePrePopulated() *l2frames.LiDARFrame {
 	}
 	return &l2frames.LiDARFrame{
 		FrameID:        "cluster-frame",
+		PolarPoints:    pointsToPolar(pts),
 		Points:         pts,
 		StartTimestamp: now,
 		MinAzimuth:     180,
@@ -1312,6 +1335,7 @@ func TestNoForegroundReturn(t *testing.T) {
 	}
 	frame := &l2frames.LiDARFrame{
 		FrameID:        "bg-only",
+		PolarPoints:    pointsToPolar(pts),
 		Points:         pts,
 		StartTimestamp: now,
 		MinAzimuth:     0,
@@ -1542,11 +1566,13 @@ func TestNilTracker(t *testing.T) {
 	cb := cfg.NewFrameCallback()
 
 	now := time.Now()
+	fPts := []l2frames.Point{
+		{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
+	}
 	frame := &l2frames.LiDARFrame{
-		FrameID: "test-frame",
-		Points: []l2frames.Point{
-			{Channel: 1, Azimuth: 180, Distance: 3.0, Timestamp: now},
-		},
+		FrameID:        "test-frame",
+		PolarPoints:    pointsToPolar(fPts),
+		Points:         fPts,
 		StartTimestamp: now,
 		MinAzimuth:     0,
 		MaxAzimuth:     360,
@@ -1621,6 +1647,7 @@ func TestBackgroundDownsamplingPrePopulated(t *testing.T) {
 
 	frame := &l2frames.LiDARFrame{
 		FrameID:        "big-frame",
+		PolarPoints:    pointsToPolar(pts),
 		Points:         pts,
 		StartTimestamp: now,
 		MinAzimuth:     0,

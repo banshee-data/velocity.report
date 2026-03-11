@@ -204,10 +204,6 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		return sqlite.GetAnalysisRunManager(sensorID)
 	}
 
-	// Pre-allocate a reusable polar slice to avoid 69k-element allocation
-	// per frame (~5 MB). Safe because the callback runs synchronously.
-	var polarBuf []l2frames.PointPolar
-
 	// Frame-rate throttle state. We always run ProcessFramePolarWithMask to
 	// keep the background model up to date, but skip the expensive
 	// clustering→tracking→serialisation path when frames arrive faster than
@@ -253,25 +249,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		tracef("[FrameBuilder] Completed frame: %s, Points: %d, Azimuth: %.1f°-%.1f°",
 			frame.FrameID, len(frame.Points), frame.MinAzimuth, frame.MaxAzimuth)
 
-		// Convert frame points to polar coordinates using reusable buffer
-		n := len(frame.Points)
-		if cap(polarBuf) < n {
-			polarBuf = make([]l2frames.PointPolar, n)
-		}
-		polar := polarBuf[:n]
-		for i, p := range frame.Points {
-			polar[i] = l2frames.PointPolar{
-				Channel:         p.Channel,
-				Azimuth:         p.Azimuth,
-				Elevation:       p.Elevation,
-				Distance:        p.Distance,
-				Intensity:       p.Intensity,
-				Timestamp:       p.Timestamp.UnixNano(),
-				BlockID:         p.BlockID,
-				UDPSequence:     p.UDPSequence,
-				RawBlockAzimuth: p.RawBlockAzimuth,
-			}
-		}
+		// Use the frame-owned polar representation directly. The L2
+		// frame builder populates PolarPoints alongside Points when
+		// AddPointsPolar is used, eliminating the per-frame rebuild.
+		polar := frame.PolarPoints
 
 		if cfg.BackgroundManager == nil {
 			return

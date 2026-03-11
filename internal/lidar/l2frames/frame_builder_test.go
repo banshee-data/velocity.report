@@ -871,3 +871,113 @@ func TestFrameBuilder_FinalizeFrame(t *testing.T) {
 		fb.finalizeFrame(frame, "test")
 	})
 }
+
+// TestFrameBuilder_DualRepresentation verifies that AddPointsPolar populates
+// both PolarPoints and Points on every completed frame and that the two
+// views are aligned index-for-index.
+func TestFrameBuilder_DualRepresentation(t *testing.T) {
+	var receivedFrames []*LiDARFrame
+	var mu sync.Mutex
+
+	callback := func(frame *LiDARFrame) {
+		mu.Lock()
+		defer mu.Unlock()
+		receivedFrames = append(receivedFrames, frame)
+	}
+
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID:         "dual-rep-sensor",
+		FrameCallback:    callback,
+		AzimuthTolerance: 10.0,
+		MinFramePoints:   1000,
+		BufferTimeout:    50 * time.Millisecond,
+		CleanupInterval:  25 * time.Millisecond,
+	})
+
+	baseTime := time.Now()
+
+	// Build a full rotation worth of polar points.
+	const numPoints = 60000
+	polar := make([]PointPolar, numPoints)
+	for i := 0; i < numPoints; i++ {
+		polar[i] = PointPolar{
+			Channel:     i%40 + 1,
+			Azimuth:     float64(i) * 360.0 / float64(numPoints),
+			Elevation:   float64(i%40)*0.5 - 10,
+			Distance:    10.0,
+			Intensity:   50,
+			Timestamp:   baseTime.Add(time.Duration(i) * time.Microsecond).UnixNano(),
+			BlockID:     i % 10,
+			UDPSequence: uint32(i + 100),
+		}
+	}
+
+	// Add wrap-around point to trigger frame completion.
+	polar = append(polar, PointPolar{
+		Channel:     1,
+		Azimuth:     5.0,
+		Elevation:   -10,
+		Distance:    10.0,
+		Intensity:   50,
+		Timestamp:   baseTime.Add(time.Duration(numPoints) * time.Microsecond).UnixNano(),
+		UDPSequence: uint32(numPoints + 100),
+	})
+
+	fb.AddPointsPolar(polar)
+
+	time.Sleep(200 * time.Millisecond)
+
+	mu.Lock()
+	frameCount := len(receivedFrames)
+	mu.Unlock()
+
+	if frameCount < 1 {
+		t.Fatalf("expected at least 1 frame, got %d", frameCount)
+	}
+
+	frame := receivedFrames[0]
+
+	// Both slices must exist and have the same length.
+	if len(frame.PolarPoints) == 0 {
+		t.Fatal("PolarPoints is empty; expected dual representation")
+	}
+	if len(frame.PolarPoints) != len(frame.Points) {
+		t.Fatalf("PolarPoints and Points lengths differ: %d vs %d",
+			len(frame.PolarPoints), len(frame.Points))
+	}
+
+	// Verify per-index alignment of shared metadata.
+	for i := range frame.PolarPoints {
+		pp := frame.PolarPoints[i]
+		cp := frame.Points[i]
+
+		if pp.Channel != cp.Channel {
+			t.Errorf("index %d: Channel mismatch: polar=%d, cartesian=%d", i, pp.Channel, cp.Channel)
+		}
+		if pp.Azimuth != cp.Azimuth {
+			t.Errorf("index %d: Azimuth mismatch: polar=%f, cartesian=%f", i, pp.Azimuth, cp.Azimuth)
+		}
+		if pp.Distance != cp.Distance {
+			t.Errorf("index %d: Distance mismatch: polar=%f, cartesian=%f", i, pp.Distance, cp.Distance)
+		}
+		if pp.Elevation != cp.Elevation {
+			t.Errorf("index %d: Elevation mismatch: polar=%f, cartesian=%f", i, pp.Elevation, cp.Elevation)
+		}
+		if pp.Intensity != cp.Intensity {
+			t.Errorf("index %d: Intensity mismatch: polar=%d, cartesian=%d", i, pp.Intensity, cp.Intensity)
+		}
+		if pp.BlockID != cp.BlockID {
+			t.Errorf("index %d: BlockID mismatch: polar=%d, cartesian=%d", i, pp.BlockID, cp.BlockID)
+		}
+		if pp.UDPSequence != cp.UDPSequence {
+			t.Errorf("index %d: UDPSequence mismatch: polar=%d, cartesian=%d", i, pp.UDPSequence, cp.UDPSequence)
+		}
+	}
+
+	// Verify Cartesian coordinates were computed (non-zero for non-zero distance).
+	for i, cp := range frame.Points {
+		if cp.Distance > 0 && cp.X == 0 && cp.Y == 0 && cp.Z == 0 {
+			t.Errorf("index %d: Cartesian coordinates are all zero for distance=%.1f", i, cp.Distance)
+		}
+	}
+}
