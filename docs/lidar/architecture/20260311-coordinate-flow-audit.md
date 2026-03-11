@@ -199,6 +199,17 @@ If the design goal is exactly one `polar -> Cartesian` projection for tracked po
 The current implementation already preserves enough metadata to avoid numeric harm; the remaining win is simplification
 and avoiding duplicated forward trig in the hot path.
 
+### Adopted direction
+
+The chosen follow-up is option 2:
+
+- store both polar and Cartesian once at L2
+- keep `LiDARFrame` as the owner of both views
+- have L3 consume frame-owned polar data directly
+- remove the callback-local `frame.Points -> []PointPolar` rebuild
+
+Implementation is tracked in [lidar-l2-dual-representation-plan.md](../../plans/lidar-l2-dual-representation-plan.md).
+
 ## Important Caveats
 
 ### Coordinate-frame semantic caveat
