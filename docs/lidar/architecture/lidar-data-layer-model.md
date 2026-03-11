@@ -126,6 +126,7 @@ flowchart TB
         direction LR
         L10a["pdf-generator 🐍"]
         L10b["Svelte clients 🌐"]
+        L10d["HTML dashboard 🌐"]
         L10c["VelocityVisualiser.app "]
     end
 
@@ -156,14 +157,16 @@ flowchart TB
     L5e -.-> L5f
     L6a --> L6b
     L6b --> L6c
+    L6b --> L9b
+    L6b -.-> L7a
     L6c --> L8b
     L6c --> L8c
     L3b --> L9c
+    L4d --> L9c
     L6b --> L9c
     L8c --> L9b
-    L6b --> L7a
+    L7a -.-> L9c
     L8b --> L9b
-    L4d --> L9c
     L9c --> L10c
     L9b --> L10c
     L9b --> L10b
@@ -174,6 +177,7 @@ flowchart TB
     L8a --> L9a
     L9a --> L10a
     L9a --> L10b
+    L9b --> L10d
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
     class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L5a,L5b,L5c,L5d,L5e,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
@@ -182,35 +186,35 @@ flowchart TB
     class L10a,L10b,L10c client;
 ```
 
-Note: The main LiDAR tracking path stays in polar coordinates through `L3` and
-only enters world Cartesian at `L4a`. The earlier sensor-space transform in
-`L2b` is a frame/export side path: `AddPointsPolar()` materialises XYZ for
-`LiDARFrame`, ASC, and LidarView use, then the tracking pipeline reconstructs
-polar points before `ProcessFramePolarWithMask()`.
+**Reading notes**
 
-Note: `L3` region save/restore is part of settling control, not a separate
-post-grid stage. During warmup, `l3grid` can try early region restore from DB
-after about 10 frames; when settling completes naturally, it identifies regions
-and persists a linked grid+region snapshot for future restore.
-
-Note: Radar does not have a repo-owned semantic classification stage comparable
-to LiDAR `L6`. Current radar code routes serial payloads into stored records,
-sessionizes raw `radar_data` into `radar_data_transits`, and serves metrics and
-reports from those stored sources.
-
-Note: `L5c` is the current 4-state constant-velocity Kalman tracker. `L5f`
-marks future motion-model extensions beyond that baseline, not the
-introduction of CV itself.
+- The main LiDAR tracking path stays in polar coordinates through `L3` and
+    only moves into world Cartesian at `L4a`. The earlier sensor-space
+    transform in `L2b` is a frame/export side path: `AddPointsPolar()`
+    materialises XYZ for `LiDARFrame`, ASC, and LidarView use, and the tracking
+    path then reconstructs polar points before `ProcessFramePolarWithMask()`.
+- `L3` region save/restore belongs to settling control rather than a separate
+    post-grid stage. During warmup, `l3grid` can attempt an early region restore
+    from the database after roughly 10 frames; when settling completes
+    naturally, it identifies regions and persists a linked grid-and-region
+    snapshot for later restore.
+- Radar has no repo-owned semantic classification stage equivalent to LiDAR
+    `L6`. The current radar path routes serial payloads into stored records,
+    sessionises raw `radar_data` into `radar_data_transits`, and derives metrics
+    and reports from those stored sources.
+- `L5c` is the current 4-state constant-velocity Kalman tracker. `L5f` is
+    reserved for future motion-model extensions beyond that baseline, not for
+    the introduction of CV itself.
 
 **Legend**
 
 - Green `✅`: implemented in the current runtime.
-- Amber `🔄`: current code exists, but the layer surface is still partial or evolving.
-- Grey: reserved layer slot with no current runtime code.
-- Blue-grey: pre-L1 hardware / IO dependencies shown for ingress context only; not part of the L1-L10 numbering.
-- Beige `📄`: downstream/client surface rather than a core runtime layer package.
-- Solid arrows: dominant current-code flow through that branch.
-- Dashed arrows: layout/reference links through non-runtime layer gaps or branches that skip some runtime layers.
+- Amber `🔄`: present in the current codebase, but still partial or evolving at the layer boundary.
+- Grey: reserved layer slot with no runtime implementation yet.
+- Blue-grey: pre-L1 hardware or IO context shown for ingress only; not part of the numbered L1-L10 stack.
+- Beige `📄`: downstream client surface rather than a core runtime layer or Go package.
+- Solid arrows: dominant current-code flow along that branch.
+- Dashed arrows: reference or layout links across non-runtime gaps, or branches that intentionally skip runtime layers.
 
 ## Layered Concept and Literature Status
 
