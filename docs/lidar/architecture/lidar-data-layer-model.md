@@ -558,14 +558,14 @@ The full bibliography in BibTeX format is at [docs/references.bib](../../referen
 
 **Our approach:** Raw UDP packet capture from Hesai Pandar40P; PCAP file replay for offline analysis.
 
-**Literature context:** Sensor-specific packet formats are proprietary but follow the pattern established by Velodyne's original HDL-64E protocol specification. The general approach of treating raw sensor data as an opaque transport layer — separate from frame assembly — is standard in both the ROS `velodyne_driver` / `velodyne_pointcloud` split and Autoware's `nebula` driver architecture.
+**Literature context:** Sensor-specific packet formats are proprietary but follow the pattern established by Velodyne's original HDL-64E protocol specification. The general approach of treating raw sensor data as an opaque transport layer — separate from frame assembly — is standard in the Hesai ROS 2 driver architecture and Autoware's `nebula` multi-vendor driver.
 
-| Reference                           | Relevance                                                                                    |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| Velodyne HDL-64E User Manual (2007) | Established the UDP point-return packet convention used by most spinning LiDAR manufacturers |
-| ROS `velodyne` package architecture | Canonical example of separating packet driver (L1) from pointcloud assembly (L2)             |
-| Hesai Pandar40P User Manual v3.0    | Our specific sensor protocol — dual-return UDP at 10 Hz rotation                             |
-| Autoware `nebula` driver (2023)     | Modern multi-vendor L1 abstraction supporting Hesai, Velodyne, Ouster, Robosense             |
+| Reference                             | Relevance                                                                                    |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Velodyne HDL-64E User Manual (2007)   | Established the UDP point-return packet convention used by most spinning LiDAR manufacturers |
+| Hesai Pandar40P User Manual v4.02     | Our specific sensor protocol — dual-return UDP at 10 Hz rotation                             |
+| Hesai ROS 2 driver (2022)             | Canonical Hesai L1 driver; demonstrates the packet-driver / pointcloud-assembly split        |
+| Autoware `nebula` driver (2023)       | Modern multi-vendor L1 abstraction supporting Hesai, Velodyne, Ouster, Robosense             |
 
 ### L2 Frames — point cloud assembly
 
@@ -821,6 +821,8 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 - Hornung, A., Wurm, K. M., Bennewitz, M., Stachniss, C., & Burgard, W. (2013). OctoMap: An efficient probabilistic 3D mapping framework based on octrees. _Autonomous Robots_, 34(3). doi:10.1007/s10514-012-9321-0.
 - Pomerleau, F., Krüsi, P., Colas, F., Furgale, P., & Siegwart, R. (2014). Long-term 3D map maintenance in dynamic environments. _ICRA 2014_.
 - Pannen, D., Liebner, M., Hempel, W., & Stiller, C. (2020). How to keep HD maps for automated driving up to date. _ICRA 2020_.
+- Liu, Y., Yuan, Z., & Liu, M. (2020). High-definition map generation technologies for autonomous driving: A review. arXiv:2206.05400. (HD map construction survey)
+- Li, Q., Wang, Y., Wang, Y., & Zhao, H. (2022). HDMapNet: An online HD map construction and evaluation framework. _ICRA 2022_. arXiv:2107.06307.
 - Caesar, H., et al. (2020). nuScenes: A multimodal dataset for autonomous driving. _CVPR 2020_. arXiv:1912.08142.
 - Geiger, A., Lenz, P., & Urtasun, R. (2012). Are we ready for autonomous driving? The KITTI vision benchmark suite. _CVPR 2012_.
 - Schönemann, P. H. (1966). A generalised solution of the orthogonal Procrustes problem. _Psychometrika_, 31(1), 1–10. (Rigid alignment via SVD — used in L7 prior-to-observation registration)
@@ -835,12 +837,19 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 ### Multi-sensor fusion
 
 - Bar-Shalom, Y., Willett, P. K., & Tian, X. (2011). _Tracking and Data Fusion_. YBS Publishing.
+- Dames, P., & Kumar, V. (2017). Detecting, localising, and tracking an unknown number of targets using a decentralised PHD filter. _ICRA 2017_.
+- Kim, J., & Liu, S. (2017). Cooperative multi-robot observation of multiple moving targets. _IROS 2017_.
 - Reid, D. B. (1979). An algorithm for tracking multiple targets. _IEEE Transactions on Automatic Control_, 24(6), 843–854.
 - Sack, D., & Burgard, W. (2004). A comparison of methods for line extraction from range data. _IFAC Proceedings Volumes_, 37(8).
+
+### LiDAR processing and detection (additional)
+
+- Lim, H., Jung, S., & Myung, H. (2022). Patchwork++: Fast and robust ground segmentation solving partial under-segmentation. _IROS 2022_. arXiv:2207.11919.
 
 ### Standards and datasets
 
 - OpenStreetMap Simple 3D Buildings (S3DB) — wiki.openstreetmap.org/wiki/Simple_3D_buildings
 - CityJSON specification v1.1 — cityjson.org
-- Velodyne HDL-64E S2 User's Manual (2007)
-- Hesai Pandar40P User Manual v3.0
+- Velodyne HDL-64E S2 User's Manual (2007) — established the UDP point-return packet convention
+- Hesai Pandar40P User Manual v4.02 (2025) — our specific sensor; hesaitech.com
+- Hesai Technology (2022). HesaiLidar\_ROS2\_Driver — github.com/HesaiTechnology/HesaiLidar\_ROS2\_Driver

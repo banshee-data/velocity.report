@@ -168,17 +168,17 @@
 % LiDAR processing and detection
 % =============================================================================
 
-@inproceedings{Bogoslavskyi2016,
-  author    = {Bogoslavskyi, Igor and Stachniss, Cyrill},
-  title     = {Efficient Online Segmentation for Sparse {3D} Laser Scans},
-  booktitle = {Photogrammetrie, Fernerkundung, Geoinformation ({PFG})},
-  volume    = {2016},
-  number    = {1},
-  pages     = {41--52},
-  year      = {2016},
-  doi       = {10.1127/pfg/2016/0288},
-  note      = {Range-image connectivity segmentation; earlier journal companion
-               to the {IROS} 2017 paper},
+@article{Bogoslavskyi2016,
+  author  = {Bogoslavskyi, Igor and Stachniss, Cyrill},
+  title   = {Efficient Online Segmentation for Sparse {3D} Laser Scans},
+  journal = {Photogrammetrie, Fernerkundung, Geoinformation ({PFG})},
+  volume  = {2016},
+  number  = {1},
+  pages   = {41--52},
+  year    = {2016},
+  doi     = {10.1127/pfg/2016/0288},
+  note    = {Range-image connectivity segmentation; earlier journal companion
+             to the {IROS} 2017 paper},
 }
 
 @inproceedings{Bogoslavskyi2017,
@@ -222,6 +222,22 @@
   doi       = {10.1109/LRA.2021.3093009},
   note      = {Concentric zone model for ground estimation; more robust than
                height-band filter; future upgrade path for {L3}/{L4} ground removal},
+}
+
+@inproceedings{Lim2022Patchwork,
+  author    = {Lim, Hyungtae and Jung, Seungjae and Myung, Hyun},
+  title     = {{Patchwork}++: Fast and Robust Ground Segmentation Solving Partial
+               Under-Segmentation Using 3D Point Cloud},
+  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
+               Intelligent Robots and Systems ({IROS} 2022)},
+  pages     = {13276--13283},
+  publisher = {{IEEE}},
+  year      = {2022},
+  eprint    = {2207.11919},
+  archivePrefix = {arXiv},
+  doi       = {10.1109/IROS47612.2022.9981540},
+  note      = {Successor to {Patchwork}; addresses partial under-segmentation
+               and improves robustness on tilted sensors},
 }
 
 @inproceedings{Milioto2019,
@@ -463,6 +479,36 @@
                scene maintenance},
 }
 
+@article{Liu2020HDMap,
+  author  = {Liu, Yan and Yuan, Zhuoming and Liu, Ming},
+  title   = {High-Definition Map Generation Technologies For Autonomous Driving:
+             A Review},
+  journal = {arXiv preprint},
+  year    = {2020},
+  eprint  = {2206.05400},
+  archivePrefix = {arXiv},
+  note    = {Survey of {HD} map construction pipelines; our {L7} scene
+             accumulation follows the neighbourhood-scale variant of this
+             paradigm (one of a pair cited as Liu et al.\,2020 in the {L7}
+             scene plan)},
+}
+
+@inproceedings{Li2022HDMap,
+  author    = {Li, Qi and Wang, Yue and Wang, Yilun and Zhao, Hang},
+  title     = {{HDMapNet}: An Online {HD} Map Construction and Evaluation
+               Framework},
+  booktitle = {Proceedings of the {IEEE} International Conference on Robotics
+               and Automation ({ICRA} 2022)},
+  pages     = {4628--4634},
+  publisher = {{IEEE}},
+  year      = {2022},
+  eprint    = {2107.06307},
+  archivePrefix = {arXiv},
+  doi       = {10.1109/ICRA46639.2022.9812383},
+  note      = {Online {HD} map construction framework; represents the learnt
+               map-building alternative to our geometry-evidence approach in {L7}},
+}
+
 @inproceedings{Pomerleau2014,
   author    = {Pomerleau, Fran{\c{c}}ois and Kr{\"u}si, Philipp and Colas, Francis
                and Furgale, Paul and Siegwart, Roland},
@@ -577,6 +623,32 @@
                context for {L7} multi-sensor merge architecture},
 }
 
+@inproceedings{Dames2017,
+  author    = {Dames, Philip and Kumar, Vijay},
+  title     = {Detecting, Localising, and Tracking an Unknown Number of Moving
+               Targets Using a Decentralised {PHD} Filter},
+  booktitle = {Proceedings of the {IEEE} International Conference on Robotics
+               and Automation ({ICRA} 2017)},
+  pages     = {3729--3736},
+  publisher = {{IEEE}},
+  year      = {2017},
+  doi       = {10.1109/ICRA.2017.7989429},
+  note      = {Multi-sensor {PHD} filter for unknown target count; advanced
+               alternative to our gating-based {L7} multi-sensor approach},
+}
+
+@inproceedings{Kim2017Cooperative,
+  author    = {Kim, Jonghyuk and Liu, Shoudong},
+  title     = {Cooperative Multi-Robot Observation of Multiple Moving Targets},
+  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
+               Intelligent Robots and Systems ({IROS} 2017)},
+  pages     = {3773--3779},
+  publisher = {{IEEE}},
+  year      = {2017},
+  note      = {Decentralised track fusion across sensor nodes; relevant to
+               distributed edge architecture in {L7} multi-sensor design},
+}
+
 @article{Reid1979,
   author  = {Reid, Donald B.},
   title   = {An Algorithm for Tracking Multiple Targets},
@@ -609,18 +681,18 @@
 % Geometry and shape fitting
 % =============================================================================
 
-@inproceedings{Held2016,
-  author    = {Held, David and Thrun, Sebastian and Savarese, Silvio},
-  title     = {Robust Real-Time Tracking Combining {3D} Shape, Colour, and Motion},
-  booktitle = {The International Journal of Robotics Research},
-  volume    = {35},
-  number    = {1--3},
-  pages     = {30--49},
+@article{Held2016,
+  author  = {Held, David and Thrun, Sebastian and Savarese, Silvio},
+  title   = {Robust Real-Time Tracking Combining {3D} Shape, Colour, and Motion},
+  journal = {The International Journal of Robotics Research},
+  volume  = {35},
+  number  = {1--3},
+  pages   = {30--49},
   publisher = {{SAGE}},
-  year      = {2016},
-  doi       = {10.1177/0278364915594474},
-  note      = {Shape and colour features for {3D} object tracking; context for
-               geometry-coherent tracking proposals},
+  year    = {2016},
+  doi     = {10.1177/0278364915594474},
+  note    = {Shape and colour features for {3D} object tracking; context for
+             geometry-coherent tracking proposals},
 }
 
 @inproceedings{Zhang2017,
@@ -652,9 +724,10 @@
 
 @manual{HesaiPandar40P,
   author       = {{Hesai Technology}},
-  title        = {Pandar40{P} User Manual v3.0},
+  title        = {Pandar40{P} User Manual v4.02},
   organization = {Hesai Technology Co., Ltd.},
-  year         = {2020},
+  year         = {2025},
+  url          = {https://www.hesaitech.com/wp-content/uploads/2025/04/Pandar40P_User_Manual_402-en-250410.pdf},
   note         = {Dual-return {UDP} protocol at 10 {Hz} rotation;
                   our specific sensor for {L1} packet capture},
 }
@@ -668,13 +741,14 @@
                   prior source in {L7} scene ingestion},
 }
 
-@misc{ROSVelodyne,
-  author       = {{ROS Community}},
-  title        = {{ROS} \texttt{velodyne} Driver Package},
-  howpublished = {\url{https://github.com/ros-drivers/velodyne}},
-  year         = {2010},
-  note         = {Canonical example of separating packet driver ({L1}) from
-                  pointcloud assembly ({L2})},
+@misc{HesaiROS2,
+  author       = {{Hesai Technology}},
+  title        = {{HesaiLidar\_ROS2\_Driver}},
+  howpublished = {\url{https://github.com/HesaiTechnology/HesaiLidar_ROS2_Driver}},
+  year         = {2022},
+  note         = {Official {ROS} 2 driver for {Hesai} sensors; canonical example of
+                  separating packet driver ({L1}) from pointcloud assembly ({L2});
+                  replaces generic velodyne driver in our reference stack},
 }
 
 @manual{VelodyneHDL64E,
