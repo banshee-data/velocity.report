@@ -7,6 +7,6 @@
 // Dependency rule: L1 has no inward dependencies on higher layers.
 //
 // See docs/lidar/architecture/lidar-data-layer-model.md for the full
-// layer model and docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md
+// layer model and docs/lidar/architecture/lidar-layer-alignment-refactor-review.md
 // for the migration plan.
 package l1packets

@@ -84,7 +84,7 @@ This document proposes an alternative algorithm for isolating foreground points 
 - **Active foreground extractor:** `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`
 - **Active clustering:** DBSCAN in `internal/lidar/l4perception/cluster.go`
 - **No `VelocityCoherentTracker`** implementation currently present in the codebase
-- **Workstream separation reference:** [`docs/lidar/architecture/20260221-vector-vs-velocity-workstreams.md`](../lidar/architecture/20260221-vector-vs-velocity-workstreams.md)
+- **Workstream separation reference:** [`docs/lidar/architecture/vector-vs-velocity-workstreams.md`](../lidar/architecture/vector-vs-velocity-workstreams.md)
 
 ---
 
@@ -1673,7 +1673,7 @@ These features from the original design are deferred to future work:
 ## Related Documentation
 
 - [`docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — Mathematical model and parameter tradeoffs
-- [`docs/lidar/architecture/20260221-vector-vs-velocity-workstreams.md`](../lidar/architecture/20260221-vector-vs-velocity-workstreams.md) — Workstream separation rationale
+- [`docs/lidar/architecture/vector-vs-velocity-workstreams.md`](../lidar/architecture/vector-vs-velocity-workstreams.md) — Workstream separation rationale
 - [`docs/plans/lidar-static-pose-alignment-plan.md`](./lidar-static-pose-alignment-plan.md) — Pose pipeline dependency
 - [`docs/plans/lidar-motion-capture-architecture-plan.md`](./lidar-motion-capture-architecture-plan.md) — Motion capture architecture
 

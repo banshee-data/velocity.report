@@ -90,7 +90,7 @@ items improve later ones.
 
 ### P1 — Geometry-Coherent Track State _(highest priority)_
 
-**Source:** [20260222-geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
+**Source:** [geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
 **Layer:** L5 tracking
 **Status:** Proposal — not started
 **Effort:** L (6–7 days)
@@ -114,7 +114,7 @@ become unnecessary once the geometry-coherent model replaces the guards.
 
 ### P2 — Velocity-Coherent Foreground Extraction
 
-**Source:** [20260220-velocity-coherent-foreground-extraction.md](proposals/20260220-velocity-coherent-foreground-extraction.md)
+**Source:** [velocity-coherent-foreground-extraction.md](proposals/20260220-velocity-coherent-foreground-extraction.md)
 **Layer:** L4 perception (pre-clustering)
 **Status:** Proposal — not started
 **Effort:** L (estimated)
@@ -134,7 +134,7 @@ validation).
 
 ### P3 — Ground Plane and Vector-Scene Maths
 
-**Source:** [20260221-ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md)
+**Source:** [ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md)
 **Layer:** L4 perception (ground surface)
 **Status:** Proposal — not started
 **Effort:** L (estimated)
@@ -153,7 +153,7 @@ end users than P1/P2.
 
 ### P4 — Unify L3/L4 Settling
 
-**Source:** [20260219-unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md)
+**Source:** [unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md)
 **Layer:** L3–L4 boundary (infrastructure)
 **Status:** Proposal — not started
 **Effort:** M–L (estimated, phased migration)
@@ -169,7 +169,7 @@ but lowers the complexity cost of P3.
 
 ### Candidate Add-on — Reflective Sign and Static Surface Pose Anchors
 
-**Source:** [20260310-reflective-sign-pose-anchor-maths.md](proposals/20260310-reflective-sign-pose-anchor-maths.md)
+**Source:** [reflective-sign-pose-anchor-maths.md](proposals/20260310-reflective-sign-pose-anchor-maths.md)
 **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene, L8 Analytics
 **Status:** Proposal — not started
 **Effort:** M (estimated)
@@ -190,7 +190,7 @@ structure to build a redundant anchor set.
 
 ### Maintenance — OBB Heading Stability Review (remaining items)
 
-**Source:** [20260222-obb-heading-stability-review.md](proposals/20260222-obb-heading-stability-review.md)
+**Source:** [obb-heading-stability-review.md](proposals/20260222-obb-heading-stability-review.md)
 **Status:** Guard 3, fixes B, C, G **implemented**. Fix D (config-only), E, F not started.
 
 Fix D (tighten aspect-ratio lock threshold) is a low-risk config change that

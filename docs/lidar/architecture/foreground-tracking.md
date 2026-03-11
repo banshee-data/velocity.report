@@ -1573,7 +1573,7 @@ MeasurementNoise      = [0.2, 0.2]
 ### C. Related Documentation
 
 - `ARCHITECTURE.md` - System architecture overview
-- `docs/lidar/architecture/lidar_sidecar_overview.md` - LIDAR implementation details
+- `docs/lidar/architecture/lidar-sidecar-overview.md` - LIDAR implementation details
 - `docs/DEVLOG.md` - Development history
 - `internal/lidar/l3grid/background.go` - Background grid implementation
 - `internal/lidar/l5tracks/types.go` - Track data structures
@@ -1697,5 +1697,5 @@ When pose validation is implemented:
 - **[LiDAR Pipeline Reference](lidar-pipeline-reference.md)** - Pipeline data flow, existing components, and deployment architecture
 - **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
 - **[LIDAR Foreground Tracking Status](../operations/lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
-- **[LIDAR Sidecar Overview](lidar_sidecar_overview.md)** - Technical implementation overview and module structure
+- **[LIDAR Sidecar Overview](lidar-sidecar-overview.md)** - Technical implementation overview and module structure
 - **[Development Log](../../DEVLOG.md)** - Chronological implementation history

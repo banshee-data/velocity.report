@@ -1304,7 +1304,7 @@ low-speed urban traffic data specifically.
 ### Internal Documents
 
 - **Ground Plane Extraction** — `docs/lidar/architecture/../lidar/architecture/ground-plane-extraction.md` (tile-based ground model, Tier 1/2 design)
-- **Ground Plane Proposal Maths** — `docs/maths/proposals/ground-plane-vector-scene-maths.md` (algorithm trade-offs)
+- **Ground Plane Proposal Maths** — `docs/maths/proposals/20260221-ground-plane-vector-scene-maths.md` (algorithm trade-offs)
 - **LiDAR Layer Model** — `docs/lidar/architecture/../lidar/architecture/lidar-data-layer-model.md` (L1–L6 layer definitions)
 - **Background Grid Standards** — `docs/lidar/architecture/lidar-background-grid-standards.md` (VTK/PCD export)
 - **PCAP Export Tool** — `docs/lidar/operations/pcap-ground-plane-export-tool.md` (CLI flags, export formats)

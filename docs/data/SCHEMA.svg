@@ -1095,7 +1095,7 @@
 </g>
 <!-- radar_transit_links&#45;&gt;radar_data -->
 <g id="edge4" class="edge">
-<title>radar_transit_links:e&#45;&gt;radar_data:w</title>
+<title>radar_transit_links:e&#45;&gt;radar_data</title>
 <path fill="none" stroke="black" d="M177,-3607.38C215.96,-3607.38 257.28,-3594.92 290.97,-3581.21"/>
 <polygon fill="black" stroke="black" points="291.91,-3584.61 299.77,-3577.51 289.2,-3578.16 291.91,-3584.61"/>
 </g>

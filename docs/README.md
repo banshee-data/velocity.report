@@ -37,8 +37,22 @@ Documentation structure, scope, and naming conventions.
 
 ## Naming Conventions
 
-- Plans (flat): `<hub>-<area>-<topic>-plan.md` in `docs/plans/`
-- Maths proposals: `<yyymmdd>-<topic>.md` in `docs/maths/proposals/`
+All documentation files use **lowercase-with-hyphens** (`kebab-case`) with a lowercase `.md` extension.
+
+| Rule                    | Scope                            | Example                                               |
+| ----------------------- | -------------------------------- | ----------------------------------------------------- |
+| No underscores          | everywhere                       | `foreground-tracking.md` not `foreground_tracking.md` |
+| No dates in filenames   | general docs                     | use git history for chronology                        |
+| UPPER_CASE filenames    | `docs/data/`, project-level docs | `VRLOG_FORMAT.md`, `README.md`, `BACKLOG.md`          |
+| Date prefix `YYYYMMDD-` | `docs/maths/proposals/` only     | `20260222-geometry-coherent-tracking.md`              |
+
+### Path patterns
+
+- `docs/data/` — `UPPER_CASE.md` for specification-grade content.
+- `docs/plans/` — `<hub>-<area>-<topic>-plan.md` (flat, no subdirectories).
+- `docs/maths/proposals/` — `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
+- `<hub>/architecture/` — `<topic>.md`
+- `<hub>/operations/` — `<topic>.md`
 
 ## Document Structure
 

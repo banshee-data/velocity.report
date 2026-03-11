@@ -575,7 +575,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 ## 9. Related Documents
 
-- [VelocityVisualiser.app/01-problem-and-user-workflows.md](./VelocityVisualiser.app/01-problem-and-user-workflows.md) – Problem statement
-- [VelocityVisualiser.app/02-api-contracts.md](./VelocityVisualiser.app/02-api-contracts.md) – API contract (protobuf schema)
+- [velocity-visualiser-app/01-problem-and-user-workflows.md](./velocity-visualiser-app/01-problem-and-user-workflows.md) – Problem statement
+- [velocity-visualiser-app/02-api-contracts.md](./velocity-visualiser-app/02-api-contracts.md) – API contract (protobuf schema)
 - [velocity-visualiser-implementation.md](./velocity-visualiser-implementation.md) – Milestones and tasks
 - [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements

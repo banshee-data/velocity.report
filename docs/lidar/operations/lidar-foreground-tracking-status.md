@@ -32,7 +32,7 @@
 
 Separation reference:
 
-- [`../architecture/20260221-vector-vs-velocity-workstreams.md`](../architecture/20260221-vector-vs-velocity-workstreams.md)
+- [`../architecture/vector-vs-velocity-workstreams.md`](../architecture/vector-vs-velocity-workstreams.md)
 
 **Implementation Status:**
 
@@ -60,7 +60,7 @@ Separation reference:
 2. **recFg Accumulation During Freeze:** Frozen cells incremented `RecentForegroundCount` on every observation, reaching 70+ by freeze end.
    - **Fix:** Don't increment recFg during freeze; reset to 0 on thaw with 1ms grace period.
 
-**Implementation:** See [warmup-trails-fix-20260113.md](../troubleshooting/warmup-trails-fix-20260113.md)
+**Implementation:** See [warmup-trails-fix.md](../troubleshooting/warmup-trails-fix.md)
 
 ### Issue 3: Real-time Parameter Tuning — ✅ IMPLEMENTED
 

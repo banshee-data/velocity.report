@@ -3,7 +3,7 @@
 **Status:** ✅ Implemented
 **Created:** 2026-03-11
 **Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception
-**Related audit:** [20260311-coordinate-flow-audit.md](../lidar/architecture/20260311-coordinate-flow-audit.md)
+**Related audit:** [coordinate-flow-audit.md](../lidar/architecture/coordinate-flow-audit.md)
 
 ## Decision
 

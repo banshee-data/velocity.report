@@ -6,6 +6,6 @@
 // layer packages (L3-L6). This keeps domain logic free of SQL noise and
 // makes it easier to swap storage backends for testing.
 //
-// See docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md §2
+// See docs/lidar/architecture/lidar-layer-alignment-refactor-review.md §2
 // for the design rationale.
 package sqlite
