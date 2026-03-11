@@ -5,7 +5,7 @@ Parses a Mermaid flowchart block from a Markdown file and reports
 edge-declaration-order issues that may cause visual line crossings.
 
 Usage:
-    python scripts/mermaid-crossing-checker.py [FILE]
+    python3 scripts/mermaid-crossing-checker.py [FILE]
 
 If FILE is omitted it defaults to
     docs/lidar/architecture/lidar-data-layer-model.md
@@ -65,7 +65,7 @@ class Subgraph:
 
 _NODE_DEF = re.compile(r"^\s+([A-Za-z_]\w*)\s*\[")
 _EDGE = re.compile(r"^\s+([A-Za-z_]\w*)\s+(-->|-.->)\s+([A-Za-z_]\w*)")
-_SUBGRAPH_START = re.compile(r"^\s+subgraph\s+(\S+)")
+_SUBGRAPH_START = re.compile(r"^\s+subgraph\s+([A-Za-z_]\w*)\b")
 _SUBGRAPH_END = re.compile(r"^\s+end\s*$")
 _DIRECTION = re.compile(r"^\s+direction\s+(TB|BT|LR|RL)")
 _MERMAID_START = re.compile(r"^```mermaid\s*$")
@@ -212,7 +212,7 @@ def main() -> None:
         print(f"File not found: {path}", file=sys.stderr)
         sys.exit(1)
 
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     global_node_order, subgraphs, node_to_subgraph, edges = parse_mermaid(lines)
 
     if not edges:
