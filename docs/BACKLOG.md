@@ -119,8 +119,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
-- Layer dependency hygiene — moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files — [design doc](plans/lidar-layer-dependency-hygiene-plan.md)
-- LiDAR L2 dual representation — `LiDARFrame` stores both `PolarPoints` and `Points`; pipeline consumes frame-owned polar data directly; per-frame polar rebuild eliminated — [design doc](plans/lidar-l2-dual-representation-plan.md)
 - [#144] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation — `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints) — review doc item 4 — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
@@ -142,6 +140,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#286] Web palette compliance — palette.ts created with canonical DESIGN.md §3.3 values; colorMap/cRange removed — [design doc §1.1](ui/design-review-and-improvement.md)
 - [#287] LiDAR logging stream split — Opsf/Diagf/Tracef streams replacing Debugf/classifier, with ops/debug/trace routing rubric — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md)
 - [#291] PR template design checklist — add DESIGN.md §9 UI/chart checklist to .github/PULL_REQUEST_TEMPLATE.md — [design doc §8.2](ui/design-review-and-improvement.md)
+- [#298] macOS versioned DMG export — `create-dmg.sh` with Finder window layout for drag-to-install DMG, CI DMG job scoped to tag pushes — [design doc](plans/deploy-distribution-packaging-plan.md)
 - [#319] Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](lidar/operations/settling-time-optimization.md)
 - [#320] Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md)
 - [#328] SWEEP/HINT platform hardening (Phase 5–6) — transform pipeline, objective registry, explainability — [design doc](plans/lidar-sweep-hint-mode-plan.md)
@@ -150,9 +149,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#328] Visualiser track field serialisation — all Track fields now round-trip in `frameBundleToProto`, `TestFrameBundleToProto_TrackFieldCompleteness` added — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#328] Visualiser `ObjectClass` enum — 9-class enum on proto field 26, `objectClassFromString` / `classifyOrConvert` conversion, Go + Swift tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#330] Platform simplification Phase 1 — deprecation signalling and deploy retirement gate — [design doc](plans/platform-simplification-and-deprecation-plan.md)
-- [#336] Visualiser proto contract review split — branch-local percentile expansion was rejected; shipped sub-parts are tracked separately (#240, #328, #352), and remaining debug/cluster follow-through stays in the active backlog/design doc — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
-- [#336] v0.5.0 breaking-change review split — deployment deprecation warnings landed via #330, while the proto field 24 rename / `AvgSpeedMps` removal proposal was rejected and remains out of merge scope — [design doc](plans/platform-simplification-and-deprecation-plan.md)
-- [#352] PCAP analysis replay hardening — blocking frame channel for zero-drop analysis, speed-mode rename (fastest→analysis, fixed→scaled), SpeedRatio API, per-phase backoff logging with SubLogger, batched track DB writes, disable persistence during analysis runs, replay epoch tracking, FrameBuilder deadlock fix `M`
-- [#352] Benchmark mode and runtime profiling — BenchmarkMode toggle for performance tracing, pprof HTTP routes, heap-allocation tracking in health summary `S`
-- [#352] Occlusion aggregate metrics — per-frame occlusion stats in TrackingMetrics and sweep pipeline; speed_ratio sweep variable; dashboard exposure `S`
+- [#336] Visualiser proto contract parity + debug overlays — `FrameBundle.debug` streaming, cluster/track field serialisation, `avg_speed_mps` → `median_speed_mps` + p85/p98 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#336] v0.5.0 breaking changes — proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#352] PCAP analysis replay hardening — blocking frame channel for zero-drop analysis, speed-mode rename (fastest→analysis, fixed→scaled), SpeedRatio API, per-phase backoff logging with SubLogger, batched track DB writes, disable persistence during analysis runs, replay epoch tracking, FrameBuilder deadlock fix — [design doc](lidar/operations/pcap-analysis-mode.md)
+- [#352] Benchmark mode and runtime profiling — BenchmarkMode toggle for performance tracing, pprof HTTP routes, heap-allocation tracking in health summary — [design doc](plans/lidar-clustering-observability-and-benchmark-plan.md)
+- [#352] Occlusion aggregate metrics — per-frame occlusion stats in TrackingMetrics and sweep pipeline; speed_ratio sweep variable; dashboard exposure — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md)
 - [#352] Proto `peak_speed_mps` → `max_speed_mps` rename (D-19) — proto field 25, Go/Swift/TS model rename, regenerated bindings; SQL column deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#356] VRLOG analysis §12.1 metrics — `analyse-vrlog` command with `GenerateReport` and `CompareReports` for implementable-now track quality metrics and distribution statistics — [design doc](data/VRLOG_ANALYSIS.md)
+- [#364] Layer dependency hygiene — moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files — [design doc](plans/lidar-layer-dependency-hygiene-plan.md)
+- [#364] LiDAR L2 dual representation — `LiDARFrame` stores both `PolarPoints` and `Points`; pipeline consumes frame-owned polar data directly; per-frame polar rebuild eliminated — [design doc](plans/lidar-l2-dual-representation-plan.md)
