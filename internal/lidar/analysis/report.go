@@ -125,8 +125,8 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				acc.bboxL = append(acc.bboxL, t.BBoxLength)
 				acc.bboxW = append(acc.bboxW, t.BBoxWidth)
 				acc.bboxH = append(acc.bboxH, t.BBoxHeight)
-				if t.PeakSpeedMps > acc.peakSpeed {
-					acc.peakSpeed = t.PeakSpeedMps
+				if t.MaxSpeedMps > acc.peakSpeed {
+					acc.peakSpeed = t.MaxSpeedMps
 				}
 				if t.HeightP95Max > acc.heightP95Max {
 					acc.heightP95Max = t.HeightP95Max
