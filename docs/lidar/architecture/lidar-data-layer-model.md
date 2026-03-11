@@ -208,11 +208,11 @@ flowchart TB
 
 **Legend**
 
-- Green `✅`: implemented in the current runtime.
+- Green: implemented in the current runtime.
 - Amber `🔄`: present in the current codebase, but still partial or evolving at the layer boundary.
 - Grey: reserved layer slot with no runtime implementation yet.
 - Blue-grey: pre-L1 hardware or IO context shown for ingress only; not part of the numbered L1-L10 stack.
-- Beige `📄`: downstream client surface rather than a core runtime layer or Go package.
+- Beige: downstream client surface rather than a core runtime layer or Go package.
 - Solid arrows: dominant current-code flow along that branch.
 - Dashed arrows: reference or layout links across non-runtime gaps, or branches that intentionally skip runtime layers.
 
@@ -220,43 +220,45 @@ flowchart TB
 
 The ten-layer table above shows where layers live. The concept chart shows
 which ideas within those layers are active. This table makes the
-paper/concept mapping explicit.
+paper/concept mapping explicit. The final column points to the nearest
+internal design note, maths specification, or implementation plan for that
+block.
 
-| Block | Concept family | Representative papers / standards | Repo status |
-| --- | --- | --- | --- |
-| L1a | Radar serial ingest | Serial sensor ingest and telemetry logging patterns | ✅ Implemented |
-| L1b | LiDAR UDP ingest | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula` | ✅ Implemented |
-| L1c | PCAP replay | libpcap / tcpdump capture and replay tooling | ✅ Implemented |
-| L2a | Sequential frame assembly | RangeNet++, SemanticKITTI temporal framing | ✅ Implemented |
-| L2b | Sensor-frame spherical projection | Standard LiDAR spherical-to-Cartesian geometry | ✅ Implemented |
-| L2c | Frame export surfaces | ASC and point-cloud export conventions | ✅ Implemented |
-| L3a | Polar grid accumulation | Range-image / occupancy-style spatial binning | ✅ Implemented |
-| L3b | EMA background model | Stauffer-Grimson adaptive background lineage | ✅ Implemented |
-| L3c | Foreground gating | Background subtraction and neighbour-confirmation heuristics | ✅ Implemented |
-| L3d | Region restore and cache | Persistent background snapshots and scene-signature restore | ✅ Implemented |
-| L4a | Foreground-to-world transform | Rigid transforms and homogeneous pose geometry | ✅ Implemented |
-| L4b | Voxel downsampling | PCL `VoxelGrid` downsampling family | ✅ Implemented |
-| L4c | Density clustering | DBSCAN, PCL clustering | ✅ Implemented |
-| L4d | Cluster geometry fitting | PCA / OBB fitting literature | ✅ Implemented |
-| L5a | Radar sessionization | Temporal event segmentation and transit/session building | ✅ Implemented |
-| L5b | Detection-to-track assignment | Kuhn Hungarian assignment | ✅ Implemented |
-| L5c | Constant-velocity state estimation | Kalman (1960), SORT, AB3DMOT | ✅ Implemented |
-| L5d | Track lifecycle management | SORT-style birth / confirm / coast / delete policies | ✅ Implemented |
-| L5e | Trajectory and quality metrics | MOT diagnostics and track-quality metrics | ✅ Implemented |
-| L5f | Motion-model extensions | CA / CTRV / IMM multi-model tracking literature | 📋 Planned |
-| L6a | Feature aggregation | Classical feature engineering for traffic objects | ✅ Implemented |
-| L6b | Rule-based classification | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage | ✅ Implemented |
-| L6c | Run-level object stats | Experiment and run summarisation patterns | ✅ Implemented |
-| L7a | Scene/fusion slot | HD-map, scene accumulation, OSM prior literature | 📋 Planned |
-| L8a | Radar metrics and rollups | Traffic histograms, percentiles, report rollups | ✅ Implemented |
-| L8b | LiDAR traffic metrics | Traffic engineering reporting and nearest-rank percentiles | ✅ Implemented |
-| L8c | Sweep tuning and search | Parameter sweeps and experiment evaluation | ✅ Implemented |
-| L9a | Radar report APIs | REST / JSON reporting surfaces | ✅ Implemented |
-| L9b | LiDAR dashboard APIs | REST / JSON dashboard and replay surfaces | 🔄 Partial |
-| L9c | Live frame streams | gRPC streaming and protobuf transport | 🔄 Partial |
-| L10a | PDF rendering | PDF report-generation pipelines | 📄 Active |
-| L10b | Browser clients | Svelte dashboard and report UI patterns | 📄 Active |
-| L10c | Native visualiser | Native Metal visualisation and gRPC client surfaces | 📄 Active |
+| Block | Concept family | Representative papers / standards | Repo status | Closest spec / plan |
+| --- | --- | --- | --- | --- |
+| L1a | Radar serial ingest | Serial sensor ingest and telemetry logging patterns | ✅ Implemented | [Radar serial spec](../../radar/architecture/serial-configuration-ui.md) |
+| L1b | LiDAR UDP ingest | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula` | ✅ Implemented | [LiDAR network design](network-configuration.md) |
+| L1c | PCAP replay | libpcap / tcpdump capture and replay tooling | ✅ Implemented | [Sidecar overview](lidar_sidecar_overview.md) |
+| L2a | Sequential frame assembly | RangeNet++, SemanticKITTI temporal framing | ✅ Implemented | [Pipeline reference](lidar-pipeline-reference.md) |
+| L2b | Sensor-frame spherical projection | Standard LiDAR spherical-to-Cartesian geometry | ✅ Implemented | [AV range-image design](av-range-image-format-alignment.md) |
+| L2c | Frame export surfaces | ASC and point-cloud export conventions | ✅ Implemented | [AV range-image design](av-range-image-format-alignment.md) |
+| L3a | Polar grid accumulation | Range-image / occupancy-style spatial binning | ✅ Implemented | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
+| L3b | EMA background model | Stauffer-Grimson adaptive background lineage | ✅ Implemented | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
+| L3c | Foreground gating | Background subtraction and neighbour-confirmation heuristics | ✅ Implemented | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
+| L3d | Region restore and cache | Persistent background snapshots and scene-signature restore | ✅ Implemented | [Sidecar overview](lidar_sidecar_overview.md) |
+| L4a | Foreground-to-world transform | Rigid transforms and homogeneous pose geometry | ✅ Implemented | [Foreground-tracking design](foreground_tracking.md) |
+| L4b | Voxel downsampling | PCL `VoxelGrid` downsampling family | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
+| L4c | Density clustering | DBSCAN, PCL clustering | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
+| L4d | Cluster geometry fitting | PCA / OBB fitting literature | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
+| L5a | Radar sessionization | Temporal event segmentation and transit/session building | ✅ Implemented | [Transit deduplication plan](../../radar/architecture/transit-deduplication.md) |
+| L5b | Detection-to-track assignment | Kuhn Hungarian assignment | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5c | Constant-velocity state estimation | Kalman (1960), SORT, AB3DMOT | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5d | Track lifecycle management | SORT-style birth / confirm / coast / delete policies | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5e | Trajectory and quality metrics | MOT diagnostics and track-quality metrics | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5f | Motion-model extensions | CA / CTRV / IMM multi-model tracking literature | 📋 Planned | [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md) |
+| L6a | Feature aggregation | Classical feature engineering for traffic objects | ✅ Implemented | [Classification maths](../../maths/classification-maths.md) |
+| L6b | Rule-based classification | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage | ✅ Implemented | [Classification maths](../../maths/classification-maths.md) |
+| L6c | Run-level object stats | Experiment and run summarisation patterns | ✅ Implemented | [Analysis-run infrastructure](../../plans/lidar-analysis-run-infrastructure-plan.md) |
+| L7a | Scene/fusion slot | HD-map, scene accumulation, OSM prior literature | 📋 Planned | [L7 scene plan](../../plans/lidar-l7-scene-plan.md) |
+| L8a | Radar metrics and rollups | Traffic histograms, percentiles, report rollups | ✅ Implemented | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md) |
+| L8b | LiDAR traffic metrics | Traffic engineering reporting and nearest-rank percentiles | ✅ Implemented | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md) |
+| L8c | Sweep tuning and search | Parameter sweeps and experiment evaluation | ✅ Implemented | [Tuning optimisation plan](../../plans/lidar-parameter-tuning-optimisation-plan.md) |
+| L9a | Radar report APIs | REST / JSON reporting surfaces | ✅ Implemented | [Radar networking design](../../radar/architecture/networking.md) |
+| L9b | LiDAR dashboard APIs | REST / JSON dashboard and replay surfaces | 🔄 Partial | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
+| L9c | Live frame streams | gRPC streaming and protobuf transport | 🔄 Partial | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
+| L10a | PDF rendering | PDF report-generation pipelines | 📄 Active | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md) |
+| L10b | Browser clients | Svelte dashboard and report UI patterns | 📄 Active | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md) |
+| L10c | Native visualiser | Native Metal visualisation and gRPC client surfaces | 📄 Active | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
 
 ### Design rationale for ten layers
 
