@@ -34,15 +34,15 @@ floating-point accuracy penalty from repeated back-and-forth inversion.
 
 ```mermaid
 flowchart TD
-    A["L1 Parse\ninternal/lidar/l1packets/parse\nUDP packet -> []PointPolar\nsensor polar"] --> B["L2 Frame Build\ninternal/lidar/l2frames\nAddPointsPolar()\nPointPolar -> Point\nsensor Cartesian"]
-    B --> C["LiDARFrame\ninternal/lidar/l2frames\nframe.Points []Point\nsensor Cartesian + copied polar metadata"]
-    C --> D["Pipeline Re-wrap\ninternal/lidar/pipeline\nframe.Points -> []PointPolar\ncopy Distance/Azimuth/Elevation only"]
-    D --> E["L3 Foreground Mask\ninternal/lidar/l3grid\nProcessFramePolarWithMask()\nsensor polar"]
-    E --> F["Foreground subset\n[]PointPolar\nsensor polar"]
-    F --> G["L4 Transform\ninternal/lidar/l4perception\nTransformToWorld()\npolar -> world Cartesian"]
-    G --> H["Ground / Voxel / DBSCAN\ninternal/lidar/l4perception\nworld Cartesian"]
-    H --> I["L5 Tracks\ninternal/lidar/l5tracks\nworld Cartesian / float32 state"]
-    I --> J["L6 Objects + DB\ninternal/lidar/l6objects + storage\nworld Cartesian summaries"]
+    A["L1 Parse: UDP bytes → []PointPolar (sensor polar)"] --> B["L2 AddPointsPolar(): PointPolar → Point (sensor Cartesian)"]
+    B --> C["LiDARFrame.Points: []Point (sensor Cartesian + polar metadata)"]
+    C --> D["Pipeline re-wrap: frame.Points → []PointPolar (copy stored polar fields — no inverse trig)"]
+    D --> E["L3 ProcessFramePolarWithMask(): foreground mask (sensor polar)"]
+    E --> F["Foreground subset: []PointPolar (sensor polar)"]
+    F --> G["L4 TransformToWorld(): []PointPolar → []WorldPoint (world Cartesian)"]
+    G --> H["Ground filter / Voxel / DBSCAN: []WorldPoint → []WorldCluster (world Cartesian)"]
+    H --> I["L5 Tracks: []WorldCluster → TrackedObject (world Cartesian, float32 state)"]
+    I --> J["L6 Objects + DB: world Cartesian summaries"]
 ```
 
 ## Branch Flowchart
@@ -51,14 +51,14 @@ These are not all part of the tracking-critical chain.
 
 ```mermaid
 flowchart TD
-    A["LiDARFrame.Points\nL2 sensor Cartesian"] --> B["gRPC point cloud\ninternal/lidar/visualiser/adapter\nuses frame.Points directly"]
-    A --> C["ASC frame export\nL2 export path\nuses Cartesian points"]
+    A["LiDARFrame.Points (L2 sensor Cartesian)"] --> B["gRPC point cloud — visualiser/adapter (L2 Cartesian direct)"]
+    A --> C["ASC frame export — l2frames/export.go (Cartesian)"]
 
-    D["L3 foreground polar subset"] --> E["Foreground UDP forwarder\ninternal/lidar/l1packets/network\nkeeps polar, rebuilds packets"]
-    D --> F["Foreground snapshot store\ninternal/lidar/l3grid\nstores raw polar"]
-    F --> G["Debug chart / ASC export\nlazy polar -> Cartesian projection on access"]
+    D["L3 foreground subset: []PointPolar (sensor polar)"] --> E["Foreground UDP forwarder — keeps polar, rebuilds packets"]
+    D --> F["Foreground snapshot store — l3grid (raw polar)"]
+    F --> G["Debug chart / ASC export (lazy polar → Cartesian on access)"]
 
-    H["L3 background grid cells\npolar grid"] --> I["Background ASC export\npolar grid -> Cartesian only for export"]
+    H["L3 background grid cells (polar grid)"] --> I["Background ASC export (polar grid → Cartesian for export only)"]
 ```
 
 ## Critical Chain Matrix
