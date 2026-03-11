@@ -199,16 +199,15 @@ If the design goal is exactly one `polar -> Cartesian` projection for tracked po
 The current implementation already preserves enough metadata to avoid numeric harm; the remaining win is simplification
 and avoiding duplicated forward trig in the hot path.
 
-### Adopted direction
+### Adopted direction (✅ Implemented)
 
-The chosen follow-up is option 2:
+Option 2 was implemented:
 
-- store both polar and Cartesian once at L2
-- keep `LiDARFrame` as the owner of both views
-- have L3 consume frame-owned polar data directly
-- remove the callback-local `frame.Points -> []PointPolar` rebuild
+- `LiDARFrame` stores both `PolarPoints []PointPolar` and `Points []Point`, populated once by `AddPointsPolar()`
+- L3 consumes `frame.PolarPoints` directly — no per-frame polar rebuild in the pipeline callback
+- the former `frame.Points -> []PointPolar` re-wrap step in `tracking_pipeline.go` has been deleted
 
-Implementation is tracked in [lidar-l2-dual-representation-plan.md](../../plans/lidar-l2-dual-representation-plan.md).
+See [lidar-l2-dual-representation-plan.md](../../plans/lidar-l2-dual-representation-plan.md) for the full plan.
 
 ## Important Caveats
 

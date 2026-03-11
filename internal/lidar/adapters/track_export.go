@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -44,10 +44,10 @@ func DefaultPandar40PConfig() *SensorConfig {
 // TrackPointCloudFrame represents a single frame of point cloud data for a track.
 // Points are stored in polar coordinates (sensor frame) for compatibility with parsers.
 type TrackPointCloudFrame struct {
-	TrackID     string                    // Track identifier
-	FrameIndex  int                       // Frame sequence number within track
-	Timestamp   time.Time                 // Frame timestamp
-	PolarPoints []l4perception.PointPolar // Points in polar coordinates
+	TrackID     string                // Track identifier
+	FrameIndex  int                   // Frame sequence number within track
+	Timestamp   time.Time             // Frame timestamp
+	PolarPoints []l2frames.PointPolar // Points in polar coordinates
 }
 
 // ExportTrackPointCloud extracts point clouds for a specific track from observation history.
@@ -69,7 +69,7 @@ func ExportTrackPointCloud(track *l5tracks.TrackedObject, observationHistory []*
 			FrameIndex: i,
 			Timestamp:  time.Unix(0, obs.TSUnixNanos),
 			// PolarPoints will be populated when point cloud storage is integrated
-			PolarPoints: []l4perception.PointPolar{}, // Placeholder
+			PolarPoints: []l2frames.PointPolar{}, // Placeholder
 		}
 		frames = append(frames, frame)
 	}
@@ -84,7 +84,7 @@ func ExportTrackPointCloud(track *l5tracks.TrackedObject, observationHistory []*
 // - 10 data blocks × 124 bytes each
 // - Each block: 2-byte preamble (0xFFEE) + 2-byte azimuth + 40 channels × 3 bytes
 // - 22-byte tail with timestamp and metadata
-func EncodePandar40PPacket(points []l4perception.PointPolar, blockAzimuth float64, config *SensorConfig) ([]byte, error) {
+func EncodePandar40PPacket(points []l2frames.PointPolar, blockAzimuth float64, config *SensorConfig) ([]byte, error) {
 	const (
 		PACKET_SIZE         = 1262
 		BLOCKS_PER_PACKET   = 10
@@ -113,7 +113,7 @@ func EncodePandar40PPacket(points []l4perception.PointPolar, blockAzimuth float6
 		// Block azimuth from bucket median (fallback to provided blockAzimuth center if empty)
 		minAz := float64(blockIdx) * azBucketSize
 		maxAz := minAz + azBucketSize
-		bucket := make([]l4perception.PointPolar, 0)
+		bucket := make([]l2frames.PointPolar, 0)
 		for _, p := range points {
 			az := math.Mod(p.Azimuth+360.0, 360.0)
 			if az >= minAz && az < maxAz {

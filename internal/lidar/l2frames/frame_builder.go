@@ -48,17 +48,18 @@ const (
 
 // LiDARFrame represents one complete 360° rotation of LiDAR data
 type LiDARFrame struct {
-	FrameID        string    // unique identifier for this frame
-	SensorID       string    // which sensor generated this frame
-	StartTimestamp time.Time // timestamp of first point in frame
-	EndTimestamp   time.Time // timestamp of last point in frame
-	StartWallTime  time.Time // wall-clock time when frame started (ingest time)
-	EndWallTime    time.Time // wall-clock time when last point was ingested
-	Points         []Point   // all points in this complete rotation
-	MinAzimuth     float64   // minimum azimuth angle observed
-	MaxAzimuth     float64   // maximum azimuth angle observed
-	PointCount     int       // total number of points in frame
-	SpinComplete   bool      // true when full 360° rotation detected
+	FrameID        string       // unique identifier for this frame
+	SensorID       string       // which sensor generated this frame
+	StartTimestamp time.Time    // timestamp of first point in frame
+	EndTimestamp   time.Time    // timestamp of last point in frame
+	StartWallTime  time.Time    // wall-clock time when frame started (ingest time)
+	EndWallTime    time.Time    // wall-clock time when last point was ingested
+	PolarPoints    []PointPolar // sensor-polar view: all points in polar coordinates
+	Points         []Point      // sensor-Cartesian view: all points in Cartesian coordinates
+	MinAzimuth     float64      // minimum azimuth angle observed
+	MaxAzimuth     float64      // maximum azimuth angle observed
+	PointCount     int          // total number of points in frame
+	SpinComplete   bool         // true when full 360° rotation detected
 
 	// Completeness tracking
 	ExpectedPackets   map[uint32]bool // expected UDP sequence numbers
@@ -367,7 +368,8 @@ func (fb *FrameBuilder) EnableTimeBased(enable bool) {
 // NOTE: Legacy AddPoints removed in polar-first refactor. Use AddPointsPolar.
 
 // AddPointsPolar accepts polar points (sensor-frame) and converts them to cartesian Points
-// before processing. This is used by network listeners that parse into polar form.
+// before processing. Both polar and Cartesian representations are stored on the frame.
+// This is used by network listeners that parse into polar form.
 func (fb *FrameBuilder) AddPointsPolar(polar []PointPolar) {
 	if len(polar) == 0 {
 		return
@@ -394,13 +396,18 @@ func (fb *FrameBuilder) AddPointsPolar(polar []PointPolar) {
 
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
-	fb.addPointsInternal(pts)
+	fb.addPointsDualInternal(pts, polar)
 }
 
-// addPointsInternal processes cartesian Points assuming lock is held by caller for safety
-func (fb *FrameBuilder) addPointsInternal(points []Point) {
+// addPointsDualInternal processes paired Cartesian + polar points, storing both
+// representations on each frame. Lock must be held by caller.
+// Panics if len(points) != len(polar) — callers must guarantee alignment.
+func (fb *FrameBuilder) addPointsDualInternal(points []Point, polar []PointPolar) {
 	if len(points) == 0 {
 		return
+	}
+	if len(points) != len(polar) {
+		panic(fmt.Sprintf("addPointsDualInternal: slice length mismatch: points=%d, polar=%d", len(points), len(polar)))
 	}
 
 	arrivalNow := time.Now()
@@ -413,7 +420,7 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 	}
 
 	// Process each point for azimuth-based frame detection
-	for _, point := range points {
+	for i, point := range points {
 		// Check for UDP sequence gaps
 		fb.checkSequenceGaps(point.UDPSequence)
 
@@ -433,8 +440,9 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 			fb.startNewFrame(point.Timestamp, arrivalNow)
 		}
 
-		// Add point to current frame
+		// Add both representations to current frame
 		fb.addPointToCurrentFrame(point)
+		fb.currentFrame.PolarPoints = append(fb.currentFrame.PolarPoints, polar[i])
 		fb.lastAzimuth = point.Azimuth
 	}
 
@@ -446,7 +454,7 @@ func (fb *FrameBuilder) addPointsInternal(points []Point) {
 	if fb.currentFrame != nil {
 		newCount = fb.currentFrame.PointCount
 	}
-	tracef("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
+	tracef("[FrameBuilder] Added %d points (dual); frame_count was=%d now=%d; lastAzimuth=%.2f",
 		len(points), prevCount, newCount, fb.lastAzimuth)
 }
 
@@ -516,7 +524,8 @@ func (fb *FrameBuilder) startNewFrame(timestamp time.Time, wallTime time.Time) {
 		EndTimestamp:    timestamp,
 		StartWallTime:   wallTime,
 		EndWallTime:     wallTime,
-		Points:          make([]Point, 0, 36000), // pre-allocate for full rotation
+		PolarPoints:     make([]PointPolar, 0, 36000), // pre-allocate for full rotation
+		Points:          make([]Point, 0, 36000),      // pre-allocate for full rotation
 		MinAzimuth:      360.0,
 		MaxAzimuth:      0.0,
 		ExpectedPackets: make(map[uint32]bool),

@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // RealtimeReplayConfig is a stub when pcap is not available.
@@ -25,7 +25,7 @@ type RealtimeReplayConfig struct {
 	DebugRingMax        int
 	DebugAzMin          float32
 	DebugAzMax          float32
-	OnFrameCallback     func(mgr *l3grid.BackgroundManager, points []l4perception.PointPolar)
+	OnFrameCallback     func(mgr *l3grid.BackgroundManager, points []l2frames.PointPolar)
 	PacketOffset        uint64
 	TotalPackets        uint64
 	OnProgress          func(currentPacket, totalPackets uint64)

@@ -10,8 +10,8 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // mockTimestampParser satisfies network.Parser and exposes SetTimestampMode so
@@ -20,7 +20,7 @@ type mockTimestampParser struct {
 	mode parse.TimestampMode
 }
 
-func (p *mockTimestampParser) ParsePacket(_ []byte) ([]l4perception.PointPolar, error) {
+func (p *mockTimestampParser) ParsePacket(_ []byte) ([]l2frames.PointPolar, error) {
 	return nil, nil
 }
 

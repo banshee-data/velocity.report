@@ -1,6 +1,10 @@
 package l4perception
 
-import "time"
+import (
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+)
 
 // WorldPoint represents a point in Cartesian world coordinates (site frame).
 // This is the canonical definition; internal/lidar aliases it for backward compatibility.
@@ -58,40 +62,11 @@ type WorldCluster struct {
 	OBB          *OrientedBoundingBox // Oriented bounding box (computed via PCA)
 }
 
-// PointPolar is a compact representation of a LiDAR return in polar terms.
-// It can be used where sensor-frame operations are preferred (background model).
-type PointPolar struct {
-	Channel         int
-	Azimuth         float64
-	Elevation       float64
-	Distance        float64
-	Intensity       uint8
-	Timestamp       int64 // unix nanos if needed; keep small to avoid heavy time usage
-	BlockID         int
-	UDPSequence     uint32
-	RawBlockAzimuth uint16 // Original block azimuth from packet (0.01 deg units)
-}
+// PointPolar is a backward-compatible alias for the canonical definition in l2frames.
+type PointPolar = l2frames.PointPolar
 
-// Point represents a point in sensor Cartesian coordinates.
-type Point struct {
-	// 3D Cartesian coordinates (computed from spherical measurements)
-	X float64 // X coordinate in meters (forward direction from sensor)
-	Y float64 // Y coordinate in meters (right direction from sensor)
-	Z float64 // Z coordinate in meters (upward direction from sensor)
-
-	// Measurement metadata
-	Intensity uint8     // Laser return intensity/reflectivity (0-255)
-	Distance  float64   // Radial distance from sensor in meters
-	Azimuth   float64   // Horizontal angle in degrees (0-360, corrected)
-	Elevation float64   // Vertical angle in degrees (corrected for channel)
-	Channel   int       // Laser channel number (1-40)
-	Timestamp time.Time // Point acquisition time (with firetime correction)
-	BlockID   int       // Data block index within packet (0-9)
-
-	// Packet tracking for completeness validation
-	UDPSequence     uint32 // UDP sequence number for gap detection
-	RawBlockAzimuth uint16 // Original block azimuth from packet (0.01 deg units)
-}
+// Point is a backward-compatible alias for the canonical definition in l2frames.
+type Point = l2frames.Point
 
 // Pose represents a spatial transform between coordinate frames.
 type Pose struct {

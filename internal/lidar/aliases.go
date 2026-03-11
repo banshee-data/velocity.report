@@ -41,14 +41,14 @@ var StoreForegroundSnapshot = l3grid.StoreForegroundSnapshot
 
 // ── L4 Perception ────────────────────────────────────────────────────
 
-type Point = l4perception.Point
-type PointPolar = l4perception.PointPolar
+type Point = l2frames.Point
+type PointPolar = l2frames.PointPolar
 type WorldCluster = l4perception.WorldCluster
 type WorldPoint = l4perception.WorldPoint
 
 var DBSCAN = l4perception.DBSCAN
 var NewDefaultDBSCANClusterer = l4perception.NewDefaultDBSCANClusterer
-var SphericalToCartesian = l4perception.SphericalToCartesian
+var SphericalToCartesian = l2frames.SphericalToCartesian
 
 // ── L5 Tracks ────────────────────────────────────────────────────────
 

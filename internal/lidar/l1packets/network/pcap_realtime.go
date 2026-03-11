@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -51,7 +51,7 @@ type RealtimeReplayConfig struct {
 
 	// OnFrameCallback is called after each frame is processed with foreground extraction.
 	// This can be used for sampling grid state for plotting.
-	OnFrameCallback func(mgr *l3grid.BackgroundManager, points []l4perception.PointPolar)
+	OnFrameCallback func(mgr *l3grid.BackgroundManager, points []l2frames.PointPolar)
 
 	// PacketOffset is the 0-based packet index to seek to before starting
 	// playback. Packets before this offset are skipped without processing.
@@ -145,7 +145,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	skippingToStart := config.StartSeconds > 0
 
 	// Buffer for aggregating foreground points to reduce packet overhead
-	var foregroundBuffer []l4perception.PointPolar
+	var foregroundBuffer []l2frames.PointPolar
 	var bufferedPackets int
 
 	for {
@@ -421,7 +421,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					} else if len(foregroundMask) > 0 {
 						foregroundPoints := l3grid.ExtractForegroundPoints(points, foregroundMask)
 
-						backgroundPolar := make([]l4perception.PointPolar, 0, len(points)-len(foregroundPoints))
+						backgroundPolar := make([]l2frames.PointPolar, 0, len(points)-len(foregroundPoints))
 						for i, isForeground := range foregroundMask {
 							if !isForeground {
 								backgroundPolar = append(backgroundPolar, points[i])
@@ -433,7 +433,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 							if stride < 1 {
 								stride = 1
 							}
-							downsampled := make([]l4perception.PointPolar, 0, maxBackgroundChartPoints)
+							downsampled := make([]l2frames.PointPolar, 0, maxBackgroundChartPoints)
 							for i := 0; i < len(backgroundPolar); i += stride {
 								downsampled = append(downsampled, backgroundPolar[i])
 								if len(downsampled) >= maxBackgroundChartPoints {
@@ -464,7 +464,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 								if config.BackgroundManager != nil {
 									params := config.BackgroundManager.GetParams()
 									if params.HasDebugRange() {
-										filtered := make([]l4perception.PointPolar, 0, len(foregroundPoints))
+										filtered := make([]l2frames.PointPolar, 0, len(foregroundPoints))
 										for _, p := range foregroundPoints {
 											// Channel is 1-based in PointPolar, ring is 0-based in params
 											if params.IsInDebugRange(p.Channel-1, p.Azimuth) {
@@ -494,7 +494,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 									if len(foregroundBuffer) >= maxForegroundBufferPoints || bufferedPackets >= maxForegroundBufferPackets {
 										config.ForegroundForwarder.ForwardForeground(foregroundBuffer)
 										foregroundBuffer = nil // Reallocate or clear? nil lets GC handle old slice
-										foregroundBuffer = make([]l4perception.PointPolar, 0, maxForegroundBufferPoints)
+										foregroundBuffer = make([]l2frames.PointPolar, 0, maxForegroundBufferPoints)
 										bufferedPackets = 0
 									}
 								}

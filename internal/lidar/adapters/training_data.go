@@ -4,17 +4,17 @@ import (
 	"encoding/binary"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // ForegroundFrame represents a single frame of foreground points for ML training.
 // Points are stored in sensor frame (polar coordinates) for pose independence.
 type ForegroundFrame struct {
-	SensorID         string                    // Sensor that captured this frame
-	TSUnixNanos      int64                     // Timestamp of the frame
-	SequenceID       string                    // Optional sequence grouping (e.g., "seq_20251130_001")
-	ForegroundPoints []l4perception.PointPolar // Foreground points in polar (sensor) frame
+	SensorID         string                // Sensor that captured this frame
+	TSUnixNanos      int64                 // Timestamp of the frame
+	SequenceID       string                // Optional sequence grouping (e.g., "seq_20251130_001")
+	ForegroundPoints []l2frames.PointPolar // Foreground points in polar (sensor) frame
 
 	// Frame statistics
 	TotalPoints      int
@@ -23,7 +23,7 @@ type ForegroundFrame struct {
 
 // ExportForegroundFrame creates a ForegroundFrame from classified points.
 // Points are stored in polar (sensor) coordinates for pose independence.
-func ExportForegroundFrame(polarPoints []l4perception.PointPolar, mask []bool, sensorID string, ts time.Time) *ForegroundFrame {
+func ExportForegroundFrame(polarPoints []l2frames.PointPolar, mask []bool, sensorID string, ts time.Time) *ForegroundFrame {
 	foreground := l3grid.ExtractForegroundPoints(polarPoints, mask)
 
 	frame := &ForegroundFrame{
@@ -70,7 +70,7 @@ const CompactPointSize = 8
 
 // EncodeForegroundBlob encodes foreground points to a compact binary blob.
 // Format: Each point is 8 bytes: distance(2) + azimuth(2) + elevation(2) + intensity(1) + ring(1)
-func EncodeForegroundBlob(points []l4perception.PointPolar) []byte {
+func EncodeForegroundBlob(points []l2frames.PointPolar) []byte {
 	blob := make([]byte, len(points)*CompactPointSize)
 
 	for i, p := range points {
@@ -97,7 +97,7 @@ func EncodeForegroundBlob(points []l4perception.PointPolar) []byte {
 }
 
 // DecodeForegroundBlob decodes a compact binary blob back to polar points.
-func DecodeForegroundBlob(blob []byte) []l4perception.PointPolar {
+func DecodeForegroundBlob(blob []byte) []l2frames.PointPolar {
 	if len(blob)%CompactPointSize != 0 {
 		return nil
 	}
@@ -111,7 +111,7 @@ func DecodeForegroundBlob(blob []byte) []l4perception.PointPolar {
 		return nil
 	}
 
-	points := make([]l4perception.PointPolar, numPoints)
+	points := make([]l2frames.PointPolar, numPoints)
 
 	for i := 0; i < numPoints; i++ {
 		offset := i * CompactPointSize
@@ -120,7 +120,7 @@ func DecodeForegroundBlob(blob []byte) []l4perception.PointPolar {
 		azCentideg := binary.LittleEndian.Uint16(blob[offset+2:])
 		elCentideg := int16(binary.LittleEndian.Uint16(blob[offset+4:]))
 
-		points[i] = l4perception.PointPolar{
+		points[i] = l2frames.PointPolar{
 			Distance:  float64(distCm) / 100.0,
 			Azimuth:   float64(azCentideg) / 100.0,
 			Elevation: float64(elCentideg) / 100.0,

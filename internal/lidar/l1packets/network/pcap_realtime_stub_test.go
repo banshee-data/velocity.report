@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // TestReadPCAPFileRealtime_Stub tests the stub implementation returns an error
@@ -121,7 +121,7 @@ func TestRealtimeReplayConfig_OnFrameCallback(t *testing.T) {
 	callbackCalled := false
 
 	config := RealtimeReplayConfig{
-		OnFrameCallback: func(mgr *l3grid.BackgroundManager, points []l4perception.PointPolar) {
+		OnFrameCallback: func(mgr *l3grid.BackgroundManager, points []l2frames.PointPolar) {
 			callbackCalled = true
 		},
 	}
