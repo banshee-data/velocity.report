@@ -76,6 +76,7 @@ class Edge:
 class Subgraph:
     name: str
     nodes: list[str] = field(default_factory=list)
+    direction: str = "TB"  # TB, BT, LR, or RL
 
 
 @dataclass
@@ -152,7 +153,10 @@ def parse_mermaid(lines: list[str]) -> tuple[
             continue
 
         # Skip direction declarations
-        if _DIRECTION.match(line):
+        m = _DIRECTION.match(line)
+        if m:
+            if subgraph_stack:
+                subgraphs[subgraph_stack[-1]].direction = m.group(1)
             continue
 
         # Edge
@@ -186,23 +190,37 @@ def infer_ranks(
     node_to_subgraph: dict[str, str],
     global_node_order: list[str],
 ) -> dict[str, int]:
-    """Approximate rank by subgraph declaration order.
+    """Approximate rank from declaration order.
 
-    Nodes in the same subgraph share a rank.  Free-floating nodes get
-    their own rank based on declaration position.
+    Nodes in the same subgraph share a rank.  Free-floating nodes get a
+    rank based on their declaration position RELATIVE to surrounding
+    subgraphs (not after all subgraphs) so that nodes declared between
+    two subgraphs get intermediate ranks.
     """
-    sg_order = list(subgraphs.keys())
-    sg_rank = {name: i for i, name in enumerate(sg_order)}
-
+    # Build the interleaved rank sequence.  Walk global_node_order and
+    # assign a new rank each time we enter a different subgraph or see
+    # a free node.
+    rank_counter = 0
+    last_sg: str | None = None  # track subgraph to detect transitions
+    sg_rank_assigned: dict[str, int] = {}
     node_rank: dict[str, int] = {}
-    free_rank = len(sg_order)
 
     for node in global_node_order:
-        if node in node_to_subgraph:
-            node_rank[node] = sg_rank[node_to_subgraph[node]]
+        sg = node_to_subgraph.get(node)
+        if sg is not None:
+            # Node belongs to a subgraph
+            if sg not in sg_rank_assigned:
+                # First time seeing this subgraph — assign rank
+                if last_sg != sg:
+                    sg_rank_assigned[sg] = rank_counter
+                    rank_counter += 1
+                    last_sg = sg
+            node_rank[node] = sg_rank_assigned[sg]
         else:
-            node_rank[node] = free_rank
-            free_rank += 1
+            # Free-floating node — gets its own rank at current position
+            node_rank[node] = rank_counter
+            rank_counter += 1
+            last_sg = None
 
     return node_rank
 
@@ -236,18 +254,36 @@ def build_centered_positions(
     subgraphs: dict[str, Subgraph],
     global_node_order: list[str],
     node_to_subgraph: dict[str, str],
+    edges: list[Edge],
 ) -> dict[str, float]:
     """Return centred positions for cross-rank comparison.
 
-    Within each rank, positions are centred around 0 so that ranks with
-    different node counts remain comparable (e.g. a 3-node rank spans
-    -1..+1, a 5-node rank spans -2..+2).
+    For LR fan-out subgraphs (no internal edges), nodes spread
+    horizontally and get centred positions -N/2 .. +N/2.
+
+    For TB subgraphs, or LR subgraphs whose internal edges form a chain
+    (pipeline), nodes stack vertically and all get position 0.0 — they
+    share a single column in the rendered layout.
     """
     cpos: dict[str, float] = {}
+
     for sg in subgraphs.values():
         n = len(sg.nodes)
-        for i, node in enumerate(sg.nodes):
-            cpos[node] = i - (n - 1) / 2.0
+        if n == 0:
+            continue
+
+        # Detect internal edges (both src and dst in this subgraph)
+        sg_set = set(sg.nodes)
+        has_internal = any(e.src in sg_set and e.dst in sg_set for e in edges)
+
+        # TB direction or pipeline chain → vertical stack → all at 0
+        if sg.direction in ("TB", "BT") or has_internal:
+            for node in sg.nodes:
+                cpos[node] = 0.0
+        else:
+            # LR fan-out: spread horizontally
+            for i, node in enumerate(sg.nodes):
+                cpos[node] = i - (n - 1) / 2.0
 
     for node in global_node_order:
         if node not in cpos:
@@ -516,7 +552,7 @@ def main() -> None:
     node_rank = infer_ranks(subgraphs, node_to_subgraph, global_node_order)
     node_pos = build_position_index(global_node_order, subgraphs, node_to_subgraph)
     centered_pos = build_centered_positions(
-        subgraphs, global_node_order, node_to_subgraph
+        subgraphs, global_node_order, node_to_subgraph, edges
     )
 
     # ── Report ────────────────────────────────────────────────────────
