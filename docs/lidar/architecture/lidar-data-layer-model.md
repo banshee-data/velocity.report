@@ -80,20 +80,23 @@ flowchart TB
 
     subgraph L4["L4 Perception"]
         direction LR
-        L4a["Foreground transform"]
-        L4b["Voxel sampling"]
-        L4c["DBSCAN clustering"]
-        L4d["Cluster geometry"]
+        L4a["World transform"]
+        L4b["Height filter"]
+        L4c["Voxel downsample"]
+        L4d["DBSCAN clustering"]
+        L4e["OBB geometry"]
     end
 
     subgraph L5["L5 Tracks"]
         direction LR
         L5a["Radar sessionization"]
-        L5b["Hungarian matching"]
-        L5c["CV Kalman"]
-        L5d["Track lifecycle"]
-        L5e["Trajectory metrics"]
-        L5f["Motion extensions"]
+        L5b["Kalman predict"]
+        L5c["Hungarian assign"]
+        L5d["Kalman update"]
+        L5e["Coherence gating"]
+        L5f["Track lifecycle"]
+        L5g["Quality metrics"]
+        L5h["Motion extensions"]
     end
 
     subgraph L6["L6 Objects"]
@@ -117,8 +120,8 @@ flowchart TB
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        L9a["Radar APIs"]
-        L9b["LiDAR APIs 🔄"]
+        L9a["Radar REST APIs"]
+        L9b["LiDAR REST APIs 🔄"]
         L9c["gRPC streams 🔄"]
     end
 
@@ -149,12 +152,15 @@ flowchart TB
     L4a --> L4b
     L4b --> L4c
     L4c --> L4d
-    L4d --> L5b
+    L4d --> L4e
+    L4e --> L5b
     L5b --> L5c
     L5c --> L5d
     L5d --> L5e
-    L5e --> L6a
-    L5e -.-> L5f
+    L5e --> L5f
+    L5f --> L5g
+    L5g --> L6a
+    L5g -.-> L5h
     L6a --> L6b
     L6b --> L6c
     L6b --> L9b
@@ -162,8 +168,7 @@ flowchart TB
     L6c --> L8b
     L6c --> L8c
     L3b --> L9c
-    L4a --> L9c
-    L4d --> L9c
+    L4e --> L9c
     L6b --> L9c
     L8c --> L9b
     L7a -.-> L9c
@@ -181,9 +186,9 @@ flowchart TB
     L9b --> L10d
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
-    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L5a,L5b,L5c,L5d,L5e,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
+    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L4e,L5a,L5b,L5c,L5d,L5e,L5f,L5g,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
     class L9b,L9c partial;
-    class L5f,L7a gap;
+    class L5h,L7a gap;
     class L10a,L10b,L10c client;
 ```
 
@@ -203,9 +208,10 @@ flowchart TB
     `L6`. The current radar path routes serial payloads into stored records,
     sessionises raw `radar_data` into `radar_data_transits`, and derives metrics
     and reports from those stored sources.
-- `L5c` is the current 4-state constant-velocity Kalman tracker. `L5f` is
-    reserved for future motion-model extensions beyond that baseline, not for
-    the introduction of CV itself.
+- `L5b`/`L5d` together form the 4-state constant-velocity Kalman tracker
+    (predict before association, update after). `L5e` detects merge/split
+    coherence anomalies. `L5h` is reserved for future motion-model extensions
+    beyond the CV baseline.
 
 **Legend**
 
@@ -238,15 +244,18 @@ block.
 | L3c | Foreground gating | Background subtraction and neighbour-confirmation heuristics | ✅ Implemented | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
 | L3d | Region restore and cache | Persistent background snapshots and scene-signature restore | ✅ Implemented | [Sidecar overview](lidar_sidecar_overview.md) |
 | L4a | Foreground-to-world transform | Rigid transforms and homogeneous pose geometry | ✅ Implemented | [Foreground-tracking design](foreground_tracking.md) |
-| L4b | Voxel downsampling | PCL `VoxelGrid` downsampling family | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
-| L4c | Density clustering | DBSCAN, PCL clustering | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
-| L4d | Cluster geometry fitting | PCA / OBB fitting literature | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
+| L4b | Height-band filter | Ground-plane removal via vertical band gating (configurable) | ✅ Implemented | [Ground-plane extraction](ground-plane-extraction.md) |
+| L4c | Voxel downsampling | PCL `VoxelGrid` downsampling family (configurable) | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
+| L4d | Density clustering | DBSCAN with spatial index; auto-subsample above cap | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
+| L4e | Cluster geometry fitting | PCA / OBB fitting; embedded in DBSCAN output builder | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
 | L5a | Radar sessionization | Temporal event segmentation and transit/session building | ✅ Implemented | [Transit deduplication plan](../../radar/architecture/transit-deduplication.md) |
-| L5b | Detection-to-track assignment | Kuhn Hungarian assignment | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5c | Constant-velocity state estimation | Kalman (1960), SORT, AB3DMOT | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5d | Track lifecycle management | SORT-style birth / confirm / coast / delete policies | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5e | Trajectory and quality metrics | MOT diagnostics and track-quality metrics | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5f | Motion-model extensions | CA / CTRV / IMM multi-model tracking literature | 📋 Planned | [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md) |
+| L5b | Kalman predict | CV predict: X′ = FX, P′ = FPFᵀ + Q (runs before association) | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5c | Detection-to-track assignment | Kuhn Hungarian on Mahalanobis cost matrix | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5d | Kalman update | Measurement update with velocity and OBB heading smoothing | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5e | Merge/split coherence | Advisory flags when cluster area deviates from track history | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5f | Track lifecycle management | SORT-style birth / confirm / coast / delete; occlusion-aware coasting | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5g | Trajectory and quality metrics | Velocity-trail alignment, jitter, capture ratios, fragmentation | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5h | Motion-model extensions | CA / CTRV / IMM multi-model tracking literature | 📋 Planned | [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md) |
 | L6a | Feature aggregation | Classical feature engineering for traffic objects | ✅ Implemented | [Classification maths](../../maths/classification-maths.md) |
 | L6b | Rule-based classification | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage | ✅ Implemented | [Classification maths](../../maths/classification-maths.md) |
 | L6c | Run-level object stats | Experiment and run summarisation patterns | ✅ Implemented | [Analysis-run infrastructure](../../plans/lidar-analysis-run-infrastructure-plan.md) |
