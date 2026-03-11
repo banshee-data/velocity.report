@@ -50,94 +50,88 @@ flowchart TB
     classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
 
     R00["Radar sensor"]
+    D00["Disk storage"]
     A00["LiDAR sensor"]
-    D00["Disk / storage"]
-    R01["Serial I/O"]
-    A01["UDP socket"]
+    R01["Serial IO"]
     D01["Filesystem"]
+    A01["UDP socket"]
 
     subgraph L1["L1 Packets"]
         direction LR
-        R11["Radar serial ingest ✅"]
-        A11["LiDAR UDP ingest ✅"]
-        A12["PCAP replay ✅"]
+        R11["Radar ingest"]
+        A12["PCAP replay"]
+        A11["LiDAR ingest"]
     end
 
     subgraph L2["L2 Frames"]
-        direction LR
-        A21["Frame assembly / XYZ cache ✅"]
-        A22["ASC / LidarView export ✅"]
+        direction TB
+        A21["Frame assembly"]
+        A22["Frame export"]
     end
 
     subgraph L3["L3 Grid"]
         direction LR
-        A31["Cell accumulator ✅"]
-        A32["EMA background ✅"]
-        A33["Foreground / noise gating ✅"]
-        A34["Settling / region save-restore ✅"]
+        A31["Accumulator"]
+        A32["EMA background"]
+        A33["Foreground gating"]
+        A34["Region cache"]
     end
 
     subgraph L4["L4 Perception"]
         direction LR
-        A41["Foreground to world frame ✅"]
-        A42["Ground removal ✅"]
-        A43["Voxel + DBSCAN clustering ✅"]
-        A44["Cluster geometry / filters ✅"]
+        A41["World transform"]
+        A43["DBSCAN clustering"]
+        A44["Cluster geometry"]
     end
 
     subgraph L5["L5 Tracks"]
         direction LR
-        A51["Assignment + Kalman update ✅"]
-        A52["Track lifecycle / coasting ✅"]
-        A53["Trajectory / quality ✅"]
+        R51["Radar sessionization"]
+        A51["Track update"]
+        A52["Track lifecycle"]
+        A53["Trajectory metrics"]
     end
 
     subgraph L6["L6 Objects"]
         direction LR
-        R61["Radar objects DB / transit sessionization ✅"]
-        A61["Feature aggregation / heuristics ✅"]
-        A62["Classification / confidence ✅"]
-        A63["Run stats / quality filters ✅"]
+        R61["Radar records"]
+        A61["Feature aggregation"]
+        A62["Classification"]
+        A63["Run stats"]
     end
 
     subgraph L7["L7 Scene"]
         direction LR
-        A71["Reserved / no current code"]
+        A71["Reserved"]
     end
 
     subgraph L8["L8 Analytics"]
         direction LR
-        R81["Radar speed stats / histograms ✅"]
-        A81["Traffic metrics / chart prep ✅"]
-        A82["Run diffs / temporal IoU 🔄"]
-        A83["Sweep scoring / auto-tune / HINT ✅"]
+        R81["Radar metrics"]
+        A81["Traffic metrics"]
+        A83["Sweep tuning"]
     end
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        R91["Radar REST / report APIs ✅"]
-        A91["gRPC frame streams 🔄"]
-        A92["LiDAR REST APIs 🔄"]
+        R91["Radar APIs"]
+        A92["LiDAR APIs 🔄"]
+        A91["gRPC streams 🔄"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
-        subgraph L10S["Svelte clients"]
-            direction LR
-            R101["Svelte report UI 📄"]
-            A102["Svelte LiDAR views 📄"]
-            A103["Svelte sweep / HINT UI 📄"]
-        end
         R102["PDF generator 📄"]
+        A102["Svelte clients 📄"]
         A101["Swift visualiser 📄"]
     end
 
     R00 --> R01
-    A00 --> A01
     D00 --> D01
+    A00 --> A01
     R01 --> R11
-    A01 --> A11
     D01 --> A12
+    A01 --> A11
 
     A11 --> A21
     A12 --> A21
@@ -147,8 +141,7 @@ flowchart TB
     A32 --> A33
     A32 --> A34
     A33 --> A41
-    A41 --> A42
-    A42 --> A43
+    A41 --> A43
     A43 --> A44
     A44 --> A51
     A51 --> A52
@@ -157,40 +150,45 @@ flowchart TB
     A61 --> A62
     A62 --> A63
     A62 -.-> A71
-    A71 -.-> A81
-    A63 --> A82
+    A63 --> A81
     A63 --> A83
     A53 --> A91
     A62 --> A91
     A81 --> A92
-    A82 --> A92
     A83 --> A92
     A91 --> A101
     A92 --> A101
     A92 --> A102
-    A92 --> A103
 
-    R11 -.-> R61
+    R11 --> R61
+    R11 -.-> R51
     R61 --> R81
+    R51 --> R61
     R81 --> R91
-    R91 --> R101
     R91 --> R102
+    R91 --> A102
 
     class R00,A00,D00,R01,A01,D01 infra;
-    class A11,A12,R11,A21,A22,A31,A32,A33,A34,A41,A42,A43,A44,A51,A52,A53,A61,A62,A63,R61,A81,A83,R81,R91 implemented;
-    class A82,A91,A92 partial;
+    class A11,A12,R11,A21,A22,A31,A32,A33,A34,A41,A43,A44,R51,A51,A52,A53,A61,A62,A63,R61,A81,A83,R81,R91 implemented;
+    class A91,A92 partial;
     class A71 gap;
-    class A101,A102,A103,R101,R102 client;
+    class A101,A102,R102 client;
 ```
 
 Note: `L2` frame assembly already builds the sensor-frame XYZ cache used by
-`LiDARFrame` and export paths. The `L3` EMA/background model still operates on
+`LiDARFrame`, and `Frame export` covers the ASC and LidarView paths. The `L3`
+EMA/background model still operates on
 polar points, and the `L4` transform is the later foreground-to-world step.
 
 Note: `L3` region save/restore is part of settling control, not a separate
 post-grid stage. During warmup, `l3grid` can try early region restore from DB
 after about 10 frames; when settling completes naturally, it identifies regions
 and persists a linked grid+region snapshot for future restore.
+
+Note: Radar does not have a repo-owned semantic classification stage comparable
+to LiDAR `L6`. Current radar code routes serial payloads into stored records,
+sessionizes raw `radar_data` into `radar_data_transits`, and serves metrics and
+reports from those stored sources.
 
 **Legend**
 
