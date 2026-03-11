@@ -1,8 +1,7 @@
 # LiDAR Coordinate Flow Audit
 
-**Date:** 2026-03-11
 **Scope:** exact runtime movement of LiDAR data between polar, sensor Cartesian, and world Cartesian forms
-**Index:** This audit is listed under active LiDAR architecture documents in [docs/lidar/architecture/README.md](./README.md).
+**Index:** LiDAR architecture → coordinate systems → audits. See [docs/lidar/architecture/README.md](./README.md) for the full list.
 
 ## Executive Conclusion
 
