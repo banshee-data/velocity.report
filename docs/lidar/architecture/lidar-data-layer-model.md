@@ -48,6 +48,7 @@ flowchart TB
     classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
     classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
     classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
+    classDef deprecated fill:#fde8e8,stroke:#b91c1c,color:#7f1d1d;
 
     subgraph P0_sensors[" "]
         direction LR
@@ -134,7 +135,7 @@ flowchart TB
     subgraph L10["L10 Clients"]
         direction LR
         L10c["VelocityVisualiser.app "]
-        L10d["HTML dashboard 🌐"]
+        L10d["HTML dashboard ⛔"]
         L10b["Svelte clients 🌐"]
         L10a["pdf-generator 🐍"]
     end
@@ -170,8 +171,8 @@ flowchart TB
     L7a -.-> L9c
     L6c --> L8b
     L8b --> L8c
-    L6b --> L9b
     L6b --> L9c
+    L6b --> L9b
     L6a --> L6b
     L6b --> L6c
     L6b -.-> L7a
@@ -188,9 +189,9 @@ flowchart TB
 
     %% ── L9→L10 clients ───────────────────────
     L9c --> L10c
-    L9b --> L10b
-    L9b --> L10d
     L9b --> L10c
+    L9b --> L10d
+    L9b --> L10b
     L9a --> L10b
     L9a --> L10a
 
@@ -202,7 +203,8 @@ flowchart TB
     class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
     class L9b,L9c partial;
     class L5h,L7a gap;
-    class L10a,L10b,L10c,L10d client;
+    class L10a,L10b,L10c client;
+    class L10d deprecated;
 ```
 
 **Reading notes**
@@ -228,13 +230,14 @@ flowchart TB
 
 **Legend**
 
-- Green: implemented in the current runtime.
-- Amber `🔄`: present in the current codebase, but still partial or evolving at the layer boundary.
-- Grey: reserved layer slot with no runtime implementation yet.
-- Blue-grey: pre-L1 hardware or IO context shown for ingress only; not part of the numbered L1-L10 stack.
-- Beige: downstream client surface rather than a core runtime layer or Go package.
-- Solid arrows: dominant current-code flow along that branch.
-- Dashed arrows: reference or layout links across non-runtime gaps, or branches that intentionally skip runtime layers.
+- Green: implemented
+- Amber `🔄`: under development in the current codebase
+- Grey: reserved layer slot with no runtime implementation, yet
+- Blue-grey: OS + hardware shown for ingress context only
+- Beige: downstream client surfaces
+- Red: deprecated, scheduled for removal or replacement
+- Solid arrows: implemented code
+- Dashed arrows: reference links for duture work
 
 ## Layered Concept and Literature Status
 
@@ -244,10 +247,10 @@ paper/concept mapping explicit. The final column points to the nearest
 internal design note, maths specification, or implementation plan for that
 block.
 
-> **Chart simplification:** In the concept chart, L4a–L4d are shown as
-> a single "Cluster extraction" box (L4ad), and L5b–L5g as a single
-> "LiDAR tracking" box (L5bg). The table below retains individual block
-> detail.
+> **Chart simplification:** In both the concept chart and this table,
+> L4a–L4d are shown as a single "Cluster extraction" row (L4ad), and
+> L5b–L5g as a single "LiDAR tracking" row (L5bg). Each combined row
+> covers the full algorithmic spread of its constituent blocks.
 
 | Block | Concept family | Representative papers / standards | Repo status | Closest spec / plan |
 | --- | --- | --- | --- | --- |
@@ -287,6 +290,7 @@ block.
 | L10a | PDF rendering | PDF report-generation pipelines | 📄 Active | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md) |
 | L10b | Browser clients | Svelte dashboard and report UI patterns | 📄 Active | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md) |
 | L10c | Native visualiser | Native Metal visualisation and gRPC client surfaces | 📄 Active | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
+| L10d | HTML dashboard | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`) | ⛔ Deprecated | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
 
 ### Design rationale for ten layers
 
