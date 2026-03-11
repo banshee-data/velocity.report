@@ -18,11 +18,11 @@ After migration 030 lands, the column overlap looks like this:
 
 | Category                 | Count | Columns                                                                                                                                                                            |
 | ------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Shared (identical)**   | 14    | `track_id`, `sensor_id`, `track_state`, `start_unix_nanos`, `end_unix_nanos`, `observation_count`, `avg_speed_mps`, `max_speed_mps`, `bounding_box_length_avg`, `bounding_box_width_avg`, `bounding_box_height_avg`, `height_p95_max`, `intensity_mean_avg`, `object_class`, `object_confidence`, `classification_model` |
+| **Shared (identical)**   | 16    | `track_id`, `sensor_id`, `track_state`, `start_unix_nanos`, `end_unix_nanos`, `observation_count`, `avg_speed_mps`, `max_speed_mps`, `bounding_box_length_avg`, `bounding_box_width_avg`, `bounding_box_height_avg`, `height_p95_max`, `intensity_mean_avg`, `object_class`, `object_confidence`, `classification_model` |
 | **Only `lidar_tracks`**  | 1     | `world_frame` (L2 frame identifier; may rename to `frame_id` per migration-030 extension E2) |
 | **Only `lidar_run_tracks`** | 10 | `run_id`, `user_label`, `label_confidence`, `labeler_id`, `labeled_at`, `quality_label`, `label_source`, `is_split_candidate`, `is_merge_candidate`, `linked_track_ids` |
 
-The 14 shared columns are defined in two `CREATE TABLE` statements, written by
+The 16 shared columns are defined in two `CREATE TABLE` statements, written by
 two separate Go code paths (`InsertTrack` / `InsertRunTrack`), and mapped to two
 Go structs (`TrackedObject` / `RunTrack`). This violates DRY across three layers:
 SQL schema, Go storage, and Go model.
@@ -207,7 +207,7 @@ keys, and different FK relationships. Forcing both into one table (Option A)
 creates more complexity than it saves: mixed-lifecycle management, FK rewrites,
 performance regression on the hot upsert path, and a multi-step data migration.
 
-The real DRY violation is in Go code, where 14 columns are spelled out in two
+The real DRY violation is in Go code, where 16 columns are spelled out in two
 structs, two INSERT functions, and two scan loops. Extracting a shared
 `TrackMeasurement` type and a column-list constant eliminates the duplication at
 the layer that actually hurts maintainability.
@@ -246,7 +246,7 @@ column set into clean alignment.
    ```go
    type TrackedObject struct {
        TrackID    string
-       TrackMeasurement          // embedded
+       TrackMeasurement
        WorldFrame string         // live-only
        // ... L5 tracking fields (Kalman state, history, etc.)
    }
@@ -254,7 +254,7 @@ column set into clean alignment.
    type RunTrack struct {
        RunID   string `json:"run_id"`
        TrackID string `json:"track_id"`
-       TrackMeasurement          // embedded
+       TrackMeasurement
        // Run-only label/flag fields
        UserLabel       string  `json:"user_label,omitempty"`
        // ...
