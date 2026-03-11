@@ -9,7 +9,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v0.5.0 (Platform Hardening)
 
 - v0.5.0 backward compatibility shim removal — report download URL migration, `BackgroundCell` legacy TS fields, bare-array stats cache fallback, sweep dashboard legacy field names, Python legacy stats format / config dict helpers / pylatex stubs, macOS legacy playback mode — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
-- Legacy JSON speed-key compatibility cleanup — remove `PeakSpeedMps` / `peak_speed_mps` fallback readers from analysis + visualiser before v1.0 platform cleanup, after the current migration window closes — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
+- Legacy `.vrlog` speed-key compatibility cleanup — remove pre-max speed-key fallback readers from the visualiser replay path before v1.0 platform cleanup, after the current migration window closes — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - Schema simplification (migration 000030) — drop dead per-track percentile columns (`p50/p85/p95_speed_mps`), drop always-NULL quality columns from `lidar_tracks`, rename `peak_speed_mps` → `max_speed_mps` on both track tables — [design doc](plans/schema-simplification-migration-030-plan.md) `M`
 - Visualiser track proto parity — back out branch-local percentile fields, regenerate proto bindings (Go + Swift); SQL column rename deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - v0.5.0 breaking changes — `transit-backfill` soft-deprecation notice, breaking-changes release notes — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`

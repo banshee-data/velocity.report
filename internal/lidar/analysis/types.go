@@ -1,7 +1,5 @@
 package analysis
 
-import "encoding/json"
-
 // ---------------------------------------------------------------------------
 // Report types
 // ---------------------------------------------------------------------------
@@ -120,37 +118,6 @@ type TrackDetail struct {
 	OcclusionCount int     `json:"occlusion_count"`
 	MotionModel    string  `json:"motion_model"`
 	Confidence     float32 `json:"confidence"`
-}
-
-// UnmarshalJSON accepts the legacy speed key from pre-rename analysis.json
-// files while emitting only max_speed_mps going forward.
-// @TODO(v1-cleanup): remove this legacy key fallback before v1.0 platform
-// cleanup once old analysis.json artifacts are no longer supported.
-func (td *TrackDetail) UnmarshalJSON(data []byte) error {
-	type trackDetailAlias TrackDetail
-	var decoded trackDetailAlias
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
-	*td = TrackDetail(decoded)
-
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["max_speed_mps"]; ok {
-		return nil
-	}
-	if _, ok := raw["MaxSpeedMps"]; ok {
-		return nil
-	}
-	if legacy, ok := raw["peak_speed_mps"]; ok {
-		return json.Unmarshal(legacy, &td.MaxSpeedMps)
-	}
-	if legacy, ok := raw["PeakSpeedMps"]; ok {
-		return json.Unmarshal(legacy, &td.MaxSpeedMps)
-	}
-	return nil
 }
 
 // BBoxDims captures averaged bounding box dimensions.

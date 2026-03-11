@@ -84,6 +84,13 @@ func TestLoadAnalysis(t *testing.T) {
 				EndNs:       2000,
 			},
 			FrameSummary: FrameSummary{TotalFrames: 100},
+			Tracks: []TrackDetail{
+				{
+					TrackID:     "track-1",
+					AvgSpeedMps: 8.4,
+					MaxSpeedMps: 9.1,
+				},
+			},
 		}
 		data, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
@@ -102,6 +109,12 @@ func TestLoadAnalysis(t *testing.T) {
 		}
 		if loaded.Recording.SensorID != "sensor-1" {
 			t.Errorf("sensor_id = %q, want sensor-1", loaded.Recording.SensorID)
+		}
+		if len(loaded.Tracks) != 1 {
+			t.Fatalf("len(tracks) = %d, want 1", len(loaded.Tracks))
+		}
+		if loaded.Tracks[0].MaxSpeedMps != 9.1 {
+			t.Errorf("MaxSpeedMps = %v, want 9.1", loaded.Tracks[0].MaxSpeedMps)
 		}
 	})
 
@@ -124,6 +137,27 @@ func TestLoadAnalysis(t *testing.T) {
 		_, err := LoadAnalysis(vrlogDir)
 		if err == nil {
 			t.Fatal("expected error for malformed JSON")
+		}
+	})
+
+	t.Run("missing max speed key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		vrlogDir := filepath.Join(tmpDir, "invalid.vrlog")
+		if err := os.MkdirAll(vrlogDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(vrlogDir, "analysis.json"), []byte(`{
+			"version": "1.0",
+			"tracks": [
+				{"track_id": "invalid-track", "avg_speed_mps": 9.1}
+			]
+		}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := LoadAnalysis(vrlogDir)
+		if err == nil {
+			t.Fatal("expected error for missing max speed key")
 		}
 	})
 }
@@ -192,6 +226,31 @@ func TestLoadOrGenerate(t *testing.T) {
 		}
 		if report == nil {
 			t.Fatal("expected non-nil report after regeneration")
+		}
+	})
+
+	t.Run("generates when analysis.json misses max speed key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		vrlogPath := createTestVrlog(t, tmpDir, 3)
+
+		if err := os.WriteFile(filepath.Join(vrlogPath, "analysis.json"), []byte(`{
+			"version": "1.0",
+			"tracks": [
+				{"track_id": "invalid-track", "avg_speed_mps": 9.1}
+			]
+		}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		report, err := loadOrGenerate(vrlogPath)
+		if err != nil {
+			t.Fatalf("loadOrGenerate: %v", err)
+		}
+		if report == nil {
+			t.Fatal("expected non-nil report after regeneration")
+		}
+		if report.FrameSummary.TotalFrames != 3 {
+			t.Errorf("total_frames = %d, want 3", report.FrameSummary.TotalFrames)
 		}
 	})
 
