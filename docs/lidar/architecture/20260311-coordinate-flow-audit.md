@@ -2,6 +2,7 @@
 
 **Date:** 2026-03-11
 **Scope:** exact runtime movement of LiDAR data between polar, sensor Cartesian, and world Cartesian forms
+**Index:** This audit is listed under active LiDAR architecture documents in [docs/lidar/architecture/README.md](./README.md).
 
 ## Executive Conclusion
 
@@ -26,7 +27,7 @@ floating-point accuracy penalty from repeated back-and-forth inversion.
 
 | Form | Struct(s) | Package(s) | Meaning |
 | --- | --- | --- | --- |
-| Packet polar | `PointPolar` | `internal/lidar/l1packets/parse`, `internal/lidar/l4perception` | Sensor-local spherical-style point: channel, azimuth, elevation, distance |
+| Packet polar | `PointPolar` | `internal/lidar/l1packets/parse`, `internal/lidar/l4perception` | Sensor-local spherical-style point: channel, azimuth, elevation, distance, plus intensity and packet/time hints (timestamp, block/UDP sequencing, raw block azimuth) |
 | Frame Cartesian | `Point`, `LiDARFrame.Points` | `internal/lidar/l2frames` | Sensor-local Cartesian point cloud with original polar metadata still attached |
 | World Cartesian | `WorldPoint`, `WorldCluster`, `TrackedObject` | `internal/lidar/l4perception`, `internal/lidar/l5tracks`, `internal/lidar/l6objects` | Cartesian geometry used for clustering, tracking, persistence |
 
@@ -85,7 +86,7 @@ flowchart TD
 | LidarView UDP foreground forward | `internal/lidar/visualiser/lidarview_adapter.go`, `internal/lidar/l1packets/network/foreground_forwarder.go` | foreground `[]PointPolar` | rebuilt UDP packets | No | No Cartesian math | Preserves packet-like polar path |
 | Foreground debug snapshot | `internal/lidar/l3grid/foreground_snapshot.go` | foreground/background `[]PointPolar` | lazy projected XYZ | No | Polar -> Cartesian on access | Debug-only projection |
 | Background ASC export | `internal/lidar/l3grid/background_export.go` | polar grid cells | ASC XYZ points | No | Polar grid -> Cartesian | Export-only projection |
-| Frame ASC export | `internal/lidar/l2frames/export.go` | Cartesian points | ASC XYZ points | No | None | Uses L2 frame geometry |
+| Frame ASC export | `internal/lidar/l2frames/export.go` | Cartesian points | ASC XYZ points | No | Conditional polar -> Cartesian | Reprojects XYZ from stored polar when Z is all zero; otherwise uses existing L2 frame geometry |
 
 ## Exact Transform Count
 
