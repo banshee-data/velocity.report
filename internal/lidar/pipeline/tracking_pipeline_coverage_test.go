@@ -143,7 +143,7 @@ func TestTrackingPipelineConfig_NewFrameCallback_NoBackgroundManager(t *testing.
 		Points:      pts,
 	}
 
-	// Should not panic; exits after polar conversion when BackgroundManager is nil.
+	// Should not panic; callback should return early when BackgroundManager is nil.
 	cb(frame)
 }
 
