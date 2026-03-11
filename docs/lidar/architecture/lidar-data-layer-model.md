@@ -65,14 +65,14 @@ flowchart TB
         P0e["Filesystem"]
     end
 
-    subgraph L1["L1 Packets"]
+    subgraph L1[" "]
         direction LR
         L1a["Radar ingest"]
         L1sub
     end
 
 
-    subgraph L1sub[" "]
+    subgraph L1sub["L1 Packets"]
         direction LR
         L1b["LiDAR ingest"]
         L1c["PCAP replay"]
@@ -143,24 +143,29 @@ flowchart TB
         L10a["pdf-generator 🐍"]
         L10b["Svelte clients 🌐"]
         L10d["HTML dashboard 🌐"]
-        L10c["VelocityVisualiser.app "]
+        L10c["VelocityVisualiser.app "]
     end
 
-    P0d --> L1a
+    %% ── P0 sensor → IO ──────────────────────────────────
     P0a --> P0d
-    P0b --> P0e
     P0c --> P0f
+    P0b --> P0e
+    P0d --> L1a
     P0f --> L1b
     P0e --> L1c
 
-    L1a --> L5a
-    L5a --> L8a
+    %% ── L1 radar skip edges ────────────────────────────
     L1a --> L8a
+    L1a --> L5a
+
+    %% ── L1→L2 main LiDAR path ─────────────────────────
     L1b --> L2a
     L1c --> L2a
     L2a --> L2b
     L2a --> L3a
     L2b --> L2c
+
+    %% ── L3→L4→L5→L6 pipeline ──────────────────────────
     L3a --> L3b
     L3b --> L3c
     L3b --> L3d
@@ -170,23 +175,33 @@ flowchart TB
     L4c --> L4d
     L4d --> L4e
     L4e --> L5b
+    L5a --> L8a
     L5b --> L5e
     L5e --> L5f
     L5f --> L5g
-    L5g --> L6a
     L5g -.-> L5h
+    L5g --> L6a
     L6a --> L6b
     L6b --> L6c
-    L6b --> L9b
     L6b -.-> L7a
-    L6c --> L8b
-    L6c --> L8c
+
+    %% ── Skip edges to L9c (gRPC) ──────────────────────
     L3b --> L9c
     L4e --> L9c
     L6b --> L9c
-    L8c --> L9b
     L7a -.-> L9c
+
+    %% ── L6→L8 stats path ──────────────────────────────
+    L6c --> L8b
+    L6c --> L8c
+
+    %% ── L8/L9 endpoints ───────────────────────────────
+    L8a --> L9a
+    L6b --> L9b
     L8b --> L9b
+    L8c --> L9b
+
+    %% ── L9→L10 clients ───────────────────────────────
     L9c --> L10c
     L9b --> L10b
     L9b --> L10d
@@ -198,12 +213,13 @@ flowchart TB
 
     style P0_sensors fill:none,stroke:none,color:transparent
     style P0_io fill:none,stroke:none,color:transparent
+    style L1 fill:none,stroke:none,color:transparent
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
-    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L4e,L5a,L5b,L5c,L5d,L5e,L5f,L5g,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
+    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L4e,L5a,L5b,L5e,L5f,L5g,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
     class L9b,L9c partial;
     class L5h,L7a gap;
-    class L10a,L10b,L10c client;
+    class L10a,L10b,L10c,L10d client;
 ```
 
 **Reading notes**
