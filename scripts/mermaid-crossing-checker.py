@@ -397,27 +397,38 @@ def suggest_node_reorder(
         # dst are in this subgraph.  These define a fixed ordering
         # constraint.
         sg_set = set(sg.nodes)
-        internal_next: dict[str, str] = {}  # node → its successor
-        internal_prev: dict[str, str] = {}  # node → its predecessor
+        internal_next: dict[str, list[str]] = defaultdict(list)
+        internal_prev: dict[str, list[str]] = defaultdict(list)
         for e in edges:
             if e.src in sg_set and e.dst in sg_set:
-                internal_next[e.src] = e.dst
-                internal_prev[e.dst] = e.src
+                internal_next[e.src].append(e.dst)
+                internal_prev[e.dst].append(e.src)
 
-        # Build chains: find chain heads (nodes with no internal pred)
+        # Build chains through nodes with exactly one next and one prev.
+        # Branch points (multiple nexts) or merge points (multiple prevs)
+        # terminate the chain.
         chains: list[list[str]] = []
         visited: set[str] = set()
+        # Find chain heads: no internal prev, or multiple prevs
         for node in sg.nodes:
-            if node in visited or node in internal_prev:
+            if node in visited:
                 continue
-            # Walk the chain forward
+            if len(internal_prev.get(node, [])) != 0:
+                continue
+            # Walk forward through single-successor nodes
             chain = [node]
             visited.add(node)
             cursor = node
-            while cursor in internal_next:
-                cursor = internal_next[cursor]
-                chain.append(cursor)
-                visited.add(cursor)
+            while len(internal_next.get(cursor, [])) == 1:
+                nxt = internal_next[cursor][0]
+                if nxt in visited:
+                    break
+                # Only chain through if the target has exactly one pred
+                if len(internal_prev.get(nxt, [])) != 1:
+                    break
+                chain.append(nxt)
+                visited.add(nxt)
+                cursor = nxt
             chains.append(chain)
 
         # Add any isolated nodes (not in any chain)
