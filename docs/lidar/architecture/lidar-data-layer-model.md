@@ -49,15 +49,13 @@ flowchart TB
     classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
     classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
 
-    P0a["Radar sensor"]
-
     subgraph P0_sensors[" "]
         direction LR
         P0c["LiDAR sensor"]
         P0b["Disk storage"]
     end
 
-    P0d["Serial IO"]
+    P0a["Radar sensor"]
 
     subgraph P0_io[" "]
         direction LR
@@ -65,17 +63,18 @@ flowchart TB
         P0e["Filesystem"]
     end
 
-    subgraph L1[" "]
-        direction LR
-        L1a["Radar ingest"]
-        L1sub
-    end
-
+    P0d["Serial IO"]
 
     subgraph L1sub["L1 Packets"]
         direction LR
         L1b["LiDAR ingest"]
         L1c["PCAP replay"]
+    end
+
+    subgraph L1[" "]
+        direction LR
+        L1sub
+        L1a["Radar ingest"]
     end
 
     subgraph L2["L2 Frames"]
@@ -94,21 +93,14 @@ flowchart TB
     end
 
     subgraph L4["L4 Perception"]
-        direction LR
-        L4a["World transform"]
-        L4b["Height filter"]
-        L4c["Voxel downsample"]
-        L4d["DBSCAN clustering"]
+        direction TB
+        L4ad["Cluster extraction"]
         L4e["OBB geometry"]
     end
 
     subgraph L5["L5 Tracks"]
-        direction LR
-        L5a["Radar sessionization"]
-        L5b["Kalman / Hungarian"]
-        L5e["Coherence gating"]
-        L5f["Track lifecycle"]
-        L5g["Quality metrics"]
+        direction TB
+        L5bg["LiDAR tracking"]
         L5h["Motion extensions"]
     end
 
@@ -126,37 +118,34 @@ flowchart TB
 
     subgraph L8["L8 Analytics"]
         direction LR
-        L8a["Radar metrics"]
+        L5a["Radar sessionization"]
         L8b["Traffic metrics"]
         L8c["Sweep tuning / HINT"]
+        L8a["Radar metrics"]
     end
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        L9a["Radar REST APIs"]
-        L9b["LiDAR REST APIs 🔄"]
         L9c["gRPC streams 🔄"]
+        L9b["LiDAR REST APIs 🔄"]
+        L9a["Radar REST APIs"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
-        L10a["pdf-generator 🐍"]
-        L10b["Svelte clients 🌐"]
+        L10c["VelocityVisualiser.app "]
         L10d["HTML dashboard 🌐"]
-        L10c["VelocityVisualiser.app "]
+        L10b["Svelte clients 🌐"]
+        L10a["pdf-generator 🐍"]
     end
 
     %% ── P0 sensor → IO ──────────────────────────────────
-    P0a --> P0d
     P0c --> P0f
     P0b --> P0e
-    P0d --> L1a
+    P0a --> P0d
     P0f --> L1b
     P0e --> L1c
-
-    %% ── L1 radar skip edges ────────────────────────────
-    L1a --> L8a
-    L1a --> L5a
+    P0d --> L1a
 
     %% ── L1→L2 main LiDAR path ─────────────────────────
     L1b --> L2a
@@ -165,57 +154,52 @@ flowchart TB
     L2a --> L3a
     L2b --> L2c
 
-    %% ── L3→L4→L5→L6 pipeline ──────────────────────────
+    %% ── Radar path (right column) ──────────────────────
+    L1a --> L5a
+    L5a --> L8a
+    L1a --> L8a
+
+    %% ── L3→L4→L5→L6 LiDAR pipeline ────────────────────
     L3a --> L3b
     L3b --> L3c
     L3b --> L3d
-    L3c --> L4a
-    L4a --> L4b
-    L4b --> L4c
-    L4c --> L4d
-    L4d --> L4e
-    L4e --> L5b
-    L5a --> L8a
-    L5b --> L5e
-    L5e --> L5f
-    L5f --> L5g
-    L5g -.-> L5h
-    L5g --> L6a
+    L3c --> L4ad
+    L4ad --> L4e
+    L3b --> L9c
+    L4e --> L9c
+    L7a -.-> L9c
+    L6c --> L8b
+    L8b --> L8c
+    L6b --> L9b
+    L6b --> L9c
     L6a --> L6b
     L6b --> L6c
     L6b -.-> L7a
-
-    %% ── Skip edges to L9 ────────────────────────────────
-    L3b --> L9c
-    L4e --> L9c
-    L6b --> L9b
-    L6b --> L9c
-    L7a -.-> L9c
+    L4e --> L5bg
+    L5bg --> L6a
+    L5bg -.-> L5h
 
     %% ── L6→L8 stats path ──────────────────────────────
-    L6c --> L8b
-    L6c --> L8c
 
-    %% ── L8/L9 endpoints ───────────────────────────────
-    L8a --> L9a
+    %% ── Skip edges and endpoints to L9 ─────────────────
     L8b --> L9b
     L8c --> L9b
+    L8a --> L9a
 
     %% ── L9→L10 clients ───────────────────────
     L9c --> L10c
     L9b --> L10b
     L9b --> L10d
     L9b --> L10c
-
-    L9a --> L10a
     L9a --> L10b
+    L9a --> L10a
 
     style P0_sensors fill:none,stroke:none,color:transparent
     style P0_io fill:none,stroke:none,color:transparent
     style L1 fill:none,stroke:none,color:transparent
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
-    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L4e,L5a,L5b,L5e,L5f,L5g,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
+    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
     class L9b,L9c partial;
     class L5h,L7a gap;
     class L10a,L10b,L10c,L10d client;
@@ -259,6 +243,11 @@ which ideas within those layers are active. This table makes the
 paper/concept mapping explicit. The final column points to the nearest
 internal design note, maths specification, or implementation plan for that
 block.
+
+> **Chart simplification:** In the concept chart, L4a–L4d are shown as
+> a single "Cluster extraction" box (L4ad), and L5b–L5g as a single
+> "LiDAR tracking" box (L5bg). The table below retains individual block
+> detail.
 
 | Block | Concept family | Representative papers / standards | Repo status | Closest spec / plan |
 | --- | --- | --- | --- | --- |
