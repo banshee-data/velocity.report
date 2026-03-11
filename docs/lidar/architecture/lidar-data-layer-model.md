@@ -185,9 +185,10 @@ flowchart TB
     L6b --> L6c
     L6b -.-> L7a
 
-    %% ── Skip edges to L9c (gRPC) ──────────────────────
+    %% ── Skip edges to L9 ────────────────────────────────
     L3b --> L9c
     L4e --> L9c
+    L6b --> L9b
     L6b --> L9c
     L7a -.-> L9c
 
@@ -197,17 +198,15 @@ flowchart TB
 
     %% ── L8/L9 endpoints ───────────────────────────────
     L8a --> L9a
-    L6b --> L9b
     L8b --> L9b
     L8c --> L9b
 
-    %% ── L9→L10 clients ───────────────────────────────
+    %% ── L9→L10 clients ───────────────────────
     L9c --> L10c
     L9b --> L10b
     L9b --> L10d
     L9b --> L10c
 
-    L8a --> L9a
     L9a --> L10a
     L9a --> L10b
 
