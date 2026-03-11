@@ -1,6 +1,6 @@
 # Layer Dependency Hygiene: Move Sensor-Frame Types to L2
 
-**Status:** 📋 Planned — pre-v0.5.0 prerequisite
+**Status:** ✅ Implemented
 **Created:** 2026-03-08
 **Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception
 **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)

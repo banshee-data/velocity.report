@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // TestReadPCAPFileRealtime_Stub tests the stub implementation returns an error

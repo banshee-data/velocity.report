@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 // RealtimeReplayConfig is a stub when pcap is not available.

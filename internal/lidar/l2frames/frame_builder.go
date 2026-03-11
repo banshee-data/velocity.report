@@ -401,9 +401,13 @@ func (fb *FrameBuilder) AddPointsPolar(polar []PointPolar) {
 
 // addPointsDualInternal processes paired Cartesian + polar points, storing both
 // representations on each frame. Lock must be held by caller.
+// Panics if len(points) != len(polar) — callers must guarantee alignment.
 func (fb *FrameBuilder) addPointsDualInternal(points []Point, polar []PointPolar) {
 	if len(points) == 0 {
 		return
+	}
+	if len(points) != len(polar) {
+		panic(fmt.Sprintf("addPointsDualInternal: slice length mismatch: points=%d, polar=%d", len(points), len(polar)))
 	}
 
 	arrivalNow := time.Now()
@@ -574,7 +578,7 @@ func (fb *FrameBuilder) startNewFrame(timestamp time.Time, wallTime time.Time) {
 		StartWallTime:   wallTime,
 		EndWallTime:     wallTime,
 		PolarPoints:     make([]PointPolar, 0, 36000), // pre-allocate for full rotation
-		Points:          make([]Point, 0, 36000),       // pre-allocate for full rotation
+		Points:          make([]Point, 0, 36000),      // pre-allocate for full rotation
 		MinAzimuth:      360.0,
 		MaxAzimuth:      0.0,
 		ExpectedPackets: make(map[uint32]bool),

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
 const samplePCAPPath = "../../perf/pcap/lidar_20Hz.pcapng"

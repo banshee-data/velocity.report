@@ -11,9 +11,9 @@ import (
 // ForegroundFrame represents a single frame of foreground points for ML training.
 // Points are stored in sensor frame (polar coordinates) for pose independence.
 type ForegroundFrame struct {
-	SensorID         string                    // Sensor that captured this frame
-	TSUnixNanos      int64                     // Timestamp of the frame
-	SequenceID       string                    // Optional sequence grouping (e.g., "seq_20251130_001")
+	SensorID         string                // Sensor that captured this frame
+	TSUnixNanos      int64                 // Timestamp of the frame
+	SequenceID       string                // Optional sequence grouping (e.g., "seq_20251130_001")
 	ForegroundPoints []l2frames.PointPolar // Foreground points in polar (sensor) frame
 
 	// Frame statistics

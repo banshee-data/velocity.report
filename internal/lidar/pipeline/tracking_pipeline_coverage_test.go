@@ -174,8 +174,10 @@ const fgChannel = 1
 // fgAzimuth is the single azimuth used by foreground points.
 const fgAzimuth = 180.0
 
-// pointsToPolar derives a PolarPoints slice from a Cartesian Points slice.
-// Used by test frame constructors so frames carry both representations.
+// pointsToPolar restructures Cartesian Points into PointPolar format by
+// copying the polar coordinate fields (Distance, Azimuth, Elevation) and
+// metadata. No mathematical conversion is performed — the input Points
+// must already contain valid polar values in their respective fields.
 func pointsToPolar(points []l2frames.Point) []l2frames.PointPolar {
 	polar := make([]l2frames.PointPolar, len(points))
 	for i, p := range points {
@@ -228,6 +230,7 @@ func makeStableFrame(id string, ts time.Time, distance float64) *l2frames.LiDARF
 		Points:         points,
 	}
 }
+
 // of foreground points at a very different distance (closer). All foreground
 // points hit the SAME grid cell (fgChannel / fgAzimuth) that was seeded by
 // makeStableFrame. Points are slightly spread in distance so the resulting world
@@ -265,6 +268,7 @@ func makeForegroundFrame(id string, ts time.Time, bgDist, fgDist float64) *l2fra
 		Points:         points,
 	}
 }
+
 // all 16 channels × 350 azimuths, plus 20 foreground points. This exercises
 // the background downsampling branches (stride and cap).
 func makeDenseFrame(id string, ts time.Time, bgDist, fgDist float64) *l2frames.LiDARFrame {
