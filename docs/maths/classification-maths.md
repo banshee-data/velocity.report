@@ -48,19 +48,19 @@ compatibility and self-documentation:
 
 Features are extracted per-track from the observation history:
 
-| Feature           | Symbol            | Unit | Source                                    |
-| ----------------- | ----------------- | ---- | ----------------------------------------- |
-| Average height    | $\bar{h}$         | m    | `BoundingBoxHeightAvg`                    |
-| Average length    | $\bar{l}$         | m    | `BoundingBoxLengthAvg`                    |
-| Average width     | $\bar{w}$         | m    | `BoundingBoxWidthAvg`                     |
-| P95 height        | $h_{95}$          | m    | `HeightP95Max`                            |
-| Average speed     | $\bar{v}$         | m/s  | `AvgSpeedMps`                             |
-| Max speed         | $v_{\text{max}}$  | m/s  | `MaxSpeedMps`                             |
-| P50 speed         | $v_{50}$          | m/s  | Median of speed history                   |
-| P85 speed         | $v_{85}$          | m/s  | 85th percentile                           |
-| P95 speed         | $v_{95}$          | m/s  | 95th percentile                           |
-| Observation count | $n$               | —    | `ObservationCount`                        |
-| Duration          | $\Delta t$        | s    | `(LastUnixNanos - FirstUnixNanos) / 10^9` |
+| Feature           | Symbol           | Unit | Source                                    |
+| ----------------- | ---------------- | ---- | ----------------------------------------- |
+| Average height    | $\bar{h}$        | m    | `BoundingBoxHeightAvg`                    |
+| Average length    | $\bar{l}$        | m    | `BoundingBoxLengthAvg`                    |
+| Average width     | $\bar{w}$        | m    | `BoundingBoxWidthAvg`                     |
+| P95 height        | $h_{95}$         | m    | `HeightP95Max`                            |
+| Average speed     | $\bar{v}$        | m/s  | `AvgSpeedMps`                             |
+| Max speed         | $v_{\text{max}}$ | m/s  | `MaxSpeedMps`                             |
+| P50 speed         | $v_{50}$         | m/s  | Median of speed history                   |
+| P85 speed         | $v_{85}$         | m/s  | 85th percentile                           |
+| P95 speed         | $v_{95}$         | m/s  | 95th percentile                           |
+| Observation count | $n$              | —    | `ObservationCount`                        |
+| Duration          | $\Delta t$       | s    | `(LastUnixNanos - FirstUnixNanos) / 10^9` |
 
 ## 4. Decision Thresholds
 

@@ -265,6 +265,8 @@ type Track struct {
 
 // UnmarshalJSON keeps legacy .vrlog frames readable after the raw speed-field
 // rename to MaxSpeedMps.
+// @TODO(v1-cleanup): remove this legacy key fallback before v1.0 platform
+// cleanup once old .vrlog artifacts are no longer supported.
 func (t *Track) UnmarshalJSON(data []byte) error {
 	type trackAlias Track
 	var decoded trackAlias

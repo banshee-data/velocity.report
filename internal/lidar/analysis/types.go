@@ -124,6 +124,8 @@ type TrackDetail struct {
 
 // UnmarshalJSON accepts the legacy speed key from pre-rename analysis.json
 // files while emitting only max_speed_mps going forward.
+// @TODO(v1-cleanup): remove this legacy key fallback before v1.0 platform
+// cleanup once old analysis.json artifacts are no longer supported.
 func (td *TrackDetail) UnmarshalJSON(data []byte) error {
 	type trackDetailAlias TrackDetail
 	var decoded trackDetailAlias
