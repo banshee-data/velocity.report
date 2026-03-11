@@ -68,6 +68,12 @@ flowchart TB
     subgraph L1["L1 Packets"]
         direction LR
         L1a["Radar ingest"]
+        L1sub
+    end
+
+
+    subgraph L1sub[" "]
+        direction LR
         L1b["LiDAR ingest"]
         L1c["PCAP replay"]
     end
