@@ -1094,7 +1094,7 @@ struct TrackInspectorDetailCards: View {
                         DetailRow(
                             label: "Heading",
                             value: String(format: "%.1f°", t.headingRad * 180 / .pi))
-                        DetailRow(label: "Peak", value: String(format: "%.1f m/s", t.maxSpeedMps))
+                        DetailRow(label: "Max", value: String(format: "%.1f m/s", t.maxSpeedMps))
                     }
                 }
 

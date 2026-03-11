@@ -263,27 +263,31 @@ type Track struct {
 	HeadingSource int     // Source of heading: 0=PCA, 1=velocity, 2=displacement, 3=locked
 }
 
-// UnmarshalJSON keeps legacy .vrlog frames readable after the raw max-speed
-// field rename from PeakSpeedMps to MaxSpeedMps.
+// UnmarshalJSON keeps legacy .vrlog frames readable after the raw speed-field
+// rename to MaxSpeedMps.
 func (t *Track) UnmarshalJSON(data []byte) error {
 	type trackAlias Track
-	aux := struct {
-		*trackAlias
-		LegacyPeakSpeedMps      *float32 `json:"PeakSpeedMps"`
-		LegacyPeakSpeedMpsSnake *float32 `json:"peak_speed_mps"`
-	}{
-		trackAlias: (*trackAlias)(t),
-	}
-	if err := json.Unmarshal(data, &aux); err != nil {
+	var decoded trackAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
-	if t.MaxSpeedMps == 0 {
-		switch {
-		case aux.LegacyPeakSpeedMps != nil:
-			t.MaxSpeedMps = *aux.LegacyPeakSpeedMps
-		case aux.LegacyPeakSpeedMpsSnake != nil:
-			t.MaxSpeedMps = *aux.LegacyPeakSpeedMpsSnake
-		}
+	*t = Track(decoded)
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["MaxSpeedMps"]; ok {
+		return nil
+	}
+	if _, ok := raw["max_speed_mps"]; ok {
+		return nil
+	}
+	if legacy, ok := raw["PeakSpeedMps"]; ok {
+		return json.Unmarshal(legacy, &t.MaxSpeedMps)
+	}
+	if legacy, ok := raw["peak_speed_mps"]; ok {
+		return json.Unmarshal(legacy, &t.MaxSpeedMps)
 	}
 	return nil
 }

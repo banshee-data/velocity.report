@@ -16,7 +16,7 @@
 - Refactored `ContentView.swift` to extract testable helper functions: `KeyAction` enum (25 cases), `handleKeyPress()`, `assignLabelByIndex()`, standalone row/toolbar/panel views.
 - Extended keyboard label shortcuts from 4 → 9 (keys 1–9 map to `ObjectClass` proto enum order: noise, dynamic, pedestrian, cyclist, bird, bus, car, truck, motorcyclist).
 - Fixed label panel sync: replaced `@State lastAssignedLabel` with computed `currentLabel` derived from `appState.userLabels`, so keyboard shortcuts and button clicks both update the highlight.
-- Added up/down arrow key track navigation (`selectNextTrack` / `selectPreviousTrack`) using `trackListOrder` published by `TrackListView`, so navigation follows the visible sort order (first-seen or peak-speed).
+- Added up/down arrow key track navigation (`selectNextTrack` / `selectPreviousTrack`) using `trackListOrder` published by `TrackListView`, so navigation follows the visible sort order (first-seen or max-speed).
 - Consolidated Track Inspector and Label Panel: removed duplicate track/run ID display; header now shows full run ID in grey; label section uses "Labels" subheading instead of separate "Label Track" panel.
 - Reorganised Track Inspector components and enhanced data display (3D bounding-box labels, sparkline colour coding, speed display logic).
 - Added replay completion handling across Go + macOS visualiser playback: server pauses at EOF instead of closing the stream, macOS playback controls/AppState detect replay completion, and replay state tests were updated for the new behaviour.
@@ -36,7 +36,7 @@
 - macOS visualiser: updated classification labels, tag pills in `TrackListView` for classification and quality indicators.
 - Added classification maths specification and label vocabulary consolidation plan.
 - Refactored playback state management: `PlaybackControlsDerivedState`, `PlaybackRPCClient` protocol, stream termination handling.
-- Added `trackPeakSpeed` to `AppState` and updated `TrackHistoryGraphView` to use persistent peak speed with dashed line indicator.
+- Added `trackMaxSpeed` to `AppState` and updated `TrackHistoryGraphView` to use persistent max speed with dashed line indicator.
 - Added `AboutView` with licensing information; renamed app references to VelocityReport.
 - User labels caching for immediate UI feedback; playback state reset on new VRLOG replay.
 - Enhanced `TimeDisplayView` with fallback for frame-index display.

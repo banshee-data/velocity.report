@@ -745,7 +745,7 @@ struct SparklineViewTests {
             ], trails: [])
         state.currentFrame = frame
 
-        // The track list displays max(maxSpeedMps, persistentPeak) and a lineLimit(1)
+        // The track list displays max(maxSpeedMps, persistentMax) and a lineLimit(1)
         // prevents wrapping even with the "▲" climb indicator present.
         host(TrackListView(), state: state)
     }

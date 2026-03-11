@@ -35,7 +35,7 @@ func TestTrackDetailMarshalUsesMaxSpeedMps(t *testing.T) {
 	}
 }
 
-func TestTrackDetailUnmarshalAcceptsLegacyPeakSpeedMps(t *testing.T) {
+func TestTrackDetailUnmarshalAcceptsLegacySpeedKey(t *testing.T) {
 	var td TrackDetail
 	if err := json.Unmarshal([]byte(`{
 		"track_id": "legacy-track",
@@ -46,6 +46,20 @@ func TestTrackDetailUnmarshalAcceptsLegacyPeakSpeedMps(t *testing.T) {
 	}
 	if td.MaxSpeedMps != 9.1 {
 		t.Errorf("MaxSpeedMps = %v, want 9.1", td.MaxSpeedMps)
+	}
+}
+
+func TestTrackDetailUnmarshalPrefersExplicitMaxSpeedMps(t *testing.T) {
+	var td TrackDetail
+	if err := json.Unmarshal([]byte(`{
+		"track_id": "mixed-track",
+		"max_speed_mps": 0,
+		"peak_speed_mps": 9.1
+	}`), &td); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if td.MaxSpeedMps != 0 {
+		t.Errorf("MaxSpeedMps = %v, want 0", td.MaxSpeedMps)
 	}
 }
 

@@ -942,13 +942,13 @@ struct LabelButtonCoverageTests {
 // MARK: - SparklineView Extended Tests
 
 struct SparklineViewCoverageTests {
-    @Test func sparklineWithPeakValue() throws {
+    @Test func sparklineWithMaxValue() throws {
         let view = SparklineView(
             values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", maxValue: 12.0)
         let _ = view.body
     }
 
-    @Test func sparklinePathWithPeak() throws {
+    @Test func sparklinePathWithMax() throws {
         let view = SparklineView(
             values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", maxValue: 15.0)
         let size = CGSize(width: 200, height: 40)
