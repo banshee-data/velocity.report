@@ -24,9 +24,9 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L5    | **Tracks**     | Multi-frame identity and motion continuity                                               | `TrackedObject`, `TrackSet`                                                               | ✅ Implemented |
 | L6    | **Objects**    | Semantic object interpretation and dataset mapping                                       | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented |
 | L7    | **Scene**      | Persistent canonical world model — accumulated geometry, priors, and multi-sensor fusion | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned     |
-| L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🔄 Partial     |
-| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                   | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🔄 Partial     |
-| L10   | **Clients**    | Downstream rendering consumers (documentation label — no Go package)                     | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 📄 Doc-only    |
+| L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | ✅ Implemented |
+| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                   | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | ✅ Implemented |
+| L10   | **Clients**    | Downstream rendering consumers (Python, Svelte, Swift — no Go package)                   | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | ✅ Implemented |
 
 ## Canonical L1-L10 Stack Reference
 
@@ -127,8 +127,8 @@ flowchart TB
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        L9c["gRPC streams 🔄"]
-        L9b["LiDAR REST APIs 🔄"]
+        L9c["gRPC streams"]
+        L9b["LiDAR REST APIs"]
         L9a["Radar REST APIs"]
     end
 
@@ -200,8 +200,7 @@ flowchart TB
     style L1 fill:none,stroke:none,color:transparent
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
-    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
-    class L9b,L9c partial;
+    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L8a,L8b,L8c,L9a,L9b,L9c implemented;
     class L5h,L7a gap;
     class L10a,L10b,L10c client;
     class L10d deprecated;
@@ -231,13 +230,12 @@ flowchart TB
 **Legend**
 
 - Green: implemented
-- Amber `🔄`: under development in the current codebase
-- Grey: reserved layer slot with no runtime implementation, yet
+- Grey: reserved layer slot with no runtime implementation yet
 - Blue-grey: OS + hardware shown for ingress context only
-- Beige: downstream client surfaces
-- Red: deprecated, scheduled for removal or replacement
+- Beige: downstream client surfaces (implemented in Python, Svelte, or Swift)
+- Red: deprecated — scheduled for removal or replacement
 - Solid arrows: implemented code
-- Dashed arrows: reference links for duture work
+- Dashed arrows: reference links for future work
 
 ## Layered Concept and Literature Status
 
@@ -277,11 +275,11 @@ block.
 | L8b | LiDAR traffic metrics | Traffic engineering reporting and nearest-rank percentiles | [monitor/chart_api.go](../../../internal/lidar/monitor/chart_api.go) | ✅ | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md) |
 | L8c | Sweep tuning and search | Parameter sweeps and experiment evaluation | [sweep/hint.go](../../../internal/lidar/sweep/hint.go) | ✅ | [Tuning optimisation plan](../../plans/lidar-parameter-tuning-optimisation-plan.md) |
 | L9a | Radar report APIs | REST / JSON reporting surfaces | [api/server.go](../../../internal/api/server.go) | ✅ | [Radar networking design](../../radar/architecture/networking.md) |
-| L9b | LiDAR dashboard APIs | REST / JSON dashboard and replay surfaces | [monitor/](../../../internal/lidar/monitor/) | 🔄 | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
-| L9c | Live frame streams | gRPC streaming and protobuf transport | [visualiser/grpc_server.go](../../../internal/lidar/visualiser/grpc_server.go) | 🔄 | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
-| L10a | pdf-generator | pdf-generator pipelines | [tools/pdf-generator/](../../../tools/pdf-generator/) | 📄 | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md) |
-| L10b | Svelte app | Svelte dashboard and report UI patterns | [web/](../../../web/) | 📄 | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md) |
-| L10c | VelocityVisualiser.app | Native macOS Metal visualisation and gRPC client surfaces | [tools/visualiser-macos/](../../../tools/visualiser-macos/) | 📄 | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
+| L9b | LiDAR dashboard APIs | REST / JSON dashboard, replay, scene, and track APIs | [monitor/](../../../internal/lidar/monitor/) | ✅ | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
+| L9c | Live frame streams | gRPC streaming with frame codec, overlay preferences, and replay | [visualiser/grpc_server.go](../../../internal/lidar/visualiser/grpc_server.go) | ✅ | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
+| L10a | pdf-generator | PyLaTeX report generation with charts, maps, and statistical tables | [tools/pdf-generator/](../../../tools/pdf-generator/) | ✅ | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md) |
+| L10b | Svelte app | Svelte 5 dashboard with site management, radar reports, and LiDAR run views | [web/](../../../web/) | ✅ | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md) |
+| L10c | VelocityVisualiser.app | Native macOS Metal 3D point-cloud visualisation with gRPC streaming client | [tools/visualiser-macos/](../../../tools/visualiser-macos/) | ✅ | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
 | L10d | HTML dashboard | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`) | [monitor/html/dashboard.html](../../../internal/lidar/monitor/html/dashboard.html) | ⛔ | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
 
 ### Design rationale for ten layers
