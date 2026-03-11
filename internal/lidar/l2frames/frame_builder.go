@@ -458,59 +458,6 @@ func (fb *FrameBuilder) addPointsDualInternal(points []Point, polar []PointPolar
 		len(points), prevCount, newCount, fb.lastAzimuth)
 }
 
-// addPointsInternal processes cartesian Points assuming lock is held by caller for safety
-func (fb *FrameBuilder) addPointsInternal(points []Point) {
-	if len(points) == 0 {
-		return
-	}
-
-	arrivalNow := time.Now()
-	fb.lastArrivalWallTime = arrivalNow
-
-	// Debug: record previous frame point count when enabled
-	var prevCount int
-	if fb.currentFrame != nil {
-		prevCount = fb.currentFrame.PointCount
-	}
-
-	// Process each point for azimuth-based frame detection
-	for _, point := range points {
-		// Check for UDP sequence gaps
-		fb.checkSequenceGaps(point.UDPSequence)
-
-		// Check if we need to start a new frame based on azimuth wrap and/or time
-		shouldStart, reason := fb.shouldStartNewFrame(point.Azimuth, point.Timestamp)
-		if shouldStart {
-			if fb.currentFrame != nil {
-				tracef("[FrameBuilder] Frame completion detected (%s): lastAz=%.2f currAz=%.2f, finalizing frame with %d points",
-					reason, fb.lastAzimuth, point.Azimuth, fb.currentFrame.PointCount)
-			}
-			fb.finalizeCurrentFrame()
-			fb.startNewFrame(point.Timestamp, arrivalNow)
-		}
-
-		// Ensure we have a current frame
-		if fb.currentFrame == nil {
-			fb.startNewFrame(point.Timestamp, arrivalNow)
-		}
-
-		// Add point to current frame
-		fb.addPointToCurrentFrame(point)
-		fb.lastAzimuth = point.Azimuth
-	}
-
-	if fb.currentFrame != nil {
-		fb.currentFrame.EndWallTime = arrivalNow
-	}
-
-	var newCount int
-	if fb.currentFrame != nil {
-		newCount = fb.currentFrame.PointCount
-	}
-	tracef("[FrameBuilder] Added %d points; frame_count was=%d now=%d; lastAzimuth=%.2f",
-		len(points), prevCount, newCount, fb.lastAzimuth)
-}
-
 // shouldStartNewFrame determines if we should start a new frame based on azimuth and/or time
 func (fb *FrameBuilder) shouldStartNewFrame(azimuth float64, timestamp time.Time) (bool, string) {
 	if fb.lastAzimuth < 0 {

@@ -11,8 +11,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - v0.5.0 backward compatibility shim removal — report download URL migration, `BackgroundCell` legacy TS fields, bare-array stats cache fallback, sweep dashboard legacy field names, Python legacy stats format / config dict helpers / pylatex stubs, macOS legacy playback mode — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
 - Schema simplification (migration 000030) — drop dead per-track percentile columns (`p50/p85/p95_speed_mps`), drop always-NULL quality columns from `lidar_tracks`, rename `peak_speed_mps` → `max_speed_mps` on both track tables — [design doc](plans/schema-simplification-migration-030-plan.md) `M`
 - Visualiser track proto parity — back out branch-local percentile fields, regenerate proto bindings (Go + Swift); SQL column rename deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
-- Layer dependency hygiene — move `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fix L1→L4 and L3→L4 import violations (~15 prod files, ~6 test files) — [design doc](plans/lidar-layer-dependency-hygiene-plan.md) `M`
-- LiDAR L2 dual representation — store both polar and Cartesian once on `LiDARFrame`, have L3 consume frame-owned polar data, and remove hot-path polar rebuild from `frame.Points` — [design doc](plans/lidar-l2-dual-representation-plan.md) `M`
 - v0.5.0 breaking changes — `transit-backfill` soft-deprecation notice, breaking-changes release notes — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 - Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
@@ -120,6 +118,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
+- Layer dependency hygiene — moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files — [design doc](plans/lidar-layer-dependency-hygiene-plan.md)
+- LiDAR L2 dual representation — `LiDARFrame` stores both `PolarPoints` and `Points`; pipeline consumes frame-owned polar data directly; per-frame polar rebuild eliminated — [design doc](plans/lidar-l2-dual-representation-plan.md)
 - [#144] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation — `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints) — review doc item 4 — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md)
