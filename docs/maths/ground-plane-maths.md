@@ -45,10 +45,10 @@ That proposal is not active in current runtime.
 
 ## References
 
-| Reference | BibTeX key | Relevance |
-| --------- | ---------- | --------- |
-| Zermas et al. (2017) | `Zermas2017` | Fast ground plane extraction via line fitting in polar slices; informs our height-band approach |
-| Lim et al. (2021) | `Lim2021` | Patchwork — concentric zone ground segmentation; more robust than height-band, future upgrade path |
-| Fischler & Bolles (1981) | `Fischler1981` | RANSAC — used in the offline robust refinement path of the advanced ground-plane proposal |
+| Reference                | BibTeX key     | Relevance                                                                                          |
+| ------------------------ | -------------- | -------------------------------------------------------------------------------------------------- |
+| Zermas et al. (2017)     | `Zermas2017`   | Fast ground plane extraction via line fitting in polar slices; informs our height-band approach    |
+| Lim et al. (2021)        | `Lim2021`      | Patchwork — concentric zone ground segmentation; more robust than height-band, future upgrade path |
+| Fischler & Bolles (1981) | `Fischler1981` | RANSAC — used in the offline robust refinement path of the advanced ground-plane proposal          |
 
 Full BibTeX entries: [docs/references.bib](../references.bib)

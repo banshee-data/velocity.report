@@ -311,12 +311,12 @@ This is the preferred mode for neighborhood monitoring where reliability and dri
 
 ## 12. References
 
-| Reference | BibTeX key | Relevance |
-| --------- | ---------- | --------- |
-| Welford (1962) | `Welford1962` | Numerically stable online mean/covariance used in streaming PCA (Section 3.1) |
-| Fischler & Bolles (1981) | `Fischler1981` | RANSAC for offline robust tile refinement (Section 3.3) |
-| Lim et al. (2021) | `Lim2021` | Patchwork concentric zone model; related to our region-selection approach |
-| Hornung et al. (2013) | `Hornung2013` | OctoMap log-odds occupancy; comparison point for our tile-confidence model |
-| Pomerleau et al. (2014) | `Pomerleau2014` | Long-term 3D map maintenance; validates our slow-adaptation strategy for settled tiles |
+| Reference                | BibTeX key      | Relevance                                                                              |
+| ------------------------ | --------------- | -------------------------------------------------------------------------------------- |
+| Welford (1962)           | `Welford1962`   | Numerically stable online mean/covariance used in streaming PCA (Section 3.1)          |
+| Fischler & Bolles (1981) | `Fischler1981`  | RANSAC for offline robust tile refinement (Section 3.3)                                |
+| Lim et al. (2021)        | `Lim2021`       | Patchwork concentric zone model; related to our region-selection approach              |
+| Hornung et al. (2013)    | `Hornung2013`   | OctoMap log-odds occupancy; comparison point for our tile-confidence model             |
+| Pomerleau et al. (2014)  | `Pomerleau2014` | Long-term 3D map maintenance; validates our slow-adaptation strategy for settled tiles |
 
 Full BibTeX entries: [docs/references.bib](../../references.bib)
