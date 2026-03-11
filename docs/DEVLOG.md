@@ -2,7 +2,7 @@
 
 ## February 26, 2026 - Replay EOF Debugging, Build Metadata CI/Test Plumbing & Format Docs
 
-- Added `docs/data/DATA_STRUCTURES.md` and `docs/data/VRLOG_FORMAT.md`, and updated LiDAR architecture/documentation references to the new data format docs.
+- Added `docs/data/data-structures.md` and `docs/data/vrlog-format.md`, and updated LiDAR architecture/documentation references to the new data format docs.
 - Expanded macOS visualiser diagnostics while debugging replay EOF behaviour: added `DevLogger` (replacing `os.Logger`) and increased logging coverage in `AppState`, `ContentView`, `RunBrowserView`, and `RunBrowserState`.
 - Simplified debug log output in `AppState` by removing privacy-attribute noise and improving message formatting clarity.
 - Added detailed `VisualiserClient` replay RPC diagnostics (`seek()` / `play()` / stream restart path) including connection-state and response logging.

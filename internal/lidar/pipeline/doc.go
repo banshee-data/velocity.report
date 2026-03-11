@@ -5,6 +5,6 @@
 // replay use cases. The pipeline does not own domain logic — it
 // delegates to layer packages and adapters.
 //
-// See docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md
+// See docs/lidar/architecture/lidar-layer-alignment-refactor-review.md
 // for the design rationale.
 package pipeline

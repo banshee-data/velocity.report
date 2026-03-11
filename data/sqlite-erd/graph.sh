@@ -35,9 +35,9 @@ fi
 DOT_OUTPUT=$(sqlite3 "$TEMP_DB" < "$(dirname "$0")/sqlite_graph.sql")
 
 # Create SVG using dot
-echo "$DOT_OUTPUT" | dot -Tsvg > "$SCHEMA_DIR/schema.svg"
+echo "$DOT_OUTPUT" | dot -Tsvg > "docs/data/schema.svg"
 
 # Clean up
 rm "$TEMP_DB"
 
-echo "Schema diagram generated: $SCHEMA_DIR/schema.svg"
+echo "Schema diagram generated: docs/data/schema.svg"

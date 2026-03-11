@@ -7,8 +7,8 @@
 
 - [`docs/maths/clustering-maths.md`](../clustering-maths.md) (OBB via PCA, §5.2)
 - [`docs/maths/tracking-maths.md`](../tracking-maths.md) (OBB heading handling, §7)
-- [`docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](20260220-velocity-coherent-foreground-extraction.md) (velocity-coherent clustering)
-- [`docs/maths/proposals/20260222-geometry-coherent-tracking.md`](20260222-geometry-coherent-tracking.md) (proposed replacement — Bayesian geometry model)
+- [`docs/maths/proposals/velocity-coherent-foreground-extraction.md`](velocity-coherent-foreground-extraction.md) (velocity-coherent clustering)
+- [`docs/maths/proposals/geometry-coherent-tracking.md`](geometry-coherent-tracking.md) (proposed replacement — Bayesian geometry model)
 
 ---
 
@@ -441,7 +441,7 @@ The tracker already computes:
    axis-swap scenarios but may need tuning for unusual sensor geometries.
 
 5. **Recommended next step:** The [geometry-coherent track state
-   proposal](20260222-geometry-coherent-tracking.md) replaces Guards 2, 3,
+   proposal](geometry-coherent-tracking.md) replaces Guards 2, 3,
    and the dimension sync logic with a single Bayesian model that selects
    the correct PCA axis interpretation using the track's accumulated geometry
    prior. This addresses the root cause (no temporal geometry model) rather

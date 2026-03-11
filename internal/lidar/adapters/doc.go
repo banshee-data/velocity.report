@@ -5,6 +5,6 @@
 // domain types. Handlers and servers in this package should delegate
 // business logic to layer packages and use-case services.
 //
-// See docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md §3
+// See docs/lidar/architecture/lidar-layer-alignment-refactor-review.md §3
 // for the design rationale.
 package adapters

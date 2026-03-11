@@ -1115,7 +1115,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 
 - [PCAP Analysis Mode](./pcap-analysis-mode.md) - Web UI analysis workflow
 - Background Subtraction (see [`internal/lidar/l3grid/background.go`](../../../internal/lidar/l3grid/background.go)) - Settling algorithm details
-- [LIDAR Tracking Pipeline](../architecture/foreground_tracking.md) - Object detection pipeline
+- [LIDAR Tracking Pipeline](../architecture/foreground-tracking.md) - Object detection pipeline
 - [Architecture](../../../ARCHITECTURE.md) - System overview
 
 ## Glossary

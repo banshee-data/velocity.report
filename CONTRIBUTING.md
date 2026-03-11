@@ -63,7 +63,7 @@ Read next:
 - [docs/ui/DESIGN.md](docs/ui/DESIGN.md) — the canonical design language across web, macOS, and report outputs
 - [docs/VISION.md](docs/VISION.md) — the product goals, target users, and reporting outcomes the UI needs to support
 - [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — the report surface, chart pipeline, and configuration model for generated outputs
-- [docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the LiDAR visualiser
+- [docs/ui/velocity-visualiser-app/01-problem-and-user-workflows.md](docs/ui/velocity-visualiser-app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the LiDAR visualiser
 - [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md) — current implementation milestones and what the visualiser already supports
 
 ### Technical Writer
@@ -125,7 +125,7 @@ Read next:
 - [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md) — the roadmap for retiring legacy Go-embedded dashboards
 - [tools/pdf-generator/README.md](tools/pdf-generator/README.md) — PDF report pipeline, chart builders, and configuration
 - [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) — macOS visualiser setup, build, and architecture
-- [docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](docs/ui/VelocityVisualiser.app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the visualiser
+- [docs/ui/velocity-visualiser-app/01-problem-and-user-workflows.md](docs/ui/velocity-visualiser-app/01-problem-and-user-workflows.md) — concrete workflows and UX targets for the visualiser
 - [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md) — current implementation milestones
 
 ## Themes of Work

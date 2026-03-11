@@ -946,7 +946,7 @@ sudo systemctl start velocity-report
 ## Related Documents
 
 - **Future Architecture:** `motion-capture-architecture.md` (complete future spec)
-- **Current Tracking:** `../lidar/architecture/foreground_tracking.md` (existing implementation)
+- **Current Tracking:** `../lidar/architecture/foreground-tracking.md` (existing implementation)
 - **Schema:** `../reference/schema.sql` (database structure)
 
 ---

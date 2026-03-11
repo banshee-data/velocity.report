@@ -65,17 +65,17 @@ The production pipeline uses four math-heavy layers:
 
 ### Proposals (not yet active — see [Roadmap](#prioritised-proposal-roadmap) below)
 
-- [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md) — **Partially Implemented**
+- [OBB Heading Stability Review](proposals/obb-heading-stability-review.md) — **Partially Implemented**
   — Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Guard 3 (90° jump rejection), fixes B, C, G applied; remaining fixes superseded by geometry-coherent model.
-- [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md)
+- [Geometry-Coherent Track State](proposals/geometry-coherent-tracking.md)
   — Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
-- [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md)
+- [Velocity-Coherent Foreground Extraction](proposals/velocity-coherent-foreground-extraction.md)
   — Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence, low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
-- [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
+- [Ground Plane and Vector-Scene Maths](proposals/ground-plane-vector-scene-maths.md)
   — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
-- [Reflective Sign and Static Surface Pose Anchors](proposals/20260310-reflective-sign-pose-anchor-maths.md)
+- [Reflective Sign and Static Surface Pose Anchors](proposals/reflective-sign-pose-anchor-maths.md)
   — Use sign-first reflective anchors with controlled fallback to walls, facades, and ground-support surfaces for frame-to-frame micro-pose estimation; the base case stops at L7/L8 diagnostics, while the reference extension adds a cached stability signal for L3 settling/reset control.
-- [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
+- [Unify L3/L4 Settling](proposals/unify-l3-l4-settling.md)
   — Overlap analysis, interference risks, and a single-settlement architecture with shared lifecycle per surface-region key.
 - Bodies in Motion Maths (proposal — to be written)
   — CA/CTRV state equations, IMM blending and transition matrix, corridor probability model, sparse-cluster gating extensions, and scene-graph relation confidence accumulation. [Design doc](../plans/lidar-bodies-in-motion-plan.md).
@@ -90,7 +90,7 @@ items improve later ones.
 
 ### P1 — Geometry-Coherent Track State _(highest priority)_
 
-**Source:** [20260222-geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
+**Source:** [geometry-coherent-tracking.md](proposals/geometry-coherent-tracking.md)
 **Layer:** L5 tracking
 **Status:** Proposal — not started
 **Effort:** L (6–7 days)
@@ -109,12 +109,12 @@ upstream changes required.
 
 **Remaining OBB review work subsumed:** Fixes D (threshold tuning), E (renderer
 consistency), and F (debug cluster rendering) from the
-[OBB heading stability review](proposals/20260222-obb-heading-stability-review.md)
+[OBB heading stability review](proposals/obb-heading-stability-review.md)
 become unnecessary once the geometry-coherent model replaces the guards.
 
 ### P2 — Velocity-Coherent Foreground Extraction
 
-**Source:** [20260220-velocity-coherent-foreground-extraction.md](proposals/20260220-velocity-coherent-foreground-extraction.md)
+**Source:** [velocity-coherent-foreground-extraction.md](proposals/velocity-coherent-foreground-extraction.md)
 **Layer:** L4 perception (pre-clustering)
 **Status:** Proposal — not started
 **Effort:** L (estimated)
@@ -134,7 +134,7 @@ validation).
 
 ### P3 — Ground Plane and Vector-Scene Maths
 
-**Source:** [20260221-ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md)
+**Source:** [ground-plane-vector-scene-maths.md](proposals/ground-plane-vector-scene-maths.md)
 **Layer:** L4 perception (ground surface)
 **Status:** Proposal — not started
 **Effort:** L (estimated)
@@ -153,7 +153,7 @@ end users than P1/P2.
 
 ### P4 — Unify L3/L4 Settling
 
-**Source:** [20260219-unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md)
+**Source:** [unify-l3-l4-settling.md](proposals/unify-l3-l4-settling.md)
 **Layer:** L3–L4 boundary (infrastructure)
 **Status:** Proposal — not started
 **Effort:** M–L (estimated, phased migration)
@@ -169,7 +169,7 @@ but lowers the complexity cost of P3.
 
 ### Candidate Add-on — Reflective Sign and Static Surface Pose Anchors
 
-**Source:** [20260310-reflective-sign-pose-anchor-maths.md](proposals/20260310-reflective-sign-pose-anchor-maths.md)
+**Source:** [reflective-sign-pose-anchor-maths.md](proposals/reflective-sign-pose-anchor-maths.md)
 **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene, L8 Analytics
 **Status:** Proposal — not started
 **Effort:** M (estimated)
@@ -190,7 +190,7 @@ structure to build a redundant anchor set.
 
 ### Maintenance — OBB Heading Stability Review (remaining items)
 
-**Source:** [20260222-obb-heading-stability-review.md](proposals/20260222-obb-heading-stability-review.md)
+**Source:** [obb-heading-stability-review.md](proposals/obb-heading-stability-review.md)
 **Status:** Guard 3, fixes B, C, G **implemented**. Fix D (config-only), E, F not started.
 
 Fix D (tighten aspect-ratio lock threshold) is a low-risk config change that

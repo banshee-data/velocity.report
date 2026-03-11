@@ -81,9 +81,9 @@ Cross-cutting packages:
 
 ### Task-specific follow-on design docs
 
-- `docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design-20260217.md`
+- `docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design.md`
   - Deprecates `internal/lidar/arena.go` and relocates active shared models by L2/L3/L4 ownership.
-- `docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design-20260217.md`
+- `docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design.md`
   - Splits LiDAR logging into `ops`/`debug`/`trace` streams and defines routing rubric.
 
 ### 1) Split `tracking_pipeline` into explicit stage interfaces
@@ -263,7 +263,7 @@ Outcome:
     - Removed `arena.go`, `arena_test.go`, `arena_extended_test.go`
     - All legacy types deleted (RingBuffer, SidecarState, Track, TrackObs, etc.)
     - Active types (Pose, Point, PointPolar, etc.) already migrated to layer packages
-    - See `arena-go-deprecation-and-layered-type-layout-design-20260217.md` for details
+    - See `arena-go-deprecation-and-layered-type-layout-design.md` for details
 
 11. **Routing enhancements**: ✅
     - Added Go 1.22+ HTTP method prefixes to 40+ route patterns (`"GET /path"`, `"POST /path"`)

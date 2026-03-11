@@ -37,8 +37,15 @@ Documentation structure, scope, and naming conventions.
 
 ## Naming Conventions
 
+All documentation files use **lowercase-with-hyphens** (`kebab-case`).
+
+- No dates in filenames — use git history for chronology.
+- No underscores — use hyphens as word separators.
+- Single-word UPPERCASE names (`README.md`, `DESIGN.md`, `BACKLOG.md`) are reserved for conventional project-level documents.
 - Plans (flat): `<hub>-<area>-<topic>-plan.md` in `docs/plans/`
-- Maths proposals: `<yyymmdd>-<topic>.md` in `docs/maths/proposals/`
+- Maths proposals: `<topic>.md` in `docs/maths/proposals/`
+- Architecture docs: `<topic>.md` in `<hub>/architecture/`
+- Operations guides: `<topic>.md` in `<hub>/operations/`
 
 ## Document Structure
 

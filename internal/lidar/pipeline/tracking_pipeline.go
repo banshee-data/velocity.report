@@ -67,7 +67,7 @@ func heapBytes() uint64 {
 // Stage interfaces — layer-aligned contracts for the tracking pipeline.
 //
 // These interfaces define the boundaries between processing stages as
-// described in docs/lidar/architecture/lidar-layer-alignment-refactor-review-20260217.md.
+// described in docs/lidar/architecture/lidar-layer-alignment-refactor-review.md.
 // Current code still uses the monolithic callback below; these contracts
 // exist to guide incremental extraction of each stage into its own package.
 // ---------------------------------------------------------------------------

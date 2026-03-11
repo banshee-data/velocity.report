@@ -78,13 +78,13 @@ Tracking pipeline refactor and upgrade proposals.
 | Layer stack reference   | [architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-reference](architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-reference)           |
 | Concept/algorithm chart | [architecture/lidar-data-layer-model.md#segmented-concept-status-chart](architecture/lidar-data-layer-model.md#segmented-concept-status-chart)               |
 | Paper/status mapping    | [architecture/lidar-data-layer-model.md#layered-concept-and-literature-status](architecture/lidar-data-layer-model.md#layered-concept-and-literature-status) |
-| System overview         | [architecture/lidar_sidecar_overview.md](architecture/lidar_sidecar_overview.md)                                                                             |
-| Tracking implementation | [architecture/foreground_tracking.md](architecture/foreground_tracking.md)                                                                                   |
+| System overview         | [architecture/lidar-sidecar-overview.md](architecture/lidar-sidecar-overview.md)                                                                             |
+| Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                                                                                   |
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                                             |
 | Data science plan       | [../plans/platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md)                                                 |
-| Packet format           | [HESAI_PACKET_FORMAT.md](../data/HESAI_PACKET_FORMAT.md)                                                                                                     |
-| **macOS Visualiser**    | [../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md](../ui/VelocityVisualiser.app/01-problem-and-user-workflows.md)                               |
-| **API Contracts**       | [../ui/VelocityVisualiser.app/02-api-contracts.md](../ui/VelocityVisualiser.app/02-api-contracts.md)                                                         |
+| Packet format           | [hesai-packet-format.md](../data/hesai-packet-format.md)                                                                                                     |
+| **macOS Visualiser**    | [../ui/velocity-visualiser-app/01-problem-and-user-workflows.md](../ui/velocity-visualiser-app/01-problem-and-user-workflows.md)                               |
+| **API Contracts**       | [../ui/velocity-visualiser-app/02-api-contracts.md](../ui/velocity-visualiser-app/02-api-contracts.md)                                                         |
 | **Labelling + QC Plan** | [../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)                 |
 | **Tracking Upgrades**   | [troubleshooting/01-tracking-upgrades.md](troubleshooting/01-tracking-upgrades.md)                                                                           |
 | **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                                                                       |

@@ -638,4 +638,4 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 1. Open AV Dataset LiDAR specification (dual returns, elongation, range images)
 2. [Hesai Pandar40P User Manual](https://www.hesaitech.com/wp-content/uploads/2025/04/Pandar40P_User_Manual_402-en-250410.pdf)
 3. Internal: `internal/lidar/parse/extract.go` - Current parser implementation
-4. Internal: `docs/data/HESAI_PACKET_FORMAT.md` - Packet structure analysis
+4. Internal: `docs/data/hesai-packet-format.md` - Packet structure analysis

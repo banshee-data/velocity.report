@@ -181,7 +181,7 @@ $$\mu_{n+1} = \mu_n + \frac{\delta}{n+1}, \quad C_{n+1} = C_n + \delta \cdot (x_
 
 where $\delta = x_{n+1} - \mu_n$ and $C$ is the running scatter matrix. This produces refined dimensions (length, width, height) for canonical objects without buffering individual observations.
 
-**Related maths doc:** [ground-plane-vector-scene-maths proposal](../maths/proposals/20260221-ground-plane-vector-scene-maths.md) § 3.1.
+**Related maths doc:** [ground-plane-vector-scene-maths proposal](../maths/proposals/ground-plane-vector-scene-maths.md) § 3.1.
 
 ### 3.3 Cross-sensor track association — gated nearest-neighbour
 
