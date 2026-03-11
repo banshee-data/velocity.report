@@ -26,7 +26,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L7    | **Scene**      | Persistent canonical world model — accumulated geometry, priors, and multi-sensor fusion | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned     |
 | L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | ✅ Implemented |
 | L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                   | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | ✅ Implemented |
-| L10   | **Clients**    | Downstream rendering consumers (Python, Svelte, Swift — no Go package)                   | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | ✅ Implemented |
+| L10   | **Clients**    | Downstream rendering consumers (Python, Svelte, Swift; deprecated Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | ✅ Implemented |
 
 ## Canonical L1-L10 Stack Reference
 
