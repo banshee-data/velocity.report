@@ -50,11 +50,20 @@ flowchart TB
     classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
 
     P0a["Radar sensor"]
-    P0b["Disk storage"]
-    P0c["LiDAR sensor"]
+
+    subgraph P0_sensors[" "]
+        direction LR
+        P0c["LiDAR sensor"]
+        P0b["Disk storage"]
+    end
+
     P0d["Serial IO"]
-    P0e["Filesystem"]
-    P0f["UDP socket"]
+
+    subgraph P0_io[" "]
+        direction LR
+        P0f["UDP socket"]
+        P0e["Filesystem"]
+    end
 
     subgraph L1["L1 Packets"]
         direction LR
@@ -133,13 +142,16 @@ flowchart TB
         L10c["VelocityVisualiser.app "]
     end
 
+    P0d --> L1a
     P0a --> P0d
     P0b --> P0e
     P0c --> P0f
-    P0d --> L1a
     P0f --> L1b
     P0e --> L1c
 
+    L1a --> L5a
+    L5a --> L8a
+    L1a --> L8a
     L1b --> L2a
     L1c --> L2a
     L2a --> L2b
@@ -177,13 +189,13 @@ flowchart TB
     L9b --> L10c
     L9b --> L10b
 
-    L1a --> L5a
-    L5a --> L8a
-    L1a --> L8a
     L8a --> L9a
     L9a --> L10a
     L9a --> L10b
     L9b --> L10d
+
+    style P0_sensors fill:none,stroke:none,color:transparent
+    style P0_io fill:none,stroke:none,color:transparent
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
     class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L4e,L5a,L5b,L5c,L5d,L5e,L5f,L5g,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
