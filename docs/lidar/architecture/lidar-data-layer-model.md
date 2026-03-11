@@ -639,7 +639,7 @@ The full bibliography in BibTeX format is at [docs/references.bib](../../referen
 | Bar-Shalom & Fortmann (1988) — _Tracking and Data Association_ | Bayesian framework for decision-making under detection uncertainty; theoretical basis for covariance-gated promotion                                         |
 | Weng et al. (2020) — AB3DMOT                                   | Demonstrates that tight L4→L5 feedback (detection quality → tracker health) is the dominant factor in MOT performance, motivating our L3→L5 forward coupling |
 
-**Design and implementation plan:** [Velocity-coherent foreground plan](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md). Full maths specification: [Velocity-coherent foreground maths](../../maths/proposals/velocity-coherent-foreground-extraction.md).
+**Design and implementation plan:** [Velocity-coherent foreground plan](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md). Full maths specification: [Velocity-coherent foreground maths](../../maths/proposals/20260220-velocity-coherent-foreground-extraction.md).
 
 ### L5h Motion Extensions (planned)
 

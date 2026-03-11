@@ -12,7 +12,7 @@ layer-isolated evaluation, and coherent parameter grouping.
 
 The current `tuning.defaults.json` uses a **flat** schema — 44 keys at root
 level with no nesting. This worked well for a single-engine pipeline, but the
-[velocity-coherent foreground extraction](../docs/maths/proposals/velocity-coherent-foreground-extraction.md)
+[velocity-coherent foreground extraction](../docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 proposal introduces:
 
 1. **Full layer coverage** — L1 through L6 are represented in a single
@@ -1015,7 +1015,7 @@ For each scenario, compute:
 Results are compared with paired bootstrap confidence intervals. All regression
 gates must pass before a configuration change is promoted.
 
-See: [velocity-coherent-foreground-extraction.md §7](../docs/maths/proposals/velocity-coherent-foreground-extraction.md)
+See: [velocity-coherent-foreground-extraction.md §7](../docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 for the full statistical protocol.
 
 ---
@@ -1084,7 +1084,7 @@ is a candidate for replacement by an ML classifier (see
 
 - [Config README](README.md) — current parameter documentation
 - [Config Maths Cross-Reference](README.maths.md) — key-to-maths mapping
-- [Velocity-Coherent Foreground Extraction](../docs/maths/proposals/velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
+- [Velocity-Coherent Foreground Extraction](../docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
 - [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md) — optimisation platform plan
 - [Maths README](../docs/maths/README.md) — proposal roadmap (P1–P4)
-- [Geometry-Coherent Tracking](../docs/maths/proposals/geometry-coherent-tracking.md) — P1 proposal (L5 geometry model)
+- [Geometry-Coherent Tracking](../docs/maths/proposals/20260222-geometry-coherent-tracking.md) — P1 proposal (L5 geometry model)

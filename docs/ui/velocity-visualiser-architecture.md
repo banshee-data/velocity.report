@@ -235,7 +235,7 @@ Math coupling reference:
 
 - `docs/maths/background-grid-settling-maths.md`
 - `docs/maths/ground-plane-maths.md`
-- `docs/maths/proposals/unify-l3-l4-settling.md`
+- `docs/maths/proposals/20260219-unify-l3-l4-settling.md`
 
 Canonical config/maths mapping source:
 

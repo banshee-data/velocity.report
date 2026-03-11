@@ -7,8 +7,8 @@
 
 - [`docs/maths/clustering-maths.md`](../clustering-maths.md) (OBB via PCA, §5.2)
 - [`docs/maths/tracking-maths.md`](../tracking-maths.md) (OBB heading handling, §7)
-- [`docs/maths/proposals/velocity-coherent-foreground-extraction.md`](velocity-coherent-foreground-extraction.md) (velocity-coherent clustering)
-- [`docs/maths/proposals/geometry-coherent-tracking.md`](geometry-coherent-tracking.md) (proposed replacement — Bayesian geometry model)
+- [`docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](velocity-coherent-foreground-extraction.md) (velocity-coherent clustering)
+- [`docs/maths/proposals/20260222-geometry-coherent-tracking.md`](geometry-coherent-tracking.md) (proposed replacement — Bayesian geometry model)
 
 ---
 

@@ -192,7 +192,7 @@ Evolve sweep/auto/HINT from a feature set into a reusable **Optimisation Platfor
 > flat to layer-scoped structure.
 >
 > See also:
-> [`docs/maths/proposals/velocity-coherent-foreground-extraction.md` §6](../../maths/proposals/velocity-coherent-foreground-extraction.md)
+> [`docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md` §6](../../maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 > for the mathematical definition of engine variants and evaluation protocol.
 
 ---

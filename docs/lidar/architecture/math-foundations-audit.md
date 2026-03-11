@@ -23,7 +23,7 @@ Scope: `docs/maths/**`, velocity-coherence planning docs, and `internal/lidar/**
    - `docs/lidar/architecture/vector-scene-map.md:3` is `Status: Proposed`.
    - current runtime L4 ground removal is still height-band filtering (`internal/lidar/l4perception/ground.go:18`).
 3. Unified L3/L4 settlement core:
-   - still a proposal (`docs/maths/proposals/unify-l3-l4-settling.md:3`).
+   - still a proposal (`docs/maths/proposals/20260219-unify-l3-l4-settling.md:3`).
 
 ## 2. Velocity Coherence Separation
 
@@ -106,7 +106,7 @@ Resolution:
 
 - Updated velocity plan links to canonical maths proposal:
   - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
-  - `docs/maths/proposals/velocity-coherent-foreground-extraction.md`
+  - `docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
 
 Impact:
 

@@ -38,7 +38,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](plans/pdf-latex-precompiled-format-plan.md) `M`
 - Single `velocity-report` binary + subcommands — unified CLI with radar/lidar/pdf subcommands — [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script — curl-based installer with automatic platform detection — [design doc](plans/deploy-distribution-packaging-plan.md) `S`
-- Geometry-coherent tracking (P1 maths, D-04) — spatial consistency in track association — [proposal](maths/proposals/geometry-coherent-tracking.md) `M`
+- Geometry-coherent tracking (P1 maths, D-04) — spatial consistency in track association — [proposal](maths/proposals/20260222-geometry-coherent-tracking.md) `M`
 - Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
@@ -86,15 +86,15 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v1.0 (Vector Scene + VC)
 
 - L7 Scene layer — persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture — [design doc](plans/lidar-l7-scene-plan.md) `XL`
-- Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](maths/proposals/velocity-coherent-foreground-extraction.md) `L`
-- Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](maths/proposals/unify-l3-l4-settling.md) `L`
+- Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
+- Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
 - Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
 
 ## v2.0 (Advanced Perception & Connected)
 
 - (#103) Python OpenCV angle extraction — compute radar cosine-correction angle from checkerboard image; Python tool callable from webserver `M`
-- (#325) Ground-plane vector-scene maths (P3, D-05) — 3D scene reconstruction with ground-plane constraints — [proposal](maths/proposals/ground-plane-vector-scene-maths.md) `L`
+- (#325) Ground-plane vector-scene maths (P3, D-05) — 3D scene reconstruction with ground-plane constraints — [proposal](maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Visualiser QC programme (Features 1–10) — comprehensive quality control tooling for LiDAR data — [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - Metrics-first data science programme — benchmark packs, scorecards, explicit specs, and reproducible experiment bundles — [plan](plans/platform-data-science-metrics-first-plan.md) `M`
 - Optional classification benchmarking lane (Phase 4.1) — transparent feature-based models compared against the rule-based baseline; not on the critical path — [plan](plans/lidar-ml-classifier-training-plan.md) `L`
