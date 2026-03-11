@@ -5,9 +5,9 @@
 **Created:** 2026-02-22
 **Related:**
 
-- [OBB heading stability review](obb-heading-stability-review.md) — current guards
-- [Velocity-coherent foreground extraction](velocity-coherent-foreground-extraction.md) — upstream per-point velocity
-- [Ground plane and vector-scene maths](ground-plane-vector-scene-maths.md) — ground model
+- [OBB heading stability review](20260222-obb-heading-stability-review.md) — current guards
+- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — upstream per-point velocity
+- [Ground plane and vector-scene maths](20260221-ground-plane-vector-scene-maths.md) — ground model
 
 ---
 
