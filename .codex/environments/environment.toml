@@ -3,4 +3,4 @@ version = 1
 name = "vr-review"
 
 [setup]
-script = ""
+script = "make activate-web-cache"

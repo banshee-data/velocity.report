@@ -179,13 +179,45 @@ Aggregate statistics across all confirmed tracks.
 
   // Jitter and alignment aggregates (§12.1 — now implemented)
   "jitter": {
-    "heading_jitter_deg": { "min": 0.0, "max": 12.1, "avg": 3.5, "p50": 2.8, "p85": 7.4, "p98": 11.2, "samples": 27 },
-    "speed_jitter_mps":   { "min": 0.0, "max": 1.8,  "avg": 0.3, "p50": 0.2, "p85": 0.7, "p98": 1.4,  "samples": 27 },
+    "heading_jitter_deg": {
+      "min": 0.0,
+      "max": 12.1,
+      "avg": 3.5,
+      "p50": 2.8,
+      "p85": 7.4,
+      "p98": 11.2,
+      "samples": 27,
+    },
+    "speed_jitter_mps": {
+      "min": 0.0,
+      "max": 1.8,
+      "avg": 0.3,
+      "p50": 0.2,
+      "p85": 0.7,
+      "p98": 1.4,
+      "samples": 27,
+    },
   },
 
   "alignment": {
-    "alignment_mean_deg":  { "min": 0.0, "max": 45.1, "avg": 8.2, "p50": 6.1, "p85": 18.4, "p98": 38.2, "samples": 27 },
-    "misalignment_ratio":  { "min": 0.0, "max": 0.42, "avg": 0.04, "p50": 0.02, "p85": 0.1, "p98": 0.3, "samples": 27 },
+    "alignment_mean_deg": {
+      "min": 0.0,
+      "max": 45.1,
+      "avg": 8.2,
+      "p50": 6.1,
+      "p85": 18.4,
+      "p98": 38.2,
+      "samples": 27,
+    },
+    "misalignment_ratio": {
+      "min": 0.0,
+      "max": 0.42,
+      "avg": 0.04,
+      "p50": 0.02,
+      "p85": 0.1,
+      "p98": 0.3,
+      "samples": 27,
+    },
   },
 }
 ```
@@ -404,9 +436,9 @@ Per-matched-pair and aggregate speed comparison.
 
 ```jsonc
 {
-  "mean_abs_speed_delta_mps": 0.41,   // MAE across matched pairs
+  "mean_abs_speed_delta_mps": 0.41, // MAE across matched pairs
   "max_abs_speed_delta_mps": 1.2,
-  "speed_correlation": 0.97,           // Pearson r of avg_speed
+  "speed_correlation": 0.97, // Pearson r of avg_speed
   "histogram_earth_mover_distance": 0.35, // Wasserstein-1 distance between speed histograms
   "per_pair": [
     {
@@ -414,9 +446,9 @@ Per-matched-pair and aggregate speed comparison.
       "b_track_id": "t-042",
       "a_avg_speed_mps": 8.4,
       "b_avg_speed_mps": 8.7,
-      "speed_delta_mps": 0.3
-    }
-  ]
+      "speed_delta_mps": 0.3,
+    },
+  ],
 }
 ```
 

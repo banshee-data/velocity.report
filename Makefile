@@ -42,7 +42,8 @@ help:
 	@echo "  deploy-install-latex-minimal Copy local minimal TeX tree to remote target (deprecated)"
 	@echo "  validate-tex-minimal Compare report output between full and minimal TeX"
 	@echo "  deploy-update-deps   Update source, LaTeX, and Python deps on remote target (deprecated)"
-	@echo "  install-web          Install web dependencies (pnpm/npm)"
+	@echo "  install-web          Install web dependencies (shared cache via pnpm; local via npm)"
+	@echo "  activate-web-cache  Link this worktree to the shared web dependency cache"
 	@echo "  install-docs         Install docs dependencies (pnpm/npm)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
@@ -167,6 +168,8 @@ VERSION := 0.5.0-pre16
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
+WEB_DIR = web
+WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
 
 # =============================================================================
 # BUILD TARGETS (Go cross-compilation)
@@ -393,7 +396,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
+.PHONY: install-python install-web install-docs activate-web-cache ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -533,13 +536,23 @@ install-python:
 
 install-web:
 	@echo "Installing web dependencies..."
-	@cd web && if command -v pnpm >/dev/null 2>&1; then \
-		pnpm install --frozen-lockfile; \
+	@if command -v pnpm >/dev/null 2>&1; then \
+		$(WEB_CACHE_SCRIPT) install; \
 		elif command -v npm >/dev/null 2>&1; then \
-			npm install; \
+			echo "pnpm not found; npm will install web dependencies locally in this worktree."; \
+			cd $(WEB_DIR) && npm install; \
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
+
+activate-web-cache:
+	@echo "Activating shared web dependency cache..."
+	@$(WEB_CACHE_SCRIPT) ensure
+
+ensure-web-cache:
+	@VELOCITY_WEB_CACHE_QUIET=1 $(WEB_CACHE_SCRIPT) ensure
+
+codex-setup: activate-web-cache
 
 install-docs:
 	@echo "Installing docs dependencies..."
@@ -714,7 +727,6 @@ vrlog-compare:
 
 .PHONY: test test-go test-go-cov test-go-coverage-summary test-python test-python-cov test-web test-web-cov test-mac test-mac-cov coverage
 
-WEB_DIR = web
 MAC_DIR = tools/visualiser-macos
 
 # Aggregate test target: runs Go, web, Python, and macOS tests in sequence
@@ -991,7 +1003,7 @@ format-mac:
 		echo "Skipping macOS formatting"; \
 	fi
 
-format-docs:
+format-docs: ensure-web-cache
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
