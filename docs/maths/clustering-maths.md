@@ -140,3 +140,15 @@ Key areas covered:
 - **A.4** Cluster quality metrics (`PointDensity`, `RangeMean`, `DBSCANNeighboursVisited`)
 - **B.1–B.5** pcap-analyse benchmark harness with clustering-specific metrics and CI regression gates
 - **C.1–C.3** Raspberry Pi performance levers and frame budget
+
+## 10. References
+
+| Reference | BibTeX key | Relevance |
+| --------- | ---------- | --------- |
+| Ester et al. (1996) | `Ester1996` | Original DBSCAN algorithm (Section 4) |
+| Rusu & Cousins (2011) | `Rusu2011` | PCL VoxelGrid downsampling lineage (Section 3) |
+| Jolliffe (2002) | `Jolliffe2002` | PCA eigenvector decomposition for OBB heading (Section 5.2) |
+| Bogoslavskyi & Stachniss (2017) | `Bogoslavskyi2017` | Range-image connectivity as a future optimisation path to DBSCAN |
+| Campello et al. (2013) | `Campello2013` | HDBSCAN — planned alternative engine for variable-density clusters |
+
+Full BibTeX entries: [docs/references.bib](../references.bib)

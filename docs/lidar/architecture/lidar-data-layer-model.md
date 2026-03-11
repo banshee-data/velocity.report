@@ -552,6 +552,8 @@ Use the references above as the fast visual index:
 - the **concept chart** answers which bodies of work are implemented, partial,
   planned, proposed, or merely contextual.
 
+The full bibliography in BibTeX format is at [docs/references.bib](../../references.bib). Each entry key matches the citation style used in this document (e.g. `Ester1996`, `Kalman1960`).
+
 ### L1 Packets — sensor transport
 
 **Our approach:** Raw UDP packet capture from Hesai Pandar40P; PCAP file replay for offline analysis.
@@ -626,6 +628,35 @@ Use the references above as the fast visual index:
 
 **Design choice:** Classical Kalman + Hungarian over learned trackers (e.g. transformer-based) — deterministic, real-time on Raspberry Pi hardware, and fully interpretable. The architecture supports future drop-in replacement of the tracker implementation without changing layer boundaries.
 
+### L3f Velocity-Coherent Foreground (planned)
+
+**Our approach (planned):** Track-assisted foreground promotion in L3 — points classified as background by the EMA gate but near the threshold are promoted if they fall within a predicted track's spatial covariance envelope. This feeds a two-stage L4 clustering engine that uses Mahalanobis-gated velocity coherence to split spatially merged candidates with incompatible motion vectors.
+
+**Literature context:** The concept of using upstream state-estimator predictions to resolve borderline detection decisions is a form of "track-before-detect" philosophy — the complementary direction to standard tracking-by-detection. The specific formulation (covariance-gated soft promotion rather than hard re-classification) aligns with Bayesian multi-target tracking principles.
+
+| Reference | Relevance |
+| --------- | --------- |
+| Bar-Shalom & Fortmann (1988) — _Tracking and Data Association_ | Bayesian framework for decision-making under detection uncertainty; theoretical basis for covariance-gated promotion |
+| Weng et al. (2020) — AB3DMOT | Demonstrates that tight L4→L5 feedback (detection quality → tracker health) is the dominant factor in MOT performance, motivating our L3→L5 forward coupling |
+
+**Design and implementation plan:** [Velocity-coherent foreground plan](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md). Full maths specification: [Velocity-coherent foreground maths](../../maths/proposals/20260220-velocity-coherent-foreground-extraction.md).
+
+### L5h Motion Extensions (planned)
+
+**Our approach (planned):** Three motion-model engines in priority order: (1) `cv_kf_v1` — constant-velocity (CV) Kalman filter (current default); (2) `imm_cv_ca_v2` — Interacting Multiple Model with CV and constant-acceleration (CA) sub-filters; (3) `imm_cv_ca_rts_eval_v2` — adds Rauch-Tung-Striebel (RTS) offline smoother for evaluation. CTRV (constant turn-rate and velocity) with an Unscented Kalman Filter is planned for curve negotiation.
+
+**Literature context:** The IMM algorithm is the standard approach when a single motion model is insufficient — it runs $M$ filters in parallel and blends their outputs by probability. For road vehicles, CV + CA covers straight segments and braking/accelerating; adding CTRV covers turns. The UKF handles CTRV's nonlinear state equations without linearisation artefacts.
+
+| Reference | Relevance |
+| --------- | --------- |
+| Blom & Bar-Shalom (1988) — The interacting multiple model algorithm | Foundational IMM paper; defines the mode-probability blending equations our `imm_cv_ca_v2` engine follows |
+| Bar-Shalom & Fortmann (1988) — _Tracking and Data Association_ | Chapter 11 covers multiple motion models and the theoretical basis for model switching |
+| Julier & Uhlmann (1997) — A new extension of the Kalman filter to nonlinear systems | UKF sigma-point propagation; recommended over EKF for CTRV due to simpler Jacobian-free implementation |
+| Rauch et al. (1965) — Maximum likelihood estimates of linear dynamic systems | RTS fixed-interval smoother; used in the `rts_eval` engine variant for offline trajectory quality assessment |
+| Weng et al. (2020) — AB3DMOT | Provides the benchmarking baseline against which motion-model improvements are measured |
+
+**Design plan:** [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md).
+
 ### L6 Objects — semantic classification
 
 **Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV 28-class taxonomy mapping as an export concern.
@@ -638,6 +669,21 @@ Use the references above as the fast visual index:
 | nuScenes detection taxonomy (Caesar et al., 2020)                   | 23-class AV taxonomy; our L6 maps local classes to this (and Waymo 4-class) for evaluation compatibility              |
 | KITTI 3D Object Detection Benchmark (Geiger et al., 2012)           | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                  |
 | Behley et al. (2019) — SemanticKITTI                                | 28-class point-wise semantic labels; our AV compatibility mapping targets this taxonomy                               |
+
+### L6e ML Classifier (planned)
+
+**Our approach (planned):** A learned classifier to complement or replace the rule-based L6b classifier. The 13-feature vector (height, length, width, speed percentiles, observation count, duration) already used by the rule-based classifier is designed to be export-compatible with standard ML frameworks. Training would use KITTI- or nuScenes-format labelled data generated from VRLOG recordings.
+
+**Literature context:** The architectural slot we occupy (features from tracked clusters → class label) is equivalent to the "object proposal → classification" stage in detector pipelines. Our heuristic classifier is an interpretable baseline; learned classifiers improve on recall for ambiguous object types (cyclists vs. pedestrians at low speed, motorcyclists vs. cyclists at medium speed) at the cost of requiring labelled training data.
+
+| Reference | Relevance |
+| --------- | --------- |
+| Lang et al. (2019) — PointPillars | Point-pillar feature extraction as an alternative feature representation; could replace our hand-crafted 13 features |
+| Geiger et al. (2012) — KITTI | Training and evaluation benchmark; our classification rules were calibrated against KITTI class definitions |
+| Caesar et al. (2020) — nuScenes | 23-class taxonomy and large-scale labelled dataset; primary target for future learned classifier training |
+| Behley et al. (2019) — SemanticKITTI | 28-class point-level semantic labels; AV compatibility mapping targets this taxonomy |
+
+**Design plan:** [ML classifier plan](../../plans/lidar-ml-classifier-training-plan.md).
 
 ---
 
@@ -728,13 +774,19 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 
 ## References (consolidated)
 
+> The full bibliography in BibTeX format is maintained at [docs/references.bib](../../references.bib). BibTeX citation keys follow the `LastnameYYYY` convention used throughout this document.
+
 ### Foundational algorithms
 
 - Ester, M., Kriegel, H.-P., Sander, J., & Xu, X. (1996). A density-based algorithm for discovering clusters in large spatial databases with noise. _KDD-96_.
 - Kalman, R. E. (1960). A new approach to linear filtering and prediction problems. _Journal of Basic Engineering_, 82(1), 35–45.
 - Kuhn, H. W. (1955). The Hungarian method for the assignment problem. _Naval Research Logistics Quarterly_, 2(1–2), 83–97.
+- Munkres, J. (1957). Algorithms for the assignment and transportation problems. _Journal of the Society for Industrial and Applied Mathematics_, 5(1), 32–38.
 - Jolliffe, I. T. (2002). _Principal Component Analysis_ (2nd ed.). Springer.
 - Stauffer, C., & Grimson, W. E. L. (1999). Adaptive background mixture models for real-time tracking. _CVPR 1999_.
+- Welford, B. P. (1962). Note on a method for calculating corrected sums of squares and products. _Technometrics_, 4(3), 419–420.
+- Mahalanobis, P. C. (1936). On the generalised distance in statistics. _Proceedings of the National Institute of Sciences of India_, 2(1), 49–55.
+- Fischler, M. A., & Bolles, R. C. (1981). Random sample consensus: a paradigm for model fitting with applications to image analysis and automated cartography. _Communications of the ACM_, 24(6), 381–395.
 
 ### LiDAR processing and detection
 
@@ -745,6 +797,10 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 - Lim, H., Oh, M., & Myung, H. (2021). Patchwork: Concentric zone-based region-wise ground segmentation with tilted LiDAR. _RA-L 2021_.
 - Rusu, R. B., & Cousins, S. (2011). 3D is here: Point Cloud Library (PCL). _ICRA 2011_.
 
+### Clustering alternatives (planned — L4)
+
+- Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based clustering based on hierarchical density estimates. _PAKDD 2013_. (HDBSCAN — alternative to DBSCAN for variable-density clusters)
+
 ### Tracking
 
 - Bewley, A., Ge, Z., Ott, L., Ramos, F., & Upcroft, B. (2016). Simple online and realtime tracking. _ICIP 2016_. arXiv:1602.00763.
@@ -752,14 +808,29 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 - Yin, T., Zhou, X., & Krähenbühl, P. (2021). Center-based 3D object detection and tracking. _CVPR 2021_. arXiv:2006.11275.
 - Bernardin, K., & Stiefelhagen, R. (2008). Evaluating multiple object tracking performance: The CLEAR MOT metrics. _EURASIP JIVP_, 2008.
 
+### Advanced motion models and smoothers (planned — L5h)
+
+- Bar-Shalom, Y., & Fortmann, T. E. (1988). _Tracking and Data Association_. Academic Press.
+- Blom, H. A. P., & Bar-Shalom, Y. (1988). The interacting multiple model algorithm for systems with Markovian switching coefficients. _IEEE Transactions on Automatic Control_, 33(8), 780–783. (IMM — foundation of planned `imm_cv_ca_v2` engine)
+- Julier, S. J., & Uhlmann, J. K. (1997). A new extension of the Kalman filter to nonlinear systems. _SPIE AeroSense 1997_, vol. 3068, 182–193. (UKF — for CTRV nonlinear motion model)
+- Rauch, H. E., Tung, F., & Striebel, C. T. (1965). Maximum likelihood estimates of linear dynamic systems. _AIAA Journal_, 3(8), 1445–1450. (RTS smoother — evaluation-only `rts_eval` engine variant)
+
 ### Scene understanding and mapping
 
 - Behley, J., Garbade, M., Milioto, A., Quenzel, J., Behnke, S., Stachniss, C., & Gall, J. (2019). SemanticKITTI: A dataset for semantic scene understanding of LiDAR sequences. _ICCV 2019_. arXiv:1904.01416.
 - Hornung, A., Wurm, K. M., Bennewitz, M., Stachniss, C., & Burgard, W. (2013). OctoMap: An efficient probabilistic 3D mapping framework based on octrees. _Autonomous Robots_, 34(3). doi:10.1007/s10514-012-9321-0.
 - Pomerleau, F., Krüsi, P., Colas, F., Furgale, P., & Siegwart, R. (2014). Long-term 3D map maintenance in dynamic environments. _ICRA 2014_.
 - Pannen, D., Liebner, M., Hempel, W., & Stiller, C. (2020). How to keep HD maps for automated driving up to date. _ICRA 2020_.
-- Caesar, H., et al. (2020). nuScenes: A multimodal dataset for autonomous driving. _CVPR 2020_.
+- Caesar, H., et al. (2020). nuScenes: A multimodal dataset for autonomous driving. _CVPR 2020_. arXiv:1912.08142.
 - Geiger, A., Lenz, P., & Urtasun, R. (2012). Are we ready for autonomous driving? The KITTI vision benchmark suite. _CVPR 2012_.
+- Schönemann, P. H. (1966). A generalised solution of the orthogonal Procrustes problem. _Psychometrika_, 31(1), 1–10. (Rigid alignment via SVD — used in L7 prior-to-observation registration)
+
+### Trajectory prediction and scene-constrained motion (L7 planned)
+
+- Lefèvre, S., Vasquez, D., & Laugier, C. (2014). A survey on motion prediction and risk assessment for intelligent vehicles. _ROBOMECH Journal_, 1(1), 1.
+- Schöller, C., Aravantinos, V., Lay, F., & Knoll, A. (2020). What the constant velocity model can teach us about pedestrian motion prediction. _RA-L_, 5(2), 1696–1703. arXiv:1903.07933.
+- Salzmann, T., Ivanovic, B., Chakravarty, P., & Pavone, M. (2020). Trajectron++: Dynamically-feasible trajectory forecasting with heterogeneous data. _ECCV 2020_. arXiv:2001.03093.
+- Liang, M., Yang, B., Hu, R., Chen, Y., Liao, R., Feng, S., & Urtasun, R. (2020). Learning lane graph representations for motion forecasting. _ECCV 2020_.
 
 ### Multi-sensor fusion
 

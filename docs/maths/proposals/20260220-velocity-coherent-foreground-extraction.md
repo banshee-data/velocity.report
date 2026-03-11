@@ -315,3 +315,19 @@ Proposal acceptance requires replay-backed evidence that the configured default
 (`accuracy_first_v1` + default layer engines) improves velocity and
 acceleration accuracy while keeping low-speed heading stable and preserving
 fragmentation quality within defined non-regression bounds.
+
+---
+
+## 11. References
+
+| Reference | BibTeX key | Relevance |
+| --------- | ---------- | --------- |
+| Bar-Shalom & Fortmann (1988) | `BarShalom1988a` | Bayesian framework for track-assisted detection decisions (Section 3.2 covariance-gated promotion) |
+| Blom & Bar-Shalom (1988) | `Blom1988` | IMM algorithm — `imm_cv_ca_v2` and `imm_cv_ca_rts_eval_v2` engines (Section 5.1) |
+| Rauch et al. (1965) | `Rauch1965` | RTS fixed-interval smoother — evaluation-only `imm_cv_ca_rts_eval_v2` (Section 5.1) |
+| Julier & Uhlmann (1997) | `Julier1997` | UKF — recommended for CTRV nonlinear motion equations |
+| Campello et al. (2013) | `Campello2013` | HDBSCAN — optional Stage A alternative to DBSCAN (Section 4.1) |
+| Weng et al. (2020) | `Weng2020` | AB3DMOT — benchmark reference for velocity accuracy improvements (Section 7.1) |
+| Welford (1962) | `Welford1962` | Numerically stable online variance — recommended for per-layer metric accumulation |
+
+Full BibTeX entries: [docs/references.bib](../../references.bib)
