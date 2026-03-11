@@ -393,70 +393,29 @@ def suggest_node_reorder(
         if len(sg.nodes) < 2:
             continue
 
-        # Detect internal sequential chains: edges where both src and
-        # dst are in this subgraph.  These define a fixed ordering
-        # constraint.
+        # Detect internal edges (both src and dst in this subgraph).
+        # Subgraphs with internal edges are pipeline-like — their node
+        # order is semantically meaningful and should not be reordered.
         sg_set = set(sg.nodes)
-        internal_next: dict[str, list[str]] = defaultdict(list)
-        internal_prev: dict[str, list[str]] = defaultdict(list)
-        for e in edges:
-            if e.src in sg_set and e.dst in sg_set:
-                internal_next[e.src].append(e.dst)
-                internal_prev[e.dst].append(e.src)
-
-        # Build chains through nodes with exactly one next and one prev.
-        # Branch points (multiple nexts) or merge points (multiple prevs)
-        # terminate the chain.
-        chains: list[list[str]] = []
-        visited: set[str] = set()
-        # Find chain heads: no internal prev, or multiple prevs
-        for node in sg.nodes:
-            if node in visited:
-                continue
-            if len(internal_prev.get(node, [])) != 0:
-                continue
-            # Walk forward through single-successor nodes
-            chain = [node]
-            visited.add(node)
-            cursor = node
-            while len(internal_next.get(cursor, [])) == 1:
-                nxt = internal_next[cursor][0]
-                if nxt in visited:
-                    break
-                # Only chain through if the target has exactly one pred
-                if len(internal_prev.get(nxt, [])) != 1:
-                    break
-                chain.append(nxt)
-                visited.add(nxt)
-                cursor = nxt
-            chains.append(chain)
-
-        # Add any isolated nodes (not in any chain)
-        for node in sg.nodes:
-            if node not in visited:
-                chains.append([node])
-                visited.add(node)
-
-        if len(chains) <= 1:
-            # Single chain or single node — no reordering possible
+        has_internal_edges = any(e.src in sg_set and e.dst in sg_set for e in edges)
+        if has_internal_edges:
             continue
 
-        # Collect external neighbour positions for each chain
-        def chain_barycenter(chain: list[str]) -> float:
+        # Pure fan-out subgraph (no internal edges): order nodes by the
+        # barycenter of their external neighbours.
+
+        def node_barycenter(node: str) -> float:
             positions: list[float] = []
-            for node in chain:
-                for e in edges:
-                    if e.src == node and e.dst not in sg_set:
-                        positions.append(node_pos.get(e.dst, 0))
-                    if e.dst == node and e.src not in sg_set:
-                        positions.append(node_pos.get(e.src, 0))
+            for e in edges:
+                if e.src == node and e.dst not in sg_set:
+                    positions.append(node_pos.get(e.dst, 0))
+                if e.dst == node and e.src not in sg_set:
+                    positions.append(node_pos.get(e.src, 0))
             if not positions:
-                # Fall back to current position of first node
-                return node_pos.get(chain[0], 0)
+                return node_pos.get(node, 0)
             return sum(positions) / len(positions)
 
-        proposed_chains = sorted(chains, key=chain_barycenter)
-        proposed = [node for chain in proposed_chains for node in chain]
+        proposed = sorted(sg.nodes, key=node_barycenter)
 
         if proposed != sg.nodes:
             suggestions[sg_name] = proposed
