@@ -47,6 +47,14 @@ flowchart TB
     classDef partial fill:#fff2cc,stroke:#9a6b16,color:#4d3600;
     classDef client fill:#f7f1e8,stroke:#8b6f47,color:#4e3b24;
     classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
+    classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
+
+    R00["Radar sensor"]
+    A00["LiDAR sensor"]
+    D00["Disk / storage"]
+    R01["Serial I/O"]
+    A01["UDP socket"]
+    D01["Filesystem"]
 
     subgraph L1["L1 Packets"]
         direction LR
@@ -57,37 +65,39 @@ flowchart TB
 
     subgraph L2["L2 Frames"]
         direction LR
-        A21["Frame assembly ✅"]
-        A22["Polar to Cartesian ✅"]
-        A23["ASC / LidarView export ✅"]
+        A21["Frame assembly / XYZ cache ✅"]
+        A22["ASC / LidarView export ✅"]
     end
 
     subgraph L3["L3 Grid"]
         direction LR
-        A31["Polar EMA background ✅"]
-        A32["Settling / drift gates ✅"]
+        A31["Cell accumulator ✅"]
+        A32["EMA background ✅"]
+        A33["Foreground / noise gating ✅"]
+        A34["Settling / region save-restore ✅"]
     end
 
     subgraph L4["L4 Perception"]
         direction LR
-        A41["Height-band ground filter ✅"]
-        A42["DBSCAN clustering ✅"]
-        A43["PCA / OBB geometry ✅"]
+        A41["Foreground to world frame ✅"]
+        A42["Ground removal ✅"]
+        A43["Voxel + DBSCAN clustering ✅"]
+        A44["Cluster geometry / filters ✅"]
     end
 
     subgraph L5["L5 Tracks"]
         direction LR
-        A51["Hungarian assignment ✅"]
-        A52["CV Kalman tracking ✅"]
-        A53["Occlusion coasting ✅"]
+        A51["Assignment + Kalman update ✅"]
+        A52["Track lifecycle / coasting ✅"]
+        A53["Trajectory / quality ✅"]
     end
 
     subgraph L6["L6 Objects"]
         direction LR
         R61["Radar objects DB / transit sessionization ✅"]
-        A61["LiDAR features / confidence ✅"]
-        A62["LiDAR rule classes ✅"]
-        A63["LiDAR run stats ✅"]
+        A61["Feature aggregation / heuristics ✅"]
+        A62["Classification / confidence ✅"]
+        A63["Run stats / quality filters ✅"]
     end
 
     subgraph L7["L7 Scene"]
@@ -122,27 +132,36 @@ flowchart TB
         A101["Swift visualiser 📄"]
     end
 
+    R00 --> R01
+    A00 --> A01
+    D00 --> D01
+    R01 --> R11
+    A01 --> A11
+    D01 --> A12
+
     A11 --> A21
     A12 --> A21
     A21 --> A22
-    A21 --> A23
-    A22 --> A31
+    A21 --> A31
     A31 --> A32
-    A32 --> A41
+    A32 --> A33
+    A32 --> A34
+    A33 --> A41
     A41 --> A42
     A42 --> A43
-    A43 --> A51
+    A43 --> A44
+    A44 --> A51
     A51 --> A52
     A52 --> A53
     A53 --> A61
     A61 --> A62
     A62 --> A63
-    A63 -.-> A71
+    A62 -.-> A71
     A71 -.-> A81
     A63 --> A82
     A63 --> A83
     A53 --> A91
-    A63 --> A91
+    A62 --> A91
     A81 --> A92
     A82 --> A92
     A83 --> A92
@@ -157,17 +176,28 @@ flowchart TB
     R91 --> R101
     R91 --> R102
 
-    class A11,A12,R11,A21,A22,A23,A31,A32,A41,A42,A43,A51,A52,A53,A61,A62,A63,R61,A81,A83,R81,R91 implemented;
+    class R00,A00,D00,R01,A01,D01 infra;
+    class A11,A12,R11,A21,A22,A31,A32,A33,A34,A41,A42,A43,A44,A51,A52,A53,A61,A62,A63,R61,A81,A83,R81,R91 implemented;
     class A82,A91,A92 partial;
     class A71 gap;
     class A101,A102,A103,R101,R102 client;
 ```
+
+Note: `L2` frame assembly already builds the sensor-frame XYZ cache used by
+`LiDARFrame` and export paths. The `L3` EMA/background model still operates on
+polar points, and the `L4` transform is the later foreground-to-world step.
+
+Note: `L3` region save/restore is part of settling control, not a separate
+post-grid stage. During warmup, `l3grid` can try early region restore from DB
+after about 10 frames; when settling completes naturally, it identifies regions
+and persists a linked grid+region snapshot for future restore.
 
 **Legend**
 
 - Green `✅`: implemented in the current runtime.
 - Amber `🔄`: current code exists, but the layer surface is still partial or evolving.
 - Grey: reserved layer slot with no current runtime code.
+- Blue-grey: pre-L1 hardware / IO dependencies shown for ingress context only; not part of the L1-L10 numbering.
 - Beige `📄`: downstream/client surface rather than a core runtime layer package.
 - Solid arrows: dominant current-code flow through that branch.
 - Dashed arrows: layout/reference links through non-runtime layer gaps or branches that skip some runtime layers.
