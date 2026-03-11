@@ -36,10 +36,10 @@ The concept chart below is the primary visual reference.
 
 ## Segmented Concept Status Chart
 
-This is the primary visual breakdown for the layer model. It shows only
-current-code components in the repository today. L7 is kept as an explicit
-empty slot so the canonical L1-L10 stack remains visually fixed even though
-that layer has no runtime implementation yet.
+This is the primary visual breakdown for the layer model. Green nodes show
+implemented components; grey nodes mark planned extensions with no runtime
+code yet. L7 remains an explicit empty slot so the canonical L1-L10 stack
+stays visually fixed.
 
 ```mermaid
 flowchart TB
@@ -91,6 +91,7 @@ flowchart TB
         L3b["EMA background"]
         L3c["Foreground gating"]
         L3d["Region cache"]
+        L3f["VC Foreground"]
     end
 
     subgraph L4["L4 Perception"]
@@ -110,6 +111,7 @@ flowchart TB
         L6a["Feature aggregation"]
         L6b["Classification"]
         L6c["Run stats"]
+        L6e["ML classifier"]
     end
 
     subgraph L7["L7 Scene"]
@@ -117,11 +119,15 @@ flowchart TB
         L7a["Reserved"]
     end
 
-    subgraph L8["L8 Analytics"]
-        direction LR
-        L5a["Radar sessionization"]
+    subgraph L8sub["L8 Analytics"]
         L8b["Traffic metrics"]
         L8c["Sweep tuning / HINT"]
+    end
+
+    subgraph L8[" "]
+        direction LR
+        L8sub
+        L5a["Radar sessionization"]
         L8a["Radar metrics"]
     end
 
@@ -162,12 +168,14 @@ flowchart TB
 
     %% ── L3→L4→L5→L6 LiDAR pipeline ────────────────────
     L3a --> L3b
+    L3a --> L3f
     L3b --> L3c
     L3b --> L3d
     L3c --> L4ad
     L4ad --> L4e
     L3b --> L9c
     L4e --> L9c
+    L4e --> L5bg
     L7a -.-> L9c
     L6c --> L8b
     L8b --> L8c
@@ -175,8 +183,8 @@ flowchart TB
     L6b --> L9b
     L6a --> L6b
     L6b --> L6c
+    L6a -.-> L6e
     L6b -.-> L7a
-    L4e --> L5bg
     L5bg --> L6a
     L5bg -.-> L5h
 
@@ -198,10 +206,11 @@ flowchart TB
     style P0_sensors fill:none,stroke:none,color:transparent
     style P0_io fill:none,stroke:none,color:transparent
     style L1 fill:none,stroke:none,color:transparent
+    style L8 fill:none,stroke:none,color:transparent
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
     class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L8a,L8b,L8c,L9a,L9b,L9c implemented;
-    class L5h,L7a gap;
+    class L3f,L5h,L6e,L7a gap;
     class L10a,L10b,L10c client;
     class L10d deprecated;
 ```
@@ -262,6 +271,7 @@ block.
 | L3b | EMA background model | Stauffer-Grimson adaptive background lineage | [l3grid/background.go](../../../internal/lidar/l3grid/background.go) | ✅ | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
 | L3c | Foreground gating | Background subtraction and neighbour-confirmation heuristics | [l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go) | ✅ | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
 | L3d | Region restore and cache | Persistent background snapshots and scene-signature restore | [l3grid/background_persistence.go](../../../internal/lidar/l3grid/background_persistence.go) | ✅ | [Sidecar overview](lidar_sidecar_overview.md) |
+| L3f | Velocity-coherent foreground | Doppler/velocity-consistent foreground extraction | — | 📋 | [Velocity-coherent FG plan](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md) |
 | L4ad | Cluster extraction | **a.** Rigid transforms and homogeneous pose geometry <br> **b.** Ground-plane removal via vertical band gating <br> **c.** PCL `VoxelGrid` downsampling family <br> **d.** DBSCAN with spatial index; auto-subsample above cap | [l4perception/](../../../internal/lidar/l4perception/) | ✅ | [Foreground-tracking design](foreground_tracking.md), [Ground-plane extraction](ground-plane-extraction.md), [Clustering maths](../../maths/clustering-maths.md) |
 | L4e | Cluster geometry fitting | PCA / OBB fitting; embedded in DBSCAN output builder | [l4perception/obb.go](../../../internal/lidar/l4perception/obb.go) | ✅ | [Clustering maths](../../maths/clustering-maths.md) |
 | L5a | Radar sessionization | Temporal event segmentation and transit/session building | [db/transit_worker.go](../../../internal/db/transit_worker.go) | ✅ | [Transit deduplication plan](../../radar/architecture/transit-deduplication.md) |
@@ -270,6 +280,7 @@ block.
 | L6a | Feature aggregation | Classical feature engineering for traffic objects | [l6objects/features.go](../../../internal/lidar/l6objects/features.go) | ✅ | [Classification maths](../../maths/classification-maths.md) |
 | L6b | Rule-based classification | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage | [l6objects/classification.go](../../../internal/lidar/l6objects/classification.go) | ✅ | [Classification maths](../../maths/classification-maths.md) |
 | L6c | Run-level object stats | Experiment and run summarisation patterns | [storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go) | ✅ | [Analysis-run infrastructure](../../plans/lidar-analysis-run-infrastructure-plan.md) |
+| L6e | ML classifier | Learned classification research lane; KITTI/nuScenes training pipeline | — | 📋 | [ML classifier plan](../../plans/lidar-ml-classifier-training-plan.md) |
 | L7a | Scene/fusion slot | HD-map, scene accumulation, OSM prior literature | — | 📋 | [L7 scene plan](../../plans/lidar-l7-scene-plan.md) |
 | L8a | Radar metrics and rollups | Traffic histograms, percentiles, report rollups | [db/db.go](../../../internal/db/db.go) | ✅ | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md) |
 | L8b | LiDAR traffic metrics | Traffic engineering reporting and nearest-rank percentiles | [monitor/chart_api.go](../../../internal/lidar/monitor/chart_api.go) | ✅ | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md) |
