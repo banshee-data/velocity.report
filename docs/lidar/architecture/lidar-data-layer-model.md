@@ -512,7 +512,7 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 | Layer         | Canonical package              | Key files                                                                                                                                                   | Status |
 | ------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                                  | ✅     |
-| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `export.go`, `geometry.go`                                                                                                              | ✅     |
+| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                                  | ✅     |
 | L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                                   | ✅     |
 | L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                              | ✅     |
 | L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                                       | ✅     |
@@ -538,7 +538,7 @@ Backward-compatible type aliases remain in the parent `internal/lidar/` package 
 
 Each layer package may only import from lower-numbered layers — never upward or sideways. For example: L2 may import L1 (for return types); L3 may import L1–L2; L4 may import L1–L3; and so on. Cross-cutting packages (`pipeline/`, `storage/`, `adapters/`) are exempt.
 
-**Known violations:** Several L1–L3 files currently import types from L4 (`PointPolar`, `Point`, `SphericalToCartesian`). These are sensor-frame primitives that belong at L2. A migration plan is tracked in [lidar-layer-dependency-hygiene-plan.md](../../plans/lidar-layer-dependency-hygiene-plan.md).
+**Former violations (✅ resolved):** L1–L3 files previously imported `PointPolar`, `Point`, and `SphericalToCartesian` from L4. These sensor-frame primitives now live canonically in L2 (`l2frames/types.go`), with backward-compatible aliases in L4. See [lidar-layer-dependency-hygiene-plan.md](../../plans/lidar-layer-dependency-hygiene-plan.md).
 
 ---
 

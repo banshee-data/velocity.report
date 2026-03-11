@@ -63,31 +63,31 @@ Rules:
 
 ### Phase 1: L2 data model
 
-- [ ] Add canonical L2 ownership for `PointPolar`, `Point`, `SphericalToCartesian`, and `ApplyPose` if not already completed by the dependency-hygiene work
-- [ ] Extend `LiDARFrame` to store `PolarPoints []PointPolar` alongside `Points []Point`
-- [ ] Document representation ownership on `LiDARFrame` fields: `PolarPoints` is the sensor-polar view, `Points` is the sensor-Cartesian view
+- [x] Add canonical L2 ownership for `PointPolar`, `Point`, `SphericalToCartesian`, and `ApplyPose` if not already completed by the dependency-hygiene work
+- [x] Extend `LiDARFrame` to store `PolarPoints []PointPolar` alongside `Points []Point`
+- [x] Document representation ownership on `LiDARFrame` fields: `PolarPoints` is the sensor-polar view, `Points` is the sensor-Cartesian view
 
 ### Phase 2: Frame builder population
 
-- [ ] Update `FrameBuilder.AddPointsPolar()` to populate both frame representations from the same input batch
-- [ ] Avoid a second derived-polar copy later in the pipeline; the frame must already own the polar slice
-- [ ] Decide and document copy semantics clearly:
+- [x] Update `FrameBuilder.AddPointsPolar()` to populate both frame representations from the same input batch
+- [x] Avoid a second derived-polar copy later in the pipeline; the frame must already own the polar slice
+- [x] Decide and document copy semantics clearly:
   - `AddPointsPolar()` must copy packet/parser-owned input before storing on the frame
   - `Points` must be generated once from the stored polar values
-- [ ] Ensure frame finalisation / buffering / backfill paths preserve both slices consistently
+- [x] Ensure frame finalisation / buffering / backfill paths preserve both slices consistently
 
 ### Phase 3: Pipeline cutover
 
-- [ ] Update `TrackingPipelineConfig.NewFrameCallback()` to consume `frame.PolarPoints` directly
-- [ ] Delete the per-frame `frame.Points -> []PointPolar` rebuild block
-- [ ] Keep L3 foreground extraction on polar only
-- [ ] Keep L4 `TransformToWorld()` input as `[]PointPolar`
+- [x] Update `TrackingPipelineConfig.NewFrameCallback()` to consume `frame.PolarPoints` directly
+- [x] Delete the per-frame `frame.Points -> []PointPolar` rebuild block
+- [x] Keep L3 foreground extraction on polar only
+- [x] Keep L4 `TransformToWorld()` input as `[]PointPolar`
 
 ### Phase 4: Consumer audit
 
-- [ ] Verify L2/L9 consumers that should remain Cartesian still use `frame.Points`
-- [ ] Verify L3 consumers that should be polar now use `frame.PolarPoints`
-- [ ] Verify debug/forwarding paths still operate on the intended form:
+- [x] Verify L2/L9 consumers that should remain Cartesian still use `frame.Points`
+- [x] Verify L3 consumers that should be polar now use `frame.PolarPoints`
+- [x] Verify debug/forwarding paths still operate on the intended form:
   - foreground UDP forwarding remains polar
   - foreground snapshot store remains polar-first
   - visualiser point cloud remains Cartesian
@@ -95,38 +95,38 @@ Rules:
 
 ### Phase 5: Tests
 
-- [ ] Add frame-builder tests proving both `PolarPoints` and `Points` are populated and aligned index-for-index
-- [ ] Add pipeline tests proving L3 uses `frame.PolarPoints` and no local polar rebuild occurs
+- [x] Add frame-builder tests proving both `PolarPoints` and `Points` are populated and aligned index-for-index
+- [x] Add pipeline tests proving L3 uses `frame.PolarPoints` and no local polar rebuild occurs
 - [ ] Add regression tests for foreground extraction count parity before/after refactor
 - [ ] Add regression tests for visualiser/export consumers that still rely on `frame.Points`
 - [ ] Add benchmarks comparing old vs new callback allocations and CPU time
 
 ### Phase 6: Documentation
 
-- [ ] Update the coordinate audit to mark this plan as implemented when done
-- [ ] Update `docs/lidar/architecture/lidar-data-layer-model.md` so L2 explicitly owns both stored frame views
-- [ ] Update any architecture docs that currently imply L3 receives polar by reconstructing it from Cartesian frame points
+- [x] Update the coordinate audit to mark this plan as implemented when done
+- [x] Update `docs/lidar/architecture/lidar-data-layer-model.md` so L2 explicitly owns both stored frame views
+- [x] Update any architecture docs that currently imply L3 receives polar by reconstructing it from Cartesian frame points
 
 ## Implementation Checklist
 
 ### Code checklist
 
-- [ ] `LiDARFrame` has both `PolarPoints` and `Points`
-- [ ] `AddPointsPolar()` stores both once
-- [ ] No `frame.Points -> []PointPolar` rebuild remains in the tracking callback
-- [ ] L3 hot path reads frame-owned polar data
-- [ ] L2/L9 Cartesian consumers remain unchanged unless they benefit from direct polar access
+- [x] `LiDARFrame` has both `PolarPoints` and `Points`
+- [x] `AddPointsPolar()` stores both once
+- [x] No `frame.Points -> []PointPolar` rebuild remains in the tracking callback
+- [x] L3 hot path reads frame-owned polar data
+- [x] L2/L9 Cartesian consumers remain unchanged unless they benefit from direct polar access
 
 ### Correctness checklist
 
-- [ ] `len(frame.PolarPoints) == len(frame.Points)` for every completed frame
-- [ ] Per-index metadata matches between views: `Channel`, `Distance`, `Azimuth`, `Elevation`, `Timestamp`, `BlockID`, `UDPSequence`
+- [x] `len(frame.PolarPoints) == len(frame.Points)` for every completed frame
+- [x] Per-index metadata matches between views: `Channel`, `Distance`, `Azimuth`, `Elevation`, `Timestamp`, `BlockID`, `UDPSequence`
 - [ ] Foreground mask output is unchanged on replay fixtures
 - [ ] Cluster counts and track counts remain within expected replay tolerance
 
 ### Performance checklist
 
-- [ ] Per-frame allocation count is reduced or unchanged in the tracking callback
+- [x] Per-frame allocation count is reduced or unchanged in the tracking callback
 - [ ] Per-frame callback CPU time does not regress
 - [ ] No new long-lived duplicate copies beyond the intended two frame-owned views
 
