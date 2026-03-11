@@ -449,7 +449,7 @@ func (tc *TrackClassifier) motorcyclistConfidence(f ClassificationFeatures) floa
 		confidence += 0.05
 	}
 
-	// Higher peak speed distinguishes from cyclist
+	// Higher max speed distinguishes from cyclist
 	if f.MaxSpeed > 12.0 {
 		confidence += 0.05
 	}

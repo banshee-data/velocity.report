@@ -323,7 +323,9 @@ final class IsTrackClimbingTests: XCTestCase {
 final class ComputeRanksTests: XCTestCase {
 
     func testNewTracksGetNilClimbedAt() {
-        let sorted: [(id: String, peak: Float)] = [(id: "a", peak: 10), (id: "b", peak: 5)]
+        let sorted: [(id: String, maxSpeed: Float)] = [
+            (id: "a", maxSpeed: 10), (id: "b", maxSpeed: 5),
+        ]
         let result = computeRanks(speedSorted: sorted, previousRanks: [:])
         XCTAssertEqual(result["a"]?.rank, 0)
         XCTAssertNil(result["a"]?.climbedAt)
@@ -337,7 +339,9 @@ final class ComputeRanksTests: XCTestCase {
             "a": (rank: 2, climbedAt: nil), "b": (rank: 0, climbedAt: nil),
         ]
         // "a" moves from rank 2 to rank 0 → climb
-        let sorted: [(id: String, peak: Float)] = [(id: "a", peak: 15), (id: "b", peak: 10)]
+        let sorted: [(id: String, maxSpeed: Float)] = [
+            (id: "a", maxSpeed: 15), (id: "b", maxSpeed: 10),
+        ]
         let result = computeRanks(speedSorted: sorted, previousRanks: previous, now: now)
         XCTAssertEqual(result["a"]?.rank, 0)
         XCTAssertEqual(result["a"]?.climbedAt, now)
@@ -347,7 +351,7 @@ final class ComputeRanksTests: XCTestCase {
         let original = Date().addingTimeInterval(-1.0)
         let now = Date()
         let previous: [String: RankEntry] = ["a": (rank: 0, climbedAt: original)]
-        let sorted: [(id: String, peak: Float)] = [(id: "a", peak: 10)]
+        let sorted: [(id: String, maxSpeed: Float)] = [(id: "a", maxSpeed: 10)]
         let result = computeRanks(speedSorted: sorted, previousRanks: previous, now: now)
         XCTAssertEqual(result["a"]?.rank, 0)
         XCTAssertEqual(result["a"]?.climbedAt, original)
@@ -359,7 +363,9 @@ final class ComputeRanksTests: XCTestCase {
             "a": (rank: 0, climbedAt: nil), "b": (rank: 1, climbedAt: nil),
         ]
         // "a" drops from 0 to 1
-        let sorted: [(id: String, peak: Float)] = [(id: "b", peak: 15), (id: "a", peak: 10)]
+        let sorted: [(id: String, maxSpeed: Float)] = [
+            (id: "b", maxSpeed: 15), (id: "a", maxSpeed: 10),
+        ]
         let result = computeRanks(speedSorted: sorted, previousRanks: previous, now: now)
         XCTAssertEqual(result["a"]?.rank, 1)
         XCTAssertNil(result["a"]?.climbedAt)  // Was nil, stays nil
@@ -385,21 +391,21 @@ final class BuildRunModeSpeedEntriesTests: XCTestCase {
             runTracks: runTracks, frameTrackByID: frameTrackByID, trackMaxSpeed: trackMaxSpeed)
 
         XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(result[0].peak, 10.0)  // persistent is highest
+        XCTAssertEqual(result[0].maxSpeed, 10.0)  // persistent is highest
     }
 
     func testFallsBackToAPISpeed() {
         let runTracks = [makeRunTrack(trackId: "trk_a", maxSpeed: 7.0)]
         let result = buildRunModeSpeedEntries(
             runTracks: runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
-        XCTAssertEqual(result[0].peak, 7.0)
+        XCTAssertEqual(result[0].maxSpeed, 7.0)
     }
 
     func testNilAPIMaxSpeedUsesZero() {
         let runTracks = [makeRunTrack(trackId: "trk_a", maxSpeed: nil)]
         let result = buildRunModeSpeedEntries(
             runTracks: runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
-        XCTAssertEqual(result[0].peak, 0.0)
+        XCTAssertEqual(result[0].maxSpeed, 0.0)
     }
 
     func testSortedDescending() {
@@ -421,13 +427,13 @@ final class BuildFrameModeSpeedEntriesTests: XCTestCase {
     func testUsesMaxOfTrackAndPersistent() {
         let tracks = [makeTrack(id: "trk_a", maxSpeed: 5.0)]
         let result = buildFrameModeSpeedEntries(tracks: tracks, trackMaxSpeed: ["trk_a": 12.0])
-        XCTAssertEqual(result[0].peak, 12.0)
+        XCTAssertEqual(result[0].maxSpeed, 12.0)
     }
 
-    func testFallsBackToTrackPeak() {
+    func testFallsBackToTrackMax() {
         let tracks = [makeTrack(id: "trk_a", maxSpeed: 8.0)]
         let result = buildFrameModeSpeedEntries(tracks: tracks, trackMaxSpeed: [:])
-        XCTAssertEqual(result[0].peak, 8.0)
+        XCTAssertEqual(result[0].maxSpeed, 8.0)
     }
 
     func testSortedDescending() {
@@ -577,11 +583,11 @@ final class SortTracksByMaxSpeedTests: XCTestCase {
         XCTAssertEqual(sorted.map(\.trackID), ["trk_fast", "trk_mid", "trk_slow"])
     }
 
-    func testPersistentPeakOverrides() {
+    func testPersistentMaxOverrides() {
         let tracks = [
             makeTrack(id: "trk_a", maxSpeed: 3.0), makeTrack(id: "trk_b", maxSpeed: 10.0),
         ]
-        // trk_a has a higher persistent peak
+        // trk_a has a higher persistent max
         let sorted = sortTracksByMaxSpeed(tracks, trackMaxSpeed: ["trk_a": 20.0])
         XCTAssertEqual(sorted.map(\.trackID), ["trk_a", "trk_b"])
     }
@@ -616,7 +622,7 @@ final class SortRunTracksByMaxSpeedTests: XCTestCase {
         XCTAssertEqual(sorted.map(\.trackId), ["trk_b", "trk_a"])
     }
 
-    func testNilAPIPeakHandled() {
+    func testNilAPIMaxHandled() {
         let runTracks = [makeRunTrack(trackId: "trk_a", maxSpeed: nil)]
         let sorted = sortRunTracksByMaxSpeed(runTracks, frameTrackByID: [:], trackMaxSpeed: [:])
         XCTAssertEqual(sorted.count, 1)
@@ -856,8 +862,8 @@ final class EdgeCaseHelperTests: XCTestCase {
             "a": (rank: 3, climbedAt: nil), "b": (rank: 2, climbedAt: nil),
             "c": (rank: 0, climbedAt: nil),
         ]
-        let sorted: [(id: String, peak: Float)] = [
-            (id: "a", peak: 20), (id: "b", peak: 15), (id: "c", peak: 5),
+        let sorted: [(id: String, maxSpeed: Float)] = [
+            (id: "a", maxSpeed: 20), (id: "b", maxSpeed: 15), (id: "c", maxSpeed: 5),
         ]
         let result = computeRanks(speedSorted: sorted, previousRanks: previous, now: now)
         // a climbed from 3→0, b climbed from 2→1, c dropped from 0→2

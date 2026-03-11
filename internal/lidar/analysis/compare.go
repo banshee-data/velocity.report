@@ -271,11 +271,33 @@ func LoadAnalysis(vrlogPath string) (*AnalysisReport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", p, err)
 	}
+	if err := validateAnalysisSchema(data); err != nil {
+		return nil, fmt.Errorf("validate %s: %w", p, err)
+	}
 	var report AnalysisReport
 	if err := json.Unmarshal(data, &report); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", p, err)
 	}
 	return &report, nil
+}
+
+func validateAnalysisSchema(data []byte) error {
+	var raw struct {
+		Tracks []map[string]json.RawMessage `json:"tracks"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for i, track := range raw.Tracks {
+		if _, ok := track["max_speed_mps"]; ok {
+			continue
+		}
+		if _, ok := track["MaxSpeedMps"]; ok {
+			continue
+		}
+		return fmt.Errorf("track %d missing required key max_speed_mps", i)
+	}
+	return nil
 }
 
 // loadOrGenerate returns the cached analysis if analysis.json exists,
@@ -285,7 +307,7 @@ func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 	if err == nil {
 		return report, nil
 	}
-	// analysis.json missing or corrupt — generate it.
+	// analysis.json missing, corrupt, or stale-schema — generate it.
 	log.Printf("Generating analysis for %s ...", vrlogPath)
 	report, _, genErr := GenerateReport(vrlogPath)
 	if genErr != nil {

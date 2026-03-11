@@ -48,19 +48,19 @@ compatibility and self-documentation:
 
 Features are extracted per-track from the observation history:
 
-| Feature           | Symbol            | Unit | Source                                    |
-| ----------------- | ----------------- | ---- | ----------------------------------------- |
-| Average height    | $\bar{h}$         | m    | `BoundingBoxHeightAvg`                    |
-| Average length    | $\bar{l}$         | m    | `BoundingBoxLengthAvg`                    |
-| Average width     | $\bar{w}$         | m    | `BoundingBoxWidthAvg`                     |
-| P95 height        | $h_{95}$          | m    | `HeightP95Max`                            |
-| Average speed     | $\bar{v}$         | m/s  | `AvgSpeedMps`                             |
-| Peak speed        | $v_{\text{peak}}$ | m/s  | `PeakSpeedMps`                            |
-| P50 speed         | $v_{50}$          | m/s  | Median of speed history                   |
-| P85 speed         | $v_{85}$          | m/s  | 85th percentile                           |
-| P95 speed         | $v_{95}$          | m/s  | 95th percentile                           |
-| Observation count | $n$               | —    | `ObservationCount`                        |
-| Duration          | $\Delta t$        | s    | `(LastUnixNanos - FirstUnixNanos) / 10^9` |
+| Feature           | Symbol           | Unit | Source                                    |
+| ----------------- | ---------------- | ---- | ----------------------------------------- |
+| Average height    | $\bar{h}$        | m    | `BoundingBoxHeightAvg`                    |
+| Average length    | $\bar{l}$        | m    | `BoundingBoxLengthAvg`                    |
+| Average width     | $\bar{w}$        | m    | `BoundingBoxWidthAvg`                     |
+| P95 height        | $h_{95}$         | m    | `HeightP95Max`                            |
+| Average speed     | $\bar{v}$        | m/s  | `AvgSpeedMps`                             |
+| Max speed         | $v_{\text{max}}$ | m/s  | `MaxSpeedMps`                             |
+| P50 speed         | $v_{50}$         | m/s  | Median of speed history                   |
+| P85 speed         | $v_{85}$         | m/s  | 85th percentile                           |
+| P95 speed         | $v_{95}$         | m/s  | 95th percentile                           |
+| Observation count | $n$              | —    | `ObservationCount`                        |
+| Duration          | $\Delta t$       | s    | `(LastUnixNanos - FirstUnixNanos) / 10^9` |
 
 ## 4. Decision Thresholds
 
@@ -115,7 +115,7 @@ $$
 \;\land\;
 \bar{w} > W_{\text{bus}}
 \;\land\;
-\bigl(\bar{v} > V_{\text{veh}} \;\lor\; v_{\text{peak}} > 1.5 \, V_{\text{veh}} \;\lor\; \bar{h} > H_{\text{veh}}\bigr)
+\bigl(\bar{v} > V_{\text{veh}} \;\lor\; v_{\text{max}} > 1.5 \, V_{\text{veh}} \;\lor\; \bar{h} > H_{\text{veh}}\bigr)
 $$
 
 Confidence increases with extreme length (>10 m), width (>2.5 m),
@@ -130,7 +130,7 @@ $$
 \;\land\;
 \bar{h} > H_{\text{truck}}
 \;\land\;
-\bigl(\bar{v} > V_{\text{veh}} \;\lor\; v_{\text{peak}} > 1.5 \, V_{\text{veh}}\bigr)
+\bigl(\bar{v} > V_{\text{veh}} \;\lor\; v_{\text{max}} > 1.5 \, V_{\text{veh}}\bigr)
 $$
 
 Bus-sized objects are excluded (detected in §5.2). Confidence
@@ -142,7 +142,7 @@ speed (>8 m/s), and observation count (>20).
 $$
 \bigl(\bar{l} > L_{\text{veh}} \;\lor\; \bar{w} > W_{\text{veh}}\bigr)
 \;\land\;
-\bigl(\bar{v} > V_{\text{veh}} \;\lor\; v_{\text{peak}} > 1.5 \, V_{\text{veh}}\bigr)
+\bigl(\bar{v} > V_{\text{veh}} \;\lor\; v_{\text{max}} > 1.5 \, V_{\text{veh}}\bigr)
 $$
 
 **OR** large + tall:
@@ -155,7 +155,7 @@ $$
 
 Bus- and truck-sized objects are excluded (detected in §5.2–5.3).
 Confidence increases with length (>4 m), width (>2 m), speed (>10 m/s),
-peak speed (>15 m/s), and observation count (>20).
+max speed (>15 m/s), and observation count (>20).
 
 ### 5.5 Motorcyclist
 
@@ -169,7 +169,7 @@ $$
 
 Confidence increases in the typical motorcycle speed range
 ($8 \le \bar{v} \le 25$ m/s), for narrow profiles ($\bar{w} \le 0.9$),
-for longer platforms ($\bar{l} \ge 2.0$), and when peak speed exceeds
+for longer platforms ($\bar{l} \ge 2.0$), and when max speed exceeds
 12 m/s (distinguishing from cyclists).
 
 ### 5.6 Cyclist

@@ -234,7 +234,7 @@ func TestSortFeatureImportance(t *testing.T) {
 	t.Run("sorts by absolute value descending", func(t *testing.T) {
 		// Features: point_count, bbox_length, bbox_width, bbox_height, height_p95,
 		// intensity_mean, intensity_std, elongation, compactness, vertical_spread,
-		// avg_speed_mps, peak_speed_mps, speed_variance, ...
+		// avg_speed_mps, max_speed_mps, speed_variance, ...
 		vector := make([]float32, len(SortedFeatureNames()))
 		vector[0] = 100.0 // point_count - highest
 		vector[1] = 5.0   // bbox_length

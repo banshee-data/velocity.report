@@ -229,6 +229,58 @@ func TestDeserializeFrameInvalidData(t *testing.T) {
 	}
 }
 
+func TestDeserializeFrameLegacySpeedField(t *testing.T) {
+	frame, err := deserializeFrame([]byte(`{
+		"FrameID": 7,
+		"TimestampNanos": 12345,
+		"SensorID": "legacy-sensor",
+		"Tracks": {
+			"Tracks": [
+				{
+					"TrackID": "legacy-track",
+					"SpeedMps": 4.5,
+					"PeakSpeedMps": 6.75
+				}
+			]
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("deserializeFrame() error = %v", err)
+	}
+	if frame.Tracks == nil || len(frame.Tracks.Tracks) != 1 {
+		t.Fatalf("expected one restored track, got %#v", frame.Tracks)
+	}
+	if got := frame.Tracks.Tracks[0].MaxSpeedMps; got != 6.75 {
+		t.Errorf("MaxSpeedMps = %v, want 6.75", got)
+	}
+}
+
+func TestDeserializeFramePrefersExplicitZeroMaxSpeed(t *testing.T) {
+	frame, err := deserializeFrame([]byte(`{
+		"FrameID": 8,
+		"TimestampNanos": 23456,
+		"SensorID": "mixed-sensor",
+		"Tracks": {
+			"Tracks": [
+				{
+					"TrackID": "mixed-track",
+					"MaxSpeedMps": 0,
+					"PeakSpeedMps": 6.75
+				}
+			]
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("deserializeFrame() error = %v", err)
+	}
+	if frame.Tracks == nil || len(frame.Tracks.Tracks) != 1 {
+		t.Fatalf("expected one restored track, got %#v", frame.Tracks)
+	}
+	if got := frame.Tracks.Tracks[0].MaxSpeedMps; got != 0 {
+		t.Errorf("MaxSpeedMps = %v, want 0", got)
+	}
+}
+
 func TestNewReplayer(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "test-log")

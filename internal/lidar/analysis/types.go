@@ -96,7 +96,7 @@ type TrackDetail struct {
 	DurationSecs     float64 `json:"duration_secs"`
 
 	AvgSpeedMps  float32   `json:"avg_speed_mps"`
-	PeakSpeedMps float32   `json:"peak_speed_mps"`
+	MaxSpeedMps  float32   `json:"max_speed_mps"`
 	SpeedSamples []float32 `json:"speed_samples,omitempty"`
 
 	// Implementable-now jitter/alignment metrics (§12.1)

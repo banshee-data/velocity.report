@@ -234,7 +234,8 @@ func isTrackClimbing(
 /// Compares against `previousRanks` to detect climbs.
 /// Extracted from TrackListView.updateRanks() for testability.
 func computeRanks(
-    speedSorted: [(id: String, peak: Float)], previousRanks: [String: RankEntry], now: Date = Date()
+    speedSorted: [(id: String, maxSpeed: Float)], previousRanks: [String: RankEntry],
+    now: Date = Date()
 ) -> [String: RankEntry] {
     var newRanks: [String: RankEntry] = [:]
     for (index, entry) in speedSorted.enumerated() {
@@ -255,24 +256,24 @@ func computeRanks(
 /// Extracted from TrackListView.updateRanks() for testability.
 func buildRunModeSpeedEntries(
     runTracks: [RunTrack], frameTrackByID: [String: Track], trackMaxSpeed: [String: Float]
-) -> [(id: String, peak: Float)] {
+) -> [(id: String, maxSpeed: Float)] {
     runTracks.map {
         let live = frameTrackByID[$0.trackId].map { Float($0.maxSpeedMps) }
         let persistent = trackMaxSpeed[$0.trackId]
         let api = Float($0.maxSpeedMps ?? 0)
-        return (id: $0.trackId, peak: [live, persistent, api].compactMap { $0 }.max() ?? 0)
-    }.sorted { $0.peak > $1.peak }
+        return (id: $0.trackId, maxSpeed: [live, persistent, api].compactMap { $0 }.max() ?? 0)
+    }.sorted { $0.maxSpeed > $1.maxSpeed }
 }
 
 /// Build speed-sorted entries for frame-mode tracks.
 /// Extracted from TrackListView.updateRanks() for testability.
 func buildFrameModeSpeedEntries(
     tracks: [Track], trackMaxSpeed: [String: Float]
-) -> [(id: String, peak: Float)] {
+) -> [(id: String, maxSpeed: Float)] {
     tracks.map {
         let persistent = trackMaxSpeed[$0.trackID] ?? 0
-        return (id: $0.trackID, peak: max($0.maxSpeedMps, persistent))
-    }.sorted { $0.peak > $1.peak }
+        return (id: $0.trackID, maxSpeed: max($0.maxSpeedMps, persistent))
+    }.sorted { $0.maxSpeed > $1.maxSpeed }
 }
 
 /// Compute updated ranks for the track list.
@@ -282,7 +283,7 @@ func buildFrameModeSpeedEntries(
     isRunMode: Bool, runTracks: [RunTrack], frameTrackByID: [String: Track], appState: AppState,
     previousRanks: [String: RankEntry], now: Date = Date()
 ) -> [String: RankEntry] {
-    let speedSorted: [(id: String, peak: Float)]
+    let speedSorted: [(id: String, maxSpeed: Float)]
     if isRunMode {
         speedSorted = buildRunModeSpeedEntries(
             runTracks: runTracks, frameTrackByID: frameTrackByID,
@@ -330,11 +331,11 @@ func bestRunTrackSpeed(
     trackId: String, apiMaxSpeed: Double?, frameTrack: Track?, trackMaxSpeed: [String: Float]
 ) -> Double? {
     let liveSpeed = frameTrack.map { Double($0.maxSpeedMps) }
-    let persistentPeak = trackMaxSpeed[trackId].map { Double($0) }
-    return [liveSpeed, persistentPeak, apiMaxSpeed].compactMap { $0 }.max()
+    let persistentMax = trackMaxSpeed[trackId].map { Double($0) }
+    return [liveSpeed, persistentMax, apiMaxSpeed].compactMap { $0 }.max()
 }
 
-/// Sort tracks by peak speed descending, using both live and persistent peak data.
+/// Sort tracks by max speed descending, using both live and persistent max data.
 /// Extracted from TrackListView.frameTracks for testability.
 func sortTracksByMaxSpeed(_ tracks: [Track], trackMaxSpeed: [String: Float]) -> [Track] {
     tracks.sorted {
@@ -343,23 +344,23 @@ func sortTracksByMaxSpeed(_ tracks: [Track], trackMaxSpeed: [String: Float]) -> 
     }
 }
 
-/// Sort run tracks by peak speed descending, using live, persistent, and API peak data.
+/// Sort run tracks by max speed descending, using live, persistent, and API max data.
 /// Extracted from TrackListView.sortedRunTracks for testability.
 func sortRunTracksByMaxSpeed(
     _ runTracks: [RunTrack], frameTrackByID: [String: Track], trackMaxSpeed: [String: Float]
 ) -> [RunTrack] {
     runTracks.sorted { a, b in
-        let peakA =
+        let maxSpeedA =
             [
                 frameTrackByID[a.trackId].map { Double($0.maxSpeedMps) },
                 trackMaxSpeed[a.trackId].map { Double($0) }, a.maxSpeedMps,
             ].compactMap { $0 }.max() ?? 0
-        let peakB =
+        let maxSpeedB =
             [
                 frameTrackByID[b.trackId].map { Double($0.maxSpeedMps) },
                 trackMaxSpeed[b.trackId].map { Double($0) }, b.maxSpeedMps,
             ].compactMap { $0 }.max() ?? 0
-        return peakA > peakB
+        return maxSpeedA > maxSpeedB
     }
 }
 
@@ -1093,7 +1094,7 @@ struct TrackInspectorDetailCards: View {
                         DetailRow(
                             label: "Heading",
                             value: String(format: "%.1f°", t.headingRad * 180 / .pi))
-                        DetailRow(label: "Peak", value: String(format: "%.1f m/s", t.maxSpeedMps))
+                        DetailRow(label: "Max", value: String(format: "%.1f m/s", t.maxSpeedMps))
                     }
                 }
 
@@ -1178,7 +1179,7 @@ struct TrackInspectorView: View {
 
 // MARK: - Track History Graph
 
-/// Inline sparkline graph showing peak speed, velocity, and heading over recent frames.
+/// Inline sparkline graph showing max speed, velocity, and heading over recent frames.
 struct TrackHistoryGraphView: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
@@ -1207,8 +1208,8 @@ struct TrackHistoryGraphView: View {
     var body: some View {
         let display = trimmedSamples
         if display.count >= 2 {
-            // Use persistent peak from AppState (survives ring-buffer eviction)
-            let globalPeak = CGFloat(appState.trackMaxSpeed[trackID] ?? 0)
+            // Use persistent max from AppState (survives ring-buffer eviction)
+            let globalMax = CGFloat(appState.trackMaxSpeed[trackID] ?? 0)
 
             GroupBox(label: Text("History").font(.caption2)) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -1220,7 +1221,7 @@ struct TrackHistoryGraphView: View {
                     // Velocity sparkline (cyan) with dashed red line at global max
                     SparklineView(
                         values: display.map { CGFloat($0.speedMps) }, colour: .cyan,
-                        label: "Velocity (m/s)", peakValue: globalPeak)
+                        label: "Velocity (m/s)", maxValue: globalMax)
                 }
             }
         }
@@ -1232,38 +1233,38 @@ struct SparklineView: View {
     let values: [CGFloat]
     let colour: Color
     let label: String
-    /// Optional peak value shown as a dashed red horizontal line with right-axis label.
-    var peakValue: CGFloat? = nil
+    /// Optional max value shown as a dashed red horizontal line with right-axis label.
+    var maxValue: CGFloat? = nil
 
     /// Font size used for the inline sparkline labels.
     private static let labelFontSize: CGFloat = 8
     /// Vertical padding so labels don't clip the chart edge.
     private static let labelPad: CGFloat = 1
-    /// Right margin for metric labels — keeps header, peak and current value aligned.
+    /// Right margin for metric labels — keeps header, max and current value aligned.
     private static let metricTrailing: CGFloat = 4
-    /// Lighter red for sparkline peak line and labels — perceptually matched to orange/cyan.
-    private static let peakRed = Color(red: 1.0, green: 0.45, blue: 0.4)
+    /// Lighter red for sparkline max line and labels — perceptually matched to orange/cyan.
+    private static let maxLineRed = Color(red: 1.0, green: 0.45, blue: 0.4)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            // Header row: label + peak metric (always above the sparkline)
+            // Header row: label + max metric (always above the sparkline)
             HStack {
                 Text(label).font(.system(size: 9)).foregroundColor(.secondary)
                 Spacer()
-                if let peak = peakValue {
-                    Text(String(format: "%.1f", peak)).font(
+                if let maxValue = maxValue {
+                    Text(String(format: "%.1f", maxValue)).font(
                         .system(size: Self.labelFontSize, design: .monospaced)
-                    ).foregroundColor(Self.peakRed)
+                    ).foregroundColor(Self.maxLineRed)
                 }
             }.padding(.trailing, Self.metricTrailing)
             GeometryReader { geo in
                 let size = geo.size
                 // Main sparkline
                 sparklinePath(in: size).stroke(colour, lineWidth: 1.5)
-                // Peak speed dashed line
-                if let peak = peakValue {
-                    peakLinePath(peak: peak, in: size).stroke(
-                        Self.peakRed, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                // Max speed dashed line
+                if let maxValue = maxValue {
+                    maxLinePath(maxValue: maxValue, in: size).stroke(
+                        Self.maxLineRed, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                 }
                 // In-chart current value label
                 currentValueLabel(in: size)
@@ -1274,7 +1275,7 @@ struct SparklineView: View {
     /// Current value label right-aligned at the trailing edge of the sparkline.
     @ViewBuilder private func currentValueLabel(in size: CGSize) -> some View {
         let minVal = values.min() ?? 0
-        let maxVal = max(values.max() ?? 1, peakValue ?? 0)
+        let maxVal = max(values.max() ?? 1, maxValue ?? 0)
         let range = maxVal - minVal
         let effectiveRange = range < 0.001 ? 1.0 : range
 
@@ -1302,7 +1303,7 @@ struct SparklineView: View {
         guard values.count >= 2 else { return Path() }
 
         let minVal = values.min() ?? 0
-        let maxVal = max(values.max() ?? 1, peakValue ?? 0)
+        let maxVal = max(values.max() ?? 1, maxValue ?? 0)
         let range = maxVal - minVal
         let effectiveRange = range < 0.001 ? 1.0 : range
 
@@ -1319,15 +1320,15 @@ struct SparklineView: View {
         }
     }
 
-    /// Compute a horizontal line at the given peak value.
-    func peakLinePath(peak: CGFloat, in size: CGSize) -> Path {
+    /// Compute a horizontal line at the given max value.
+    func maxLinePath(maxValue: CGFloat, in size: CGSize) -> Path {
         guard values.count >= 2 else { return Path() }
 
         let minVal = values.min() ?? 0
-        let maxVal = max(values.max() ?? 1, peak)
+        let maxVal = max(values.max() ?? 1, maxValue)
         let range = maxVal - minVal
         let effectiveRange = range < 0.001 ? 1.0 : range
-        let y = size.height - (size.height * (peak - minVal) / effectiveRange)
+        let y = size.height - (size.height * (maxValue - minVal) / effectiveRange)
 
         return Path { path in
             path.move(to: CGPoint(x: 0, y: y))
@@ -1368,7 +1369,7 @@ struct TrackListView: View {
     /// Guard flag to prevent fetchRunTracks re-entry when syncing API labels to appState.
     @State private var isSyncingAPILabels = false
     @State private var sortOrder: TrackSortOrder = .firstSeen
-    /// Tracks the rank (index) of each track by peak speed.
+    /// Tracks the rank (index) of each track by max speed.
     /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
     @State private var previousRanks: [String: RankEntry] = [:]
 
@@ -1389,7 +1390,7 @@ struct TrackListView: View {
     }
 
     /// Run tracks sorted according to the active sort order.
-    /// In peak-speed mode, uses live frame speed when available so the list re-sorts in real time.
+    /// In max-speed mode, uses live frame speed when available so the list re-sorts in real time.
     private var sortedRunTracks: [RunTrack] {
         switch sortOrder {
         case .firstSeen:

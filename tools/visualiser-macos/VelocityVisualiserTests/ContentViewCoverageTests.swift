@@ -942,31 +942,31 @@ struct LabelButtonCoverageTests {
 // MARK: - SparklineView Extended Tests
 
 struct SparklineViewCoverageTests {
-    @Test func sparklineWithPeakValue() throws {
+    @Test func sparklineWithMaxValue() throws {
         let view = SparklineView(
-            values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", peakValue: 12.0)
+            values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", maxValue: 12.0)
         let _ = view.body
     }
 
-    @Test func sparklinePathWithPeak() throws {
+    @Test func sparklinePathWithMax() throws {
         let view = SparklineView(
-            values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", peakValue: 15.0)
+            values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", maxValue: 15.0)
         let size = CGSize(width: 200, height: 40)
         let path = view.sparklinePath(in: size)
         #expect(!path.isEmpty)
     }
 
-    @Test func peakLinePathWithValues() throws {
+    @Test func maxLinePathWithValues() throws {
         let view = SparklineView(
-            values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", peakValue: 12.0)
+            values: [0, 5, 10, 8, 3], colour: .cyan, label: "Speed", maxValue: 12.0)
         let size = CGSize(width: 200, height: 40)
-        let path = view.peakLinePath(peak: 12.0, in: size)
+        let path = view.maxLinePath(maxValue: 12.0, in: size)
         #expect(!path.isEmpty)
     }
 
-    @Test func peakLinePathTooFewValues() throws {
-        let view = SparklineView(values: [5.0], colour: .cyan, label: "Speed", peakValue: 10.0)
-        let path = view.peakLinePath(peak: 10.0, in: CGSize(width: 100, height: 40))
+    @Test func maxLinePathTooFewValues() throws {
+        let view = SparklineView(values: [5.0], colour: .cyan, label: "Speed", maxValue: 10.0)
+        let path = view.maxLinePath(maxValue: 10.0, in: CGSize(width: 100, height: 40))
         #expect(path.isEmpty)
     }
 
@@ -1048,14 +1048,14 @@ struct SparklineViewCoverageTests {
                 frameID: i, timestampNanos: Int64(i) * 200_000_000,
                 tracks: [
                     Track(
-                        trackID: "t-peak", state: .confirmed, speedMps: Float(i) * 3.0,
+                        trackID: "t-max", state: .confirmed, speedMps: Float(i) * 3.0,
                         headingRad: Float(i) * 0.3, maxSpeedMps: 12.0)
                 ], trails: [])
             state.onFrameReceived(frame)
             await Task.yield()
         }
 
-        hostView(TrackHistoryGraphView(trackID: "t-peak"), state: state)
+        hostView(TrackHistoryGraphView(trackID: "t-max"), state: state)
     }
 }
 

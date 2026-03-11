@@ -116,7 +116,7 @@ This document provides a comprehensive implementation plan for LIDAR-based objec
 - ✅ Mahalanobis distance gating for association
 - ✅ Kalman predict/update with constant velocity model
 - ✅ Track lifecycle management (hits/misses, promotion, deletion)
-- ✅ Speed statistics (average, peak, history for percentiles)
+- ✅ Speed statistics (average, max, history for percentiles)
 - ✅ Unit tests in `internal/lidar/tracking_test.go`
 
 #### Classification Research Data Support
@@ -793,7 +793,7 @@ type Track struct {
     BoundingBoxWidthAvg  float32
     BoundingBoxHeightAvg float32
     AvgSpeedMps          float32
-    PeakSpeedMps         float32
+    MaxSpeedMps          float32
 
     // Classification (Phase 3.4)
     ObjectClass      string  // "pedestrian", "car", "bird", etc.
@@ -1126,7 +1126,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 **Kinematic Features:**
 
 - Average speed (`avg_speed_mps`)
-- Raw maximum speed (`peak_speed_mps`)
+- Raw maximum speed (`max_speed_mps` in public contracts; `peak_speed_mps` in SQL)
 - Speed variance
 - Acceleration magnitude
 
@@ -1149,7 +1149,7 @@ func (tc *TrackClassifier) Classify(track *Track) (class string, confidence floa
     avgWidth := track.BoundingBoxWidthAvg
     avgHeight := track.BoundingBoxHeightAvg
     avgSpeed := track.AvgSpeedMps
-    peakSpeed := track.PeakSpeedMps
+    maxSpeed := track.MaxSpeedMps
 
     // Rule-based classification
     if avgHeight < 0.5 && avgSpeed < 1.0 {
@@ -1532,7 +1532,7 @@ type Track struct {
     KalmanState          TrackState2D // x, y, vx, vy in world frame
     ObservationCount     int
     AvgSpeedMps          float32
-    PeakSpeedMps         float32
+    MaxSpeedMps          float32
     BoundingBoxLengthAvg float32
     ObjectClass          string
     ObjectConfidence     float32

@@ -689,8 +689,8 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 			if td.ObjectClass != "car" {
 				t.Errorf("object_class = %q, want car", td.ObjectClass)
 			}
-			if td.PeakSpeedMps != 6.0 {
-				t.Errorf("peak_speed = %v, want 6.0", td.PeakSpeedMps)
+			if td.MaxSpeedMps != 6.0 {
+				t.Errorf("max_speed = %v, want 6.0", td.MaxSpeedMps)
 			}
 		}
 	}

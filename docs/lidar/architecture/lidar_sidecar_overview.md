@@ -363,7 +363,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
   - Promotion after N consecutive hits (default: 3)
   - Deletion after N consecutive misses (default: 3)
   - Grace period for deleted tracks before cleanup
-- **Speed Statistics**: Average speed, peak speed, history for percentile computation
+- **Speed Statistics**: Average speed, max speed, history for percentile computation
 - **Aggregated Features**: Bounding box averages, height P95 max, intensity mean average
 
 ### Classification Research Data (✅ Complete)
