@@ -67,7 +67,7 @@ flowchart TB
         direction TB
         L2a["Frame assembly"]
         L2b["Sensor transform"]
-        L2c["Frame export"]
+        L2c["Frame export    (LidarView, ASC)"]
     end
 
     subgraph L3["L3 Grid"]
@@ -112,7 +112,7 @@ flowchart TB
         direction LR
         L8a["Radar metrics"]
         L8b["Traffic metrics"]
-        L8c["Sweep tuning"]
+        L8c["Sweep tuning / HINT"]
     end
 
     subgraph L9["L9 Endpoints"]
@@ -162,6 +162,7 @@ flowchart TB
     L6c --> L8b
     L6c --> L8c
     L3b --> L9c
+    L4a --> L9c
     L4d --> L9c
     L6b --> L9c
     L8c --> L9b
