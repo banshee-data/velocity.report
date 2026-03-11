@@ -19,7 +19,6 @@ import re
 import sys
 from pathlib import Path
 
-
 EXCLUDED_DIRS = {
     ".git",
     ".venv",
@@ -92,7 +91,9 @@ def extract_mermaid_blocks(path: Path) -> list[tuple[int, list[tuple[int, str]]]
     return blocks
 
 
-def first_content_line(block: list[tuple[int, str]], path: Path, start_line: int) -> tuple[int, str]:
+def first_content_line(
+    block: list[tuple[int, str]], path: Path, start_line: int
+) -> tuple[int, str]:
     for lineno, raw in block:
         if raw.strip():
             return lineno, raw.strip()
@@ -156,11 +157,15 @@ def validate_flowchart_block(
         if END_RE.match(line):
             subgraph_depth -= 1
             if subgraph_depth < 0:
-                errors.append(f"{path}:{lineno}: unexpected 'end' without matching 'subgraph'")
+                errors.append(
+                    f"{path}:{lineno}: unexpected 'end' without matching 'subgraph'"
+                )
                 subgraph_depth = 0
 
     if subgraph_depth != 0:
-        errors.append(f"{path}:{start_line}: unbalanced subgraph/end count in flowchart block")
+        errors.append(
+            f"{path}:{start_line}: unbalanced subgraph/end count in flowchart block"
+        )
 
     return errors
 
@@ -180,7 +185,9 @@ def validate_state_block(path: Path, block: list[tuple[int, str]]) -> list[str]:
     return errors
 
 
-def validate_block(path: Path, start_line: int, block: list[tuple[int, str]]) -> list[str]:
+def validate_block(
+    path: Path, start_line: int, block: list[tuple[int, str]]
+) -> list[str]:
     header_lineno, header = first_content_line(block, path, start_line)
 
     if FLOWCHART_HEADER_RE.fullmatch(header):
