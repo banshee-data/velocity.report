@@ -49,130 +49,128 @@ flowchart TB
     classDef gap fill:#eef2f7,stroke:#7b8794,color:#425466;
     classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
 
-    R00["Radar sensor"]
-    D00["Disk storage"]
-    A00["LiDAR sensor"]
-    R01["Serial IO"]
-    D01["Filesystem"]
-    A01["UDP socket"]
+    P0a["Radar sensor"]
+    P0b["Disk storage"]
+    P0c["LiDAR sensor"]
+    P0d["Serial IO"]
+    P0e["Filesystem"]
+    P0f["UDP socket"]
 
     subgraph L1["L1 Packets"]
         direction LR
-        R11["Radar ingest"]
-        A12["PCAP replay"]
-        A11["LiDAR ingest"]
+        L1a["Radar ingest"]
+        L1b["PCAP replay"]
+        L1c["LiDAR ingest"]
     end
 
     subgraph L2["L2 Frames"]
         direction TB
-        A21["Frame assembly"]
-        A22["Frame export"]
+        L2a["Frame assembly"]
+        L2b["Frame export"]
     end
 
     subgraph L3["L3 Grid"]
         direction LR
-        A31["Accumulator"]
-        A32["EMA background"]
-        A33["Foreground gating"]
-        A34["Region cache"]
+        L3a["Accumulator"]
+        L3b["EMA background"]
+        L3c["Foreground gating"]
+        L3d["Region cache"]
     end
 
     subgraph L4["L4 Perception"]
         direction LR
-        A41["World transform"]
-        A43["DBSCAN clustering"]
-        A44["Cluster geometry"]
+        L4a["World transform"]
+        L4b["DBSCAN clustering"]
+        L4c["Cluster geometry"]
     end
 
     subgraph L5["L5 Tracks"]
         direction LR
-        R51["Radar sessionization"]
-        A51["Track update"]
-        A52["Track lifecycle"]
-        A53["Trajectory metrics"]
+        L5a["Radar sessionization"]
+        L5b["Track update"]
+        L5c["Track lifecycle"]
+        L5d["Trajectory metrics"]
     end
 
     subgraph L6["L6 Objects"]
         direction LR
-        R61["Radar records"]
-        A61["Feature aggregation"]
-        A62["Classification"]
-        A63["Run stats"]
+        L6a["Feature aggregation"]
+        L6b["Classification"]
+        L6c["Run stats"]
     end
 
     subgraph L7["L7 Scene"]
         direction LR
-        A71["Reserved"]
+        L7a["Reserved"]
     end
 
     subgraph L8["L8 Analytics"]
         direction LR
-        R81["Radar metrics"]
-        A81["Traffic metrics"]
-        A83["Sweep tuning"]
+        L8a["Radar metrics"]
+        L8b["Traffic metrics"]
+        L8c["Sweep tuning"]
     end
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        R91["Radar APIs"]
-        A92["LiDAR APIs 🔄"]
-        A91["gRPC streams 🔄"]
+        L9a["Radar APIs ✅"]
+        L9b["LiDAR APIs 🔄"]
+        L9c["gRPC streams 🔄"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
-        R102["PDF generator 📄"]
-        A102["Svelte clients 📄"]
-        A101["Swift visualiser 📄"]
+        L10a["PDF generator 📄"]
+        L10b["Svelte clients 📄"]
+        L10c["Swift visualiser 📄"]
     end
 
-    R00 --> R01
-    D00 --> D01
-    A00 --> A01
-    R01 --> R11
-    D01 --> A12
-    A01 --> A11
+    P0a --> P0d
+    P0b --> P0e
+    P0c --> P0f
+    P0d --> L1a
+    P0e --> L1b
+    P0f --> L1c
 
-    A11 --> A21
-    A12 --> A21
-    A21 --> A22
-    A21 --> A31
-    A31 --> A32
-    A32 --> A33
-    A32 --> A34
-    A33 --> A41
-    A41 --> A43
-    A43 --> A44
-    A44 --> A51
-    A51 --> A52
-    A52 --> A53
-    A53 --> A61
-    A61 --> A62
-    A62 --> A63
-    A62 -.-> A71
-    A63 --> A81
-    A63 --> A83
-    A53 --> A91
-    A62 --> A91
-    A81 --> A92
-    A83 --> A92
-    A91 --> A101
-    A92 --> A101
-    A92 --> A102
+    L1c --> L2a
+    L1b --> L2a
+    L2a --> L2b
+    L2a --> L3a
+    L3a --> L3b
+    L3b --> L3c
+    L3b --> L3d
+    L3c --> L4a
+    L4a --> L4b
+    L4b --> L4c
+    L4c --> L5b
+    L5b --> L5c
+    L5c --> L5d
+    L5d --> L6a
+    L6a --> L6b
+    L6b --> L6c
+    L6b -.-> L7a
+    L6c --> L8b
+    L6c --> L8c
+    L5d --> L9c
+    L6b --> L9c
+    L8b --> L9b
+    L8c --> L9b
+    L9c --> L10c
+    L9b --> L10c
+    L9b --> L10b
 
-    R11 --> R61
-    R11 -.-> R51
-    R61 --> R81
-    R51 --> R61
-    R81 --> R91
-    R91 --> R102
-    R91 --> A102
+    L1a --> L5a
+    L5a --> L8a
+    L1a --> L8a
+    L8a --> L9a
+    L9a --> L10a
+    L9a --> L10b
 
-    class R00,A00,D00,R01,A01,D01 infra;
-    class A11,A12,R11,A21,A22,A31,A32,A33,A34,A41,A43,A44,R51,A51,A52,A53,A61,A62,A63,R61,A81,A83,R81,R91 implemented;
-    class A91,A92 partial;
-    class A71 gap;
-    class A101,A102,R102 client;
+    class P0a,P0b,P0c,P0d,P0e,P0f infra;
+    class L1a,L1b,L1c,L2a,L2b,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L5a,L5b,L5c,L5d,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
+    class L9b,L9c partial;
+    class L7a gap;
+    class L10a,L10b,L10c client;
 ```
 
 Note: `L2` frame assembly already builds the sensor-frame XYZ cache used by
