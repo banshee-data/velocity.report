@@ -264,18 +264,10 @@ block.
 | L3b | EMA background model | Stauffer-Grimson adaptive background lineage | ✅ Implemented | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
 | L3c | Foreground gating | Background subtraction and neighbour-confirmation heuristics | ✅ Implemented | [Background-grid maths](../../maths/background-grid-settling-maths.md) |
 | L3d | Region restore and cache | Persistent background snapshots and scene-signature restore | ✅ Implemented | [Sidecar overview](lidar_sidecar_overview.md) |
-| L4a | Foreground-to-world transform | Rigid transforms and homogeneous pose geometry | ✅ Implemented | [Foreground-tracking design](foreground_tracking.md) |
-| L4b | Height-band filter | Ground-plane removal via vertical band gating (configurable) | ✅ Implemented | [Ground-plane extraction](ground-plane-extraction.md) |
-| L4c | Voxel downsampling | PCL `VoxelGrid` downsampling family (configurable) | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
-| L4d | Density clustering | DBSCAN with spatial index; auto-subsample above cap | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
+| L4ad | Cluster extraction | **a.** Rigid transforms and homogeneous pose geometry <br> **b.** Ground-plane removal via vertical band gating <br> **c.** PCL `VoxelGrid` downsampling family <br> **d.** DBSCAN with spatial index; auto-subsample above cap | ✅ Implemented | [Foreground-tracking design](foreground_tracking.md), [Ground-plane extraction](ground-plane-extraction.md), [Clustering maths](../../maths/clustering-maths.md) |
 | L4e | Cluster geometry fitting | PCA / OBB fitting; embedded in DBSCAN output builder | ✅ Implemented | [Clustering maths](../../maths/clustering-maths.md) |
 | L5a | Radar sessionization | Temporal event segmentation and transit/session building | ✅ Implemented | [Transit deduplication plan](../../radar/architecture/transit-deduplication.md) |
-| L5b | Kalman predict | CV predict: X′ = FX, P′ = FPFᵀ + Q (runs before association) | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5c | Detection-to-track assignment | Kuhn Hungarian on Mahalanobis cost matrix | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5d | Kalman update | Measurement update with velocity and OBB heading smoothing | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5e | Merge/split coherence | Advisory flags when cluster area deviates from track history | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5f | Track lifecycle management | SORT-style birth / confirm / coast / delete; occlusion-aware coasting | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
-| L5g | Trajectory and quality metrics | Velocity-trail alignment, jitter, capture ratios, fragmentation | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
+| L5bg | LiDAR tracking | **b.** CV predict: X′ = FX, P′ = FPFᵀ + Q <br> **c.** Kuhn Hungarian on Mahalanobis cost matrix <br> **d.** Measurement update with velocity and OBB heading smoothing <br> **e.** Merge/split coherence flags on cluster area deviation <br> **f.** SORT-style birth / confirm / coast / delete lifecycle <br> **g.** Velocity-trail alignment, jitter, capture ratios, fragmentation | ✅ Implemented | [Tracking maths](../../maths/tracking-maths.md) |
 | L5h | Motion-model extensions | CA / CTRV / IMM multi-model tracking literature | 📋 Planned | [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md) |
 | L6a | Feature aggregation | Classical feature engineering for traffic objects | ✅ Implemented | [Classification maths](../../maths/classification-maths.md) |
 | L6b | Rule-based classification | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage | ✅ Implemented | [Classification maths](../../maths/classification-maths.md) |
@@ -287,9 +279,9 @@ block.
 | L9a | Radar report APIs | REST / JSON reporting surfaces | ✅ Implemented | [Radar networking design](../../radar/architecture/networking.md) |
 | L9b | LiDAR dashboard APIs | REST / JSON dashboard and replay surfaces | 🔄 Partial | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
 | L9c | Live frame streams | gRPC streaming and protobuf transport | 🔄 Partial | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
-| L10a | PDF rendering | PDF report-generation pipelines | 📄 Active | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md) |
-| L10b | Browser clients | Svelte dashboard and report UI patterns | 📄 Active | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md) |
-| L10c | Native visualiser | Native Metal visualisation and gRPC client surfaces | 📄 Active | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
+| L10a | pdf-generator | pdf-generator pipelines | 📄 Active | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md) |
+| L10b | Svelte app | Svelte dashboard and report UI patterns | 📄 Active | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md) |
+| L10c | VelocityVisualiser.app | Native macOS Metal visualisation and gRPC client surfaces | 📄 Active | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) |
 | L10d | HTML dashboard | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`) | ⛔ Deprecated | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
 
 ### Design rationale for ten layers
