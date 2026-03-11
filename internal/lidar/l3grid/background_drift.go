@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
 // =============================================================================
@@ -190,7 +190,7 @@ func (bm *BackgroundManager) GenerateBackgroundSnapshot() (*BackgroundSnapshotDa
 			azimuthDeg := float64(azBin) * azBinResDeg
 			r := float64(cell.AverageRangeMeters)
 
-			xVal, yVal, zVal := l4perception.SphericalToCartesian(r, azimuthDeg, elevationDeg)
+			xVal, yVal, zVal := l2frames.SphericalToCartesian(r, azimuthDeg, elevationDeg)
 
 			x = append(x, float32(xVal))
 			y = append(y, float32(yVal))

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
 // subsampleSeq is a monotonically increasing counter mixed into the
@@ -94,31 +95,13 @@ func TransformPointsToWorld(points []Point, pose *Pose) []WorldPoint {
 	return worldPoints
 }
 
-// SphericalToCartesian converts spherical coordinates to Cartesian.
-// Uses the sensor coordinate system (X=forward, Y=right, Z=up).
-func SphericalToCartesian(distance, azimuthDeg, elevationDeg float64) (x, y, z float64) {
-	azimuthRad := azimuthDeg * math.Pi / 180.0
-	elevationRad := elevationDeg * math.Pi / 180.0
+// SphericalToCartesian is a backward-compatible alias for the canonical
+// definition in l2frames.
+var SphericalToCartesian = l2frames.SphericalToCartesian
 
-	cosElevation := math.Cos(elevationRad)
-	sinElevation := math.Sin(elevationRad)
-	cosAzimuth := math.Cos(azimuthRad)
-	sinAzimuth := math.Sin(azimuthRad)
-
-	x = distance * cosElevation * sinAzimuth
-	y = distance * cosElevation * cosAzimuth
-	z = distance * sinElevation
-	return
-}
-
-// ApplyPose applies a 4x4 row-major transform T to point (x,y,z).
-// T is expected as [16]float64 row-major: m00,m01,m02,m03, m10,...
-func ApplyPose(x, y, z float64, T [16]float64) (wx, wy, wz float64) {
-	wx = T[0]*x + T[1]*y + T[2]*z + T[3]
-	wy = T[4]*x + T[5]*y + T[6]*z + T[7]
-	wz = T[8]*x + T[9]*y + T[10]*z + T[11]
-	return
-}
+// ApplyPose is a backward-compatible alias for the canonical definition
+// in l2frames.
+var ApplyPose = l2frames.ApplyPose
 
 // =============================================================================
 // DBSCAN Clustering with Spatial Index (World Frame)

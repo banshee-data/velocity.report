@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
 const samplePCAPPath = "../../perf/pcap/lidar_20Hz.pcapng"
@@ -22,12 +22,12 @@ type replayTestParser struct {
 	parseErr   error
 }
 
-func (p *replayTestParser) ParsePacket(_ []byte) ([]l4perception.PointPolar, error) {
+func (p *replayTestParser) ParsePacket(_ []byte) ([]l2frames.PointPolar, error) {
 	p.parseCalls++
 	if p.parseErr != nil {
 		return nil, p.parseErr
 	}
-	return []l4perception.PointPolar{
+	return []l2frames.PointPolar{
 		{
 			Channel:         1,
 			Azimuth:         90,
@@ -182,7 +182,7 @@ func TestReadPCAPFileRealtime_WithTag_Success(t *testing.T) {
 	bgManager := l3grid.NewBackgroundManager(sensorID, 40, 360, l3grid.BackgroundParams{}, nil)
 
 	foregroundForwarder := &ForegroundForwarder{
-		channel: make(chan []l4perception.PointPolar, 8),
+		channel: make(chan []l2frames.PointPolar, 8),
 	}
 
 	countResult, err := CountPCAPPackets(samplePCAPPath, 2369)
@@ -211,7 +211,7 @@ func TestReadPCAPFileRealtime_WithTag_Success(t *testing.T) {
 			OnProgress: func(_, _ uint64) {
 				progressCalls++
 			},
-			OnFrameCallback: func(_ *l3grid.BackgroundManager, _ []l4perception.PointPolar) {
+			OnFrameCallback: func(_ *l3grid.BackgroundManager, _ []l2frames.PointPolar) {
 				frameCallbacks++
 			},
 		},

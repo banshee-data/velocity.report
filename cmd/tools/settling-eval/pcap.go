@@ -12,7 +12,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // runPCAPEval replays a PCAP file offline through a local BackgroundManager
@@ -83,9 +82,9 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.Se
 		}
 
 		// Convert cartesian Points → PointPolar for the background grid.
-		polar := make([]l4perception.PointPolar, len(frame.Points))
+		polar := make([]l2frames.PointPolar, len(frame.Points))
 		for i, p := range frame.Points {
-			polar[i] = l4perception.PointPolar{
+			polar[i] = l2frames.PointPolar{
 				Channel:         p.Channel,
 				Azimuth:         p.Azimuth,
 				Elevation:       p.Elevation,

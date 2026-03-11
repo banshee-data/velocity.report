@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // CoarseBucket represents aggregated metrics for a spatial bucket
@@ -187,7 +186,7 @@ func (bm *BackgroundManager) ToASCPoints() []PointASC {
 			var x, y, z float64
 			if len(g.RingElevations) == rings {
 				elev := g.RingElevations[ring]
-				x, y, z = l4perception.SphericalToCartesian(r, az, elev)
+				x, y, z = l2frames.SphericalToCartesian(r, az, elev)
 			} else {
 				// Fallback: project onto XY plane (z=0)
 				x = r * math.Cos(az*math.Pi/180)

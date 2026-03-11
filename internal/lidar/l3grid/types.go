@@ -2,13 +2,12 @@ package l3grid
 
 import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
-	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 // Type aliases to avoid import cycles.
 
-// PointPolar is re-exported from l4perception for use in L3 grid operations.
-type PointPolar = l4perception.PointPolar
+// PointPolar is re-exported from l2frames for use in L3 grid operations.
+type PointPolar = l2frames.PointPolar
 
 // PointASC is re-exported from l2frames for point cloud export operations.
 type PointASC = l2frames.PointASC

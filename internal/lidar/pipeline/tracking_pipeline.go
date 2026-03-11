@@ -20,7 +20,7 @@ import (
 
 // ForegroundForwarder interface allows forwarding foreground points without importing network package.
 type ForegroundForwarder interface {
-	ForwardForeground(points []l4perception.PointPolar)
+	ForwardForeground(points []l2frames.PointPolar)
 }
 
 // VisualiserPublisher interface allows publishing frames to the gRPC visualiser.
@@ -35,7 +35,7 @@ type VisualiserAdapter interface {
 
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
 type LidarViewAdapter interface {
-	PublishFrameBundle(bundle interface{}, foregroundPoints []l4perception.PointPolar)
+	PublishFrameBundle(bundle interface{}, foregroundPoints []l2frames.PointPolar)
 }
 
 // isNilInterface checks if an interface value is nil or contains a nil pointer.
@@ -76,14 +76,14 @@ func heapBytes() uint64 {
 // the learned background model (L3 Grid).
 type ForegroundStage interface {
 	// ExtractForeground returns a boolean mask where true indicates a foreground point.
-	ExtractForeground(polar []l4perception.PointPolar) (mask []bool, err error)
+	ExtractForeground(polar []l2frames.PointPolar) (mask []bool, err error)
 }
 
 // PerceptionStage transforms foreground points into world coordinates,
 // applies ground removal, and clusters them (L4 Perception).
 type PerceptionStage interface {
 	// Perceive takes foreground points and returns world-frame clusters.
-	Perceive(foreground []l4perception.PointPolar, sensorID string) ([]l4perception.WorldCluster, error)
+	Perceive(foreground []l2frames.PointPolar, sensorID string) ([]l4perception.WorldCluster, error)
 }
 
 // TrackingStage updates the tracker state with new cluster observations
@@ -206,7 +206,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 	// Pre-allocate a reusable polar slice to avoid 69k-element allocation
 	// per frame (~5 MB). Safe because the callback runs synchronously.
-	var polarBuf []l4perception.PointPolar
+	var polarBuf []l2frames.PointPolar
 
 	// Frame-rate throttle state. We always run ProcessFramePolarWithMask to
 	// keep the background model up to date, but skip the expensive
@@ -256,11 +256,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Convert frame points to polar coordinates using reusable buffer
 		n := len(frame.Points)
 		if cap(polarBuf) < n {
-			polarBuf = make([]l4perception.PointPolar, n)
+			polarBuf = make([]l2frames.PointPolar, n)
 		}
 		polar := polarBuf[:n]
 		for i, p := range frame.Points {
-			polar[i] = l4perception.PointPolar{
+			polar[i] = l2frames.PointPolar{
 				Channel:         p.Channel,
 				Azimuth:         p.Azimuth,
 				Elevation:       p.Elevation,
@@ -314,7 +314,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if cap > maxBackgroundChartPoints {
 			cap = maxBackgroundChartPoints
 		}
-		backgroundPolar := make([]l4perception.PointPolar, 0, cap)
+		backgroundPolar := make([]l2frames.PointPolar, 0, cap)
 		bgIdx := 0
 		for i, isForeground := range mask {
 			if isForeground {
@@ -435,7 +435,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			// This allows isolating specific regions for debugging without flooding the stream
 			params := cfg.BackgroundManager.GetParams()
 			if params.HasDebugRange() {
-				filtered := make([]l4perception.PointPolar, 0, len(foregroundPoints))
+				filtered := make([]l2frames.PointPolar, 0, len(foregroundPoints))
 				for _, p := range foregroundPoints {
 					// Channel is 1-based in PointPolar, but 0-based in params/grid
 					if params.IsInDebugRange(p.Channel-1, p.Azimuth) {

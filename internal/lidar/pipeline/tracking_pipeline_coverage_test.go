@@ -460,10 +460,10 @@ func TestTrackingPipelineConfig_NewFrameCallback_NoGroundRemoval(t *testing.T) {
 // mockFgForwarder implements ForegroundForwarder for testing.
 type mockFgForwarder struct {
 	calls  int
-	points []l4perception.PointPolar
+	points []l2frames.PointPolar
 }
 
-func (m *mockFgForwarder) ForwardForeground(points []l4perception.PointPolar) {
+func (m *mockFgForwarder) ForwardForeground(points []l2frames.PointPolar) {
 	m.calls++
 	m.points = append(m.points, points...)
 }
@@ -492,7 +492,7 @@ type mockLidarViewAdapter struct {
 	calls int
 }
 
-func (m *mockLidarViewAdapter) PublishFrameBundle(bundle interface{}, foregroundPoints []l4perception.PointPolar) {
+func (m *mockLidarViewAdapter) PublishFrameBundle(bundle interface{}, foregroundPoints []l2frames.PointPolar) {
 	m.calls++
 }
 
@@ -1195,11 +1195,11 @@ func clusterFramePrePopulated() *l2frames.LiDARFrame {
 // by tests that check forwardCalled / lastPoints fields.
 type mockFgForwarderDetailed struct {
 	forwardCalled bool
-	lastPoints    []l4perception.PointPolar
+	lastPoints    []l2frames.PointPolar
 	callCount     int
 }
 
-func (m *mockFgForwarderDetailed) ForwardForeground(points []l4perception.PointPolar) {
+func (m *mockFgForwarderDetailed) ForwardForeground(points []l2frames.PointPolar) {
 	m.forwardCalled = true
 	m.lastPoints = points
 	m.callCount++
@@ -1527,7 +1527,7 @@ func TestNilTracker(t *testing.T) {
 
 	// Populate background
 	for i := 0; i < 10; i++ {
-		points := []l4perception.PointPolar{
+		points := []l2frames.PointPolar{
 			{Channel: 1, Azimuth: 180, Distance: 10.0},
 		}
 		bgMgr.ProcessFramePolar(points)
