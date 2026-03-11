@@ -365,8 +365,6 @@ func (fb *FrameBuilder) EnableTimeBased(enable bool) {
 	fb.enableTimeBased = enable
 }
 
-// NOTE: Legacy AddPoints removed in polar-first refactor. Use AddPointsPolar.
-
 // AddPointsPolar accepts polar points (sensor-frame) and converts them to cartesian Points
 // before processing. Both polar and Cartesian representations are stored on the frame.
 // This is used by network listeners that parse into polar form.
