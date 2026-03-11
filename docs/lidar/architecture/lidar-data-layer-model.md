@@ -59,14 +59,15 @@ flowchart TB
     subgraph L1["L1 Packets"]
         direction LR
         L1a["Radar ingest"]
-        L1b["PCAP replay"]
-        L1c["LiDAR ingest"]
+        L1b["LiDAR ingest"]
+        L1c["PCAP replay"]
     end
 
     subgraph L2["L2 Frames"]
         direction TB
         L2a["Frame assembly"]
-        L2b["Frame export"]
+        L2b["Sensor transform"]
+        L2c["Frame export"]
     end
 
     subgraph L3["L3 Grid"]
@@ -79,17 +80,20 @@ flowchart TB
 
     subgraph L4["L4 Perception"]
         direction LR
-        L4a["World transform"]
-        L4b["DBSCAN clustering"]
-        L4c["Cluster geometry"]
+        L4a["Foreground transform"]
+        L4b["Voxel sampling"]
+        L4c["DBSCAN clustering"]
+        L4d["Cluster geometry"]
     end
 
     subgraph L5["L5 Tracks"]
         direction LR
         L5a["Radar sessionization"]
-        L5b["Track update"]
-        L5c["Track lifecycle"]
-        L5d["Trajectory metrics"]
+        L5b["Hungarian matching"]
+        L5c["CV Kalman"]
+        L5d["Track lifecycle"]
+        L5e["Trajectory metrics"]
+        L5f["Motion extensions"]
     end
 
     subgraph L6["L6 Objects"]
@@ -100,7 +104,7 @@ flowchart TB
     end
 
     subgraph L7["L7 Scene"]
-        direction LR
+        direction TB
         L7a["Reserved"]
     end
 
@@ -113,48 +117,53 @@ flowchart TB
 
     subgraph L9["L9 Endpoints"]
         direction LR
-        L9a["Radar APIs ✅"]
+        L9a["Radar APIs"]
         L9b["LiDAR APIs 🔄"]
         L9c["gRPC streams 🔄"]
     end
 
     subgraph L10["L10 Clients"]
         direction LR
-        L10a["PDF generator 📄"]
-        L10b["Svelte clients 📄"]
-        L10c["Swift visualiser 📄"]
+        L10a["pdf-generator 🐍"]
+        L10b["Svelte clients 🌐"]
+        L10c["VelocityVisualiser.app "]
     end
 
     P0a --> P0d
     P0b --> P0e
     P0c --> P0f
     P0d --> L1a
-    P0e --> L1b
-    P0f --> L1c
+    P0f --> L1b
+    P0e --> L1c
 
-    L1c --> L2a
     L1b --> L2a
+    L1c --> L2a
     L2a --> L2b
     L2a --> L3a
+    L2b --> L2c
     L3a --> L3b
     L3b --> L3c
     L3b --> L3d
     L3c --> L4a
     L4a --> L4b
     L4b --> L4c
-    L4c --> L5b
+    L4c --> L4d
+    L4d --> L5b
     L5b --> L5c
     L5c --> L5d
-    L5d --> L6a
+    L5d --> L5e
+    L5e --> L6a
+    L5e -.-> L5f
     L6a --> L6b
     L6b --> L6c
-    L6b -.-> L7a
     L6c --> L8b
     L6c --> L8c
-    L5d --> L9c
+    L3b --> L9c
     L6b --> L9c
-    L8b --> L9b
     L8c --> L9b
+    L6b --> L7a
+    L8b --> L9b
+    L4d --> L9c
     L9c --> L10c
     L9b --> L10c
     L9b --> L10b
@@ -167,16 +176,17 @@ flowchart TB
     L9a --> L10b
 
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
-    class L1a,L1b,L1c,L2a,L2b,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L5a,L5b,L5c,L5d,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
+    class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4a,L4b,L4c,L4d,L5a,L5b,L5c,L5d,L5e,L6a,L6b,L6c,L8a,L8b,L8c,L9a implemented;
     class L9b,L9c partial;
-    class L7a gap;
+    class L5f,L7a gap;
     class L10a,L10b,L10c client;
 ```
 
-Note: `L2` frame assembly already builds the sensor-frame XYZ cache used by
-`LiDARFrame`, and `Frame export` covers the ASC and LidarView paths. The `L3`
-EMA/background model still operates on
-polar points, and the `L4` transform is the later foreground-to-world step.
+Note: The main LiDAR tracking path stays in polar coordinates through `L3` and
+only enters world Cartesian at `L4a`. The earlier sensor-space transform in
+`L2b` is a frame/export side path: `AddPointsPolar()` materialises XYZ for
+`LiDARFrame`, ASC, and LidarView use, then the tracking pipeline reconstructs
+polar points before `ProcessFramePolarWithMask()`.
 
 Note: `L3` region save/restore is part of settling control, not a separate
 post-grid stage. During warmup, `l3grid` can try early region restore from DB
@@ -187,6 +197,10 @@ Note: Radar does not have a repo-owned semantic classification stage comparable
 to LiDAR `L6`. Current radar code routes serial payloads into stored records,
 sessionizes raw `radar_data` into `radar_data_transits`, and serves metrics and
 reports from those stored sources.
+
+Note: `L5c` is the current 4-state constant-velocity Kalman tracker. `L5f`
+marks future motion-model extensions beyond that baseline, not the
+introduction of CV itself.
 
 **Legend**
 
@@ -204,22 +218,41 @@ The ten-layer table above shows where layers live. The concept chart shows
 which ideas within those layers are active. This table makes the
 paper/concept mapping explicit.
 
-| Layer(s) | Concept family | Representative papers / standards | Repo status |
+| Block | Concept family | Representative papers / standards | Repo status |
 | --- | --- | --- | --- |
-| L1 | Packet-driver split | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula` | ✅ Implemented |
-| L2 | Range-image / sequential frame assembly | RangeNet++, SemanticKITTI temporal framing | ✅ Implemented |
-| L3 | Single-component adaptive background model in polar space | Stauffer-Grimson GMM lineage, OctoMap as contrast | ✅ Implemented |
-| L3 | Direct frame-stability / shake input into settling | Reflective sign and static-surface pose-anchor proposal | 🧪 Proposal |
-| L4 | DBSCAN + PCA/OBB clustering | DBSCAN, PCL clustering, PCA | ✅ Implemented |
-| L4 | Height-band ground removal | Simplified ground-filter family | ✅ Implemented |
-| L4-L7 | Tile-plane / vector-scene geometry | Patchwork, ground-plane fitting, vector-scene planning | 📋 Proposed |
-| L5 | CV Kalman + Hungarian tracking | Kalman, Hungarian, SORT, AB3DMOT | ✅ Implemented |
-| L5 | CA / CTRV / IMM motion extensions | IMM / multi-model tracking literature | 📋 Proposed |
-| L6 | Rule-based semantic interpretation | Local heuristic classifier | ✅ Implemented |
-| L6 | AV taxonomy / 28-class mapping | SemanticKITTI, KITTI, nuScenes mappings | 🔄 Partial |
-| L7 | Persistent scene, priors, fusion | HD-map / scene-accumulation literature, OSM priors | 📋 Planned |
-| L8 | Run comparison, scorecards, evaluation | CLEAR MOT, KITTI-style comparison, temporal IoU | 🔄 Partial |
-| L9-L10 | Endpoint shaping and client rendering | gRPC / dashboard / visualisation surface patterns | 🔄 Partial to active |
+| L1a | Radar serial ingest | Serial sensor ingest and telemetry logging patterns | ✅ Implemented |
+| L1b | LiDAR UDP ingest | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula` | ✅ Implemented |
+| L1c | PCAP replay | libpcap / tcpdump capture and replay tooling | ✅ Implemented |
+| L2a | Sequential frame assembly | RangeNet++, SemanticKITTI temporal framing | ✅ Implemented |
+| L2b | Sensor-frame spherical projection | Standard LiDAR spherical-to-Cartesian geometry | ✅ Implemented |
+| L2c | Frame export surfaces | ASC and point-cloud export conventions | ✅ Implemented |
+| L3a | Polar grid accumulation | Range-image / occupancy-style spatial binning | ✅ Implemented |
+| L3b | EMA background model | Stauffer-Grimson adaptive background lineage | ✅ Implemented |
+| L3c | Foreground gating | Background subtraction and neighbour-confirmation heuristics | ✅ Implemented |
+| L3d | Region restore and cache | Persistent background snapshots and scene-signature restore | ✅ Implemented |
+| L4a | Foreground-to-world transform | Rigid transforms and homogeneous pose geometry | ✅ Implemented |
+| L4b | Voxel downsampling | PCL `VoxelGrid` downsampling family | ✅ Implemented |
+| L4c | Density clustering | DBSCAN, PCL clustering | ✅ Implemented |
+| L4d | Cluster geometry fitting | PCA / OBB fitting literature | ✅ Implemented |
+| L5a | Radar sessionization | Temporal event segmentation and transit/session building | ✅ Implemented |
+| L5b | Detection-to-track assignment | Kuhn Hungarian assignment | ✅ Implemented |
+| L5c | Constant-velocity state estimation | Kalman (1960), SORT, AB3DMOT | ✅ Implemented |
+| L5d | Track lifecycle management | SORT-style birth / confirm / coast / delete policies | ✅ Implemented |
+| L5e | Trajectory and quality metrics | MOT diagnostics and track-quality metrics | ✅ Implemented |
+| L5f | Motion-model extensions | CA / CTRV / IMM multi-model tracking literature | 📋 Planned |
+| L6a | Feature aggregation | Classical feature engineering for traffic objects | ✅ Implemented |
+| L6b | Rule-based classification | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage | ✅ Implemented |
+| L6c | Run-level object stats | Experiment and run summarisation patterns | ✅ Implemented |
+| L7a | Scene/fusion slot | HD-map, scene accumulation, OSM prior literature | 📋 Planned |
+| L8a | Radar metrics and rollups | Traffic histograms, percentiles, report rollups | ✅ Implemented |
+| L8b | LiDAR traffic metrics | Traffic engineering reporting and nearest-rank percentiles | ✅ Implemented |
+| L8c | Sweep tuning and search | Parameter sweeps and experiment evaluation | ✅ Implemented |
+| L9a | Radar report APIs | REST / JSON reporting surfaces | ✅ Implemented |
+| L9b | LiDAR dashboard APIs | REST / JSON dashboard and replay surfaces | 🔄 Partial |
+| L9c | Live frame streams | gRPC streaming and protobuf transport | 🔄 Partial |
+| L10a | PDF rendering | PDF report-generation pipelines | 📄 Active |
+| L10b | Browser clients | Svelte dashboard and report UI patterns | 📄 Active |
+| L10c | Native visualiser | Native Metal visualisation and gRPC client surfaces | 📄 Active |
 
 ### Design rationale for ten layers
 
