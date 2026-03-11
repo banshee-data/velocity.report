@@ -441,7 +441,7 @@ The tracker already computes:
    axis-swap scenarios but may need tuning for unusual sensor geometries.
 
 5. **Recommended next step:** The [geometry-coherent track state
-   proposal](geometry-coherent-tracking.md) replaces Guards 2, 3,
+   proposal](20260222-geometry-coherent-tracking.md) replaces Guards 2, 3,
    and the dimension sync logic with a single Bayesian model that selects
    the correct PCA axis interpretation using the track's accumulated geometry
    prior. This addresses the root cause (no temporal geometry model) rather

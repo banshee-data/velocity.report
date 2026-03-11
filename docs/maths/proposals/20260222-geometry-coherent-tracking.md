@@ -176,7 +176,7 @@ This naturally handles the exploration-exploitation trade-off: early frames esta
 
 ## 3. Heading-Motion Coupling
 
-When velocity-coherent data is available (from the [velocity-coherent foreground extraction](velocity-coherent-foreground-extraction.md) proposal), the heading model strengthens significantly.
+When velocity-coherent data is available (from the [velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) proposal), the heading model strengthens significantly.
 
 ### 3.1 Motion-Informed Heading Prior
 
@@ -342,7 +342,7 @@ The geometry-coherent model **replaces four existing guard mechanisms**:
 
 ### 5.3 Synergy with Velocity-Coherent Extraction
 
-When [velocity-coherent foreground extraction](velocity-coherent-foreground-extraction.md) is active:
+When [velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) is active:
 
 1. **Per-point velocities provide independent heading signal:**
    - PCA gives shape-based heading
@@ -468,7 +468,7 @@ Parameters should be validated and tuned through:
 
 **Enhanced by:**
 
-- [Velocity-coherent foreground extraction](velocity-coherent-foreground-extraction.md) — provides per-cluster velocity for tighter heading priors
+- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — provides per-cluster velocity for tighter heading priors
 
 ### 8.2 Testing Strategy
 
@@ -622,8 +622,8 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 - `l4perception/obb.go`: Current PCA-based OBB estimation
 - `l5tracks/tracking.go`: Current guard mechanisms (lines 950-1141)
 - `l5tracks/kalman.go`: Existing Kalman filter for position/velocity
-- [OBB heading stability review](obb-heading-stability-review.md): Current guard analysis
-- [Velocity-coherent foreground extraction](velocity-coherent-foreground-extraction.md): Future enhancement
+- [OBB heading stability review](20260222-obb-heading-stability-review.md): Current guard analysis
+- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md): Future enhancement
 
 ---
 
