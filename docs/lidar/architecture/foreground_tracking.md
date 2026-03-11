@@ -1126,7 +1126,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 **Kinematic Features:**
 
 - Average speed (`avg_speed_mps`)
-- Raw maximum speed (`max_speed_mps` in public contracts; `peak_speed_mps` in SQL until migration 000030)
+- Raw maximum speed (`max_speed_mps` in public contracts; `peak_speed_mps` in SQL)
 - Speed variance
 - Acceleration magnitude
 
