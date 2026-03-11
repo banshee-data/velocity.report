@@ -42,10 +42,13 @@ UNION ALL
     WHERE t.name NOT LIKE 'sqlite_%'
       AND t.type = 'table'
 UNION ALL
-   SELECT t.name || ':' || f."from" || '_from:e -> ' || f."table" || ':' || f."to" || '_to:w'
+   SELECT t.name || ':' || f."from" || '_from:e -> ' || CASE
+                    WHEN f."to" IS NULL
+                           OR f."to" = 'rowid' THEN f."table"
+                              ELSE f."table" || ':' || f."to" || '_to:w'
+          END
      FROM pragma_table_list () AS t
      JOIN pragma_foreign_key_list (t.name, t.schema) AS f
 UNION ALL
    SELECT '
-}'
-;
+}';
