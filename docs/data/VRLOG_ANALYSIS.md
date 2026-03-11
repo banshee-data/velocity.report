@@ -15,7 +15,7 @@ designed to be:
 
 **Status:** Draft — initial implementation landed; spec and code may diverge until stable.
 **Target tool:** `cmd/tools/vrlog-analyse/` (new CLI).
-**Companion spec:** [`vrlog-format.md`](vrlog-format.md) — recording wire format.
+**Companion spec:** [`VRLOG_FORMAT.md`](VRLOG_FORMAT.md) — recording wire format.
 
 ---
 

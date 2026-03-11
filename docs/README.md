@@ -41,7 +41,8 @@ All documentation files use **lowercase-with-hyphens** (`kebab-case`).
 
 - No dates in filenames — use git history for chronology.
 - No underscores — use hyphens as word separators.
-- Single-word UPPERCASE names (`README.md`, `DESIGN.md`, `BACKLOG.md`) are reserved for conventional project-level documents.
+- UPPERCASE names (`README.md`, `BACKLOG.md`, `DATA_STRUCTURES.md`) are used for project-level and data-format reference documents (always with lowercase `.md` extension).
+- `docs/data/` files keep `UPPER_CASE.md` names to signal stable, specification-grade content.
 - Plans (flat): `<hub>-<area>-<topic>-plan.md` in `docs/plans/`
 - Maths proposals: `<topic>.md` in `docs/maths/proposals/`
 - Architecture docs: `<topic>.md` in `<hub>/architecture/`

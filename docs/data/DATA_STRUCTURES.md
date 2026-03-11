@@ -7,8 +7,8 @@ velocity.report system. Each format has a dedicated specification file.
 
 | Format            | Document                                         | Layer | Description                                  |
 | ----------------- | ------------------------------------------------ | ----- | -------------------------------------------- |
-| Hesai UDP packets | [hesai-packet-format.md](hesai-packet-format.md) | L1    | Hesai Pandar40P LiDAR UDP payload structure  |
-| VRLOG recording   | [vrlog-format.md](vrlog-format.md)               | L2–L5 | Directory-based LiDAR frame recording format |
+| Hesai UDP packets | [HESAI_PACKET_FORMAT.md](HESAI_PACKET_FORMAT.md) | L1    | Hesai Pandar40P LiDAR UDP payload structure  |
+| VRLOG recording   | [VRLOG_FORMAT.md](VRLOG_FORMAT.md)               | L2–L5 | Directory-based LiDAR frame recording format |
 
 ## Canonical Source Definitions
 

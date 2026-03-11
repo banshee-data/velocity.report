@@ -71,7 +71,7 @@ The repo already contains the beginnings of a reproducible data-science corpus. 
 - `data/convergance-neighbour/` — neighbour-confirmation sweep analysis and findings.
 - `docs/lidar/operations/parameter-comparison.md`, `docs/lidar/operations/config-param-tuning.md`, and `docs/lidar/operations/auto-tuning.md` — the current parameter-study and scoring guidance.
 - `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md` — the reference-run, scene, and labelled-ground-truth workflow for replayable evaluation.
-- `docs/data/vrlog-format.md` and `docs/data/vrlog-analysis.md` — the current `.vrlog` artifact contract and comparison/report format.
+- `docs/data/VRLOG_FORMAT.md` and `docs/data/VRLOG_ANALYSIS.md` — the current `.vrlog` artifact contract and comparison/report format.
 
 This inventory is not complete. One standing task for data-science work is to keep a clearer map of which investigations, scorecards, and artifact packs are canonical versus exploratory.
 

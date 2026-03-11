@@ -54,7 +54,7 @@ The six-layer model is still the canonical language in multiple places, includin
 - `docs/lidar/architecture/lidar-data-layer-model.md`
 - `docs/lidar/architecture/README.md`
 - `docs/lidar/README.md`
-- `docs/data/data-structures.md`
+- `docs/data/DATA_STRUCTURES.md`
 - `docs/lidar/terminology.md`
 - `internal/lidar/l1packets/doc.go`
 - `internal/lidar/l2frames/doc.go`
@@ -256,7 +256,7 @@ Provisional classification:
 
 - update `docs/lidar/architecture/lidar-data-layer-model.md` from six layers to ten layers: add L7 (Scene), L8 (Analytics), L9 (renamed to Endpoints), and L10 (Clients, documentation-only)
 - update `docs/lidar/architecture/README.md` to describe `L1` through `L10`
-- update `docs/lidar/README.md`, `docs/data/data-structures.md`, and `docs/lidar/terminology.md`
+- update `docs/lidar/README.md`, `docs/data/DATA_STRUCTURES.md`, and `docs/lidar/terminology.md`
 - update package doc comments in `internal/lidar/l1packets/doc.go` through `internal/lidar/l6objects/doc.go`
 - update any layer-language references in `ARCHITECTURE.md`, `README.md`, and `internal/lidar/aliases.go` if they describe the old model
 - document `internal/lidar/visualiser/` in the architecture docs as "will be renamed to `internal/lidar/l9endpoints/` in Phase 4"
@@ -761,7 +761,7 @@ Full deprecation is achievable but must be sequenced after the L8 and L9 boundar
 
 - [ ] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the ten-layer model
 - [ ] `docs/lidar/architecture/README.md` updated to describe `L1` through `L10`
-- [ ] `docs/lidar/README.md`, `docs/data/data-structures.md`, and `docs/lidar/terminology.md` updated
+- [ ] `docs/lidar/README.md`, `docs/data/DATA_STRUCTURES.md`, and `docs/lidar/terminology.md` updated
 - [ ] relevant package doc comments under `internal/lidar/` updated
 - [ ] breaking-change rationale documented
 - [ ] migration note documented
