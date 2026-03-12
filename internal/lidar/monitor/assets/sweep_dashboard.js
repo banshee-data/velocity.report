@@ -1287,15 +1287,7 @@ function comboLabel(r) {
       })
       .join(" ");
   }
-  // Fallback for legacy results
-  return (
-    "n=" +
-    r.noise.toFixed(3) +
-    " c=" +
-    r.closeness.toFixed(1) +
-    " nb=" +
-    r.neighbour
-  );
+  return "";
 }
 
 function pollStatus() {
@@ -1907,8 +1899,6 @@ function downloadCSV() {
   var paramKeys = [];
   if (latestResults[0] && latestResults[0].param_values) {
     paramKeys = Object.keys(latestResults[0].param_values);
-  } else {
-    paramKeys = ["noise", "closeness", "neighbour"];
   }
 
   var metricCols = [
@@ -2535,8 +2525,6 @@ function renderTable(results) {
   var paramKeys = [];
   if (results[0] && results[0].param_values) {
     paramKeys = Object.keys(results[0].param_values);
-  } else {
-    paramKeys = ["noise", "closeness", "neighbour"];
   }
 
   // Check if we have ground truth scores

@@ -429,12 +429,10 @@ describe('comboLabel', () => {
 		expect(comboLabel(result)).toContain('count=3');
 	});
 
-	it('falls back to legacy format without param_values', () => {
+	it('returns empty string for results without param_values', () => {
 		const result = { noise: 0.05, closeness: 5.0, neighbour: 3 };
 		const label = comboLabel(result);
-		expect(label).toContain('n=0.050');
-		expect(label).toContain('c=5.0');
-		expect(label).toContain('nb=3');
+		expect(label).toBe('');
 	});
 });
 
@@ -1614,12 +1612,10 @@ describe('renderTable', () => {
 		expect(document.getElementById('results-head')!.innerHTML).toContain('Frag.');
 	});
 
-	it('handles legacy results without param_values', () => {
+	it('handles results without param_values', () => {
 		renderTable([
 			{
-				noise: 0.05,
-				closeness: 5,
-				neighbour: 1,
+				param_values: { noise_relative: 0.05, closeness_multiplier: 5 },
 				overall_accept_mean: 0.85,
 				overall_accept_stddev: 0.02,
 				nonzero_cells_mean: 100,
@@ -2462,7 +2458,7 @@ describe('applySceneParams invalid JSON', () => {
 	});
 });
 
-describe('downloadCSV legacy format', () => {
+describe('downloadCSV with param_values format', () => {
 	beforeEach(() => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -2476,7 +2472,7 @@ describe('downloadCSV legacy format', () => {
 		jest.useRealTimers();
 	});
 
-	it('downloads CSV with legacy param keys', async () => {
+	it('downloads CSV with param_values keys', async () => {
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
@@ -2486,9 +2482,7 @@ describe('downloadCSV legacy format', () => {
 					total_combos: 1,
 					results: [
 						{
-							noise: 0.05,
-							closeness: 5,
-							neighbour: 1,
+							param_values: { noise_relative: 0.05, closeness_multiplier: 5 },
 							overall_accept_mean: 0.85,
 							overall_accept_stddev: 0.02,
 							nonzero_cells_mean: 100,

@@ -243,16 +243,15 @@ export async function downloadReport(
 	reportId: number,
 	fileType: 'pdf' | 'zip' = 'pdf'
 ): Promise<DownloadResult> {
-	const url = new URL(`${API_BASE}/reports/${reportId}/download`, window.location.origin);
-	url.searchParams.append('file_type', fileType);
-	const res = await fetch(url);
+	const defaultFilename = `report.${fileType}`;
+	const res = await fetch(`${API_BASE}/reports/${reportId}/download/${defaultFilename}`);
 	if (!res.ok) {
 		throw new Error(`Failed to download report: ${res.status}`);
 	}
 
 	// Extract filename from Content-Disposition header
 	const contentDisposition = res.headers.get('Content-Disposition');
-	let filename = `report.${fileType}`; // fallback
+	let filename = defaultFilename;
 	if (contentDisposition) {
 		const match = contentDisposition.match(/filename="?([^";]+)"?/);
 		if (match) {
