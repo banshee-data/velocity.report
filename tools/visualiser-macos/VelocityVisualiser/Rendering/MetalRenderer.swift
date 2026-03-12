@@ -11,6 +11,7 @@
 // at 10-20 fps with 70k points per frame.
 
 import MetalKit
+import QuartzCore
 import simd
 
 /// Main renderer that coordinates all Metal drawing.
@@ -123,6 +124,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // When true, foreground points not inside any visible track bounding box are hidden
     var filterOnlyInBox: Bool = false
 
+    // Weak reference to the MTKView for on-demand redraw requests
+    weak var view: MTKView?
+
+    // Monotonic start time for framerate-independent time tracking
+    private let startTime: CFTimeInterval = CACurrentMediaTime()
+
     // MARK: - Initialisation
 
     init?(metalView: MTKView) {
@@ -141,6 +148,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         super.init()
 
+        self.view = metalView
         metalView.device = device
         metalView.delegate = self
         metalView.colorPixelFormat = .bgra8Unorm
@@ -361,6 +369,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             ellipseVertexCount = 0
             ellipseSegments = []
         }
+
+        // Request a redraw from the on-demand MTKView
+        view?.needsDisplay = true
     }
 
     private var frameUpdateCount: Int = 0
@@ -846,7 +857,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         uniforms.modelViewProjection = camera.projectionMatrix * camera.viewMatrix
         uniforms.modelView = camera.viewMatrix
         uniforms.pointSize = pointSize
-        uniforms.time += 1.0 / 60.0
+        uniforms.time = Float(CACurrentMediaTime() - startTime)
 
         encoder.setDepthStencilState(depthStencilState)
 
