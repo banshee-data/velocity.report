@@ -497,7 +497,7 @@ The script:
    - **Acceptable divergence** — platform-specific features (tool restrictions, slash commands) are excluded from comparison
 5. Outputs a Markdown summary suitable for the weekly planning review
 
-**Integration:** Added to `scripts/florence-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
+**Integration:** Added to `scripts/jess-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
 
 **Make target:** `make check-agent-drift` runs the script standalone.
 

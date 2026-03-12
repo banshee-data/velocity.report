@@ -70,7 +70,7 @@ path traversal, symlink attacks, permission escalation, temp file leaks.
 
 ### dependencies
 
-check `go.mod`, `requirements.txt`, `package.json` for known cves, supply chain risk, outdated packages. run `make lint` which includes security linters.
+check `go.mod`, `requirements.txt`, `package.json` for known cves, supply chain risk, outdated packages. run `make lint` for formatting and static checks, and run dedicated security scanners separately (for example: `npm audit`, `pip-audit`, `govulncheck`).
 
 ## vulnerability patterns
 
@@ -134,7 +134,9 @@ priority order:
 5. config parsing
 
 ```bash
-make lint-go                    # includes vet + staticcheck
+make lint-go                    # go formatting only (gofmt)
+go vet ./...                    # go static analysis (built-in)
+staticcheck ./...               # additional go static analysis (if installed)
 bandit -r tools/pdf-generator/  # python security
 npm audit                       # js dependencies
 ```
