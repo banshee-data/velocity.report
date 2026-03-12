@@ -407,36 +407,126 @@ Long term, `L10 Clients` remains a documentation label spanning `web/`, `tools/v
 
 ## Checklist
 
+This checklist is intentionally verbose. It preserves the file-level and migration-level coverage from the earlier branch version, but maps every item into the current three-phase delivery plan.
+
 ### Phase 1
 
-- [ ] ten-layer LiDAR architecture docs updated
+#### Docs and architecture
+
+- [ ] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the ten-layer model
+- [ ] `docs/lidar/architecture/README.md` updated to describe `L1` through `L10`
+- [ ] `docs/lidar/README.md` updated to the ten-layer terminology
+- [ ] `docs/data/DATA_STRUCTURES.md` updated to the ten-layer terminology and current package layout
+- [ ] `docs/lidar/terminology.md` updated to the ten-layer terminology
+- [ ] relevant package doc comments under `internal/lidar/l1packets/` through `internal/lidar/l6objects/` updated
 - [ ] `L9 Endpoints` and `L10 Clients` naming documented
 - [ ] transitional `internal/lidar/l9endpoints/l10clients/` exception documented as temporary, asset-only, and not canonical
-- [ ] package doc comments under `internal/lidar/l1packets/` through `internal/lidar/l6objects/` updated
+- [ ] breaking-change rationale documented
+- [ ] migration note scaffolded early enough to guide the later package moves
+
+#### L8 seed
+
 - [ ] `internal/lidar/l8analytics/` created
-- [ ] comparison types and temporal IoU moved out of `l6objects/`
-- [ ] run-level statistics moved out of `l6objects/quality.go`
+- [ ] `internal/lidar/l8analytics/` includes package docs
+- [ ] `RunComparison`, `TrackMatch`, `TrackSplit`, `TrackMerge`, and temporal IoU logic moved out of `L6`
+- [ ] run-level summary and statistics logic split out of `l6objects/quality.go`
+- [ ] `l6objects/` is narrowed back to object semantics before later package moves begin
 
 ### Phase 2
 
-- [ ] percentile helpers extracted from storage-owned code
+#### L8 analytics boundary
+
+- [ ] speed percentile helpers no longer live only in storage code
+- [ ] percentile helpers extracted from `internal/lidar/storage/sqlite/track_store.go` and related storage-owned paths
 - [ ] run comparison orchestration moved out of `storage/sqlite`
-- [ ] `analysis_run_compare.go` no longer owns canonical matching algorithms
+- [ ] comparison logic delegates to `l8analytics/`
+- [ ] `internal/lidar/storage/sqlite/analysis_run_compare.go` no longer owns canonical matching algorithms
+- [ ] handler summary logic delegates to `l8analytics/`
 - [ ] track summary logic delegates to `l8analytics/`
-- [ ] labelling progress and evaluation aggregation delegates to `l8analytics/`
+- [ ] labelling progress aggregation delegates to `l8analytics/`
+- [ ] evaluation aggregation delegates to `l8analytics/`
 - [ ] handler files are transport-only in responsibility
-- [ ] direct unit tests exist for moved `L8` logic
+- [ ] new or moved `L8` code has direct unit tests
+
+#### `monitor/` classification and thinning
+
+- [ ] each `monitor/` file is classified as infra/application, `L8`-backed API, `L9` endpoint, or transitional `L10` asset input
+- [ ] mixed handlers call extracted services instead of embedding analytics math
+- [ ] deferred moves are documented with explicit destinations
+- [ ] no new upward dependency violations are introduced
 
 ### Phase 3
 
+#### L9 endpoints boundary
+
 - [ ] `internal/lidar/visualiser/` renamed to `internal/lidar/l9endpoints/`
+- [ ] import paths in `cmd/radar/radar.go` updated from `visualiser` to `l9endpoints`
+- [ ] import paths in `cmd/tools/visualiser-server/main.go` updated from `visualiser` to `l9endpoints`
+- [ ] import paths in `cmd/tools/gen-vrlog/main.go` updated from `visualiser` to `l9endpoints`
+- [ ] `internal/lidar/analysis/` callers updated from `visualiser` to `l9endpoints`
 - [ ] proto `go_package`, generated bindings, and imports updated coherently
-- [ ] chart and debug endpoint code moved out of `monitor/` and into `l9endpoints/`
-- [ ] ECharts sweep/dashboard HTML, JS, CSS, and other embedded client assets moved into `internal/lidar/l9endpoints/l10clients/`
+- [ ] `ChartDataProvider` or equivalent narrow dependency interface defined in `l9endpoints/`
+- [ ] server-side chart and view-model shaping has an explicit `L9` home in `l9endpoints/`
+- [ ] `chart_data.go`-style endpoint helpers are no longer in `monitor/`
+- [ ] debug payload shaping is explicitly classified as `L9`
+- [ ] dashboard-serving responsibilities are explicitly split between `L9` server glue and transitional `L10` asset content
+- [ ] clients do not compute canonical summary metrics locally
+
+#### Legacy embedded client extraction
+
+- [ ] `chart_api.go` moved to `l9endpoints/`
+- [ ] `chart_data.go` moved to `l9endpoints/`
+- [ ] `templates.go` moved to `l9endpoints/`
+- [ ] `gridplotter.go` moved to `l9endpoints/`
+- [ ] `echarts_handlers.go` split so server-side route and response glue stays in `l9endpoints/`
+- [ ] legacy HTML assets moved into `internal/lidar/l9endpoints/l10clients/`
+- [ ] legacy JS assets moved into `internal/lidar/l9endpoints/l10clients/`
+- [ ] legacy CSS assets moved into `internal/lidar/l9endpoints/l10clients/`
+- [ ] legacy `html/` and `assets/` directories moved out of `monitor/` and re-homed under the transitional `l10clients/` asset subtree
 - [ ] `l10clients/` contains no Go files
-- [ ] `go:embed` directives in `l9endpoints/` include the legacy client subtree and tests verify the assets load from the compiled binary
-- [ ] `server/` package created and populated
-- [ ] `client.go` and `direct_backend.go` moved behind an explicit package boundary
+- [ ] `go:embed` directives in `l9endpoints/` include the legacy client subtree
+- [ ] embed verification tests confirm the legacy assets load from the compiled binary
+- [ ] chart handler methods converted from `(ws *WebServer)` receivers to interface-backed handlers or equivalent package-local handlers
+- [ ] route table in the server layer registers `L9` handlers via interface adapter or closure wiring
+- [ ] all chart endpoint tests pass from the new location
+
+#### `server/` package creation and `monitor/` replacement
+
+- [ ] `internal/lidar/server/` package created with a `Server` struct
+- [ ] `WebServer` renamed to `Server`
+- [ ] `WebServerConfig` renamed to `Config`
+- [ ] `webserver.go` split into `server.go`, `config.go`, `routes.go`, `state.go`, `status.go`, and `tuning.go`
+- [ ] `datasource.go` moved to `server/`
+- [ ] `datasource_handlers.go` moved to `server/`
+- [ ] `playback_handlers.go` moved to `server/`
+- [ ] `stats.go` moved to `server/`
+- [ ] `mock_background.go` moved to `server/`
+- [ ] `client.go` moved behind an explicit `server/`, `client/`, or `sweep/` package boundary
+- [ ] `direct_backend.go` moved behind an explicit `server/`, `client/`, or `sweep/` package boundary
+- [ ] `cmd/radar/radar.go` updated to import `server` instead of `monitor`
+- [ ] `cmd/sweep/main.go` updated to import `server` instead of `monitor`
+- [ ] `track_api.go` moved to `server/`
+- [ ] `run_track_api.go` moved to `server/`
+- [ ] `scene_api.go` moved to `server/`
+- [ ] `sweep_handlers.go` moved to `server/`
+- [ ] `export_handlers.go` moved to `server/`
+- [ ] `pcap_files_api.go` moved to `server/`
+- [ ] all handler methods confirmed to delegate analytics to `l8analytics/`
+- [ ] `testdata/` moved to `server/testdata/` if it is still needed after the package split
+- [ ] all tests pass from the new package locations
+- [ ] no imports of `internal/lidar/monitor` remain in the repository
+- [ ] `internal/lidar/monitor/` directory deleted
 - [ ] no production analytics logic remains in `monitor/`
-- [ ] migration note and generated architecture artifacts added or refreshed
-- [ ] docs and tests updated to the final package layout
+
+#### Docs, artifacts, and final verification
+
+- [ ] migration note completed with package moves, caller updates, and deferred-deletion notes
+- [ ] `ARCHITECTURE.md` updated to reference `server/` and `l9endpoints/` if it still references `monitor/`
+- [ ] `docs/lidar/README.md` updated to reference `server/` and `l9endpoints/`
+- [ ] remaining docs updated to the final package layout
+- [ ] DOT graph added
+- [ ] SVG generated and checked in
+- [ ] graph generation is reproducible via script
+- [ ] tests updated for moved analytics and changed handlers
+- [ ] verification or CI guardrail exists for generated architecture artifacts
+- [ ] final checked-in plan remains sufficient to drive follow-on implementation PRs
