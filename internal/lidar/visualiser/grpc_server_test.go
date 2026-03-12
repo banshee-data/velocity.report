@@ -1302,6 +1302,106 @@ func TestStreamFromPublisher_BasicFlow(t *testing.T) {
 	}
 }
 
+func TestStreamFromPublisher_VRLogReplayCoalescesBufferedFrames(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	server := NewServer(pub)
+	server.SetVRLogMode(true)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	firstSendStarted := make(chan struct{})
+	releaseFirstSend := make(chan struct{})
+
+	var (
+		mu           sync.Mutex
+		receivedIDs  []uint64
+		firstSendMux sync.Once
+	)
+
+	mockStream := &mockSyntheticStream{
+		ctx: ctx,
+		send: func(frame *pb.FrameBundle) error {
+			mu.Lock()
+			receivedIDs = append(receivedIDs, frame.FrameId)
+			sendCount := len(receivedIDs)
+			mu.Unlock()
+
+			if sendCount == 1 {
+				firstSendMux.Do(func() { close(firstSendStarted) })
+				<-releaseFirstSend
+				return nil
+			}
+
+			cancel()
+			return nil
+		},
+	}
+
+	req := &pb.StreamRequest{
+		SensorId: "test-sensor",
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.streamFromPublisher(ctx, req, mockStream)
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+
+	pub.Publish(&FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+	})
+
+	select {
+	case <-firstSendStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for first send to start")
+	}
+
+	for i := 2; i <= 10; i++ {
+		pub.Publish(&FrameBundle{
+			FrameID:        uint64(i),
+			TimestampNanos: time.Now().UnixNano(),
+			SensorID:       "test-sensor",
+		})
+	}
+
+	close(releaseFirstSend)
+
+	select {
+	case err := <-errCh:
+		if err != context.Canceled {
+			t.Errorf("expected context.Canceled, got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for VRLOG replay stream to finish")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(receivedIDs) < 2 {
+		t.Fatalf("expected at least 2 frames, got %v", receivedIDs)
+	}
+	if receivedIDs[0] != 1 {
+		t.Fatalf("expected first received frame to be 1, got %d", receivedIDs[0])
+	}
+	if receivedIDs[1] != 10 {
+		t.Fatalf("expected replay catch-up to jump to latest buffered frame 10, got %d (all=%v)", receivedIDs[1], receivedIDs)
+	}
+}
+
 func TestStreamFromPublisher_WithPause(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.ListenAddr = "localhost:0"
