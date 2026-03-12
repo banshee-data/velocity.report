@@ -351,7 +351,7 @@ if [[ -x "$DRIFT_SCRIPT" ]]; then
   drift_output=$("$DRIFT_SCRIPT" 2>/dev/null || true)
   if [[ -n "$drift_output" ]]; then
     # Extract summary table, missing pairs, drifted agents, and health verdict
-    echo "$drift_output" | awk '
+    printf '%s\n' "$drift_output" | awk '
       /^## Summary/  { show=1 }
       /^## Health/    { show=1 }
       /^## Missing/   { show=1 }
