@@ -57,7 +57,7 @@ The visualiser does not expose an in-app appearance selector; it always follows 
   - selected box uses high-contrast accent,
   - label text and badge backgrounds remain AA-readable against light scene.
 
-## Color System Proposal
+## Colour System Proposal
 
 Define a dual-palette token set in Swift (example token names):
 
