@@ -216,7 +216,7 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 - All Technical context (to make informed product calls)
 - All Editorial context (brand, positioning, audience)
 - Decision frameworks, tradeoff methodology
-- Scope challenge discipline (expansion/hold/reduction from §6.8)
+- Scope challenge discipline (expansion/hold/reduction modes)
 
 **Both classes need (via Layer 0):**
 
@@ -233,11 +233,12 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 **Domain:**
 
-- Scope challenges (expansion/hold/reduction modes — §6.8 pattern 5)
+- Scope challenges — three explicit modes: EXPANSION (blue-sky thinking), HOLD (rigorous review of existing scope), REDUCTION (cut ruthlessly). User selects mode at start of interaction.
 - Build-vs-defer-vs-kill decisions on features and capabilities
 - Cross-agent coordination (arbitrates when Ictinus and Jess disagree on scope)
 - Product taste and user empathy — “is this the 10-star version?”
 - Tradeoff documentation — records WHY decisions were made, not just WHAT
+- Mandatory NOT-in-scope list — every scope decision must explicitly document what was excluded and why
 
 **Class: Both** — needs technical depth to assess feasibility and editorial awareness to assess positioning. The only agent that spans both mixins by design.
 
@@ -490,6 +491,62 @@ The script:
 
 **Make target:** `make check-agent-drift` runs the script standalone.
 
+### 6.8 Adopted Patterns from External Stack Analysis
+
+#### Per-Agent Adopted Patterns
+
+**Ruth (Justice)** — scope modes are Ruth's primary tool:
+
+- Three explicit modes: EXPANSION (blue-sky), HOLD (review existing scope), REDUCTION (cut ruthlessly). User selects mode at session start.
+- Mandatory NOT-in-scope list on every scope decision — documents what was excluded and why.
+- Mandatory output artefacts: scope decision record, tradeoff rationale, NOT-in-scope list.
+
+**Grace (Architect)** — scope modes (secondary) + structured interaction:
+
+- Scope modes available for architectural review (same three modes as Ruth, but Grace uses them to evaluate technical scope, not product scope).
+- Interactive question protocol: one issue = one question. Present each finding with numbered options and a recommendation rather than dumping all findings at once.
+- Mandatory output artefacts: architecture decision record, ASCII diagrams for system boundaries, failure registry.
+
+**Malory (Pen Test)** — review discipline + externalised criteria:
+
+- Two-pass gate classification: CRITICAL (blocking) vs INFORMATIONAL (advisory). Prevents "everything is a security finding" fatigue. Clear escalation rules per category.
+- Checklist externalisation: security review criteria live in `.github/knowledge/security-checklist.md`, not inlined in the agent definition. Benefits: evolves independently, referenceable by other agents, version-controlled.
+- Suppressions list: explicit list of things NOT to flag. Reduces false positive noise and prevents repeated non-issues from cluttering reviews.
+- Read-only by default: audit first, modify only with explicit permission.
+- Interactive question protocol: one issue = one question (same discipline as Grace).
+
+**Appius (Dev)** — review suppressions:
+
+- Suppressions list for code review: explicit list of patterns NOT to flag. Prevents style-preference noise from drowning out real issues.
+
+**Florence (PM)** — structured output:
+
+- Mandatory output artefacts: scope summary, risk register, sequencing rationale, completion criteria.
+- Trend tracking: JSON snapshot persistence for weekly review metrics (deferred — requires workflow infrastructure beyond agent prompting, revisit alongside §5.2 expansion).
+
+**All agents** — context pressure discipline:
+
+- Priority hierarchy: when context window is tight, prioritise core responsibilities over secondary ones. Explicit guidance prevents shallow across-the-board coverage when the agent should go deep on the most important areas.
+- Directive voice: "Do B. Here's why:" not "Option B might be worth considering."
+
+#### Patterns Deferred
+
+- **Non-interactive release automation** — fully automated test-to-PR pipeline. Requires a dedicated release agent. Deferred to Phase 4 expansion (maps to "DevOps / Release" candidate in §5.2).
+- **Compiled browser testing** — Playwright daemon for QA. Infrastructure-heavy. Not a priority but validates the "QA / Test Lead" candidate in §5.2.
+- **JSON snapshot persistence** — valuable for Florence's weekly review trend tracking but requires workflow infrastructure beyond agent prompting. Revisit alongside §5.2 expansion.
+
+#### Style Decisions
+
+> **DECIDED.** Style gaps from the external stack analysis, resolved below:
+
+| Style Gap                               | External Approach                                                              | Our Current Approach                                            | Decision                                                                                                                                                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Voice**                               | Directive: "Do B. Here's why:"                                                 | Mix of directive and suggestive                                 | **Adopted globally** — all agents use assertive voice repo-wide. Suggestive hedging wastes tokens and weakens recommendations.                                                                                               |
+| **Output format**                       | Extremely prescriptive: exact headings, tables, registries specified per skill | Open-ended — agents decide their own format                     | **Adopted for Malory, Florence, Ruth** — prescribe output format for review/coordination/judgment agents where consistency matters. Leave creative agents (Terry) and implementation agents (Appius, Grace, Euler) flexible. |
+| **Read-only default**                   | Review skills only read and comment; write only when explicitly asked          | Agents read and write freely by default                         | **Adopted for Malory only** — audit-first discipline. Other agents (including Grace) remain read-write by default.                                                                                                           |
+| **Persistent engineering context**      | Reusable coding standards block baked into every planning skill                | Standards in `copilot-instructions.md` but not in agent prompts | **Already solved** — maps directly to our Layer 1 `coding-standards.md`. No action needed.                                                                                                                                   |
+| **Suppressions as first-class concept** | Explicit "do NOT flag these" lists per skill                                   | No equivalent — agents flag everything they find                | **Adopted for Malory and Appius** — suppressions live in the agent file (not the externalised checklist) so they stay tightly coupled to the persona's review methodology.                                                   |
+
 ---
 
 ## 7. Implementation Plan
@@ -505,7 +562,7 @@ The script:
    - `coding-standards.md` — British English, formatting, commit conventions
    - `hardware.md` — radar specs, LIDAR specs, serial/UDP interfaces
    - `security-surface.md` — attack surface map (from Malory, deduplicated)
-   - `security-checklist.md` — externalised review criteria with gate classification (§6.8 pattern 2/3)
+   - `security-checklist.md` — externalised review criteria with gate classification
 3. Create `.github/knowledge/role-technical.md` and `role-editorial.md` mixins
 4. Refactor `copilot-instructions.md` to reference Layer 0–2 instead of inlining
 
@@ -571,6 +628,7 @@ The script:
 │   ├── coding-standards.md             #   British English, formatting, commits
 │   ├── hardware.md                     #   radar, LIDAR, serial, UDP
 │   ├── security-surface.md             #   attack surface map
+│   ├── security-checklist.md           #   review criteria + gate classification
 │   ├── role-technical.md               #   mixin for technical agents
 │   └── role-editorial.md              #   mixin for editorial agents
 ├── agents/                             # Layer 3: Copilot agent definitions
