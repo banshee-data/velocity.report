@@ -254,7 +254,9 @@ class TestHistogramChartBuilder(unittest.TestCase):
         """Test builder accepts custom configuration."""
         custom_colors = ColorConfig(count_bar="#0000ff")
         custom_fonts = FontConfig(histogram_title=16)
-        custom_layout = LayoutConfig(histogram_figsize_width=5, histogram_figsize_height=3)
+        custom_layout = LayoutConfig(
+            histogram_figsize_width=5, histogram_figsize_height=3
+        )
 
         builder = HistogramChartBuilder(
             colors=custom_colors,

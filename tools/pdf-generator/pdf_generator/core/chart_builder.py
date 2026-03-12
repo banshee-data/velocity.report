@@ -299,15 +299,9 @@ class TimeSeriesChartBuilder:
         """Plot percentile lines with breaks at day boundaries."""
         # If no day boundaries or only one day, plot normally
         if not day_boundaries or len(day_boundaries) <= 1:
-            self._plot_line_segment(
-                ax, x_indices, p50_f, "p50", "^", self.colors.p50
-            )
-            self._plot_line_segment(
-                ax, x_indices, p85_f, "p85", "s", self.colors.p85
-            )
-            self._plot_line_segment(
-                ax, x_indices, p98_f, "p98", "o", self.colors.p98
-            )
+            self._plot_line_segment(ax, x_indices, p50_f, "p50", "^", self.colors.p50)
+            self._plot_line_segment(ax, x_indices, p85_f, "p85", "s", self.colors.p85)
+            self._plot_line_segment(ax, x_indices, p98_f, "p98", "o", self.colors.p98)
             self._plot_line_segment(
                 ax, x_indices, mx_f, "Max", "x", self.colors.max, linestyle="--"
             )
@@ -402,9 +396,7 @@ class TimeSeriesChartBuilder:
     def _configure_speed_axis(self, ax, units: str) -> None:
         """Configure left Y-axis (speed)."""
         ax.set_ylabel(f"Velocity ({units})", fontsize=self.fonts.chart_axis_label)
-        ax.tick_params(
-            axis="both", which="major", labelsize=self.fonts.chart_axis_tick
-        )
+        ax.tick_params(axis="both", which="major", labelsize=self.fonts.chart_axis_tick)
 
         # Ensure axis starts at zero
         try:
@@ -748,9 +740,7 @@ class HistogramChartBuilder:
         self._set_tick_labels(ax, x, formatted_labels)
 
         # Apply styling
-        ax.tick_params(
-            axis="both", which="major", labelsize=self.fonts.histogram_tick
-        )
+        ax.tick_params(axis="both", which="major", labelsize=self.fonts.histogram_tick)
 
         # Layout adjustments
         try:
@@ -874,9 +864,7 @@ class HistogramChartBuilder:
         formatted_labels = self._format_labels(labels)
         self._set_tick_labels(ax, x, formatted_labels)
 
-        ax.tick_params(
-            axis="both", which="major", labelsize=self.fonts.histogram_tick
-        )
+        ax.tick_params(axis="both", which="major", labelsize=self.fonts.histogram_tick)
         ax.legend(fontsize=self.fonts.histogram_tick)
 
         try:
