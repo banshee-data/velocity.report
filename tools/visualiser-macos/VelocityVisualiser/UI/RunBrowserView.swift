@@ -8,6 +8,18 @@ import SwiftUI
 
 private let runBrowserLogger = DevLogger(category: "RunBrowser")
 
+private enum RunBrowserLayout {
+    static let statusDotSize: CGFloat = 8
+    static let runStatusSpacing: CGFloat = 4
+    static let runWidth: CGFloat = 80
+    static let dateWidth: CGFloat = 130
+    static let sceneWidth: CGFloat = 80
+    static let durationWidth: CGFloat = 60
+    static let tracksWidth: CGFloat = 50
+    static let labelsWidth: CGFloat = 54
+    static let rowInset = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
+}
+
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
     runID: String, appState: AppState, loadRunForReplay: @escaping @MainActor () async -> Bool
 ) async {
@@ -91,26 +103,24 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
                 Spacer()
             } else {
                 // Column headers
-                HStack(spacing: 0) {
-                    Text("Run").frame(width: 80, alignment: .leading)
-                    Text("Date").frame(width: 130, alignment: .leading)
-                    Text("Scene").frame(width: 80, alignment: .leading)
-                    Text("Duration").frame(width: 60, alignment: .trailing)
-                    Text("Tracks").frame(width: 50, alignment: .trailing)
-                    Text("Labels").frame(width: 54, alignment: .center)
-                    Spacer().frame(width: 70)  // Load button column
-                }.font(.caption).foregroundColor(.secondary).padding(.horizontal, 20).padding(
-                    .top, 6)
+                RunBrowserHeaderRow().padding(.horizontal, RunBrowserLayout.rowInset.leading)
+                    .padding(.top, 6)
 
                 // Run list
                 List(runBrowserState.runs) { run in
                     RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
                         Task {
+                            if runBrowserState.selectedRunID == run.runId {
+                                dismiss()
+                                return
+                            }
+                            guard run.hasVRLog else { return }
                             await loadRunForReplayAndUpdateAppState(
                                 runID: run.runId, appState: appState
                             ) { await runBrowserState.loadRunForReplay(run.runId) }
+                            if runBrowserState.selectedRunID == run.runId { dismiss() }
                         }
-                    }
+                    }.listRowInsets(RunBrowserLayout.rowInset)
                 }.listStyle(.inset)
             }
 
@@ -145,6 +155,23 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
 
 }
 
+private struct RunBrowserHeaderRow: View {
+    var body: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: RunBrowserLayout.runStatusSpacing) {
+                Color.clear.frame(
+                    width: RunBrowserLayout.statusDotSize, height: RunBrowserLayout.statusDotSize)
+                Text("Run")
+            }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
+            Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
+            Text("Scene").frame(width: RunBrowserLayout.sceneWidth, alignment: .leading)
+            Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
+            Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
+            Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
+        }.font(.caption).foregroundColor(.secondary)
+    }
+}
+
 /// Row view for a single run — 6-column table layout.
 @available(macOS 15.0, *) struct RunRowView: View {
     let run: AnalysisRun
@@ -152,46 +179,48 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
     let onSelect: () -> Void
     @State private var isHovered = false
 
+    private var rowBackground: Color {
+        if isSelected { return Color.accentColor.opacity(0.1) }
+        if isHovered, run.hasVRLog { return Color.primary.opacity(0.08) }
+        return Color.clear
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Col 1: 0xfirst6uuid with status dot
-            HStack(spacing: 4) {
+            HStack(spacing: RunBrowserLayout.runStatusSpacing) {
                 StatusDot(status: run.status)
                 Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(1)
-            }.frame(width: 80, alignment: .leading)
+            }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
 
             // Col 2: Date/time (space-padded for monospaced alignment)
             Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
-                width: 130, alignment: .leading
+                width: RunBrowserLayout.dateWidth, alignment: .leading
             ).lineLimit(1)
 
             // Col 3: Scene name
-            Text(run.sceneName ?? "-").font(.caption).frame(width: 80, alignment: .leading)
-                .lineLimit(1)
+            Text(run.sceneName ?? "-").font(.caption).frame(
+                width: RunBrowserLayout.sceneWidth, alignment: .leading
+            ).lineLimit(1)
 
             // Col 4: Duration mm:ss
             Text(runRowFormatDuration(run.durationSecs)).font(
                 .system(.caption, design: .monospaced)
-            ).frame(width: 60, alignment: .trailing)
+            ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
 
             // Col 5: Tracks count
             Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
-                width: 50, alignment: .trailing)
+                width: RunBrowserLayout.tracksWidth, alignment: .trailing)
 
             // Col 6: Label rollup
-            RunLabelRollupIcon(rollup: run.labelRollup).frame(width: 54, alignment: .center)
-
-            // Load button
-            Button(action: onSelect) { Text(isSelected ? "Loaded" : "Load") }.buttonStyle(.bordered)
-                .controlSize(.small).disabled(isSelected || !run.hasVRLog).frame(
-                    width: 70, alignment: .trailing)
+            RunLabelRollupIcon(rollup: run.labelRollup).frame(
+                width: RunBrowserLayout.labelsWidth, alignment: .center)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
             Rectangle()
-        ).background(
-            isSelected
-                ? Color.accentColor.opacity(0.1)
-                : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
-        ).cornerRadius(4).onHover { hovering in isHovered = hovering }
+        ).background(rowBackground).cornerRadius(4).onTapGesture {
+            guard run.hasVRLog else { return }
+            onSelect()
+        }.onHover { hovering in isHovered = hovering }
     }
 }
 
@@ -219,7 +248,9 @@ struct StatusDot: View {
     let status: String
 
     var body: some View {
-        Circle().fill(statusDotColour(status)).frame(width: 8, height: 8).help("Status: \(status)")
+        Circle().fill(statusDotColour(status)).frame(
+            width: RunBrowserLayout.statusDotSize, height: RunBrowserLayout.statusDotSize
+        ).help("Status: \(status)")
     }
 }
 
