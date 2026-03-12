@@ -297,6 +297,12 @@ func (p *Publisher) vrlogReplayLoop() {
 	var lastFrameTime int64
 	var lastWallTime time.Time
 
+	// Throttle background frames to avoid overwhelming the gRPC stream.
+	// Recordings made at slow rates (e.g. 0.1×) may contain many background
+	// snapshots that would otherwise replay back-to-back.
+	const bgReplayInterval = 10 * time.Second
+	var lastBgSentWall time.Time
+
 	for {
 		select {
 		case <-p.vrlogStopCh:
@@ -305,6 +311,7 @@ func (p *Publisher) vrlogReplayLoop() {
 			// Reset timing after seek
 			lastFrameTime = 0
 			lastWallTime = time.Time{}
+			lastBgSentWall = time.Time{} // Ensure first bg after seek is sent
 			// Fall through to check sendOneFrame (don't continue)
 		default:
 		}
@@ -362,6 +369,16 @@ func (p *Publisher) vrlogReplayLoop() {
 
 		lastFrameTime = frame.TimestampNanos
 		lastWallTime = time.Now()
+
+		// Throttle background frames during replay: send at most one
+		// every bgReplayInterval of wall-clock time. Drop the rest to
+		// keep the gRPC stream focused on foreground data.
+		if frame.FrameType == FrameTypeBackground {
+			if !lastBgSentWall.IsZero() && time.Since(lastBgSentWall) < bgReplayInterval {
+				continue
+			}
+			lastBgSentWall = time.Now()
+		}
 
 		// Mark frame as seekable replay
 		if frame.PlaybackInfo == nil {
