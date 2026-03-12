@@ -224,6 +224,8 @@ private let logger = DevLogger(category: "AppState")
     private(set) var trackHistory: [String: [TrackSample]] = [:]
     /// Persistent all-time max speed per track (survives ring-buffer eviction).
     private(set) var trackMaxSpeed: [String: Float] = [:]
+    /// Persistent all-time max hits per track across the current session/replay.
+    private(set) var trackMaxHits: [String: Int] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     /// Accumulated tracks across all frames in the current session/replay.
@@ -524,6 +526,9 @@ private let logger = DevLogger(category: "AppState")
         currentFrame = nil
         resetPlaybackState(mode: .unknown)
         frameCount = 0
+        trackHistory = [:]
+        trackMaxSpeed = [:]
+        trackMaxHits = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         logger.debug("Disconnected")
@@ -541,6 +546,7 @@ private let logger = DevLogger(category: "AppState")
         cacheStatus = ""
         trackHistory = [:]
         trackMaxSpeed = [:]
+        trackMaxHits = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         renderer?.clearTransientData()
@@ -561,6 +567,7 @@ private let logger = DevLogger(category: "AppState")
         frameCount = 0
         trackHistory = [:]
         trackMaxSpeed = [:]
+        trackMaxHits = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         userLabels = [:]
@@ -1203,6 +1210,7 @@ private let logger = DevLogger(category: "AppState")
                 lastSeenReplayEpoch = epoch
                 trackHistory.removeAll()
                 trackMaxSpeed.removeAll()
+                trackMaxHits.removeAll()
                 allSeenTracks.removeAll()
                 inViewTrackIDs = []
             }
@@ -1249,6 +1257,10 @@ private let logger = DevLogger(category: "AppState")
                 // Update persistent max speed (survives ring-buffer eviction)
                 let prevMax = trackMaxSpeed[track.trackID] ?? 0
                 if track.maxSpeedMps > prevMax { trackMaxSpeed[track.trackID] = track.maxSpeedMps }
+
+                // Update persistent max hits so sort/display remains stable after a track leaves frame.
+                let prevHitMax = trackMaxHits[track.trackID] ?? 0
+                if track.hits > prevHitMax { trackMaxHits[track.trackID] = track.hits }
             }
         } else {
             inViewTrackIDs = []

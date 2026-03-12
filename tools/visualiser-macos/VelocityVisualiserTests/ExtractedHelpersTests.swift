@@ -25,10 +25,10 @@ import XCTest
 
 private func makeTrack(
     id: String = "trk_00001234", state: TrackState = .confirmed, speed: Float = 8.0,
-    maxSpeed: Float = 9.0, classLabel: String = "car"
+    maxSpeed: Float = 9.0, classLabel: String = "car", hits: Int = 50
 ) -> Track {
     Track(
-        trackID: id, sensorID: "s1", state: state, hits: 50, misses: 2, observationCount: 48,
+        trackID: id, sensorID: "s1", state: state, hits: hits, misses: 2, observationCount: 48,
         firstSeenNanos: 1_000_000_000, lastSeenNanos: 2_000_000_000, x: 10, y: 5, z: 0.5, vx: 8,
         vy: 0.5, vz: 0, speedMps: speed, headingRad: 0.1, covariance4x4: [], bboxLength: 4.5,
         bboxWidth: 1.8, bboxHeight: 1.5, bboxHeadingRad: 0.1, heightP95Max: 1.6,
@@ -445,6 +445,51 @@ final class BuildFrameModeSpeedEntriesTests: XCTestCase {
     }
 }
 
+// MARK: - buildRunModeHitEntries Tests
+
+final class BuildRunModeHitEntriesTests: XCTestCase {
+
+    func testUsesPersistentMaxHits() {
+        let runTracks = [makeRunTrack(trackId: "trk_a")]
+        let frameTrackByID = ["trk_a": makeTrack(id: "trk_a", hits: 8)]
+        let result = buildRunModeHitEntries(
+            runTracks: runTracks, frameTrackByID: frameTrackByID, trackMaxHits: ["trk_a": 14])
+        XCTAssertEqual(result[0].maxSpeed, 14)
+    }
+
+    func testSortedDescending() {
+        let runTracks = [
+            makeRunTrack(trackId: "trk_a"), makeRunTrack(trackId: "trk_b"),
+            makeRunTrack(trackId: "trk_c"),
+        ]
+        let frameTrackByID = [
+            "trk_a": makeTrack(id: "trk_a", hits: 4),
+            "trk_b": makeTrack(id: "trk_b", hits: 12),
+            "trk_c": makeTrack(id: "trk_c", hits: 8),
+        ]
+        let result = buildRunModeHitEntries(
+            runTracks: runTracks, frameTrackByID: frameTrackByID, trackMaxHits: [:])
+        XCTAssertEqual(result.map(\.id), ["trk_b", "trk_c", "trk_a"])
+    }
+}
+
+// MARK: - buildFrameModeHitEntries Tests
+
+final class BuildFrameModeHitEntriesTests: XCTestCase {
+
+    func testUsesPersistentMaxHits() {
+        let tracks = [makeTrack(id: "trk_a", hits: 5)]
+        let result = buildFrameModeHitEntries(tracks: tracks, trackMaxHits: ["trk_a": 12])
+        XCTAssertEqual(result[0].maxSpeed, 12)
+    }
+
+    func testSortedDescending() {
+        let tracks = [makeTrack(id: "trk_a", hits: 3), makeTrack(id: "trk_b", hits: 9)]
+        let result = buildFrameModeHitEntries(tracks: tracks, trackMaxHits: [:])
+        XCTAssertEqual(result.map(\.id), ["trk_b", "trk_a"])
+    }
+}
+
 // MARK: - runTrackTags Tests
 
 final class RunTrackTagsTests: XCTestCase {
@@ -570,6 +615,53 @@ final class BestRunTrackSpeedTests: XCTestCase {
     }
 }
 
+// MARK: - bestRunTrackHits Tests
+
+final class BestRunTrackHitsTests: XCTestCase {
+
+    func testUsesPersistentMaxHits() {
+        let frameTrack = makeTrack(id: "trk_a", hits: 12)
+        let result = bestRunTrackHits(
+            trackId: "trk_a", frameTrack: frameTrack, trackMaxHits: ["trk_a": 18])
+        XCTAssertEqual(result, 18)
+    }
+
+    func testUsesLiveHitsWhenHigher() {
+        let frameTrack = makeTrack(id: "trk_a", hits: 21)
+        let result = bestRunTrackHits(
+            trackId: "trk_a", frameTrack: frameTrack, trackMaxHits: ["trk_a": 18])
+        XCTAssertEqual(result, 21)
+    }
+
+    func testFallsBackToZero() {
+        let result = bestRunTrackHits(trackId: "trk_a", frameTrack: nil, trackMaxHits: [:])
+        XCTAssertEqual(result, 0)
+    }
+}
+
+// MARK: - trackMetricDisplay Tests
+
+final class TrackMetricDisplayTests: XCTestCase {
+
+    func testSpeedDisplayForFirstSeen() {
+        XCTAssertEqual(
+            trackMetricDisplay(sortOrder: .firstSeen, speed: 12.5, hits: 42), "12.5 m/s")
+    }
+
+    func testSpeedDisplayForMaxSpeed() {
+        XCTAssertEqual(
+            trackMetricDisplay(sortOrder: .maxSpeed, speed: 9.25, hits: 42), "9.2 m/s")
+    }
+
+    func testHitsDisplay() {
+        XCTAssertEqual(trackMetricDisplay(sortOrder: .hits, speed: 9.25, hits: 42), "42 hits")
+    }
+
+    func testSpeedDisplayReturnsNilWithoutValue() {
+        XCTAssertNil(trackMetricDisplay(sortOrder: .maxSpeed, speed: nil, hits: 42))
+    }
+}
+
 // MARK: - sortTracksByMaxSpeed Tests
 
 final class SortTracksByMaxSpeedTests: XCTestCase {
@@ -595,6 +687,26 @@ final class SortTracksByMaxSpeedTests: XCTestCase {
     func testEmptyInput() {
         let sorted = sortTracksByMaxSpeed([], trackMaxSpeed: [:])
         XCTAssertTrue(sorted.isEmpty)
+    }
+}
+
+// MARK: - sortTracksByMaxHits Tests
+
+final class SortTracksByMaxHitsTests: XCTestCase {
+
+    func testSortsDescending() {
+        let tracks = [
+            makeTrack(id: "trk_low", hits: 3), makeTrack(id: "trk_high", hits: 15),
+            makeTrack(id: "trk_mid", hits: 8),
+        ]
+        let sorted = sortTracksByMaxHits(tracks, trackMaxHits: [:])
+        XCTAssertEqual(sorted.map(\.trackID), ["trk_high", "trk_mid", "trk_low"])
+    }
+
+    func testPersistentMaxOverrides() {
+        let tracks = [makeTrack(id: "trk_a", hits: 3), makeTrack(id: "trk_b", hits: 10)]
+        let sorted = sortTracksByMaxHits(tracks, trackMaxHits: ["trk_a": 20])
+        XCTAssertEqual(sorted.map(\.trackID), ["trk_a", "trk_b"])
     }
 }
 
@@ -629,6 +741,33 @@ final class SortRunTracksByMaxSpeedTests: XCTestCase {
     }
 }
 
+// MARK: - sortRunTracksByMaxHits Tests
+
+final class SortRunTracksByMaxHitsTests: XCTestCase {
+
+    func testSortsDescending() {
+        let runTracks = [
+            makeRunTrack(trackId: "trk_a"), makeRunTrack(trackId: "trk_b"),
+        ]
+        let frameTrackByID = [
+            "trk_a": makeTrack(id: "trk_a", hits: 5), "trk_b": makeTrack(id: "trk_b", hits: 15),
+        ]
+        let sorted = sortRunTracksByMaxHits(
+            runTracks, frameTrackByID: frameTrackByID, trackMaxHits: [:])
+        XCTAssertEqual(sorted.map(\.trackId), ["trk_b", "trk_a"])
+    }
+
+    func testUsesPersistentMaxHits() {
+        let runTracks = [
+            makeRunTrack(trackId: "trk_a"), makeRunTrack(trackId: "trk_b"),
+        ]
+        let frameTrackByID = ["trk_b": makeTrack(id: "trk_b", hits: 10)]
+        let sorted = sortRunTracksByMaxHits(
+            runTracks, frameTrackByID: frameTrackByID, trackMaxHits: ["trk_a": 20])
+        XCTAssertEqual(sorted.map(\.trackId), ["trk_a", "trk_b"])
+    }
+}
+
 // MARK: - trackStateColour Tests
 
 final class TrackStateColourTests: XCTestCase {
@@ -660,15 +799,17 @@ final class TrackStateLabelTests: XCTestCase {
         let state = AppState()
         let view = RunTrackRowView(
             trackId: "trk_a", shortID: "000a", statusColour: .green, isInView: true,
-            bestSpeed: 12.5, showClimbArrow: false, tags: [], isSelected: false, onSelect: {})
+            metricDisplay: "12.5 m/s", showClimbArrow: false, tags: [], isSelected: false,
+            onSelect: {})
         hostView(view, state: state)
     }
 
     func testSelectedRowRenders() {
         let state = AppState()
         let view = RunTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .green, isInView: true, bestSpeed: 8.0,
-            showClimbArrow: false, tags: [("car", .confirmedGreen)], isSelected: true, onSelect: {})
+            trackId: "trk_a", shortID: "000a", statusColour: .green, isInView: true,
+            metricDisplay: "8.0 m/s", showClimbArrow: false, tags: [("car", .confirmedGreen)],
+            isSelected: true, onSelect: {})
         hostView(view, state: state)
     }
 
@@ -676,15 +817,16 @@ final class TrackStateLabelTests: XCTestCase {
         let state = AppState()
         let view = RunTrackRowView(
             trackId: "trk_a", shortID: "000a", statusColour: .yellow, isInView: true,
-            bestSpeed: 15.0, showClimbArrow: true, tags: [], isSelected: false, onSelect: {})
+            metricDisplay: "15.0 m/s", showClimbArrow: true, tags: [], isSelected: false,
+            onSelect: {})
         hostView(view, state: state)
     }
 
     func testNotInViewRow() {
         let state = AppState()
         let view = RunTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .gray, isInView: false, bestSpeed: nil,
-            showClimbArrow: false, tags: [], isSelected: false, onSelect: {})
+            trackId: "trk_a", shortID: "000a", statusColour: .gray, isInView: false,
+            metricDisplay: nil, showClimbArrow: false, tags: [], isSelected: false, onSelect: {})
         hostView(view, state: state)
     }
 
@@ -692,7 +834,7 @@ final class TrackStateLabelTests: XCTestCase {
         let state = AppState()
         let view = RunTrackRowView(
             trackId: "trk_a", shortID: "000a", statusColour: .green, isInView: true,
-            bestSpeed: 10.0, showClimbArrow: false,
+            metricDisplay: "10.0 m/s", showClimbArrow: false,
             tags: [("car", .confirmedGreen), ("noisy", .accentColor), ("merge", .accentColor)],
             isSelected: false, onSelect: {})
         hostView(view, state: state)
@@ -701,8 +843,9 @@ final class TrackStateLabelTests: XCTestCase {
     func testNilBestSpeed() {
         let state = AppState()
         let view = RunTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .green, isInView: true, bestSpeed: nil,
-            showClimbArrow: false, tags: [], isSelected: false, onSelect: {})
+            trackId: "trk_a", shortID: "000a", statusColour: .green, isInView: true,
+            metricDisplay: nil, showClimbArrow: false, tags: [], isSelected: false,
+            onSelect: {})
         hostView(view, state: state)
     }
 }
@@ -714,7 +857,7 @@ final class TrackStateLabelTests: XCTestCase {
     func testBasicRowRenders() {
         let state = AppState()
         let view = FrameTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .green, speedDisplay: "12.5 m/s",
+            trackId: "trk_a", shortID: "000a", statusColour: .green, metricDisplay: "12.5 m/s",
             showClimbArrow: false, tags: [], isSelected: false, onSelect: {})
         hostView(view, state: state)
     }
@@ -722,7 +865,7 @@ final class TrackStateLabelTests: XCTestCase {
     func testSelectedRowRenders() {
         let state = AppState()
         let view = FrameTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .green, speedDisplay: "8.0 m/s",
+            trackId: "trk_a", shortID: "000a", statusColour: .green, metricDisplay: "8.0 m/s",
             showClimbArrow: false, tags: [("car", .confirmedGreen)], isSelected: true, onSelect: {})
         hostView(view, state: state)
     }
@@ -730,7 +873,7 @@ final class TrackStateLabelTests: XCTestCase {
     func testClimbArrowShown() {
         let state = AppState()
         let view = FrameTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .yellow, speedDisplay: "15.0 m/s",
+            trackId: "trk_a", shortID: "000a", statusColour: .yellow, metricDisplay: "15.0 m/s",
             showClimbArrow: true, tags: [], isSelected: false, onSelect: {})
         hostView(view, state: state)
     }
@@ -738,7 +881,7 @@ final class TrackStateLabelTests: XCTestCase {
     func testWithTags() {
         let state = AppState()
         let view = FrameTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .green, speedDisplay: "5.0 m/s",
+            trackId: "trk_a", shortID: "000a", statusColour: .green, metricDisplay: "5.0 m/s",
             showClimbArrow: false, tags: [("truck", .confirmedGreen)], isSelected: false,
             onSelect: {})
         hostView(view, state: state)
@@ -749,7 +892,7 @@ final class TrackStateLabelTests: XCTestCase {
         for trackState in [TrackState.unknown, .tentative, .confirmed, .deleted] {
             let view = FrameTrackRowView(
                 trackId: "trk_a", shortID: "000a", statusColour: trackStateColour(trackState),
-                speedDisplay: "8.0 m/s", showClimbArrow: false, tags: [], isSelected: false,
+                metricDisplay: "8.0 m/s", showClimbArrow: false, tags: [], isSelected: false,
                 onSelect: {})
             hostView(view, state: state)
         }
@@ -883,7 +1026,8 @@ final class EdgeCaseHelperTests: XCTestCase {
             let colour = trackStateColour(stateVal)
             let view = RunTrackRowView(
                 trackId: "trk_x", shortID: "000x", statusColour: colour, isInView: true,
-                bestSpeed: 10.0, showClimbArrow: false, tags: [], isSelected: false, onSelect: {})
+                metricDisplay: "10.0 m/s", showClimbArrow: false, tags: [], isSelected: false,
+                onSelect: {})
             hostView(view, state: state)
         }
     }
@@ -892,7 +1036,7 @@ final class EdgeCaseHelperTests: XCTestCase {
         let state = AppState()
         let view = RunTrackRowView(
             trackId: "trk_a", shortID: "000a", statusColour: .green, isInView: true,
-            bestSpeed: 20.0, showClimbArrow: true,
+            metricDisplay: "20.0 m/s", showClimbArrow: true,
             tags: [("car", .confirmedGreen), ("noisy", .accentColor)], isSelected: true,
             onSelect: {})
         hostView(view, state: state)
@@ -903,7 +1047,8 @@ final class EdgeCaseHelperTests: XCTestCase {
         for stateVal in [TrackState.unknown, .tentative, .confirmed, .deleted] {
             let view = FrameTrackRowView(
                 trackId: "trk_x", shortID: "000x", statusColour: trackStateColour(stateVal),
-                speedDisplay: "8.5 m/s", showClimbArrow: false, tags: [("car", .confirmedGreen)],
+                metricDisplay: "8.5 m/s", showClimbArrow: false,
+                tags: [("car", .confirmedGreen)],
                 isSelected: false, onSelect: {})
             hostView(view, state: state)
         }
@@ -912,7 +1057,7 @@ final class EdgeCaseHelperTests: XCTestCase {
     func testFrameTrackRowWithClimbAndSelection() {
         let state = AppState()
         let view = FrameTrackRowView(
-            trackId: "trk_a", shortID: "000a", statusColour: .green, speedDisplay: "15.0 m/s",
+            trackId: "trk_a", shortID: "000a", statusColour: .green, metricDisplay: "15.0 m/s",
             showClimbArrow: true,
             tags: [("truck", .confirmedGreen), ("noisy", .accentColor), ("extra", .blue)],
             isSelected: true, onSelect: {})
@@ -923,7 +1068,8 @@ final class EdgeCaseHelperTests: XCTestCase {
         let state = AppState()
         let view = RunTrackRowView(
             trackId: "trk_a", shortID: "000a", statusColour: Color.gray.opacity(0.5),
-            isInView: false, bestSpeed: nil, showClimbArrow: false, tags: [], isSelected: false,
+            isInView: false, metricDisplay: nil, showClimbArrow: false, tags: [],
+            isSelected: false,
             onSelect: {})
         hostView(view, state: state)
     }

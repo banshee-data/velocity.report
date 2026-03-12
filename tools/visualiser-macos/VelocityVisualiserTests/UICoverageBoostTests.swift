@@ -847,6 +847,19 @@ struct SerialiseFlagsTests {
         XCTAssertEqual(result["trk_a"]?.rank, 0)
     }
 
+    func testFrameModeWithHitsSort() {
+        let state = AppState()
+        let t1 = makeTrack(id: "trk_a", hits: 10)
+        let t2 = makeTrack(id: "trk_b", hits: 25)
+        state.currentFrame = makeFrame(tracks: [t1, t2])
+
+        let result = computeUpdatedRanks(
+            isRunMode: false, runTracks: [], frameTrackByID: [:], appState: state,
+            previousRanks: [:], sortOrder: .hits)
+        XCTAssertEqual(result["trk_b"]?.rank, 0)
+        XCTAssertEqual(result["trk_a"]?.rank, 1)
+    }
+
     func testFrameModeWithFilters() {
         let state = AppState()
         state.filterMinHits = 10
