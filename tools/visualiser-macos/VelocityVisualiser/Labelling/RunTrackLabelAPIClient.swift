@@ -361,6 +361,25 @@ struct RunTrack: Codable, Identifiable {
     let isMergeCandidate: Bool?
     let linkedTrackIDs: [String]? = nil
 
+    enum CodingKeys: String, CodingKey {
+        case runId = "run_id"
+        case trackId = "track_id"
+        case sensorId = "sensor_id"
+        case userLabel = "user_label"
+        case qualityLabel = "quality_label"
+        case labelConfidence = "label_confidence"
+        case labelerId = "labeler_id"
+        case labelSource = "label_source"
+        case startUnixNanos = "start_unix_nanos"
+        case endUnixNanos = "end_unix_nanos"
+        case totalObservations = "total_observations"
+        case durationSecs = "duration_secs"
+        case avgSpeedMps = "avg_speed_mps"
+        case maxSpeedMps = "max_speed_mps"
+        case isSplitCandidate = "is_split_candidate"
+        case isMergeCandidate = "is_merge_candidate"
+        case linkedTrackIDs = "linked_track_ids"
+    }
     var id: String { trackId }
 
     /// Whether this track has been labelled.

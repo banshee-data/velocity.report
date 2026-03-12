@@ -97,6 +97,9 @@ struct ContentView: View {
         { handleKeyPress(.toggleVelocity, appState: appState) }.onKeyPress("l") {
             handleKeyPress(.toggleLabels, appState: appState)
         }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }  // Run browser sheet
+            // NOTE: RunBrowserView(state:) is intentionally used in the production UI,
+            // even though its initialiser was originally documented as "test-only".
+            // Do not remove or significantly change that initialiser without updating all call sites.
             .sheet(isPresented: $appState.showRunBrowser) {
                 RunBrowserView(state: appState.runBrowserState).environmentObject(appState)
             }
