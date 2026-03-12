@@ -1,8 +1,8 @@
 # Agent Knowledge Architecture: Dual-Tool DRY Design
 
 **Status:** Draft
-**Created:** 2026-03-12
 **Scope:** Restructure agent customisation for simultaneous Copilot + Claude Code use; eliminate knowledge duplication; prepare for team expansion to 10–15 agents
+**Layers:** docs, ai-agents
 
 ---
 
@@ -89,7 +89,7 @@ These tenets belong in a single canonical file (proposed: `.github/TENETS.md`) t
 │  ├── architecture.md        (tech stack, DB, paths) │
 │  ├── coding-standards.md    (British English, fmt)  │
 │  ├── commit-conventions.md  (prefixes, format)      │
-│  ├── hardware.md            (radar, LIDAR specs)    │
+│  ├── hardware.md            (radar, LiDAR specs)    │
 │  └── security-surface.md   (attack surface map)     │
 │  ← Referenced, never duplicated                     │
 ├─────────────────────────────────────────────────────┤
