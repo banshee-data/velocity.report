@@ -308,7 +308,8 @@ struct PlaybackStatusModelTests {
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
-        XCTAssertTrue(state.isLive)
+        // prepareForNewReplay resets isLive; the failed load does not restore it.
+        XCTAssertFalse(state.isLive)
         XCTAssertNil(state.currentRunID)
     }
 }
