@@ -123,10 +123,10 @@ These tenets belong in a single canonical file (proposed: `.github/TENETS.md`) t
 
 **Layer 2 (role mixins)** — 2 files. Role classes that group agents by capability needs:
 
-| Role Class    | Agents                                       | Knowledge Included                                                       |
-| ------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
-| **Technical** | Hadaly, Ictinus, Malory + future tech agents | Build system, venv, test commands, DB details, hardware specs, packaging |
-| **Editorial** | Thompson, Jess + future non-tech agents      | Brand voice, style guide, audience awareness, documentation standards    |
+| Role Class    | Agents                                     | Knowledge Included                                                       |
+| ------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
+| **Technical** | Appius, Grace, Malory + future tech agents | Build system, venv, test commands, DB details, hardware specs, packaging |
+| **Editorial** | Terry, Florence + future non-tech agents   | Brand voice, style guide, audience awareness, documentation standards    |
 
 Some agents may include both mixins (e.g. a future "DevRel" agent who writes docs but also runs code).
 
@@ -134,7 +134,7 @@ Some agents may include both mixins (e.g. a future "DevRel" agent who writes doc
 
 - YAML frontmatter (name, description) — Copilot uses this natively; Claude Code ignores it harmlessly
 - Role and responsibilities
-- Role-specific methodology (Malory's red-team playbook, Jess's sequencing rules, etc.)
+- Role-specific methodology (Malory's red-team playbook, Florence's sequencing rules, etc.)
 - References to Layer 1/2 knowledge: `see .github/knowledge/build-and-test.md`
 - Inter-agent coordination notes
 - Forbidden actions
@@ -158,32 +158,35 @@ Both tools read from the same files. Copilot discovers them via the `.agent.md` 
 
 ## 5. Agent Role Taxonomy
 
-### 5.1 Current Agents (5)
+### 5.1 Current Agents (7)
 
-| Agent                   | Class     | Unique Domain                                                      |
-| ----------------------- | --------- | ------------------------------------------------------------------ |
-| **Hadaly** (Dev)        | Technical | Implementation methodology, code review, test strategy             |
-| **Ictinus** (Architect) | Technical | Feature ideation, capability mapping, design docs                  |
-| **Malory** (Pen Test)   | Technical | Red-team playbook, vulnerability patterns, severity classification |
-| **Jess** (PM)           | Editorial | Scope definition, sequencing, risk identification, coordination    |
-| **Thompson** (Writer)   | Editorial | Brand voice, copy editing, marketing, content quality              |
+| Agent                                                                                            | Core Domain          | Class     | Prior Name | Unique Domain                                                                                            |
+| ------------------------------------------------------------------------------------------------ | -------------------- | --------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| **Euler** ([wiki](https://en.wikipedia.org/wiki/Leonhard_Euler)) (Research / Math)               | Algorithms           | Technical | -          | Algorithms, analytical models, computational foundations, statistical methods, traffic engineering maths |
+| **Grace** ([wiki](https://en.wikipedia.org/wiki/Grace_Hopper)) (Architect / Theory)              | System architecture  | Technical | Ictinus    | System architecture, language design, computational models, capability mapping, design docs              |
+| **Appius** ([wiki](https://en.wikipedia.org/wiki/Appius_Claudius_Caecus)) (Dev / Implementation) | Execution            | Technical | Hadaly     | Execution strategy, infrastructure thinking, durable systems, code review, test strategy                 |
+| **Malory** ([wiki](https://en.wikipedia.org/wiki/Thomas_Malory)) (Pen Test)                      | Adversarial thinking | Technical | -          | Red-team playbook, vulnerability patterns, adversarial thinking, severity classification                 |
+| **Florence** ([wiki](https://en.wikipedia.org/wiki/Florence_Nightingale)) (PM)                   | Coordination         | Editorial | Jess       | Scope definition, sequencing, risk identification, project management                                    |
+| **Terry** ([wiki](https://en.wikipedia.org/wiki/Terry_Pratchett)) (Writer)                       | Narrative            | Editorial | Thompson   | Brand voice, copy editing, marketing, content quality                                                    |
+| **Ruth** ([wiki](https://en.wikipedia.org/wiki/Ruth_Bader_Ginsburg)) (Justice)                   | Judgment             | Both      | -          | Product direction, tradeoff decisions, scope challenges, taste, scope mode selection                     |
 
-### 5.2 Planned Expansion (5–10 new agents, future cycle)
+### 5.2 Planned Expansion (future cycle)
 
 These are **candidates only** — to be scoped and prioritised in a future planning cycle. Listed here to validate the architecture scales.
 
-| Candidate              | Class     | Proposed Domain                                        | Rationale                               |
-| ---------------------- | --------- | ------------------------------------------------------ | --------------------------------------- |
-| **QA / Test Lead**     | Technical | Test strategy, coverage analysis, regression detection | Currently spread across Hadaly          |
-| **Data Analyst**       | Technical | Statistical analysis, data quality, metric validation  | Complement Ictinus on data layer        |
-| **DevOps / Release**   | Technical | CI/CD, packaging, deployment, release management       | Currently ad-hoc                        |
-| **UX / Accessibility** | Editorial | UI review, accessibility audits, user journey mapping  | Gap in current team                     |
-| **Community Manager**  | Editorial | Issue triage, contributor onboarding, community comms  | Complement Thompson                     |
-| **Compliance / Legal** | Editorial | Licence review, data governance, regulatory awareness  | Strengthen privacy posture              |
-| **Hardware / Sensor**  | Technical | Sensor calibration, firmware, signal processing        | Deep domain currently in Hadaly/Ictinus |
-| **Performance**        | Technical | Profiling, benchmarks, resource constraints (RPi)      | Currently implicit                      |
-| **Docs / Tutorial**    | Editorial | Setup guides, tutorials, API docs, examples            | Complement Thompson                     |
-| **DevRel**             | Both      | Blog posts, demos, conference talks, ecosystem         | Cross-functional                        |
+| Candidate              | Class     | Proposed Domain                                        | Rationale                             |
+| ---------------------- | --------- | ------------------------------------------------------ | ------------------------------------- |
+| **QA / Test Lead**     | Technical | Test strategy, coverage analysis, regression detection | Currently spread across Appius        |
+| **DevOps / Release**   | Technical | CI/CD, packaging, deployment, release management       | Currently ad-hoc                      |
+| **UX / Accessibility** | Editorial | UI review, accessibility audits, user journey mapping  | Gap in current team                   |
+| **Community Manager**  | Editorial | Issue triage, contributor onboarding, community comms  | Complement Terry                      |
+| **Compliance / Legal** | Editorial | Licence review, data governance, regulatory awareness  | Strengthen privacy posture            |
+| **Hardware / Sensor**  | Technical | Sensor calibration, firmware, signal processing        | Deep domain currently in Appius/Grace |
+| **Performance**        | Technical | Profiling, benchmarks, resource constraints (RPi)      | Currently implicit                    |
+| **Docs / Tutorial**    | Editorial | Setup guides, tutorials, API docs, examples            | Complement Terry                      |
+| **DevRel**             | Both      | Blog posts, demos, conference talks, ecosystem         | Cross-functional                      |
+
+**Note:** Data Analyst candidate was absorbed by the Researcher agent (§5.1). Statistical analysis, data quality, and metric validation are now part of the Researcher’s core domain.
 
 **Architecture validation:** Adding a new agent should require:
 
@@ -235,8 +238,8 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 - Scope challenges — three explicit modes: EXPANSION (blue-sky thinking), HOLD (rigorous review of existing scope), REDUCTION (cut ruthlessly). User selects mode at start of interaction.
 - Build-vs-defer-vs-kill decisions on features and capabilities
-- Cross-agent coordination (arbitrates when Ictinus and Jess disagree on scope)
-- Product taste and user empathy — “is this the 10-star version?”
+- Cross-agent coordination (arbitrates when Grace and Florence disagree on scope)
+- Product taste and user empathy — "is this the 10-star version?"
 - Tradeoff documentation — records WHY decisions were made, not just WHAT
 - Mandatory NOT-in-scope list — every scope decision must explicitly document what was excluded and why
 
@@ -244,9 +247,8 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 **Relationship to other agents:**
 
-- Complements **Ictinus** (who identifies _what’s possible_) by deciding _what to pursue_
-- Complements **Jess** (who sequences _how to deliver_) by deciding _whether to deliver_
-- Maps directly to the Plan-CEO pattern from §6.8 — scope mode selection, nuclear scope challenge, mandatory NOT-in-scope list
+- Complements **Grace** (who identifies _what's possible_) by deciding _what to pursue_
+- Complements **Florence** (who sequences _how to deliver_) by deciding _whether to deliver_
 
 #### Researcher (TBD name)
 
@@ -270,8 +272,8 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 **Relationship to other agents:**
 
 - Absorbs the **Data Analyst** candidate from §5.2 — statistical analysis and metric validation are core Researcher responsibilities
-- Complements **Hadaly** (who implements algorithms) by validating the underlying maths
-- Complements **Ictinus** (who proposes new capabilities) by assessing mathematical feasibility
+- Complements **Appius** (who implements algorithms) by validating the underlying maths
+- Complements **Grace** (who proposes new capabilities) by assessing mathematical feasibility
 - The “no black-box AI” tenet (Layer 0) is especially relevant — the Researcher ensures all algorithms are inspectable, tuneable, and explainable
 
 ---
@@ -372,7 +374,7 @@ Define personas in a tool-agnostic format. Copilot `.agent.md` files become thin
 
 When you need a specialised perspective, reference the relevant agent file:
 
-- **Hadaly** (Dev) — `.github/agents/hadaly.agent.md`
+- **Appius** (Dev) — `.github/agents/appius.agent.md`
 - **Malory** (Security) — `.github/agents/malory.agent.md`
 - ...
 ```
@@ -425,7 +427,7 @@ To make an informed architectural decision, we must enumerate _every_ feature ea
 | #   | Feature                         | Copilot                                      | Claude Code                                 | Option A (single source)                                 | Option B (dual native)                                     |
 | --- | ------------------------------- | -------------------------------------------- | ------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- |
 | 1   | **Agent picker UI**             | `.agent.md` auto-populates dropdown          | No equivalent                               | ✅ Copilot native                                        | ✅ Copilot native                                          |
-| 2   | **`@mention` invocation**       | `@Hadaly` in chat triggers agent             | No equivalent                               | ✅ Copilot native                                        | ✅ Copilot native                                          |
+| 2   | **`@mention` invocation**       | `@Appius` in chat triggers agent             | No equivalent                               | ✅ Copilot native                                        | ✅ Copilot native                                          |
 | 3   | **Structured YAML metadata**    | `name`, `description`, `tools` parsed        | Ignored (harmless noise)                    | ✅ / ⚠️ Claude sees YAML as text                         | ✅ / ✅ Claude gets clean prompt                           |
 | 4   | **Per-agent tool restrictions** | `tools:` limits available MCP/built-in tools | No equivalent                               | ✅ / n/a                                                 | ✅ / n/a                                                   |
 | 5   | **Root instructions**           | `copilot-instructions.md`                    | `CLAUDE.md`                                 | ✅ / ✅ separate files                                   | ✅ / ✅ separate files                                     |
@@ -487,7 +489,7 @@ The script:
    - **Acceptable divergence** — platform-specific features (tool restrictions, slash commands) are excluded from comparison
 5. Outputs a Markdown summary suitable for the weekly planning review
 
-**Integration:** Added to `scripts/jess-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
+**Integration:** Added to `scripts/florence-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
 
 **Make target:** `make check-agent-drift` runs the script standalone.
 
@@ -576,14 +578,14 @@ The script:
    - Remove all duplicated project facts
    - Add references to relevant Layer 1/2 modules
    - Keep only: persona, methodology, coordination notes, forbidden actions
-   - Incorporate adoptable patterns from §6.8:
-     - Ictinus: scope modes (expansion/hold/reduction), mandatory output artefacts
+   - Incorporate adopted patterns:
+     - Grace: scope modes (expansion/hold/reduction), mandatory output artefacts, interactive question protocol
      - Malory: checklist reference, gate classification, suppressions list, read-only-by-default discipline
-     - Hadaly: suppressions list for code review
+     - Appius: suppressions list for code review
      - All agents: priority hierarchy under context pressure, directive voice
 6. Validate each agent still functions correctly in Copilot
 
-**Acceptance:** Total agent file lines drop from ~3,040 to ~1,200. Each agent file is <200 lines. Agents with review responsibilities (Malory, Ictinus) reference externalised checklists rather than inlining criteria.
+**Acceptance:** Total agent file lines drop from ~3,040 to ~1,200. Each agent file is <200 lines. Agents with review responsibilities (Malory, Grace) reference externalised checklists rather than inlining criteria.
 
 ### Phase 3: Claude Code Entry Point + Native Agents `M`
 
@@ -597,7 +599,7 @@ The script:
    - Persona methodology and coordination rules mirrored from `.agent.md` (drift-checked)
 9. Create `scripts/check-agent-drift.sh` — drift detection between paired agent definitions
 10. Add `make check-agent-drift` target
-11. Integrate drift check into `scripts/jess-planning-review.sh` for weekly review
+11. Integrate drift check into `scripts/florence-planning-review.sh` for weekly review
 12. Test Claude Code reads the knowledge modules and agent files correctly
 
 **Acceptance:** Claude Code session has access to equivalent project knowledge as Copilot. Shared knowledge (Layers 0–2) is single-source. Persona definitions are platform-native in both tools. `make check-agent-drift` reports zero unreviewed drift.
@@ -632,20 +634,24 @@ The script:
 │   ├── role-technical.md               #   mixin for technical agents
 │   └── role-editorial.md              #   mixin for editorial agents
 ├── agents/                             # Layer 3: Copilot agent definitions
-│   ├── hadaly.agent.md                 #   Dev (technical)
-│   ├── ictinus.agent.md                #   Architect (technical)
-│   ├── jess.agent.md                   #   PM (editorial)
-│   ├── malory.agent.md                 #   Pen Test (technical)
-│   ├── thompson.agent.md              #   Writer (editorial)
-│   └── [future-agents].agent.md       #   5–10 more planned
+│   ├── euler.agent.md                    #   Research / Math (technical)
+│   ├── grace.agent.md                   #   Architect (technical)
+│   ├── appius.agent.md                  #   Dev (technical)
+│   ├── malory.agent.md                  #   Pen Test (technical)
+│   ├── florence.agent.md                #   PM (editorial)
+│   ├── terry.agent.md                   #   Writer (editorial)
+│   ├── ruth.agent.md                    #   Executive (both)
+│   └── [future-agents].agent.md       #   further expansion planned
 .claude/
 ├── agents/                             # Layer 3: Claude agent definitions
-│   ├── hadaly.md                       #   Dev (technical) — Claude-native
-│   ├── ictinus.md                      #   Architect (technical)
-│   ├── jess.md                         #   PM (editorial)
+│   ├── euler.md                         #   Research / Math (technical) — Claude-native
+│   ├── grace.md                        #   Architect (technical)
+│   ├── appius.md                       #   Dev (technical)
 │   ├── malory.md                       #   Pen Test (technical)
-│   ├── thompson.md                     #   Writer (editorial)
-│   └── [future-agents].md             #   5–10 more planned
+│   ├── florence.md                     #   PM (editorial)
+│   ├── terry.md                        #   Writer (editorial)
+│   ├── ruth.md                         #   Executive (both)
+│   └── [future-agents].md             #   further expansion planned
 CLAUDE.md                               # Layer 4: Claude entry point → refs .github/ + .claude/
 scripts/
 └── check-agent-drift.sh                # Drift detection between paired definitions
@@ -680,4 +686,4 @@ scripts/
 - [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis. This ruled out Option C and informed the decision to keep persona content directly in agent files rather than factoring it into shared includes.
 - [x] ~~Which new agents to prioritise?~~ — Partially resolved: Executive and Researcher added to core roster (§5.1). Remaining candidates in §5.2 deferred to future cycle.
 - [ ] Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?
-- [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `jess-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
+- [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `florence-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
