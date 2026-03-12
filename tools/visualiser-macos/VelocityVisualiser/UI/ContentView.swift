@@ -1122,14 +1122,6 @@ struct TrackInspectorDetailCards: View {
                                 .foregroundColor(trackStateColour(t.state))
                         }
                         DetailRow(label: "Hits", value: "\(t.hits)")
-                        DetailRow(label: "Misses", value: "\(t.misses)")
-                        DetailRow(
-                            label: "Confidence", value: String(format: "%.0f%%", t.confidence * 100)
-                        )
-                        DetailRow(
-                            label: "Duration", value: String(format: "%.1f s", t.trackDurationSecs))
-                        DetailRow(
-                            label: "Length", value: String(format: "%.1f m", t.trackLengthMetres))
                         DetailRow(
                             label: "Class",
                             value: t.classLabel.isEmpty ? "Not classified" : t.classLabel)
