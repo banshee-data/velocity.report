@@ -572,7 +572,16 @@ final class LockedState<Value>: @unchecked Sendable {
 
     /// Decode a protobuf FrameBundle to the Swift model.
     func decodeFrameBundle(_ proto: Velocity_Visualiser_V1_FrameBundle) -> FrameBundle {
+        let trace = PerformanceTrace.begin(
+            "DecodeFrameBundle",
+            "frame=\(proto.frameID) type=\(proto.frameType.rawValue) bg=\(proto.hasBackground)")
         var frame = FrameBundle()
+        defer {
+            trace.end(
+                "points=\(frame.pointCloud?.pointCount ?? 0) tracks=\(frame.tracks?.tracks.count ?? 0) bgPoints=\(frame.background?.pointCount ?? 0)"
+            )
+        }
+
         frame.frameID = proto.frameID
         frame.timestampNanos = proto.timestampNs
         frame.sensorID = proto.sensorID

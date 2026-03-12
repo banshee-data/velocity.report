@@ -336,6 +336,16 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     /// Update the renderer with a new frame of data.
     func updateFrame(_ frame: FrameBundle) {
+        let trace = PerformanceTrace.begin(
+            "RendererUpdateFrame",
+            "frame=\(frame.frameID) type=\(frame.frameType.rawValue) points=\(frame.pointCloud?.pointCount ?? 0)"
+        )
+        defer {
+            trace.end(
+                "boxes=\(boxInstanceCount) clusters=\(clusterInstanceCount) trails=\(trailSegments.count)"
+            )
+        }
+
         frameUpdateCount += 1
 
         // M3.5: Use composite renderer for split streaming
@@ -847,6 +857,15 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     func draw(in view: MTKView) {
+        let trace = PerformanceTrace.begin(
+            "MetalDraw",
+            "points=\(pointCount) bg=\(compositeRenderer?.getStats().background ?? 0) fg=\(compositeRenderer?.getStats().foreground ?? pointCount)"
+        )
+        defer {
+            trace.end(
+                "boxes=\(boxInstanceCount) clusters=\(clusterInstanceCount) debug=\(showDebug)")
+        }
+
         guard let drawable = view.currentDrawable,
             let descriptor = view.currentRenderPassDescriptor,
             let commandBuffer = commandQueue.makeCommandBuffer(),
