@@ -150,6 +150,7 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
     let run: AnalysisRun
     let isSelected: Bool
     let onSelect: () -> Void
+    @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -184,9 +185,13 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
             Button(action: onSelect) { Text(isSelected ? "Loaded" : "Load") }.buttonStyle(.bordered)
                 .controlSize(.small).disabled(isSelected || !run.hasVRLog).frame(
                     width: 70, alignment: .trailing)
-        }.padding(.vertical, 2).background(
-            isSelected ? Color.accentColor.opacity(0.1) : Color.clear
-        ).cornerRadius(4)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
+            Rectangle()
+        ).background(
+            isSelected
+                ? Color.accentColor.opacity(0.1)
+                : (isHovered ? Color.primary.opacity(0.08) : Color.clear)
+        ).cornerRadius(4).onHover { hovering in isHovered = hovering }
     }
 }
 
