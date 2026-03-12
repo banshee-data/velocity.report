@@ -180,9 +180,6 @@ private let runBrowserLogger = DevLogger(category: "RunBrowser")
             // Col 6: Label rollup
             RunLabelRollupIcon(rollup: run.labelRollup).frame(width: 54, alignment: .center)
 
-            // Col 6: Label rollup
-            RunLabelRollupIcon(rollup: run.labelRollup).frame(width: 54, alignment: .center)
-
             // Load button
             Button(action: onSelect) { Text(isSelected ? "Loaded" : "Load") }.buttonStyle(.bordered)
                 .controlSize(.small).disabled(isSelected || !run.hasVRLog).frame(
