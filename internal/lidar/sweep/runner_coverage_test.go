@@ -186,7 +186,7 @@ func TestRunner_Start_MissingParams(t *testing.T) {
 	}
 }
 
-func TestRunner_Start_DefaultCombinations(t *testing.T) {
+func TestRunner_Start_ValidParamsRequest(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
 		Params: []SweepParam{
