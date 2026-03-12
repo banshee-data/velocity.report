@@ -21,7 +21,8 @@ private enum RunBrowserLayout {
 }
 
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
-    runID: String, appState: AppState, loadRunForReplay: @escaping @MainActor () async -> Bool
+    runID: String, appState: AppState, runBrowserState: RunBrowserState,
+    loadRunForReplay: @escaping @MainActor () async -> Bool
 ) async {
     runBrowserLogger.debug("loadRunForReplayAndUpdateAppState() — runID=\(runID)")
     // Reset stale playback state before loading the new VRLOG.
@@ -35,7 +36,7 @@ private enum RunBrowserLayout {
         appState.isLive = false
         // Set currentRunID so labels route to run-track API
         appState.currentRunID = runID
-        await appState.runBrowserState.primeTrackCache(runID: runID)
+        await runBrowserState.primeTrackCache(runID: runID)
         // Restart the gRPC stream AFTER the VRLOG has loaded on the
         // server.  Doing this before the HTTP POST would disconnect
         // the client while the server starts broadcasting, causing
@@ -53,7 +54,7 @@ private enum RunBrowserLayout {
 
     init() { _runBrowserState = StateObject(wrappedValue: RunBrowserState()) }
 
-    /// Test-only initialiser accepting a pre-configured state.
+    /// Inject a shared run-browser state instance for the production sheet or tests.
     init(state: RunBrowserState) { _runBrowserState = StateObject(wrappedValue: state) }
 
     /// Sheet height scales with item count: min 300, expands ~28pt per row, max 700.
@@ -116,7 +117,8 @@ private enum RunBrowserLayout {
                             }
                             guard run.hasVRLog else { return }
                             await loadRunForReplayAndUpdateAppState(
-                                runID: run.runId, appState: appState
+                                runID: run.runId, appState: appState,
+                                runBrowserState: runBrowserState
                             ) { await runBrowserState.loadRunForReplay(run.runId) }
                             if runBrowserState.selectedRunID == run.runId { dismiss() }
                         }
@@ -186,41 +188,41 @@ private struct RunBrowserHeaderRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Col 1: 0xfirst6uuid with status dot
-            HStack(spacing: RunBrowserLayout.runStatusSpacing) {
-                StatusDot(status: run.status)
-                Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(1)
-            }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
+        Button(action: onSelect) {
+            HStack(spacing: 0) {
+                // Col 1: 0xfirst6uuid with status dot
+                HStack(spacing: RunBrowserLayout.runStatusSpacing) {
+                    StatusDot(status: run.status)
+                    Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(
+                        1)
+                }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
 
-            // Col 2: Date/time (space-padded for monospaced alignment)
-            Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
-                width: RunBrowserLayout.dateWidth, alignment: .leading
-            ).lineLimit(1)
+                // Col 2: Date/time (space-padded for monospaced alignment)
+                Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
+                    width: RunBrowserLayout.dateWidth, alignment: .leading
+                ).lineLimit(1)
 
-            // Col 3: Scene name
-            Text(run.sceneName ?? "-").font(.caption).frame(
-                width: RunBrowserLayout.sceneWidth, alignment: .leading
-            ).lineLimit(1)
+                // Col 3: Scene name
+                Text(run.sceneName ?? "-").font(.caption).frame(
+                    width: RunBrowserLayout.sceneWidth, alignment: .leading
+                ).lineLimit(1)
 
-            // Col 4: Duration mm:ss
-            Text(runRowFormatDuration(run.durationSecs)).font(
-                .system(.caption, design: .monospaced)
-            ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
+                // Col 4: Duration mm:ss
+                Text(runRowFormatDuration(run.durationSecs)).font(
+                    .system(.caption, design: .monospaced)
+                ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
 
-            // Col 5: Tracks count
-            Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
-                width: RunBrowserLayout.tracksWidth, alignment: .trailing)
+                // Col 5: Tracks count
+                Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
+                    width: RunBrowserLayout.tracksWidth, alignment: .trailing)
 
-            // Col 6: Label rollup
-            RunLabelRollupIcon(rollup: run.labelRollup).frame(
-                width: RunBrowserLayout.labelsWidth, alignment: .center)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
-            Rectangle()
-        ).background(rowBackground).cornerRadius(4).onTapGesture {
-            guard run.hasVRLog else { return }
-            onSelect()
-        }.onHover { hovering in isHovered = hovering }
+                // Col 6: Label rollup
+                RunLabelRollupIcon(rollup: run.labelRollup).frame(
+                    width: RunBrowserLayout.labelsWidth, alignment: .center)
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
+                Rectangle())
+        }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).cornerRadius(4)
+            .onHover { hovering in isHovered = hovering }
     }
 }
 

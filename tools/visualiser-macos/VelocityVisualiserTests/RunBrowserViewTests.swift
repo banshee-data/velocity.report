@@ -284,7 +284,9 @@ struct PlaybackStatusModelTests {
         state.currentTimestamp = 123
         state.currentRunID = nil
 
-        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { true }
+        await loadRunForReplayAndUpdateAppState(
+            runID: "run-123", appState: state, runBrowserState: state.runBrowserState
+        ) { true }
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 1)
@@ -300,7 +302,9 @@ struct PlaybackStatusModelTests {
         state.currentRunID = nil
         state.isLive = true
 
-        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { false }
+        await loadRunForReplayAndUpdateAppState(
+            runID: "run-123", appState: state, runBrowserState: state.runBrowserState
+        ) { false }
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 0)

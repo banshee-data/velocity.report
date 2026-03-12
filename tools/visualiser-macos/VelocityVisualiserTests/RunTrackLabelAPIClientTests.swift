@@ -759,6 +759,34 @@ struct RunTrackLabelModelDecodingTests {
         #expect(resp.labelerId == "tester")
     }
 
+    @Test func runTrackDecodesLabelSourceAndLinkedTrackIds() throws {
+        let json = """
+            {
+                "run_id": "run-001",
+                "track_id": "track-001",
+                "sensor_id": "hesai-01",
+                "user_label": "car",
+                "quality_label": "good",
+                "label_source": "human_manual",
+                "start_unix_nanos": 1000,
+                "end_unix_nanos": 2000,
+                "total_observations": 12,
+                "duration_secs": 1.2,
+                "avg_speed_mps": 4.5,
+                "max_speed_mps": 7.0,
+                "is_split_candidate": false,
+                "is_merge_candidate": true,
+                "linked_track_ids": ["track-002", "track-003"]
+            }
+            """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let track = try decoder.decode(RunTrack.self, from: json.data(using: .utf8)!)
+        #expect(track.labelSource == "human_manual")
+        #expect(track.linkedTrackIds == ["track-002", "track-003"])
+        #expect(track.isMergeCandidate == true)
+    }
+
     @Test func labellingProgressDecodes() throws {
         let json = """
             {

@@ -147,6 +147,11 @@ private let logger = DevLogger(category: "AppState")
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
     @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
     @Published var metalViewSize: CGSize = .zero  // Metal view drawable size
+    /// Cached data for the currently selected track, updated each frame.
+    /// Used by inspector views to avoid reading non-Published currentFrame.
+    @Published var selectedTrackData: Track?
+
+    func currentSelectedTrackData() -> Track? { selectedTrackData }
 
     // MARK: - Track Filters
 
@@ -948,6 +953,7 @@ private let logger = DevLogger(category: "AppState")
     /// Select a track without popping open the side panel if it isn't already visible.
     private func selectTrackQuietly(_ trackID: String) {
         selectedTrackID = trackID
+        selectedTrackData = allSeenTracks[trackID]
         renderer?.selectedTrackID = trackID
         reprojectLabels()
     }
@@ -956,6 +962,7 @@ private let logger = DevLogger(category: "AppState")
 
     func selectTrack(_ trackID: String?) {
         selectedTrackID = trackID
+        selectedTrackData = trackID.flatMap { allSeenTracks[$0] }
         renderer?.selectedTrackID = trackID
         if trackID != nil {
             showLabelPanel = true
@@ -1206,6 +1213,7 @@ private let logger = DevLogger(category: "AppState")
                 trackMaxHits.removeAll()
                 allSeenTracks.removeAll()
                 inViewTrackIDs = []
+                selectedTrackData = nil
             }
 
             // Log mode on first frame
@@ -1258,6 +1266,9 @@ private let logger = DevLogger(category: "AppState")
         } else {
             inViewTrackIDs = []
         }
+
+        // Update cached selected track data for inspector stability
+        if let selectedTrackID { selectedTrackData = allSeenTracks[selectedTrackID] }
 
         // M3.5: Update cache status
         cacheStatus = newCacheStatus

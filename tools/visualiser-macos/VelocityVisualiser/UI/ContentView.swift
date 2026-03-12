@@ -101,6 +101,8 @@ struct ContentView: View {
             // even though its initialiser was originally documented as "test-only".
             // Do not remove or significantly change that initialiser without updating all call sites.
             .sheet(isPresented: $appState.showRunBrowser) {
+                // Share the app-level RunBrowserState so local rollup updates stay in sync
+                // with the run-browser sheet and replay-loading helper.
                 RunBrowserView(state: appState.runBrowserState).environmentObject(appState)
             }
     }
@@ -1144,12 +1146,8 @@ struct TrackInspectorDetailCards: View {
     let trackID: String
     @EnvironmentObject var appState: AppState
 
-    private var track: Track? {
-        appState.currentFrame?.tracks?.tracks.first(where: { $0.trackID == trackID })
-    }
-
     var body: some View {
-        if let t = track {
+        if let t = appState.currentSelectedTrackData() {
             VStack(alignment: .leading, spacing: 8) {
                 // Position
                 GroupBox(label: Text("Position").font(.caption2)) {
@@ -2181,9 +2179,9 @@ struct MetalViewRepresentable: NSViewRepresentable {
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
-        metalView.preferredFramesPerSecond = 60
-        metalView.enableSetNeedsDisplay = false
-        metalView.isPaused = false
+        // On-demand rendering: only draw when data arrives or camera changes
+        metalView.isPaused = true
+        metalView.enableSetNeedsDisplay = true
 
         // Create renderer
         if let renderer = MetalRenderer(metalView: metalView) {
@@ -2217,6 +2215,9 @@ struct MetalViewRepresentable: NSViewRepresentable {
             metalView.onTrackSelected = onTrackSelected
             metalView.onCameraChanged = onCameraChanged
         }
+
+        // Trigger a redraw so toggle changes are visible immediately
+        nsView.needsDisplay = true
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -2259,6 +2260,7 @@ class InteractiveMetalView: MTKView {
         let shiftHeld = event.modifierFlags.contains(.shift)
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
+        self.needsDisplay = true
         onCameraChanged?()
     }
 
@@ -2285,6 +2287,7 @@ class InteractiveMetalView: MTKView {
 
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false)
+        self.needsDisplay = true
         onCameraChanged?()
     }
 
@@ -2292,12 +2295,14 @@ class InteractiveMetalView: MTKView {
         // Trackpad: use scrollingDeltaY. Mouse wheel: use deltaY
         let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.deltaY
         renderer?.handleZoom(delta: delta)
+        self.needsDisplay = true
         onCameraChanged?()
     }
 
     override func magnify(with event: NSEvent) {
         // Pinch gesture on trackpad
         renderer?.handleZoom(delta: event.magnification * 10)
+        self.needsDisplay = true
         onCameraChanged?()
     }
 
@@ -2308,6 +2313,7 @@ class InteractiveMetalView: MTKView {
             renderer.handleKeyDown(keyCode: event.keyCode, modifiers: event.modifierFlags)
         {
             // Key was handled (camera movement)
+            self.needsDisplay = true
             onCameraChanged?()
             return
         }
