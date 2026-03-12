@@ -1,6 +1,6 @@
 # Agent Knowledge Architecture: Dual-Tool DRY Design
 
-**Status:** Draft
+**Status:** In Progress (Phase 2 — agent condensation and persona refinement underway)
 **Scope:** Restructure agent customisation for simultaneous Copilot + Claude Code use; eliminate knowledge duplication; prepare for team expansion to 10–15 agents
 **Layers:** docs, ai-agents
 
@@ -10,9 +10,9 @@
 
 velocity.report uses seven named AI agents defined as Copilot `.agent.md` files. The system works, but suffers from three structural problems:
 
-1. **Massive duplication** — 3,456 lines across 6 files with ~45 duplication instances. Privacy principles appear in all 6 files. Build commands appear in 5. SQLite facts in 5. Python venv in 4.
+1. **Massive duplication** — 4,723 lines across 7 agent files (was 3,456 across 6 — agent count and content grew during persona refinement pass). Privacy principles, build commands, SQLite facts, and Python venv details still appear in multiple files. Duplication reduction is a Phase 2 objective.
 2. **Tool lock-in** — all knowledge is in Copilot-specific formats (`.agent.md`, `copilot-instructions.md`). Adding Claude Code means either duplicating everything into `CLAUDE.md` or restructuring.
-3. **Scaling problem** — planning to expand from 5 to 10–15 agents. Current approach (each agent carries its own copy of project knowledge) would mean maintaining 15+ copies of the same facts.
+3. **Scaling problem** — planning to expand from 7 to 10–15 agents. Current approach (each agent carries its own copy of project knowledge) would mean maintaining 15+ copies of the same facts.
 
 **This is NOT a migration away from Copilot.** Both tools will be used simultaneously. The goal is a DRY knowledge architecture that serves both.
 
@@ -45,29 +45,35 @@ These tenets belong in a single canonical file (proposed: `.github/TENETS.md`) t
 
 ### Inventory
 
-| Asset                     | Lines     | Unique Content                           | Duplicated Content                            |
-| ------------------------- | --------- | ---------------------------------------- | --------------------------------------------- |
-| `copilot-instructions.md` | 417       | Git commit rules, repo structure         | Everything else shared                        |
-| `hadaly.agent.md`         | 281       | Radar commands, test strategy            | Build, DB, paths, privacy, venv               |
-| `ictinus.agent.md`        | 664       | Capability map, vision, opportunities    | Tech stack, DB, hardware, privacy, venv       |
-| `jess.agent.md`           | 494       | Planning methodology, workflows          | Tech stack, constraints, build, privacy, venv |
-| `malory.agent.md`         | 717       | Attack playbook, severity classification | Attack surface, DB, hardware, privacy         |
-| `thompson.agent.md`       | 883       | Brand voice, style guide, content audit  | Privacy, repo structure                       |
-| **Total**                 | **3,456** | ~40%                                     | **~60% duplicated**                           |
+> **Note:** Line counts below reflect the state after the persona refinement pass (2026-03-12). Agents have been renamed, given distinct historical personas with tailored voices, and expanded with role-specific methodology. The original pre-rename inventory is in git history.
+
+| Asset                     | Lines     | Unique Content                                           | Voice / Personality                                                      |
+| ------------------------- | --------- | -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `copilot-instructions.md` | 301       | Git commit rules, repo structure                         | Neutral (project-level)                                                  |
+| `appius.agent.md`         | 1,074     | Infrastructure, durable systems, code review, test       | Long-sighted builder (Appius Claudius Caecus)                            |
+| `euler.agent.md`          | 362       | Algorithms, convergence, statistics, maths documentation | Kind, patient, humble researcher (Leonhard Euler)                        |
+| `florence.agent.md`       | 331       | Planning, sequencing, risk, coordination                 | Evidence-based, environmental, empathetic planner (Florence Nightingale) |
+| `grace.agent.md`          | 396       | Capability mapping, design docs, feature ideation        | Bold pirate innovator, democratiser (Grace Hopper)                       |
+| `malory.agent.md`         | 228       | Attack playbook, severity classification                 | Curt, factual, lowercase, one SHOUT max (security researcher)            |
+| `ruth.agent.md`           | 381       | Scope modes, tradeoff decisions, decision records        | Firm but kind, data-driven, community-safety focused (RBG)               |
+| `terry.agent.md`          | 1,650     | Brand voice, style guide, content audit                  | Humane satire, wit, zero pomposity (Terry Pratchett)                     |
+| **Total**                 | **4,723** | ~50%                                                     | **~50% duplicated (down from ~60%)**                                     |
 
 ### Duplication Heat Map
 
-| Knowledge Category           | Files Containing It                    | Copies |
-| ---------------------------- | -------------------------------------- | ------ |
-| Privacy principles           | ALL 6                                  | 6      |
-| Build/test/lint commands     | copilot, hadaly, ictinus, jess, malory | 5      |
-| SQLite/database facts        | copilot, hadaly, ictinus, jess, malory | 5      |
-| Tech stack description       | copilot, hadaly, ictinus, jess         | 4      |
-| Hardware specs (radar/LIDAR) | copilot, hadaly, ictinus, malory       | 4      |
-| Python venv details          | copilot, hadaly, ictinus, jess         | 4      |
-| Deployment target (RPi)      | copilot, hadaly, ictinus, jess         | 4      |
-| Path conventions             | copilot, hadaly, ictinus, malory       | 4      |
-| British English rules        | copilot, jess, thompson                | 3      |
+> **Note:** Heat map reflects pre-condensation state. Duplication will be eliminated in Phase 1 (knowledge extraction).
+
+| Knowledge Category           | Files Containing It                      | Copies |
+| ---------------------------- | ---------------------------------------- | ------ |
+| Privacy principles           | ALL 7                                    | 7      |
+| Build/test/lint commands     | copilot, appius, grace, florence, malory | 5      |
+| SQLite/database facts        | copilot, appius, grace, florence, malory | 5      |
+| Tech stack description       | copilot, appius, grace, florence         | 4      |
+| Hardware specs (radar/LIDAR) | copilot, appius, grace, malory           | 4      |
+| Python venv details          | copilot, appius, grace, florence         | 4      |
+| Deployment target (RPi)      | copilot, appius, grace, florence         | 4      |
+| Path conventions             | copilot, appius, grace, malory           | 4      |
+| British English rules        | copilot, florence, terry                 | 3      |
 
 ---
 
@@ -228,7 +234,9 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 ### 5.4 New Agent Scope Notes
 
-#### Executive (TBD name)
+> **Note:** Both the Executive (Ruth) and Researcher (Euler) agents referenced below have been fully implemented as of 2026-03-12. The scope notes below document the original design intent for reference.
+
+#### Executive — Ruth (implemented)
 
 **Role:** Product direction and tradeoff decisions. The agent that challenges scope, picks between competing options, and ensures the team builds the _right_ thing — not just the _next_ thing.
 
@@ -250,7 +258,7 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 - Complements **Grace** (who identifies _what's possible_) by deciding _what to pursue_
 - Complements **Florence** (who sequences _how to deliver_) by deciding _whether to deliver_
 
-#### Researcher (TBD name)
+#### Researcher — Euler (implemented)
 
 **Role:** Algorithmic rigour and mathematical methodology. The agent that validates statistical methods, reviews algorithm implementations, and ensures the maths is sound.
 
@@ -574,6 +582,20 @@ The script:
 
 **Goal:** Slim agent files to role-specific content only.
 
+> **Status (2026-03-12):** Persona refinement complete — all 7 agents have distinct historical personas with tailored voices and role-specific methodology. Condensation (removing duplicated project facts and adding Layer 1/2 references) is the remaining Phase 2 work.
+>
+> **Completed persona work:**
+>
+> - **Euler** — kind, patient, humble researcher (Leonhard Euler); convergence analysis templates, parameter justification tables, statistical validation methodology
+> - **Ruth** — firm but kind executive (RBG); data-driven decisions, community-safety grounding, scope modes (EXPANSION/HOLD/REDUCTION), Step 0 methodology
+> - **Malory** — curt, factual security researcher; attack surface, severity table, pen test methodology; mostly lowercase, one uppercase SHOUT max per report
+> - **Grace** — bold pirate innovator (Grace Hopper); ask-forgiveness mentality, democratising design, tangible analogies, empathetic leadership
+> - **Florence** — evidence-based planner (Florence Nightingale); environmental thinking, polar-area-diagram data advocacy, empathetic coordination, holistic project health
+> - **Appius** — long-sighted builder (Appius Claudius Caecus); infrastructure thinking, durable systems, civic discipline
+> - **Terry** — humane satirist (Terry Pratchett); zero pomposity, useful wit, audience awareness
+>
+> **Remaining work:** Remove duplicated project facts from each agent file, add references to Layer 1/2 knowledge modules (requires Phase 1 completion first).
+
 5. Refactor each `.agent.md` file:
    - Remove all duplicated project facts
    - Add references to relevant Layer 1/2 modules
@@ -585,7 +607,7 @@ The script:
      - All agents: priority hierarchy under context pressure, directive voice
 6. Validate each agent still functions correctly in Copilot
 
-**Acceptance:** Total agent file lines drop from ~3,040 to ~1,200. Each agent file is <200 lines. Agents with review responsibilities (Malory, Grace) reference externalised checklists rather than inlining criteria.
+**Acceptance:** After condensation, agent files contain only persona/role content — no duplicated project facts. Agents with review responsibilities (Malory, Grace) reference externalised checklists rather than inlining criteria. Target: each agent file ≤400 lines once project facts are extracted to Layer 1/2 modules.
 
 ### Phase 3: Claude Code Entry Point + Native Agents `M`
 
@@ -606,7 +628,7 @@ The script:
 
 ### Phase 4: Agent Team Expansion (future cycle) `L`
 
-**Goal:** Expand from 5 to 10–15 agents using the DRY architecture.
+**Goal:** Expand from 7 to 10–15 agents using the DRY architecture.
 
 13. Scope and prioritise new agent candidates from §5.2
 14. Create new agent files in both platforms (~50–100 lines each, referencing existing knowledge modules)
@@ -664,17 +686,19 @@ scripts/
 
 ## 9. Estimated Impact
 
-| Metric                                      | Current        | Target                   | Change             |
-| ------------------------------------------- | -------------- | ------------------------ | ------------------ |
-| Total lines (all agent/instruction files)   | 3,456          | ~2,000                   | -42%               |
-| _Project fact_ duplication instances        | ~45            | 0                        | -100%              |
-| _Persona_ duplication instances             | 0              | ~7–15 (bounded)          | +N (drift-checked) |
-| Files to update when build changes          | 5              | 1                        | -80%               |
-| Files to update when privacy policy changes | 6              | 1                        | -83%               |
-| Cost to add a new agent                     | ~200–800 lines | ~100–160 lines (2 files) | -75%               |
-| Tools supported                             | 1 (Copilot)    | 2 (Copilot + Claude)     | +100%              |
-| Platform features used                      | ~60%           | ~95%                     | +58%               |
-| Drift detection                             | None           | Weekly automated         | ∞                  |
+| Metric                                      | Original       | Current (post-persona) | Target (post-condensation) | Change (original→target) |
+| ------------------------------------------- | -------------- | ---------------------- | -------------------------- | ------------------------ |
+| Total lines (all agent/instruction files)   | 3,456          | 4,723                  | ~2,000                     | -42%                     |
+| _Project fact_ duplication instances        | ~45            | ~45 (unchanged)        | 0                          | -100%                    |
+| _Persona_ duplication instances             | 0              | 0                      | ~7–15 (bounded)            | +N (drift-checked)       |
+| Agent persona completeness                  | Generic        | Full (all 7 distinct)  | Full                       | ✅                       |
+| Agent voice/personality distinction         | None           | All 7 differentiated   | Maintained                 | ✅                       |
+| Files to update when build changes          | 5              | 5 (unchanged)          | 1                          | -80%                     |
+| Files to update when privacy policy changes | 6              | 7 (unchanged)          | 1                          | -86%                     |
+| Cost to add a new agent                     | ~200–800 lines | ~200–800 lines         | ~100–160 lines (2 files)   | -75%                     |
+| Tools supported                             | 1 (Copilot)    | 1 (Copilot)            | 2 (Copilot + Claude)       | +100%                    |
+| Platform features used                      | ~60%           | ~60%                   | ~95%                       | +58%                     |
+| Drift detection                             | None           | None                   | Weekly automated           | ∞                        |
 
 ---
 
@@ -685,5 +709,5 @@ scripts/
 - [x] ~~Single source vs dual agent definitions?~~ — Resolved: **Option B (dual native) with drift detection.** Feature matrix (§6.5) showed Option A sacrifices 6 real UX features for Claude users. Persona duplication is bounded (~40–80 lines/agent) and drift-checked weekly. See §6.6.
 - [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis. This ruled out Option C and informed the decision to keep persona content directly in agent files rather than factoring it into shared includes.
 - [x] ~~Which new agents to prioritise?~~ — Partially resolved: Executive and Researcher added to core roster (§5.1). Remaining candidates in §5.2 deferred to future cycle.
-- [ ] Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?
+- [x] ~~Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?~~ — Resolved: **yes.** Add CI checks that enforce core tenets (e.g. grep for PII-related code patterns, camera/licence-plate references, cloud transmission endpoints). Implement as part of Phase 1 alongside `TENETS.md` creation.
 - [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `florence-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
