@@ -42,25 +42,6 @@ func TestSetLogWriters_Disable(t *testing.T) {
 	}
 }
 
-func TestNewTaggedLogger_NilWriter(t *testing.T) {
-	logger := newTaggedLogger("[test] ", nil)
-	if logger != nil {
-		t.Error("expected nil logger for nil writer")
-	}
-}
-
-func TestNewTaggedLogger_NonNilWriter(t *testing.T) {
-	var buf bytes.Buffer
-	logger := newTaggedLogger("[test] ", &buf)
-	if logger == nil {
-		t.Fatal("expected non-nil logger for non-nil writer")
-	}
-	logger.logger.Printf(logger.tag+"hello %d", 42)
-	if !strings.Contains(buf.String(), "hello 42") {
-		t.Errorf("expected output to contain 'hello 42', got %q", buf.String())
-	}
-}
-
 func TestOpsf_WithLogger(t *testing.T) {
 	var buf bytes.Buffer
 	SetLogWriters(&buf, nil, nil)

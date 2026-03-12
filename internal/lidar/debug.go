@@ -2,8 +2,9 @@ package lidar
 
 import (
 	"io"
-	"log"
 	"sync"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
 )
 
 // LogWriters holds the io.Writers for each logging stream.
@@ -13,23 +14,11 @@ type LogWriters struct {
 	Trace io.Writer
 }
 
-// taggedLogger pairs a standard log.Logger (no prefix) with a tag string
-// that is prepended to the format string at each call site. This ensures the
-// tag appears after the timestamp, not before it.
-type taggedLogger struct {
-	logger *log.Logger
-	tag    string
-}
-
-func (tl *taggedLogger) printf(format string, args ...interface{}) {
-	tl.logger.Printf(tl.tag+format, args...)
-}
-
 var (
 	mu          sync.RWMutex
-	opsLogger   *taggedLogger
-	diagLogger  *taggedLogger
-	traceLogger *taggedLogger
+	opsLogger   *logutil.TaggedLogger
+	diagLogger  *logutil.TaggedLogger
+	traceLogger *logutil.TaggedLogger
 	opsWriter   io.Writer
 	diagWriter  io.Writer
 	traceWriter io.Writer
@@ -43,9 +32,9 @@ func SetLogWriters(w LogWriters) {
 	opsWriter = w.Ops
 	diagWriter = w.Diag
 	traceWriter = w.Trace
-	opsLogger = newTaggedLogger("[lidar] ", w.Ops)
-	diagLogger = newTaggedLogger("[lidar] ", w.Diag)
-	traceLogger = newTaggedLogger("[lidar] ", w.Trace)
+	opsLogger = logutil.NewTaggedLogger("[lidar] ", w.Ops)
+	diagLogger = logutil.NewTaggedLogger("[lidar] ", w.Diag)
+	traceLogger = logutil.NewTaggedLogger("[lidar] ", w.Trace)
 }
 
 // SubLogger returns an ops-level Printf-compatible function with a combined
@@ -58,8 +47,8 @@ func SubLogger(subtag string) func(format string, args ...interface{}) {
 	if w == nil {
 		return func(string, ...interface{}) {}
 	}
-	tl := newTaggedLogger("[lidar/"+subtag+"] ", w)
-	return tl.printf
+	tl := logutil.NewTaggedLogger("[lidar/"+subtag+"] ", w)
+	return tl.Printf
 }
 
 // SubLoggers returns ops/diag/trace Printf-compatible functions with a
@@ -72,36 +61,24 @@ func SubLoggers(subtag string) (ops, diag, trace func(format string, args ...int
 	noop := func(string, ...interface{}) {}
 	tag := "[lidar/" + subtag + "] "
 	if ow != nil {
-		tl := newTaggedLogger(tag, ow)
-		ops = tl.printf
+		tl := logutil.NewTaggedLogger(tag, ow)
+		ops = tl.Printf
 	} else {
 		ops = noop
 	}
 	if dw != nil {
-		tl := newTaggedLogger(tag, dw)
-		diag = tl.printf
+		tl := logutil.NewTaggedLogger(tag, dw)
+		diag = tl.Printf
 	} else {
 		diag = noop
 	}
 	if tw != nil {
-		tl := newTaggedLogger(tag, tw)
-		trace = tl.printf
+		tl := logutil.NewTaggedLogger(tag, tw)
+		trace = tl.Printf
 	} else {
 		trace = noop
 	}
 	return
-}
-
-// newTaggedLogger creates a taggedLogger for a given writer, or returns nil
-// if w is nil. The tag is prepended to each log message after the timestamp.
-func newTaggedLogger(tag string, w io.Writer) *taggedLogger {
-	if w == nil {
-		return nil
-	}
-	return &taggedLogger{
-		logger: log.New(w, "", log.LstdFlags|log.Lmicroseconds),
-		tag:    tag,
-	}
 }
 
 // Opsf logs to the ops stream (actionable warnings, errors, lifecycle events).
@@ -110,7 +87,7 @@ func Opsf(format string, args ...interface{}) {
 	l := opsLogger
 	mu.RUnlock()
 	if l != nil {
-		l.printf(format, args...)
+		l.Printf(format, args...)
 	}
 }
 
@@ -120,7 +97,7 @@ func Diagf(format string, args ...interface{}) {
 	l := diagLogger
 	mu.RUnlock()
 	if l != nil {
-		l.printf(format, args...)
+		l.Printf(format, args...)
 	}
 }
 
@@ -130,6 +107,6 @@ func Tracef(format string, args ...interface{}) {
 	l := traceLogger
 	mu.RUnlock()
 	if l != nil {
-		l.printf(format, args...)
+		l.Printf(format, args...)
 	}
 }

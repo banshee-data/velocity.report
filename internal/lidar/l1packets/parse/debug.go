@@ -2,56 +2,42 @@ package parse
 
 import (
 	"io"
-	"log"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
 )
 
-type taggedLogger struct {
-	logger *log.Logger
-	tag    string
-}
-
 var (
-	opsLogger   *taggedLogger
-	diagLogger  *taggedLogger
-	traceLogger *taggedLogger
+	opsLogger   *logutil.TaggedLogger
+	diagLogger  *logutil.TaggedLogger
+	traceLogger *logutil.TaggedLogger
 )
 
 // SetLogWriters configures the three logging streams for the parse package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = newTaggedLogger("[parse] ", ops)
-	diagLogger = newTaggedLogger("[parse] ", diag)
-	traceLogger = newTaggedLogger("[parse] ", trace)
-}
-
-func newTaggedLogger(tag string, w io.Writer) *taggedLogger {
-	if w == nil {
-		return nil
-	}
-	return &taggedLogger{
-		logger: log.New(w, "", log.LstdFlags|log.Lmicroseconds),
-		tag:    tag,
-	}
+	opsLogger = logutil.NewTaggedLogger("[parse] ", ops)
+	diagLogger = logutil.NewTaggedLogger("[parse] ", diag)
+	traceLogger = logutil.NewTaggedLogger("[parse] ", trace)
 }
 
 // opsf logs to the ops stream (actionable warnings, errors, data loss).
 func opsf(format string, args ...interface{}) {
 	if opsLogger != nil {
-		opsLogger.logger.Printf(opsLogger.tag+format, args...)
+		opsLogger.Printf(format, args...)
 	}
 }
 
 // diagf logs to the diag stream (day-to-day diagnostics, tuning context).
 func diagf(format string, args ...interface{}) {
 	if diagLogger != nil {
-		diagLogger.logger.Printf(diagLogger.tag+format, args...)
+		diagLogger.Printf(format, args...)
 	}
 }
 
 // tracef logs to the trace stream (high-frequency packet/frame telemetry).
 func tracef(format string, args ...interface{}) {
 	if traceLogger != nil {
-		traceLogger.logger.Printf(traceLogger.tag+format, args...)
+		traceLogger.Printf(format, args...)
 	}
 }
 
