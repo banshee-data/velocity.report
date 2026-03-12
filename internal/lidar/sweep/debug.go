@@ -1,4 +1,4 @@
-package l3grid
+package sweep
 
 import (
 	"io"
@@ -12,33 +12,38 @@ var (
 	traceLogger *logutil.TaggedLogger
 )
 
-// SetLogWriters configures the three logging streams for the l3grid package.
+// SetLogWriters configures the three logging streams for the sweep package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = logutil.NewTaggedLogger("[l3grid] ", ops)
-	diagLogger = logutil.NewTaggedLogger("[l3grid] ", diag)
-	traceLogger = logutil.NewTaggedLogger("[l3grid] ", trace)
+	opsLogger = logutil.NewTaggedLogger("[sweep] ", ops)
+	diagLogger = logutil.NewTaggedLogger("[sweep] ", diag)
+	traceLogger = logutil.NewTaggedLogger("[sweep] ", trace)
 }
 
-// opsf logs to the ops stream (actionable warnings, errors, data loss).
 func opsf(format string, args ...interface{}) {
 	if opsLogger != nil {
 		opsLogger.Printf(format, args...)
 	}
 }
 
-// diagf logs to the diag stream (day-to-day diagnostics, tuning context).
 func diagf(format string, args ...interface{}) {
 	if diagLogger != nil {
 		diagLogger.Printf(format, args...)
 	}
 }
 
-// tracef logs to the trace stream (high-frequency packet/frame telemetry).
 func tracef(format string, args ...interface{}) {
 	if traceLogger != nil {
 		traceLogger.Printf(format, args...)
 	}
 }
 
-// DO NOT add Debugf, that's an anti-pattern. match callsite needs to opsf,diagf,tracef
+type printfLogger interface {
+	Printf(format string, args ...interface{})
+}
+
+type opsPrintfLogger struct{}
+
+func (opsPrintfLogger) Printf(format string, args ...interface{}) {
+	opsf(format, args...)
+}

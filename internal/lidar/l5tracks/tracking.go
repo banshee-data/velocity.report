@@ -336,6 +336,7 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 func (t *Tracker) Reset() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	clearedTracks := len(t.Tracks)
 	t.Tracks = make(map[string]*TrackedObject)
 	t.NextTrackID = 1
 	t.LastUpdateNanos = 0
@@ -344,15 +345,19 @@ func (t *Tracker) Reset() {
 	t.ClusteredPoints = 0
 	t.EmptyBoxFrames = 0
 	t.TotalBoxFrames = 0
+	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
 // NewTracker creates a new tracker with the specified configuration.
 func NewTracker(config TrackerConfig) *Tracker {
-	return &Tracker{
+	tracker := &Tracker{
 		Tracks:      make(map[string]*TrackedObject),
 		NextTrackID: 1,
 		Config:      config,
 	}
+	diagf("Tracker created: max_tracks=%d hits_to_confirm=%d max_misses=%d max_misses_confirmed=%d",
+		config.MaxTracks, config.HitsToConfirm, config.MaxMisses, config.MaxMissesConfirmed)
+	return tracker
 }
 
 // RecordFrameStats records per-frame foreground point statistics.
@@ -389,6 +394,17 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	}
 	t.LastUpdateNanos = nowNanos
 
+	if traceLogger != nil {
+		activeBefore := 0
+		for _, track := range t.Tracks {
+			if track.State != TrackDeleted {
+				activeBefore++
+			}
+		}
+		tracef("Update start: ts=%d clusters=%d active_tracks=%d dt=%.3f",
+			nowNanos, len(clusters), activeBefore, dt)
+	}
+
 	// Step 1: Predict all active tracks to current time
 	for _, track := range t.Tracks {
 		if track.State != TrackDeleted {
@@ -402,6 +418,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 	// Step 3: Update matched tracks
 	matchedTracks := make(map[string]bool)
+	newlyConfirmed := 0
 	for clusterIdx, trackID := range associations {
 		if trackID != "" {
 			track := t.Tracks[trackID]
@@ -414,6 +431,9 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			if track.State == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
 				track.State = TrackConfirmed
 				t.TracksConfirmed++
+				newlyConfirmed++
+				diagf("Track confirmed: track_id=%s hits=%d observations=%d cluster_id=%d",
+					track.TrackID, track.Hits, track.ObservationCount, clusters[clusterIdx].ClusterID)
 			}
 		}
 	}
@@ -449,6 +469,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// prediction step (already applied above) keeps the position estimate
 	// coasting, and we inflate the covariance to widen the gating gate
 	// so re-association is easier when the object reappears.
+	deletedThisFrame := 0
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.State != TrackDeleted {
 			track.Misses++
@@ -492,8 +513,12 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				maxMisses = t.Config.MaxMissesConfirmed
 			}
 			if track.Misses >= maxMisses {
+				prevState := track.State
 				track.State = TrackDeleted
 				track.LastUnixNanos = nowNanos
+				deletedThisFrame++
+				diagf("Track deleted after misses: track_id=%s previous_state=%s misses=%d max_misses=%d",
+					track.TrackID, prevState, track.Misses, maxMisses)
 			}
 		}
 	}
@@ -511,14 +536,27 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	t.EmptyBoxFrames += activeCount - matchedCount
 
 	// Step 5: Initialise new tracks from unassociated clusters
+	newTracks := 0
 	for clusterIdx, trackID := range associations {
 		if trackID == "" && len(t.Tracks) < t.Config.MaxTracks {
 			t.initTrack(clusters[clusterIdx], nowNanos)
+			newTracks++
 		}
 	}
 
 	// Step 6: Cleanup deleted tracks (keep for grace period, then remove)
 	t.cleanupDeletedTracks(nowNanos)
+
+	if traceLogger != nil {
+		activeAfter := 0
+		for _, track := range t.Tracks {
+			if track.State != TrackDeleted {
+				activeAfter++
+			}
+		}
+		tracef("Update complete: ts=%d active_tracks=%d matched_tracks=%d new_tracks=%d confirmed_tracks=%d deleted_tracks=%d",
+			nowNanos, activeAfter, len(matchedTracks), newTracks, newlyConfirmed, deletedThisFrame)
+	}
 }
 
 // isFiniteState returns true if every element of the Kalman state vector
@@ -629,6 +667,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 
 	// Guard: reset state if prediction produced NaN/Inf (task 2.4).
 	if !isFiniteState(track) {
+		opsf("Predict produced non-finite state: track_id=%s deleting track", track.TrackID)
 		track.X = 0
 		track.Y = 0
 		track.VX = 0
@@ -890,6 +929,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 	// Guard: reset state if update produced NaN/Inf (task 2.4).
 	if !isFiniteState(track) {
+		opsf("Update produced non-finite state: track_id=%s deleting track", track.TrackID)
 		track.X = 0
 		track.Y = 0
 		track.VX = 0
@@ -1210,6 +1250,8 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 
 	t.Tracks[trackID] = track
 	t.TracksCreated++
+	diagf("Track initialised: track_id=%s cluster_id=%d sensor=%s points=%d",
+		trackID, cluster.ClusterID, cluster.SensorID, cluster.PointsCount)
 	return track
 }
 
@@ -1230,6 +1272,9 @@ func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 	for _, id := range toRemove {
 		delete(t.Tracks, id)
 	}
+	if len(toRemove) > 0 {
+		tracef("Removed deleted tracks: count=%d", len(toRemove))
+	}
 }
 
 // UpdateClassification writes classification results back to a live track
@@ -1240,9 +1285,14 @@ func (t *Tracker) UpdateClassification(trackID, objectClass string, confidence f
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if track, ok := t.Tracks[trackID]; ok {
+		prevClass := track.ObjectClass
 		track.ObjectClass = objectClass
 		track.ObjectConfidence = confidence
 		track.ClassificationModel = model
+		if prevClass != objectClass {
+			diagf("Track classification updated: track_id=%s class=%s->%s confidence=%.2f model=%s",
+				trackID, prevClass, objectClass, confidence, model)
+		}
 	}
 }
 
@@ -1254,6 +1304,7 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	nowNanos := timestamp.UnixNano()
+	deletedTracks := 0
 
 	for _, track := range t.Tracks {
 		if track.State == TrackDeleted {
@@ -1267,10 +1318,15 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 			maxMisses = t.Config.MaxMissesConfirmed
 		}
 		if track.Misses >= maxMisses {
+			prevState := track.State
 			track.State = TrackDeleted
 			track.LastUnixNanos = nowNanos
+			deletedTracks++
+			diagf("Track deleted during AdvanceMisses: track_id=%s previous_state=%s misses=%d max_misses=%d",
+				track.TrackID, prevState, track.Misses, maxMisses)
 		}
 	}
+	tracef("AdvanceMisses complete: ts=%d deleted_tracks=%d", nowNanos, deletedTracks)
 }
 
 // GetDeletedTrackGracePeriod returns the configured deleted-track grace period.

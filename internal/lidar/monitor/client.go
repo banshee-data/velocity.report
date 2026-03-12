@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"time"
@@ -45,7 +44,7 @@ func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 	payload := map[string]string{"pcap_file": pcapFile}
 	data, _ := json.Marshal(payload)
 
-	log.Printf("Requesting PCAP replay for sensor %s: file=%s", c.SensorID, pcapFile)
+	diagf("Requesting PCAP replay for sensor %s: file=%s", c.SensorID, pcapFile)
 
 	if maxRetries <= 0 {
 		maxRetries = 60
@@ -73,7 +72,7 @@ func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 
 		if resp.StatusCode == http.StatusConflict {
 			if retry == 0 {
-				log.Printf("PCAP replay in progress, waiting...")
+				diagf("PCAP replay in progress, waiting...")
 			}
 			time.Sleep(5 * time.Second)
 			continue
@@ -95,7 +94,7 @@ func DefaultBuckets() []string {
 func (c *Client) FetchBuckets() []string {
 	resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/acceptance?sensor_id=%s", c.BaseURL, c.SensorID))
 	if err != nil {
-		log.Printf("WARNING: Could not fetch buckets: %v (using defaults)", err)
+		opsf("WARNING: Could not fetch buckets: %v (using defaults)", err)
 		return DefaultBuckets()
 	}
 	defer resp.Body.Close()
@@ -113,7 +112,7 @@ func (c *Client) FetchBuckets() []string {
 	// Validate bucket count to prevent excessive memory allocation
 	const maxBuckets = 100
 	if len(bm) > maxBuckets {
-		log.Printf("WARNING: Bucket count %d exceeds maximum %d, using defaults", len(bm), maxBuckets)
+		opsf("WARNING: Bucket count %d exceeds maximum %d, using defaults", len(bm), maxBuckets)
 		return DefaultBuckets()
 	}
 
@@ -182,7 +181,7 @@ func (c *Client) SetParams(params BackgroundParams) error {
 		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("Applied: noise=%.4f, closeness=%.2f, neighbour=%d, seed=%v",
+	diagf("Applied: noise=%.4f, closeness=%.2f, neighbour=%d, seed=%v",
 		params.NoiseRelative, params.ClosenessMultiplier,
 		params.NeighbourConfirmationCount, params.SeedFromFirst)
 	return nil
@@ -214,7 +213,7 @@ func (c *Client) SetTuningParams(params map[string]interface{}) error {
 		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("Applied tuning params: %s", string(data))
+	diagf("Applied tuning params: %s", string(data))
 	return nil
 }
 
@@ -254,7 +253,7 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	}
 	data, _ := json.Marshal(payload)
 
-	log.Printf("Requesting PCAP replay for sensor %s: file=%s start=%.1fs duration=%.1fs",
+	diagf("Requesting PCAP replay for sensor %s: file=%s start=%.1fs duration=%.1fs",
 		c.SensorID, cfg.PCAPFile, cfg.StartSeconds, cfg.DurationSeconds)
 
 	maxRetries := cfg.MaxRetries
@@ -284,7 +283,7 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 
 		if resp.StatusCode == http.StatusConflict {
 			if retry == 0 {
-				log.Printf("PCAP replay in progress, waiting...")
+				diagf("PCAP replay in progress, waiting...")
 			}
 			time.Sleep(5 * time.Second)
 			continue
@@ -315,7 +314,7 @@ func (c *Client) StopPCAPReplay() error {
 		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("Stopped PCAP replay for sensor %s", c.SensorID)
+	diagf("Stopped PCAP replay for sensor %s", c.SensorID)
 	return nil
 }
 

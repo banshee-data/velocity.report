@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -18,7 +17,7 @@ var defaultExportDir = func() string {
 	abs, err := filepath.Abs(tmp)
 	if err != nil {
 		// Fall back to tmp as-is but log for visibility.
-		log.Printf("export: could not resolve absolute temp dir from %q: %v", tmp, err)
+		opsf("export: could not resolve absolute temp dir from %q: %v", tmp, err)
 		return tmp
 	}
 	return filepath.Clean(abs)
@@ -94,6 +93,6 @@ func ExportPointsToASC(points []PointASC, extraHeader string) (string, error) {
 		}
 		fmt.Fprintln(f)
 	}
-	log.Printf("Exported %d points to %s", len(points), exportPath)
+	diagf("Exported %d points to %s", len(points), exportPath)
 	return exportPath, nil
 }

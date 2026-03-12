@@ -16,6 +16,8 @@ import (
 )
 
 func main() {
+	analysis.SetLogWriters(os.Stderr, os.Stderr, nil)
+
 	if len(os.Args) < 3 {
 		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  vrlog-analyse report <path.vrlog>\n")

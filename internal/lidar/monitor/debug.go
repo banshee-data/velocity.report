@@ -1,7 +1,9 @@
-package l3grid
+package monitor
 
 import (
 	"io"
+	"log"
+	"os"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
 )
@@ -12,33 +14,36 @@ var (
 	traceLogger *logutil.TaggedLogger
 )
 
-// SetLogWriters configures the three logging streams for the l3grid package.
+// SetLogWriters configures the three logging streams for the monitor package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = logutil.NewTaggedLogger("[l3grid] ", ops)
-	diagLogger = logutil.NewTaggedLogger("[l3grid] ", diag)
-	traceLogger = logutil.NewTaggedLogger("[l3grid] ", trace)
+	opsLogger = logutil.NewTaggedLogger("[monitor] ", ops)
+	diagLogger = logutil.NewTaggedLogger("[monitor] ", diag)
+	traceLogger = logutil.NewTaggedLogger("[monitor] ", trace)
 }
 
-// opsf logs to the ops stream (actionable warnings, errors, data loss).
 func opsf(format string, args ...interface{}) {
 	if opsLogger != nil {
 		opsLogger.Printf(format, args...)
 	}
 }
 
-// diagf logs to the diag stream (day-to-day diagnostics, tuning context).
 func diagf(format string, args ...interface{}) {
 	if diagLogger != nil {
 		diagLogger.Printf(format, args...)
 	}
 }
 
-// tracef logs to the trace stream (high-frequency packet/frame telemetry).
 func tracef(format string, args ...interface{}) {
 	if traceLogger != nil {
 		traceLogger.Printf(format, args...)
 	}
 }
 
-// DO NOT add Debugf, that's an anti-pattern. match callsite needs to opsf,diagf,tracef
+func opsFatalf(format string, args ...interface{}) {
+	if opsLogger == nil {
+		log.Fatalf(format, args...)
+	}
+	opsLogger.Printf(format, args...)
+	os.Exit(1)
+}

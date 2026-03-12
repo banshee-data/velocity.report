@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
@@ -40,7 +39,7 @@ func (d *DirectBackend) SensorID() string { return d.sensorID }
 func (d *DirectBackend) FetchBuckets() []string {
 	mgr := l3grid.GetBackgroundManager(d.sensorID)
 	if mgr == nil {
-		log.Printf("WARNING: No background manager for %s (using default buckets)", d.sensorID)
+		opsf("WARNING: No background manager for %s (using default buckets)", d.sensorID)
 		return DefaultBuckets()
 	}
 	metrics := mgr.GetAcceptanceMetrics()
@@ -352,7 +351,7 @@ func (d *DirectBackend) SetTuningParams(params map[string]interface{}) error {
 		}
 	}
 
-	log.Printf("[DirectBackend] Applied tuning params: %s", string(data))
+	diagf("[DirectBackend] Applied tuning params: %s", string(data))
 	return nil
 }
 

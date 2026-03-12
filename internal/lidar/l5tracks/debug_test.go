@@ -1,4 +1,4 @@
-package parse
+package l5tracks
 
 import (
 	"bytes"
@@ -14,21 +14,8 @@ func TestSetLogWriters_Enable(t *testing.T) {
 	if opsLogger == nil {
 		t.Fatal("opsLogger should be non-nil after SetLogWriters with a writer")
 	}
-	if diagLogger != nil {
-		t.Fatal("diagLogger should be nil when passed nil writer")
-	}
-	if traceLogger != nil {
-		t.Fatal("traceLogger should be nil when passed nil writer")
-	}
-}
-
-func TestSetLogWriters_AllStreams(t *testing.T) {
-	var ops, diag, trace bytes.Buffer
-	SetLogWriters(&ops, &diag, &trace)
-	defer SetLogWriters(nil, nil, nil)
-
-	if opsLogger == nil || diagLogger == nil || traceLogger == nil {
-		t.Fatal("all loggers should be non-nil")
+	if diagLogger != nil || traceLogger != nil {
+		t.Fatal("diag/trace loggers should be nil when passed nil writers")
 	}
 }
 
@@ -47,21 +34,21 @@ func TestOpsf_WithLogger(t *testing.T) {
 	SetLogWriters(&buf, nil, nil)
 	defer SetLogWriters(nil, nil, nil)
 
-	opsf("test %s %d", "msg", 1)
+	opsf("track %s deleted", "trk_1")
 
 	output := buf.String()
-	if !strings.Contains(output, "test msg 1") {
-		t.Errorf("expected output to contain 'test msg 1', got %q", output)
+	if !strings.Contains(output, "track trk_1 deleted") {
+		t.Fatalf("expected output to contain message, got %q", output)
 	}
-	if !strings.Contains(output, "[parse]") {
-		t.Errorf("expected output to contain '[parse]' prefix, got %q", output)
+	if !strings.Contains(output, "[l5tracks]") {
+		t.Fatalf("expected output to contain package prefix, got %q", output)
 	}
 }
 
 func TestOpsf_WithoutLogger(t *testing.T) {
 	SetLogWriters(nil, nil, nil)
-	// Should not panic when no logger is configured.
-	opsf("silently discarded: %d", 123)
+	// Must not panic.
+	opsf("no-op %d", 1)
 }
 
 func TestDiagf_WithLogger(t *testing.T) {
@@ -69,17 +56,20 @@ func TestDiagf_WithLogger(t *testing.T) {
 	SetLogWriters(nil, &buf, nil)
 	defer SetLogWriters(nil, nil, nil)
 
-	diagf("diag %s", "event")
+	diagf("association cost %f", 0.42)
 
 	output := buf.String()
-	if !strings.Contains(output, "diag event") {
-		t.Errorf("expected output to contain 'diag event', got %q", output)
+	if !strings.Contains(output, "association cost") {
+		t.Fatalf("expected output to contain message, got %q", output)
+	}
+	if !strings.Contains(output, "[l5tracks]") {
+		t.Fatalf("expected output to contain package prefix, got %q", output)
 	}
 }
 
 func TestDiagf_WithoutLogger(t *testing.T) {
 	SetLogWriters(nil, nil, nil)
-	// Should not panic.
+	// Must not panic.
 	diagf("no-op %d", 1)
 }
 
@@ -88,16 +78,19 @@ func TestTracef_WithLogger(t *testing.T) {
 	SetLogWriters(nil, nil, &buf)
 	defer SetLogWriters(nil, nil, nil)
 
-	tracef("trace %s", "event")
+	tracef("kalman step %d", 3)
 
 	output := buf.String()
-	if !strings.Contains(output, "trace event") {
-		t.Errorf("expected output to contain 'trace event', got %q", output)
+	if !strings.Contains(output, "kalman step 3") {
+		t.Fatalf("expected output to contain message, got %q", output)
+	}
+	if !strings.Contains(output, "[l5tracks]") {
+		t.Fatalf("expected output to contain package prefix, got %q", output)
 	}
 }
 
 func TestTracef_WithoutLogger(t *testing.T) {
 	SetLogWriters(nil, nil, nil)
-	// Should not panic.
+	// Must not panic.
 	tracef("no-op %d", 1)
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
@@ -235,10 +236,18 @@ func main() {
 		log.Fatalf("invalid --log-level=%q (valid: ops, diag, trace)", *logLevel)
 	}
 	lidar.SetLogWriters(writers)
+	network.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	parse.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	l2frames.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	l3grid.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	l4perception.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	l5tracks.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	l6objects.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	monitor.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	pipeline.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	sqlite.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	sweep.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	visualiser.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -166,9 +165,9 @@ func (ws *WebServer) exportForegroundSequenceInternal(sensorID string, count int
 
 		// Export path is generated internally by ExportForegroundSnapshotToASC
 		if _, err := l3grid.ExportForegroundSnapshotToASC(snap); err != nil {
-			log.Printf("[ExportSequence] foreground export failed (%d/%d) sensor=%s: %v", exported+1, count, sensorID, err)
+			opsf("[ExportSequence] foreground export failed (%d/%d) sensor=%s: %v", exported+1, count, sensorID, err)
 		} else {
-			log.Printf("[ExportSequence] exported foreground %d/%d for sensor=%s", exported+1, count, sensorID)
+			diagf("[ExportSequence] exported foreground %d/%d for sensor=%s", exported+1, count, sensorID)
 		}
 
 		last = snap.Timestamp
@@ -176,7 +175,7 @@ func (ws *WebServer) exportForegroundSequenceInternal(sensorID string, count int
 	}
 
 	if exported < count {
-		log.Printf("[ExportSequence] foreground export ended early: got %d/%d snapshots for sensor=%s before timeout", exported, count, sensorID)
+		opsf("[ExportSequence] foreground export ended early: got %d/%d snapshots for sensor=%s before timeout", exported, count, sensorID)
 	}
 }
 
@@ -275,7 +274,7 @@ func (ws *WebServer) handleLidarSnapshotsCleanup(w http.ResponseWriter, r *http.
 
 	count, err := ws.db.DeleteDuplicateBgSnapshots(sensorID)
 	if err != nil {
-		log.Printf("Failed to cleanup snapshots for %s: %v", sensorID, err)
+		opsf("Failed to cleanup snapshots for %s: %v", sensorID, err)
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("cleanup failed: %v", err))
 		return
 	}

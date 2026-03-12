@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -562,7 +561,7 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 		ws.tracker.Reset()
 	}
 	if err := ws.resetBackgroundGrid(); err != nil {
-		log.Printf("Warning: failed to reset background grid before reprocess: %v", err)
+		opsf("Warning: failed to reset background grid before reprocess: %v", err)
 	}
 
 	config := ReplayConfig{
@@ -570,7 +569,7 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 	}
 	if err := ws.StartPCAPInternal(originalRun.SourcePath, config); err != nil {
 		if updateErr := runStore.UpdateRunStatus(newRunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
-			log.Printf("failed to update run status: %v", updateErr)
+			opsf("failed to update run status: %v", updateErr)
 		}
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
@@ -689,7 +688,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 
 		evalStore := sqlite.NewEvaluationStore(ws.db.DB)
 		if err := evalStore.Insert(eval); err != nil {
-			log.Printf("Warning: failed to persist evaluation: %v", err)
+			opsf("Warning: failed to persist evaluation: %v", err)
 		} else {
 			evaluationID = eval.EvaluationID
 		}
@@ -706,7 +705,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding evaluation response: %v", err)
+		opsf("Error encoding evaluation response: %v", err)
 	}
 }
 

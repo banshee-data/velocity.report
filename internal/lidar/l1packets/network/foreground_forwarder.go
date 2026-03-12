@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 	"sort"
 	"sync/atomic"
@@ -70,7 +69,7 @@ func NewForegroundForwarder(addr string, port int, config *SensorConfig) (*Foreg
 // Start begins the foreground forwarding goroutine.
 func (f *ForegroundForwarder) Start(ctx context.Context) {
 	go func() {
-		log.Printf("Foreground forwarding started to %s (port %d)", f.address, f.port)
+		diagf("Foreground forwarding started to %s (port %d)", f.address, f.port)
 
 		for {
 			select {
@@ -135,7 +134,7 @@ func (f *ForegroundForwarder) ForwardForeground(points []l2frames.PointPolar) {
 		}
 	default:
 		// Drop if buffer full (prevents blocking)
-		log.Printf("Warning: Foreground forwarding buffer full, dropping %d points", len(points))
+		opsf("Warning: Foreground forwarding buffer full, dropping %d points", len(points))
 	}
 }
 

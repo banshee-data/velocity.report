@@ -2,7 +2,6 @@ package l2frames
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -800,7 +799,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			diagf("[FrameBuilder] Skipping export_next_frame: incomplete rotation frame=%s cov=%.1f° points=%d", frame.FrameID, coverage, frame.PointCount)
 		} else {
 			if err := exportFrameToASCInternal(frame); err != nil {
-				log.Printf("[FrameBuilder] Failed to export next frame for sensor %s: %v", frame.SensorID, err)
+				opsf("[FrameBuilder] Failed to export next frame for sensor %s: %v", frame.SensorID, err)
 			} else {
 				diagf("[FrameBuilder] Exported next frame for sensor %s", frame.SensorID)
 				fb.exportNextFrameASC = false
@@ -814,7 +813,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			diagf("[FrameBuilder] Skipping batch export (%d/%d) incomplete rotation frame=%s cov=%.1f° points=%d", fb.exportBatchExported+1, fb.exportBatchCount, frame.FrameID, coverage, frame.PointCount)
 		} else {
 			if err := exportFrameToASCInternal(frame); err != nil {
-				log.Printf("[FrameBuilder] Failed to export batch frame %d/%d for sensor %s: %v", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID, err)
+				opsf("[FrameBuilder] Failed to export batch frame %d/%d for sensor %s: %v", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID, err)
 			} else {
 				diagf("[FrameBuilder] Exported batch frame %d/%d for sensor %s", fb.exportBatchExported+1, fb.exportBatchCount, frame.SensorID)
 			}
@@ -948,7 +947,7 @@ func NewFrameBuilderWithDebugLoggingAndInterval(sensorID string, debug bool, log
 				exportMutex.Unlock()
 
 				if err := exportFrameToASC(frame); err != nil {
-					log.Printf("Failed to export frame %s: %v", frame.FrameID, err)
+					opsf("Failed to export frame %s: %v", frame.FrameID, err)
 				}
 			} else {
 				exportMutex.Unlock()
@@ -1017,6 +1016,6 @@ func exportFrameToASCInternal(frame *LiDARFrame) error {
 	if err != nil {
 		return fmt.Errorf("failed to export ASC: %w", err)
 	}
-	log.Printf("Exported frame %s to %s (%d points)", frame.FrameID, actualPath, frame.PointCount)
+	diagf("Exported frame %s to %s (%d points)", frame.FrameID, actualPath, frame.PointCount)
 	return nil
 }

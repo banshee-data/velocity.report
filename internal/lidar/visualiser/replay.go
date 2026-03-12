@@ -5,7 +5,6 @@ package visualiser
 import (
 	"context"
 	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -46,8 +45,8 @@ func NewReplayServer(publisher *Publisher, reader FrameReader) *ReplayServer {
 
 // StreamFrames implements the streaming RPC for frame data in replay mode.
 func (rs *ReplayServer) StreamFrames(req *pb.StreamRequest, stream pb.VisualiserService_StreamFramesServer) error {
-	log.Printf("[gRPC] *** NEW CLIENT CONNECTED (REPLAY MODE) ***")
-	log.Printf("[gRPC] StreamFrames started: sensor=%s points=%v clusters=%v tracks=%v",
+	diagf("[gRPC] *** NEW CLIENT CONNECTED (REPLAY MODE) ***")
+	diagf("[gRPC] StreamFrames started: sensor=%s points=%v clusters=%v tracks=%v",
 		req.SensorId, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)
 
 	ctx := stream.Context()
@@ -64,7 +63,7 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 		return status.Error(codes.Internal, "frame reader not initialized")
 	}
 
-	log.Printf("[gRPC] Starting replay: %d total frames", reader.TotalFrames())
+	diagf("[gRPC] Starting replay: %d total frames", reader.TotalFrames())
 
 	// Calculate frame interval based on playback rate
 	var lastFrameTime int64
@@ -73,7 +72,7 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("[gRPC] Replay cancelled")
+			diagf("[gRPC] Replay cancelled")
 			return ctx.Err()
 		default:
 		}
@@ -109,7 +108,7 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 				// button.  When the user restarts, a Seek + Play RPC resets
 				// the reader and the existing stream resumes — no stream
 				// restart required.
-				log.Printf("[gRPC] Replay reached end — pausing at EOF")
+				diagf("[gRPC] Replay reached end — pausing at EOF")
 				rs.mu.Lock()
 				rs.paused = true
 				if rs.reader != nil {
@@ -118,7 +117,7 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 				rs.mu.Unlock()
 				continue
 			}
-			log.Printf("[gRPC] Replay error: %v", err)
+			opsf("[gRPC] Replay error: %v", err)
 			return status.Errorf(codes.Internal, "replay error: %v", err)
 		}
 
@@ -137,7 +136,7 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 		// Convert to proto and send
 		pbFrame := frameBundleToProto(frame, req)
 		if err := stream.Send(pbFrame); err != nil {
-			log.Printf("[gRPC] Send error: %v", err)
+			opsf("[gRPC] Send error: %v", err)
 			return err
 		}
 	}
@@ -145,7 +144,7 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 
 // Pause pauses playback (replay mode).
 func (rs *ReplayServer) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.PlaybackStatus, error) {
-	log.Printf("[gRPC] Pause called")
+	diagf("[gRPC] Pause called")
 	rs.mu.Lock()
 	rs.paused = true
 	currentFrame := uint64(0)
@@ -156,7 +155,7 @@ func (rs *ReplayServer) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.Pl
 	rate := rs.playbackRate
 	rs.mu.Unlock()
 
-	log.Printf("[gRPC] Paused at frame %d", currentFrame)
+	diagf("[gRPC] Paused at frame %d", currentFrame)
 	return &pb.PlaybackStatus{
 		Paused:         true,
 		Rate:           rate,
@@ -166,7 +165,7 @@ func (rs *ReplayServer) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.Pl
 
 // Play resumes playback (replay mode).
 func (rs *ReplayServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlaybackStatus, error) {
-	log.Printf("[gRPC] Play called")
+	diagf("[gRPC] Play called")
 	rs.mu.Lock()
 	rs.paused = false
 	currentFrame := uint64(0)
@@ -177,7 +176,7 @@ func (rs *ReplayServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 	rate := rs.playbackRate
 	rs.mu.Unlock()
 
-	log.Printf("[gRPC] Playing from frame %d", currentFrame)
+	diagf("[gRPC] Playing from frame %d", currentFrame)
 	return &pb.PlaybackStatus{
 		Paused:         false,
 		Rate:           rate,
@@ -197,17 +196,17 @@ func (rs *ReplayServer) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.Play
 	var err error
 	switch target := req.Target.(type) {
 	case *pb.SeekRequest_TimestampNs:
-		log.Printf("[gRPC] Seek to timestamp: %d ns", target.TimestampNs)
+		diagf("[gRPC] Seek to timestamp: %d ns", target.TimestampNs)
 		err = rs.reader.SeekToTimestamp(target.TimestampNs)
 	case *pb.SeekRequest_FrameId:
-		log.Printf("[gRPC] Seek to frame: %d", target.FrameId)
+		diagf("[gRPC] Seek to frame: %d", target.FrameId)
 		err = rs.reader.Seek(target.FrameId)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "seek target not specified")
 	}
 
 	if err != nil {
-		log.Printf("[gRPC] Seek error: %v", err)
+		opsf("[gRPC] Seek error: %v", err)
 		return nil, status.Errorf(codes.Internal, "seek failed: %v", err)
 	}
 
@@ -219,7 +218,7 @@ func (rs *ReplayServer) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.Play
 	}
 
 	currentFrame := rs.reader.CurrentFrame()
-	log.Printf("[gRPC] Seek complete: now at frame %d, paused=%v, rate=%.2f", currentFrame, rs.paused, rs.playbackRate)
+	diagf("[gRPC] Seek complete: now at frame %d, paused=%v, rate=%.2f", currentFrame, rs.paused, rs.playbackRate)
 	return &pb.PlaybackStatus{
 		Paused:         rs.paused,
 		Rate:           rs.playbackRate,
@@ -229,7 +228,7 @@ func (rs *ReplayServer) Seek(ctx context.Context, req *pb.SeekRequest) (*pb.Play
 
 // SetRate sets the playback rate.
 func (rs *ReplayServer) SetRate(ctx context.Context, req *pb.SetRateRequest) (*pb.PlaybackStatus, error) {
-	log.Printf("[gRPC] SetRate called: rate=%.2f", req.Rate)
+	diagf("[gRPC] SetRate called: rate=%.2f", req.Rate)
 	rs.mu.Lock()
 	rs.playbackRate = req.Rate
 	if rs.reader != nil {
@@ -242,7 +241,7 @@ func (rs *ReplayServer) SetRate(ctx context.Context, req *pb.SetRateRequest) (*p
 	paused := rs.paused
 	rs.mu.Unlock()
 
-	log.Printf("[gRPC] SetRate complete: rate=%.2f, frame=%d", req.Rate, currentFrame)
+	diagf("[gRPC] SetRate complete: rate=%.2f, frame=%d", req.Rate, currentFrame)
 	return &pb.PlaybackStatus{
 		Paused:         paused,
 		Rate:           req.Rate,

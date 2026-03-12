@@ -2,28 +2,22 @@ package pipeline
 
 import (
 	"io"
-	"log"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
 )
 
 var (
-	opsLogger   *log.Logger
-	diagLogger  *log.Logger
-	traceLogger *log.Logger
+	opsLogger   *logutil.TaggedLogger
+	diagLogger  *logutil.TaggedLogger
+	traceLogger *logutil.TaggedLogger
 )
 
 // SetLogWriters configures the three logging streams for the pipeline package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = newLogger("[pipeline] ", ops)
-	diagLogger = newLogger("[pipeline] ", diag)
-	traceLogger = newLogger("[pipeline] ", trace)
-}
-
-func newLogger(prefix string, w io.Writer) *log.Logger {
-	if w == nil {
-		return nil
-	}
-	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
+	opsLogger = logutil.NewTaggedLogger("[pipeline] ", ops)
+	diagLogger = logutil.NewTaggedLogger("[pipeline] ", diag)
+	traceLogger = logutil.NewTaggedLogger("[pipeline] ", trace)
 }
 
 // opsf logs to the ops stream (actionable warnings, errors, data loss).

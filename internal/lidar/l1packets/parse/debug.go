@@ -2,28 +2,22 @@ package parse
 
 import (
 	"io"
-	"log"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
 )
 
 var (
-	opsLogger   *log.Logger
-	diagLogger  *log.Logger
-	traceLogger *log.Logger
+	opsLogger   *logutil.TaggedLogger
+	diagLogger  *logutil.TaggedLogger
+	traceLogger *logutil.TaggedLogger
 )
 
 // SetLogWriters configures the three logging streams for the parse package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = newLogger("[parse] ", ops)
-	diagLogger = newLogger("[parse] ", diag)
-	traceLogger = newLogger("[parse] ", trace)
-}
-
-func newLogger(prefix string, w io.Writer) *log.Logger {
-	if w == nil {
-		return nil
-	}
-	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
+	opsLogger = logutil.NewTaggedLogger("[parse] ", ops)
+	diagLogger = logutil.NewTaggedLogger("[parse] ", diag)
+	traceLogger = logutil.NewTaggedLogger("[parse] ", trace)
 }
 
 // opsf logs to the ops stream (actionable warnings, errors, data loss).

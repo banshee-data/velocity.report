@@ -4,7 +4,6 @@ package sweep
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -45,9 +44,9 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 		iterations = cfg.Iterations
 	} else if cfg.Iterations > maxIterations {
 		iterations = maxIterations
-		log.Printf("WARNING: Iterations %d exceeds maximum %d, clamping to maximum", cfg.Iterations, maxIterations)
+		opsf("WARNING: Iterations %d exceeds maximum %d, clamping to maximum", cfg.Iterations, maxIterations)
 	} else if cfg.Iterations <= 0 {
-		log.Printf("WARNING: Invalid iterations %d, using default %d", cfg.Iterations, defaultIterations)
+		opsf("WARNING: Invalid iterations %d, using default %d", cfg.Iterations, defaultIterations)
 	}
 
 	// Allocate with a compile-time constant cap to satisfy static analysis (CodeQL CWE-770).
@@ -57,7 +56,7 @@ func (s *Sampler) Sample(cfg SampleConfig) []SampleResult {
 	for i := 0; i < iterations; i++ {
 		metrics, err := s.Backend.FetchAcceptanceMetrics()
 		if err != nil {
-			log.Printf("WARNING: Sample %d failed: %v", i+1, err)
+			opsf("WARNING: Sample %d failed: %v", i+1, err)
 			time.Sleep(s.Interval)
 			continue
 		}
@@ -228,7 +227,7 @@ func WriteSummaryHeaders(w *csv.Writer, buckets []string) {
 // WriteSummary writes a summary row aggregating multiple sample results.
 func WriteSummary(w *csv.Writer, noise, closeness float64, neighbour int, results []SampleResult, buckets []string) {
 	if len(results) == 0 {
-		log.Printf("WARNING: No results to summarise")
+		opsf("WARNING: No results to summarise")
 		return
 	}
 

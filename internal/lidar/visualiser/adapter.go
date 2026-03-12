@@ -3,7 +3,6 @@
 package visualiser
 
 import (
-	"log"
 	"sync/atomic"
 	"time"
 
@@ -105,7 +104,7 @@ func (a *FrameAdapter) AdaptFrame(
 		}
 		// Estimate memory size: ~16 bytes per point (4x float32) + overhead
 		estimatedSizeMB := float64(pointCount*16) / (1024 * 1024)
-		log.Printf("[Adapter] Stats: frames=%d avg_adapt_ms=%.3f last_frame: points=%d tracks=%d est_size_mb=%.2f",
+		tracef("[Adapter] Stats: frames=%d avg_adapt_ms=%.3f last_frame: points=%d tracks=%d est_size_mb=%.2f",
 			count, avgAdaptMs, pointCount, trackCount, estimatedSizeMB)
 	}
 

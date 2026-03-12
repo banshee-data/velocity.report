@@ -170,7 +170,7 @@ type HINTTuner struct {
 
 	// For testability
 	pollInterval time.Duration
-	logger       *log.Logger
+	logger       printfLogger
 }
 
 // continueSignal is sent to proceed from awaiting_labels to running_sweep.
@@ -186,7 +186,7 @@ func NewHINTTuner(autoTuner *AutoTuner) *HINTTuner {
 		continueCh:    make(chan continueSignal, 1),
 		labelUpdateCh: make(chan struct{}, 1),
 		pollInterval:  60 * time.Second, // safety fallback; label updates arrive via channel
-		logger:        log.Default(),
+		logger:        opsPrintfLogger{},
 		state: HINTState{
 			Status:       "idle",
 			Mode:         "hint",
@@ -200,6 +200,10 @@ func NewHINTTuner(autoTuner *AutoTuner) *HINTTuner {
 // SetLogger sets the logger for the HINT tuner. Use log.New(io.Discard, "", 0)
 // in tests to suppress expected error-path log output.
 func (rt *HINTTuner) SetLogger(l *log.Logger) {
+	if l == nil {
+		rt.logger = opsPrintfLogger{}
+		return
+	}
 	rt.logger = l
 }
 

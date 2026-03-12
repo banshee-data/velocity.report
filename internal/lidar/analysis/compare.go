@@ -3,7 +3,6 @@ package analysis
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -308,7 +307,7 @@ func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 		return report, nil
 	}
 	// analysis.json missing, corrupt, or stale-schema — generate it.
-	log.Printf("Generating analysis for %s ...", vrlogPath)
+	diagf("Generating analysis for %s ...", vrlogPath)
 	report, _, genErr := GenerateReport(vrlogPath)
 	if genErr != nil {
 		return nil, genErr

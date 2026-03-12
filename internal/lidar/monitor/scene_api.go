@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -343,13 +342,13 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 	}
 	// Reset background grid for clean analysis
 	if err := ws.resetBackgroundGrid(); err != nil {
-		log.Printf("Warning: failed to reset background grid before replay: %v", err)
+		opsf("Warning: failed to reset background grid before replay: %v", err)
 	}
 
 	if err := ws.StartPCAPInternal(scene.PCAPFile, config); err != nil {
 		// Update run status to failed
 		if updateErr := runStore.UpdateRunStatus(run.RunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
-			log.Printf("failed to update run status: %v", updateErr)
+			opsf("failed to update run status: %v", updateErr)
 		}
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
@@ -426,7 +425,7 @@ func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.
 	// Get candidate run params for snapshot
 	candidateRun, err := runStore.GetRun(req.CandidateRunID)
 	if err != nil {
-		log.Printf("Warning: failed to get candidate run params: %v", err)
+		opsf("Warning: failed to get candidate run params: %v", err)
 	}
 
 	eval := &sqlite.Evaluation{

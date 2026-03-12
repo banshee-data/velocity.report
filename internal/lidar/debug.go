@@ -2,8 +2,9 @@ package lidar
 
 import (
 	"io"
-	"log"
 	"sync"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
 )
 
 // LogWriters holds the io.Writers for each logging stream.
@@ -15,9 +16,9 @@ type LogWriters struct {
 
 var (
 	mu          sync.RWMutex
-	opsLogger   *log.Logger
-	diagLogger  *log.Logger
-	traceLogger *log.Logger
+	opsLogger   *logutil.TaggedLogger
+	diagLogger  *logutil.TaggedLogger
+	traceLogger *logutil.TaggedLogger
 	opsWriter   io.Writer
 	diagWriter  io.Writer
 	traceWriter io.Writer
@@ -31,13 +32,13 @@ func SetLogWriters(w LogWriters) {
 	opsWriter = w.Ops
 	diagWriter = w.Diag
 	traceWriter = w.Trace
-	opsLogger = newLogger("[lidar] ", w.Ops)
-	diagLogger = newLogger("[lidar] ", w.Diag)
-	traceLogger = newLogger("[lidar] ", w.Trace)
+	opsLogger = logutil.NewTaggedLogger("[lidar] ", w.Ops)
+	diagLogger = logutil.NewTaggedLogger("[lidar] ", w.Diag)
+	traceLogger = logutil.NewTaggedLogger("[lidar] ", w.Trace)
 }
 
 // SubLogger returns an ops-level Printf-compatible function with a combined
-// tag prefix, e.g. SubLogger("pcap") yields "[lidar/pcap] " prefix.
+// tag prefix, e.g. SubLogger("pcap") yields "[lidar/pcap] " tag.
 // Returns a no-op if the ops writer is nil.
 func SubLogger(subtag string) func(format string, args ...interface{}) {
 	mu.RLock()
@@ -46,8 +47,8 @@ func SubLogger(subtag string) func(format string, args ...interface{}) {
 	if w == nil {
 		return func(string, ...interface{}) {}
 	}
-	l := log.New(w, "[lidar/"+subtag+"] ", log.LstdFlags|log.Lmicroseconds)
-	return l.Printf
+	tl := logutil.NewTaggedLogger("[lidar/"+subtag+"] ", w)
+	return tl.Printf
 }
 
 // SubLoggers returns ops/diag/trace Printf-compatible functions with a
@@ -58,32 +59,26 @@ func SubLoggers(subtag string) (ops, diag, trace func(format string, args ...int
 	ow, dw, tw := opsWriter, diagWriter, traceWriter
 	mu.RUnlock()
 	noop := func(string, ...interface{}) {}
-	prefix := "[lidar/" + subtag + "] "
-	flags := log.LstdFlags | log.Lmicroseconds
+	tag := "[lidar/" + subtag + "] "
 	if ow != nil {
-		ops = log.New(ow, prefix, flags).Printf
+		tl := logutil.NewTaggedLogger(tag, ow)
+		ops = tl.Printf
 	} else {
 		ops = noop
 	}
 	if dw != nil {
-		diag = log.New(dw, prefix, flags).Printf
+		tl := logutil.NewTaggedLogger(tag, dw)
+		diag = tl.Printf
 	} else {
 		diag = noop
 	}
 	if tw != nil {
-		trace = log.New(tw, prefix, flags).Printf
+		tl := logutil.NewTaggedLogger(tag, tw)
+		trace = tl.Printf
 	} else {
 		trace = noop
 	}
 	return
-}
-
-// newLogger creates a *log.Logger for a given writer, or returns nil if w is nil.
-func newLogger(prefix string, w io.Writer) *log.Logger {
-	if w == nil {
-		return nil
-	}
-	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
 }
 
 // Opsf logs to the ops stream (actionable warnings, errors, lifecycle events).

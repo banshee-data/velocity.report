@@ -273,7 +273,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Stage 1: Foreground extraction
 		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
 		if err != nil || mask == nil {
-			opsf("[Tracking] Failed to get foreground mask: %v", err)
+			opsf("Failed to get foreground mask: %v", err)
 			return
 		}
 
@@ -430,12 +430,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			}
 		} else {
 			logFgForwarderNilOnce.Do(func() {
-				diagf("[Tracking] FgForwarder is nil, skipping foreground forwarding")
+				diagf("FgForwarder is nil, skipping foreground forwarding")
 			})
 		}
 
 		// Always log foreground extraction for tracking debugging
-		tracef("[Tracking] Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
+		tracef("Extracted %d foreground points from %d total", len(foregroundPoints), len(polar))
 
 		// Stage 2: Transform to world coordinates
 		if ft != nil {
@@ -457,11 +457,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			}
 			filteredPoints = groundFilter.FilterVertical(worldPoints)
 			proc, kept, below, above := groundFilter.Stats()
-			tracef("[Tracking] Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
+			tracef("Ground filter: %d processed, %d kept, %d below floor, %d above ceiling",
 				proc, kept, below, above)
 		} else {
 			logGroundDisabledOnce.Do(func() {
-				diagf("[Tracking] Ground removal disabled, passing %d points through", len(worldPoints))
+				diagf("Ground removal disabled, passing %d points through", len(worldPoints))
 			})
 		}
 
@@ -478,7 +478,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if voxelLeafSize > 0 {
 			before := len(filteredPoints)
 			filteredPoints = l4perception.VoxelGrid(filteredPoints, voxelLeafSize)
-			tracef("[Tracking] Voxel downsample: %d → %d (leaf=%.3fm)",
+			tracef("Voxel downsample: %d → %d (leaf=%.3fm)",
 				before, len(filteredPoints), voxelLeafSize)
 		}
 
@@ -531,7 +531,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		// Always log clustering for tracking debugging
-		tracef("[Tracking] Clustered into %d objects", len(clusters))
+		tracef("Clustered into %d objects", len(clusters))
 
 		// Stage 4: Track update
 		if ft != nil {
@@ -551,7 +551,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("classify")
 		}
 		confirmedTracks := cfg.Tracker.GetConfirmedTracks()
-		tracef("[Tracking] %d confirmed tracks to persist", len(confirmedTracks))
+		tracef("%d confirmed tracks to persist", len(confirmedTracks))
 
 		// Open a per-frame transaction for batching all track/observation writes.
 		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay)
@@ -564,7 +564,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if len(confirmedTracks) > 0 && cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
 			worldFrame = fmt.Sprintf("site/%s", sensorID)
 			if tx, txErr := cfg.DB.Begin(); txErr != nil {
-				opsf("[Tracking] Failed to begin track persistence tx: %v", txErr)
+				opsf("Failed to begin track persistence tx: %v", txErr)
 			} else {
 				dbTx = tx
 			}
@@ -605,7 +605,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			// Persist track to database
 			if dbTx != nil && !txFailed {
 				if err := sqlite.InsertTrack(dbTx, track, worldFrame); err != nil {
-					opsf("[Tracking] Failed to insert track %s: %v", track.TrackID, err)
+					opsf("Failed to insert track %s: %v", track.TrackID, err)
 					txFailed = true
 				}
 
@@ -637,7 +637,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						IntensityMean:     track.IntensityMeanAvg,
 					}
 					if err := sqlite.InsertTrackObservation(dbTx, obs); err != nil {
-						opsf("[Tracking] Failed to insert observation for track %s: %v", track.TrackID, err)
+						opsf("Failed to insert observation for track %s: %v", track.TrackID, err)
 						txFailed = true
 					}
 				}
@@ -647,15 +647,15 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if dbTx != nil {
 			if txFailed {
 				if err := dbTx.Rollback(); err != nil {
-					opsf("[Tracking] Failed to rollback track persistence tx: %v", err)
+					opsf("Failed to rollback track persistence tx: %v", err)
 				}
 			} else if err := dbTx.Commit(); err != nil {
-				opsf("[Tracking] Failed to commit track persistence tx: %v", err)
+				opsf("Failed to commit track persistence tx: %v", err)
 			}
 		}
 
 		if len(confirmedTracks) > 0 {
-			diagf("[Tracking] %d confirmed tracks active", len(confirmedTracks))
+			diagf("%d confirmed tracks active", len(confirmedTracks))
 		}
 
 		// Stage 6: Publish to visualiser (if enabled)
@@ -695,9 +695,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if lastPruneTime.IsZero() || now.Sub(lastPruneTime) >= pruneInterval {
 				lastPruneTime = now
 				if pruned, err := sqlite.PruneDeletedTracks(cfg.DB, sensorID, deletedTrackTTL); err != nil {
-					opsf("[Tracking] Prune deleted tracks failed: %v", err)
+					opsf("Prune deleted tracks failed: %v", err)
 				} else if pruned > 0 {
-					diagf("[Tracking] Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
+					diagf("Pruned %d deleted tracks older than %v", pruned, deletedTrackTTL)
 				}
 			}
 		}

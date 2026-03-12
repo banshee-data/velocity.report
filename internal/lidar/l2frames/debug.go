@@ -2,28 +2,22 @@ package l2frames
 
 import (
 	"io"
-	"log"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
 )
 
 var (
-	opsLogger   *log.Logger
-	diagLogger  *log.Logger
-	traceLogger *log.Logger
+	opsLogger   *logutil.TaggedLogger
+	diagLogger  *logutil.TaggedLogger
+	traceLogger *logutil.TaggedLogger
 )
 
 // SetLogWriters configures the three logging streams for the l2frames package.
 // Pass nil for any writer to disable that stream.
 func SetLogWriters(ops, diag, trace io.Writer) {
-	opsLogger = newLogger("[l2frames] ", ops)
-	diagLogger = newLogger("[l2frames] ", diag)
-	traceLogger = newLogger("[l2frames] ", trace)
-}
-
-func newLogger(prefix string, w io.Writer) *log.Logger {
-	if w == nil {
-		return nil
-	}
-	return log.New(w, prefix, log.LstdFlags|log.Lmicroseconds)
+	opsLogger = logutil.NewTaggedLogger("[l2frames] ", ops)
+	diagLogger = logutil.NewTaggedLogger("[l2frames] ", diag)
+	traceLogger = logutil.NewTaggedLogger("[l2frames] ", trace)
 }
 
 // opsf logs to the ops stream (actionable warnings, errors, data loss).
