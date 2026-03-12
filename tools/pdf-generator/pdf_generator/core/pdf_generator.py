@@ -8,6 +8,8 @@ complete PDF reports including statistics tables, charts, and science sections.
 
 import os
 from contextlib import contextmanager
+from copy import copy
+from dataclasses import asdict
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
@@ -15,60 +17,18 @@ from pathlib import Path
 
 from typing import Any, Dict, List, Optional
 
-try:
-    from pylatex import (
-        Document,
-        Section,
-        Command,
-        Package,
-        Tabular,
-        Center,
-        Figure,
-        NoEscape,
-    )
-    from pylatex.utils import escape_latex
-    from pylatex.base_classes import Environment
-
-    HAVE_PYLATEX = True
-except Exception:  # pragma: no cover - allow tests to run without pylatex installed
-    # Provide minimal fallbacks so module can be imported in test environments
-    HAVE_PYLATEX = False
-
-    class NoEscape(str):
-        pass
-
-    # Lightweight stand-ins (only so imports don't fail). They won't provide full functionality.
-    class Document:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Section:  # type: ignore
-        pass
-
-    class Command:  # type: ignore
-        pass
-
-    class Package:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Tabular:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Center:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Figure:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    def escape_latex(s: str) -> str:
-        return s
-
-    class Environment:  # type: ignore
-        pass
+from pylatex import (
+    Document,
+    Section,
+    Command,
+    Package,
+    Tabular,
+    Center,
+    Figure,
+    NoEscape,
+)
+from pylatex.utils import escape_latex
+from pylatex.base_classes import Environment
 
 
 from pdf_generator.core.stats_utils import chart_exists
@@ -94,7 +54,7 @@ from pdf_generator.core.report_sections import (
     add_science,
     add_survey_parameters,
 )
-from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG, _map_to_dict
+from pdf_generator.core.config_manager import DEFAULT_MAP_CONFIG
 from pdf_generator.core.tex_environment import resolve_tex_environment
 from pdf_generator.core.data_transformers import (
     extract_start_time_from_row,
@@ -333,8 +293,8 @@ def generate_pdf_report(
         site_id: Optional site ID to fetch map SVG data from database
     """
 
-    # Convert map config dataclass to dict for use in this function
-    map_config_dict = _map_to_dict(DEFAULT_MAP_CONFIG)
+    # Create a mutable copy of default map config for per-report overrides
+    map_config = copy(DEFAULT_MAP_CONFIG)
 
     tex_environment = resolve_tex_environment()
 
@@ -625,8 +585,8 @@ def generate_pdf_report(
             calculated_cx = (map_longitude - bbox_sw_lng) / lng_range
             # cy_frac: 0 = top (NE lat), 1 = bottom (SW lat) - SVG coords are inverted
             calculated_cy = (bbox_ne_lat - map_latitude) / lat_range
-            map_config_dict["triangle_cx"] = calculated_cx
-            map_config_dict["triangle_cy"] = calculated_cy
+            map_config.triangle_cx = calculated_cx
+            map_config.triangle_cy = calculated_cy
             print(
                 f"  [MAP] Calculated marker position from GPS: cx={calculated_cx:.4f}, cy={calculated_cy:.4f}"
             )
@@ -637,11 +597,11 @@ def generate_pdf_report(
 
     # Use map_angle for bearing if provided
     if map_angle is not None:
-        map_config_dict["triangle_angle"] = map_angle
+        map_config.triangle_angle = map_angle
         print(f"  [MAP] Using map_angle for bearing: {map_angle}°")
     else:
         print(
-            f"  [MAP] Using default bearing angle: {map_config_dict['triangle_angle']}°"
+            f"  [MAP] Using default bearing angle: {map_config.triangle_angle}°"
         )
 
     # Initialise map_temp_dir for cleanup after LaTeX compilation
@@ -650,15 +610,15 @@ def generate_pdf_report(
     if include_map:
         print("Map generation ENABLED")
         print("Map config:")
-        print(f"  - circle_radius: {map_config_dict['circle_radius']}")
-        print(f"  - circle_fill: {map_config_dict['circle_fill']}")
-        print(f"  - circle_stroke: {map_config_dict['circle_stroke']}")
-        print(f"  - triangle_len: {map_config_dict['triangle_len']}")
-        print(f"  - triangle_cx: {map_config_dict['triangle_cx']}")
-        print(f"  - triangle_cy: {map_config_dict['triangle_cy']}")
-        print(f"  - triangle_angle: {map_config_dict['triangle_angle']}")
-        print(f"  - triangle_color: {map_config_dict['triangle_color']}")
-        print(f"  - triangle_opacity: {map_config_dict['triangle_opacity']}")
+        print(f"  - circle_radius: {map_config.circle_radius}")
+        print(f"  - circle_fill: {map_config.circle_fill}")
+        print(f"  - circle_stroke: {map_config.circle_stroke}")
+        print(f"  - triangle_len: {map_config.triangle_len}")
+        print(f"  - triangle_cx: {map_config.triangle_cx}")
+        print(f"  - triangle_cy: {map_config.triangle_cy}")
+        print(f"  - triangle_angle: {map_config.triangle_angle}")
+        print(f"  - triangle_color: {map_config.triangle_color}")
+        print(f"  - triangle_opacity: {map_config.triangle_opacity}")
 
         # Try to extract map SVG from database if site_id is provided
         db_svg_extracted = False
@@ -691,24 +651,24 @@ def generate_pdf_report(
         map_processor = MapProcessor(
             base_dir=map_temp_dir,
             marker_config={
-                "circle_radius": map_config_dict["circle_radius"],
-                "circle_fill": map_config_dict["circle_fill"],
-                "circle_stroke": map_config_dict["circle_stroke"],
-                "circle_stroke_width": map_config_dict["circle_stroke_width"],
+                "circle_radius": map_config.circle_radius,
+                "circle_fill": map_config.circle_fill,
+                "circle_stroke": map_config.circle_stroke,
+                "circle_stroke_width": map_config.circle_stroke_width,
             },
         )
 
         # Create radar marker from config (or None to skip marker)
         marker = None
-        if map_config_dict["triangle_len"] and map_config_dict["triangle_len"] > 0:
+        if map_config.triangle_len and map_config.triangle_len > 0:
             print(
-                f"Creating radar marker (triangle_len={map_config_dict['triangle_len']} > 0)"
+                f"Creating radar marker (triangle_len={map_config.triangle_len} > 0)"
             )
-            marker = create_marker_from_config(map_config_dict)
+            marker = create_marker_from_config(asdict(map_config))
             print(f"Marker created: {marker is not None}")
         else:
             print(
-                f"Skipping marker creation (triangle_len={map_config_dict['triangle_len']} <= 0)"
+                f"Skipping marker creation (triangle_len={map_config.triangle_len} <= 0)"
             )
 
         # Process map (adds marker if provided, converts to PDF)

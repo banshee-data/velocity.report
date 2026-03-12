@@ -690,7 +690,6 @@ func (at *AutoTuner) runFromRound(
 
 		// Build a SweepRequest for this round
 		sweepReq := SweepRequest{
-			Mode:             "params",
 			Params:           gridParams,
 			Iterations:       req.Iterations,
 			Interval:         req.Interval,

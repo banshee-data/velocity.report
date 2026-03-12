@@ -361,13 +361,6 @@ class TestConvenienceFunctions(unittest.TestCase):
 class TestImportFallbacks(unittest.TestCase):
     """Tests for import error handling."""
 
-    def test_pylatex_available(self):
-        """Test that PyLaTeX is available in normal environment."""
-        from pdf_generator.core.report_sections import HAVE_PYLATEX
-
-        # In test environment, should be True
-        self.assertTrue(HAVE_PYLATEX)
-
     def test_builder_requires_pylatex(self):
         """Test that builders require PyLaTeX."""
         # This test validates the import check exists

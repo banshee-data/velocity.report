@@ -606,8 +606,8 @@ func TestGenerateReport_NoSiteID(t *testing.T) {
 	}
 }
 
-// TestDownloadReport_InvalidFileTypeParam tests invalid file_type parameter
-func TestDownloadReport_InvalidFileTypeParam(t *testing.T) {
+// TestDownloadReport_InvalidFileFormat tests invalid file format parameter
+func TestDownloadReport_InvalidFileFormat(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
@@ -625,8 +625,8 @@ func TestDownloadReport_InvalidFileTypeParam(t *testing.T) {
 		t.Fatalf("Failed to decode error response: %v", err)
 	}
 
-	if !strings.Contains(errResp["error"], "Invalid file_type parameter") {
-		t.Errorf("Expected error about invalid file_type, got: %s", errResp["error"])
+	if !strings.Contains(errResp["error"], "Invalid file format") {
+		t.Errorf("Expected error about invalid file format, got: %s", errResp["error"])
 	}
 }
 

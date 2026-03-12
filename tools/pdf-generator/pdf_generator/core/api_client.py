@@ -109,11 +109,9 @@ class RadarStatsClient:
         payload = resp.json()
 
         # Extract metrics, histogram, and min_speed_used from payload
-        metrics = payload.get("metrics", []) if isinstance(payload, dict) else payload
-        histogram = payload.get("histogram", {}) if isinstance(payload, dict) else {}
-        min_speed_used = (
-            payload.get("min_speed_used") if isinstance(payload, dict) else None
-        )
+        metrics = payload.get("metrics", [])
+        histogram = payload.get("histogram", {})
+        min_speed_used = payload.get("min_speed_used")
 
         return metrics, histogram, min_speed_used, resp
 
@@ -132,7 +130,7 @@ class RadarStatsClient:
         resp = requests.get(url, params={"site_id": site_id})
         resp.raise_for_status()
         payload = resp.json()
-        return payload if isinstance(payload, list) else [], resp
+        return payload, resp
 
     def get_site(self, site_id: int) -> Tuple[Dict[str, Any], requests.Response]:
         """Fetch site details by ID.

@@ -1260,11 +1260,11 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 			if len(parts) == 3 {
 				// Extract file type from filename extension
 				filename := parts[2]
-				fileType := "pdf"
+				fileFormat := "pdf"
 				if strings.HasSuffix(filename, ".zip") {
-					fileType = "zip"
+					fileFormat = "zip"
 				}
-				s.downloadReport(w, r, reportID, fileType)
+				s.downloadReport(w, r, reportID, fileFormat)
 				return
 			}
 			// No filename in path — reject
@@ -1332,12 +1332,12 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int)
 	}
 }
 
-func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int, fileType string) {
+func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int, fileFormat string) {
 	_ = r
-	// Validate file type
-	if fileType != "pdf" && fileType != "zip" {
+	// Validate file format
+	if fileFormat != "pdf" && fileFormat != "zip" {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusBadRequest, "Invalid file_type parameter. Must be 'pdf' or 'zip'")
+		s.writeJSONError(w, http.StatusBadRequest, "Invalid file format. Must be 'pdf' or 'zip'")
 		return
 	}
 
@@ -1361,10 +1361,10 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 		return
 	}
 
-	// Determine which file to serve based on file_type
+	// Determine which file to serve based on file format
 	var filePath, filename, contentType string
 
-	if fileType == "zip" {
+	if fileFormat == "zip" {
 		// Check if ZIP file exists
 		if report.ZipFilepath == nil || *report.ZipFilepath == "" {
 			w.Header().Set("Content-Type", "application/json")
@@ -1393,7 +1393,7 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		log.Printf("File not found at path: %s", filePath)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("%s file not found", strings.ToUpper(fileType)))
+		s.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("%s file not found", strings.ToUpper(fileFormat)))
 		return
 	}
 
@@ -1402,7 +1402,7 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 	if err != nil {
 		log.Printf("Failed to read file: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read %s file", fileType))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read %s file", fileFormat))
 		return
 	}
 
@@ -1417,7 +1417,7 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 		return
 	}
 
-	log.Printf("Successfully downloaded %s file (ID: %d): %s", strings.ToUpper(fileType), reportID, filename)
+	log.Printf("Successfully downloaded %s file (ID: %d): %s", strings.ToUpper(fileFormat), reportID, filename)
 }
 
 // getPDFGeneratorDir determines the PDF generator directory.

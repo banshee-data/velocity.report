@@ -14,21 +14,9 @@ generation logic, making tables reusable across different document types.
 
 from typing import Any, Dict, List, Optional
 
-try:
-    from pylatex import NoEscape, Center, Document
-    from pylatex.table import Tabular
-    from pylatex.utils import escape_latex
-
-    HAVE_PYLATEX = True
-except Exception:  # pragma: no cover
-    HAVE_PYLATEX = False
-    NoEscape = str
-    Center = None
-    Document = None
-    Tabular = None
-
-    def escape_latex(s: str) -> str:
-        return s
+from pylatex import NoEscape, Center, Document
+from pylatex.table import Tabular
+from pylatex.utils import escape_latex
 
 
 from pdf_generator.core.stats_utils import (
@@ -60,12 +48,6 @@ class StatsTableBuilder:
 
     def __init__(self):
         """Initialise stats table builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for table generation. "
-                "Install it with: pip install pylatex"
-            )
-
         self.normalizer = MetricsNormalizer()
 
     def build_header(
@@ -293,11 +275,7 @@ class ParameterTableBuilder:
 
     def __init__(self):
         """Initialise parameter table builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for table generation. "
-                "Install it with: pip install pylatex"
-            )
+        pass
 
     def build(self, entries: List[Dict[str, str]]) -> Tabular:
         """Build parameter table from key-value pairs.
@@ -328,11 +306,7 @@ class ComparisonSummaryTableBuilder:
 
     def __init__(self):
         """Initialise comparison summary table builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for table generation. "
-                "Install it with: pip install pylatex"
-            )
+        pass
 
     def build(
         self,
@@ -402,11 +376,7 @@ class HistogramTableBuilder:
 
     def __init__(self):
         """Initialise histogram table builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for table generation. "
-                "Install it with: pip install pylatex"
-            )
+        pass
 
     def build(
         self,
@@ -664,12 +634,6 @@ def create_histogram_comparison_table(
     caption: str = "Velocity Distribution Comparison",
 ) -> Center:
     """Create histogram comparison table."""
-    if not HAVE_PYLATEX:
-        raise ImportError(
-            "PyLaTeX is required for table generation. "
-            "Install it with: pip install pylatex"
-        )
-
     _proc_max = max_bucket if max_bucket is not None else 50.0
     primary_buckets, primary_total, primary_ranges = process_histogram(
         histogram, cutoff, bucket_size, _proc_max

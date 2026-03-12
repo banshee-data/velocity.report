@@ -11,19 +11,8 @@ The module is designed to work with PyLaTeX but is independent of the overall
 document assembly logic, making sections reusable and testable.
 """
 
-try:
-    from pylatex import Document, NoEscape, Center
-    from pylatex.utils import escape_latex
-
-    HAVE_PYLATEX = True
-except Exception:  # pragma: no cover
-    HAVE_PYLATEX = False
-    Document = None
-    NoEscape = str
-    Center = None
-
-    def escape_latex(s: str) -> str:
-        return s
+from pylatex import Document, NoEscape, Center
+from pylatex.utils import escape_latex
 
 
 import math
@@ -50,11 +39,7 @@ class VelocityOverviewSection:
 
     def __init__(self):
         """Initialise velocity overview section builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for section generation. "
-                "Install it with: pip install pylatex"
-            )
+        pass
 
     def build(
         self,
@@ -249,11 +234,7 @@ class SiteInformationSection:
 
     def __init__(self):
         """Initialise site information section builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for section generation. "
-                "Install it with: pip install pylatex"
-            )
+        pass
 
     def build(
         self, doc: Document, site_description: str = "", speed_limit_note: str = ""
@@ -292,11 +273,7 @@ class ScienceMethodologySection:
 
     def __init__(self):
         """Initialise science section builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for section generation. "
-                "Install it with: pip install pylatex"
-            )
+        pass
 
     def build(self, doc: Document) -> None:
         """Add science and methodology section to document.
@@ -417,11 +394,7 @@ class SurveyParametersSection:
 
     def __init__(self):
         """Initialise survey parameters section builder."""
-        if not HAVE_PYLATEX:
-            raise ImportError(
-                "PyLaTeX is required for section generation. "
-                "Install it with: pip install pylatex"
-            )
+        pass
 
     def build(
         self,

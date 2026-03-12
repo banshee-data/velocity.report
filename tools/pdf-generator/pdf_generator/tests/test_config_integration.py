@@ -10,13 +10,6 @@ import os
 import tempfile
 from unittest.mock import patch, MagicMock
 
-try:
-    import pylatex  # noqa: F401
-
-    HAVE_PYLATEX = True
-except ImportError:
-    HAVE_PYLATEX = False
-
 from pdf_generator.core.config_manager import (
     ReportConfig,
     RadarConfig,
@@ -32,9 +25,6 @@ class TestConfigIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        if not HAVE_PYLATEX:
-            self.skipTest("PyLaTeX not available")
-
         self.temp_dir = tempfile.mkdtemp()
         self.config = ReportConfig(
             site=SiteConfig(

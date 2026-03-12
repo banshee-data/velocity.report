@@ -229,6 +229,18 @@ import XCTest
         XCTAssertFalse(state.isSeekable)
     }
 
+    func testUnknownPlaybackModePreservesPreviousFlags() {
+        let state = AppState()
+        state.isConnected = true
+        state.setPlaybackModeForTesting(.replaySeekable)
+
+        state.setPlaybackModeForTesting(.unknown)
+
+        XCTAssertEqual(state.displayPlaybackMode, .unknown)
+        XCTAssertFalse(state.isLive)
+        XCTAssertTrue(state.isSeekable)
+    }
+
     func testTogglePlayPauseIgnoredWhenPlaybackModeUnknown() {
         let state = AppState()
         let fake = FakePlaybackRPCClient()

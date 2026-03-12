@@ -134,18 +134,6 @@ type FiretimeCorrection struct {
 	FireTime float64 // Time offset in microseconds when this channel fires relative to block start (can be negative)
 }
 
-// PacketHeader represents the theoretical 6-byte header at the start of UDP packets
-// Contains metadata about the packet format and sensor configuration
-// NOTE: This structure is DEPRECATED - analysis shows data blocks start at offset 0
-// Kept for reference only; actual parsing begins immediately with block preambles
-type PacketHeader struct {
-	SOB              uint16 // Start of Block identifier (packet format marker) - UNUSED
-	ChLaserNum       uint8  // Channel and laser configuration number - UNUSED
-	ChBlockNum       uint8  // Channel and block configuration number - UNUSED
-	FirstBlockReturn uint8  // Return mode for first block (single/dual return) - UNUSED
-	DisUnit          uint8  // Distance measurement unit identifier - UNUSED
-}
-
 // DataBlock represents one of 10 data blocks within a packet
 // Each block contains measurements from all 40 channels at a specific azimuth angle.
 // The Pandar40P captures data in discrete angular steps as the sensor rotates,

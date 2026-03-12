@@ -213,7 +213,7 @@ class PdfConfig:
 
     @property
     def geometry(self) -> Dict[str, str]:
-        """Get geometry as dictionary for backward compatibility."""
+        """Get geometry as dictionary for LaTeX geometry package options."""
         return {
             "top": self.geometry_top,
             "bottom": self.geometry_bottom,
@@ -525,56 +525,6 @@ DEFAULT_PDF_CONFIG = PdfConfig()
 DEFAULT_MAP_CONFIG = MapConfig()
 DEFAULT_HISTOGRAM_PROCESSING_CONFIG = HistogramProcessingConfig()
 DEFAULT_DEBUG_CONFIG = DebugConfig()
-
-
-# Helper functions to convert dataclass instances to dictionaries
-# These provide backward compatibility with code expecting dict access
-def _colors_to_dict(config: ColorConfig) -> Dict[str, str]:
-    """Convert ColorConfig to dictionary."""
-    return asdict(config)
-
-
-def _fonts_to_dict(config: FontConfig) -> Dict[str, int]:
-    """Convert FontConfig to dictionary."""
-    return asdict(config)
-
-
-def _layout_to_dict(config: LayoutConfig) -> Dict[str, Any]:
-    """Convert LayoutConfig to dictionary with tuple figsize."""
-    d = asdict(config)
-    # Convert separate width/height back to tuple for backward compatibility
-    d["chart_figsize"] = config.chart_figsize
-    d["histogram_figsize"] = config.histogram_figsize
-    return d
-
-
-def _pdf_to_dict(config: PdfConfig) -> Dict[str, Any]:
-    """Convert PdfConfig to dictionary with geometry dict."""
-    d = asdict(config)
-    d["geometry"] = config.geometry
-    return d
-
-
-def _map_to_dict(config: MapConfig) -> Dict[str, Any]:
-    """Convert MapConfig to dictionary."""
-    return asdict(config)
-
-
-def _histogram_processing_to_dict(
-    config: HistogramProcessingConfig,
-) -> Dict[str, float]:
-    """Convert HistogramProcessingConfig to dictionary."""
-    return asdict(config)
-
-
-def _debug_to_dict(config: DebugConfig) -> Dict[str, bool]:
-    """Convert DebugConfig to dictionary."""
-    return asdict(config)
-
-
-def _site_to_dict(config: SiteConfig) -> Dict[str, Any]:
-    """Convert SiteConfig to dictionary."""
-    return asdict(config)
 
 
 if __name__ == "__main__":

@@ -539,13 +539,6 @@ class TestConvenienceFunctions(unittest.TestCase):
 class TestImportFallbacks(unittest.TestCase):
     """Tests for import error handling."""
 
-    def test_pylatex_available(self):
-        """Test that PyLaTeX is available in normal environment."""
-        from pdf_generator.core.table_builders import HAVE_PYLATEX
-
-        # In test environment, should be True
-        self.assertTrue(HAVE_PYLATEX)
-
     def test_builder_requires_pylatex(self):
         """Test that builders require PyLaTeX."""
         # This test validates the import check exists
@@ -661,44 +654,6 @@ class TestHistogramEdgeCases(unittest.TestCase):
 
         # Should skip the below-cutoff row
         self.assertIsNotNone(table)
-
-
-class TestPyLaTeXImportErrors(unittest.TestCase):
-    """Test that ImportError is raised when PyLaTeX is not available."""
-
-    def test_stats_table_builder_import_error(self):
-        """Test that StatsTableBuilder raises ImportError without PyLaTeX."""
-        import pdf_generator.core.table_builders as tb_module
-
-        original_have_pylatex = tb_module.HAVE_PYLATEX
-
-        try:
-            tb_module.HAVE_PYLATEX = False
-
-            with self.assertRaises(ImportError) as context:
-                StatsTableBuilder()
-
-            self.assertIn("PyLaTeX is required", str(context.exception))
-            self.assertIn("pip install pylatex", str(context.exception))
-        finally:
-            tb_module.HAVE_PYLATEX = original_have_pylatex
-
-    def test_parameter_table_builder_import_error(self):
-        """Test that ParameterTableBuilder raises ImportError without PyLaTeX."""
-        import pdf_generator.core.table_builders as tb_module
-
-        original_have_pylatex = tb_module.HAVE_PYLATEX
-
-        try:
-            tb_module.HAVE_PYLATEX = False
-
-            with self.assertRaises(ImportError) as context:
-                ParameterTableBuilder()
-
-            self.assertIn("PyLaTeX is required", str(context.exception))
-            self.assertIn("pip install pylatex", str(context.exception))
-        finally:
-            tb_module.HAVE_PYLATEX = original_have_pylatex
 
 
 class TestHistogramTableFallbackMethod(unittest.TestCase):

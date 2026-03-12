@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from pdf_generator.core.document_builder import DocumentBuilder
+from pdf_generator.core.config_manager import PdfConfig
 from pdf_generator.core.tex_environment import TexEnvironment
 
 
@@ -19,14 +20,14 @@ class TestDocumentBuilder(unittest.TestCase):
         """Test builder initialization with default config."""
         builder = DocumentBuilder()
         self.assertIsNotNone(builder.config)
-        self.assertIn("geometry", builder.config)
+        self.assertIsNotNone(builder.config.geometry)
 
     def test_initialization_custom_config(self):
         """Test builder initialization with custom config."""
-        custom_config = {"geometry": {"top": "2cm"}, "fonts_dir": "custom_fonts"}
+        custom_config = PdfConfig(geometry_top="2cm", fonts_dir="custom_fonts")
         builder = DocumentBuilder(config=custom_config)
         self.assertEqual(builder.config, custom_config)
-        self.assertEqual(builder.config["fonts_dir"], "custom_fonts")
+        self.assertEqual(builder.config.fonts_dir, "custom_fonts")
 
     @patch("pdf_generator.core.document_builder.Document")
     def test_create_document_no_page_numbers(self, mock_doc_class):
@@ -149,7 +150,7 @@ class TestDocumentBuilder(unittest.TestCase):
 
     def test_setup_preamble_custom_columnsep(self):
         """Test preamble with custom column separation."""
-        custom_config = {"columnsep": "20", "headheight": "12pt", "headsep": "10pt"}
+        custom_config = PdfConfig(columnsep="20", headheight="12pt", headsep="10pt")
         builder = DocumentBuilder(config=custom_config)
         mock_doc = MagicMock()
         mock_doc.preamble = MagicMock()
@@ -432,10 +433,10 @@ class TestDocumentBuilder(unittest.TestCase):
 
     def test_font_path_resolution(self):
         """Test fonts directory path resolution."""
-        custom_config = {"fonts_dir": "custom_fonts"}
+        custom_config = PdfConfig(fonts_dir="custom_fonts")
         builder = DocumentBuilder(config=custom_config)
 
-        self.assertEqual(builder.config["fonts_dir"], "custom_fonts")
+        self.assertEqual(builder.config.fonts_dir, "custom_fonts")
 
 
 if __name__ == "__main__":

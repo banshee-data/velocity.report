@@ -6,50 +6,16 @@ setup, providing a clean API for creating properly configured PyLaTeX documents.
 """
 
 import os
-from typing import TYPE_CHECKING, Dict, Optional, Any
+from typing import TYPE_CHECKING, Optional
 
-try:
-    from pylatex import Document, Package, NoEscape
-    from pylatex.utils import escape_latex
-
-    HAVE_PYLATEX = True
-except Exception:  # pragma: no cover
-    HAVE_PYLATEX = False
-
-    class Document:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Package:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class NoEscape(str):  # type: ignore
-        pass
-
-    def escape_latex(s: str) -> str:  # type: ignore
-        """Fallback escape_latex when pylatex is not available."""
-        # Basic LaTeX escaping for special characters
-        latex_special_chars = {
-            "\\": r"\textbackslash{}",
-            "{": r"\{",
-            "}": r"\}",
-            "$": r"\$",
-            "&": r"\&",
-            "#": r"\#",
-            "_": r"\_",
-            "%": r"\%",
-            "~": r"\textasciitilde{}",
-            "^": r"\textasciicircum{}",
-        }
-        return "".join(latex_special_chars.get(c, c) for c in s)
+from pylatex import Document, Package, NoEscape
+from pylatex.utils import escape_latex
 
 
 from pdf_generator.core.config_manager import (
     DEFAULT_PDF_CONFIG,
     DEFAULT_SITE_CONFIG,
-    _pdf_to_dict,
-    _site_to_dict,
+    PdfConfig,
 )
 
 if TYPE_CHECKING:
@@ -67,13 +33,13 @@ class DocumentBuilder:
     - Provide clean API for document initialization
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[PdfConfig] = None):
         """Initialise with optional config override.
 
         Args:
-            config: Optional dict to override default PDF configuration
+            config: Optional PdfConfig to override default PDF configuration
         """
-        self.config = config or _pdf_to_dict(DEFAULT_PDF_CONFIG)
+        self.config = config or DEFAULT_PDF_CONFIG
 
     def create_document(
         self, page_numbers: bool = False, use_geometry_options: bool = True
@@ -87,7 +53,7 @@ class DocumentBuilder:
         Returns:
             Document instance with geometry configured
         """
-        geometry_options = self.config.get("geometry", {})
+        geometry_options = self.config.geometry
         kwargs = {
             "page_numbers": page_numbers,
             "fontenc": None,
@@ -104,7 +70,7 @@ class DocumentBuilder:
 
     def apply_geometry_options(self, doc: Document) -> None:
         """Apply geometry settings in preamble when geometry is preloaded."""
-        geometry_options = self.config.get("geometry", {})
+        geometry_options = self.config.geometry
         if not geometry_options:
             return
 
@@ -159,14 +125,14 @@ class DocumentBuilder:
         )
 
         # Column gap configuration
-        colsep_str = self.config.get("columnsep", "10")
+        colsep_str = self.config.columnsep
         if colsep_str and not colsep_str.endswith("pt"):
             colsep_str = f"{colsep_str}pt"
         doc.preamble.append(NoEscape(f"\\setlength{{\\columnsep}}{{{colsep_str}}}"))
 
         # Header spacing
-        headheight = self.config.get("headheight", "12pt")
-        headsep = self.config.get("headsep", "10pt")
+        headheight = self.config.headheight
+        headsep = self.config.headsep
         doc.append(NoEscape(f"\\setlength{{\\headheight}}{{{headheight}}}"))
         doc.append(NoEscape(f"\\setlength{{\\headsep}}{{{headsep}}}"))
 
@@ -343,9 +309,9 @@ class DocumentBuilder:
         """
         # Use defaults only if None (not if empty string)
         if surveyor is None:
-            surveyor = _site_to_dict(DEFAULT_SITE_CONFIG)["surveyor"]
+            surveyor = DEFAULT_SITE_CONFIG.surveyor
         if contact is None:
-            contact = _site_to_dict(DEFAULT_SITE_CONFIG)["contact"]
+            contact = DEFAULT_SITE_CONFIG.contact
 
         skip_preloaded = bool(tex_environment and tex_environment.fmt_name)
         # Create base document — when using a preloaded format the geometry
@@ -367,7 +333,7 @@ class DocumentBuilder:
         self.setup_preamble(doc)
 
         # Setup fonts
-        fonts_dir = self.config.get("fonts_dir", "fonts")
+        fonts_dir = self.config.fonts_dir
         fonts_path = os.path.join(os.path.dirname(__file__), fonts_dir)
         self.setup_fonts(doc, fonts_path)
 

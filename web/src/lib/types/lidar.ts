@@ -124,10 +124,6 @@ export interface BackgroundCell {
 	range_spread_meters: number;
 	/** Number of times this cell has been observed */
 	times_seen: number;
-	// Legacy fields (optional, for backward compatibility)
-	ring?: number;
-	azimuth_deg?: number;
-	average_range_meters?: number;
 }
 
 export interface TrackListResponse {

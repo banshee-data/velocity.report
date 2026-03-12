@@ -304,9 +304,8 @@
 
 		let arr: RadarStats[];
 		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
-			// reuse cached stats response (it may be the root object)
-			const cached = lastStatsRaw as RadarStatsResponse;
-			arr = Array.isArray(cached) ? cached : cached.metrics || [];
+			// reuse cached stats response
+			arr = lastStatsRaw.metrics || [];
 			if (browser) console.debug('[dashboard] reusing cached stats for chart');
 		} else {
 			// fetch via the shared API helper so we use the same code path as loadStats

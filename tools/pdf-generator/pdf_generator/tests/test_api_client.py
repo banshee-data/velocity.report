@@ -212,31 +212,6 @@ class TestRadarStatsClient:
             client.get_stats(start_ts=1717545600, end_ts=1717632000)
 
     @responses.activate
-    def test_get_stats_legacy_format(self):
-        """Test handling of legacy API response format (plain array)."""
-        responses.add(
-            responses.GET,
-            "http://localhost:8080/api/radar_stats",
-            json=[
-                {
-                    "StartTime": "2024-06-05T00:00:00Z",
-                    "Count": 50,
-                    "P50Speed": 20.0,
-                }
-            ],
-            status=200,
-        )
-
-        client = RadarStatsClient()
-        metrics, histogram, min_speed_used, resp = client.get_stats(
-            start_ts=1717545600, end_ts=1717632000
-        )
-
-        assert len(metrics) == 1
-        assert metrics[0]["Count"] == 50
-        assert histogram == {}
-
-    @responses.activate
     def test_get_site_config_periods(self):
         """Test fetching site configuration periods."""
         responses.add(

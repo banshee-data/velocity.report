@@ -1144,7 +1144,6 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 	}
 
 	req := sweep.SweepRequest{
-		Mode:             "params",
 		DataSource:       "pcap",
 		PCAPFile:         pcapFile,
 		PCAPStartSecs:    pcapStartSecs,
