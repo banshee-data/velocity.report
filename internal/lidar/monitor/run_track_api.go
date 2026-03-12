@@ -151,6 +151,43 @@ func parseTrackPath(path string) (trackID string, action string) {
 
 // Track Labelling Handlers
 
+func normaliseCommaSeparatedLabelValue(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+
+	parts := strings.Split(value, ",")
+	normalised := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		normalised = append(normalised, part)
+	}
+	return strings.Join(normalised, ",")
+}
+
+func normaliseLinkedTrackIDsForRequest(linkedTrackIDs []string) []string {
+	if len(linkedTrackIDs) == 0 {
+		return nil
+	}
+
+	normalised := make([]string, 0, len(linkedTrackIDs))
+	for _, linkedTrackID := range linkedTrackIDs {
+		linkedTrackID = strings.TrimSpace(linkedTrackID)
+		if linkedTrackID == "" {
+			continue
+		}
+		normalised = append(normalised, linkedTrackID)
+	}
+	if len(normalised) == 0 {
+		return nil
+	}
+	return normalised
+}
+
 // handleUpdateTrackLabel updates the user label and quality label for a track.
 // PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label
 // Request body: {"user_label": "car", "quality_label": "good,truncated", "label_confidence": 0.95, "labeler_id": "user1"}
@@ -172,6 +209,11 @@ func (ws *WebServer) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Reque
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 		return
 	}
+
+	req.UserLabel = strings.TrimSpace(req.UserLabel)
+	req.QualityLabel = normaliseCommaSeparatedLabelValue(req.QualityLabel)
+	req.LabelerID = strings.TrimSpace(req.LabelerID)
+	req.LabelSource = strings.TrimSpace(req.LabelSource)
 
 	// Validate user_label (allow empty to clear)
 	if req.UserLabel != "" && !api.ValidateUserLabel(req.UserLabel) {
@@ -235,6 +277,7 @@ func (ws *WebServer) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Reque
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 		return
 	}
+	req.LinkedTrackIDs = normaliseLinkedTrackIDsForRequest(req.LinkedTrackIDs)
 
 	// Validate and determine split/merge flags from user_label
 	userLabel := strings.TrimSpace(req.UserLabel)

@@ -74,13 +74,58 @@ func (r *AnalysisRun) PopulateSceneName() {
 }
 
 const (
-	manualLabelSourcePredicate = "(label_source IS NULL OR label_source = '' OR label_source = 'human_manual')"
-	manualClassPredicate       = manualLabelSourcePredicate + " AND user_label IS NOT NULL AND user_label != '' AND user_label NOT IN ('split', 'merge')"
-	manualTagPredicate         = manualLabelSourcePredicate + " AND ((quality_label IS NOT NULL AND TRIM(quality_label) != '') OR (user_label IN ('split', 'merge')) OR is_split_candidate = 1 OR is_merge_candidate = 1 OR (linked_track_ids IS NOT NULL AND linked_track_ids != '' AND linked_track_ids != '[]'))"
+	normalisedLabelSourceExpr  = "TRIM(REPLACE(REPLACE(REPLACE(COALESCE(label_source, ''), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' '))"
+	normalisedUserLabelExpr    = "TRIM(REPLACE(REPLACE(REPLACE(COALESCE(user_label, ''), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' '))"
+	normalisedQualityExpr      = "TRIM(REPLACE(REPLACE(REPLACE(COALESCE(quality_label, ''), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' '))"
+	normalisedLinkedIDsExpr    = "TRIM(REPLACE(REPLACE(REPLACE(COALESCE(linked_track_ids, ''), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' '))"
+	manualLabelSourcePredicate = "(" + normalisedLabelSourceExpr + " = '' OR " + normalisedLabelSourceExpr + " = 'human_manual')"
+	manualClassPredicate       = manualLabelSourcePredicate + " AND " + normalisedUserLabelExpr + " != '' AND " + normalisedUserLabelExpr + " NOT IN ('split', 'merge')"
+	manualTagPredicate         = manualLabelSourcePredicate + " AND ((" + normalisedQualityExpr + " != '') OR (" + normalisedUserLabelExpr + " IN ('split', 'merge')) OR is_split_candidate = 1 OR is_merge_candidate = 1 OR (" + normalisedLinkedIDsExpr + " != '' AND " + normalisedLinkedIDsExpr + " != '[]'))"
 )
 
 func isMissingRunTracksTableErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "no such table: lidar_run_tracks")
+}
+
+func normaliseRunTrackString(value string) string {
+	return strings.TrimSpace(value)
+}
+
+func normaliseRunTrackQualityLabel(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+
+	parts := strings.Split(value, ",")
+	normalised := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		normalised = append(normalised, part)
+	}
+	return strings.Join(normalised, ",")
+}
+
+func normaliseRunTrackLinkedIDs(linkedIDs []string) []string {
+	if len(linkedIDs) == 0 {
+		return nil
+	}
+
+	normalised := make([]string, 0, len(linkedIDs))
+	for _, linkedID := range linkedIDs {
+		linkedID = strings.TrimSpace(linkedID)
+		if linkedID == "" {
+			continue
+		}
+		normalised = append(normalised, linkedID)
+	}
+	if len(normalised) == 0 {
+		return nil
+	}
+	return normalised
 }
 
 // RunParams captures all configurable parameters for reproducibility.
@@ -599,9 +644,14 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 // InsertRunTrack inserts a track for an analysis run.
 // Uses retry logic to handle SQLITE_BUSY errors from concurrent writes.
 func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
+	userLabel := normaliseRunTrackString(track.UserLabel)
+	qualityLabel := normaliseRunTrackQualityLabel(track.QualityLabel)
+	labelerID := normaliseRunTrackString(track.LabelerID)
+	labelSource := normaliseRunTrackString(track.LabelSource)
+	linkedIDs := normaliseRunTrackLinkedIDs(track.LinkedTrackIDs)
 	linkedJSON := "[]"
-	if len(track.LinkedTrackIDs) > 0 {
-		if b, err := json.Marshal(track.LinkedTrackIDs); err == nil {
+	if len(linkedIDs) > 0 {
+		if b, err := json.Marshal(linkedIDs); err == nil {
 			linkedJSON = string(b)
 		}
 	}
@@ -650,12 +700,12 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 			nullString(track.ObjectClass),
 			nullFloat32(track.ObjectConfidence),
 			nullString(track.ClassificationModel),
-			nullString(track.UserLabel),
+			nullString(userLabel),
 			nullFloat32(track.LabelConfidence),
-			nullString(track.LabelerID),
+			nullString(labelerID),
 			labeledAt,
-			nullString(track.QualityLabel),
-			nullString(track.LabelSource),
+			nullString(qualityLabel),
+			nullString(labelSource),
 			track.IsSplitCandidate,
 			track.IsMergeCandidate,
 			linkedJSON,
@@ -868,10 +918,16 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 
 // UpdateTrackLabel updates the user label and quality label for a track.
 // Both userLabel and qualityLabel can be empty strings, which will be stored as NULL in the database.
+// Values are trimmed and canonicalized before storage.
 // This function does NOT validate enum values - it accepts any string and stores it as-is.
 // Validation of label enum values should be performed by the caller (e.g., API handlers)
 // using ValidateUserLabel() and ValidateQualityLabel() from the api package.
 func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
+	userLabel = normaliseRunTrackString(userLabel)
+	qualityLabel = normaliseRunTrackQualityLabel(qualityLabel)
+	labelerID = normaliseRunTrackString(labelerID)
+	labelSource = normaliseRunTrackString(labelSource)
+
 	query := `
 		UPDATE lidar_run_tracks SET
 			user_label = ?,
@@ -902,6 +958,7 @@ func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLa
 
 // UpdateTrackQualityFlags updates the split/merge flags for a track.
 func (s *AnalysisRunStore) UpdateTrackQualityFlags(runID, trackID string, isSplit, isMerge bool, linkedIDs []string) error {
+	linkedIDs = normaliseRunTrackLinkedIDs(linkedIDs)
 	linkedJSON := "[]"
 	if len(linkedIDs) > 0 {
 		if b, err := json.Marshal(linkedIDs); err == nil {
@@ -940,15 +997,18 @@ func (s *AnalysisRunStore) GetLabelingProgressWithRollup(runID string) (total, l
 	if err != nil {
 		return 0, 0, nil, nil, err
 	}
+	if rollup == nil {
+		return 0, 0, byClass, nil, nil
+	}
 	total = rollup.Total
 	labeled = rollup.LabelledCount()
 
 	// Get counts by user label
 	query := `
-		SELECT user_label, COUNT(*) as count
+		SELECT ` + normalisedUserLabelExpr + ` as label, COUNT(*) as count
 		FROM lidar_run_tracks
 		WHERE run_id = ? AND ` + manualClassPredicate + `
-		GROUP BY user_label
+		GROUP BY ` + normalisedUserLabelExpr + `
 	`
 
 	rows, err := s.db.Query(query, runID)
@@ -986,7 +1046,7 @@ func (s *AnalysisRunStore) GetRunLabelRollup(runID string) (*RunLabelRollup, err
 	var rollup RunLabelRollup
 	if err := s.db.QueryRow(query, runID).Scan(&rollup.Total, &rollup.Classified, &rollup.TaggedOnly); err != nil {
 		if isMissingRunTracksTableErr(err) {
-			return &RunLabelRollup{}, nil
+			return nil, nil
 		}
 		return nil, fmt.Errorf("get run label rollup: %w", err)
 	}
@@ -1007,7 +1067,6 @@ func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
 	placeholders := make([]string, 0, len(runs))
 	for _, run := range runs {
 		byID[run.RunID] = run
-		run.LabelRollup = &RunLabelRollup{}
 		args = append(args, run.RunID)
 		placeholders = append(placeholders, "?")
 	}
@@ -1031,6 +1090,10 @@ func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
 		return fmt.Errorf("list run label rollups: %w", err)
 	}
 	defer rows.Close()
+
+	for _, run := range runs {
+		run.LabelRollup = &RunLabelRollup{}
+	}
 
 	for rows.Next() {
 		var runID string
@@ -1066,7 +1129,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
 		FROM lidar_run_tracks
-		WHERE run_id = ? AND (user_label IS NULL OR user_label = '')
+		WHERE run_id = ? AND (` + normalisedUserLabelExpr + ` = '')
 		ORDER BY observation_count DESC
 		LIMIT ?
 	`
