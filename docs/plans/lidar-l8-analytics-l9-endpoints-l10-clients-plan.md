@@ -413,13 +413,13 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 
 #### Docs and architecture
 
-- [ ] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the ten-layer model
-- [ ] `docs/lidar/architecture/README.md` updated to describe `L1` through `L10`
-- [ ] `docs/lidar/README.md` updated to the ten-layer terminology
+- [x] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the ten-layer model
+- [x] `docs/lidar/architecture/README.md` updated to describe `L1` through `L10`
+- [x] `docs/lidar/README.md` updated to the ten-layer terminology
 - [ ] `docs/data/DATA_STRUCTURES.md` updated to the ten-layer terminology and current package layout
 - [ ] `docs/lidar/terminology.md` updated to the ten-layer terminology
-- [ ] relevant package doc comments under `internal/lidar/l1packets/` through `internal/lidar/l6objects/` updated
-- [ ] `L9 Endpoints` and `L10 Clients` naming documented
+- [x] relevant package doc comments under `internal/lidar/l1packets/` through `internal/lidar/l6objects/` updated
+- [x] `L9 Endpoints` and `L10 Clients` naming documented
 - [ ] transitional `internal/lidar/l9endpoints/l10clients/` exception documented as temporary, asset-only, and not canonical
 - [ ] breaking-change rationale documented
 - [ ] migration note scaffolded early enough to guide the later package moves
