@@ -2,7 +2,7 @@
 
 **Status:** Draft
 **Layers:** Database, L3 Grid, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints (API + web)
-**Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-client-plan.md)
+**Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md)
 
 ## Goal
 
