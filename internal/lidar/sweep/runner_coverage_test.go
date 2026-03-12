@@ -84,7 +84,13 @@ func TestRunner_Start_InvalidRequestType(t *testing.T) {
 func TestRunner_Start_MapRequest(t *testing.T) {
 	r := newQuietRunner(nil)
 	m := map[string]interface{}{
-		"mode": "multi",
+		"params": []interface{}{
+			map[string]interface{}{
+				"name":   "noise_relative",
+				"type":   "float64",
+				"values": []interface{}{0.01},
+			},
+		},
 	}
 	err := r.Start(context.Background(), m)
 	// Should fail on client nil check
@@ -95,7 +101,11 @@ func TestRunner_Start_MapRequest(t *testing.T) {
 
 func TestRunner_Start_TypedRequest(t *testing.T) {
 	r := newQuietRunner(nil)
-	err := r.Start(context.Background(), SweepRequest{Mode: "multi"})
+	err := r.Start(context.Background(), SweepRequest{
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
+	})
 	if err == nil {
 		t.Error("expected error for nil client")
 	}
@@ -103,7 +113,11 @@ func TestRunner_Start_TypedRequest(t *testing.T) {
 
 func TestRunner_Start_NilClient(t *testing.T) {
 	r := newQuietRunner(nil)
-	err := r.start(context.Background(), SweepRequest{Mode: "multi"})
+	err := r.start(context.Background(), SweepRequest{
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
+	})
 	if err == nil {
 		t.Error("expected error for nil client")
 	}
@@ -113,8 +127,9 @@ func TestRunner_Start_NilContext(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 	//nolint:staticcheck
 	err := r.start(nil, SweepRequest{
-		Mode:        "multi",
-		NoiseValues: []float64{0.01},
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
 	})
 	// Should start successfully with nil context (defaults to Background)
 	if err != nil {
@@ -127,9 +142,10 @@ func TestRunner_Start_NilContext(t *testing.T) {
 func TestRunner_Start_InvalidInterval(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
-		Mode:        "multi",
-		NoiseValues: []float64{0.01},
-		Interval:    "not-a-duration",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
+		Interval: "not-a-duration",
 	})
 	if err == nil {
 		t.Error("expected error for invalid interval")
@@ -139,9 +155,10 @@ func TestRunner_Start_InvalidInterval(t *testing.T) {
 func TestRunner_Start_InvalidSettleTime(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
-		Mode:        "multi",
-		NoiseValues: []float64{0.01},
-		SettleTime:  "not-a-duration",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
+		SettleTime: "not-a-duration",
 	})
 	if err == nil {
 		t.Error("expected error for invalid settle time")
@@ -151,30 +168,32 @@ func TestRunner_Start_InvalidSettleTime(t *testing.T) {
 func TestRunner_Start_ExcessiveIterations(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
-		Mode:        "multi",
-		NoiseValues: []float64{0.01},
-		Iterations:  501,
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
+		Iterations: 501,
 	})
 	if err == nil {
 		t.Error("expected error for iterations > 500")
 	}
 }
 
-func TestRunner_Start_UnsupportedMode(t *testing.T) {
+func TestRunner_Start_MissingParams(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
-	err := r.start(context.Background(), SweepRequest{
-		Mode: "unknown",
-	})
+	err := r.start(context.Background(), SweepRequest{})
 	if err == nil {
-		t.Error("expected error for unsupported mode")
+		t.Error("expected error for missing params")
 	}
 }
 
 func TestRunner_Start_DefaultCombinations(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 	err := r.start(context.Background(), SweepRequest{
-		Mode: "multi",
-		// No values provided — should default to built-in ranges
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{2.0}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -190,8 +209,9 @@ func TestRunner_Start_AlreadyRunning(t *testing.T) {
 	r.mu.Unlock()
 
 	err := r.start(context.Background(), SweepRequest{
-		Mode:        "multi",
-		NoiseValues: []float64{0.01},
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
 	})
 	if err != ErrSweepAlreadyRunning {
 		t.Errorf("expected ErrSweepAlreadyRunning, got %v", err)
@@ -204,8 +224,9 @@ func TestRunner_Start_WithPersister(t *testing.T) {
 	r.SetPersister(mp)
 
 	err := r.start(context.Background(), SweepRequest{
-		Mode:        "multi",
-		NoiseValues: []float64{0.01},
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -228,9 +249,10 @@ func TestRunner_Start_DefaultIterations(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 
 	err := r.start(context.Background(), SweepRequest{
-		Mode:        "multi",
-		NoiseValues: []float64{0.01},
-		Iterations:  0, // should default to 30
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
+		Iterations: 0, // should default to 30
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -239,12 +261,13 @@ func TestRunner_Start_DefaultIterations(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 }
 
-func TestRunner_Start_DefaultMode(t *testing.T) {
+func TestRunner_Start_DefaultSeed(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 
 	err := r.start(context.Background(), SweepRequest{
-		Mode:        "", // should default to "multi"
-		NoiseValues: []float64{0.01},
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -362,7 +385,7 @@ func TestRunner_PersistComplete_WithData(t *testing.T) {
 	r.SetPersister(mp)
 	r.sweepID = "test-sweep"
 	r.mu.Lock()
-	r.state.Results = []ComboResult{{Noise: 0.01}}
+	r.state.Results = []ComboResult{{ParamValues: map[string]interface{}{"noise_relative": 0.01}}}
 	r.mu.Unlock()
 
 	r.persistComplete("complete", "", nil)
@@ -621,14 +644,17 @@ func TestCoerceValue_UnsupportedCoercion(t *testing.T) {
 func TestRunner_GetSweepState_DeepCopy(t *testing.T) {
 	r := newQuietRunner(nil)
 	r.mu.Lock()
-	r.state.Results = []ComboResult{{Noise: 0.01}, {Noise: 0.02}}
+	r.state.Results = []ComboResult{
+		{ParamValues: map[string]interface{}{"noise_relative": 0.01}},
+		{ParamValues: map[string]interface{}{"noise_relative": 0.02}},
+	}
 	r.mu.Unlock()
 
 	state := r.GetSweepState()
-	state.Results[0].Noise = 999
+	state.Results[0].OverallAcceptMean = 999
 	// Original should be unchanged
 	orig := r.GetSweepState()
-	if orig.Results[0].Noise == 999 {
+	if orig.Results[0].OverallAcceptMean == 999 {
 		t.Error("GetSweepState did not return deep copy")
 	}
 }
@@ -638,44 +664,19 @@ func TestRunner_GetSweepState_DeepCopy(t *testing.T) {
 func TestRunner_Start_TooManyCombinations(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 
-	vals := make([]float64, 20)
+	vals := make([]interface{}, 20)
 	for i := range vals {
 		vals[i] = float64(i)
 	}
-	intVals := make([]int, 20)
-	for i := range intVals {
-		intVals[i] = i
-	}
 	err := r.start(context.Background(), SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     vals,
-		ClosenessValues: vals,
-		NeighbourValues: intVals,
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: vals},
+			{Name: "closeness_multiplier", Type: "float64", Values: vals},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: vals},
+		},
 	})
 	if err == nil {
 		t.Error("expected error for too many combinations")
-	}
-}
-
-// --- computeCombinations mode tests ---
-
-func TestRunner_ComputeCombinations_NoiseMode_Range(t *testing.T) {
-	r := newQuietRunner(defaultMockBackend())
-
-	noise, closeness, neighbour := r.computeCombinations(SweepRequest{
-		Mode:       "noise",
-		NoiseStart: 0.01,
-		NoiseEnd:   0.05,
-		NoiseStep:  0.01,
-	})
-	if len(noise) == 0 {
-		t.Error("expected noise values to be computed")
-	}
-	if len(closeness) == 0 {
-		t.Error("expected default closeness")
-	}
-	if len(neighbour) == 0 {
-		t.Error("expected default neighbour")
 	}
 }
 
@@ -683,7 +684,6 @@ func TestRunner_Start_ParamsMode(t *testing.T) {
 	r := newQuietRunner(defaultMockBackend())
 
 	err := r.start(context.Background(), SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise", Type: "float64", Start: 0.01, End: 0.05, Step: 0.01},
 		},
@@ -704,8 +704,8 @@ func TestRunner_PersistComplete_WithResults(t *testing.T) {
 	r.sweepID = "test-sweep"
 	r.mu.Lock()
 	r.state.Results = []ComboResult{
-		{Noise: 0.01, Closeness: 3.0, Neighbour: 3},
-		{Noise: 0.02, Closeness: 4.0, Neighbour: 2},
+		{ParamValues: map[string]interface{}{"noise_relative": 0.01, "closeness_multiplier": 3.0}},
+		{ParamValues: map[string]interface{}{"noise_relative": 0.02, "closeness_multiplier": 4.0}},
 	}
 	r.mu.Unlock()
 
@@ -781,19 +781,20 @@ func waitForRunnerStatus(t *testing.T, r *Runner, timeout time.Duration, targets
 	return state
 }
 
-// --- Legacy run() tests ---
+// --- Sweep run() tests ---
 
-func TestRunnerCov2_RunLegacyComplete(t *testing.T) {
+func TestRunnerCov2_RunComplete(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01, 0.02},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
@@ -809,20 +810,21 @@ func TestRunnerCov2_RunLegacyComplete(t *testing.T) {
 	}
 }
 
-func TestRunnerCov2_RunLegacyCancelled(t *testing.T) {
+func TestRunnerCov2_RunCancelled(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Use many combos so we can cancel mid-way
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01, 0.02, 0.03, 0.04, 0.05},
-		ClosenessValues: []float64{1.5, 2.0, 2.5},
-		NeighbourValues: []int{1, 2},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02, 0.03, 0.04, 0.05}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5, 2.0, 2.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1, 2}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
 	}
 	err := r.Start(ctx, req)
 	if err != nil {
@@ -840,18 +842,19 @@ func TestRunnerCov2_RunLegacyCancelled(t *testing.T) {
 	}
 }
 
-func TestRunnerCov2_RunLegacyToggleSeed(t *testing.T) {
+func TestRunnerCov2_RunToggleSeed(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01, 0.02},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
-		Seed:            "toggle",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
+		Seed:       "toggle",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
@@ -864,18 +867,19 @@ func TestRunnerCov2_RunLegacyToggleSeed(t *testing.T) {
 	}
 }
 
-func TestRunnerCov2_RunLegacySeedFalse(t *testing.T) {
+func TestRunnerCov2_RunSeedFalse(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
-		Seed:            "false",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
+		Seed:       "false",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
@@ -888,18 +892,19 @@ func TestRunnerCov2_RunLegacySeedFalse(t *testing.T) {
 	}
 }
 
-func TestRunnerCov2_RunLegacySettleOnce(t *testing.T) {
+func TestRunnerCov2_RunSettleOnce(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01, 0.02},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
-		SettleMode:      "once",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
+		SettleMode: "once",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
@@ -912,18 +917,19 @@ func TestRunnerCov2_RunLegacySettleOnce(t *testing.T) {
 	}
 }
 
-func TestRunnerCov2_RunLegacyWithPersister(t *testing.T) {
+func TestRunnerCov2_RunWithPersister(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 	r.SetPersister(&runnerMockPersister{})
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
@@ -939,21 +945,22 @@ func TestRunnerCov2_RunLegacyWithPersister(t *testing.T) {
 	}
 }
 
-// --- Legacy run() PCAP mode ---
+// --- PCAP mode ---
 
-func TestRunnerCov2_RunLegacyPCAPMode(t *testing.T) {
+func TestRunnerCov2_RunPCAPMode(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		DataSource:      "pcap",
-		PCAPFile:        "test.pcap",
-		NoiseValues:     []float64{0.01},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
+		DataSource: "pcap",
+		PCAPFile:   "test.pcap",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
@@ -964,20 +971,21 @@ func TestRunnerCov2_RunLegacyPCAPMode(t *testing.T) {
 	_ = state // Either status is acceptable
 }
 
-func TestRunnerCov2_RunLegacyPCAPSettleOnce(t *testing.T) {
+func TestRunnerCov2_RunPCAPSettleOnce(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		DataSource:      "pcap",
-		PCAPFile:        "test.pcap",
-		NoiseValues:     []float64{0.01, 0.02},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
-		SettleMode:      "once",
+		DataSource: "pcap",
+		PCAPFile:   "test.pcap",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
+		SettleMode: "once",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
@@ -994,7 +1002,6 @@ func TestRunnerCov2_RunGenericComplete(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
 		},
@@ -1019,7 +1026,6 @@ func TestRunnerCov2_RunGenericCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02, 0.03, 0.04, 0.05}},
 			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.0, 1.5, 2.0}},
@@ -1044,7 +1050,6 @@ func TestRunnerCov2_RunGenericToggleSeed(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
 		},
@@ -1068,7 +1073,6 @@ func TestRunnerCov2_RunGenericSeedFalse(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
 		},
@@ -1092,7 +1096,6 @@ func TestRunnerCov2_RunGenericSettleOnce(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
 		},
@@ -1116,7 +1119,6 @@ func TestRunnerCov2_RunGenericPCAPMode(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:       "params",
 		DataSource: "pcap",
 		PCAPFile:   "test.pcap",
 		Params: []SweepParam{
@@ -1139,7 +1141,6 @@ func TestRunnerCov2_RunGenericPCAPSettleOnce(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:       "params",
 		DataSource: "pcap",
 		PCAPFile:   "test.pcap",
 		Params: []SweepParam{
@@ -1164,7 +1165,6 @@ func TestRunnerCov2_RunGenericWithPersister(t *testing.T) {
 	r.SetPersister(&runnerMockPersister{})
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
 		},
@@ -1185,7 +1185,7 @@ func TestRunnerCov2_RunGenericWithPersister(t *testing.T) {
 
 // --- SetParams failure in run() ---
 
-func TestRunnerCov2_RunLegacySetParamsFail(t *testing.T) {
+func TestRunnerCov2_RunSetParamsFail(t *testing.T) {
 	// Use a backend that returns errors on SetTuningParams to test error path.
 	backend := runnerMockBackend()
 	backend.SetTuningParamsFn = func(params map[string]interface{}) error {
@@ -1194,21 +1194,25 @@ func TestRunnerCov2_RunLegacySetParamsFail(t *testing.T) {
 	r := newQuietRunner(backend)
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
 	}
 	err := r.Start(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
-	state := waitForRunnerStatus(t, r, 30*time.Second, SweepStatusError, SweepStatusComplete)
-	_ = state
+	state := waitForRunnerStatus(t, r, 30*time.Second, SweepStatusComplete)
+	// Should complete with warnings since generic continues on error
+	if len(state.Warnings) == 0 {
+		t.Error("expected warnings about failed params")
+	}
 }
 
 func TestRunnerCov2_RunGenericSetParamsFail(t *testing.T) {
@@ -1226,7 +1230,6 @@ func TestRunnerCov2_RunGenericSetParamsFail(t *testing.T) {
 	r := newQuietRunner(backend)
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
 		},
@@ -1250,10 +1253,7 @@ func TestRunnerCov2_RunGenericSetParamsFail(t *testing.T) {
 
 func TestRunnerCov2_ComputeComboResult_EmptyResults(t *testing.T) {
 	r := &Runner{}
-	combo := r.computeComboResult(0.01, 1.5, 1, nil, []string{"1", "2"})
-	if combo.Noise != 0.01 {
-		t.Errorf("noise = %f, want 0.01", combo.Noise)
-	}
+	combo := r.computeComboResult(nil, []string{"1", "2"})
 	if len(combo.BucketMeans) != 0 {
 		t.Errorf("expected empty bucket means, got %d", len(combo.BucketMeans))
 	}
@@ -1283,82 +1283,12 @@ func TestRunnerCov2_ComputeComboResult_WithResults(t *testing.T) {
 			ActiveTracks:     4,
 		},
 	}
-	combo := r.computeComboResult(0.01, 1.5, 1, results, []string{"bucket1", "bucket2"})
+	combo := r.computeComboResult(results, []string{"bucket1", "bucket2"})
 	if combo.OverallAcceptMean == 0 {
 		t.Error("expected non-zero OverallAcceptMean")
 	}
 	if len(combo.BucketMeans) != 2 {
 		t.Errorf("bucket means = %d, want 2", len(combo.BucketMeans))
-	}
-}
-
-// --- computeCombinations (legacy) ---
-
-func TestRunnerCov2_ComputeCombinations_NoiseMode(t *testing.T) {
-	r := &Runner{}
-	req := SweepRequest{
-		Mode:       "noise",
-		NoiseStart: 0.01, NoiseEnd: 0.03, NoiseStep: 0.01,
-		FixedCloseness: 1.5,
-		FixedNeighbour: 1,
-	}
-	n, c, nb := r.computeCombinations(req)
-	if len(n) != 3 {
-		t.Errorf("noise combos = %d, want 3", len(n))
-	}
-	if len(c) != 1 || c[0] != 1.5 {
-		t.Errorf("closeness = %v, want [1.5]", c)
-	}
-	if len(nb) != 1 || nb[0] != 1 {
-		t.Errorf("neighbour = %v, want [1]", nb)
-	}
-}
-
-func TestRunnerCov2_ComputeCombinations_ClosenessMode(t *testing.T) {
-	r := &Runner{}
-	req := SweepRequest{
-		Mode:           "closeness",
-		ClosenessStart: 1.0, ClosenessEnd: 2.0, ClosenessStep: 0.5,
-		FixedNoise:     0.01,
-		FixedNeighbour: 1,
-	}
-	n, c, nb := r.computeCombinations(req)
-	if len(c) != 3 {
-		t.Errorf("closeness combos = %d, want 3", len(c))
-	}
-	if len(n) != 1 || n[0] != 0.01 {
-		t.Errorf("noise = %v, want [0.01]", n)
-	}
-	_ = nb
-}
-
-func TestRunnerCov2_ComputeCombinations_NeighbourMode(t *testing.T) {
-	r := &Runner{}
-	req := SweepRequest{
-		Mode:           "neighbour",
-		NeighbourStart: 0, NeighbourEnd: 2, NeighbourStep: 1,
-		FixedNoise:     0.01,
-		FixedCloseness: 1.5,
-	}
-	n, c, nb := r.computeCombinations(req)
-	if len(nb) != 3 {
-		t.Errorf("neighbour combos = %d, want 3", len(nb))
-	}
-	_ = n
-	_ = c
-}
-
-func TestRunnerCov2_ComputeCombinations_MultiWithRanges(t *testing.T) {
-	r := &Runner{}
-	req := SweepRequest{
-		Mode:       "multi",
-		NoiseStart: 0.01, NoiseEnd: 0.02, NoiseStep: 0.01,
-		ClosenessStart: 1.0, ClosenessEnd: 1.5, ClosenessStep: 0.5,
-		NeighbourStart: 0, NeighbourEnd: 1, NeighbourStep: 1,
-	}
-	n, c, nb := r.computeCombinations(req)
-	if len(n) == 0 || len(c) == 0 || len(nb) == 0 {
-		t.Errorf("expected non-empty combos, got n=%d c=%d nb=%d", len(n), len(c), len(nb))
 	}
 }
 
@@ -1429,13 +1359,14 @@ func TestRunnerCov2_Start_NilContext(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      1,
-		Interval:        "10ms",
-		SettleTime:      "10ms",
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+			{Name: "closeness_multiplier", Type: "float64", Values: []interface{}{1.5}},
+			{Name: "neighbor_confirmation_count", Type: "int", Values: []interface{}{1}},
+		},
+		Iterations: 1,
+		Interval:   "10ms",
+		SettleTime: "10ms",
 	}
 	// Should not panic with nil context
 	err := r.start(nil, req)
@@ -1449,11 +1380,10 @@ func TestRunnerCov2_Start_TooManyIterations(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode:            "multi",
-		NoiseValues:     []float64{0.01},
-		ClosenessValues: []float64{1.5},
-		NeighbourValues: []int{1},
-		Iterations:      501,
+		Params: []SweepParam{
+			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
+		},
+		Iterations: 501,
 	}
 	err := r.Start(context.Background(), req)
 	if err == nil {
@@ -1461,13 +1391,13 @@ func TestRunnerCov2_Start_TooManyIterations(t *testing.T) {
 	}
 }
 
-func TestRunnerCov2_Start_UnsupportedMode(t *testing.T) {
+func TestRunnerCov2_Start_MissingParams(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
-	req := SweepRequest{Mode: "invalid"}
+	req := SweepRequest{}
 	err := r.Start(context.Background(), req)
 	if err == nil {
-		t.Error("expected error for unsupported mode")
+		t.Error("expected error for missing params")
 	}
 }
 
@@ -1501,7 +1431,6 @@ func TestRunnerCov2_StartGeneric_TooManyParams(t *testing.T) {
 		params[i] = SweepParam{Name: fmt.Sprintf("p%d", i), Type: "float64", Values: []interface{}{0.1}}
 	}
 	req := SweepRequest{
-		Mode:       "params",
 		Params:     params,
 		Iterations: 1,
 		Interval:   "10ms",
@@ -1526,7 +1455,6 @@ func TestRunnerCov2_StartGeneric_TooManyCombos(t *testing.T) {
 		params[i] = SweepParam{Name: fmt.Sprintf("p%d", i), Type: "float64", Values: vals}
 	}
 	req := SweepRequest{
-		Mode:       "params",
 		Params:     params,
 		Iterations: 1,
 		Interval:   "10ms",
@@ -1542,7 +1470,6 @@ func TestRunnerCov2_StartGeneric_AlreadyRunning(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		Mode: "params",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08}},
 		},
@@ -1571,13 +1498,16 @@ func TestRunnerCov2_Start_ViaMap(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	reqMap := map[string]interface{}{
-		"mode":             "multi",
-		"noise_values":     []interface{}{0.01},
-		"closeness_values": []interface{}{1.5},
-		"neighbour_values": []interface{}{1.0},
-		"iterations":       1,
-		"interval":         "10ms",
-		"settle_time":      "10ms",
+		"params": []interface{}{
+			map[string]interface{}{
+				"name":   "noise_relative",
+				"type":   "float64",
+				"values": []interface{}{0.01},
+			},
+		},
+		"iterations":  1,
+		"interval":    "10ms",
+		"settle_time": "10ms",
 	}
 	err := r.Start(context.Background(), reqMap)
 	if err != nil {
@@ -1636,7 +1566,7 @@ func TestRunnerCov2_PersistComplete_WithPersister(t *testing.T) {
 		persister: mp,
 		sweepID:   "test-sweep",
 		state: SweepState{
-			Results: []ComboResult{{Noise: 0.01}},
+			Results: []ComboResult{{ParamValues: map[string]interface{}{"noise_relative": 0.01}}},
 		},
 	}
 	r.persistComplete("complete", "", nil)
