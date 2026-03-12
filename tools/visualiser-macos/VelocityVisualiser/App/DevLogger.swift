@@ -68,8 +68,9 @@ struct TraceInterval {
 }
 
 enum PerformanceTrace {
-    static let signposter = OSSignposter(
-        subsystem: "report.velocity.visualiser", category: "Performance")
+    private static let logHandle = OSLog(
+        subsystem: "report.velocity.visualiser", category: .pointsOfInterest)
+    static let signposter = OSSignposter(logHandle: logHandle)
 
     static func begin(_ name: StaticString, _ message: String? = nil) -> TraceInterval {
         let state: OSSignpostIntervalState
