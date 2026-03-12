@@ -296,16 +296,18 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 		expandCluster(points, spatialIndex, labels, i, neighbors, clusterID, params.Eps, params.MinPts)
 	}
 
-	noisePoints := 0
-	for _, label := range labels {
-		if label == -1 {
-			noisePoints++
-		}
-	}
-
 	clusters := buildClusters(points, labels, clusterID, params)
-	tracef("DBSCAN complete: input_points=%d processed_points=%d raw_clusters=%d accepted_clusters=%d noise_points=%d",
-		inputPoints, len(points), clusterID, len(clusters), noisePoints)
+	if traceLogger != nil {
+		noisePoints := 0
+		for _, label := range labels {
+			if label == -1 {
+				noisePoints++
+			}
+		}
+
+		tracef("DBSCAN complete: input_points=%d processed_points=%d raw_clusters=%d accepted_clusters=%d noise_points=%d",
+			inputPoints, len(points), clusterID, len(clusters), noisePoints)
+	}
 	return clusters
 }
 

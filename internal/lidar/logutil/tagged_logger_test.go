@@ -75,3 +75,19 @@ func TestTaggedLoggerPrintf_NilReceiverNoopSafe(t *testing.T) {
 	// Must not panic.
 	tl.Printf("should be a no-op")
 }
+
+func TestTaggedLoggerPrintf_TreatsTagAsLiteralPrefix(t *testing.T) {
+	t.Parallel()
+
+	fixed := time.Date(2026, 3, 12, 10, 30, 45, 123456000, time.UTC)
+	clock := timeutil.NewMockClock(fixed)
+	var buf bytes.Buffer
+
+	logger := NewTaggedLoggerWithNow("[tag%v] ", &buf, clock.Now)
+	logger.Printf("value=%d", 7)
+
+	const want = "2026/03/12 10:30:45.123456 [tag%v] value=7\n"
+	if got := buf.String(); got != want {
+		t.Fatalf("Printf() line = %q, want %q", got, want)
+	}
+}

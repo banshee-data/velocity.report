@@ -164,9 +164,11 @@ func (tc *TrackClassifier) ClassifyFeatures(features ClassificationFeatures) Cla
 	finish := func(class ObjectClass, confidence float32) ClassificationResult {
 		result.Class = class
 		result.Confidence = confidence
-		tracef("Classification result: class=%s confidence=%.2f observations=%d avg_speed=%.2f length=%.2f width=%.2f height=%.2f",
-			result.Class, result.Confidence, features.ObservationCount, features.AvgSpeed,
-			features.AvgLength, features.AvgWidth, features.AvgHeight)
+		if traceLogger != nil {
+			tracef("Classification result: class=%s confidence=%.2f observations=%d avg_speed=%.2f length=%.2f width=%.2f height=%.2f",
+				result.Class, result.Confidence, features.ObservationCount, features.AvgSpeed,
+				features.AvgLength, features.AvgWidth, features.AvgHeight)
+		}
 		return result
 	}
 

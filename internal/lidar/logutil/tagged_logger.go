@@ -41,6 +41,6 @@ func (tl *TaggedLogger) Printf(format string, args ...interface{}) {
 	if tl == nil {
 		return
 	}
-	msg := fmt.Sprintf(tl.tag+format, args...)
+	msg := tl.tag + fmt.Sprintf(format, args...)
 	tl.logger.Printf("%s %s", tl.now().Format(timestampLayout), msg)
 }

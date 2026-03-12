@@ -394,14 +394,16 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	}
 	t.LastUpdateNanos = nowNanos
 
-	activeBefore := 0
-	for _, track := range t.Tracks {
-		if track.State != TrackDeleted {
-			activeBefore++
+	if traceLogger != nil {
+		activeBefore := 0
+		for _, track := range t.Tracks {
+			if track.State != TrackDeleted {
+				activeBefore++
+			}
 		}
+		tracef("Update start: ts=%d clusters=%d active_tracks=%d dt=%.3f",
+			nowNanos, len(clusters), activeBefore, dt)
 	}
-	tracef("Update start: ts=%d clusters=%d active_tracks=%d dt=%.3f",
-		nowNanos, len(clusters), activeBefore, dt)
 
 	// Step 1: Predict all active tracks to current time
 	for _, track := range t.Tracks {
@@ -545,14 +547,16 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// Step 6: Cleanup deleted tracks (keep for grace period, then remove)
 	t.cleanupDeletedTracks(nowNanos)
 
-	activeAfter := 0
-	for _, track := range t.Tracks {
-		if track.State != TrackDeleted {
-			activeAfter++
+	if traceLogger != nil {
+		activeAfter := 0
+		for _, track := range t.Tracks {
+			if track.State != TrackDeleted {
+				activeAfter++
+			}
 		}
+		tracef("Update complete: ts=%d active_tracks=%d matched_tracks=%d new_tracks=%d confirmed_tracks=%d deleted_tracks=%d",
+			nowNanos, activeAfter, len(matchedTracks), newTracks, newlyConfirmed, deletedThisFrame)
 	}
-	tracef("Update complete: ts=%d active_tracks=%d matched_tracks=%d new_tracks=%d confirmed_tracks=%d deleted_tracks=%d",
-		nowNanos, activeAfter, len(matchedTracks), newTracks, newlyConfirmed, deletedThisFrame)
 }
 
 // isFiniteState returns true if every element of the Kalman state vector

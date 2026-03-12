@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"io"
+	"log"
 	"os"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/logutil"
@@ -40,6 +41,9 @@ func tracef(format string, args ...interface{}) {
 }
 
 func opsFatalf(format string, args ...interface{}) {
-	opsf(format, args...)
+	if opsLogger == nil {
+		log.Fatalf(format, args...)
+	}
+	opsLogger.Printf(format, args...)
 	os.Exit(1)
 }
