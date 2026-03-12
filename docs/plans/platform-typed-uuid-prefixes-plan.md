@@ -2,6 +2,7 @@
 
 **Target:** 0.6.0
 **Scope:** All UUID generation across the project
+**Layers:** Cross-cutting (platform)
 
 Every UUID in the system must carry a short type prefix so that any ID seen
 in logs, databases, API responses, or debug output is immediately
@@ -11,7 +12,7 @@ the convention to every remaining entity.
 ## Convention
 
 - Format: `{prefix}_{uuidv4}` — e.g. `trak_550e8400-e29b-41d4-a716-446655440000`
-- Prefixes: lowercase 4-letter abbreviation + underscore (`xxxx_`).
+- Prefixes: lowercase 4-letter abbreviation without underscore (e.g. `trak`), combined with the UUID as `{prefix}_{uuidv4}`.
 - The three run types each get a distinct prefix so you can tell at a glance
   whether a run ID came from an analysis run, a scene replay, or a
   reprocess operation.
@@ -36,7 +37,7 @@ Current production and test IDs observed in the codebase:
 
 | Entity        | Package / File                                      | Current format             | Proposed prefix | Example                                     |
 | ------------- | --------------------------------------------------- | -------------------------- | --------------- | ------------------------------------------- |
-| Track         | `l5tracks/tracking.go`                              | `trk_<uuid>` (done)        | `trak_`         | `trak_550e8400-e29b-41d4-a716-446655440000` |
+| Track         | `l5tracks/tracking.go`                              | `trk_<uuid>` (current)     | `trak_`         | `trak_550e8400-e29b-41d4-a716-446655440000` |
 | Analysis Run  | `storage/sqlite/analysis_run_manager.go`            | `<uuid>`                   | `runa_`         | `runa_550e8400-e29b-41d4-a716-446655440000` |
 | Replay Run    | `monitor/scene_api.go`                              | `replay-{scene}-{uuid8}`   | `runy_`         | `runy_550e8400-e29b-41d4-a716-446655440000` |
 | Reprocess Run | `monitor/run_track_api.go`                          | `reprocess-{run8}-{uuid8}` | `runs_`         | `runs_550e8400-e29b-41d4-a716-446655440000` |

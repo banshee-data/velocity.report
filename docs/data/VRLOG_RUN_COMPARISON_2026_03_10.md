@@ -53,13 +53,13 @@ Three of five runs have `start_ns` from the wall clock (March 2026) and
 
 **Root cause:** The recorder captures the timestamp from the first
 `FrameBundle` it receives. When playback starts, the first frame may carry
-a wall-clock timestamp (from the gRPC handshake, initialization, or a
+a wall-clock timestamp (from the gRPC handshake, initialisation, or a
 race between PCAP timestamp injection and the start of recording).
 Subsequent frames carry PCAP timestamps, so `end_ns` is correct but
 `start_ns` is wrong.
 
 The two runs that avoid this (54ba7296 and 60a4774c) both ran at slow
-speeds (possibly allowing the PCAP timestamp source to stabilize before
+speeds (possibly allowing the PCAP timestamp source to stabilise before
 the first frame was recorded).
 
 | Run        | `start_ns` origin | `end_ns` origin   |
@@ -246,7 +246,7 @@ threshold is too aggressive or whether frame loss is the sole cause.
    is disabled or misconfigured in PCAP mode.
 
 **Expected outcome:** After warmup (typically 50-100 frames), foreground
-percentage should stabilize at a scene-dependent value (typically 1-15%
+percentage should stabilise at a scene-dependent value (typically 1-15%
 for outdoor traffic scenes).
 
 **Impact:** If the background model isn't working, every point becomes a
@@ -266,8 +266,8 @@ tracks from noise.
    track matching IOU = 1.0 for all confirmed tracks, identical speed
    values.
 
-**Acceptance criteria:** All 5 runs are byte-identical in report output
-(except for UUIDs and timestamps).
+**Acceptance criteria:** After normalising/removing UUIDs and timestamps,
+all 5 runs are byte-identical in their report output.
 
 ### Experiment 7: Track Confirmation Threshold Sensitivity
 
