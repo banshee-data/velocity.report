@@ -61,7 +61,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Widescreen content containment (D-13) — add vr-page max-width centring at ≥3000px — [design doc §2.2](ui/design-review-and-improvement.md) `S`
 - macOS palette constants — prepare shared palette definition when metric charts added to visualiser — [design doc §1.2](ui/design-review-and-improvement.md) `S`
 - LayerChart policy in LiDAR routes — enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps — [design doc §4.2](ui/design-review-and-improvement.md) `S`
-- Platform simplification complete — all deprecated surfaces retired, migration complete — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
+- VelocityVisualiser light mode (3D scene) — follow system dark/light mode with tuned point cloud, trails, and box colours — [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
+- Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](plans/lidar-track-labeling-auto-aware-tuning-plan.md) `M`
 
 ## v0.8 (Radar Polish & Automation)
 
@@ -93,6 +94,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
 - Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
+- Visualiser colour-blind-safe palette (V1) — accessible point cloud/trails/box colours validated for common deficiencies — [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 
 ## v2.0 (Advanced Perception & Connected)
 
