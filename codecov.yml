@@ -2,12 +2,33 @@ coverage:
   status:
     project:
       default:
-        target: auto
+        target: 95%
         threshold: 1%
         informational: true
+      radar-go:
+        target: 98%
+        threshold: 1%
+        informational: true
+        paths:
+          - "internal/radar/**"
+          - "internal/api/**"
+          - "internal/db/**"
+          - "internal/serialmux/**"
+      lidar:
+        target: 95%
+        threshold: 1%
+        informational: true
+        paths:
+          - "internal/lidar/**"
+      svelte:
+        target: 98%
+        threshold: 1%
+        informational: true
+        paths:
+          - "web/src/**"
     patch:
       default:
-        target: auto
+        target: 95%
         threshold: 1%
         informational: true
 
@@ -17,7 +38,7 @@ ignore:
 comment:
   layout: "reach, diff, flags, files"
   behavior: default
-  require_changes: false
+  require_changes: true
 
 # Define coverage flags for each component
 flag_management:
@@ -25,11 +46,28 @@ flag_management:
     carryforward: true
     statuses:
       - type: project
-        target: auto
+        target: 95%
         threshold: 1%
+        informational: true
       - type: patch
-        target: auto
+        target: 95%
         threshold: 1%
+        informational: true
+  individual_flags:
+    - name: web
+      carryforward: true
+      paths:
+        - "web/src/"
+        - "internal/lidar/monitor/assets/"
+      statuses:
+        - type: project
+          target: 98%
+          threshold: 1%
+          informational: true
+        - type: patch
+          target: 98%
+          threshold: 1%
+          informational: true
 
 flags:
   go:
