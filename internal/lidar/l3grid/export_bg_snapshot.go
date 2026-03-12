@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"log"
 )
 
 // ExportBgSnapshotToASC decodes a BgSnapshot's grid blob, constructs a temporary

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
-	"log"
 	"math"
 	"net/http"
 	"os"

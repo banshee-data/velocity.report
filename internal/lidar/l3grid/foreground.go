@@ -1,7 +1,6 @@
 package l3grid
 
 import (
-	"log"
 	"math"
 	"time"
 )

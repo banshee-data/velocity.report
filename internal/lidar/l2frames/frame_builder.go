@@ -2,7 +2,6 @@ package l2frames
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
