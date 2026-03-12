@@ -292,6 +292,26 @@ func (sc *sendCooldown) inSkipMode() bool {
 	return sc.skipping
 }
 
+// coalesceBufferedFrames drains queued frames and keeps only the newest one.
+// This is used for replay catch-up so we stop serialising stale frames when
+// the client is already behind. Any discarded point clouds are released.
+func coalesceBufferedFrames(frameCh chan *FrameBundle, frame *FrameBundle) (*FrameBundle, int) {
+	skipped := 0
+	for len(frameCh) > 0 {
+		select {
+		case newerFrame := <-frameCh:
+			if frame != nil && frame.PointCloud != nil {
+				frame.PointCloud.Release()
+			}
+			frame = newerFrame
+			skipped++
+		default:
+			return frame, skipped
+		}
+	}
+	return frame, skipped
+}
+
 // streamFromPublisher streams frames from the publisher.
 func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest, stream pb.VisualiserService_StreamFramesServer) error {
 	// Create a unique client ID
@@ -348,6 +368,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			s.playbackMu.RLock()
 			paused := s.paused
 			seekPending := s.seekPending
+			vrlogMode := s.vrlogMode
 			s.playbackMu.RUnlock()
 			if paused && !seekPending {
 				if frame.PointCloud != nil {
@@ -362,33 +383,27 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				s.playbackMu.Unlock()
 			}
 
-			// Skip frames if we're falling behind (keep only latest)
-			// Drain any additional frames in the channel to catch up
+			// In seekable VRLOG replay, any queued foreground/full frames are
+			// already stale by the time we finish the current send. Coalesce to
+			// the newest pending frame immediately instead of waiting for several
+			// slow sends before entering generic skip mode.
 			skipped := 0
-			for len(frameCh) > 0 && cooldown.inSkipMode() {
-				select {
-				case newerFrame := <-frameCh:
-					// M7: Release the old frame we're discarding
-					if frame.PointCloud != nil {
-						frame.PointCloud.Release()
-					}
-					frame = newerFrame // Use the newer frame
-					skipped++
-					droppedFrames++
-				default:
-					break
-				}
+			if len(frameCh) > 0 && (vrlogMode || cooldown.inSkipMode()) {
+				frame, skipped = coalesceBufferedFrames(frameCh, frame)
 			}
 			if skipped > 0 {
+				droppedFrames += uint64(skipped)
 				lidar.Tracef("[gRPC] Client %s: skipped %d frames to catch up (skip_mode=%v)",
 					clientID, skipped, cooldown.inSkipMode())
 			}
 
-			// Track frame ID gaps for detecting skipped frames
+			// Track frame ID gaps for detecting frames dropped before they reached
+			// this stream (for example, in the publisher when the client queue is full).
+			// Local catch-up skips are already counted above, so exclude them here.
 			if lastFrameID > 0 && frame.FrameID > lastFrameID+1 {
 				gap := frame.FrameID - lastFrameID - 1
-				if gap > 0 {
-					droppedFrames += gap
+				if skippedGap := uint64(skipped); gap > skippedGap {
+					droppedFrames += gap - skippedGap
 				}
 			}
 			lastFrameID = frame.FrameID
