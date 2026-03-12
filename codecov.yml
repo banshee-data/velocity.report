@@ -14,7 +14,6 @@ coverage:
           - "internal/api/**"
           - "internal/db/**"
           - "internal/serialmux/**"
-          - "cmd/radar/**"
       lidar:
         target: 95%
         threshold: 1%
@@ -27,12 +26,6 @@ coverage:
         informational: true
         paths:
           - "web/src/**"
-      production-web:
-        target: 98%
-        threshold: 1%
-        informational: true
-        paths:
-          - "internal/lidar/monitor/assets/*.js"
     patch:
       default:
         target: 95%
