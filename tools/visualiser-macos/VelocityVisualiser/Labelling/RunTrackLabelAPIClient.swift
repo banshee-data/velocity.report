@@ -378,7 +378,7 @@ struct RunTrack: Codable, Identifiable {
         case maxSpeedMps = "max_speed_mps"
         case isSplitCandidate = "is_split_candidate"
         case isMergeCandidate = "is_merge_candidate"
-        case linkedTrackIDs = "linked_track_ids"
+        case linkedTrackIds = "linked_track_ids"
     }
     var id: String { trackId }
 
