@@ -949,6 +949,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 	// Update timestamp
 	track.LastUnixNanos = nowNanos
+	if track.LastUnixNanos > track.FirstUnixNanos {
+		track.TrackDurationSecs = float32(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
+	}
 
 	// Update aggregated features
 	track.ObservationCount++
@@ -984,11 +987,24 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Skip points too close to origin (noise/self-reflection)
 	distFromOrigin := track.X*track.X + track.Y*track.Y
 	if distFromOrigin > 0.01 { // > 0.1m squared
+		var (
+			previousPoint TrackPoint
+			hasPrevious   bool
+		)
+		if len(track.History) > 0 {
+			previousPoint = track.History[len(track.History)-1]
+			hasPrevious = true
+		}
 		track.History = append(track.History, TrackPoint{
 			X:         track.X,
 			Y:         track.Y,
 			Timestamp: nowNanos,
 		})
+		if hasPrevious {
+			dx := track.X - previousPoint.X
+			dy := track.Y - previousPoint.Y
+			track.TrackLengthMeters += float32(math.Sqrt(float64(dx*dx + dy*dy)))
+		}
 		if len(track.History) > t.Config.MaxTrackHistoryLength {
 			track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 		}
@@ -1229,6 +1245,8 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		BoundingBoxHeightAvg: cluster.BoundingBoxHeight,
 		HeightP95Max:         cluster.HeightP95,
 		IntensityMeanAvg:     cluster.IntensityMean,
+		TrackLengthMeters:    0,
+		TrackDurationSecs:    0,
 
 		History: []TrackPoint{{
 			X:         cluster.CentroidX,
