@@ -2,6 +2,7 @@ package logutil
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,4 +52,26 @@ func TestTaggedLoggerPrintf_UsesCurrentTimePerCall(t *testing.T) {
 	if got := buf.String(); got != want {
 		t.Fatalf("Printf() lines = %q, want %q", got, want)
 	}
+}
+
+func TestNewTaggedLoggerWithNow_NilNowUsesWallClock(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	logger := NewTaggedLoggerWithNow("[test] ", &buf, nil)
+	if logger == nil {
+		t.Fatal("expected non-nil logger")
+	}
+	logger.Printf("ping")
+	if !strings.Contains(buf.String(), "[test] ping") {
+		t.Fatalf("unexpected output: %q", buf.String())
+	}
+}
+
+func TestTaggedLoggerPrintf_NilReceiverNoopSafe(t *testing.T) {
+	t.Parallel()
+
+	var tl *TaggedLogger
+	// Must not panic.
+	tl.Printf("should be a no-op")
 }
