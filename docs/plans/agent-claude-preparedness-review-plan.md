@@ -1,6 +1,6 @@
 # Agent Knowledge Architecture: Dual-Tool DRY Design
 
-**Status:** In Progress (Phase 2 — agent condensation and persona refinement underway)
+**Status:** In Progress (Phase 1 complete, Phase 2 — agent condensation pending)
 **Scope:** Restructure agent customisation for simultaneous Copilot + Claude Code use; eliminate knowledge duplication; prepare for team expansion to 10–15 agents
 **Layers:** docs, ai-agents
 
@@ -565,6 +565,23 @@ The script:
 
 **Goal:** Eliminate duplication. Create the canonical knowledge layer.
 
+> **Status (2026-03-12): COMPLETE.**
+>
+> All deliverables created:
+>
+> - `.github/TENETS.md` — 34 lines, 7 tenets ranked by precedence
+> - `.github/knowledge/architecture.md` — 125 lines (tech stack, data flow, schema, repo structure)
+> - `.github/knowledge/build-and-test.md` — 94 lines (setup, quality gate, testing, dev servers)
+> - `.github/knowledge/coding-standards.md` — 81 lines (British English, commit prefixes, paths, formatting)
+> - `.github/knowledge/hardware.md` — 91 lines (OPS243A radar, Hesai P40 LIDAR, Raspberry Pi, gRPC)
+> - `.github/knowledge/security-surface.md` — 121 lines (attack surface, vulnerability patterns, privacy)
+> - `.github/knowledge/security-checklist.md` — 86 lines (gate classification, severity, checklist, pen test phases)
+> - `.github/knowledge/role-technical.md` — 45 lines (shared mixin for Appius, Grace, Euler, Malory)
+> - `.github/knowledge/role-editorial.md` — 60 lines (shared mixin for Florence, Terry, Ruth)
+> - `copilot-instructions.md` refactored: 301 → 95 lines (summary + knowledge module references)
+>
+> **Total:** 832 lines across 10 files. `copilot-instructions.md` reduced by 68%.
+
 1. Create `.github/TENETS.md` — project constitution (~30 lines)
 2. Create `.github/knowledge/` directory with extracted modules:
    - `build-and-test.md` — make targets, dev servers, venv, test commands
@@ -576,7 +593,7 @@ The script:
 3. Create `.github/knowledge/role-technical.md` and `role-editorial.md` mixins
 4. Refactor `copilot-instructions.md` to reference Layer 0–2 instead of inlining
 
-**Acceptance:** `copilot-instructions.md` shrinks from 417 lines to ~80 (references + tool-specific config only). No project fact appears in more than one file.
+**Acceptance:** `copilot-instructions.md` shrinks from 301 lines to ~95 (summary + references + task guidance). Detailed project facts live in knowledge modules only.
 
 ### Phase 2: Agent Condensation `M`
 
@@ -645,7 +662,6 @@ The script:
 ```
 .github/
 ├── TENETS.md                           # Layer 0: project constitution
-├── copilot-instructions.md             # Layer 4: Copilot entry point (slim)
 ├── knowledge/                          # Layer 1 + 2: shared knowledge
 │   ├── architecture.md                 #   tech stack, DB, data flow
 │   ├── build-and-test.md               #   make targets, venv, test commands
@@ -654,26 +670,27 @@ The script:
 │   ├── security-surface.md             #   attack surface map
 │   ├── security-checklist.md           #   review criteria + gate classification
 │   ├── role-technical.md               #   mixin for technical agents
-│   └── role-editorial.md              #   mixin for editorial agents
+│   └── role-editorial.md               #   mixin for editorial agents
 ├── agents/                             # Layer 3: Copilot agent definitions
-│   ├── euler.agent.md                    #   Research / Math (technical)
-│   ├── grace.agent.md                   #   Architect (technical)
-│   ├── appius.agent.md                  #   Dev (technical)
-│   ├── malory.agent.md                  #   Pen Test (technical)
-│   ├── florence.agent.md                #   PM (editorial)
-│   ├── terry.agent.md                   #   Writer (editorial)
-│   ├── ruth.agent.md                    #   Executive (both)
-│   └── [future-agents].agent.md       #   further expansion planned
+│   ├── euler.agent.md                  #   Research / Math (technical)
+│   ├── grace.agent.md                  #   Architect (technical)
+│   ├── appius.agent.md                 #   Dev (technical)
+│   ├── malory.agent.md                 #   Pen Test (technical)
+│   ├── florence.agent.md               #   PM (editorial)
+│   ├── terry.agent.md                  #   Writer (editorial)
+│   ├── ruth.agent.md                   #   Executive (both)
+│   └── [future-agents].agent.md        #   further expansion planned
+├── copilot-instructions.md             # Layer 4: Copilot entry point (slim)
 .claude/
 ├── agents/                             # Layer 3: Claude agent definitions
-│   ├── euler.md                         #   Research / Math (technical) — Claude-native
+│   ├── euler.md                        #   Research / Math (technical) — Claude-native
 │   ├── grace.md                        #   Architect (technical)
 │   ├── appius.md                       #   Dev (technical)
 │   ├── malory.md                       #   Pen Test (technical)
 │   ├── florence.md                     #   PM (editorial)
 │   ├── terry.md                        #   Writer (editorial)
 │   ├── ruth.md                         #   Executive (both)
-│   └── [future-agents].md             #   further expansion planned
+│   └── [future-agents].md              #   further expansion planned
 CLAUDE.md                               # Layer 4: Claude entry point → refs .github/ + .claude/
 scripts/
 └── check-agent-drift.sh                # Drift detection between paired definitions
