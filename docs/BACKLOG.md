@@ -14,7 +14,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Visualiser track proto parity — back out branch-local percentile fields, regenerate proto bindings (Go + Swift); SQL column rename deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - v0.5.0 breaking changes — `transit-backfill` soft-deprecation notice, breaking-changes release notes — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
-- Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardization-plan.md) `S`
+- Documentation standardisation — reconcile docs-only branch drift against `main`, standardise opening metadata/summary structure, and enforce validation gates across `docs/` — [design doc](plans/platform-documentation-standardization-plan.md) `S`
 
 ## v0.5.1 (Product)
 

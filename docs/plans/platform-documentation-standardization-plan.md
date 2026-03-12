@@ -1,6 +1,8 @@
 # Documentation Standardisation Plan
 
-**Layers:** Cross-cutting (documentation)
+- **Status:** Planned docs-only cleanup contract for v0.5.0
+- **Layers:** Cross-cutting (documentation)
+- **Backlog:** [Documentation standardisation](../BACKLOG.md)
 
 Controlled process to stabilise documentation structure and metadata quality by reconciling branch drift against main, preserving authoritative summaries, and enforcing repeatable review gates.
 
