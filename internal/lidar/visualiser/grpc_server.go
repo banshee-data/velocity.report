@@ -368,7 +368,6 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			s.playbackMu.RLock()
 			paused := s.paused
 			seekPending := s.seekPending
-			vrlogMode := s.vrlogMode
 			s.playbackMu.RUnlock()
 			if paused && !seekPending {
 				if frame.PointCloud != nil {
@@ -383,12 +382,12 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				s.playbackMu.Unlock()
 			}
 
-			// In seekable VRLOG replay, any queued foreground/full frames are
-			// already stale by the time we finish the current send. Coalesce to
-			// the newest pending frame immediately instead of waiting for several
-			// slow sends before entering generic skip mode.
+			// Always coalesce to the newest buffered frame. In both live
+			// and replay modes, stale frames are useless — the client only
+			// needs the latest sensor state. This keeps the channel drained
+			// so the publisher doesn't hit the buffer limit and drop frames.
 			skipped := 0
-			if len(frameCh) > 0 && (vrlogMode || cooldown.inSkipMode()) {
+			if len(frameCh) > 0 {
 				frame, skipped = coalesceBufferedFrames(frameCh, frame)
 			}
 			if skipped > 0 {
