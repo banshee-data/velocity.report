@@ -13,6 +13,12 @@ from pdf_generator.core.chart_builder import (
     HistogramChartBuilder,
     HAVE_MATPLOTLIB,
 )
+from pdf_generator.core.config_manager import (
+    ColorConfig,
+    FontConfig,
+    LayoutConfig,
+    DebugConfig,
+)
 
 # Skip tests if matplotlib not available
 if not HAVE_MATPLOTLIB:
@@ -71,9 +77,9 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
 
     def test_initialization_custom_config(self):
         """Test builder accepts custom configuration."""
-        custom_colors = {"p50": "#ff0000", "p85": "#00ff00"}
-        custom_fonts = {"chart_title": 20}
-        custom_layout = {"chart_figsize": (10, 6)}
+        custom_colors = ColorConfig(p50="#ff0000", p85="#00ff00")
+        custom_fonts = FontConfig(chart_title=20)
+        custom_layout = LayoutConfig(chart_figsize_width=10, chart_figsize_height=6)
 
         builder = TimeSeriesChartBuilder(
             colors=custom_colors,
@@ -191,7 +197,7 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
     def test_debug_output_when_enabled(self):
         """Test _debug_output() prints when debug enabled."""
         # Create builder with debug enabled
-        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
+        builder = TimeSeriesChartBuilder(debug=DebugConfig(plot_debug=True))
         with patch("builtins.print") as mock_print:
             times = [datetime.now()]
             counts = [100]
@@ -203,7 +209,7 @@ class TestTimeSeriesChartBuilder(unittest.TestCase):
     def test_debug_output_when_disabled(self):
         """Test _debug_output() silent when debug disabled."""
         # Create builder with debug disabled (default)
-        builder = TimeSeriesChartBuilder(debug={"plot_debug": False})
+        builder = TimeSeriesChartBuilder(debug=DebugConfig(plot_debug=False))
         with patch("builtins.print") as mock_print:
             times = [datetime.now()]
             counts = [100]
@@ -246,9 +252,9 @@ class TestHistogramChartBuilder(unittest.TestCase):
 
     def test_initialization_custom_config(self):
         """Test builder accepts custom configuration."""
-        custom_colors = {"count_bar": "#0000ff"}
-        custom_fonts = {"histogram_title": 16}
-        custom_layout = {"histogram_figsize": (5, 3)}
+        custom_colors = ColorConfig(count_bar="#0000ff")
+        custom_fonts = FontConfig(histogram_title=16)
+        custom_layout = LayoutConfig(histogram_figsize_width=5, histogram_figsize_height=3)
 
         builder = HistogramChartBuilder(
             colors=custom_colors,
@@ -1604,7 +1610,7 @@ class TestDebugPlotOutput(unittest.TestCase):
 
     def test_create_masked_arrays_debug_output(self):
         """Test debug output in _create_masked_arrays when plot_debug is enabled."""
-        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
+        builder = TimeSeriesChartBuilder(debug=DebugConfig(plot_debug=True))
 
         metrics = [
             {
@@ -1647,7 +1653,7 @@ class TestDebugPlotOutput(unittest.TestCase):
 
     def test_plot_count_bars_debug_output(self):
         """Test debug output via _debug_output when plot_debug is enabled."""
-        builder = TimeSeriesChartBuilder(debug={"plot_debug": True})
+        builder = TimeSeriesChartBuilder(debug=DebugConfig(plot_debug=True))
 
         times = [datetime(2025, 1, 1, i) for i in range(3)]
         counts = [100, 200, 150]

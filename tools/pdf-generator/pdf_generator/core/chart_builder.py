@@ -39,10 +39,10 @@ from pdf_generator.core.data_transformers import (
 )
 from pdf_generator.core.date_parser import parse_server_time
 from pdf_generator.core.config_manager import (
-    _colors_to_dict,
-    _fonts_to_dict,
-    _layout_to_dict,
-    _debug_to_dict,
+    ColorConfig,
+    FontConfig,
+    LayoutConfig,
+    DebugConfig,
     DEFAULT_COLOR_CONFIG,
     DEFAULT_FONT_CONFIG,
     DEFAULT_LAYOUT_CONFIG,
@@ -62,18 +62,18 @@ class TimeSeriesChartBuilder:
 
     def __init__(
         self,
-        colors: Optional[Dict[str, str]] = None,
-        fonts: Optional[Dict[str, int]] = None,
-        layout: Optional[Dict[str, Any]] = None,
-        debug: Optional[Dict[str, bool]] = None,
+        colors: Optional[ColorConfig] = None,
+        fonts: Optional[FontConfig] = None,
+        layout: Optional[LayoutConfig] = None,
+        debug: Optional[DebugConfig] = None,
     ):
         """Initialise chart builder with styling configuration.
 
         Args:
-            colors: Color palette dict (defaults to DEFAULT_COLORS)
-            fonts: Font size dict (defaults to DEFAULT_FONTS)
-            layout: Layout config dict (defaults to DEFAULT_LAYOUT)
-            debug: Debug config dict (defaults to DEFAULT_DEBUG)
+            colors: ColorConfig instance (defaults to DEFAULT_COLOR_CONFIG)
+            fonts: FontConfig instance (defaults to DEFAULT_FONT_CONFIG)
+            layout: LayoutConfig instance (defaults to DEFAULT_LAYOUT_CONFIG)
+            debug: DebugConfig instance (defaults to DEFAULT_DEBUG_CONFIG)
         """
         if not HAVE_MATPLOTLIB:
             raise ImportError(
@@ -81,10 +81,10 @@ class TimeSeriesChartBuilder:
                 "Install it with: pip install matplotlib"
             )
 
-        self.colors = colors or _colors_to_dict(DEFAULT_COLOR_CONFIG)
-        self.fonts = fonts or _fonts_to_dict(DEFAULT_FONT_CONFIG)
-        self.layout = layout or _layout_to_dict(DEFAULT_LAYOUT_CONFIG)
-        self.debug = debug or _debug_to_dict(DEFAULT_DEBUG_CONFIG)
+        self.colors = colors or DEFAULT_COLOR_CONFIG
+        self.fonts = fonts or DEFAULT_FONT_CONFIG
+        self.layout = layout or DEFAULT_LAYOUT_CONFIG
+        self.debug = debug or DEFAULT_DEBUG_CONFIG
         self.normalizer = MetricsNormalizer()
 
     def build(
@@ -106,7 +106,7 @@ class TimeSeriesChartBuilder:
             matplotlib Figure object
         """
         # Create figure with configured size
-        fig, ax = plt.subplots(figsize=self.layout["chart_figsize"])
+        fig, ax = plt.subplots(figsize=self.layout.chart_figsize)
 
         # Handle empty data
         if not stats:
@@ -238,7 +238,7 @@ class TimeSeriesChartBuilder:
 
         # Mask low-count periods
         try:
-            thresh = int(self.layout["count_missing_threshold"])
+            thresh = int(self.layout.count_missing_threshold)
             zero_mask = np.array(counts) < thresh
 
             # Combine masks
@@ -248,7 +248,7 @@ class TimeSeriesChartBuilder:
             mx_a = np.ma.array(mx_a, mask=(np.ma.getmaskarray(mx_a) | zero_mask))
 
             # Debug output
-            if self.debug["plot_debug"]:
+            if self.debug.plot_debug:
                 import sys
 
                 print(f"DEBUG_PLOT: missing_threshold={thresh}", file=sys.stderr)
@@ -266,7 +266,7 @@ class TimeSeriesChartBuilder:
     ) -> None:
         """Print debug information if enabled."""
         try:
-            if self.debug["plot_debug"]:
+            if self.debug.plot_debug:
                 import sys
 
                 print(f"DEBUG_PLOT: points(len)={len(x_indices)}", file=sys.stderr)
@@ -300,16 +300,16 @@ class TimeSeriesChartBuilder:
         # If no day boundaries or only one day, plot normally
         if not day_boundaries or len(day_boundaries) <= 1:
             self._plot_line_segment(
-                ax, x_indices, p50_f, "p50", "^", self.colors["p50"]
+                ax, x_indices, p50_f, "p50", "^", self.colors.p50
             )
             self._plot_line_segment(
-                ax, x_indices, p85_f, "p85", "s", self.colors["p85"]
+                ax, x_indices, p85_f, "p85", "s", self.colors.p85
             )
             self._plot_line_segment(
-                ax, x_indices, p98_f, "p98", "o", self.colors["p98"]
+                ax, x_indices, p98_f, "p98", "o", self.colors.p98
             )
             self._plot_line_segment(
-                ax, x_indices, mx_f, "Max", "x", self.colors["max"], linestyle="--"
+                ax, x_indices, mx_f, "Max", "x", self.colors.max, linestyle="--"
             )
             return
 
@@ -336,7 +336,7 @@ class TimeSeriesChartBuilder:
                 p50_segment,
                 "p50" if day_idx == 0 else "",
                 "^",
-                self.colors["p50"],
+                self.colors.p50,
             )
             self._plot_line_segment(
                 ax,
@@ -344,7 +344,7 @@ class TimeSeriesChartBuilder:
                 p85_segment,
                 "p85" if day_idx == 0 else "",
                 "s",
-                self.colors["p85"],
+                self.colors.p85,
             )
             self._plot_line_segment(
                 ax,
@@ -352,7 +352,7 @@ class TimeSeriesChartBuilder:
                 p98_segment,
                 "p98" if day_idx == 0 else "",
                 "o",
-                self.colors["p98"],
+                self.colors.p98,
             )
             self._plot_line_segment(
                 ax,
@@ -360,7 +360,7 @@ class TimeSeriesChartBuilder:
                 mx_segment,
                 "Max" if day_idx == 0 else "",
                 "x",
-                self.colors["max"],
+                self.colors.max,
                 linestyle="--",
             )
 
@@ -381,9 +381,9 @@ class TimeSeriesChartBuilder:
                 y_data,
                 marker=marker,
                 color=color,
-                linewidth=self.layout["line_width"],
-                markersize=self.layout["marker_size"],
-                markeredgewidth=self.layout["marker_edge_width"],
+                linewidth=self.layout.line_width,
+                markersize=self.layout.marker_size,
+                markeredgewidth=self.layout.marker_edge_width,
                 linestyle=linestyle,
             )
         else:
@@ -393,17 +393,17 @@ class TimeSeriesChartBuilder:
                 label=label,
                 marker=marker,
                 color=color,
-                linewidth=self.layout["line_width"],
-                markersize=self.layout["marker_size"],
-                markeredgewidth=self.layout["marker_edge_width"],
+                linewidth=self.layout.line_width,
+                markersize=self.layout.marker_size,
+                markeredgewidth=self.layout.marker_edge_width,
                 linestyle=linestyle,
             )
 
     def _configure_speed_axis(self, ax, units: str) -> None:
         """Configure left Y-axis (speed)."""
-        ax.set_ylabel(f"Velocity ({units})", fontsize=self.fonts["chart_axis_label"])
+        ax.set_ylabel(f"Velocity ({units})", fontsize=self.fonts.chart_axis_label)
         ax.tick_params(
-            axis="both", which="major", labelsize=self.fonts["chart_axis_tick"]
+            axis="both", which="major", labelsize=self.fonts.chart_axis_tick
         )
 
         # Ensure axis starts at zero
@@ -435,7 +435,7 @@ class TimeSeriesChartBuilder:
 
         try:
             low_mask = [
-                (c is not None and int(c) < self.layout["low_sample_threshold"])
+                (c is not None and int(c) < self.layout.low_sample_threshold)
                 for c in counts
             ]
         except Exception:
@@ -443,7 +443,7 @@ class TimeSeriesChartBuilder:
 
         # Compute top height for orange bars
         try:
-            top = max(1, int(max_count * self.layout["count_axis_scale"]))
+            top = max(1, int(max_count * self.layout.count_axis_scale))
         except Exception:
             top = max_count if max_count > 0 else 1
 
@@ -460,12 +460,12 @@ class TimeSeriesChartBuilder:
                 orange_heights,
                 width=bar_width_bg,
                 alpha=0.25,
-                color=self.colors["low_sample"],
+                color=self.colors.low_sample,
                 zorder=0,
             )
             legend_data = (
-                f"Low-sample (<{self.layout['low_sample_threshold']})",
-                self.colors["low_sample"],
+                f"Low-sample (<{self.layout.low_sample_threshold})",
+                self.colors.low_sample,
                 0.25,
             )
 
@@ -475,7 +475,7 @@ class TimeSeriesChartBuilder:
             counts,
             width=bar_width,
             alpha=0.25,
-            color=self.colors["count_bar"],
+            color=self.colors.count_bar,
             label="Count",
             zorder=1,
         )
@@ -495,8 +495,8 @@ class TimeSeriesChartBuilder:
     def _compute_bar_widths(self) -> Tuple[float, float]:
         """Compute responsive bar widths based on integer index spacing."""
         base = 1.0  # Spacing is always 1 with index-based plotting
-        bar_width_bg = base * self.layout["bar_width_bg_fraction"]
-        bar_width = base * self.layout["bar_width_fraction"]
+        bar_width_bg = base * self.layout.bar_width_bg_fraction
+        bar_width = base * self.layout.bar_width_fraction
 
         return bar_width_bg, bar_width
 
@@ -505,7 +505,7 @@ class TimeSeriesChartBuilder:
         ax2.set_ylabel("Count")
         try:
             ax2.tick_params(
-                axis="both", which="major", labelsize=self.fonts["chart_axis_tick"]
+                axis="both", which="major", labelsize=self.fonts.chart_axis_tick
             )
         except Exception:
             pass
@@ -547,7 +547,7 @@ class TimeSeriesChartBuilder:
                 bbox_to_anchor=(0.5, -0.12),
                 ncol=ncols,
                 framealpha=0.9,
-                prop={"size": self.fonts["chart_legend"]},
+                prop={"size": self.fonts.chart_legend},
             )
 
             # Style legend frame
@@ -654,10 +654,10 @@ class TimeSeriesChartBuilder:
         # Adjust subplot margins
         try:
             fig.subplots_adjust(
-                left=self.layout["chart_left"],
-                right=self.layout["chart_right"],
-                top=self.layout["chart_top"],
-                bottom=self.layout["chart_bottom"],
+                left=self.layout.chart_left,
+                right=self.layout.chart_right,
+                top=self.layout.chart_top,
+                bottom=self.layout.chart_bottom,
             )
         except Exception:
             pass
@@ -668,16 +668,16 @@ class HistogramChartBuilder:
 
     def __init__(
         self,
-        colors: Optional[Dict[str, str]] = None,
-        fonts: Optional[Dict[str, int]] = None,
-        layout: Optional[Dict[str, Any]] = None,
+        colors: Optional[ColorConfig] = None,
+        fonts: Optional[FontConfig] = None,
+        layout: Optional[LayoutConfig] = None,
     ):
         """Initialise histogram builder with styling configuration.
 
         Args:
-            colors: Color palette dict (defaults to DEFAULT_COLOR_CONFIG)
-            fonts: Font size dict (defaults to DEFAULT_FONT_CONFIG)
-            layout: Layout config dict (defaults to DEFAULT_LAYOUT_CONFIG)
+            colors: ColorConfig instance (defaults to DEFAULT_COLOR_CONFIG)
+            fonts: FontConfig instance (defaults to DEFAULT_FONT_CONFIG)
+            layout: LayoutConfig instance (defaults to DEFAULT_LAYOUT_CONFIG)
         """
         if not HAVE_MATPLOTLIB:
             raise ImportError(
@@ -685,9 +685,9 @@ class HistogramChartBuilder:
                 "Install it with: pip install matplotlib"
             )
 
-        self.colors = colors or _colors_to_dict(DEFAULT_COLOR_CONFIG)
-        self.fonts = fonts or _fonts_to_dict(DEFAULT_FONT_CONFIG)
-        self.layout = layout or _layout_to_dict(DEFAULT_LAYOUT_CONFIG)
+        self.colors = colors or DEFAULT_COLOR_CONFIG
+        self.fonts = fonts or DEFAULT_FONT_CONFIG
+        self.layout = layout or DEFAULT_LAYOUT_CONFIG
 
     def build(
         self,
@@ -710,7 +710,7 @@ class HistogramChartBuilder:
             matplotlib Figure object
         """
         # Create figure
-        fig, ax = plt.subplots(figsize=self.layout["histogram_figsize"])
+        fig, ax = plt.subplots(figsize=self.layout.histogram_figsize)
 
         # Handle empty data
         if not histogram:
@@ -739,9 +739,9 @@ class HistogramChartBuilder:
         )
 
         # Configure axes and title
-        ax.set_xlabel(f"Velocity ({units})", fontsize=self.fonts["histogram_label"])
-        ax.set_ylabel("Count", fontsize=self.fonts["histogram_label"])
-        ax.set_title(title, fontsize=self.fonts["histogram_title"])
+        ax.set_xlabel(f"Velocity ({units})", fontsize=self.fonts.histogram_label)
+        ax.set_ylabel("Count", fontsize=self.fonts.histogram_label)
+        ax.set_title(title, fontsize=self.fonts.histogram_title)
 
         # Format X-axis labels
         formatted_labels = self._format_labels(labels, max_bucket)
@@ -749,7 +749,7 @@ class HistogramChartBuilder:
 
         # Apply styling
         ax.tick_params(
-            axis="both", which="major", labelsize=self.fonts["histogram_tick"]
+            axis="both", which="major", labelsize=self.fonts.histogram_tick
         )
 
         # Layout adjustments
@@ -780,7 +780,7 @@ class HistogramChartBuilder:
         debug: bool = False,
     ) -> object:
         """Build comparison histogram chart from two bucket data sets."""
-        fig, ax = plt.subplots(figsize=self.layout["histogram_figsize"])
+        fig, ax = plt.subplots(figsize=self.layout.histogram_figsize)
 
         if not histogram and not compare_histogram:
             ax.text(0.5, 0.5, "No histogram data", ha="center", va="center")
@@ -843,8 +843,8 @@ class HistogramChartBuilder:
         primary_positions = [pos - bar_width / 2 for pos in x]
         compare_positions = [pos + bar_width / 2 for pos in x]
 
-        primary_colour = self.colors.get("p50", "steelblue")
-        compare_colour = self.colors.get("p98", "#f59e0b")
+        primary_colour = self.colors.p50
+        compare_colour = self.colors.p98
 
         ax.bar(
             primary_positions,
@@ -867,17 +867,17 @@ class HistogramChartBuilder:
             label=compare_label,
         )
 
-        ax.set_xlabel(f"Velocity ({units})", fontsize=self.fonts["histogram_label"])
-        ax.set_ylabel("Percentage (%)", fontsize=self.fonts["histogram_label"])
-        ax.set_title(title, fontsize=self.fonts["histogram_title"])
+        ax.set_xlabel(f"Velocity ({units})", fontsize=self.fonts.histogram_label)
+        ax.set_ylabel("Percentage (%)", fontsize=self.fonts.histogram_label)
+        ax.set_title(title, fontsize=self.fonts.histogram_title)
 
         formatted_labels = self._format_labels(labels)
         self._set_tick_labels(ax, x, formatted_labels)
 
         ax.tick_params(
-            axis="both", which="major", labelsize=self.fonts["histogram_tick"]
+            axis="both", which="major", labelsize=self.fonts.histogram_tick
         )
-        ax.legend(fontsize=self.fonts["histogram_tick"])
+        ax.legend(fontsize=self.fonts.histogram_tick)
 
         try:
             fig.tight_layout(pad=0)
@@ -919,7 +919,7 @@ class HistogramChartBuilder:
                 formatted_labels,
                 rotation=45,
                 ha="right",
-                fontsize=self.fonts["histogram_tick"],
+                fontsize=self.fonts.histogram_tick,
             )
         else:
             # Thin labels for dense histograms
@@ -931,5 +931,5 @@ class HistogramChartBuilder:
                 tick_labels,
                 rotation=45,
                 ha="right",
-                fontsize=self.fonts["histogram_tick"],
+                fontsize=self.fonts.histogram_tick,
             )
