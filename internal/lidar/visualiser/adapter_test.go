@@ -400,9 +400,21 @@ func TestFrameAdapter_AdaptTracks_WithHistory(t *testing.T) {
 		t.Fatal("expected non-nil Tracks")
 	}
 
+	if len(bundle.Tracks.Tracks) == 0 {
+		t.Fatal("expected at least one track")
+	}
+
 	// Check that trails are populated
 	if len(bundle.Tracks.Trails) == 0 {
 		t.Error("expected at least one trail")
+	}
+
+	track := bundle.Tracks.Tracks[0]
+	if track.TrackDurationSecs <= 0 {
+		t.Errorf("expected positive TrackDurationSecs, got %f", track.TrackDurationSecs)
+	}
+	if track.TrackLengthMetres <= 0 {
+		t.Errorf("expected positive TrackLengthMetres, got %f", track.TrackLengthMetres)
 	}
 
 	if len(bundle.Tracks.Trails) > 0 {
