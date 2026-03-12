@@ -43,7 +43,7 @@ Bucket rules:
 - `unlabelled`:
   - none of the above
 
-Explicitly excluded from green/purple:
+Explicitly excluded from green/accent colour:
 
 - `carried_over`
 - `auto_suggested`
@@ -118,7 +118,7 @@ Add a new `Labels` column in `RunBrowserView.swift`.
 Render a segmented capsule:
 
 - green segment width = `classified / total`
-- purple segment width = `tagged_only / total`
+- accent-colour segment width = `tagged_only / total`
 - grey segment width = `unlabelled / total`
 
 Tooltip/help text should show exact counts and percentages.
@@ -171,7 +171,7 @@ Outstanding follow-through after the initial diff:
 
 - decide whether `/flags` mutations should also update the local rollup path in Swift
 - add the same icon or a derivative summary to the web runs list if product wants parity
-- document operator meaning of green/purple/grey in visualiser user docs
+- document operator meaning of green/accent-colour/grey in visualiser user docs
 
 ## Task Checklist
 
@@ -203,7 +203,7 @@ Outstanding follow-through after the initial diff:
 ## Acceptance Criteria
 
 - `GET /api/lidar/runs` returns `label_rollup` for each run without client-side N+1 requests.
-- The macOS run browser shows a segmented green/purple/grey icon for each run.
+- The macOS run browser shows a segmented green/accent-colour/grey icon for each run.
 - A successful label write updates the displayed icon immediately, without another server validation trip.
 - Carried-over and auto-suggested labels do not count as human-labelled progress.
 

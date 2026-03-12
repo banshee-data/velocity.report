@@ -57,7 +57,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md) `M`
 - Retire Go-embedded dashboards — ~2,000 lines removed from monitor once Svelte dashboards replace ECharts — [review doc §7](lidar/architecture/lidar-layer-alignment-refactor-review.md) `L`
 - Track labelling Phase 9 UI (Swift, D-07) — seekable replay, Swift-native labelling — [design doc](plans/lidar-track-labeling-auto-aware-tuning-plan.md) `M`
-- Run-list track-labelling percent icon — backend `label_rollup` contract, macOS segmented green/purple/grey run-browser icon, and immediate in-memory refresh after successful label writes — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md) `S`
+- Run-list track-labelling percent icon — backend `label_rollup` contract, macOS segmented green/accent-colour/grey run-browser icon, and immediate in-memory refresh after successful label writes — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md) `S`
 - Accessibility testing — add axe-core/playwright asserting no critical violations on each route — [design doc §7.2](ui/design-review-and-improvement.md) `S`
 - Widescreen content containment (D-13) — add vr-page max-width centring at ≥3000px — [design doc §2.2](ui/design-review-and-improvement.md) `S`
 - macOS palette constants — prepare shared palette definition when metric charts added to visualiser — [design doc §1.2](ui/design-review-and-improvement.md) `S`
