@@ -72,7 +72,7 @@ class CompositePointCloudRenderer {
     private var blendBuffer: MTLBuffer?
     private var blendBufferCapacity: Int = 0
     private var transitionStartTime: Double = 0  // CACurrentMediaTime
-    private var transitionDuration: Double = 2.0  // seconds
+    private var transitionDuration: Double = 0.5  // seconds
     private var isTransitioning: Bool = false
 
     // Current foreground buffer
