@@ -908,6 +908,9 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Recording
 
+    // TODO: Remove openRecording() and loadRecording(from:) — local VRLOG playback
+    // is non-functional dead code. All VRLOG replay goes through the Go server
+    // via gRPC (RunBrowserState.loadRunForReplay → /api/lidar/vrlog/load).
     func openRecording() {
         // Open file dialog
         let panel = NSOpenPanel()
