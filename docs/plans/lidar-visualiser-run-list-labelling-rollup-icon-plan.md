@@ -10,7 +10,7 @@ Add a compact run-list icon that shows the percentage of tracks with human-appli
 The icon is a segmented rollup:
 
 - green: manually classified tracks
-- purple: manually tagged tracks with no class label
+- accent colour: manually tagged tracks with no class label
 - grey: tracks with no human-applied label state
 
 ## Scope
