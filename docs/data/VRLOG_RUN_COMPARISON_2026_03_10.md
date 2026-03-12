@@ -1,9 +1,9 @@
 # VRLOG Run Comparison Report — 2026-03-10
 
-**Branch:** `dd/vrlog-2`
-**Source PCAP:** `kirk1.pcapng` (Hesai Pandar40P, ~178s, ~2012 frames)
-**Tuning:** identical across all runs (`0ff580...` hash)
-**Runs compared:** 5 analysis runs at different playback speeds
+- **Branch:** `dd/vrlog-2`
+- **Source PCAP:** `kirk1.pcapng` (Hesai Pandar40P, ~178s, ~2012 frames)
+- **Tuning:** identical across all runs (`0ff580...` hash)
+- **Runs compared:** 5 analysis runs at different playback speeds
 
 ## 1. Run Summary
 

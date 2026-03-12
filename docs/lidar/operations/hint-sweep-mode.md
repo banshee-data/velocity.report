@@ -1,8 +1,8 @@
 # HINT Sweep Mode — Human-Involved Numerical Tuning
 
-**Status**: Complete ✅ (57/57 items)
+- **Status:** Complete ✅ (57/57 items)
+- **Summary:** HINT sweep mode is fully implemented across backend, API, dashboard UI, notifications, macOS visualiser, and Svelte frontend. All polish items are complete: TypeScript type definitions, carried-over label badge, export labels removal, inline continue button, and shared page subtitle.
 
-**Summary**: HINT sweep mode is fully implemented across backend, API, dashboard UI, notifications, macOS visualiser, and Svelte frontend. All polish items are complete: TypeScript type definitions, carried-over label badge, export labels removal, inline continue button, and shared page subtitle.
 
 ## Summary
 

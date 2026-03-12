@@ -1,8 +1,6 @@
 # Quick Start: Addressing Pipeline Quality Issues
 
-**Issue:** High jitter, fragmentation, misalignment, and empty boxes in tracking results
-
----
+- **Issue:** High jitter, fragmentation, misalignment, and empty boxes in tracking results
 
 ## TL;DR
 

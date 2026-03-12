@@ -1,12 +1,8 @@
 # Ground Plane Export for pcap-analyse Tool
 
-**Status**: Planning
-**Target**: `cmd/tools/pcap-analyse`
-**Related Design Docs**:
-
-- `docs/lidar/architecture/ground-plane-extraction.md`
-- `docs/lidar/architecture/gps-ethernet-parsing.md`
-- `docs/maths/ground-plane-maths.md`
+- **Status:** Planning
+- **Target:** `cmd/tools/pcap-analyse`
+- **Related:** `docs/lidar/architecture/ground-plane-extraction.md`, `docs/lidar/architecture/gps-ethernet-parsing.md`, `docs/maths/ground-plane-maths.md`
 
 ## Objective
 

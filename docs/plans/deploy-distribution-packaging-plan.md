@@ -1,10 +1,9 @@
 # velocity.report Distribution and Packaging Plan
 
-**Document Version:** 1.0
-**Status:** Proposed Architecture
-**Layers:** Cross-cutting (deployment infrastructure)
+- **Status:** Proposed Architecture
+- **Layers:** Cross-cutting (deployment infrastructure)
+- **Document Version:** 1.0
 
----
 
 ## Quick Reference
 

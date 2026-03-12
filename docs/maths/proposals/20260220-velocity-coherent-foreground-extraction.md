@@ -1,16 +1,13 @@
 # Velocity-Coherent Foreground Extraction Math
 
-**Status:** Proposal Math (Supersedes Prior Review Split)
-**Version:** 2.0
+- **Status:** Proposal Math (Supersedes Prior Review Split)
+- **Version:** 2.0
 
 This document is the single mathematical proposal for velocity-accurate LiDAR
 tracking in this branch. It keeps the existing layered architecture and does
 not introduce intermediary ".5" layers.
-
 Implementation sequencing and task ownership can continue to live in planning
 artefacts, but the math and evaluation contract are defined here.
-
----
 
 ## 1. Scope and Architectural Constraint
 

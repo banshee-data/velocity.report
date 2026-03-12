@@ -1,8 +1,7 @@
 # LiDAR Analysis Run Infrastructure
 
-## Status: Implemented
-
-**Layers:** L8 Analytics
+- **Status:** Implemented
+- **Layers:** L8 Analytics
 
 ## Summary
 

@@ -15,7 +15,7 @@ This document defines an incremental, API-first implementation plan with explici
 - ✅ **M7: Performance Hardening** — Complete (7.1, 7.2, 7.3 implemented; profiling items skipped — not bottlenecked)
 - 📝 **M8: Background Debug Surfaces (Polar/Cartesian/Region Map)** — Planned (docs-only scope in this branch)
 
-**Checkbox Legend**:
+**Checkbox Legend:**
 
 - `[x]` — Completed
 - `[ ]` — Not started

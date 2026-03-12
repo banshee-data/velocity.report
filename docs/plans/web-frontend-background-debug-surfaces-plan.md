@@ -1,9 +1,9 @@
 # Frontend Background Debug Surfaces Plan
 
-**Status:** Planning-only (no implementation in this branch)
-**Layers:** L3 Grid, L9 Endpoints, L10 Clients
-**Scope:** Swift visualiser debugging outputs for background settlement
-**Related:** [`docs/ui/velocity-visualiser-app/02-api-contracts.md`](../ui/velocity-visualiser-app/02-api-contracts.md), [`docs/ui/velocity-visualiser-architecture.md`](../ui/velocity-visualiser-architecture.md), [`docs/ui/velocity-visualiser-implementation.md`](../ui/velocity-visualiser-implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
+- **Status:** Planning-only (no implementation in this branch)
+- **Layers:** L3 Grid, L9 Endpoints, L10 Clients
+- **Scope:** Swift visualiser debugging outputs for background settlement
+- **Related:** [`docs/ui/velocity-visualiser-app/02-api-contracts.md`](../ui/velocity-visualiser-app/02-api-contracts.md), [`docs/ui/velocity-visualiser-architecture.md`](../ui/velocity-visualiser-architecture.md), [`docs/ui/velocity-visualiser-implementation.md`](../ui/velocity-visualiser-implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
 
 ## 1. Problem
 

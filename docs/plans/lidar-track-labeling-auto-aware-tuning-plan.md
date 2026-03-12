@@ -1,20 +1,11 @@
 # Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
 
-**Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
-**Layers:** L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints
-
-**Next blocker:** None for Phases 1-5. Phase 6 (transit promotion) is deferred pending design. Phase 9 (profile comparison) is next priority.
-
-**Related documents:**
-
-- Repo-wide data science stance: [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md)
-- Auto-tuning (Phases 1–2 implemented): [`../lidar/operations/auto-tuning.md`](../lidar/operations/auto-tuning.md)
-- Pipeline reference: [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md)
-- Tracking upgrades (6/9 implemented): [`../lidar/troubleshooting/01-tracking-upgrades.md`](../lidar/troubleshooting/01-tracking-upgrades.md)
+- **Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
+- **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints
+- **Next blocker:** None for Phases 1-5. Phase 6 (transit promotion) is deferred pending design. Phase 9 (profile comparison) is next priority.
+- **Related:** [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md), [`../lidar/operations/auto-tuning.md`](../lidar/operations/auto-tuning.md), [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md), [`../lidar/troubleshooting/01-tracking-upgrades.md`](../lidar/troubleshooting/01-tracking-upgrades.md)
 
 Previous plan (bigger charts + sane auto-tuner defaults) is complete.
-
----
 
 ## Objective
 

@@ -1,7 +1,8 @@
 # LiDAR Coordinate Flow Audit
 
-**Scope:** exact runtime movement of LiDAR data between polar, sensor Cartesian, and world Cartesian forms
-**Index:** LiDAR architecture → coordinate systems → audits. See [docs/lidar/architecture/README.md](./README.md) for the full list.
+- **Scope:** exact runtime movement of LiDAR data between polar, sensor Cartesian, and world Cartesian forms
+- **Index:** LiDAR architecture → coordinate systems → audits. See [docs/lidar/architecture/README.md](./README.md) for the full list.
+
 
 ## Executive Conclusion
 

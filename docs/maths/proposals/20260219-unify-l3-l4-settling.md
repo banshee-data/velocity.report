@@ -1,8 +1,8 @@
 # Proposal: Unify L3/L4 Settling
 
-**Status:** Proposal
-**Scope:** L3 background settling + L4 ground-surface settling harmonisation
-**Related:** [`docs/maths/background-grid-settling-maths.md`](../../maths/background-grid-settling-maths.md), [`docs/maths/ground-plane-maths.md`](../../maths/ground-plane-maths.md), [`docs/lidar/architecture/vector-scene-map.md`](../../lidar/architecture/vector-scene-map.md)
+- **Status:** Proposal
+- **Scope:** L3 background settling + L4 ground-surface settling harmonisation
+- **Related:** [`docs/maths/background-grid-settling-maths.md`](../../maths/background-grid-settling-maths.md), [`docs/maths/ground-plane-maths.md`](../../maths/ground-plane-maths.md), [`docs/lidar/architecture/vector-scene-map.md`](../../lidar/architecture/vector-scene-map.md)
 
 ## 1. Problem Statement
 

@@ -1,8 +1,8 @@
 # LiDAR Multi-Model Ingestion and Configuration
 
-**Status:** Proposed
-**Author:** Architecture Team
-**Related:** [`lidar-data-layer-model.md`](./lidar-data-layer-model.md), [`HESAI_PACKET_FORMAT.md`](../../data/HESAI_PACKET_FORMAT.md), [`network-configuration.md`](./network-configuration.md)
+- **Status:** Proposed
+- **Author:** Architecture Team
+- **Related:** [`lidar-data-layer-model.md`](./lidar-data-layer-model.md), [`HESAI_PACKET_FORMAT.md`](../../data/HESAI_PACKET_FORMAT.md), [`network-configuration.md`](./network-configuration.md)
 
 ## Overview
 

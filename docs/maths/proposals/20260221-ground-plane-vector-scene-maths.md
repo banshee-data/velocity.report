@@ -1,8 +1,9 @@
 # Ground Plane and Vector-Scene Maths (Proposal)
 
-**Status:** Proposal Math (Not Active in Current Runtime)
-**Layer:** L4 Perception
-**Related:** [Background Grid Settling Maths](../../maths/background-grid-settling-maths.md), [Clustering Maths](../../maths/clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../../lidar/architecture/vector-scene-map.md)
+- **Status:** Proposal Math (Not Active in Current Runtime)
+- **Related:** [Background Grid Settling Maths](../../maths/background-grid-settling-maths.md), [Clustering Maths](../../maths/clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../../lidar/architecture/vector-scene-map.md)
+- **Layer:** L4 Perception
+
 
 ## 1. Scope and Design Intent
 

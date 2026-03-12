@@ -1,20 +1,9 @@
 # PDF Generation Migration to Go
 
-**Status:** Draft — awaiting review before implementation
-**Layers:** Cross-cutting (reporting infrastructure)
-**Related Documents:**
-
-- [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (D-08)
-- [Distribution packaging plan](deploy-distribution-packaging-plan.md) (D-09)
-- [RPi imager plan](deploy-rpi-imager-fork-plan.md) (D-10)
-- [Platform simplification plan](platform-simplification-and-deprecation-plan.md)
-
-**Goal:** Replace the Python PDF-generation stack (matplotlib, PyLaTeX, numpy,
-pandas, seaborn — 45 transitive packages) with native Go SVG charting and Go
-`text/template`-based LaTeX assembly, retaining XeTeX for typesetting and
-producing SVG charts equivalent to the current matplotlib output.
-
----
+- **Status:** Draft — awaiting review before implementation
+- **Layers:** Cross-cutting (reporting infrastructure)
+- **Related:** [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (D-08), [Distribution packaging plan](deploy-distribution-packaging-plan.md) (D-09), [RPi imager plan](deploy-rpi-imager-fork-plan.md) (D-10), [Platform simplification plan](platform-simplification-and-deprecation-plan.md)
+- **Goal:** Replace the Python PDF-generation stack (matplotlib, PyLaTeX, numpy, pandas, seaborn — 45 transitive packages) with native Go SVG charting and Go `text/template`-based LaTeX assembly, retaining XeTeX for typesetting and producing SVG charts equivalent to the current matplotlib output.
 
 ## Quick Reference
 

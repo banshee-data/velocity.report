@@ -1,18 +1,9 @@
 # Coverage Improvement Plan: 95.5% Target
 
-**Layers:** Cross-cutting (testing infrastructure)
-**Goal:** Raise every `internal/`, web, Python, and macOS package/module/file
-to ≥ 95.5% line coverage.
-
-**Scope:** `cmd/` packages are excluded from the 95.5% target (they are
-thin CLI wrappers tracked separately in Codecov as `go-cli`). However,
-any testable business logic currently in `cmd/` must be extracted into
-`internal/` where it falls under the target. See
-[§ cmd/ Logic Extraction](#cmd-logic-extraction) below.
-
-**Baseline measured:** 2026-02-20
-
----
+- **Layers:** Cross-cutting (testing infrastructure)
+- **Goal:** Raise every `internal/`, web, Python, and macOS package/module/file to ≥ 95.5% line coverage.
+- **Scope:** `cmd/` packages are excluded from the 95.5% target (they are thin CLI wrappers tracked separately in Codecov as `go-cli`). However, any testable business logic currently in `cmd/` must be extracted into `internal/` where it falls under the target. See [§ cmd/ Logic Extraction](#cmd-logic-extraction) below.
+- **Baseline measured:** 2026-02-20
 
 ## Current State Summary
 

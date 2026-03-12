@@ -1,13 +1,11 @@
 # Bodies in Motion — Path Prediction and Sparse-Cluster Track Linking
 
-**Status:** 📋 Planned — v2.0+
-**Created:** 2026-03-08
-**Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
-**Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
-**Parent plan:** [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md) § 4
-**Maths proposal:** to be written — `docs/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
-
----
+- **Status:** 📋 Planned — v2.0+
+- **Created:** 2026-03-08
+- **Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
+- **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
+- **Parent plan:** [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md) § 4
+- **Maths proposal:** to be written — `docs/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
 
 ## 1. Motivation
 

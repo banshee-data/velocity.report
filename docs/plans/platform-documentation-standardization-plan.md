@@ -1,6 +1,6 @@
 # Documentation Standardisation Plan
 
-- **Status:** Planned docs-only cleanup contract for v0.5.0
+- **Status:** In Progress — metadata list format adopted across `docs/`
 - **Layers:** Cross-cutting (documentation)
 - **Backlog:** [Documentation standardisation](../BACKLOG.md)
 
@@ -14,7 +14,7 @@ Reduce documentation churn and prevent low-signal edits by applying one repeatab
 
 - All markdown files under `docs/`.
 - Structure governance for hubs: `lidar`, `radar`, `ui`, `maths`, `plans`.
-- Document structure governance (opening paragraph, optional `**Status:**` metadata).
+- Document structure governance (opening paragraph, optional metadata list with `- **Key:** value` items).
 
 ## 3. Baseline Reconciliation (Main-First)
 
@@ -35,7 +35,7 @@ Constraints:
 
 - One or two sentences describing document coverage.
 - Must be narrative text, not filename echoes, status labels, or changelog fragments.
-- Bold `**Status:**` metadata is optional — use only on docs that track implementation progress.
+- Bold `- **Status:**` metadata list items are optional — use only on docs that track implementation progress.
 
 ## 5. Structure Rule
 
