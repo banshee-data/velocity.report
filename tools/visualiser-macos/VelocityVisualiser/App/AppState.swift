@@ -1105,13 +1105,17 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Frame Handling
 
     func onFrameReceived(_ frame: FrameBundle, generation: UInt64? = nil) {
-        let perfStart = ContinuousClock.now
         let eventGeneration = generation ?? playbackStateGeneration
         guard eventGeneration == playbackStateGeneration else {
             let epoch = frame.playbackInfo?.replayEpoch ?? 0
             logger.debug("Ignoring stale frame for generation \(eventGeneration) (epoch=\(epoch))")
             return
         }
+        let perfStart = ContinuousClock.now
+        let trace = PerformanceTrace.begin(
+            "OnFrameReceived",
+            "frame=\(frame.frameID) type=\(frame.frameType.rawValue) gen=\(eventGeneration)")
+
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
 
@@ -1178,6 +1182,10 @@ private let logger = DevLogger(category: "AppState")
                 frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
                 newLabels: newLabels, generation: eventGeneration)
         }
+
+        trace.end(
+            "tracks=\(frame.tracks?.tracks.count ?? 0) labels=\(newLabels.count) cache=\(newCacheStatus)"
+        )
     }
 
     /// Applies @Published state mutations from a received frame.
@@ -1190,6 +1198,15 @@ private let logger = DevLogger(category: "AppState")
             logger.debug("Skipping stale deferred frame update for generation \(generation)")
             return
         }
+        let trace = PerformanceTrace.begin(
+            "ApplyFrameStateUpdate",
+            "frame=\(frame.frameID) gen=\(generation) labels=\(newLabels.count)")
+        defer {
+            trace.end(
+                "fps=\(String(format: "%.1f", fps)) tracks=\(trackCount) progress=\(String(format: "%.3f", replayProgress))"
+            )
+        }
+
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1

@@ -93,6 +93,15 @@ class CompositePointCloudRenderer {
     /// Process a frame bundle and update buffers accordingly.
     /// - Parameter frame: The frame bundle to process
     func processFrame(_ frame: FrameBundle) {
+        let trace = PerformanceTrace.begin(
+            "CompositeProcessFrame",
+            "frame=\(frame.frameID) type=\(frame.frameType.rawValue) bgSeq=\(frame.backgroundSeq)")
+        defer {
+            trace.end(
+                "bgPoints=\(backgroundPointCount) fgPoints=\(foregroundPointCount) cache=\(cacheStatus)"
+            )
+        }
+
         switch frame.frameType {
         case .full:
             // Legacy mode: treat point cloud as foreground
@@ -147,6 +156,10 @@ class CompositePointCloudRenderer {
     /// M7: Reuses existing buffer when capacity permits.
     private func updateBackgroundBuffer(_ snapshot: BackgroundSnapshot) {
         let count = snapshot.pointCount
+        let trace = PerformanceTrace.begin(
+            "UpdateBackgroundBuffer", "seq=\(snapshot.sequenceNumber) points=\(count)")
+        defer { trace.end("used=\(backgroundPointCount) capacity=\(backgroundBufferCapacity / 5)") }
+
         guard count > 0 else {
             backgroundPointCount = 0
             return
@@ -162,6 +175,10 @@ class CompositePointCloudRenderer {
         {
             let newCapacity = calculateCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
+            PerformanceTrace.event(
+                "BackgroundBufferReallocated",
+                "seq=\(snapshot.sequenceNumber) oldCapacity=\(backgroundBufferCapacity / 5) newCapacity=\(newCapacity / 5)"
+            )
             if let newBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared) {
                 backgroundBuffer = newBuffer
                 backgroundBufferCapacity = newCapacity
@@ -195,6 +212,10 @@ class CompositePointCloudRenderer {
     /// M7: Reuses existing buffer when capacity permits.
     private func updateForegroundBuffer(_ pointCloud: PointCloudFrame) {
         let count = pointCloud.pointCount
+        let trace = PerformanceTrace.begin(
+            "UpdateForegroundBuffer", "frame=\(pointCloud.frameID) points=\(count)")
+        defer { trace.end("used=\(foregroundPointCount) capacity=\(foregroundBufferCapacity / 5)") }
+
         guard count > 0 else {
             foregroundPointCount = 0
             return
