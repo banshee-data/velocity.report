@@ -1629,7 +1629,11 @@ struct TrackListView: View {
                     if self.sortOrder.usesLeaderboardMetric { updateRanks(resetClimbState: true) }
                     syncTrackListOrder()
                 }
-            } catch { await MainActor.run { self.isFetchingRunTracks = false } }
+            } catch {
+                uiLogger.error(
+                    "Failed to fetch run tracks for \(runID): \(error.localizedDescription)")
+                await MainActor.run { self.isFetchingRunTracks = false }
+            }
         }
     }
 
