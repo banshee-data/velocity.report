@@ -1299,9 +1299,10 @@ struct LabelPanelStaticDataTests {
 
 struct TrackSortOrderTests {
     @Test func allCases() throws {
-        #expect(TrackSortOrder.allCases.count == 2)
+        #expect(TrackSortOrder.allCases.count == 3)
         #expect(TrackSortOrder.firstSeen.rawValue == "First seen")
         #expect(TrackSortOrder.maxSpeed.rawValue == "Max velocity")
+        #expect(TrackSortOrder.hits.rawValue == "Hits")
     }
 }
 

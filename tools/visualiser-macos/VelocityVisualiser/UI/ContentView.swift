@@ -276,24 +276,63 @@ func buildFrameModeSpeedEntries(
     }.sorted { $0.maxSpeed > $1.maxSpeed }
 }
 
+/// Build hit-sorted entries for run-mode tracks.
+/// Extracted from TrackListView.updateRanks() for testability.
+func buildRunModeHitEntries(
+    runTracks: [RunTrack], frameTrackByID: [String: Track], trackMaxHits: [String: Int]
+) -> [(id: String, maxSpeed: Float)] {
+    runTracks.map {
+        let live = frameTrackByID[$0.trackId]?.hits ?? 0
+        let persistent = trackMaxHits[$0.trackId] ?? 0
+        return (id: $0.trackId, maxSpeed: Float(max(live, persistent)))
+    }.sorted { $0.maxSpeed > $1.maxSpeed }
+}
+
+/// Build hit-sorted entries for frame-mode tracks.
+/// Extracted from TrackListView.updateRanks() for testability.
+func buildFrameModeHitEntries(
+    tracks: [Track], trackMaxHits: [String: Int]
+) -> [(id: String, maxSpeed: Float)] {
+    tracks.map {
+        let persistent = trackMaxHits[$0.trackID] ?? 0
+        return (id: $0.trackID, maxSpeed: Float(max($0.hits, persistent)))
+    }.sorted { $0.maxSpeed > $1.maxSpeed }
+}
+
 /// Compute updated ranks for the track list.
 /// Combines run-mode and frame-mode logic into a single call.
 /// Extracted from TrackListView.updateRanks() for testability.
 @MainActor func computeUpdatedRanks(
     isRunMode: Bool, runTracks: [RunTrack], frameTrackByID: [String: Track], appState: AppState,
-    previousRanks: [String: RankEntry], now: Date = Date()
+    previousRanks: [String: RankEntry], sortOrder: TrackSortOrder = .maxSpeed, now: Date = Date()
 ) -> [String: RankEntry] {
     let speedSorted: [(id: String, maxSpeed: Float)]
-    if isRunMode {
-        speedSorted = buildRunModeSpeedEntries(
-            runTracks: runTracks, frameTrackByID: frameTrackByID,
-            trackMaxSpeed: appState.trackMaxSpeed)
-    } else {
-        let tracks =
-            appState.hasActiveFilters
-            ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
-        speedSorted = buildFrameModeSpeedEntries(
-            tracks: tracks, trackMaxSpeed: appState.trackMaxSpeed)
+    switch sortOrder {
+    case .firstSeen: return [:]
+    case .maxSpeed:
+        if isRunMode {
+            speedSorted = buildRunModeSpeedEntries(
+                runTracks: runTracks, frameTrackByID: frameTrackByID,
+                trackMaxSpeed: appState.trackMaxSpeed)
+        } else {
+            let tracks =
+                appState.hasActiveFilters
+                ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+            speedSorted = buildFrameModeSpeedEntries(
+                tracks: tracks, trackMaxSpeed: appState.trackMaxSpeed)
+        }
+    case .hits:
+        if isRunMode {
+            speedSorted = buildRunModeHitEntries(
+                runTracks: runTracks, frameTrackByID: frameTrackByID,
+                trackMaxHits: appState.trackMaxHits)
+        } else {
+            let tracks =
+                appState.hasActiveFilters
+                ? appState.filteredTracks : (appState.currentFrame?.tracks?.tracks ?? [])
+            speedSorted = buildFrameModeHitEntries(
+                tracks: tracks, trackMaxHits: appState.trackMaxHits)
+        }
     }
     return computeRanks(speedSorted: speedSorted, previousRanks: previousRanks, now: now)
 }
@@ -335,12 +374,37 @@ func bestRunTrackSpeed(
     return [liveSpeed, persistentMax, apiMaxSpeed].compactMap { $0 }.max()
 }
 
+/// Compute the best (maximum) hits for a run-mode track from live and persistent sources.
+/// Extracted from TrackListView row rendering for testability.
+func bestRunTrackHits(trackId: String, frameTrack: Track?, trackMaxHits: [String: Int]) -> Int {
+    max(frameTrack?.hits ?? 0, trackMaxHits[trackId] ?? 0)
+}
+
+/// Format the row metric shown next to the track ID.
+/// Extracted from TrackListView row rendering for testability.
+func trackMetricDisplay(sortOrder: TrackSortOrder, speed: Double?, hits: Int?) -> String? {
+    switch sortOrder {
+    case .hits: return "\(max(hits ?? 0, 0)) hits"
+    case .firstSeen, .maxSpeed:
+        guard let speed else { return nil }
+        return String(format: "%.1f m/s", speed)
+    }
+}
+
 /// Sort tracks by max speed descending, using both live and persistent max data.
 /// Extracted from TrackListView.frameTracks for testability.
 func sortTracksByMaxSpeed(_ tracks: [Track], trackMaxSpeed: [String: Float]) -> [Track] {
     tracks.sorted {
         max($0.maxSpeedMps, trackMaxSpeed[$0.trackID] ?? 0)
             > max($1.maxSpeedMps, trackMaxSpeed[$1.trackID] ?? 0)
+    }
+}
+
+/// Sort tracks by max hits descending, using both live and persistent max-hit data.
+/// Extracted from TrackListView.frameTracks for testability.
+func sortTracksByMaxHits(_ tracks: [Track], trackMaxHits: [String: Int]) -> [Track] {
+    tracks.sorted {
+        max($0.hits, trackMaxHits[$0.trackID] ?? 0) > max($1.hits, trackMaxHits[$1.trackID] ?? 0)
     }
 }
 
@@ -361,6 +425,18 @@ func sortRunTracksByMaxSpeed(
                 trackMaxSpeed[b.trackId].map { Double($0) }, b.maxSpeedMps,
             ].compactMap { $0 }.max() ?? 0
         return maxSpeedA > maxSpeedB
+    }
+}
+
+/// Sort run tracks by max hits descending, using live and persistent max-hit data.
+/// Extracted from TrackListView.sortedRunTracks for testability.
+func sortRunTracksByMaxHits(
+    _ runTracks: [RunTrack], frameTrackByID: [String: Track], trackMaxHits: [String: Int]
+) -> [RunTrack] {
+    runTracks.sorted { a, b in
+        let maxHitsA = max(frameTrackByID[a.trackId]?.hits ?? 0, trackMaxHits[a.trackId] ?? 0)
+        let maxHitsB = max(frameTrackByID[b.trackId]?.hits ?? 0, trackMaxHits[b.trackId] ?? 0)
+        return maxHitsA > maxHitsB
     }
 }
 
@@ -433,7 +509,7 @@ struct RunTrackRowView: View {
     let shortID: String
     let statusColour: Color
     let isInView: Bool
-    let bestSpeed: Double?
+    let metricDisplay: String?
     let showClimbArrow: Bool
     let tags: [(String, Color)]
     let isSelected: Bool
@@ -448,9 +524,7 @@ struct RunTrackRowView: View {
                     Text(shortID).font(.system(.caption, design: .monospaced)).foregroundColor(
                         .white
                     ).fixedSize()
-                    if let speed = bestSpeed {
-                        Text(String(format: "%.1f m/s", speed)).font(.caption2).fixedSize()
-                    }
+                    if let metricDisplay { Text(metricDisplay).font(.caption2).fixedSize() }
                     if showClimbArrow {
                         Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(.green)
                             .fixedSize()
@@ -472,7 +546,7 @@ struct FrameTrackRowView: View {
     let shortID: String
     let statusColour: Color
     var isInView: Bool = true
-    let speedDisplay: String
+    let metricDisplay: String
     let showClimbArrow: Bool
     let tags: [(String, Color)]
     let isSelected: Bool
@@ -486,7 +560,7 @@ struct FrameTrackRowView: View {
                     Text(shortID).font(.system(.caption, design: .monospaced)).foregroundColor(
                         .white
                     ).fixedSize()
-                    Text(speedDisplay).font(.caption2).fixedSize()
+                    Text(metricDisplay).font(.caption2).fixedSize()
                     if showClimbArrow {
                         Text("▲").font(.system(size: 8, weight: .bold)).foregroundColor(.green)
                             .fixedSize()
@@ -1024,13 +1098,9 @@ struct SidePanelView: View {
 
             Divider()
 
-            // Right column: track list (scrolls independently)
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    TrackListView()
-                    Spacer()
-                }.padding()
-            }.scrollIndicators(.never).frame(width: 136, alignment: .leading)
+            // Right column: fixed header with independently scrolling rows
+            TrackListView().padding().frame(width: 136).frame(
+                maxHeight: .infinity, alignment: .topLeading)
         }.background(Color(nsColor: .controlBackgroundColor))
     }
 }
@@ -1350,6 +1420,9 @@ struct DetailRow: View {
 enum TrackSortOrder: String, CaseIterable {
     case firstSeen = "First seen"
     case maxSpeed = "Max velocity"
+    case hits = "Hits"
+
+    var usesLeaderboardMetric: Bool { self != .firstSeen }
 }
 
 /// In run mode: fetches ALL tracks from the run via the API (so prior tracks are visible).
@@ -1361,7 +1434,7 @@ struct TrackListView: View {
     /// Guard flag to prevent fetchRunTracks re-entry when syncing API labels to appState.
     @State private var isSyncingAPILabels = false
     @State private var sortOrder: TrackSortOrder = .firstSeen
-    /// Tracks the rank (index) of each track by max speed.
+    /// Tracks the rank (index) of each track by the active leaderboard metric.
     /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
     @State private var previousRanks: [String: RankEntry] = [:]
 
@@ -1378,11 +1451,12 @@ struct TrackListView: View {
         switch sortOrder {
         case .firstSeen: return tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
         case .maxSpeed: return sortTracksByMaxSpeed(tracks, trackMaxSpeed: appState.trackMaxSpeed)
+        case .hits: return sortTracksByMaxHits(tracks, trackMaxHits: appState.trackMaxHits)
         }
     }
 
     /// Run tracks sorted according to the active sort order.
-    /// In max-speed mode, uses live frame speed when available so the list re-sorts in real time.
+    /// In metric modes, uses live frame data when available so the list re-sorts in real time.
     private var sortedRunTracks: [RunTrack] {
         switch sortOrder {
         case .firstSeen:
@@ -1390,6 +1464,9 @@ struct TrackListView: View {
         case .maxSpeed:
             return sortRunTracksByMaxSpeed(
                 runTracks, frameTrackByID: frameTrackByID, trackMaxSpeed: appState.trackMaxSpeed)
+        case .hits:
+            return sortRunTracksByMaxHits(
+                runTracks, frameTrackByID: frameTrackByID, trackMaxHits: appState.trackMaxHits)
         }
     }
 
@@ -1407,11 +1484,16 @@ struct TrackListView: View {
     /// Track IDs visible in the current frame (for in-view indicator).
     private var inViewTrackIDs: Set<String> { appState.inViewTrackIDs }
 
-    /// Snapshot current speed-sorted ranks into previousRanks for climb detection.
-    private func updateRanks() {
+    /// Snapshot current metric-sorted ranks into previousRanks for climb detection.
+    private func updateRanks(resetClimbState: Bool = false) {
+        guard sortOrder.usesLeaderboardMetric else {
+            previousRanks = [:]
+            return
+        }
         previousRanks = computeUpdatedRanks(
             isRunMode: isRunMode, runTracks: runTracks, frameTrackByID: frameTrackByID,
-            appState: appState, previousRanks: previousRanks)
+            appState: appState, previousRanks: resetClimbState ? [:] : previousRanks,
+            sortOrder: sortOrder)
     }
 
     var body: some View {
@@ -1431,19 +1513,37 @@ struct TrackListView: View {
                 }.pickerStyle(.menu).labelsHidden().controlSize(.mini).frame(maxWidth: 90)
             }
 
-            if isRunMode { runTrackListContent } else { frameTrackListContent }
-            Spacer().frame(height: 8)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if isRunMode { runTrackListContent } else { frameTrackListContent }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }.scrollIndicators(.never)
+            Spacer(minLength: 8)
         }.onChange(of: appState.currentRunID) { _, newRunID in
-            if newRunID != nil { fetchRunTracks() } else { runTracks = [] }
+            previousRanks = [:]
+            if newRunID != nil {
+                fetchRunTracks()
+            } else {
+                runTracks = []
+                syncTrackListOrder()
+            }
         }.onChange(of: appState.userLabels) { _, _ in
             if isRunMode && !isSyncingAPILabels { fetchRunTracks() }
         }.onChange(of: appState.currentFrameIndex) { _, _ in
-            if sortOrder == .maxSpeed { updateRanks() }
+            if sortOrder.usesLeaderboardMetric { updateRanks() }
             syncTrackListOrder()
-        }.onChange(of: sortOrder) { _, _ in syncTrackListOrder() }.onAppear {
+        }.onChange(of: sortOrder) { _, newOrder in
+            if newOrder.usesLeaderboardMetric {
+                updateRanks(resetClimbState: true)
+            } else {
+                previousRanks = [:]
+            }
+            syncTrackListOrder()
+        }.onAppear {
             if isRunMode { fetchRunTracks() }
+            if sortOrder.usesLeaderboardMetric { updateRanks(resetClimbState: true) }
             syncTrackListOrder()
-        }
+        }.frame(maxHeight: .infinity, alignment: .topLeading)
     }
 
     // MARK: - Run Track List (API-fetched)
@@ -1460,10 +1560,15 @@ struct TrackListView: View {
                 RunTrackRowView(
                     trackId: track.trackId, shortID: track.trackId.shortTrackID,
                     statusColour: statusColour, isInView: isInView,
-                    bestSpeed: bestRunTrackSpeed(
-                        trackId: track.trackId, apiMaxSpeed: track.maxSpeedMps,
-                        frameTrack: frameTrack, trackMaxSpeed: appState.trackMaxSpeed),
-                    showClimbArrow: sortOrder == .maxSpeed
+                    metricDisplay: trackMetricDisplay(
+                        sortOrder: sortOrder,
+                        speed: bestRunTrackSpeed(
+                            trackId: track.trackId, apiMaxSpeed: track.maxSpeedMps,
+                            frameTrack: frameTrack, trackMaxSpeed: appState.trackMaxSpeed),
+                        hits: bestRunTrackHits(
+                            trackId: track.trackId, frameTrack: frameTrack,
+                            trackMaxHits: appState.trackMaxHits)),
+                    showClimbArrow: sortOrder.usesLeaderboardMetric
                         && isTrackClimbing(track.trackId, ranks: previousRanks),
                     tags: runTrackTags(
                         track, userLabels: appState.userLabels,
@@ -1487,10 +1592,12 @@ struct TrackListView: View {
                     statusColour: isInView
                         ? trackStateColour(track.state) : Color.gray.opacity(0.4),
                     isInView: isInView,
-                    speedDisplay: String(
-                        format: "%.1f m/s",
-                        max(track.maxSpeedMps, appState.trackMaxSpeed[track.trackID] ?? 0)),
-                    showClimbArrow: sortOrder == .maxSpeed
+                    metricDisplay: trackMetricDisplay(
+                        sortOrder: sortOrder,
+                        speed: Double(
+                            max(track.maxSpeedMps, appState.trackMaxSpeed[track.trackID] ?? 0)),
+                        hits: max(track.hits, appState.trackMaxHits[track.trackID] ?? 0)) ?? "",
+                    showClimbArrow: sortOrder.usesLeaderboardMetric
                         && isTrackClimbing(track.trackID, ranks: previousRanks),
                     tags: frameTrackTags(track, userLabels: appState.userLabels),
                     isSelected: track.trackID == appState.selectedTrackID,
@@ -1514,6 +1621,7 @@ struct TrackListView: View {
                     self.isSyncingAPILabels = true
                     syncRunTracksToAppState(tracks, appState: appState)
                     self.isSyncingAPILabels = false
+                    if self.sortOrder.usesLeaderboardMetric { updateRanks(resetClimbState: true) }
                     syncTrackListOrder()
                 }
             } catch { await MainActor.run { self.isFetchingRunTracks = false } }
