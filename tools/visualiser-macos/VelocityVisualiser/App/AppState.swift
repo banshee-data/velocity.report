@@ -343,8 +343,8 @@ private let logger = DevLogger(category: "AppState")
         playbackMode = mode
         switch mode {
         case .unknown:
-            isLive = true
-            isSeekable = false
+            // Preserve the last known flags until playback metadata arrives.
+            break
         case .live:
             isLive = true
             isSeekable = false
