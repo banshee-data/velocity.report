@@ -17,60 +17,18 @@ from pathlib import Path
 
 from typing import Any, Dict, List, Optional
 
-try:
-    from pylatex import (
-        Document,
-        Section,
-        Command,
-        Package,
-        Tabular,
-        Center,
-        Figure,
-        NoEscape,
-    )
-    from pylatex.utils import escape_latex
-    from pylatex.base_classes import Environment
-
-    HAVE_PYLATEX = True
-except Exception:  # pragma: no cover - allow tests to run without pylatex installed
-    # Provide minimal fallbacks so module can be imported in test environments
-    HAVE_PYLATEX = False
-
-    class NoEscape(str):
-        pass
-
-    # Lightweight stand-ins (only so imports don't fail). They won't provide full functionality.
-    class Document:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Section:  # type: ignore
-        pass
-
-    class Command:  # type: ignore
-        pass
-
-    class Package:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Tabular:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Center:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Figure:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    def escape_latex(s: str) -> str:
-        return s
-
-    class Environment:  # type: ignore
-        pass
+from pylatex import (
+    Document,
+    Section,
+    Command,
+    Package,
+    Tabular,
+    Center,
+    Figure,
+    NoEscape,
+)
+from pylatex.utils import escape_latex
+from pylatex.base_classes import Environment
 
 
 from pdf_generator.core.stats_utils import chart_exists

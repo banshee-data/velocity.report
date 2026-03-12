@@ -343,8 +343,7 @@ private let logger = DevLogger(category: "AppState")
         playbackMode = mode
         switch mode {
         case .unknown:
-            // Preserve legacy defaults for callers/tests that still inspect these fields directly.
-            isLive = isConnected ? isLive : true
+            isLive = true
             isSeekable = false
         case .live:
             isLive = true

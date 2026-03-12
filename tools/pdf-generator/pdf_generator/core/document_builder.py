@@ -8,41 +8,8 @@ setup, providing a clean API for creating properly configured PyLaTeX documents.
 import os
 from typing import TYPE_CHECKING, Optional
 
-try:
-    from pylatex import Document, Package, NoEscape
-    from pylatex.utils import escape_latex
-
-    HAVE_PYLATEX = True
-except Exception:  # pragma: no cover
-    HAVE_PYLATEX = False
-
-    class Document:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class Package:  # type: ignore
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class NoEscape(str):  # type: ignore
-        pass
-
-    def escape_latex(s: str) -> str:  # type: ignore
-        """Fallback escape_latex when pylatex is not available."""
-        # Basic LaTeX escaping for special characters
-        latex_special_chars = {
-            "\\": r"\textbackslash{}",
-            "{": r"\{",
-            "}": r"\}",
-            "$": r"\$",
-            "&": r"\&",
-            "#": r"\#",
-            "_": r"\_",
-            "%": r"\%",
-            "~": r"\textasciitilde{}",
-            "^": r"\textasciicircum{}",
-        }
-        return "".join(latex_special_chars.get(c, c) for c in s)
+from pylatex import Document, Package, NoEscape
+from pylatex.utils import escape_latex
 
 
 from pdf_generator.core.config_manager import (
