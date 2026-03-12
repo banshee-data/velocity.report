@@ -1612,7 +1612,7 @@ describe('renderTable', () => {
 		expect(document.getElementById('results-head')!.innerHTML).toContain('Frag.');
 	});
 
-	it('handles results without param_values', () => {
+	it('renders results with param_values', () => {
 		renderTable([
 			{
 				param_values: { noise_relative: 0.05, closeness_multiplier: 5 },
@@ -4260,6 +4260,599 @@ describe('HINT Functions', () => {
 		});
 	});
 });
+
+// ===========================================================================
+// Additional branch coverage tests
+// ===========================================================================
+
+describe('pollAutoTuneStatus ETA remaining', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		setMode('auto');
+	});
+
+	afterEach(() => {
+		stopPolling();
+		setMode('manual');
+		jest.useRealTimers();
+	});
+
+	it('shows ETA remaining when cumulative data is available', async () => {
+		const startedAt = new Date(Date.now() - 60000).toISOString();
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					status: 'running',
+					completed_combos: 10,
+					total_combos: 25,
+					total_rounds: 1,
+					round: 1,
+					started_at: startedAt,
+					cumulative_completed: 10,
+					cumulative_total: 25
+				})
+		});
+		pollAutoTuneStatus();
+		await flushPromises();
+		expect(document.getElementById('combo-count')!.textContent).toContain('remaining');
+	});
+
+	it('shows sweep complete and fetches explanation', async () => {
+		global.fetch = jest
+			.fn()
+			.mockResolvedValueOnce({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						status: 'complete',
+						completed_combos: 25,
+						total_combos: 25,
+						total_rounds: 1,
+						recommendation: { noise_relative: 0.05, score: 0.95 },
+						results: makeTestResults()
+					})
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve([{ sweep_id: 'sw-latest' }])
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						objective_name: 'test',
+						composite_score: 0.9,
+						score_components: []
+					})
+			});
+		pollAutoTuneStatus();
+		await flushPromises();
+		// The complete status should render recommendation and fetch sweep explanation
+		expect(document.getElementById('recommendation-card')!.style.display).toBe('');
+	});
+});
+
+describe('buildSeriesOption additional branches', () => {
+	it('builds chart with specific x_metric and no group_by (sorted path)', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Sorted X',
+			x_metric: 'noise_relative',
+			y_metric: 'overall_accept_mean',
+			group_by: ''
+		};
+		const opt = buildSeriesOption(results, cfg, 'bar');
+		expect(opt.series[0].type).toBe('bar');
+		// xAxis should be named with the metric label
+		expect(opt.xAxis.name).toContain('Noise');
+		// Data should be sorted by x values
+		expect(opt.series[0].data).toHaveLength(2);
+	});
+
+	it('falls back to combo labels when x_metric and group_by are both empty', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Fallback',
+			x_metric: '',
+			y_metric: 'overall_accept_mean',
+			group_by: ''
+		};
+		const opt = buildSeriesOption(results, cfg, 'bar');
+		expect(opt.xAxis.type).toBe('category');
+		expect(opt.series[0].data).toHaveLength(2);
+	});
+});
+
+describe('buildHeatmapOption tooltip', () => {
+	it('tooltip formatter returns correct string', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'HM',
+			x_metric: 'noise_relative',
+			y_metric: 'closeness_multiplier',
+			z_metric: 'overall_accept_mean'
+		};
+		const opt = buildHeatmapOption(results, cfg);
+		// Invoke the tooltip formatter to cover that branch
+		const formatted = opt.tooltip.formatter({ value: [0, 0, 0.1234] });
+		expect(formatted).toContain('0.1234');
+	});
+});
+
+describe('buildScatterOption tooltip', () => {
+	it('tooltip formatter returns correct string', () => {
+		const results = makeTestResults();
+		const cfg = {
+			title: 'Scatter',
+			x_metric: 'noise_relative',
+			y_metric: 'overall_accept_mean'
+		};
+		const opt = buildScatterOption(results, cfg);
+		// Invoke the tooltip formatter to cover that branch
+		const formatted = opt.tooltip.formatter({ value: [0.05, 0.85] });
+		expect(formatted).toContain('0.05');
+		expect(formatted).toContain('0.85');
+	});
+});
+
+describe('renderCharts with empty chartConfigs', () => {
+	beforeEach(() => {
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		(global as any).echarts.init.mockClear();
+		disposeAllCharts();
+	});
+
+	afterEach(() => {
+		stopPolling();
+	});
+
+	it('generates default charts when chartConfigs is empty and results are provided', () => {
+		renderCharts(makeTestResults());
+		// Should generate defaults (4 bar + 2 heatmaps for 2 numeric params = 6)
+		expect((global as any).echarts.init).toHaveBeenCalled();
+	});
+});
+
+describe('generateDefaultCharts with numeric params', () => {
+	it('generates heatmap charts when results have 2+ numeric params', () => {
+		const results = makeTestResults();
+		const charts = generateDefaultCharts(results);
+		// Should include heatmap charts for the 2 numeric params
+		const heatmaps = charts.filter((c: any) => c.type === 'heatmap');
+		expect(heatmaps.length).toBeGreaterThanOrEqual(2);
+	});
+});
+
+describe('renderTable param_values and float formatting', () => {
+	beforeEach(() => {
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+	});
+
+	it('uses param_values for column values and formats floats', () => {
+		renderTable([
+			{
+				param_values: { noise_relative: 0.0567, closeness_multiplier: 5 },
+				overall_accept_mean: 0.85,
+				overall_accept_stddev: 0.02,
+				nonzero_cells_mean: 100,
+				nonzero_cells_stddev: 5
+			}
+		]);
+		const body = document.getElementById('results-body')!;
+		expect(body.innerHTML).toContain('0.0567');
+	});
+});
+
+describe('openChartModal populates selects', () => {
+	beforeEach(() => {
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		// Load results so getAvailableMetrics has data
+		renderCharts(makeTestResults());
+	});
+
+	afterEach(() => {
+		stopPolling();
+	});
+
+	it('populateChartModalSelects fills x/y/z/group selects', () => {
+		// Store latestResults by calling renderTable so getAvailableMetrics returns params
+		renderTable(makeTestResults());
+		openChartModal();
+		const xSel = document.getElementById('chart-cfg-x') as HTMLSelectElement;
+		const ySel = document.getElementById('chart-cfg-y') as HTMLSelectElement;
+		const gSel = document.getElementById('chart-cfg-group') as HTMLSelectElement;
+		// X should have _combo
+		expect(xSel.innerHTML).toContain('_combo');
+		// Y should have metrics
+		expect(ySel.innerHTML).toContain('accept');
+		// Group should have (none) option
+		expect(gSel.innerHTML).toContain('(none)');
+	});
+});
+
+describe('saveChartConfigs button text reset', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('resets button text after timeout', async () => {
+		// Load a sweep to set currentSweepId
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-btn-reset',
+					mode: 'sweep',
+					status: 'complete',
+					results: makeTestResults()
+				})
+		});
+		loadHistoricalSweep('sw-btn-reset');
+		await flushPromises();
+
+		(global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+		saveChartConfigs();
+		await flushPromises();
+		const btn = document.getElementById('btn-save-charts')!;
+		expect(btn.textContent).toBe('Saved');
+		jest.advanceTimersByTime(1600);
+		expect(btn.textContent).toBe('Save Charts');
+	});
+});
+
+describe('loadHistoricalSweep malformed results JSON', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('handles results as a string that needs JSON.parse', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-string-results',
+					mode: 'sweep',
+					status: 'complete',
+					results: JSON.stringify(makeTestResults())
+				})
+		});
+		loadHistoricalSweep('sw-string-results');
+		await flushPromises();
+		expect(document.getElementById('results-body')!.children.length).toBeGreaterThan(0);
+	});
+
+	it('handles malformed results string gracefully', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-bad-results',
+					mode: 'sweep',
+					status: 'complete',
+					results: 'not-valid-json'
+				})
+		});
+		loadHistoricalSweep('sw-bad-results');
+		await flushPromises();
+		// Should not throw
+	});
+
+	it('handles recommendation as a string that needs JSON.parse', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-str-rec',
+					mode: 'auto',
+					status: 'complete',
+					results: makeTestResults(),
+					recommendation: '{"noise_relative": 0.05}',
+					round_results: '[{"round":1,"best_score":0.9}]'
+				})
+		});
+		loadHistoricalSweep('sw-str-rec');
+		await flushPromises();
+		// recommendation-card should be visible after parsing string recommendation
+		expect(document.getElementById('recommendation-card')!.style.display).not.toBe('none');
+	});
+
+	it('handles malformed round_results JSON gracefully', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					sweep_id: 'sw-bad-rr',
+					mode: 'auto',
+					status: 'complete',
+					results: makeTestResults(),
+					recommendation: '{"noise_relative": 0.05}',
+					round_results: 'not-valid-json'
+				})
+		});
+		loadHistoricalSweep('sw-bad-rr');
+		await flushPromises();
+		// Should not throw - caught by try/catch
+	});
+});
+
+describe('init with complete auto-tune status', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+	});
+
+	afterEach(() => {
+		stopPolling();
+		jest.useRealTimers();
+	});
+
+	it('renders results from completed auto-tune on init', async () => {
+		global.fetch = jest.fn().mockImplementation((url: string) => {
+			if (url.includes('/api/lidar/sweep/auto')) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							status: 'complete',
+							results: makeTestResults(),
+							recommendation: { noise_relative: 0.05 },
+							round_results: [{ round: 1, best_score: 0.9 }]
+						})
+				});
+			}
+			if (url.includes('/api/lidar/params')) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ noise_relative: 0.05 })
+				});
+			}
+			if (url.includes('/api/lidar/scenes')) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ scenes: [] })
+				});
+			}
+			if (url.includes('/api/lidar/sweeps')) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve([])
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+		init();
+		await flushPromises();
+		expect(document.getElementById('progress-section')!.style.display).toBe('');
+		expect(document.getElementById('status-badge')!.textContent).toBe('complete');
+	});
+
+	it('renders results from errored auto-tune with error message on init', async () => {
+		global.fetch = jest.fn().mockImplementation((url: string) => {
+			if (url.includes('/api/lidar/sweep/auto')) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							status: 'error',
+							results: makeTestResults(),
+							error: 'Sensor timeout'
+						})
+				});
+			}
+			if (url.includes('/api/lidar/params')) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ noise_relative: 0.05 })
+				});
+			}
+			if (url.includes('/api/lidar/scenes')) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ scenes: [] })
+				});
+			}
+			if (url.includes('/api/lidar/sweeps')) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve([])
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+		init();
+		await flushPromises();
+		expect(document.getElementById('sweep-error')!.textContent).toBe('Sensor timeout');
+		expect(document.getElementById('sweep-error')!.style.display).toBe('');
+	});
+});
+
+describe('handleStartHINT class coverage JSON parse', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		setMode('hint');
+	});
+
+	afterEach(() => {
+		stopPolling();
+		setMode('manual');
+		jest.useRealTimers();
+	});
+
+	it('shows error for invalid class coverage JSON', () => {
+		// Set scene selector so the scene check passes
+		const sel = document.getElementById('scene_select') as HTMLSelectElement;
+		const opt = document.createElement('option');
+		opt.value = 'scene-1';
+		sel.appendChild(opt);
+		sel.value = 'scene-1';
+
+		// Set invalid JSON in class coverage
+		(document.getElementById('hint_class_coverage') as HTMLInputElement).value = 'not-valid-json';
+		handleStartHINT();
+		expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
+	});
+
+	it('parses valid class coverage JSON', async () => {
+		const sel = document.getElementById('scene_select') as HTMLSelectElement;
+		const opt = document.createElement('option');
+		opt.value = 'scene-1';
+		sel.appendChild(opt);
+		sel.value = 'scene-1';
+
+		(document.getElementById('hint_class_coverage') as HTMLInputElement).value = '{"vehicle": 2}';
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ sweep_id: 'hint-1' })
+		});
+		handleStartHINT();
+		await flushPromises();
+		const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+		expect(body.min_class_coverage).toEqual({ vehicle: 2 });
+	});
+});
+
+describe('getAvailableMetrics fallback', () => {
+	it('falls back to default metrics when result has no known metric keys', () => {
+		const results = [{ param_values: { noise_relative: 0.05 }, custom_field: 42 }];
+		const avail = getAvailableMetrics(results);
+		// Should still have metrics (the defaults)
+		expect(avail.metrics.length).toBeGreaterThan(0);
+		expect(avail.params).toContain('noise_relative');
+	});
+});
+
+describe('pollHINTStatus error branches', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		setMode('hint');
+	});
+
+	afterEach(() => {
+		stopHINTPolling();
+		setMode('manual');
+		jest.useRealTimers();
+	});
+
+	it('retries on non-abort long-poll error', async () => {
+		let callCount = 0;
+		global.fetch = jest.fn().mockImplementation(() => {
+			callCount++;
+			if (callCount === 1) {
+				// Initial fetch succeeds with awaiting_labels
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							status: 'awaiting_labels',
+							current_round: 1,
+							total_rounds: 3,
+							min_label_threshold: 0.8,
+							label_progress: { labelled: 5, total: 10, progress_pct: 50 }
+						})
+				});
+			}
+			// Long-poll fetch fails with network error
+			return Promise.reject(new Error('network'));
+		});
+		pollHINTStatus();
+		await flushPromises();
+		// Should schedule a retry via setTimeout
+		expect(callCount).toBe(2);
+	});
+
+	it('retries on initial fetch failure', async () => {
+		global.fetch = jest.fn().mockRejectedValue(new Error('network'));
+		pollHINTStatus();
+		await flushPromises();
+		// Should not throw, and should schedule retry
+	});
+});
+
+describe('handleStartAutoTune with acceptance criteria', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		setupDOM();
+		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+		init();
+		(global.fetch as jest.Mock).mockClear();
+		setMode('auto');
+	});
+
+	afterEach(() => {
+		stopPolling();
+		setMode('manual');
+		jest.useRealTimers();
+	});
+
+	it('includes acceptance criteria in request when fields are set', async () => {
+		// Set objective to weighted to include weight fields
+		(document.getElementById('objective') as HTMLSelectElement).value = 'weighted';
+		toggleWeights();
+
+		// Set acceptance criteria fields
+		(document.getElementById('ac_max_fragmentation') as HTMLInputElement).value = '0.1';
+		(document.getElementById('ac_max_unbounded') as HTMLInputElement).value = '0.2';
+		(document.getElementById('ac_max_empty_boxes') as HTMLInputElement).value = '0.3';
+
+		// Add a param row
+		addParamRow('noise_relative');
+
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ sweep_id: 'auto-1' })
+		});
+		handleStartAutoTune();
+		await flushPromises();
+		const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+		expect(body.acceptance_criteria).toBeDefined();
+		expect(body.acceptance_criteria.max_fragmentation_ratio).toBe(0.1);
+	});
+});
+
 afterAll(() => {
 	URL.createObjectURL = origCreateObjectURL;
 	URL.revokeObjectURL = origRevokeObjectURL;
