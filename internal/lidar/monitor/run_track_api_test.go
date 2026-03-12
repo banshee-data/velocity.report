@@ -154,6 +154,73 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 	}
 }
 
+// TestUpdateTrackLabelTrimsWhitespaceBeforeValidation ensures write-time
+// normalisation matches the rollup contract and accepts whitespace-padded input.
+func TestUpdateTrackLabelTrimsWhitespaceBeforeValidation(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	runID := "test-run-001-trimmed"
+	store := sqlite.NewAnalysisRunStore(sqlDB)
+	setupTestRun(t, store, runID)
+
+	testDB := &db.DB{DB: sqlDB}
+	ws := &WebServer{db: testDB}
+
+	reqBody := map[string]interface{}{
+		"user_label":       "  car \n",
+		"quality_label":    " good, noisy ",
+		"label_confidence": 0.95,
+		"labeler_id":       " test-user ",
+		"label_source":     " human_manual ",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/test-run-001-trimmed/tracks/track-001/label", bytes.NewReader(bodyBytes))
+	w := httptest.NewRecorder()
+
+	ws.handleUpdateTrackLabel(w, req, runID, "track-001")
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result["user_label"] != "car" {
+		t.Fatalf("expected trimmed user_label 'car', got %v", result["user_label"])
+	}
+	if result["quality_label"] != "good,noisy" {
+		t.Fatalf("expected canonical quality_label 'good,noisy', got %v", result["quality_label"])
+	}
+	if result["labeler_id"] != "test-user" {
+		t.Fatalf("expected trimmed labeler_id 'test-user', got %v", result["labeler_id"])
+	}
+
+	track, err := store.GetRunTrack(runID, "track-001")
+	if err != nil {
+		t.Fatalf("GetRunTrack failed: %v", err)
+	}
+	if track.UserLabel != "car" {
+		t.Fatalf("stored user_label mismatch: got %q", track.UserLabel)
+	}
+	if track.QualityLabel != "good,noisy" {
+		t.Fatalf("stored quality_label mismatch: got %q", track.QualityLabel)
+	}
+	if track.LabelerID != "test-user" {
+		t.Fatalf("stored labeler_id mismatch: got %q", track.LabelerID)
+	}
+	if track.LabelSource != "human_manual" {
+		t.Fatalf("stored label_source mismatch: got %q", track.LabelSource)
+	}
+}
+
 // TestUpdateTrackLabelInvalid tests that invalid labels are rejected
 func TestUpdateTrackLabelInvalid(t *testing.T) {
 	sqlDB, cleanup := setupTestDB(t)
