@@ -375,6 +375,13 @@ private let logger = DevLogger(category: "AppState")
     fileprivate func resetPlaybackState(mode: PlaybackMode) {
         bumpPlaybackGeneration()
         setPlaybackMode(mode)
+        // setPlaybackMode(.unknown) preserves isLive/isSeekable for transient
+        // mode changes, but a full reset must clear them so they are
+        // re-established from the first frame's playback metadata.
+        if mode == .unknown {
+            isLive = false
+            isSeekable = false
+        }
         hasPlaybackMetadata = false
         isPaused = false
         replayFinished = false
