@@ -1192,9 +1192,13 @@ struct TrackInspectorDetailCards: View {
                                 .foregroundColor(trackStateColour(t.state))
                         }
                         DetailRow(label: "Hits", value: "\(t.hits)")
-                        DetailRow(
-                            label: "Class",
-                            value: t.classLabel.isEmpty ? "Not classified" : t.classLabel)
+                        HStack {
+                            Text("Class").font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                            Text(t.classLabel.isEmpty ? "Not classified" : t.classLabel).font(
+                                .caption
+                            ).foregroundColor(t.classLabel.isEmpty ? .secondary : .confirmedGreen)
+                        }
                     }
                 }
             }
@@ -1792,11 +1796,13 @@ struct BulkLabelView: View {
                         Text(entry.name).font(.callout)
                         Spacer()
                         if bulkLabelApplied == entry.name {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(.green).font(
-                                .caption)
+                            Image(systemName: "checkmark.circle.fill").foregroundColor(
+                                .confirmedGreen
+                            ).font(.caption)
                         }
                     }.padding(.vertical, 2).padding(.horizontal, 6).background(
-                        bulkLabelApplied == entry.name ? Color.green.opacity(0.15) : Color.clear
+                        bulkLabelApplied == entry.name
+                            ? Color.confirmedGreen.opacity(0.15) : Color.clear
                     ).cornerRadius(4)
                 }.buttonStyle(.plain).help("Apply '\(entry.name)' to all \(count) visible tracks")
                     .disabled(count == 0)
@@ -2343,8 +2349,8 @@ struct TagPill: View {
 
 extension Color {
     /// Green used for confirmed/user-assigned labels, matching the confirmed track state.
-    /// Slightly desaturated for legibility against dark backgrounds.
-    static let confirmedGreen = Color(red: 0.25, green: 0.82, blue: 0.38)
+    /// Tuned to stay legible in both light and dark mode without reading neon.
+    static let confirmedGreen = Color(red: 0.20, green: 0.67, blue: 0.33)
 }
 
 // MARK: - Track ID Helpers

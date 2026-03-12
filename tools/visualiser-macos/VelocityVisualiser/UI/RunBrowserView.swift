@@ -257,17 +257,6 @@ struct StatusDot: View {
 struct RunLabelRollupIcon: View {
     let rollup: RunLabelRollup?
 
-    private var classifiedSegmentColour: Color {
-        Color(
-            nsColor: NSColor(name: nil) { appearance in
-                switch appearance.bestMatch(from: [.darkAqua, .aqua]) {
-                case .darkAqua:
-                    return NSColor(calibratedRed: 0.22, green: 0.67, blue: 0.63, alpha: 1.0)
-                default: return NSColor(calibratedRed: 0.09, green: 0.48, blue: 0.45, alpha: 1.0)
-                }
-            })
-    }
-
     var body: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
@@ -279,7 +268,7 @@ struct RunLabelRollupIcon: View {
             ZStack {
                 Capsule().fill(Color.gray.opacity(0.18))
                 HStack(spacing: 0) {
-                    classifiedSegmentColour.frame(width: classifiedWidth)
+                    Color.confirmedGreen.frame(width: classifiedWidth)
                     Color.accentColor.frame(width: taggedWidth)
                     Color.gray.opacity(0.45).frame(width: unlabelledWidth)
                 }.clipShape(Capsule())
