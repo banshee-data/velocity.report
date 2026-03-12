@@ -29,7 +29,7 @@ private struct RunTrackLabelSnapshot {
         self.labelSource = track.labelSource
         self.isSplitCandidate = track.isSplitCandidate ?? false
         self.isMergeCandidate = track.isMergeCandidate ?? false
-        self.linkedTrackIDs = track.linkedTrackIDs ?? []
+        self.linkedTrackIDs = track.linkedTrackIds ?? []
     }
 }
 

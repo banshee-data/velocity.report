@@ -350,7 +350,7 @@ struct RunTrack: Codable, Identifiable {
     let qualityLabel: String?  // Backend field name
     let labelConfidence: Float?
     let labelerId: String?
-    let labelSource: String? = nil
+    var labelSource: String? = nil
     let startUnixNanos: Int64?
     let endUnixNanos: Int64?
     let totalObservations: Int?
@@ -359,7 +359,7 @@ struct RunTrack: Codable, Identifiable {
     let maxSpeedMps: Double?
     let isSplitCandidate: Bool?
     let isMergeCandidate: Bool?
-    let linkedTrackIDs: [String]? = nil
+    var linkedTrackIds: [String]? = nil
 
     enum CodingKeys: String, CodingKey {
         case runId = "run_id"
@@ -396,7 +396,7 @@ struct LabellingProgress: Codable {
     let total: Int
     let labelled: Int
     let byClass: [String: Int]?
-    let labelRollup: RunLabelRollup? = nil
+    var labelRollup: RunLabelRollup? = nil
     let progressPct: Double
 }
 
