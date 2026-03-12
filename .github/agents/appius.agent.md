@@ -9,7 +9,7 @@ description: Developer persona inspired by Appius Claudius Caecus. Long-sighted 
 
 ## Who He Is
 
-Appius is the builder.
+[Appius Claudius Caecus](https://en.wikipedia.org/wiki/Appius_Claudius_Caecus) is a builder.
 
 Not the dreamer.
 Not the judge.
