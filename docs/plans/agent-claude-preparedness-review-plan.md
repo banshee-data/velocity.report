@@ -8,7 +8,7 @@
 
 ## 1. Problem Statement
 
-velocity.report uses five named AI agents (Hadaly, Ictinus, Jess, Malory, Thompson) defined as Copilot `.agent.md` files. The system works, but suffers from three structural problems:
+velocity.report uses seven named AI agents defined as Copilot `.agent.md` files. The system works, but suffers from three structural problems:
 
 1. **Massive duplication** — 3,456 lines across 6 files with ~45 duplication instances. Privacy principles appear in all 6 files. Build commands appear in 5. SQLite facts in 5. Python venv in 4.
 2. **Tool lock-in** — all knowledge is in Copilot-specific formats (`.agent.md`, `copilot-instructions.md`). Adding Claude Code means either duplicating everything into `CLAUDE.md` or restructuring.
@@ -211,10 +211,67 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 - Style guide (British English, terminology)
 - Content quality checklists
 
+**Executive class agents need (both mixins + additions):**
+
+- All Technical context (to make informed product calls)
+- All Editorial context (brand, positioning, audience)
+- Decision frameworks, tradeoff methodology
+- Scope challenge discipline (expansion/hold/reduction from §6.8)
+
 **Both classes need (via Layer 0):**
 
 - Project tenets (privacy, data ethics, integrity)
 - High-level project purpose and positioning
+
+### 5.4 New Agent Scope Notes
+
+#### Executive (TBD name)
+
+**Role:** Product direction and tradeoff decisions. The agent that challenges scope, picks between competing options, and ensures the team builds the _right_ thing — not just the _next_ thing.
+
+**Reference:** [wiki page](docs/wiki/ruth.md)
+
+**Domain:**
+
+- Scope challenges (expansion/hold/reduction modes — §6.8 pattern 5)
+- Build-vs-defer-vs-kill decisions on features and capabilities
+- Cross-agent coordination (arbitrates when Ictinus and Jess disagree on scope)
+- Product taste and user empathy — “is this the 10-star version?”
+- Tradeoff documentation — records WHY decisions were made, not just WHAT
+
+**Class: Both** — needs technical depth to assess feasibility and editorial awareness to assess positioning. The only agent that spans both mixins by design.
+
+**Relationship to other agents:**
+
+- Complements **Ictinus** (who identifies _what’s possible_) by deciding _what to pursue_
+- Complements **Jess** (who sequences _how to deliver_) by deciding _whether to deliver_
+- Maps directly to the Plan-CEO pattern from §6.8 — scope mode selection, nuclear scope challenge, mandatory NOT-in-scope list
+
+#### Researcher (TBD name)
+
+**Role:** Algorithmic rigour and mathematical methodology. The agent that validates statistical methods, reviews algorithm implementations, and ensures the maths is sound.
+
+**Reference:** [wiki page](/docs/wiki/researcher.md) (to be created)
+
+**Domain:**
+
+- Kalman filtering and state estimation (L5 tracking layer)
+- Clustering algorithms — DBSCAN, HDBSCAN, spatial segmentation (L4 perception)
+- Background grid settling — EMA/EWA, Welford variance, convergence analysis (L3)
+- Traffic engineering statistics — p50, p85, p98 percentiles, confidence intervals
+- PCA, OBB computation, coordinate transforms
+- Academic methodology — references (`docs/references.bib`), reproducibility, peer-review standards
+- Tuning parameter validation — convergence bounds, stability analysis (`config/README.maths.md`)
+- Future research proposals — IMM, geometry-coherent tracking, velocity-coherent foreground
+
+**Class: Technical** — deep algorithmic domain. Needs build/test knowledge to validate implementations.
+
+**Relationship to other agents:**
+
+- Absorbs the **Data Analyst** candidate from §5.2 — statistical analysis and metric validation are core Researcher responsibilities
+- Complements **Hadaly** (who implements algorithms) by validating the underlying maths
+- Complements **Ictinus** (who proposes new capabilities) by assessing mathematical feasibility
+- The “no black-box AI” tenet (Layer 0) is especially relevant — the Researcher ensures all algorithms are inspectable, tuneable, and explainable
 
 ---
 
@@ -448,6 +505,7 @@ The script:
    - `coding-standards.md` — British English, formatting, commit conventions
    - `hardware.md` — radar specs, LIDAR specs, serial/UDP interfaces
    - `security-surface.md` — attack surface map (from Malory, deduplicated)
+   - `security-checklist.md` — externalised review criteria with gate classification (§6.8 pattern 2/3)
 3. Create `.github/knowledge/role-technical.md` and `role-editorial.md` mixins
 4. Refactor `copilot-instructions.md` to reference Layer 0–2 instead of inlining
 
@@ -461,9 +519,14 @@ The script:
    - Remove all duplicated project facts
    - Add references to relevant Layer 1/2 modules
    - Keep only: persona, methodology, coordination notes, forbidden actions
+   - Incorporate adoptable patterns from §6.8:
+     - Ictinus: scope modes (expansion/hold/reduction), mandatory output artefacts
+     - Malory: checklist reference, gate classification, suppressions list, read-only-by-default discipline
+     - Hadaly: suppressions list for code review
+     - All agents: priority hierarchy under context pressure, directive voice
 6. Validate each agent still functions correctly in Copilot
 
-**Acceptance:** Total agent file lines drop from ~3,040 to ~1,200. Each agent file is <200 lines.
+**Acceptance:** Total agent file lines drop from ~3,040 to ~1,200. Each agent file is <200 lines. Agents with review responsibilities (Malory, Ictinus) reference externalised checklists rather than inlining criteria.
 
 ### Phase 3: Claude Code Entry Point + Native Agents `M`
 
@@ -541,7 +604,7 @@ scripts/
 | ------------------------------------------- | -------------- | ------------------------ | ------------------ |
 | Total lines (all agent/instruction files)   | 3,456          | ~2,000                   | -42%               |
 | _Project fact_ duplication instances        | ~45            | 0                        | -100%              |
-| _Persona_ duplication instances             | 0              | ~5–15 (bounded)          | +N (drift-checked) |
+| _Persona_ duplication instances             | 0              | ~7–15 (bounded)          | +N (drift-checked) |
 | Files to update when build changes          | 5              | 1                        | -80%               |
 | Files to update when privacy policy changes | 6              | 1                        | -83%               |
 | Cost to add a new agent                     | ~200–800 lines | ~100–160 lines (2 files) | -75%               |
@@ -557,6 +620,6 @@ scripts/
 - [x] ~~Should Claude Code agent personas be sections in `CLAUDE.md` or separate files in `.claude/`?~~ — Resolved: separate files in `.claude/agents/`. Platform-native definitions maximise feature coverage.
 - [x] ~~Single source vs dual agent definitions?~~ — Resolved: **Option B (dual native) with drift detection.** Feature matrix (§6.5) showed Option A sacrifices 6 real UX features for Claude users. Persona duplication is bounded (~40–80 lines/agent) and drift-checked weekly. See §6.6.
 - [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis. This ruled out Option C and informed the decision to keep persona content directly in agent files rather than factoring it into shared includes.
-- [ ] Which 5–10 new agents to prioritise? (Deferred to future planning cycle with Jess)
+- [x] ~~Which new agents to prioritise?~~ — Partially resolved: Executive and Researcher added to core roster (§5.1). Remaining candidates in §5.2 deferred to future cycle.
 - [ ] Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?
 - [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `jess-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
