@@ -136,10 +136,13 @@ func NewTrackClassifierWithMinObservations(minObservations int) *TrackClassifier
 	if minObservations <= 0 {
 		minObservations = 1
 	}
-	return &TrackClassifier{
+	classifier := &TrackClassifier{
 		ModelVersion:    "rule-based-v1.2",
 		MinObservations: minObservations,
 	}
+	diagf("Track classifier created: model=%s min_observations=%d",
+		classifier.ModelVersion, classifier.MinObservations)
+	return classifier
 }
 
 // Classify determines the object class for a tracked object.
@@ -158,68 +161,58 @@ func (tc *TrackClassifier) ClassifyFeatures(features ClassificationFeatures) Cla
 		Model:    tc.ModelVersion,
 		Features: features,
 	}
+	finish := func(class ObjectClass, confidence float32) ClassificationResult {
+		result.Class = class
+		result.Confidence = confidence
+		tracef("Classification result: class=%s confidence=%.2f observations=%d avg_speed=%.2f length=%.2f width=%.2f height=%.2f",
+			result.Class, result.Confidence, features.ObservationCount, features.AvgSpeed,
+			features.AvgLength, features.AvgWidth, features.AvgHeight)
+		return result
+	}
 
 	// Not enough observations for reliable classification
 	if features.ObservationCount < tc.MinObservations {
-		result.Class = ClassDynamic
-		result.Confidence = LowConfidence * 0.5 // Very low confidence
-		return result
+		return finish(ClassDynamic, LowConfidence*0.5) // Very low confidence
 	}
 
 	// Classification rules (priority order)
 	// 1. Check for bird (small, low-speed)
 	if tc.isBird(features) {
-		result.Class = ClassBird
-		result.Confidence = tc.birdConfidence(features)
-		return result
+		return finish(ClassBird, tc.birdConfidence(features))
 	}
 
 	// 2. Check for bus (very large vehicle)
 	if tc.isBus(features) {
-		result.Class = ClassBus
-		result.Confidence = tc.busConfidence(features)
-		return result
+		return finish(ClassBus, tc.busConfidence(features))
 	}
 
 	// 3. Check for truck (medium-large vehicle, between car and bus)
 	if tc.isTruck(features) {
-		result.Class = ClassTruck
-		result.Confidence = tc.truckConfidence(features)
-		return result
+		return finish(ClassTruck, tc.truckConfidence(features))
 	}
 
 	// 4. Check for car (medium vehicle — not bus/truck-sized)
 	if tc.isVehicle(features) {
-		result.Class = ClassCar
-		result.Confidence = tc.vehicleConfidence(features)
-		return result
+		return finish(ClassCar, tc.vehicleConfidence(features))
 	}
 
 	// 5. Check for motorcyclist (fast, narrow, elongated)
 	if tc.isMotorcyclist(features) {
-		result.Class = ClassMotorcyclist
-		result.Confidence = tc.motorcyclistConfidence(features)
-		return result
+		return finish(ClassMotorcyclist, tc.motorcyclistConfidence(features))
 	}
 
 	// 6. Check for cyclist (moderate speed, narrow profile)
 	if tc.isCyclist(features) {
-		result.Class = ClassCyclist
-		result.Confidence = tc.cyclistConfidence(features)
-		return result
+		return finish(ClassCyclist, tc.cyclistConfidence(features))
 	}
 
 	// 7. Check for pedestrian (human-sized, slow)
 	if tc.isPedestrian(features) {
-		result.Class = ClassPedestrian
-		result.Confidence = tc.pedestrianConfidence(features)
-		return result
+		return finish(ClassPedestrian, tc.pedestrianConfidence(features))
 	}
 
 	// 8. Default to dynamic
-	result.Class = ClassDynamic
-	result.Confidence = LowConfidence
-	return result
+	return finish(ClassDynamic, LowConfidence)
 }
 
 // extractFeatures extracts classification features from a track.
@@ -495,10 +488,15 @@ func (tc *TrackClassifier) pedestrianConfidence(f ClassificationFeatures) float3
 // ClassifyAndUpdate classifies a track and updates its classification fields.
 // This should be called periodically or when track state changes.
 func (tc *TrackClassifier) ClassifyAndUpdate(track *TrackedObject) {
+	prevClass := track.ObjectClass
 	result := tc.Classify(track)
 	track.ObjectClass = string(result.Class)
 	track.ObjectConfidence = result.Confidence
 	track.ClassificationModel = result.Model
+	if prevClass != track.ObjectClass {
+		diagf("Track classification updated: track_id=%s class=%s->%s confidence=%.2f observations=%d",
+			track.TrackID, prevClass, track.ObjectClass, result.Confidence, track.ObservationCount)
+	}
 }
 
 // ComputeSpeedPercentiles computes speed percentiles from a track's speed history.

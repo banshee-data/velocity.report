@@ -256,12 +256,19 @@ func DefaultDBSCANParams() DBSCANParams {
 // the cap (default behaviour for backward compatibility).
 func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 	if len(points) == 0 {
+		tracef("DBSCAN skipped: points=0")
 		return nil
 	}
+
+	inputPoints := len(points)
+	tracef("DBSCAN start: points=%d eps=%.3f min_pts=%d max_input_points=%d",
+		inputPoints, params.Eps, params.MinPts, params.MaxInputPoints)
 
 	// Safety cap: subsample when point count exceeds the threshold to
 	// prevent O(n²) worst-case DBSCAN on unexpectedly dense frames.
 	if params.MaxInputPoints > 0 && len(points) > params.MaxInputPoints {
+		diagf("DBSCAN subsampling: input_points=%d capped_points=%d",
+			len(points), params.MaxInputPoints)
 		points = uniformSubsample(points, params.MaxInputPoints)
 	}
 
@@ -289,7 +296,17 @@ func DBSCAN(points []WorldPoint, params DBSCANParams) []WorldCluster {
 		expandCluster(points, spatialIndex, labels, i, neighbors, clusterID, params.Eps, params.MinPts)
 	}
 
-	return buildClusters(points, labels, clusterID, params)
+	noisePoints := 0
+	for _, label := range labels {
+		if label == -1 {
+			noisePoints++
+		}
+	}
+
+	clusters := buildClusters(points, labels, clusterID, params)
+	tracef("DBSCAN complete: input_points=%d processed_points=%d raw_clusters=%d accepted_clusters=%d noise_points=%d",
+		inputPoints, len(points), clusterID, len(clusters), noisePoints)
+	return clusters
 }
 
 // uniformSubsample returns a random subset of n points from the input
