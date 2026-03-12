@@ -152,6 +152,7 @@ Both tools read from the same files. Copilot discovers them via the `.agent.md` 
 2. **Agent files reference, never restate.** Use `See [build-and-test.md](.github/knowledge/build-and-test.md) for make targets and venv setup.`
 3. **Tenets are inherited, never copied.** Every agent gets Layer 0 automatically through the tool entry point. Agent files must not restate privacy/ethics principles.
 4. **Role mixins are opt-in by class.** Technical agents reference `role-technical.md`. Editorial agents reference `role-editorial.md`. Cross-functional agents reference both.
+5. **Persona content is the one exception.** Agent methodology, coordination rules, and forbidden actions are duplicated across Copilot and Claude definitions to maximise each platform's native features. This bounded duplication (~40–80 lines/agent) is drift-checked weekly by `scripts/check-agent-drift.sh`. This is annoying, if platform parity allowed us to we would remove this anti-pattern.
 
 ---
 
@@ -359,6 +360,79 @@ This reinforces **Option A** — keeping persona content directly in `.agent.md`
 
 **Revised Layer 1/2 strategy:** The knowledge modules in `.github/knowledge/` remain valuable for DRY authoring and human reference, but the tool entry points (`copilot-instructions.md` and `CLAUDE.md`) need to inline or summarise the most critical facts rather than just linking. This is a minor adjustment — the entry points become slightly larger (~150 lines instead of ~80) but still dramatically smaller than the current 417 + 3,040 lines.
 
+### 6.5 Full Platform Feature Matrix
+
+To make an informed architectural decision, we must enumerate _every_ feature each platform offers and assess how each option serves it. Features that only one platform supports represent native UX that can only be delivered via platform-specific definitions.
+
+| #   | Feature                         | Copilot                                      | Claude Code                                 | Option A (single source)                                 | Option B (dual native)                                     |
+| --- | ------------------------------- | -------------------------------------------- | ------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- |
+| 1   | **Agent picker UI**             | `.agent.md` auto-populates dropdown          | No equivalent                               | ✅ Copilot native                                        | ✅ Copilot native                                          |
+| 2   | **`@mention` invocation**       | `@Hadaly` in chat triggers agent             | No equivalent                               | ✅ Copilot native                                        | ✅ Copilot native                                          |
+| 3   | **Structured YAML metadata**    | `name`, `description`, `tools` parsed        | Ignored (harmless noise)                    | ✅ / ⚠️ Claude sees YAML as text                         | ✅ / ✅ Claude gets clean prompt                           |
+| 4   | **Per-agent tool restrictions** | `tools:` limits available MCP/built-in tools | No equivalent                               | ✅ / n/a                                                 | ✅ / n/a                                                   |
+| 5   | **Root instructions**           | `copilot-instructions.md`                    | `CLAUDE.md`                                 | ✅ / ✅ separate files                                   | ✅ / ✅ separate files                                     |
+| 6   | **Scoped instructions**         | `.instructions.md` + `applyTo` glob          | Subdirectory `CLAUDE.md` files              | ✅ / ✅ independent                                      | ✅ / ✅ independent                                        |
+| 7   | **Hierarchical scoping**        | Flat (global + per-agent)                    | Nested subdirectory `CLAUDE.md` inheritance | ⚠️ Claude can't use nesting if persona is in `.agent.md` | ✅ Claude-native nesting                                   |
+| 8   | **Knowledge-on-demand**         | `SKILL.md` progressive loading               | Agent reads files explicitly                | ✅ / ⚠️ Claude has no skill system                       | ✅ / ✅ each tool uses own mechanism                       |
+| 9   | **Persona prompt format**       | Markdown body after YAML frontmatter         | Free-form Markdown (no YAML)                | ✅ / ⚠️ Claude sees YAML preamble                        | ✅ / ✅ Claude gets optimised prompt                       |
+| 10  | **Slash commands**              | Custom slash commands in `.agent.md`         | `/` commands in `CLAUDE.md`                 | ✅ / ❌ Claude can't use Copilot slash commands          | ✅ / ✅ each defines its own                               |
+| 11  | **Context window budget**       | Each agent loads in its own context          | Single context — all personas compete       | ✅ / ⚠️ Claude loads one agent at a time via reference   | ✅ / ✅ Claude file is purpose-built for its context model |
+| 12  | **Agent-specific examples**     | Inline in `.agent.md` body                   | Inline in persona definition                | ✅ shared examples                                       | ✅ / ✅ examples tailored to each tool's capabilities      |
+| 13  | **DRY compliance**              | n/a                                          | n/a                                         | ✅ zero duplication                                      | ⚠️ persona duplication (mitigated by drift detection)      |
+| 14  | **New agent cost**              | n/a                                          | n/a                                         | 1 file                                                   | 2 files + sync                                             |
+
+**Key insight from the matrix:** Features 3, 7, 9, 10, 11, and 12 represent real UX gains that Option A sacrifices for Claude users. The YAML noise (features 3/9) is minor, but hierarchical scoping (7), slash commands (10), and context-optimised persona prompts (11/12) are meaningful capability gaps.
+
+### 6.6 Revised Recommendation: Option B with Drift Detection
+
+The original analysis correctly identified sync overhead as Option B's primary risk. But the feature matrix (§6.5) reveals that Option A also has real costs — Claude users get a degraded experience across 6 features. With 5–15 agents planned, the question is: **can we afford the sync overhead of Option B, and can we make it safe?**
+
+**Answer: yes — with automated drift detection.**
+
+#### Why Option B wins
+
+1. **Maximise feature coverage.** Each platform gets purpose-built agent definitions that exploit its native capabilities. Copilot agents use `tools:` restrictions and slash commands; Claude agents use clean prompts, hierarchical scoping, and context-optimised examples.
+2. **The duplication is bounded.** Only persona definitions (name, description, methodology, coordination rules) are duplicated. Shared project knowledge (Layers 0–2) remains single-source in `.github/knowledge/`. The duplicated content is ~30–80 lines per agent — the role-specific core, not the 200+ lines of project facts currently repeated.
+3. **Drift is detectable.** A script compares the semantic content of paired agent definitions weekly. Any drift is flagged in the planning review meeting. See §6.7.
+4. **The sync cost is front-loaded.** Creating the initial Claude definitions is a one-time effort. Ongoing sync only triggers when persona methodology changes — not when project facts change (those live in shared knowledge modules).
+5. **Option A's "harmless YAML" argument understates the cost.** Claude reading `tools: [run_in_terminal, grep_search]` doesn't break anything, but it wastes context tokens on instructions Claude can't act on. At scale (15 agents, each with 5–10 tool restrictions), this noise adds up.
+
+#### What gets duplicated (bounded)
+
+| Content                    | Duplicated?        | Location (Copilot)            | Location (Claude)                          |
+| -------------------------- | ------------------ | ----------------------------- | ------------------------------------------ |
+| Project tenets             | No                 | `.github/TENETS.md`           | `.github/TENETS.md` (same file)            |
+| Build/test knowledge       | No                 | `.github/knowledge/`          | `.github/knowledge/` (same files)          |
+| Role mixins                | No                 | `.github/knowledge/role-*.md` | `.github/knowledge/role-*.md` (same files) |
+| Persona name + description | Yes (~2 lines)     | YAML `name:`, `description:`  | Inline in `.claude/agents/*.md`            |
+| Persona methodology        | Yes (~30–60 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
+| Tool restrictions          | Copilot-only       | YAML `tools:` field           | n/a                                        |
+| Slash commands             | Platform-specific  | `.agent.md` body              | `.claude/agents/*.md`                      |
+| Coordination rules         | Yes (~10–20 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
+
+**Total duplication per agent:** ~40–80 lines of role-specific content. At 15 agents, ~600–1,200 lines duplicated — but drift-checked weekly and bounded to persona content only.
+
+### 6.7 Drift Detection
+
+Uncontrolled drift between Copilot and Claude agent definitions is the primary risk of Option B. The mitigation is a script that compares paired definitions and surfaces differences for human review.
+
+**Script:** `scripts/check-agent-drift.sh`
+
+The script:
+
+1. Enumerates all `.github/agents/*.agent.md` files
+2. Looks for a corresponding `.claude/agents/*.md` file
+3. Extracts the persona-relevant sections (stripping YAML frontmatter and platform-specific directives)
+4. Compares the normalised content and reports:
+   - **Missing pairs** — agent exists in one platform but not the other
+   - **Content drift** — persona methodology, coordination rules, or forbidden actions differ
+   - **Acceptable divergence** — platform-specific features (tool restrictions, slash commands) are excluded from comparison
+5. Outputs a Markdown summary suitable for the weekly planning review
+
+**Integration:** Added to `scripts/jess-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
+
+**Make target:** `make check-agent-drift` runs the script standalone.
+
 ---
 
 ## 7. Implementation Plan
@@ -391,26 +465,34 @@ This reinforces **Option A** — keeping persona content directly in `.agent.md`
 
 **Acceptance:** Total agent file lines drop from ~3,040 to ~1,200. Each agent file is <200 lines.
 
-### Phase 3: Claude Code Entry Point `S`
+### Phase 3: Claude Code Entry Point + Native Agents `M`
 
-**Goal:** Enable Claude Code with zero knowledge duplication.
+**Goal:** Enable Claude Code with full native UX. Create platform-optimised agent definitions.
 
 7. Create `CLAUDE.md` at repo root referencing `TENETS.md` + `knowledge/` modules
-8. Reference existing `.github/agents/*.agent.md` files from `CLAUDE.md` as available personas — do NOT create parallel agent definitions
-9. Test Claude Code reads the knowledge modules and agent files correctly
+8. Create `.claude/agents/` directory with Claude-native persona definitions for each agent:
+   - No YAML frontmatter — clean Markdown prompts
+   - Reference shared knowledge modules (same `.github/knowledge/` files)
+   - Include Claude-specific slash commands and context-optimised examples
+   - Persona methodology and coordination rules mirrored from `.agent.md` (drift-checked)
+9. Create `scripts/check-agent-drift.sh` — drift detection between paired agent definitions
+10. Add `make check-agent-drift` target
+11. Integrate drift check into `scripts/jess-planning-review.sh` for weekly review
+12. Test Claude Code reads the knowledge modules and agent files correctly
 
-**Acceptance:** Claude Code session has access to equivalent project knowledge as Copilot. No facts duplicated between `CLAUDE.md` and `copilot-instructions.md`. No `.claude/agents/` directory exists — `CLAUDE.md` points to `.github/agents/`.
+**Acceptance:** Claude Code session has access to equivalent project knowledge as Copilot. Shared knowledge (Layers 0–2) is single-source. Persona definitions are platform-native in both tools. `make check-agent-drift` reports zero unreviewed drift.
 
 ### Phase 4: Agent Team Expansion (future cycle) `L`
 
 **Goal:** Expand from 5 to 10–15 agents using the DRY architecture.
 
-10. Scope and prioritise new agent candidates from §5.2
-11. Create new agent files (~50–100 lines each, referencing existing knowledge modules)
-12. Validate new agents work in both Copilot and Claude Code
-13. Add any new knowledge modules if new agents surface previously undocumented domain knowledge
+13. Scope and prioritise new agent candidates from §5.2
+14. Create new agent files in both platforms (~50–100 lines each, referencing existing knowledge modules)
+15. Validate new agents work in both Copilot and Claude Code
+16. Run `make check-agent-drift` to confirm paired definitions are aligned
+17. Add any new knowledge modules if new agents surface previously undocumented domain knowledge
 
-**Acceptance:** Adding a new agent requires only one new file + zero changes to shared knowledge (unless the project itself changed).
+**Acceptance:** Adding a new agent requires two new files (one per platform) + zero changes to shared knowledge (unless the project itself changed). Drift check passes.
 
 ---
 
@@ -428,39 +510,53 @@ This reinforces **Option A** — keeping persona content directly in `.agent.md`
 │   ├── security-surface.md             #   attack surface map
 │   ├── role-technical.md               #   mixin for technical agents
 │   └── role-editorial.md              #   mixin for editorial agents
-├── agents/                             # Layer 3: single source for ALL agents
+├── agents/                             # Layer 3: Copilot agent definitions
 │   ├── hadaly.agent.md                 #   Dev (technical)
 │   ├── ictinus.agent.md                #   Architect (technical)
 │   ├── jess.agent.md                   #   PM (editorial)
 │   ├── malory.agent.md                 #   Pen Test (technical)
 │   ├── thompson.agent.md              #   Writer (editorial)
 │   └── [future-agents].agent.md       #   5–10 more planned
-CLAUDE.md                               # Layer 4: Claude entry point → refs .github/
+.claude/
+├── agents/                             # Layer 3: Claude agent definitions
+│   ├── hadaly.md                       #   Dev (technical) — Claude-native
+│   ├── ictinus.md                      #   Architect (technical)
+│   ├── jess.md                         #   PM (editorial)
+│   ├── malory.md                       #   Pen Test (technical)
+│   ├── thompson.md                     #   Writer (editorial)
+│   └── [future-agents].md             #   5–10 more planned
+CLAUDE.md                               # Layer 4: Claude entry point → refs .github/ + .claude/
+scripts/
+└── check-agent-drift.sh                # Drift detection between paired definitions
 ```
 
-**No `.claude/` directory.** `CLAUDE.md` references `.github/agents/` and `.github/knowledge/` directly.
+**Shared knowledge:** `.github/TENETS.md` and `.github/knowledge/` are the single source of truth for project facts — referenced by both Copilot and Claude agent definitions.
+**Persona duplication:** Agent methodology, coordination rules, and forbidden actions are duplicated across `.github/agents/` and `.claude/agents/`. Drift is detected weekly by `scripts/check-agent-drift.sh`.
 
 ---
 
 ## 9. Estimated Impact
 
-| Metric                                      | Current        | Target               | Change |
-| ------------------------------------------- | -------------- | -------------------- | ------ |
-| Total lines (6 files)                       | 3,456          | ~1,600               | -54%   |
-| Duplication instances                       | ~45            | 0                    | -100%  |
-| Files to update when build changes          | 5              | 1                    | -80%   |
-| Files to update when privacy policy changes | 6              | 1                    | -83%   |
-| Cost to add a new agent                     | ~200–800 lines | ~50–100 lines        | -75%   |
-| Tools supported                             | 1 (Copilot)    | 2 (Copilot + Claude) | +100%  |
+| Metric                                      | Current        | Target                   | Change             |
+| ------------------------------------------- | -------------- | ------------------------ | ------------------ |
+| Total lines (all agent/instruction files)   | 3,456          | ~2,000                   | -42%               |
+| _Project fact_ duplication instances        | ~45            | 0                        | -100%              |
+| _Persona_ duplication instances             | 0              | ~5–15 (bounded)          | +N (drift-checked) |
+| Files to update when build changes          | 5              | 1                        | -80%               |
+| Files to update when privacy policy changes | 6              | 1                        | -83%               |
+| Cost to add a new agent                     | ~200–800 lines | ~100–160 lines (2 files) | -75%               |
+| Tools supported                             | 1 (Copilot)    | 2 (Copilot + Claude)     | +100%              |
+| Platform features used                      | ~60%           | ~95%                     | +58%               |
+| Drift detection                             | None           | Weekly automated         | ∞                  |
 
 ---
 
 ## 10. Open Questions
 
 - [ ] Does `.github/knowledge/` directory convention work with Copilot's file discovery, or do agents need explicit `#file` references?
-- [x] ~~Should Claude Code agent personas be sections in `CLAUDE.md` or separate files in `.claude/`?~~ — Resolved: neither. `CLAUDE.md` references the existing `.github/agents/*.agent.md` files directly. No duplication.
-- [x] ~~Single source vs dual agent definitions?~~ — Resolved: Option A (single source in `.github/agents/`). See §6.2 tradeoff analysis. Claude's lack of agent picker is a UI convenience gap, not a knowledge gap. Sync overhead of dual definitions grows linearly with agent count and is the exact class of problem this architecture prevents.
-- [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis.
+- [x] ~~Should Claude Code agent personas be sections in `CLAUDE.md` or separate files in `.claude/`?~~ — Resolved: separate files in `.claude/agents/`. Platform-native definitions maximise feature coverage.
+- [x] ~~Single source vs dual agent definitions?~~ — Resolved: **Option B (dual native) with drift detection.** Feature matrix (§6.5) showed Option A sacrifices 6 real UX features for Claude users. Persona duplication is bounded (~40–80 lines/agent) and drift-checked weekly. See §6.6.
+- [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis. This ruled out Option C and informed the decision to keep persona content directly in agent files rather than factoring it into shared includes.
 - [ ] Which 5–10 new agents to prioritise? (Deferred to future planning cycle with Jess)
 - [ ] Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?
-- [ ] Review cadence — quarterly staleness check for knowledge modules?
+- [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `jess-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
