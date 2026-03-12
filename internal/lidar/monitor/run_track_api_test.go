@@ -322,6 +322,9 @@ func TestListRuns(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected label_rollup object, got %T", firstRun["label_rollup"])
 	}
+	if firstRun["scene_name"] != "data" {
+		t.Errorf("expected scene_name data, got %v", firstRun["scene_name"])
+	}
 	if int(rollup["total"].(float64)) != 3 {
 		t.Errorf("expected label_rollup total 3, got %v", rollup["total"])
 	}

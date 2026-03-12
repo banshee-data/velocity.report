@@ -389,14 +389,9 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 	}
 
 	store := sqlite.NewAnalysisRunStore(ws.db.DB)
-	total, labelled, byClass, err := store.GetLabelingProgress(runID)
+	total, labelled, byClass, labelRollup, err := store.GetLabelingProgressWithRollup(runID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get labelling progress: %v", err))
-		return
-	}
-	labelRollup, err := store.GetRunLabelRollup(runID)
-	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get label rollup: %v", err))
 		return
 	}
 
