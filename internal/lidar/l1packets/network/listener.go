@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -130,10 +129,10 @@ func (l *UDPListener) Start(ctx context.Context) error {
 
 	// Set receive buffer size
 	if err := conn.SetReadBuffer(l.rcvBuf); err != nil {
-		log.Printf("Warning: Failed to set UDP receive buffer size to %d: %v", l.rcvBuf, err)
+		opsf("Warning: Failed to set UDP receive buffer size to %d: %v", l.rcvBuf, err)
 	}
 
-	log.Printf("UDP listener started on %s with receive buffer %d bytes", l.address, l.rcvBuf)
+	diagf("UDP listener started on %s with receive buffer %d bytes", l.address, l.rcvBuf)
 
 	// Start forwarder if configured
 	if l.forwarder != nil {
@@ -150,13 +149,13 @@ func (l *UDPListener) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Print("UDP listener stopping due to context cancellation")
+			diagf("UDP listener stopping due to context cancellation")
 			return ctx.Err()
 		default:
 			// Set read deadline to allow checking context cancellation
 			if err := conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
 				if !deadlineErrLogged {
-					log.Printf("failed to set read deadline: %v", err)
+					opsf("failed to set read deadline: %v", err)
 					deadlineErrLogged = true
 				}
 				// Continue anyway - this is non-fatal
@@ -174,14 +173,14 @@ func (l *UDPListener) Start(ctx context.Context) error {
 					}
 					return nil
 				}
-				log.Printf("UDP read error: %v", err)
+				opsf("UDP read error: %v", err)
 				continue
 			}
 
 			// Handle the received packet
 			packet := buffer[:n]
 			if err := l.handlePacket(packet); err != nil {
-				log.Printf("Error handling packet from %v: %v", addr, err)
+				opsf("Error handling packet from %v: %v", addr, err)
 			}
 		}
 	}
@@ -225,7 +224,7 @@ func (l *UDPListener) handlePacket(packet []byte) error {
 	if l.parser != nil && !l.disableParsing {
 		points, err := l.parser.ParsePacket(packet)
 		if err != nil {
-			log.Printf("Pandar40P parsing failed: %v", err)
+			opsf("Pandar40P parsing failed: %v", err)
 			return nil // Don't fail on parse errors, just continue
 		}
 

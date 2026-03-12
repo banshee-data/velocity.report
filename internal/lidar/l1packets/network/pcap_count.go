@@ -5,7 +5,6 @@ package network
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
@@ -47,6 +46,6 @@ func CountPCAPPackets(pcapFile string, udpPort int) (PCAPCountResult, error) {
 		result.Count++
 	}
 
-	log.Printf("PCAP packet count: %d packets matching filter '%s' in %s", result.Count, filterStr, pcapFile)
+	diagf("PCAP packet count: %d packets matching filter '%s' in %s", result.Count, filterStr, pcapFile)
 	return result, nil
 }

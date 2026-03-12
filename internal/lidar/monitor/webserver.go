@@ -491,15 +491,15 @@ func (ws *WebServer) Start(ctx context.Context) error {
 
 	// Start server in a goroutine so it doesn't block
 	go func() {
-		log.Printf("Starting HTTP server on %s", ws.address)
+		diagf("Starting HTTP server on %s", ws.address)
 		if err := ws.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("failed to start server: %v", err)
+			opsFatalf("failed to start server: %v", err)
 		}
 	}()
 
 	// Wait for context cancellation to shut down server
 	<-ctx.Done()
-	log.Println("shutting down HTTP server...")
+	diagf("shutting down HTTP server...")
 
 	ws.dataSourceMu.Lock()
 	if ws.udpListener != nil {
@@ -526,14 +526,14 @@ func (ws *WebServer) Start(ctx context.Context) error {
 	defer cancel()
 
 	if err := ws.server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("HTTP server shutdown error: %v", err)
+		opsf("HTTP server shutdown error: %v", err)
 		// Force close the server if graceful shutdown fails
 		if err := ws.server.Close(); err != nil {
-			log.Printf("HTTP server force close error: %v", err)
+			opsf("HTTP server force close error: %v", err)
 		}
 	}
 
-	log.Printf("HTTP server routine stopped")
+	diagf("HTTP server routine stopped")
 	return nil
 }
 
@@ -573,7 +573,7 @@ func featureGate(envVar string, next http.HandlerFunc) http.HandlerFunc {
 func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
 	assetsFS, err := fs.Sub(EchartsAssets, "assets")
 	if err != nil {
-		log.Printf("failed to prepare echarts assets: %v", err)
+		opsf("failed to prepare echarts assets: %v", err)
 		assetsFS = nil
 	}
 
@@ -821,7 +821,7 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			enc := json.NewEncoder(w)
 			enc.SetIndent("", "  ")
 			if err := enc.Encode(resp); err != nil {
-				log.Printf("failed to encode response: %v", err)
+				opsf("failed to encode response: %v", err)
 			}
 			return
 		}
@@ -1082,11 +1082,11 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 		// Read back current params for confirmation
 		cur := bm.GetParams()
 		// Emit an info log so operators can see applied changes in the app logs
-		log.Printf("[Monitor] Applied background params for sensor=%s: noise_relative=%.6f, enable_diagnostics=%v", sensorID, cur.NoiseRelativeFraction, bm.EnableDiagnostics)
+		diagf("[Monitor] Applied background params for sensor=%s: noise_relative=%.6f, enable_diagnostics=%v", sensorID, cur.NoiseRelativeFraction, bm.EnableDiagnostics)
 
 		// Log D: API call timing for params with all active settings
 		timestamp := time.Now().UnixNano()
-		log.Printf("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v warmup_ns=%d warmup_frames=%d post_settle_alpha=%.4f fg_min_pts=%d fg_eps=%.3f fg_max_pts=%d timestamp=%d",
+		tracef("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v warmup_ns=%d warmup_frames=%d post_settle_alpha=%.4f fg_min_pts=%d fg_eps=%.3f fg_max_pts=%d timestamp=%d",
 			sensorID, cur.NoiseRelativeFraction, cur.ClosenessSensitivityMultiplier,
 			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, cur.WarmupDurationNanos, cur.WarmupMinFrames, cur.PostSettleUpdateFraction, cur.ForegroundMinClusterPoints, cur.ForegroundDBSCANEps, cur.ForegroundMaxInputPoints, timestamp)
 
@@ -1276,7 +1276,7 @@ func (ws *WebServer) handleGridReset(w http.ResponseWriter, r *http.Request) {
 	afterNanos := time.Now().UnixNano()
 	elapsedMs := float64(afterNanos-beforeNanos) / 1e6
 
-	log.Printf("[API:grid_reset] sensor=%s reset_duration_ms=%.3f timestamp=%d",
+	diagf("[API:grid_reset] sensor=%s reset_duration_ms=%.3f timestamp=%d",
 		sensorID, elapsedMs, afterNanos)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1627,7 +1627,7 @@ func (ws *WebServer) handleLidarPersist(w http.ResponseWriter, r *http.Request) 
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "sensor_id": sensorID})
-		log.Printf("Successfully persisted snapshot for sensor '%s'", sensorID)
+		diagf("Successfully persisted snapshot for sensor '%s'", sensorID)
 		return
 	}
 

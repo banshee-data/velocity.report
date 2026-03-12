@@ -110,7 +110,7 @@ func (ws *WebServer) StartPCAPForSweep(pcapFile string, analysisMode bool, speed
 		if ws.currentSource == DataSourcePCAP || ws.currentSource == DataSourcePCAPAnalysis {
 			ws.dataSourceMu.Unlock()
 			if retry == 0 {
-				log.Printf("PCAP replay in progress, waiting...")
+				diagf("PCAP replay in progress, waiting...")
 			}
 			time.Sleep(5 * time.Second)
 			continue
@@ -273,7 +273,7 @@ func (ws *WebServer) startLiveListenerLocked() error {
 		default:
 			// Parent already timed out or succeeded; log if there was a runtime error
 			if err != nil && !errors.Is(err, context.Canceled) {
-				log.Printf("Lidar UDP listener error: %v", err)
+				opsf("Lidar UDP listener error: %v", err)
 			}
 		}
 	}(ws.udpListener, listenerCtx, done, startupErr)
@@ -404,10 +404,10 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		outputDir := MakePlotOutputDir(ws.plotsBaseDir, resolvedPath)
 		ws.gridPlotter = NewGridPlotter(ws.sensorID, debugRingMin, debugRingMax, float64(debugAzMin), float64(debugAzMax))
 		if err := ws.gridPlotter.Start(outputDir); err != nil {
-			log.Printf("Warning: Failed to start grid plotter: %v", err)
+			opsf("Warning: Failed to start grid plotter: %v", err)
 			ws.gridPlotter = nil
 		} else {
-			log.Printf("Grid plotter enabled, output: %s", outputDir)
+			diagf("Grid plotter enabled, output: %s", outputDir)
 		}
 	}
 
@@ -421,7 +421,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}) {
 		defer close(finished)
 		defer cancel()
-		log.Printf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, speedMode, speedRatio)
+		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, speedMode, speedRatio)
 
 		// Check if we should start an analysis run (only in analysis mode)
 		ws.pcapMu.Lock()
@@ -448,7 +448,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			var startErr error
 			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
 			if startErr != nil {
-				log.Printf("Warning: Failed to start analysis run: %v", startErr)
+				opsf("Warning: Failed to start analysis run: %v", startErr)
 			} else if runID != "" {
 				// Store the run ID so the sweep runner can retrieve it
 				ws.pcapMu.Lock()
@@ -465,10 +465,10 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		// Configure parser to use LiDAR timestamps for PCAP replay
 		// This ensures that replayed data has original timestamps, not current system time
 		if p, ok := ws.parser.(interface{ SetTimestampMode(parse.TimestampMode) }); ok {
-			log.Printf("Switching parser to TimestampModeLiDAR for PCAP replay")
+			diagf("Switching parser to TimestampModeLiDAR for PCAP replay")
 			p.SetTimestampMode(parse.TimestampModeLiDAR)
 			defer func() {
-				log.Printf("Restoring parser to TimestampModeSystemTime after PCAP replay")
+				diagf("Restoring parser to TimestampModeSystemTime after PCAP replay")
 				p.SetTimestampMode(parse.TimestampModeSystemTime)
 			}()
 		}
@@ -482,19 +482,19 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		// so we need to restart it with the PCAP context to forward packets.
 		if ws.packetForwarder != nil {
 			ws.packetForwarder.Start(ctx)
-			log.Printf("PacketForwarder started for PCAP replay")
+			diagf("PacketForwarder started for PCAP replay")
 		}
 
 		// Pre-count packets for progress tracking and timeline display.
 		countResult, countErr := network.CountPCAPPackets(path, ws.udpPort)
 		if countErr != nil {
-			log.Printf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
+			opsf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
 		} else {
 			ws.pcapMu.Lock()
 			ws.pcapTotalPackets = countResult.Count
 			ws.pcapCurrentPacket = 0
 			ws.pcapMu.Unlock()
-			log.Printf("PCAP pre-count: %d packets", countResult.Count)
+			diagf("PCAP pre-count: %d packets", countResult.Count)
 			if ws.onPCAPTimestamps != nil {
 				ws.onPCAPTimestamps(countResult.FirstTimestampNs, countResult.LastTimestampNs)
 			}
@@ -553,7 +553,7 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			var fgForwarder *network.ForegroundForwarder
 			fgForwarder, err = network.NewForegroundForwarder("localhost", 2370, nil)
 			if err != nil {
-				log.Printf("Warning: Failed to create foreground forwarder: %v", err)
+				opsf("Warning: Failed to create foreground forwarder: %v", err)
 			} else {
 				fgForwarder.Start(ctx)
 				defer fgForwarder.Close()
@@ -572,9 +572,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				// Enable diagnostics only if enableDebug is true
 				if enableDebug {
 					bgManager.SetEnableDiagnostics(true)
-					log.Printf("PCAP replay: FG_DEBUG enabled for rings[%d-%d], azimuth[%.1f-%.1f]", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+					diagf("PCAP replay: FG_DEBUG enabled for rings[%d-%d], azimuth[%.1f-%.1f]", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
 				} else {
-					log.Printf("PCAP replay: debug range configured rings[%d-%d], azimuth[%.1f-%.1f] but FG_DEBUG is OFF", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+					diagf("PCAP replay: debug range configured rings[%d-%d], azimuth[%.1f-%.1f] but FG_DEBUG is OFF", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
 				}
 			}
 
@@ -610,26 +610,26 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		}
 
 		if err != nil && !errors.Is(err, context.Canceled) {
-			log.Printf("PCAP replay error: %v", err)
+			opsf("PCAP replay error: %v", err)
 			// Mark analysis run as failed if active
 			if runID != "" && ws.analysisRunManager != nil {
 				if failErr := ws.analysisRunManager.FailRun(err.Error()); failErr != nil {
-					log.Printf("Warning: Failed to mark analysis run as failed: %v", failErr)
+					opsf("Warning: Failed to mark analysis run as failed: %v", failErr)
 				}
 			}
 		} else {
-			log.Printf("PCAP replay completed: %s", path)
+			diagf("PCAP replay completed: %s", path)
 			// Log quality summary: cumulative dropped frame count for this sensor.
 			if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
 				dropped := fb.DroppedFrames()
 				if dropped > 0 {
-					log.Printf("[PCAP quality] %d frames dropped (callback queue full; cumulative across replays for this sensor)", dropped)
+					opsf("[PCAP quality] %d frames dropped (callback queue full; cumulative across replays for this sensor)", dropped)
 				}
 			}
 			// Complete analysis run if active
 			if runID != "" && ws.analysisRunManager != nil {
 				if completeErr := ws.analysisRunManager.CompleteRun(); completeErr != nil {
-					log.Printf("Warning: Failed to complete analysis run: %v", completeErr)
+					opsf("Warning: Failed to complete analysis run: %v", completeErr)
 				}
 			}
 		}
@@ -639,10 +639,10 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			if vrlogPath != "" && ws.db != nil {
 				store := sqlite.NewAnalysisRunStore(ws.db.DB)
 				if updateErr := store.UpdateRunVRLogPath(runID, vrlogPath); updateErr != nil {
-					log.Printf("Warning: Failed to update vrlog_path for run %s: %v", runID, updateErr)
+					opsf("Warning: Failed to update vrlog_path for run %s: %v", runID, updateErr)
 				}
 			} else if vrlogPath == "" {
-				log.Printf("Warning: VRLOG recording did not produce a path for run %s", runID)
+				opsf("Warning: VRLOG recording did not produce a path for run %s", runID)
 			}
 		}
 
@@ -651,9 +651,9 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			ws.gridPlotter.Stop()
 			plotCount, plotErr := ws.gridPlotter.GeneratePlots()
 			if plotErr != nil {
-				log.Printf("Warning: Failed to generate plots: %v", plotErr)
+				opsf("Warning: Failed to generate plots: %v", plotErr)
 			} else if plotCount > 0 {
-				log.Printf("Generated %d ring plots in %s", plotCount, ws.gridPlotter.GetOutputDir())
+				diagf("Generated %d ring plots in %s", plotCount, ws.gridPlotter.GetOutputDir())
 			}
 		}
 
@@ -675,18 +675,18 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 			if analysisMode {
 				// Analysis mode: keep grid intact, switch to analysis state
 				ws.currentSource = DataSourcePCAPAnalysis
-				log.Printf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
+				diagf("[DataSource] PCAP analysis complete for sensor=%s, grid preserved for inspection", ws.sensorID)
 			} else {
 				// Normal mode: reset all state and return to live
 				if err := ws.resetAllState(); err != nil {
-					log.Printf("Failed to reset state after PCAP: %v", err)
+					opsf("Failed to reset state after PCAP: %v", err)
 				}
 				if err := ws.startLiveListenerLocked(); err != nil {
-					log.Printf("Failed to restart live listener after PCAP: %v", err)
+					opsf("Failed to restart live listener after PCAP: %v", err)
 				} else {
 					ws.currentSource = DataSourceLive
 					ws.currentPCAPFile = ""
-					log.Printf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
+					diagf("[DataSource] auto-switched to Live after PCAP for sensor=%s", ws.sensorID)
 
 					// Notify visualiser gRPC server that replay has ended
 					if ws.onPCAPStopped != nil {

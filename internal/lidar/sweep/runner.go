@@ -183,14 +183,14 @@ type Runner struct {
 	cancel    context.CancelFunc
 	persister SweepPersister
 	sweepID   string // current sweep's unique ID
-	logger    *log.Logger
+	logger    printfLogger
 }
 
 // NewRunner creates a new sweep runner with the given backend.
 func NewRunner(backend SweepBackend) *Runner {
 	return &Runner{
 		backend: backend,
-		logger:  log.Default(),
+		logger:  opsPrintfLogger{},
 		state:   SweepState{Status: SweepStatusIdle},
 	}
 }
@@ -198,6 +198,10 @@ func NewRunner(backend SweepBackend) *Runner {
 // SetLogger sets the logger for the Runner. Use log.New(io.Discard, "", 0)
 // in tests to suppress expected error-path log output.
 func (r *Runner) SetLogger(l *log.Logger) {
+	if l == nil {
+		r.logger = opsPrintfLogger{}
+		return
+	}
 	r.logger = l
 }
 

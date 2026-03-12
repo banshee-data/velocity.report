@@ -152,7 +152,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
 				err := g.RegionMgr.IdentifyRegions(g, 50) // max 50 regions
 				if err != nil {
-					log.Printf("[BackgroundManager] Failed to identify regions: %v", err)
+					opsf("[BackgroundManager] Failed to identify regions: %v", err)
 				}
 				// Persist regions immediately so future runs can skip settling
 				bm.persistRegionsOnSettleLocked()

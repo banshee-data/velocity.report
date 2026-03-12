@@ -5,7 +5,6 @@ package visualiser
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -200,8 +199,8 @@ func (s *Server) SyntheticGenerator() *SyntheticGenerator {
 
 // StreamFrames implements the streaming RPC for frame data.
 func (s *Server) StreamFrames(req *pb.StreamRequest, stream pb.VisualiserService_StreamFramesServer) error {
-	log.Printf("[gRPC] *** NEW CLIENT CONNECTED ***")
-	log.Printf("[gRPC] StreamFrames started: sensor=%s points=%v clusters=%v tracks=%v",
+	diagf("[gRPC] *** NEW CLIENT CONNECTED ***")
+	diagf("[gRPC] StreamFrames started: sensor=%s points=%v clusters=%v tracks=%v",
 		req.SensorId, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)
 
 	ctx := stream.Context()
@@ -224,7 +223,7 @@ func (s *Server) streamSynthetic(ctx context.Context, req *pb.StreamRequest, str
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("[gRPC] StreamFrames cancelled")
+			diagf("[gRPC] StreamFrames cancelled")
 			return ctx.Err()
 		case <-ticker.C:
 			s.playbackMu.RLock()
@@ -238,7 +237,7 @@ func (s *Server) streamSynthetic(ctx context.Context, req *pb.StreamRequest, str
 			pbFrame := frameBundleToProto(frame, req)
 
 			if err := stream.Send(pbFrame); err != nil {
-				log.Printf("[gRPC] Send error: %v", err)
+				opsf("[gRPC] Send error: %v", err)
 				return err
 			}
 		}
@@ -432,7 +431,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				if frame.PointCloud != nil {
 					frame.PointCloud.Release()
 				}
-				log.Printf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, err)
+				opsf("[gRPC] Send error for client %s after %d frames: %v", clientID, framesSent, err)
 				return err
 			}
 
@@ -461,7 +460,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 						clientID, slowSends, sendDuration, getPointCount(frame))
 				}
 				if sendDuration.Milliseconds() > sendTimeoutMs {
-					log.Printf("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f skip_mode=%v",
+					tracef("[gRPC] SLOW SEND: client=%s frame=%d duration=%v points=%d msg_size_kb=%.1f skip_mode=%v",
 						clientID, frame.FrameID, sendDuration, getPointCount(frame), float64(msgSize)/1024, cooldown.inSkipMode())
 				}
 			} else {
@@ -485,7 +484,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 
 				// Check for queue backup
 				if queueDepth > 5 {
-					log.Printf("[gRPC] WARNING: Client %s queue backing up: %d/10 frames buffered", clientID, queueDepth)
+					opsf("[gRPC] WARNING: Client %s queue backing up: %d/10 frames buffered", clientID, queueDepth)
 				}
 
 				// Reset counters for next interval
@@ -817,7 +816,7 @@ func (s *Server) SetOverlayModes(ctx context.Context, req *pb.OverlayModeRequest
 	s.clientPreferences["default"] = prefs
 	s.preferenceMu.Unlock()
 
-	log.Printf("[gRPC] Overlay modes updated: points=%v clusters=%v tracks=%v trails=%v velocity=%v gating=%v association=%v residuals=%v",
+	diagf("[gRPC] Overlay modes updated: points=%v clusters=%v tracks=%v trails=%v velocity=%v gating=%v association=%v residuals=%v",
 		prefs.showPoints, prefs.showClusters, prefs.showTracks, prefs.showTrails,
 		prefs.showVelocity, prefs.showGating, prefs.showAssociation, prefs.showResiduals)
 

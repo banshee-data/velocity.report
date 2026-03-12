@@ -6,7 +6,6 @@ package network
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
@@ -113,7 +112,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	if err := handle.SetBPFFilter(filterStr); err != nil {
 		return fmt.Errorf("failed to set BPF filter '%s': %w", filterStr, err)
 	}
-	log.Printf("PCAP real-time replay: BPF filter set: %s (speed: %.1fx)", filterStr, config.SpeedMultiplier)
+	diagf("PCAP real-time replay: BPF filter set: %s (speed: %.1fx)", filterStr, config.SpeedMultiplier)
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	pcapLog := lidar.SubLogger("pcap")
@@ -155,13 +154,13 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			if config.ForegroundForwarder != nil && len(foregroundBuffer) > 0 {
 				config.ForegroundForwarder.ForwardForeground(foregroundBuffer)
 			}
-			log.Printf("PCAP real-time replay stopping due to context cancellation (processed %d packets)", packetCount)
+			diagf("PCAP real-time replay stopping due to context cancellation (processed %d packets)", packetCount)
 			return ctx.Err()
 		case packet := <-packetSource.Packets():
 			if packet == nil {
 				// End of PCAP file
 				elapsed := time.Since(startTime)
-				log.Printf("PCAP real-time replay complete: %d packets processed in %v (speed: %.1fx)", packetCount, elapsed, config.SpeedMultiplier)
+				diagf("PCAP real-time replay complete: %d packets processed in %v (speed: %.1fx)", packetCount, elapsed, config.SpeedMultiplier)
 				if backoffCount > 0 {
 					backoffPct := float64(totalBackoffPackets) / float64(max(packetCount, 1)) * 100
 					pcapLog("Replay backoff summary: %d total backoffs, max_behind=%.3fs, backoff_packets=%d/%d (%.1f%%), cumulative_yield=%.3fs, time_breakdown: parse=%.3fs frame=%.3fs pacing=%.3fs",
@@ -184,7 +183,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			}
 			if skippingToOffset {
 				skippingToOffset = false
-				log.Printf("PCAP replay: seeked to packet offset %d", config.PacketOffset)
+				diagf("PCAP replay: seeked to packet offset %d", config.PacketOffset)
 				replayStartTime = time.Now()
 			}
 
@@ -211,7 +210,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 					// Duration is always relative to the effective start threshold
 					endThreshold = startThreshold.Add(time.Duration(config.DurationSeconds * float64(time.Second)))
 				}
-				log.Printf("PCAP start: first_packet=%v, start_threshold=%v, end_threshold=%v, skipping_to_start=%v",
+				tracef("PCAP start: first_packet=%v, start_threshold=%v, end_threshold=%v, skipping_to_start=%v",
 					firstPacketTime, startThreshold, endThreshold, skippingToStart)
 			}
 
@@ -221,13 +220,13 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			}
 			if skippingToStart {
 				skippingToStart = false
-				log.Printf("PCAP replay: started at %.2fs offset", config.StartSeconds)
+				diagf("PCAP replay: started at %.2fs offset", config.StartSeconds)
 				replayStartTime = time.Now() // Reset start time for accurate speed reporting
 			}
 
 			// Stop if we've reached the end threshold
 			if !endThreshold.IsZero() && captureTime.After(endThreshold) {
-				log.Printf("PCAP replay complete: reached duration limit of %.2fs (packet_ts=%v, end_threshold=%v, packets=%d, delta=%.3fs)",
+				diagf("PCAP replay complete: reached duration limit of %.2fs (packet_ts=%v, end_threshold=%v, packets=%d, delta=%.3fs)",
 					config.DurationSeconds, captureTime, endThreshold, packetCount,
 					captureTime.Sub(endThreshold).Seconds())
 				return nil
@@ -235,7 +234,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 
 			// Log first few packets for debugging timestamp issues
 			if packetCount <= 3 {
-				log.Printf("PCAP packet #%d: capture_time=%v, first_packet=%v, delta_from_first=%.3fs",
+				tracef("PCAP packet #%d: capture_time=%v, first_packet=%v, delta_from_first=%.3fs",
 					packetCount, captureTime, firstPacketTime, captureTime.Sub(firstPacketTime).Seconds())
 			}
 
@@ -374,7 +373,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				points, err := parser.ParsePacket(payload)
 				cumulativeParseTime += time.Since(parseStart)
 				if err != nil {
-					log.Printf("Error parsing PCAP packet %d: %v", packetCount, err)
+					opsf("Error parsing PCAP packet %d: %v", packetCount, err)
 					continue
 				}
 
@@ -417,7 +416,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 				if config.BackgroundManager != nil && frameBuilder == nil {
 					foregroundMask, err := config.BackgroundManager.ProcessFramePolarWithMask(points)
 					if err != nil {
-						log.Printf("Error extracting foreground points: %v", err)
+						opsf("Error extracting foreground points: %v", err)
 					} else if len(foregroundMask) > 0 {
 						foregroundPoints := l3grid.ExtractForegroundPoints(points, foregroundMask)
 

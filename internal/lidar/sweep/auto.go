@@ -130,14 +130,14 @@ type AutoTuner struct {
 	// Scene store for saving optimal params when ground truth mode completes
 	sceneStore SceneStoreSaver
 
-	logger *log.Logger
+	logger printfLogger
 }
 
 // NewAutoTuner creates a new AutoTuner wrapping the given Runner.
 func NewAutoTuner(runner *Runner) *AutoTuner {
 	return &AutoTuner{
 		runner: runner,
-		logger: log.Default(),
+		logger: opsPrintfLogger{},
 		state: AutoTuneState{
 			Status: SweepStatusIdle,
 			Mode:   "auto",
@@ -148,6 +148,10 @@ func NewAutoTuner(runner *Runner) *AutoTuner {
 // SetLogger sets the logger for the AutoTuner. Use log.New(io.Discard, "", 0)
 // in tests to suppress expected error-path log output.
 func (at *AutoTuner) SetLogger(l *log.Logger) {
+	if l == nil {
+		at.logger = opsPrintfLogger{}
+		return
+	}
 	at.logger = l
 }
 

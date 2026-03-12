@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 )
@@ -114,7 +113,7 @@ func (ps *PacketStats) LogStats(parsePackets bool) {
 			logMsg += fmt.Sprintf(", %d dropped on forward", dropped)
 		}
 
-		log.Print(logMsg)
+		diagf("%s", logMsg)
 	}
 }
 

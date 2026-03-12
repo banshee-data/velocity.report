@@ -166,7 +166,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	if err := ws.resetAllState(); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to reset background grid: %v", err))
 		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
-			log.Printf("Failed to restart live listener after reset error: %v", restartErr)
+			opsf("Failed to restart live listener after reset error: %v", restartErr)
 			return
 		}
 		return
@@ -193,7 +193,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		}
 		if restartErr := ws.startLiveListenerLocked(); restartErr != nil {
-			log.Printf("Failed to restart live listener after PCAP error: %v", restartErr)
+			opsf("Failed to restart live listener after PCAP error: %v", restartErr)
 		}
 		return
 	}
@@ -205,7 +205,7 @@ func (ws *WebServer) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	if analysisMode {
 		mode = "analysis"
 	}
-	log.Printf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
+	diagf("[DataSource] switched to PCAP %s mode for sensor=%s file=%s", mode, sensorID, currentFile)
 
 	// Notify visualiser gRPC server that we are now replaying.
 	// This must happen before the goroutine produces any frames so that the
@@ -296,7 +296,7 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Analysis mode: still reset frame builder to clear stale frames
 		ws.resetFrameBuilder()
-		log.Printf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
+		diagf("[DataSource] preserving grid from PCAP analysis for sensor=%s", sensorID)
 	}
 
 	// Clear source path since we're returning to live mode
@@ -312,7 +312,7 @@ func (ws *WebServer) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.currentSource = DataSourceLive
 	ws.currentPCAPFile = ""
 
-	log.Printf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
+	diagf("[DataSource] switched to Live after PCAP stop for sensor=%s", sensorID)
 
 	// Notify visualiser gRPC server that replay has ended
 	if ws.onPCAPStopped != nil {
@@ -365,7 +365,7 @@ func (ws *WebServer) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request
 	ws.pcapAnalysisMode = false
 	ws.pcapMu.Unlock()
 
-	log.Printf("[DataSource] resumed Live from PCAP analysis for sensor=%s (grid preserved)", sensorID)
+	diagf("[DataSource] resumed Live from PCAP analysis for sensor=%s (grid preserved)", sensorID)
 
 	// Notify visualiser gRPC server that replay has ended
 	if ws.onPCAPStopped != nil {

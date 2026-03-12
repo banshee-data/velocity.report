@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"time"
 )
 
@@ -77,7 +76,7 @@ func (c *CSVWriter) writeSummaryHeader(buckets []string) {
 	}
 	header = append(header, "nonzero_cells_mean", "nonzero_cells_stddev", "overall_accept_mean", "overall_accept_stddev")
 	if err := c.Summary.Write(header); err != nil {
-		log.Printf("failed to write summary header: %v", err)
+		opsf("failed to write summary header: %v", err)
 	}
 }
 
@@ -98,7 +97,7 @@ func (c *CSVWriter) writeRawHeader(buckets []string) {
 	}
 	header = append(header, "nonzero_cells", "overall_accept_percent")
 	if err := c.Raw.Write(header); err != nil {
-		log.Printf("failed to write raw header: %v", err)
+		opsf("failed to write raw header: %v", err)
 	}
 }
 
@@ -128,7 +127,7 @@ func (c *CSVWriter) WriteRawRow(params SweepParams, iter int, result SampleResul
 	row = append(row, fmt.Sprintf("%.6f", result.OverallAcceptPct))
 
 	if err := c.Raw.Write(row); err != nil {
-		log.Printf("failed to write raw row: %v", err)
+		opsf("failed to write raw row: %v", err)
 	}
 	c.Raw.Flush()
 }
@@ -136,7 +135,7 @@ func (c *CSVWriter) WriteRawRow(params SweepParams, iter int, result SampleResul
 // WriteSummary computes and writes summary statistics for a set of sample results.
 func (c *CSVWriter) WriteSummary(params SweepParams, results []SampleResult, buckets []string) {
 	if len(results) == 0 {
-		log.Printf("WARNING: No results to summarise")
+		opsf("WARNING: No results to summarise")
 		return
 	}
 
@@ -168,7 +167,7 @@ func (c *CSVWriter) WriteSummary(params SweepParams, results []SampleResult, buc
 	}
 	overallMean, overallStd := MeanStddev(overallVals)
 
-	log.Printf("Results: overall_accept=%.4f±%.4f, nonzero_cells=%.0f±%.0f",
+	diagf("Results: overall_accept=%.4f±%.4f, nonzero_cells=%.0f±%.0f",
 		overallMean, overallStd, nonzeroMean, nonzeroStd)
 
 	// Write CSV row
@@ -189,7 +188,7 @@ func (c *CSVWriter) WriteSummary(params SweepParams, results []SampleResult, buc
 	row = append(row, fmt.Sprintf("%.6f", overallStd))
 
 	if err := c.Summary.Write(row); err != nil {
-		log.Printf("failed to write summary row: %v", err)
+		opsf("failed to write summary row: %v", err)
 	}
 	c.Summary.Flush()
 }

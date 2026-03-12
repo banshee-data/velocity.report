@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -170,7 +169,7 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogWg.Add(1)
 	go p.vrlogReplayLoop()
 
-	log.Printf("[Visualiser] Started VRLOG replay: %d total frames", reader.TotalFrames())
+	diagf("[Visualiser] Started VRLOG replay: %d total frames", reader.TotalFrames())
 	return nil
 }
 
@@ -194,7 +193,7 @@ func (p *Publisher) StopVRLogReplay() {
 	}
 	p.vrlogMu.Unlock()
 
-	log.Printf("[Visualiser] Stopped VRLOG replay")
+	diagf("[Visualiser] Stopped VRLOG replay")
 }
 
 // IsVRLogActive returns true if VRLOG replay is currently active.
@@ -328,7 +327,7 @@ func (p *Publisher) vrlogReplayLoop() {
 			if errors.Is(err, io.EOF) {
 				// Pause at EOF instead of stopping — keeps the VRLOG loaded
 				// so the client can Seek(0) + Play() to restart.
-				log.Printf("[Visualiser] VRLOG replay complete — pausing at end")
+				diagf("[Visualiser] VRLOG replay complete — pausing at end")
 				p.vrlogMu.Lock()
 				p.vrlogPaused = true
 				if p.vrlogReader != nil {
@@ -340,7 +339,7 @@ func (p *Publisher) vrlogReplayLoop() {
 				lastWallTime = time.Time{}
 				continue
 			}
-			log.Printf("[Visualiser] VRLOG replay error: %v", err)
+			opsf("[Visualiser] VRLOG replay error: %v", err)
 			// Clean up replay state asynchronously to prevent deadlock.
 			// StopVRLogReplay() waits on vrlogWg, which includes this goroutine.
 			go p.StopVRLogReplay()
@@ -400,7 +399,7 @@ func (p *Publisher) shouldSendBackground() bool {
 	}
 
 	if p.lastBackgroundSent.IsZero() {
-		log.Printf("[Visualiser] First background snapshot, sending now")
+		diagf("[Visualiser] First background snapshot, sending now")
 		return true // Never sent
 	}
 
@@ -450,7 +449,7 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 	p.recorderMu.RUnlock()
 	if rec != nil {
 		if err := rec.Record(bundle); err != nil {
-			log.Printf("[Visualiser] Recording error (background): %v", err)
+			opsf("[Visualiser] Recording error (background): %v", err)
 		}
 	}
 
@@ -474,12 +473,12 @@ func (p *Publisher) Start() error {
 		return fmt.Errorf("publisher already running")
 	}
 
-	log.Printf("[Visualiser] Attempting to bind to %s...", p.config.ListenAddr)
+	diagf("[Visualiser] Attempting to bind to %s...", p.config.ListenAddr)
 	lis, err := net.Listen("tcp", p.config.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
-	log.Printf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
+	diagf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
 	p.listener = lis
 
 	// Configure max message size for large point clouds (64k+ points).
@@ -501,10 +500,10 @@ func (p *Publisher) Start() error {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		log.Printf("[Visualiser] gRPC server listening on %s", p.config.ListenAddr)
-		log.Printf("[Visualiser] Waiting for client connections...")
+		diagf("[Visualiser] gRPC server listening on %s", p.config.ListenAddr)
+		diagf("[Visualiser] Waiting for client connections...")
 		if err := p.server.Serve(lis); err != nil && p.running.Load() {
-			log.Printf("[Visualiser] gRPC server error: %v", err)
+			opsf("[Visualiser] gRPC server error: %v", err)
 		}
 	}()
 
@@ -527,7 +526,7 @@ func (p *Publisher) Stop() {
 	}
 
 	p.wg.Wait()
-	log.Printf("[Visualiser] gRPC server stopped")
+	diagf("[Visualiser] gRPC server stopped")
 }
 
 // Publish sends a frame to all connected clients.
@@ -545,7 +544,7 @@ func (p *Publisher) Publish(frame interface{}) {
 	// M3.5: Check if we should send a background snapshot first
 	if p.shouldSendBackground() {
 		if err := p.sendBackgroundSnapshot(); err != nil {
-			log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
+			opsf("[Visualiser] Failed to send background snapshot: %v", err)
 		}
 	}
 
@@ -574,7 +573,7 @@ func (p *Publisher) Publish(frame interface{}) {
 	p.recorderMu.RUnlock()
 	if rec != nil {
 		if err := rec.Record(frameBundle); err != nil {
-			log.Printf("[Visualiser] Recording error: %v", err)
+			opsf("[Visualiser] Recording error: %v", err)
 		}
 	}
 
@@ -705,7 +704,7 @@ func (p *Publisher) addClient(id string, req *pb.StreamRequest) *clientStream {
 	p.clientsMu.Unlock()
 
 	p.clientCount.Add(1)
-	log.Printf("[Visualiser] Client connected: %s (total: %d)", id, p.clientCount.Load())
+	diagf("[Visualiser] Client connected: %s (total: %d)", id, p.clientCount.Load())
 
 	return client
 }
@@ -718,7 +717,7 @@ func (p *Publisher) removeClient(id string) {
 		delete(p.clients, id)
 		p.clientsMu.Unlock()
 		p.clientCount.Add(-1)
-		log.Printf("[Visualiser] Client disconnected: %s (remaining: %d)", id, p.clientCount.Load())
+		diagf("[Visualiser] Client disconnected: %s (remaining: %d)", id, p.clientCount.Load())
 	} else {
 		p.clientsMu.Unlock()
 	}

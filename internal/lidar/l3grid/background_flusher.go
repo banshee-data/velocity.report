@@ -14,6 +14,16 @@ type Persister interface {
 	Persist(store BgStore, reason string) error
 }
 
+type flusherLogger interface {
+	Printf(format string, args ...interface{})
+}
+
+type opsFlusherLogger struct{}
+
+func (opsFlusherLogger) Printf(format string, args ...interface{}) {
+	opsf(format, args...)
+}
+
 // BackgroundFlusher periodically flushes a BackgroundManager to the database.
 // It provides context-aware lifecycle management for background grid persistence.
 type BackgroundFlusher struct {
@@ -21,7 +31,7 @@ type BackgroundFlusher struct {
 	store    BgStore
 	interval time.Duration
 	reason   string
-	logger   *log.Logger
+	logger   flusherLogger
 	mu       sync.Mutex
 	running  bool
 	stopCh   chan struct{}
@@ -38,29 +48,34 @@ type BackgroundFlusherConfig struct {
 	Interval time.Duration
 	// Reason is the reason string to use for flushes (e.g., "periodic_flush")
 	Reason string
-	// Logger is optional; if nil, uses log.Default()
+	// Logger is optional; if nil, uses the package ops logger.
 	Logger *log.Logger
 }
 
 // NewBackgroundFlusher creates a new BackgroundFlusher.
 func NewBackgroundFlusher(cfg BackgroundFlusherConfig) *BackgroundFlusher {
-	logger := cfg.Logger
-	if logger == nil {
-		logger = log.Default()
-	}
-	reason := cfg.Reason
-	if reason == "" {
-		reason = "periodic_flush"
+	var logger flusherLogger
+	if cfg.Logger != nil {
+		logger = cfg.Logger
+	} else {
+		logger = opsFlusherLogger{}
 	}
 	return &BackgroundFlusher{
 		manager:  cfg.Manager,
 		store:    cfg.Store,
 		interval: cfg.Interval,
-		reason:   reason,
+		reason:   defaultFlushReason(cfg.Reason),
 		logger:   logger,
 		stopCh:   make(chan struct{}),
 		doneCh:   make(chan struct{}),
 	}
+}
+
+func defaultFlushReason(reason string) string {
+	if reason == "" {
+		return "periodic_flush"
+	}
+	return reason
 }
 
 // Run starts the periodic flushing loop. It blocks until the context is

@@ -494,7 +494,7 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Now()
 
-	log.Printf("[RegionManager] Identified %d regions from %d cells (target: max %d regions, variance samples: %d)",
+	diagf("[RegionManager] Identified %d regions from %d cells (target: max %d regions, variance samples: %d)",
 		len(rm.Regions), totalCells, maxRegions, rm.SettlingMetrics.FramesSampled)
 
 	return nil
@@ -647,7 +647,7 @@ func (rm *RegionManager) createDefaultRegion(grid *BackgroundGrid) error {
 	rm.Regions = []*Region{region}
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Now()
-	log.Printf("[RegionManager] Created single default region covering %d cells", totalCells)
+	diagf("[RegionManager] Created single default region covering %d cells", totalCells)
 	return nil
 }
 
@@ -720,7 +720,7 @@ func (rm *RegionManager) ToSnapshot(sensorID string, snapshotID int64) *RegionSn
 
 	regionsJSON, err := json.Marshal(regionData)
 	if err != nil {
-		log.Printf("[RegionManager] ToSnapshot: failed to marshal regions: %v", err)
+		opsf("[RegionManager] ToSnapshot: failed to marshal regions: %v", err)
 		return nil
 	}
 
@@ -810,7 +810,7 @@ func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot, totalCells in
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Unix(0, snap.CreatedUnixNanos)
 
-	log.Printf("[RegionManager] Restored %d regions from snapshot (settling_frames=%d, scene_hash=%s)",
+	diagf("[RegionManager] Restored %d regions from snapshot (settling_frames=%d, scene_hash=%s)",
 		len(rm.Regions), snap.SettlingFrames, snap.SceneHash)
 
 	return nil
@@ -982,7 +982,7 @@ func (bm *BackgroundManager) SetSourcePath(path string) {
 	bm.sourceMu.Lock()
 	bm.sourcePath = path
 	bm.sourceMu.Unlock()
-	log.Printf("[BackgroundManager] Source path set to: %s", path)
+	diagf("[BackgroundManager] Source path set to: %s", path)
 }
 
 // GetSourcePath returns the current data source path.
@@ -1159,7 +1159,7 @@ func (bm *BackgroundManager) ResetGrid() error {
 	}
 
 	// Log with timestamp and counts
-	log.Printf("[ResetGrid] sensor=%s nonzero_before=%d nonzero_after=%d total_cells=%d timestamp=%d",
+	diagf("[ResetGrid] sensor=%s nonzero_before=%d nonzero_after=%d total_cells=%d timestamp=%d",
 		g.SensorID, nonzeroBefore, nonzeroAfter, len(g.Cells), time.Now().UnixNano())
 
 	return nil
@@ -1225,7 +1225,7 @@ func NewBackgroundManager(sensorID string, rings, azBins int, params BackgroundP
 		}
 	} else {
 		// Explicit runtime log to indicate persistence is disabled for this manager
-		log.Printf("BackgroundManager for sensor '%s' created without a BgStore: persistence disabled", sensorID)
+		opsf("BackgroundManager for sensor '%s' created without a BgStore: persistence disabled", sensorID)
 	}
 
 	RegisterBackgroundManager(sensorID, mgr)
@@ -1265,7 +1265,7 @@ func NewBackgroundManagerDI(sensorID string, rings, azBins int, params Backgroun
 			return mgr.Persist(store, reason)
 		}
 	} else {
-		log.Printf("BackgroundManager for sensor '%s' created without a BgStore: persistence disabled", sensorID)
+		opsf("BackgroundManager for sensor '%s' created without a BgStore: persistence disabled", sensorID)
 	}
 
 	return mgr
@@ -1309,7 +1309,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	// Quick diagnostics when enabled to see what's arriving
 	if bm != nil && bm.EnableDiagnostics && len(points) > 0 {
 		sample := points[0]
-		log.Printf("[BackgroundManager] Received %d points; sample -> Channel=%d Az=%.2f Dist=%.2f", len(points), sample.Channel, sample.Azimuth, sample.Distance)
+		tracef("[BackgroundManager] Received %d points; sample -> Channel=%d Az=%.2f Dist=%.2f", len(points), sample.Channel, sample.Azimuth, sample.Distance)
 	}
 
 	g := bm.Grid
@@ -1368,7 +1368,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	// Parameters with safe defaults
 	// Emit a single summary log if we encountered points with invalid channels
 	if skippedInvalid > 0 && bm != nil && bm.EnableDiagnostics {
-		log.Printf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
+		opsf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
 	}
 	alpha := float64(g.Params.BackgroundUpdateFraction)
 	if alpha <= 0 || alpha > 1 {
@@ -1420,7 +1420,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			if g.RegionMgr != nil && !g.RegionMgr.IdentificationComplete {
 				err := g.RegionMgr.IdentifyRegions(g, 50) // max 50 regions
 				if err != nil {
-					log.Printf("[BackgroundManager] Failed to identify regions: %v", err)
+					opsf("[BackgroundManager] Failed to identify regions: %v", err)
 				}
 				// Persist regions immediately so future runs can skip settling
 				bm.persistRegionsOnSettleLocked()
@@ -1553,7 +1553,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				}
 
 				if logThis {
-					log.Printf("[ProcessFramePolar:decision] sensor=%s ring=%d azbin=%d obs_mean=%.3f cell_avg=%.3f cell_spread=%.3f times_seen=%d neighbor_confirm=%d closeness_threshold=%.3f cell_diff=%.3f is_background=%v init_if_empty=%v",
+					tracef("[ProcessFramePolar:decision] sensor=%s ring=%d azbin=%d obs_mean=%.3f cell_avg=%.3f cell_spread=%.3f times_seen=%d neighbor_confirm=%d closeness_threshold=%.3f cell_diff=%.3f is_background=%v init_if_empty=%v",
 						g.SensorID, ringIdx, azBinIdx, observationMean,
 						cell.AverageRangeMeters, cell.RangeSpreadMeters, cell.TimesSeenCount,
 						neighborConfirmCount, closenessThreshold, cellDiff,
@@ -1649,7 +1649,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		if total > 0 {
 			acceptPct = (float64(backgroundCount) / float64(total)) * 100.0
 		}
-		log.Printf("[ProcessFramePolar:summary] sensor=%s points_in=%d cells_updated=%d bg_accept=%d fg_reject=%d accept_pct=%.2f%% noise_rel=%.6f closeness_mult=%.3f neighbor_confirm=%d seed_from_first=%v",
+		tracef("[ProcessFramePolar:summary] sensor=%s points_in=%d cells_updated=%d bg_accept=%d fg_reject=%d accept_pct=%.2f%% noise_rel=%.6f closeness_mult=%.3f neighbor_confirm=%d seed_from_first=%v",
 			g.SensorID, len(points), total, backgroundCount, foregroundCount, acceptPct,
 			noiseRel, closenessMultiplier, neighConfirm, seedFromFirst)
 	}
@@ -1660,7 +1660,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if frameCount%100 == 0 {
 		// Quick snapshot of nonzero count
 		nonzero := g.nonzeroCellCount
-		log.Printf("[ProcessFramePolar] sensor=%s frames_processed=%d nonzero_cells=%d bg_count=%d fg_count=%d timestamp=%d",
+		tracef("[ProcessFramePolar] sensor=%s frames_processed=%d nonzero_cells=%d bg_count=%d fg_count=%d timestamp=%d",
 			g.SensorID, frameCount, nonzero, backgroundCount, foregroundCount, time.Now().UnixNano())
 	}
 }
