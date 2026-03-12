@@ -368,6 +368,7 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 			s.playbackMu.RLock()
 			paused := s.paused
 			seekPending := s.seekPending
+			vrlogMode := s.vrlogMode
 			s.playbackMu.RUnlock()
 			if paused && !seekPending {
 				if frame.PointCloud != nil {
