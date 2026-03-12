@@ -13,19 +13,19 @@
 | pdf\_generator/core/api\_client.py         |       47 |        0 |    100% |           |
 | pdf\_generator/core/chart\_builder.py      |      381 |       33 |     91% |259-260, 275-276, 415, 433-434, 441-442, 447-448, 489, 510-511, 525, 537-538, 562-569, 619, 640-644, 651-652, 662-663 |
 | pdf\_generator/core/chart\_saver.py        |       70 |        3 |     96% |48, 113, 132 |
-| pdf\_generator/core/config\_manager.py     |      261 |        2 |     99% |  458, 567 |
+| pdf\_generator/core/config\_manager.py     |      240 |        1 |     99% |       458 |
 | pdf\_generator/core/data\_transformers.py  |       63 |        1 |     98% |        69 |
 | pdf\_generator/core/date\_parser.py        |       53 |        0 |    100% |           |
 | pdf\_generator/core/dependency\_checker.py |      167 |       10 |     94% |103, 128, 159-160, 204-210, 244, 266-267 |
-| pdf\_generator/core/document\_builder.py   |       97 |        5 |     95% |   107-115 |
+| pdf\_generator/core/document\_builder.py   |       95 |        5 |     95% |     73-81 |
 | pdf\_generator/core/map\_utils.py          |      183 |       10 |     95% |288-299, 308-310 |
-| pdf\_generator/core/pdf\_generator.py      |      332 |       19 |     94% |128, 226-237, 473-474, 634, 685-686, 710, 773-774 |
-| pdf\_generator/core/report\_sections.py    |      159 |       13 |     92% |54, 128-129, 155-157, 165-166, 180-181, 253, 296, 421 |
+| pdf\_generator/core/pdf\_generator.py      |      332 |       19 |     94% |88, 186-197, 433-434, 594, 645-646, 670, 733-734 |
+| pdf\_generator/core/report\_sections.py    |      153 |        9 |     94% |113-114, 140-142, 150-151, 165-166 |
 | pdf\_generator/core/stats\_utils.py        |      133 |       13 |     90% |24-26, 194, 239, 253, 258-259, 284, 300-304 |
-| pdf\_generator/core/table\_builders.py     |      222 |        9 |     96% |193, 332, 406, 468, 668, 733, 744-750 |
+| pdf\_generator/core/table\_builders.py     |      213 |        6 |     97% |175, 438, 697, 708-714 |
 | pdf\_generator/core/tex\_environment.py    |       40 |        5 |     88% | 55-59, 73 |
 | pdf\_generator/core/zip\_utils.py          |      125 |       17 |     86% |67-68, 178-180, 185-187, 254, 281-282, 286-287, 292-293, 298-299 |
-| **TOTAL**                                  | **3021** |  **187** | **94%** |           |
+| **TOTAL**                                  | **2983** |  **179** | **94%** |           |
 
 
 ## Setup coverage badge
