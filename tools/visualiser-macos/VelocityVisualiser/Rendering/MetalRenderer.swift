@@ -892,9 +892,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         if showPoints || showBackground, let pipeline = pointCloudPipeline {
             // M3.5: Use composite renderer if available
             if let composite = compositeRenderer {
+                // Advance background crossfade transition before rendering
+                let transitioning = composite.advanceTransition()
                 composite.render(
                     encoder: encoder, pipeline: pipeline, uniforms: &uniforms,
                     drawBackground: showBackground, drawForeground: showPoints)
+                // Keep redrawing while transition blends positions
+                if transitioning { view.needsDisplay = true }
             } else if showPoints, let buffer = pointBuffer, pointCount > 0 {
                 // Legacy path: single buffer
                 encoder.setRenderPipelineState(pipeline)
