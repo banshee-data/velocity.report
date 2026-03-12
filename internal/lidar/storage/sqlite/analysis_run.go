@@ -927,11 +927,18 @@ func (s *AnalysisRunStore) UpdateTrackQualityFlags(runID, trackID string, isSpli
 
 // GetLabelingProgress returns labeling statistics for a run.
 func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int, byClass map[string]int, err error) {
+	total, labeled, byClass, _, err = s.GetLabelingProgressWithRollup(runID)
+	return total, labeled, byClass, err
+}
+
+// GetLabelingProgressWithRollup returns labeling statistics plus the current
+// mutually-exclusive rollup for a run.
+func (s *AnalysisRunStore) GetLabelingProgressWithRollup(runID string) (total, labeled int, byClass map[string]int, rollup *RunLabelRollup, err error) {
 	byClass = make(map[string]int)
 
-	rollup, err := s.GetRunLabelRollup(runID)
+	rollup, err = s.GetRunLabelRollup(runID)
 	if err != nil {
-		return 0, 0, nil, err
+		return 0, 0, nil, nil, err
 	}
 	total = rollup.Total
 	labeled = rollup.LabelledCount()
@@ -947,9 +954,9 @@ func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int
 	rows, err := s.db.Query(query, runID)
 	if err != nil {
 		if isMissingRunTracksTableErr(err) {
-			return total, labeled, byClass, nil
+			return total, labeled, byClass, rollup, nil
 		}
-		return total, labeled, nil, fmt.Errorf("get label counts: %w", err)
+		return total, labeled, nil, nil, fmt.Errorf("get label counts: %w", err)
 	}
 	defer rows.Close()
 
@@ -957,12 +964,12 @@ func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int
 		var label string
 		var count int
 		if err := rows.Scan(&label, &count); err != nil {
-			return total, labeled, nil, fmt.Errorf("scan label count: %w", err)
+			return total, labeled, nil, nil, fmt.Errorf("scan label count: %w", err)
 		}
 		byClass[label] = count
 	}
 
-	return total, labeled, byClass, nil
+	return total, labeled, byClass, rollup, nil
 }
 
 // GetRunLabelRollup returns the current human labelling state for one run.
