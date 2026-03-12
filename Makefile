@@ -1036,6 +1036,9 @@ check-mermaid: ## Validate Mermaid code fences in Markdown docs
 lint-docs: check-mermaid ## Check Mermaid fences and British English spelling in docs/
 	@python3 scripts/check-british-spelling.py
 
+check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
+	@scripts/check-agent-drift.sh
+
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
 check-config-order:

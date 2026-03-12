@@ -340,3 +340,29 @@ if [[ -s "$DECISION_MARKERS" ]]; then
 else
   printf -- "- None.\n"
 fi
+
+printf "\n"
+
+# --- Agent Drift ---
+
+DRIFT_SCRIPT="$REPO_ROOT/scripts/check-agent-drift.sh"
+if [[ -x "$DRIFT_SCRIPT" ]]; then
+  printf "## Agent Definition Drift\n\n"
+  drift_output=$("$DRIFT_SCRIPT" 2>/dev/null || true)
+  if [[ -n "$drift_output" ]]; then
+    # Extract summary table, missing pairs, drifted agents, and health verdict
+    echo "$drift_output" | awk '
+      /^## Summary/  { show=1 }
+      /^## Health/    { show=1 }
+      /^## Missing/   { show=1 }
+      /^## Drifted/   { show=1 }
+      /^## Aligned/   { show=0; next }
+      show { print }
+    '
+  else
+    printf -- "- Agent drift check returned no output.\n"
+  fi
+else
+  printf "## Agent Definition Drift\n\n"
+  printf -- "- Drift check script not found at \`scripts/check-agent-drift.sh\`.\n"
+fi
