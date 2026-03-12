@@ -3,7 +3,6 @@ package sqlite
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"sync"
 	"time"
 
@@ -106,7 +105,7 @@ func (m *AnalysisRunManager) StartRun(sourcePath string, params RunParams) (stri
 	m.firstFrameNs = 0
 	m.lastFrameNs = 0
 
-	log.Printf("[AnalysisRunManager] Started run %s for %s", runID, sourcePath)
+	diagf("[AnalysisRunManager] Started run %s for %s", runID, sourcePath)
 	return runID, nil
 }
 
@@ -155,7 +154,7 @@ func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
 
 	// Insert into database
 	if err := m.store.InsertRunTrack(runTrack); err != nil {
-		log.Printf("[AnalysisRunManager] Failed to insert run track %s: %v", track.TrackID, err)
+		opsf("[AnalysisRunManager] Failed to insert run track %s: %v", track.TrackID, err)
 		return false
 	}
 
@@ -202,7 +201,7 @@ func (m *AnalysisRunManager) CompleteRun() error {
 		return err
 	}
 
-	log.Printf("[AnalysisRunManager] Completed run %s: %d frames, %d clusters, %d tracks in %.2fs",
+	diagf("[AnalysisRunManager] Completed run %s: %d frames, %d clusters, %d tracks in %.2fs",
 		m.currentRun.RunID, stats.TotalFrames, stats.TotalClusters, stats.TotalTracks, durationSecs)
 
 	m.currentRun = nil
@@ -222,7 +221,7 @@ func (m *AnalysisRunManager) FailRun(errMsg string) error {
 		return err
 	}
 
-	log.Printf("[AnalysisRunManager] Failed run %s: %s", m.currentRun.RunID, errMsg)
+	opsf("[AnalysisRunManager] Failed run %s: %s", m.currentRun.RunID, errMsg)
 	m.currentRun = nil
 	return nil
 }

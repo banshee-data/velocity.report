@@ -4,7 +4,6 @@ import (
 	"embed"
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -215,19 +214,19 @@ func ConfigureTimestampMode(parser *Pandar40PParser) {
 	switch timestampMode {
 	case "system":
 		parser.SetTimestampMode(TimestampModeSystemTime)
-		log.Println("LiDAR timestamp mode: System time")
+		diagf("LiDAR timestamp mode: System time")
 	case "gps":
 		parser.SetTimestampMode(TimestampModeGPS)
-		log.Println("LiDAR timestamp mode: GPS (requires GPS-synchronized LiDAR)")
+		diagf("LiDAR timestamp mode: GPS (requires GPS-synchronized LiDAR)")
 	case "internal":
 		parser.SetTimestampMode(TimestampModeInternal)
-		log.Println("LiDAR timestamp mode: Internal (device boot time)")
+		diagf("LiDAR timestamp mode: Internal (device boot time)")
 	case "lidar":
 		parser.SetTimestampMode(TimestampModeLiDAR)
-		log.Println("LiDAR timestamp mode: LiDAR native (DateTime + Timestamp fields)")
+		diagf("LiDAR timestamp mode: LiDAR native (DateTime + Timestamp fields)")
 	default:
 		// Default to SystemTime for stability until PTP hardware is available
 		parser.SetTimestampMode(TimestampModeSystemTime)
-		log.Println("LiDAR timestamp mode: System time (default - stable until PTP hardware available)")
+		diagf("LiDAR timestamp mode: System time (default - stable until PTP hardware available)")
 	}
 }
