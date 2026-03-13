@@ -54,4 +54,4 @@ Rate the measurement quality of a correctly-detected track.
 - **Svelte frontend:** `web/src/lib/types/lidar.ts` — `DetectionLabel`, `QualityLabel`
 - **macOS app:** `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — `LabelPanelView`
 
-> **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `other`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above.
+> **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. v0.5.0 ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).
