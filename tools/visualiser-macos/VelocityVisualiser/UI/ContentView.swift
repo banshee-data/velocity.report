@@ -1161,12 +1161,23 @@ struct TrackInspectorDetailCards: View {
     var body: some View {
         if let t = appState.currentSelectedTrackData() {
             VStack(alignment: .leading, spacing: 8) {
-                // Position
-                GroupBox(label: Text("Position").font(.caption2)) {
+                // State
+                GroupBox(label: Text("State").font(.caption2)) {
                     VStack(alignment: .leading, spacing: 2) {
-                        DetailRow(label: "X", value: String(format: "%.2f m", t.x))
-                        DetailRow(label: "Y", value: String(format: "%.2f m", t.y))
-                        DetailRow(label: "Z", value: String(format: "%.2f m", t.z))
+                        HStack {
+                            Text("State").font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                            Text(trackStateLabel(t.state)).font(.caption).fontWeight(.medium)
+                                .foregroundColor(trackStateColour(t.state))
+                        }
+                        DetailRow(label: "Hits", value: "\(t.hits)")
+                        HStack {
+                            Text("Class").font(.caption).foregroundColor(.secondary)
+                            Spacer()
+                            Text(t.classLabel.isEmpty ? "Not classified" : t.classLabel).font(
+                                .caption
+                            ).foregroundColor(t.classLabel.isEmpty ? .secondary : .confirmedGreen)
+                        }
                     }
                 }
 
@@ -1195,23 +1206,12 @@ struct TrackInspectorDetailCards: View {
                     }
                 }
 
-                // State
-                GroupBox(label: Text("State").font(.caption2)) {
+                // Position
+                GroupBox(label: Text("Position").font(.caption2)) {
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text("State").font(.caption).foregroundColor(.secondary)
-                            Spacer()
-                            Text(trackStateLabel(t.state)).font(.caption).fontWeight(.medium)
-                                .foregroundColor(trackStateColour(t.state))
-                        }
-                        DetailRow(label: "Hits", value: "\(t.hits)")
-                        HStack {
-                            Text("Class").font(.caption).foregroundColor(.secondary)
-                            Spacer()
-                            Text(t.classLabel.isEmpty ? "Not classified" : t.classLabel).font(
-                                .caption
-                            ).foregroundColor(t.classLabel.isEmpty ? .secondary : .confirmedGreen)
-                        }
+                        DetailRow(label: "X", value: String(format: "%.2f m", t.x))
+                        DetailRow(label: "Y", value: String(format: "%.2f m", t.y))
+                        DetailRow(label: "Z", value: String(format: "%.2f m", t.z))
                     }
                 }
             }
