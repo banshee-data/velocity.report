@@ -1170,7 +1170,6 @@ struct TrackInspectorDetailCards: View {
                             Text(trackStateLabel(t.state)).font(.caption).fontWeight(.medium)
                                 .foregroundColor(trackStateColour(t.state))
                         }
-                        DetailRow(label: "Hits", value: "\(t.hits)")
                         HStack {
                             Text("Class").font(.caption).foregroundColor(.secondary)
                             Spacer()
@@ -1178,6 +1177,7 @@ struct TrackInspectorDetailCards: View {
                                 .caption
                             ).foregroundColor(t.classLabel.isEmpty ? .secondary : .confirmedGreen)
                         }
+                        DetailRow(label: "Hits", value: "\(t.hits)")
                     }
                 }
 
@@ -1192,8 +1192,8 @@ struct TrackInspectorDetailCards: View {
                     }
                 }
 
-                // Dimensions
-                GroupBox(label: Text("Dimensions").font(.caption2)) {
+                // Geometry
+                GroupBox(label: Text("Geometry").font(.caption2)) {
                     VStack(alignment: .leading, spacing: 2) {
                         DetailRow(
                             label: "L×W×H",
@@ -1203,15 +1203,9 @@ struct TrackInspectorDetailCards: View {
                         DetailRow(
                             label: "OBB Heading",
                             value: String(format: "%.1f°", t.bboxHeadingRad * 180 / .pi))
-                    }
-                }
-
-                // Position
-                GroupBox(label: Text("Position").font(.caption2)) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        DetailRow(label: "X", value: String(format: "%.2f m", t.x))
-                        DetailRow(label: "Y", value: String(format: "%.2f m", t.y))
-                        DetailRow(label: "Z", value: String(format: "%.2f m", t.z))
+                        DetailRow(
+                            label: "X×Y×Z",
+                            value: String(format: "%.2f × %.2f × %.2f m", t.x, t.y, t.z))
                     }
                 }
             }
