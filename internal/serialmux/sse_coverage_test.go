@@ -53,15 +53,29 @@ func TestAttachAdminRoutes_TailSSE_DataStreaming(t *testing.T) {
 		}
 	}
 
-	// Push data through subscriber system
+	// The handler subscribes before emitting the initial ping, so reading that
+	// ping above guarantees we can take a single snapshot of the subscribers.
 	mux.subscriberMu.Lock()
+	subscribers := make([]chan string, 0, len(mux.subscribers))
 	for _, ch := range mux.subscribers {
-		select {
-		case ch <- "hello-sse":
-		default:
-		}
+		subscribers = append(subscribers, ch)
 	}
 	mux.subscriberMu.Unlock()
+	if len(subscribers) == 0 {
+		t.Fatal("expected an SSE subscriber to be registered")
+	}
+
+	for _, ch := range subscribers {
+		timer := time.NewTimer(250 * time.Millisecond)
+		select {
+		case ch <- "hello-sse":
+			if !timer.Stop() {
+				<-timer.C
+			}
+		case <-timer.C:
+			t.Fatal("timed out delivering test SSE payload")
+		}
+	}
 
 	// Read the SSE data line (skip blank lines between events)
 	gotData := false

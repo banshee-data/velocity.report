@@ -28,6 +28,8 @@ var adminTemplateFS embed.FS
 
 var sendCommandTemplate = template.Must(template.ParseFS(adminTemplateFS, "templates/send-command.html.tmpl"))
 
+const subscriberChannelBufferSize = 1
+
 // SerialMux is a generic serial port multiplexer that allows multiple clients to
 // subscribe to events from a single serial port.
 type SerialMux[T SerialPorter] struct {
@@ -83,7 +85,7 @@ func randomID() string {
 
 func (s *SerialMux[T]) Subscribe() (string, chan string) {
 	id := randomID()
-	ch := make(chan string)
+	ch := make(chan string, subscriberChannelBufferSize)
 	s.subscriberMu.Lock()
 	defer s.subscriberMu.Unlock()
 	s.subscribers[id] = ch
