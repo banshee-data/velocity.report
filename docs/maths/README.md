@@ -52,6 +52,11 @@ The production pipeline uses four math-heavy layers:
 
 ## Detailed Documents
 
+### Reviews
+
+- [Pipeline Review: Open Questions and High-Value Work](pipeline-review-open-questions.md)
+  — Mathematical audit of L1–L6 implementations, addressed open questions from plans and proposals, ground plane and priors alignment synthesis, dependency graph, and prioritised high-value work list.
+
 ### Active Maths (implemented in current runtime)
 
 - [Background Grid Settling Maths](background-grid-settling-maths.md)
