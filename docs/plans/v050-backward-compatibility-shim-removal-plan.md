@@ -361,9 +361,8 @@ The following are **not** compat shims and should be retained:
 - [x] Delete `PacketHeader` struct
 - [x] Delete stale `AddPoints` removal comment
 - [x] Evaluate `lidar/aliases.go` outcome — retained and documented as an active package-boundary choice
+- [x] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
 - [ ] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename
-- [ ] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
-- [x] Proto `peak_speed_mps` → `max_speed_mps` rename on unshipped contracts (#352)
 
 ### Phase 3 — Frontend removals (Svelte)
 
@@ -385,8 +384,8 @@ The following are **not** compat shims and should be retained:
 - [x] Back out branch-local aggregate-percentile label fields from the Swift model/client/UI — resolved; fields not merged
 - [x] Rename raw `peak` terminology to `max` on unshipped visualiser surfaces (#352)
 - [ ] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it
-- [ ] Update callers of `setPlaybackMode(.unknown)` legacy branch
-- [x] Verify `avgSpeedMps` field reads correctly from regenerated proto
+- [x] Update callers of `setPlaybackMode(.unknown)` legacy branch
+- [ ] Verify `medianSpeedMps` field reads correctly from regenerated proto
 
 ### Phase 6 — Validation
 
