@@ -53,30 +53,26 @@ func TestAttachAdminRoutes_TailSSE_DataStreaming(t *testing.T) {
 		}
 	}
 
-	// Wait for the SSE handler's subscription to become visible, then send
-	// directly to the subscriber channel. This avoids racing the handler setup
-	// and avoids silently dropping the test payload via a default branch.
-	var subscribers []chan string
-	deadline := time.Now().Add(500 * time.Millisecond)
-	for len(subscribers) == 0 && time.Now().Before(deadline) {
-		mux.subscriberMu.Lock()
-		subscribers = make([]chan string, 0, len(mux.subscribers))
-		for _, ch := range mux.subscribers {
-			subscribers = append(subscribers, ch)
-		}
-		mux.subscriberMu.Unlock()
-		if len(subscribers) == 0 {
-			time.Sleep(10 * time.Millisecond)
-		}
+	// The handler subscribes before emitting the initial ping, so reading that
+	// ping above guarantees we can take a single snapshot of the subscribers.
+	mux.subscriberMu.Lock()
+	subscribers := make([]chan string, 0, len(mux.subscribers))
+	for _, ch := range mux.subscribers {
+		subscribers = append(subscribers, ch)
 	}
+	mux.subscriberMu.Unlock()
 	if len(subscribers) == 0 {
 		t.Fatal("expected an SSE subscriber to be registered")
 	}
 
 	for _, ch := range subscribers {
+		timer := time.NewTimer(250 * time.Millisecond)
 		select {
 		case ch <- "hello-sse":
-		case <-time.After(250 * time.Millisecond):
+			if !timer.Stop() {
+				<-timer.C
+			}
+		case <-timer.C:
 			t.Fatal("timed out delivering test SSE payload")
 		}
 	}
