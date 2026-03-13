@@ -1100,14 +1100,16 @@ func TestReplayerCorruptedChunk(t *testing.T) {
 		t.Fatalf("failed to truncate chunk: %v", err)
 	}
 
-	// Try to replay
+	// Try to replay — NewReplayer may fail during frame-encoding detection
+	// on corrupted data, which is acceptable (early fail).
 	rep, err := NewReplayer(basePath)
 	if err != nil {
-		t.Fatalf("NewReplayer() error = %v", err)
+		// Corruption detected at init time — acceptable.
+		return
 	}
 	defer rep.Close()
 
-	// Reading should fail due to corrupted data
+	// If init succeeded, reading should fail due to corrupted data.
 	_, err = rep.ReadFrame()
 	if err == nil {
 		t.Error("ReadFrame() on corrupted data expected error, got nil")
