@@ -20,7 +20,7 @@ Canonical reference for the velocity.report system architecture. For the full de
 | Server     | Go 1.25+                          | stdlib `net/http`, `database/sql` |
 | Database   | SQLite 3.51.2 (modernc.org)       | Pure-Go driver, WAL mode          |
 | Reports    | Python 3.11+, matplotlib, PyLaTeX | XeLaTeX compilation               |
-| Frontend   | Svelte 5, TypeScript, Vite 6      | pnpm, ESLint                      |
+| Frontend   | Svelte 5, TypeScript, Vite 7+     | pnpm, ESLint                      |
 | Visualiser | Swift 5.9+, SwiftUI, Metal        | macOS 14+, grpc-swift             |
 | Streaming  | gRPC + protobuf                   | Port 50051, server-streaming      |
 | Docs site  | Eleventy                          | `public_html/`                    |

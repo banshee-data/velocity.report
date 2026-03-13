@@ -74,8 +74,8 @@ When changing functionality, update **all** relevant docs:
 
 Code formatting is automated. Run `make format` before committing. Per-language:
 
-| Language    | Formatter  | Command              |
-| ----------- | ---------- | -------------------- |
-| Go          | `gofmt`    | `make format-go`     |
-| Python      | `ruff`     | `make format-python` |
-| Web (JS/TS) | `prettier` | `make format-web`    |
+| Language    | Formatter        | Command              |
+| ----------- | ---------------- | -------------------- |
+| Go          | `gofmt`          | `make format-go`     |
+| Python      | `black` + `ruff` | `make format-python` |
+| Web (JS/TS) | `prettier`       | `make format-web`    |

@@ -57,7 +57,7 @@ Check for known CVEs and supply chain risk:
 - `requirements.txt` — Python packages
 - `package.json` — npm packages
 
-`make lint` includes security linters.
+`make lint` runs formatting and style checks for Go, Python, web, and documentation code.
 
 ## Vulnerability Patterns
 

@@ -68,7 +68,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 # --- Extract persona content ---
 
 # Strip YAML frontmatter and platform-specific lines from a Copilot .agent.md
-# Removes: YAML block, lines starting with "tools:", comment lines in YAML
+# Removes: YAML frontmatter block and lines starting with "tools:"
 extract_copilot_persona() {
   local file="$1"
   awk '
@@ -81,6 +81,7 @@ extract_copilot_persona() {
       }
     }
     in_yaml && !yaml_done { next }
+    /^[[:space:]]*tools:[[:space:]]*/ { next }
     { print }
   ' "$file"
 }
