@@ -45,6 +45,10 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ## [0.5.0] - Unreleased
 
+> **Release status:** Substantial work has shipped (see below). Five items
+> remain before the release can be cut — see [Remaining Work](#remaining-work-not-yet-shipped)
+> at the end of this section.
+
 ### Breaking Changes
 
 - **Proto field rename:** `peak_speed_mps` → `max_speed_mps` (proto field 25) across Go, Swift, and TypeScript models; regenerated bindings (#352)
