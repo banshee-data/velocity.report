@@ -867,7 +867,7 @@ struct LabelButtonCoverageTests {
 
     @Test func activeWithShortcut() throws {
         let view = LabelButton(
-            label: "truck", shortcut: "2", isActive: true, helpText: "Pickup truck"
+            label: "bus", shortcut: "2", isActive: true, helpText: "Bus or coach"
         ) {}
         let _ = view.body
     }
@@ -1280,7 +1280,7 @@ struct FormatFunctionsCoverageTests {
 
 struct LabelPanelStaticDataTests {
     @Test func classificationLabelsCount() throws {
-        #expect(LabelPanelView.classificationLabels.count == 9)
+        #expect(LabelPanelView.classificationLabels.count == 7)
     }
 
     @Test func classificationLabelsNamesNotEmpty() throws {

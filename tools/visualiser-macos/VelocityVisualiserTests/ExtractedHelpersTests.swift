@@ -162,20 +162,19 @@ private func makeRunTrack(
         XCTAssertEqual(state.userLabels["trk_00001234"], "car")
     }
 
-    func testLabel8AssignsWithSelection() {
+    // v0.5.0: label8/label9 are now out-of-range (7 classes) and return .ignored.
+    func testLabel8IgnoredWithSelection() {
         let state = AppState()
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label8, appState: state)
-        XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "truck")
+        XCTAssertEqual(result, .ignored)
     }
 
-    func testLabel9AssignsWithSelection() {
+    func testLabel9IgnoredWithSelection() {
         let state = AppState()
         state.selectTrack("trk_00001234")
         let result = handleKeyPress(.label9, appState: state)
-        XCTAssertEqual(result, .handled)
-        XCTAssertEqual(state.userLabels["trk_00001234"], "motorcyclist")
+        XCTAssertEqual(result, .ignored)
     }
 
     func testLabel5to9IgnoredNoSelection() {
@@ -1157,15 +1156,15 @@ final class EdgeCaseHelperTests: XCTestCase {
         ] { XCTAssertEqual(handleKeyPress(action, appState: state), .ignored) }
     }
 
-    func testAllNineLabelsAssignWithSelection() {
+    // v0.5.0: 7 active classes — label8/label9 are out-of-range.
+    func testAllSevenLabelsAssignWithSelection() {
         let state = AppState()
         state.selectTrack("trk_test")
         let expectedLabels = [
-            "noise", "dynamic", "pedestrian", "cyclist", "bird", "bus", "car", "truck",
-            "motorcyclist",
+            "noise", "dynamic", "pedestrian", "cyclist", "bird", "bus", "car",
         ]
         let actions: [KeyAction] = [
-            .label1, .label2, .label3, .label4, .label5, .label6, .label7, .label8, .label9,
+            .label1, .label2, .label3, .label4, .label5, .label6, .label7,
         ]
 
         for (action, expected) in zip(actions, expectedLabels) {
@@ -1173,5 +1172,12 @@ final class EdgeCaseHelperTests: XCTestCase {
             XCTAssertEqual(result, .handled)
             XCTAssertEqual(state.userLabels["trk_test"], expected)
         }
+    }
+
+    func testLabel8And9IgnoredWithSelection() {
+        let state = AppState()
+        state.selectTrack("trk_test")
+        XCTAssertEqual(handleKeyPress(.label8, appState: state), .ignored)
+        XCTAssertEqual(handleKeyPress(.label9, appState: state), .ignored)
     }
 }
