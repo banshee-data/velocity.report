@@ -33,13 +33,11 @@
 	// Classification label options (single-select: what is the object?)
 	const DETECTION_LABELS: { value: DetectionLabel; label: string; shortcut: string }[] = [
 		{ value: 'car', label: 'Car', shortcut: '1' },
-		{ value: 'truck', label: 'Truck', shortcut: '2' },
-		{ value: 'bus', label: 'Bus', shortcut: '3' },
-		{ value: 'pedestrian', label: 'Pedestrian', shortcut: '4' },
-		{ value: 'cyclist', label: 'Cyclist', shortcut: '5' },
-		{ value: 'motorcyclist', label: 'Motorcyclist', shortcut: '6' },
-		{ value: 'bird', label: 'Bird', shortcut: '8' },
-		{ value: 'dynamic', label: 'Dynamic', shortcut: '9' },
+		{ value: 'bus', label: 'Bus', shortcut: '2' },
+		{ value: 'pedestrian', label: 'Pedestrian', shortcut: '3' },
+		{ value: 'cyclist', label: 'Cyclist', shortcut: '4' },
+		{ value: 'bird', label: 'Bird', shortcut: '5' },
+		{ value: 'dynamic', label: 'Dynamic', shortcut: '6' },
 		{ value: 'noise', label: 'Noise', shortcut: '7' }
 	];
 
@@ -599,10 +597,8 @@
 				<option value="all">All</option>
 				<option value="pedestrian">Pedestrian</option>
 				<option value="car">Car</option>
-				<option value="truck">Truck</option>
 				<option value="bus">Bus</option>
 				<option value="cyclist">Cyclist</option>
-				<option value="motorcyclist">Motorcyclist</option>
 				<option value="bird">Bird</option>
 				<option value="dynamic">Dynamic</option>
 			</select>
@@ -639,11 +635,9 @@
 					<option value="unlabelled">Unlabelled</option>
 					<option value="labelled">Labelled</option>
 					<option value="car">Car</option>
-					<option value="truck">Truck</option>
 					<option value="bus">Bus</option>
 					<option value="pedestrian">Pedestrian</option>
 					<option value="cyclist">Cyclist</option>
-					<option value="motorcyclist">Motorcyclist</option>
 					<option value="bird">Bird</option>
 					<option value="dynamic">Dynamic</option>
 					<option value="noise">Noise</option>

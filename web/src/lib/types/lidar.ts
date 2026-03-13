@@ -20,15 +20,7 @@ export interface Track {
 	/** Current heading (radians, world frame) */
 	heading_rad: number;
 	/** Classified object type (optional) */
-	object_class?:
-		| 'pedestrian'
-		| 'car'
-		| 'truck'
-		| 'bus'
-		| 'cyclist'
-		| 'motorcyclist'
-		| 'bird'
-		| 'dynamic';
+	object_class?: 'pedestrian' | 'car' | 'bus' | 'cyclist' | 'bird' | 'dynamic';
 	/** Confidence in object classification (0-1, optional) */
 	object_confidence?: number;
 	/** Number of observations for this track */
@@ -248,14 +240,14 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
 	return `#${((1 << 24) | (rr << 16) | (gg << 8) | bb).toString(16).slice(1)}`;
 }
 
-/** Classification labels for track identity (single-select: what is the object?) */
+/** Classification labels for track identity (single-select: what is the object?)
+ * v0.5.0 ships 7 classes — truck and motorcyclist are reserved for future use.
+ */
 export type DetectionLabel =
 	| 'car'
-	| 'truck'
 	| 'bus'
 	| 'pedestrian'
 	| 'cyclist'
-	| 'motorcyclist'
 	| 'bird'
 	| 'dynamic'
 	| 'noise';
