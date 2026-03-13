@@ -710,3 +710,129 @@ func TestMockFrameReader_ReadFrame_Closed(t *testing.T) {
 		t.Errorf("expected EOF after close, got %v", err)
 	}
 }
+
+// TestReplayServer_StreamFrames_SkipsBackgroundWithManager verifies that
+// background frames are skipped when the publisher has a background manager
+// (e.g. the main cmd/radar path where live backgrounds are injected).
+func TestReplayServer_StreamFrames_SkipsBackgroundWithManager(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	pub.SetBackgroundManager(&testReplayBackgroundManager{})
+
+	frames := []*FrameBundle{
+		{FrameID: 0, TimestampNanos: 1000000000, SensorID: "test", FrameType: FrameTypeForeground},
+		{FrameID: 1, TimestampNanos: 2000000000, SensorID: "test", FrameType: FrameTypeBackground,
+			Background: &BackgroundSnapshot{TimestampNanos: 2000000000}},
+		{FrameID: 2, TimestampNanos: 3000000000, SensorID: "test", FrameType: FrameTypeForeground},
+	}
+	reader := newMockFrameReader(frames)
+	rs := NewReplayServer(pub, reader)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream := newMockStreamServer(ctx)
+	req := &pb.StreamRequest{SensorId: "test"}
+
+	done := make(chan error, 1)
+	go func() { done <- rs.StreamFrames(req, stream) }()
+
+	// Wait for 2 foreground frames (background should be skipped)
+	deadline := time.After(2 * time.Second)
+	for {
+		stream.mu.Lock()
+		n := len(stream.frames)
+		stream.mu.Unlock()
+		if n >= 2 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for frames")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	// Give a brief window to ensure no extra frames arrive
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	stream.mu.Lock()
+	defer stream.mu.Unlock()
+
+	// Should have exactly 2 foreground frames (background was skipped)
+	if len(stream.frames) != 2 {
+		t.Errorf("expected 2 frames (background skipped), got %d", len(stream.frames))
+	}
+	if stream.frames[0].FrameId != 0 {
+		t.Errorf("first frame ID = %d, want 0", stream.frames[0].FrameId)
+	}
+	if stream.frames[1].FrameId != 2 {
+		t.Errorf("second frame ID = %d, want 2 (skipping background frame 1)", stream.frames[1].FrameId)
+	}
+}
+
+// TestReplayServer_StreamFrames_ForwardsBackgroundWithoutManager verifies
+// that background frames are forwarded when no background manager exists
+// (e.g. the standalone visualiser-server tool).
+func TestReplayServer_StreamFrames_ForwardsBackgroundWithoutManager(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+	// No SetBackgroundManager — simulates visualiser-server
+
+	frames := []*FrameBundle{
+		{FrameID: 0, TimestampNanos: 1000000000, SensorID: "test", FrameType: FrameTypeForeground},
+		{FrameID: 1, TimestampNanos: 2000000000, SensorID: "test", FrameType: FrameTypeBackground,
+			Background: &BackgroundSnapshot{TimestampNanos: 2000000000}},
+		{FrameID: 2, TimestampNanos: 3000000000, SensorID: "test", FrameType: FrameTypeForeground},
+	}
+	reader := newMockFrameReader(frames)
+	rs := NewReplayServer(pub, reader)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream := newMockStreamServer(ctx)
+	req := &pb.StreamRequest{SensorId: "test"}
+
+	done := make(chan error, 1)
+	go func() { done <- rs.StreamFrames(req, stream) }()
+
+	// Wait for all 3 frames (including background)
+	deadline := time.After(2 * time.Second)
+	for {
+		stream.mu.Lock()
+		n := len(stream.frames)
+		stream.mu.Unlock()
+		if n >= 3 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for frames")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	cancel()
+
+	stream.mu.Lock()
+	defer stream.mu.Unlock()
+
+	if len(stream.frames) != 3 {
+		t.Errorf("expected 3 frames (background forwarded), got %d", len(stream.frames))
+	}
+}
+
+// testReplayBackgroundManager implements BackgroundManagerInterface for testing.
+type testReplayBackgroundManager struct{}
+
+func (m *testReplayBackgroundManager) GenerateBackgroundSnapshot() (interface{}, error) {
+	return &BackgroundSnapshot{TimestampNanos: time.Now().UnixNano()}, nil
+}
+
+func (m *testReplayBackgroundManager) GetBackgroundSequenceNumber() uint64 {
+	return 1
+}

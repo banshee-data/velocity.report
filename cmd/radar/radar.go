@@ -321,8 +321,13 @@ func main() {
 	log.Printf("Loaded tuning configuration from %s", *configFile)
 
 	// Compute tuning config hash for VRLOG provenance.
-	tuningJSON, _ := json.Marshal(tuningCfg)
-	tuningHash := fmt.Sprintf("%x", sha256.Sum256(tuningJSON))
+	tuningJSON, err := json.Marshal(tuningCfg)
+	var tuningHash string
+	if err != nil {
+		log.Printf("Warning: unable to compute tuning config provenance hash: %v", err)
+	} else {
+		tuningHash = fmt.Sprintf("%x", sha256.Sum256(tuningJSON))
+	}
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface

@@ -549,6 +549,10 @@ func (r *Replayer) Seek(frameIdx uint64) error {
 }
 
 // SeekToTimestamp seeks to the frame closest to the given timestamp.
+// Uses a full scan to find the entry with the smallest timestamp that is
+// still >= the target. This handles non-monotonic index sequences caused
+// by background frames that may carry wall-clock timestamps different from
+// the foreground sensor timestamps.
 func (r *Replayer) SeekToTimestamp(timestampNs int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -566,15 +570,26 @@ func (r *Replayer) SeekToTimestamp(timestampNs int64) error {
 			timestampNs, r.header.StartNs, r.header.EndNs, len(r.index))
 	}
 
+	// Full scan: find the entry with the smallest timestamp >= target.
+	bestIdx := -1
+	var bestTs int64
 	for i, entry := range r.index {
 		if entry.TimestampNs >= timestampNs {
-			r.currentFrame = uint64(i)
-			log.Printf("[Replayer] SeekToTimestamp: landed on index %d (ts=%d)", i, entry.TimestampNs)
-			return nil
+			if bestIdx == -1 || entry.TimestampNs < bestTs {
+				bestTs = entry.TimestampNs
+				bestIdx = i
+			}
 		}
 	}
 
-	// Seek to end if timestamp is beyond log
+	if bestIdx >= 0 {
+		r.currentFrame = uint64(bestIdx)
+		log.Printf("[Replayer] SeekToTimestamp: landed on index %d (ts=%d, delta=%d ns)",
+			bestIdx, bestTs, bestTs-timestampNs)
+		return nil
+	}
+
+	// All entries are before the target timestamp; seek to end.
 	r.currentFrame = uint64(len(r.index) - 1)
 	log.Printf("[Replayer] SeekToTimestamp: timestamp beyond log, landed on last frame %d", r.currentFrame)
 	return nil

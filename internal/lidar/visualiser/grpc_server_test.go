@@ -1851,3 +1851,114 @@ func TestFrameBundleToProto_ReplayEpoch(t *testing.T) {
 		t.Errorf("expected ReplayEpoch=7, got %d", proto.PlaybackInfo.ReplayEpoch)
 	}
 }
+
+// TestStreamFromPublisher_LiveModePreservesFrameOrder verifies that in
+// normal live mode (vrlogMode=false, not in skip mode), frames are
+// delivered one-by-one without coalescing, preserving smooth frame
+// delivery when the client can keep up.
+func TestStreamFromPublisher_LiveModePreservesFrameOrder(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	server := NewServer(pub)
+	// vrlogMode is false by default — live mode
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	firstSendStarted := make(chan struct{})
+	releaseFirstSend := make(chan struct{})
+
+	var (
+		mu          sync.Mutex
+		receivedIDs []uint64
+		firstOnce   sync.Once
+	)
+
+	mockStream := &mockSyntheticStream{
+		ctx: ctx,
+		send: func(frame *pb.FrameBundle) error {
+			mu.Lock()
+			receivedIDs = append(receivedIDs, frame.FrameId)
+			sendCount := len(receivedIDs)
+			mu.Unlock()
+
+			if sendCount == 1 {
+				firstOnce.Do(func() { close(firstSendStarted) })
+				<-releaseFirstSend
+				return nil
+			}
+			// Collect a few more frames then stop
+			if sendCount >= 4 {
+				cancel()
+			}
+			return nil
+		},
+	}
+
+	req := &pb.StreamRequest{SensorId: "test-sensor"}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.streamFromPublisher(ctx, req, mockStream)
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+
+	// Publish frame 1
+	pub.Publish(&FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+	})
+
+	select {
+	case <-firstSendStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for first send to start")
+	}
+
+	// Buffer frames 2-5 while first send is blocked
+	for i := 2; i <= 5; i++ {
+		pub.Publish(&FrameBundle{
+			FrameID:        uint64(i),
+			TimestampNanos: time.Now().UnixNano(),
+			SensorID:       "test-sensor",
+		})
+	}
+
+	// Release the first send
+	close(releaseFirstSend)
+
+	select {
+	case err := <-errCh:
+		if err != context.Canceled {
+			t.Errorf("expected context.Canceled, got: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for live stream to finish")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// In live mode without skip mode, frames should be delivered
+	// sequentially — NOT coalesced to the latest.
+	if len(receivedIDs) < 2 {
+		t.Fatalf("expected at least 2 frames, got %v", receivedIDs)
+	}
+	if receivedIDs[0] != 1 {
+		t.Errorf("expected first frame = 1, got %d", receivedIDs[0])
+	}
+	// Second frame should be 2 (NOT 5), proving no coalescing in live mode
+	if receivedIDs[1] != 2 {
+		t.Errorf("expected second frame = 2 (no coalescing in live mode), got %d (all=%v)",
+			receivedIDs[1], receivedIDs)
+	}
+}

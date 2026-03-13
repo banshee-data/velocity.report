@@ -121,8 +121,12 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 			return status.Errorf(codes.Internal, "replay error: %v", err)
 		}
 
-		// Skip background snapshot frames during VRLOG replay.
-		if frame.FrameType == FrameTypeBackground {
+		// Skip background snapshot frames when a live background manager
+		// is active (e.g. cmd/radar replaying a VRLOG alongside a running
+		// pipeline).  When no background manager exists (e.g. the standalone
+		// visualiser-server tool), background frames from the VRLOG must be
+		// forwarded so the client can render them.
+		if frame.FrameType == FrameTypeBackground && rs.publisher.backgroundMgr != nil {
 			continue
 		}
 

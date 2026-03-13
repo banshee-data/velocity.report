@@ -968,6 +968,63 @@ func TestReplayerSeekToTimestampEarly(t *testing.T) {
 	}
 }
 
+// TestReplayerSeekToTimestampNonMonotonic verifies that SeekToTimestamp
+// correctly handles non-monotonic index sequences. Background frames
+// recorded early in a session can carry wall-clock timestamps that are
+// much larger than the foreground sensor timestamps, creating a
+// non-monotonic sequence. The old linear scan would match the first
+// background frame; the new full-scan finds the closest foreground frame.
+func TestReplayerSeekToTimestampNonMonotonic(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	// Simulate a recording where the first frame is a background snapshot
+	// with a wall-clock timestamp far in the future, followed by foreground
+	// frames with monotonic sensor timestamps.
+	wallClock := int64(2000000000000)  // "Wall clock" — much larger
+	sensorBase := int64(1000000000000) // Sensor timestamps start here
+
+	// Frame 0: background with wall-clock timestamp
+	rec.Record(testFrameBundle(0, wallClock))
+	// Frames 1-9: foreground with monotonic sensor timestamps
+	for i := 1; i < 10; i++ {
+		rec.Record(testFrameBundle(uint64(i), sensorBase+int64(i*100000000)))
+	}
+	rec.Close()
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	// Seek to sensor timestamp at frame 5 (sensorBase + 5*100ms).
+	// The old algorithm would match frame 0 (wallClock >= target) because
+	// it's the first entry with ts >= target. The fixed algorithm should
+	// find frame 5 (closest ts >= target).
+	target := sensorBase + 5*100000000
+	if err := rep.SeekToTimestamp(target); err != nil {
+		t.Fatalf("SeekToTimestamp() error = %v", err)
+	}
+	if rep.CurrentFrame() != 5 {
+		t.Errorf("CurrentFrame() = %d, want 5 (should skip non-monotonic background frame)", rep.CurrentFrame())
+	}
+
+	// Seek to a timestamp between frames 7 and 8; should land on 8.
+	target2 := sensorBase + 7*100000000 + 50000000
+	if err := rep.SeekToTimestamp(target2); err != nil {
+		t.Fatalf("SeekToTimestamp() error = %v", err)
+	}
+	if rep.CurrentFrame() != 8 {
+		t.Errorf("CurrentFrame() = %d, want 8", rep.CurrentFrame())
+	}
+}
+
 func TestRecorderWithEmptyLog(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "empty-log")

@@ -382,13 +382,15 @@ func (s *Server) streamFromPublisher(ctx context.Context, req *pb.StreamRequest,
 				s.playbackMu.Unlock()
 			}
 
-			// Always coalesce to the newest buffered frame. In both live
-			// and replay modes, stale frames are useless — the client only
-			// needs the latest sensor state. This keeps the channel drained
-			// so the publisher doesn't hit the buffer limit and drop frames.
+			// When replaying (VRLOG) or in cooldown skip mode, coalesce to
+			// the newest buffered frame so the client catches up quickly and
+			// the channel stays drained. In normal live mode, preserve smooth
+			// delivery when the client can keep up.
 			skipped := 0
-			if len(frameCh) > 0 {
-				frame, skipped = coalesceBufferedFrames(frameCh, frame)
+			if s.vrlogMode || cooldown.inSkipMode() {
+				if len(frameCh) > 0 {
+					frame, skipped = coalesceBufferedFrames(frameCh, frame)
+				}
 			}
 			if skipped > 0 {
 				droppedFrames += uint64(skipped)
