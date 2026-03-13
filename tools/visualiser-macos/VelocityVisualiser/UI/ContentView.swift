@@ -1454,23 +1454,37 @@ struct TrackListView: View {
     /// Tracks the rank (index) of each track by the active leaderboard metric.
     /// `climbedAt` is non-nil when the track recently climbed the leaderboard.
     @State private var previousRanks: [String: RankEntry] = [:]
+    /// Last frame index at which the track list was synced. Used to throttle
+    /// the expensive re-sort when FPS is below target (18 fps).
+    @State private var lastSyncedFrameIndex: UInt64 = 0
+    /// Cached sorted frame tracks — recomputed only on the throttled cadence
+    /// to avoid O(n·log·n) re-sorts on every SwiftUI body evaluation.
+    @State private var cachedFrameTracks: [Track] = []
+    /// Cached lookup dictionary — kept in sync with cachedFrameTracks.
+    @State private var cachedFrameTrackByID: [String: Track] = [:]
 
-    /// All tracks seen during this session, including those no longer in view.
-    /// Uses allSeenTracks from AppState so tracks persist after leaving the frame.
-    /// When filters are active, only includes tracks that have been admitted.
-    private var frameTracks: [Track] {
+    /// Recompute and cache the sorted track list.
+    private func refreshFrameTracks() {
         let tracks: [Track]
         if appState.hasActiveFilters {
             tracks = appState.filteredTracks
         } else {
             tracks = Array(appState.allSeenTracks.values)
         }
+        let sorted: [Track]
         switch sortOrder {
-        case .firstSeen: return tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
-        case .maxSpeed: return sortTracksByMaxSpeed(tracks, trackMaxSpeed: appState.trackMaxSpeed)
-        case .hits: return sortTracksByMaxHits(tracks, trackMaxHits: appState.trackMaxHits)
+        case .firstSeen: sorted = tracks.sorted { $0.firstSeenNanos < $1.firstSeenNanos }
+        case .maxSpeed: sorted = sortTracksByMaxSpeed(tracks, trackMaxSpeed: appState.trackMaxSpeed)
+        case .hits: sorted = sortTracksByMaxHits(tracks, trackMaxHits: appState.trackMaxHits)
         }
+        cachedFrameTracks = sorted
+        cachedFrameTrackByID = Dictionary(uniqueKeysWithValues: sorted.map { ($0.trackID, $0) })
     }
+
+    /// All tracks seen during this session, including those no longer in view.
+    /// Uses allSeenTracks from AppState so tracks persist after leaving the frame.
+    /// When filters are active, only includes tracks that have been admitted.
+    private var frameTracks: [Track] { cachedFrameTracks }
 
     /// Run tracks sorted according to the active sort order.
     /// In metric modes, uses live frame data when available so the list re-sorts in real time.
@@ -1488,9 +1502,7 @@ struct TrackListView: View {
     }
 
     /// Track lookup for determining in-view state and colours.
-    private var frameTrackByID: [String: Track] {
-        Dictionary(uniqueKeysWithValues: frameTracks.map { ($0.trackID, $0) })
-    }
+    private var frameTrackByID: [String: Track] { cachedFrameTrackByID }
 
     /// Whether we are in run replay mode.
     private var isRunMode: Bool { appState.currentRunID != nil }
@@ -1546,7 +1558,15 @@ struct TrackListView: View {
             }
         }.onChange(of: appState.userLabels) { _, _ in
             if isRunMode && !isSyncingAPILabels { fetchRunTracks() }
-        }.onChange(of: appState.currentFrameIndex) { _, _ in
+        }.onChange(of: appState.currentFrameIndex) { _, newIndex in
+            // Throttle the track-list re-sort when FPS drops below 18.
+            // Skip frames to avoid the O(n·log·n) sort + SwiftUI diff on
+            // every single frame — only sync every 5th frame when lagging.
+            if appState.fps > 0 && appState.fps < 18 {
+                let gap = newIndex > lastSyncedFrameIndex ? newIndex - lastSyncedFrameIndex : 0
+                guard gap >= 5 else { return }
+            }
+            lastSyncedFrameIndex = newIndex
             if sortOrder.usesLeaderboardMetric { updateRanks() }
             syncTrackListOrder()
         }.onChange(of: sortOrder) { _, newOrder in
@@ -1654,6 +1674,7 @@ struct TrackListView: View {
     /// Guarded to avoid redundant @Published writes that would trigger
     /// a second SwiftUI body re-evaluation per frame.
     private func syncTrackListOrder() {
+        refreshFrameTracks()
         let newOrder: [String]
         if isRunMode {
             newOrder = sortedRunTracks.map { $0.trackId }

@@ -276,6 +276,9 @@ private let logger = DevLogger(category: "AppState")
     private var grpcClient: VisualiserClient?
     var playbackCommandClientOverride: PlaybackRPCClient?
     private var lastFrameTime: Date = Date()
+    /// Clock for throttling @Published UI updates when the side panel is
+    /// open.  Metal rendering runs at full speed regardless.
+    private var lastUIUpdateClock = ContinuousClock.now
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
     private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
@@ -1191,11 +1194,27 @@ private let logger = DevLogger(category: "AppState")
 
         // Defer @Published state mutations to the next run loop iteration
         // to avoid SwiftUI AttributeGraph cycles during view updates.
-        Task { [weak self] in
-            guard let self else { return }
-            self.applyFrameStateUpdate(
-                frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
-                newLabels: newLabels, generation: eventGeneration)
+        //
+        // When the side panel is visible, each @Published mutation triggers
+        // a full SwiftUI body re-evaluation of TrackListView (sort),
+        // TrackHistoryGraphView (sparkline), etc.  Throttle the deferred
+        // update to ~10 fps so the main thread stays available for Metal
+        // rendering and gRPC frame delivery.  The renderer.updateFrame()
+        // call above is unaffected — 3D visuals stay at full speed.
+        let uiNow = ContinuousClock.now
+        let panelOpen = showSidePanel || selectedTrackID != nil
+        let minUIInterval: ContinuousClock.Duration =
+            panelOpen
+            ? .milliseconds(100)  // ~10 fps UI when panel visible
+            : .milliseconds(0)  // no throttle when panel hidden
+        if uiNow - lastUIUpdateClock >= minUIInterval {
+            lastUIUpdateClock = uiNow
+            Task { [weak self] in
+                guard let self else { return }
+                self.applyFrameStateUpdate(
+                    frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
+                    newLabels: newLabels, generation: eventGeneration)
+            }
         }
 
         trace.end(
