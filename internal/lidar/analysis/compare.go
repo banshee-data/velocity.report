@@ -297,10 +297,13 @@ func validateAnalysisSchema(data []byte) error {
 		if _, ok := track["MaxSpeedMps"]; ok {
 			continue
 		}
-		return fmt.Errorf("track %d missing required key max_speed_mps", i)
+		return fmt.Errorf("track %d missing required key max_speed_mps: %w", i, errSchemaInvalid)
 	}
 	return nil
 }
+
+// errSchemaInvalid indicates analysis.json has an unsupported schema shape.
+var errSchemaInvalid = errors.New("schema validation failed")
 
 // loadOrGenerate returns the cached analysis if analysis.json exists and its
 // version matches [version.Version]. It regenerates the report when the file
@@ -315,8 +318,9 @@ func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 		log.Printf("Stale analysis version %q (want %q) for %s, regenerating ...",
 			report.Version, version.Version, vrlogPath)
 	} else {
-		// Only regenerate for file-not-found or JSON parse errors.
-		if !errors.Is(err, os.ErrNotExist) && !isJSONError(err) {
+		// Only regenerate for file-not-found, JSON parse errors, or schema
+		// validation failures (e.g. missing required keys from older versions).
+		if !errors.Is(err, os.ErrNotExist) && !isJSONError(err) && !errors.Is(err, errSchemaInvalid) {
 			return nil, err
 		}
 		log.Printf("Generating analysis for %s ...", vrlogPath)
