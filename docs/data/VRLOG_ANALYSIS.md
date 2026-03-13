@@ -543,7 +543,7 @@ the perception outputs (tracks, clusters, points) without re-running the pipelin
 This means:
 
 - **Deterministic** — same `.vrlog` always produces the same analysis.
-- **Fast** — no signal processing, just JSON deserialisation and metric computation.
+- **Fast** — no signal processing, just frame deserialisation and metric computation.
 - **Offline-first** — `.vrlog` files can be shared, archived, and re-analysed.
 - **Two-file comparison** — direct structural comparison without database state.
 
