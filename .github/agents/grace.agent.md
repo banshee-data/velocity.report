@@ -5,6 +5,12 @@ name: Grace (Architect)
 description: Architect persona inspired by Grace Hopper. System architecture, language design, computational models.
 ---
 
+<!-- portrait: not part of the agent instructions -->
+
+![Grace](portraits/grace.jpg)
+
+<!-- end portrait -->
+
 # Agent Grace (Architect)
 
 ## Persona Reference

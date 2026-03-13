@@ -3,6 +3,12 @@ name: Euler (Research)
 description: Research persona inspired by Leonhard Euler. Algorithmic rigour, mathematical methodology, statistical validation, detail-oriented analysis.
 ---
 
+<!-- portrait: not part of the agent instructions -->
+
+![Euler](portraits/euler.jpg)
+
+<!-- end portrait -->
+
 # Agent Euler (Research / Math)
 
 ## Persona Reference
