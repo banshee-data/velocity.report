@@ -865,10 +865,16 @@ func TestValidateQualityLabel(t *testing.T) {
 }
 
 func TestValidateUserLabel(t *testing.T) {
-	// Spot-check canonical labels
-	for _, label := range []string{"car", "truck", "bus", "pedestrian", "cyclist", "motorcyclist", "bird", "noise", "dynamic"} {
+	// Spot-check canonical labels (7 classes in v0.5.0)
+	for _, label := range []string{"car", "bus", "pedestrian", "cyclist", "bird", "noise", "dynamic"} {
 		if !ValidateUserLabel(label) {
 			t.Errorf("ValidateUserLabel(%q) = false, want true", label)
+		}
+	}
+	// truck and motorcyclist are reserved for future use
+	for _, label := range []string{"truck", "motorcyclist"} {
+		if ValidateUserLabel(label) {
+			t.Errorf("ValidateUserLabel(%q) = true, want false (reserved for future)", label)
 		}
 	}
 	if ValidateUserLabel("") {

@@ -159,6 +159,7 @@ func TestTrackClassifier_Classify_Truck(t *testing.T) {
 	classifier := NewTrackClassifier()
 
 	// Create a truck-like track: longer and taller than a car.
+	// v0.5.0: truck classification is disabled — trucks classify as cars.
 	track := &TrackedObject{
 		TrackID:              "test-truck",
 		ObservationCount:     20,
@@ -177,8 +178,8 @@ func TestTrackClassifier_Classify_Truck(t *testing.T) {
 
 	result := classifier.Classify(track)
 
-	if result.Class != ClassTruck {
-		t.Errorf("Expected truck classification, got %s", result.Class)
+	if result.Class != ClassCar {
+		t.Errorf("Expected car classification (truck disabled in v0.5.0), got %s", result.Class)
 	}
 	if result.Confidence < 0.6 {
 		t.Errorf("Expected confidence >= 0.6, got %.2f", result.Confidence)
@@ -189,13 +190,15 @@ func TestTrackClassifier_Classify_Motorcyclist(t *testing.T) {
 	classifier := NewTrackClassifier()
 
 	// Create a motorcyclist-like track: narrow, fast, longer than a bicycle.
+	// v0.5.0: motorcyclist classification is disabled — fast narrow objects
+	// that don't match cyclist speed range fall through to dynamic.
 	track := &TrackedObject{
 		TrackID:              "test-motorcyclist",
 		ObservationCount:     20,
 		BoundingBoxHeightAvg: 1.5,  // Rider height
 		BoundingBoxLengthAvg: 2.2,  // Motorcycle length (>1.5 m)
 		BoundingBoxWidthAvg:  0.8,  // Narrow (<1.2 m)
-		AvgSpeedMps:          12.0, // ~43 km/h (faster than cyclist)
+		AvgSpeedMps:          12.0, // ~43 km/h (faster than cyclist max)
 		MaxSpeedMps:          18.0,
 	}
 
@@ -207,11 +210,10 @@ func TestTrackClassifier_Classify_Motorcyclist(t *testing.T) {
 
 	result := classifier.Classify(track)
 
-	if result.Class != ClassMotorcyclist {
-		t.Errorf("Expected motorcyclist classification, got %s", result.Class)
-	}
-	if result.Confidence < 0.6 {
-		t.Errorf("Expected confidence >= 0.6, got %.2f", result.Confidence)
+	// Motorcyclist speed (12 m/s) exceeds cyclist max (10 m/s) and the object
+	// is too narrow/short for a vehicle, so it falls to dynamic.
+	if result.Class != ClassDynamic {
+		t.Errorf("Expected dynamic classification (motorcyclist disabled in v0.5.0), got %s", result.Class)
 	}
 }
 

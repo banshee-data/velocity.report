@@ -18,16 +18,15 @@ const maxLabelsPerQuery = 1000
 
 // Valid user labels for track classification (what is the object?)
 // Must match l6objects.ObjectClass constants, Svelte DetectionLabel, and Swift classificationLabels.
+// v0.5.0 ships 7 classes — truck and motorcyclist are reserved for future use.
 var validUserLabels = map[string]bool{
-	"car":          true,
-	"truck":        true,
-	"bus":          true,
-	"pedestrian":   true,
-	"cyclist":      true,
-	"motorcyclist": true,
-	"bird":         true,
-	"noise":        true,
-	"dynamic":      true,
+	"car":        true,
+	"bus":        true,
+	"pedestrian": true,
+	"cyclist":    true,
+	"bird":       true,
+	"noise":      true,
+	"dynamic":    true,
 }
 
 // Valid quality flags for track quality attributes (multi-select, comma-separated).
