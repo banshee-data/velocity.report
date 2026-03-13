@@ -827,16 +827,23 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
-    /// Seek to a specific nanosecond timestamp by converting to progress.
+    /// Seek to an exact nanosecond timestamp.
+    ///
+    /// Computes progress for the UI and passes the raw timestamp through
+    /// to the gRPC seek RPC — avoiding the lossy nanos→progress→nanos
+    /// round-trip that `seek(to: progress)` would perform.
     func seekToTimestamp(_ timestampNanos: Int64) {
         guard hasValidTimelineRange, logEndTimestamp > logStartTimestamp else { return }
         let clamped = max(logStartTimestamp, min(logEndTimestamp, timestampNanos))
         let progress =
             Double(clamped - logStartTimestamp) / Double(logEndTimestamp - logStartTimestamp)
-        seek(to: progress)
+        logger.info(
+            "seekToTimestamp(\(timestampNanos)) — clamped=\(clamped) progress=\(String(format: "%.4f", progress)) logRange=[\(self.logStartTimestamp)…\(self.logEndTimestamp)]"
+        )
+        seek(to: progress, rawTimestamp: clamped)
     }
 
-    func seek(to progress: Double) {
+    func seek(to progress: Double, rawTimestamp: Int64? = nil) {
         logger.debug(
             "seek(to: \(progress)) called — mode=\(self.displayPlaybackMode.rawValue) seekable=\(self.isSeekable) hasValidRange=\(self.hasValidTimelineRange) hasFrameProgress=\(self.hasFrameIndexProgress) busy=\(self.playbackControlsBusy) inFlight=\(String(describing: self.inFlightPlaybackCommand))"
         )
@@ -854,10 +861,11 @@ private let logger = DevLogger(category: "AppState")
         let clampedProgress = max(0, min(1, progress))
         let useTimestampSeek = hasValidTimelineRange
         let targetTimestamp: Int64 =
-            useTimestampSeek
-            ? logStartTimestamp
-                + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
-            : currentTimestamp
+            rawTimestamp
+            ?? (useTimestampSeek
+                ? logStartTimestamp
+                    + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
+                : currentTimestamp)
         let targetFrame: UInt64 =
             !useTimestampSeek && totalFrames > 1
             ? UInt64(Double(totalFrames - 1) * clampedProgress) : 0
