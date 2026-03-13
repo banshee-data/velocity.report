@@ -1651,12 +1651,17 @@ struct TrackListView: View {
 
     /// Push the current visible track ordering into AppState so that
     /// up/down keyboard navigation matches what the user sees in the list.
+    /// Guarded to avoid redundant @Published writes that would trigger
+    /// a second SwiftUI body re-evaluation per frame.
     private func syncTrackListOrder() {
+        let newOrder: [String]
         if isRunMode {
-            appState.trackListOrder = sortedRunTracks.map { $0.trackId }
+            newOrder = sortedRunTracks.map { $0.trackId }
         } else {
-            appState.trackListOrder = frameTracks.map { $0.trackID }
+            newOrder = frameTracks.map { $0.trackID }
         }
+        guard newOrder != appState.trackListOrder else { return }
+        appState.trackListOrder = newOrder
     }
 }
 

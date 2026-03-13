@@ -353,6 +353,7 @@ private let logger = DevLogger(category: "AppState")
     }
 
     fileprivate func setPlaybackMode(_ mode: PlaybackMode) {
+        guard playbackMode != mode else { return }
         playbackMode = mode
         if mode != .replaySeekable { replayFrameEncoding = nil }
         switch mode {
@@ -1227,14 +1228,18 @@ private let logger = DevLogger(category: "AppState")
 
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
-            hasPlaybackMetadata = true
+            if !hasPlaybackMetadata { hasPlaybackMetadata = true }
             setPlaybackMode(
                 inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))
-            logStartTimestamp = playbackInfo.logStartNs
-            logEndTimestamp = playbackInfo.logEndNs
-            playbackRate = playbackInfo.playbackRate
+            if logStartTimestamp != playbackInfo.logStartNs {
+                logStartTimestamp = playbackInfo.logStartNs
+            }
+            if logEndTimestamp != playbackInfo.logEndNs { logEndTimestamp = playbackInfo.logEndNs }
+            if playbackRate != playbackInfo.playbackRate {
+                playbackRate = playbackInfo.playbackRate
+            }
             currentFrameIndex = playbackInfo.currentFrameIndex
-            totalFrames = playbackInfo.totalFrames
+            if totalFrames != playbackInfo.totalFrames { totalFrames = playbackInfo.totalFrames }
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
 
@@ -1309,7 +1314,7 @@ private let logger = DevLogger(category: "AppState")
         if let selectedTrackID { selectedTrackData = allSeenTracks[selectedTrackID] }
 
         // M3.5: Update cache status
-        cacheStatus = newCacheStatus
+        if cacheStatus != newCacheStatus { cacheStatus = newCacheStatus }
 
         // Update track label overlay positions
         trackLabels = newLabels
