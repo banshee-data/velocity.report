@@ -354,40 +354,32 @@ func (p *Publisher) vrlogReplayLoop() {
 			return
 		}
 
-		// Skip background snapshot frames during VRLOG replay.
-		// Background data in the VRLOG carries wall-clock timestamps that
-		// break rate control, and the client already holds its cached
-		// background from the live session. Skipping these avoids the
-		// CPU cost of deserializing + re-serializing ~2.4 MB JSON blobs.
-		if frame.FrameType == FrameTypeBackground {
-			continue
-		}
-
-		// Rate control: sleep to match playback rate
-		if lastFrameTime > 0 && rate > 0 {
-			frameDelta := time.Duration(float64(frame.TimestampNanos-lastFrameTime) / float64(rate))
-			wallDelta := time.Since(lastWallTime)
-			if frameDelta > wallDelta {
-				sleepTime := frameDelta - wallDelta
-				// Cap sleep to avoid long waits
-				if sleepTime > 500*time.Millisecond {
-					sleepTime = 500 * time.Millisecond
-				}
-				time.Sleep(sleepTime)
-			}
-		}
-
-		lastFrameTime = frame.TimestampNanos
-		lastWallTime = time.Now()
-
 		// Throttle background frames during replay: send at most one
-		// every bgReplayInterval of wall-clock time. Drop the rest to
-		// keep the gRPC stream focused on foreground data.
+		// every bgReplayInterval of wall-clock time. Background
+		// timestamps use wall-clock time that would corrupt the
+		// foreground rate-control state, so handle them separately.
 		if frame.FrameType == FrameTypeBackground {
 			if !lastBgSentWall.IsZero() && time.Since(lastBgSentWall) < bgReplayInterval {
 				continue
 			}
 			lastBgSentWall = time.Now()
+		} else {
+			// Rate control: sleep to match playback rate (foreground only)
+			if lastFrameTime > 0 && rate > 0 {
+				frameDelta := time.Duration(float64(frame.TimestampNanos-lastFrameTime) / float64(rate))
+				wallDelta := time.Since(lastWallTime)
+				if frameDelta > wallDelta {
+					sleepTime := frameDelta - wallDelta
+					// Cap sleep to avoid long waits
+					if sleepTime > 500*time.Millisecond {
+						sleepTime = 500 * time.Millisecond
+					}
+					time.Sleep(sleepTime)
+				}
+			}
+
+			lastFrameTime = frame.TimestampNanos
+			lastWallTime = time.Now()
 		}
 
 		// Mark frame as seekable replay
