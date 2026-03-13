@@ -246,6 +246,11 @@ func (p *Publisher) SeekVRLog(frameIdx uint64) (uint64, error) {
 	}
 
 	currentFrame := p.vrlogReader.CurrentFrame()
+	diagf("[Visualiser] SeekVRLog: requested=%d, landed=%d", frameIdx, currentFrame)
+
+	// Drain buffered frames so the client doesn't receive stale
+	// pre-seek frames before the new position's data arrives.
+	p.drainFrameBuffers()
 
 	// If paused, send one frame so the UI updates to the seeked position
 	if p.vrlogPaused {
@@ -276,6 +281,11 @@ func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
 	}
 
 	currentFrame := p.vrlogReader.CurrentFrame()
+	diagf("[Visualiser] SeekVRLogTimestamp: requested=%d, landed=%d", timestampNs, currentFrame)
+
+	// Drain buffered frames so the client doesn't receive stale
+	// pre-seek frames before the new position's data arrives.
+	p.drainFrameBuffers()
 
 	// If paused, send one frame so the UI updates to the seeked position
 	if p.vrlogPaused {
@@ -289,6 +299,45 @@ func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
 	}
 
 	return currentFrame, nil
+}
+
+// drainFrameBuffers discards all buffered frames from the publisher's
+// central frameChan and every per-client channel. Call after seeking to
+// prevent stale pre-seek frames from reaching clients.
+func (p *Publisher) drainFrameBuffers() {
+	// Drain the central broadcast channel.
+	for {
+		select {
+		case f := <-p.frameChan:
+			if f.PointCloud != nil {
+				f.PointCloud.Release()
+			}
+		default:
+			goto clientDrain
+		}
+	}
+
+clientDrain:
+	// Drain each per-client channel.
+	p.clientsMu.RLock()
+	defer p.clientsMu.RUnlock()
+	for _, client := range p.clients {
+		p.drainClientCh(client)
+	}
+}
+
+// drainClientCh drains a single client's frame channel.
+func (p *Publisher) drainClientCh(client *clientStream) {
+	for {
+		select {
+		case f := <-client.frameCh:
+			if f.PointCloud != nil {
+				f.PointCloud.Release()
+			}
+		default:
+			return
+		}
+	}
 }
 
 // vrlogReplayLoop reads frames from the VRLOG reader and publishes them.
