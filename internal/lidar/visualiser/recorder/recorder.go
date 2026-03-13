@@ -143,11 +143,15 @@ func (r *Recorder) Record(frame *visualiser.FrameBundle) error {
 		return fmt.Errorf("recorder is closed")
 	}
 
-	// Track timestamps
-	if r.startNs == 0 {
-		r.startNs = frame.TimestampNanos
+	// Track timestamps — only from foreground/full frames.  Background
+	// frames may carry wall-clock timestamps that contaminate the VRLOG
+	// time range when recording a PCAP replay.
+	if frame.FrameType != visualiser.FrameTypeBackground {
+		if r.startNs == 0 {
+			r.startNs = frame.TimestampNanos
+		}
+		r.endNs = frame.TimestampNanos
 	}
-	r.endNs = frame.TimestampNanos
 
 	// Serialize frame before deciding whether to rotate, so we can check
 	// the projected post-write size and avoid creating empty chunks.

@@ -1475,3 +1475,70 @@ func TestReplayerHeaderTimestamps(t *testing.T) {
 			header.EndNs, header.StartNs)
 	}
 }
+
+// TestRecorder_BackgroundFramesExcludedFromHeaderRange verifies that
+// background frames do not affect header.StartNs/EndNs.  Background frames
+// may carry wall-clock timestamps (time.Now()) during PCAP replay, which
+// would contaminate the timeline range if included.
+func TestRecorder_BackgroundFramesExcludedFromHeaderRange(t *testing.T) {
+	dir := t.TempDir()
+	rec, err := NewRecorder(dir, "test-bg-header")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+
+	pcapTs := int64(1_718_400_000_000_000_000) // PCAP epoch: 2024-06-15
+	wallTs := int64(1_773_000_000_000_000_000) // Wall clock: ~2026-03
+
+	// Record: background (wall-clock), foreground, foreground, background (wall-clock)
+	bgFrame := func(id uint64, ts int64) *visualiser.FrameBundle {
+		f := testFrameBundle(id, ts)
+		f.FrameType = visualiser.FrameTypeBackground
+		return f
+	}
+	fgFrame := func(id uint64, ts int64) *visualiser.FrameBundle {
+		f := testFrameBundle(id, ts)
+		f.FrameType = visualiser.FrameTypeForeground
+		return f
+	}
+
+	for _, frame := range []*visualiser.FrameBundle{
+		bgFrame(1, wallTs),
+		fgFrame(2, pcapTs),
+		fgFrame(3, pcapTs+100_000_000), // +100ms
+		bgFrame(4, wallTs+1_000_000_000),
+	} {
+		if err := rec.Record(frame); err != nil {
+			t.Fatalf("Record(frame %d): %v", frame.FrameID, err)
+		}
+	}
+
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	rep, err := NewReplayer(dir)
+	if err != nil {
+		t.Fatalf("OpenReplayer: %v", err)
+	}
+	defer rep.Close()
+
+	header := rep.Header()
+
+	// Header range should only cover foreground timestamps.
+	if header.StartNs != pcapTs {
+		t.Errorf("Header.StartNs = %d, want %d (PCAP foreground)", header.StartNs, pcapTs)
+	}
+	expectedEnd := pcapTs + 100_000_000
+	if header.EndNs != expectedEnd {
+		t.Errorf("Header.EndNs = %d, want %d (PCAP foreground)", header.EndNs, expectedEnd)
+	}
+
+	// Wall-clock timestamps must NOT leak into the range.
+	if header.StartNs == wallTs {
+		t.Error("Header.StartNs is the wall-clock background timestamp — contaminated!")
+	}
+	if header.TotalFrames != 4 {
+		t.Errorf("Header.TotalFrames = %d, want 4 (all frames still indexed)", header.TotalFrames)
+	}
+}

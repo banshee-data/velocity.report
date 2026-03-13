@@ -653,6 +653,9 @@ func TestPublisher_SendBackgroundSnapshot_Success(t *testing.T) {
 	}
 	pub.SetBackgroundManager(mgr)
 
+	// Set a foreground timestamp so the background snapshot is not deferred.
+	pub.lastForegroundTimestamp.Store(time.Now().UnixNano())
+
 	err := pub.sendBackgroundSnapshot()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -1136,5 +1139,51 @@ func TestPublisher_BackgroundTimestampInheritance(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for background frame")
+	}
+}
+
+// TestPublisher_SendBackgroundSnapshot_DeferredBeforeForeground verifies that
+// background snapshots are silently deferred when no foreground frame has
+// been published.  This prevents wall-clock timestamps from contaminating
+// VRLOG recordings of PCAP replays.
+func TestPublisher_SendBackgroundSnapshot_DeferredBeforeForeground(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	mgr := &mockBackgroundManager{
+		sequenceNumber: 1,
+		snapshot: &BackgroundSnapshot{
+			SequenceNumber: 1,
+			TimestampNanos: time.Now().UnixNano(),
+			X:              []float32{1.0},
+			Y:              []float32{1.0},
+			Z:              []float32{0.5},
+			Confidence:     []uint32{1},
+		},
+	}
+	pub.SetBackgroundManager(mgr)
+
+	// Do NOT set lastForegroundTimestamp — background should be deferred.
+	err := pub.sendBackgroundSnapshot()
+	if err != nil {
+		t.Fatalf("sendBackgroundSnapshot returned unexpected error: %v", err)
+	}
+
+	// frameChan should be empty — snapshot was deferred, not sent.
+	select {
+	case <-pub.frameChan:
+		t.Error("background snapshot should have been deferred, but a frame was sent")
+	default:
+		// expected: nothing in the channel
+	}
+
+	if pub.lastBackgroundSeq != 0 {
+		t.Errorf("lastBackgroundSeq = %d, want 0 (deferred)", pub.lastBackgroundSeq)
 	}
 }

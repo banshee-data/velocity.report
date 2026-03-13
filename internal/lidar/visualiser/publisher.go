@@ -501,15 +501,15 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 		return fmt.Errorf("background snapshot has incorrect type: %T", snapshotDataRaw)
 	}
 
-	// Create a frame bundle with background type.
-	// Use the most recent foreground frame timestamp instead of the snapshot's
-	// wall-clock time. This prevents timestamp inversion in VRLOGs when
-	// recording PCAP replays (background uses time.Now(), foreground uses
-	// PCAP timestamps).
-	ts := snapshot.TimestampNanos
-	if fgTs := p.lastForegroundTimestamp.Load(); fgTs != 0 {
-		ts = fgTs
+	// Skip background emission until the first foreground frame has set a
+	// canonical timestamp.  Before that, the only available timestamp is
+	// time.Now() which would contaminate VRLOG recordings of PCAP replays.
+	fgTs := p.lastForegroundTimestamp.Load()
+	if fgTs == 0 {
+		lidar.Diagf("[Visualiser] Background snapshot deferred: no foreground frame yet (seq=%d)", snapshot.SequenceNumber)
+		return nil
 	}
+	ts := fgTs
 	bundle := &FrameBundle{
 		FrameID:        p.frameCount.Add(1),
 		TimestampNanos: ts,
