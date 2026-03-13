@@ -125,14 +125,13 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				acc.bboxL = append(acc.bboxL, t.BBoxLength)
 				acc.bboxW = append(acc.bboxW, t.BBoxWidth)
 				acc.bboxH = append(acc.bboxH, t.BBoxHeight)
-					// Older .vrlog frames may lack the renamed max-speed field.
-					maxSpeedCandidate := t.MaxSpeedMps
-					if maxSpeedCandidate == 0 {
-						maxSpeedCandidate = t.SpeedMps
-					}
-					if maxSpeedCandidate > acc.maxSpeed {
-						acc.maxSpeed = maxSpeedCandidate
-					}
+				// Older .vrlog frames may lack the renamed max-speed field.
+				maxSpeedCandidate := t.MaxSpeedMps
+				if maxSpeedCandidate == 0 {
+					maxSpeedCandidate = t.SpeedMps
+				}
+				if maxSpeedCandidate > acc.maxSpeed {
+					acc.maxSpeed = maxSpeedCandidate
 				}
 				if t.HeightP95Max > acc.heightP95Max {
 					acc.heightP95Max = t.HeightP95Max
