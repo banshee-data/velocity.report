@@ -755,7 +755,7 @@ scripts/
 
 ## 10. Open Questions
 
-- [ ] Does `.github/knowledge/` directory convention work with Copilot's file discovery, or do agents need explicit `#file` references?
+- [x] ~~Does `.github/knowledge/` directory convention work with Copilot's file discovery, or do agents need explicit `#file` references?~~ — Resolved: **yes, the convention works.** `copilot-instructions.md` is auto-loaded into agent context; knowledge modules are fetched on demand via tools when the agent follows the inline `see .github/knowledge/...` signposts. Explicit `#file` references would not help — Copilot does not eagerly resolve them (see §6.4). Validated empirically across the Phase 2 work.
 - [x] ~~Should Claude Code agent personas be sections in `CLAUDE.md` or separate files in `.claude/`?~~ — Resolved: separate files in `.claude/agents/`. Platform-native definitions maximise feature coverage.
 - [x] ~~Single source vs dual agent definitions?~~ — Resolved: **Option B (dual native) with drift detection.** Feature matrix (§6.5) showed Option A sacrifices 6 real UX features for Claude users. Persona duplication is bounded (~40–80 lines/agent) and drift-checked weekly. See §6.6.
 - [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis. This ruled out Option C and informed the decision to keep persona content directly in agent files rather than factoring it into shared includes.
@@ -794,4 +794,3 @@ scripts/
 - [ ] Investigate `SKILL.md` wrappers for knowledge modules (§6.3)
 - [ ] JSON snapshot persistence for Flo's weekly review trend tracking
 - [ ] Non-interactive release automation (DevOps agent prerequisite)
-- [ ] Confirm `.github/knowledge/` works with Copilot file discovery (§10 open question)
