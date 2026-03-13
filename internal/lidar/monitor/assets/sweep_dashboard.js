@@ -315,6 +315,9 @@ function extractValue(result, key) {
   if (result.param_values && result.param_values[key] !== undefined) {
     return result.param_values[key];
   }
+  if (result[key] !== undefined) {
+    return result[key];
+  }
   return null;
 }
 
