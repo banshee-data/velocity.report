@@ -131,7 +131,7 @@ These tenets belong in a single canonical file (proposed: `.github/TENETS.md`) t
 
 | Role Class    | Agents                                     | Knowledge Included                                                       |
 | ------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
-| **Technical** | Appius, Grace, Malory + future tech agents | Build system, venv, test commands, DB details, hardware specs, packaging |
+| **Technical** | Appius, Grace, malory + future tech agents | Build system, venv, test commands, DB details, hardware specs, packaging |
 | **Editorial** | Terry, Florence + future non-tech agents   | Brand voice, style guide, audience awareness, documentation standards    |
 
 Some agents may include both mixins (e.g. a future "DevRel" agent who writes docs but also runs code).
@@ -140,7 +140,7 @@ Some agents may include both mixins (e.g. a future "DevRel" agent who writes doc
 
 - YAML frontmatter (name, description) — Copilot uses this natively; Claude Code ignores it harmlessly
 - Role and responsibilities
-- Role-specific methodology (Malory's red-team playbook, Florence's sequencing rules, etc.)
+- Role-specific methodology (malory's red-team playbook, Florence's sequencing rules, etc.)
 - References to Layer 1/2 knowledge: `see .github/knowledge/build-and-test.md`
 - Inter-agent coordination notes
 - Forbidden actions
@@ -171,7 +171,7 @@ Both tools read from the same files. Copilot discovers them via the `.agent.md` 
 | **Euler** ([wiki](https://en.wikipedia.org/wiki/Leonhard_Euler)) (Research / Math)               | Algorithms           | Technical | -          | Algorithms, analytical models, computational foundations, statistical methods, traffic engineering maths |
 | **Grace** ([wiki](https://en.wikipedia.org/wiki/Grace_Hopper)) (Architect / Theory)              | System architecture  | Technical | Ictinus    | System architecture, language design, computational models, capability mapping, design docs              |
 | **Appius** ([wiki](https://en.wikipedia.org/wiki/Appius_Claudius_Caecus)) (Dev / Implementation) | Execution            | Technical | Hadaly     | Execution strategy, infrastructure thinking, durable systems, code review, test strategy                 |
-| **Malory** ([wiki](https://en.wikipedia.org/wiki/Thomas_Malory)) (Pen Test)                      | Adversarial thinking | Technical | -          | Red-team playbook, vulnerability patterns, adversarial thinking, severity classification                 |
+| **malory** ([wiki](https://en.wikipedia.org/wiki/Thomas_malory)) (Pen Test)                      | Adversarial thinking | Technical | -          | Red-team playbook, vulnerability patterns, adversarial thinking, severity classification                 |
 | **Florence** ([wiki](https://en.wikipedia.org/wiki/Florence_Nightingale)) (PM)                   | Coordination         | Editorial | Jess       | Scope definition, sequencing, risk identification, project management                                    |
 | **Terry** ([wiki](https://en.wikipedia.org/wiki/Terry_Pratchett)) (Writer)                       | Narrative            | Editorial | Thompson   | Brand voice, copy editing, marketing, content quality                                                    |
 | **Ruth** ([wiki](https://en.wikipedia.org/wiki/Ruth_Bader_Ginsburg)) (Justice)                   | Judgment             | Both      | -          | Product direction, tradeoff decisions, scope challenges, taste, scope mode selection                     |
@@ -308,7 +308,7 @@ The central design question: should agent personas live in one place or two?
 | ------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------ |
 | **Agent discovery**             | `.github/agents/*.agent.md` — auto-populates agent picker dropdown | No native agent concept — personas are prompt-driven                     |
 | **Structured metadata**         | YAML frontmatter: `name`, `description`, `tools`                   | No structured metadata — ignores YAML but doesn't break on it            |
-| **Agent invocation**            | `@AgentName` mention in chat                                       | User prompts "act as Malory" or `CLAUDE.md` directs which persona to use |
+| **Agent invocation**            | `@AgentName` mention in chat                                       | User prompts "act as malory" or `CLAUDE.md` directs which persona to use |
 | **Per-agent tool restrictions** | `tools:` field in YAML limits available tools                      | No equivalent — all tools always available                               |
 | **Per-agent scoping**           | Each `.agent.md` is a separate context window                      | Must read referenced files explicitly                                    |
 
@@ -368,7 +368,7 @@ Define personas in a tool-agnostic format. Copilot `.agent.md` files become thin
 **Rationale:**
 
 1. **DRY is the primary objective.** The entire plan exists to eliminate the current 60% duplication problem. Option B reintroduces it at a different layer.
-2. **Claude's UX gap is minor.** Claude lacks an agent picker regardless of file format — users will always prompt "act as Malory" whether the persona lives in `.agent.md` or a Claude-native file. The reading experience is identical.
+2. **Claude's UX gap is minor.** Claude lacks an agent picker regardless of file format — users will always prompt "act as malory" whether the persona lives in `.agent.md` or a Claude-native file. The reading experience is identical.
 3. **YAML frontmatter is genuinely harmless.** Claude reads it as text context. The `name:` and `description:` fields actually _help_ Claude understand the persona. Only `tools:` restrictions are silently ignored — and Claude has no equivalent mechanism anyway.
 4. **The sync cost of Option B grows with the team.** At 15 agents, maintaining two aligned copies becomes a real operational burden — exactly the class of problem this architecture is designed to prevent.
 5. **Option C is ruled out.** Copilot does not resolve file references at agent-load time (§6.4). Wrapper agents would appear empty. This removes the only alternative DRY strategy, making Option A the clear winner.
@@ -383,7 +383,7 @@ Define personas in a tool-agnostic format. Copilot `.agent.md` files become thin
 When you need a specialised perspective, reference the relevant agent file:
 
 - **Appius** (Dev) — `.github/agents/appius.agent.md`
-- **Malory** (Security) — `.github/agents/malory.agent.md`
+- **malory** (Security) — `.github/agents/malory.agent.md`
 - ...
 ```
 
@@ -517,7 +517,7 @@ The script:
 - Interactive question protocol: one issue = one question. Present each finding with numbered options and a recommendation rather than dumping all findings at once.
 - Mandatory output artefacts: architecture decision record, ASCII diagrams for system boundaries, failure registry.
 
-**Malory (Pen Test)** — review discipline + externalised criteria:
+**malory (Pen Test)** — review discipline + externalised criteria:
 
 - Two-pass gate classification: CRITICAL (blocking) vs INFORMATIONAL (advisory). Prevents "everything is a security finding" fatigue. Clear escalation rules per category.
 - Checklist externalisation: security review criteria live in `.github/knowledge/security-checklist.md`, not inlined in the agent definition. Benefits: evolves independently, referenceable by other agents, version-controlled.
@@ -552,10 +552,10 @@ The script:
 | Style Gap                               | External Approach                                                              | Our Current Approach                                            | Decision                                                                                                                                                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Voice**                               | Directive: "Do B. Here's why:"                                                 | Mix of directive and suggestive                                 | **Adopted globally** — all agents use assertive voice repo-wide. Suggestive hedging wastes tokens and weakens recommendations.                                                                                               |
-| **Output format**                       | Extremely prescriptive: exact headings, tables, registries specified per skill | Open-ended — agents decide their own format                     | **Adopted for Malory, Florence, Ruth** — prescribe output format for review/coordination/judgment agents where consistency matters. Leave creative agents (Terry) and implementation agents (Appius, Grace, Euler) flexible. |
-| **Read-only default**                   | Review skills only read and comment; write only when explicitly asked          | Agents read and write freely by default                         | **Adopted for Malory only** — audit-first discipline. Other agents (including Grace) remain read-write by default.                                                                                                           |
+| **Output format**                       | Extremely prescriptive: exact headings, tables, registries specified per skill | Open-ended — agents decide their own format                     | **Adopted for malory, Florence, Ruth** — prescribe output format for review/coordination/judgment agents where consistency matters. Leave creative agents (Terry) and implementation agents (Appius, Grace, Euler) flexible. |
+| **Read-only default**                   | Review skills only read and comment; write only when explicitly asked          | Agents read and write freely by default                         | **Adopted for malory only** — audit-first discipline. Other agents (including Grace) remain read-write by default.                                                                                                           |
 | **Persistent engineering context**      | Reusable coding standards block baked into every planning skill                | Standards in `copilot-instructions.md` but not in agent prompts | **Already solved** — maps directly to our Layer 1 `coding-standards.md`. No action needed.                                                                                                                                   |
-| **Suppressions as first-class concept** | Explicit "do NOT flag these" lists per skill                                   | No equivalent — agents flag everything they find                | **Adopted for Malory and Appius** — suppressions live in the agent file (not the externalised checklist) so they stay tightly coupled to the persona's review methodology.                                                   |
+| **Suppressions as first-class concept** | Explicit "do NOT flag these" lists per skill                                   | No equivalent — agents flag everything they find                | **Adopted for malory and Appius** — suppressions live in the agent file (not the externalised checklist) so they stay tightly coupled to the persona's review methodology.                                                   |
 
 ---
 
@@ -576,7 +576,7 @@ The script:
 > - `.github/knowledge/hardware.md` — 91 lines (OPS243A radar, Hesai P40 LIDAR, Raspberry Pi, gRPC)
 > - `.github/knowledge/security-surface.md` — 121 lines (attack surface, vulnerability patterns, privacy)
 > - `.github/knowledge/security-checklist.md` — 86 lines (gate classification, severity, checklist, pen test phases)
-> - `.github/knowledge/role-technical.md` — 45 lines (shared mixin for Appius, Grace, Euler, Malory)
+> - `.github/knowledge/role-technical.md` — 45 lines (shared mixin for Appius, Grace, Euler, malory)
 > - `.github/knowledge/role-editorial.md` — 60 lines (shared mixin for Florence, Terry, Ruth)
 > - `copilot-instructions.md` refactored: 301 → 95 lines (summary + knowledge module references)
 >
@@ -588,7 +588,7 @@ The script:
    - `architecture.md` — tech stack, DB, data flow, deployment target
    - `coding-standards.md` — British English, formatting, commit conventions
    - `hardware.md` — radar specs, LIDAR specs, serial/UDP interfaces
-   - `security-surface.md` — attack surface map (from Malory, deduplicated)
+   - `security-surface.md` — attack surface map (from malory, deduplicated)
    - `security-checklist.md` — externalised review criteria with gate classification
 3. Create `.github/knowledge/role-technical.md` and `role-editorial.md` mixins
 4. Refactor `copilot-instructions.md` to reference Layer 0–2 instead of inlining
@@ -604,12 +604,12 @@ The script:
 > **Completed persona work:**
 >
 > - **Euler** — kind, patient, humble researcher (Leonhard Euler); convergence analysis templates, parameter justification tables, statistical validation methodology
-> - **Ruth** — firm but kind executive (RBG); data-driven decisions, community-safety grounding, scope modes (EXPANSION/HOLD/REDUCTION), Step 0 methodology
-> - **Malory** — curt, factual security researcher; attack surface, severity table, pen test methodology; mostly lowercase, one uppercase SHOUT max per report
 > - **Grace** — bold pirate innovator (Grace Hopper); ask-forgiveness mentality, democratising design, tangible analogies, empathetic leadership
-> - **Flo** — evidence-based planner (Florence Nightingale); environmental thinking, polar-area-diagram data advocacy, empathetic coordination, holistic project health
 > - **Appius** — long-sighted builder (Appius Claudius Caecus); infrastructure thinking, durable systems, civic discipline
+> - **malory** — curt, factual security researcher; attack surface, severity table, pen test methodology; mostly lowercase, one uppercase SHOUT max per report
+> - **Flo** — evidence-based planner (Florence Nightingale); environmental thinking, polar-area-diagram data advocacy, empathetic coordination, holistic project health
 > - **Terry** — humane satirist (Terry Pratchett); zero pomposity, useful wit, audience awareness
+> - **Ruth** — firm but kind executive (RBG); data-driven decisions, community-safety grounding, scope modes (EXPANSION/HOLD/REDUCTION), Step 0 methodology
 >
 > **Remaining work:** Remove duplicated project facts from each agent file, add references to Layer 1/2 knowledge modules (requires Phase 1 completion first).
 
@@ -619,12 +619,12 @@ The script:
    - Keep only: persona, methodology, coordination notes, forbidden actions
    - Incorporate adopted patterns:
      - Grace: scope modes (expansion/hold/reduction), mandatory output artefacts, interactive question protocol
-     - Malory: checklist reference, gate classification, suppressions list, read-only-by-default discipline
+     - malory: checklist reference, gate classification, suppressions list, read-only-by-default discipline
      - Appius: suppressions list for code review
      - All agents: priority hierarchy under context pressure, directive voice
 6. Validate each agent still functions correctly in Copilot
 
-**Acceptance:** After condensation, agent files contain only persona/role content — no duplicated project facts. Agents with review responsibilities (Malory, Grace) reference externalised checklists rather than inlining criteria. Target: each agent file ≤400 lines once project facts are extracted to Layer 1/2 modules.
+**Acceptance:** After condensation, agent files contain only persona/role content — no duplicated project facts. Agents with review responsibilities (malory, Grace) reference externalised checklists rather than inlining criteria. Target: each agent file ≤400 lines once project facts are extracted to Layer 1/2 modules.
 
 ### Phase 3: Claude Code Entry Point + Native Agents `M`
 
