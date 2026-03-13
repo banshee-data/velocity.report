@@ -1,10 +1,10 @@
 # GPS Ethernet Parsing Architecture
 
-Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR ingestion while preserving sensor-only operation, including parsing boundaries, data contracts, rollout safeguards, and integration validation requirements.
+- **Status:** Proposed
+- **Author:** Architecture Team
+- **Related:** [`HESAI_PACKET_FORMAT.md`](../../data/HESAI_PACKET_FORMAT.md), [`ground-plane-extraction.md`](./ground-plane-extraction.md)
 
-**Status:** Proposed
-**Author:** Architecture Team
-**Related:** [`HESAI_PACKET_FORMAT.md`](../../data/HESAI_PACKET_FORMAT.md), [`ground-plane-extraction.md`](./ground-plane-extraction.md)
+Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR ingestion while preserving sensor-only operation, including parsing boundaries, data contracts, rollout safeguards, and integration validation requirements.
 
 ## Overview & Motivation
 

@@ -1,10 +1,10 @@
 # Metrics-First Data Science Plan
 
-This document defines velocity.report's repo-wide data science stance: the critical path stays transparent, tunable, and replayable, while future classification work remains optional and subordinate to reproducible scorecards.
+- **Status:** Proposed (March 2026)
+- **Layers:** Cross-cutting (L5 Tracks, L6 Objects, L8 Analytics)
+- **Related:** [Product Vision](../VISION.md), [Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning](lidar-track-labeling-auto-aware-tuning-plan.md), [Track Description Language and Description Interface](data-track-description-language-plan.md), [LiDAR Classification Benchmarking and Optional Model Training](lidar-ml-classifier-training-plan.md)
 
-**Status:** Proposed (March 2026)
-**Layers:** Cross-cutting (L5 Tracks, L6 Objects, L8 Analytics)
-**Related:** [Product Vision](../VISION.md), [Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning](lidar-track-labeling-auto-aware-tuning-plan.md), [Track Description Language and Description Interface](data-track-description-language-plan.md), [LiDAR Classification Benchmarking and Optional Model Training](lidar-ml-classifier-training-plan.md)
+This document defines velocity.report's repo-wide data science stance: the critical path stays transparent, tunable, and replayable, while future classification work remains optional and subordinate to reproducible scorecards.
 
 ## Objective
 

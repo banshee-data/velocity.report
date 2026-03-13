@@ -1,14 +1,10 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Partially implemented — Track field parity, ObjectClass enum, and `peak` → `max` rename are complete; debug overlay serialisation, cluster proto serialisation, and positive end-to-end serialiser tests remain
-**Layers:** L9 Endpoints
-**Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
-**Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
-
-**Update (March 8, 2026):** The speed-summary portion of this plan is
-superseded. Track-level aggregate-percentile labels will not ship. Percentiles are
-reserved for grouped/report aggregates only, and any branch-local proto/model/UI
-work that adds superseded single-track speed-label fields should be backed out before merge.
+- **Status:** Partially implemented — Track field parity, ObjectClass enum, and `peak` → `max` rename are complete; debug overlay serialisation, cluster proto serialisation, and positive end-to-end serialiser tests remain
+- **Layers:** L9 Endpoints
+- **Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
+- **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- **Update (March 8, 2026):** The speed-summary portion of this plan is superseded. Track-level aggregate-percentile labels will not ship. Percentiles are reserved for grouped/report aggregates only, and any branch-local proto/model/UI work that adds superseded single-track speed-label fields should be backed out before merge.
 
 ## 1. Problem
 

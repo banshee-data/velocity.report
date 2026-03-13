@@ -1,7 +1,8 @@
 # Phase 2 (Scene Management) Implementation
 
-**Status:** ✅ Complete
-**Design Document:** `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md`
+- **Status:** ✅ Complete
+- **Design Document:** `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md`
+
 
 ## Overview
 

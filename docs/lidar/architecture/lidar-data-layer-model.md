@@ -1,7 +1,8 @@
 # LiDAR Data Layer Model (Ten Layers)
 
-**Status:** Canonical reference — layer numbers are locked for codebase stability from v0.5.0 onwards.
-**Last updated:** 2026-03-11
+- **Status:** Canonical reference — layer numbers are locked for codebase stability from v0.5.0 onwards.
+- **Last updated:** 2026-03-11
+
 
 ## Purpose
 

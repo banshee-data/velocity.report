@@ -1,16 +1,10 @@
 # v0.5.0 Backward Compatibility Shim Removal Plan
 
-**Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
-**Layers:** Cross-cutting (API, protobuf, database)
-**Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
-
-## Status: In Progress
-
-**Update (March 8, 2026):** The earlier single-track speed-label expansion is
-superseded. Public track contracts should not reuse aggregate percentile labels; those remain
-grouped/report aggregate metrics only. Stable track surfaces remain
-`avg_speed_mps` plus the raw maximum for now, with a separate pending rename of
-raw `peak_speed_mps` to `max_speed_mps` on unshipped contracts.
+- **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
+- **Layers:** Cross-cutting (API, protobuf, database)
+- **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
+- **Status:** In Progress
+- **Update (March 8, 2026):** The earlier single-track speed-label expansion is superseded. Public track contracts should not reuse aggregate percentile labels; those remain grouped/report aggregate metrics only. Stable track surfaces remain `avg_speed_mps` plus the raw maximum for now, with a separate pending rename of raw `peak_speed_mps` to `max_speed_mps` on unshipped contracts.
 
 ## Tracking Snapshot
 

@@ -1,7 +1,7 @@
 # Design: Automatic Physics Checks and Confirmation Gates (Feature 7)
 
-**Status:** Proposed (February 2026)
-**Layers:** L5 Tracks, L9 Endpoints
+- **Status:** Proposed (February 2026)
+- **Layers:** L5 Tracks, L9 Endpoints
 
 ## Objective
 

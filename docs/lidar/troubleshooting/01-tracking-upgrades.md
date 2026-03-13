@@ -1,6 +1,6 @@
 # Tracking Upgrades
 
-**Status:** 6 of 9 upgrades implemented (February 2026)
+- **Status:** 6 of 9 upgrades implemented (February 2026)
 
 | Upgrade                           | Status         | Implementation                                                                      |
 | --------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
@@ -13,10 +13,7 @@
 | Voxel grid preprocessing          | 📋 Planned     | —                                                                                   |
 | Constant acceleration model       | 📋 Planned     | —                                                                                   |
 | Feature extraction for ML         | 📋 Planned     | —                                                                                   |
-
 This document proposes concrete improvements to the LiDAR tracking pipeline for street scenes, mapping each proposal to existing code and new API outputs.
-
----
 
 ## Industry Standards Reference
 

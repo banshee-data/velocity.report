@@ -1,6 +1,6 @@
 # LiDAR Math Foundations Audit
 
-Scope: `docs/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
+- **Scope:** `docs/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
 
 ## 1. Built vs Proposed
 

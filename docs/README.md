@@ -59,15 +59,19 @@ All documentation files use **lowercase-with-hyphens** (`kebab-case`) with a low
 Every doc should open with:
 
 1. **`# Title`** — a clear, descriptive heading.
-2. **Opening paragraph** — one or two sentences explaining what the document covers (the _goal_, _motivation_, or _scope_). This replaces the old `Purpose:` metadata line.
-3. **First `##` section** — use a heading that fits the content: `## Goal`, `## Problem`, `## Summary`, `## Objective`, `## Purpose`, etc.
+2. **Metadata list** _(optional)_ — bold key-value items as a bullet list. Use only when the doc needs implementation state or cross-references.
+3. **Opening paragraph** — one or two sentences explaining what the document covers (the _goal_, _motivation_, or _scope_).
+4. **First `##` section** — use a heading that fits the content: `## Goal`, `## Problem`, `## Summary`, `## Objective`, `## Purpose`, etc.
 
-Optional bold metadata may follow the title for docs that need implementation state:
+Metadata uses a bullet list of bold key-value pairs:
 
 ```
-**Status:** Proposed (February 2026)
-**Related:** [Other Doc](other-doc.md)
+- **Status:** Proposed (February 2026)
+- **Layers:** L5 Tracks, L8 Analytics
+- **Related:** [Other Doc](other-doc.md)
 ```
+
+Common metadata keys: `Status`, `Layers`, `Related`, `Backlog`, `Scope`, `Source`, `Version`.
 
 Use `**Status:**` only when the doc tracks implementation progress (plans, architecture specs). Reference docs, maths notes, and READMEs do not need it.
 
@@ -75,6 +79,7 @@ Additional rules:
 
 - `Date:` metadata fields are not allowed — use git history.
 - `Version:` is optional.
+- Do not use `## Status:` as a section heading — use a metadata list item instead.
 
 Use directory listings for file-level navigation to avoid stale index maintenance.
 

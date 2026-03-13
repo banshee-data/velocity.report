@@ -1,6 +1,6 @@
 # Design Specification: Time-Partitioned Raw Data Tables
 
-**Status:** Draft
+- **Status:** Draft
 
 ## Table of Contents
 

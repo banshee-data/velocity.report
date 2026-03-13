@@ -1,8 +1,9 @@
 # Clustering Maths
 
-**Status:** Implementation-aligned math note
-**Layer:** L4 Perception (`internal/lidar/l4perception`)
-**Related:** [Tracking Maths](tracking-maths.md), [Ground Plane Maths](ground-plane-maths.md)
+- **Status:** Implementation-aligned math note
+- **Related:** [Tracking Maths](tracking-maths.md), [Ground Plane Maths](ground-plane-maths.md)
+- **Layer:** L4 Perception (`internal/lidar/l4perception`)
+
 
 ## 1. Purpose
 
