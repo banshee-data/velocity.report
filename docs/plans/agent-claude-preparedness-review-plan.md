@@ -497,7 +497,7 @@ The script:
    - **Acceptable divergence** — platform-specific features (tool restrictions, slash commands) are excluded from comparison
 5. Outputs a Markdown summary suitable for the weekly planning review
 
-**Integration:** Added to `scripts/jess-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
+**Integration:** Added to `scripts/flo-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
 
 **Make target:** `make check-agent-drift` runs the script standalone.
 
@@ -638,7 +638,7 @@ The script:
    - Persona methodology and coordination rules mirrored from `.agent.md` (drift-checked)
 9. Create `scripts/check-agent-drift.sh` — drift detection between paired agent definitions
 10. Add `make check-agent-drift` target
-11. Integrate drift check into `scripts/florence-planning-review.sh` for weekly review
+11. Integrate drift check into `scripts/flo-planning-review.sh` for weekly review
 12. Test Claude Code reads the knowledge modules and agent files correctly
 
 **Acceptance:** Claude Code session has access to equivalent project knowledge as Copilot. Shared knowledge (Layers 0–2) is single-source. Persona definitions are platform-native in both tools. `make check-agent-drift` reports zero unreviewed drift.
@@ -727,4 +727,4 @@ scripts/
 - [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis. This ruled out Option C and informed the decision to keep persona content directly in agent files rather than factoring it into shared includes.
 - [x] ~~Which new agents to prioritise?~~ — Partially resolved: Executive and Researcher added to core roster (§5.1). Remaining candidates in §5.2 deferred to future cycle.
 - [x] ~~Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?~~ — Resolved: **yes.** Add CI checks that enforce core tenets (e.g. grep for PII-related code patterns, camera/licence-plate references, cloud transmission endpoints). Implement as part of Phase 1 alongside `TENETS.md` creation.
-- [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `florence-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
+- [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `flo-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.

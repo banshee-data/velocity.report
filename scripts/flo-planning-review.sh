@@ -6,9 +6,9 @@ SINCE_DAYS=7
 
 usage() {
   cat <<'EOF'
-Usage: scripts/jess-planning-review.sh [--since-days N]
+Usage: scripts/flo-planning-review.sh [--since-days N]
 
-Generate a Markdown planning review snapshot for Jess covering:
+Generate a Markdown planning review snapshot for Florence covering:
 - planning docs added or touched recently
 - recent plans missing backlog or decision coverage
 - missing plan references in BACKLOG.md and DECISIONS.md
@@ -54,7 +54,7 @@ make_temp_dir() {
     return 0
   fi
 
-  if TMP_DIR=$(mktemp -d -t velocity-report-jess-planning-review 2>/dev/null); then
+  if TMP_DIR=$(mktemp -d -t velocity-report-flo-planning-review 2>/dev/null); then
     return 0
   fi
 
@@ -257,7 +257,7 @@ BACKLOG_LINK_GAP_COUNT=$(wc -l <"$BACKLOG_MISSING_LINKS" | tr -d ' ')
 SPLIT_CANDIDATE_COUNT=$(wc -l <"$SPLIT_CANDIDATES" | tr -d ' ')
 DECISION_MARKER_COUNT=$(wc -l <"$DECISION_MARKERS" | tr -d ' ')
 
-printf "# Jess Weekly Planning Review Snapshot\n\n"
+printf "# Florence Weekly Planning Review Snapshot\n\n"
 printf -- "- Generated: %s\n" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
 printf -- '- Repo: `%s`\n' "$REPO_ROOT"
 printf -- "- Review window: last %s day(s)\n" "$SINCE_DAYS"

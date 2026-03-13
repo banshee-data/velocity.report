@@ -121,7 +121,7 @@ All three must pass before any work is considered complete.
 
 When asked for a daily standup, repo review, or "what should we address today?":
 
-1. **Start from repo facts** - Run `scripts/florence-standup.sh --all-branches` from the repository root if it exists. If it does not, gather the equivalent facts manually with `git worktree list`, branch/upstream comparisons, and `docs/BACKLOG.md`.
+1. **Start from repo facts** - Run `scripts/flo-standup.sh --all-branches` from the repository root if it exists. If it does not, gather the equivalent facts manually with `git worktree list`, branch/upstream comparisons, and `docs/BACKLOG.md`.
 2. **Treat worktrees as first-class** - Include detached worktrees, map detached `HEAD`s to containing local/remote refs, and call out branch ambiguity explicitly.
 3. **Check sync before planning** - Surface dirty worktrees, branches behind upstream, branches behind `origin/main`, and duplicate or overlapping work across worktrees before proposing new work.
 4. **Read only relevant planning docs** - After the standup snapshot and `docs/BACKLOG.md`, load only the plan docs that match the active branches or changed areas.
@@ -138,7 +138,7 @@ When asked for a daily standup, repo review, or "what should we address today?":
 
 When asked for a weekly planning review, backlog audit, or planning-doc consistency pass:
 
-1. **Start from the planning snapshot** - Run `scripts/florence-planning-review.sh` from the repository root if it exists. If it does not, manually inspect `docs/plans/`, `docs/BACKLOG.md`, and `docs/DECISIONS.md`.
+1. **Start from the planning snapshot** - Run `scripts/flo-planning-review.sh` from the repository root if it exists. If it does not, manually inspect `docs/plans/`, `docs/BACKLOG.md`, and `docs/DECISIONS.md`.
 2. **Review recent changes first** - Look at new and recently touched plan docs before older stable ones, then cover the remaining plan set in milestone order.
 3. **Check planning consistency explicitly**:
    - New plans missing backlog coverage
