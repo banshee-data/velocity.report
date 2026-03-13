@@ -3,7 +3,7 @@
 **Status:** Active review (March 2026)
 **Layers:** L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene (planned), L8 Analytics (planned)
 
-Mathematical review of the current pipeline, pursuant proposals, and existing
+Mathematical review of the current pipeline, pursuant to proposals, and existing
 plans. Identifies open questions that need reasoning, implementations that need
 extending, and high-value work — with particular attention to ground plane
 modelling and priors alignment.
@@ -18,7 +18,7 @@ operations. Each layer has verified, correct implementations:
 | L3 | EMA background settling | ✓ | Correct `(1−α)·old + α·new` with warmup/freeze/lock |
 | L3 | Convergence gating | ✓ | Four-threshold multi-condition gate (coverage, spread-delta, stability, confidence) |
 | L4 | Height-band ground filter | ✓ | O(n) in-place compaction, correct bounds |
-| L4 | DBSCAN clustering | ✓ | Deterministic output via centroid sorting |
+| L4 | DBSCAN clustering | ✓ | Deterministic ordering when using DBSCANClusterer (centroid sort, no subsampling); production l4perception.DBSCAN path may be non-deterministic under MaxInputPoints subsampling |
 | L4 | PCA/OBB | ✓ | Closed-form 2×2 eigenvalue with degenerate-case guards |
 | L5 | CV Kalman filter | ✓ | Correct F, H, Q, R matrices; covariance capping |
 | L5 | Mahalanobis gating | ✓ | Correct 2×2 inverse with physical plausibility guards |
@@ -251,7 +251,7 @@ allows. The three regimes are:
 **Regime 1 — Braking/acceleration.** A vehicle decelerating at 3 m/s²
 (typical urban braking) causes the CV prediction to overshoot by
 (1/2)at² = 0.015 m per frame at 10 Hz. After 10 frames (1 s), the cumulative
-error is 1.5 m. With a typical gating distance of 2.0 m², the track
+error is 1.5 m. With a typical gating distance squared of 2.0 m², the track
 survives ~10–15 frames of braking before fragmentation.
 
 A constant-acceleration (CA) model would eliminate this fragmentation
@@ -499,7 +499,11 @@ representations.** The proposed path is:
 This bottom-up construction is mathematically sound. The key invariant is
 spatial containment: LOD N+1 polygons must be fully contained within their
 LOD N parent. The Douglas–Peucker simplification used for vertex reduction
-preserves this invariant by construction.
+guarantees only geometric approximation within a distance tolerance; it does
+not by itself ensure containment or preserve topology. The implementation
+must enforce or validate the containment invariant separately (for example,
+via topology-preserving simplification, clipping simplified polygons to their
+parent, and/or post-simplification checks).
 
 **Gap 4: Priors integration has no implementation path.** The vector-scene-map
 (§12) describes an OSM prior service; the maths proposal (§4.4) includes a
