@@ -26,6 +26,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
+- Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
 
 ## v0.5.2 (Debug)
 

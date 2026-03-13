@@ -18,17 +18,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pylatex import (
-    Document,
-    Section,
-    Command,
-    Package,
-    Tabular,
     Center,
     Figure,
     NoEscape,
 )
 from pylatex.utils import escape_latex
-from pylatex.base_classes import Environment
 
 
 from pdf_generator.core.stats_utils import chart_exists
@@ -600,9 +594,7 @@ def generate_pdf_report(
         map_config.triangle_angle = map_angle
         print(f"  [MAP] Using map_angle for bearing: {map_angle}°")
     else:
-        print(
-            f"  [MAP] Using default bearing angle: {map_config.triangle_angle}°"
-        )
+        print(f"  [MAP] Using default bearing angle: {map_config.triangle_angle}°")
 
     # Initialise map_temp_dir for cleanup after LaTeX compilation
     map_temp_dir = None
@@ -661,9 +653,7 @@ def generate_pdf_report(
         # Create radar marker from config (or None to skip marker)
         marker = None
         if map_config.triangle_len and map_config.triangle_len > 0:
-            print(
-                f"Creating radar marker (triangle_len={map_config.triangle_len} > 0)"
-            )
+            print(f"Creating radar marker (triangle_len={map_config.triangle_len} > 0)")
             marker = create_marker_from_config(asdict(map_config))
             print(f"Marker created: {marker is not None}")
         else:

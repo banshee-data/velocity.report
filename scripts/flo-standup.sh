@@ -6,9 +6,9 @@ ALL_BRANCHES=0
 
 usage() {
   cat <<'EOF'
-Usage: scripts/jess-standup.sh [--all-branches]
+Usage: scripts/flo-standup.sh [--all-branches]
 
-Generate a Markdown standup snapshot for Jess covering:
+Generate a Markdown standup snapshot for Florence covering:
 - current checkout state
 - worktree topology
 - local branch sync vs upstream and main
@@ -75,7 +75,7 @@ make_temp_file() {
     return 0
   fi
 
-  if temp_file=$(mktemp -t velocity-report-jess-standup 2>/dev/null); then
+  if temp_file=$(mktemp -t velocity-report-flo-standup 2>/dev/null); then
     printf "%s\n" "$temp_file"
     return 0
   fi
@@ -322,7 +322,7 @@ while IFS=$'\t' read -r branch upstream _subject; do
   fi
 done < <(git for-each-ref --format='%(refname:short)%09%(upstream:short)%09%(contents:subject)' refs/heads)
 
-printf "# Jess Daily Standup Snapshot\n\n"
+printf "# Florence Daily Standup Snapshot\n\n"
 printf -- "- Generated: %s\n" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
 printf -- '- Repo: `%s`\n' "$REPO_ROOT"
 printf -- '- Main reference: `%s` (`%s`) %s\n\n' "$MAIN_REF" "$MAIN_SHORT" "$MAIN_SUBJECT"
@@ -373,7 +373,7 @@ printf "\n"
 
 printf "## Standup Signals\n\n"
 if [[ -z "$CURRENT_BRANCH" ]]; then
-  printf -- '- Current worktree is detached; Jess should anchor the discussion to commit `%s` and the containing refs above.\n' "$CURRENT_SHORT"
+  printf -- '- Current worktree is detached; Florence should anchor the discussion to commit `%s` and the containing refs above.\n' "$CURRENT_SHORT"
 fi
 if (( CURRENT_BEHIND_MAIN > 0 )); then
   printf -- '- Current checkout is behind `%s` by %s commit(s); sync risk should be addressed before deeper feature work.\n' "$MAIN_REF" "$CURRENT_BEHIND_MAIN"
