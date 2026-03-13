@@ -26,7 +26,7 @@ func NewDisabledSerialMux() *DisabledSerialMux {
 
 func (d *DisabledSerialMux) Subscribe() (string, chan string) {
 	id := randomID()
-	ch := make(chan string)
+	ch := make(chan string, subscriberChannelBufferSize)
 
 	d.mu.Lock()
 	if d.closing {

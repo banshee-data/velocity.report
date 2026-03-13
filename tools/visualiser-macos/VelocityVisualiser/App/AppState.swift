@@ -367,6 +367,13 @@ private let logger = DevLogger(category: "AppState")
     fileprivate func resetPlaybackState(mode: PlaybackMode) {
         bumpPlaybackGeneration()
         setPlaybackMode(mode)
+        if mode == .unknown {
+            // Full resets must drop transport-derived flags from the previous
+            // replay/session; connect-time setPlaybackMode(.unknown) still
+            // preserves them until fresh playback metadata arrives.
+            isLive = false
+            isSeekable = false
+        }
         hasPlaybackMetadata = false
         isPaused = false
         replayFinished = false
