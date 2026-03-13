@@ -16,11 +16,11 @@ These files contain canonical project facts. Read them when needed rather than r
 
 | Area                   | Confidence | Notes                                     |
 | ---------------------- | ---------- | ----------------------------------------- |
+| Radar serial parsing   | High       | Well-tested, production path              |
 | Go API + transit logic | High       | Comprehensive unit + integration tests    |
 | Python PDF generator   | High       | 532+ tests, good coverage                 |
 | Web frontend           | Medium     | Growing test suite                        |
 | LIDAR processing       | Medium     | Core algorithms tested, pipeline evolving |
-| Radar serial parsing   | High       | Well-tested, production path              |
 | macOS visualiser       | Low        | Minimal automated tests                   |
 
 ## Code Review Standards
