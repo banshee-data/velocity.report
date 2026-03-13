@@ -430,7 +430,7 @@ describe('comboLabel', () => {
 	});
 
 	it('returns empty string for results without param_values', () => {
-		const result = { noise: 0.05, closeness: 5.0, neighbour: 3 };
+		const result = { overall_accept_mean: 0.85 };
 		const label = comboLabel(result);
 		expect(label).toBe('');
 	});
@@ -1671,9 +1671,6 @@ describe('renderCharts', () => {
 	it('creates only bar charts when no param_values', () => {
 		const results = [
 			{
-				noise: 0.05,
-				closeness: 5,
-				neighbour: 1,
 				overall_accept_mean: 0.85,
 				nonzero_cells_mean: 100,
 				active_tracks_mean: 3,
