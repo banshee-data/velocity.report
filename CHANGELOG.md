@@ -43,6 +43,77 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
+## [0.5.0] - Unreleased
+
+### Breaking Changes
+
+- **Proto field rename:** `peak_speed_mps` → `max_speed_mps` (proto field 25) across Go, Swift, and TypeScript models; regenerated bindings (#352)
+- **Proto field rename:** `avg_speed_mps` → `median_speed_mps` (proto field 24); `AvgSpeedMps` removed from visualiser model (#336)
+- **ObjectClass enum:** String `class_label` replaced with typed `ObjectClass` enum (field 26, 9 classes + UNSPECIFIED) on visualiser proto (#328)
+- **Deployment surfaces deprecated:** `cmd/deploy`, `setup-radar`, and `deploy-*` Make targets print deprecation warnings; replacement: RPi image pipeline (#330)
+- **`cmd/transit-backfill` soft-deprecated:** Continues to function; replacement: `velocity-report transits rebuild` (#330)
+- **Sweep JSON parsing strict:** Malformed JSON in sweep handler now returns `400 Bad Request` instead of being silently ignored
+
+### LiDAR Server
+
+#### Added
+
+- **PCAP analysis replay hardening** — blocking frame channel for zero-drop analysis, speed-mode rename (`fastest` → `analysis`, `fixed` → `scaled`), `SpeedRatio` API, per-phase backoff logging with `SubLogger`, batched track DB writes, replay epoch tracking, `FrameBuilder` deadlock fix (#352)
+- **Benchmark mode** — `BenchmarkMode` toggle for performance tracing, `pprof` HTTP routes, heap-allocation tracking in health summary (#352)
+- **Occlusion aggregate metrics** — per-frame occlusion stats in `TrackingMetrics` and sweep pipeline; `speed_ratio` sweep variable; dashboard exposure (#352)
+- **VRLOG analysis** — `analyse-vrlog` command with `GenerateReport` and `CompareReports` for track quality metrics and distribution statistics (#356)
+- **SWEEP/HINT platform hardening** — transform pipeline, objective registry, explainability (#328)
+- **HINT sweep polish** — 11 remaining polish items (#328)
+- **ObjectClass schema alignment** — label vocabulary consolidation Phases 1–3.1 (#328)
+- **Settling optimisation Phase 3** — convergence/evaluation tooling (#319)
+
+#### Changed
+
+- **Layer dependency hygiene** — `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` moved from L4 to L2; L1→L4 and L3→L4 import violations fixed across ~30 files (#364)
+- **L2 dual representation** — `LiDARFrame` stores both `PolarPoints` and `Points`; per-frame polar rebuild eliminated (#364)
+- **L1–L6 layer alignment** — route table conversion, HTTP method prefixes, cross-layer placement fixes (#280, #284)
+- **File organisation** — `background.go` split into `background_persistence/export/drift.go`; `webserver.go` split into `datasource/playback_handlers.go`; sweep file splits; frame codec extraction (#284)
+- **Logging stream split** — `Opsf`/`Diagf`/`Tracef` streams replace `Debugf`/classifier (#287)
+- **Platform simplification Phase 1** — deprecation signalling and deploy retirement gate (#330)
+
+### macOS Visualiser
+
+#### Added
+
+- **Visualiser track field serialisation** — all `Track` fields now round-trip in `frameBundleToProto`; `TestFrameBundleToProto_TrackFieldCompleteness` added (#328)
+- **`ObjectClass` enum** — 9-class enum on proto field 26 with `objectClassFromString` / `classifyOrConvert` conversion; Go + Swift tests (#328)
+- **Background snapshot serialisation** — `FrameBundle.background`, `frame_type`, `background_seq` serialised (#240)
+- **Versioned DMG export** — `create-dmg.sh` with Finder window layout, CI DMG job scoped to tag pushes (#298)
+
+#### Changed
+
+- **Proto contract parity** — `FrameBundle.debug` streaming, cluster/track field serialisation, speed field renames (#336)
+
+### Web Frontend
+
+#### Added
+
+- **Chart empty-state placeholder** — "No chart data available" shown when `chartData` is empty (#286)
+- **Shared CSS standard classes** — `vr-page`, `vr-toolbar`, `vr-stat-grid`, `vr-chart-card` in `app.css` (#286)
+- **Shared palette module** — `palette.ts` exports `PERCENTILE_COLOURS`, `LEGEND_ORDER` with tests (#286)
+- **PR template design checklist** — DESIGN.md §9 UI/chart checklist in PR template (#291)
+
+### Build System
+
+#### Changed
+
+- **Python venv consolidation** — Makefile uses root `.venv/`; stale `tools/pdf-generator/.venv` removed (#320)
+
+### Remaining Work (not yet shipped)
+
+The following items are planned for v0.5.0 but have not yet landed:
+
+- **Backward compatibility shim removal (Phases 2–6)** — server-side sweep legacy fields, report download migration, `PacketHeader` deletion, Python/web/macOS consumer fallback removal
+- **Schema simplification (migration 000030)** — SQL column drops and `peak_speed_mps` → `max_speed_mps` rename on both track tables
+- **Config restructure Phase 1** — flat-to-nested realignment with versioned schema, engine selection, and strict validation
+- **Documentation standardisation** — metadata validation gates execution
+- **Legacy `.vrlog` speed-key cleanup** — remove pre-max speed-key fallback readers
+
 ## [0.4.0] - 2026-01-29
 
 ### macOS Visualiser

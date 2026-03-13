@@ -1,7 +1,6 @@
 # Config Restructure: Flat → Layer-Scoped
 
-**Status:** Proposal (breaking change — no backward compatibility)
-**Date:** 2026-02-27
+**Status:** Proposal — full design complete, Phase 1 implementation pending (v0.5.0)
 **Schema version:** `2`
 **Motivation:** Support multi-engine algorithm selection (CV, IMM, HDBSCAN),
 layer-isolated evaluation, and coherent parameter grouping.

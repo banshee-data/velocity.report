@@ -8,13 +8,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.0 (Platform Hardening)
 
-- v0.5.0 backward compatibility shim removal — report download URL migration, server-side sweep legacy request/result fields plus dashboard legacy field names, `BackgroundCell` legacy TS fields, bare-array stats cache fallback, Python legacy stats format / config dict helpers / pylatex stubs, macOS legacy playback mode — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
+- v0.5.0 backward compatibility shim removal — server-side sweep legacy request/result fields (§2), report download URL migration (§3), `PacketHeader` deletion (§6), Python legacy stats format / config dict helpers / pylatex stubs (§9–§11), `BackgroundCell` legacy TS fields / cache fallback / sweep dashboard legacy fields (§12–§14), macOS legacy playback mode (§17); speed contract reset and proto rename complete (#352) — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `M`
 - Legacy `.vrlog` speed-key compatibility cleanup — remove pre-max speed-key fallback readers from the visualiser replay path before v1.0 platform cleanup, after the current migration window closes — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
-- Schema simplification (migration 000030) — drop dead per-track percentile columns (`p50/p85/p95_speed_mps`), drop always-NULL quality columns from `lidar_tracks`, rename `peak_speed_mps` → `max_speed_mps` on both track tables — [design doc](plans/schema-simplification-migration-030-plan.md) `M`
-- Visualiser track proto parity — back out branch-local percentile fields, regenerate proto bindings (Go + Swift); SQL column rename deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
-- v0.5.0 breaking changes — `transit-backfill` soft-deprecation notice, breaking-changes release notes — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
-- Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
-- Documentation standardisation — metadata and validation gates for all docs — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Schema simplification (migration 000030) — drop dead per-track percentile columns (`p50/p85/p95_speed_mps`), drop always-NULL quality columns from `lidar_tracks`, rename `peak_speed_mps` → `max_speed_mps` on both track tables; proto rename prerequisite complete (#352) — [design doc](plans/schema-simplification-migration-030-plan.md) `M`
+- v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
+- Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation; full design complete — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
+- Documentation standardisation — metadata and validation gates for all docs; contract defined, execution pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 
 ## v0.5.1 (Product)
 
@@ -127,6 +126,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
+- [#352] Visualiser track proto parity — branch-local percentile fields not merged; `peak_speed_mps` → `max_speed_mps` rename landed on proto/Go/Swift/TS; SQL column deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#144] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation — `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints) — review doc item 4 — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
