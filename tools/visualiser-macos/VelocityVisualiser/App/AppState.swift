@@ -284,6 +284,7 @@ private let logger = DevLogger(category: "AppState")
     private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
     let runBrowserState = RunBrowserState()
     private var queuedSeekProgress: Double?
+    private var seekWaitFrameCount: Int = 0  // Frames since seek RPC completed; safety valve
     private var playbackStateGeneration: UInt64 = 0
     private var lastSeenReplayEpoch: UInt64 = 0
 
@@ -859,7 +860,17 @@ private let logger = DevLogger(category: "AppState")
         }
 
         let clampedProgress = max(0, min(1, progress))
-        let useTimestampSeek = hasValidTimelineRange
+        // Prefer frame-index seek when available — matches the frame-index
+        // progress computation and avoids lossy timestamp interpolation.
+        // Explicit rawTimestamp (e.g. seekToTimestamp) always uses timestamp.
+        let useTimestampSeek: Bool
+        if rawTimestamp != nil {
+            useTimestampSeek = true
+        } else if hasFrameIndexProgress {
+            useTimestampSeek = false
+        } else {
+            useTimestampSeek = hasValidTimelineRange
+        }
         let targetTimestamp: Int64 =
             rawTimestamp
             ?? (useTimestampSeek
@@ -921,11 +932,16 @@ private let logger = DevLogger(category: "AppState")
                 self.replayProgress = previousProgress
                 self.currentTimestamp = previousTimestamp
                 self.isPaused = previousPaused
+                self.isSeekingInProgress = false
+                self.pendingSeekTargetTimestamp = nil
+                self.pendingSeekTargetFrameIndex = nil
                 logger.error("Failed to seek: \(error.localizedDescription)")
             }
-            self.isSeekingInProgress = false
-            self.pendingSeekTargetTimestamp = nil
-            self.pendingSeekTargetFrameIndex = nil
+            // On success, isSeekingInProgress stays true until the first
+            // post-seek frame arrives in applyFrameStateUpdate.  This prevents
+            // stale buffered frames from flickering the seek bar back to the
+            // pre-seek position.
+            self.seekWaitFrameCount = 0
         }
     }
 
@@ -1362,14 +1378,43 @@ private let logger = DevLogger(category: "AppState")
             )
         }
 
-        // Update replay progress (skip if user is interacting with slider)
-        if !isLive && !isSeekingInProgress && logEndTimestamp > logStartTimestamp {
-            let progress =
-                Double(currentTimestamp - logStartTimestamp)
-                / Double(logEndTimestamp - logStartTimestamp)
-            replayProgress = max(0, min(1, progress))
-        } else if !isLive && !isSeekingInProgress && !hasValidTimelineRange && totalFrames > 1 {
-            replayProgress = displayReplayProgress
+        // Clear seeking guard when the first post-seek frame arrives.
+        // The seek RPC keeps isSeekingInProgress=true so stale buffered
+        // frames can't flicker the seek bar.  Once the command finishes
+        // (inFlightPlaybackCommand == nil), the next matching frame clears it.
+        if isSeekingInProgress && inFlightPlaybackCommand == nil {
+            seekWaitFrameCount += 1
+            var seekLanded = false
+            if let targetFrame = pendingSeekTargetFrameIndex, totalFrames > 1 {
+                let diff =
+                    currentFrameIndex >= targetFrame
+                    ? currentFrameIndex - targetFrame : targetFrame - currentFrameIndex
+                seekLanded = diff <= 1
+            } else if let targetTs = pendingSeekTargetTimestamp {
+                seekLanded = abs(currentTimestamp - targetTs) < 100_000_000  // 100 ms
+            } else {
+                seekLanded = true  // No target known — clear immediately
+            }
+            if seekLanded || seekWaitFrameCount > 10 {
+                isSeekingInProgress = false
+                pendingSeekTargetTimestamp = nil
+                pendingSeekTargetFrameIndex = nil
+                seekWaitFrameCount = 0
+            }
+        }
+
+        // Update replay progress (skip if user is interacting with slider).
+        // Frame-index progress is preferred — it is robust against non-linear
+        // timestamp distribution and background-frame timestamp contamination.
+        if !isLive && !isSeekingInProgress {
+            if totalFrames > 1 {
+                replayProgress = max(0, min(1, Double(currentFrameIndex) / Double(totalFrames - 1)))
+            } else if logEndTimestamp > logStartTimestamp {
+                let progress =
+                    Double(currentTimestamp - logStartTimestamp)
+                    / Double(logEndTimestamp - logStartTimestamp)
+                replayProgress = max(0, min(1, progress))
+            }
         }
 
         // Detect replay completion from frame metadata.  This is more reliable
