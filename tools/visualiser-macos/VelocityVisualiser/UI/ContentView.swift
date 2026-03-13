@@ -3,11 +3,24 @@
 //
 // This view composes the Metal render view with SwiftUI controls.
 
+import AppKit
 import MetalKit
 import SwiftUI
 import os
 
 private let uiLogger = DevLogger(category: "UI")
+private let playbackStepButtonHelp =
+    "Click: 1 frame. Shift-click: 10 frames. Shift-Option-click: 50 frames."
+
+func playbackStepFrameCount(for modifierFlags: NSEvent.ModifierFlags) -> UInt64 {
+    let flags = modifierFlags.intersection(.deviceIndependentFlagsMask)
+    let hasShift = flags.contains(.shift)
+    let hasOption = flags.contains(.option)
+
+    if hasShift && hasOption { return 50 }
+    if hasShift { return 10 }
+    return 1
+}
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
@@ -886,14 +899,20 @@ struct PlaybackControlsView: View {
             // Step buttons (only for seekable modes like .vrlog replay)
             if ui.showStepButtons {
                 Button(action: {
-                    uiLogger.debug("UI: Step backward button clicked")
-                    appState.stepBackward()
-                }) { Image(systemName: "backward.frame.fill") }.disabled(ui.stepBackwardDisabled)
+                    let frameCount = playbackStepFrameCount(
+                        for: NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags)
+                    uiLogger.debug("UI: Step backward button clicked — frames=\(frameCount)")
+                    appState.stepBackward(by: frameCount)
+                }) { Image(systemName: "backward.frame.fill") }.help(playbackStepButtonHelp)
+                    .disabled(ui.stepBackwardDisabled)
 
                 Button(action: {
-                    uiLogger.debug("UI: Step forward button clicked")
-                    appState.stepForward()
-                }) { Image(systemName: "forward.frame.fill") }.disabled(ui.stepForwardDisabled)
+                    let frameCount = playbackStepFrameCount(
+                        for: NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags)
+                    uiLogger.debug("UI: Step forward button clicked — frames=\(frameCount)")
+                    appState.stepForward(by: frameCount)
+                }) { Image(systemName: "forward.frame.fill") }.help(playbackStepButtonHelp)
+                    .disabled(ui.stepForwardDisabled)
             }
 
             // Timeline (replay mode)

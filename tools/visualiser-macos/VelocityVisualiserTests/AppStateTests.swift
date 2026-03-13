@@ -348,6 +348,44 @@ import XCTest
         XCTAssertFalse(state.isSeekingInProgress)
     }
 
+    func testStepForwardByClampsToLastFrame() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.currentFrameIndex = 90
+        state.totalFrames = 100
+        state.isPaused = true
+
+        state.stepForward(by: 50)
+        try await waitFor {
+            fake.seekFrameCalls == [99] && state.inFlightPlaybackCommand == nil
+        }
+
+        XCTAssertEqual(fake.pauseCallCount, 0)
+        XCTAssertTrue(state.isPaused)
+    }
+
+    func testStepBackwardByClampsToFirstFrame() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.currentFrameIndex = 20
+        state.totalFrames = 100
+        state.isPaused = true
+
+        state.stepBackward(by: 50)
+        try await waitFor {
+            fake.seekFrameCalls == [0] && state.inFlightPlaybackCommand == nil
+        }
+
+        XCTAssertEqual(fake.pauseCallCount, 0)
+        XCTAssertTrue(state.isPaused)
+    }
+
     func testIncreaseRateFailureRestoresPreviousRate() async throws {
         let state = AppState()
         let fake = FakePlaybackRPCClient()

@@ -51,6 +51,22 @@ private func makeRunTrack(
 
 // MARK: - KeyAction & handleKeyPress Tests
 
+final class PlaybackStepFrameCountTests: XCTestCase {
+
+    func testPlaybackStepFrameCountDefaultsToSingleFrame() {
+        XCTAssertEqual(playbackStepFrameCount(for: []), 1)
+        XCTAssertEqual(playbackStepFrameCount(for: [.option]), 1)
+    }
+
+    func testPlaybackStepFrameCountUsesTenFramesForShift() {
+        XCTAssertEqual(playbackStepFrameCount(for: [.shift]), 10)
+    }
+
+    func testPlaybackStepFrameCountUsesFiftyFramesForShiftOption() {
+        XCTAssertEqual(playbackStepFrameCount(for: [.shift, .option]), 50)
+    }
+}
+
 @available(macOS 15.0, *) @MainActor final class HandleKeyPressTests: XCTestCase {
 
     func testSpaceTogglesPlayPause() {

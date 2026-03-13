@@ -696,16 +696,27 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
-    func stepForward() {
+    func stepForward() { stepForward(by: 1) }
+
+    func stepForward(by frameCount: UInt64) {
         logger.debug(
-            "stepForward() called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex)/\(self.totalFrames) busy=\(self.playbackControlsBusy)"
+            "stepForward(by: \(frameCount)) called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex)/\(self.totalFrames) busy=\(self.playbackControlsBusy)"
         )
+        guard frameCount > 0 else {
+            logger.debug("stepForward() ignored — requested frameCount was 0")
+            return
+        }
         guard displayPlaybackMode == .replaySeekable else {
             logger.debug(
                 "stepForward() ignored — not seekable (mode=\(self.displayPlaybackMode.rawValue))")
             return
         }
-        guard currentFrameIndex + 1 < totalFrames else {
+        guard totalFrames > 0 else {
+            logger.debug("stepForward() ignored — totalFrames is 0")
+            return
+        }
+        let lastFrameIndex = totalFrames - 1
+        guard currentFrameIndex < lastFrameIndex else {
             logger.debug(
                 "stepForward() ignored — at end (frame \(self.currentFrameIndex + 1) >= total \(self.totalFrames))"
             )
@@ -715,14 +726,21 @@ private let logger = DevLogger(category: "AppState")
             logger.debug("stepForward() ignored — busy")
             return
         }
-        let targetFrame = currentFrameIndex + 1
+        let actualFrameCount = min(frameCount, lastFrameIndex - currentFrameIndex)
+        let targetFrame = currentFrameIndex + actualFrameCount
         runStepCommand(kind: .stepForward, targetFrame: targetFrame)
     }
 
-    func stepBackward() {
+    func stepBackward() { stepBackward(by: 1) }
+
+    func stepBackward(by frameCount: UInt64) {
         logger.debug(
-            "stepBackward() called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex) busy=\(self.playbackControlsBusy)"
+            "stepBackward(by: \(frameCount)) called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex) busy=\(self.playbackControlsBusy)"
         )
+        guard frameCount > 0 else {
+            logger.debug("stepBackward() ignored — requested frameCount was 0")
+            return
+        }
         guard displayPlaybackMode == .replaySeekable, currentFrameIndex > 0 else {
             logger.debug("stepBackward() ignored — not seekable or already at frame 0")
             return
@@ -731,7 +749,8 @@ private let logger = DevLogger(category: "AppState")
             logger.debug("stepBackward() ignored — busy")
             return
         }
-        let targetFrame = currentFrameIndex - 1
+        let actualFrameCount = min(frameCount, currentFrameIndex)
+        let targetFrame = currentFrameIndex - actualFrameCount
         runStepCommand(kind: .stepBackward, targetFrame: targetFrame)
     }
 
