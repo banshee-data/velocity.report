@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -552,17 +553,30 @@ func (r *Replayer) SeekToTimestamp(timestampNs int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Binary search for closest frame
-	// TODO: Implement binary search
+	// Log the first few index entries for diagnostics on first seek.
+	if len(r.index) > 0 {
+		n := len(r.index)
+		if n > 5 {
+			n = 5
+		}
+		for i := 0; i < n; i++ {
+			log.Printf("[Replayer] SeekToTimestamp: index[%d] ts=%d frameID=%d", i, r.index[i].TimestampNs, r.index[i].FrameID)
+		}
+		log.Printf("[Replayer] SeekToTimestamp: target=%d, header.StartNs=%d, header.EndNs=%d, totalEntries=%d",
+			timestampNs, r.header.StartNs, r.header.EndNs, len(r.index))
+	}
+
 	for i, entry := range r.index {
 		if entry.TimestampNs >= timestampNs {
 			r.currentFrame = uint64(i)
+			log.Printf("[Replayer] SeekToTimestamp: landed on index %d (ts=%d)", i, entry.TimestampNs)
 			return nil
 		}
 	}
 
 	// Seek to end if timestamp is beyond log
 	r.currentFrame = uint64(len(r.index) - 1)
+	log.Printf("[Replayer] SeekToTimestamp: timestamp beyond log, landed on last frame %d", r.currentFrame)
 	return nil
 }
 
