@@ -827,6 +827,15 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
+    /// Seek to a specific nanosecond timestamp by converting to progress.
+    func seekToTimestamp(_ timestampNanos: Int64) {
+        guard hasValidTimelineRange, logEndTimestamp > logStartTimestamp else { return }
+        let clamped = max(logStartTimestamp, min(logEndTimestamp, timestampNanos))
+        let progress =
+            Double(clamped - logStartTimestamp) / Double(logEndTimestamp - logStartTimestamp)
+        seek(to: progress)
+    }
+
     func seek(to progress: Double) {
         logger.debug(
             "seek(to: \(progress)) called — mode=\(self.displayPlaybackMode.rawValue) seekable=\(self.isSeekable) hasValidRange=\(self.hasValidTimelineRange) hasFrameProgress=\(self.hasFrameIndexProgress) busy=\(self.playbackControlsBusy) inFlight=\(String(describing: self.inFlightPlaybackCommand))"

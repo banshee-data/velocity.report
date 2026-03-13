@@ -1284,13 +1284,31 @@ struct TrackHistoryGraphView: View {
         return raw
     }
 
+    /// Nanoseconds per frame at ~10 Hz server rate.
+    private static let nanosPerFrame: Int64 = 100_000_000
+
     var body: some View {
         let display = trimmedSamples
         if display.count >= 2 {
             // Use persistent max from AppState (survives ring-buffer eviction)
             let globalMax = CGFloat(appState.trackMaxSpeed[trackID] ?? 0)
 
-            GroupBox(label: Text("History").font(.caption2)) {
+            GroupBox(
+                label: HStack {
+                    Text("History").font(.caption2)
+                    Spacer()
+                    if appState.isSeekable, let track = appState.allSeenTracks[trackID],
+                        track.firstSeenNanos > 0
+                    {
+                        Button {
+                            let target = track.firstSeenNanos - 3 * Self.nanosPerFrame
+                            appState.seekToTimestamp(target)
+                        } label: {
+                            Image(systemName: "arrow.backward.to.line").font(.caption2)
+                        }.buttonStyle(.borderless).help("Seek to 3 frames before first hit")
+                    }
+                }
+            ) {
                 VStack(alignment: .leading, spacing: 8) {
                     // Heading sparkline (orange) — on top
                     SparklineView(
