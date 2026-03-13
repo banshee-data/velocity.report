@@ -1081,8 +1081,8 @@ func TestPublisher_ForegroundTimestampTracking(t *testing.T) {
 		FrameType:      FrameTypeForeground,
 	})
 
-	if pub.lastForegroundTimestamp != 5000000000 {
-		t.Errorf("lastForegroundTimestamp = %d, want 5000000000", pub.lastForegroundTimestamp)
+	if pub.lastForegroundTimestamp.Load() != 5000000000 {
+		t.Errorf("lastForegroundTimestamp = %d, want 5000000000", pub.lastForegroundTimestamp.Load())
 	}
 
 	// Publish a background frame — should NOT update the tracker
@@ -1094,9 +1094,9 @@ func TestPublisher_ForegroundTimestampTracking(t *testing.T) {
 		Background:     &BackgroundSnapshot{TimestampNanos: 9999999999},
 	})
 
-	if pub.lastForegroundTimestamp != 5000000000 {
+	if pub.lastForegroundTimestamp.Load() != 5000000000 {
 		t.Errorf("lastForegroundTimestamp changed after background frame: %d, want 5000000000",
-			pub.lastForegroundTimestamp)
+			pub.lastForegroundTimestamp.Load())
 	}
 }
 
@@ -1120,7 +1120,7 @@ func TestPublisher_BackgroundTimestampInheritance(t *testing.T) {
 	// the channel to be present (which NewPublisher creates).
 
 	// Set a foreground timestamp
-	pub.lastForegroundTimestamp = 5000000000
+	pub.lastForegroundTimestamp.Store(5000000000)
 
 	err := pub.sendBackgroundSnapshot()
 	if err != nil {

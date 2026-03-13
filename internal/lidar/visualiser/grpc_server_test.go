@@ -1377,6 +1377,10 @@ func TestStreamFromPublisher_VRLogReplayCoalescesBufferedFrames(t *testing.T) {
 		})
 	}
 
+	// Allow the broadcastLoop time to forward all published frames
+	// into the per-client channel before releasing the blocked Send.
+	time.Sleep(50 * time.Millisecond)
+
 	close(releaseFirstSend)
 
 	select {

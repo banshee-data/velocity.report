@@ -65,7 +65,7 @@ type Publisher struct {
 	backgroundMgr           BackgroundManagerInterface
 	lastBackgroundSeq       uint64
 	lastBackgroundSent      time.Time
-	lastForegroundTimestamp int64 // most recent foreground frame's TimestampNanos
+	lastForegroundTimestamp atomic.Int64 // most recent foreground frame's TimestampNanos
 
 	// Frame recording
 	recorder   FrameRecorder
@@ -507,8 +507,8 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 	// recording PCAP replays (background uses time.Now(), foreground uses
 	// PCAP timestamps).
 	ts := snapshot.TimestampNanos
-	if p.lastForegroundTimestamp != 0 {
-		ts = p.lastForegroundTimestamp
+	if fgTs := p.lastForegroundTimestamp.Load(); fgTs != 0 {
+		ts = fgTs
 	}
 	bundle := &FrameBundle{
 		FrameID:        p.frameCount.Add(1),
@@ -627,7 +627,7 @@ func (p *Publisher) Publish(frame interface{}) {
 	// Track the most recent foreground frame timestamp so background
 	// snapshots can inherit it instead of using wall-clock time.
 	if frameBundle.FrameType != FrameTypeBackground {
-		p.lastForegroundTimestamp = frameBundle.TimestampNanos
+		p.lastForegroundTimestamp.Store(frameBundle.TimestampNanos)
 	}
 
 	// Determine frame type — only set if not already specified.

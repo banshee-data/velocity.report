@@ -781,11 +781,13 @@ func TestReplayServer_StreamFrames_ForwardsBackgroundWithoutManager(t *testing.T
 	pub := NewPublisher(cfg)
 	// No SetBackgroundManager — simulates visualiser-server
 
+	// Use timestamps 10ms apart to avoid rate-control sleeps exceeding the
+	// test deadline (playbackRate defaults to 1.0×).
 	frames := []*FrameBundle{
 		{FrameID: 0, TimestampNanos: 1000000000, SensorID: "test", FrameType: FrameTypeForeground},
-		{FrameID: 1, TimestampNanos: 2000000000, SensorID: "test", FrameType: FrameTypeBackground,
-			Background: &BackgroundSnapshot{TimestampNanos: 2000000000}},
-		{FrameID: 2, TimestampNanos: 3000000000, SensorID: "test", FrameType: FrameTypeForeground},
+		{FrameID: 1, TimestampNanos: 1010000000, SensorID: "test", FrameType: FrameTypeBackground,
+			Background: &BackgroundSnapshot{TimestampNanos: 1010000000}},
+		{FrameID: 2, TimestampNanos: 1020000000, SensorID: "test", FrameType: FrameTypeForeground},
 	}
 	reader := newMockFrameReader(frames)
 	rs := NewReplayServer(pub, reader)
