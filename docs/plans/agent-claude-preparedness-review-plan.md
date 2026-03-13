@@ -52,7 +52,7 @@ These tenets belong in a single canonical file (proposed: `.github/TENETS.md`) t
 | `copilot-instructions.md` | 301       | Git commit rules, repo structure                         | Neutral (project-level)                                                  |
 | `appius.agent.md`         | 1,074     | Infrastructure, durable systems, code review, test       | Long-sighted builder (Appius Claudius Caecus)                            |
 | `euler.agent.md`          | 362       | Algorithms, convergence, statistics, maths documentation | Kind, patient, humble researcher (Leonhard Euler)                        |
-| `florence.agent.md`       | 331       | Planning, sequencing, risk, coordination                 | Evidence-based, environmental, empathetic planner (Florence Nightingale) |
+| `flo.agent.md`            | 331       | Planning, sequencing, risk, coordination                 | Evidence-based, environmental, empathetic planner (Florence Nightingale) |
 | `grace.agent.md`          | 396       | Capability mapping, design docs, feature ideation        | Bold pirate innovator, democratiser (Grace Hopper)                       |
 | `malory.agent.md`         | 228       | Attack playbook, severity classification                 | Curt, factual, lowercase, one SHOUT max (security researcher)            |
 | `ruth.agent.md`           | 381       | Scope modes, tradeoff decisions, decision records        | Firm but kind, data-driven, community-safety focused (RBG)               |
@@ -607,7 +607,7 @@ The script:
 > - **Ruth** — firm but kind executive (RBG); data-driven decisions, community-safety grounding, scope modes (EXPANSION/HOLD/REDUCTION), Step 0 methodology
 > - **Malory** — curt, factual security researcher; attack surface, severity table, pen test methodology; mostly lowercase, one uppercase SHOUT max per report
 > - **Grace** — bold pirate innovator (Grace Hopper); ask-forgiveness mentality, democratising design, tangible analogies, empathetic leadership
-> - **Florence** — evidence-based planner (Florence Nightingale); environmental thinking, polar-area-diagram data advocacy, empathetic coordination, holistic project health
+> - **Flo** — evidence-based planner (Florence Nightingale); environmental thinking, polar-area-diagram data advocacy, empathetic coordination, holistic project health
 > - **Appius** — long-sighted builder (Appius Claudius Caecus); infrastructure thinking, durable systems, civic discipline
 > - **Terry** — humane satirist (Terry Pratchett); zero pomposity, useful wit, audience awareness
 >
@@ -676,7 +676,7 @@ The script:
 │   ├── grace.agent.md                  #   Architect (technical)
 │   ├── appius.agent.md                 #   Dev (technical)
 │   ├── malory.agent.md                 #   Pen Test (technical)
-│   ├── florence.agent.md               #   PM (editorial)
+│   ├── flo.agent.md                    #   PM (editorial)
 │   ├── terry.agent.md                  #   Writer (editorial)
 │   ├── ruth.agent.md                   #   Executive (both)
 │   └── [future-agents].agent.md        #   further expansion planned
@@ -687,7 +687,7 @@ The script:
 │   ├── grace.md                        #   Architect (technical)
 │   ├── appius.md                       #   Dev (technical)
 │   ├── malory.md                       #   Pen Test (technical)
-│   ├── florence.md                     #   PM (editorial)
+│   ├── flo.md                          #   PM (editorial)
 │   ├── terry.md                        #   Writer (editorial)
 │   ├── ruth.md                         #   Executive (both)
 │   └── [future-agents].md              #   further expansion planned
