@@ -23,30 +23,36 @@ Labels are applied by human reviewers to tracks within an analysis run. The same
 
 ### Detection Labels (`user_label`)
 
-Classify whether the tracker correctly detected and tracked a real-world object.
+Classify what object the track represents. v0.5.0 ships 7 active labels.
 
-| Label             | Description                                                                  |
-| ----------------- | ---------------------------------------------------------------------------- |
-| `good_vehicle`    | Correctly tracked vehicle (car, van, lorry, motorcycle, etc.)                |
-| `good_pedestrian` | Correctly tracked pedestrian                                                 |
-| `good_other`      | Correctly tracked non-vehicle, non-pedestrian object (e.g. wheelchair, pram) |
-| `noise`           | False positive — no real object (sensor artefact, multipath reflection)      |
-| `noise_flora`     | False positive caused by vegetation (tree, bush, hedge movement)             |
-| `split`           | Single real object incorrectly split into multiple tracks                    |
-| `merge`           | Multiple real objects incorrectly merged into a single track                 |
-| `missed`          | Real object that was not tracked (false negative)                            |
+<!-- Canonical source: internal/api/lidar_labels.go → AllDetectionLabels -->
 
-### Quality Labels (`quality_label`)
+| Label        | Description                                              |
+| ------------ | -------------------------------------------------------- |
+| `car`        | Passenger car, SUV, van, or truck                        |
+| `bus`        | Bus, coach, or large passenger vehicle (length > 7 m)    |
+| `pedestrian` | Person walking, running, or using a mobility aid         |
+| `cyclist`    | Person on a bicycle, e-scooter, or motorcycle            |
+| `bird`       | Bird or other airborne fauna                             |
+| `noise`      | Spurious track (sensor noise, rain, dust, or vegetation) |
+| `dynamic`    | Ambiguous dynamic object or insufficient observations    |
 
-Rate the measurement quality of a correctly-detected track.
+### Quality Flags (`quality_label`)
 
-| Label               | Description                                                              |
-| ------------------- | ------------------------------------------------------------------------ |
-| `perfect`           | Clean track throughout — accurate velocity, stable bounding box          |
-| `good`              | Minor imperfections that do not affect usability                         |
-| `truncated`         | Track starts late or ends early relative to the object's true trajectory |
-| `noisy_velocity`    | Velocity estimate is unstable or inaccurate                              |
-| `stopped_recovered` | Track was temporarily lost and re-acquired after the object stopped      |
+Rate the measurement quality of a track. Multi-select (comma-separated).
+
+<!-- Canonical source: internal/api/lidar_labels.go → AllQualityFlags -->
+
+| Flag              | Description                                                              |
+| ----------------- | ------------------------------------------------------------------------ |
+| `good`            | Clean, accurate track with correct speed and trajectory                  |
+| `noisy`           | Track has noisy position or speed estimates                              |
+| `jitter_velocity` | Speed estimates jitter significantly                                     |
+| `jitter_heading`  | Heading estimates jitter significantly                                   |
+| `merge`           | Two or more distinct objects incorrectly merged into one track           |
+| `split`           | Single object incorrectly split into multiple tracks                     |
+| `truncated`       | Track starts late or ends early relative to the object's true trajectory |
+| `disconnected`    | Track was lost and recovered — identity may have changed                 |
 
 ### Canonical Sources
 

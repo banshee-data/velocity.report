@@ -16,31 +16,68 @@ import (
 // Clients can use time-based filtering for pagination.
 const maxLabelsPerQuery = 1000
 
-// Valid user labels for track classification (what is the object?)
-// Must match l6objects.ObjectClass constants, Svelte DetectionLabel, and Swift classificationLabels.
-// v0.5.0 ships 7 classes — truck and motorcyclist are reserved for future use.
-var validUserLabels = map[string]bool{
-	"car":        true,
-	"bus":        true,
-	"pedestrian": true,
-	"cyclist":    true,
-	"bird":       true,
-	"noise":      true,
-	"dynamic":    true,
+// DetectionLabel is a human-assigned classification label (what is the object?).
+// Must stay in sync with l6objects.ObjectClass constants, Svelte DetectionLabel,
+// and Swift classificationLabels.
+type DetectionLabel string
+
+// v0.5.0 ships 7 active detection labels.
+// Truck and motorcyclist are reserved for future use (v0.6+).
+const (
+	LabelCar        DetectionLabel = "car"
+	LabelBus        DetectionLabel = "bus"
+	LabelPedestrian DetectionLabel = "pedestrian"
+	LabelCyclist    DetectionLabel = "cyclist"
+	LabelBird       DetectionLabel = "bird"
+	LabelNoise      DetectionLabel = "noise"
+	LabelDynamic    DetectionLabel = "dynamic"
+)
+
+// AllDetectionLabels is the canonical list of valid detection labels.
+// Validation maps and doc-generation scripts should derive from this slice.
+var AllDetectionLabels = []DetectionLabel{
+	LabelCar, LabelBus, LabelPedestrian, LabelCyclist,
+	LabelBird, LabelNoise, LabelDynamic,
 }
 
-// Valid quality flags for track quality attributes (multi-select, comma-separated).
-// These describe properties of the track rather than what the object is.
-var validQualityLabels = map[string]bool{
-	"good":            true,
-	"noisy":           true,
-	"jitter_velocity": true,
-	"jitter_heading":  true,
-	"merge":           true,
-	"split":           true,
-	"truncated":       true,
-	"disconnected":    true,
+// QualityFlag is a track quality attribute (multi-select, comma-separated).
+// Describes properties of the track rather than what the object is.
+type QualityFlag string
+
+const (
+	QualityGood           QualityFlag = "good"
+	QualityNoisy          QualityFlag = "noisy"
+	QualityJitterVelocity QualityFlag = "jitter_velocity"
+	QualityJitterHeading  QualityFlag = "jitter_heading"
+	QualityMerge          QualityFlag = "merge"
+	QualitySplit          QualityFlag = "split"
+	QualityTruncated      QualityFlag = "truncated"
+	QualityDisconnected   QualityFlag = "disconnected"
+)
+
+// AllQualityFlags is the canonical list of valid quality flags.
+var AllQualityFlags = []QualityFlag{
+	QualityGood, QualityNoisy, QualityJitterVelocity, QualityJitterHeading,
+	QualityMerge, QualitySplit, QualityTruncated, QualityDisconnected,
 }
+
+// validUserLabels is derived from AllDetectionLabels for O(1) lookup.
+var validUserLabels = func() map[string]bool {
+	m := make(map[string]bool, len(AllDetectionLabels))
+	for _, l := range AllDetectionLabels {
+		m[string(l)] = true
+	}
+	return m
+}()
+
+// validQualityLabels is derived from AllQualityFlags for O(1) lookup.
+var validQualityLabels = func() map[string]bool {
+	m := make(map[string]bool, len(AllQualityFlags))
+	for _, f := range AllQualityFlags {
+		m[string(f)] = true
+	}
+	return m
+}()
 
 // ValidateUserLabel checks if a user label is valid according to the enum.
 // Returns false for empty strings (not in the valid map).
