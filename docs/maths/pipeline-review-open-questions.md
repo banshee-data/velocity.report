@@ -80,7 +80,7 @@ refinement needed.
 
 **Sequencing refinement needed:** P4 (unified settling) is currently listed
 last but would reduce P3's implementation cost. If P3 is the higher-value
-deliverable (it is — see §6), then P4 should be brought forward as an
+deliverable (it is — see [§6 High-Value Work Priority](#6-high-value-work-priority)), then P4 should be brought forward as an
 enabling infrastructure step. The recommended sequence is:
 
 1. **P1** — Geometry-coherent track state (standalone, highest visible impact)
@@ -250,7 +250,7 @@ allows. The three regimes are:
 
 **Regime 1 — Braking/acceleration.** A vehicle decelerating at 3 m/s²
 (typical urban braking) causes the CV prediction to overshoot by
-½at² = 0.015 m per frame at 10 Hz. After 10 frames (1 s), the cumulative
+(1/2)at² = 0.015 m per frame at 10 Hz. After 10 frames (1 s), the cumulative
 error is 1.5 m. With a typical gating distance of 2.0 m², the track
 survives ~10–15 frames of braking before fragmentation.
 
@@ -560,7 +560,7 @@ be standardised to the interpolated percentile method (linear interpolation
 between adjacent order statistics) for consistency with standard statistical
 practice:
 
-p_k = x_{⌊h⌋} + (h − ⌊h⌋)(x_{⌊h⌋+1} − x_{⌊h⌋})  where  h = (n−1)·k/100
+p_k = x[floor(h)] + (h − floor(h)) · (x[floor(h)+1] − x[floor(h)])  where  h = (n−1)·k/100
 
 This matches NumPy's `percentile(method='linear')` and is the most widely
 used interpolation method.
