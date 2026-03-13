@@ -1,6 +1,6 @@
 # Agent Knowledge Architecture: Dual-Tool DRY Design
 
-**Status:** In Progress (Phase 1 complete, Phase 2 — agent condensation pending)
+**Status:** In Progress (Phase 1 complete, Phase 2 complete, Phase 3 pending)
 **Scope:** Restructure agent customisation for simultaneous Copilot + Claude Code use; eliminate knowledge duplication; prepare for team expansion to 10–15 agents
 **Layers:** docs, ai-agents
 
@@ -599,19 +599,35 @@ The script:
 
 **Goal:** Slim agent files to role-specific content only.
 
-> **Status (2026-03-12):** Persona refinement complete — all 7 agents have distinct historical personas with tailored voices and role-specific methodology. Condensation (removing duplicated project facts and adding Layer 1/2 references) is the remaining Phase 2 work.
+> **Status (2026-03-12): COMPLETE.**
 >
-> **Completed persona work:**
+> All 7 agent files condensed from 4,723 → 1,858 lines (61% reduction). Each agent file contains only persona, methodology, coordination notes, and Layer 1/2 references — zero duplicated project facts.
 >
-> - **Euler** — kind, patient, humble researcher (Leonhard Euler); convergence analysis templates, parameter justification tables, statistical validation methodology
-> - **Grace** — bold pirate innovator (Grace Hopper); ask-forgiveness mentality, democratising design, tangible analogies, empathetic leadership
-> - **Appius** — long-sighted builder (Appius Claudius Caecus); infrastructure thinking, durable systems, civic discipline
-> - **malory** — curt, factual security researcher; attack surface, severity table, pen test methodology; mostly lowercase, one uppercase SHOUT max per report
-> - **Flo** — evidence-based planner (Florence Nightingale); environmental thinking, polar-area-diagram data advocacy, empathetic coordination, holistic project health
-> - **Terry** — humane satirist (Terry Pratchett); zero pomposity, useful wit, audience awareness
-> - **Ruth** — firm but kind executive (RBG); data-driven decisions, community-safety grounding, scope modes (EXPANSION/HOLD/REDUCTION), Step 0 methodology
+> **Final line counts:**
 >
-> **Remaining work:** Remove duplicated project facts from each agent file, add references to Layer 1/2 knowledge modules (requires Phase 1 completion first).
+> - `appius.agent.md` — 395 lines
+> - `terry.agent.md` — 332 lines
+> - `flo.agent.md` — 285 lines
+> - `ruth.agent.md` — 272 lines
+> - `malory.agent.md` — 225 lines
+> - `euler.agent.md` — 195 lines
+> - `grace.agent.md` — 154 lines
+>
+> **All ≤400 lines** — acceptance criterion met.
+>
+> **Adopted patterns incorporated:**
+>
+> - Grace: scope modes, mandatory output artefacts, interactive question protocol
+> - Malory: checklist reference, gate classification, suppressions list, read-only-by-default discipline
+> - Appius: suppressions list for code review
+> - All agents: priority hierarchy under context pressure, directive voice
+>
+> **Additional deliverables (not in original plan):**
+>
+> - `.github/agents/README.md` — 23-line agent directory with 2-column portrait table, domains, taglines, and image attribution
+> - `.github/agents/portraits/` — 7 × 120px JPEG head shots generated from 1920px Wikimedia/Flickr sources
+> - `.github/agents/portraits/generate.py` — permanent script with CLI args, source URLs, crop coordinates, licences, rate-limit-aware downloads
+> - Each agent `.agent.md` file includes portrait image (wrapped in `<!-- portrait: not part of the agent instructions -->` comment so AI agents ignore it)
 
 5. Refactor each `.agent.md` file:
    - Remove all duplicated project facts
@@ -619,16 +635,30 @@ The script:
    - Keep only: persona, methodology, coordination notes, forbidden actions
    - Incorporate adopted patterns:
      - Grace: scope modes (expansion/hold/reduction), mandatory output artefacts, interactive question protocol
-     - malory: checklist reference, gate classification, suppressions list, read-only-by-default discipline
+     - Malory: checklist reference, gate classification, suppressions list, read-only-by-default discipline
      - Appius: suppressions list for code review
      - All agents: priority hierarchy under context pressure, directive voice
 6. Validate each agent still functions correctly in Copilot
 
-**Acceptance:** After condensation, agent files contain only persona/role content — no duplicated project facts. Agents with review responsibilities (malory, Grace) reference externalised checklists rather than inlining criteria. Target: each agent file ≤400 lines once project facts are extracted to Layer 1/2 modules.
+**Acceptance:** After condensation, agent files contain only persona/role content — no duplicated project facts. Agents with review responsibilities (Malory, Grace) reference externalised checklists rather than inlining criteria. Target: each agent file ≤400 lines once project facts are extracted to Layer 1/2 modules.
 
 ### Phase 3: Claude Code Entry Point + Native Agents `M`
 
 **Goal:** Enable Claude Code with full native UX. Create platform-optimised agent definitions.
+
+> **Status (2026-03-12):** Not started. Drift detection infrastructure (steps 9–11) already built ahead of schedule during Phase 2 work.
+>
+> **Pre-completed:**
+>
+> - `scripts/check-agent-drift.sh` — 8,221 bytes, fully functional
+> - `make check-agent-drift` target — in Makefile
+> - `flo-planning-review.sh` integration — 7 drift-related references
+>
+> **Remaining:**
+>
+> - [ ] Create `CLAUDE.md` at repo root
+> - [ ] Create `.claude/agents/` with 7 Claude-native persona files
+> - [ ] Test Claude Code reads knowledge modules correctly
 
 7. Create `CLAUDE.md` at repo root referencing `TENETS.md` + `knowledge/` modules
 8. Create `.claude/agents/` directory with Claude-native persona definitions for each agent:
@@ -636,9 +666,9 @@ The script:
    - Reference shared knowledge modules (same `.github/knowledge/` files)
    - Include Claude-specific slash commands and context-optimised examples
    - Persona methodology and coordination rules mirrored from `.agent.md` (drift-checked)
-9. Create `scripts/check-agent-drift.sh` — drift detection between paired agent definitions
-10. Add `make check-agent-drift` target
-11. Integrate drift check into `scripts/flo-planning-review.sh` for weekly review
+9. ~~Create `scripts/check-agent-drift.sh`~~ — ✅ already exists
+10. ~~Add `make check-agent-drift` target~~ — ✅ already exists
+11. ~~Integrate drift check into `scripts/flo-planning-review.sh`~~ — ✅ already integrated
 12. Test Claude Code reads the knowledge modules and agent files correctly
 
 **Acceptance:** Claude Code session has access to equivalent project knowledge as Copilot. Shared knowledge (Layers 0–2) is single-source. Persona definitions are platform-native in both tools. `make check-agent-drift` reports zero unreviewed drift.
@@ -703,19 +733,21 @@ scripts/
 
 ## 9. Estimated Impact
 
-| Metric                                      | Original       | Current (post-persona) | Target (post-condensation) | Change (original→target) |
-| ------------------------------------------- | -------------- | ---------------------- | -------------------------- | ------------------------ |
-| Total lines (all agent/instruction files)   | 3,456          | 4,723                  | ~2,000                     | -42%                     |
-| _Project fact_ duplication instances        | ~45            | ~45 (unchanged)        | 0                          | -100%                    |
-| _Persona_ duplication instances             | 0              | 0                      | ~7–15 (bounded)            | +N (drift-checked)       |
-| Agent persona completeness                  | Generic        | Full (all 7 distinct)  | Full                       | ✅                       |
-| Agent voice/personality distinction         | None           | All 7 differentiated   | Maintained                 | ✅                       |
-| Files to update when build changes          | 5              | 5 (unchanged)          | 1                          | -80%                     |
-| Files to update when privacy policy changes | 6              | 7 (unchanged)          | 1                          | -86%                     |
-| Cost to add a new agent                     | ~200–800 lines | ~200–800 lines         | ~100–160 lines (2 files)   | -75%                     |
-| Tools supported                             | 1 (Copilot)    | 1 (Copilot)            | 2 (Copilot + Claude)       | +100%                    |
-| Platform features used                      | ~60%           | ~60%                   | ~95%                       | +58%                     |
-| Drift detection                             | None           | None                   | Weekly automated           | ∞                        |
+| Metric                                      | Original       | Post-persona (pre-work) | Current (post-Phase 2)           | Target (post-Phase 3)          | Change (original→current) |
+| ------------------------------------------- | -------------- | ----------------------- | -------------------------------- | ------------------------------ | ------------------------- |
+| Total lines (all agent/instruction files)   | 3,456          | 4,723                   | **1,953** (1,858 + 95)           | ~2,200 (+Claude shim)          | **-43%**                  |
+| _Project fact_ duplication instances        | ~45            | ~45                     | **0**                            | 0                              | **-100%**                 |
+| _Persona_ duplication instances             | 0              | 0                       | 0                                | ~7–15 (bounded, drift-checked) | —                         |
+| Agent persona completeness                  | Generic        | Full (all 7 distinct)   | **Full**                         | Full                           | ✅                        |
+| Agent voice/personality distinction         | None           | All 7 differentiated    | **Maintained**                   | Maintained                     | ✅                        |
+| Files to update when build changes          | 5              | 5                       | **1**                            | 1                              | **-80%**                  |
+| Files to update when privacy policy changes | 6              | 7                       | **1**                            | 1                              | **-86%**                  |
+| Cost to add a new agent                     | ~200–800 lines | ~200–800 lines          | **~50–100 lines** (1 file)       | ~100–160 lines (2 files)       | **-88%**                  |
+| Tools supported                             | 1 (Copilot)    | 1 (Copilot)             | **1 (Copilot)**                  | 2 (Copilot + Claude)           | —                         |
+| Platform features used                      | ~60%           | ~60%                    | **~60%**                         | ~95%                           | —                         |
+| Drift detection                             | None           | None                    | **Script ready** (no Claude yet) | Weekly automated               | ✅                        |
+| Agent portraits                             | None           | None                    | **7 × 120px** (1920px sources)   | 7 × 120px                      | ✅                        |
+| Agent README / directory                    | None           | None                    | **23 lines** (table + attrib)    | Maintained                     | ✅                        |
 
 ---
 
@@ -728,3 +760,36 @@ scripts/
 - [x] ~~Which new agents to prioritise?~~ — Partially resolved: Executive and Researcher added to core roster (§5.1). Remaining candidates in §5.2 deferred to future cycle.
 - [x] ~~Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?~~ — Resolved: **yes.** Add CI checks that enforce core tenets (e.g. grep for PII-related code patterns, camera/licence-plate references, cloud transmission endpoints). Implement as part of Phase 1 alongside `TENETS.md` creation.
 - [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `flo-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
+
+---
+
+## 11. Remaining Work Checklist
+
+### Phase 3: Claude Code Entry Point
+
+- [ ] Create `CLAUDE.md` at repo root — reference `TENETS.md`, `knowledge/` modules, agent roster with file paths
+- [ ] Create `.claude/agents/euler.md` — Claude-native persona (no YAML, clean Markdown)
+- [ ] Create `.claude/agents/grace.md`
+- [ ] Create `.claude/agents/appius.md`
+- [ ] Create `.claude/agents/malory.md`
+- [ ] Create `.claude/agents/flo.md`
+- [ ] Create `.claude/agents/terry.md`
+- [ ] Create `.claude/agents/ruth.md`
+- [ ] Test Claude Code reads knowledge modules and agent files correctly
+- [ ] Run `make check-agent-drift` — confirm zero unreviewed drift
+
+### Phase 4: Agent Team Expansion (future cycle)
+
+- [ ] Scope and prioritise new agent candidates from §5.2
+- [ ] Create new agent files in both platforms
+- [ ] Validate new agents in both Copilot and Claude Code
+- [ ] Run `make check-agent-drift` to confirm alignment
+- [ ] Add knowledge modules if new agents surface undocumented domain knowledge
+
+### Deferred / Low Priority
+
+- [ ] CI check enforcing TENETS.md (grep for PII patterns, camera references, cloud endpoints)
+- [ ] Investigate `SKILL.md` wrappers for knowledge modules (§6.3)
+- [ ] JSON snapshot persistence for Flo's weekly review trend tracking
+- [ ] Non-interactive release automation (DevOps agent prerequisite)
+- [ ] Confirm `.github/knowledge/` works with Copilot file discovery (§10 open question)
