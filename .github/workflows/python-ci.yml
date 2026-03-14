@@ -43,6 +43,7 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v5
+        id: setup-python-lint
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -51,9 +52,7 @@ jobs:
         id: venv-cache
         with:
           path: .venv
-          key: ${{ runner.os }}-venv-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-venv-${{ env.PYTHON_VERSION }}-
+          key: ${{ runner.os }}-venv-${{ steps.setup-python-lint.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
 
       - name: Setup Python environment
         if: steps.venv-cache.outputs.cache-hit != 'true'
@@ -78,6 +77,7 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v5
+        id: setup-python-test
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -86,9 +86,7 @@ jobs:
         id: venv-cache
         with:
           path: .venv
-          key: ${{ runner.os }}-venv-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-venv-${{ env.PYTHON_VERSION }}-
+          key: ${{ runner.os }}-venv-${{ steps.setup-python-test.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
 
       - name: Setup Python environment
         if: steps.venv-cache.outputs.cache-hit != 'true'
