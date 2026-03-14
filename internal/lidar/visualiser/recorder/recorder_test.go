@@ -1548,6 +1548,10 @@ func TestRecorder_BackgroundFramesExcludedFromHeaderRange(t *testing.T) {
 // through record → replay with all frame types, timestamps, and ordering
 // preserved. Empty frames (FrameTypeEmpty) are placeholder entries for
 // sensor rotations where no foreground objects were detected.
+//
+// The test uses variable inter-frame intervals (100ms→50ms, simulating
+// a sensor ramping from 10 Hz to 20 Hz) to verify that the recorder
+// faithfully preserves non-uniform rotation timing.
 func TestEmptyFrameRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	rec, err := NewRecorder(dir, "test-deterministic")
@@ -1556,24 +1560,25 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 	}
 
 	baseTs := int64(1_718_400_000_000_000_000) // 2024-06-15
-	interval := int64(88_500_000)              // ~11.3 Hz ≈ 88.5ms per rotation
 
-	// Simulate a 10-frame sequence: frames 0,3,7 are empty (no foreground),
-	// the rest contain point cloud + cluster data.
+	// Simulate a 10-frame sequence with variable rotation rate.
+	// Intervals ramp from 100ms (10 Hz) down to ~56ms (~18 Hz),
+	// mimicking a Hesai Pandar40P motor spin-up.
 	type frameSpec struct {
-		empty bool
+		empty      bool
+		intervalNs int64 // interval from previous frame (0 for first)
 	}
 	specs := []frameSpec{
-		{empty: true},  // 0: empty
-		{empty: false}, // 1: foreground
-		{empty: false}, // 2: foreground
-		{empty: true},  // 3: empty
-		{empty: false}, // 4: foreground
-		{empty: false}, // 5: foreground
-		{empty: false}, // 6: foreground
-		{empty: true},  // 7: empty
-		{empty: false}, // 8: foreground
-		{empty: false}, // 9: foreground
+		{empty: true, intervalNs: 0},            // 0: empty  (first frame)
+		{empty: false, intervalNs: 100_000_000}, // 1: foreground  10.0 Hz
+		{empty: false, intervalNs: 95_000_000},  // 2: foreground  10.5 Hz
+		{empty: true, intervalNs: 88_500_000},   // 3: empty       11.3 Hz
+		{empty: false, intervalNs: 80_000_000},  // 4: foreground  12.5 Hz
+		{empty: false, intervalNs: 71_400_000},  // 5: foreground  14.0 Hz
+		{empty: false, intervalNs: 66_700_000},  // 6: foreground  15.0 Hz
+		{empty: true, intervalNs: 62_500_000},   // 7: empty       16.0 Hz
+		{empty: false, intervalNs: 58_800_000},  // 8: foreground  17.0 Hz
+		{empty: false, intervalNs: 55_600_000},  // 9: foreground  18.0 Hz
 	}
 
 	emptyFrame := func(id uint64, ts int64) *visualiser.FrameBundle {
@@ -1590,8 +1595,13 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 	}
 
 	recorded := make([]*visualiser.FrameBundle, len(specs))
+	var ts int64
 	for i, spec := range specs {
-		ts := baseTs + int64(i)*interval
+		if i == 0 {
+			ts = baseTs
+		} else {
+			ts += spec.intervalNs
+		}
 		if spec.empty {
 			recorded[i] = emptyFrame(uint64(i+1), ts)
 		} else {
@@ -1623,9 +1633,8 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 	if header.StartNs != baseTs {
 		t.Errorf("Header.StartNs = %d, want %d", header.StartNs, baseTs)
 	}
-	expectedEnd := baseTs + int64(len(specs)-1)*interval
-	if header.EndNs != expectedEnd {
-		t.Errorf("Header.EndNs = %d, want %d", header.EndNs, expectedEnd)
+	if header.EndNs != recorded[len(recorded)-1].TimestampNanos {
+		t.Errorf("Header.EndNs = %d, want %d", header.EndNs, recorded[len(recorded)-1].TimestampNanos)
 	}
 
 	for i := range specs {
@@ -1660,6 +1669,17 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 			// Foreground frames should have point cloud data.
 			if frame.PointCloud == nil {
 				t.Errorf("frame %d (foreground): PointCloud is nil", i)
+			}
+		}
+
+		// Verify variable inter-frame intervals are preserved.
+		if i > 0 {
+			prevTs := recorded[i-1].TimestampNanos
+			expectedDelta := orig.TimestampNanos - prevTs
+			actualDelta := frame.TimestampNanos - recorded[i-1].TimestampNanos
+			if actualDelta != expectedDelta {
+				t.Errorf("frame %d: inter-frame interval = %d ns, want %d ns",
+					i, actualDelta, expectedDelta)
 			}
 		}
 	}
