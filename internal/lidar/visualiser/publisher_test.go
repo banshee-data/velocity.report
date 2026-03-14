@@ -924,13 +924,10 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 // both the central frameChan and per-client channels.
 func TestPublisher_DrainFrameBuffers(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.ListenAddr = "localhost:0"
 	pub := NewPublisher(cfg)
 
-	if err := pub.Start(); err != nil {
-		t.Fatalf("Start failed: %v", err)
-	}
-	defer pub.Stop()
+	// Do NOT call pub.Start() — the broadcast loop would race to consume
+	// frames from frameChan before we can assert the buffer length.
 
 	// Enqueue frames into the central frameChan
 	for i := 0; i < 3; i++ {
@@ -956,13 +953,7 @@ func TestPublisher_DrainFrameBuffers(t *testing.T) {
 // drainFrameBuffers releases point cloud references on discarded frames.
 func TestPublisher_DrainFrameBuffersReleasesPointClouds(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.ListenAddr = "localhost:0"
 	pub := NewPublisher(cfg)
-
-	if err := pub.Start(); err != nil {
-		t.Fatalf("Start failed: %v", err)
-	}
-	defer pub.Stop()
 
 	pc := &PointCloudFrame{PointCount: 10, X: make([]float32, 10)}
 	pc.Retain() // refCount=1 from Retain; drain will Release once
@@ -1033,13 +1024,7 @@ func TestPublisher_DrainClientChReleasesPointClouds(t *testing.T) {
 // also drains per-client channels.
 func TestPublisher_DrainFrameBuffersWithClients(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.ListenAddr = "localhost:0"
 	pub := NewPublisher(cfg)
-
-	if err := pub.Start(); err != nil {
-		t.Fatalf("Start failed: %v", err)
-	}
-	defer pub.Stop()
 
 	// Manually add a client
 	client := &clientStream{
