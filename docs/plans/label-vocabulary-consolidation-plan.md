@@ -1,6 +1,6 @@
 # Label Vocabulary Consolidation Plan
 
-**Status:** Phase 1–3.1 completed · Phase 4–5 planned
+**Status:** Phase 1–3.2 completed · Phase 4–5 planned
 **Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
 **Related:** [Classification Maths](../maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
 
@@ -103,6 +103,20 @@ strings. Without intervention, all replayed tracks show "Not classified".
   re-classifies on-the-fly using the same rule-based classifier
 - Swift Track Inspector always displays Class field ("Not classified" fallback
   when enum is UNSPECIFIED)
+
+### Phase 3.2: Trim to 7 user-assignable classes for v0.5.0
+
+✅ **Status: DONE**
+
+Disabled truck and motorcyclist from the active classifier, all UIs, and the
+label validation API for v0.5.0. Proto enum values 8 (TRUCK) and 9
+(MOTORCYCLIST) are retained for forward compatibility.
+
+- Classifier: truck/motorcyclist cascade rules commented out (trucks→CAR, motorcycles→CYCLIST)
+- Label API: `validUserLabels` reduced to 7 entries; truck/motorcyclist rejected with 400
+- macOS: removed from `classificationLabels` array; help text updated
+- Web: removed from `DetectionLabel` type and dropdowns; colours retained for backward compat
+- Proto: enum values stable; reactivation path documented (uncomment rules + restore UI entries)
 
 ## Remaining Phases
 

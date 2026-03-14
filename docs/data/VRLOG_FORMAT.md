@@ -153,7 +153,7 @@ into each chunk frame:
 | 1     | `FrameTypeForeground` | Split streaming: foreground + clusters + tracks only |
 | 2     | `FrameTypeBackground` | Background grid snapshot                             |
 | 3     | `FrameTypeDelta`      | Reserved for future incremental updates              |
-| 4     | `FrameTypeEmpty`      | Placeholder: no foreground objects detected          |
+| 4     | `FrameTypeEmpty`      | Placeholder: no foreground objects detected (v0.6+)  |
 
 `FrameTypeEmpty` frames carry only metadata (`FrameID`, `TimestampNanos`,
 `SensorID`, `CoordinateFrame`). All perception fields (`PointCloud`,
@@ -162,7 +162,7 @@ PCAP-to-VRLOG mapping and must be preserved during replay/seek.
 
 Full model definition: [`internal/lidar/visualiser/model.go`](../../internal/lidar/visualiser/model.go)
 
-## Deterministic Recording Guarantee
+## Deterministic Recording Guarantee (v0.6+)
 
 When recording from a PCAP source, the VRLOG guarantees a **1:1 mapping from
 sensor rotations to VRLOG frames**. Given the same PCAP file, tuning
