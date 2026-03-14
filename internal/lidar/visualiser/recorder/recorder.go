@@ -23,7 +23,12 @@ const FileExtension = ".vrlog"
 // Bump this when the on-disk layout (index, chunk encoding, header schema)
 // changes in a backwards-incompatible way. This is independent of the
 // application version (version.Version).
-const VRLOGFormatVersion = "0.5"
+//
+// v0.6: Deterministic 1:1 PCAP-to-VRLOG frame mapping. Every sensor rotation
+// produces exactly one VRLOG frame, including FrameTypeEmpty placeholders for
+// rotations with no foreground objects. Blocking FrameBuilder channels are
+// enabled for all PCAP replay modes.
+const VRLOGFormatVersion = "0.6"
 
 // ChunkSize is the number of frames per chunk file (soft limit).
 // Chunks may contain fewer frames if maxChunkWriteBytes is reached first.
