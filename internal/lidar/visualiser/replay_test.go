@@ -86,10 +86,22 @@ func (m *mockFrameReader) TotalFrames() uint64 {
 	return uint64(len(m.frames))
 }
 
+func (m *mockFrameReader) Paused() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.paused
+}
+
 func (m *mockFrameReader) SetPaused(paused bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.paused = paused
+}
+
+func (m *mockFrameReader) Rate() float32 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.rate
 }
 
 func (m *mockFrameReader) SetRate(rate float32) {

@@ -203,14 +203,14 @@ func TestPublisher_VRLogReplay_PauseResume(t *testing.T) {
 	pub.SetVRLogPaused(true)
 
 	// Verify reader is paused
-	if !reader.paused {
+	if !reader.Paused() {
 		t.Error("expected reader to be paused")
 	}
 
 	// Resume
 	pub.SetVRLogPaused(false)
 
-	if reader.paused {
+	if reader.Paused() {
 		t.Error("expected reader to not be paused")
 	}
 }
@@ -244,8 +244,8 @@ func TestPublisher_VRLogReplay_SetRate(t *testing.T) {
 	// Set rate
 	pub.SetVRLogRate(2.0)
 
-	if reader.rate != 2.0 {
-		t.Errorf("expected rate 2.0, got %v", reader.rate)
+	if reader.Rate() != 2.0 {
+		t.Errorf("expected rate 2.0, got %v", reader.Rate())
 	}
 }
 
@@ -555,7 +555,7 @@ func TestServer_Pause_VRLogMode(t *testing.T) {
 	}
 
 	// Verify reader was paused
-	if !reader.paused {
+	if !reader.Paused() {
 		t.Error("expected reader to be paused via gRPC delegation")
 	}
 }
@@ -602,7 +602,7 @@ func TestServer_Play_VRLogMode(t *testing.T) {
 	}
 
 	// Verify reader was unpaused
-	if reader.paused {
+	if reader.Paused() {
 		t.Error("expected reader to be unpaused via gRPC delegation")
 	}
 }
@@ -648,8 +648,8 @@ func TestServer_SetRate_VRLogMode(t *testing.T) {
 	}
 
 	// Verify reader rate was set
-	if reader.rate != 2.5 {
-		t.Errorf("expected reader rate 2.5, got %v", reader.rate)
+	if reader.Rate() != 2.5 {
+		t.Errorf("expected reader rate 2.5, got %v", reader.Rate())
 	}
 }
 
