@@ -120,6 +120,31 @@ label validation API for v0.5.0. Proto enum values 8 (TRUCK) and 9
 
 ## Remaining Phases
 
+### Phase 3.5: Classification display vs selectable enum split (#381)
+
+Keep truck and motorcyclist as **display-only** labels — visible in the track
+inspector, colour palette, and VRLOG replay when data contains those classes —
+but **not user-selectable** in the labelling UI dropdown/keyboard shortcuts.
+
+This requires splitting the label vocabulary into two tiers:
+
+- `DisplayLabel` — all 9 classes (noise, dynamic, pedestrian, cyclist, bird,
+  bus, car, truck, motorcyclist). Used for rendering, colour lookup, and
+  inspector display.
+- `SelectableLabel` — 7 classes (excludes truck, motorcyclist). Used for
+  labelling UI, keyboard shortcuts, and label validation API.
+
+Files requiring changes:
+
+| Location                                   | Current                            | Required                                                           |
+| ------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
+| `lidar_labels.go` `AllDetectionLabels`     | 7 entries                          | No change (selectable)                                             |
+| `lidar_labels.go`                          | —                                  | Add `AllDisplayLabels` (9 entries)                                 |
+| `lidar.ts` `DetectionLabel`                | 7-value union                      | Split into `DetectionLabel` (7) + `DisplayLabel` (9)               |
+| `lidar.ts` `TRACK_COLORS`                  | 9 entries incl. truck/motorcyclist | No change (already display-capable)                                |
+| `ContentView.swift` `classificationLabels` | 7 entries                          | Keep as selectable; add separate `displayLabels` (9) for inspector |
+| `ContentView.swift` track inspector        | Shows class from stream            | Show truck/motorcyclist if present in data                         |
+
 ### Phase 4: Expose taxonomy via API
 
 Add a `GET /api/v1/lidar/taxonomy` endpoint that returns the canonical label list with metadata (name, description, positive/negative, keyboard shortcut). This eliminates hardcoded lists in frontends.

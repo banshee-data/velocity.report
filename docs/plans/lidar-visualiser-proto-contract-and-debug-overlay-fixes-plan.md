@@ -228,6 +228,29 @@ parity".
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
    `object_class_conversion_test.go` and `VisualiserClientTests.swift`.
 
+### Phase E.1: SeekToTimestamp diagnostic logging behind debug flag (#381)
+
+`SeekToTimestamp()` currently logs index entry dumps and seek diagnostics
+unconditionally on every call. This should be gated behind the existing
+`include_debug` stream flag or a replayer-level debug toggle, to avoid
+noisy logs during normal VRLOG playback.
+
+- Guard index dump loop (`index[%d] ts=...`) behind a debug flag
+- Guard seek result log (`landed on index...`) behind debug flag
+- The existing `showDebug` / `include_debug` mechanism in gRPC streams
+  already provides the right toggle; thread it through to the replayer
+
+### Phase E.2: VRLOG timestamp index optimisation (#381)
+
+Replace the O(n) linear scan in `SeekToTimestamp()` with a prebuilt sorted
+timestamp index at `NewReplayer` load time:
+
+1. At `NewReplayer()`, build a `[]int` sorted by `TimestampNs` (secondary sort
+   by index position for stability)
+2. Use `sort.Search()` for O(log n) binary search on seek
+3. Add a loading/indexing state to the macOS UI (spinner) while the index
+   is being built — visible when loading large VRLOGs
+
 ## 7. Acceptance Criteria
 
 1. Enabling debug overlays in stream requests produces non-empty `FrameBundle.debug`
