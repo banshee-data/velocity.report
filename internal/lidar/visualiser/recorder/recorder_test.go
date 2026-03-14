@@ -1542,3 +1542,131 @@ func TestRecorder_BackgroundFramesExcludedFromHeaderRange(t *testing.T) {
 		t.Errorf("Header.TotalFrames = %d, want 4 (all frames still indexed)", header.TotalFrames)
 	}
 }
+
+// TestEmptyFrameRoundTrip verifies the deterministic 1:1 PCAP-to-VRLOG
+// guarantee: a sequence of foreground and empty frames round-trips
+// through record → replay with all frame types, timestamps, and ordering
+// preserved. Empty frames (FrameTypeEmpty) are placeholder entries for
+// sensor rotations where no foreground objects were detected.
+func TestEmptyFrameRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	rec, err := NewRecorder(dir, "test-deterministic")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+
+	baseTs := int64(1_718_400_000_000_000_000) // 2024-06-15
+	interval := int64(88_500_000)              // ~11.3 Hz ≈ 88.5ms per rotation
+
+	// Simulate a 10-frame sequence: frames 0,3,7 are empty (no foreground),
+	// the rest contain point cloud + cluster data.
+	type frameSpec struct {
+		empty bool
+	}
+	specs := []frameSpec{
+		{empty: true},  // 0: empty
+		{empty: false}, // 1: foreground
+		{empty: false}, // 2: foreground
+		{empty: true},  // 3: empty
+		{empty: false}, // 4: foreground
+		{empty: false}, // 5: foreground
+		{empty: false}, // 6: foreground
+		{empty: true},  // 7: empty
+		{empty: false}, // 8: foreground
+		{empty: false}, // 9: foreground
+	}
+
+	emptyFrame := func(id uint64, ts int64) *visualiser.FrameBundle {
+		return &visualiser.FrameBundle{
+			FrameID:        id,
+			TimestampNanos: ts,
+			SensorID:       "test-deterministic",
+			FrameType:      visualiser.FrameTypeEmpty,
+			CoordinateFrame: visualiser.CoordinateFrameInfo{
+				FrameID:        "test/sensor-01",
+				ReferenceFrame: "ENU",
+			},
+		}
+	}
+
+	recorded := make([]*visualiser.FrameBundle, len(specs))
+	for i, spec := range specs {
+		ts := baseTs + int64(i)*interval
+		if spec.empty {
+			recorded[i] = emptyFrame(uint64(i+1), ts)
+		} else {
+			recorded[i] = testFrameBundle(uint64(i+1), ts)
+			recorded[i].FrameType = visualiser.FrameTypeForeground
+		}
+		if err := rec.Record(recorded[i]); err != nil {
+			t.Fatalf("Record(frame %d): %v", i, err)
+		}
+	}
+
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Replay and verify every frame matches.
+	rep, err := NewReplayer(dir)
+	if err != nil {
+		t.Fatalf("NewReplayer: %v", err)
+	}
+	defer rep.Close()
+
+	header := rep.Header()
+	if header.TotalFrames != uint64(len(specs)) {
+		t.Fatalf("Header.TotalFrames = %d, want %d", header.TotalFrames, len(specs))
+	}
+
+	// Header timestamps should span the full range (empty frames included).
+	if header.StartNs != baseTs {
+		t.Errorf("Header.StartNs = %d, want %d", header.StartNs, baseTs)
+	}
+	expectedEnd := baseTs + int64(len(specs)-1)*interval
+	if header.EndNs != expectedEnd {
+		t.Errorf("Header.EndNs = %d, want %d", header.EndNs, expectedEnd)
+	}
+
+	for i := range specs {
+		frame, err := rep.ReadFrame()
+		if err != nil {
+			t.Fatalf("ReadFrame() frame %d: %v", i, err)
+		}
+
+		orig := recorded[i]
+
+		if frame.FrameID != orig.FrameID {
+			t.Errorf("frame %d: FrameID = %d, want %d", i, frame.FrameID, orig.FrameID)
+		}
+		if frame.TimestampNanos != orig.TimestampNanos {
+			t.Errorf("frame %d: TimestampNanos = %d, want %d", i, frame.TimestampNanos, orig.TimestampNanos)
+		}
+		if frame.FrameType != orig.FrameType {
+			t.Errorf("frame %d: FrameType = %d, want %d", i, frame.FrameType, orig.FrameType)
+		}
+
+		if specs[i].empty {
+			// Empty frames should have no point cloud or clusters.
+			if frame.PointCloud != nil {
+				t.Errorf("frame %d (empty): PointCloud should be nil, got %d points",
+					i, frame.PointCloud.PointCount)
+			}
+			if frame.Clusters != nil && len(frame.Clusters.Clusters) > 0 {
+				t.Errorf("frame %d (empty): Clusters should be nil/empty, got %d",
+					i, len(frame.Clusters.Clusters))
+			}
+		} else {
+			// Foreground frames should have point cloud data.
+			if frame.PointCloud == nil {
+				t.Errorf("frame %d (foreground): PointCloud is nil", i)
+			}
+		}
+	}
+
+	// Verify no extra frames.
+	_, err = rep.ReadFrame()
+	if err != io.EOF {
+		t.Errorf("expected EOF after %d frames, got err=%v", len(specs), err)
+	}
+}

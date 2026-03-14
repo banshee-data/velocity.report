@@ -502,11 +502,17 @@ func (m *mockVisualiserPublisher) Publish(frame interface{}) {
 
 // mockVisualiserAdapter implements VisualiserAdapter for testing.
 type mockVisualiserAdapter struct {
-	adaptCalls int
+	adaptCalls      int
+	adaptEmptyCalls int
 }
 
 func (m *mockVisualiserAdapter) AdaptFrame(frame *l2frames.LiDARFrame, foregroundMask []bool, clusters []l4perception.WorldCluster, tracker l5tracks.TrackerInterface, debugFrame interface{}) interface{} {
 	m.adaptCalls++
+	return struct{}{}
+}
+
+func (m *mockVisualiserAdapter) AdaptEmptyFrame(frame *l2frames.LiDARFrame) interface{} {
+	m.adaptEmptyCalls++
 	return struct{}{}
 }
 

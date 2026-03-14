@@ -109,6 +109,7 @@ const (
 	FrameTypeForeground FrameType = 1 // Foreground + clusters + tracks only
 	FrameTypeBackground FrameType = 2 // Background snapshot
 	FrameTypeDelta      FrameType = 3 // Future: incremental update
+	FrameTypeEmpty      FrameType = 4 // Placeholder: no foreground objects detected
 )
 
 // BackgroundSnapshot contains a settled background point cloud.
