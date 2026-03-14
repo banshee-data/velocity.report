@@ -189,9 +189,12 @@ func (tc *TrackClassifier) ClassifyFeatures(features ClassificationFeatures) Cla
 	}
 
 	// 3. Check for truck (medium-large vehicle, between car and bus)
-	if tc.isTruck(features) {
-		return finish(ClassTruck, tc.truckConfidence(features))
-	}
+	// NOTE: Truck classification is disabled in v0.5.0 — trucks fall
+	// through to the car rule below.  Re-enable when the classifier has
+	// enough labelled data to distinguish trucks reliably.
+	// if tc.isTruck(features) {
+	// 	return finish(ClassTruck, tc.truckConfidence(features))
+	// }
 
 	// 4. Check for car (medium vehicle — not bus/truck-sized)
 	if tc.isVehicle(features) {
@@ -199,9 +202,12 @@ func (tc *TrackClassifier) ClassifyFeatures(features ClassificationFeatures) Cla
 	}
 
 	// 5. Check for motorcyclist (fast, narrow, elongated)
-	if tc.isMotorcyclist(features) {
-		return finish(ClassMotorcyclist, tc.motorcyclistConfidence(features))
-	}
+	// NOTE: Motorcyclist classification is disabled in v0.5.0 —
+	// motorcyclists fall through to the cyclist rule below.  Re-enable
+	// when the classifier can reliably separate them from cyclists.
+	// if tc.isMotorcyclist(features) {
+	// 	return finish(ClassMotorcyclist, tc.motorcyclistConfidence(features))
+	// }
 
 	// 6. Check for cyclist (moderate speed, narrow profile)
 	if tc.isCyclist(features) {

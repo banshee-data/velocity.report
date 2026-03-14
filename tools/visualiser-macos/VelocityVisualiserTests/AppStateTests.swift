@@ -348,6 +348,44 @@ import XCTest
         XCTAssertFalse(state.isSeekingInProgress)
     }
 
+    func testStepForwardByClampsToLastFrame() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.currentFrameIndex = 90
+        state.totalFrames = 100
+        state.isPaused = true
+
+        state.stepForward(by: 50)
+        try await waitFor {
+            fake.seekFrameCalls == [99] && state.inFlightPlaybackCommand == nil
+        }
+
+        XCTAssertEqual(fake.pauseCallCount, 0)
+        XCTAssertTrue(state.isPaused)
+    }
+
+    func testStepBackwardByClampsToFirstFrame() async throws {
+        let state = AppState()
+        let fake = FakePlaybackRPCClient()
+        state.isConnected = true
+        state.playbackCommandClientOverride = fake
+        state.setPlaybackModeForTesting(.replaySeekable)
+        state.currentFrameIndex = 20
+        state.totalFrames = 100
+        state.isPaused = true
+
+        state.stepBackward(by: 50)
+        try await waitFor {
+            fake.seekFrameCalls == [0] && state.inFlightPlaybackCommand == nil
+        }
+
+        XCTAssertEqual(fake.pauseCallCount, 0)
+        XCTAssertTrue(state.isPaused)
+    }
+
     func testIncreaseRateFailureRestoresPreviousRate() async throws {
         let state = AppState()
         let fake = FakePlaybackRPCClient()
@@ -2614,10 +2652,10 @@ import XCTest
     /// Helper: build a Track with sensible defaults.
     private func makeTrack(
         id: String, state: TrackState = .confirmed, speed: Float = 8.0,
-        firstSeen: Int64 = 1_000_000_000
+        firstSeen: Int64 = 1_000_000_000, hits: Int = 10
     ) -> Track {
         Track(
-            trackID: id, sensorID: "sensor-1", state: state, hits: 10, misses: 0,
+            trackID: id, sensorID: "sensor-1", state: state, hits: hits, misses: 0,
             observationCount: 10, firstSeenNanos: firstSeen, lastSeenNanos: firstSeen + 5_000_000,
             speedMps: speed, maxSpeedMps: speed + 1, classLabel: "car")
     }
@@ -2680,6 +2718,25 @@ import XCTest
             "allSeenTracks should store the latest snapshot of each track")
     }
 
+    func testTrackMaxHitsPersistsHighestValueAcrossFrames() async throws {
+        let state = AppState()
+        let lowHits = makeTrack(id: "trk_a", hits: 4)
+        let highHits = makeTrack(id: "trk_a", hits: 18)
+        let lowerAgain = makeTrack(id: "trk_a", hits: 7)
+
+        state.onFrameReceived(makeFrame(frameID: 1, tracks: [lowHits]))
+        await Task.yield()
+        XCTAssertEqual(state.trackMaxHits["trk_a"], 4)
+
+        state.onFrameReceived(makeFrame(frameID: 2, tracks: [highHits]))
+        await Task.yield()
+        XCTAssertEqual(state.trackMaxHits["trk_a"], 18)
+
+        state.onFrameReceived(makeFrame(frameID: 3, tracks: [lowerAgain]))
+        await Task.yield()
+        XCTAssertEqual(state.trackMaxHits["trk_a"], 18)
+    }
+
     // MARK: - In-View Tracking
 
     func testInViewTrackIDsUpdatedPerFrame() async throws {
@@ -2721,41 +2778,48 @@ import XCTest
 
     func testClearAllResetsSeenTracks() async throws {
         let state = AppState()
-        let trackA = makeTrack(id: "trk_a")
+        let trackA = makeTrack(id: "trk_a", hits: 14)
 
         state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
         await Task.yield()
         XCTAssertEqual(state.allSeenTracks.count, 1)
+        XCTAssertEqual(state.trackMaxHits["trk_a"], 14)
 
         state.clearAll()
         XCTAssertTrue(state.allSeenTracks.isEmpty, "clearAll() must reset allSeenTracks")
         XCTAssertTrue(state.inViewTrackIDs.isEmpty, "clearAll() must reset inViewTrackIDs")
+        XCTAssertTrue(state.trackMaxHits.isEmpty, "clearAll() must reset trackMaxHits")
     }
 
     func testPrepareForNewReplayResetsSeenTracks() async throws {
         let state = AppState()
-        let trackA = makeTrack(id: "trk_a")
+        let trackA = makeTrack(id: "trk_a", hits: 14)
 
         state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
         await Task.yield()
         XCTAssertEqual(state.allSeenTracks.count, 1)
+        XCTAssertEqual(state.trackMaxHits["trk_a"], 14)
 
         state.prepareForNewReplay()
         XCTAssertTrue(state.allSeenTracks.isEmpty, "prepareForNewReplay() must reset allSeenTracks")
         XCTAssertTrue(
             state.inViewTrackIDs.isEmpty, "prepareForNewReplay() must reset inViewTrackIDs")
+        XCTAssertTrue(
+            state.trackMaxHits.isEmpty, "prepareForNewReplay() must reset trackMaxHits")
     }
 
     func testDisconnectResetsSeenTracks() async throws {
         let state = AppState()
-        let trackA = makeTrack(id: "trk_a")
+        let trackA = makeTrack(id: "trk_a", hits: 14)
 
         state.onFrameReceived(makeFrame(frameID: 1, tracks: [trackA]))
         await Task.yield()
         XCTAssertEqual(state.allSeenTracks.count, 1)
+        XCTAssertEqual(state.trackMaxHits["trk_a"], 14)
 
         state.disconnect()
         XCTAssertTrue(state.allSeenTracks.isEmpty, "disconnect() must reset allSeenTracks")
+        XCTAssertTrue(state.trackMaxHits.isEmpty, "disconnect() must reset trackMaxHits")
     }
 
     // MARK: - Filtered Tracks Persistence

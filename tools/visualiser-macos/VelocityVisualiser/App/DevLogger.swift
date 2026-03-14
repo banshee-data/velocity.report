@@ -53,3 +53,36 @@ struct DevLogger {
         osLogger.error("\(message, privacy: .public)")
     }
 }
+
+struct TraceInterval {
+    fileprivate let name: StaticString
+    fileprivate let state: OSSignpostIntervalState
+
+    func end(_ message: String? = nil) {
+        if let message, !message.isEmpty {
+            PerformanceTrace.signposter.endInterval(name, state, "\(message, privacy: .public)")
+        } else {
+            PerformanceTrace.signposter.endInterval(name, state)
+        }
+    }
+}
+
+enum PerformanceTrace {
+    private static let logHandle = OSLog(
+        subsystem: "report.velocity.visualiser", category: .pointsOfInterest)
+    static let signposter = OSSignposter(logHandle: logHandle)
+
+    static func begin(_ name: StaticString, _ message: String? = nil) -> TraceInterval {
+        let state: OSSignpostIntervalState
+        if let message, !message.isEmpty {
+            state = signposter.beginInterval(name, "\(message, privacy: .public)")
+        } else {
+            state = signposter.beginInterval(name)
+        }
+        return TraceInterval(name: name, state: state)
+    }
+
+    static func event(_ name: StaticString, _ message: String) {
+        signposter.emitEvent(name, "\(message, privacy: .public)")
+    }
+}

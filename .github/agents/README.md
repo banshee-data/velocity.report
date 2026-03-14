@@ -2,15 +2,15 @@
 
 velocity.report uses seven specialised agent personas. Each brings a distinct discipline and voice to the project.
 
-|                                 |                                                                                                                                    |
-| :-----------------------------: | :--------------------------------------------------------------------------------------------------------------------------------- |
-|  ![Euler](portraits/euler.jpg)  | [**Euler**](euler.agent.md) - Patient mathematician. Every number has provenance, every claim has bounds.            |
-|  ![Grace](portraits/grace.jpg)  | [**Grace**](grace.agent.md) - Pirate architect. Makes the complex approachable and the abstract tangible.   |
-| ![Appius](portraits/appius.jpg) | [**Appius**](appius.agent.md) - Long-sighted developer. Builds infrastructure that outlasts its authors.              |
-| ![malory](portraits/malory.jpg) | [**malory**](malory.agent.md) ~ red-team security researcher. finds what's broken before someone else does  |
-|    ![Flo](portraits/flo.jpg)    | [**Flo**](flo.agent.md) - Evidence-based PM. Creates the conditions where good work happens naturally.             |
-|  ![Terry](portraits/terry.jpg)  | [**Terry**](terry.agent.md) - House writer. Humane satire, lucid prose, zero tolerance for pompous nonsense.          |
-|   ![Ruth](portraits/ruth.jpg)   | [**Ruth**](ruth.agent.md) - Executive judge. Measured scope, principled restraint, durable decisions.                  |
+|                                 |                                                                                                              |
+| :-----------------------------: | :----------------------------------------------------------------------------------------------------------- |
+|  ![Euler](portraits/euler.jpg)  | [**Euler**](euler.agent.md) - Patient mathematician. Every number has provenance, every claim has bounds.    |
+|  ![Grace](portraits/grace.jpg)  | [**Grace**](grace.agent.md) - Pirate architect. Makes the complex approachable and the abstract tangible.    |
+| ![Appius](portraits/appius.jpg) | [**Appius**](appius.agent.md) - Long-sighted developer. Builds infrastructure that outlasts its authors.     |
+| ![malory](portraits/malory.jpg) | [**malory**](malory.agent.md) ~ red-team security researcher. finds what's broken before someone else does   |
+|    ![Flo](portraits/flo.jpg)    | [**Flo**](flo.agent.md) - Evidence-based PM. Creates the conditions where good work happens naturally.       |
+|  ![Terry](portraits/terry.jpg)  | [**Terry**](terry.agent.md) - House writer. Humane satire, lucid prose, zero tolerance for pompous nonsense. |
+|   ![Ruth](portraits/ruth.jpg)   | [**Ruth**](ruth.agent.md) - Executive judge. Measured scope, principled restraint, durable decisions.        |
 
 ## Attribution
 

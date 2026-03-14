@@ -13,6 +13,7 @@
 
 import Metal
 import MetalKit
+import QuartzCore
 
 /// Cache state for background point cloud.
 enum BackgroundCacheState {
@@ -60,6 +61,20 @@ class CompositePointCloudRenderer {
     private var backgroundPointCount: Int = 0
     private var backgroundSeq: UInt64 = 0
 
+    // Crossfade transition state: when a new background arrives, we blend
+    // from the previous snapshot to the new one over transitionDuration seconds.
+    // Three buffers during transition:
+    //   previousBackgroundBuffer — old positions (source, read-only)
+    //   backgroundBuffer — new target positions (read-only during transition)
+    //   blendBuffer — interpolated positions written each frame for rendering
+    private var previousBackgroundBuffer: MTLBuffer?
+    private var previousBackgroundPointCount: Int = 0
+    private var blendBuffer: MTLBuffer?
+    private var blendBufferCapacity: Int = 0
+    private var transitionStartTime: Double = 0  // CACurrentMediaTime
+    private var transitionDuration: Double = 0.5  // seconds
+    private var isTransitioning: Bool = false
+
     // Current foreground buffer
     private var foregroundBuffer: MTLBuffer?
     private var foregroundBufferCapacity: Int = 0  // M7: Capacity in vertices
@@ -93,6 +108,15 @@ class CompositePointCloudRenderer {
     /// Process a frame bundle and update buffers accordingly.
     /// - Parameter frame: The frame bundle to process
     func processFrame(_ frame: FrameBundle) {
+        let trace = PerformanceTrace.begin(
+            "CompositeProcessFrame",
+            "frame=\(frame.frameID) type=\(frame.frameType.rawValue) bgSeq=\(frame.backgroundSeq)")
+        defer {
+            trace.end(
+                "bgPoints=\(backgroundPointCount) fgPoints=\(foregroundPointCount) cache=\(cacheStatus)"
+            )
+        }
+
         switch frame.frameType {
         case .full:
             // Legacy mode: treat point cloud as foreground
@@ -145,14 +169,31 @@ class CompositePointCloudRenderer {
 
     /// Update the background buffer from a snapshot.
     /// M7: Reuses existing buffer when capacity permits.
+    /// Crossfade: preserves the previous background for smooth blending.
     private func updateBackgroundBuffer(_ snapshot: BackgroundSnapshot) {
         let count = snapshot.pointCount
+        let trace = PerformanceTrace.begin(
+            "UpdateBackgroundBuffer", "seq=\(snapshot.sequenceNumber) points=\(count)")
+        defer { trace.end("used=\(backgroundPointCount) capacity=\(backgroundBufferCapacity / 5)") }
+
         guard count > 0 else {
             backgroundPointCount = 0
             return
         }
 
         cacheState = .refreshing
+
+        // Preserve previous background for crossfade transition.
+        // Only transition if we already had a rendered background.
+        if backgroundPointCount > 0, let existingBuffer = backgroundBuffer {
+            previousBackgroundBuffer = existingBuffer
+            previousBackgroundPointCount = backgroundPointCount
+            transitionStartTime = CACurrentMediaTime()
+            isTransitioning = true
+            // Force new allocation so old buffer stays valid during transition
+            backgroundBuffer = nil
+            backgroundBufferCapacity = 0
+        }
 
         // M7: Check if we need to reallocate the buffer
         let neededVertices = count * 5  // 5 floats per vertex
@@ -162,6 +203,10 @@ class CompositePointCloudRenderer {
         {
             let newCapacity = calculateCapacity(for: neededVertices)
             let bufferSize = newCapacity * MemoryLayout<Float>.stride
+            PerformanceTrace.event(
+                "BackgroundBufferReallocated",
+                "seq=\(snapshot.sequenceNumber) oldCapacity=\(backgroundBufferCapacity / 5) newCapacity=\(newCapacity / 5)"
+            )
             if let newBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared) {
                 backgroundBuffer = newBuffer
                 backgroundBufferCapacity = newCapacity
@@ -195,6 +240,10 @@ class CompositePointCloudRenderer {
     /// M7: Reuses existing buffer when capacity permits.
     private func updateForegroundBuffer(_ pointCloud: PointCloudFrame) {
         let count = pointCloud.pointCount
+        let trace = PerformanceTrace.begin(
+            "UpdateForegroundBuffer", "frame=\(pointCloud.frameID) points=\(count)")
+        defer { trace.end("used=\(foregroundPointCount) capacity=\(foregroundBufferCapacity / 5)") }
+
         guard count > 0 else {
             foregroundPointCount = 0
             return
@@ -256,6 +305,72 @@ class CompositePointCloudRenderer {
 
     // MARK: - Rendering
 
+    /// Advance crossfade transition if active. Called before rendering to
+    /// interpolate background positions from previous → current snapshot
+    /// into a blend buffer. Returns true if the transition is still in
+    /// progress (needs continued redraws).
+    func advanceTransition() -> Bool {
+        guard isTransitioning, let prevBuffer = previousBackgroundBuffer,
+            let targetBuffer = backgroundBuffer,
+            previousBackgroundPointCount == backgroundPointCount, backgroundPointCount > 0
+        else {
+            if isTransitioning {
+                // Point counts differ (grid reset) — snap immediately
+                isTransitioning = false
+                previousBackgroundBuffer = nil
+                previousBackgroundPointCount = 0
+                blendBuffer = nil
+                blendBufferCapacity = 0
+            }
+            return false
+        }
+
+        let elapsed = CACurrentMediaTime() - transitionStartTime
+        let t = Float(min(elapsed / transitionDuration, 1.0))
+
+        let count = backgroundPointCount
+        let vertexFloats = count * 5
+
+        // Ensure blend buffer is allocated
+        if blendBuffer == nil || blendBufferCapacity < vertexFloats {
+            let capacity = calculateCapacity(for: vertexFloats)
+            let bufferSize = capacity * MemoryLayout<Float>.stride
+            if let buf = device.makeBuffer(length: bufferSize, options: .storageModeShared) {
+                blendBuffer = buf
+                blendBufferCapacity = capacity
+            } else {
+                isTransitioning = false
+                return false
+            }
+        }
+
+        let prevPtr = prevBuffer.contents().bindMemory(to: Float.self, capacity: vertexFloats)
+        let targetPtr = targetBuffer.contents().bindMemory(to: Float.self, capacity: vertexFloats)
+        let blendPtr = blendBuffer!.contents().bindMemory(to: Float.self, capacity: vertexFloats)
+
+        // Lerp x, y, z positions (indices 0, 1, 2) from previous → target.
+        // Copy intensity (3) and classification (4) from target.
+        for i in 0..<count {
+            let base = i * 5
+            blendPtr[base + 0] = prevPtr[base + 0] + t * (targetPtr[base + 0] - prevPtr[base + 0])
+            blendPtr[base + 1] = prevPtr[base + 1] + t * (targetPtr[base + 1] - prevPtr[base + 1])
+            blendPtr[base + 2] = prevPtr[base + 2] + t * (targetPtr[base + 2] - prevPtr[base + 2])
+            blendPtr[base + 3] = targetPtr[base + 3]
+            blendPtr[base + 4] = targetPtr[base + 4]
+        }
+
+        if t >= 1.0 {
+            isTransitioning = false
+            previousBackgroundBuffer = nil
+            previousBackgroundPointCount = 0
+            blendBuffer = nil
+            blendBufferCapacity = 0
+            return false
+        }
+
+        return true
+    }
+
     /// Render background and/or foreground buffers.
     /// - Parameters:
     ///   - encoder: The render command encoder
@@ -271,11 +386,17 @@ class CompositePointCloudRenderer {
         encoder.setRenderPipelineState(pipeline)
 
         // Draw background first (if cached and enabled)
-        if drawBackground, let bgBuffer = backgroundBuffer, backgroundPointCount > 0 {
-            encoder.setVertexBuffer(bgBuffer, offset: 0, index: 0)
-            encoder.setVertexBytes(
-                &uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
-            encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: backgroundPointCount)
+        if drawBackground, backgroundPointCount > 0 {
+            // During crossfade, render from the blend buffer instead
+            let renderBuffer =
+                (isTransitioning ? blendBuffer : backgroundBuffer) ?? backgroundBuffer
+            if let bgBuffer = renderBuffer {
+                encoder.setVertexBuffer(bgBuffer, offset: 0, index: 0)
+                encoder.setVertexBytes(
+                    &uniforms, length: MemoryLayout<MetalRenderer.Uniforms>.stride, index: 1)
+                encoder.drawPrimitives(
+                    type: .point, vertexStart: 0, vertexCount: backgroundPointCount)
+            }
         }
 
         // Draw foreground on top (if enabled)
@@ -296,6 +417,11 @@ class CompositePointCloudRenderer {
         foregroundBuffer = nil
         foregroundBufferCapacity = 0
         foregroundPointCount = 0
+        previousBackgroundBuffer = nil
+        previousBackgroundPointCount = 0
+        blendBuffer = nil
+        blendBufferCapacity = 0
+        isTransitioning = false
         cacheState = .empty
     }
 

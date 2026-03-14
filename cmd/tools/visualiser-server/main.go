@@ -120,6 +120,11 @@ func runReplayMode(addr, logPath string) {
 		header.TotalFrames,
 		float64(header.EndNs-header.StartNs)/1e9,
 		header.SensorID)
+	if replayer.FrameEncoding() == recorder.FrameEncodingJSON {
+		log.Printf("Log frame encoding: %s (legacy JSON decode path; replay may be slower)", replayer.FrameEncoding())
+	} else {
+		log.Printf("Log frame encoding: %s", replayer.FrameEncoding())
+	}
 
 	// Create publisher (for gRPC server infrastructure)
 	cfg := visualiser.DefaultConfig()

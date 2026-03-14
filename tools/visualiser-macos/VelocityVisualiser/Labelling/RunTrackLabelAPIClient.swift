@@ -169,7 +169,7 @@ class RunTrackLabelAPIClient {
     // MARK: - VRLOG Playback Operations
 
     /// Load a VRLOG for replay by run ID.
-    func loadVRLog(runID: String) async throws {
+    func loadVRLog(runID: String) async throws -> VRLogLoadResponse {
         let url = baseURL.appendingPathComponent("api/lidar/vrlog/load")
 
         var request = URLRequest(url: url)
@@ -177,11 +177,15 @@ class RunTrackLabelAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["run_id": runID])
 
-        let (_, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(VRLogLoadResponse.self, from: data)
     }
 
     /// Stop VRLOG replay.
@@ -258,6 +262,39 @@ struct LabelUpdateResponse: Codable {
     let labelerId: String?
 }
 
+/// Human labelling state rollup for a run.
+struct RunLabelRollup: Codable, Equatable {
+    let total: Int
+    let classified: Int
+    let taggedOnly: Int
+    let unlabelled: Int
+
+    var labelled: Int { classified + taggedOnly }
+
+    var classifiedFraction: Double {
+        guard total > 0 else { return 0 }
+        return Double(classified) / Double(total)
+    }
+
+    var taggedOnlyFraction: Double {
+        guard total > 0 else { return 0 }
+        return Double(taggedOnly) / Double(total)
+    }
+
+    var unlabelledFraction: Double {
+        guard total > 0 else { return 0 }
+        return Double(unlabelled) / Double(total)
+    }
+
+    var helpText: String {
+        guard total > 0 else { return "No tracks available" }
+        return String(
+            format: "Classified %d (%.0f%%), Tagged %d (%.0f%%), Unlabelled %d (%.0f%%)",
+            classified, classifiedFraction * 100.0, taggedOnly, taggedOnlyFraction * 100.0,
+            unlabelled, unlabelledFraction * 100.0)
+    }
+}
+
 // MARK: - Data Models
 
 /// Analysis run from the backend.
@@ -277,6 +314,7 @@ struct AnalysisRun: Codable, Identifiable {
     let vrlogPath: String?
     let notes: String?
     let sceneName: String?
+    var labelRollup: RunLabelRollup? = nil
 
     var id: String { runId }
 
@@ -299,10 +337,12 @@ struct AnalysisRun: Codable, Identifiable {
         return String(format: "%2d %@ %2d:%02d %@", day, monthNames[month - 1], h12, minute, ampm)
     }
 
-    /// Short run ID prefix for compact display, e.g. "0x4ea0f3".
+    /// Short run ID prefix for compact display — first 8 chars (up to first dash).
     var shortIdPrefix: String {
-        let prefix = String(runId.prefix(6))
-        return "0x\(prefix)"
+        if let dashIdx = runId.firstIndex(of: "-") {
+            return String(runId[runId.startIndex..<dashIdx])
+        }
+        return String(runId.prefix(8))
     }
 }
 
@@ -316,6 +356,7 @@ struct RunTrack: Codable, Identifiable {
     let qualityLabel: String?  // Backend field name
     let labelConfidence: Float?
     let labelerId: String?
+    var labelSource: String? = nil
     let startUnixNanos: Int64?
     let endUnixNanos: Int64?
     let totalObservations: Int?
@@ -324,7 +365,7 @@ struct RunTrack: Codable, Identifiable {
     let maxSpeedMps: Double?
     let isSplitCandidate: Bool?
     let isMergeCandidate: Bool?
-
+    var linkedTrackIds: [String]? = nil
     var id: String { trackId }
 
     /// Whether this track has been labelled.
@@ -341,6 +382,7 @@ struct LabellingProgress: Codable {
     let total: Int
     let labelled: Int
     let byClass: [String: Int]?
+    var labelRollup: RunLabelRollup? = nil
     let progressPct: Double
 }
 
@@ -356,4 +398,11 @@ struct PlaybackStatus: Codable {
     let logStartNs: Int64
     let logEndNs: Int64
     let vrlogPath: String?
+}
+
+/// Response returned after loading a VRLOG for replay.
+struct VRLogLoadResponse: Codable {
+    let success: Bool
+    let vrlogPath: String?
+    let frameEncoding: String?
 }

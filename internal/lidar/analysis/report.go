@@ -313,6 +313,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			durationSecs = float64(frameTimestamps[len(frameTimestamps)-1]-frameTimestamps[0]) / 1e9
 		}
 	}
+	// Clamp to 0 for single-frame or degenerate recordings.
+	if durationSecs < 0 {
+		durationSecs = 0
+	}
 
 	avgPtsPerFrame := 0.0
 	avgFGPerFrame := 0.0
@@ -343,11 +347,11 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 	}
 
 	report := &AnalysisReport{
-		Version:     "1.0",
+		Version:     version.Version,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		ToolVersion: version.Version,
 		Source:      filepath.Base(vrlogPath),
 		Recording: RecordingMeta{
+			FormatVersion:       header.Version,
 			SensorID:            header.SensorID,
 			TotalFrames:         header.TotalFrames,
 			CreatedNs:           header.CreatedNs,
@@ -357,6 +361,11 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			FrameRateHz:         frameRateHz,
 			InferredReplaySpeed: inferredReplaySpeed,
 			CoordinateFrame:     header.CoordinateFrame.ReferenceFrame,
+			SourceType:          header.SourceType,
+			PCAPPath:            header.PCAPPath,
+			PlaybackRate:        header.PlaybackRate,
+			TuningHash:          header.TuningHash,
+			BuildVersion:        header.BuildVersion,
 		},
 		FrameSummary: FrameSummary{
 			TotalFrames:                 frameCount,
@@ -383,14 +392,6 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 				MaxOcclusionCount:  maxOccCountGlobal,
 				TotalOcclusions:    totalOcclusions,
 			},
-			Jitter: &JitterSummary{
-				HeadingJitterDeg: computeDistStats(confirmedHeadJitters),
-				SpeedJitterMps:   computeDistStats(confirmedSpeedJitters),
-			},
-			Alignment: &AlignmentSummary{
-				AlignmentMeanDeg:  computeDistStats(confirmedAlignMeans),
-				MisalignmentRatio: computeDistStats(confirmedMisalignRats),
-			},
 		},
 		Tracks: trackDetails,
 		SpeedHistogram: SpeedHistogram{
@@ -400,6 +401,21 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			TotalTracks: confirmedCount,
 		},
 		ClassificationDistribution: classDistOut,
+	}
+
+	// Only populate jitter/alignment aggregates when there are confirmed tracks
+	// with data, so that omitempty correctly omits them when empty.
+	if len(confirmedHeadJitters) > 0 || len(confirmedSpeedJitters) > 0 {
+		report.TrackSummary.Jitter = &JitterSummary{
+			HeadingJitterDeg: computeDistStats(confirmedHeadJitters),
+			SpeedJitterMps:   computeDistStats(confirmedSpeedJitters),
+		}
+	}
+	if len(confirmedAlignMeans) > 0 || len(confirmedMisalignRats) > 0 {
+		report.TrackSummary.Alignment = &AlignmentSummary{
+			AlignmentMeanDeg:  computeDistStats(confirmedAlignMeans),
+			MisalignmentRatio: computeDistStats(confirmedMisalignRats),
+		}
 	}
 
 	outPath := filepath.Join(vrlogPath, "analysis.json")
@@ -482,15 +498,27 @@ func computeDistStats(vals []float64) *DistStats {
 		return idx
 	}
 
-	return &DistStats{
-		Min:     sorted[0],
-		Max:     sorted[n-1],
-		Avg:     sum / float64(n),
-		P50:     sorted[percentileIdx(0.50)],
-		P85:     sorted[percentileIdx(0.85)],
-		P98:     sorted[percentileIdx(0.98)],
+	ds := &DistStats{
 		Samples: n,
+		Min:     sorted[0],
+		Avg:     sum / float64(n),
+		Max:     sorted[n-1],
 	}
+
+	if n >= 3 {
+		v := sorted[percentileIdx(0.50)]
+		ds.P50 = &v
+	}
+	if n >= 8 {
+		v := sorted[percentileIdx(0.85)]
+		ds.P85 = &v
+	}
+	if n >= 50 {
+		v := sorted[percentileIdx(0.98)]
+		ds.P98 = &v
+	}
+
+	return ds
 }
 
 func buildSpeedHistogram(speeds []float32, binWidth float64) []HistogramBin {

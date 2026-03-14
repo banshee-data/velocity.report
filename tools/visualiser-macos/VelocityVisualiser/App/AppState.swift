@@ -80,6 +80,7 @@ private let logger = DevLogger(category: "AppState")
     @Published var currentFrameID: UInt64 = 0
     @Published var playbackMode: PlaybackMode = .live
     @Published fileprivate(set) var hasPlaybackMetadata: Bool = false
+    @Published private(set) var replayFrameEncoding: String?
 
     // For replay mode
     @Published var logStartTimestamp: Int64 = 0
@@ -147,6 +148,11 @@ private let logger = DevLogger(category: "AppState")
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
     @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
     @Published var metalViewSize: CGSize = .zero  // Metal view drawable size
+    /// Cached data for the currently selected track, updated each frame.
+    /// Used by inspector views to avoid reading non-Published currentFrame.
+    @Published var selectedTrackData: Track?
+
+    func currentSelectedTrackData() -> Track? { selectedTrackData }
 
     // MARK: - Track Filters
 
@@ -224,6 +230,8 @@ private let logger = DevLogger(category: "AppState")
     private(set) var trackHistory: [String: [TrackSample]] = [:]
     /// Persistent all-time max speed per track (survives ring-buffer eviction).
     private(set) var trackMaxSpeed: [String: Float] = [:]
+    /// Persistent all-time max hits per track across the current session/replay.
+    private(set) var trackMaxHits: [String: Int] = [:]
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     /// Accumulated tracks across all frames in the current session/replay.
@@ -268,10 +276,15 @@ private let logger = DevLogger(category: "AppState")
     private var grpcClient: VisualiserClient?
     var playbackCommandClientOverride: PlaybackRPCClient?
     private var lastFrameTime: Date = Date()
+    /// Clock for throttling @Published UI updates when the side panel is
+    /// open.  Metal rendering runs at full speed regardless.
+    private var lastUIUpdateClock = ContinuousClock.now
     private var clientDelegate: ClientDelegateAdapter?
     private let labelClient = LabelAPIClient()  // M6: REST API client for labels
     private let runTrackLabelClient = RunTrackLabelAPIClient()  // Run-track labels
+    let runBrowserState = RunBrowserState()
     private var queuedSeekProgress: Double?
+    private var seekWaitFrameCount: Int = 0  // Frames since seek RPC completed; safety valve
     private var playbackStateGeneration: UInt64 = 0
     private var lastSeenReplayEpoch: UInt64 = 0
 
@@ -323,6 +336,10 @@ private let logger = DevLogger(category: "AppState")
         return max(0, min(1, Double(currentFrameIndex) / denom))
     }
 
+    var shouldShowLegacyJSONReplayBadge: Bool {
+        displayPlaybackMode == .replaySeekable && replayFrameEncoding == "json"
+    }
+
     var canInteractWithSeekSlider: Bool {
         displayPlaybackMode == .replaySeekable && (hasValidTimelineRange || hasFrameIndexProgress)
             && !playbackControlsBusy
@@ -340,7 +357,9 @@ private let logger = DevLogger(category: "AppState")
     }
 
     fileprivate func setPlaybackMode(_ mode: PlaybackMode) {
+        guard playbackMode != mode else { return }
         playbackMode = mode
+        if mode != .replaySeekable { replayFrameEncoding = nil }
         switch mode {
         case .unknown:
             // Preserve the last known flags until playback metadata arrives.
@@ -357,6 +376,10 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
+    func setReplayFrameEncoding(_ frameEncoding: String?) {
+        replayFrameEncoding = frameEncoding?.lowercased()
+    }
+
     private func inferPlaybackMode(isLive: Bool, seekable: Bool) -> PlaybackMode {
         if isLive { return .live }
         return seekable ? .replaySeekable : .replayNonSeekable
@@ -367,10 +390,10 @@ private let logger = DevLogger(category: "AppState")
     fileprivate func resetPlaybackState(mode: PlaybackMode) {
         bumpPlaybackGeneration()
         setPlaybackMode(mode)
+        // setPlaybackMode(.unknown) preserves isLive/isSeekable for transient
+        // mode changes, but a full reset must clear them so they are
+        // re-established from the first frame's playback metadata.
         if mode == .unknown {
-            // Full resets must drop transport-derived flags from the previous
-            // replay/session; connect-time setPlaybackMode(.unknown) still
-            // preserves them until fresh playback metadata arrives.
             isLive = false
             isSeekable = false
         }
@@ -385,6 +408,7 @@ private let logger = DevLogger(category: "AppState")
         logEndTimestamp = 0
         currentFrameIndex = 0
         totalFrames = 0
+        replayFrameEncoding = nil
         inFlightPlaybackCommand = nil
         commandStartedAt = nil
         pendingSeekTargetTimestamp = nil
@@ -523,6 +547,9 @@ private let logger = DevLogger(category: "AppState")
         currentFrame = nil
         resetPlaybackState(mode: .unknown)
         frameCount = 0
+        trackHistory = [:]
+        trackMaxSpeed = [:]
+        trackMaxHits = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         logger.debug("Disconnected")
@@ -540,6 +567,7 @@ private let logger = DevLogger(category: "AppState")
         cacheStatus = ""
         trackHistory = [:]
         trackMaxSpeed = [:]
+        trackMaxHits = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         renderer?.clearTransientData()
@@ -560,6 +588,7 @@ private let logger = DevLogger(category: "AppState")
         frameCount = 0
         trackHistory = [:]
         trackMaxSpeed = [:]
+        trackMaxHits = [:]
         allSeenTracks = [:]
         inViewTrackIDs = []
         userLabels = [:]
@@ -667,16 +696,27 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
-    func stepForward() {
+    func stepForward() { stepForward(by: 1) }
+
+    func stepForward(by frameCount: UInt64) {
         logger.debug(
-            "stepForward() called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex)/\(self.totalFrames) busy=\(self.playbackControlsBusy)"
+            "stepForward(by: \(frameCount)) called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex)/\(self.totalFrames) busy=\(self.playbackControlsBusy)"
         )
+        guard frameCount > 0 else {
+            logger.debug("stepForward() ignored — requested frameCount was 0")
+            return
+        }
         guard displayPlaybackMode == .replaySeekable else {
             logger.debug(
                 "stepForward() ignored — not seekable (mode=\(self.displayPlaybackMode.rawValue))")
             return
         }
-        guard currentFrameIndex + 1 < totalFrames else {
+        guard totalFrames > 0 else {
+            logger.debug("stepForward() ignored — totalFrames is 0")
+            return
+        }
+        let lastFrameIndex = totalFrames - 1
+        guard currentFrameIndex < lastFrameIndex else {
             logger.debug(
                 "stepForward() ignored — at end (frame \(self.currentFrameIndex + 1) >= total \(self.totalFrames))"
             )
@@ -686,14 +726,21 @@ private let logger = DevLogger(category: "AppState")
             logger.debug("stepForward() ignored — busy")
             return
         }
-        let targetFrame = currentFrameIndex + 1
+        let actualFrameCount = min(frameCount, lastFrameIndex - currentFrameIndex)
+        let targetFrame = currentFrameIndex + actualFrameCount
         runStepCommand(kind: .stepForward, targetFrame: targetFrame)
     }
 
-    func stepBackward() {
+    func stepBackward() { stepBackward(by: 1) }
+
+    func stepBackward(by frameCount: UInt64) {
         logger.debug(
-            "stepBackward() called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex) busy=\(self.playbackControlsBusy)"
+            "stepBackward(by: \(frameCount)) called — mode=\(self.displayPlaybackMode.rawValue) frame=\(self.currentFrameIndex) busy=\(self.playbackControlsBusy)"
         )
+        guard frameCount > 0 else {
+            logger.debug("stepBackward() ignored — requested frameCount was 0")
+            return
+        }
         guard displayPlaybackMode == .replaySeekable, currentFrameIndex > 0 else {
             logger.debug("stepBackward() ignored — not seekable or already at frame 0")
             return
@@ -702,7 +749,8 @@ private let logger = DevLogger(category: "AppState")
             logger.debug("stepBackward() ignored — busy")
             return
         }
-        let targetFrame = currentFrameIndex - 1
+        let actualFrameCount = min(frameCount, currentFrameIndex)
+        let targetFrame = currentFrameIndex - actualFrameCount
         runStepCommand(kind: .stepBackward, targetFrame: targetFrame)
     }
 
@@ -799,7 +847,23 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
-    func seek(to progress: Double) {
+    /// Seek to an exact nanosecond timestamp.
+    ///
+    /// Computes progress for the UI and passes the raw timestamp through
+    /// to the gRPC seek RPC — avoiding the lossy nanos→progress→nanos
+    /// round-trip that `seek(to: progress)` would perform.
+    func seekToTimestamp(_ timestampNanos: Int64) {
+        guard hasValidTimelineRange, logEndTimestamp > logStartTimestamp else { return }
+        let clamped = max(logStartTimestamp, min(logEndTimestamp, timestampNanos))
+        let progress =
+            Double(clamped - logStartTimestamp) / Double(logEndTimestamp - logStartTimestamp)
+        logger.info(
+            "seekToTimestamp(\(timestampNanos)) — clamped=\(clamped) progress=\(String(format: "%.4f", progress)) logRange=[\(self.logStartTimestamp)…\(self.logEndTimestamp)]"
+        )
+        seek(to: progress, rawTimestamp: clamped)
+    }
+
+    func seek(to progress: Double, rawTimestamp: Int64? = nil) {
         logger.debug(
             "seek(to: \(progress)) called — mode=\(self.displayPlaybackMode.rawValue) seekable=\(self.isSeekable) hasValidRange=\(self.hasValidTimelineRange) hasFrameProgress=\(self.hasFrameIndexProgress) busy=\(self.playbackControlsBusy) inFlight=\(String(describing: self.inFlightPlaybackCommand))"
         )
@@ -815,12 +879,23 @@ private let logger = DevLogger(category: "AppState")
         }
 
         let clampedProgress = max(0, min(1, progress))
-        let useTimestampSeek = hasValidTimelineRange
+        // Prefer frame-index seek when available — matches the frame-index
+        // progress computation and avoids lossy timestamp interpolation.
+        // Explicit rawTimestamp (e.g. seekToTimestamp) always uses timestamp.
+        let useTimestampSeek: Bool
+        if rawTimestamp != nil {
+            useTimestampSeek = true
+        } else if hasFrameIndexProgress {
+            useTimestampSeek = false
+        } else {
+            useTimestampSeek = hasValidTimelineRange
+        }
         let targetTimestamp: Int64 =
-            useTimestampSeek
-            ? logStartTimestamp
-                + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
-            : currentTimestamp
+            rawTimestamp
+            ?? (useTimestampSeek
+                ? logStartTimestamp
+                    + Int64(Double(logEndTimestamp - logStartTimestamp) * clampedProgress)
+                : currentTimestamp)
         let targetFrame: UInt64 =
             !useTimestampSeek && totalFrames > 1
             ? UInt64(Double(totalFrames - 1) * clampedProgress) : 0
@@ -876,11 +951,16 @@ private let logger = DevLogger(category: "AppState")
                 self.replayProgress = previousProgress
                 self.currentTimestamp = previousTimestamp
                 self.isPaused = previousPaused
+                self.isSeekingInProgress = false
+                self.pendingSeekTargetTimestamp = nil
+                self.pendingSeekTargetFrameIndex = nil
                 logger.error("Failed to seek: \(error.localizedDescription)")
             }
-            self.isSeekingInProgress = false
-            self.pendingSeekTargetTimestamp = nil
-            self.pendingSeekTargetFrameIndex = nil
+            // On success, isSeekingInProgress stays true until the first
+            // post-seek frame arrives in applyFrameStateUpdate.  This prevents
+            // stale buffered frames from flickering the seek bar back to the
+            // pre-seek position.
+            self.seekWaitFrameCount = 0
         }
     }
 
@@ -895,6 +975,9 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Recording
 
+    // TODO: Remove openRecording() and loadRecording(from:) — local VRLOG playback
+    // is non-functional dead code. All VRLOG replay goes through the Go server
+    // via gRPC (RunBrowserState.loadRunForReplay → /api/lidar/vrlog/load).
     func openRecording() {
         // Open file dialog
         let panel = NSOpenPanel()
@@ -947,6 +1030,7 @@ private let logger = DevLogger(category: "AppState")
     /// Select a track without popping open the side panel if it isn't already visible.
     private func selectTrackQuietly(_ trackID: String) {
         selectedTrackID = trackID
+        selectedTrackData = allSeenTracks[trackID]
         renderer?.selectedTrackID = trackID
         reprojectLabels()
     }
@@ -955,6 +1039,7 @@ private let logger = DevLogger(category: "AppState")
 
     func selectTrack(_ trackID: String?) {
         selectedTrackID = trackID
+        selectedTrackData = trackID.flatMap { allSeenTracks[$0] }
         renderer?.selectedTrackID = trackID
         if trackID != nil {
             showLabelPanel = true
@@ -974,6 +1059,8 @@ private let logger = DevLogger(category: "AppState")
                 // Use run-track label API when in run replay mode
                 if let runID = currentRunID {
                     _ = try await runTrackLabelClient.updateLabel(
+                        runID: runID, trackID: trackID, userLabel: label)
+                    runBrowserState.applySuccessfulLabelUpdate(
                         runID: runID, trackID: trackID, userLabel: label)
                     logger.info(
                         "Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
@@ -1002,6 +1089,8 @@ private let logger = DevLogger(category: "AppState")
                     if let runID = currentRunID {
                         _ = try await runTrackLabelClient.updateLabel(
                             runID: runID, trackID: track.trackID, userLabel: label)
+                        runBrowserState.applySuccessfulLabelUpdate(
+                            runID: runID, trackID: track.trackID, userLabel: label)
                     } else {
                         _ = try await labelClient.createLabel(
                             trackID: track.trackID, classLabel: label,
@@ -1029,6 +1118,8 @@ private let logger = DevLogger(category: "AppState")
         Task {
             do {
                 _ = try await runTrackLabelClient.updateLabel(
+                    runID: runID, trackID: trackID, qualityLabel: quality)
+                runBrowserState.applySuccessfulLabelUpdate(
                     runID: runID, trackID: trackID, qualityLabel: quality)
                 logger.info("Quality '\(quality)' saved for track \(trackID)")
             } catch { logger.error("Failed to save quality: \(error.localizedDescription)") }
@@ -1084,13 +1175,17 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Frame Handling
 
     func onFrameReceived(_ frame: FrameBundle, generation: UInt64? = nil) {
-        let perfStart = ContinuousClock.now
         let eventGeneration = generation ?? playbackStateGeneration
         guard eventGeneration == playbackStateGeneration else {
             let epoch = frame.playbackInfo?.replayEpoch ?? 0
             logger.debug("Ignoring stale frame for generation \(eventGeneration) (epoch=\(epoch))")
             return
         }
+        let perfStart = ContinuousClock.now
+        let trace = PerformanceTrace.begin(
+            "OnFrameReceived",
+            "frame=\(frame.frameID) type=\(frame.frameType.rawValue) gen=\(eventGeneration)")
+
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
 
@@ -1151,12 +1246,32 @@ private let logger = DevLogger(category: "AppState")
 
         // Defer @Published state mutations to the next run loop iteration
         // to avoid SwiftUI AttributeGraph cycles during view updates.
-        Task { [weak self] in
-            guard let self else { return }
-            self.applyFrameStateUpdate(
-                frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
-                newLabels: newLabels, generation: eventGeneration)
+        //
+        // When the side panel is visible, each @Published mutation triggers
+        // a full SwiftUI body re-evaluation of TrackListView (sort),
+        // TrackHistoryGraphView (sparkline), etc.  Throttle the deferred
+        // update to ~10 fps so the main thread stays available for Metal
+        // rendering and gRPC frame delivery.  The renderer.updateFrame()
+        // call above is unaffected — 3D visuals stay at full speed.
+        let uiNow = ContinuousClock.now
+        let panelOpen = showSidePanel || selectedTrackID != nil
+        let minUIInterval: ContinuousClock.Duration =
+            panelOpen
+            ? .milliseconds(100)  // ~10 fps UI when panel visible
+            : .milliseconds(0)  // no throttle when panel hidden
+        if uiNow - lastUIUpdateClock >= minUIInterval {
+            lastUIUpdateClock = uiNow
+            Task { [weak self] in
+                guard let self else { return }
+                self.applyFrameStateUpdate(
+                    frame: frame, instantFPS: instantFPS, newCacheStatus: newCacheStatus,
+                    newLabels: newLabels, generation: eventGeneration)
+            }
         }
+
+        trace.end(
+            "tracks=\(frame.tracks?.tracks.count ?? 0) labels=\(newLabels.count) cache=\(newCacheStatus)"
+        )
     }
 
     /// Applies @Published state mutations from a received frame.
@@ -1169,20 +1284,33 @@ private let logger = DevLogger(category: "AppState")
             logger.debug("Skipping stale deferred frame update for generation \(generation)")
             return
         }
+        let trace = PerformanceTrace.begin(
+            "ApplyFrameStateUpdate",
+            "frame=\(frame.frameID) gen=\(generation) labels=\(newLabels.count)")
+        defer {
+            trace.end(
+                "fps=\(String(format: "%.1f", fps)) tracks=\(trackCount) progress=\(String(format: "%.3f", replayProgress))"
+            )
+        }
+
         currentFrameID = frame.frameID
         currentTimestamp = frame.timestampNanos
         frameCount += 1
 
         // Update playback info from frame
         if let playbackInfo = frame.playbackInfo {
-            hasPlaybackMetadata = true
+            if !hasPlaybackMetadata { hasPlaybackMetadata = true }
             setPlaybackMode(
                 inferPlaybackMode(isLive: playbackInfo.isLive, seekable: playbackInfo.seekable))
-            logStartTimestamp = playbackInfo.logStartNs
-            logEndTimestamp = playbackInfo.logEndNs
-            playbackRate = playbackInfo.playbackRate
+            if logStartTimestamp != playbackInfo.logStartNs {
+                logStartTimestamp = playbackInfo.logStartNs
+            }
+            if logEndTimestamp != playbackInfo.logEndNs { logEndTimestamp = playbackInfo.logEndNs }
+            if playbackRate != playbackInfo.playbackRate {
+                playbackRate = playbackInfo.playbackRate
+            }
             currentFrameIndex = playbackInfo.currentFrameIndex
-            totalFrames = playbackInfo.totalFrames
+            if totalFrames != playbackInfo.totalFrames { totalFrames = playbackInfo.totalFrames }
             // Note: isPaused is NOT updated from frame to allow optimistic UI updates.
             // The server confirms pause state via the RPC response.
 
@@ -1196,8 +1324,10 @@ private let logger = DevLogger(category: "AppState")
                 lastSeenReplayEpoch = epoch
                 trackHistory.removeAll()
                 trackMaxSpeed.removeAll()
+                trackMaxHits.removeAll()
                 allSeenTracks.removeAll()
                 inViewTrackIDs = []
+                selectedTrackData = nil
             }
 
             // Log mode on first frame
@@ -1242,13 +1372,20 @@ private let logger = DevLogger(category: "AppState")
                 // Update persistent max speed (survives ring-buffer eviction)
                 let prevMax = trackMaxSpeed[track.trackID] ?? 0
                 if track.maxSpeedMps > prevMax { trackMaxSpeed[track.trackID] = track.maxSpeedMps }
+
+                // Update persistent max hits so sort/display remains stable after a track leaves frame.
+                let prevHitMax = trackMaxHits[track.trackID] ?? 0
+                if track.hits > prevHitMax { trackMaxHits[track.trackID] = track.hits }
             }
         } else {
             inViewTrackIDs = []
         }
 
+        // Update cached selected track data for inspector stability
+        if let selectedTrackID { selectedTrackData = allSeenTracks[selectedTrackID] }
+
         // M3.5: Update cache status
-        cacheStatus = newCacheStatus
+        if cacheStatus != newCacheStatus { cacheStatus = newCacheStatus }
 
         // Update track label overlay positions
         trackLabels = newLabels
@@ -1260,14 +1397,43 @@ private let logger = DevLogger(category: "AppState")
             )
         }
 
-        // Update replay progress (skip if user is interacting with slider)
-        if !isLive && !isSeekingInProgress && logEndTimestamp > logStartTimestamp {
-            let progress =
-                Double(currentTimestamp - logStartTimestamp)
-                / Double(logEndTimestamp - logStartTimestamp)
-            replayProgress = max(0, min(1, progress))
-        } else if !isLive && !isSeekingInProgress && !hasValidTimelineRange && totalFrames > 1 {
-            replayProgress = displayReplayProgress
+        // Clear seeking guard when the first post-seek frame arrives.
+        // The seek RPC keeps isSeekingInProgress=true so stale buffered
+        // frames can't flicker the seek bar.  Once the command finishes
+        // (inFlightPlaybackCommand == nil), the next matching frame clears it.
+        if isSeekingInProgress && inFlightPlaybackCommand == nil {
+            seekWaitFrameCount += 1
+            var seekLanded = false
+            if let targetFrame = pendingSeekTargetFrameIndex, totalFrames > 1 {
+                let diff =
+                    currentFrameIndex >= targetFrame
+                    ? currentFrameIndex - targetFrame : targetFrame - currentFrameIndex
+                seekLanded = diff <= 1
+            } else if let targetTs = pendingSeekTargetTimestamp {
+                seekLanded = abs(currentTimestamp - targetTs) < 100_000_000  // 100 ms
+            } else {
+                seekLanded = true  // No target known — clear immediately
+            }
+            if seekLanded || seekWaitFrameCount > 10 {
+                isSeekingInProgress = false
+                pendingSeekTargetTimestamp = nil
+                pendingSeekTargetFrameIndex = nil
+                seekWaitFrameCount = 0
+            }
+        }
+
+        // Update replay progress (skip if user is interacting with slider).
+        // Frame-index progress is preferred — it is robust against non-linear
+        // timestamp distribution and background-frame timestamp contamination.
+        if !isLive && !isSeekingInProgress {
+            if totalFrames > 1 {
+                replayProgress = max(0, min(1, Double(currentFrameIndex) / Double(totalFrames - 1)))
+            } else if logEndTimestamp > logStartTimestamp {
+                let progress =
+                    Double(currentTimestamp - logStartTimestamp)
+                    / Double(logEndTimestamp - logStartTimestamp)
+                replayProgress = max(0, min(1, progress))
+            }
         }
 
         // Detect replay completion from frame metadata.  This is more reliable

@@ -92,6 +92,13 @@ struct AnalysisRunModelTests {
         #expect(run.id == run.runId)
     }
 
+    @Test func labelRollupHelpTextIncludesCounts() throws {
+        let rollup = RunLabelRollup(total: 10, classified: 4, taggedOnly: 3, unlabelled: 3)
+        #expect(rollup.helpText.contains("Classified 4"))
+        #expect(rollup.helpText.contains("Tagged 3"))
+        #expect(rollup.helpText.contains("Unlabelled 3"))
+    }
+
     private func makeRun(vrlogPath: String? = "/some/path.vrlog") -> AnalysisRun {
         AnalysisRun(
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
@@ -172,7 +179,13 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                     "status": "completed",
                     "error_message": null,
                     "vrlog_path": "/data/test.vrlog",
-                    "notes": null
+                    "notes": null,
+                    "label_rollup": {
+                        "total": 25,
+                        "classified": 10,
+                        "tagged_only": 5,
+                        "unlabelled": 10
+                    }
                 }],
                 "count": 1
             }
@@ -190,6 +203,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         XCTAssertEqual(runs[0].runId, "run-001")
         XCTAssertEqual(runs[0].status, "completed")
         XCTAssertEqual(runs[0].totalTracks, 25)
+        XCTAssertEqual(runs[0].labelRollup?.taggedOnly, 5)
     }
 
     func testListRunsServerError() async throws {
@@ -478,6 +492,12 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
                 "total": 25,
                 "labelled": 15,
                 "by_class": {"car": 10, "noise": 5},
+                "label_rollup": {
+                    "total": 25,
+                    "classified": 10,
+                    "tagged_only": 5,
+                    "unlabelled": 10
+                },
                 "progress_pct": 60.0
             }
             """
@@ -493,6 +513,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         XCTAssertEqual(progress.labelled, 15)
         XCTAssertEqual(progress.progressPct, 60.0)
         XCTAssertEqual(progress.byClass?["car"], 10)
+        XCTAssertEqual(progress.labelRollup?.classified, 10)
     }
 
     func testGetLabellingProgressServerError() async throws {
@@ -528,10 +549,18 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
             }
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            return (response, Data())
+            let body = """
+                {
+                    "success": true,
+                    "vrlog_path": "/data/run-001.vrlog",
+                    "frame_encoding": "json"
+                }
+                """
+            return (response, body.data(using: .utf8)!)
         }
 
-        try await client.loadVRLog(runID: "run-001")
+        let loadResponse = try await client.loadVRLog(runID: "run-001")
+        XCTAssertEqual(loadResponse.frameEncoding, "json")
     }
 
     func testLoadVRLogServerError() async throws {
@@ -738,6 +767,34 @@ struct RunTrackLabelModelDecodingTests {
         #expect(resp.labelerId == "tester")
     }
 
+    @Test func runTrackDecodesLabelSourceAndLinkedTrackIds() throws {
+        let json = """
+            {
+                "run_id": "run-001",
+                "track_id": "track-001",
+                "sensor_id": "hesai-01",
+                "user_label": "car",
+                "quality_label": "good",
+                "label_source": "human_manual",
+                "start_unix_nanos": 1000,
+                "end_unix_nanos": 2000,
+                "total_observations": 12,
+                "duration_secs": 1.2,
+                "avg_speed_mps": 4.5,
+                "max_speed_mps": 7.0,
+                "is_split_candidate": false,
+                "is_merge_candidate": true,
+                "linked_track_ids": ["track-002", "track-003"]
+            }
+            """
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let track = try decoder.decode(RunTrack.self, from: json.data(using: .utf8)!)
+        #expect(track.labelSource == "human_manual")
+        #expect(track.linkedTrackIds == ["track-002", "track-003"])
+        #expect(track.isMergeCandidate == true)
+    }
+
     @Test func labellingProgressDecodes() throws {
         let json = """
             {
@@ -745,6 +802,12 @@ struct RunTrackLabelModelDecodingTests {
                 "total": 50,
                 "labelled": 30,
                 "by_class": {"car": 20, "noise": 10},
+                "label_rollup": {
+                    "total": 50,
+                    "classified": 20,
+                    "tagged_only": 10,
+                    "unlabelled": 20
+                },
                 "progress_pct": 60.0
             }
             """
@@ -755,6 +818,7 @@ struct RunTrackLabelModelDecodingTests {
         #expect(progress.labelled == 30)
         #expect(progress.progressPct == 60.0)
         #expect(progress.byClass?["car"] == 20)
+        #expect(progress.labelRollup?.taggedOnly == 10)
     }
 
     @Test func playbackStatusDecodes() throws {

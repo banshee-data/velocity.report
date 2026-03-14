@@ -511,15 +511,15 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 		}
 
 		var err error
+		// Enable blocking frame channel for ALL PCAP replay modes so every
+		// sensor rotation is processed without silent drops. This guarantees
+		// deterministic 1:1 PCAP-frame-to-VRLOG-frame mapping regardless of
+		// playback speed.
+		if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
+			fb.SetBlockOnFrameChannel(true)
+			defer fb.SetBlockOnFrameChannel(false)
+		}
 		if speedMode == "analysis" {
-			// Enable blocking frame channel so every frame is processed
-			// without silent drops. "analysis" uses no pacing (ReadPCAPFile
-			// reads at CPU speed), so back-pressure from the blocking channel
-			// is the only flow-control mechanism.
-			if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
-				fb.SetBlockOnFrameChannel(true)
-				defer fb.SetBlockOnFrameChannel(false)
-			}
 			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, countResult.Count, onProgress)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.

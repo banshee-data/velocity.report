@@ -2,6 +2,8 @@
 package recorder
 
 import (
+	"encoding/binary"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -48,6 +50,69 @@ func testFrameBundle(frameID uint64, timestampNanos int64) *visualiser.FrameBund
 				},
 			},
 		},
+	}
+}
+
+func writeSingleFrameLog(t *testing.T, basePath string, frame *visualiser.FrameBundle, payload []byte) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Join(basePath, "frames"), 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	header := LogHeader{
+		Version:      VRLOGFormatVersion,
+		CreatedNs:    time.Now().UnixNano(),
+		SensorID:     frame.SensorID,
+		TotalFrames:  1,
+		StartNs:      frame.TimestampNanos,
+		EndNs:        frame.TimestampNanos,
+		BuildVersion: "test",
+	}
+	header.CoordinateFrame.FrameID = frame.CoordinateFrame.FrameID
+	header.CoordinateFrame.ReferenceFrame = frame.CoordinateFrame.ReferenceFrame
+
+	headerData, err := json.Marshal(header)
+	if err != nil {
+		t.Fatalf("json.Marshal(header) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(basePath, "header.json"), headerData, 0o644); err != nil {
+		t.Fatalf("WriteFile(header.json) error = %v", err)
+	}
+
+	indexFile, err := os.Create(filepath.Join(basePath, "index.bin"))
+	if err != nil {
+		t.Fatalf("Create(index.bin) error = %v", err)
+	}
+	defer indexFile.Close()
+
+	entry := IndexEntry{FrameID: frame.FrameID, TimestampNs: frame.TimestampNanos, ChunkID: 0, Offset: 0}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.FrameID); err != nil {
+		t.Fatalf("binary.Write(FrameID) error = %v", err)
+	}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.TimestampNs); err != nil {
+		t.Fatalf("binary.Write(TimestampNs) error = %v", err)
+	}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.ChunkID); err != nil {
+		t.Fatalf("binary.Write(ChunkID) error = %v", err)
+	}
+	if err := binary.Write(indexFile, binary.LittleEndian, entry.Offset); err != nil {
+		t.Fatalf("binary.Write(Offset) error = %v", err)
+	}
+
+	chunkFile, err := os.Create(filepath.Join(basePath, "frames", "chunk_0000.pb"))
+	if err != nil {
+		t.Fatalf("Create(chunk_0000.pb) error = %v", err)
+	}
+	defer chunkFile.Close()
+
+	var lenBuf [4]byte
+	binary.LittleEndian.PutUint32(lenBuf[:], uint32(len(payload)))
+	if _, err := chunkFile.Write(lenBuf[:]); err != nil {
+		t.Fatalf("Write(frame length) error = %v", err)
+	}
+	if _, err := chunkFile.Write(payload); err != nil {
+		t.Fatalf("Write(frame payload) error = %v", err)
 	}
 }
 
@@ -311,6 +376,67 @@ func TestNewReplayer(t *testing.T) {
 
 	if rep.CurrentFrame() != 0 {
 		t.Errorf("CurrentFrame() = %d, want 0", rep.CurrentFrame())
+	}
+}
+
+func TestNewReplayerDetectsProtoEncoding(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor-01")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	frame := testFrameBundle(1, time.Now().UnixNano())
+	if err := rec.Record(frame); err != nil {
+		t.Fatalf("Record() error = %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	if rep.FrameEncoding() != FrameEncodingProto {
+		t.Errorf("FrameEncoding() = %q, want %q", rep.FrameEncoding(), FrameEncodingProto)
+	}
+}
+
+func TestNewReplayerDetectsLegacyJSONEncoding(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "legacy-json-log")
+
+	frame := testFrameBundle(7, time.Now().UnixNano())
+	payload, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatalf("json.Marshal(frame) error = %v", err)
+	}
+	writeSingleFrameLog(t, basePath, frame, payload)
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	if rep.FrameEncoding() != FrameEncodingJSON {
+		t.Fatalf("FrameEncoding() = %q, want %q", rep.FrameEncoding(), FrameEncodingJSON)
+	}
+
+	restored, err := rep.ReadFrame()
+	if err != nil {
+		t.Fatalf("ReadFrame() error = %v", err)
+	}
+	if restored.FrameID != frame.FrameID {
+		t.Errorf("ReadFrame().FrameID = %d, want %d", restored.FrameID, frame.FrameID)
+	}
+	if restored.SensorID != frame.SensorID {
+		t.Errorf("ReadFrame().SensorID = %q, want %q", restored.SensorID, frame.SensorID)
 	}
 }
 
@@ -842,6 +968,63 @@ func TestReplayerSeekToTimestampEarly(t *testing.T) {
 	}
 }
 
+// TestReplayerSeekToTimestampNonMonotonic verifies that SeekToTimestamp
+// correctly handles non-monotonic index sequences. Background frames
+// recorded early in a session can carry wall-clock timestamps that are
+// much larger than the foreground sensor timestamps, creating a
+// non-monotonic sequence. The old linear scan would match the first
+// background frame; the new full-scan finds the closest foreground frame.
+func TestReplayerSeekToTimestampNonMonotonic(t *testing.T) {
+	tmpDir := t.TempDir()
+	basePath := filepath.Join(tmpDir, "test-log")
+
+	rec, err := NewRecorder(basePath, "test-sensor")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	// Simulate a recording where the first frame is a background snapshot
+	// with a wall-clock timestamp far in the future, followed by foreground
+	// frames with monotonic sensor timestamps.
+	wallClock := int64(2000000000000)  // "Wall clock" — much larger
+	sensorBase := int64(1000000000000) // Sensor timestamps start here
+
+	// Frame 0: background with wall-clock timestamp
+	rec.Record(testFrameBundle(0, wallClock))
+	// Frames 1-9: foreground with monotonic sensor timestamps
+	for i := 1; i < 10; i++ {
+		rec.Record(testFrameBundle(uint64(i), sensorBase+int64(i*100000000)))
+	}
+	rec.Close()
+
+	rep, err := NewReplayer(basePath)
+	if err != nil {
+		t.Fatalf("NewReplayer() error = %v", err)
+	}
+	defer rep.Close()
+
+	// Seek to sensor timestamp at frame 5 (sensorBase + 5*100ms).
+	// The old algorithm would match frame 0 (wallClock >= target) because
+	// it's the first entry with ts >= target. The fixed algorithm should
+	// find frame 5 (closest ts >= target).
+	target := sensorBase + 5*100000000
+	if err := rep.SeekToTimestamp(target); err != nil {
+		t.Fatalf("SeekToTimestamp() error = %v", err)
+	}
+	if rep.CurrentFrame() != 5 {
+		t.Errorf("CurrentFrame() = %d, want 5 (should skip non-monotonic background frame)", rep.CurrentFrame())
+	}
+
+	// Seek to a timestamp between frames 7 and 8; should land on 8.
+	target2 := sensorBase + 7*100000000 + 50000000
+	if err := rep.SeekToTimestamp(target2); err != nil {
+		t.Fatalf("SeekToTimestamp() error = %v", err)
+	}
+	if rep.CurrentFrame() != 8 {
+		t.Errorf("CurrentFrame() = %d, want 8", rep.CurrentFrame())
+	}
+}
+
 func TestRecorderWithEmptyLog(t *testing.T) {
 	tmpDir := t.TempDir()
 	basePath := filepath.Join(tmpDir, "empty-log")
@@ -974,14 +1157,16 @@ func TestReplayerCorruptedChunk(t *testing.T) {
 		t.Fatalf("failed to truncate chunk: %v", err)
 	}
 
-	// Try to replay
+	// Try to replay — NewReplayer may fail during frame-encoding detection
+	// on corrupted data, which is acceptable (early fail).
 	rep, err := NewReplayer(basePath)
 	if err != nil {
-		t.Fatalf("NewReplayer() error = %v", err)
+		// Corruption detected at init time — acceptable.
+		return
 	}
 	defer rep.Close()
 
-	// Reading should fail due to corrupted data
+	// If init succeeded, reading should fail due to corrupted data.
 	_, err = rep.ReadFrame()
 	if err == nil {
 		t.Error("ReadFrame() on corrupted data expected error, got nil")
@@ -1288,5 +1473,220 @@ func TestReplayerHeaderTimestamps(t *testing.T) {
 	if header.EndNs <= header.StartNs {
 		t.Errorf("Header().EndNs (%d) should be > StartNs (%d) for valid timeline range",
 			header.EndNs, header.StartNs)
+	}
+}
+
+// TestRecorder_BackgroundFramesExcludedFromHeaderRange verifies that
+// background frames do not affect header.StartNs/EndNs.  Background frames
+// may carry wall-clock timestamps (time.Now()) during PCAP replay, which
+// would contaminate the timeline range if included.
+func TestRecorder_BackgroundFramesExcludedFromHeaderRange(t *testing.T) {
+	dir := t.TempDir()
+	rec, err := NewRecorder(dir, "test-bg-header")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+
+	pcapTs := int64(1_718_400_000_000_000_000) // PCAP epoch: 2024-06-15
+	wallTs := int64(1_773_000_000_000_000_000) // Wall clock: ~2026-03
+
+	// Record: background (wall-clock), foreground, foreground, background (wall-clock)
+	bgFrame := func(id uint64, ts int64) *visualiser.FrameBundle {
+		f := testFrameBundle(id, ts)
+		f.FrameType = visualiser.FrameTypeBackground
+		return f
+	}
+	fgFrame := func(id uint64, ts int64) *visualiser.FrameBundle {
+		f := testFrameBundle(id, ts)
+		f.FrameType = visualiser.FrameTypeForeground
+		return f
+	}
+
+	for _, frame := range []*visualiser.FrameBundle{
+		bgFrame(1, wallTs),
+		fgFrame(2, pcapTs),
+		fgFrame(3, pcapTs+100_000_000), // +100ms
+		bgFrame(4, wallTs+1_000_000_000),
+	} {
+		if err := rec.Record(frame); err != nil {
+			t.Fatalf("Record(frame %d): %v", frame.FrameID, err)
+		}
+	}
+
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	rep, err := NewReplayer(dir)
+	if err != nil {
+		t.Fatalf("OpenReplayer: %v", err)
+	}
+	defer rep.Close()
+
+	header := rep.Header()
+
+	// Header range should only cover foreground timestamps.
+	if header.StartNs != pcapTs {
+		t.Errorf("Header.StartNs = %d, want %d (PCAP foreground)", header.StartNs, pcapTs)
+	}
+	expectedEnd := pcapTs + 100_000_000
+	if header.EndNs != expectedEnd {
+		t.Errorf("Header.EndNs = %d, want %d (PCAP foreground)", header.EndNs, expectedEnd)
+	}
+
+	// Wall-clock timestamps must NOT leak into the range.
+	if header.StartNs == wallTs {
+		t.Error("Header.StartNs is the wall-clock background timestamp — contaminated!")
+	}
+	if header.TotalFrames != 4 {
+		t.Errorf("Header.TotalFrames = %d, want 4 (all frames still indexed)", header.TotalFrames)
+	}
+}
+
+// TestEmptyFrameRoundTrip verifies the deterministic 1:1 PCAP-to-VRLOG
+// guarantee: a sequence of foreground and empty frames round-trips
+// through record → replay with all frame types, timestamps, and ordering
+// preserved. Empty frames (FrameTypeEmpty) are placeholder entries for
+// sensor rotations where no foreground objects were detected.
+//
+// The test uses variable inter-frame intervals (100ms→50ms, simulating
+// a sensor ramping from 10 Hz to 20 Hz) to verify that the recorder
+// faithfully preserves non-uniform rotation timing.
+func TestEmptyFrameRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	rec, err := NewRecorder(dir, "test-deterministic")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+
+	baseTs := int64(1_718_400_000_000_000_000) // 2024-06-15
+
+	// Simulate a 10-frame sequence with variable rotation rate.
+	// Intervals ramp from 100ms (10 Hz) down to ~56ms (~18 Hz),
+	// mimicking a Hesai Pandar40P motor spin-up.
+	type frameSpec struct {
+		empty      bool
+		intervalNs int64 // interval from previous frame (0 for first)
+	}
+	specs := []frameSpec{
+		{empty: true, intervalNs: 0},            // 0: empty  (first frame)
+		{empty: false, intervalNs: 100_000_000}, // 1: foreground  10.0 Hz
+		{empty: false, intervalNs: 95_000_000},  // 2: foreground  10.5 Hz
+		{empty: true, intervalNs: 88_500_000},   // 3: empty       11.3 Hz
+		{empty: false, intervalNs: 80_000_000},  // 4: foreground  12.5 Hz
+		{empty: false, intervalNs: 71_400_000},  // 5: foreground  14.0 Hz
+		{empty: false, intervalNs: 66_700_000},  // 6: foreground  15.0 Hz
+		{empty: true, intervalNs: 62_500_000},   // 7: empty       16.0 Hz
+		{empty: false, intervalNs: 58_800_000},  // 8: foreground  17.0 Hz
+		{empty: false, intervalNs: 55_600_000},  // 9: foreground  18.0 Hz
+	}
+
+	emptyFrame := func(id uint64, ts int64) *visualiser.FrameBundle {
+		return &visualiser.FrameBundle{
+			FrameID:        id,
+			TimestampNanos: ts,
+			SensorID:       "test-deterministic",
+			FrameType:      visualiser.FrameTypeEmpty,
+			CoordinateFrame: visualiser.CoordinateFrameInfo{
+				FrameID:        "test/sensor-01",
+				ReferenceFrame: "ENU",
+			},
+		}
+	}
+
+	recorded := make([]*visualiser.FrameBundle, len(specs))
+	var ts int64
+	for i, spec := range specs {
+		if i == 0 {
+			ts = baseTs
+		} else {
+			ts += spec.intervalNs
+		}
+		if spec.empty {
+			recorded[i] = emptyFrame(uint64(i+1), ts)
+		} else {
+			recorded[i] = testFrameBundle(uint64(i+1), ts)
+			recorded[i].FrameType = visualiser.FrameTypeForeground
+		}
+		if err := rec.Record(recorded[i]); err != nil {
+			t.Fatalf("Record(frame %d): %v", i, err)
+		}
+	}
+
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Replay and verify every frame matches.
+	rep, err := NewReplayer(dir)
+	if err != nil {
+		t.Fatalf("NewReplayer: %v", err)
+	}
+	defer rep.Close()
+
+	header := rep.Header()
+	if header.TotalFrames != uint64(len(specs)) {
+		t.Fatalf("Header.TotalFrames = %d, want %d", header.TotalFrames, len(specs))
+	}
+
+	// Header timestamps should span the full range (empty frames included).
+	if header.StartNs != baseTs {
+		t.Errorf("Header.StartNs = %d, want %d", header.StartNs, baseTs)
+	}
+	if header.EndNs != recorded[len(recorded)-1].TimestampNanos {
+		t.Errorf("Header.EndNs = %d, want %d", header.EndNs, recorded[len(recorded)-1].TimestampNanos)
+	}
+
+	for i := range specs {
+		frame, err := rep.ReadFrame()
+		if err != nil {
+			t.Fatalf("ReadFrame() frame %d: %v", i, err)
+		}
+
+		orig := recorded[i]
+
+		if frame.FrameID != orig.FrameID {
+			t.Errorf("frame %d: FrameID = %d, want %d", i, frame.FrameID, orig.FrameID)
+		}
+		if frame.TimestampNanos != orig.TimestampNanos {
+			t.Errorf("frame %d: TimestampNanos = %d, want %d", i, frame.TimestampNanos, orig.TimestampNanos)
+		}
+		if frame.FrameType != orig.FrameType {
+			t.Errorf("frame %d: FrameType = %d, want %d", i, frame.FrameType, orig.FrameType)
+		}
+
+		if specs[i].empty {
+			// Empty frames should have no point cloud or clusters.
+			if frame.PointCloud != nil {
+				t.Errorf("frame %d (empty): PointCloud should be nil, got %d points",
+					i, frame.PointCloud.PointCount)
+			}
+			if frame.Clusters != nil && len(frame.Clusters.Clusters) > 0 {
+				t.Errorf("frame %d (empty): Clusters should be nil/empty, got %d",
+					i, len(frame.Clusters.Clusters))
+			}
+		} else {
+			// Foreground frames should have point cloud data.
+			if frame.PointCloud == nil {
+				t.Errorf("frame %d (foreground): PointCloud is nil", i)
+			}
+		}
+
+		// Verify variable inter-frame intervals are preserved.
+		if i > 0 {
+			prevTs := recorded[i-1].TimestampNanos
+			expectedDelta := orig.TimestampNanos - prevTs
+			actualDelta := frame.TimestampNanos - recorded[i-1].TimestampNanos
+			if actualDelta != expectedDelta {
+				t.Errorf("frame %d: inter-frame interval = %d ns, want %d ns",
+					i, actualDelta, expectedDelta)
+			}
+		}
+	}
+
+	// Verify no extra frames.
+	_, err = rep.ReadFrame()
+	if err != io.EOF {
+		t.Errorf("expected EOF after %d frames, got err=%v", len(specs), err)
 	}
 }

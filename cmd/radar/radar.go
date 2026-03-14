@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -318,6 +319,15 @@ func main() {
 		log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration from %s", *configFile)
+
+	// Compute tuning config hash for VRLOG provenance.
+	tuningJSON, err := json.Marshal(tuningCfg)
+	var tuningHash string
+	if err != nil {
+		log.Printf("Warning: unable to compute tuning config provenance hash: %v", err)
+	} else {
+		tuningHash = fmt.Sprintf("%x", sha256.Sum256(tuningJSON))
+	}
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
@@ -674,6 +684,21 @@ func main() {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
 					return
 				}
+
+				// Set recording provenance from current webserver state.
+				sourceType := "live"
+				pcapPath := ""
+				playbackRate := 0.0
+				if lidarWebServer != nil {
+					src := lidarWebServer.CurrentSource()
+					if src == monitor.DataSourcePCAP || src == monitor.DataSourcePCAPAnalysis {
+						sourceType = "pcap"
+						pcapPath = filepath.Base(lidarWebServer.CurrentPCAPFile())
+						playbackRate = lidarWebServer.PCAPSpeedRatio()
+					}
+				}
+				rec.SetProvenance(sourceType, pcapPath, tuningHash, playbackRate)
+
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)
@@ -697,9 +722,9 @@ func main() {
 				log.Printf("[Visualiser] VRLOG recording stopped: %s", path)
 				return path
 			},
-			OnVRLogLoad: func(vrlogPath string) error {
+			OnVRLogLoad: func(vrlogPath string) (string, error) {
 				if visualiserPublisher == nil {
-					return fmt.Errorf("visualiser publisher not initialised")
+					return "", fmt.Errorf("visualiser publisher not initialised")
 				}
 				if visualiserServer != nil {
 					visualiserServer.SetVRLogMode(true)
@@ -709,18 +734,23 @@ func main() {
 				// Open the VRLOG directory as a replayer
 				replayer, err := recorder.NewReplayer(vrlogPath)
 				if err != nil {
-					return fmt.Errorf("failed to open vrlog: %w", err)
+					return "", fmt.Errorf("failed to open vrlog: %w", err)
 				}
+				frameEncoding := string(replayer.FrameEncoding())
 				// Start replay through the publisher
 				if err := visualiserPublisher.StartVRLogReplay(replayer); err != nil {
 					replayer.Close()
-					return fmt.Errorf("failed to start vrlog replay: %w", err)
+					return "", fmt.Errorf("failed to start vrlog replay: %w", err)
 				}
 				if err := visualiserPublisher.SendBackgroundSnapshot(); err != nil {
 					log.Printf("[Visualiser] Failed to send background snapshot: %v", err)
 				}
-				log.Printf("[Visualiser] VRLOG replay started: %s", vrlogPath)
-				return nil
+				if frameEncoding == string(recorder.FrameEncodingJSON) {
+					log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s, legacy JSON decode path; replay may be slower)", vrlogPath, frameEncoding)
+				} else {
+					log.Printf("[Visualiser] VRLOG replay started: %s (frame encoding=%s)", vrlogPath, frameEncoding)
+				}
+				return frameEncoding, nil
 			},
 			OnVRLogStop: func() {
 				if visualiserPublisher != nil {

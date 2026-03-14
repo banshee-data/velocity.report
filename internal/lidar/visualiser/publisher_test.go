@@ -653,6 +653,9 @@ func TestPublisher_SendBackgroundSnapshot_Success(t *testing.T) {
 	}
 	pub.SetBackgroundManager(mgr)
 
+	// Set a foreground timestamp so the background snapshot is not deferred.
+	pub.lastForegroundTimestamp.Store(time.Now().UnixNano())
+
 	err := pub.sendBackgroundSnapshot()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -914,5 +917,258 @@ func TestPublisher_VRLogReplay_PlaybackInfoPreserved(t *testing.T) {
 		if !pi.Seekable {
 			t.Errorf("frame %d Seekable = false, want true", i)
 		}
+	}
+}
+
+// TestPublisher_DrainFrameBuffers verifies that drainFrameBuffers clears
+// both the central frameChan and per-client channels.
+func TestPublisher_DrainFrameBuffers(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	// Do NOT call pub.Start() — the broadcast loop would race to consume
+	// frames from frameChan before we can assert the buffer length.
+
+	// Enqueue frames into the central frameChan
+	for i := 0; i < 3; i++ {
+		select {
+		case pub.frameChan <- &FrameBundle{FrameID: uint64(i)}:
+		default:
+			t.Fatalf("failed to enqueue frame %d", i)
+		}
+	}
+
+	if len(pub.frameChan) != 3 {
+		t.Fatalf("expected 3 buffered frames, got %d", len(pub.frameChan))
+	}
+
+	pub.drainFrameBuffers()
+
+	if len(pub.frameChan) != 0 {
+		t.Errorf("expected 0 buffered frames after drain, got %d", len(pub.frameChan))
+	}
+}
+
+// TestPublisher_DrainFrameBuffersReleasesPointClouds verifies that
+// drainFrameBuffers releases point cloud references on discarded frames.
+func TestPublisher_DrainFrameBuffersReleasesPointClouds(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	pc := &PointCloudFrame{PointCount: 10, X: make([]float32, 10)}
+	pc.Retain() // refCount=1 from Retain; drain will Release once
+	frame := &FrameBundle{FrameID: 1, PointCloud: pc}
+
+	select {
+	case pub.frameChan <- frame:
+	default:
+		t.Fatal("failed to enqueue frame")
+	}
+
+	pub.drainFrameBuffers()
+
+	// After drain, the Retain is the only remaining reference.
+	// Release it — this should not panic (proving drain called Release).
+	pc.Release()
+}
+
+// TestPublisher_DrainClientCh verifies that drainClientCh clears a
+// single client's frame channel.
+func TestPublisher_DrainClientCh(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	client := &clientStream{
+		id:      "test-client",
+		frameCh: make(chan *FrameBundle, 10),
+	}
+
+	// Fill the client channel
+	for i := 0; i < 5; i++ {
+		client.frameCh <- &FrameBundle{FrameID: uint64(i)}
+	}
+
+	if len(client.frameCh) != 5 {
+		t.Fatalf("expected 5 buffered frames, got %d", len(client.frameCh))
+	}
+
+	pub.drainClientCh(client)
+
+	if len(client.frameCh) != 0 {
+		t.Errorf("expected 0 buffered frames after drain, got %d", len(client.frameCh))
+	}
+}
+
+// TestPublisher_DrainClientChReleasesPointClouds verifies that drainClientCh
+// releases point cloud references on discarded frames.
+func TestPublisher_DrainClientChReleasesPointClouds(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	pc := &PointCloudFrame{PointCount: 10, X: make([]float32, 10)}
+	pc.Retain() // refCount=1 from Retain; drain will Release once
+
+	client := &clientStream{
+		id:      "test-client",
+		frameCh: make(chan *FrameBundle, 10),
+	}
+	client.frameCh <- &FrameBundle{FrameID: 1, PointCloud: pc}
+
+	pub.drainClientCh(client)
+
+	// Should not panic — drain released the first ref
+	pc.Release()
+}
+
+// TestPublisher_DrainFrameBuffersWithClients verifies that drainFrameBuffers
+// also drains per-client channels.
+func TestPublisher_DrainFrameBuffersWithClients(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	// Manually add a client
+	client := &clientStream{
+		id:      "test-client",
+		frameCh: make(chan *FrameBundle, 10),
+		doneCh:  make(chan struct{}),
+	}
+	pub.clientsMu.Lock()
+	pub.clients[client.id] = client
+	pub.clientsMu.Unlock()
+
+	// Fill client channel
+	for i := 0; i < 3; i++ {
+		client.frameCh <- &FrameBundle{FrameID: uint64(i)}
+	}
+
+	pub.drainFrameBuffers()
+
+	if len(client.frameCh) != 0 {
+		t.Errorf("expected client channel drained, got %d", len(client.frameCh))
+	}
+}
+
+// TestPublisher_ForegroundTimestampTracking verifies that Publish tracks
+// the most recent foreground frame timestamp and that background snapshots
+// inherit this timestamp.
+func TestPublisher_ForegroundTimestampTracking(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	// Publish a foreground frame
+	pub.Publish(&FrameBundle{
+		FrameID:        1,
+		TimestampNanos: 5000000000,
+		SensorID:       "test",
+		FrameType:      FrameTypeForeground,
+	})
+
+	if pub.lastForegroundTimestamp.Load() != 5000000000 {
+		t.Errorf("lastForegroundTimestamp = %d, want 5000000000", pub.lastForegroundTimestamp.Load())
+	}
+
+	// Publish a background frame — should NOT update the tracker
+	pub.Publish(&FrameBundle{
+		FrameID:        2,
+		TimestampNanos: 9999999999,
+		SensorID:       "test",
+		FrameType:      FrameTypeBackground,
+		Background:     &BackgroundSnapshot{TimestampNanos: 9999999999},
+	})
+
+	if pub.lastForegroundTimestamp.Load() != 5000000000 {
+		t.Errorf("lastForegroundTimestamp changed after background frame: %d, want 5000000000",
+			pub.lastForegroundTimestamp.Load())
+	}
+}
+
+// TestPublisher_BackgroundTimestampInheritance verifies that
+// sendBackgroundSnapshot uses the foreground timestamp when available.
+func TestPublisher_BackgroundTimestampInheritance(t *testing.T) {
+	cfg := DefaultConfig()
+	pub := NewPublisher(cfg)
+
+	mgr := &mockBackgroundManager{
+		snapshot: &BackgroundSnapshot{
+			TimestampNanos: 99999, // Wall-clock timestamp
+			SequenceNumber: 1,
+		},
+		sequenceNumber: 1,
+	}
+	pub.SetBackgroundManager(mgr)
+
+	// Don't call Start — the broadcastLoop would consume frameChan
+	// before we can inspect it.  sendBackgroundSnapshot only needs
+	// the channel to be present (which NewPublisher creates).
+
+	// Set a foreground timestamp
+	pub.lastForegroundTimestamp.Store(5000000000)
+
+	err := pub.sendBackgroundSnapshot()
+	if err != nil {
+		t.Fatalf("sendBackgroundSnapshot failed: %v", err)
+	}
+
+	// The frame should have been sent to frameChan with the foreground timestamp
+	select {
+	case frame := <-pub.frameChan:
+		if frame.TimestampNanos != 5000000000 {
+			t.Errorf("background frame timestamp = %d, want 5000000000 (inherited from foreground)",
+				frame.TimestampNanos)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for background frame")
+	}
+}
+
+// TestPublisher_SendBackgroundSnapshot_DeferredBeforeForeground verifies that
+// background snapshots are silently deferred when no foreground frame has
+// been published.  This prevents wall-clock timestamps from contaminating
+// VRLOG recordings of PCAP replays.
+func TestPublisher_SendBackgroundSnapshot_DeferredBeforeForeground(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer pub.Stop()
+
+	mgr := &mockBackgroundManager{
+		sequenceNumber: 1,
+		snapshot: &BackgroundSnapshot{
+			SequenceNumber: 1,
+			TimestampNanos: time.Now().UnixNano(),
+			X:              []float32{1.0},
+			Y:              []float32{1.0},
+			Z:              []float32{0.5},
+			Confidence:     []uint32{1},
+		},
+	}
+	pub.SetBackgroundManager(mgr)
+
+	// Do NOT set lastForegroundTimestamp — background should be deferred.
+	err := pub.sendBackgroundSnapshot()
+	if err != nil {
+		t.Fatalf("sendBackgroundSnapshot returned unexpected error: %v", err)
+	}
+
+	// frameChan should be empty — snapshot was deferred, not sent.
+	select {
+	case <-pub.frameChan:
+		t.Error("background snapshot should have been deferred, but a frame was sent")
+	default:
+		// expected: nothing in the channel
+	}
+
+	if pub.lastBackgroundSeq != 0 {
+		t.Errorf("lastBackgroundSeq = %d, want 0 (deferred)", pub.lastBackgroundSeq)
 	}
 }

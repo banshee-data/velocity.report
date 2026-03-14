@@ -130,6 +130,9 @@ func TestPublisher_SendBackgroundSnapshot(t *testing.T) {
 		sequenceNumber: 1,
 	}
 
+	// Set a foreground timestamp so the background snapshot is not deferred.
+	p.lastForegroundTimestamp.Store(time.Now().UnixNano())
+
 	err = p.sendBackgroundSnapshot()
 	if err != nil {
 		t.Errorf("sendBackgroundSnapshot() error = %v, want nil", err)

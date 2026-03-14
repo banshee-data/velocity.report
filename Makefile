@@ -164,7 +164,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre17
+VERSION := 0.5.0-pre18
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -574,7 +574,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -718,7 +718,7 @@ vrlog-analyse:
 # Compare two .vrlog analyses — prints comparison JSON to stdout or to a file.
 # Usage: make vrlog-compare VRLOG_A=/path/a.vrlog VRLOG_B=/path/b.vrlog [COMPARE_OUT=output.json]
 vrlog-compare:
-	@test -n "$(VRLOG_A)" -a -n "$(VRLOG_B)" || { echo "Error: VRLOG_A and VRLOG_B required. Usage: make vrlog-compare VRLOG_A=a.vrlog VRLOG_B=b.vrlog"; exit 1; }
+	@[ -n "$(VRLOG_A)" ] && [ -n "$(VRLOG_B)" ] || { echo "Error: VRLOG_A and VRLOG_B required. Usage: make vrlog-compare VRLOG_A=a.vrlog VRLOG_B=b.vrlog"; exit 1; }
 	go run ./cmd/tools/vrlog-analyse compare "$(VRLOG_A)" "$(VRLOG_B)" $(if $(COMPARE_OUT),-o $(COMPARE_OUT))
 
 # =============================================================================
@@ -1377,39 +1377,59 @@ set-version:
 	@./scripts/set-version.sh $(VER) $(TARGETS)
 
 log-go-tail:
-	@# Tail the most recent velocity log file in logs/ without building or starting anything
-	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
-		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
-		echo "Tailing $$latest"; \
-		tail -F "$$latest"; \
-	else \
+	@# Tail the most recent velocity log; auto-switches when the server restarts
+	@if ! ls logs/velocity-[0-9]*.log >/dev/null 2>&1; then \
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
-	fi
+	fi; \
+	trap 'kill $$tailpid 2>/dev/null; exit 0' INT TERM; \
+	prev=""; \
+	while true; do \
+		latest=$$(ls -1t logs/velocity-[0-9]*.log 2>/dev/null | head -n1); \
+		if [ "$$latest" != "$$prev" ] && [ -n "$$latest" ]; then \
+			if [ -n "$$prev" ]; then \
+				kill $$tailpid 2>/dev/null; wait $$tailpid 2>/dev/null; \
+				echo ""; echo "--- New log detected, switching ---"; echo ""; \
+			fi; \
+			echo "==> $$latest"; \
+			tail -n 50 -f "$$latest" & tailpid=$$!; \
+			prev="$$latest"; \
+		fi; \
+		sleep 2; \
+	done
 
 log-go-cat:
 	@# Cat the entire most recent velocity log file (can be piped to grep, etc.)
-	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
-		latest=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
+	@if [ -d logs ] && [ $$(ls -1 logs/velocity-[0-9]*.log 2>/dev/null | wc -l) -gt 0 ]; then \
+		latest=$$(ls -1t logs/velocity-[0-9]*.log 2>/dev/null | head -n1); \
 		cat "$$latest"; \
 	else \
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
 	fi
 
 log-go-tail-all:
-	@# Tail the most recent standard and debug velocity logs together (if present)
-	@if [ -d logs ] && [ $$(ls -1 logs/velocity-*.log 2>/dev/null | wc -l) -gt 0 ]; then \
-		main_log=$$(ls -1t logs/velocity-*.log 2>/dev/null | head -n1); \
-		debug_log=$$(ls -1t logs/velocity-debug-*.log 2>/dev/null | head -n1); \
-		if [ -n "$$debug_log" ] && [ -f "$$debug_log" ]; then \
-			echo "Tailing $$main_log and $$debug_log"; \
-			tail -F "$$main_log" "$$debug_log"; \
-		else \
-			echo "Tailing $$main_log (no debug log found yet)"; \
-			tail -F "$$main_log"; \
-		fi; \
-	else \
+	@# Tail the most recent standard and debug velocity logs; auto-switches on restart
+	@if ! ls logs/velocity-[0-9]*.log >/dev/null 2>&1; then \
 		echo "No logs found in logs/ (try: make dev-go)"; exit 1; \
-	fi
+	fi; \
+	trap 'kill $$mainpid $$debugpid 2>/dev/null; exit 0' INT TERM; \
+	prev_main=""; prev_debug=""; mainpid=""; debugpid=""; \
+	while true; do \
+		main=$$(ls -1t logs/velocity-[0-9]*.log 2>/dev/null | head -n1); \
+		debug=$$(ls -1t logs/velocity-debug-*.log 2>/dev/null | head -n1); \
+		if [ "$$main" != "$$prev_main" ] && [ -n "$$main" ]; then \
+			[ -n "$$mainpid" ] && { kill $$mainpid 2>/dev/null; wait $$mainpid 2>/dev/null; echo "--- New main log detected ---"; }; \
+			echo "==> $$main"; \
+			tail -n 50 -f "$$main" & mainpid=$$!; \
+			prev_main="$$main"; \
+		fi; \
+		if [ "$$debug" != "$$prev_debug" ] && [ -n "$$debug" ]; then \
+			[ -n "$$debugpid" ] && { kill $$debugpid 2>/dev/null; wait $$debugpid 2>/dev/null; echo "--- New debug log detected ---"; }; \
+			echo "==> $$debug"; \
+			tail -n 50 -f "$$debug" & debugpid=$$!; \
+			prev_debug="$$debug"; \
+		fi; \
+		sleep 2; \
+	done
 
 git-fs:
 	@git fetch origin main >/dev/null 2>&1 || true; \

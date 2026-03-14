@@ -2,7 +2,9 @@ package analysis
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // CompareReports loads analysis.json from two .vrlog directories and produces
@@ -209,7 +212,7 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 	}
 
 	comparison := &ComparisonReport{
-		Version:     "1.0",
+		Version:     version.Version,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		RunA:        filepath.Base(pathA),
 		RunB:        filepath.Base(pathB),
@@ -294,17 +297,33 @@ func validateAnalysisSchema(data []byte) error {
 		if _, ok := track["MaxSpeedMps"]; ok {
 			continue
 		}
-		return fmt.Errorf("track %d missing required key max_speed_mps", i)
+		return fmt.Errorf("track %d missing required key max_speed_mps: %w", i, errSchemaInvalid)
 	}
 	return nil
 }
 
-// loadOrGenerate returns the cached analysis if analysis.json exists,
-// otherwise runs GenerateReport to create it.
+// errSchemaInvalid indicates analysis.json has an unsupported schema shape.
+var errSchemaInvalid = errors.New("schema validation failed")
+
+// loadOrGenerate returns the cached analysis if analysis.json exists and its
+// version matches [version.Version]. It regenerates the report when the file
+// is missing, contains invalid JSON, or was produced by a different tool
+// version. Other errors (e.g. permission denied) are returned immediately.
 func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 	report, err := LoadAnalysis(vrlogPath)
 	if err == nil {
-		return report, nil
+		if report.Version == version.Version {
+			return report, nil
+		}
+		log.Printf("Stale analysis version %q (want %q) for %s, regenerating ...",
+			report.Version, version.Version, vrlogPath)
+	} else {
+		// Only regenerate for file-not-found, JSON parse errors, or schema
+		// validation failures (e.g. missing required keys from older versions).
+		if !errors.Is(err, os.ErrNotExist) && !isJSONError(err) && !errors.Is(err, errSchemaInvalid) {
+			return nil, err
+		}
+		log.Printf("Generating analysis for %s ...", vrlogPath)
 	}
 	// analysis.json missing, corrupt, or stale-schema — generate it.
 	diagf("Generating analysis for %s ...", vrlogPath)
@@ -313,6 +332,18 @@ func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 		return nil, genErr
 	}
 	return report, nil
+}
+
+// isJSONError returns true if the error chain contains a JSON syntax or
+// unmarshal type error.
+func isJSONError(err error) bool {
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		switch e.(type) {
+		case *json.SyntaxError, *json.UnmarshalTypeError:
+			return true
+		}
+	}
+	return false
 }
 
 func pearsonR(xs, ys []float64) float64 {

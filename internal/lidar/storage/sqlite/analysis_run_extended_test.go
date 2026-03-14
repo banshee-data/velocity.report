@@ -158,8 +158,9 @@ func TestListRuns(t *testing.T) {
 
 	// Insert multiple runs with different timestamps
 	for i := 0; i < 5; i++ {
+		runID := "run-list-" + string(rune('a'+i))
 		run := &AnalysisRun{
-			RunID:      "run-list-" + string(rune('a'+i)),
+			RunID:      runID,
 			CreatedAt:  time.Now().Add(time.Duration(i) * time.Hour),
 			SourceType: "pcap",
 			SensorID:   "sensor-1",
@@ -168,6 +169,17 @@ func TestListRuns(t *testing.T) {
 		}
 		if err := store.InsertRun(run); err != nil {
 			t.Fatalf("InsertRun failed: %v", err)
+		}
+		if i == 4 {
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-classified", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 1, UserLabel: "car", LabelSource: "human_manual"}); err != nil {
+				t.Fatalf("InsertRunTrack failed: %v", err)
+			}
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-tagged", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 2, QualityLabel: "noisy", LabelSource: "human_manual"}); err != nil {
+				t.Fatalf("InsertRunTrack failed: %v", err)
+			}
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-carried", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 3, UserLabel: "bus", LabelSource: "carried_over"}); err != nil {
+				t.Fatalf("InsertRunTrack failed: %v", err)
+			}
 		}
 	}
 
@@ -186,6 +198,56 @@ func TestListRuns(t *testing.T) {
 		if runs[0].CreatedAt.Before(runs[1].CreatedAt) {
 			t.Error("Runs should be in descending order by created_at")
 		}
+	}
+	if runs[0].LabelRollup == nil {
+		t.Fatal("Expected label rollup on listed runs")
+	}
+	if runs[0].LabelRollup.Total != 3 {
+		t.Errorf("Expected rollup total 3, got %d", runs[0].LabelRollup.Total)
+	}
+	if runs[0].LabelRollup.Classified != 1 {
+		t.Errorf("Expected classified 1, got %d", runs[0].LabelRollup.Classified)
+	}
+	if runs[0].LabelRollup.TaggedOnly != 1 {
+		t.Errorf("Expected tagged_only 1, got %d", runs[0].LabelRollup.TaggedOnly)
+	}
+	if runs[0].LabelRollup.Unlabelled != 1 {
+		t.Errorf("Expected unlabelled 1, got %d", runs[0].LabelRollup.Unlabelled)
+	}
+}
+
+func TestListRuns_MissingRunTracksTableLeavesNilRollup(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+	params := DefaultRunParams()
+	paramsJSON, _ := params.ToJSON()
+
+	run := &AnalysisRun{
+		RunID:      "run-list-missing-rollup",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor-1",
+		ParamsJSON: paramsJSON,
+		Status:     "completed",
+	}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun failed: %v", err)
+	}
+	if _, err := db.Exec(`DROP TABLE lidar_run_tracks`); err != nil {
+		t.Fatalf("DROP TABLE lidar_run_tracks failed: %v", err)
+	}
+
+	runs, err := store.ListRuns(10)
+	if err != nil {
+		t.Fatalf("ListRuns failed: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("Expected 1 run, got %d", len(runs))
+	}
+	if runs[0].LabelRollup != nil {
+		t.Fatalf("Expected nil label rollup when lidar_run_tracks is missing, got %#v", runs[0].LabelRollup)
 	}
 }
 
@@ -339,6 +401,49 @@ func TestUpdateTrackLabel(t *testing.T) {
 	}
 }
 
+func TestUpdateTrackLabel_NormalizesWriteValues(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	insertTestAnalysisRun(t, db, "run-label-normalized", "sensor-1")
+	track := &RunTrack{
+		RunID:          "run-label-normalized",
+		TrackID:        "track-label-normalized",
+		SensorID:       "sensor-1",
+		TrackState:     "confirmed",
+		StartUnixNanos: 1000,
+	}
+	if err := store.InsertRunTrack(track); err != nil {
+		t.Fatalf("InsertRunTrack failed: %v", err)
+	}
+
+	if err := store.UpdateTrackLabel(
+		"run-label-normalized", "track-label-normalized", "  car\n", " good, noisy ",
+		0.95, " user-123 ", " human_manual ",
+	); err != nil {
+		t.Fatalf("UpdateTrackLabel failed: %v", err)
+	}
+
+	storedTrack, err := store.GetRunTrack("run-label-normalized", "track-label-normalized")
+	if err != nil {
+		t.Fatalf("GetRunTrack failed: %v", err)
+	}
+	if storedTrack.UserLabel != "car" {
+		t.Errorf("UserLabel mismatch: got %q, want %q", storedTrack.UserLabel, "car")
+	}
+	if storedTrack.QualityLabel != "good,noisy" {
+		t.Errorf("QualityLabel mismatch: got %q, want %q", storedTrack.QualityLabel, "good,noisy")
+	}
+	if storedTrack.LabelerID != "user-123" {
+		t.Errorf("LabelerID mismatch: got %q, want %q", storedTrack.LabelerID, "user-123")
+	}
+	if storedTrack.LabelSource != "human_manual" {
+		t.Errorf("LabelSource mismatch: got %q, want %q", storedTrack.LabelSource, "human_manual")
+	}
+}
+
 // TestUpdateTrackQualityFlags tests updating split/merge flags.
 func TestUpdateTrackQualityFlags(t *testing.T) {
 	db, cleanup := setupAnalysisRunTestDB(t)
@@ -388,6 +493,43 @@ func TestUpdateTrackQualityFlags(t *testing.T) {
 	}
 }
 
+func TestUpdateTrackQualityFlags_NormalizesLinkedTrackIDs(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	insertTestAnalysisRun(t, db, "run-flags-normalized", "sensor-1")
+	track := &RunTrack{
+		RunID:          "run-flags-normalized",
+		TrackID:        "track-flags-normalized",
+		SensorID:       "sensor-1",
+		TrackState:     "confirmed",
+		StartUnixNanos: 1000,
+	}
+	if err := store.InsertRunTrack(track); err != nil {
+		t.Fatalf("InsertRunTrack failed: %v", err)
+	}
+
+	if err := store.UpdateTrackQualityFlags(
+		"run-flags-normalized", "track-flags-normalized", true, false,
+		[]string{" track-a ", "", "\ntrack-b\t"},
+	); err != nil {
+		t.Fatalf("UpdateTrackQualityFlags failed: %v", err)
+	}
+
+	storedTrack, err := store.GetRunTrack("run-flags-normalized", "track-flags-normalized")
+	if err != nil {
+		t.Fatalf("GetRunTrack failed: %v", err)
+	}
+	if len(storedTrack.LinkedTrackIDs) != 2 {
+		t.Fatalf("Expected 2 linked track IDs, got %d", len(storedTrack.LinkedTrackIDs))
+	}
+	if storedTrack.LinkedTrackIDs[0] != "track-a" || storedTrack.LinkedTrackIDs[1] != "track-b" {
+		t.Fatalf("LinkedTrackIDs mismatch: got %#v", storedTrack.LinkedTrackIDs)
+	}
+}
+
 // TestGetLabelingProgress tests getting labeling statistics.
 func TestGetLabelingProgress(t *testing.T) {
 	db, cleanup := setupAnalysisRunTestDB(t)
@@ -413,7 +555,8 @@ func TestGetLabelingProgress(t *testing.T) {
 
 	// Label some tracks
 	store.UpdateTrackLabel("run-progress", "track-1", "car", "", 0.9, "user-1", "human_manual")
-	store.UpdateTrackLabel("run-progress", "track-2", "pedestrian", "", 0.8, "user-1", "human_manual")
+	store.UpdateTrackLabel("run-progress", "track-2", "", "noisy", 0.8, "user-1", "human_manual")
+	store.UpdateTrackLabel("run-progress", "track-3", "pedestrian", "", 0.8, "hint-carryover", "carried_over")
 
 	// Get progress
 	total, labeled, byClass, err := store.GetLabelingProgress("run-progress")
@@ -430,8 +573,72 @@ func TestGetLabelingProgress(t *testing.T) {
 	if byClass["car"] != 1 {
 		t.Errorf("Car count mismatch: got %d, want 1", byClass["car"])
 	}
-	if byClass["pedestrian"] != 1 {
-		t.Errorf("Pedestrian count mismatch: got %d, want 1", byClass["pedestrian"])
+	if byClass["pedestrian"] != 0 {
+		t.Errorf("Pedestrian count mismatch: got %d, want 0", byClass["pedestrian"])
+	}
+}
+
+func TestGetLabelingProgressWithRollup_TrimsLegacyWhitespaceValues(t *testing.T) {
+	db, cleanup := setupAnalysisRunTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+	insertTestAnalysisRun(t, db, "run-progress-legacy-trim", "s1")
+
+	tracks := []*RunTrack{
+		{RunID: "run-progress-legacy-trim", TrackID: "track-1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000},
+		{RunID: "run-progress-legacy-trim", TrackID: "track-2", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 2000},
+		{RunID: "run-progress-legacy-trim", TrackID: "track-3", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 3000},
+	}
+	for _, tr := range tracks {
+		if err := store.InsertRunTrack(tr); err != nil {
+			t.Fatalf("InsertRunTrack failed: %v", err)
+		}
+	}
+
+	if _, err := db.Exec(`
+		UPDATE lidar_run_tracks
+		SET user_label = ?, label_source = ?
+		WHERE run_id = ? AND track_id = 'track-1'
+	`, " car\n", " human_manual ", "run-progress-legacy-trim"); err != nil {
+		t.Fatalf("update classified track failed: %v", err)
+	}
+	if _, err := db.Exec(`
+		UPDATE lidar_run_tracks
+		SET quality_label = ?, label_source = ?
+		WHERE run_id = ? AND track_id = 'track-2'
+	`, " noisy ", " human_manual ", "run-progress-legacy-trim"); err != nil {
+		t.Fatalf("update tagged track failed: %v", err)
+	}
+	if _, err := db.Exec(`
+		UPDATE lidar_run_tracks
+		SET user_label = ?, label_source = ?
+		WHERE run_id = ? AND track_id = 'track-3'
+	`, " pedestrian ", " carried_over ", "run-progress-legacy-trim"); err != nil {
+		t.Fatalf("update carried-over track failed: %v", err)
+	}
+
+	total, labeled, byClass, rollup, err := store.GetLabelingProgressWithRollup("run-progress-legacy-trim")
+	if err != nil {
+		t.Fatalf("GetLabelingProgressWithRollup failed: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("Total mismatch: got %d, want 3", total)
+	}
+	if labeled != 2 {
+		t.Fatalf("Labelled mismatch: got %d, want 2", labeled)
+	}
+	if byClass["car"] != 1 {
+		t.Fatalf("Expected trimmed byClass[car] = 1, got %#v", byClass)
+	}
+	if len(byClass) != 1 {
+		t.Fatalf("Expected exactly 1 byClass entry, got %#v", byClass)
+	}
+	if rollup == nil {
+		t.Fatal("Expected rollup")
+	}
+	if rollup.Classified != 1 || rollup.TaggedOnly != 1 || rollup.Unlabelled != 1 {
+		t.Fatalf("Unexpected rollup: %#v", rollup)
 	}
 }
 

@@ -73,7 +73,8 @@ struct AnalysisRunComputedPropertyTests {
 
     @Test func shortIdPrefixFormat() throws {
         let run = makeRun()
-        #expect(run.shortIdPrefix == "0xrun-te")
+        // "run-test" → up to first dash = "run"
+        #expect(run.shortIdPrefix == "run")
     }
 
     @Test func shortIdPrefixWithUUID() throws {
@@ -82,7 +83,8 @@ struct AnalysisRunComputedPropertyTests {
             sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
             totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: "kirk1")
-        #expect(run.shortIdPrefix == "0x4ea0f3")
+        // UUID: first 8 chars up to first dash
+        #expect(run.shortIdPrefix == "4ea0f3ab")
         #expect(run.sceneName == "kirk1")
     }
 
@@ -284,12 +286,18 @@ struct PlaybackStatusModelTests {
         state.currentTimestamp = 123
         state.currentRunID = nil
 
-        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { true }
+        await loadRunForReplayAndUpdateAppState(
+            runID: "run-123", appState: state, runBrowserState: state.runBrowserState
+        ) {
+            VRLogLoadResponse(
+                success: true, vrlogPath: "/data/run-123.vrlog", frameEncoding: "json")
+        }
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 1)
         XCTAssertFalse(state.isLive)
         XCTAssertEqual(state.currentRunID, "run-123")
+        XCTAssertEqual(state.replayFrameEncoding, "json")
         XCTAssertFalse(state.isPaused)
         XCTAssertFalse(state.replayFinished)
         XCTAssertEqual(state.currentTimestamp, 0)
@@ -300,12 +308,16 @@ struct PlaybackStatusModelTests {
         state.currentRunID = nil
         state.isLive = true
 
-        await loadRunForReplayAndUpdateAppState(runID: "run-123", appState: state) { false }
+        await loadRunForReplayAndUpdateAppState(
+            runID: "run-123", appState: state, runBrowserState: state.runBrowserState
+        ) { nil }
 
         XCTAssertEqual(state.prepareForNewReplayCallCount, 1)
         XCTAssertEqual(state.restartGRPCStreamCallCount, 0)
-        XCTAssertTrue(state.isLive)
+        // prepareForNewReplay resets isLive; the failed load does not restore it.
+        XCTAssertFalse(state.isLive)
         XCTAssertNil(state.currentRunID)
+        XCTAssertNil(state.replayFrameEncoding)
     }
 }
 

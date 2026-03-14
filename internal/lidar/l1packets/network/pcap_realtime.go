@@ -112,7 +112,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 	if err := handle.SetBPFFilter(filterStr); err != nil {
 		return fmt.Errorf("failed to set BPF filter '%s': %w", filterStr, err)
 	}
-	diagf("PCAP real-time replay: BPF filter set: %s (speed: %.1fx)", filterStr, config.SpeedMultiplier)
+	diagf("PCAP real-time replay: BPF filter set: %s (speed: %.2fx)", filterStr, config.SpeedMultiplier)
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	pcapLog := lidar.SubLogger("pcap")
@@ -160,7 +160,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			if packet == nil {
 				// End of PCAP file
 				elapsed := time.Since(startTime)
-				diagf("PCAP real-time replay complete: %d packets processed in %v (speed: %.1fx)", packetCount, elapsed, config.SpeedMultiplier)
+				diagf("PCAP real-time replay complete: %d packets processed in %v (speed: %.2fx)", packetCount, elapsed, config.SpeedMultiplier)
 				if backoffCount > 0 {
 					backoffPct := float64(totalBackoffPackets) / float64(max(packetCount, 1)) * 100
 					pcapLog("Replay backoff summary: %d total backoffs, max_behind=%.3fs, backoff_packets=%d/%d (%.1f%%), cumulative_yield=%.3fs, time_breakdown: parse=%.3fs frame=%.3fs pacing=%.3fs",
@@ -517,7 +517,7 @@ func ReadPCAPFileRealtime(ctx context.Context, pcapFile string, udpPort int, par
 			// Log progress periodically
 			if packetCount%10000 == 0 {
 				elapsed := time.Since(startTime)
-				lidar.Tracef("PCAP real-time replay progress: %d packets in %v (%.0f pkt/s, speed: %.1fx)",
+				lidar.Tracef("PCAP real-time replay progress: %d packets in %v (%.0f pkt/s, speed: %.2fx)",
 					packetCount, elapsed, float64(packetCount)/elapsed.Seconds(), config.SpeedMultiplier)
 			}
 		}

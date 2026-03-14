@@ -15,16 +15,15 @@ the track's observation history.
 
 ## 2. Object Classes
 
-| Class        | ObjectClass const | Description                                                |
-| ------------ | ----------------- | ---------------------------------------------------------- |
-| Bird         | `"bird"`          | Small flying object or ground-level animal                 |
-| Bus          | `"bus"`           | Bus, coach, or large passenger vehicle (length ≥ 7 m)      |
-| Truck        | `"truck"`         | Pickup truck, box truck, or freight vehicle                |
-| Car          | `"car"`           | Passenger car, SUV, or van                                 |
-| Motorcyclist | `"motorcyclist"`  | Person riding a motorcycle                                 |
-| Cyclist      | `"cyclist"`       | Person on a bicycle or e-scooter                           |
-| Pedestrian   | `"pedestrian"`    | Person walking, running, or using a mobility aid           |
-| Other        | `"dynamic"`       | Unclassifiable dynamic object or insufficient observations |
+| Class      | ObjectClass const | Description                                                |
+| ---------- | ----------------- | ---------------------------------------------------------- |
+| Pedestrian | `"pedestrian"`    | Person walking, running, or using a mobility aid           |
+| Cyclist    | `"cyclist"`       | Person on a bicycle, e-scooter, or motorcycle              |
+| Bird       | `"bird"`          | Small flying object or ground-level animal                 |
+| Bus        | `"bus"`           | Bus, coach, or large passenger vehicle (length ≥ 7 m)      |
+| Car        | `"car"`           | Passenger car, SUV, van, or truck                          |
+| Noise      | `"noise"`         | Spurious track (sensor noise, rain, dust, vegetation)      |
+| Other      | `"dynamic"`       | Unclassifiable dynamic object or insufficient observations |
 
 ### 2.1 Proto Enum
 
@@ -41,8 +40,8 @@ compatibility and self-documentation:
 | 5     | `OBJECT_CLASS_BIRD`         | Classifier + user |
 | 6     | `OBJECT_CLASS_BUS`          | Classifier + user |
 | 7     | `OBJECT_CLASS_CAR`          | Classifier + user |
-| 8     | `OBJECT_CLASS_TRUCK`        | Classifier + user |
-| 9     | `OBJECT_CLASS_MOTORCYCLIST` | Classifier + user |
+| 8     | `OBJECT_CLASS_TRUCK`        | Reserved (v0.6+)  |
+| 9     | `OBJECT_CLASS_MOTORCYCLIST` | Reserved (v0.6+)  |
 
 ## 3. Feature Vector
 
@@ -121,7 +120,10 @@ $$
 Confidence increases with extreme length (>10 m), width (>2.5 m),
 height (>2.5 m), and observation count (>20).
 
-### 5.3 Truck (large vehicle, smaller than bus)
+### 5.3 Truck — _reserved (v0.6+)_
+
+> **Disabled in v0.5.0.** Truck-like objects fall through to §5.4 (Car).
+> Thresholds are preserved for future reactivation.
 
 $$
 \bar{l} > L_{\text{truck}}
@@ -132,10 +134,6 @@ $$
 \;\land\;
 \bigl(\bar{v} > V_{\text{veh}} \;\lor\; v_{\text{max}} > 1.5 \, V_{\text{veh}}\bigr)
 $$
-
-Bus-sized objects are excluded (detected in §5.2). Confidence
-increases with length (>6 m), width (>2.2 m), height (>2.5 m),
-speed (>8 m/s), and observation count (>20).
 
 ### 5.4 Car (medium vehicle)
 
@@ -157,7 +155,11 @@ Bus- and truck-sized objects are excluded (detected in §5.2–5.3).
 Confidence increases with length (>4 m), width (>2 m), speed (>10 m/s),
 max speed (>15 m/s), and observation count (>20).
 
-### 5.5 Motorcyclist
+### 5.5 Motorcyclist — _reserved (v0.6+)_
+
+> **Disabled in v0.5.0.** Motorcycle-speed objects that don't match
+> cyclist thresholds fall through to §5.8 (Dynamic).
+> Thresholds are preserved for future reactivation.
 
 $$
 V_{\text{moto,min}} \le \bar{v} \le V_{\text{moto,max}}
@@ -166,11 +168,6 @@ V_{\text{moto,min}} \le \bar{v} \le V_{\text{moto,max}}
 \;\land\;
 L_{\text{moto,min}} \le \bar{l} \le L_{\text{moto,max}}
 $$
-
-Confidence increases in the typical motorcycle speed range
-($8 \le \bar{v} \le 25$ m/s), for narrow profiles ($\bar{w} \le 0.9$),
-for longer platforms ($\bar{l} \ge 2.0$), and when max speed exceeds
-12 m/s (distinguishing from cyclists).
 
 ### 5.6 Cyclist
 
@@ -234,17 +231,17 @@ As of v1.2, the classifier output and user-label vocabularies are
 aligned. Both use canonical full-word strings. The wire protocol uses
 a proto3 enum (`ObjectClass`) for forward compatibility.
 
-| Label            | Classifier output | User-assignable | Positive (real detection) |
-| ---------------- | ----------------- | --------------- | ------------------------- |
-| `"car"`          | ✓                 | ✓               | ✓                         |
-| `"truck"`        | ✓                 | ✓               | ✓                         |
-| `"bus"`          | ✓                 | ✓               | ✓                         |
-| `"pedestrian"`   | ✓                 | ✓               | ✓                         |
-| `"cyclist"`      | ✓                 | ✓               | ✓                         |
-| `"motorcyclist"` | ✓                 | ✓               | ✓                         |
-| `"bird"`         | ✓                 | ✓               | —                         |
-| `"noise"`        | —                 | ✓               | —                         |
-| `"dynamic"`      | ✓                 | ✓               | —                         |
+| Label            | Classifier output | User-assignable | Status           |
+| ---------------- | ----------------- | --------------- | ---------------- |
+| `"noise"`        | —                 | ✓               | Active           |
+| `"dynamic"`      | ✓                 | ✓               | Active           |
+| `"pedestrian"`   | ✓                 | ✓               | Active           |
+| `"cyclist"`      | ✓                 | ✓               | Active           |
+| `"bird"`         | ✓                 | ✓               | Active           |
+| `"bus"`          | ✓                 | ✓               | Active           |
+| `"car"`          | ✓                 | ✓               | Active           |
+| `"truck"`        | —                 | —               | Reserved (v0.6+) |
+| `"motorcyclist"` | —                 | —               | Reserved (v0.6+) |
 
 **Canonical locations:**
 

@@ -340,29 +340,34 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
 @available(macOS 15.0, *) @MainActor final class PlaybackModeBadgeViewCoverageTests: XCTestCase {
 
     func testLiveMode() throws {
-        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: true)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "LIVE", mode: .live, isConnected: true, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testReplayNonSeekable() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isConnected: true)
+            modeLabel: "REPLAY (PCAP)", mode: .replayNonSeekable, isConnected: true,
+            showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testReplaySeekable() throws {
         let view = PlaybackModeBadgeView(
-            modeLabel: "REPLAY (VRLOG)", mode: .replaySeekable, isConnected: true)
+            modeLabel: "REPLAY (VRLOG)", mode: .replaySeekable, isConnected: true,
+            showsLegacyJSONWarning: true)
         let _ = view.body
     }
 
     func testUnknownMode() throws {
-        let view = PlaybackModeBadgeView(modeLabel: "??", mode: .unknown, isConnected: true)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "??", mode: .unknown, isConnected: true, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testDisconnected() throws {
-        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: false)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "LIVE", mode: .live, isConnected: false, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 }
@@ -862,7 +867,7 @@ struct LabelButtonCoverageTests {
 
     @Test func activeWithShortcut() throws {
         let view = LabelButton(
-            label: "truck", shortcut: "2", isActive: true, helpText: "Pickup truck"
+            label: "bus", shortcut: "2", isActive: true, helpText: "Bus or coach"
         ) {}
         let _ = view.body
     }
@@ -1275,7 +1280,7 @@ struct FormatFunctionsCoverageTests {
 
 struct LabelPanelStaticDataTests {
     @Test func classificationLabelsCount() throws {
-        #expect(LabelPanelView.classificationLabels.count == 9)
+        #expect(LabelPanelView.classificationLabels.count == 7)
     }
 
     @Test func classificationLabelsNamesNotEmpty() throws {
@@ -1299,9 +1304,10 @@ struct LabelPanelStaticDataTests {
 
 struct TrackSortOrderTests {
     @Test func allCases() throws {
-        #expect(TrackSortOrder.allCases.count == 2)
+        #expect(TrackSortOrder.allCases.count == 3)
         #expect(TrackSortOrder.firstSeen.rawValue == "First seen")
         #expect(TrackSortOrder.maxSpeed.rawValue == "Max velocity")
+        #expect(TrackSortOrder.hits.rawValue == "Hits")
     }
 }
 

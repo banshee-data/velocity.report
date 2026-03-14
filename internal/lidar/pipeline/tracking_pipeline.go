@@ -31,6 +31,10 @@ type VisualiserPublisher interface {
 // VisualiserAdapter interface converts tracking outputs to FrameBundle.
 type VisualiserAdapter interface {
 	AdaptFrame(frame *l2frames.LiDARFrame, foregroundMask []bool, clusters []l4perception.WorldCluster, tracker l5tracks.TrackerInterface, debugFrame interface{}) interface{}
+	// AdaptEmptyFrame creates a minimal FrameBundle with no perception
+	// data, preserving the frame's timestamp and ID for 1:1 PCAP-to-VRLOG
+	// deterministic recording. The frame is marked as FrameTypeEmpty.
+	AdaptEmptyFrame(frame *l2frames.LiDARFrame) interface{}
 }
 
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
@@ -240,6 +244,21 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	var frameDurations []float64      // rolling window of frame durations (ms)
 	var lastFrameEndTime time.Time    // for lag ratio computation
 	var consecutiveBehind int         // consecutive frames where lag > 1.0
+
+	// Deterministic recording: when a visualiser adapter and publisher are
+	// configured, every sensor frame must produce a VRLOG entry — even
+	// frames with no foreground objects. This helper publishes a minimal
+	// empty FrameBundle (FrameTypeEmpty) at early-return points that would
+	// otherwise skip Publish().
+	hasVisualiser := !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher)
+	publishEmptyFrame := func(frame *l2frames.LiDARFrame) {
+		if !hasVisualiser {
+			return
+		}
+		emptyBundle := cfg.VisualiserAdapter.AdaptEmptyFrame(frame)
+		cfg.VisualiserPublisher.Publish(emptyBundle)
+	}
+
 	return func(frame *l2frames.LiDARFrame) {
 		if frame == nil || len(frame.Points) == 0 {
 			return
@@ -255,6 +274,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		polar := frame.PolarPoints
 
 		if cfg.BackgroundManager == nil {
+			publishEmptyFrame(frame)
 			return
 		}
 
@@ -274,6 +294,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
 		if err != nil || mask == nil {
 			opsf("Failed to get foreground mask: %v", err)
+			publishEmptyFrame(frame)
 			return
 		}
 
@@ -311,7 +332,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		l3grid.StoreForegroundSnapshot(sensorID, frame.StartTimestamp, foregroundPoints, backgroundPolar, totalPoints, len(foregroundPoints))
 
 		if len(foregroundPoints) == 0 {
-			// No foreground detected, skip tracking
+			// No foreground detected — still record an empty frame for
+			// deterministic 1:1 PCAP-to-VRLOG mapping.
+			publishEmptyFrame(frame)
 			return
 		}
 
@@ -332,6 +355,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				// (max_misses=3) within ~300 ms. Live sensors never
 				// reach this path (MaxFrameRate > sensor Hz), so
 				// skipping AdvanceMisses has no effect on live tracking.
+				//
+				// Still record the frame for deterministic VRLOG mapping.
+				publishEmptyFrame(frame)
 				return
 			}
 			lastProcessedTime = now
@@ -469,6 +495,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
+			publishEmptyFrame(frame)
 			return
 		}
 
@@ -512,6 +539,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
+			publishEmptyFrame(frame)
 			return
 		}
 
@@ -541,6 +569,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), len(clusters), 0)
 			}
+			publishEmptyFrame(frame)
 			return
 		}
 

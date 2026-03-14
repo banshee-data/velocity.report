@@ -158,7 +158,7 @@ type TrackedObject struct {
 	// History of positions
 	History []TrackPoint
 
-	// Speed history for percentile computation
+	// Speed history for jitter/variance analysis and classification features
 	speedHistory []float32
 
 	// OBB heading (smoothed via exponential moving average)
@@ -949,6 +949,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 	// Update timestamp
 	track.LastUnixNanos = nowNanos
+	if track.LastUnixNanos > track.FirstUnixNanos {
+		track.TrackDurationSecs = float32(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
+	}
 
 	// Update aggregated features
 	track.ObservationCount++
@@ -984,17 +987,30 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	// Skip points too close to origin (noise/self-reflection)
 	distFromOrigin := track.X*track.X + track.Y*track.Y
 	if distFromOrigin > 0.01 { // > 0.1m squared
+		var (
+			previousPoint TrackPoint
+			hasPrevious   bool
+		)
+		if len(track.History) > 0 {
+			previousPoint = track.History[len(track.History)-1]
+			hasPrevious = true
+		}
 		track.History = append(track.History, TrackPoint{
 			X:         track.X,
 			Y:         track.Y,
 			Timestamp: nowNanos,
 		})
+		if hasPrevious {
+			dx := track.X - previousPoint.X
+			dy := track.Y - previousPoint.Y
+			track.TrackLengthMeters += float32(math.Sqrt(float64(dx*dx + dy*dy)))
+		}
 		if len(track.History) > t.Config.MaxTrackHistoryLength {
 			track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 		}
 	}
 
-	// Store speed history for percentile computation
+	// Store speed history for jitter/variance analysis
 	track.speedHistory = append(track.speedHistory, speed)
 	if len(track.speedHistory) > t.Config.MaxSpeedHistoryLength {
 		track.speedHistory = track.speedHistory[1:]
@@ -1229,6 +1245,8 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		BoundingBoxHeightAvg: cluster.BoundingBoxHeight,
 		HeightP95Max:         cluster.HeightP95,
 		IntensityMeanAvg:     cluster.IntensityMean,
+		TrackLengthMeters:    0,
+		TrackDurationSecs:    0,
 
 		History: []TrackPoint{{
 			X:         cluster.CentroidX,
@@ -1481,7 +1499,9 @@ func (track *TrackedObject) Heading() float32 {
 	return float32(math.Atan2(float64(track.VY), float64(track.VX)))
 }
 
-// SpeedHistory returns a copy of the track's speed history for percentile computation.
+// SpeedHistory returns a copy of the track's speed history for classification
+// and jitter/variance analysis. Speed percentiles are never computed per-track;
+// they are aggregate-only (see speed-percentile-aggregation-alignment-plan.md).
 func (track *TrackedObject) SpeedHistory() []float32 {
 	if track.speedHistory == nil {
 		return nil

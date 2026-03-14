@@ -154,6 +154,73 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 	}
 }
 
+// TestUpdateTrackLabelTrimsWhitespaceBeforeValidation ensures write-time
+// normalisation matches the rollup contract and accepts whitespace-padded input.
+func TestUpdateTrackLabelTrimsWhitespaceBeforeValidation(t *testing.T) {
+	sqlDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	runID := "test-run-001-trimmed"
+	store := sqlite.NewAnalysisRunStore(sqlDB)
+	setupTestRun(t, store, runID)
+
+	testDB := &db.DB{DB: sqlDB}
+	ws := &WebServer{db: testDB}
+
+	reqBody := map[string]interface{}{
+		"user_label":       "  car \n",
+		"quality_label":    " good, noisy ",
+		"label_confidence": 0.95,
+		"labeler_id":       " test-user ",
+		"label_source":     " human_manual ",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/test-run-001-trimmed/tracks/track-001/label", bytes.NewReader(bodyBytes))
+	w := httptest.NewRecorder()
+
+	ws.handleUpdateTrackLabel(w, req, runID, "track-001")
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result["user_label"] != "car" {
+		t.Fatalf("expected trimmed user_label 'car', got %v", result["user_label"])
+	}
+	if result["quality_label"] != "good,noisy" {
+		t.Fatalf("expected canonical quality_label 'good,noisy', got %v", result["quality_label"])
+	}
+	if result["labeler_id"] != "test-user" {
+		t.Fatalf("expected trimmed labeler_id 'test-user', got %v", result["labeler_id"])
+	}
+
+	track, err := store.GetRunTrack(runID, "track-001")
+	if err != nil {
+		t.Fatalf("GetRunTrack failed: %v", err)
+	}
+	if track.UserLabel != "car" {
+		t.Fatalf("stored user_label mismatch: got %q", track.UserLabel)
+	}
+	if track.QualityLabel != "good,noisy" {
+		t.Fatalf("stored quality_label mismatch: got %q", track.QualityLabel)
+	}
+	if track.LabelerID != "test-user" {
+		t.Fatalf("stored labeler_id mismatch: got %q", track.LabelerID)
+	}
+	if track.LabelSource != "human_manual" {
+		t.Fatalf("stored label_source mismatch: got %q", track.LabelSource)
+	}
+}
+
 // TestUpdateTrackLabelInvalid tests that invalid labels are rejected
 func TestUpdateTrackLabelInvalid(t *testing.T) {
 	sqlDB, cleanup := setupTestDB(t)
@@ -309,6 +376,25 @@ func TestListRuns(t *testing.T) {
 	if int(count) != 3 {
 		t.Errorf("expected 3 runs, got %d", int(count))
 	}
+
+	runsResult, ok := result["runs"].([]interface{})
+	if !ok || len(runsResult) == 0 {
+		t.Fatalf("expected runs array in response, got %T", result["runs"])
+	}
+	firstRun, ok := runsResult[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected first run object, got %T", runsResult[0])
+	}
+	rollup, ok := firstRun["label_rollup"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected label_rollup object, got %T", firstRun["label_rollup"])
+	}
+	if firstRun["scene_name"] != "data" {
+		t.Errorf("expected scene_name data, got %v", firstRun["scene_name"])
+	}
+	if int(rollup["total"].(float64)) != 3 {
+		t.Errorf("expected label_rollup total 3, got %v", rollup["total"])
+	}
 }
 
 // TestLabellingProgress tests the labelling progress endpoint
@@ -320,9 +406,12 @@ func TestLabellingProgress(t *testing.T) {
 	store := sqlite.NewAnalysisRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
-	// Label one track
+	// Label one track and add quality-only feedback to another.
 	if err := store.UpdateTrackLabel(runID, "track-001", "car", "good", 0.95, "test-user", "human_manual"); err != nil {
 		t.Fatalf("failed to label track: %v", err)
+	}
+	if err := store.UpdateTrackLabel(runID, "track-002", "", "noisy", 0.95, "test-user", "human_manual"); err != nil {
+		t.Fatalf("failed to add quality label: %v", err)
 	}
 
 	testDB := &db.DB{DB: sqlDB}
@@ -352,8 +441,8 @@ func TestLabellingProgress(t *testing.T) {
 	}
 
 	labelled, ok := result["labelled"].(float64)
-	if !ok || int(labelled) != 1 {
-		t.Errorf("expected labelled 1, got %v", result["labelled"])
+	if !ok || int(labelled) != 2 {
+		t.Errorf("expected labelled 2, got %v", result["labelled"])
 	}
 
 	progressPct, ok := result["progress_pct"].(float64)
@@ -361,7 +450,7 @@ func TestLabellingProgress(t *testing.T) {
 		t.Fatalf("expected progress_pct to be a number, got %T", result["progress_pct"])
 	}
 
-	expectedPct := 100.0 / 3.0 // 1 out of 3 tracks labelled
+	expectedPct := 200.0 / 3.0 // 2 out of 3 tracks labelled
 	if progressPct < expectedPct-0.1 || progressPct > expectedPct+0.1 {
 		t.Errorf("expected progress_pct ~%.2f%%, got %.2f%%", expectedPct, progressPct)
 	}
@@ -374,6 +463,20 @@ func TestLabellingProgress(t *testing.T) {
 	goodVehicleCount, ok := byClass["car"].(float64)
 	if !ok || int(goodVehicleCount) != 1 {
 		t.Errorf("expected car count 1, got %v", byClass["car"])
+	}
+
+	rollup, ok := result["label_rollup"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected label_rollup to be a map, got %T", result["label_rollup"])
+	}
+	if int(rollup["classified"].(float64)) != 1 {
+		t.Errorf("expected classified 1, got %v", rollup["classified"])
+	}
+	if int(rollup["tagged_only"].(float64)) != 1 {
+		t.Errorf("expected tagged_only 1, got %v", rollup["tagged_only"])
+	}
+	if int(rollup["unlabelled"].(float64)) != 1 {
+		t.Errorf("expected unlabelled 1, got %v", rollup["unlabelled"])
 	}
 }
 

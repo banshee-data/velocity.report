@@ -40,9 +40,8 @@ and emits a `comparison.json` to stdout (or a specified path).
 
 ```jsonc
 {
-  "version": "1.0",
+  "version": "0.5.0-pre16", // velocity.report version that generated this report
   "generated_at": "2026-03-09T21:19:03Z", // ISO 8601
-  "tool_version": "0.5.0-pre16", // velocity.report version
   "source": "sample.vrlog", // basename of the .vrlog directory
 
   "recording": {
@@ -67,7 +66,8 @@ and emits a `comparison.json` to stdout (or a specified path).
 ```
 
 All speeds are in **m/s**. All timestamps are **Unix nanoseconds** (int64) unless
-otherwise noted. Distances are in **metres**. Angles are in **radians**.
+otherwise noted. Distances are in **metres**. Angles are in **radians** for raw
+headings (`heading_rad`); fields suffixed `_deg` are in **degrees**.
 
 ---
 
@@ -77,6 +77,7 @@ Copied from `header.json` plus derived fields.
 
 ```jsonc
 {
+  "format_version": "0.5", // VRLOG wire-format version from .vrlog/header.json
   "sensor_id": "hesai-01",
   "total_frames": 1800,
   "created_ns": 1740000000000000000, // wall-clock time header was written
@@ -86,6 +87,13 @@ Copied from `header.json` plus derived fields.
   "frame_rate_hz": 9.28, // total_frames / duration_secs
   "inferred_replay_speed": 0.928, // frame_rate_hz / 10.0 (nominal LiDAR Hz)
   "coordinate_frame": "ENU",
+
+  // Provenance (from header.json)
+  "source_type": "pcap", // "live", "pcap", or "synthetic"
+  "pcap_path": "site-capture.pcap", // original PCAP filename (basename)
+  "playback_rate": 1.0, // configured replay speed multiplier
+  "tuning_hash": "a1b2c3d4e5f6...", // SHA-256 of tuning config JSON
+  "build_version": "0.5.0-pre16", // velocity.report version that recorded
 }
 ```
 
@@ -93,6 +101,26 @@ Copied from `header.json` plus derived fields.
 the recording was created. A value near 1.0 means real-time; values above 1.0
 indicate faster-than-real-time replay; below 1.0 indicates slower. Omitted
 (zero) when the frame rate cannot be determined.
+
+---
+
+### Percentile and DistStats Policy
+
+All `DistStats` blocks (§3, §4, §6) compute distribution statistics over a
+**population** of values — never over a single track's observations.
+Percentile fields are conditional on sample count:
+
+| Field | Minimum samples | Why                                                                              |
+| ----- | --------------- | -------------------------------------------------------------------------------- |
+| `p50` | 3               | Median is meaningless with 1–2 values                                            |
+| `p85` | 8               | 85th percentile needs a reasonable tail                                          |
+| `p98` | 50              | The headline high-speed metric; statistically meaningless below ~50 observations |
+
+For speed specifically, the **only** surface for percentiles is the aggregate
+speed histogram (§6), computed over each track's `max_speed_mps`. The core
+metric is **p98 of track max speeds** — the fastest speed exceeded by only 2%
+of observed vehicles. Per-track speed is described by `avg_speed_mps`,
+`max_speed_mps`, variance, and jitter — never by percentile labels.
 
 ---
 
@@ -115,13 +143,13 @@ Aggregate statistics across all frames in the recording.
 
   "frame_interval_ms": {
     // inter-frame gap distribution
-    "min": 95.2,
-    "max": 112.8,
-    "avg": 100.1,
-    "p50": 100.0,
-    "p85": 103.2,
-    "p98": 110.1,
     "samples": 1799,
+    "min": 95.2,
+    "avg": 100.1,
+    "p50": 100.0, // present when samples >= 3
+    "p85": 103.2, // present when samples >= 8
+    "p98": 110.1, // present when samples >= 50
+    "max": 112.8,
   },
 }
 ```
@@ -143,32 +171,32 @@ Aggregate statistics across all confirmed tracks.
 
   "observation_count": {
     // per confirmed track
+    "samples": 27,
     "min": 4,
-    "max": 87,
     "avg": 18.3,
     "p50": 14,
     "p85": 38,
-    "p98": 52,
+    "max": 87,
   },
 
   "track_duration_secs": {
     // per confirmed track
+    "samples": 27,
     "min": 0.4,
-    "max": 8.7,
     "avg": 1.83,
     "p50": 1.4,
     "p85": 3.8,
-    "p98": 5.2,
+    "max": 8.7,
   },
 
   "track_length_metres": {
     // cumulative displacement
+    "samples": 27,
     "min": 0.1,
-    "max": 42.5,
     "avg": 8.7,
     "p50": 5.2,
     "p85": 18.4,
-    "p98": 30.1,
+    "max": 42.5,
   },
 
   "occlusion": {
@@ -180,43 +208,39 @@ Aggregate statistics across all confirmed tracks.
   // Jitter and alignment aggregates (§12.1 — now implemented)
   "jitter": {
     "heading_jitter_deg": {
+      "samples": 27,
       "min": 0.0,
-      "max": 12.1,
       "avg": 3.5,
       "p50": 2.8,
       "p85": 7.4,
-      "p98": 11.2,
-      "samples": 27,
+      "max": 12.1,
     },
     "speed_jitter_mps": {
+      "samples": 27,
       "min": 0.0,
-      "max": 1.8,
       "avg": 0.3,
       "p50": 0.2,
       "p85": 0.7,
-      "p98": 1.4,
-      "samples": 27,
+      "max": 1.8,
     },
   },
 
   "alignment": {
     "alignment_mean_deg": {
+      "samples": 27,
       "min": 0.0,
-      "max": 45.1,
       "avg": 8.2,
       "p50": 6.1,
       "p85": 18.4,
-      "p98": 38.2,
-      "samples": 27,
+      "max": 45.1,
     },
     "misalignment_ratio": {
+      "samples": 27,
       "min": 0.0,
-      "max": 0.42,
       "avg": 0.04,
       "p50": 0.02,
       "p85": 0.1,
-      "p98": 0.3,
-      "samples": 27,
+      "max": 0.42,
     },
   },
 }
@@ -280,27 +304,32 @@ One entry per track (all states). Sorted by `first_seen_ns` ascending.
 The `speed_samples` array contains one Kalman-derived speed per observation frame.
 This enables:
 
-- Per-track speed histograms and percentile computation downstream.
 - Jitter visualisation (plot speed over time).
 - Comparison of speed profiles between matched tracks across runs.
+- Variance and RMS jitter computation (§12.1).
 
-For recordings with > 10,000 total observations, speed samples MAY be omitted
-and replaced with a per-track percentile summary:
+**Percentile policy:** Percentiles (p50, p85, p98) are **never** computed on a
+single track's speed samples. They are only meaningful — and only emitted —
+across a **population** of tracks. The core metric is **p98 of track max
+speeds** over a window of 50+ observations (see §6). Per-track speed is
+summarised by `avg_speed_mps`, `max_speed_mps`, and jitter/variance metrics
+— never by percentile labels.
 
-```jsonc
-"speed_percentiles": {
-  "p50": 8.4,
-  "p85": 8.8,
-  "p95": 9.0
-}
-```
+See [Speed Percentile Aggregation Alignment Plan](../../docs/plans/speed-percentile-aggregation-alignment-plan.md)
+for the governing design decision.
 
 ---
 
 ## 6. Speed Histogram
 
 Aggregate speed distribution across all confirmed tracks, using each track's
-`avg_speed_mps`. Bin width is configurable (default 1 m/s).
+`max_speed_mps`. Bin width is configurable (default 1 m/s).
+
+The `percentiles` block computes p50/p85/p98 over the population of track max
+speeds. **This is the only context in which speed percentiles are computed.**
+The headline metric — **p98** — requires at least 50 tracks to be emitted
+(see `DistStats` thresholds in §3). Per-track speed is summarised by
+`avg_speed_mps` and `max_speed_mps`, never by percentile labels.
 
 ```jsonc
 {
@@ -313,9 +342,12 @@ Aggregate speed distribution across all confirmed tracks, using each track's
     { "lower": 4.0, "upper": 5.0, "count": 1 },
   ],
   "percentiles": {
+    "samples": 27,
+    "min": 1.2,
+    "avg": 4.1,
     "p50": 3.2,
     "p85": 6.8,
-    "p95": 8.9,
+    "max": 8.9,
   },
   "total_tracks": 27,
 }
@@ -367,7 +399,7 @@ When `vrlog-analyse compare a.vrlog b.vrlog` is invoked, the tool reads both
 
 ```jsonc
 {
-  "version": "1.0",
+  "version": "0.5.0-pre16",
   "generated_at": "2026-03-09T21:30:00Z",
   "run_a": "analysis-run.vrlog",
   "run_b": "realtime-run.vrlog",
@@ -493,16 +525,15 @@ vrlog-analyse report sample.vrlog --compact
 
 ## 10. Relationship to Existing Infrastructure
 
-| Component                                                                                  | Role                                            | Reuse                                |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------ |
-| [`l6objects.ComputeTemporalIoU`](../../internal/lidar/l6objects/comparison.go)             | Temporal overlap for track matching             | Direct call                          |
-| [`l6objects.ComputeSpeedPercentiles`](../../internal/lidar/l6objects/speed_percentiles.go) | Speed percentile computation                    | Direct call                          |
-| [`l5tracks.HungarianAssign`](../../internal/lidar/l5tracks/hungarian.go)                   | Optimal bipartite track matching                | Direct call                          |
-| [`l6objects.RunComparison`](../../internal/lidar/l6objects/comparison.go)                  | Split/merge/match structs                       | Extend or wrap                       |
-| [`adapters.EvaluateGroundTruth`](../../internal/lidar/adapters/ground_truth.go)            | Ground truth scoring with weights               | Pattern reference (not direct reuse) |
-| [`recorder.Replayer`](../../internal/lidar/visualiser/recorder/recorder.go)                | Read `.vrlog` frames sequentially               | Direct call                          |
-| [`visualiser.FrameBundle`](../../internal/lidar/visualiser/model.go)                       | Canonical frame model with Track, Cluster data  | Direct consumption                   |
-| [`pcap-analyse`](../../cmd/tools/pcap-analyse/main.go)                                     | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
+| Component                                                                       | Role                                            | Reuse                                |
+| ------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------ |
+| [`l6objects.ComputeTemporalIoU`](../../internal/lidar/l6objects/comparison.go)  | Temporal overlap for track matching             | Direct call                          |
+| [`l5tracks.HungarianAssign`](../../internal/lidar/l5tracks/hungarian.go)        | Optimal bipartite track matching                | Direct call                          |
+| [`l6objects.RunComparison`](../../internal/lidar/l6objects/comparison.go)       | Split/merge/match structs                       | Extend or wrap                       |
+| [`adapters.EvaluateGroundTruth`](../../internal/lidar/adapters/ground_truth.go) | Ground truth scoring with weights               | Pattern reference (not direct reuse) |
+| [`recorder.Replayer`](../../internal/lidar/visualiser/recorder/recorder.go)     | Read `.vrlog` frames sequentially               | Direct call                          |
+| [`visualiser.FrameBundle`](../../internal/lidar/visualiser/model.go)            | Canonical frame model with Track, Cluster data  | Direct consumption                   |
+| [`pcap-analyse`](../../cmd/tools/pcap-analyse/main.go)                          | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
 
 ### What vrlog-analyse adds beyond pcap-analyse
 
@@ -512,7 +543,7 @@ the perception outputs (tracks, clusters, points) without re-running the pipelin
 This means:
 
 - **Deterministic** — same `.vrlog` always produces the same analysis.
-- **Fast** — no signal processing, just JSON deserialization and metric computation.
+- **Fast** — no signal processing, just frame deserialisation and metric computation.
 - **Offline-first** — `.vrlog` files can be shared, archived, and re-analysed.
 - **Two-file comparison** — direct structural comparison without database state.
 
@@ -552,11 +583,12 @@ per-track `speed_samples` array. For the aggregate histogram (§6), each track
 contributes its `AvgSpeedMps` (mean of `speed_samples`), not individual frame
 readings.
 
-### Frame Matching for Comparison
+### Frame Matching for Comparison (Future)
 
-When comparing two `.vrlog` files, frames are paired by nearest timestamp
-within a tolerance window. The index.bin provides O(1) timestamp lookup for
-each frame, enabling efficient alignment without loading frame payloads.
+The current comparator operates on precomputed `analysis.json` reports and does
+not perform frame-level matching. A future iteration may pair frames by nearest
+timestamp within a tolerance window, using the `index.bin` for O(1) timestamp
+lookup.
 
 ### Spatial Distance (Future)
 
@@ -590,20 +622,21 @@ report and comparison outputs.
 | `histogram_earth_mover_distance` | §8.4    | float64 | Wasserstein-1 distance between speed histograms            |
 | `per_pair`                       | §8.4    | array   | Per-matched-pair speed breakdown with both A and B speeds  |
 
-### 12.2 Implementable with Vrlog Header Changes
+### 12.2 Implemented — Header Provenance Fields
 
-These require extending `LogHeader` to store provenance at recording time.
+These fields are stored in `LogHeader` at recording time and copied into §2
+recording metadata by the analyser.
 
 | Field           | Section | Type    | Description                                            |
 | --------------- | ------- | ------- | ------------------------------------------------------ |
 | `source_type`   | §2      | string  | Recording source: `"live"`, `"pcap"`, or `"synthetic"` |
 | `pcap_path`     | §2      | string  | Original PCAP filename (when source is pcap)           |
-| `playback_rate` | §2      | float32 | Configured replay speed multiplier at recording time   |
+| `playback_rate` | §2      | float64 | Configured replay speed multiplier at recording time   |
 | `tuning_hash`   | §2      | string  | SHA-256 of the tuning config active during recording   |
 | `build_version` | §2      | string  | velocity.report version that created the recording     |
 
-Note: `inferred_replay_speed` (now in §2) provides a best-effort estimate from
-frame timing. Explicit `playback_rate` in the header would be authoritative.
+Note: `inferred_replay_speed` (in §2) provides a best-effort estimate from
+frame timing. `playback_rate` from the header is authoritative when present.
 
 ### 12.3 Future — Requires Upstream Tracker Changes
 
@@ -620,3 +653,62 @@ These require new fields on `visualiser.Track` propagated from
 | `spatial_distance_m`     | §8.3    | float64 | Mean Euclidean distance between interpolated positions   |
 | split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection            |
 | quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)           |
+
+### 12.4 Future — PCAP Segment Identity
+
+To verify that two `.vrlog` recordings were generated from exactly the same
+PCAP packet range (enabling high-integrity A/B comparison), store a
+fingerprint of the source PCAP segment in the header.
+
+| Field                | Type   | Description                                          |
+| -------------------- | ------ | ---------------------------------------------------- |
+| `pcap_file_hash`     | string | SHA-256 of the entire PCAP file                      |
+| `first_packet_hash`  | string | SHA-256 of the first UDP payload in the packet range |
+| `first_packet_ts`    | int64  | Timestamp (ns) of the first packet                   |
+| `first_packet_index` | int64  | 0-based packet number within the PCAP file           |
+| `last_packet_hash`   | string | SHA-256 of the last UDP payload in the packet range  |
+| `last_packet_ts`     | int64  | Timestamp (ns) of the last packet                    |
+| `last_packet_index`  | int64  | 0-based packet number within the PCAP file           |
+
+Two recordings whose first/last packet hashes, timestamps, indices, and file
+hash all match are guaranteed to originate from the same source data.
+
+**Future extension:** a rolling hash (or Merkle root) of all packets in the
+played range. This provides stronger integrity but requires reading all
+packets at recording time, which adds I/O overhead.
+
+**Implementation notes:**
+
+- Store in `LogHeader` under a `pcap_identity` nested object.
+- Populate during PCAP replay in `cmd/radar/radar.go` via the existing
+  `pcap.Reader` — capture first/last packet metadata and the file hash.
+- Comparison tool (§8) can auto-verify identity match before comparing.
+
+### 12.5 Future — Track Centroid Trajectory
+
+To programmatically match tracks across recordings even when the tracker
+fragments observations into different track IDs, store the approximate
+spatial trajectory of each track's centroid.
+
+| Field                 | Section | Type  | Description                                           |
+| --------------------- | ------- | ----- | ----------------------------------------------------- |
+| `centroid_trajectory` | §5      | array | Sampled `[timestamp_ns, x, y]` tuples along the track |
+
+This enables:
+
+- **Cross-run track correlation:** overlay centroid paths from two recordings
+  and match tracks by spatial proximity + temporal overlap, even when the
+  tracker produces different fragmentation.
+- **Spatial clustering:** group tracks from separate runs that pass through
+  the same physical region, identifying whether different track IDs likely
+  correspond to the same real-world object.
+
+**Implementation notes:**
+
+- Sample at ~1 Hz (every 10th frame at 10 Hz LiDAR) to keep payload small.
+  For a 60 s track at 1 Hz = 60 tuples of `[int64, float32, float32]`.
+- Matching algorithm: for each pair of runs, slide a temporal window and
+  compute mean Euclidean distance between nearest-timestamp centroids.
+  Pairs below a threshold (e.g. 2 m) are candidate matches.
+- Complement the existing Hungarian matching (§8.3 temporal IoU) with a
+  spatial distance term weighted by centroid proximity.

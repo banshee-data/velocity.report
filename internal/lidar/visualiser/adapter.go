@@ -111,6 +111,17 @@ func (a *FrameAdapter) AdaptFrame(
 	return bundle
 }
 
+// AdaptEmptyFrame creates a minimal FrameBundle with no perception data.
+// Used for deterministic 1:1 PCAP-to-VRLOG recording: every sensor rotation
+// produces a frame in the VRLOG, even when no foreground objects are detected.
+// The frame preserves the timestamp and monotonic ID for seek alignment.
+func (a *FrameAdapter) AdaptEmptyFrame(frame *l2frames.LiDARFrame) interface{} {
+	a.frameID++
+	bundle := NewFrameBundle(a.frameID, a.sensorID, frame.StartTimestamp)
+	bundle.FrameType = FrameTypeEmpty
+	return bundle
+}
+
 // adaptPointCloud converts a LiDARFrame to a PointCloudFrame.
 // Uses sync.Pool for slice allocation to reduce GC pressure.
 func (a *FrameAdapter) adaptPointCloud(frame *l2frames.LiDARFrame, mask []bool) *PointCloudFrame {

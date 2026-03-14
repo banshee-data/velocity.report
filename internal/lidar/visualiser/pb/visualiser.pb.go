@@ -91,6 +91,7 @@ const (
 	FrameType_FRAME_TYPE_FOREGROUND FrameType = 1 // Foreground + clusters + tracks only
 	FrameType_FRAME_TYPE_BACKGROUND FrameType = 2 // Background snapshot
 	FrameType_FRAME_TYPE_DELTA      FrameType = 3 // Future: incremental update
+	FrameType_FRAME_TYPE_EMPTY      FrameType = 4 // Placeholder: no foreground objects detected
 )
 
 // Enum value maps for FrameType.
@@ -100,12 +101,14 @@ var (
 		1: "FRAME_TYPE_FOREGROUND",
 		2: "FRAME_TYPE_BACKGROUND",
 		3: "FRAME_TYPE_DELTA",
+		4: "FRAME_TYPE_EMPTY",
 	}
 	FrameType_value = map[string]int32{
 		"FRAME_TYPE_FULL":       0,
 		"FRAME_TYPE_FOREGROUND": 1,
 		"FRAME_TYPE_BACKGROUND": 2,
 		"FRAME_TYPE_DELTA":      3,
+		"FRAME_TYPE_EMPTY":      4,
 	}
 )
 
@@ -331,7 +334,9 @@ func (MotionModel) EnumDescriptor() ([]byte, []int) {
 
 // ObjectClass enumerates all valid object classifications.
 // Used by both the rule-based classifier (output) and human label annotations (input).
-// All 9 classes are user-assignable. Classifier outputs: DYNAMIC..MOTORCYCLIST.
+// v0.5.0 ships 7 user-assignable classes. TRUCK and MOTORCYCLIST are reserved
+// for future use when the classifier has enough training data to distinguish them
+// reliably — until then trucks classify as CAR and motorcyclists as CYCLIST.
 type ObjectClass int32
 
 const (
@@ -343,8 +348,8 @@ const (
 	ObjectClass_OBJECT_CLASS_BIRD         ObjectClass = 5 // Bird, drone, small flying object
 	ObjectClass_OBJECT_CLASS_BUS          ObjectClass = 6 // Bus, coach, large passenger vehicle
 	ObjectClass_OBJECT_CLASS_CAR          ObjectClass = 7 // Passenger car, SUV, van
-	ObjectClass_OBJECT_CLASS_TRUCK        ObjectClass = 8 // Pickup truck, box truck, freight vehicle
-	ObjectClass_OBJECT_CLASS_MOTORCYCLIST ObjectClass = 9 // Person riding a motorcycle
+	ObjectClass_OBJECT_CLASS_TRUCK        ObjectClass = 8 // Reserved (v0.6+): pickup truck, box truck, freight vehicle
+	ObjectClass_OBJECT_CLASS_MOTORCYCLIST ObjectClass = 9 // Reserved (v0.6+): person riding a motorcycle
 )
 
 // Enum value maps for ObjectClass.
@@ -3426,12 +3431,13 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x0fDECIMATION_NONE\x10\x00\x12\x16\n" +
 	"\x12DECIMATION_UNIFORM\x10\x01\x12\x14\n" +
 	"\x10DECIMATION_VOXEL\x10\x02\x12\x1e\n" +
-	"\x1aDECIMATION_FOREGROUND_ONLY\x10\x03*l\n" +
+	"\x1aDECIMATION_FOREGROUND_ONLY\x10\x03*\x82\x01\n" +
 	"\tFrameType\x12\x13\n" +
 	"\x0fFRAME_TYPE_FULL\x10\x00\x12\x19\n" +
 	"\x15FRAME_TYPE_FOREGROUND\x10\x01\x12\x19\n" +
 	"\x15FRAME_TYPE_BACKGROUND\x10\x02\x12\x14\n" +
-	"\x10FRAME_TYPE_DELTA\x10\x03*N\n" +
+	"\x10FRAME_TYPE_DELTA\x10\x03\x12\x14\n" +
+	"\x10FRAME_TYPE_EMPTY\x10\x04*N\n" +
 	"\x10ClusteringMethod\x12\x15\n" +
 	"\x11CLUSTERING_DBSCAN\x10\x00\x12#\n" +
 	"\x1fCLUSTERING_CONNECTED_COMPONENTS\x10\x01*t\n" +

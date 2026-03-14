@@ -62,9 +62,10 @@ type Publisher struct {
 	clientsMu sync.RWMutex
 
 	// Background snapshot management (M3.5)
-	backgroundMgr      BackgroundManagerInterface
-	lastBackgroundSeq  uint64
-	lastBackgroundSent time.Time
+	backgroundMgr           BackgroundManagerInterface
+	lastBackgroundSeq       uint64
+	lastBackgroundSent      time.Time
+	lastForegroundTimestamp atomic.Int64 // most recent foreground frame's TimestampNanos
 
 	// Frame recording
 	recorder   FrameRecorder
@@ -245,6 +246,11 @@ func (p *Publisher) SeekVRLog(frameIdx uint64) (uint64, error) {
 	}
 
 	currentFrame := p.vrlogReader.CurrentFrame()
+	diagf("[Visualiser] SeekVRLog: requested=%d, landed=%d", frameIdx, currentFrame)
+
+	// Drain buffered frames so the client doesn't receive stale
+	// pre-seek frames before the new position's data arrives.
+	p.drainFrameBuffers()
 
 	// If paused, send one frame so the UI updates to the seeked position
 	if p.vrlogPaused {
@@ -275,6 +281,11 @@ func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
 	}
 
 	currentFrame := p.vrlogReader.CurrentFrame()
+	diagf("[Visualiser] SeekVRLogTimestamp: requested=%d, landed=%d", timestampNs, currentFrame)
+
+	// Drain buffered frames so the client doesn't receive stale
+	// pre-seek frames before the new position's data arrives.
+	p.drainFrameBuffers()
 
 	// If paused, send one frame so the UI updates to the seeked position
 	if p.vrlogPaused {
@@ -290,12 +301,57 @@ func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
 	return currentFrame, nil
 }
 
+// drainFrameBuffers discards all buffered frames from the publisher's
+// central frameChan and every per-client channel. Call after seeking to
+// prevent stale pre-seek frames from reaching clients.
+func (p *Publisher) drainFrameBuffers() {
+	// Drain the central broadcast channel.
+	for {
+		select {
+		case f := <-p.frameChan:
+			if f.PointCloud != nil {
+				f.PointCloud.Release()
+			}
+		default:
+			goto clientDrain
+		}
+	}
+
+clientDrain:
+	// Drain each per-client channel.
+	p.clientsMu.RLock()
+	defer p.clientsMu.RUnlock()
+	for _, client := range p.clients {
+		p.drainClientCh(client)
+	}
+}
+
+// drainClientCh drains a single client's frame channel.
+func (p *Publisher) drainClientCh(client *clientStream) {
+	for {
+		select {
+		case f := <-client.frameCh:
+			if f.PointCloud != nil {
+				f.PointCloud.Release()
+			}
+		default:
+			return
+		}
+	}
+}
+
 // vrlogReplayLoop reads frames from the VRLOG reader and publishes them.
 func (p *Publisher) vrlogReplayLoop() {
 	defer p.vrlogWg.Done()
 
 	var lastFrameTime int64
 	var lastWallTime time.Time
+
+	// Throttle background frames to avoid overwhelming the gRPC stream.
+	// Recordings made at slow rates (e.g. 0.1×) may contain many background
+	// snapshots that would otherwise replay back-to-back.
+	const bgReplayInterval = 10 * time.Second
+	var lastBgSentWall time.Time
 
 	for {
 		select {
@@ -305,6 +361,7 @@ func (p *Publisher) vrlogReplayLoop() {
 			// Reset timing after seek
 			lastFrameTime = 0
 			lastWallTime = time.Time{}
+			lastBgSentWall = time.Time{} // Ensure first bg after seek is sent
 			// Fall through to check sendOneFrame (don't continue)
 		default:
 		}
@@ -346,22 +403,33 @@ func (p *Publisher) vrlogReplayLoop() {
 			return
 		}
 
-		// Rate control: sleep to match playback rate
-		if lastFrameTime > 0 && rate > 0 {
-			frameDelta := time.Duration(float64(frame.TimestampNanos-lastFrameTime) / float64(rate))
-			wallDelta := time.Since(lastWallTime)
-			if frameDelta > wallDelta {
-				sleepTime := frameDelta - wallDelta
-				// Cap sleep to avoid long waits
-				if sleepTime > 500*time.Millisecond {
-					sleepTime = 500 * time.Millisecond
-				}
-				time.Sleep(sleepTime)
+		// Throttle background frames during replay: send at most one
+		// every bgReplayInterval of wall-clock time. Background
+		// timestamps use wall-clock time that would corrupt the
+		// foreground rate-control state, so handle them separately.
+		if frame.FrameType == FrameTypeBackground {
+			if !lastBgSentWall.IsZero() && time.Since(lastBgSentWall) < bgReplayInterval {
+				continue
 			}
-		}
+			lastBgSentWall = time.Now()
+		} else {
+			// Rate control: sleep to match playback rate (foreground only)
+			if lastFrameTime > 0 && rate > 0 {
+				frameDelta := time.Duration(float64(frame.TimestampNanos-lastFrameTime) / float64(rate))
+				wallDelta := time.Since(lastWallTime)
+				if frameDelta > wallDelta {
+					sleepTime := frameDelta - wallDelta
+					// Cap sleep to avoid long waits
+					if sleepTime > 500*time.Millisecond {
+						sleepTime = 500 * time.Millisecond
+					}
+					time.Sleep(sleepTime)
+				}
+			}
 
-		lastFrameTime = frame.TimestampNanos
-		lastWallTime = time.Now()
+			lastFrameTime = frame.TimestampNanos
+			lastWallTime = time.Now()
+		}
 
 		// Mark frame as seekable replay
 		if frame.PlaybackInfo == nil {
@@ -433,10 +501,18 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 		return fmt.Errorf("background snapshot has incorrect type: %T", snapshotDataRaw)
 	}
 
-	// Create a frame bundle with background type
+	// Skip background emission until the first foreground frame has set a
+	// canonical timestamp.  Before that, the only available timestamp is
+	// time.Now() which would contaminate VRLOG recordings of PCAP replays.
+	fgTs := p.lastForegroundTimestamp.Load()
+	if fgTs == 0 {
+		lidar.Diagf("[Visualiser] Background snapshot deferred: no foreground frame yet (seq=%d)", snapshot.SequenceNumber)
+		return nil
+	}
+	ts := fgTs
 	bundle := &FrameBundle{
 		FrameID:        p.frameCount.Add(1),
-		TimestampNanos: snapshot.TimestampNanos,
+		TimestampNanos: ts,
 		SensorID:       p.config.SensorID,
 		FrameType:      FrameTypeBackground,
 		Background:     snapshot,
@@ -546,6 +622,12 @@ func (p *Publisher) Publish(frame interface{}) {
 		if err := p.sendBackgroundSnapshot(); err != nil {
 			opsf("[Visualiser] Failed to send background snapshot: %v", err)
 		}
+	}
+
+	// Track the most recent foreground frame timestamp so background
+	// snapshots can inherit it instead of using wall-clock time.
+	if frameBundle.FrameType != FrameTypeBackground {
+		p.lastForegroundTimestamp.Store(frameBundle.TimestampNanos)
 	}
 
 	// Determine frame type — only set if not already specified.

@@ -44,6 +44,7 @@ enum FrameType {
   FRAME_TYPE_FOREGROUND = 1;     // Foreground + clusters + tracks only
   FRAME_TYPE_BACKGROUND = 2;     // Background snapshot
   FRAME_TYPE_DELTA = 3;          // Future: incremental update
+  FRAME_TYPE_EMPTY = 4;          // Placeholder: no foreground objects detected
 }
 
 message PointCloudFrame {
@@ -174,7 +175,9 @@ enum MotionModel {
 
 // ObjectClass enumerates all valid object classifications.
 // Used by both the rule-based classifier (output) and human label annotations (input).
-// All 9 classes are user-assignable. Classifier outputs: DYNAMIC..MOTORCYCLIST.
+// v0.5.0 ships 7 user-assignable classes. TRUCK and MOTORCYCLIST are reserved
+// for future use when the classifier has enough training data to distinguish them
+// reliably — until then trucks classify as CAR and motorcyclists as CYCLIST.
 enum ObjectClass {
   OBJECT_CLASS_UNSPECIFIED  = 0;  // Default / not yet classified
   OBJECT_CLASS_NOISE        = 1;  // User-only: spurious sensor artefact
@@ -184,8 +187,8 @@ enum ObjectClass {
   OBJECT_CLASS_BIRD         = 5;  // Bird, drone, small flying object
   OBJECT_CLASS_BUS          = 6;  // Bus, coach, large passenger vehicle
   OBJECT_CLASS_CAR          = 7;  // Passenger car, SUV, van
-  OBJECT_CLASS_TRUCK        = 8;  // Pickup truck, box truck, freight vehicle
-  OBJECT_CLASS_MOTORCYCLIST = 9;  // Person riding a motorcycle
+  OBJECT_CLASS_TRUCK        = 8;  // Reserved (v0.6+): pickup truck, box truck, freight vehicle
+  OBJECT_CLASS_MOTORCYCLIST = 9;  // Reserved (v0.6+): person riding a motorcycle
 }
 
 message Track {

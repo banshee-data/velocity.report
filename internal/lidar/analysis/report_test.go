@@ -9,6 +9,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/version"
 )
 
 // ---------------------------------------------------------------------------
@@ -122,15 +123,15 @@ func TestComputeDistStats(t *testing.T) {
 			t.Errorf("samples = %d, want 100", ds.Samples)
 		}
 		// P50 = floor(100*0.5) = index 50 → value 51
-		if ds.P50 != 51 {
+		if ds.P50 == nil || *ds.P50 != 51 {
 			t.Errorf("P50 = %v, want 51", ds.P50)
 		}
 		// P85 = floor(100*0.85) = index 85 → value 86
-		if ds.P85 != 86 {
+		if ds.P85 == nil || *ds.P85 != 86 {
 			t.Errorf("P85 = %v, want 86", ds.P85)
 		}
 		// P98 = floor(100*0.98) = index 98 → value 99
-		if ds.P98 != 99 {
+		if ds.P98 == nil || *ds.P98 != 99 {
 			t.Errorf("P98 = %v, want 99", ds.P98)
 		}
 	})
@@ -155,6 +156,50 @@ func TestComputeDistStats(t *testing.T) {
 		}
 		if ds.Min != 1.0 || ds.Max != 3.0 {
 			t.Errorf("min/max = %v/%v, want 1/3", ds.Min, ds.Max)
+		}
+		// < 3 samples: no percentiles
+		if ds.P50 != nil {
+			t.Errorf("P50 should be nil for 2 samples, got %v", *ds.P50)
+		}
+		if ds.P85 != nil {
+			t.Errorf("P85 should be nil for 2 samples, got %v", *ds.P85)
+		}
+		if ds.P98 != nil {
+			t.Errorf("P98 should be nil for 2 samples, got %v", *ds.P98)
+		}
+	})
+	t.Run("three values gives p50 only", func(t *testing.T) {
+		ds := computeDistStats([]float64{1.0, 2.0, 3.0})
+		if ds == nil {
+			t.Fatal("expected non-nil")
+		}
+		if ds.P50 == nil {
+			t.Error("P50 should be non-nil for 3 samples")
+		}
+		if ds.P85 != nil {
+			t.Errorf("P85 should be nil for 3 samples, got %v", *ds.P85)
+		}
+		if ds.P98 != nil {
+			t.Errorf("P98 should be nil for 3 samples, got %v", *ds.P98)
+		}
+	})
+	t.Run("eight values gives p50 and p85", func(t *testing.T) {
+		vals := make([]float64, 8)
+		for i := range vals {
+			vals[i] = float64(i + 1)
+		}
+		ds := computeDistStats(vals)
+		if ds == nil {
+			t.Fatal("expected non-nil")
+		}
+		if ds.P50 == nil {
+			t.Error("P50 should be non-nil for 8 samples")
+		}
+		if ds.P85 == nil {
+			t.Error("P85 should be non-nil for 8 samples")
+		}
+		if ds.P98 != nil {
+			t.Errorf("P98 should be nil for 8 samples, got %v", *ds.P98)
 		}
 	})
 }
@@ -284,8 +329,8 @@ func TestGenerateReport(t *testing.T) {
 	}
 
 	// Basic structural assertions
-	if report.Version != "1.0" {
-		t.Errorf("version = %q, want %q", report.Version, "1.0")
+	if report.Version != version.Version {
+		t.Errorf("version = %q, want %q", report.Version, version.Version)
 	}
 	if report.GeneratedAt == "" {
 		t.Error("generated_at is empty")

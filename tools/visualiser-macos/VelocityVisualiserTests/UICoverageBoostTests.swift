@@ -387,7 +387,8 @@ struct StringTruncatedTests {
             runId: "run-long", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 7200,
             totalFrames: 72000, totalClusters: 5000, totalTracks: 500, confirmedTracks: 400,
-            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long", sceneName: nil)
+            status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long",
+            sceneName: nil)
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
     }
@@ -847,6 +848,19 @@ struct SerialiseFlagsTests {
         XCTAssertEqual(result["trk_a"]?.rank, 0)
     }
 
+    func testFrameModeWithHitsSort() {
+        let state = AppState()
+        let t1 = makeTrack(id: "trk_a", hits: 10)
+        let t2 = makeTrack(id: "trk_b", hits: 25)
+        state.currentFrame = makeFrame(tracks: [t1, t2])
+
+        let result = computeUpdatedRanks(
+            isRunMode: false, runTracks: [], frameTrackByID: [:], appState: state,
+            previousRanks: [:], sortOrder: .hits)
+        XCTAssertEqual(result["trk_b"]?.rank, 0)
+        XCTAssertEqual(result["trk_a"]?.rank, 1)
+    }
+
     func testFrameModeWithFilters() {
         let state = AppState()
         state.filterMinHits = 10
@@ -933,18 +947,21 @@ struct SerialiseFlagsTests {
 
 @available(macOS 15.0, *) @MainActor final class PlaybackModeBadgeAdditionalTests: XCTestCase {
     func testLiveMode() {
-        let view = PlaybackModeBadgeView(modeLabel: "LIVE", mode: .live, isConnected: true)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "LIVE", mode: .live, isConnected: true, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 
     func testSeekableMode() {
         let view = PlaybackModeBadgeView(
-            modeLabel: "VRLOG", mode: .replaySeekable, isConnected: true)
+            modeLabel: "VRLOG", mode: .replaySeekable, isConnected: true,
+            showsLegacyJSONWarning: true)
         let _ = view.body
     }
 
     func testDisconnected() {
-        let view = PlaybackModeBadgeView(modeLabel: "?", mode: .unknown, isConnected: false)
+        let view = PlaybackModeBadgeView(
+            modeLabel: "?", mode: .unknown, isConnected: false, showsLegacyJSONWarning: false)
         let _ = view.body
     }
 }

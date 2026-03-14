@@ -152,7 +152,7 @@ type WebServer struct {
 	onPlaybackPlay    func()
 	onPlaybackSeek    func(timestampNs int64) error
 	onPlaybackRate    func(rate float32)
-	onVRLogLoad       func(vrlogPath string) error
+	onVRLogLoad       func(vrlogPath string) (string, error)
 	onVRLogStop       func()
 	getPlaybackStatus func() *PlaybackStatusInfo
 
@@ -237,7 +237,7 @@ type WebServerConfig struct {
 	OnPlaybackPlay    func()
 	OnPlaybackSeek    func(timestampNs int64) error
 	OnPlaybackRate    func(rate float32)
-	OnVRLogLoad       func(vrlogPath string) error
+	OnVRLogLoad       func(vrlogPath string) (string, error)
 	OnVRLogStop       func()
 	GetPlaybackStatus func() *PlaybackStatusInfo
 }
@@ -339,6 +339,27 @@ func (ws *WebServer) baseContext() context.Context {
 	ws.baseCtxMu.RLock()
 	defer ws.baseCtxMu.RUnlock()
 	return ws.baseCtx
+}
+
+// CurrentSource returns the active data source type.
+func (ws *WebServer) CurrentSource() DataSource {
+	ws.dataSourceMu.RLock()
+	defer ws.dataSourceMu.RUnlock()
+	return ws.currentSource
+}
+
+// CurrentPCAPFile returns the path of the active PCAP file (empty if none).
+func (ws *WebServer) CurrentPCAPFile() string {
+	ws.dataSourceMu.RLock()
+	defer ws.dataSourceMu.RUnlock()
+	return ws.currentPCAPFile
+}
+
+// PCAPSpeedRatio returns the configured PCAP playback speed ratio.
+func (ws *WebServer) PCAPSpeedRatio() float64 {
+	ws.pcapMu.Lock()
+	defer ws.pcapMu.Unlock()
+	return ws.pcapSpeedRatio
 }
 
 // SetTracker sets the tracker reference for direct config access via /api/lidar/params.

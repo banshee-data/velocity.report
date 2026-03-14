@@ -1,6 +1,6 @@
 # Label Vocabulary Consolidation Plan
 
-**Status:** Phase 1–3.1 completed · Phase 4–5 planned
+**Status:** Phase 1–3.2 completed · Phase 4–5 planned
 **Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
 **Related:** [Classification Maths](../maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
 
@@ -21,15 +21,16 @@ String labels are internal; wire protocol uses `ObjectClass` proto enum:
 - **NOISE** (1): environmental noise (user-assignable)
 - **DYNAMIC** (2): classifier fallback for ambiguous detections (user-assignable)
 - **PEDESTRIAN** (3): foot traffic (user-assignable)
-- **CYCLIST** (4): pedal cyclists (user-assignable)
+- **CYCLIST** (4): pedal cyclists and motorcyclists (user-assignable)
 - **BIRD** (5): airborne fauna (user-assignable)
 - **BUS** (6): public transit (user-assignable)
-- **CAR** (7): private automobiles (user-assignable)
-- **TRUCK** (8): commercial heavy vehicles (user-assignable)
-- **MOTORCYCLIST** (9): motorised two-wheelers (user-assignable)
+- **CAR** (7): private automobiles, vans, and trucks (user-assignable)
+- **TRUCK** (8): reserved for v0.6+ (proto value stable, not user-assignable)
+- **MOTORCYCLIST** (9): reserved for v0.6+ (proto value stable, not user-assignable)
 
-Classifier outputs 6 positive classes: car, truck, bus, pedestrian, cyclist, motorcyclist + bird (non-positive).
-User can assign all 9 classes: all 6 positive + motorcyclist + bird + dynamic + noise. Internal domain model uses string representation; conversion to/from proto enum happens at gRPC boundary.
+v0.5.0 ships **7 user-assignable classes** (noise, dynamic, pedestrian, cyclist, bird, bus, car).
+Truck and motorcyclist are reserved in the proto enum for future use but disabled
+in the classifier, hidden in all UIs, and rejected by the label validation API.
 
 ### Files updated across phases
 
@@ -71,9 +72,12 @@ Consolidated independent vocabularies. All code uses canonical full-word labels:
 
 ### Phase 2: Add truck and motorcyclist classes
 
-✅ **Status: DONE**
+✅ **Status: DONE (subsequently trimmed in Phase 3.2)**
 
-Classifier v1.2 adds `ClassTruck` and `ClassMotorcyclist` with thresholds and cascade rules. All frontends display 7 classification options + noise.
+Classifier v1.2 added `ClassTruck` and `ClassMotorcyclist` with thresholds and cascade rules. All frontends displayed 9 classification options.
+
+> Phase 3.2 subsequently disabled these two classes from the classifier
+> cascade and UI, retaining the proto enum values for future reactivation.
 
 ### Phase 3: Proto3 enum wire protocol
 
@@ -100,7 +104,46 @@ strings. Without intervention, all replayed tracks show "Not classified".
 - Swift Track Inspector always displays Class field ("Not classified" fallback
   when enum is UNSPECIFIED)
 
+### Phase 3.2: Trim to 7 user-assignable classes for v0.5.0
+
+✅ **Status: DONE**
+
+Disabled truck and motorcyclist from the active classifier, all UIs, and the
+label validation API for v0.5.0. Proto enum values 8 (TRUCK) and 9
+(MOTORCYCLIST) are retained for forward compatibility.
+
+- Classifier: truck/motorcyclist cascade rules commented out (trucks→CAR, motorcycles→CYCLIST)
+- Label API: `validUserLabels` reduced to 7 entries; truck/motorcyclist rejected with 400
+- macOS: removed from `classificationLabels` array; help text updated
+- Web: removed from `DetectionLabel` type and dropdowns; colours retained for backward compat
+- Proto: enum values stable; reactivation path documented (uncomment rules + restore UI entries)
+
 ## Remaining Phases
+
+### Phase 3.5: Classification display vs selectable enum split (#381)
+
+Keep truck and motorcyclist as **display-only** labels — visible in the track
+inspector, colour palette, and VRLOG replay when data contains those classes —
+but **not user-selectable** in the labelling UI dropdown/keyboard shortcuts.
+
+This requires splitting the label vocabulary into two tiers:
+
+- `DisplayLabel` — all 9 classes (noise, dynamic, pedestrian, cyclist, bird,
+  bus, car, truck, motorcyclist). Used for rendering, colour lookup, and
+  inspector display.
+- `SelectableLabel` — 7 classes (excludes truck, motorcyclist). Used for
+  labelling UI, keyboard shortcuts, and label validation API.
+
+Files requiring changes:
+
+| Location                                   | Current                            | Required                                                           |
+| ------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
+| `lidar_labels.go` `AllDetectionLabels`     | 7 entries                          | No change (selectable)                                             |
+| `lidar_labels.go`                          | —                                  | Add `AllDisplayLabels` (9 entries)                                 |
+| `lidar.ts` `DetectionLabel`                | 7-value union                      | Split into `DetectionLabel` (7) + `DisplayLabel` (9)               |
+| `lidar.ts` `TRACK_COLORS`                  | 9 entries incl. truck/motorcyclist | No change (already display-capable)                                |
+| `ContentView.swift` `classificationLabels` | 7 entries                          | Keep as selectable; add separate `displayLabels` (9) for inspector |
+| `ContentView.swift` track inspector        | Shows class from stream            | Show truck/motorcyclist if present in data                         |
 
 ### Phase 4: Expose taxonomy via API
 
@@ -137,3 +180,32 @@ Proto enum conversion is internal; public API uses human-readable strings.
 - Converters `objectClassFromString()` (Go) and `objectClassLabel()` (Swift) are the only points of string↔enum translation
 - `ClassifyFeatures()` enables classification without a full `TrackedObject`, used by VRLOG replay and potentially other offline pipelines
 - `classifyOrConvert()` is the single decision point: existing labels pass through, empty labels trigger re-classification
+
+### Phase 3.2: Trim to 7 classes for v0.5.0
+
+✅ **Status: DONE**
+
+Truck and motorcyclist classifications were added in Phase 2 but lacked
+sufficient labelled training data to distinguish reliably. For v0.5.0,
+they are **disabled** across the stack:
+
+- **Proto**: Enum values 8 (TRUCK) and 9 (MOTORCYCLIST) retained with
+  "reserved (v0.6+)" comments for wire-format stability.
+- **Classifier**: Truck and motorcyclist rules commented out in the
+  cascade. Trucks fall through to CAR; motorcyclists fall through to
+  CYCLIST.
+- **Label API**: `validUserLabels` reduced to 7 entries. Attempting to
+  assign `"truck"` or `"motorcyclist"` via the API returns 400.
+- **macOS app**: Removed from `classificationLabels` array; car help
+  text updated to include trucks, cyclist updated to include motorcycles.
+- **Web app**: Removed from `DetectionLabel` type, `DETECTION_LABELS`
+  dropdown, and `object_class` union. `TRACK_COLORS` entries retained
+  for backward-compatible rendering of existing labelled data.
+- **Keyboard shortcuts**: Renumbered 1–7 (car, bus, pedestrian,
+  cyclist, bird, dynamic, noise).
+
+**Reactivation path (v0.6+):** When sufficient labelled data exists to
+train a reliable truck/motorcyclist classifier, uncomment the cascade
+rules in `classification.go`, add the labels back to `validUserLabels`,
+and restore the UI entries. No proto or database migration is needed
+— the enum values are already allocated.
