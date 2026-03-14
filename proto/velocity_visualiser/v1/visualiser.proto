@@ -44,6 +44,7 @@ enum FrameType {
   FRAME_TYPE_FOREGROUND = 1;     // Foreground + clusters + tracks only
   FRAME_TYPE_BACKGROUND = 2;     // Background snapshot
   FRAME_TYPE_DELTA = 3;          // Future: incremental update
+  FRAME_TYPE_EMPTY = 4;          // Placeholder: no foreground objects detected
 }
 
 message PointCloudFrame {
