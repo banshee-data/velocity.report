@@ -143,8 +143,58 @@ into each chunk frame:
 | `Debug`           | DebugOverlaySet?    | Algorithm debug data (optional)          |
 | `PlaybackInfo`    | PlaybackInfo?       | Added at read time by the Replayer       |
 | `Background`      | BackgroundSnapshot? | Background grid state (split streaming)  |
+| `FrameType`       | int                 | Frame type (see below)                   |
+
+### FrameType Values
+
+| Value | Constant              | Description                                          |
+| ----- | --------------------- | ---------------------------------------------------- |
+| 0     | `FrameTypeFull`       | Legacy: all points included                          |
+| 1     | `FrameTypeForeground` | Split streaming: foreground + clusters + tracks only |
+| 2     | `FrameTypeBackground` | Background grid snapshot                             |
+| 3     | `FrameTypeDelta`      | Reserved for future incremental updates              |
+| 4     | `FrameTypeEmpty`      | Placeholder: no foreground objects detected (v0.6+)  |
+
+`FrameTypeEmpty` frames carry only metadata (`FrameID`, `TimestampNanos`,
+`SensorID`, `CoordinateFrame`). All perception fields (`PointCloud`,
+`Clusters`, `Tracks`) are nil. These frames exist for deterministic 1:1
+PCAP-to-VRLOG mapping and must be preserved during replay/seek.
 
 Full model definition: [`internal/lidar/visualiser/model.go`](../../internal/lidar/visualiser/model.go)
+
+## Deterministic Recording Guarantee (v0.6+)
+
+When recording from a PCAP source, the VRLOG guarantees a **1:1 mapping from
+sensor rotations to VRLOG frames**. Given the same PCAP file, tuning
+parameters, and build version, repeated recordings produce identical frame
+counts.
+
+### Mechanism
+
+1. **Blocking frame channel** — the FrameBuilder uses a blocking channel send
+   for all PCAP replay modes (analysis and scaled), providing back-pressure
+   to the PCAP reader. No frames are silently dropped at the channel level.
+
+2. **Empty frame recording** — when the perception pipeline determines a
+   sensor rotation has no foreground objects (no moving targets), it still
+   records a `FrameTypeEmpty` placeholder. The frame preserves the rotation's
+   timestamp and monotonic ID.
+
+3. **Throttle-safe recording** — when the pipeline's frame-rate throttle skips
+   expensive clustering/tracking, the throttled frame is still recorded as a
+   `FrameTypeEmpty` placeholder.
+
+### Invariant
+
+For a PCAP file producing _N_ sensor rotations within the configured duration
+window:
+
+```
+VRLOG total_frames == N   (always)
+```
+
+This invariant holds regardless of playback speed, background model
+configuration, or pipeline processing latency.
 
 ## Replay Mechanics
 
