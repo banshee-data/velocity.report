@@ -2,7 +2,7 @@
 
 - **Status:** Draft — prerequisite proto rename complete (#352); migration SQL and Go code changes pending
 - **Layers:** Database, L3 Grid, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints (API + web)
-- **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md)
+- **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md), [LiDAR Table Naming Standardisation](lidar-table-naming-standardization-plan.md)
 
 ## Prerequisites
 
@@ -239,7 +239,7 @@ for coherent planning.
 
 **Problem:** The layer model reserves "Scene" (L7) for a _persistent canonical
 world model_ — accumulated geometry, canonical objects, OSM priors, and
-multi-sensor fusion. The current `lidar_scenes` table is an _evaluation context_:
+multi-sensor fusion. The current `lidar_scenes` table is a saved _replay case_:
 it ties a PCAP file to a sensor, stores a reference run and optimal parameters,
 and groups `lidar_evaluations` under it. This is L8 Analytics, not L7 Scene.
 
@@ -249,26 +249,27 @@ L8 evaluation-context table already named `lidar_scenes` will cause confusion.
 
 **Options:**
 
-| Option | Rename to                         | Pros                           | Cons                                        |
-| ------ | --------------------------------- | ------------------------------ | ------------------------------------------- |
-| A      | `lidar_evaluation_contexts`       | Precise, self-documenting      | Long; FK references in evaluations/sweeps   |
-| B      | `lidar_pcap_scenes`               | Keeps "scene" but qualifies it | Still collides when L7 adds `lidar_scene_*` |
-| C      | `lidar_evaluation_sets`           | Short, avoids "scene"          | Set implies a many-to-many grouping         |
-| D      | Do nothing; document the conflict | Zero migration effort          | Confusion grows as L7 materialises          |
+| Option | Rename to                         | Pros                              | Cons                                             |
+| ------ | --------------------------------- | --------------------------------- | ------------------------------------------------ |
+| A      | `lidar_replay_cases`              | Concrete; matches actual workflow | Requires `scene_id` counterpart renames          |
+| B      | `lidar_evaluation_contexts`       | Precise, self-documenting         | Abstract; less intuitive in the UI/API           |
+| C      | `lidar_recordings`                | User-friendly                     | Undersells that rows can be PCAP slices + tuning |
+| D      | Do nothing; document the conflict | Zero migration effort             | Confusion grows as L7 materialises               |
 
-**Recommendation:** Option A (`lidar_evaluation_contexts`). Although the FK
-cascade makes it a medium-effort rename, it eliminates the collision cleanly.
-Can be deferred to the L8 consolidation phase but should be done before any L7
-work begins.
+**Recommendation:** Option A (`lidar_replay_cases`). It matches the current
+behaviour better than "evaluation context": these rows are saved replayable
+PCAP slices with optional reference runs and launch params. The FK cascade
+makes it a medium-effort rename, but it eliminates the collision cleanly and
+produces clearer API language before any L7 work begins.
 
 **If accepted, migration scope:**
 
-- Rename `lidar_scenes` → `lidar_evaluation_contexts`
-- Rename `scene_id` column → `context_id` throughout `lidar_evaluation_contexts`,
-  `lidar_evaluations`, `lidar_sweeps`
+- Rename `lidar_scenes` → `lidar_replay_cases`
+- Rename `scene_id` column → `replay_case_id` throughout `lidar_replay_cases`,
+  `lidar_evaluations`, and any replay-case provenance columns
 - Update `SceneID` / `Scene` struct names in `scene_store.go`, `scene_api.go`
 - Update web frontend type definitions and API paths (`/api/lidar/scenes/` →
-  `/api/lidar/evaluation-contexts/`)
+  `/api/lidar/replay-cases/`)
 
 ### E2 — `world_frame` Column Name Ambiguity
 
