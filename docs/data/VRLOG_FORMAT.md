@@ -153,7 +153,7 @@ into each chunk frame:
 | 1     | `FrameTypeForeground` | Split streaming: foreground + clusters + tracks only |
 | 2     | `FrameTypeBackground` | Background grid snapshot                             |
 | 3     | `FrameTypeDelta`      | Reserved for future incremental updates              |
-| 4     | `FrameTypeEmpty`      | Placeholder: no foreground objects detected (v0.6+)  |
+| 4     | `FrameTypeEmpty`      | Placeholder: no foreground objects detected          |
 
 `FrameTypeEmpty` frames carry only metadata (`FrameID`, `TimestampNanos`,
 `SensorID`, `CoordinateFrame`). All perception fields (`PointCloud`,
@@ -162,25 +162,40 @@ PCAP-to-VRLOG mapping and must be preserved during replay/seek.
 
 Full model definition: [`internal/lidar/visualiser/model.go`](../../internal/lidar/visualiser/model.go)
 
-## Deterministic Recording Guarantee (v0.6+)
+## Deterministic Recording Guarantee
 
 When recording from a PCAP source, the VRLOG guarantees a **1:1 mapping from
 sensor rotations to VRLOG frames**. Given the same PCAP file, tuning
 parameters, and build version, repeated recordings produce identical frame
 counts.
 
+### Variable Rotation Rate
+
+The Hesai Pandar40P operates at 10–20 Hz depending on motor configuration.
+The motor speed can vary within a single capture session. A frame boundary
+is defined by **azimuth wrap-around** (360° rotation detected by the
+FrameBuilder), not by a fixed time interval. Consequently:
+
+- Inter-frame intervals are **not uniform** — they vary with motor speed.
+- Each `TimestampNs` in the index reflects the actual rotation start time.
+- Replay tools must use per-frame timestamps for pacing, not assumed Hz.
+
 ### Mechanism
 
-1. **Blocking frame channel** — the FrameBuilder uses a blocking channel send
+1. **Rotation-triggered framing** — the FrameBuilder detects the end of each
+   sensor rotation via azimuth wrap-around (≥ 340° coverage, ≥ 10 000 points).
+   One rotation produces exactly one frame, regardless of rotation duration.
+
+2. **Blocking frame channel** — the FrameBuilder uses a blocking channel send
    for all PCAP replay modes (analysis and scaled), providing back-pressure
    to the PCAP reader. No frames are silently dropped at the channel level.
 
-2. **Empty frame recording** — when the perception pipeline determines a
+3. **Empty frame recording** — when the perception pipeline determines a
    sensor rotation has no foreground objects (no moving targets), it still
    records a `FrameTypeEmpty` placeholder. The frame preserves the rotation's
    timestamp and monotonic ID.
 
-3. **Throttle-safe recording** — when the pipeline's frame-rate throttle skips
+4. **Throttle-safe recording** — when the pipeline's frame-rate throttle skips
    expensive clustering/tracking, the throttled frame is still recorded as a
    `FrameTypeEmpty` placeholder.
 
@@ -193,8 +208,9 @@ window:
 VRLOG total_frames == N   (always)
 ```
 
-This invariant holds regardless of playback speed, background model
-configuration, or pipeline processing latency.
+This invariant holds regardless of playback speed, motor RPM, background model
+configuration, or pipeline processing latency. Inter-frame intervals vary
+with the sensor's actual rotation rate.
 
 ## Replay Mechanics
 
