@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
-OUTPUT_FILE="$REPO_ROOT/docs/data/SCHEMA.svg"
+REPO_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
+OUTPUT_FILE="$REPO_ROOT/data/structures/SCHEMA.svg"
 
 # Check if argument is provided
 if [ $# -eq 0 ]; then

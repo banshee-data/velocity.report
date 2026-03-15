@@ -131,7 +131,7 @@ Association quality is therefore jointly constrained by clustering noise and tra
 
 Per-frame and per-track diagnostic metrics, a CI benchmark harness for DBSCAN/pipeline performance regression, and Raspberry Pi tuning guidance are specified in the companion plan:
 
-**[Clustering Observability and Benchmark Harness](../plans/lidar-clustering-observability-and-benchmark-plan.md)**
+**[Clustering Observability and Benchmark Harness](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md)**
 
 Key areas covered:
 
@@ -151,4 +151,4 @@ Key areas covered:
 | Bogoslavskyi & Stachniss (2017) | `Bogoslavskyi2017` | Range-image connectivity as a future optimisation path to DBSCAN   |
 | Campello et al. (2013)          | `Campello2013`     | HDBSCAN — planned alternative engine for variable-density clusters |
 
-Full BibTeX entries: [docs/references.bib](../references.bib)
+Full BibTeX entries: [docs/references.bib](../../docs/references.bib)

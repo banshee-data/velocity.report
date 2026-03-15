@@ -2,7 +2,7 @@
 
 **Status:** Proposal
 **Scope:** L3 background settling + L4 ground-surface settling harmonisation
-**Related:** [`docs/maths/background-grid-settling-maths.md`](../../maths/background-grid-settling-maths.md), [`docs/maths/ground-plane-maths.md`](../../maths/ground-plane-maths.md), [`docs/lidar/architecture/vector-scene-map.md`](../../lidar/architecture/vector-scene-map.md)
+**Related:** [`data/math/background-grid-settling-maths.md`](../background-grid-settling-maths.md), [`data/math/ground-plane-maths.md`](../ground-plane-maths.md), [`docs/lidar/architecture/vector-scene-map.md`](../../../docs/lidar/architecture/vector-scene-map.md)
 
 ## 1. Problem Statement
 

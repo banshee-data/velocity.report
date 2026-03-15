@@ -186,4 +186,4 @@ For long-running static traffic monitoring:
 | Blom & Bar-Shalom (1988)        | `Blom1988`        | IMM algorithm — foundation for planned `imm_cv_ca_v2` motion-model extension (Section 10)      |
 | Rauch et al. (1965)             | `Rauch1965`       | RTS smoother — evaluation-only path in planned `imm_cv_ca_rts_eval_v2` (Section 10)            |
 
-Full BibTeX entries: [docs/references.bib](../references.bib)
+Full BibTeX entries: [docs/references.bib](../../docs/references.bib)

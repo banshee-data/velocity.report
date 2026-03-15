@@ -2,13 +2,13 @@
 
 **Status:** Proposal Math (Not Active in Current Runtime)
 **Layer:** L4 Perception
-**Related:** [Background Grid Settling Maths](../../maths/background-grid-settling-maths.md), [Clustering Maths](../../maths/clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../../lidar/architecture/vector-scene-map.md)
+**Related:** [Background Grid Settling Maths](../background-grid-settling-maths.md), [Clustering Maths](../clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../../docs/lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../../../docs/lidar/architecture/vector-scene-map.md)
 
 ## 1. Scope and Design Intent
 
 This document defines the mathematical model for long-running, high-quality ground estimation in stationary LiDAR deployments.
 
-Current runtime boundary (2026-02-21): this file is proposal-only; implemented runtime ground filtering math is documented in `docs/maths/ground-plane-maths.md`.
+Current runtime boundary (2026-02-21): this file is proposal-only; implemented runtime ground filtering math is documented in `data/math/ground-plane-maths.md`.
 
 It is intentionally conservative:
 
@@ -319,4 +319,4 @@ This is the preferred mode for neighborhood monitoring where reliability and dri
 | Hornung et al. (2013)    | `Hornung2013`   | OctoMap log-odds occupancy; comparison point for our tile-confidence model             |
 | Pomerleau et al. (2014)  | `Pomerleau2014` | Long-term 3D map maintenance; validates our slow-adaptation strategy for settled tiles |
 
-Full BibTeX entries: [docs/references.bib](../../references.bib)
+Full BibTeX entries: [docs/references.bib](../../../docs/references.bib)

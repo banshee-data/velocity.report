@@ -45,12 +45,12 @@ When contributing in this area, include the question being answered, the observe
 
 Read next:
 
-- [docs/maths/README.md](docs/maths/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals
+- [data/math/README.md](data/math/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md) — the repo-wide data science stance: metrics first, no black boxes on the critical path
 - [docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
 - [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md) — the metric and schema model for derived transit statistics
 - [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md) — collected metrics, objectives, and decision-making for tuning
-- [docs/maths/classification-maths.md](docs/maths/classification-maths.md) — the current transparent classification baseline and thresholds
+- [data/math/classification-maths.md](data/math/classification-maths.md) — the current transparent classification baseline and thresholds
 
 ### Designer (UX & Data Visualisation)
 
@@ -90,9 +90,9 @@ Read next:
 
 - [docs/lidar/README.md](docs/lidar/README.md) — entry point to the LiDAR subsystem docs
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md) — the end-to-end LiDAR pipeline and component inventory
-- [docs/maths/README.md](docs/maths/README.md) — how the math-heavy layers fit together
-- [docs/maths/clustering-maths.md](docs/maths/clustering-maths.md) — clustering assumptions, geometry extraction, and complexity
-- [docs/maths/tracking-maths.md](docs/maths/tracking-maths.md) — Kalman filtering, gating, assignment, and lifecycle dynamics
+- [data/math/README.md](data/math/README.md) — how the math-heavy layers fit together
+- [data/math/clustering-maths.md](data/math/clustering-maths.md) — clustering assumptions, geometry extraction, and complexity
+- [data/math/tracking-maths.md](data/math/tracking-maths.md) — Kalman filtering, gating, assignment, and lifecycle dynamics
 
 ### Platform Engineer
 

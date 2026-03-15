@@ -10,7 +10,7 @@ The repository currently has **two conflicting Python virtual environment approa
 
 1. **Root-level venv** (`.venv/`) - Intended for shared use by all Python tools
    - Referenced by: Makefile data visualisation targets, `scripts/venv-init.sh`, `scripts/install-data-deps.sh`
-   - Used by: `data/multisweep-graph/`, plotting scripts
+   - Used by: `data/explore/multisweep-graph/`, plotting scripts
    - **Issue**: Not created by main setup workflows
 
 2. **PDF Generator-specific venv** (`tools/pdf-generator/.venv/`)
@@ -365,7 +365,7 @@ git rm tools/pdf-generator/requirements.txt
 
 **7.2 Clean up data project requirements**
 
-`data/multisweep-graph/requirements.txt` lists unpinned deps (pandas, matplotlib, numpy).
+`data/explore/multisweep-graph/requirements.txt` lists unpinned deps (pandas, matplotlib, numpy).
 
 Options:
 

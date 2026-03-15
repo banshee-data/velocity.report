@@ -2,7 +2,7 @@
 
 **Status:** Implementation-aligned math note
 **Layer:** L4 Perception
-**Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../lidar/architecture/ground-plane-extraction.md), [Ground Plane and Vector-Scene Proposal Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
+**Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../docs/lidar/architecture/ground-plane-extraction.md), [Ground Plane and Vector-Scene Proposal Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
 
 ## Scope
 
@@ -51,4 +51,4 @@ That proposal is not active in current runtime.
 | Lim et al. (2021)        | `Lim2021`      | Patchwork — concentric zone ground segmentation; more robust than height-band, future upgrade path |
 | Fischler & Bolles (1981) | `Fischler1981` | RANSAC — used in the offline robust refinement path of the advanced ground-plane proposal          |
 
-Full BibTeX entries: [docs/references.bib](../references.bib)
+Full BibTeX entries: [docs/references.bib](../../docs/references.bib)

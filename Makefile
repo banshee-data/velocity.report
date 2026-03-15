@@ -938,7 +938,7 @@ schema-sync:
 # Generate schema ERD (Entity-Relationship Diagram) as SVG
 schema-erd:
 	@echo "Generating schema ERD (schema.svg)..."
-	@bash data/sqlite-erd/graph.sh internal/db/schema.sql
+	@bash data/structures/sqlite-erd/graph.sh internal/db/schema.sql
 
 # =============================================================================
 # FORMATTING (mutating)
@@ -1445,21 +1445,21 @@ git-fs:
 plot-noise-sweep:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
+	$(VENV_PYTHON) data/explore/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
 		--out "$${OUT:-noise-sweep.png}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
 
 # Multi-sweep grid (neighbour=1 by default)
 plot-multisweep:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-multisweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
+	$(VENV_PYTHON) data/explore/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
 		--out "$${OUT:-multisweep.png}" --neighbour $${NEIGHBOUR:-1}
 
 # Per-noise bar charts (neighbour=1, closeness=2.5 by default)
 plot-noise-buckets:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-buckets FILE=data.csv [OUT_DIR=plots/]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
+	$(VENV_PYTHON) data/explore/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
 		--out-dir "$${OUT_DIR:-noise-plots}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
 
 # Live grid stats - periodic snapshots from running lidar system

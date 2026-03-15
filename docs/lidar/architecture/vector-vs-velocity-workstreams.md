@@ -50,7 +50,7 @@ Current status:
 - Planning only. No velocity-coherent extractor is active in `main` runtime.
 - Design references:
   - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
-  - `docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
+  - `data/math/proposals/20260220-velocity-coherent-foreground-extraction.md`
 
 ## Required Boundary Between A and B
 

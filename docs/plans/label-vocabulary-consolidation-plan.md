@@ -2,7 +2,7 @@
 
 **Status:** Phase 1–3.2 completed · Phase 4–5 planned
 **Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
-**Related:** [Classification Maths](../maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
+**Related:** [Classification Maths](../../data/math/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
 
 ## Problem (resolved)
 
