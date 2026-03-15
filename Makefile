@@ -263,7 +263,7 @@ build-mac:
 		echo "The macOS visualiser project hasn't been created yet."; \
 		echo "This is a planned feature currently in the design phase."; \
 		echo ""; \
-		echo "Documentation: docs/lidar/visualiser/"; \
+		echo "Documentation: docs/ui/"; \
 		exit 1; \
 	fi
 	@if ! command -v xcodebuild >/dev/null 2>&1; then \

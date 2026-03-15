@@ -402,7 +402,7 @@ service VisualiserService {
 - **Input**: gRPC streaming (localhost:50051)
 - **Output**: User interactions, label annotations (planned)
 
-**See**: [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) and [docs/lidar/visualiser/](docs/lidar/visualiser/)
+**See**: [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) and [docs/ui/](docs/ui/)
 
 ### Database Layer
 

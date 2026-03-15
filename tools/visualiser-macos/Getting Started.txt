@@ -73,7 +73,7 @@ For local development on your Mac you can use the test server:
   • Low frame rate — reduce the point count on the server or disable
     unused overlays (trails, velocity vectors).
 
-For more details see docs/lidar/visualiser/05-troubleshooting.md
+For more details see docs/ui/velocity-visualiser-app/05-troubleshooting.md
 in the velocity.report repository.
 
 
@@ -82,4 +82,4 @@ in the velocity.report repository.
 
   Repository    https://github.com/banshee-data/velocity.report
   Build guide   tools/visualiser-macos/BUILDING.md
-  Docs          docs/lidar/visualiser/
+  Docs          docs/ui/
