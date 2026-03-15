@@ -30,10 +30,7 @@ cleanup, Python/web/macOS consumer migration, and the Phase 6 validation gate.
 | Stale `AddPoints` removal note deleted   | §7      |      | `frame_builder.go` no longer carries the compat comment                                            |
 | Type aliases evaluated and retained      | §8      |      | Documented as an active package-boundary choice, not a removable shim                              |
 
-**Remaining (11 items):** finish the server-side sweep cleanup (§2), finish the
-report-download migration end-to-end (§3), decide/delete `PacketHeader` (§6),
-remove the remaining Python (§9–§11), web (§12–§14), and macOS (§17) fallback
-code, then run the Phase 6 validation gate.
+**Remaining: 10 pending sections (§2, §3, §6, §9–§14, §17) plus the Phase 6 validation gate:** finish the server-side sweep cleanup (§2), finish the report-download migration end-to-end (§3), decide/delete `PacketHeader` (§6), remove the remaining Python (§9–§11), web (§12–§14), and macOS (§17) fallback code, then run the Phase 6 validation gate.
 
 ## Goal
 
