@@ -39,7 +39,7 @@ Constraints:
 
 1. Capability docs remain under `docs/lidar` and `docs/radar`.
 2. Client docs remain under `docs/ui`.
-3. Data science references live under `data/`, with stable maths docs in `data/math` and proposals in `data/math/proposals`.
+3. Data science references live under `data/`, with stable maths docs in `data/maths` and proposals in `data/maths/proposals`.
 4. Execution work remains under `docs/plans`.
 5. Root keeps only governance/reference docs (`README`, `COVERAGE`, `DEVLOG`).
 

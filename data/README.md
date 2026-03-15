@@ -7,9 +7,9 @@ This directory is the working home for stable data contracts, mathematical found
 - `data/structures/` — canonical data contracts and structural references
   - format specifications such as `VRLOG_FORMAT.md` and `HESAI_PACKET_FORMAT.md`
   - schema artifacts such as `SCHEMA.svg`, while the generator itself lives under `scripts/sqlite-erd/`
-- `data/math/` — durable mathematical foundations and proposal-grade algorithm notes
+- `data/maths/` — durable mathematical foundations and proposal-grade algorithm notes
   - implementation-backed maths docs at the top level
-  - forward-looking proposals under `data/math/proposals/`
+  - forward-looking proposals under `data/maths/proposals/`
 - `data/explore/` — exploratory investigations, parameter sweeps, and deep dives worth revisiting
   - each study keeps its own scripts, raw outputs, and findings together
   - current candidates: `convergance-neighbour/`, `multisweep-graph/`, `noise_investigation/`, `kirk0-lifecycle/`
@@ -17,7 +17,7 @@ This directory is the working home for stable data contracts, mathematical found
 
 ## Architecture decision record
 
-**Decision:** organise `data/` around intent, not file type: stable references in `structures/`, durable maths in `math/`, and time-bounded investigations in `explore/`.
+**Decision:** organise `data/` around intent, not file type: stable references in `structures/`, durable maths in `maths/`, and time-bounded investigations in `explore/`.
 
 **Why:** the old split forced people to bounce between `/docs` for theory and `/data` for actual experiments. Putting both under `data/` makes the data-science workflow easier to navigate, while still keeping product, operational, and subsystem documentation under `/docs`.
 
@@ -41,7 +41,7 @@ This directory is the working home for stable data contracts, mathematical found
                                     v
 +------------------------------- /data ---------------------------------+
 | +---------------------------+  +-----------------------------------+  |
-| | structures/               |  | math/                             |  |
+| | structures/               |  | maths/                            |  |
 | | file formats, schemas,    |  | implemented maths + proposals     |  |
 | | packet contracts, ERD     |  |                                   |  |
 | +---------------------------+  +-----------------------------------+  |
@@ -59,15 +59,15 @@ This directory is the working home for stable data contracts, mathematical found
 | Area | Failure mode | Recovery |
 | --- | --- | --- |
 | `data/structures/` | A spec or schema asset drifts from implementation | update the canonical spec and the referencing docs together; validate links and regenerate artifacts such as `SCHEMA.svg` |
-| `data/math/` | A maths note points at stale plans or code paths after refactors | keep relative links current during moves and treat `data/math/` as reference material that must be updated alongside algorithm changes |
+| `data/maths/` | A maths note points at stale plans or code paths after refactors | keep relative links current during moves and treat `data/maths/` as reference material that must be updated alongside algorithm changes |
 | `data/explore/` | Exploratory work gets stranded without enough context to revisit | keep scripts, outputs, and write-ups in the same study folder and add a short findings note before considering it durable |
 | `data/align/` | Tooling drifts from the shared repo environment | prefer the repository `.venv` and document any extra dependencies close to the tool |
 
 ## Placement rules
 
 1. Put something in `data/structures/` when another part of the repo should treat it as a stable contract.
-2. Put something in `data/math/` when it explains the model, derivation, assumptions, or proposal behind an algorithm.
+2. Put something in `data/maths/` when it explains the model, derivation, assumptions, or proposal behind an algorithm.
 3. Put something in `data/explore/` when it is an investigation, sweep, comparison, or write-up you may want to revisit later.
 4. Keep `data/align/` for tooling that fetches, cleans, or aligns outside datasets before analysis.
 5. Build-support generators that the repository depends on belong in `scripts/`, even when they emit artifacts into `data/structures/`.
-6. If an exploration hardens into a long-lived spec, promote the conclusion into `structures/` or `math/` and leave the raw study in `explore/`.
+6. If an exploration hardens into a long-lived spec, promote the conclusion into `structures/` or `maths/` and leave the raw study in `explore/`.

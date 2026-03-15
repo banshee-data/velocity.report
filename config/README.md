@@ -7,7 +7,7 @@ This directory contains configuration files for tuning the velocity.report syste
 For a direct mapping between config keys and the maths/algorithm docs, see:
 
 - [`README.maths.md`](README.maths.md)
-- [`../data/math/README.md`](../data/math/README.md)
+- [`../data/maths/README.md`](../data/maths/README.md)
 
 ## Planned Restructure (Breaking Change)
 

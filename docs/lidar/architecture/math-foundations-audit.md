@@ -1,6 +1,6 @@
 # LiDAR Math Foundations Audit
 
-Scope: `data/math/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
+Scope: `data/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
 
 ## 1. Built vs Proposed
 
@@ -23,7 +23,7 @@ Scope: `data/math/**`, velocity-coherence planning docs, and `internal/lidar/**`
    - `docs/lidar/architecture/vector-scene-map.md:3` is `Status: Proposed`.
    - current runtime L4 ground removal is still height-band filtering (`internal/lidar/l4perception/ground.go:18`).
 3. Unified L3/L4 settlement core:
-   - still a proposal (`data/math/proposals/20260219-unify-l3-l4-settling.md:3`).
+   - still a proposal (`data/maths/proposals/20260219-unify-l3-l4-settling.md:3`).
 
 ## 2. Velocity Coherence Separation
 
@@ -106,7 +106,7 @@ Resolution:
 
 - Updated velocity plan links to canonical maths proposal:
   - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
-  - `data/math/proposals/20260220-velocity-coherent-foreground-extraction.md`
+  - `data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
 
 Impact:
 
@@ -116,7 +116,7 @@ Impact:
 
 Evidence:
 
-- status line says architecture + implementation note (`data/math/ground-plane-maths.md:3`).
+- status line says architecture + implementation note (`data/maths/ground-plane-maths.md:3`).
 - implementation currently provides `HeightBandFilter` only (`internal/lidar/l4perception/ground.go:18`).
 
 Impact:

@@ -85,7 +85,7 @@
 
 - Reorganised `docs/plans/` directory (PR #308, 35 files): consolidated and restructured plan documents.
 - Comprehensive LiDAR documentation overhaul (PR #295, 90 files): created velocity-coherent foreground extraction maths spec, added status fields to docs, created getting started guide and config parameter tuning guide.
-- Moved maths proposals to `data/math/proposals/` with consistent naming convention.
+- Moved maths proposals to `data/maths/proposals/` with consistent naming convention.
 - Added documentation standardisation plan with metadata and validation gates.
 - Updated ROADMAP.md (PR #312): aligned roadmap entries with BACKLOG.md priorities.
 - Added macOS process profiling script (`macos_profile_lidar.sh`) and corresponding Makefile targets.

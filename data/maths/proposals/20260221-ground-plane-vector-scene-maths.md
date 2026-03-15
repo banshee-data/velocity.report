@@ -8,7 +8,7 @@
 
 This document defines the mathematical model for long-running, high-quality ground estimation in stationary LiDAR deployments.
 
-Current runtime boundary (2026-02-21): this file is proposal-only; implemented runtime ground filtering math is documented in `data/math/ground-plane-maths.md`.
+Current runtime boundary (2026-02-21): this file is proposal-only; implemented runtime ground filtering math is documented in `data/maths/ground-plane-maths.md`.
 
 It is intentionally conservative:
 

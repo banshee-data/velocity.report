@@ -6,7 +6,7 @@
 
 - `docs/lidar/architecture/ground-plane-extraction.md`
 - `docs/lidar/architecture/gps-ethernet-parsing.md`
-- `data/math/ground-plane-maths.md`
+- `data/maths/ground-plane-maths.md`
 
 ## Objective
 

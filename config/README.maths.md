@@ -13,7 +13,7 @@ Note: this repo does not ship a `tracking.json` file. If your deployment tooling
 
 Math reference:
 
-- [`data/math/background-grid-settling-maths.md`](../data/math/background-grid-settling-maths.md)
+- [`data/maths/background-grid-settling-maths.md`](../data/maths/background-grid-settling-maths.md)
 
 Keys:
 
@@ -37,8 +37,8 @@ Code path:
 
 Math reference:
 
-- [`data/math/ground-plane-maths.md`](../data/math/ground-plane-maths.md)
-- Proposal: [`data/math/proposals/20260219-unify-l3-l4-settling.md`](../data/math/proposals/20260219-unify-l3-l4-settling.md)
+- [`data/maths/ground-plane-maths.md`](../data/maths/ground-plane-maths.md)
+- Proposal: [`data/maths/proposals/20260219-unify-l3-l4-settling.md`](../data/maths/proposals/20260219-unify-l3-l4-settling.md)
 
 Keys:
 
@@ -59,7 +59,7 @@ Code path:
 
 Math reference:
 
-- [`data/math/clustering-maths.md`](../data/math/clustering-maths.md)
+- [`data/maths/clustering-maths.md`](../data/maths/clustering-maths.md)
 
 Keys:
 
@@ -79,7 +79,7 @@ Code path:
 
 Math reference:
 
-- [`data/math/tracking-maths.md`](../data/math/tracking-maths.md)
+- [`data/maths/tracking-maths.md`](../data/maths/tracking-maths.md)
 
 Keys:
 

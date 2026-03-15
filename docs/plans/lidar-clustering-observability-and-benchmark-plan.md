@@ -2,7 +2,7 @@
 
 **Status:** Proposed (February 2026)
 **Layers:** L4 Perception, L8 Analytics
-**Related:** [Clustering Maths](../../data/math/clustering-maths.md), [Performance and Scene Health Metrics](lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
+**Related:** [Clustering Maths](../../data/maths/clustering-maths.md), [Performance and Scene Health Metrics](lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
 
 ## Problem
 

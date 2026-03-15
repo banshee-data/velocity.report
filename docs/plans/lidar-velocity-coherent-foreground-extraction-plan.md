@@ -9,7 +9,7 @@
 > **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`; the active clustering is DBSCAN in `internal/lidar/l4perception/cluster.go`. No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications; see [Implementation Notes](#implementation-notes-january-2026) for detail.
 >
 > The mathematical model and parameter tradeoffs are also documented in:
-> [`data/math/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/math/proposals/20260220-velocity-coherent-foreground-extraction.md)
+> [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 
 ---
 
@@ -1672,7 +1672,7 @@ These features from the original design are deferred to future work:
 
 ## Related Documentation
 
-- [`data/math/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/math/proposals/20260220-velocity-coherent-foreground-extraction.md) — Mathematical model and parameter tradeoffs
+- [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — Mathematical model and parameter tradeoffs
 - [`docs/lidar/architecture/vector-vs-velocity-workstreams.md`](../lidar/architecture/vector-vs-velocity-workstreams.md) — Workstream separation rationale
 - [`docs/plans/lidar-static-pose-alignment-plan.md`](./lidar-static-pose-alignment-plan.md) — Pose pipeline dependency
 - [`docs/plans/lidar-motion-capture-architecture-plan.md`](./lidar-motion-capture-architecture-plan.md) — Motion capture architecture
