@@ -127,7 +127,7 @@
 - Go server: renamed `ClassLabel` → `ObjectClass`, added `ClassifyFeatures` method for VRLOG replay reclassification.
 - SvelteKit frontend: expanded `DetectionLabel` union type, updated colours and tests.
 - macOS visualiser: updated classification labels, tag pills in `TrackListView` for classification and quality indicators.
-- Added classification maths specification and label vocabulary consolidation plan.
+- Added classification maths specification and [label vocabulary consolidation plan](plans/label-vocabulary-consolidation-plan.md).
 - Refactored playback state management: `PlaybackControlsDerivedState`, `PlaybackRPCClient` protocol, stream termination handling.
 - Added `trackMaxSpeed` to `AppState` and updated `TrackHistoryGraphView` to use persistent max speed with dashed line indicator.
 - Added `AboutView` with licensing information; renamed app references to VelocityReport.
@@ -135,8 +135,8 @@
 - Enhanced `TimeDisplayView` with fallback for frame-index display.
 - Renamed `format-markdown` Makefile target to `format-docs` for clarity.
 - Completed HINT sweep polish items: TypeScript types, Continue button, carried badge, `exportLabels` removal, page subtitle.
-- Completed Python venv consolidation to single root `.venv/` (PR #320).
-- Added PDF generation migration-to-Go plan (PR #321, decision D-17).
+- Completed [Python venv consolidation](plans/tooling-python-venv-consolidation-plan.md) to single root `.venv/` (PR #320).
+- Added [PDF generation migration-to-Go plan](plans/pdf-go-chart-migration-plan.md) (PR #321, decision D-17).
 - Completed SWEEP/HINT platform hardening and polish backlog items; updated BACKLOG.md milestones.
 - Added `TestResults/` to `.gitignore` for Xcode test artifact cleanup.
 - Bumped version to `0.5.0-pre13`.
@@ -148,12 +148,12 @@
 - Refactored settling-eval to use `l3grid.SettlingReport`, streamlining report generation.
 - Added unit tests for `IsSettlingComplete`, `EvaluateSettling` zero-cells edge case, and settling eval coverage.
 - Fixed race conditions in settling eval tests and VRLog seek tests (use atomic return values instead of `reader.CurrentFrame()`).
-- Created DECISIONS.md executive decisions register; resolved 16 design decisions with rationale.
-- Deprecated ROADMAP.md in favour of BACKLOG.md as single source of truth for project-wide work items.
-- Moved `DESIGN.md` to `docs/ui/DESIGN.md` and updated all cross-references.
+- Created [DECISIONS.md](DECISIONS.md) executive decisions register; resolved 16 design decisions with rationale.
+- Deprecated ROADMAP.md in favour of [BACKLOG.md](BACKLOG.md) as single source of truth for project-wide work items.
+- Moved `DESIGN.md` to [`docs/ui/DESIGN.md`](ui/DESIGN.md) and updated all cross-references.
 - Reorganised BACKLOG.md milestones: added v0.5.1 for serial port configuration UI, adjusted v0.7/v0.8 item placements.
 - Added 6 missing GitHub issues to BACKLOG.md (#4, #7, #8, #103, #122, #148); fixed #290→#11 reference.
-- Updated vector scene map architecture: integrated OSM Simple 3D Buildings as structure priors, enhanced geometry prior service design.
+- Updated [vector scene map](lidar/architecture/vector-scene-map.md) architecture: integrated OSM Simple 3D Buildings as structure priors, enhanced geometry prior service design.
 
 ## February 22, 2026 - PCAP Performance, OBB Heading & Region-Adaptive Parameters
 
@@ -169,26 +169,26 @@
 - Standardised bbox dimensions: removed `_avg` duplication; both Swift and web visualisers use per-frame cluster dims.
 - Updated protobuf schema: renamed `bbox_length_avg` → `bbox_length`, moved `heading_source` to field 35.
 - Added geometry-coherent tracking maths proposal with cross-references to existing proposals.
-- Implemented region-adaptive parameters (PR #307): per-region `ClosenessMultiplier` and `NeighborConfirmationCount` in `ProcessFramePolarWithMask`.
+- Implemented [region-adaptive parameters](lidar/operations/adaptive-region-parameters.md) (PR #307): per-region `ClosenessMultiplier` and `NeighborConfirmationCount` in `ProcessFramePolarWithMask`.
 - Added `UpdateConfig` method to `Tracker` for runtime config updates via WebServer.
-- Created VISION.md with project-wide vision statement and technical design language.
+- Created [VISION.md](VISION.md) with project-wide vision statement and technical design language.
 - Bumped version to 0.5.0-pre12.
 
 ## February 21, 2026 - Documentation Reorganisation & Maths Specifications
 
 - Reorganised `docs/plans/` directory (PR #308, 35 files): consolidated and restructured plan documents.
-- Comprehensive LiDAR documentation overhaul (PR #295, 90 files): created velocity-coherent foreground extraction maths spec, added status fields to docs, created getting started guide and config parameter tuning guide.
+- Comprehensive LiDAR documentation overhaul (PR #295, 90 files): created [velocity-coherent foreground extraction](plans/lidar-velocity-coherent-foreground-extraction-plan.md) maths spec, added status fields to docs, created getting started guide and config parameter tuning guide.
 - Moved maths proposals to `data/maths/proposals/` with consistent naming convention.
-- Added documentation standardisation plan with metadata and validation gates.
+- Added [documentation standardisation plan](plans/platform-documentation-standardisation-plan.md) with metadata and validation gates.
 - Updated ROADMAP.md (PR #312): aligned roadmap entries with BACKLOG.md priorities.
 - Added macOS process profiling script (`macos_profile_lidar.sh`) and corresponding Makefile targets.
 
 ## February 20, 2026 - Design Plans, Test Coverage & CI Improvements
 
-- Created platform simplification and deprecation plan (PR #300): deprecation signalling, deploy retirement gate, migration task list.
-- Created quality coverage improvement plan (PR #294): target 95.5% across all components, exclude `cmd/`, add logic extraction strategy and macOS Swift app.
-- Created LiDAR multi-model ingestion and configuration architecture proposal (PR #303): sensor auto-detection, DB-driven config.
-- Created LiDAR network configuration design document (PR #302): interface selection, network diagnostics, hot-reload UDP listener binding.
+- Created [platform simplification and deprecation plan](plans/platform-simplification-and-deprecation-plan.md) (PR #300): deprecation signalling, deploy retirement gate, migration task list.
+- Created [quality coverage improvement plan](plans/platform-quality-coverage-improvement-plan.md) (PR #294): target 95.5% across all components, exclude `cmd/`, add logic extraction strategy and macOS Swift app.
+- Created LiDAR [multi-model ingestion and configuration](lidar/architecture/multi-model-ingestion-and-configuration.md) architecture proposal (PR #303): sensor auto-detection, DB-driven config.
+- Created LiDAR [network configuration](lidar/architecture/network-configuration.md) design document (PR #302): interface selection, network diagnostics, hot-reload UDP listener binding.
 - Created visualiser algorithm diffing design document (PR #299): visual comparison of algorithmic outputs.
 - CI performance improvements (PR #292): streamlined macOS CI, added nightly full CI, removed deprecated performance regression test.
 - Refactored test setup: replaced direct file handling with template DB cloning; simplified schema consistency checks.
@@ -196,7 +196,7 @@
 - Added OBB serialisation to `frameBundleToProto` with tests.
 - Added lifecycle parameter sweep scripts and kirk0 configuration permutations for tuning.
 - Fixed out-of-bounds errors and tuned tracking parameters (PR #293).
-- Updated LiDAR data layer model documentation with visualisation details.
+- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) documentation with visualisation details.
 
 ## February 19, 2026 - LiDAR Layer Alignment & Architecture Review
 
@@ -205,14 +205,19 @@
 - Extracted domain comparison logic from `storage/sqlite` into `l6objects`.
 - Added HTTP method prefixes and middleware wrappers to route tables.
 - Fixed route conflict panic from duplicate route registrations.
-- Consolidated architecture docs, created `BACKLOG.md` for deferred work items.
+- Consolidated architecture docs, created [BACKLOG.md](BACKLOG.md) for deferred work items.
 - Documented further opportunities to reduce library size and complexity.
 - Completed review items 11–14 and P1–P3 from LiDAR layer alignment review.
 - Removed redundant method-not-allowed tests (mux handles 405 via method-prefixed routes).
+- Migrated debug logging from `Debugf` to structured levels: `Opsf`, `Diagf`, `Tracef`.
+- Added shared colour palette module and CSS standard utility classes for frontend components.
+- Added [vector scene map](lidar/architecture/vector-scene-map.md) and 3D ground plane architecture documentation.
+- Added mathematical specifications and standardised config key ordering.
+- Added database naming standardisation guide and pull-request template.
 
 ## February 18, 2026 - Design System & TeX/Chart Updates
 
-- Created `DESIGN.md` with project-wide design principles and frontend design language.
+- Created [`DESIGN.md`](ui/DESIGN.md) with project-wide design principles and frontend design language.
 - Conducted comprehensive design review against `DESIGN.md`, producing improvement plan.
 - Updated Python PDF generator TeX configuration for minimal precompiled install.
 - Enhanced Svelte chart components (RadarOverviewChart).
@@ -221,7 +226,7 @@
 
 ## February 15-16, 2026 - HINT Tuning System & LiDAR Track Improvements
 
-- Implemented Human-Involved Numerical Tuning (HINT) system (renamed from RLHF).
+- Implemented Human-Involved Numerical Tuning ([HINT](plans/lidar-sweep-hint-mode-plan.md)) system (renamed from RLHF).
 - Replaced HTTP client with in-process `DirectBackend` for sweep runner, eliminating HTTP overhead.
 - Added long-polling for HINT status and PCAP completion.
 - Refactored label taxonomy: `good_vehicle`/`good_pedestrian` → `car`/`ped`; added `impossible` label.
@@ -234,8 +239,8 @@
 - macOS visualiser: added ground reference grid toggle, background grid points toggle, track filtering with dual-handle range slider.
 - Refactored all default parameters to load from `tuning.defaults.json` instead of hardcoded values.
 - Bumped version to 0.5.0-pre8 and 0.5.0-pre9.
-- Created LiDAR 6-layer data model documentation (OSI-style).
-- Added LiDAR labelling QC enhancements plan.
+- Created [LiDAR 6-layer data model](lidar/architecture/lidar-data-layer-model.md) documentation (OSI-style).
+- Added [LiDAR labelling QC enhancements](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) plan.
 - Created LiDAR refactor plans for package restructuring.
 
 ## February 14, 2026 - Sweep Schema Fixes & Documentation Updates
@@ -249,7 +254,7 @@
 
 ## February 12, 2026 - Precompiled LaTeX Plan & Test Expansion
 
-- Created design document for precompiled LaTeX `.fmt` support in PDF generator.
+- Created design document for [precompiled LaTeX `.fmt`](plans/pdf-latex-precompiled-format-plan.md) support in PDF generator.
 - Expanded test coverage across Go, Python, and macOS components.
 
 ## February 11, 2026 - RLHF Score Explainability & Label Provenance
@@ -263,7 +268,7 @@
 - Fixed VRLog seek race condition; fixed int64 overflow in temporal spread calculation.
 - Boosted RLHF test coverage to 91.9%; web test coverage to 97%.
 - Created RLHF expansion plan with ML solver-inspired optimisation approach.
-- Designed `velocity.report-imager` (RPi Imager fork) for simplified deployment.
+- Designed [`velocity.report-imager`](plans/deploy-rpi-imager-fork-plan.md) (RPi Imager fork) for simplified deployment.
 - Added comprehensive Swift tests for macOS visualiser.
 - Expanded Go test coverage: Runner, sweep, tracking API, UDP listener, tracking pipeline.
 - Simplified packet handling by directly using polar points in `FrameBuilder`.
@@ -287,7 +292,7 @@
 - Enhanced LiDAR tuning refinement with updated parameters and thresholds.
 - Added PCAP analysis improvements for tune benchmarks.
 - Expanded Go unit test coverage across multiple packages.
-- Created frontend consolidation design document.
+- Created [frontend consolidation](plans/web-frontend-consolidation-plan.md) design document.
 - Designed Swift label plan for macOS visualiser track labelling workflow.
 
 ## February 8, 2026 - Documentation Audit & Roadmap
@@ -301,7 +306,8 @@
 - Enhanced sweep dashboard: two new heatmaps (tracks, alignment), PARAM_SCHEMA with sane defaults.
 - Increased chart height from 300px to 450px, changed grid layout from 6 to 3 columns.
 - Fixed PCAP replay methods to use full file path for `pcap_file` parameter.
-- Created design document for track labelling, ground truth evaluation, and label-aware auto-tuning (8 phases).
+- Created design document for [track labelling, ground truth evaluation, and label-aware auto-tuning](plans/lidar-track-labelling-auto-aware-tuning-plan.md) (8 phases).
+- Created [dynamic algorithm selection](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) design spec for LiDAR foreground extraction.
 - Designed `lidar_transits` table schema for dashboard/report integration.
 - Identified label API route gap: CRUD handlers exist but routes not registered.
 
@@ -321,7 +327,7 @@
 - M5: Algorithm upgrades — Hungarian association, ground removal, OBB estimation, occlusion coasting.
 - M6: Debug overlays — gating ellipses, association lines, residuals via gRPC; label API handlers.
 - M7: Performance hardening — Swift buffer pooling, PointCloudFrame reference counting, frame skip cooldown.
-- Added LiDAR settling time optimisation design document.
+- Added [LiDAR settling time optimisation](lidar/operations/settling-time-optimisation.md) design document.
 
 ## February 3-4, 2026 - macOS Visualiser M0–M3
 
