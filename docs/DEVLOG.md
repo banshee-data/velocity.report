@@ -19,25 +19,25 @@
 
 - Reworked AI-agent tooling from the earlier Jess PM prototype into the current Appius/Euler/Flo/Grace/Malory/Ruth/Terry stack, with portraits, `.github/knowledge/` modules, updated Copilot instructions, and helper scripts.
 - Standardised header metadata to bullet-list format (`- **Key:** value`) across all documentation files.
-- Added macOS visualiser light-mode plan and linked it into the backlog.
+- Added macOS visualiser [light-mode plan](plans/lidar-visualiser-light-mode-plan.md) and linked it into the backlog.
 - Fixed SSE subscribers to receive test payloads end-to-end — buffered serialmux subscriber channels, added subscriber registration wait, tightened `prepareForNewReplay` resets in `AppState`.
 
 ## March 12, 2026 - Shim Removal, Tagged Loggers & Codecov Flags
 
-- Completed v0.5.0 backward-compatibility shim removal across Go sweep package (14 legacy `SweepRequest` fields), TypeScript, Python PDF generation, and Swift — coordinated removal of dual-format parsing and fallback stubs with broad test rewrites.
+- Completed v0.5.0 [backward-compatibility shim removal](plans/v050-backward-compatibility-shim-removal-plan.md) across Go sweep package (14 legacy `SweepRequest` fields), TypeScript, Python PDF generation, and Swift — coordinated removal of dual-format parsing and fallback stubs with broad test rewrites.
 - Introduced tagged diagnostic loggers across the LiDAR stack, replacing direct `log` package usage with package-scoped tagged loggers for `network` and `analysis` packages; widened `speed_ratio` instrumentation across monitor, sweep, PCAP, and VRLOG tools.
 - Updated Codecov targets — explicit 95% project/patch thresholds, component-specific 98% for radar-go, web, and Svelte.
-- Added LiDAR tracks table consolidation plan — analysed `lidar_tracks` vs `lidar_run_tracks` duplication across schema, Go structs, and SQL.
-- Added typed UUID prefix convention and documented VRLOG run comparison experiment with bug findings and test plan.
-- Updated L8–L10 plan with backlog items and phased subphase structure.
+- Added [LiDAR tracks table consolidation plan](plans/lidar-tracks-table-consolidation-plan.md) — analysed `lidar_tracks` vs `lidar_run_tracks` duplication across schema, Go structs, and SQL.
+- Added [typed UUID prefix convention](plans/platform-typed-uuid-prefixes-plan.md) and documented VRLOG run comparison experiment with bug findings and test plan.
+- Updated [L8–L10 plan](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) with backlog items and phased subphase structure.
 
 ## March 11, 2026 - Dual Frame Representation & Naming Standardisation
 
-- Added L2 dual representation in `LiDARFrame` (`Points` + `PolarPoints`), removed repeated polar rebuild work, propagated through adapters, PCAP/network ingestion, perception, pipeline stages, and tests.
+- Added [L2 dual representation](plans/lidar-l2-dual-representation-plan.md) in `LiDARFrame` (`Points` + `PolarPoints`), removed repeated polar rebuild work, propagated through adapters, PCAP/network ingestion, perception, pipeline stages, and tests.
 - Renamed `PeakSpeedMps` to `MaxSpeedMps` across analysis/reporting, classification, proto, Swift visualiser, and tests; CI fix for remaining references missed in the initial rename.
 - Standardised docs naming conventions — all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from `internal/db/`.
 - Overhauled LiDAR architecture Mermaid layer diagram with enhanced documentation and added Mermaid flowchart readability utility script.
-- Added coordinate-flow audit documenting polar/Cartesian transitions per tracking stage with flowcharts, matrices, and single-projection strategies.
+- Added [coordinate-flow audit](lidar/architecture/coordinate-flow-audit.md) documenting polar/Cartesian transitions per tracking stage with flowcharts, matrices, and single-projection strategies.
 - Added 52-entry BibTeX bibliography (`docs/references.bib`) covering L3f, L5h, L6e planned work and existing references.
 - Updated BACKLOG with v0.5.0 breaking-change/proto work split and shipped component status.
 - Activated shared web cache for worktrees — `make activate-web-cache` for Codex environment setup, reusable Make targets.
@@ -50,21 +50,21 @@
 
 ## March 9, 2026 - LiDAR L7-L10 & Metrics-first Documentation
 
-- Updated LiDAR data layer model from six-layer to ten-layer architecture — added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
+- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) from six-layer to ten-layer architecture — added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
 - Rewrote contributor personas in `CONTRIBUTING.md`, expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
-- Added ticTacTail VRLOG inspection command specification — CLI shape, package layout, modes, metrics, and aggregation windows.
+- Added [ticTacTail](plans/tictactail-platform-plan.md) VRLOG inspection command specification — CLI shape, package layout, modes, metrics, and aggregation windows.
 - Added `internal/lidar/monitor/` deprecation and migration plan to `server/`, `l7analytics/`, `l8presentation/`.
-- Updated 0.5.0 proto plan — percentile aggregation decisions, metrics registry strategy, tagging guidance, and observability/export mapping.
+- Updated 0.5.0 proto plan — [percentile aggregation](plans/speed-percentile-aggregation-alignment-plan.md) decisions, [metrics registry](plans/metrics-registry-and-observability-plan.md) strategy, tagging guidance, and observability/export mapping.
 - Added Jess agent standup and planning behaviours.
 - British English spelling lint check, backlog decision updates, Python CI bump.
 
 ## March 8, 2026 - L7/L8/L9 Client Planning
 
-- Added LiDAR L7 analytics and L8 visualisation refactor plan — phased implementation steps and checklist covering docs, L7/L8 boundaries, monitor/, and generated artefacts.
+- Added LiDAR [L7 analytics and L8 visualisation refactor plan](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) — phased implementation steps and checklist covering docs, L7/L8 boundaries, monitor/, and generated artefacts.
 
 ## March 7, 2026 - Platform Simplification Phase 1
 
-- Implemented Phase 1 of platform simplification — added deprecation warnings to legacy deployment targets and tools, updated documentation for `velocity-deploy` and Makefile targets.
+- Implemented Phase 1 of [platform simplification](plans/platform-simplification-and-deprecation-plan.md) — added deprecation warnings to legacy deployment targets and tools, updated documentation for `velocity-deploy` and Makefile targets.
 
 ## March 6, 2026 - Compatibility Plans
 
@@ -79,8 +79,8 @@
 
 ## March 1, 2026 - Config Restructure & Maths Refresh
 
-- Added `config/CONFIG-RESTRUCTURE.md` documenting the migration from flat to layer-scoped nested tuning config schema.
-- Updated ML solver expansion and velocity-coherent foreground extraction maths documents to match new configuration and modelling direction.
+- Added [`config/CONFIG-RESTRUCTURE.md`](../config/CONFIG-RESTRUCTURE.md) documenting the migration from flat to layer-scoped nested tuning config schema.
+- Updated ML solver expansion and [velocity-coherent foreground extraction](plans/lidar-velocity-coherent-foreground-extraction-plan.md) maths documents to match new configuration and modelling direction.
 - Refreshed backlog references around the config and maths workstream.
 
 ## February 28, 2026 - macOS Build Metadata
