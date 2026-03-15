@@ -52,7 +52,7 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 ### Breaking Changes
 
 - **Proto field rename:** `peak_speed_mps` → `max_speed_mps` (proto field 25) across Go, Swift, and TypeScript models; regenerated bindings (#352)
-- **Proto field rename:** `avg_speed_mps` → `median_speed_mps` (proto field 24); `AvgSpeedMps` removed from visualiser model (#336)
+- **Proto field rename (deferred):** `avg_speed_mps` (proto field 24) is retained in this release; planned rename to `median_speed_mps` and removal of visualiser model field `AvgSpeedMps` in a future schema update (#336)
 - **ObjectClass enum:** String `class_label` replaced with typed `ObjectClass` enum (field 26, 9 classes + UNSPECIFIED) on visualiser proto (#328)
 - **Deployment surfaces deprecated:** `cmd/deploy`, `setup-radar`, and `deploy-*` Make targets print deprecation warnings; replacement: RPi image pipeline (#330)
 - **`cmd/transit-backfill` soft-deprecated:** Continues to function; replacement: `velocity-report transits rebuild` (#330)
@@ -91,7 +91,7 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 #### Changed
 
-- **Proto contract parity** — `FrameBundle.debug` streaming, cluster/track field serialisation, speed field renames (#336)
+- **Proto contract parity** — cluster/track field serialisation and speed field renames; `FrameBundle.debug` debug overlays remain deferred (not yet streamed) (#336)
 
 ### Web Frontend
 

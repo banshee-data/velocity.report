@@ -388,7 +388,7 @@ The following are **not** compat shims and should be retained:
 - [x] Rename raw `peak` terminology to `max` on unshipped visualiser surfaces (#352)
 - [ ] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it
 - [ ] Update callers of `setPlaybackMode(.unknown)` legacy branch
-- [x] Verify `medianSpeedMps` field reads correctly from regenerated proto
+- [x] Verify `avgSpeedMps` field reads correctly from regenerated proto
 
 ### Phase 6 — Validation
 
