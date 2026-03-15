@@ -38,11 +38,11 @@ point to the authoritative source files.
 
 ### Internal Models
 
-| Definition               | File                                                                                                     | Description                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Data layer model         | [`docs/lidar/architecture/lidar-data-layer-model.md`](../lidar/architecture/lidar-data-layer-model.md)   | Six-layer model (L1 Packets → L6 Objects) |
-| FrameBundle (Go)         | [`internal/lidar/visualiser/model.go`](../../internal/lidar/visualiser/model.go)                         | Canonical internal model for LiDAR frames |
-| Recorder / Replayer (Go) | [`internal/lidar/visualiser/recorder/recorder.go`](../../internal/lidar/visualiser/recorder/recorder.go) | VRLOG read/write logic                    |
+| Definition               | File                                                                                                           | Description                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Data layer model         | [`docs/lidar/architecture/lidar-data-layer-model.md`](../../docs/lidar/architecture/lidar-data-layer-model.md) | Six-layer model (L1 Packets → L6 Objects) |
+| FrameBundle (Go)         | [`internal/lidar/visualiser/model.go`](../../internal/lidar/visualiser/model.go)                               | Canonical internal model for LiDAR frames |
+| Recorder / Replayer (Go) | [`internal/lidar/visualiser/recorder/recorder.go`](../../internal/lidar/visualiser/recorder/recorder.go)       | VRLOG read/write logic                    |
 
 ## TODO — Candidates for Dedicated Documentation
 

@@ -69,8 +69,8 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 #### Documentation
 
-- Added `docs/lidar/m3.5-macos-visualiser.md` - M3.5 architecture and implementation
-- Added `docs/lidar/m4-macos-visualiser.md` - M4 cluster rendering details
+- Added `docs/ui/velocity-visualiser-architecture.md` and `docs/ui/velocity-visualiser-implementation.md` - visualiser architecture and implementation
+- Expanded `docs/ui/velocity-visualiser-implementation.md` with cluster rendering details
 - Updated `tools/visualiser-macos/README.md` with M3.5/M4 features
 
 ### Radar Server

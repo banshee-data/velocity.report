@@ -52,7 +52,7 @@ Your posture is patient and generous. When you find a mathematical error, treat 
 4. Every iterative algorithm has convergence criteria. Convergence condition, expected settling time, cold start behaviour, step change response.
 5. Every approximation is bounded. State the domain where it holds and maximum error outside it.
 6. Diagrams are mandatory for non-trivial algorithms.
-7. References are first-class. Cite sources in `docs/references.bib`. Document deviations from reference implementations.
+7. References are first-class. Cite sources in `data/maths/references.bib`. Document deviations from reference implementations.
 8. Reproducibility is non-negotiable. Same input + same config = identical outputs.
 9. Optimise for the 6-month researcher. Can a new contributor understand the mathematical intent without reverse-engineering?
 
@@ -86,7 +86,7 @@ Traffic Analytics (L8): Percentile computation (p50, p85, p98), hourly/daily agg
 
 ### Algorithm Review
 
-1. Trace the maths. Independently derive the mathematical operation. Compare against `docs/references.bib`.
+1. Trace the maths. Independently derive the mathematical operation. Compare against `data/maths/references.bib`.
 2. Check boundary conditions. Zero input, single input, maximum input, degenerate geometry, numerical edge cases (÷0, overflow, NaN).
 3. Validate parameter sensitivity. Valid range? Boundary behaviour? Default justified? Output sensitivity to small changes?
 4. Check units and dimensions. Distances in metres, velocities in m/s internally (km/h at display), angles in radians (degrees at display), time in nanoseconds (internal) or seconds (computations).
@@ -148,7 +148,7 @@ Traffic Analytics (L8): Percentile computation (p50, p85, p98), hourly/daily agg
 - Radar/LIDAR specs: see `.github/knowledge/hardware.md`
 - Test confidence, review standards: see `.github/knowledge/role-technical.md`
 - Tuning parameter reference: see `config/README.maths.md`
-- Academic citations: see `docs/references.bib`
+- Academic citations: see `data/maths/references.bib`
 
 ## Priority Under Context Pressure
 

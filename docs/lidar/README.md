@@ -82,13 +82,13 @@ Tracking pipeline refactor and upgrade proposals.
 | Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                                                                                   |
 | Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                                             |
 | Data science plan       | [../plans/platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md)                                                 |
-| Packet format           | [HESAI_PACKET_FORMAT.md](../data/HESAI_PACKET_FORMAT.md)                                                                                                     |
+| Packet format           | [HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)                                                                                       |
 | **macOS Visualiser**    | [../ui/velocity-visualiser-app/01-problem-and-user-workflows.md](../ui/velocity-visualiser-app/01-problem-and-user-workflows.md)                             |
 | **API Contracts**       | [../ui/velocity-visualiser-app/02-api-contracts.md](../ui/velocity-visualiser-app/02-api-contracts.md)                                                       |
 | **Labelling + QC Plan** | [../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)                 |
 | **Tracking Upgrades**   | [troubleshooting/01-tracking-upgrades.md](troubleshooting/01-tracking-upgrades.md)                                                                           |
 | **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                                                                       |
-| **Track Labelling**     | [../plans/lidar-track-labeling-auto-aware-tuning-plan.md](../plans/lidar-track-labeling-auto-aware-tuning-plan.md)                                           |
+| **Track Labelling**     | [../plans/lidar-track-labelling-auto-aware-tuning-plan.md](../plans/lidar-track-labelling-auto-aware-tuning-plan.md)                                         |
 
 ## Implementation Status
 
@@ -140,7 +140,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Swift run browser UI — `RunBrowserView`, `RunBrowserState` for loading analysis runs
 - ✅ Swift label API client — `RunTrackLabelAPIClient` for track labelling
 
-See: [`docs/lidar/operations/track-labeling-ui-implementation.md`](operations/track-labeling-ui-implementation.md)
+See: [`docs/lidar/operations/track-labelling-ui-implementation.md`](operations/track-labelling-ui-implementation.md)
 
 #### macOS Visualiser: M0–M7 Complete (Oct 2025 – Feb 2026)
 

@@ -252,6 +252,6 @@ curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p
 
 The repository includes Python scripts for visualising sweep results:
 
-- [data/multisweep-graph/plot_noise_sweep.py](../../../data/multisweep-graph/plot_noise_sweep.py) — Plot acceptance rates vs noise values
-- [data/multisweep-graph/plot_noise_buckets.py](../../../data/multisweep-graph/plot_noise_buckets.py) — Plot per-bucket acceptance distributions
-- [data/convergance-neighbour/analyse_convergence.py](../../../data/convergance-neighbour/analyse_convergence.py) — Analyse neighbour convergence behaviour
+- [data/multisweep-graph/plot_noise_sweep.py](../../../data/explore/multisweep-graph/plot_noise_sweep.py) — Plot acceptance rates vs noise values
+- [data/multisweep-graph/plot_noise_buckets.py](../../../data/explore/multisweep-graph/plot_noise_buckets.py) — Plot per-bucket acceptance distributions
+- [data/convergence-neighbour/analyse_convergence.py](../../../data/explore/convergence-neighbour/analyse_convergence.py) — Analyse neighbour convergence behaviour

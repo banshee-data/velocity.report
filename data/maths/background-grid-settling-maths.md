@@ -178,4 +178,4 @@ This allows L4 to maintain geometric consistency even when L3 is temporarily uns
 | Pomerleau et al. (2014)   | `Pomerleau2014` | Long-term map maintenance; related to our background settling and drift correction    |
 | Welford (1962)            | `Welford1962`   | Numerically stable online variance algorithm; reference for Section 7 running update  |
 
-Full BibTeX entries: [docs/references.bib](../references.bib)
+Full BibTeX entries: [data/maths/references.bib](references.bib)

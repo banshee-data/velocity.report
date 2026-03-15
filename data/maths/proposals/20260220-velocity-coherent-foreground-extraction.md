@@ -330,4 +330,4 @@ fragmentation quality within defined non-regression bounds.
 | Weng et al. (2020)           | `Weng2020`       | AB3DMOT — benchmark reference for velocity accuracy improvements (Section 7.1)                     |
 | Welford (1962)               | `Welford1962`    | Numerically stable online variance — recommended for per-layer metric accumulation                 |
 
-Full BibTeX entries: [docs/references.bib](../../references.bib)
+Full BibTeX entries: [data/maths/references.bib](../references.bib)

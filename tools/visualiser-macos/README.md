@@ -122,7 +122,7 @@ The visualiser supports bandwidth-optimised streaming:
 - **Bandwidth reduction**: ~80 Mbps → ~3 Mbps (96% reduction)
 - **Cache indicator**: Green dot + "BG" in stats panel when cached
 
-See [implementation plan](../../docs/lidar/visualiser/04-implementation-plan.md) and [architecture](../../docs/lidar/visualiser/03-architecture.md) for details.
+See [implementation plan](../../docs/ui/velocity-visualiser-implementation.md) and [architecture](../../docs/ui/velocity-visualiser-architecture.md) for details.
 
 ### M4 Cluster Rendering
 
@@ -135,7 +135,7 @@ Clusters (detected foreground objects) are rendered as:
 
 Toggle with 'C' key or toolbar button.
 
-See [implementation plan](../../docs/lidar/visualiser/04-implementation-plan.md) and [architecture](../../docs/lidar/visualiser/03-architecture.md) for details.
+See [implementation plan](../../docs/ui/velocity-visualiser-implementation.md) and [architecture](../../docs/ui/velocity-visualiser-architecture.md) for details.
 
 ## Configuration
 
@@ -167,6 +167,6 @@ protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
 
 ## Related Documentation
 
-- [Design Docs](../../docs/lidar/visualiser_macos/)
-- [API Contract](../../docs/lidar/visualiser_macos/02-api-contracts.md)
-- [Architecture](../../docs/lidar/visualiser_macos/03-architecture.md)
+- [UI docs](../../docs/ui/)
+- [API contract](../../docs/ui/velocity-visualiser-app/02-api-contracts.md)
+- [Architecture](../../docs/ui/velocity-visualiser-architecture.md)

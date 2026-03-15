@@ -328,7 +328,7 @@ track storage.
 
 **Action:** No schema change needed. Document that `lidar_labels` is an L6→L8
 bridge table. When L8 storage is eventually separated (per the
-[L8 consolidation plan](lidar-l8-analytics-l9-endpoints-l10-client-plan.md)),
+[L8 consolidation plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)),
 `lidar_labels` should move with the L8 evaluation stores.
 
 ### E5 — Storage Package Reorganisation
@@ -336,7 +336,7 @@ bridge table. When L8 storage is eventually separated (per the
 **Problem:** All lidar SQLite stores live in a single package
 `internal/lidar/storage/sqlite/`. This conflates L3 grid stores, L5 track
 stores, and L8 analytics stores. The
-[L8 plan](lidar-l8-analytics-l9-endpoints-l10-client-plan.md) already identifies
+[L8 plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) already identifies
 `analysis_run.go` and `analysis_run_compare.go` as belonging in a future
 `l8analytics/` package.
 
@@ -367,7 +367,7 @@ Recommended ordering:
 
 - [L7 Scene Plan](lidar-l7-scene-plan.md) — defines what L7 Scene will
   actually be (persistent canonical world model)
-- [L8 Analytics / L9 Endpoints / L10 Client Plan](lidar-l8-analytics-l9-endpoints-l10-client-plan.md) —
+- [L8 Analytics / L9 Endpoints / L10 Client Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) —
   covers `analysis_run.go` ownership, storage reorganisation, `l9endpoints`
   rename
 - [Layer Model](../lidar/architecture/lidar-data-layer-model.md) — frozen

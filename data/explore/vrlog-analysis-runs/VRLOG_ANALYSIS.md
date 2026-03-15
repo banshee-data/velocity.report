@@ -15,7 +15,7 @@ designed to be:
 
 **Status:** Draft — initial implementation landed; spec and code may diverge until stable.
 **Target tool:** `cmd/tools/vrlog-analyse/` (new CLI).
-**Companion spec:** [`VRLOG_FORMAT.md`](VRLOG_FORMAT.md) — recording wire format.
+**Companion spec:** [`VRLOG_FORMAT.md`](../../structures/VRLOG_FORMAT.md) — recording wire format.
 
 ---
 
@@ -315,7 +315,7 @@ speeds** over a window of 50+ observations (see §6). Per-track speed is
 summarised by `avg_speed_mps`, `max_speed_mps`, and jitter/variance metrics
 — never by percentile labels.
 
-See [Speed Percentile Aggregation Alignment Plan](../../docs/plans/speed-percentile-aggregation-alignment-plan.md)
+See [Speed Percentile Aggregation Alignment Plan](../../../docs/plans/speed-percentile-aggregation-alignment-plan.md)
 for the governing design decision.
 
 ---
@@ -438,7 +438,7 @@ Temporal alignment between the two recordings.
 
 Bipartite matching of tracks across recordings using the existing Hungarian
 algorithm and temporal IoU (threshold 0.3, matching
-[`ground_truth.go`](../../internal/lidar/adapters/ground_truth.go)).
+[`ground_truth.go`](../../../internal/lidar/adapters/ground_truth.go)).
 
 ```jsonc
 {
@@ -525,15 +525,15 @@ vrlog-analyse report sample.vrlog --compact
 
 ## 10. Relationship to Existing Infrastructure
 
-| Component                                                                       | Role                                            | Reuse                                |
-| ------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------ |
-| [`l6objects.ComputeTemporalIoU`](../../internal/lidar/l6objects/comparison.go)  | Temporal overlap for track matching             | Direct call                          |
-| [`l5tracks.HungarianAssign`](../../internal/lidar/l5tracks/hungarian.go)        | Optimal bipartite track matching                | Direct call                          |
-| [`l6objects.RunComparison`](../../internal/lidar/l6objects/comparison.go)       | Split/merge/match structs                       | Extend or wrap                       |
-| [`adapters.EvaluateGroundTruth`](../../internal/lidar/adapters/ground_truth.go) | Ground truth scoring with weights               | Pattern reference (not direct reuse) |
-| [`recorder.Replayer`](../../internal/lidar/visualiser/recorder/recorder.go)     | Read `.vrlog` frames sequentially               | Direct call                          |
-| [`visualiser.FrameBundle`](../../internal/lidar/visualiser/model.go)            | Canonical frame model with Track, Cluster data  | Direct consumption                   |
-| [`pcap-analyse`](../../cmd/tools/pcap-analyse/main.go)                          | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
+| Component                                                                          | Role                                            | Reuse                                |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------ |
+| [`l6objects.ComputeTemporalIoU`](../../../internal/lidar/l6objects/comparison.go)  | Temporal overlap for track matching             | Direct call                          |
+| [`l5tracks.HungarianAssign`](../../../internal/lidar/l5tracks/hungarian.go)        | Optimal bipartite track matching                | Direct call                          |
+| [`l6objects.RunComparison`](../../../internal/lidar/l6objects/comparison.go)       | Split/merge/match structs                       | Extend or wrap                       |
+| [`adapters.EvaluateGroundTruth`](../../../internal/lidar/adapters/ground_truth.go) | Ground truth scoring with weights               | Pattern reference (not direct reuse) |
+| [`recorder.Replayer`](../../../internal/lidar/visualiser/recorder/recorder.go)     | Read `.vrlog` frames sequentially               | Direct call                          |
+| [`visualiser.FrameBundle`](../../../internal/lidar/visualiser/model.go)            | Canonical frame model with Track, Cluster data  | Direct consumption                   |
+| [`pcap-analyse`](../../../cmd/tools/pcap-analyse/main.go)                          | PCAP analysis with TrackExport, SpeedStatistics | Pattern reference                    |
 
 ### What vrlog-analyse adds beyond pcap-analyse
 

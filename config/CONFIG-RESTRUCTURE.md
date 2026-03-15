@@ -12,7 +12,7 @@ layer-isolated evaluation, and coherent parameter grouping.
 
 The current `tuning.defaults.json` uses a **flat** schema — 44 keys at root
 level with no nesting. This worked well for a single-engine pipeline, but the
-[velocity-coherent foreground extraction](../docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+[velocity-coherent foreground extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 proposal introduces:
 
 1. **Full layer coverage** — L1 through L6 are represented in a single
@@ -363,7 +363,7 @@ Fields shared by all L3 engines (embedded via `l3Common`).
 
 | Key                                    | Type    | Maths reference / description                                                        | Source                                                         |
 | -------------------------------------- | ------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `background_update_fraction`           | float64 | [background-grid-settling-maths.md](../docs/maths/background-grid-settling-maths.md) | Tunable                                                        |
+| `background_update_fraction`           | float64 | [background-grid-settling-maths.md](../data/maths/background-grid-settling-maths.md) | Tunable                                                        |
 | `closeness_multiplier`                 | float64 | EMA gating threshold                                                                 | Tunable                                                        |
 | `safety_margin_metres`                 | float64 | Additive minimum gate width                                                          | Tunable                                                        |
 | `noise_relative`                       | float64 | Range-proportional noise model                                                       | Tunable                                                        |
@@ -404,10 +404,10 @@ hardcoded values beyond numerical stability guards).
 
 | Key                             | Type    | Maths reference                                              |
 | ------------------------------- | ------- | ------------------------------------------------------------ |
-| `foreground_dbscan_eps`         | float64 | [clustering-maths.md](../docs/maths/clustering-maths.md)     |
+| `foreground_dbscan_eps`         | float64 | [clustering-maths.md](../data/maths/clustering-maths.md)     |
 | `foreground_min_cluster_points` | int     | DBSCAN MinPts                                                |
 | `foreground_max_input_points`   | int     | Downsampling cap                                             |
-| `height_band_floor`             | float64 | [ground-plane-maths.md](../docs/maths/ground-plane-maths.md) |
+| `height_band_floor`             | float64 | [ground-plane-maths.md](../data/maths/ground-plane-maths.md) |
 | `height_band_ceiling`           | float64 | Vertical band filter                                         |
 | `remove_ground`                 | bool    | Master ground-filter switch                                  |
 | `max_cluster_diameter`          | float64 | Post-DBSCAN cluster geometry filter                          |
@@ -428,7 +428,7 @@ hardcoded values beyond numerical stability guards).
 
 | Key                                   | Type    | Maths reference / description                                           | Source                                  |
 | ------------------------------------- | ------- | ----------------------------------------------------------------------- | --------------------------------------- |
-| `gating_distance_squared`             | float64 | [tracking-maths.md](../docs/maths/tracking-maths.md) — Mahalanobis gate | Tunable                                 |
+| `gating_distance_squared`             | float64 | [tracking-maths.md](../data/maths/tracking-maths.md) — Mahalanobis gate | Tunable                                 |
 | `process_noise_pos`                   | float64 | KF process noise (position)                                             | Tunable                                 |
 | `process_noise_vel`                   | float64 | KF process noise (velocity)                                             | Tunable                                 |
 | `measurement_noise`                   | float64 | KF measurement noise                                                    | Tunable                                 |
@@ -1015,7 +1015,7 @@ For each scenario, compute:
 Results are compared with paired bootstrap confidence intervals. All regression
 gates must pass before a configuration change is promoted.
 
-See: [velocity-coherent-foreground-extraction.md §7](../docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+See: [velocity-coherent-foreground-extraction.md §7](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 for the full statistical protocol.
 
 ---
@@ -1084,7 +1084,7 @@ is a candidate for replacement by an ML classifier (see
 
 - [Config README](README.md) — current parameter documentation
 - [Config Maths Cross-Reference](README.maths.md) — key-to-maths mapping
-- [Velocity-Coherent Foreground Extraction](../docs/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
+- [Velocity-Coherent Foreground Extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
 - [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md) — optimisation platform plan
-- [Maths README](../docs/maths/README.md) — proposal roadmap (P1–P4)
-- [Geometry-Coherent Tracking](../docs/maths/proposals/20260222-geometry-coherent-tracking.md) — P1 proposal (L5 geometry model)
+- [Maths README](../data/maths/README.md) — proposal roadmap (P1–P4)
+- [Geometry-Coherent Tracking](../data/maths/proposals/20260222-geometry-coherent-tracking.md) — P1 proposal (L5 geometry model)

@@ -4,7 +4,7 @@
 **Created:** 2026-03-08
 **Layers:** L7 Scene
 **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
-**Maths index:** [docs/maths/README.md](../maths/README.md)
+**Maths index:** [data/maths/README.md](../../data/maths/README.md)
 
 This plan covers two related workstreams for the L7 Scene layer:
 
@@ -171,7 +171,7 @@ $$L(f \mid z_{1:t}) = L(f \mid z_{1:t-1}) + \log\frac{P(z_t \mid f)}{P(z_t \mid 
 
 This is the same occupancy-grid update used in OctoMap (Hornung et al., 2013) but applied to vector features rather than voxels. Each feature carries an observation count $N$ and accumulated log-odds confidence $L$.
 
-**Related maths docs:** [background-grid-settling-maths.md](../maths/background-grid-settling-maths.md) (L3 EMA settling), [ground-plane-maths.md](../maths/ground-plane-maths.md) (L4 surface estimation).
+**Related maths docs:** [background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md) (L3 EMA settling), [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) (L4 surface estimation).
 
 ### 3.2 Canonical object refinement — running sufficient statistics
 
@@ -181,7 +181,7 @@ $$\mu_{n+1} = \mu_n + \frac{\delta}{n+1}, \quad C_{n+1} = C_n + \delta \cdot (x_
 
 where $\delta = x_{n+1} - \mu_n$ and $C$ is the running scatter matrix. This produces refined dimensions (length, width, height) for canonical objects without buffering individual observations.
 
-**Related maths doc:** [ground-plane-vector-scene-maths proposal](../maths/proposals/20260221-ground-plane-vector-scene-maths.md) § 3.1.
+**Related maths doc:** [ground-plane-vector-scene-maths proposal](../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) § 3.1.
 
 ### 3.3 Cross-sensor track association — gated nearest-neighbour
 
@@ -193,7 +193,7 @@ where $\hat{x}_A$ is the predicted state from A's Kalman filter extrapolated to 
 
 Association is accepted when $d_M^2 < \chi^2_{3,\alpha}$ (3-DOF gate for position). Velocity consistency adds a second gate on heading/speed residuals.
 
-**Related maths docs:** [tracking-maths.md](../maths/tracking-maths.md) (L5 Kalman filter), [clustering-maths.md](../maths/clustering-maths.md) (DBSCAN spatial indexing).
+**Related maths docs:** [tracking-maths.md](../../data/maths/tracking-maths.md) (L5 Kalman filter), [clustering-maths.md](../../data/maths/clustering-maths.md) (DBSCAN spatial indexing).
 
 ### 3.4 Prior-to-observation alignment — rigid transform estimation
 
@@ -234,7 +234,7 @@ L7 interaction constraint (adjust for leading vehicle, gap acceptance)
 L7 constrained path probability distribution
 ```
 
-**Design doc:** [lidar-bodies-in-motion-plan.md](lidar-bodies-in-motion-plan.md) expands this into a full implementation plan including sparse-cluster track linking and path prediction. **Maths proposal:** [bodies-in-motion-maths](../maths/proposals/) (to be written).
+**Design doc:** [lidar-bodies-in-motion-plan.md](lidar-bodies-in-motion-plan.md) expands this into a full implementation plan including sparse-cluster track linking and path prediction. **Maths proposal:** [bodies-in-motion-maths](../../data/maths/proposals/) (to be written).
 
 ### 4.2 Scene graph — geometric constraint relationships
 

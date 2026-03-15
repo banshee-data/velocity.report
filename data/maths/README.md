@@ -70,7 +70,7 @@ The production pipeline uses four math-heavy layers:
 - [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md)
   — Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md)
-  — Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence, low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol. [Implementation plan](../plans/lidar-velocity-coherent-foreground-extraction-plan.md).
+  — Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence, low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol. [Implementation plan](../../docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
 - [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
   — Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
 - [Reflective Sign and Static Surface Pose Anchors](proposals/20260310-reflective-sign-pose-anchor-maths.md)
@@ -78,7 +78,7 @@ The production pipeline uses four math-heavy layers:
 - [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md)
   — Overlap analysis, interference risks, and a single-settlement architecture with shared lifecycle per surface-region key.
 - Bodies in Motion Maths (proposal — to be written)
-  — CA/CTRV state equations, IMM blending and transition matrix, corridor probability model, sparse-cluster gating extensions, and scene-graph relation confidence accumulation. [Design doc](../plans/lidar-bodies-in-motion-plan.md).
+  — CA/CTRV state equations, IMM blending and transition matrix, corridor probability model, sparse-cluster gating extensions, and scene-graph relation confidence accumulation. [Design doc](../../docs/plans/lidar-bodies-in-motion-plan.md).
 
 ---
 
@@ -119,7 +119,7 @@ become unnecessary once the geometry-coherent model replaces the guards.
 **Status:** Proposal — not started
 **Effort:** L (estimated)
 **Dependencies:** None (independent of P1, but improves P1 when combined)
-**Plan:** [lidar-velocity-coherent-foreground-extraction-plan.md](../plans/lidar-velocity-coherent-foreground-extraction-plan.md)
+**Plan:** [lidar-velocity-coherent-foreground-extraction-plan.md](../../docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md)
 
 Enriches each foreground point with a per-frame velocity estimate via
 track-assisted foreground promotion (L3), engine-selectable two-stage

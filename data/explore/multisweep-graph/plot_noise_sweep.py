@@ -10,7 +10,7 @@ closeness and neighbour values). Each line represents a distance bucket, showing
 its acceptance rate changes across noise levels.
 
 Usage:
-  python3 data/multisweep-graph/plot_noise_sweep.py --file sweep-noise-...-raw.csv --out plot.png
+  python3 data/explore/multisweep-graph/plot_noise_sweep.py --file sweep-noise-...-raw.csv --out plot.png
 
 Dependencies:
   pip install pandas matplotlib numpy

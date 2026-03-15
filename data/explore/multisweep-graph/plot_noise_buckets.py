@@ -6,7 +6,7 @@ Reads a noise sweep raw CSV and creates individual bar charts for each noise val
 showing acceptance rates across all distance buckets.
 
 Usage:
-  python3 data/multisweep-graph/plot_noise_buckets.py --file sweep-noise-...-raw.csv --out-dir plots/
+  python3 data/explore/multisweep-graph/plot_noise_buckets.py --file sweep-noise-...-raw.csv --out-dir plots/
 
 Dependencies:
   pip install pandas matplotlib numpy
