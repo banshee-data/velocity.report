@@ -15,20 +15,20 @@ cleanup, Python/web/macOS consumer migration, and the Phase 6 validation gate.
 
 ## Tracking Snapshot
 
-| Outcome              | Sections                  | Notes                                                                                                                                               |
-| -------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Removed in code      | §1, §4, §7, §15           | Speed contract reset landed (#352); malformed sweep JSON returns `400`; stale `AddPoints` note gone; proto peak→max rename complete                 |
-| Pending              | §2, §3, §6, §9–§14, §17   | Server-side sweep legacy fields, report-download follow-through, `PacketHeader`, Python/web/macOS consumer migrations still need implementation     |
-| Deferred / retained  | §5, §8, §16               | Either owned by another plan or still an active implementation path rather than a removable shim today                                              |
+| Outcome             | Sections                | Notes                                                                                                                                           |
+| ------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Removed in code     | §1, §4, §7, §15         | Speed contract reset landed (#352); malformed sweep JSON returns `400`; stale `AddPoints` note gone; proto peak→max rename complete             |
+| Pending             | §2, §3, §6, §9–§14, §17 | Server-side sweep legacy fields, report-download follow-through, `PacketHeader`, Python/web/macOS consumer migrations still need implementation |
+| Deferred / retained | §5, §8, §16             | Either owned by another plan or still an active implementation path rather than a removable shim today                                          |
 
 ## Shim Work Already Removed
 
-| Shim                                        | Section | PR    | Notes                                                                                              |
-| ------------------------------------------- | ------- | ----- | -------------------------------------------------------------------------------------------------- |
-| Proto `peak_speed_mps` → `max_speed_mps`    | §1, §15 | #352  | Proto field 25, Go/Swift/TS model renamed; SQL column deferred to migration 000030                 |
-| Lenient sweep JSON parsing removed          | §4      |       | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone |
-| Stale `AddPoints` removal note deleted      | §7      |       | `frame_builder.go` no longer carries the compat comment                                            |
-| Type aliases evaluated and retained         | §8      |       | Documented as an active package-boundary choice, not a removable shim                              |
+| Shim                                     | Section | PR   | Notes                                                                                              |
+| ---------------------------------------- | ------- | ---- | -------------------------------------------------------------------------------------------------- |
+| Proto `peak_speed_mps` → `max_speed_mps` | §1, §15 | #352 | Proto field 25, Go/Swift/TS model renamed; SQL column deferred to migration 000030                 |
+| Lenient sweep JSON parsing removed       | §4      |      | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone |
+| Stale `AddPoints` removal note deleted   | §7      |      | `frame_builder.go` no longer carries the compat comment                                            |
+| Type aliases evaluated and retained      | §8      |      | Documented as an active package-boundary choice, not a removable shim                              |
 
 **Remaining (11 items):** finish the server-side sweep cleanup (§2), finish the
 report-download migration end-to-end (§3), decide/delete `PacketHeader` (§6),
@@ -84,12 +84,12 @@ Intersections with other parent-plan projects:
 
 ### 1. Go Server — track speed contract reset
 
-| Item                                     | Location                                                                               | Status       | Detail                                                                                                                              |
-| ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Stable public track field                | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | Active       | `avg_speed_mps` remains the stable running-mean field for now                                                                       |
-| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | ✅ Renamed    | `peak_speed_mps` renamed to `max_speed_mps` on proto (field 25), Go, Swift, TS in #352; SQL column deferred to migration 000030    |
-| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                       | ✅ Resolved   | Single-track aggregate-percentile label expansion was not merged; percentiles remain aggregate-only                                 |
-| Existing percentile columns/calculations | `lidar_tracks`, analysis runs, classifier features                                     | Transitional | SQL columns remain until migration 000030; no new public dependency should be added                                                |
+| Item                                     | Location                                                                               | Status       | Detail                                                                                                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Stable public track field                | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | Active       | `avg_speed_mps` remains the stable running-mean field for now                                                                   |
+| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | ✅ Renamed   | `peak_speed_mps` renamed to `max_speed_mps` on proto (field 25), Go, Swift, TS in #352; SQL column deferred to migration 000030 |
+| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                       | ✅ Resolved  | Single-track aggregate-percentile label expansion was not merged; percentiles remain aggregate-only                             |
+| Existing percentile columns/calculations | `lidar_tracks`, analysis runs, classifier features                                     | Transitional | SQL columns remain until migration 000030; no new public dependency should be added                                             |
 
 **Decision:** Keep `avg_speed_mps` and the raw maximum as the only stable public
 track speed fields for now. Reserve aggregate percentile labels for grouped/report aggregates
@@ -272,12 +272,12 @@ server-side removal (item 2).
 
 ### 15. macOS Visualiser — Branch-local track speed-label surfaces
 
-| Item                                        | Location                                                                  | Status       | Detail                                                                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Swift track model legacy speed-label fields | `tools/visualiser-macos/VelocityVisualiser/Models/Models.swift`           | ✅ Resolved   | Branch-local aggregate-percentile-labelled fields were not merged                                                                 |
-| Client mapping for legacy speed labels      | `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`   | ✅ Resolved   | No superseded speed-label field mappings in the shipped proto                                                                      |
-| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift` | ✅ Updated    | Regenerated after `peak_speed_mps` → `max_speed_mps` rename (#352)                                                               |
-| Raw-max terminology in helpers and UI       | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`          | ✅ Renamed    | `peak` → `max` terminology updated on unshipped surfaces (#352)                                                                   |
+| Item                                        | Location                                                                  | Status      | Detail                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| Swift track model legacy speed-label fields | `tools/visualiser-macos/VelocityVisualiser/Models/Models.swift`           | ✅ Resolved | Branch-local aggregate-percentile-labelled fields were not merged  |
+| Client mapping for legacy speed labels      | `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`   | ✅ Resolved | No superseded speed-label field mappings in the shipped proto      |
+| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift` | ✅ Updated  | Regenerated after `peak_speed_mps` → `max_speed_mps` rename (#352) |
+| Raw-max terminology in helpers and UI       | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`          | ✅ Renamed  | `peak` → `max` terminology updated on unshipped surfaces (#352)    |
 
 **Action:** ✅ Complete. Branch-local speed-label surfaces were not merged.
 The `peak` → `max` rename landed in #352 across proto, Go, Swift, and TS.
@@ -329,12 +329,12 @@ The following are **not** compat shims and should be retained:
 
 ### External contract changes
 
-| Area                        | Old / branch-local state                                                                                                          | Target state                                                                                              | Status               | Notes                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------- |
-| Track speed public contract | `peak_speed_mps` on proto and model surfaces                                                                                      | `max_speed_mps` on proto/Go/Swift/TS; SQL column deferred to migration 000030                             | ✅ Complete (#352)   | Percentiles remain aggregate-only                                   |
-| Report downloads            | `/api/reports/{id}/download?file_type=pdf`                                                                                        | `/api/reports/{id}/download/{filename}.pdf`                                                               | Partial              | Server route is already strict; callers/tests still need migration  |
-| Sweep results               | Top-level `noise` / `closeness` / `neighbour` fallbacks                                                                           | `param_values` only                                                                                       | Partial              | Go request/result cleanup is done; dashboard fallbacks/tests remain |
-| Radar stats payload         | Bare `[...]` arrays may still exist in cached client data                                                                         | `{ "metrics": [...], "histogram": {...} }` only                                                           | Partial              | Fetch helper is updated; cache fallback remains                     |
+| Area                        | Old / branch-local state                                  | Target state                                                                  | Status             | Notes                                                               |
+| --------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------- |
+| Track speed public contract | `peak_speed_mps` on proto and model surfaces              | `max_speed_mps` on proto/Go/Swift/TS; SQL column deferred to migration 000030 | ✅ Complete (#352) | Percentiles remain aggregate-only                                   |
+| Report downloads            | `/api/reports/{id}/download?file_type=pdf`                | `/api/reports/{id}/download/{filename}.pdf`                                   | Partial            | Server route is already strict; callers/tests still need migration  |
+| Sweep results               | Top-level `noise` / `closeness` / `neighbour` fallbacks   | `param_values` only                                                           | Partial            | Go request/result cleanup is done; dashboard fallbacks/tests remain |
+| Radar stats payload         | Bare `[...]` arrays may still exist in cached client data | `{ "metrics": [...], "histogram": {...} }` only                               | Partial            | Fetch helper is updated; cache fallback remains                     |
 
 ### Internal cleanup targets
 

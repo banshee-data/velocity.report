@@ -6,13 +6,13 @@
 
 ## Prerequisites
 
-| Prerequisite                             | Status         | Notes                                                                                 |
-| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------- |
+| Prerequisite                             | Status         | Notes                                                                                |
+| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------ |
 | Proto `peak_speed_mps` → `max_speed_mps` | ✅ Complete    | Landed in #352 (proto field 25, Go/Swift/TS model); SQL column is the remaining step |
 | D-19 decision recorded                   | ✅ Complete    | Raw maximum renamed to `max_speed_mps`; `peak` reserved for future filtered metric   |
-| Migration SQL drafted                    | ✅ Complete    | DROP COLUMN + RENAME COLUMN statements ready (see §3 below)                           |
-| Go code changes                          | ❌ Not started | Track store, analysis run, l5tracks, l6objects, monitor API all need field renames     |
-| Web frontend changes                     | ❌ Not started | TypeScript type field renames and percentile field removal                             |
+| Migration SQL drafted                    | ✅ Complete    | DROP COLUMN + RENAME COLUMN statements ready (see §3 below)                          |
+| Go code changes                          | ❌ Not started | Track store, analysis run, l5tracks, l6objects, monitor API all need field renames   |
+| Web frontend changes                     | ❌ Not started | TypeScript type field renames and percentile field removal                           |
 
 ## Goal
 
