@@ -18,4 +18,4 @@ This document covers only the implemented/active operational baseline.
 
 Proposal and deferred phases are tracked separately in:
 
-- [`../../plans/lidar-track-labeling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labeling-auto-aware-tuning-plan.md)
+- [`../../plans/lidar-track-labelling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labelling-auto-aware-tuning-plan.md)

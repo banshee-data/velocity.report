@@ -4,7 +4,7 @@ This document describes the optional future classification research lane for LiD
 
 **Status:** Deferred / optional research lane
 **Layers:** L6 Objects
-**Related:** [Metrics-First Data Science Plan](platform-data-science-metrics-first-plan.md), [Backlog](../BACKLOG.md), [Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning](lidar-track-labeling-auto-aware-tuning-plan.md), [Classification Maths](../../data/maths/classification-maths.md)
+**Related:** [Metrics-First Data Science Plan](platform-data-science-metrics-first-plan.md), [Backlog](../BACKLOG.md), [Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Classification Maths](../../data/maths/classification-maths.md)
 
 ## Purpose
 

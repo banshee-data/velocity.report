@@ -34,7 +34,7 @@ Skip; P1 supersedes — [OBB heading review](maths/proposals/20260222-obb-headin
 
 ### D-07 — Track labelling UI (Phase 9)
 
-Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-labeling-auto-aware-tuning-plan.md)
+Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-labelling-auto-aware-tuning-plan.md)
 
 ### D-08 — LaTeX footprint reduction
 

@@ -47,7 +47,7 @@ Read next:
 
 - [data/maths/README.md](data/maths/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md) — the repo-wide data science stance: metrics first, no black boxes on the critical path
-- [docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
+- [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
 - [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md) — the metric and schema model for derived transit statistics
 - [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md) — collected metrics, objectives, and decision-making for tuning
 - [data/maths/classification-maths.md](data/maths/classification-maths.md) — the current transparent classification baseline and thresholds
@@ -76,7 +76,7 @@ Read next:
 
 - [README.md](README.md) — project overview, component map, and contributor setup
 - [docs/README.md](docs/README.md) — documentation structure, ownership, and naming rules
-- [docs/plans/platform-documentation-standardization-plan.md](docs/plans/platform-documentation-standardization-plan.md) — the current documentation quality contract and validation gates
+- [docs/plans/platform-documentation-standardisation-plan.md](docs/plans/platform-documentation-standardisation-plan.md) — the current documentation quality contract and validation gates
 - [public_html/README.md](public_html/README.md) — how the public docs site is built and organised
 - [public_html/src/guides/setup.md](public_html/src/guides/setup.md) — a representative public-facing guide to match tone, structure, and audience
 

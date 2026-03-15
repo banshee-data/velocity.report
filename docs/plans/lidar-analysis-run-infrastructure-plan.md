@@ -14,7 +14,7 @@ splits/merges. This was Phase 3.7 of the LiDAR metrics-first data science workst
 
 - [Backlog](../BACKLOG.md) — milestone placement
 - [Sweep/HINT Mode](lidar-sweep-hint-mode-plan.md) — parameter sweep system built on this infrastructure
-- [Track Labelling & Auto-Aware Tuning](lidar-track-labeling-auto-aware-tuning-plan.md) — labelling UI that consumes analysis runs
+- [Track Labelling & Auto-Aware Tuning](lidar-track-labelling-auto-aware-tuning-plan.md) — labelling UI that consumes analysis runs
 
 ---
 

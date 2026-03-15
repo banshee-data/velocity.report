@@ -395,7 +395,7 @@ See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/
 - [x] JSON export endpoint for benchmark and classification research tooling
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
-> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labeling-auto-aware-tuning-plan.md`](../plans/lidar-track-labeling-auto-aware-tuning-plan.md) Phase 1.1.
+> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labelling-auto-aware-tuning-plan.md`](../plans/lidar-track-labelling-auto-aware-tuning-plan.md) Phase 1.1.
 
 **Acceptance Criteria**:
 
