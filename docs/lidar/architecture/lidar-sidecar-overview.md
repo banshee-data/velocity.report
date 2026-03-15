@@ -1,7 +1,7 @@
 # LiDAR Sidecar — Technical Implementation Overview
 
-**Status:** Phase 3.9 completed — All core features operational
-**Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → classification research data export → Analysis Runs → Sweep/Auto-Tune
+- **Status:** Phase 3.9 completed — All core features operational
+- **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → classification research data export → Analysis Runs → Sweep/Auto-Tune
 
 ---
 

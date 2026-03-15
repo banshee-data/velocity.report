@@ -1,8 +1,8 @@
 # Platform: Typed UUID Prefixes
 
-**Target:** 0.6.0
-**Scope:** All UUID generation across the project
-**Layers:** Cross-cutting (platform)
+- **Target:** 0.6.0
+- **Scope:** All UUID generation across the project
+- **Layers:** Cross-cutting (platform)
 
 Every UUID in the system must carry a short type prefix so that any ID seen
 in logs, databases, API responses, or debug output is immediately

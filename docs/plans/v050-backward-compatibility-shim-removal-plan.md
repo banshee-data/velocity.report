@@ -1,17 +1,17 @@
 # v0.5.0 Backward Compatibility Shim Removal Plan
 
-**Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
-**Layers:** Cross-cutting (API, protobuf, database)
-**Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
+- **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
+- **Layers:** Cross-cutting (API, protobuf, database)
+- **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
-## Status: In Progress
+- **Status:** In Progress
 
-**Update (March 13, 2026):** Status review for v0.5.0 release readiness. The
-speed contract reset (§1, §15) is complete — `peak_speed_mps` → `max_speed_mps`
-rename landed in #352 (proto, Go, Swift, TS); SQL column rename deferred to
-migration 000030. Aggregate percentile labels remain reserved for grouped/report
-metrics only. Remaining work is concentrated in server-side sweep/download
-cleanup, Python/web/macOS consumer migration, and the Phase 6 validation gate.
+- **Update (March 13, 2026):** Status review for v0.5.0 release readiness. The
+  speed contract reset (§1, §15) is complete — `peak_speed_mps` → `max_speed_mps`
+  rename landed in #352 (proto, Go, Swift, TS); SQL column rename deferred to
+  migration 000030. Aggregate percentile labels remain reserved for grouped/report
+  metrics only. Remaining work is concentrated in server-side sweep/download
+  cleanup, Python/web/macOS consumer migration, and the Phase 6 validation gate.
 
 ## Tracking Snapshot
 

@@ -1,7 +1,7 @@
 # Design: Session-Level QC Dashboard and Audit Export (Feature 10)
 
-**Status:** Proposed (February 2026)
-**Layers:** L8 Analytics, L9 Endpoints
+- **Status:** Proposed (February 2026)
+- **Layers:** L8 Analytics, L9 Endpoints
 
 ## Objective
 

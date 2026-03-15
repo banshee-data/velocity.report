@@ -1,8 +1,8 @@
 # TicTacTail Platform Plan
 
-**Layers:** Cross-cutting (platform library)
-**Decision:** D-23 — [DECISIONS.md](../DECISIONS.md)
-**Backlog:** v0.8 — [BACKLOG.md](../BACKLOG.md)
+- **Layers:** Cross-cutting (platform library)
+- **Decision:** D-23 — [DECISIONS.md](../DECISIONS.md)
+- **Backlog:** v0.8 — [BACKLOG.md](../BACKLOG.md)
 
 ## Working Name
 

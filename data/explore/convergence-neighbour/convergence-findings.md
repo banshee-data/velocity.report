@@ -1,9 +1,9 @@
 # LiDAR Noise vs Distance Convergence Analysis
 
-**Date:** October 31, 2025
-**Test Type:** Multi-parameter sweep with live LiDAR data
-**Parameters:** 7 noise values (0.005 to 0.030), fixed closeness=2.0, neighbor=1
-**Samples:** 50 iterations per combination, 2s interval
+- **Date:** October 31, 2025
+- **Test Type:** Multi-parameter sweep with live LiDAR data
+- **Parameters:** 7 noise values (0.005 to 0.030), fixed closeness=2.0, neighbor=1
+- **Samples:** 50 iterations per combination, 2s interval
 
 ## Key Findings
 

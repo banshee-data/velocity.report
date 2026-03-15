@@ -1,9 +1,9 @@
 # Dynamic Algorithm Selection for LiDAR Foreground Extraction
 
-**Status:** Branch-History Design Specification (Not Active on `main` Runtime)
-**Layers:** L3 Grid, L4 Perception
-**Source Branch:** `copilot/summarize-changes-and-spec` (34 commits, 54 files, ~7,300 lines)
-**Related Docs:**
+- **Status:** Branch-History Design Specification (Not Active on `main` Runtime)
+- **Layers:** L3 Grid, L4 Perception
+- **Source Branch:** `copilot/summarize-changes-and-spec` (34 commits, 54 files, ~7,300 lines)
+- **Related:**
 
 - [`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`](../plans/lidar-velocity-coherent-foreground-extraction-plan.md) — Original design vision
 - [Backlog](../BACKLOG.md) — milestone placement

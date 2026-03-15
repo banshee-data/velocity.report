@@ -1,9 +1,9 @@
 # LiDAR L2 Dual-Representation Plan
 
-**Status:** ✅ Implemented
-**Created:** 2026-03-11
-**Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception
-**Related audit:** [coordinate-flow-audit.md](../lidar/architecture/coordinate-flow-audit.md)
+- **Status:** ✅ Implemented
+- **Created:** 2026-03-11
+- **Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception
+- **Related:** [coordinate-flow-audit.md](../lidar/architecture/coordinate-flow-audit.md)
 
 ## Decision
 

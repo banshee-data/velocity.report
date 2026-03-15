@@ -1,11 +1,11 @@
 # Hesai LIDAR 7DOF Track Production - Future AV Integration
 
-**Status:** DEFERRED - See Simplification Notes Below
-**Layers:** L4 Perception, L5 Tracks, L6 Objects
-**Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualisation
-**Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data
-**Source of Truth:** See `av-lidar-integration-plan.md` for 7DOF schema specification
-**AV Compatibility:** Aligned with AV industry standard labelling specifications
+- **Status:** DEFERRED - See Simplification Notes Below
+- **Layers:** L4 Perception, L5 Tracks, L6 Objects
+- **Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualisation
+- **Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data
+- **Source of Truth:** See `av-lidar-integration-plan.md` for 7DOF schema specification
+- **AV Compatibility:** Aligned with AV industry standard labelling specifications
 
 ---
 

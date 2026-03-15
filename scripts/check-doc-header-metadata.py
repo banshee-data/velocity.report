@@ -164,7 +164,11 @@ def process_file(
             while j < limit:
                 cont = lines[j].rstrip("\n")
                 # Continuation: starts with ``>`` but is NOT a new metadata key.
-                if cont.startswith(">") and not _try_match(cont) and cont.strip() != ">":
+                if (
+                    cont.startswith(">")
+                    and not _try_match(cont)
+                    and cont.strip() != ">"
+                ):
                     cont_text = re.sub(r"^>\s?", "", cont)
                     if cont_text.strip():
                         val = val.rstrip() + " " + cont_text.strip()

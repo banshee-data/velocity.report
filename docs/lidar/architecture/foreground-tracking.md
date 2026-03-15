@@ -1,7 +1,7 @@
 # LIDAR Foreground Extraction and Tracking Implementation Plan
 
-**Status:** Implementation Complete through Phase 3.7
-**Version:** 7.1 - Warmup sensitivity scaling added
+- **Status:** Implementation Complete through Phase 3.7
+- **Version:** 7.1 - Warmup sensitivity scaling added
 
 ---
 
