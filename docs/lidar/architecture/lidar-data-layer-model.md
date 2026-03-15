@@ -552,7 +552,7 @@ Use the references above as the fast visual index:
 - the **concept chart** answers which bodies of work are implemented, partial,
   planned, proposed, or merely contextual.
 
-The full bibliography in BibTeX format is at [docs/references.bib](../../references.bib). Each entry key matches the citation style used in this document (e.g. `Ester1996`, `Kalman1960`).
+The full bibliography in BibTeX format is at [data/maths/references.bib](../../../data/maths/references.bib). Each entry key matches the citation style used in this document (e.g. `Ester1996`, `Kalman1960`).
 
 ### L1 Packets — sensor transport
 
@@ -774,7 +774,7 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 
 ## References (consolidated)
 
-> The full bibliography in BibTeX format is maintained at [docs/references.bib](../../references.bib). BibTeX citation keys follow the `LastnameYYYY` convention used throughout this document.
+> The full bibliography in BibTeX format is maintained at [data/maths/references.bib](../../../data/maths/references.bib). BibTeX citation keys follow the `LastnameYYYY` convention used throughout this document.
 
 ### Foundational algorithms
 

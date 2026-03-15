@@ -319,4 +319,4 @@ This is the preferred mode for neighborhood monitoring where reliability and dri
 | Hornung et al. (2013)    | `Hornung2013`   | OctoMap log-odds occupancy; comparison point for our tile-confidence model             |
 | Pomerleau et al. (2014)  | `Pomerleau2014` | Long-term 3D map maintenance; validates our slow-adaptation strategy for settled tiles |
 
-Full BibTeX entries: [docs/references.bib](../../../docs/references.bib)
+Full BibTeX entries: [data/maths/references.bib](../references.bib)

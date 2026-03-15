@@ -151,4 +151,4 @@ Key areas covered:
 | Bogoslavskyi & Stachniss (2017) | `Bogoslavskyi2017` | Range-image connectivity as a future optimisation path to DBSCAN   |
 | Campello et al. (2013)          | `Campello2013`     | HDBSCAN — planned alternative engine for variable-density clusters |
 
-Full BibTeX entries: [docs/references.bib](../../docs/references.bib)
+Full BibTeX entries: [data/maths/references.bib](references.bib)

@@ -51,4 +51,4 @@ That proposal is not active in current runtime.
 | Lim et al. (2021)        | `Lim2021`      | Patchwork — concentric zone ground segmentation; more robust than height-band, future upgrade path |
 | Fischler & Bolles (1981) | `Fischler1981` | RANSAC — used in the offline robust refinement path of the advanced ground-plane proposal          |
 
-Full BibTeX entries: [docs/references.bib](../../docs/references.bib)
+Full BibTeX entries: [data/maths/references.bib](references.bib)

@@ -285,4 +285,4 @@ recordings or live data) are converted directly without re-classification.
 | Behley et al. (2019) | `Behley2019` | SemanticKITTI 28-class taxonomy; AV compatibility mapping target                                                         |
 | Lang et al. (2019)   | `Lang2019`   | PointPillars — learned detector occupying the same architectural slot as our rule-based L6; future replacement candidate |
 
-Full BibTeX entries: [docs/references.bib](../../docs/references.bib)
+Full BibTeX entries: [data/maths/references.bib](references.bib)

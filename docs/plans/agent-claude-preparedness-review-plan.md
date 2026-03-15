@@ -273,7 +273,7 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 - Background grid settling — EMA/EWA, Welford variance, convergence analysis (L3)
 - Traffic engineering statistics — p50, p85, p98 percentiles, confidence intervals
 - PCA, OBB computation, coordinate transforms
-- Academic methodology — references (`docs/references.bib`), reproducibility, peer-review standards
+- Academic methodology — references (`data/maths/references.bib`), reproducibility, peer-review standards
 - Tuning parameter validation — convergence bounds, stability analysis (`config/README.maths.md`)
 - Future research proposals — IMM, geometry-coherent tracking, velocity-coherent foreground
 
