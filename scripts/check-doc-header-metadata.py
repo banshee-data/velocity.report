@@ -12,6 +12,16 @@ Non-conforming formats that are detected and fixed:
 2. Colon outside:     ``**Key**: value``     → ``- **Key:** value``
 3. Blockquote bold:   ``> **Key:** value``   → ``- **Key:** value``
 4. H2 status:         ``## Status: value``   → ``- **Status:** value``
+5. Date metadata:     ``- **Created:** …``   → (removed)
+
+Banned date keys (case-insensitive): ``Created``, ``Date``,
+``Last Updated``, ``Original Design Date``.  Keys containing a
+parenthesised date like ``Update (March 13, 2026)`` are rewritten
+to strip the date: ``Update``.
+
+Rationale: dates in documentation headers go stale immediately and
+duplicate information already available in ``git log``.  See
+``.github/knowledge/coding-standards.md`` § Documentation Metadata.
 
 Position-based detection: ALL bold items before the first ``##`` heading
 (or first non-metadata line) are treated as header metadata.  No key
@@ -47,6 +57,23 @@ RE_BLOCKQUOTE_OUTSIDE = re.compile(r"^>\s*\*\*(?P<key>[^*:]+)\*\*:\s*(?P<val>.*)
 
 #  H2 heading: ``## Key: value``
 RE_H2 = re.compile(r"^##\s+(?P<key>[^:]+):\s*(?P<val>.*)")
+
+# ── Banned date keys ────────────────────────────────────────────────────
+
+#  Keys whose entire line should be deleted (case-insensitive match).
+BANNED_DATE_KEYS = {"created", "date", "last updated", "original design date"}
+
+#  Detect a parenthesised date suffix in a key, e.g. ``Update (March 13, 2026)``
+RE_KEY_DATE_SUFFIX = re.compile(
+    r"^(?P<base>.+?)\s*\("
+    r"(?:"
+    r"(?:January|February|March|April|May|June|July|August|September|October|November|December)"
+    r"\s+\d{1,2},?\s+\d{4}"
+    r"|"
+    r"\d{4}[-/]\d{2}[-/]\d{2}"
+    r")"
+    r"\)\s*$"
+)
 
 
 def _canonical(key: str, val: str) -> str:
@@ -99,6 +126,20 @@ def _try_match(line: str) -> tuple[str, str, str] | None:
         if m:
             return m.group("key").strip(), m.group("val"), kind
     return None
+
+
+def _is_date_key(key: str) -> bool:
+    """Return True if *key* is a banned date-only metadata key."""
+    return key.strip().lower() in BANNED_DATE_KEYS
+
+
+def _strip_key_date_suffix(key: str) -> str | None:
+    """If *key* has a parenthesised date suffix, return the base key.
+
+    Returns ``None`` if no date suffix is present.
+    """
+    m = RE_KEY_DATE_SUFFIX.match(key.strip())
+    return m.group("base").strip() if m else None
 
 
 def process_file(
