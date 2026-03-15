@@ -1,7 +1,9 @@
 #!/bin/bash
 
+set -euo pipefail
+
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-REPO_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 OUTPUT_FILE="$REPO_ROOT/data/structures/SCHEMA.svg"
 
 # Check if argument is provided
@@ -19,7 +21,7 @@ if [ ! -f "$SCHEMA_FILE" ]; then
 fi
 
 # Create temporary database
-TEMP_DB=$(mktemp /tmp/schema_XXXXXX.db)
+TEMP_DB=$(mktemp schema_XXXXXX.db)
 
 # Import schema into temporary database
 sqlite3 "$TEMP_DB" < "$SCHEMA_FILE"
@@ -35,7 +37,13 @@ fi
 DOT_OUTPUT=$(sqlite3 "$TEMP_DB" < "$SCRIPT_DIR/sqlite_graph.sql")
 
 # Create SVG using dot
-echo "$DOT_OUTPUT" | dot -Tsvg > "$OUTPUT_FILE"
+TMP_OUTPUT=$(mktemp schema_XXXXXX.svg)
+if ! echo "$DOT_OUTPUT" | dot -Tsvg >"$TMP_OUTPUT"; then
+  echo "Error: failed to render schema SVG with Graphviz 'dot'" >&2
+  rm -f "$TMP_OUTPUT" "$TEMP_DB"
+  exit 1
+fi
+mv "$TMP_OUTPUT" "$OUTPUT_FILE"
 
 # Clean up
 rm "$TEMP_DB"

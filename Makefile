@@ -938,7 +938,7 @@ schema-sync:
 # Generate schema ERD (Entity-Relationship Diagram) as SVG
 schema-erd:
 	@echo "Generating schema ERD (schema.svg)..."
-	@bash data/structures/sqlite-erd/graph.sh internal/db/schema.sql
+	@bash scripts/sqlite-erd/graph.sh internal/db/schema.sql
 
 # =============================================================================
 # FORMATTING (mutating)

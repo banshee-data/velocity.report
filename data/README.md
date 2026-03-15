@@ -6,7 +6,7 @@ This directory is the working home for stable data contracts, mathematical found
 
 - `data/structures/` — canonical data contracts and structural references
   - format specifications such as `VRLOG_FORMAT.md` and `HESAI_PACKET_FORMAT.md`
-  - schema artifacts such as `SCHEMA.svg` and the SQLite ERD generator
+  - schema artifacts such as `SCHEMA.svg`, while the generator itself lives under `scripts/sqlite-erd/`
 - `data/math/` — durable mathematical foundations and proposal-grade algorithm notes
   - implementation-backed maths docs at the top level
   - forward-looking proposals under `data/math/proposals/`
@@ -27,18 +27,18 @@ This directory is the working home for stable data contracts, mathematical found
 2. **Keep maths in `/docs` and move only `docs/data/`** — smaller change, but still splits one data-science workflow across two top-level homes.
 3. **Create many new buckets now (`tools/`, `exports/`, `raw/`, `derived/`)** — more explicit, but premature for the current repository shape and harder to keep tidy.
 
-**Recommendation:** do option 2.5: move the stable theory and structure docs now, move the obvious deep dives into `explore/`, and defer any finer-grained substructure until there is repeated pressure for it.
+**Recommendation:** move stable references into `data/`, keep repository-owned build helpers in `scripts/`, move the obvious deep dives into `explore/`, and defer any finer-grained substructure until there is repeated pressure for it.
 
 ## System boundary diagram
 
 ```text
-+--------------------------- repository docs ---------------------------+
-| /docs/lidar  /docs/radar  /docs/ui  /docs/plans  governance docs      |
-| subsystem architecture, operations, product plans, contributor docs   |
-+----------------------------------+------------------------------------+
-                                   |
-                                   | references stable data contracts
-                                   v
+ +-------------------------- repository top level --------------------------+
+ | /docs/...                         /scripts/...                           |
+ | subsystem architecture, plans     repo-owned generators and helpers      |
+ +----------------------------------+--------------------------------------+
+                                    |
+                                    | references stable data contracts
+                                    v
 +------------------------------- /data ---------------------------------+
 | +---------------------------+  +-----------------------------------+  |
 | | structures/               |  | math/                             |  |
@@ -69,4 +69,5 @@ This directory is the working home for stable data contracts, mathematical found
 2. Put something in `data/math/` when it explains the model, derivation, assumptions, or proposal behind an algorithm.
 3. Put something in `data/explore/` when it is an investigation, sweep, comparison, or write-up you may want to revisit later.
 4. Keep `data/align/` for tooling that fetches, cleans, or aligns outside datasets before analysis.
-5. If an exploration hardens into a long-lived spec, promote the conclusion into `structures/` or `math/` and leave the raw study in `explore/`.
+5. Build-support generators that the repository depends on belong in `scripts/`, even when they emit artifacts into `data/structures/`.
+6. If an exploration hardens into a long-lived spec, promote the conclusion into `structures/` or `math/` and leave the raw study in `explore/`.
