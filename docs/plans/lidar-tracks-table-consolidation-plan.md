@@ -216,7 +216,7 @@ the layer that actually hurts maintainability.
 
 ### Phase 1 — Prerequisite: migration 030 (already planned)
 
-Tracked in [schema-simplification-migration-030-plan.md](schema-simplification-migration-030-plan.md).
+Tracked in [lidar-schema-standardisation-plan.md](lidar-schema-standardisation-plan.md).
 This drops dead columns and renames `peak→max`, bringing the two tables' shared
 column set into clean alignment.
 
@@ -305,7 +305,7 @@ convenience for operators using TailSQL or direct sqlite3 access.
 
 ## Checklist
 
-- [ ] Phase 1: Land migration 030 (tracked separately in [schema-simplification-migration-030-plan](schema-simplification-migration-030-plan.md))
+- [ ] Phase 1: Land migrations 030 + 031 (tracked separately in [LiDAR schema standardisation](lidar-schema-standardisation-plan.md))
 - [ ] Phase 2: Extract `TrackMeasurement` struct and embed in `TrackedObject` + `RunTrack`
 - [ ] Phase 2: Create shared `trackMeasurementColumns` constant
 - [ ] Phase 2: Create `scanTrackMeasurement()` helper
