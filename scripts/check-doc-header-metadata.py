@@ -187,7 +187,23 @@ def process_file(
             continue
 
         # Already canonical?
-        if RE_BULLET.match(stripped):
+        bm = RE_BULLET.match(stripped)
+        if bm:
+            bkey = bm.group("key").strip()
+            # Banned date key → delete the whole line.
+            if _is_date_key(bkey):
+                changes.append((i + 1, stripped, "", "date-key"))
+                replace_map[i] = None
+                i += 1
+                continue
+            # Key with parenthesised date suffix → strip the date.
+            base = _strip_key_date_suffix(bkey)
+            if base:
+                new_text = _canonical(base, bm.group("val"))
+                changes.append((i + 1, stripped, new_text, "date-in-key"))
+                replace_map[i] = new_text + "\n"
+                i += 1
+                continue
             i += 1
             continue
 
@@ -220,6 +236,18 @@ def process_file(
             next_i = j
         else:
             next_i = i + 1
+
+        # Check for banned date key (even on non-canonical input).
+        if _is_date_key(key):
+            changes.append((i + 1, stripped, "", "date-key"))
+            replace_map[i] = None
+            i = next_i
+            continue
+
+        # Strip parenthesised date suffix from key.
+        base = _strip_key_date_suffix(key)
+        if base:
+            key = base
 
         new_text = _canonical(key, val)
         changes.append((i + 1, stripped, new_text, kind))
