@@ -306,7 +306,6 @@ struct PlaybackStatusModelTests {
     func testLoadRunForReplayAndUpdateAppStateFailureSkipsReplayActivation() async throws {
         let state = SpyRunBrowserAppState()
         state.currentRunID = nil
-        state.isLive = true
 
         await loadRunForReplayAndUpdateAppState(
             runID: "run-123", appState: state, runBrowserState: state.runBrowserState

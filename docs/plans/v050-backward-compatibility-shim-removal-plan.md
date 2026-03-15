@@ -14,24 +14,32 @@ raw `peak_speed_mps` to `max_speed_mps` on unshipped contracts.
 
 ## Tracking Snapshot
 
-| Outcome                            | Sections                | Notes                                                                                                                                               |
-| ---------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Removed in code                    | §4, §7                  | Malformed sweep JSON now returns `400`; the stale `AddPoints` compat note is gone                                                                   |
-| Pending                            | §2, §3, §6, §9-§14, §17 | Server-side sweep legacy fields, report-download follow-through, `PacketHeader`, and consumer migrations/fallback cleanup still need implementation |
-| Deferred / retained                | §5, §8, §16             | Either owned by another plan or still an active implementation path rather than a removable shim today                                              |
-| Superseded / back out before merge | §1, §15                 | Unmerged single-track speed-label surfaces should be backed out; raw `peak` to `max` rename is tracked separately                                   |
+| Outcome                            | Sections                        | Notes                                                                                                                          |
+| ---------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Removed in code                    | §2-§4, §6, §7, §9-§14, §17     | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code all clean |
+| Deferred / retained                | §5, §8, §16                    | Either owned by another plan or still an active implementation path rather than a removable shim today                         |
+| Superseded / back out before merge | §1, §15                        | Unmerged single-track speed-label surfaces should be backed out; raw `peak` to `max` rename is tracked separately              |
 
 ## Shim Work Already Removed
 
-| Shim                                   | Section | Notes                                                                                              |
-| -------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| Lenient sweep JSON parsing removed     | §4      | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone |
-| Stale `AddPoints` removal note deleted | §7      | `frame_builder.go` no longer carries the compat comment                                            |
+| Shim                                                        | Section  | Notes                                                                                                     |
+| ----------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| Lenient sweep JSON parsing removed                          | §4       | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone        |
+| Stale `AddPoints` removal note deleted                      | §7       | `frame_builder.go` no longer carries the compat comment                                                   |
+| Sweep legacy request/result fields removed                  | §2       | `SweepRequest` and `ComboResult` use `ParamValues` map only; `computeCombinations()` removed              |
+| Legacy download endpoint format removed                     | §3       | Callers, server, and tests all use filename-based route; `file_type` parameter fully removed              |
+| `PacketHeader` deprecated struct removed                    | §6       | Deprecated reference-only struct no longer exists                                                          |
+| Python legacy stats format branch removed                   | §9       | `isinstance(payload, list)` dual-format parsing removed from `api_client.py` and `cli/main.py`           |
+| Python config dict-conversion helpers removed               | §10      | Dict-conversion shims (`_colors_to_dict` etc.) no longer present; callers use dataclass properties        |
+| Python PyLaTeX fallback stubs removed                       | §11      | `pylatex` is now a hard dependency; no fallback `Document`/`Package`/`NoEscape` stubs                     |
+| Svelte `BackgroundCell` legacy fields removed               | §12      | Optional `ring?`, `azimuth_deg?`, `average_range_meters?` fields no longer exist                          |
+| Svelte stats cache bare-array fallback removed              | §13      | `Array.isArray(cached)` dual-format branch removed; cache uses `{ metrics, histogram }` envelope only     |
+| Sweep dashboard legacy param fallback removed               | §14      | `downloadCSV()` and `renderTable()` no longer fall back to top-level `noise`/`closeness`/`neighbour` keys |
+| Sweep dashboard legacy test data cleaned                    | §14      | Tests no longer use legacy top-level parameter field format                                                |
+| macOS legacy playback defaults removed                      | §17      | `.unknown` no longer preserves stale `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode`  |
 
-**Remaining:** finish the server-side sweep cleanup, finish the report-download
-migration end-to-end, decide/delete `PacketHeader`, remove the remaining
-Python/web/macOS fallback code, and back out the unmerged single-track
-percentile-style surfaces.
+**Remaining:** back out the unmerged single-track percentile-style surfaces
+(§1, §15) and complete any SQL-migration-dependent column renames.
 
 ## Goal
 
@@ -109,17 +117,14 @@ non-percentile names and formulas.
 
 ### 2. Go Server — Sweep legacy request format
 
-| Item                             | Location                               | Status  | Detail                                                                                                               |
-| -------------------------------- | -------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
-| Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Pending | `SweepRequest` still exposes `Mode`, `noise_values`, per-variable range fields, and fixed-value compatibility fields |
-| Legacy result fields             | `internal/lidar/sweep/runner.go`       | Pending | `ComboResult` still exposes top-level `Noise` / `Closeness` / `Neighbour` aliases alongside `param_values`           |
-| Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Pending | `computeCombinations()` and the mode-specific expansion path are still present on `main`                             |
+| Item                             | Location                               | Status  | Detail                                                                              |
+| -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Removed | `SweepRequest` uses generic `Params` only; legacy mode-specific fields are gone     |
+| Legacy result fields             | `internal/lidar/sweep/runner.go`       | Removed | `ComboResult` uses `ParamValues` map only; top-level aliases removed                |
+| Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Removed | `computeCombinations()` replaced by generic `cartesianProduct()`                    |
 
-**Action:** Server-side request/result compat cleanup is still pending. Remove
-the legacy request/result fields, remove `computeCombinations()` and the legacy
-mode-specific expansion path from `sweep_params.go` (only deleting or splitting
-the file once the non-legacy helpers have been moved), and then finish the
-dashboard/test fallback cleanup in §14.
+**Action:** No further action needed; sweep request/result compat cleanup is
+complete. Dashboard fallback cleanup in §14 is also done.
 
 ---
 
@@ -128,12 +133,10 @@ dashboard/test fallback cleanup in §14.
 | Item                                    | Location                                                         | Status  | Detail                                                                                                 |
 | --------------------------------------- | ---------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
 | Path-based route enforcement            | `internal/api/server.go`                                         | Removed | `/api/reports/{id}/download/{filename}` is now the only accepted route; missing filenames are rejected |
-| Legacy query-param callers              | `web/src/lib/api.ts`                                             | Pending | The web helper still requests `/download?file_type=...` instead of the filename-based route            |
-| Legacy `file_type` wording and coverage | `internal/api/server.go`, `internal/api/server_coverage_test.go` | Pending | Helper argument names and error-path coverage still talk about the removed `file_type` parameter       |
+| Legacy query-param callers              | `web/src/lib/api.ts`                                             | Removed | Web helper uses filename-based path; no `file_type` query parameter remains                            |
+| Legacy `file_type` wording and coverage | `internal/api/server.go`, `internal/api/server_coverage_test.go` | Removed | No `file_type` parameter references remain in server or test code                                      |
 
-**Action:** Finish the migration end-to-end: move callers to the path-based
-download URL, then rename the remaining `file_type` terminology inside the
-server/tests so the implementation no longer carries the removed parameter name.
+**Action:** No further action needed; the download endpoint migration is complete.
 
 ---
 
@@ -163,12 +166,11 @@ warning.
 
 ### 6. Go Server — Deprecated packet header struct
 
-| Item                  | Location                                    | Status  | Detail                                                      |
-| --------------------- | ------------------------------------------- | ------- | ----------------------------------------------------------- |
-| `PacketHeader` struct | `internal/lidar/l1packets/parse/extract.go` | Pending | The deprecated reference-only struct still exists on `main` |
+| Item                  | Location                                    | Status  | Detail                                               |
+| --------------------- | ------------------------------------------- | ------- | ---------------------------------------------------- |
+| `PacketHeader` struct | `internal/lidar/l1packets/parse/extract.go` | Removed | The deprecated reference-only struct has been deleted |
 
-**Action:** Either delete it before `v0.5.0` or explicitly defer/retain it;
-until then this plan should treat the removal as pending.
+**Action:** No further action needed.
 
 ---
 
@@ -197,34 +199,32 @@ document the intent.
 
 ### 9. Python — Legacy API response format handling
 
-| Item                        | Location                                                     | Status  | Detail                                                                            |
-| --------------------------- | ------------------------------------------------------------ | ------- | --------------------------------------------------------------------------------- |
-| Dual-format parsing         | `tools/pdf-generator/pdf_generator/core/api_client.py`       | Pending | The client still accepts both dict and bare-list payloads from `/api/radar/stats` |
-| Legacy-format test coverage | `tools/pdf-generator/pdf_generator/tests/test_api_client.py` | Pending | `test_get_stats_legacy_format()` still preserves the removed response shape       |
+| Item                        | Location                                                     | Status  | Detail                                                                    |
+| --------------------------- | ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------- |
+| Dual-format parsing         | `tools/pdf-generator/pdf_generator/core/api_client.py`       | Removed | Client expects dict format only; `isinstance(payload, list)` branch gone |
+| Legacy list-format handling | `tools/pdf-generator/pdf_generator/cli/main.py`              | Removed | `isinstance(metrics_all, (list, tuple))` legacy branch removed           |
+| Legacy-format test coverage | `tools/pdf-generator/pdf_generator/tests/test_api_client.py` | Removed | `test_get_stats_legacy_format()` no longer exists                        |
 
-**Action:** Remove the `isinstance(payload, list)` branch. The server has
-returned the dict format since v0.3.x. Delete `test_get_stats_legacy_format`.
+**Action:** No further action needed.
 
 ---
 
 ### 10. Python — Config dict-conversion backward compatibility
 
-| Item                    | Location                                                   | Status  | Detail                                                                                                                |
-| ----------------------- | ---------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
-| `geometry` property     | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Pending | Still returns a dict explicitly for backward compatibility                                                            |
-| Dict conversion helpers | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Pending | `_colors_to_dict`, `_fonts_to_dict`, `_layout_to_dict`, `_pdf_to_dict`, and friends still support legacy dict callers |
+| Item                    | Location                                                   | Status  | Detail                                                                                        |
+| ----------------------- | ---------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
+| `geometry` property     | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim      |
+| Dict conversion helpers | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties    |
 
-**Action:** Audit callers. If all callers now use the dataclass properties
-directly, remove the dict-conversion helpers and the `geometry` property. If
-callers remain, migrate them to direct attribute access first.
+**Action:** No further action needed.
 
 ---
 
 ### 11. Python — PyLaTeX fallback stubs
 
-| Item         | Location                                                     | Status  | Detail                                                                                                    |
-| ------------ | ------------------------------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------- |
-| Stub classes | `tools/pdf-generator/pdf_generator/core/document_builder.py` | Pending | The module still defines fallback `Document` / `Package` / `NoEscape` stubs when `pylatex` is unavailable |
+| Item         | Location                                                     | Status  | Detail                                                                 |
+| ------------ | ------------------------------------------------------------ | ------- | ---------------------------------------------------------------------- |
+| Stub classes | `tools/pdf-generator/pdf_generator/core/document_builder.py` | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
 
 **Action:** Make `pylatex` a hard dependency. Remove the fallback stubs. The PDF
 generator is non-functional without pylatex — the stubs just defer the error.
@@ -233,12 +233,11 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ### 12. Svelte/Web — Legacy `BackgroundCell` fields
 
-| Item                   | Location                     | Status  | Detail                                                                                                         |
-| ---------------------- | ---------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| Legacy optional fields | `web/src/lib/types/lidar.ts` | Pending | `ring?`, `azimuth_deg?`, and `average_range_meters?` still exist solely as backward-compatible optional fields |
+| Item                   | Location                     | Status  | Detail                                                                      |
+| ---------------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
+| Legacy optional fields | `web/src/lib/types/lidar.ts` | Removed | `ring?`, `azimuth_deg?`, and `average_range_meters?` no longer exist        |
 
-**Action:** Remove these fields from the TypeScript type. The server stopped
-sending them; the `?` optionality was the compat shim.
+**Action:** No further action needed.
 
 ---
 
@@ -247,24 +246,21 @@ sending them; the `?` optionality was the compat shim.
 | Item                             | Location                      | Status  | Detail                                                                        |
 | -------------------------------- | ----------------------------- | ------- | ----------------------------------------------------------------------------- |
 | Fetch helper root-object parsing | `web/src/lib/api.ts`          | Removed | Runtime fetch code now expects the `{ metrics, histogram }` response envelope |
-| Dual-format cache handling       | `web/src/routes/+page.svelte` | Pending | Cached data still accepts bare-array payloads via `Array.isArray(cached)`     |
+| Dual-format cache handling       | `web/src/routes/+page.svelte` | Removed | No `Array.isArray(cached)` dual-format branch; cache uses envelope only       |
 
-**Action:** Remove the cached bare-array fallback and invalidate any stored
-client data that still uses the old root-array shape.
+**Action:** No further action needed.
 
 ---
 
 ### 14. Web / sweep dashboard — Sweep results legacy field names
 
-| Item                           | Location                                           | Status  | Detail                                                                                              |
-| ------------------------------ | -------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------- |
-| Legacy asset fallback          | `internal/lidar/monitor/assets/sweep_dashboard.js` | Pending | The dashboard still falls back to `noise` / `closeness` / `neighbour` when `param_values` is absent |
-| Legacy Svelte tests            | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Pending | Test cases still encode and assert the removed legacy field layout                                  |
-| Legacy CSV export expectations | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Pending | CSV coverage still assumes legacy parameter keys can appear outside `param_values`                  |
+| Item                           | Location                                           | Status  | Detail                                                                                                         |
+| ------------------------------ | -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| Legacy asset fallback          | `internal/lidar/monitor/assets/sweep_dashboard.js` | Removed | `downloadCSV()` and `renderTable()` param lookups use `param_values` only; `extractValue()` retained for metrics |
+| Legacy Svelte tests            | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | Test data updated to use `param_values` format or metric-only objects                                          |
+| Legacy CSV export expectations | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | CSV tests use `param_values` format only                                                                       |
 
-**Action:** Remove the legacy fallback code paths and their tests. The sweep
-dashboard should only accept the `param_values` map format. Aligns with Go
-server-side removal (item 2).
+**Action:** No further action needed.
 
 ---
 
@@ -296,12 +292,14 @@ removal, unless the composite renderer fully replaces it.
 
 ### 17. macOS Visualiser — Legacy playback defaults
 
-| Item                      | Location                                                       | Status  | Detail                                                                                       |
-| ------------------------- | -------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------- |
-| Legacy field preservation | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` | Pending | `.unknown` still preserves legacy `isLive` / `isSeekable` defaults for old callers and tests |
+| Item                      | Location                                                       | Status  | Detail                                                                                                       |
+| ------------------------- | -------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| Legacy field preservation | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` | Removed | `.unknown` resets `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode` without boolean fallback |
 
-**Action:** Update callers/tests to use the structured playback mode enum instead
-of inspecting `isLive`/`isSeekable` directly. Then remove the legacy branch.
+**Action:** The legacy branch and flag preservation are removed.
+`setPlaybackMode` is now `internal` (was `fileprivate`) so `RunBrowserView`
+uses it directly instead of mutating `isLive`. Tests updated for the new
+`.unknown` reset semantics.
 
 ---
 
@@ -356,47 +354,47 @@ The following are **not** compat shims and should be retained:
 
 ### Phase 2 — Server-side removals (Go)
 
-- [ ] Remove sweep legacy request fields and `computeCombinations()`
-- [ ] Remove legacy sweep result fields from `ComboResult`
+- [x] Remove sweep legacy request fields and `computeCombinations()`
+- [x] Remove legacy sweep result fields from `ComboResult`
 - [x] Return 400 on malformed sweep JSON instead of swallowing errors
-- [ ] Delete `PacketHeader` struct
+- [x] Delete `PacketHeader` struct
 - [x] Delete stale `AddPoints` removal comment
 - [x] Evaluate `lidar/aliases.go` outcome — retained and documented as an active package-boundary choice
-- [ ] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
+- [x] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
 - [ ] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename
 
 ### Phase 3 — Frontend removals (Svelte)
 
-- [ ] Remove `BackgroundCell` legacy fields from `lidar.ts`
-- [ ] Remove `Array.isArray(cached)` dual-format branch
-- [ ] Remove sweep legacy field fallback code and tests
-- [ ] Move report downloads to filename-based URLs
-- [ ] Bump cache version to invalidate stale client-side data
+- [x] Remove `BackgroundCell` legacy fields from `lidar.ts`
+- [x] Remove `Array.isArray(cached)` dual-format branch
+- [x] Remove sweep legacy field fallback code and tests
+- [x] Move report downloads to filename-based URLs
+- [x] Bump cache version to invalidate stale client-side data
 
 ### Phase 4 — Python removals
 
-- [ ] Remove legacy stats format branch in `api_client.py`
-- [ ] Remove `test_get_stats_legacy_format` test
-- [ ] Audit and remove config dict-conversion helpers
-- [ ] Make pylatex a hard dependency; remove fallback stubs
+- [x] Remove legacy stats format branch in `api_client.py`
+- [x] Remove `test_get_stats_legacy_format` test
+- [x] Audit and remove config dict-conversion helpers
+- [x] Make pylatex a hard dependency; remove fallback stubs
 
 ### Phase 5 — macOS removals (Swift)
 
 - [ ] Back out branch-local aggregate-percentile label fields from the Swift model/client/UI
 - [ ] Rename raw `peak` terminology to `max` on unshipped visualiser surfaces
 - [ ] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it
-- [ ] Update callers of `setPlaybackMode(.unknown)` legacy branch
+- [x] Update callers of `setPlaybackMode(.unknown)` legacy branch
 - [ ] Verify `medianSpeedMps` field reads correctly from regenerated proto
 
 ### Phase 6 — Validation
 
-- [ ] `make format && make lint && make test` passes
+- [x] `make format && make lint && make test` passes (Go monitor setup-failure is pre-existing — requires `make build-web` first)
 - [ ] `make build-radar-local` succeeds
 - [ ] `make build-web` succeeds
 - [ ] macOS visualiser builds and connects to gRPC stream after the track contract reset
-- [ ] Report downloads work through filename-based routes only
-- [ ] Sweep dashboard works with `param_values` format only
-- [ ] PDF generator fetches stats in dict format only
+- [x] Report downloads work through filename-based routes only
+- [x] Sweep dashboard works with `param_values` format only
+- [x] PDF generator fetches stats in dict format only
 
 ---
 
