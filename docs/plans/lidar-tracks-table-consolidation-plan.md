@@ -2,8 +2,8 @@
 
 **Status:** Proposed
 **Layers:** Database, L5 Tracks, L8 Analytics, L9 Endpoints
-**Prerequisite:** [Schema Simplification Migration 030](schema-simplification-migration-030-plan.md)
-**Related:** [L8/L9/L10 Refactor](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Speed Percentile Alignment](speed-percentile-aggregation-alignment-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [LiDAR Table Naming Standardization](lidar-table-naming-standardization-plan.md)
+**Prerequisite:** [LiDAR Schema Standardisation](lidar-schema-standardisation-plan.md)
+**Related:** [L8/L9/L10 Refactor](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Speed Percentile Alignment](speed-percentile-aggregation-alignment-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
 
 ## Problem
 
@@ -216,7 +216,7 @@ the layer that actually hurts maintainability.
 
 ### Phase 1 — Prerequisite: migration 030 (already planned)
 
-Tracked in [schema-simplification-migration-030-plan.md](schema-simplification-migration-030-plan.md).
+Tracked in [lidar-schema-standardisation-plan.md](lidar-schema-standardisation-plan.md).
 This drops dead columns and renames `peak→max`, bringing the two tables' shared
 column set into clean alignment.
 
@@ -305,7 +305,7 @@ convenience for operators using TailSQL or direct sqlite3 access.
 
 ## Checklist
 
-- [ ] Phase 1: Land migration 030 (tracked separately in [schema-simplification-migration-030-plan](schema-simplification-migration-030-plan.md))
+- [ ] Phase 1: Land migrations 030 + 031 (tracked separately in [LiDAR schema standardisation](lidar-schema-standardisation-plan.md))
 - [ ] Phase 2: Extract `TrackMeasurement` struct and embed in `TrackedObject` + `RunTrack`
 - [ ] Phase 2: Create shared `trackMeasurementColumns` constant
 - [ ] Phase 2: Create `scanTrackMeasurement()` helper
