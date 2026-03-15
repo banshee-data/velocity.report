@@ -2,7 +2,6 @@
 
 - **Status:** Implemented — Guard 3 (90° jump rejection) replaces canonical-axis normalisation. Fixes B, C, G applied. Fix D config-only. Fixes E/F skipped — superseded by geometry-coherent tracking (D-04).
 - **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
-- **Created:** 2026-02-22
 - **Related:**
 
 - [`data/maths/clustering-maths.md`](../clustering-maths.md) (OBB via PCA, §5.2)

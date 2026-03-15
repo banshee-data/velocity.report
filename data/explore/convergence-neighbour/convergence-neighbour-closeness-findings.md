@@ -1,6 +1,5 @@
 # LiDAR Neighbor & Closeness Convergence Analysis
 
-- **Date:** October 31, 2025
 - **Test Type:** 40-minute multi-parameter sweep with live LiDAR data
 - **Parameters:** Fixed noise=0.030, closeness={1.5,2.0,2.5,3.0}, neighbor={0,1,2,3}
 - **Configuration:** 16 combinations × 50 iterations × 3s interval = ~40 minutes total

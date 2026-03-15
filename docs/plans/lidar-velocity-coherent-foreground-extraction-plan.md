@@ -2,8 +2,7 @@
 
 - **Status:** Implementation In Progress (Core Phases 1–5 Simplified; Phases 0, 6–7 Pending)
 - **Layers:** L3 Grid, L4 Perception
-- **Original Design Date:** December 15, 2025
-- **Plan Version:** 2.0 (February 21, 2026)
+- **Plan Version:** 2.0
 - **Author:** Ictinus (Product Architecture Agent)
 
 - **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`; the active clustering is DBSCAN in `internal/lidar/l4perception/cluster.go`. No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications; see [Implementation Notes](#implementation-notes-january-2026) for detail.

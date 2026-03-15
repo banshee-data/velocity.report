@@ -3,7 +3,6 @@
 - **Status:** Draft
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Author:** Ictinus (Product Architecture)
-- **Date:** 2026-02-11
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
 
 ---

@@ -1,7 +1,6 @@
 # Track Labelling and Auto-Tuning Status
 
 - **Status:** Implemented/Operational Baseline (with follow-up phases tracked separately)
-- **Last Updated:** February 21, 2026
 
 ## Implemented
 

@@ -2,7 +2,6 @@
 
 - **Status:** Proposal Math (Not Active in Current Runtime)
 - **Author:** velocity.report contributors
-- **Created:** 2026-02-22
 - **Related:**
 
 - [OBB heading stability review](20260222-obb-heading-stability-review.md) — current guards

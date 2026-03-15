@@ -6,7 +6,7 @@
 
 - **Status:** In Progress
 
-- **Update (March 13, 2026):** Status review for v0.5.0 release readiness. The
+- **Update:** Status review for v0.5.0 release readiness. The
   speed contract reset (§1, §15) is complete — `peak_speed_mps` → `max_speed_mps`
   rename landed in #352 (proto, Go, Swift, TS); SQL column rename deferred to
   migration 000030. Aggregate percentile labels remain reserved for grouped/report
