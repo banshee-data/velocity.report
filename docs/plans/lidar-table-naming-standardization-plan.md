@@ -37,7 +37,7 @@ than by a stable naming model.
    - `lidar_track_*` for live L5 track tables and direct children
    - `lidar_run_*` for artefacts owned by an executed analysis run
    - `lidar_replay_*` for saved replay fixtures and replay-scoped scores
-   - `lidar_sweep*` or `lidar_tuning_*` for optimisation sessions
+   - `lidar_tuning_*` for optimisation sessions
 3. Reserve `scene` for future L7 canonical scene work.
 4. Prefer plural entity names for tables.
 5. Keep already-good anchor names when renaming them would create unnecessary
@@ -47,20 +47,20 @@ than by a stable naming model.
 
 Current LiDAR tables in [`internal/db/schema.sql`](../../internal/db/schema.sql):
 
-| Current table          | Current role                                       | Naming issue                                     |
-| ---------------------- | -------------------------------------------------- | ------------------------------------------------ |
-| `lidar_bg_regions`     | persisted L3 region state                          | acceptable `bg` exception                        |
-| `lidar_bg_snapshot`    | persisted L3 grid snapshot                         | singular noun                                    |
-| `lidar_clusters`       | L4 cluster persistence                             | acceptable                                       |
-| `lidar_tracks`         | live L5 track buffer                               | acceptable anchor name                           |
-| `lidar_track_obs`      | per-observation track state                        | abbreviated child noun                           |
-| `lidar_labels`         | track-linked annotation spans                      | overly generic                                   |
-| `lidar_analysis_runs`  | run metadata                                       | acceptable anchor name                           |
-| `lidar_run_tracks`     | run-scoped track snapshots                         | acceptable run-owned child                       |
-| `lidar_scenes`         | saved replay fixture                               | collides with future L7 "scene"                  |
-| `lidar_evaluations`    | run-vs-run scores scoped to a saved replay fixture | missing replay owner                             |
-| `lidar_sweeps`         | tuning/sweep metadata                              | broader than replay; owner wording could improve |
-| `lidar_missed_regions` | run-scoped missed-detection evidence               | owner is implicit                                |
+| Current table          | Current role                                       | Naming issue                              |
+| ---------------------- | -------------------------------------------------- | ----------------------------------------- |
+| `lidar_bg_regions`     | persisted L3 region state                          | acceptable `bg` exception                 |
+| `lidar_bg_snapshot`    | persisted L3 grid snapshot                         | singular noun                             |
+| `lidar_clusters`       | L4 cluster persistence                             | acceptable                                |
+| `lidar_tracks`         | live L5 track buffer                               | acceptable anchor name                    |
+| `lidar_track_obs`      | per-observation track state                        | abbreviated child noun                    |
+| `lidar_labels`         | track-linked annotation spans                      | overly generic                            |
+| `lidar_analysis_runs`  | run metadata                                       | breaks the cleaner `lidar_run_*` family   |
+| `lidar_run_tracks`     | run-scoped track snapshots                         | acceptable run-owned child                |
+| `lidar_scenes`         | saved replay fixture                               | collides with future L7 "scene"           |
+| `lidar_evaluations`    | run-vs-run scores scoped to a saved replay fixture | missing replay owner                      |
+| `lidar_sweeps`         | tuning/sweep metadata                              | should align to an explicit tuning family |
+| `lidar_missed_regions` | run-scoped missed-detection evidence               | owner is implicit                         |
 
 ## Recommended Canonical Constructs
 
@@ -93,9 +93,13 @@ Using "annotations" here keeps those concepts distinct.
 Use `run` for artefacts owned by a concrete executed run, regardless of whether
 that run came from live capture or PCAP replay:
 
-- `lidar_analysis_runs`
+- `lidar_run_records`
 - `lidar_run_tracks`
 - `lidar_run_missed_regions`
+
+`lidar_run_records` is preferred over names like `lidar_run_jobs` or
+`lidar_run_executions`. These rows are persisted records of concrete runs, not
+queued work items.
 
 ### 5. L8 replay fixtures
 
@@ -110,16 +114,10 @@ concrete than "analysis context" and more future-safe than "scene".
 
 ### 6. L8 tuning sessions
 
-`lidar_sweeps` is broader than replay. It stores plain sweeps, auto-tune, and
-HINT sessions, with replay-case linkage carried inside the request payload when
-applicable.
-
-So for the pre-`v0.5.0` minimal pass:
-
-- keep `lidar_sweeps` unchanged
-- treat it conceptually as the tuning-session table
-- revisit a possible rename such as `lidar_tuning_sessions` only if we want a
-  larger L8 terminology cleanup later
+`lidar_tuning_sweeps` is the preferred name for the current sweep table. It
+keeps the familiar `sweep` noun while making the L8 owner explicit. The table
+stores plain sweeps, auto-tune, and HINT sessions, with replay-case linkage
+carried inside the request payload when applicable.
 
 ## Minimal Rename Set
 
@@ -129,15 +127,13 @@ This is the recommended pre-`v0.5.0` rename set.
 
 These names are already good enough and act as stable anchors:
 
-| Keep                  | Why                                                                  |
-| --------------------- | -------------------------------------------------------------------- |
-| `lidar_bg_regions`    | `bg` is an allowed exception and already established                 |
-| `lidar_bg_snapshot`   | paired naturally with `lidar_bg_regions`; churn not justified        |
-| `lidar_tracks`        | core live-track anchor; renaming it would force unnecessary FK churn |
-| `lidar_clusters`      | already clear and short; no conflicting family                       |
-| `lidar_analysis_runs` | clear anchor for executed runs that may be `live` or `pcap`          |
-| `lidar_run_tracks`    | already reads correctly as a run-owned child table                   |
-| `lidar_sweeps`        | broad tuning-session table, not purely replay-owned                  |
+| Keep                | Why                                                                  |
+| ------------------- | -------------------------------------------------------------------- |
+| `lidar_bg_regions`  | `bg` is an allowed exception and already established                 |
+| `lidar_bg_snapshot` | paired naturally with `lidar_bg_regions`; churn not justified        |
+| `lidar_tracks`      | core live-track anchor; renaming it would force unnecessary FK churn |
+| `lidar_clusters`    | already clear and short; no conflicting family                       |
+| `lidar_run_tracks`  | already reads correctly as a run-owned child table                   |
 
 ### Rename
 
@@ -145,9 +141,11 @@ These names are already good enough and act as stable anchors:
 | ---------------------- | -------------------------- | --------------------------------------------------------------------- |
 | `lidar_track_obs`      | `lidar_track_observations` | remove abbreviation                                                   |
 | `lidar_labels`         | `lidar_track_annotations`  | make track ownership explicit without colliding with run-track labels |
+| `lidar_analysis_runs`  | `lidar_run_records`        | align the run anchor with the `lidar_run_*` family                    |
+| `lidar_missed_regions` | `lidar_run_missed_regions` | make run ownership explicit                                           |
 | `lidar_scenes`         | `lidar_replay_cases`       | make replay-fixture role explicit; avoid L7 scene collision           |
 | `lidar_evaluations`    | `lidar_replay_evaluations` | scores are persisted against a replay case                            |
-| `lidar_missed_regions` | `lidar_run_missed_regions` | make run ownership explicit                                           |
+| `lidar_sweeps`         | `lidar_tuning_sweeps`      | make the tuning-session owner explicit                                |
 
 ## Resulting Conceptual Structure
 
@@ -164,14 +162,14 @@ lidar_tracks
 lidar_track_observations
 lidar_track_annotations
 
-lidar_analysis_runs
+lidar_run_records
 lidar_run_tracks
 lidar_run_missed_regions
 
 lidar_replay_cases
 lidar_replay_evaluations
 
-lidar_sweeps
+lidar_tuning_sweeps
 ```
 
 ## Column and API Counterpart Renames
@@ -197,11 +195,11 @@ Affected analysis surfaces include:
 
 Some tables participate in replay workflows but are not themselves replay-owned:
 
-- `lidar_analysis_runs` can represent either `live` or `pcap` runs
+- `lidar_run_records` can represent either `live` or `pcap` runs
 - `lidar_run_tracks` are snapshots owned by a specific run, not by a replay
   case directly
-- `lidar_sweeps` stores tuning sessions across plain sweeps, auto-tune, and
-  HINT, so a replay prefix would overfit one mode
+- `lidar_tuning_sweeps` stores tuning sessions across plain sweeps, auto-tune,
+  and HINT, so a replay prefix would overfit one mode
 
 ### Existing adjacent naming cleanups
 
@@ -220,7 +218,7 @@ that before `v0.5.0` buys little and costs a lot:
 - `lidar_track_obs` and `lidar_labels` currently FK to `lidar_tracks`
 - many docs already use `lidar_tracks` as the anchor name
 - the main inconsistency is not the word `tracks`; it is the surrounding family
-  names (`run_tracks`, `track_obs`, generic `labels`)
+  names (`run_records`, `track_obs`, generic `labels`)
 
 So the minimal-change answer is: keep `lidar_tracks`, rename the surrounding
 tables into a consistent family.
@@ -267,12 +265,15 @@ clean cut over indefinite dual naming.
 - [ ] Approve the LiDAR constructs: `bg`, `track`, `run`, `replay_case`, `tuning`
 - [ ] Rename `lidar_track_obs` -> `lidar_track_observations`
 - [ ] Rename `lidar_labels` -> `lidar_track_annotations`
+- [ ] Rename `lidar_analysis_runs` -> `lidar_run_records`
+- [ ] Keep `lidar_run_tracks` unchanged
+- [ ] Rename `lidar_missed_regions` -> `lidar_run_missed_regions`
 - [ ] Rename `lidar_scenes` -> `lidar_replay_cases`
 - [ ] Rename `lidar_evaluations` -> `lidar_replay_evaluations`
-- [ ] Rename `lidar_missed_regions` -> `lidar_run_missed_regions`
+- [ ] Rename `lidar_sweeps` -> `lidar_tuning_sweeps`
 - [ ] Rename `scene_id` -> `replay_case_id` where it refers to replay cases
 - [ ] Rename `SceneStore`/`Scene`/scene API paths to replay-case names
-- [ ] Keep `lidar_bg_regions`, `lidar_bg_snapshot`, `lidar_tracks`, `lidar_clusters`, `lidar_analysis_runs`, `lidar_run_tracks`, and `lidar_sweeps` unchanged
+- [ ] Keep `lidar_bg_regions`, `lidar_bg_snapshot`, `lidar_tracks`, `lidar_clusters`, and `lidar_run_tracks` unchanged
 - [ ] Keep radar table names unchanged
 
 ## Recommendation
@@ -281,9 +282,9 @@ Before `v0.5.0`, standardize the LiDAR schema around:
 
 - `lidar_bg_*` as the L3 persisted background/grid family
 - `lidar_tracks` plus `lidar_track_*` as the live L5 surface
-- `lidar_analysis_runs` plus `lidar_run_*` as the executed-run surface
+- `lidar_run_records` plus `lidar_run_*` as the executed-run surface
 - `lidar_replay_cases` plus `lidar_replay_evaluations` as the replay-fixture surface
-- `lidar_sweeps` as the tuning-session table for now
+- `lidar_tuning_sweeps` as the tuning-session table
 
 That gives us one unifying conceptual structure with minimal churn, avoids a
 future L7 `scene` naming collision, keeps `bg` as a deliberate local
