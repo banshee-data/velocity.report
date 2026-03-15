@@ -222,12 +222,12 @@ for coherent planning.
 | `lidar_labels`         | L6 → L8       | Human-assigned ground truth; consumed by L8 evaluation scoring       |
 | `lidar_bg_regions`     | L3 Grid       | Correct — background grid state                                      |
 | `lidar_bg_snapshot`    | L3 Grid       | Correct — serialised grid snapshot for PCAP restoration              |
-| `lidar_analysis_runs`  | L8 Analytics  | Correct — run metadata and aggregate statistics                      |
-| `lidar_run_tracks`     | L8 Analytics  | Correct — versioned track snapshots from analysis runs               |
+| `lidar_analysis_runs`  | L8 Analytics  | Acceptable today — naming plan prefers `lidar_run_records`           |
+| `lidar_run_tracks`     | L8 Analytics  | Correct — versioned track snapshots from run executions              |
 | `lidar_scenes`         | L8 Analytics  | **Naming collision** — see §E1 below                                 |
 | `lidar_evaluations`    | L8 Analytics  | Correct — run-vs-run comparison scores                               |
 | `lidar_missed_regions` | L8 Analytics  | Correct — evaluation detail (undetected ground-truth regions)        |
-| `lidar_sweeps`         | L8 Analytics  | Correct — parameter sweep metadata                                   |
+| `lidar_sweeps`         | L8 Analytics  | Acceptable today — naming plan prefers `lidar_tuning_sweeps`         |
 | `radar_*`              | Mixed         | Radar tables predate the layer model; alignment is out-of-scope here |
 | `site` / `site_*`      | L9 Endpoints  | Correct — server configuration and report metadata                   |
 
