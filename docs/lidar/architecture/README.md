@@ -49,7 +49,7 @@ implementation-vs-literature breakdown, see
 | [lidar-logging-stream-split-and-rubric-design.md](lidar-logging-stream-split-and-rubric-design.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams                    |
 | [foreground-tracking.md](foreground-tracking.md)                                                   | Foreground extraction and tracking pipeline design                                           |
 | [lidar-background-grid-standards.md](lidar-background-grid-standards.md)                           | Background grid format comparison with industry standards                                    |
-| [HESAI_PACKET_FORMAT.md](../../../data/structures/HESAI_PACKET_FORMAT.md)                                        | Hesai Pandar40P UDP packet format reference (moved to data/structures/)                            |
+| [HESAI_PACKET_FORMAT.md](../../../data/structures/HESAI_PACKET_FORMAT.md)                          | Hesai Pandar40P UDP packet format reference (moved to data/structures/)                      |
 | [lidar-sidecar-overview.md](lidar-sidecar-overview.md)                                             | System-level overview of the LiDAR sidecar architecture                                      |
 | [network-configuration.md](network-configuration.md)                                               | Network interface selection, diagnostics, and hot-reload plan for UDP listener               |
 | [multi-model-ingestion-and-configuration.md](multi-model-ingestion-and-configuration.md)           | Proposed path for supporting 3–10 LiDAR models with distinct packet formats                  |

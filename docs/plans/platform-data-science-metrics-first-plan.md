@@ -68,7 +68,7 @@ The repo already contains the beginnings of a reproducible data-science corpus. 
 - `internal/lidar/perf/pcap/kirk0.pcapng` plus `scripts/validate-lfs-files.sh` — the main LFS-backed replay artifact currently called out for validation.
 - `internal/lidar/perf/baseline/baseline-kirk0.json` and `internal/lidar/perf/baseline/baseline-kirk0-ci.json` — saved performance baselines for replay comparison.
 - `data/explore/kirk0-lifecycle/` — parameter-permutation investigation outputs tied to `kirk0.pcapng`.
-- `data/explore/convergance-neighbour/` — neighbour-confirmation sweep analysis and findings.
+- `data/explore/convergence-neighbour/` — neighbour-confirmation sweep analysis and findings.
 - `docs/lidar/operations/parameter-comparison.md`, `docs/lidar/operations/config-param-tuning.md`, and `docs/lidar/operations/auto-tuning.md` — the current parameter-study and scoring guidance.
 - `docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md` — the reference-run, scene, and labelled-ground-truth workflow for replayable evaluation.
 - `data/structures/VRLOG_FORMAT.md` and `data/structures/VRLOG_ANALYSIS.md` — the current `.vrlog` artifact contract and comparison/report format.

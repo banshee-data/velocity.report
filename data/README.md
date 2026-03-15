@@ -12,7 +12,7 @@ This directory is the working home for stable data contracts, mathematical found
   - forward-looking proposals under `data/maths/proposals/`
 - `data/explore/` — exploratory investigations, parameter sweeps, and deep dives worth revisiting
   - each study keeps its own scripts, raw outputs, and findings together
-  - current candidates: `convergance-neighbour/`, `multisweep-graph/`, `noise_investigation/`, `kirk0-lifecycle/`
+  - current candidates: `convergence-neighbour/`, `multisweep-graph/`, `noise_investigation/`, `kirk0-lifecycle/`
 - `data/align/` — acquisition and alignment tooling that prepares external datasets for analysis
 
 ## Architecture decision record
@@ -56,12 +56,12 @@ This directory is the working home for stable data contracts, mathematical found
 
 ## Failure registry
 
-| Area | Failure mode | Recovery |
-| --- | --- | --- |
-| `data/structures/` | A spec or schema asset drifts from implementation | update the canonical spec and the referencing docs together; validate links and regenerate artifacts such as `SCHEMA.svg` |
-| `data/maths/` | A maths note points at stale plans or code paths after refactors | keep relative links current during moves and treat `data/maths/` as reference material that must be updated alongside algorithm changes |
-| `data/explore/` | Exploratory work gets stranded without enough context to revisit | keep scripts, outputs, and write-ups in the same study folder and add a short findings note before considering it durable |
-| `data/align/` | Tooling drifts from the shared repo environment | prefer the repository `.venv` and document any extra dependencies close to the tool |
+| Area               | Failure mode                                                     | Recovery                                                                                                                                |
+| ------------------ | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/structures/` | A spec or schema asset drifts from implementation                | update the canonical spec and the referencing docs together; validate links and regenerate artifacts such as `SCHEMA.svg`               |
+| `data/maths/`      | A maths note points at stale plans or code paths after refactors | keep relative links current during moves and treat `data/maths/` as reference material that must be updated alongside algorithm changes |
+| `data/explore/`    | Exploratory work gets stranded without enough context to revisit | keep scripts, outputs, and write-ups in the same study folder and add a short findings note before considering it durable               |
+| `data/align/`      | Tooling drifts from the shared repo environment                  | prefer the repository `.venv` and document any extra dependencies close to the tool                                                     |
 
 ## Placement rules
 
