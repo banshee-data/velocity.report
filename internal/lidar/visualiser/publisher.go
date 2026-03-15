@@ -431,16 +431,6 @@ func (p *Publisher) vrlogReplayLoop() {
 			lastWallTime = time.Now()
 		}
 
-		// Throttle background frames during replay: send at most one
-		// every bgReplayInterval of wall-clock time. Drop the rest to
-		// keep the gRPC stream focused on foreground data.
-		if frame.FrameType == FrameTypeBackground {
-			if !lastBgSentWall.IsZero() && time.Since(lastBgSentWall) < bgReplayInterval {
-				continue
-			}
-			lastBgSentWall = time.Now()
-		}
-
 		// Mark frame as seekable replay
 		if frame.PlaybackInfo == nil {
 			frame.PlaybackInfo = &PlaybackInfo{}

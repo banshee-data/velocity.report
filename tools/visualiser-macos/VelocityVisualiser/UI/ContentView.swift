@@ -1705,10 +1705,7 @@ struct TrackListView: View {
     /// Guarded to avoid redundant @Published writes that would trigger
     /// a second SwiftUI body re-evaluation per frame.
     private func syncTrackListOrder() {
-<<<<<<< HEAD
         refreshFrameTracks()
-=======
->>>>>>> 36df61929 ([mac] optimize state updates to prevent redundant writes and improve performance)
         let newOrder: [String]
         if isRunMode {
             newOrder = sortedRunTracks.map { $0.trackId }
