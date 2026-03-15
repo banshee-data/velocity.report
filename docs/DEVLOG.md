@@ -1,5 +1,98 @@
 # Development Log
 
+## March 15, 2026 - Data Reorganisation & UK Spelling
+
+- Reshaped `data/` directory structure — moved `docs/data/` to `data/structures/`, `docs/maths/` to `data/maths/`, kept proposals under `data/maths/proposals/`.
+- Corrected new maths path to British English (`data/maths/` not `data/math/`).
+- Added `data/explore/README.md` and moved exploratory VRLOG analysis outputs to `data/explore/vrlog-analysis-runs/`.
+- Simplified `data/README.md` and cleaned stale tracked noise-investigation CSV artefacts.
+- Normalised UK spelling across renamed docs/data files (`labelling`, `optimisation`, `standardisation`, `convergence-neighbour`) and refreshed cross-references in architecture, plans, backlog, and visualiser docs.
+
+## March 14, 2026 - VRLOG Contracts & Labelling Refresh
+
+- Reworked VRLOG labelling and replay contracts across Go, Swift, and protobuf surfaces — refreshed label APIs, run-track endpoints, replay handlers, recorder proto encoding, analysis/report typing, and `gen-vrlog` / `vrlog-analyse` tooling.
+- Expanded macOS visualiser run-browser and labelling flows: updated `RunBrowserState`, `RunBrowserView`, `ContentView`, rendering paths, `VisualiserClient`, and related tests.
+- Added VRLOG provenance metadata tracking and clarified percentile computation policy in analysis docs.
+- Refreshed v0.5.0 backlog/plan status for shim removal, schema simplification, config restructure, and documentation standardisation.
+
+## March 13, 2026 - Agent Stack Overhaul, Light-mode Planning & SSE Fix
+
+- Reworked AI-agent tooling from the earlier Jess PM prototype into the current Appius/Euler/Flo/Grace/Malory/Ruth/Terry stack, with portraits, `.github/knowledge/` modules, updated Copilot instructions, and helper scripts.
+- Standardised header metadata to bullet-list format (`- **Key:** value`) across all documentation files.
+- Added macOS visualiser light-mode plan and linked it into the backlog.
+- Fixed SSE subscribers to receive test payloads end-to-end — buffered serialmux subscriber channels, added subscriber registration wait, tightened `prepareForNewReplay` resets in `AppState`.
+
+## March 12, 2026 - Shim Removal, Tagged Loggers & Codecov Flags
+
+- Completed v0.5.0 backward-compatibility shim removal across Go sweep package (14 legacy `SweepRequest` fields), TypeScript, Python PDF generation, and Swift — coordinated removal of dual-format parsing and fallback stubs with broad test rewrites.
+- Introduced tagged diagnostic loggers across the LiDAR stack, replacing direct `log` package usage with package-scoped tagged loggers for `network` and `analysis` packages; widened `speed_ratio` instrumentation across monitor, sweep, PCAP, and VRLOG tools.
+- Updated Codecov targets — explicit 95% project/patch thresholds, component-specific 98% for radar-go, web, and Svelte.
+- Added LiDAR tracks table consolidation plan — analysed `lidar_tracks` vs `lidar_run_tracks` duplication across schema, Go structs, and SQL.
+- Added typed UUID prefix convention and documented VRLOG run comparison experiment with bug findings and test plan.
+- Updated L8–L10 plan with backlog items and phased subphase structure.
+
+## March 11, 2026 - Dual Frame Representation & Naming Standardisation
+
+- Added L2 dual representation in `LiDARFrame` (`Points` + `PolarPoints`), removed repeated polar rebuild work, propagated through adapters, PCAP/network ingestion, perception, pipeline stages, and tests.
+- Renamed `PeakSpeedMps` to `MaxSpeedMps` across analysis/reporting, classification, proto, Swift visualiser, and tests; CI fix for remaining references missed in the initial rename.
+- Standardised docs naming conventions — all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from `internal/db/`.
+- Overhauled LiDAR architecture Mermaid layer diagram with enhanced documentation and added Mermaid flowchart readability utility script.
+- Added coordinate-flow audit documenting polar/Cartesian transitions per tracking stage with flowcharts, matrices, and single-projection strategies.
+- Added 52-entry BibTeX bibliography (`docs/references.bib`) covering L3f, L5h, L6e planned work and existing references.
+- Updated BACKLOG with v0.5.0 breaking-change/proto work split and shipped component status.
+- Activated shared web cache for worktrees — `make activate-web-cache` for Codex environment setup, reusable Make targets.
+
+## March 10, 2026 - PCAP Playback Fix & VRLOG Analysis Metrics
+
+- Hardened PCAP playback and analysis paths — replay timing fixes, speed-ratio controls, datasource/monitor/dashboard updates, database write cleanup, per-frame timing traces in `pcap-analyse`, and matching macOS visualiser model/client changes.
+- Implemented all §12.1 "implementable now" VRLOG analysis metrics — per-track detail fields, comparison report, and supporting `vrlog-analyse` code and tests.
+- Documented outstanding data-science questions in `CONTRIBUTING.md`, linked reflective-sign pose-anchor proposal from maths README, added Mermaid validation tooling notes.
+
+## March 9, 2026 - LiDAR L7-L10 & Metrics-first Documentation
+
+- Updated LiDAR data layer model from six-layer to ten-layer architecture — added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
+- Rewrote contributor personas in `CONTRIBUTING.md`, expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
+- Added ticTacTail VRLOG inspection command specification — CLI shape, package layout, modes, metrics, and aggregation windows.
+- Added `internal/lidar/monitor/` deprecation and migration plan to `server/`, `l7analytics/`, `l8presentation/`.
+- Updated 0.5.0 proto plan — percentile aggregation decisions, metrics registry strategy, tagging guidance, and observability/export mapping.
+- Added Jess agent standup and planning behaviours.
+- British English spelling lint check, backlog decision updates, Python CI bump.
+
+## March 8, 2026 - L7/L8/L9 Client Planning
+
+- Added LiDAR L7 analytics and L8 visualisation refactor plan — phased implementation steps and checklist covering docs, L7/L8 boundaries, monitor/, and generated artefacts.
+
+## March 7, 2026 - Platform Simplification Phase 1
+
+- Implemented Phase 1 of platform simplification — added deprecation warnings to legacy deployment targets and tools, updated documentation for `velocity-deploy` and Makefile targets.
+
+## March 6, 2026 - Compatibility Plans
+
+- Documented visualiser speed summary schema improvements, platform simplification status, and updated backlog tracking for completed work.
+
+## March 5, 2026 - Contributor Guidance, Agent Prototyping & Cleanup
+
+- Added contributor personas and general work themes to `CONTRIBUTING.md`.
+- Added Jess (PM) agent; renamed existing agents with role context — Hadaly→Hadaly (Dev), Ictinus→Ictinus (Architect), Malory→Malory (Pen Test), Thompson→Thompson (Writer).
+- Removed tracked binaries (`gen-vrlog`, `replay-server`, `visualiser-server`), added to `.gitignore`, cleaned misplaced scripts.
+- Bumped application dependency group — `go-echarts/v2`, `go-sqlite3`, `google.golang.org/grpc`, `modernc.org/sqlite`.
+
+## March 1, 2026 - Config Restructure & Maths Refresh
+
+- Added `config/CONFIG-RESTRUCTURE.md` documenting the migration from flat to layer-scoped nested tuning config schema.
+- Updated ML solver expansion and velocity-coherent foreground extraction maths documents to match new configuration and modelling direction.
+- Refreshed backlog references around the config and maths workstream.
+
+## February 28, 2026 - macOS Build Metadata
+
+- Updated macOS build/release process so build metadata refreshes on every build; improved licensing display in About view; added release signing readiness tasks to backlog.
+
+## February 27, 2026 - DMG Packaging & UI Polish
+
+- Added versioned DMG export for VelocityVisualiser — automated packaging scripts, Finder-layout automation (`create-dmg`), CI wiring, and updated build/getting-started documentation.
+- Second round of macOS UI polish — label taxonomy consolidation, track labelling and navigation improvements, enhanced test coverage for visualiser components.
+- Bumped version to `0.5.0-pre14`.
+
 ## February 26, 2026 - Replay EOF Debugging, Build Metadata CI/Test Plumbing & Format Docs
 
 - Added `data/structures/README.md` and `data/structures/VRLOG_FORMAT.md`, and updated LiDAR architecture/documentation references to the new data format docs.
