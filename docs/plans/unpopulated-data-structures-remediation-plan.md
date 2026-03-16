@@ -199,8 +199,8 @@ Depends on Phases 1 and 2.
 
 **Priority:** Medium — design debt per D-18 and the speed percentile
 alignment plan.
-**Effort:** Medium (2–3 days)
-**Risk:** Medium — migration touches multiple tables and renames columns.
+**Effort:** Small–medium (1–2 days) — most Go renames already done.
+**Risk:** Low–medium — migration drops columns; Go code already aligned.
 **Schedule:** Same sprint as Phase 4 or immediately after. Aligned with
 [schema simplification migration 030 plan](schema-simplification-migration-030-plan.md).
 
@@ -211,21 +211,36 @@ percentiles are reserved for grouped/report aggregates only. Per-track
 percentile columns are the wrong abstraction and must be removed, not
 surfaced.
 
-- [ ] Implement migration 000030 to drop `p50_speed_mps`, `p85_speed_mps`,
-      `p95_speed_mps` from `lidar_tracks` and `lidar_run_tracks`.
-- [ ] Rename `peak_speed_mps` → `max_speed_mps` in both tables (D-19).
-- [ ] Remove per-track percentile columns from `InsertRunTrack()` SQL.
-- [ ] Update `RunTrack` Go struct: rename `MaxSpeedMps` JSON tag if needed.
-- [ ] Rename `TrackedObject.MaxSpeedMps` and all downstream references
-      (`l6objects/classification.go`, `l6objects/features.go`,
-      `monitor/track_api.go`, `web/` TypeScript types).
-- [ ] Keep `ComputeSpeedPercentiles()` as internal-only for classifier
-      feature extraction — do not expose via API.
+**Already done (Go structs, proto, API, TypeScript):**
+
+- [x] `TrackedObject.MaxSpeedMps` — already renamed from `PeakSpeedMps`.
+- [x] `RunTrack.MaxSpeedMps` — already renamed.
+- [x] Proto uses `max_speed_mps` (field 25), no percentile fields.
+- [x] REST API (`track_api.go`) uses `max_speed_mps`, no per-track
+      percentile fields exposed.
+- [x] TypeScript types — no per-track percentile fields.
+- [x] `InsertTrack()` / `UpdateTrack()` — no longer write `p50/p85/p95`.
+- [x] `ComputeSpeedPercentiles()` kept as internal-only for classifier
+      feature extraction.
+
+**Remaining (migration 000030 and SQL cleanup):**
+
+- [ ] Write and apply migration 000030 to drop `p50_speed_mps`,
+      `p85_speed_mps`, `p95_speed_mps` from `lidar_tracks` and
+      `lidar_run_tracks`, and rename `peak_speed_mps` → `max_speed_mps` on
+      both tables.
+- [ ] Update `schema.sql` to match post-migration state.
+- [ ] Remove per-track percentile columns from `InsertRunTrack()`,
+      `GetRunTracks()`, `GetRunTrack()` SQL in `analysis_run.go`.
+- [ ] Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
+      (`track_store.go`, `analysis_run.go`).
 - [ ] Update all test fixtures that reference percentile columns or
-      `peak_speed_mps`.
+      `peak_speed_mps` (`coverage_boost_test.go`, `track_api_test.go`,
+      `webserver_coverage_test.go`, `scene_api_coverage_test.go`,
+      `analysis_run_extended_test.go`).
+- [ ] Update `pcap-analyse` `SpeedStatistics` to use `p98` not `p95`
+      as the high-end aggregate percentile (D-18).
 - [ ] Regenerate schema ERD with `make schema-erd`.
-- [ ] Update TypeScript interfaces (`web/src/lib/types/lidar.ts`):
-      remove percentile fields, rename `peak_speed_mps` → `max_speed_mps`.
 
 ---
 

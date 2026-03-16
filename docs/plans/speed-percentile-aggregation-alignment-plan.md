@@ -59,16 +59,20 @@ like `height_p95` or latency `p95`.
 
 ## 3. Current State Inventory
 
-| Surface                                                                     | Current state                                                                                                              | Status                                               |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `internal/lidar/l6objects` + `internal/lidar/storage/sqlite/track_store.go` | Percentile-labelled single-track speed summaries are computed from track speed history and persisted today.                | Design debt to remove from the canonical track model |
-| Visualiser proto/adapter                                                    | Branch-local work exposes percentile-labelled single-track speed summaries to gRPC/Swift clients.                          | Must be backed out before merge                      |
-| `internal/lidar/monitor/track_api.go` per-track REST                        | Individual track JSON already exposes a percentile-labelled speed summary field.                                           | Must be backed out, not expanded                     |
-| `internal/lidar/monitor/track_api.go` summary REST                          | Summary payloads contain a percentile-labelled placeholder field, but grouped percentile semantics are still incomplete.   | Needs redesign around aggregate-only percentiles     |
-| `internal/api/server.go` + `internal/db/db.go` radar stats rollups          | Query-time `p50/p85/p98` are computed from raw speed rows in each bucket. This is the right aggregation level.             | Keep, but standardise algorithm/helper path          |
-| `tools/pdf-generator/pdf_generator/cli/main.py` main report path            | Overall and daily summaries are fetched from API `group=all` / `group=24h`, so an aggregate-only path already exists.      | Keep                                                 |
-| `tools/pdf-generator/pdf_generator/cli/main.py` fallback helpers            | `derive_overall_from_granular()` and `derive_daily_from_granular()` derive summaries from earlier bucket percentiles.      | Remove                                               |
-| Planning/docs surface                                                       | Several active plans still say single-track speed surfaces should ship aggregate percentile labels in proto, REST, and UI. | Must be rewritten in this PR                         |
+| Surface                                                                     | Current state                                                                                                                | Status                                              |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `internal/lidar/l6objects` + `internal/lidar/storage/sqlite/track_store.go` | `InsertTrack()`/`UpdateTrack()` no longer write percentile columns. `MaxSpeedMps` used everywhere in Go.                     | ✅ Aligned (SQL column still says `peak_speed_mps`) |
+| Visualiser proto/adapter                                                    | Proto uses `max_speed_mps`. Visualiser model has backward-compat shim for legacy `PeakSpeedMps` JSON.                        | ✅ Aligned                                          |
+| `internal/lidar/monitor/track_api.go` per-track REST                        | Individual track JSON uses `max_speed_mps`. No per-track percentile fields exposed.                                          | ✅ Aligned                                          |
+| `internal/lidar/monitor/track_api.go` summary REST                          | Summary payloads use `max_speed_mps`. No per-track percentile fields.                                                        | ✅ Aligned                                          |
+| `internal/api/server.go` + `internal/db/db.go` radar stats rollups          | Query-time `p50/p85/p98` are computed from raw speed rows in each bucket. This is the right aggregation level.               | ✅ Keep                                             |
+| `tools/pdf-generator/pdf_generator/cli/main.py` main report path           | Overall and daily summaries are fetched from API `group=all` / `group=24h`, so an aggregate-only path already exists.        | ✅ Keep                                             |
+| `tools/pdf-generator/pdf_generator/cli/main.py` fallback helpers           | `derive_overall_from_granular()` and `derive_daily_from_granular()` derive summaries from earlier bucket percentiles.        | ⚠️ Remove (Phase 4)                                |
+| DB schema (`lidar_tracks`, `lidar_run_tracks`)                              | Still have `peak_speed_mps` column name and `p50/p85/p95_speed_mps` columns.                                                | ⚠️ Migration 000030 needed                         |
+| `cmd/tools/pcap-analyse`                                                    | `SpeedStatistics` computes P50/P85/P95 over a population of track max speeds (correct usage), but uses `p95` not `p98`.     | ⚠️ Rename to `p98` (Phase 3)                       |
+| `l6objects/classification.go` `ComputeSpeedPercentiles()`                   | Internal-only for classifier feature extraction. Not stored or exposed via API.                                              | ✅ Keep as internal                                 |
+| `l6objects/features.go` `TrackFeatures.SpeedP50/P85/P95`                    | ML feature vector fields for training data export. Not stored in DB.                                                         | ✅ Keep as internal                                 |
+| Planning/docs surface                                                       | Plans updated to reflect aggregate-only direction. `BACKEND_SURFACE_MATRIX.md` marks per-track percentiles as design debt.   | ✅ Aligned                                          |
 
 ## 4. Decisions Already Settled
 
@@ -107,49 +111,127 @@ The high-level direction is now clear and should not be reopened:
 
 ## 6. Execution Plan
 
-### Phase 0 - Documentation and Decision Reset
+### Phase 0 — Documentation and Decision Reset
 
-- [x] Inventory current percentile producers/consumers and the unresolved aggregation boundaries.
+- [x] Inventory current percentile producers/consumers and the unresolved
+      aggregation boundaries.
 - [x] Record the governing semantic decision in [../DECISIONS.md](../DECISIONS.md).
-- [x] Update the backlog item so it reflects track metric redesign plus aggregate-only percentiles.
-- [x] Clean up current planning docs that still say `p95` where the repo now standardises on `p98`.
-- [x] Mark earlier proto/API expansion plans for single-track aggregate-percentile labels as superseded.
+- [x] Update the backlog item so it reflects track metric redesign plus
+      aggregate-only percentiles.
+- [x] Clean up current planning docs that still say `p95` where the repo
+      now standardises on `p98`.
+- [x] Mark earlier proto/API expansion plans for single-track
+      aggregate-percentile labels as superseded.
 
-### Phase 1 - Back Out The Wrong Public Contract
+### Phase 1 — Back Out The Wrong Public Contract
 
-- [ ] Remove branch-local aggregate-percentile label additions from the `Track` proto, generated bindings, visualiser model/UI, and any new REST contract work tied to them.
-- [ ] Stop expanding per-track REST payloads with percentile fields; if a branch-local percentile field exists, remove it before merge.
-- [ ] Rename the current raw public `peak_speed_mps` field to `max_speed_mps` before merge where the contract is still unshipped.
-- [ ] Update tests and docs so aggregate percentile labels appear only on grouped/report surfaces.
+- [x] Remove branch-local aggregate-percentile label additions from the
+      `Track` proto, generated bindings, visualiser model/UI, and any new
+      REST contract work tied to them — proto uses `max_speed_mps`, no
+      percentile fields. Visualiser model has backward-compat shim for
+      historical `PeakSpeedMps` JSON.
+- [x] Stop expanding per-track REST payloads with percentile fields —
+      `track_api.go` does not expose per-track percentile fields.
+- [x] Rename the current raw public `peak_speed_mps` field to
+      `max_speed_mps` before merge where the contract is still unshipped —
+      done in Go struct fields, proto, REST API JSON, and TypeScript types.
+      SQL column name still says `peak_speed_mps` pending migration 000030.
+- [ ] Update tests and docs so aggregate percentile labels appear only on
+      grouped/report surfaces — partially done. Test fixtures in
+      `coverage_boost_test.go`, `track_api_test.go`, and
+      `webserver_coverage_test.go` still reference `peak_speed_mps` and
+      percentile columns because they match the current schema.
 
-### Phase 2 - Track Metric Redesign
+### Phase 2 — Track Metric Redesign
 
 - [ ] Define the replacement public track metrics and their names.
-- [ ] Reserve `peak_speed_mps` for the future filtered/context-aware top-speed measure, not the raw maximum.
-- [ ] Specify how those metrics reject outliers and use expected temporal/spatial behaviour.
-- [ ] Decide which track-level speed metrics remain public API and which stay internal to classification/evaluation.
+- [ ] Reserve `peak_speed_mps` for the future filtered/context-aware
+      top-speed measure, not the raw maximum.
+- [ ] Specify how those metrics reject outliers and use expected
+      temporal/spatial behaviour.
+- [ ] Decide which track-level speed metrics remain public API and which
+      stay internal to classification/evaluation.
 
-### Phase 3 - Remove Per-Track Percentile Calculations
+### Phase 3 — Remove Per-Track Percentile Calculations (migration 000030)
 
-- [ ] Replace branch-local/internal dependencies on legacy single-track speed-summary outputs with the new track metrics or other internal descriptors.
-- [ ] Stop treating track-level aggregate-percentile labels as canonical stored fields in new APIs and schemas.
-- [ ] Migrate public/raw `peak_speed_mps` references to `max_speed_mps` so "peak" is available for the future filtered metric.
-- [ ] Plan migration for historical storage surfaces (`lidar_tracks`, analysis runs, tests) that still carry legacy single-track speed-summary columns today.
+- [x] `InsertTrack()` and `UpdateTrack()` no longer write per-track
+      percentile columns to `lidar_tracks`.
+- [x] Go struct field renamed: `TrackedObject.MaxSpeedMps` (was
+      `PeakSpeedMps`).
+- [x] REST API JSON uses `max_speed_mps` (not `peak_speed_mps`).
+- [x] Proto uses `max_speed_mps`.
+- [ ] Run migration 000030 to drop `p50/p85/p95_speed_mps` from
+      `lidar_tracks` and `lidar_run_tracks` and rename `peak_speed_mps` →
+      `max_speed_mps` on both tables — see
+      [schema simplification plan](schema-simplification-migration-030-plan.md).
+- [ ] Update `InsertRunTrack()`, `GetRunTracks()`, `GetRunTrack()` SQL to
+      drop percentile columns and rename `peak_speed_mps` →
+      `max_speed_mps`.
+- [ ] Update `schema.sql` to match post-migration state.
+- [ ] Update all test fixtures that still reference `peak_speed_mps` or
+      percentile columns.
+- [ ] Update `pcap-analyse` `SpeedStatistics` struct to use `p98` instead
+      of `p95` for the high-end aggregate percentile.
 
-### Phase 4 - Aggregate-Only Percentile Path
+### Phase 4 — Aggregate-Only Percentile Path
 
-- [ ] Add a shared Go helper for dataset-level `p50/p85/p98` from a scalar speed slice, with one documented indexing rule.
-- [ ] Switch `internal/db.RadarObjectRollupRange` and report consumers to the shared helper so aggregate surfaces use the same algorithm.
-- [ ] Remove or fence off `derive_overall_from_granular()` and `derive_daily_from_granular()` as non-canonical fallbacks.
+- [ ] Add a shared Go helper for dataset-level `p50/p85/p98` from a scalar
+      speed slice, with one documented indexing rule.
+- [ ] Switch `internal/db.RadarObjectRollupRange` and report consumers to
+      the shared helper so aggregate surfaces use the same algorithm.
+- [ ] Remove or fence off `derive_overall_from_granular()` and
+      `derive_daily_from_granular()` as non-canonical fallbacks.
 - [ ] Add per-transit `max_speed_mph` to the fused transit layer/query path.
-- [ ] Serve TDL `speed summary` from filtered transit max speeds using the shared helper.
-- [ ] Move report consumers to fused transit summaries when they can replace source-specific radar/LiDAR rollups.
+- [ ] Serve TDL `speed summary` from filtered transit max speeds using the
+      shared helper.
+- [ ] Move report consumers to fused transit summaries when they can replace
+      source-specific radar/LiDAR rollups.
 
-## 7. Acceptance Criteria
+## 7. Current State Summary (March 2026)
 
-- No track-level public field, proto property, or UI label reuses aggregate percentile labels.
+### ✅ Already aligned
+
+| Surface                          | Status                                       |
+| -------------------------------- | -------------------------------------------- |
+| Proto (`visualiser.proto`)       | `max_speed_mps`, no percentile fields        |
+| REST API (`track_api.go`)        | `max_speed_mps`, no per-track percentiles    |
+| TypeScript types (`lidar.ts`)    | No per-track percentile fields               |
+| Go struct (`TrackedObject`)      | `MaxSpeedMps` field                          |
+| Go struct (`RunTrack`)           | `MaxSpeedMps` field                          |
+| Aggregate report (`report.go`)   | Population-level p50/p85/p98 over max speeds |
+| PDF generator                    | P50/P85/P98 aggregate stats, correct usage   |
+| Web charts (`+page.svelte`)      | P50/P85/P98/Max aggregate display            |
+
+### ⚠️ Needs migration 000030 (v0.5.x)
+
+| Surface                                              | Issue                                                    |
+| ---------------------------------------------------- | -------------------------------------------------------- |
+| `lidar_tracks` schema                                | `peak_speed_mps` column name, 3 dead percentile columns |
+| `lidar_run_tracks` schema                            | `peak_speed_mps` column name, 3 percentile columns      |
+| `schema.sql`                                         | Matches current schema — needs post-migration update     |
+| `track_store.go` SQL strings                         | `peak_speed_mps` in INSERT/UPDATE/SELECT                 |
+| `analysis_run.go` SQL strings                        | `peak_speed_mps`, percentile columns in SQL              |
+| Test fixtures (`coverage_boost_test.go` etc.)        | Reference `peak_speed_mps` and percentile columns        |
+| `pcap-analyse` `computeSpeedStats()`                 | Uses `P95` instead of `P98` for high-end percentile      |
+| `pcap-analyse` `SpeedStatistics` JSON tags           | `p50_speed_mps` etc. — ambiguous naming                  |
+
+### ✅ Correct internal use (keep)
+
+| Surface                                      | Rationale                                              |
+| -------------------------------------------- | ------------------------------------------------------ |
+| `ComputeSpeedPercentiles()` in l6objects      | Used for classifier feature extraction, not stored     |
+| `TrackFeatures.SpeedP50/P85/P95`              | ML feature vector fields, not DB columns or API fields |
+| `ClassificationFeatures.P50Speed/P85Speed`   | Internal classifier decision inputs, not public API    |
+
+## 8. Acceptance Criteria
+
+## 8. Acceptance Criteria
+
+- No track-level public field, proto property, or UI label reuses aggregate
+  percentile labels.
 - No raw maximum field is publicly named `peak`; raw maxima are named `max`.
 - Track-level speed summaries use distinct non-percentile metrics.
-- One documented percentile algorithm exists across radar, LiDAR, and reporting.
+- One documented percentile algorithm exists across radar, LiDAR, and
+  reporting.
 - No report summary is derived from prior percentile buckets.
 - API and docs clearly reserve percentiles for grouped/report aggregates only.
