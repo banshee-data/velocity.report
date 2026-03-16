@@ -62,11 +62,11 @@ Defer to v0.7 frontend consolidation — [DESIGN §5.7](ui/DESIGN.md), [design r
 
 ### D-14 — Simplification & deprecation scope
 
-Plan confirmed; Phase 1 complete in v0.5, removal in v0.7 — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
+Plan confirmed; Phase 1 complete in v0.5, removal in v0.5 — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
 
 ### D-15 — Time-partitioned data tables
 
-Implement for v1.0 — [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)
+Implement in v0.9.0 — [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)
 
 ### D-16 — Speed limit schedules
 
@@ -99,6 +99,10 @@ Reflash-only upgrades in the current plan; over-the-air updates are deferred to 
 ### D-23 — TicTacTail platform extraction
 
 Generic cadenced aggregation + live surface + aligned history engine, extracted from VRLOG checker; in-repo `pkg/tictactail` — [platform plan](plans/tictactail-platform-plan.md)
+
+### D-24 — Migration 030 offline percentile policy
+
+Adopt Option A: remove persisted per-track speed percentiles from migration 030 and keep no DB-backed fallback path; revisit offline-only export computation later only if explicitly needed — [schema simplification plan](plans/schema-simplification-migration-030-plan.md)
 
 ### Milestone Rationale
 
