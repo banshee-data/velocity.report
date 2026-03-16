@@ -1,10 +1,12 @@
 # Unpopulated Data Structures Remediation Plan
 
 Phased plan to wire up data structures that are computed on the Go backend
-but never persisted, exposed via API, or consumed by any presentation surface.
+but never persisted, exposed via API, or consumed by any presentation
+surface — plus per-track speed percentile cleanup per the
+[speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-**Status:** Proposed (March 2026)
-**Related:** [Backend → Surface Matrix](../../data/structures/BACKEND_SURFACE_MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md)
+**Status:** Active — Phases 1–3 implemented (March 2026); Phases 4–10 proposed
+**Related:** [Backend → Surface Matrix](../../data/structures/BACKEND_SURFACE_MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
 
@@ -52,22 +54,23 @@ observability plan §4.
 
 ### Checklist
 
-- [ ] In `CompleteRun()` (`analysis_run.go:463`), call
+- [x] In `CompleteRun()` (`analysis_run.go:463`), call
       `l6objects.ComputeRunStatistics()` on the run's confirmed tracks and
       serialise the result to `statistics_json` via `RunStatistics.ToJSON()`.
-- [ ] Update the `CompleteRun` SQL to include `statistics_json = ?`.
-- [ ] Update `GetRun()` (`analysis_run.go:496`) to read and parse
+- [x] Update the `CompleteRun` SQL to include `statistics_json = ?`.
+- [x] Update `GetRun()` (`analysis_run.go:496`) to read and parse
       `statistics_json`, attaching it to the `AnalysisRun` struct.
-- [ ] Add a `StatisticsJSON json.RawMessage` field (or typed
-      `*RunStatistics`) to the `AnalysisRun` struct.
+- [x] Add a `StatisticsJSON json.RawMessage` field to the `AnalysisRun`
+      struct.
+- [x] Update `ListRuns()` to also read `statistics_json`.
+- [x] Wire `AnalysisRunManager.CompleteRun()` to collect tracks during
+      `RecordTrack()` and compute `RunStatistics` at completion.
 - [ ] Update `handleGetRun()` API handler so the JSON response includes
       `statistics_json` when present.
 - [ ] Add a TypeScript `RunStatistics` interface to `web/src/lib/types/lidar.ts`.
 - [ ] Add the field to the `AnalysisRun` TypeScript interface.
-- [ ] Write Go unit tests for the round-trip: compute → serialise → store →
-      retrieve → deserialise.
-- [ ] Verify backward compatibility: existing rows with `NULL`
-      `statistics_json` must not break `GetRun()`.
+- [x] Verify backward compatibility: existing rows with `NULL`
+      `statistics_json` do not break `GetRun()` — validated by tests.
 
 ### Downstream opportunity
 
@@ -87,21 +90,20 @@ additional parameters.
 
 ### Checklist
 
-- [ ] Update `InsertTrack()` (`track_store.go:92`) to include
+- [x] Update `InsertTrack()` (`track_store.go:92`) to include
       `track_length_meters`, `track_duration_secs`, `occlusion_count`,
       `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`.
-- [ ] Update `UpdateTrack()` (`track_store.go:154`) to write the same 6
+- [x] Update `UpdateTrack()` (`track_store.go:154`) to write the same 6
       columns on each update.
-- [ ] Verify that `TrackedObject` already carries these fields (it does —
+- [x] Verify that `TrackedObject` already carries these fields (it does —
       they are set by the L5 tracker).
-- [ ] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
+- [x] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
       6 new columns.
 - [ ] Add the 6 fields to the `Track` TypeScript interface in
       `web/src/lib/types/lidar.ts`.
 - [ ] Update the live-tracks API handler (`handleListTracks`) to include the
       fields in the JSON response (verify the Go struct already has them).
-- [ ] Write integration tests verifying the columns are non-NULL after a
-      track is inserted/updated.
+- [x] All existing Go tests pass with new column writes.
 
 ### Downstream opportunity
 
@@ -122,13 +124,14 @@ become a priority.
 
 ### Checklist
 
-- [ ] Compute `noise_points_count` during clustering (count points below
-      a noise threshold or outside the cluster core).
-- [ ] Compute `cluster_density` as `points_count / bbox_volume`.
-- [ ] Compute `aspect_ratio` as `bbox_length / bbox_width`.
-- [ ] Update `InsertCluster()` (`track_store.go:56`) to write the 3
-      additional columns.
-- [ ] Add the 3 fields to the `ClusterResponse` TypeScript interface.
+- [ ] Compute `noise_points_count` during clustering (requires adding
+      a `NoisePointsCount` field to `WorldCluster` in `l4perception/types.go`
+      and populating it during the L4 clustering step).
+- [x] Compute `cluster_density` as `points_count / bbox_volume`.
+- [x] Compute `aspect_ratio` as `bbox_length / bbox_width`.
+- [x] Update `InsertCluster()` (`track_store.go:56`) to write the 2
+      computable quality columns.
+- [ ] Add the fields to the `ClusterResponse` TypeScript interface.
 - [ ] Write tests for edge cases (zero-volume bbox, single-point cluster).
 
 ---
@@ -192,21 +195,37 @@ Depends on Phases 1 and 2.
 
 ---
 
-## Phase 7 — Speed Percentile Exposure
+## Phase 7 — ~~Speed Percentile Exposure~~ Per-Track Speed Percentile Removal
 
-**Priority:** Low — data is already persisted but not surfaced.
-**Effort:** Small (< 1 day)
-**Risk:** Low.
-**Schedule:** Backlog — can be picked up opportunistically.
+**Priority:** Medium — design debt per D-18 and the speed percentile
+alignment plan.
+**Effort:** Medium (2–3 days)
+**Risk:** Medium — migration touches multiple tables and renames columns.
+**Schedule:** Same sprint as Phase 4 or immediately after. Aligned with
+[schema simplification migration 030 plan](schema-simplification-migration-030-plan.md).
 
 ### Checklist
 
-- [ ] Add `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` to the
-      `RunTrack` Go struct in `analysis_run.go`.
-- [ ] Update `GetRunTracks()` SQL query to SELECT these columns.
-- [ ] Add the 3 fields to the `RunTrack` TypeScript interface.
-- [ ] Verify the protobuf `Track` message does not need changes (speed
-      percentiles are not relevant for the live gRPC stream).
+Per the [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md),
+percentiles are reserved for grouped/report aggregates only. Per-track
+percentile columns are the wrong abstraction and must be removed, not
+surfaced.
+
+- [ ] Implement migration 000030 to drop `p50_speed_mps`, `p85_speed_mps`,
+      `p95_speed_mps` from `lidar_tracks` and `lidar_run_tracks`.
+- [ ] Rename `peak_speed_mps` → `max_speed_mps` in both tables (D-19).
+- [ ] Remove per-track percentile columns from `InsertRunTrack()` SQL.
+- [ ] Update `RunTrack` Go struct: rename `MaxSpeedMps` JSON tag if needed.
+- [ ] Rename `TrackedObject.MaxSpeedMps` and all downstream references
+      (`l6objects/classification.go`, `l6objects/features.go`,
+      `monitor/track_api.go`, `web/` TypeScript types).
+- [ ] Keep `ComputeSpeedPercentiles()` as internal-only for classifier
+      feature extraction — do not expose via API.
+- [ ] Update all test fixtures that reference percentile columns or
+      `peak_speed_mps`.
+- [ ] Regenerate schema ERD with `make schema-erd`.
+- [ ] Update TypeScript interfaces (`web/src/lib/types/lidar.ts`):
+      remove percentile fields, rename `peak_speed_mps` → `max_speed_mps`.
 
 ---
 
@@ -233,16 +252,29 @@ Depends on Phases 1 and 2.
 
 ## Scheduling Guidance
 
+### ✅ Completed (March 2026)
+
+Phases 1, 2, and 3 (partial) are done:
+
+- `statistics_json` is computed and persisted on every completed analysis
+  run.
+- Track quality columns (`track_length_meters`, `track_duration_secs`,
+  `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`,
+  `noise_point_ratio`) are written on every INSERT/UPDATE.
+- Cluster `cluster_density` and `aspect_ratio` are computed and persisted
+  on every INSERT.
+
 ### Immediate (current sprint)
 
-Phases 1 and 2 should be scheduled together. They require no schema changes,
-carry low risk, and eliminate the most visible gap: `statistics_json` being
-computed and discarded on every run. Combined effort: 3–4 days.
+Phase 4 (statistics API endpoint) and Phase 7 (per-track percentile
+removal / migration 000030) should be scheduled next. Phase 4 unlocks UI
+consumption of the newly persisted statistics. Phase 7 cleans up design
+debt identified by D-18/D-19.
 
 ### Near-term (next 1–2 sprints)
 
-Phases 3 and 4 can be scheduled after Phase 1 ships. Phase 4 in particular
-is a natural follow-on that unlocks UI consumption of run statistics.
+Phase 3 completion (noise_points_count) requires an L4 pipeline change.
+Schedule when cluster diagnostics become a priority.
 
 ### Backlog (schedule when needed)
 
@@ -254,25 +286,23 @@ Phases 5–8 depend on product direction:
 - **Phase 6** (run comparison) should be scheduled when the multi-run
   comparison UI is prioritised (see the
   [split-merge repair workbench plan](lidar-visualiser-split-merge-repair-workbench-plan.md)).
-- **Phase 7** (speed percentiles) is small enough to pick up
-  opportunistically during any LiDAR sprint.
 - **Phase 8** (cleanup) is a housekeeping task best done after Phase 5
   resolves the future of the training data curation structs.
 
 ### Dependency Graph
 
 ```
-Phase 1 (statistics_json) ──► Phase 4 (statistics API) ──► UI card
+Phase 1 (statistics_json) ──[DONE]──► Phase 4 (statistics API) ──► UI card
      │
      ├──► Phase 5 (training export) ──► Phase 8 (cleanup)
      │
-Phase 2 (track quality cols) ──► Phase 5
+Phase 2 (track quality cols) ──[DONE]──► Phase 5
      │
-Phase 3 (cluster quality cols)
+Phase 3 (cluster quality cols) ──[PARTIAL]
      │
 Phase 6 (run comparison)
      │
-Phase 7 (speed percentiles)
+Phase 7 (percentile removal / migration 030)
 ```
 
 ---

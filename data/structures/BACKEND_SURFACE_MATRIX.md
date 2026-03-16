@@ -26,26 +26,27 @@ persistence). Unpopulated or partially wired fields are flagged.
 
 **Go source:** `internal/lidar/l6objects/quality.go` — `RunStatistics` struct (12 fields)
 **Computation:** `ComputeRunStatistics(tracks)` — fully implemented, tested
-**DB column:** `lidar_analysis_runs.statistics_json` — column exists (migration 000012), **never written**
+**DB column:** `lidar_analysis_runs.statistics_json` — ✅ **now written** by `CompleteRun()`
 
 | Field | SQLite | Web | PDF | macOS |
 | ------------------------------ | ------ | --- | --- | ----- |
-| `avg_track_length_meters` | 🗄️ | ❌ | ❌ | ❌ |
-| `median_track_length_meters` | 🗄️ | ❌ | ❌ | ❌ |
-| `avg_track_duration_secs` | 🗄️ | ❌ | ❌ | ❌ |
-| `avg_occlusion_count` | 🗄️ | ❌ | ❌ | ❌ |
-| `class_counts` | 🗄️ | ❌ | ❌ | ❌ |
-| `class_confidence_avg` | 🗄️ | ❌ | ❌ | ❌ |
-| `unknown_ratio` | 🗄️ | ❌ | ❌ | ❌ |
-| `avg_noise_ratio` | 🗄️ | ❌ | ❌ | ❌ |
-| `avg_spatial_coverage` | 🗄️ | ❌ | ❌ | ❌ |
-| `tentative_ratio` | 🗄️ | ❌ | ❌ | ❌ |
-| `confirmed_ratio` | 🗄️ | ❌ | ❌ | ❌ |
-| `avg_observations_per_track` | 🗄️ | ❌ | ❌ | ❌ |
+| `avg_track_length_meters` | ✅ | ❌ | ❌ | ❌ |
+| `median_track_length_meters` | ✅ | ❌ | ❌ | ❌ |
+| `avg_track_duration_secs` | ✅ | ❌ | ❌ | ❌ |
+| `avg_occlusion_count` | ✅ | ❌ | ❌ | ❌ |
+| `class_counts` | ✅ | ❌ | ❌ | ❌ |
+| `class_confidence_avg` | ✅ | ❌ | ❌ | ❌ |
+| `unknown_ratio` | ✅ | ❌ | ❌ | ❌ |
+| `avg_noise_ratio` | ✅ | ❌ | ❌ | ❌ |
+| `avg_spatial_coverage` | ✅ | ❌ | ❌ | ❌ |
+| `tentative_ratio` | ✅ | ❌ | ❌ | ❌ |
+| `confirmed_ratio` | ✅ | ❌ | ❌ | ❌ |
+| `avg_observations_per_track` | ✅ | ❌ | ❌ | ❌ |
 
-**Root cause:** `CompleteRun()` in `analysis_run.go:463` writes 6 aggregate
-counts but never calls `ComputeRunStatistics()` or populates `statistics_json`.
-The column was added in migration 000012 as a placeholder.
+**Status (March 2026):** `AnalysisRunManager.CompleteRun()` now calls
+`ComputeRunStatistics()` on collected tracks and serialises to
+`statistics_json`. `GetRun()` and `ListRuns()` read it back into
+`AnalysisRun.StatisticsJSON`. Web/PDF/macOS surface exposure is pending.
 
 ---
 
@@ -57,31 +58,24 @@ The column was added in migration 000012 as a placeholder.
 | Field | SQLite | Web | PDF | macOS |
 | -------------------- | ------ | --- | --- | ----- |
 | `track_id` | ✅ | ✅ | ⬜ | ✅ |
-| `track_length_meters` | 🗄️ | ❌ | ❌ | 🔶 |
-| `track_duration_secs` | 🗄️ | ❌ | ❌ | 🔶 |
-| `occlusion_count` | 🗄️ | ❌ | ❌ | 🔶 |
-| `max_occlusion_frames` | 🗄️ | ❌ | ❌ | ❌ |
-| `spatial_coverage` | 🗄️ | ❌ | ❌ | ❌ |
-| `noise_point_ratio` | 🗄️ | ❌ | ❌ | ❌ |
+| `track_length_meters` | ✅ | ❌ | ❌ | 🔶 |
+| `track_duration_secs` | ✅ | ❌ | ❌ | 🔶 |
+| `occlusion_count` | ✅ | ❌ | ❌ | 🔶 |
+| `max_occlusion_frames` | ✅ | ❌ | ❌ | ❌ |
+| `spatial_coverage` | ✅ | ❌ | ❌ | ❌ |
+| `noise_point_ratio` | ✅ | ❌ | ❌ | ❌ |
 | `quality_score` | ❌ | ❌ | ❌ | ❌ |
 
-**DB columns:** `lidar_tracks` has 6 quality columns added by migration 000012
-(`track_length_meters`, `track_duration_secs`, `occlusion_count`,
-`max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`). All exist in
-the schema but **`InsertTrack()` and `UpdateTrack()` in `track_store.go`
-never write to them**.
-
-**macOS note:** The protobuf `Track` message carries `track_length_metres`,
-`track_duration_secs`, and `occlusion_count` fields. The gRPC adapter
-populates these from the in-memory `TrackedObject`, so they arrive via
-the stream — but the values are computed live and never round-trip through
-SQLite.
+**Status (March 2026):** `InsertTrack()` and `UpdateTrack()` now write all 6
+quality columns. The `TrackedObject` fields are populated by the L5 tracker
+(`ComputeQualityMetrics()`). Web/PDF/macOS surface exposure is pending.
+`quality_score` remains computed-only in `l6objects` with no DB column.
 
 ---
 
 ## 3. Cluster Quality Metrics
 
-**Go source:** `internal/lidar/l6objects/world_cluster.go` — `WorldCluster` struct
+**Go source:** `internal/lidar/l4perception/types.go` — `WorldCluster` struct
 **DB table:** `lidar_clusters`
 
 | Field | SQLite | Web | PDF | macOS |
@@ -92,11 +86,14 @@ SQLite.
 | `height_p95` | ✅ | ✅ | ⬜ | ✅ |
 | `intensity_mean` | ✅ | ✅ | ⬜ | ✅ |
 | `noise_points_count` | 🗄️ | ❌ | ❌ | ❌ |
-| `cluster_density` | 🗄️ | ❌ | ❌ | ❌ |
-| `aspect_ratio` | 🗄️ | ❌ | ❌ | ❌ |
+| `cluster_density` | ✅ | ❌ | ❌ | ❌ |
+| `aspect_ratio` | ✅ | ❌ | ❌ | ❌ |
 
-**Root cause:** `InsertCluster()` in `track_store.go:56` inserts 12 columns
-and omits the 3 quality columns added by migration 000012.
+**Status (March 2026):** `InsertCluster()` now computes and writes
+`cluster_density` (points/volume) and `aspect_ratio` (length/width).
+`noise_points_count` remains unwritten — requires upstream noise-point
+tracking in the L4 clustering pipeline (the `WorldCluster` struct does not
+currently carry a noise count).
 
 ---
 
@@ -227,7 +224,7 @@ The PDF generator consumes radar data only (not LiDAR). For completeness:
 
 ---
 
-## 10. Speed Percentile Columns — Partially Wired
+## 10. Speed Percentile Columns — Design Debt
 
 **DB columns:** `lidar_tracks` and `lidar_run_tracks` both have
 `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps`.
@@ -238,21 +235,34 @@ The PDF generator consumes radar data only (not LiDAR). For completeness:
 | `p85_speed_mps` | ✅ | ❌ | ❌ | ❌ |
 | `p95_speed_mps` | ✅ | ❌ | ❌ | ❌ |
 
-**Notes:** Speed percentiles are persisted to the database in run tracks
-but are not included in the `RunTrack` Go struct returned by the API, and
-are not present in the web or macOS TypeScript/Swift interfaces.
+**Status:** These are **design debt, not missing wiring**. Per the
+[speed percentile alignment plan](../../docs/plans/speed-percentile-aggregation-alignment-plan.md)
+(D-18), percentiles are reserved for grouped/report aggregates only.
+Per-track percentile columns are the wrong abstraction and should be
+**removed** via migration 000030, not surfaced to more UIs.
+
+The `ComputeSpeedPercentiles()` function in
+`l6objects/classification.go:514` is used internally by the classifier
+feature extraction. It should remain internal and not be exposed as a
+public per-track field.
 
 ---
 
 ## Summary: Unpopulated Structures by Severity
 
-### 🔴 Schema columns exist but are never written (9 columns)
+### 🔴 Schema columns exist but are never written (1 column remaining)
 
 | Table | Columns |
 | ---------------------- | ----------------------------------------------------------------- |
-| `lidar_analysis_runs` | `statistics_json` (1) |
-| `lidar_tracks` | `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` (6) |
-| `lidar_clusters` | `noise_points_count`, `cluster_density`, `aspect_ratio` (3) |
+| `lidar_clusters` | `noise_points_count` (1) — requires L4 pipeline change |
+
+### 🟠 Persisted to SQLite but not surfaced to any UI (20 fields)
+
+| Table | Columns |
+| ---------------------- | ----------------------------------------------------------------- |
+| `lidar_analysis_runs` | `statistics_json` (12 fields within JSON) — needs API + web |
+| `lidar_tracks` | `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` (6) — needs API + web |
+| `lidar_clusters` | `cluster_density`, `aspect_ratio` (2) — needs API + web |
 
 ### 🟡 Structs computed in Go but never persisted or exposed (4 structs)
 
@@ -276,3 +286,11 @@ are not present in the web or macOS TypeScript/Swift interfaces.
 | -------------------- | ------------------------------------ |
 | `compareParams()` | `sqlite/analysis_run_compare.go` |
 | `computeTemporalIoU()` | `sqlite/analysis_run_compare.go` |
+
+### 🔵 Per-track speed percentile columns — design debt (see §10)
+
+Per the [speed percentile alignment plan](../../docs/plans/speed-percentile-aggregation-alignment-plan.md),
+per-track percentile columns (`p50_speed_mps`, `p85_speed_mps`,
+`p95_speed_mps` on `lidar_tracks` and `lidar_run_tracks`) are the **wrong
+abstraction** and should be removed via migration 000030. See
+[schema simplification plan](../../docs/plans/schema-simplification-migration-030-plan.md).
