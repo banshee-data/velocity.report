@@ -1,8 +1,8 @@
 # LiDAR Parameter Tuning & Optimisation
 
-## Status: Planned
+- **Status:** Planned
 
-**Layers:** Cross-cutting (L3 Grid, L4 Perception, L5 Tracks)
+- **Layers:** Cross-cutting (L3 Grid, L4 Perception, L5 Tracks)
 
 ## Summary
 

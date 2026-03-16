@@ -1,8 +1,8 @@
 # Ground Plane Maths
 
-**Status:** Implementation-aligned math note
-**Layer:** L4 Perception
-**Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../docs/lidar/architecture/ground-plane-extraction.md), [Ground Plane and Vector-Scene Proposal Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
+- **Status:** Implementation-aligned math note
+- **Layers:** L4 Perception
+- **Related:** [Background Grid Settling Maths](background-grid-settling-maths.md), [Clustering Maths](clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../docs/lidar/architecture/ground-plane-extraction.md), [Ground Plane and Vector-Scene Proposal Maths](proposals/20260221-ground-plane-vector-scene-maths.md)
 
 ## Scope
 

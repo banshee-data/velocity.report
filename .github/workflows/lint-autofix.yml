@@ -112,7 +112,18 @@ jobs:
             git commit -m "[ci][js] auto-fix formatting (prettier)"
           fi
 
-      # Step 5: Create PR if any commits were made
+      # Step 5: Fix doc header metadata format
+      - name: Fix doc header metadata
+        run: python3 scripts/check-doc-header-metadata.py --fix
+
+      - name: Commit doc header metadata fixes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add -A
+            git commit -m "[ci][docs] auto-fix header metadata format"
+          fi
+
+      # Step 6: Create PR if any commits were made
       - name: Check for commits
         id: commits
         run: |
@@ -139,6 +150,7 @@ jobs:
             2. **Go formatting**: `make format-go` (gofmt -s -w)
             3. **Python formatting**: `make format-python` (black + ruff --fix)
             4. **Web formatting**: `make format-web` (prettier)
+            5. **Doc header metadata**: `check-doc-header-metadata.py --fix` (format normalisation and date key removal)
 
             ## Why this PR exists
             CI lint jobs are advisory (non-blocking) to reduce friction for contributors.

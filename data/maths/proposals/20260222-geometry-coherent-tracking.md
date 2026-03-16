@@ -1,9 +1,8 @@
 # Geometry-Coherent Track State for Stable Bounding Boxes
 
-**Status:** Proposal Math (Not Active in Current Runtime)
-**Author:** velocity.report contributors
-**Created:** 2026-02-22
-**Related:**
+- **Status:** Proposal Math (Not Active in Current Runtime)
+- **Author:** velocity.report contributors
+- **Related:**
 
 - [OBB heading stability review](20260222-obb-heading-stability-review.md) — current guards
 - [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — upstream per-point velocity

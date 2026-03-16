@@ -1,9 +1,10 @@
 # LiDAR Background Settling Time Optimisation
 
-**Status**: Phase 3 Complete (February 2026)
+- **Status:** Phase 3 Complete (February 2026)
+
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period.
 
-**Implementation Summary**:
+## Implementation Summary
 
 - ✅ Phase 1: Background Grid Restoration - Not implemented (regions-only approach used instead)
 - ✅ Phase 2: Region Persistence - **COMPLETE** (see implementation details below)

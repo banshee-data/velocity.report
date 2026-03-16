@@ -1,8 +1,8 @@
 # Classification Maths
 
-**Status:** Implementation-aligned math note
-**Layer:** L6 Objects (`internal/lidar/l6objects`)
-**Related:** [Tracking Maths](tracking-maths.md)
+- **Status:** Implementation-aligned math note
+- **Layers:** L6 Objects (`internal/lidar/l6objects`)
+- **Related:** [Tracking Maths](tracking-maths.md)
 
 ## 1. Purpose
 

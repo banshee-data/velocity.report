@@ -1004,6 +1004,8 @@ format-mac:
 	fi
 
 format-docs: ensure-web-cache
+	@echo "Fixing header metadata format..."
+	@python3 scripts/check-doc-header-metadata.py --fix
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
@@ -1033,7 +1035,8 @@ lint: lint-go lint-python lint-web lint-docs
 check-mermaid: ## Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
 
-lint-docs: check-mermaid ## Check Mermaid fences and British English spelling in docs/
+lint-docs: check-mermaid ## Check Mermaid fences, header metadata format, and British English spelling in docs/
+	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift

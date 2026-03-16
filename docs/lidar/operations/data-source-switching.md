@@ -1,8 +1,8 @@
 # Data Source Switching Implementation Plan
 
-**Status:** Implemented (November 2025)
+- **Status:** Implemented (November 2025)
 
-**Endpoints registered in `internal/lidar/monitor/webserver.go`:**
+- **Endpoints registered in `internal/lidar/monitor/webserver.go`:**
 
 - `POST /api/lidar/pcap/start` — Start PCAP replay (resets grid, stops UDP listener)
 - `POST /api/lidar/pcap/stop` — Stop replay and resume live UDP

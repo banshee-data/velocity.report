@@ -1,12 +1,9 @@
 # Server Manager — Plan
 
-**Layers:** L10 Clients (macOS visualiser)
+- **Layers:** L10 Clients (macOS visualiser)
 
-> **Feature:** Multi-server connection management for VelocityVisualiser
->
-> **Goal:** Allow users to configure, save, and switch between multiple
-> velocity.report servers, with clear connection status feedback and a default
-> server that auto-connects on launch.
+- **Feature:** Multi-server connection management for VelocityVisualiser
+- **Goal:** Allow users to configure, save, and switch between multiple velocity.report servers, with clear connection status feedback and a default server that auto-connects on launch.
 
 ---
 

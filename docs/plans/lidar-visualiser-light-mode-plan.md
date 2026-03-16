@@ -1,6 +1,6 @@
 # Design: VelocityVisualiser Light Mode for 3D Scene Rendering
 
-**Status:** Proposed (February 2026)
+- **Status:** Proposed (February 2026)
 
 ## Objective
 

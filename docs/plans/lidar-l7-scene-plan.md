@@ -1,10 +1,9 @@
 # L7 Scene and Multi-Sensor Fusion Plan
 
-**Status:** 📋 Planned — v1.0
-**Created:** 2026-03-08
-**Layers:** L7 Scene
-**Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
-**Maths index:** [data/maths/README.md](../../data/maths/README.md)
+- **Status:** 📋 Planned — v1.0
+- **Layers:** L7 Scene
+- **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
+- **Maths index:** [data/maths/README.md](../../data/maths/README.md)
 
 This plan covers two related workstreams for the L7 Scene layer:
 

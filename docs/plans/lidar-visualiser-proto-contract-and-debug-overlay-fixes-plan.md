@@ -1,14 +1,16 @@
 # LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
 
-**Status:** Partially implemented — Track field parity, ObjectClass enum, and `peak` → `max` rename are complete; debug overlay serialisation, cluster proto serialisation, and positive end-to-end serialiser tests remain
-**Layers:** L9 Endpoints
-**Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
-**Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- **Status:** Track field parity ✅, ObjectClass enum ✅, `peak` → `max` rename ✅ (#352), background serialisation ✅; debug overlay serialisation and cluster proto serialisation deferred to v0.5.2
+- **Layers:** L9 Endpoints
+- **Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
+- **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 
-**Update (March 8, 2026):** The speed-summary portion of this plan is
-superseded. Track-level aggregate-percentile labels will not ship. Percentiles are
-reserved for grouped/report aggregates only, and any branch-local proto/model/UI
-work that adds superseded single-track speed-label fields should be backed out before merge.
+- **Update:** The track-level contract work for v0.5.0 is
+  complete. Track field serialisation, `ObjectClass` enum, and the
+  `peak_speed_mps` → `max_speed_mps` rename all landed (#328, #336, #352).
+  Debug overlay serialisation, cluster field serialisation, and positive
+  end-to-end serialiser tests are moved to the v0.5.2 backlog item
+  "Visualiser debug overlay + cluster proto follow-through".
 
 ## 1. Problem
 

@@ -1,8 +1,8 @@
 # 3D Vector Scene Map — Architecture Specification
 
-**Status:** Proposed
-**Layer:** L4 Perception (extends `GroundSurface` interface)
-**Related:** [ground-plane-extraction.md](./ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md), [lidar-data-layer-model.md](./lidar-data-layer-model.md)
+- **Status:** Proposed
+- **Layers:** L4 Perception (extends `GroundSurface` interface)
+- **Related:** [ground-plane-extraction.md](./ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md), [lidar-data-layer-model.md](./lidar-data-layer-model.md)
 
 ---
 

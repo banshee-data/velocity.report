@@ -1,6 +1,6 @@
 # CLI Comprehensive Guide & Implementation Plan
 
-**Purpose:** Complete reference and restructuring plan for velocity.report CLI interfaces
+- **Purpose:** Complete reference and restructuring plan for velocity.report CLI interfaces
 
 ---
 
