@@ -1,22 +1,19 @@
 # Homepage Responsive GIF Strategies
 
-**Context:** The VelocityVisualiser section on the homepage includes an animated
-GIF demonstrating the macOS app. The source recording is a macOS window capture
-at approximately 3:2 landscape aspect ratio (width:height). This document
-evaluates strategies for displaying the GIF responsively across viewport sizes.
+- **Context:** The VelocityVisualiser section on the homepage includes an animated GIF demonstrating the macOS app. The source recording is a macOS window capture at approximately 3:2 landscape aspect ratio (width:height). This document evaluates strategies for displaying the GIF responsively across viewport sizes.
 
-## Chosen Approach: Simple Responsive `<img>` ✅
+- **Chosen Approach:** Simple Responsive `<img>` ✅
 
 ```html
 <div class="mx-auto max-w-3xl mb-8">
-    <img
-        src="/img/visualiser-demo.gif"
-        alt="VelocityVisualiser showing real-time LiDAR track visualisation"
-        class="w-full h-auto rounded-xl shadow-lg"
-        loading="lazy"
-        width="900"
-        height="600"
-    />
+  <img
+    src="/img/visualiser-demo.gif"
+    alt="VelocityVisualiser showing real-time LiDAR track visualisation"
+    class="w-full h-auto rounded-xl shadow-lg"
+    loading="lazy"
+    width="900"
+    height="600"
+  />
 </div>
 ```
 
@@ -44,22 +41,27 @@ when the GIF is optimised to a reasonable file size (aim for < 2 MB).
 
 ```html
 <video
-    autoplay loop muted playsinline
-    class="w-full max-w-3xl mx-auto rounded-xl shadow-lg"
-    poster="/img/visualiser-demo-poster.webp"
+  autoplay
+  loop
+  muted
+  playsinline
+  class="w-full max-w-3xl mx-auto rounded-xl shadow-lg"
+  poster="/img/visualiser-demo-poster.webp"
 >
-    <source src="/img/visualiser-demo.webm" type="video/webm" />
-    <source src="/img/visualiser-demo.mp4" type="video/mp4" />
-    <img src="/img/visualiser-demo.gif" alt="Fallback GIF" />
+  <source src="/img/visualiser-demo.webm" type="video/webm" />
+  <source src="/img/visualiser-demo.mp4" type="video/mp4" />
+  <img src="/img/visualiser-demo.gif" alt="Fallback GIF" />
 </video>
 ```
 
 **Pros:**
+
 - 10–20× smaller file size than GIF at equivalent quality
 - Hardware-decoded on all modern devices
 - `poster` attribute prevents layout shift and shows a frame before playback
 
 **Cons:**
+
 - Requires a conversion step (e.g. `ffmpeg -i demo.gif -c:v libvpx-vp9 demo.webm`)
 - Two source files to maintain (WebM + MP4)
 - Slightly more complex markup
@@ -71,9 +73,9 @@ recommended. This is the single best optimisation available.
 
 ```html
 <picture>
-    <source media="(max-width: 640px)" srcset="/img/visualiser-demo-480w.gif" />
-    <source media="(max-width: 1024px)" srcset="/img/visualiser-demo-768w.gif" />
-    <img src="/img/visualiser-demo-1200w.gif" alt="..." class="w-full ..." />
+  <source media="(max-width: 640px)" srcset="/img/visualiser-demo-480w.gif" />
+  <source media="(max-width: 1024px)" srcset="/img/visualiser-demo-768w.gif" />
+  <img src="/img/visualiser-demo-1200w.gif" alt="..." class="w-full ..." />
 </picture>
 ```
 
@@ -86,14 +88,14 @@ justified when a single responsive `<img>` works well.
 
 ```css
 .visualiser-demo {
-    background-image: url('/img/visualiser-demo.gif');
-    background-size: contain;
-    aspect-ratio: 3 / 2;
+  background-image: url("/img/visualiser-demo.gif");
+  background-size: contain;
+  aspect-ratio: 3 / 2;
 }
 @media (max-width: 640px) {
-    .visualiser-demo {
-        background-image: url('/img/visualiser-demo-sm.gif');
-    }
+  .visualiser-demo {
+    background-image: url("/img/visualiser-demo-sm.gif");
+  }
 }
 ```
 
@@ -105,21 +107,21 @@ content images.
 
 ```html
 <img
-    src="/img/visualiser-demo-poster.webp"
-    data-gif="/img/visualiser-demo.gif"
-    alt="..."
-    class="w-full max-w-3xl ..."
+  src="/img/visualiser-demo-poster.webp"
+  data-gif="/img/visualiser-demo.gif"
+  alt="..."
+  class="w-full max-w-3xl ..."
 />
 <script>
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-        if (e.isIntersecting) {
-            e.target.src = e.target.dataset.gif;
-            observer.unobserve(e.target);
-        }
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        e.target.src = e.target.dataset.gif;
+        observer.unobserve(e.target);
+      }
     });
-});
-observer.observe(document.querySelector('[data-gif]'));
+  });
+  observer.observe(document.querySelector("[data-gif]"));
 </script>
 ```
 
