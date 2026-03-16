@@ -17,8 +17,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.1 (Data Contracts + Layer Foundations)
 
-- [#379] Pipeline mathematical review — end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs — [design doc](plans/lidar-pipeline-mathematical-review-plan.md) `S`
-- [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths — [design doc](plans/data-surface-publication-matrix-audit-plan.md) `S`
+- [#379] Pipeline mathematical review — end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs `S`
+- [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths `S`
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
 - Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
@@ -31,7 +31,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - [#389] VRLOG replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
-- [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid — [design doc](plans/lidar-dynamic-segmentation-background-regions-plan.md) `M`
+- [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
 - `transit-backfill` removal — remove `cmd/transit-backfill` after confirming zero active usage; `velocity-report transits rebuild` is the replacement — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - (#381) SeekToTimestamp diagnostic logging behind debug flag — guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - (#381) VRLOG timestamp index build at load time — build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built — [design doc](../data/structures/VRLOG_FORMAT.md) `S`
@@ -90,11 +90,11 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - (#8) Data management (backup/archiving) — define backup destinations, read historical archives and rollup SQLite files from remote HTTP location — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - (#122) Database monitoring UI — daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
-- (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters — [design doc](plans/production-report-management-ui-plan.md) `M`
+- (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters `M`
 - (#324) Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
-- Threshold-based speed alerts — configurable alerting for speed threshold violations — [design doc](plans/production-threshold-speed-alerts-plan.md) `M`
+- Threshold-based speed alerts — configurable alerting for speed threshold violations `M`
 - Test coverage ≥ 95.5% — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](plans/platform-quality-coverage-improvement-plan.md) `L`
-- Stable public API with versioned endpoints — formal API versioning and stability guarantees — [design doc](plans/platform-versioned-public-api-plan.md) `M`
+- Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
 - Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
 - E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md) `M`
 
@@ -104,7 +104,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
 - Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](../data/maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
-- Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — [design doc](plans/vector-scene-data-export-contract-plan.md) `M`
+- Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
 - Visualiser colour-blind-safe palette (V1) — accessible point cloud/trails/box colours validated for common deficiencies — [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 
 ## v2.0 (Advanced Perception & Connected)
