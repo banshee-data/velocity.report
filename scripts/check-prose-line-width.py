@@ -55,6 +55,7 @@ DEFAULT_SCAN_PATHS = [
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
+
 def _is_excluded_dir(name: str) -> bool:
     return name in EXCLUDED_DIRS
 
@@ -104,8 +105,7 @@ def _is_table_line(stripped: str) -> bool:
 
 
 def _is_list_line(stripped: str) -> bool:
-    return bool(_UNORDERED_LIST_RE.match(stripped)
-                or _ORDERED_LIST_RE.match(stripped))
+    return bool(_UNORDERED_LIST_RE.match(stripped) or _ORDERED_LIST_RE.match(stripped))
 
 
 def _is_list_continuation(line: str, in_list: bool) -> bool:
@@ -140,6 +140,7 @@ def _is_image_line(stripped: str) -> bool:
 
 # ── Core checker ─────────────────────────────────────────────────────────
 
+
 def check_file(filepath: Path, width: int) -> list[tuple[int, int, str]]:
     """Return list of (line_number, length, text) for prose lines over width."""
     violations: list[tuple[int, int, str]] = []
@@ -166,9 +167,7 @@ def check_file(filepath: Path, width: int) -> list[tuple[int, int, str]]:
 
         # ── HTML comments (multi-line) ───────────────────────────
         if not in_html_comment and _HTML_COMMENT_OPEN.search(raw):
-            if not _HTML_COMMENT_CLOSE.search(
-                raw[raw.index("<!--") + 4:]
-            ):
+            if not _HTML_COMMENT_CLOSE.search(raw[raw.index("<!--") + 4 :]):
                 in_html_comment = True
             continue
         if in_html_comment:
@@ -225,6 +224,7 @@ def check_file(filepath: Path, width: int) -> list[tuple[int, int, str]]:
 
 # ── Main ─────────────────────────────────────────────────────────────────
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check prose line width in Markdown files."
@@ -263,17 +263,13 @@ def main() -> int:
             files_with_issues.append((fp, violations))
 
     if not files_with_issues:
-        print(
-            f"prose-width: all {len(files)} files within "
-            f"{args.width} columns ✓"
-        )
+        print(f"prose-width: all {len(files)} files within " f"{args.width} columns ✓")
         return 0
 
     # ── Report ───────────────────────────────────────────────────────
     for fp, violations in files_with_issues:
         for lineno, length, text in violations:
-            print(f"{fp}:{lineno}: line is {length} columns "
-                  f"(limit {args.width})")
+            print(f"{fp}:{lineno}: line is {length} columns " f"(limit {args.width})")
 
     clean = len(files) - len(files_with_issues)
     print(

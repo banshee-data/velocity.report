@@ -1,6 +1,6 @@
 # Line-Width Standardisation Plan
 
-**Status:** Proposed (March 2026)
+- **Status:** Proposed (March 2026)
 
 Plan to adopt 100 columns as the single line-width standard
 across all code and documentation, with gradual enforcement
@@ -11,14 +11,14 @@ pre-commit hook.
 
 The repository currently uses five different line widths:
 
-| Component | Width | Formatter |
-|-----------|------:|-----------|
-| Go | — | gofmt (no width enforcement) |
-| Python | 88 | black |
-| TypeScript/JS/Svelte | 100 | prettier |
-| Swift | 100 | swift-format |
-| SQL | 70 | sql-formatter (expression width) |
-| Markdown prose | 90 | check-prose-line-width.py |
+| Component            | Width | Formatter                        |
+| -------------------- | ----: | -------------------------------- |
+| Go                   |     — | gofmt (no width enforcement)     |
+| Python               |    88 | black                            |
+| TypeScript/JS/Svelte |   100 | prettier                         |
+| Swift                |   100 | swift-format                     |
+| SQL                  |    70 | sql-formatter (expression width) |
+| Markdown prose       |    90 | check-prose-line-width.py        |
 
 Five widths means five mental models for when to wrap. The
 inconsistency also produces noisy diffs when text moves between
@@ -29,13 +29,13 @@ documentation and code comments or between languages.
 Lines analysed across all source and documentation files
 (March 2026, excluding vendored/minified assets):
 
-| Language | Files | Lines | ≤80 | ≤90 | ≤100 | ≤110 | ≤120 |
-|----------|------:|------:|------:|------:|------:|------:|------:|
-| Go | 428 | 181,437 | 96.1% | 97.9% | 98.9% | 99.4% | 99.6% |
-| Python | 72 | 28,107 | 96.9% | 99.3% | 99.6% | 99.8% | 99.8% |
-| TS/JS | 44 | 16,557 | 97.3% | 99.3% | 99.8% | 99.9% | 99.9% |
-| Svelte | 17 | 8,943 | 95.0% | 97.9% | 99.2% | 99.5% | 99.6% |
-| Swift | 35 | 24,742 | 92.2% | 96.4% | 99.7% | 99.9% | 99.9% |
+| Language | Files |   Lines |   ≤80 |   ≤90 |  ≤100 |  ≤110 |  ≤120 |
+| -------- | ----: | ------: | ----: | ----: | ----: | ----: | ----: |
+| Go       |   428 | 181,437 | 96.1% | 97.9% | 98.9% | 99.4% | 99.6% |
+| Python   |    72 |  28,107 | 96.9% | 99.3% | 99.6% | 99.8% | 99.8% |
+| TS/JS    |    44 |  16,557 | 97.3% | 99.3% | 99.8% | 99.9% | 99.9% |
+| Svelte   |    17 |   8,943 | 95.0% | 97.9% | 99.2% | 99.5% | 99.6% |
+| Swift    |    35 |  24,742 | 92.2% | 96.4% | 99.7% | 99.9% | 99.9% |
 
 Swift shows the strongest pressure: 825 lines sit in the
 81–100 band. These are function signatures, buffer allocations,
@@ -48,14 +48,14 @@ Most string literals should be exempt from a width linter.
 
 ### What each threshold costs
 
-| Width | Effect |
-|-------|--------|
-| 80 | Fights every formatter in use. Forces 3,783 Go and 1,929 Swift lines to wrap. |
-| 90 | Still wraps 825 natural Swift lines. Gains two columns over black's 88 — not worth the churn. |
+| Width   | Effect                                                                                        |
+| ------- | --------------------------------------------------------------------------------------------- |
+| 80      | Fights every formatter in use. Forces 3,783 Go and 1,929 Swift lines to wrap.                 |
+| 90      | Still wraps 825 natural Swift lines. Gains two columns over black's 88 — not worth the churn. |
 | **100** | Matches three of five formatters. Every language ≥98.9% compliant. Natural convergence point. |
-| 110 | Non-standard. No formatter defaults here. Marginal gain. |
-| 120 | Too wide for side-by-side diff review. |
-| 132 | Historical terminal width. No practical advantage over 120. |
+| 110     | Non-standard. No formatter defaults here. Marginal gain.                                      |
+| 120     | Too wide for side-by-side diff review.                                                        |
+| 132     | Historical terminal width. No practical advantage over 120.                                   |
 
 ## Decision: 100 columns
 
@@ -99,16 +99,16 @@ automatically. One mechanical reformat PR with
 
 One PR. Only config files change; no source reformatting yet.
 
-| File | Change |
-|------|--------|
-| `scripts/check-prose-line-width.py` | `DEFAULT_WIDTH = 90` → `100` |
-| Makefile `check-prose-width` comment | Update "90" → "100" |
-| `pyproject.toml` (new, root) | `[tool.black] line-length = 100` |
-| | `[tool.ruff] line-length = 100` |
-| `.golangci.yml` (new, root) | Enable `lll` linter, `line-length: 100` |
-| `web/.prettierrc` | Already 100 — no change |
-| `tools/visualiser-macos/.swift-format` | Already 100 — no change |
-| `.sql-formatter.json` | Leave at 70 (expression width, not line width) |
+| File                                   | Change                                         |
+| -------------------------------------- | ---------------------------------------------- |
+| `scripts/check-prose-line-width.py`    | `DEFAULT_WIDTH = 90` → `100`                   |
+| Makefile `check-prose-width` comment   | Update "90" → "100"                            |
+| `pyproject.toml` (new, root)           | `[tool.black] line-length = 100`               |
+|                                        | `[tool.ruff] line-length = 100`                |
+| `.golangci.yml` (new, root)            | Enable `lll` linter, `line-length: 100`        |
+| `web/.prettierrc`                      | Already 100 — no change                        |
+| `tools/visualiser-macos/.swift-format` | Already 100 — no change                        |
+| `.sql-formatter.json`                  | Leave at 70 (expression width, not line width) |
 
 ### Phase 2 — Reformat
 
@@ -138,7 +138,7 @@ name: Line-width nag
 
 on:
   schedule:
-    - cron: '0 3 * * 0'   # Sunday 03:00 UTC
+    - cron: "0 3 * * 0" # Sunday 03:00 UTC
   workflow_dispatch: {}
 
 jobs:
@@ -164,7 +164,7 @@ jobs:
         if: always()
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: 'Weekly line-width report'
+          title: "Weekly line-width report"
           content-filepath: /tmp/prose-report.txt
           labels: housekeeping, style
           update-existing: true
@@ -187,7 +187,7 @@ drops its `--report` flag at that point.
 # In .github/workflows/ci.yml (addition)
 check-line-width:
   runs-on: ubuntu-latest
-  continue-on-error: true    # advisory until enforced
+  continue-on-error: true # advisory until enforced
   steps:
     - uses: actions/checkout@v4
     - name: Prose width
