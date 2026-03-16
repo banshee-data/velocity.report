@@ -1,7 +1,7 @@
 # Pipeline Review: Open Questions and High-Value Work
 
-**Status:** Active review (March 2026)
-**Layers:** L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene (planned), L8 Analytics (planned)
+- **Status:** Active review (March 2026)
+- **Layers:** L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene (planned), L8 Analytics (planned)
 
 Mathematical review of the current pipeline, pursuant to proposals, and existing
 plans. Identifies open questions that need reasoning, implementations that need
@@ -13,18 +13,18 @@ modelling and priors alignment.
 The implemented pipeline (L1–L6) is mathematically sound in its core
 operations. Each layer has verified, correct implementations:
 
-| Layer | Algorithm | Verified | Notes |
-|-------|-----------|----------|-------|
-| L3 | EMA background settling | ✓ | Correct `(1−α)·old + α·new` with warmup/freeze/lock |
-| L3 | Convergence gating | ✓ | Four-threshold multi-condition gate (coverage, spread-delta, stability, confidence) |
-| L4 | Height-band ground filter | ✓ | O(n) in-place compaction, correct bounds |
-| L4 | DBSCAN clustering | ✓ | Deterministic ordering when using DBSCANClusterer (centroid sort, no subsampling); production l4perception.DBSCAN path may be non-deterministic under MaxInputPoints subsampling |
-| L4 | PCA/OBB | ✓ | Closed-form 2×2 eigenvalue with degenerate-case guards |
-| L5 | CV Kalman filter | ✓ | Correct F, H, Q, R matrices; covariance capping |
-| L5 | Mahalanobis gating | ✓ | Correct 2×2 inverse with physical plausibility guards |
-| L5 | Hungarian assignment | ✓ | Jonker–Volgenant O(n³) variant, correct potentials |
-| L5 | Heading disambiguation | ✓ | Velocity + displacement fallback with 60°–120° jump rejection |
-| L6 | Rule-based classification | ✓ | 7-tier cascade with per-class confidence scoring |
+| Layer | Algorithm                 | Verified | Notes                                                                                                                                                                            |
+| ----- | ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L3    | EMA background settling   | ✓        | Correct `(1−α)·old + α·new` with warmup/freeze/lock                                                                                                                              |
+| L3    | Convergence gating        | ✓        | Four-threshold multi-condition gate (coverage, spread-delta, stability, confidence)                                                                                              |
+| L4    | Height-band ground filter | ✓        | O(n) in-place compaction, correct bounds                                                                                                                                         |
+| L4    | DBSCAN clustering         | ✓        | Deterministic ordering when using DBSCANClusterer (centroid sort, no subsampling); production l4perception.DBSCAN path may be non-deterministic under MaxInputPoints subsampling |
+| L4    | PCA/OBB                   | ✓        | Closed-form 2×2 eigenvalue with degenerate-case guards                                                                                                                           |
+| L5    | CV Kalman filter          | ✓        | Correct F, H, Q, R matrices; covariance capping                                                                                                                                  |
+| L5    | Mahalanobis gating        | ✓        | Correct 2×2 inverse with physical plausibility guards                                                                                                                            |
+| L5    | Hungarian assignment      | ✓        | Jonker–Volgenant O(n³) variant, correct potentials                                                                                                                               |
+| L5    | Heading disambiguation    | ✓        | Velocity + displacement fallback with 60°–120° jump rejection                                                                                                                    |
+| L6    | Rule-based classification | ✓        | 7-tier cascade with per-class confidence scoring                                                                                                                                 |
 
 **No mathematical errors found in the production runtime path.**
 
@@ -321,23 +321,23 @@ temporal IoU.
 
 **Answer: Audit by config key with evidence classification.**
 
-| Config Key | Default | Evidence Level | Source |
-|------------|---------|----------------|--------|
-| `background_update_fraction` | 0.05 | **Theoretical** — standard EMA α for 20-frame effective window | EMA theory |
-| `closeness_multiplier` | 2.0 | **Provisional** — tuned on kirk0 | Needs multi-site validation |
-| `safety_margin_meters` | 0.01 | **Theoretical** — sensor noise floor | Hesai XT32 spec |
-| `noise_relative` | 0.02 | **Provisional** — approximate range-dependent noise | Needs empirical validation per sensor model |
-| `neighbor_confirmation_count` | 2 | **Provisional** — tuned on kirk0 | Needs multi-site validation |
-| `warmup_duration_nanos` | 5×10⁹ | **Empirical** — 5 s settling observed on kirk0 | Confirmed on one site |
-| `foreground_dbscan_eps` | 0.3 | **Literature** — typical urban DBSCAN ε | Ester et al. 1996 |
-| `foreground_min_cluster_points` | 3 | **Provisional** — tuned for XT32 at 10 Hz | Needs validation at other frame rates |
-| `gating_distance_squared` | 2.0 | **Theoretical** — χ²(2) at 84% | Standard Kalman gating |
-| `process_noise_pos` | 0.1 | **Provisional** — tuned on kirk0 | Sensitivity analysis needed |
-| `process_noise_vel` | 1.0 | **Provisional** — tuned on kirk0 | Sensitivity analysis needed |
-| `measurement_noise` | 0.25 | **Provisional** — tuned on kirk0 | Should derive from sensor spec |
-| `max_reasonable_speed_mps` | 50.0 | **Domain** — 180 km/h upper bound | Appropriate for UK roads |
-| `obb_heading_smoothing_alpha` | 0.08 | **Provisional** — heavy smoothing for stability | Superseded by P1 geometry model |
-| `obb_aspect_ratio_lock_threshold` | 0.25 | **Provisional** — may be too loose | Superseded by P1 geometry model |
+| Config Key                        | Default | Evidence Level                                                 | Source                                      |
+| --------------------------------- | ------- | -------------------------------------------------------------- | ------------------------------------------- |
+| `background_update_fraction`      | 0.05    | **Theoretical** — standard EMA α for 20-frame effective window | EMA theory                                  |
+| `closeness_multiplier`            | 2.0     | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
+| `safety_margin_meters`            | 0.01    | **Theoretical** — sensor noise floor                           | Hesai XT32 spec                             |
+| `noise_relative`                  | 0.02    | **Provisional** — approximate range-dependent noise            | Needs empirical validation per sensor model |
+| `neighbor_confirmation_count`     | 2       | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
+| `warmup_duration_nanos`           | 5×10⁹   | **Empirical** — 5 s settling observed on kirk0                 | Confirmed on one site                       |
+| `foreground_dbscan_eps`           | 0.3     | **Literature** — typical urban DBSCAN ε                        | Ester et al. 1996                           |
+| `foreground_min_cluster_points`   | 3       | **Provisional** — tuned for XT32 at 10 Hz                      | Needs validation at other frame rates       |
+| `gating_distance_squared`         | 2.0     | **Theoretical** — χ²(2) at 84%                                 | Standard Kalman gating                      |
+| `process_noise_pos`               | 0.1     | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
+| `process_noise_vel`               | 1.0     | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
+| `measurement_noise`               | 0.25    | **Provisional** — tuned on kirk0                               | Should derive from sensor spec              |
+| `max_reasonable_speed_mps`        | 50.0    | **Domain** — 180 km/h upper bound                              | Appropriate for UK roads                    |
+| `obb_heading_smoothing_alpha`     | 0.08    | **Provisional** — heavy smoothing for stability                | Superseded by P1 geometry model             |
+| `obb_aspect_ratio_lock_threshold` | 0.25    | **Provisional** — may be too loose                             | Superseded by P1 geometry model             |
 
 **Provisional keys** (those backed only by single-site tuning) should be
 validated through the parameter sweep infrastructure (Phase 4.2) across at
@@ -355,12 +355,12 @@ the dimension sync logic with a single Bayesian model.
 
 **Expected quantified improvements** (from the proposal, pending validation):
 
-| Metric | Current (guards) | Expected (geometry model) |
-|--------|------------------|---------------------------|
-| Dimension stability (σ per track) | 0.3–0.5 m | < 0.1 m |
-| Heading drift (stationary, °/s) | 2–5 | < 0.5 |
-| 90° jump frequency (per track) | 0.1–0.3 | < 0.01 |
-| Convergence time (frames) | 15–20 | 5–10 |
+| Metric                            | Current (guards) | Expected (geometry model) |
+| --------------------------------- | ---------------- | ------------------------- |
+| Dimension stability (σ per track) | 0.3–0.5 m        | < 0.1 m                   |
+| Heading drift (stationary, °/s)   | 2–5              | < 0.5                     |
+| 90° jump frequency (per track)    | 0.1–0.3          | < 0.01                    |
+| Convergence time (frames)         | 15–20            | 5–10                      |
 
 **Validation protocol:** Run geometry-coherent tracker on kirk0 PCAP and
 compare dimension stability, heading drift, and jump frequency against the
@@ -383,14 +383,14 @@ S_R(p) = w_xy · w_z · w_obs · w_geom · w_density · w_prior
 
 Each weight has a clear mathematical meaning and bounded sensitivity:
 
-| Weight | Formula | Default σ or τ | Sensitivity | Justification |
-|--------|---------|----------------|-------------|---------------|
-| w_xy | exp(−d²_xy / 2σ²_xy) | σ_xy = 0.5 m | High — controls tile boundary softness | Half-tile width |
-| w_z | exp(−d²_z / 2σ²_z) | σ_z = f(range) | High — controls ground/non-ground separation | Derived from sensor noise model |
-| w_obs | C_obs(R) from L3 | [0, 1] | Medium — modulates trust in under-observed regions | Direct from L3 confidence |
-| w_geom | max(1 − \|r\|/τ, 0) | τ = 3σ_z | Medium — rejects points far from fitted plane | Standard outlier gate |
-| w_density | C_density(R) | [0, 1] | Low — penalises sparse regions | Monotonic in observation count |
-| w_prior | C_prior(R) | 1.0 (no prior) | Low initially — grows with prior trust | From vector-scene/OSM agreement |
+| Weight    | Formula              | Default σ or τ | Sensitivity                                        | Justification                   |
+| --------- | -------------------- | -------------- | -------------------------------------------------- | ------------------------------- |
+| w_xy      | exp(−d²_xy / 2σ²_xy) | σ_xy = 0.5 m   | High — controls tile boundary softness             | Half-tile width                 |
+| w_z       | exp(−d²_z / 2σ²_z)   | σ_z = f(range) | High — controls ground/non-ground separation       | Derived from sensor noise model |
+| w_obs     | C_obs(R) from L3     | [0, 1]         | Medium — modulates trust in under-observed regions | Direct from L3 confidence       |
+| w_geom    | max(1 − \|r\|/τ, 0)  | τ = 3σ_z       | Medium — rejects points far from fitted plane      | Standard outlier gate           |
+| w_density | C_density(R)         | [0, 1]         | Low — penalises sparse regions                     | Monotonic in observation count  |
+| w_prior   | C_prior(R)           | 1.0 (no prior) | Low initially — grows with prior trust             | From vector-scene/OSM agreement |
 
 The **coupling to existing config** (§4.5 of the proposal) is well-defined:
 
@@ -411,30 +411,30 @@ additive, consistent with the GPS-additive principle.
 The Raspberry Pi 4 (ARM Cortex-A72, 1.8 GHz, 4 cores) must process each
 frame within 100 ms at 10 Hz. The current measured budget (approximate):
 
-| Layer | Operation | Time (ms) | % Budget |
-|-------|-----------|-----------|----------|
-| L1–L2 | Parse + frame assembly | 1–2 | 2% |
-| L3 | Background update + foreground decision | 3–5 | 4% |
-| L4 | Ground filter | < 1 | < 1% |
-| L4 | DBSCAN clustering | 5–15 | 10% |
-| L4 | OBB computation | 1–2 | 2% |
-| L5 | Kalman predict + Hungarian + update | 2–5 | 4% |
-| L6 | Classification | < 1 | < 1% |
-| | **Total core pipeline** | **13–31** | **23%** |
-| | Persistence, API, visualiser | 10–30 | 20% |
-| | **Headroom** | **39–77** | **57%** |
+| Layer | Operation                               | Time (ms) | % Budget |
+| ----- | --------------------------------------- | --------- | -------- |
+| L1–L2 | Parse + frame assembly                  | 1–2       | 2%       |
+| L3    | Background update + foreground decision | 3–5       | 4%       |
+| L4    | Ground filter                           | < 1       | < 1%     |
+| L4    | DBSCAN clustering                       | 5–15      | 10%      |
+| L4    | OBB computation                         | 1–2       | 2%       |
+| L5    | Kalman predict + Hungarian + update     | 2–5       | 4%       |
+| L6    | Classification                          | < 1       | < 1%     |
+|       | **Total core pipeline**                 | **13–31** | **23%**  |
+|       | Persistence, API, visualiser            | 10–30     | 20%      |
+|       | **Headroom**                            | **39–77** | **57%**  |
 
 **Budget for proposed additions:**
 
-| Proposed | Estimated Cost | Feasibility |
-|----------|----------------|-------------|
-| P1: Geometry-coherent (per track) | +0.5 ms | ✓ Easily within budget |
-| P3: Tile-plane PCA (per frame) | +0.05 ms | ✓ Negligible |
-| P4: Unified settlement | ~0 (replaces existing) | ✓ No net cost |
-| CA model (6-state Kalman) | +1 ms | ✓ Within budget |
-| IMM (2-model blend) | +3 ms | ✓ Within budget |
-| P2: Velocity-coherent (full) | +5–10 ms | ⚠ Needs profiling |
-| Sign anchor detection | +2 ms | ✓ Within budget |
+| Proposed                          | Estimated Cost         | Feasibility            |
+| --------------------------------- | ---------------------- | ---------------------- |
+| P1: Geometry-coherent (per track) | +0.5 ms                | ✓ Easily within budget |
+| P3: Tile-plane PCA (per frame)    | +0.05 ms               | ✓ Negligible           |
+| P4: Unified settlement            | ~0 (replaces existing) | ✓ No net cost          |
+| CA model (6-state Kalman)         | +1 ms                  | ✓ Within budget        |
+| IMM (2-model blend)               | +3 ms                  | ✓ Within budget        |
+| P2: Velocity-coherent (full)      | +5–10 ms               | ⚠ Needs profiling      |
+| Sign anchor detection             | +2 ms                  | ✓ Within budget        |
 
 All proposed mathematical improvements fit within the available 57% headroom
 individually. The combination of all proposals would consume ~12–17 ms
@@ -492,6 +492,7 @@ match the discrete criteria.
 **Gap 3: The vector-scene-map's LOD hierarchy (LOD 0–3) and the
 ground-plane-extraction's 1 m tiles are two different spatial
 representations.** The proposed path is:
+
 - Start with 1 m tiles (ground-plane-extraction §2)
 - Region-grow tiles into polygons (vector-scene-map §6)
 - Assign LOD levels by polygon area and vertex count
@@ -564,7 +565,7 @@ be standardised to the interpolated percentile method (linear interpolation
 between adjacent order statistics) for consistency with standard statistical
 practice:
 
-p_k = x[floor(h)] + (h − floor(h)) · (x[floor(h)+1] − x[floor(h)])  where  h = (n−1)·k/100
+p_k = x[floor(h)] + (h − floor(h)) · (x[floor(h)+1] − x[floor(h)]) where h = (n−1)·k/100
 
 This matches NumPy's `percentile(method='linear')` and is the most widely
 used interpolation method.
@@ -598,17 +599,17 @@ This is correct for track-level comparison. It should be extended with:
 
 Ordered by user-visible impact and mathematical maturity:
 
-| Priority | Item | Layer | Effort | Impact | Readiness |
-|----------|------|-------|--------|--------|-----------|
-| 1 | Geometry-coherent track state (P1) | L5 | L (6–7 days) | **Very high** — fixes most visible artefact | Proposal complete, ready to implement |
-| 2 | Tile-plane ground fitting (G1) | L4 | M (3–4 days) | **High** — correctness for sloped roads | Maths complete, needs implementation |
-| 3 | Unified settlement core (P4) | L3–L4 | M (4–5 days) | **Medium** — infrastructure simplification | Proposal complete, enables G2 and P3 |
-| 4 | Classification config extraction (§5.1) | L6 | S (1–2 days) | **Medium** — removes magic numbers | Straightforward refactor |
-| 5 | Multi-site test corpus (§Q11) | Cross | M (ongoing) | **High** — validates all defaults | Requires field data collection |
-| 6 | Speed percentile alignment (§5.2) | L8 | S (2–3 days) | **Medium** — correctness for reports | Implementation choices documented |
-| 7 | CA/IMM motion models (bodies-in-motion) | L5 | L (8–10 days) | **Medium** — reduces fragmentation | Requires P1 first |
-| 8 | Velocity-coherent foreground (P2) | L3–L5 | XL (10+ days) | **High** — improves recall/fragmentation | Needs benchmark evidence first |
-| 9 | Sign/surface pose anchors | L2–L8 | M (5–7 days) | **Low** — diagnostics only in base case | Needs L7 scene infrastructure |
+| Priority | Item                                    | Layer | Effort        | Impact                                      | Readiness                             |
+| -------- | --------------------------------------- | ----- | ------------- | ------------------------------------------- | ------------------------------------- |
+| 1        | Geometry-coherent track state (P1)      | L5    | L (6–7 days)  | **Very high** — fixes most visible artefact | Proposal complete, ready to implement |
+| 2        | Tile-plane ground fitting (G1)          | L4    | M (3–4 days)  | **High** — correctness for sloped roads     | Maths complete, needs implementation  |
+| 3        | Unified settlement core (P4)            | L3–L4 | M (4–5 days)  | **Medium** — infrastructure simplification  | Proposal complete, enables G2 and P3  |
+| 4        | Classification config extraction (§5.1) | L6    | S (1–2 days)  | **Medium** — removes magic numbers          | Straightforward refactor              |
+| 5        | Multi-site test corpus (§Q11)           | Cross | M (ongoing)   | **High** — validates all defaults           | Requires field data collection        |
+| 6        | Speed percentile alignment (§5.2)       | L8    | S (2–3 days)  | **Medium** — correctness for reports        | Implementation choices documented     |
+| 7        | CA/IMM motion models (bodies-in-motion) | L5    | L (8–10 days) | **Medium** — reduces fragmentation          | Requires P1 first                     |
+| 8        | Velocity-coherent foreground (P2)       | L3–L5 | XL (10+ days) | **High** — improves recall/fragmentation    | Needs benchmark evidence first        |
+| 9        | Sign/surface pose anchors               | L2–L8 | M (5–7 days)  | **Low** — diagnostics only in base case     | Needs L7 scene infrastructure         |
 
 **Critical path:** P1 → G1 → P4 → G2 → P3 → P2 → sign anchors.
 
