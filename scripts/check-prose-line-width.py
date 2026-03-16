@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Check that prose lines in Markdown files stay within the configured column
-width.
+"""Check that prose lines in Markdown files stay within the column width limit.
 
 Lines inside fenced code blocks, tables, lists, headings, image references,
 link definitions, HTML comments, bold-key metadata lines, and horizontal rules
@@ -97,7 +96,7 @@ _HR_RE = re.compile(r"^[-*_]{3,}\s*$")
 _IMAGE_RE = re.compile(r"^!\[")
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 _HTML_COMMENT_OPEN = re.compile(r"<!--")
-_HTML_COMMENT_CLOSE = re.compile(r"-->")
+_HTML_COMMENT_CLOSE = re.compile(r"--!?>")
 
 
 def _is_table_line(stripped: str) -> bool:
