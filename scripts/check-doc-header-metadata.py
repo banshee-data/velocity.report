@@ -13,6 +13,7 @@ Non-conforming formats that are detected and fixed:
 3. Blockquote bold:   ``> **Key:** value``   → ``- **Key:** value``
 4. H2 status:         ``## Status: value``   → ``- **Status:** value``
 5. Date metadata:     ``- **Created:** …``   → (removed)
+6. Missing separator: no blank line after metadata → blank line inserted
 
 Banned date keys (case-insensitive): ``Created``, ``Date``,
 ``Last Updated``, ``Original Design Date``.  Keys containing a
@@ -142,6 +143,46 @@ def _strip_key_date_suffix(key: str) -> str | None:
     return m.group("base").strip() if m else None
 
 
+def _ensure_blank_line_after_metadata(lines: list[str]) -> bool:
+    """Insert a blank line after the metadata block if one is missing.
+
+    Mutates *lines* in place.  Returns True if a line was inserted.
+    """
+    title_idx: int | None = None
+    for i, line in enumerate(lines):
+        s = line.lstrip()
+        if s.startswith("# ") and not s.startswith("## "):
+            title_idx = i
+            break
+    if title_idx is None:
+        return False
+
+    found_meta = False
+    i = title_idx + 1
+    limit = min(title_idx + 30, len(lines))
+    while i < limit:
+        stripped = lines[i].rstrip("\n")
+        if not stripped.strip():
+            i += 1
+            continue
+        if RE_BULLET.match(stripped):
+            found_meta = True
+            i += 1
+            # Skip indented continuation lines.
+            while i < limit and lines[i].startswith("  ") and lines[i].strip():
+                i += 1
+            continue
+        break  # first body-text line
+
+    if not found_meta:
+        return False
+    # i is the first body line.  If the preceding line is not blank, insert one.
+    if i > 0 and i < len(lines) and lines[i].strip() and lines[i - 1].strip():
+        lines.insert(i, "\n")
+        return True
+    return False
+
+
 def process_file(
     filepath: str, *, fix: bool = False
 ) -> list[tuple[int, str, str, str]]:
@@ -167,6 +208,8 @@ def process_file(
     changes: list[tuple[int, str, str, str]] = []
     # Map of line-index → replacement text (None = delete line).
     replace_map: dict[int, str | None] = {}
+    # Index of the last metadata line that will be kept (not deleted).
+    last_meta_idx: int | None = None
 
     # Scan up to 30 lines after the title for the metadata block.
     i = title_idx + 1
@@ -195,6 +238,10 @@ def process_file(
                 changes.append((i + 1, stripped, "", "date-key"))
                 replace_map[i] = None
                 i += 1
+                # Also delete continuation lines of the deleted bullet.
+                while i < limit and lines[i].startswith("  ") and lines[i].strip():
+                    replace_map[i] = None
+                    i += 1
                 continue
             # Key with parenthesised date suffix → strip the date.
             base = _strip_key_date_suffix(bkey)
@@ -202,9 +249,17 @@ def process_file(
                 new_text = _canonical(base, bm.group("val"))
                 changes.append((i + 1, stripped, new_text, "date-in-key"))
                 replace_map[i] = new_text + "\n"
+                last_meta_idx = i
                 i += 1
+                # Skip continuation lines.
+                while i < limit and lines[i].startswith("  ") and lines[i].strip():
+                    i += 1
                 continue
+            last_meta_idx = i
             i += 1
+            # Skip continuation lines.
+            while i < limit and lines[i].startswith("  ") and lines[i].strip():
+                i += 1
             continue
 
         # Try non-canonical patterns.
@@ -252,7 +307,14 @@ def process_file(
         new_text = _canonical(key, val)
         changes.append((i + 1, stripped, new_text, kind))
         replace_map[i] = new_text + "\n"
+        last_meta_idx = i
         i = next_i
+
+    # Detect missing blank line between metadata block and body text.
+    if last_meta_idx is not None and i < len(lines) and lines[i].strip():
+        has_blank = any(not lines[j].strip() for j in range(last_meta_idx + 1, i))
+        if not has_blank:
+            changes.append((i + 1, "(no blank line after metadata)", "", "missing-sep"))
 
     if fix and changes:
         rebuilt: list[str] = []
@@ -264,6 +326,7 @@ def process_file(
                 # else: delete line
             else:
                 rebuilt.append(original)
+        _ensure_blank_line_after_metadata(rebuilt)
         with open(filepath, "w", encoding="utf-8") as f:
             f.writelines(rebuilt)
 
