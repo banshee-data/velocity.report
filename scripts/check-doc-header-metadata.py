@@ -290,7 +290,26 @@ def process_file(
                     break
             next_i = j
         else:
-            next_i = i + 1
+            # Absorb continuation lines for bare/colon-outside/h2 patterns
+            # (un-indented paragraph text that wraps from a converted line).
+            j = i + 1
+            while j < limit:
+                cont = lines[j].rstrip("\n")
+                if (
+                    cont.strip()
+                    and not RE_BULLET.match(cont)
+                    and not _try_match(cont)
+                    and not cont.lstrip().startswith("# ")
+                    and not cont.lstrip().startswith("- ")
+                    and not cont.lstrip().startswith("* ")
+                    and not cont.lstrip().startswith("> ")
+                ):
+                    val = val.rstrip() + " " + cont.strip()
+                    replace_map[j] = None
+                    j += 1
+                else:
+                    break
+            next_i = j
 
         # Check for banned date key (even on non-canonical input).
         if _is_date_key(key):
