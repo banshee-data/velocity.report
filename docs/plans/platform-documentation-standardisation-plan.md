@@ -1,9 +1,28 @@
 # Documentation Standardisation Plan
 
-- **Status:** Scoped — contract defined, execution pending
+- **Status:** In Progress — metadata and structure rules enforced, opening paragraph gap remains
 - **Layers:** Cross-cutting (documentation)
 
 Controlled process to stabilise documentation structure and metadata quality by reconciling branch drift against main, preserving authoritative summaries, and enforcing repeatable review gates.
+
+### Completion Checklist
+
+- [x] Contract defined (this document)
+- [x] Metadata format standardised — `- **Key:** value` canonical format enforced across 86+ files
+- [x] Key normalisation — Layer→Layers, Related variants→Related, Last updated→Last Updated (57→49 unique keys)
+- [x] Date metadata removed — Created, Date, Last Updated, Original Design Date purged from 15 files
+- [x] Date enforcement linter — `BANNED_DATE_KEYS` and `RE_KEY_DATE_SUFFIX` in `check-doc-header-metadata.py`
+- [x] Summary deduplication — resolved 1 file with both `- **Summary:**` bullet and `## Summary` heading
+- [x] Structure rule compliance — zero misplaced docs, all categories correctly organised
+- [x] CI integration — weekly lint-autofix workflow (Monday 06:00 UTC) runs `--fix` mode
+- [x] Makefile integration — `lint-docs` (check) and `format-docs` (fix) targets
+- [x] Standard documented — `coding-standards.md` § Documentation Metadata
+- [ ] Opening paragraph rule — ~40 of ~123 docs still missing a narrative opening paragraph
+- [ ] Opening paragraph validation gate — no automated checker exists yet
+- [ ] Placeholder/filename-echo detector — §7.3 not implemented
+- [ ] Link integrity gate in CI — §7.1 references `/tmp/check_docs_links.sh` (not permanent)
+- [ ] Main-branch drift reconciliation — §3 not executed
+- [ ] Drift report — §7.4 not implemented
 
 ## 1. Objective
 

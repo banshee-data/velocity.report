@@ -13,7 +13,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Schema simplification (migration 000030) — drop dead per-track percentile columns (`p50/p85/p95_speed_mps`), drop always-NULL quality columns from `lidar_tracks`, rename `peak_speed_mps` → `max_speed_mps` on both track tables; proto rename prerequisite complete (#352) — [design doc](plans/schema-simplification-migration-030-plan.md) `M`
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation; full design complete — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
-- Documentation standardisation — metadata and validation gates for all docs; contract defined, execution pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 
 ## v0.5.1 (Product)
 
