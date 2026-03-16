@@ -38,7 +38,8 @@ type AnalysisRun struct {
 	ErrorMessage     string          `json:"error_message,omitempty"`
 	ParentRunID      string          `json:"parent_run_id,omitempty"`
 	Notes            string          `json:"notes,omitempty"`
-	VRLogPath        string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
+	VRLogPath        string          `json:"vrlog_path,omitempty"`        // Path to VRLOG recording for replay
+	StatisticsJSON   json.RawMessage `json:"statistics_json,omitempty"`   // Serialised RunStatistics from l6objects
 
 	// Derived fields (not persisted in DB, computed on retrieval)
 	SceneName   string          `json:"scene_name,omitempty"`   // Derived from SourcePath filename
@@ -337,6 +338,7 @@ type AnalysisStats struct {
 	TotalTracks      int
 	ConfirmedTracks  int
 	ProcessingTimeMs int64
+	StatisticsJSON   string // Serialised RunStatistics JSON (optional)
 }
 
 // RunComparison shows differences between two analysis runs.
@@ -470,6 +472,7 @@ func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
 			total_tracks = ?,
 			confirmed_tracks = ?,
 			processing_time_ms = ?,
+			statistics_json = ?,
 			status = 'completed'
 		WHERE run_id = ?
 	`
@@ -483,6 +486,7 @@ func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
 			stats.TotalTracks,
 			stats.ConfirmedTracks,
 			stats.ProcessingTimeMs,
+			nullString(stats.StatisticsJSON),
 			runID,
 		)
 		if err != nil {
@@ -498,14 +502,15 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		SELECT run_id, created_at, source_type, source_path, sensor_id,
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes, vrlog_path
+			status, error_message, parent_run_id, notes, vrlog_path,
+			statistics_json
 		FROM lidar_analysis_runs
 		WHERE run_id = ?
 	`
 
 	var run AnalysisRun
 	var createdAt int64
-	var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
+	var sourcePath, errorMessage, parentRunID, notes, vrlogPath, statsJSON sql.NullString
 	var paramsJSON string
 
 	err := s.db.QueryRow(query, runID).Scan(
@@ -526,6 +531,7 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		&parentRunID,
 		&notes,
 		&vrlogPath,
+		&statsJSON,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get run: %w", err)
@@ -548,6 +554,9 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 	if vrlogPath.Valid {
 		run.VRLogPath = vrlogPath.String
 	}
+	if statsJSON.Valid {
+		run.StatisticsJSON = json.RawMessage(statsJSON.String)
+	}
 
 	run.PopulateSceneName()
 	labelRollup, err := s.GetRunLabelRollup(runID)
@@ -565,7 +574,8 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 		SELECT run_id, created_at, source_type, source_path, sensor_id,
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes, vrlog_path
+			status, error_message, parent_run_id, notes, vrlog_path,
+			statistics_json
 		FROM lidar_analysis_runs
 		ORDER BY created_at DESC
 		LIMIT ?
@@ -581,7 +591,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 	for rows.Next() {
 		var run AnalysisRun
 		var createdAt int64
-		var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
+		var sourcePath, errorMessage, parentRunID, notes, vrlogPath, statsJSON sql.NullString
 		var paramsJSON string
 
 		err := rows.Scan(
@@ -602,6 +612,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 			&parentRunID,
 			&notes,
 			&vrlogPath,
+			&statsJSON,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan run: %w", err)
@@ -623,6 +634,9 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 		}
 		if vrlogPath.Valid {
 			run.VRLogPath = vrlogPath.String
+		}
+		if statsJSON.Valid {
+			run.StatisticsJSON = json.RawMessage(statsJSON.String)
 		}
 
 		run.PopulateSceneName()

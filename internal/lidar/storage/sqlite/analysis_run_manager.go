@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/google/uuid"
 )
 
@@ -22,6 +23,9 @@ type AnalysisRunManager struct {
 	totalFrames   int
 	totalClusters int
 	tracksSeen    map[string]bool // Track IDs seen during this run
+
+	// Collected tracks for run-level statistics (RunStatistics)
+	collectedTracks []*TrackedObject
 
 	// Frame timestamps for data duration (vs wall-clock processing time)
 	firstFrameNs int64 // timestamp of first frame (nanoseconds)
@@ -102,6 +106,7 @@ func (m *AnalysisRunManager) StartRun(sourcePath string, params RunParams) (stri
 	m.totalFrames = 0
 	m.totalClusters = 0
 	m.tracksSeen = make(map[string]bool)
+	m.collectedTracks = nil
 	m.firstFrameNs = 0
 	m.lastFrameNs = 0
 
@@ -148,6 +153,9 @@ func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
 
 	// Compute quality metrics before export
 	track.ComputeQualityMetrics()
+
+	// Collect for run-level statistics computed at CompleteRun
+	m.collectedTracks = append(m.collectedTracks, track)
 
 	// Create RunTrack from TrackedObject
 	runTrack := RunTrackFromTrackedObject(m.currentRun.RunID, track)
@@ -197,6 +205,14 @@ func (m *AnalysisRunManager) CompleteRun() error {
 		ProcessingTimeMs: processingTime.Milliseconds(),
 	}
 
+	// Compute run-level quality statistics from collected tracks
+	if len(m.collectedTracks) > 0 {
+		runStats := l6objects.ComputeRunStatistics(m.collectedTracks)
+		if statsJSON, err := runStats.ToJSON(); err == nil {
+			stats.StatisticsJSON = statsJSON
+		}
+	}
+
 	if err := m.store.CompleteRun(m.currentRun.RunID, stats); err != nil {
 		return err
 	}
@@ -205,6 +221,7 @@ func (m *AnalysisRunManager) CompleteRun() error {
 		m.currentRun.RunID, stats.TotalFrames, stats.TotalClusters, stats.TotalTracks, durationSecs)
 
 	m.currentRun = nil
+	m.collectedTracks = nil
 	return nil
 }
 
