@@ -1,10 +1,10 @@
 # LiDAR Immutable Run Config Asset Plan
 
-**Status:** Draft
-**Layers:** Database, L8 Analytics, L9 Endpoints, L10 Clients, Recording/Replay
-**Precondition:** This plan assumes schema standardisation migrations `000030` and `000031` have already landed on `main`, including the post-31 table family names documented in commit `88ed856c5c0602af1f33d91542d3053d774a573a`.
-**Migration slot:** This work should be introduced as migration `000032`.
-**Related:** [LiDAR Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [Track Labelling & Auto-Aware Tuning](lidar-track-labeling-auto-aware-tuning-plan.md), `docs/plans/lidar-schema-standardisation-plan.md` on `main`, [VRLOG Wire Format Specification](../data/VRLOG_FORMAT.md), [VRLOG Analysis](../data/VRLOG_ANALYSIS.md)
+- **Status:** Draft
+- **Layers:** Database, L8 Analytics, L9 Endpoints, L10 Clients, Recording/Replay
+- **Precondition:** This plan assumes schema standardisation migrations `000030` and `000031` have already landed on `main`, including the post-31 table family names documented in commit `88ed856c5c0602af1f33d91542d3053d774a573a`.
+- **Migration slot:** This work should be introduced as migration `000032`.
+- **Related:** [LiDAR Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [Track Labelling & Auto-Aware Tuning](lidar-track-labeling-auto-aware-tuning-plan.md), `docs/plans/lidar-schema-standardisation-plan.md` on `main`, [VRLOG Wire Format Specification](../data/VRLOG_FORMAT.md), [VRLOG Analysis](../data/VRLOG_ANALYSIS.md)
 
 ## Goal
 
