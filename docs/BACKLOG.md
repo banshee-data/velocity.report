@@ -15,31 +15,34 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation; full design complete — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 
-## v0.5.1 (Product)
+## v0.5.1 (Data Contracts + Layer Foundations)
 
-- [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
-- (#381) SeekToTimestamp diagnostic logging behind debug flag — guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
-- (#381) VRLOG timestamp index build at load time — build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built — [design doc](../data/structures/VRLOG_FORMAT.md) `S`
+- [#379] Pipeline mathematical review — end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs `S`
+- [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths `S`
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
 - L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
 - SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardisation-plan.md) `M`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
+
+## v0.5.2 (Replay/Runtime Stabilisation)
+
+- [#389] VRLog replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work `S`
+- [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes `S`
+- [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
+- (#381) SeekToTimestamp diagnostic logging behind debug flag — guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
+- (#381) VRLOG timestamp index build at load time — build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built — [design doc](../data/structures/VRLOG_FORMAT.md) `S`
+- Visualiser debug overlay + cluster proto follow-through — finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
+- Visualiser performance and scene health metrics — timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
+- Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
+
+## v0.5.3 (Product Polish + Release Readiness)
+
+- [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 - Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
-- [#379] Pipeline mathematical review — end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs `S`
-- [#389] VRLog replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work `S`
-- [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes `S`
-- [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths `S`
-
-## v0.5.2 (Debug)
-
-- Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
-- Visualiser performance and scene health metrics — timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
-- Visualiser debug overlay + cluster proto follow-through — finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
-- [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
 
 ## v0.6 (Deployment & Packaging)
 
@@ -48,7 +51,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Single `velocity-report` binary + subcommands — unified CLI with radar/lidar/pdf subcommands — [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script — curl-based installer with automatic platform detection — [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - Geometry-coherent tracking (P1 maths, D-04) — spatial consistency in track association — [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
-- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Typed UUID prefixes — migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite — [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
@@ -61,6 +63,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v0.7 (Unified Frontend)
 
 - (#252) Frontend consolidation (Phases 0–5) — migrate status/regions/sweep to Svelte, retire port 8081 — [design doc](plans/web-frontend-consolidation-plan.md) `L`
+- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - ECharts → LayerChart rewrite (8 charts, D-11) — migrate all radar/lidar charts to Svelte LayerChart — [design doc](ui/DESIGN.md) `L`
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md) `M`
