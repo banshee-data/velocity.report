@@ -26,27 +26,28 @@ persistence). Unpopulated or partially wired fields are flagged.
 
 **Go source:** `internal/lidar/l6objects/quality.go` — `RunStatistics` struct (12 fields)
 **Computation:** `ComputeRunStatistics(tracks)` — fully implemented, tested
-**DB column:** `lidar_analysis_runs.statistics_json` — ✅ **now written** by `CompleteRun()`
+**DB column:** `lidar_analysis_runs.statistics_json` — 🗄️ column exists, never written
 
 | Field                        | SQLite | Web | PDF | macOS |
 | ---------------------------- | ------ | --- | --- | ----- |
-| `avg_track_length_meters`    | ✅     | ❌  | ❌  | ❌    |
-| `median_track_length_meters` | ✅     | ❌  | ❌  | ❌    |
-| `avg_track_duration_secs`    | ✅     | ❌  | ❌  | ❌    |
-| `avg_occlusion_count`        | ✅     | ❌  | ❌  | ❌    |
-| `class_counts`               | ✅     | ❌  | ❌  | ❌    |
-| `class_confidence_avg`       | ✅     | ❌  | ❌  | ❌    |
-| `unknown_ratio`              | ✅     | ❌  | ❌  | ❌    |
-| `avg_noise_ratio`            | ✅     | ❌  | ❌  | ❌    |
-| `avg_spatial_coverage`       | ✅     | ❌  | ❌  | ❌    |
-| `tentative_ratio`            | ✅     | ❌  | ❌  | ❌    |
-| `confirmed_ratio`            | ✅     | ❌  | ❌  | ❌    |
-| `avg_observations_per_track` | ✅     | ❌  | ❌  | ❌    |
+| `avg_track_length_meters`    | 🗄️     | ❌  | ❌  | ❌    |
+| `median_track_length_meters` | 🗄️     | ❌  | ❌  | ❌    |
+| `avg_track_duration_secs`    | 🗄️     | ❌  | ❌  | ❌    |
+| `avg_occlusion_count`        | 🗄️     | ❌  | ❌  | ❌    |
+| `class_counts`               | 🗄️     | ❌  | ❌  | ❌    |
+| `class_confidence_avg`       | 🗄️     | ❌  | ❌  | ❌    |
+| `unknown_ratio`              | 🗄️     | ❌  | ❌  | ❌    |
+| `avg_noise_ratio`            | 🗄️     | ❌  | ❌  | ❌    |
+| `avg_spatial_coverage`       | 🗄️     | ❌  | ❌  | ❌    |
+| `tentative_ratio`            | 🗄️     | ❌  | ❌  | ❌    |
+| `confirmed_ratio`            | 🗄️     | ❌  | ❌  | ❌    |
+| `avg_observations_per_track` | 🗄️     | ❌  | ❌  | ❌    |
 
-**Status (March 2026):** `AnalysisRunManager.CompleteRun()` now calls
-`ComputeRunStatistics()` on collected tracks and serialises to
-`statistics_json`. `GetRun()` and `ListRuns()` read it back into
-`AnalysisRun.StatisticsJSON`. Web/PDF/macOS surface exposure is pending.
+**Status (March 2026):** `ComputeRunStatistics()` is fully implemented and
+tested but never called during `CompleteRun()`. The column exists in schema.
+Wiring `AnalysisRunManager.CompleteRun()` to collect tracks during
+`RecordTrack()` and compute/serialise `RunStatistics` at completion is
+planned (see remediation plan Phase 1).
 
 ---
 
@@ -58,17 +59,18 @@ persistence). Unpopulated or partially wired fields are flagged.
 | Field                  | SQLite | Web | PDF | macOS |
 | ---------------------- | ------ | --- | --- | ----- |
 | `track_id`             | ✅     | ✅  | ⬜  | ✅    |
-| `track_length_meters`  | ✅     | ❌  | ❌  | 🔶    |
-| `track_duration_secs`  | ✅     | ❌  | ❌  | 🔶    |
-| `occlusion_count`      | ✅     | ❌  | ❌  | 🔶    |
-| `max_occlusion_frames` | ✅     | ❌  | ❌  | ❌    |
-| `spatial_coverage`     | ✅     | ❌  | ❌  | ❌    |
-| `noise_point_ratio`    | ✅     | ❌  | ❌  | ❌    |
+| `track_length_meters`  | 🗄️     | ❌  | ❌  | 🔶    |
+| `track_duration_secs`  | 🗄️     | ❌  | ❌  | 🔶    |
+| `occlusion_count`      | 🗄️     | ❌  | ❌  | 🔶    |
+| `max_occlusion_frames` | 🗄️     | ❌  | ❌  | ❌    |
+| `spatial_coverage`     | 🗄️     | ❌  | ❌  | ❌    |
+| `noise_point_ratio`    | 🗄️     | ❌  | ❌  | ❌    |
 | `quality_score`        | ❌     | ❌  | ❌  | ❌    |
 
-**Status (March 2026):** `InsertTrack()` and `UpdateTrack()` now write all 6
-quality columns. The `TrackedObject` fields are populated by the L5 tracker
-(`ComputeQualityMetrics()`). Web/PDF/macOS surface exposure is pending.
+**Status (March 2026):** Columns exist in schema but `InsertTrack()` and
+`UpdateTrack()` do not write them. The `TrackedObject` fields are populated
+by the L5 tracker (`ComputeQualityMetrics()`), so the data is available —
+wiring it to the INSERT/UPDATE SQL is planned (see remediation plan Phase 2).
 `quality_score` remains computed-only in `l6objects` with no DB column.
 
 ---
@@ -86,12 +88,13 @@ quality columns. The `TrackedObject` fields are populated by the L5 tracker
 | `height_p95`         | ✅     | ✅  | ⬜  | ✅    |
 | `intensity_mean`     | ✅     | ✅  | ⬜  | ✅    |
 | `noise_points_count` | 🗄️     | ❌  | ❌  | ❌    |
-| `cluster_density`    | ✅     | ❌  | ❌  | ❌    |
-| `aspect_ratio`       | ✅     | ❌  | ❌  | ❌    |
+| `cluster_density`    | 🗄️     | ❌  | ❌  | ❌    |
+| `aspect_ratio`       | 🗄️     | ❌  | ❌  | ❌    |
 
-**Status (March 2026):** `InsertCluster()` now computes and writes
-`cluster_density` (points/volume) and `aspect_ratio` (length/width).
-`noise_points_count` remains unwritten — requires upstream noise-point
+**Status (March 2026):** All 3 columns exist in schema but are never written.
+`cluster_density` (points/volume) and `aspect_ratio` (length/width) can be
+computed from data already available at insert time — wiring is planned (see
+remediation plan Phase 3). `noise_points_count` requires upstream noise-point
 tracking in the L4 clustering pipeline (the `WorldCluster` struct does not
 currently carry a noise count).
 
@@ -250,19 +253,13 @@ public per-track field.
 
 ## Summary: Unpopulated Structures by Severity
 
-### 🔴 Schema columns exist but are never written (1 column remaining)
+### 🔴 Schema columns exist but are never written (9 columns)
 
-| Table            | Columns                                                |
-| ---------------- | ------------------------------------------------------ |
-| `lidar_clusters` | `noise_points_count` (1) — requires L4 pipeline change |
-
-### 🟠 Persisted to SQLite but not surfaced to any UI (20 fields)
-
-| Table                 | Columns                                                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `lidar_analysis_runs` | `statistics_json` (12 fields within JSON) — needs API + web                                                                                            |
-| `lidar_tracks`        | `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` (6) — needs API + web |
-| `lidar_clusters`      | `cluster_density`, `aspect_ratio` (2) — needs API + web                                                                                                |
+| Table                 | Columns                                                                                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lidar_analysis_runs` | `statistics_json` (1) — Go struct exists, computation implemented but not wired to persistence                                                            |
+| `lidar_tracks`        | `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` (6) — data available in `TrackedObject`, not wired to INSERT/UPDATE |
+| `lidar_clusters`      | `noise_points_count`, `cluster_density`, `aspect_ratio` (3) — density/ratio computable at insert time; noise count requires L4 pipeline change            |
 
 ### 🟡 Structs computed in Go but never persisted or exposed (4 structs)
 

@@ -37,11 +37,12 @@ Per-track percentiles are the wrong abstraction (see speed-percentile plan §1):
 percentiles are meaningful over a _population_ of tracks, not over one track's
 Kalman-filtered speed history.
 
-**Quality columns are now populated:** The 6 quality columns on `lidar_tracks`
+**Quality columns not yet populated:** The 6 quality columns on `lidar_tracks`
 (`track_length_meters`, `track_duration_secs`, `occlusion_count`,
-`max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`) are now written
-by `InsertTrack()` and `UpdateTrack()` (see unpopulated-data-structures
-remediation Phase 2). They must **not** be dropped.
+`max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`) exist in
+schema but are never written. Wiring them to `InsertTrack()` and
+`UpdateTrack()` is tracked separately in the unpopulated-data-structures
+remediation plan Phase 2. They must **not** be dropped by this migration.
 
 ## Non-goals
 
@@ -52,8 +53,8 @@ remediation Phase 2). They must **not** be dropped.
 - Touching `lidar_track_obs` — no changes needed.
 - Dropping quality columns (`track_length_meters`, `track_duration_secs`,
   `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`,
-  `noise_point_ratio`) — these are now populated by `InsertTrack()` and
-  `UpdateTrack()`.
+  `noise_point_ratio`) — these are planned for wiring (see
+  unpopulated-data-structures remediation Phase 2) and must not be dropped.
 
 ## Migration SQL
 
@@ -105,22 +106,22 @@ ALTER TABLE lidar_run_tracks RENAME COLUMN max_speed_mps TO peak_speed_mps;
 
 **track_store.go** — Rename and remove percentile column references:
 
-- `InsertTrack()`: percentile columns already removed from UPSERT (March 2026).
-  Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings.
-- `UpdateTrack()`: percentile SET clauses already removed.
+- `InsertTrack()`: percentile columns are not currently written (never
+  wired). Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings.
+- `UpdateTrack()`: no percentile SET clauses exist.
   Rename `peak_speed_mps` → `max_speed_mps`.
 - `GetActiveTracks()`, `GetTracksInRange()`, other SELECT queries: rename
   `peak_speed_mps` → `max_speed_mps` in SQL strings.
 
-**analysis_run.go** — Remove percentile columns, rename peak:
+**analysis_run.go** — Rename peak in SQL:
 
 - `RunTrack` struct: `MaxSpeedMps` field already exists (renamed from
-  `PeakSpeedMps`). Remove any residual `P50SpeedMps`, `P85SpeedMps`,
-  `P95SpeedMps` fields if present.
-- `InsertRunTrack()`: drop percentile columns from INSERT SQL. Rename
-  `peak_speed_mps` → `max_speed_mps`.
-- `GetRunTracks()`, `GetRunTrack()`: drop percentile columns from SELECT and
-  `Scan()` calls. Rename `peak_speed_mps` → `max_speed_mps`.
+  `PeakSpeedMps`). No `P50SpeedMps`, `P85SpeedMps`, `P95SpeedMps` fields
+  exist.
+- `InsertRunTrack()`: no percentile columns in INSERT SQL (never wired).
+  Rename `peak_speed_mps` → `max_speed_mps`.
+- `GetRunTracks()`, `GetRunTrack()`: no percentile columns in SELECT.
+  Rename `peak_speed_mps` → `max_speed_mps`.
 
 **analysis_run_manager.go** — No changes needed (already uses `MaxSpeedMps`).
 

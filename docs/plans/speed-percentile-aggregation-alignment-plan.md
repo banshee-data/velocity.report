@@ -61,7 +61,7 @@ like `height_p95` or latency `p95`.
 
 | Surface                                                                     | Current state                                                                                                              | Status                                              |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `internal/lidar/l6objects` + `internal/lidar/storage/sqlite/track_store.go` | `InsertTrack()`/`UpdateTrack()` no longer write percentile columns. `MaxSpeedMps` used everywhere in Go.                   | ✅ Aligned (SQL column still says `peak_speed_mps`) |
+| `internal/lidar/l6objects` + `internal/lidar/storage/sqlite/track_store.go` | `InsertTrack()`/`UpdateTrack()` do not write percentile columns (never wired). `MaxSpeedMps` used in Go structs. SQL still says `peak_speed_mps`. | ✅ Go aligned (SQL column rename pending) |
 | Visualiser proto/adapter                                                    | Proto uses `max_speed_mps`. Visualiser model has backward-compat shim for legacy `PeakSpeedMps` JSON.                      | ✅ Aligned                                          |
 | `internal/lidar/monitor/track_api.go` per-track REST                        | Individual track JSON uses `max_speed_mps`. No per-track percentile fields exposed.                                        | ✅ Aligned                                          |
 | `internal/lidar/monitor/track_api.go` summary REST                          | Summary payloads use `max_speed_mps`. No per-track percentile fields.                                                      | ✅ Aligned                                          |
@@ -154,8 +154,8 @@ The high-level direction is now clear and should not be reopened:
 
 ### Phase 3 — Remove Per-Track Percentile Calculations (migration 000030)
 
-- [x] `InsertTrack()` and `UpdateTrack()` no longer write per-track
-      percentile columns to `lidar_tracks`.
+- [x] `InsertTrack()` and `UpdateTrack()` do not write per-track
+      percentile columns to `lidar_tracks` (never wired).
 - [x] Go struct field renamed: `TrackedObject.MaxSpeedMps` (was
       `PeakSpeedMps`).
 - [x] REST API JSON uses `max_speed_mps` (not `peak_speed_mps`).
@@ -164,9 +164,8 @@ The high-level direction is now clear and should not be reopened:
       `lidar_tracks` and `lidar_run_tracks` and rename `peak_speed_mps` →
       `max_speed_mps` on both tables — see
       [schema simplification plan](schema-simplification-migration-030-plan.md).
-- [ ] Update `InsertRunTrack()`, `GetRunTracks()`, `GetRunTrack()` SQL to
-      drop percentile columns and rename `peak_speed_mps` →
-      `max_speed_mps`.
+- [ ] Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
+      (`track_store.go`, `analysis_run.go`).
 - [ ] Update `schema.sql` to match post-migration state.
 - [ ] Update all test fixtures that still reference `peak_speed_mps` or
       percentile columns.
@@ -210,7 +209,7 @@ The high-level direction is now clear and should not be reopened:
 | `lidar_run_tracks` schema                     | `peak_speed_mps` column name, 3 percentile columns      |
 | `schema.sql`                                  | Matches current schema — needs post-migration update    |
 | `track_store.go` SQL strings                  | `peak_speed_mps` in INSERT/UPDATE/SELECT                |
-| `analysis_run.go` SQL strings                 | `peak_speed_mps`, percentile columns in SQL             |
+| `analysis_run.go` SQL strings                 | `peak_speed_mps` in INSERT/SELECT (no percentile cols)  |
 | Test fixtures (`coverage_boost_test.go` etc.) | Reference `peak_speed_mps` and percentile columns       |
 | `pcap-analyse` `computeSpeedStats()`          | Uses `P95` instead of `P98` for high-end percentile     |
 | `pcap-analyse` `SpeedStatistics` JSON tags    | `p50_speed_mps` etc. — ambiguous naming                 |

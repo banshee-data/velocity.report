@@ -5,7 +5,7 @@ but never persisted, exposed via API, or consumed by any presentation
 surface — plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-**Status:** Active — Phases 1–3 implemented (March 2026); Phases 4–10 proposed
+**Status:** Active — Phases 1–3 proposed; Phases 4–10 proposed
 **Related:** [Backend → Surface Matrix](../../data/structures/BACKEND_SURFACE_MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
@@ -54,23 +54,23 @@ observability plan §4.
 
 ### Checklist
 
-- [x] In `CompleteRun()` (`analysis_run.go:463`), call
+- [ ] In `CompleteRun()` (`analysis_run.go:463`), call
       `l6objects.ComputeRunStatistics()` on the run's collected tracks and
       serialise the result to `statistics_json` via `RunStatistics.ToJSON()`.
-- [x] Update the `CompleteRun` SQL to include `statistics_json = ?`.
-- [x] Update `GetRun()` (`analysis_run.go:496`) to read and parse
+- [ ] Update the `CompleteRun` SQL to include `statistics_json = ?`.
+- [ ] Update `GetRun()` (`analysis_run.go:496`) to read and parse
       `statistics_json`, attaching it to the `AnalysisRun` struct.
-- [x] Add a `StatisticsJSON json.RawMessage` field to the `AnalysisRun`
+- [ ] Add a `StatisticsJSON json.RawMessage` field to the `AnalysisRun`
       struct.
-- [x] Update `ListRuns()` to also read `statistics_json`.
-- [x] Wire `AnalysisRunManager.CompleteRun()` to collect tracks during
+- [ ] Update `ListRuns()` to also read `statistics_json`.
+- [ ] Wire `AnalysisRunManager.CompleteRun()` to collect tracks during
       `RecordTrack()` and compute `RunStatistics` at completion.
 - [ ] Update `handleGetRun()` API handler so the JSON response includes
       `statistics_json` when present.
 - [ ] Add a TypeScript `RunStatistics` interface to `web/src/lib/types/lidar.ts`.
 - [ ] Add the field to the `AnalysisRun` TypeScript interface.
-- [x] Verify backward compatibility: existing rows with `NULL`
-      `statistics_json` do not break `GetRun()` — validated by tests.
+- [ ] Verify backward compatibility: existing rows with `NULL`
+      `statistics_json` do not break `GetRun()`.
 
 ### Downstream opportunity
 
@@ -90,20 +90,20 @@ additional parameters.
 
 ### Checklist
 
-- [x] Update `InsertTrack()` (`track_store.go:92`) to include
+- [ ] Update `InsertTrack()` (`track_store.go:92`) to include
       `track_length_meters`, `track_duration_secs`, `occlusion_count`,
       `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`.
-- [x] Update `UpdateTrack()` (`track_store.go:154`) to write the same 6
+- [ ] Update `UpdateTrack()` (`track_store.go:154`) to write the same 6
       columns on each update.
 - [x] Verify that `TrackedObject` already carries these fields (it does —
       they are set by the L5 tracker).
-- [x] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
+- [ ] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
       6 new columns.
 - [ ] Add the 6 fields to the `Track` TypeScript interface in
       `web/src/lib/types/lidar.ts`.
 - [ ] Update the live-tracks API handler (`handleListTracks`) to include the
       fields in the JSON response (verify the Go struct already has them).
-- [x] All existing Go tests pass with new column writes.
+- [ ] All existing Go tests pass with new column writes.
 
 ### Downstream opportunity
 
@@ -127,9 +127,9 @@ become a priority.
 - [ ] Compute `noise_points_count` during clustering (requires adding
       a `NoisePointsCount` field to `WorldCluster` in `l4perception/types.go`
       and populating it during the L4 clustering step).
-- [x] Compute `cluster_density` as `points_count / bbox_volume`.
-- [x] Compute `aspect_ratio` as `bbox_length / bbox_width`.
-- [x] Update `InsertCluster()` (`track_store.go:56`) to write the 2
+- [ ] Compute `cluster_density` as `points_count / bbox_volume`.
+- [ ] Compute `aspect_ratio` as `bbox_length / bbox_width`.
+- [ ] Update `InsertCluster()` (`track_store.go:56`) to write the 2
       computable quality columns.
 - [ ] Add the fields to the `ClusterResponse` TypeScript interface.
 - [ ] Write tests for edge cases (zero-volume bbox, single-point cluster).
@@ -230,8 +230,6 @@ surfaced.
       `lidar_run_tracks`, and rename `peak_speed_mps` → `max_speed_mps` on
       both tables.
 - [ ] Update `schema.sql` to match post-migration state.
-- [ ] Remove per-track percentile columns from `InsertRunTrack()`,
-      `GetRunTracks()`, `GetRunTrack()` SQL in `analysis_run.go`.
 - [ ] Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
       (`track_store.go`, `analysis_run.go`).
 - [ ] Update all test fixtures that reference percentile columns or
@@ -267,29 +265,18 @@ surfaced.
 
 ## Scheduling Guidance
 
-### ✅ Completed (March 2026)
-
-Phases 1, 2, and 3 (partial) are done:
-
-- `statistics_json` is computed and persisted on every completed analysis
-  run.
-- Track quality columns (`track_length_meters`, `track_duration_secs`,
-  `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`,
-  `noise_point_ratio`) are written on every INSERT/UPDATE.
-- Cluster `cluster_density` and `aspect_ratio` are computed and persisted
-  on every INSERT.
-
 ### Immediate (current sprint)
 
-Phase 4 (statistics API endpoint) and Phase 7 (per-track percentile
-removal / migration 000030) should be scheduled next. Phase 4 unlocks UI
-consumption of the newly persisted statistics. Phase 7 cleans up design
-debt identified by D-18/D-19.
+Phases 1–3 should be implemented first — they wire existing data to
+persistence with minimal risk (no schema changes, all columns already exist).
+Phase 7 (per-track percentile removal / migration 000030) should follow
+immediately to clean up design debt per D-18/D-19.
 
 ### Near-term (next 1–2 sprints)
 
-Phase 3 completion (noise_points_count) requires an L4 pipeline change.
-Schedule when cluster diagnostics become a priority.
+Phase 4 (statistics API endpoint) unlocks UI consumption of statistics once
+Phase 1 is complete. Phase 3 completion (noise_points_count) requires an L4
+pipeline change — schedule when cluster diagnostics become a priority.
 
 ### Backlog (schedule when needed)
 
@@ -307,13 +294,13 @@ Phases 5–8 depend on product direction:
 ### Dependency Graph
 
 ```
-Phase 1 (statistics_json) ──[DONE]──► Phase 4 (statistics API) ──► UI card
+Phase 1 (statistics_json) ──► Phase 4 (statistics API) ──► UI card
      │
      ├──► Phase 5 (training export) ──► Phase 8 (cleanup)
      │
-Phase 2 (track quality cols) ──[DONE]──► Phase 5
+Phase 2 (track quality cols) ──► Phase 5
      │
-Phase 3 (cluster quality cols) ──[PARTIAL]
+Phase 3 (cluster quality cols)
      │
 Phase 6 (run comparison)
      │
