@@ -60,8 +60,7 @@ func setupTestAnalysisDB(t *testing.T) (*sql.DB, func()) {
 			error_message TEXT,
 			parent_run_id TEXT,
 			notes TEXT,
-			vrlog_path TEXT,
-			statistics_json TEXT
+			vrlog_path TEXT
 		);
 	`
 	if _, err := db.Exec(schema); err != nil {

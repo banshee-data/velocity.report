@@ -58,21 +58,9 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 			sensor_id, world_frame, ts_unix_nanos,
 			centroid_x, centroid_y, centroid_z,
 			bounding_box_length, bounding_box_width, bounding_box_height,
-			points_count, height_p95, intensity_mean,
-			cluster_density, aspect_ratio
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			points_count, height_p95, intensity_mean
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-
-	// Compute derived cluster quality metrics
-	var clusterDensity float64
-	volume := float64(cluster.BoundingBoxLength) * float64(cluster.BoundingBoxWidth) * float64(cluster.BoundingBoxHeight)
-	if volume > 0.001 {
-		clusterDensity = float64(cluster.PointsCount) / volume
-	}
-	var aspectRatio float64
-	if cluster.BoundingBoxWidth > 0.01 {
-		aspectRatio = float64(cluster.BoundingBoxLength) / float64(cluster.BoundingBoxWidth)
-	}
 
 	result, err := db.Exec(query,
 		cluster.SensorID,
@@ -87,8 +75,6 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 		cluster.PointsCount,
 		cluster.HeightP95,
 		cluster.IntensityMean,
-		clusterDensity,
-		aspectRatio,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert cluster: %w", err)
@@ -113,11 +99,8 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 			avg_speed_mps, peak_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model,
-			track_length_meters, track_duration_secs,
-			occlusion_count, max_occlusion_frames,
-			spatial_coverage, noise_point_ratio
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			object_class, object_confidence, classification_model
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(track_id) DO UPDATE SET
 			sensor_id = excluded.sensor_id,
 			world_frame = excluded.world_frame,
@@ -134,13 +117,7 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 			intensity_mean_avg = excluded.intensity_mean_avg,
 			object_class = excluded.object_class,
 			object_confidence = excluded.object_confidence,
-			classification_model = excluded.classification_model,
-			track_length_meters = excluded.track_length_meters,
-			track_duration_secs = excluded.track_duration_secs,
-			occlusion_count = excluded.occlusion_count,
-			max_occlusion_frames = excluded.max_occlusion_frames,
-			spatial_coverage = excluded.spatial_coverage,
-			noise_point_ratio = excluded.noise_point_ratio
+			classification_model = excluded.classification_model
 	`
 
 	// Always set end_unix_nanos to LastUnixNanos for all track states
@@ -165,12 +142,6 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 		nullString(track.ObjectClass),
 		nullFloat32(track.ObjectConfidence),
 		nullString(track.ClassificationModel),
-		track.TrackLengthMeters,
-		track.TrackDurationSecs,
-		track.OcclusionCount,
-		track.MaxOcclusionFrames,
-		track.SpatialCoverage,
-		track.NoisePointRatio,
 	)
 	if err != nil {
 		return fmt.Errorf("insert track: %w", err)
@@ -195,13 +166,7 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 			intensity_mean_avg = ?,
 			object_class = ?,
 			object_confidence = ?,
-			classification_model = ?,
-			track_length_meters = ?,
-			track_duration_secs = ?,
-			occlusion_count = ?,
-			max_occlusion_frames = ?,
-			spatial_coverage = ?,
-			noise_point_ratio = ?
+			classification_model = ?
 		WHERE track_id = ?
 	`
 
@@ -223,12 +188,6 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 		nullString(track.ObjectClass),
 		nullFloat32(track.ObjectConfidence),
 		nullString(track.ClassificationModel),
-		track.TrackLengthMeters,
-		track.TrackDurationSecs,
-		track.OcclusionCount,
-		track.MaxOcclusionFrames,
-		track.SpatialCoverage,
-		track.NoisePointRatio,
 		track.TrackID,
 	)
 	if err != nil {
