@@ -225,8 +225,6 @@ The high-level direction is now clear and should not be reopened:
 
 ## 8. Acceptance Criteria
 
-## 8. Acceptance Criteria
-
 - No track-level public field, proto property, or UI label reuses aggregate
   percentile labels.
 - No raw maximum field is publicly named `peak`; raw maxima are named `max`.
@@ -234,4 +232,5 @@ The high-level direction is now clear and should not be reopened:
 - One documented percentile algorithm exists across radar, LiDAR, and
   reporting.
 - No report summary is derived from prior percentile buckets.
-- API and docs clearly reserve percentiles for grouped/report aggregates only.
+- API and docs clearly reserve percentiles for grouped/report aggregates
+  only.
