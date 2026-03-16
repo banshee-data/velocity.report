@@ -62,7 +62,7 @@ Defer to v0.7 frontend consolidation — [DESIGN §5.7](ui/DESIGN.md), [design r
 
 ### D-14 — Simplification & deprecation scope
 
-Plan confirmed; Phase 1 complete in v0.5, removal in v0.5 — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
+Plan confirmed; Phase 1 complete in v0.5, removal before v0.6.0 — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
 
 ### D-15 — Time-partitioned data tables
 
