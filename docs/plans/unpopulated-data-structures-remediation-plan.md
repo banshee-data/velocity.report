@@ -55,7 +55,7 @@ observability plan §4.
 ### Checklist
 
 - [x] In `CompleteRun()` (`analysis_run.go:463`), call
-      `l6objects.ComputeRunStatistics()` on the run's confirmed tracks and
+      `l6objects.ComputeRunStatistics()` on the run's collected tracks and
       serialise the result to `statistics_json` via `RunStatistics.ToJSON()`.
 - [x] Update the `CompleteRun` SQL to include `statistics_json = ?`.
 - [x] Update `GetRun()` (`analysis_run.go:496`) to read and parse
