@@ -52,7 +52,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](plans/pdf-latex-precompiled-format-plan.md) `M`
 - Single `velocity-report` binary + subcommands — unified CLI with radar/lidar/pdf subcommands — [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script — curl-based installer with automatic platform detection — [design doc](plans/deploy-distribution-packaging-plan.md) `S`
-- macOS app signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts — [design doc](plans/deploy-rpi-imager-fork-plan.md) `S`
+- macOS app signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 - Geometry-coherent tracking (P1 maths, D-04) — spatial consistency in track association — [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Typed UUID prefixes — migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite — [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
