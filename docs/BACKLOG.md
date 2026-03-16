@@ -17,9 +17,10 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.1 (Data Contracts + Layer Foundations)
 
-- [#379] Pipeline mathematical review — end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs `S`
-- [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths `S`
+- [#379] Pipeline mathematical review — end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs — [design doc](plans/lidar-pipeline-mathematical-review-plan.md) `S`
+- [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths — [design doc](plans/data-surface-publication-matrix-audit-plan.md) `S`
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
+- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
 - SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardisation-plan.md) `M`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
@@ -28,9 +29,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.2 (Replay/Runtime Stabilisation)
 
-- [#389] VRLog replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work `S`
-- [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes `S`
-- [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
+- [#389] VRLOG replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
+- [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
+- [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid — [design doc](plans/lidar-dynamic-segmentation-background-regions-plan.md) `M`
 - (#381) SeekToTimestamp diagnostic logging behind debug flag — guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - (#381) VRLOG timestamp index build at load time — build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built — [design doc](../data/structures/VRLOG_FORMAT.md) `S`
 - Visualiser debug overlay + cluster proto follow-through — finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
@@ -41,7 +42,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
-- Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 - Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
 
 ## v0.6 (Deployment & Packaging)
@@ -50,6 +50,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](plans/pdf-latex-precompiled-format-plan.md) `M`
 - Single `velocity-report` binary + subcommands — unified CLI with radar/lidar/pdf subcommands — [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script — curl-based installer with automatic platform detection — [design doc](plans/deploy-distribution-packaging-plan.md) `S`
+- macOS app signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts — [design doc](plans/deploy-rpi-imager-fork-plan.md) `S`
 - Geometry-coherent tracking (P1 maths, D-04) — spatial consistency in track association — [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Typed UUID prefixes — migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite — [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
@@ -63,7 +64,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v0.7 (Unified Frontend)
 
 - (#252) Frontend consolidation (Phases 0–5) — migrate status/regions/sweep to Svelte, retire port 8081 — [design doc](plans/web-frontend-consolidation-plan.md) `L`
-- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - ECharts → LayerChart rewrite (8 charts, D-11) — migrate all radar/lidar charts to Svelte LayerChart — [design doc](ui/DESIGN.md) `L`
 - Frontend decomposition (Svelte stores) — item 13: tracksStore, runsStore, missedRegionStore — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md) `M`
@@ -78,9 +78,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.8 (Radar Polish & Automation)
 
-- (#4) Radar configuration via UI — read and send radar config commands through the web interface `M`
+- (#4) Radar configuration via UI — read and send radar config commands through the web interface — [design doc](radar/architecture/serial-configuration-ui.md) `M`
 - (#323) Speed limit schedules (D-16) — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md) `L`
-- Profile comparison data layer hardening — analysis-run compare APIs + contract stabilization — [design doc](plans/lidar-analysis-run-infrastructure-plan.md) `M`
 - Profile comparison UI delivery — cross-run compare workflow + scene evaluation UX — [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 - PDF generation migration to Go — replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting — [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - Transit deduplication (D-03) — duplicate transit record prevention — [design doc](radar/architecture/transit-deduplication.md) `M`
@@ -89,13 +88,13 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.9.0 (Production-Ready)
 
-- (#8) Data management (backup/archiving) — define backup destinations, read historical archives and rollup SQLite files from remote HTTP location `M`
-- (#122) Database monitoring UI — daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard `M`
-- (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters `M`
+- (#8) Data management (backup/archiving) — define backup destinations, read historical archives and rollup SQLite files from remote HTTP location — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
+- (#122) Database monitoring UI — daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
+- (#148) Report management UI — view, filter, and download old reports and zip files; paginated table with site/date filters — [design doc](plans/production-report-management-ui-plan.md) `M`
 - (#324) Time-partitioned raw data tables — major storage architecture change — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
-- Threshold-based speed alerts — configurable alerting for speed threshold violations `M`
+- Threshold-based speed alerts — configurable alerting for speed threshold violations — [design doc](plans/production-threshold-speed-alerts-plan.md) `M`
 - Test coverage ≥ 95.5% — raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage — [design doc](plans/platform-quality-coverage-improvement-plan.md) `L`
-- Stable public API with versioned endpoints — formal API versioning and stability guarantees — design doc not yet written `M`
+- Stable public API with versioned endpoints — formal API versioning and stability guarantees — [design doc](plans/platform-versioned-public-api-plan.md) `M`
 - Visual regression testing — Playwright baseline screenshots — [design doc](ui/design-review-and-improvement.md) `M`
 - E2E test infrastructure — Playwright smoke tests — [design doc](ui/design-review-and-improvement.md) `M`
 
@@ -105,12 +104,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Velocity-coherent foreground extraction (P2, D-05) — 6D DBSCAN alternative for moving object detection — [proposal](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
 - Unified settling (L3/L4 SettlementCore, P4, D-05) — consolidate L3 background and L4 drift into single settlement core — [proposal](../data/maths/proposals/20260219-unify-l3-l4-settling.md) `L`
 - Geometry-prior local file format (GeoJSON) — local scene geometry configuration via GeoJSON — [design doc](lidar/architecture/vector-scene-map.md) `M`
-- Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — design doc not yet written `M`
+- Data export (CSV, GeoJSON) — export vehicle transits and scene geometry for external analysis — [design doc](plans/vector-scene-data-export-contract-plan.md) `M`
 - Visualiser colour-blind-safe palette (V1) — accessible point cloud/trails/box colours validated for common deficiencies — [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 
 ## v2.0 (Advanced Perception & Connected)
 
-- (#103) Python OpenCV angle extraction — compute radar cosine-correction angle from checkerboard image; Python tool callable from webserver `M`
+- (#103) Python OpenCV angle extraction — compute radar cosine-correction angle from checkerboard image; Python tool callable from webserver — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - (#325) Ground-plane vector-scene maths (P3, D-05) — 3D scene reconstruction with ground-plane constraints — [proposal](../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Visualiser QC programme (Features 1–10) — comprehensive quality control tooling for LiDAR data — [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - Metrics-first data science programme — benchmark packs, scorecards, explicit specs, and reproducible experiment bundles — [plan](plans/platform-data-science-metrics-first-plan.md) `M`
@@ -119,7 +118,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Parameter tuning optimisation (Phase 4.2) — automated hyperparameter search and optimisation — [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
 - Dynamic algorithm selection — runtime algorithm switching based on scene conditions — [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - Bodies in motion — L5 IMM kinematic extensions (CV/CA/CTRV), L7 scene-constrained path prediction, sparse-cluster track linking at range, and scene-graph geometric relations — [design doc](plans/lidar-bodies-in-motion-plan.md) `L`
-- Peak-hour and seasonal trend analysis — temporal pattern detection and analysis `M`
+- Peak-hour and seasonal trend analysis — temporal pattern detection and analysis — [design doc](plans/platform-data-science-metrics-first-plan.md) `M`
 
 ## v∞.0 (Deferred, waybacklog)
 
@@ -176,6 +175,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#356] VRLOG analysis §12.1 metrics — `analyse-vrlog` command with `GenerateReport` and `CompareReports` for implementable-now track quality metrics and distribution statistics — [design doc](../data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md)
 - [#364] Layer dependency hygiene — moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files — [design doc](plans/lidar-layer-dependency-hygiene-plan.md)
 - [#364] LiDAR L2 dual representation — `LiDARFrame` stores both `PolarPoints` and `Points`; pipeline consumes frame-owned polar data directly; per-frame polar rebuild eliminated — [design doc](plans/lidar-l2-dual-representation-plan.md)
+- Profile comparison data layer hardening — analysis-run compare APIs and contract stabilisation implemented; ongoing scope is now UI delivery — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#381] Run-list track-labelling percent icon — backend `label_rollup` contract, macOS segmented green/accent-colour/grey run-browser icon, and immediate in-memory refresh after successful label writes; web runs-list parity deferred — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
 - [#381] v0.5.0 classification label trimming — truck and motorcyclist disabled from classifier cascade, all UIs, and label validation API; proto enum values retained for v0.6+ reactivation — [design doc](plans/label-vocabulary-consolidation-plan.md)
 - [#381] VRLOG protobuf frame storage — `proto_codec.go` with protobuf serialisation for VRLOG frame storage; frame encoding detection on load; macOS replay state management updated — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
