@@ -29,12 +29,17 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Mac APP Release signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 - Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
+- [#379] Pipeline mathematical review — end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs `S`
+- [#389] VRLog replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work `S`
+- [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes `S`
+- [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths `S`
 
 ## v0.5.2 (Debug)
 
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 - Visualiser performance and scene health metrics — timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - Visualiser debug overlay + cluster proto follow-through — finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
+- [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
 
 ## v0.6 (Deployment & Packaging)
 
@@ -50,6 +55,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Config restructure Phase 2 — expose L1 sensor/network and L3 background/foreground constants as tuning params; deprecate CLI flags — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 - L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9endpoints/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
 - `transit-backfill` removal — remove `cmd/transit-backfill` after confirming zero active usage; `velocity-report transits rebuild` is the replacement — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
+- [#382] Distributed sweep workers plan — architecture for parallel sweep execution across multiple cores or nodes `S`
+- [#387] LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis `M`
 
 ## v0.7 (Unified Frontend)
 
@@ -126,7 +133,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
-- [#352] Visualiser track proto parity — branch-local percentile fields not merged; `peak_speed_mps` → `max_speed_mps` rename landed on proto/Go/Swift/TS; SQL column deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#144] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation — `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints) — review doc item 4 — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
@@ -161,13 +167,14 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#336] v0.5.0 breaking changes — proto field 24 rename, AvgSpeedMps removal from visualiser model, deployment deprecation warnings — [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - [#352] PCAP analysis replay hardening — blocking frame channel for zero-drop analysis, speed-mode rename (fastest→analysis, fixed→scaled), SpeedRatio API, per-phase backoff logging with SubLogger, batched track DB writes, disable persistence during analysis runs, replay epoch tracking, FrameBuilder deadlock fix — [design doc](lidar/operations/pcap-analysis-mode.md)
 - [#352] Benchmark mode and runtime profiling — BenchmarkMode toggle for performance tracing, pprof HTTP routes, heap-allocation tracking in health summary — [design doc](plans/lidar-clustering-observability-and-benchmark-plan.md)
+- [#352] Visualiser track proto parity — branch-local percentile fields not merged; `peak_speed_mps` → `max_speed_mps` rename landed on proto/Go/Swift/TS; SQL column deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#352] Occlusion aggregate metrics — per-frame occlusion stats in TrackingMetrics and sweep pipeline; speed_ratio sweep variable; dashboard exposure — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md)
 - [#352] Proto `peak_speed_mps` → `max_speed_mps` rename (D-19) — proto field 25, Go/Swift/TS model rename, regenerated bindings; SQL column deferred to migration 000030 — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#356] VRLOG analysis §12.1 metrics — `analyse-vrlog` command with `GenerateReport` and `CompareReports` for implementable-now track quality metrics and distribution statistics — [design doc](../data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md)
 - [#364] Layer dependency hygiene — moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files — [design doc](plans/lidar-layer-dependency-hygiene-plan.md)
 - [#364] LiDAR L2 dual representation — `LiDARFrame` stores both `PolarPoints` and `Points`; pipeline consumes frame-owned polar data directly; per-frame polar rebuild eliminated — [design doc](plans/lidar-l2-dual-representation-plan.md)
-- Run-list track-labelling percent icon — backend `label_rollup` contract, macOS segmented green/accent-colour/grey run-browser icon, and immediate in-memory refresh after successful label writes; web runs-list parity deferred — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
-- v0.5.0 classification label trimming — truck and motorcyclist disabled from classifier cascade, all UIs, and label validation API; proto enum values retained for v0.6+ reactivation — [design doc](plans/label-vocabulary-consolidation-plan.md)
-- VRLOG protobuf frame storage — `proto_codec.go` with protobuf serialisation for VRLOG frame storage; frame encoding detection on load; macOS replay state management updated — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
-- `FrameTypeEmpty` and deterministic recording guarantee — `FrameTypeEmpty` (value 4) for sensor rotations with no foreground objects; blocking frame channel ensures 1:1 PCAP-to-VRLOG mapping; throttle-safe recording — [design doc](../data/structures/VRLOG_FORMAT.md)
-- macOS visualiser replay enhancements — seekable VRLOG replay with `seekToTimestamp`, frame stepping, UI throttling, background frame skipping, frame coalescing, performance tracing, and replay epoch tracking — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
+- [#381] Run-list track-labelling percent icon — backend `label_rollup` contract, macOS segmented green/accent-colour/grey run-browser icon, and immediate in-memory refresh after successful label writes; web runs-list parity deferred — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
+- [#381] v0.5.0 classification label trimming — truck and motorcyclist disabled from classifier cascade, all UIs, and label validation API; proto enum values retained for v0.6+ reactivation — [design doc](plans/label-vocabulary-consolidation-plan.md)
+- [#381] VRLOG protobuf frame storage — `proto_codec.go` with protobuf serialisation for VRLOG frame storage; frame encoding detection on load; macOS replay state management updated — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#352] `FrameTypeEmpty` and deterministic recording guarantee — `FrameTypeEmpty` (value 4) for sensor rotations with no foreground objects; blocking frame channel ensures 1:1 PCAP-to-VRLOG mapping; throttle-safe recording — [design doc](../data/structures/VRLOG_FORMAT.md)
+- [#381] macOS visualiser replay enhancements — seekable VRLOG replay with `seekToTimestamp`, frame stepping, UI throttling, background frame skipping, frame coalescing, performance tracing, and replay epoch tracking — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
