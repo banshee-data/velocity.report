@@ -27,10 +27,10 @@ Single migration (000030) that:
 
 Schema audit (March 2026) found two categories of waste in the track tables:
 
-| Category               | Columns                                                                  | Status                                                                    |
-| ---------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Category               | Columns                                                                 | Status                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | **Dead columns**       | `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` on `lidar_tracks`     | Never selected; Go code no longer writes them                             |
-| **Naming mismatch**    | `peak_speed_mps` on both tables                                          | Radar uses `max_speed`; D-19 already decided rename                       |
+| **Naming mismatch**    | `peak_speed_mps` on both tables                                         | Radar uses `max_speed`; D-19 already decided rename                       |
 | **Misapplied concept** | `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` on `lidar_run_tracks` | Stored and returned via API but no downstream consumer computes with them |
 
 Per-track percentiles are the wrong abstraction (see speed-percentile plan §1):

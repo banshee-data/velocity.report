@@ -324,10 +324,10 @@ Phase 7 (percentile removal / migration 030)
 
 ## Risk Register
 
-| Risk | Mitigation |
-| ----------------------------------------- | ----------------------------------------- |
-| `statistics_json` bloats DB for large runs | JSON is < 1 KB; negligible |
-| Track quality writes increase per-frame DB load | 6 extra columns in an existing UPDATE; ~µs overhead per frame |
-| Training export returns very large responses | Add pagination / streaming; apply `TrackTrainingFilter` by default |
-| Backward compatibility on API changes | All new fields are additive (not removing existing fields); `omitempty` for optional |
-| Cluster quality computation depends on noise threshold definition | Use existing `NoisePointRatio` threshold from config |
+| Risk                                                              | Mitigation                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `statistics_json` bloats DB for large runs                        | JSON is < 1 KB; negligible                                                           |
+| Track quality writes increase per-frame DB load                   | 6 extra columns in an existing UPDATE; ~µs overhead per frame                        |
+| Training export returns very large responses                      | Add pagination / streaming; apply `TrackTrainingFilter` by default                   |
+| Backward compatibility on API changes                             | All new fields are additive (not removing existing fields); `omitempty` for optional |
+| Cluster quality computation depends on noise threshold definition | Use existing `NoisePointRatio` threshold from config                                 |

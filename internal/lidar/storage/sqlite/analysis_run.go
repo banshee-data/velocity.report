@@ -38,8 +38,8 @@ type AnalysisRun struct {
 	ErrorMessage     string          `json:"error_message,omitempty"`
 	ParentRunID      string          `json:"parent_run_id,omitempty"`
 	Notes            string          `json:"notes,omitempty"`
-	VRLogPath        string          `json:"vrlog_path,omitempty"`        // Path to VRLOG recording for replay
-	StatisticsJSON   json.RawMessage `json:"statistics_json,omitempty"`   // Serialised RunStatistics from l6objects
+	VRLogPath        string          `json:"vrlog_path,omitempty"`      // Path to VRLOG recording for replay
+	StatisticsJSON   json.RawMessage `json:"statistics_json,omitempty"` // Serialised RunStatistics from l6objects
 
 	// Derived fields (not persisted in DB, computed on retrieval)
 	SceneName   string          `json:"scene_name,omitempty"`   // Derived from SourcePath filename

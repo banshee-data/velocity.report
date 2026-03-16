@@ -59,20 +59,20 @@ like `height_p95` or latency `p95`.
 
 ## 3. Current State Inventory
 
-| Surface                                                                     | Current state                                                                                                                | Status                                              |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `internal/lidar/l6objects` + `internal/lidar/storage/sqlite/track_store.go` | `InsertTrack()`/`UpdateTrack()` no longer write percentile columns. `MaxSpeedMps` used everywhere in Go.                     | ✅ Aligned (SQL column still says `peak_speed_mps`) |
-| Visualiser proto/adapter                                                    | Proto uses `max_speed_mps`. Visualiser model has backward-compat shim for legacy `PeakSpeedMps` JSON.                        | ✅ Aligned                                          |
-| `internal/lidar/monitor/track_api.go` per-track REST                        | Individual track JSON uses `max_speed_mps`. No per-track percentile fields exposed.                                          | ✅ Aligned                                          |
-| `internal/lidar/monitor/track_api.go` summary REST                          | Summary payloads use `max_speed_mps`. No per-track percentile fields.                                                        | ✅ Aligned                                          |
-| `internal/api/server.go` + `internal/db/db.go` radar stats rollups          | Query-time `p50/p85/p98` are computed from raw speed rows in each bucket. This is the right aggregation level.               | ✅ Keep                                             |
-| `tools/pdf-generator/pdf_generator/cli/main.py` main report path           | Overall and daily summaries are fetched from API `group=all` / `group=24h`, so an aggregate-only path already exists.        | ✅ Keep                                             |
-| `tools/pdf-generator/pdf_generator/cli/main.py` fallback helpers           | `derive_overall_from_granular()` and `derive_daily_from_granular()` derive summaries from earlier bucket percentiles.        | ⚠️ Remove (Phase 4)                                |
-| DB schema (`lidar_tracks`, `lidar_run_tracks`)                              | Still have `peak_speed_mps` column name and `p50/p85/p95_speed_mps` columns.                                                | ⚠️ Migration 000030 needed                         |
-| `cmd/tools/pcap-analyse`                                                    | `SpeedStatistics` computes P50/P85/P95 over a population of track max speeds (correct usage), but uses `p95` not `p98`.     | ⚠️ Rename to `p98` (Phase 3)                       |
-| `l6objects/classification.go` `ComputeSpeedPercentiles()`                   | Internal-only for classifier feature extraction. Not stored or exposed via API.                                              | ✅ Keep as internal                                 |
-| `l6objects/features.go` `TrackFeatures.SpeedP50/P85/P95`                    | ML feature vector fields for training data export. Not stored in DB.                                                         | ✅ Keep as internal                                 |
-| Planning/docs surface                                                       | Plans updated to reflect aggregate-only direction. `BACKEND_SURFACE_MATRIX.md` marks per-track percentiles as design debt.   | ✅ Aligned                                          |
+| Surface                                                                     | Current state                                                                                                              | Status                                              |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `internal/lidar/l6objects` + `internal/lidar/storage/sqlite/track_store.go` | `InsertTrack()`/`UpdateTrack()` no longer write percentile columns. `MaxSpeedMps` used everywhere in Go.                   | ✅ Aligned (SQL column still says `peak_speed_mps`) |
+| Visualiser proto/adapter                                                    | Proto uses `max_speed_mps`. Visualiser model has backward-compat shim for legacy `PeakSpeedMps` JSON.                      | ✅ Aligned                                          |
+| `internal/lidar/monitor/track_api.go` per-track REST                        | Individual track JSON uses `max_speed_mps`. No per-track percentile fields exposed.                                        | ✅ Aligned                                          |
+| `internal/lidar/monitor/track_api.go` summary REST                          | Summary payloads use `max_speed_mps`. No per-track percentile fields.                                                      | ✅ Aligned                                          |
+| `internal/api/server.go` + `internal/db/db.go` radar stats rollups          | Query-time `p50/p85/p98` are computed from raw speed rows in each bucket. This is the right aggregation level.             | ✅ Keep                                             |
+| `tools/pdf-generator/pdf_generator/cli/main.py` main report path            | Overall and daily summaries are fetched from API `group=all` / `group=24h`, so an aggregate-only path already exists.      | ✅ Keep                                             |
+| `tools/pdf-generator/pdf_generator/cli/main.py` fallback helpers            | `derive_overall_from_granular()` and `derive_daily_from_granular()` derive summaries from earlier bucket percentiles.      | ⚠️ Remove (Phase 4)                                 |
+| DB schema (`lidar_tracks`, `lidar_run_tracks`)                              | Still have `peak_speed_mps` column name and `p50/p85/p95_speed_mps` columns.                                               | ⚠️ Migration 000030 needed                          |
+| `cmd/tools/pcap-analyse`                                                    | `SpeedStatistics` computes P50/P85/P95 over a population of track max speeds (correct usage), but uses `p95` not `p98`.    | ⚠️ Rename to `p98` (Phase 3)                        |
+| `l6objects/classification.go` `ComputeSpeedPercentiles()`                   | Internal-only for classifier feature extraction. Not stored or exposed via API.                                            | ✅ Keep as internal                                 |
+| `l6objects/features.go` `TrackFeatures.SpeedP50/P85/P95`                    | ML feature vector fields for training data export. Not stored in DB.                                                       | ✅ Keep as internal                                 |
+| Planning/docs surface                                                       | Plans updated to reflect aggregate-only direction. `BACKEND_SURFACE_MATRIX.md` marks per-track percentiles as design debt. | ✅ Aligned                                          |
 
 ## 4. Decisions Already Settled
 
@@ -191,37 +191,37 @@ The high-level direction is now clear and should not be reopened:
 
 ### ✅ Already aligned
 
-| Surface                          | Status                                       |
-| -------------------------------- | -------------------------------------------- |
-| Proto (`visualiser.proto`)       | `max_speed_mps`, no percentile fields        |
-| REST API (`track_api.go`)        | `max_speed_mps`, no per-track percentiles    |
-| TypeScript types (`lidar.ts`)    | No per-track percentile fields               |
-| Go struct (`TrackedObject`)      | `MaxSpeedMps` field                          |
-| Go struct (`RunTrack`)           | `MaxSpeedMps` field                          |
-| Aggregate report (`report.go`)   | Population-level p50/p85/p98 over max speeds |
-| PDF generator                    | P50/P85/P98 aggregate stats, correct usage   |
-| Web charts (`+page.svelte`)      | P50/P85/P98/Max aggregate display            |
+| Surface                        | Status                                       |
+| ------------------------------ | -------------------------------------------- |
+| Proto (`visualiser.proto`)     | `max_speed_mps`, no percentile fields        |
+| REST API (`track_api.go`)      | `max_speed_mps`, no per-track percentiles    |
+| TypeScript types (`lidar.ts`)  | No per-track percentile fields               |
+| Go struct (`TrackedObject`)    | `MaxSpeedMps` field                          |
+| Go struct (`RunTrack`)         | `MaxSpeedMps` field                          |
+| Aggregate report (`report.go`) | Population-level p50/p85/p98 over max speeds |
+| PDF generator                  | P50/P85/P98 aggregate stats, correct usage   |
+| Web charts (`+page.svelte`)    | P50/P85/P98/Max aggregate display            |
 
 ### ⚠️ Needs migration 000030 (v0.5.x)
 
-| Surface                                              | Issue                                                    |
-| ---------------------------------------------------- | -------------------------------------------------------- |
-| `lidar_tracks` schema                                | `peak_speed_mps` column name, 3 dead percentile columns |
-| `lidar_run_tracks` schema                            | `peak_speed_mps` column name, 3 percentile columns      |
-| `schema.sql`                                         | Matches current schema — needs post-migration update     |
-| `track_store.go` SQL strings                         | `peak_speed_mps` in INSERT/UPDATE/SELECT                 |
-| `analysis_run.go` SQL strings                        | `peak_speed_mps`, percentile columns in SQL              |
-| Test fixtures (`coverage_boost_test.go` etc.)        | Reference `peak_speed_mps` and percentile columns        |
-| `pcap-analyse` `computeSpeedStats()`                 | Uses `P95` instead of `P98` for high-end percentile      |
-| `pcap-analyse` `SpeedStatistics` JSON tags           | `p50_speed_mps` etc. — ambiguous naming                  |
+| Surface                                       | Issue                                                   |
+| --------------------------------------------- | ------------------------------------------------------- |
+| `lidar_tracks` schema                         | `peak_speed_mps` column name, 3 dead percentile columns |
+| `lidar_run_tracks` schema                     | `peak_speed_mps` column name, 3 percentile columns      |
+| `schema.sql`                                  | Matches current schema — needs post-migration update    |
+| `track_store.go` SQL strings                  | `peak_speed_mps` in INSERT/UPDATE/SELECT                |
+| `analysis_run.go` SQL strings                 | `peak_speed_mps`, percentile columns in SQL             |
+| Test fixtures (`coverage_boost_test.go` etc.) | Reference `peak_speed_mps` and percentile columns       |
+| `pcap-analyse` `computeSpeedStats()`          | Uses `P95` instead of `P98` for high-end percentile     |
+| `pcap-analyse` `SpeedStatistics` JSON tags    | `p50_speed_mps` etc. — ambiguous naming                 |
 
 ### ✅ Correct internal use (keep)
 
-| Surface                                      | Rationale                                              |
-| -------------------------------------------- | ------------------------------------------------------ |
-| `ComputeSpeedPercentiles()` in l6objects      | Used for classifier feature extraction, not stored     |
-| `TrackFeatures.SpeedP50/P85/P95`              | ML feature vector fields, not DB columns or API fields |
-| `ClassificationFeatures.P50Speed/P85Speed`   | Internal classifier decision inputs, not public API    |
+| Surface                                    | Rationale                                              |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `ComputeSpeedPercentiles()` in l6objects   | Used for classifier feature extraction, not stored     |
+| `TrackFeatures.SpeedP50/P85/P95`           | ML feature vector fields, not DB columns or API fields |
+| `ClassificationFeatures.P50Speed/P85Speed` | Internal classifier decision inputs, not public API    |
 
 ## 8. Acceptance Criteria
 
