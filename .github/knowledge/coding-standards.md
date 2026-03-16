@@ -70,6 +70,16 @@ When changing functionality, update **all** relevant docs:
 - `ARCHITECTURE.md` for system design changes
 - `public_html/src/guides/setup.md` for user-facing setup instructions
 
+## Documentation Metadata
+
+Header metadata in Markdown docs uses the canonical bullet-list format:
+
+```
+- **Key:** value
+```
+
+**No date metadata.** Keys like `Created`, `Date`, `Last Updated`, and `Original Design Date` must not appear in header metadata. Dates go stale immediately and duplicate information already available via `git log` / `git blame`. The linter (`scripts/check-doc-header-metadata.py`) enforces this and the weekly lint-autofix workflow removes any that slip through.
+
 ## Formatting
 
 Code formatting is automated. Run `make format` before committing. Per-language:
