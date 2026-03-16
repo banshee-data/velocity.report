@@ -61,23 +61,23 @@ Target: 2 workers initially, architecture supports N.
 
 **Key interfaces (already exist):**
 
-| Interface | File | Purpose |
-|-----------|------|---------|
-| `SweepBackend` | `internal/lidar/sweep/backend.go` | Abstracts sensor/grid/PCAP operations |
-| `SweepPersister` | `internal/lidar/sweep/runner.go:125` | Persists sweep lifecycle to SQLite |
-| `SweepRunner` | `internal/lidar/monitor/sweep_handlers.go:16` | Monitor-layer abstraction (avoids import cycle) |
-| `monitor.Client` | `internal/lidar/monitor/client.go` | HTTP implementation of `SweepBackend` |
-| `monitor.DirectBackend` | `internal/lidar/monitor/direct_backend.go` | In-process implementation of `SweepBackend` |
+| Interface               | File                                          | Purpose                                         |
+| ----------------------- | --------------------------------------------- | ----------------------------------------------- |
+| `SweepBackend`          | `internal/lidar/sweep/backend.go`             | Abstracts sensor/grid/PCAP operations           |
+| `SweepPersister`        | `internal/lidar/sweep/runner.go:125`          | Persists sweep lifecycle to SQLite              |
+| `SweepRunner`           | `internal/lidar/monitor/sweep_handlers.go:16` | Monitor-layer abstraction (avoids import cycle) |
+| `monitor.Client`        | `internal/lidar/monitor/client.go`            | HTTP implementation of `SweepBackend`           |
+| `monitor.DirectBackend` | `internal/lidar/monitor/direct_backend.go`    | In-process implementation of `SweepBackend`     |
 
 **Key types (already exist):**
 
-| Type | Purpose |
-|------|---------|
-| `SweepRequest` | Defines parameters, data source, sampling config |
-| `SweepParam` | Single parameter dimension (name, type, values/range) |
-| `SweepState` | Status, progress, results array |
-| `ComboResult` | Metrics from one parameter combination |
-| `PCAPReplayConfig` | PCAP file, start/duration, speed mode |
+| Type               | Purpose                                               |
+| ------------------ | ----------------------------------------------------- |
+| `SweepRequest`     | Defines parameters, data source, sampling config      |
+| `SweepParam`       | Single parameter dimension (name, type, values/range) |
+| `SweepState`       | Status, progress, results array                       |
+| `ComboResult`      | Metrics from one parameter combination                |
+| `PCAPReplayConfig` | PCAP file, start/duration, speed mode                 |
 
 ## Target Architecture
 
@@ -164,18 +164,18 @@ velocity-report --worker \
 
 ### Worker HTTP Surface (port 8082)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/health` | Liveness check (uptime, version, disk space) |
-| `GET` | `/status` | Current state: idle, running, job ID, progress |
-| `GET` | `/jobs` | List recent jobs (last 50) with status and timing |
-| `GET` | `/jobs/{job_id}` | Single job detail including results if complete |
-| `GET` | `/jobs/{job_id}/results` | Retrieve cached results for a completed job |
-| `POST` | `/jobs/{job_id}/confirm` | Driver confirms result retrieval; flags for cleanup |
-| `POST` | `/jobs/submit` | Driver submits a job (combos + sweep config) |
-| `POST` | `/jobs/check` | Pre-flight: validate PCAP readable, process 1 frame, stop |
-| `POST` | `/jobs/{job_id}/cancel` | Cancel a running job |
-| `GET` | `/failures` | List past job failures with error details |
+| Method | Path                     | Purpose                                                   |
+| ------ | ------------------------ | --------------------------------------------------------- |
+| `GET`  | `/health`                | Liveness check (uptime, version, disk space)              |
+| `GET`  | `/status`                | Current state: idle, running, job ID, progress            |
+| `GET`  | `/jobs`                  | List recent jobs (last 50) with status and timing         |
+| `GET`  | `/jobs/{job_id}`         | Single job detail including results if complete           |
+| `GET`  | `/jobs/{job_id}/results` | Retrieve cached results for a completed job               |
+| `POST` | `/jobs/{job_id}/confirm` | Driver confirms result retrieval; flags for cleanup       |
+| `POST` | `/jobs/submit`           | Driver submits a job (combos + sweep config)              |
+| `POST` | `/jobs/check`            | Pre-flight: validate PCAP readable, process 1 frame, stop |
+| `POST` | `/jobs/{job_id}/cancel`  | Cancel a running job                                      |
+| `GET`  | `/failures`              | List past job failures with error details                 |
 
 ### Pre-Flight Validation (`/jobs/check`)
 
@@ -314,22 +314,22 @@ type CheckResult struct {
 
 **Job lifecycle (under existing :8080 API):**
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `POST` | `/api/lidar/sweep/start` | Extended: accepts optional `target` field ("server" or worker ID) |
-| `GET` | `/api/sweep/jobs/{sweep_id}` | Get all jobs for a sweep |
-| `GET` | `/api/sweep/jobs/{sweep_id}/status` | Aggregated sweep progress |
+| Method | Path                                | Purpose                                                           |
+| ------ | ----------------------------------- | ----------------------------------------------------------------- |
+| `POST` | `/api/lidar/sweep/start`            | Extended: accepts optional `target` field ("server" or worker ID) |
+| `GET`  | `/api/sweep/jobs/{sweep_id}`        | Get all jobs for a sweep                                          |
+| `GET`  | `/api/sweep/jobs/{sweep_id}/status` | Aggregated sweep progress                                         |
 
 **Worker server CRUD (Settings):**
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/api/sweep/workers` | List configured worker servers |
-| `GET` | `/api/sweep/workers/{worker_id}` | Get single worker server |
-| `POST` | `/api/sweep/workers` | Create a worker server entry |
-| `PUT` | `/api/sweep/workers/{worker_id}` | Update a worker server entry |
-| `DELETE` | `/api/sweep/workers/{worker_id}` | Delete a worker server entry |
-| `POST` | `/api/sweep/workers/{worker_id}/test` | Test connectivity + run pre-flight check |
+| Method   | Path                                  | Purpose                                  |
+| -------- | ------------------------------------- | ---------------------------------------- |
+| `GET`    | `/api/sweep/workers`                  | List configured worker servers           |
+| `GET`    | `/api/sweep/workers/{worker_id}`      | Get single worker server                 |
+| `POST`   | `/api/sweep/workers`                  | Create a worker server entry             |
+| `PUT`    | `/api/sweep/workers/{worker_id}`      | Update a worker server entry             |
+| `DELETE` | `/api/sweep/workers/{worker_id}`      | Delete a worker server entry             |
+| `POST`   | `/api/sweep/workers/{worker_id}/test` | Test connectivity + run pre-flight check |
 
 ### Worker Endpoints (port 8082)
 
@@ -337,16 +337,16 @@ See [Worker HTTP Surface](#worker-http-surface-port-8082) above.
 
 ## Failure Registry
 
-| Component | Failure Mode | Detection | Recovery |
-|-----------|-------------|-----------|----------|
-| Worker process | Crash during combo execution | Heartbeat timeout (configurable, default 60 s) | Driver marks job `failed`, re-queues combos |
-| Shared filesystem | NFS/SMB mount lost | Worker PCAP open fails / check_job fails | Job fails with filesystem error; driver reports to user |
-| Driver process | Crash mid-sweep | On restart, reads `lidar_sweep_jobs` | Resume: re-queue incomplete jobs, merge completed results |
-| Network partition | Worker cannot reach driver | Driver poll fails | Driver retries; worker holds results in local cache |
-| Result retrieval | Driver crashes before confirming | Worker retains cached results | Driver re-fetches on restart; worker does not delete unconfirmed results |
-| SQLite contention | Concurrent writes from driver | WAL mode + retry | Already handled by existing SQLite configuration |
-| Combo execution | PCAP replay timeout | Existing `WaitForPCAPComplete` timeout | Job marked failed with error detail; driver re-queues |
-| Config invalid | Bad params or corrupt PCAP | `check_job` pre-flight fails | Job never starts; error shown to user immediately |
+| Component         | Failure Mode                     | Detection                                      | Recovery                                                                 |
+| ----------------- | -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
+| Worker process    | Crash during combo execution     | Heartbeat timeout (configurable, default 60 s) | Driver marks job `failed`, re-queues combos                              |
+| Shared filesystem | NFS/SMB mount lost               | Worker PCAP open fails / check_job fails       | Job fails with filesystem error; driver reports to user                  |
+| Driver process    | Crash mid-sweep                  | On restart, reads `lidar_sweep_jobs`           | Resume: re-queue incomplete jobs, merge completed results                |
+| Network partition | Worker cannot reach driver       | Driver poll fails                              | Driver retries; worker holds results in local cache                      |
+| Result retrieval  | Driver crashes before confirming | Worker retains cached results                  | Driver re-fetches on restart; worker does not delete unconfirmed results |
+| SQLite contention | Concurrent writes from driver    | WAL mode + retry                               | Already handled by existing SQLite configuration                         |
+| Combo execution   | PCAP replay timeout              | Existing `WaitForPCAPComplete` timeout         | Job marked failed with error detail; driver re-queues                    |
+| Config invalid    | Bad params or corrupt PCAP       | `check_job` pre-flight fails                   | Job never starts; error shown to user immediately                        |
 
 ## Phased Rollout
 
