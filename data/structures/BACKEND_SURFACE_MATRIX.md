@@ -48,7 +48,8 @@ visualiser via gRPC).
 
 ## 2. HTTP API Endpoints — LiDAR Monitor
 
-**Source:** `internal/lidar/monitor/webserver.go`, `track_api.go`, `run_track_api.go`, `internal/api/lidar_labels.go`
+**Source:** `internal/lidar/monitor/webserver.go`, `track_api.go`, `run_track_api.go`, `internal/api/lidar_labels.go`\
+**Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift` (HTTP, not gRPC)
 
 | Layer          | File               | Endpoint                                        | DB  | Web | PDF | Mac |
 | -------------- | ------------------ | ----------------------------------------------- | --- | --- | --- | --- |
@@ -71,7 +72,7 @@ visualiser via gRPC).
 | Sweep          | `webserver.go`     | `GET /api/lidar/sweep/status`                   | ✅  | ✅  | —   | —   |
 | Sweep          | `webserver.go`     | `POST /api/lidar/sweep/stop`                    | ✅  | ✅  | —   | —   |
 | Sweep          | `webserver.go`     | `GET /api/lidar/sweep/explain/`                 | —   | ✅  | —   | —   |
-| Auto-tune      | `webserver.go`     | `GET /api/lidar/sweep/auto`                     | —   | ✅  | —   | —   |
+| Auto-tune      | `webserver.go`     | `GET/POST /api/lidar/sweep/auto`                | —   | ✅  | —   | —   |
 | Auto-tune      | `webserver.go`     | `POST /api/lidar/sweep/auto/stop`               | —   | ✅  | —   | —   |
 | Auto-tune      | `webserver.go`     | `POST /api/lidar/sweep/auto/suspend`            | —   | ✅  | —   | —   |
 | Auto-tune      | `webserver.go`     | `POST /api/lidar/sweep/auto/resume`             | —   | ✅  | —   | —   |
@@ -89,13 +90,13 @@ visualiser via gRPC).
 | PCAP           | `webserver.go`     | `POST /api/lidar/pcap/stop`                     | —   | ✅  | —   | —   |
 | PCAP           | `webserver.go`     | `POST /api/lidar/pcap/resume_live`              | —   | ✅  | —   | —   |
 | PCAP           | `webserver.go`     | `GET /api/lidar/pcap/files`                     | —   | ✅  | —   | —   |
-| Playback       | `webserver.go`     | `GET /api/lidar/playback/status`                | —   | ✅  | —   | —   |
+| Playback       | `webserver.go`     | `GET /api/lidar/playback/status`                | —   | ✅  | —   | ✅  |
 | Playback       | `webserver.go`     | `POST /api/lidar/playback/pause`                | —   | ✅  | —   | —   |
 | Playback       | `webserver.go`     | `POST /api/lidar/playback/play`                 | —   | ✅  | —   | —   |
 | Playback       | `webserver.go`     | `POST /api/lidar/playback/seek`                 | —   | ✅  | —   | —   |
 | Playback       | `webserver.go`     | `POST /api/lidar/playback/rate`                 | —   | ✅  | —   | —   |
-| Playback       | `webserver.go`     | `POST /api/lidar/vrlog/load`                    | —   | ✅  | —   | —   |
-| Playback       | `webserver.go`     | `POST /api/lidar/vrlog/stop`                    | —   | ✅  | —   | —   |
+| Playback       | `webserver.go`     | `POST /api/lidar/vrlog/load`                    | —   | ✅  | —   | ✅  |
+| Playback       | `webserver.go`     | `POST /api/lidar/vrlog/stop`                    | —   | ✅  | —   | ✅  |
 | Charts         | `webserver.go`     | `GET /api/lidar/chart/polar`                    | —   | ✅  | —   | —   |
 | Charts         | `webserver.go`     | `GET /api/lidar/chart/heatmap`                  | —   | ✅  | —   | —   |
 | Charts         | `webserver.go`     | `GET /api/lidar/chart/foreground`               | —   | ✅  | —   | —   |
@@ -110,17 +111,23 @@ visualiser via gRPC).
 | Tracks         | `track_api.go`     | `GET /api/lidar/tracks/metrics`                 | —   | ✅  | —   | —   |
 | Clusters       | `track_api.go`     | `GET /api/lidar/clusters`                       | ✅  | ✅  | —   | —   |
 | Observations   | `track_api.go`     | `GET /api/lidar/observations`                   | ✅  | ✅  | —   | —   |
-| Runs           | `run_track_api.go` | `GET/POST/DEL /api/lidar/runs/`                 | ✅  | ✅  | —   | —   |
-| Runs           | `run_track_api.go` | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | ✅  | —   | —   |
+| Runs           | `run_track_api.go` | `GET/POST/DEL /api/lidar/runs/`                 | ✅  | ✅  | —   | ✅  |
+| Runs           | `run_track_api.go` | `GET /api/lidar/runs/{id}/tracks`               | ✅  | ✅  | —   | ✅  |
+| Runs           | `run_track_api.go` | `GET/DEL /api/lidar/runs/{id}/tracks/{tid}`     | ✅  | ✅  | —   | ✅  |
+| Runs           | `run_track_api.go` | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | ✅  | —   | ✅  |
 | Runs           | `run_track_api.go` | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | ✅  | —   | —   |
 | Runs           | `run_track_api.go` | `GET /api/lidar/runs/{id}/compare/{other}`      | 📋  | 📋  | —   | —   |
-| Labels         | `lidar_labels.go`  | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | —   | —   |
-| Labels         | `lidar_labels.go`  | `GET/PUT/DEL /api/lidar/labels/{id}`            | ✅  | ✅  | —   | —   |
-| Labels         | `lidar_labels.go`  | `GET /api/lidar/labels/export`                  | ✅  | ✅  | —   | —   |
+| Runs           | `run_track_api.go` | `GET /api/lidar/runs/{id}/labelling-progress`   | ✅  | ✅  | —   | ✅  |
+| Labels         | `lidar_labels.go`  | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | —   | ✅  |
+| Labels         | `lidar_labels.go`  | `GET/PUT/DEL /api/lidar/labels/{id}`            | ✅  | ✅  | —   | ✅  |
+| Labels         | `lidar_labels.go`  | `GET /api/lidar/labels/export`                  | ✅  | ✅  | —   | ✅  |
 | Scenes         | `webserver.go`     | `GET/POST /api/lidar/scenes`                    | ✅  | ✅  | —   | —   |
 | Scenes         | `webserver.go`     | `GET/PUT/DEL /api/lidar/scenes/{id}`            | ✅  | ✅  | —   | —   |
 | Missed regions | `webserver.go`     | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | —   | —   |
 | Missed regions | `webserver.go`     | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | ✅  | —   | —   |
+| Sweep history  | `webserver.go`     | `GET /api/lidar/sweeps`                         | ✅  | ✅  | —   | —   |
+| Sweep history  | `webserver.go`     | `GET /api/lidar/sweeps/{id}`                    | ✅  | ✅  | —   | —   |
+| Sweep history  | `webserver.go`     | `PUT /api/lidar/sweeps/charts`                  | ✅  | ✅  | —   | —   |
 | Destructive    | `webserver.go`     | `POST /api/lidar/tracks/clear`                  | ✅  | ✅  | —   | —   |
 | Destructive    | `webserver.go`     | `POST /api/lidar/runs/clear`                    | ✅  | ✅  | —   | —   |
 
@@ -479,7 +486,7 @@ visualiser via gRPC).
 | `internal/lidar/l4perception` | `dbscan.go`        | L4 Clustering (DBSCAN → world clusters)    | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks`     | `tracking.go`      | L5 Tracking (Kalman → tracked objects)     | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks`     | `tracking.go`      | L5 TrackingMetrics (fragmentation, jitter) | —   | 🔶  | —   | —   |
-| `internal/lidar/l6eval`       | `evaluator.go`     | L6 Evaluation (quality metrics)            | ✅  | ✅  | —   | —   |
+| `internal/lidar/adapters`     | `ground_truth.go`  | L6 Evaluation (quality metrics)            | ✅  | ✅  | —   | —   |
 | `internal/lidar/l6objects`    | `quality.go`       | L6 RunStatistics (12 fields)               | 📋  | 📋  | —   | —   |
 | `internal/lidar/l6objects`    | `quality.go`       | L6 TrackQualityMetrics (8 fields)          | ✅  | 📋  | —   | —   |
 | `internal/lidar/l6objects`    | `quality.go`       | L6 NoiseCoverageMetrics (7 fields)         | 📋  | 📋  | —   | —   |
@@ -502,7 +509,7 @@ endpoint, and no export path.
 | `internal/lidar/l6objects` | `features.go`   | `ClusterFeatures` (10 features)     | —   | —   | —   | —   | Used in-memory by classifier                                                  |
 | `internal/lidar/l3grid`    | `foreground.go` | `FrameMetrics` (5 fields)           | 📋  | 📋  | —   | —   | Transient; [HINT plan C1](../../docs/plans/hint-metric-observability-plan.md) |
 | `internal/lidar/l5tracks`  | `tracking.go`   | `TrackAlignmentMetrics` (per-track) | 📋  | 📋  | —   | —   | [HINT plan D2](../../docs/plans/hint-metric-observability-plan.md)            |
-| `internal/lidar/sweep`     | `runner.go`     | `ComboResult` (36 fields)           | 🔶  | 🔶  | —   | —   | Only `BestScore` persisted                                                    |
+| `internal/lidar/sweep`     | `runner.go`     | `ComboResult` (32 fields)           | 🔶  | 🔶  | —   | —   | Only `BestScore` persisted                                                    |
 
 ---
 
@@ -654,16 +661,19 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 
 ## 16. cmd/ Entry Points
 
-| Binary              | Location                              | Consumers                                    |
-| ------------------- | ------------------------------------- | -------------------------------------------- |
-| `velocity-report`   | `cmd/radar/radar.go`                  | Full server: API, DB, serial, LiDAR pipeline |
-| `velocity-sweep`    | `cmd/sweep/main.go`                   | LiDAR monitor, sweep engine, PCAP replay     |
-| `velocity-deploy`   | `cmd/deploy/main.go`                  | Deployment: install, upgrade, backup         |
-| `transit-backfill`  | `cmd/transit-backfill/main.go`        | DB: TransitWorker backfill                   |
-| `gen-vrlog`         | `cmd/tools/gen-vrlog/main.go`         | Synthetic VRLOG generation (no DB)           |
-| `vrlog-analyse`     | `cmd/tools/vrlog-analyse/main.go`     | VRLOG file analysis and comparison           |
-| `visualiser-server` | `cmd/tools/visualiser-server/main.go` | Standalone gRPC (synthetic/replay/live)      |
-| `settling-eval`     | `cmd/tools/settling-eval/main.go`     | Background grid settling evaluation          |
+| Binary                | Location                              | Consumers                                    |
+| --------------------- | ------------------------------------- | -------------------------------------------- |
+| `velocity-report`     | `cmd/radar/radar.go`                  | Full server: API, DB, serial, LiDAR pipeline |
+| `velocity-sweep`      | `cmd/sweep/main.go`                   | LiDAR monitor, sweep engine, PCAP replay     |
+| `velocity-deploy`     | `cmd/deploy/main.go`                  | Deployment: install, upgrade, backup         |
+| `transit-backfill`    | `cmd/transit-backfill/main.go`        | DB: TransitWorker backfill                   |
+| `gen-vrlog`           | `cmd/tools/gen-vrlog/main.go`         | Synthetic VRLOG generation (no DB)           |
+| `vrlog-analyse`       | `cmd/tools/vrlog-analyse/main.go`     | VRLOG file analysis and comparison           |
+| `visualiser-server`   | `cmd/tools/visualiser-server/main.go` | Standalone gRPC (synthetic/replay/live)      |
+| `settling-eval`       | `cmd/tools/settling-eval/main.go`     | Background grid settling evaluation          |
+| `pcap-analyse`        | `cmd/tools/pcap-analyse/main.go`      | PCAP file analysis                           |
+| `backfill-elevations` | `cmd/tools/backfill_ring_elevations/` | Backfill ring elevation data                 |
+| `scan-transits`       | `cmd/tools/scan_transits.go`          | Scan for missing transit backfill gaps       |
 
 **Notes:** Only `velocity-report` and `transit-backfill` write to the
 production SQLite database. The sweep and eval tools operate on
@@ -684,18 +694,68 @@ are reserved for grouped/report aggregates only. These 6 columns should be
 
 ---
 
+## 18. Debug / Admin Routes
+
+Embedded HTML dashboards and diagnostic endpoints. Not part of the
+application API but served by the same HTTP servers.
+
+### Radar server (`internal/api/server.go`)
+
+| Route                 | Purpose                            |
+| --------------------- | ---------------------------------- |
+| `/favicon.ico`        | Static favicon                     |
+| `/app/*`              | Svelte SPA (embedded or dev proxy) |
+| `/`                   | Redirect to `/app/`                |
+| `/debug/pprof/*`      | Go pprof profiling (via tsweb)     |
+| `/debug/db-stats`     | Database statistics page           |
+| `/debug/backup`       | Database backup download           |
+| `/debug/tailsql/*`    | Interactive SQL query interface    |
+| `/debug/send-command` | Serial command form (HTML)         |
+| `/debug/tail`         | SSE log tail                       |
+
+### LiDAR monitor (`internal/lidar/monitor/webserver.go`)
+
+| Route                                       | Purpose                 |
+| ------------------------------------------- | ----------------------- |
+| `/debug/lidar/`                             | Main debug dashboard    |
+| `/debug/lidar/sweep`                        | Sweep debug page        |
+| `/debug/lidar/background/polar`             | Polar chart (ECharts)   |
+| `/debug/lidar/background/heatmap`           | Heatmap chart (ECharts) |
+| `/debug/lidar/background/regions`           | Regions display         |
+| `/debug/lidar/background/regions/dashboard` | Regions dashboard       |
+| `/debug/lidar/foreground`                   | Foreground debug        |
+| `/debug/lidar/traffic`                      | Traffic debug           |
+| `/debug/lidar/clusters`                     | Clusters debug          |
+| `/debug/lidar/tracks`                       | Tracks debug            |
+
+**Notes:** The LiDAR debug dashboards consume the chart API endpoints
+documented in §15. The radar server debug routes are attached via
+`db.AttachAdminRoutes()` → `tsweb.Debugger()`.
+
+---
+
 ## Summary
 
-### Counts by surface
+### Counts by surface14 | 1214 | 12 | 14 | 4 | 0 |
 
-| Category                | Total | DB  | Web | PDF | Mac |
-| ----------------------- | ----- | --- | --- | --- | --- |
-| HTTP endpoints (radar)  | 14    | 12  | 14  | 4   | 0   |
-| HTTP endpoints (LiDAR)  | 60    | 32  | 60  | 0   | 0   |
-| gRPC methods            | 9     | 0   | 0   | 0   | 9   |
-| DB tables               | 22    | —   | 21  | 6   | 3   |
-| Pipeline stages         | 7     | 5   | 5   | 0   | 2   |
-| Tuning parameter groups | 3     | 3   | 3   | 0   | 0   |
+| HTTP endpoints (LiDAR) | 75 | 37 | 74 | 0 | 1 |
+| gRPC methods | 9 | 0 | 0 | 0 | 9 |
+| DB tables | 22 | — | 21 | 6 | 3 |
+| Pipeline stages | 7 | 5 | 5 | 0 | 2 |
+| Tuning parameter groups | 39 | 41 | 78 | 0 | 13 |
+| cmd/ entry points | 11 | — | — | — | — |
+| Debug/admin routes | 19 | — | — | — | —
+| HTTP endpoints (LiDAR) | 75 | 37 | 74 | 0 | 1 |
+| cmd/ entry points | 11 | — | — | — | — |
+| Debug/admin routes | 19 | — | — | — | — |
+| gRPC methods | 9 | 0 | 0 | 0 | 9 |
+| DB tables | 22 | — | 21 | 6 | 3 |
+| Pipeline stages | 7 | 5 | 5 | 0 | 2 |
+| cmd/ entry points | 11 | — | — | — | — |
+| Debug/admin routes | 19 | — | — | — | — |
+| Tuning parameter groups | 3 | 3 | 3 | 0 | 0 |
+| cmd/ entry points | 11 | — | — | — | — |
+| Debug/admin routes | 19 | — | — | — | — |
 
 ### Gap summary
 
