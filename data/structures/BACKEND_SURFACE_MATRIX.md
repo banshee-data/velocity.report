@@ -736,26 +736,18 @@ documented in §15. The radar server debug routes are attached via
 
 ## Summary
 
-### Counts by surface14 | 1214 | 12 | 14 | 4 | 0 |
+### Counts by surface
 
-| HTTP endpoints (LiDAR) | 75 | 37 | 74 | 0 | 1 |
-| gRPC methods | 9 | 0 | 0 | 0 | 9 |
-| DB tables | 22 | — | 21 | 6 | 3 |
-| Pipeline stages | 7 | 5 | 5 | 0 | 2 |
-| Tuning parameter groups | 39 | 41 | 78 | 0 | 13 |
-| cmd/ entry points | 11 | — | — | — | — |
-| Debug/admin routes | 19 | — | — | — | —
-| HTTP endpoints (LiDAR) | 75 | 37 | 74 | 0 | 1 |
-| cmd/ entry points | 11 | — | — | — | — |
-| Debug/admin routes | 19 | — | — | — | — |
-| gRPC methods | 9 | 0 | 0 | 0 | 9 |
-| DB tables | 22 | — | 21 | 6 | 3 |
-| Pipeline stages | 7 | 5 | 5 | 0 | 2 |
-| cmd/ entry points | 11 | — | — | — | — |
-| Debug/admin routes | 19 | — | — | — | — |
-| Tuning parameter groups | 3 | 3 | 3 | 0 | 0 |
-| cmd/ entry points | 11 | — | — | — | — |
-| Debug/admin routes | 19 | — | — | — | — |
+| Category                | Total | DB  | Web | PDF | Mac |
+| ----------------------- | ----- | --- | --- | --- | --- |
+| HTTP endpoints (radar)  | 14    | 12  | 14  | 4   | 0   |
+| HTTP endpoints (LiDAR)  | 77    | 39  | 76  | 0   | 11  |
+| gRPC methods            | 9     | 0   | 0   | 0   | 9   |
+| DB tables               | 22    | —   | 21  | 6   | 3   |
+| Pipeline stages         | 7     | 5   | 5   | 0   | 2   |
+| Tuning parameter groups | 3     | 3   | 3   | 0   | 0   |
+| cmd/ entry points       | 11    | —   | —   | —   | —   |
+| Debug/admin routes      | 19    | —   | —   | —   | —   |
 
 ### Gap summary
 
