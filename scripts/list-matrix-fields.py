@@ -938,7 +938,7 @@ _SECTION_GROUPS: list[dict[str, object]] = [
     {
         "id": "grpc",
         "title": "gRPC + Proto Surfaces",
-        "sections": ["§3", "§11"],
+        "sections": ["§3", "§14"],
         "focus": (
             "Trace gRPC methods and FrameBundle proto fields. "
             "Almost all are Mac-only via StreamFrames. "
@@ -959,17 +959,18 @@ _SECTION_GROUPS: list[dict[str, object]] = [
     {
         "id": "pipeline",
         "title": "Pipeline + Structs",
-        "sections": ["§6", "§7", "§8", "§10"],
+        "sections": ["§6", "§7", "§8", "§9", "§13"],
         "focus": (
-            "Trace computed structs, comparison logic, live track fields, "
-            "and classification pipeline. Many are in-memory only. "
-            "Check if any field is persisted, returned via API, or sent via gRPC."
+            "Trace pipeline stages, computed structs, comparison logic, "
+            "live track fields, and classification pipeline. Many are in-memory "
+            "only. Check if any field is persisted, returned via API, or sent "
+            "via gRPC."
         ),
     },
     {
         "id": "config",
         "title": "Tuning + Entry Points + Debug",
-        "sections": ["§9", "§12", "§13", "§14"],
+        "sections": ["§10", "§15", "§16", "§18"],
         "focus": (
             "Trace tuning parameters (DB + Web only), ECharts endpoints "
             "(DB + embedded HTML), cmd/ binaries (which write to DB), "
@@ -1084,9 +1085,22 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
                 f"DB=✅. Check JSON serialisation of `{col}`, PDF usage, gRPC/Mac exposure. Flag 🗑️ if deprecated.",
             )
 
-    # §6 Computed structs
+    # §6 Pipeline stages
     seq = 0
-    sec, stitle = "§6", "Go Structs — Computed but Not Persisted"
+    sec, stitle = "§6", "Pipeline Stages"
+    for s in inv.pipeline_stages:
+        _add(
+            sec,
+            stitle,
+            f"{s.package}/{Path(s.file).name}",
+            s.file,
+            "",
+            f"{s.description} — check DB persistence, Web API return, gRPC/Mac exposure",
+        )
+
+    # §7 Computed structs
+    seq = 0
+    sec, stitle = "§7", "Go Data Structures — Computed but Not Persisted"
     for s in inv.computed_structs:
         _add(
             sec,
@@ -1097,9 +1111,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "in-memory struct — check if any field is persisted, returned via HTTP, or sent via gRPC",
         )
 
-    # §7 Compare functions
+    # §8 Compare functions
     seq = 0
-    sec, stitle = "§7", "Comparison Logic — No Triggering Endpoint"
+    sec, stitle = "§8", "Go Data Structures — Comparison Logic (No Triggering Endpoint)"
     for f in inv.compare_functions:
         _add(
             sec,
@@ -1110,9 +1124,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "check DB read/write, check if any HTTP endpoint calls it",
         )
 
-    # §8 Live track fields
+    # §9 Live track fields
     seq = 0
-    sec, stitle = "§8", "Live Track Fields — Fully Wired (Reference)"
+    sec, stitle = "§9", "Live Track Fields — Fully Wired (Reference)"
     for field_name in inv.live_track_fields:
         _add(
             sec,
@@ -1123,9 +1137,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"check lidar_tracks/lidar_track_obs for `{field_name}`, JSON responses, gRPC FrameBundle",
         )
 
-    # §9 Tuning params
+    # §10 Tuning params
     seq = 0
-    sec, stitle = "§9", "Tuning Parameters"
+    sec, stitle = "§10", "Tuning Parameters"
     for p in inv.tuning_params:
         _add(
             sec,
@@ -1136,9 +1150,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "DB: params_json in lidar_analysis_runs? Web: GET /api/lidar/params? PDF/Mac: —",
         )
 
-    # §10 Classification
+    # §13 Classification
     seq = 0
-    sec, stitle = "§10", "Classification Pipeline"
+    sec, stitle = "§13", "Classification Pipeline — Fully Wired (Reference)"
     for s in inv.classification:
         _add(
             sec,
@@ -1149,9 +1163,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "check lidar_tracks.object_class, track API JSON, gRPC FrameBundle classification",
         )
 
-    # §11 Proto field groups
+    # §14 Proto field groups
     seq = 0
-    sec, stitle = "§11", "FrameBundle — macOS-Only Proto Fields"
+    sec, stitle = "§14", "FrameBundle — macOS-Only Proto Fields"
     for g in inv.proto_field_groups:
         _add(
             sec,
@@ -1162,9 +1176,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "Mac=✅ via StreamFrames. Check if also persisted to DB or sent via HTTP.",
         )
 
-    # §12 ECharts
+    # §15 ECharts
     seq = 0
-    sec, stitle = "§12", "ECharts Dashboard Endpoints"
+    sec, stitle = "§15", "ECharts Dashboard Endpoints"
     for ep in inv.echart_endpoints:
         _add(
             sec,
@@ -1175,9 +1189,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "DB: SQLite chart query? Web=✅ embedded ECharts at /debug/lidar/*. PDF/Mac: —",
         )
 
-    # §13 cmd entries
+    # §16 cmd entries
     seq = 0
-    sec, stitle = "§13", "cmd/ Entry Points"
+    sec, stitle = "§16", "cmd/ Entry Points"
     for e in inv.cmd_entries:
         _add(
             sec,
@@ -1188,9 +1202,9 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "does this binary write to production SQLite?",
         )
 
-    # §14 Debug routes
+    # §18 Debug routes
     seq = 0
-    sec, stitle = "§14", "Debug / Admin Routes"
+    sec, stitle = "§18", "Debug / Admin Routes"
     for r in inv.debug_routes:
         _add(
             sec,

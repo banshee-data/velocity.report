@@ -78,9 +78,9 @@ sequentially. For each group:
 - `tools/pdf-generator/pdf_generator/core/api_client.py` — PDF API client
 - `tools/visualiser-macos/VelocityVisualiser/` — Mac HTTP calls
 
-#### Task Group: gRPC + Proto Surfaces (§3, §11)
+#### Task Group: gRPC + Proto Surfaces (§3, §14)
 
-**Sections:** §3 gRPC methods, §11 FrameBundle proto fields
+**Sections:** §3 gRPC methods, §14 FrameBundle proto fields
 **Tracing method:**
 
 1. Read `proto/velocity_visualiser/v1/visualiser.proto` for method definitions
@@ -112,9 +112,9 @@ sequentially. For each group:
 - `internal/api/` — JSON serialisation in HTTP handlers
 - `tools/pdf-generator/pdf_generator/core/api_client.py`
 
-#### Task Group: Pipeline + Structs (§6, §7, §8, §10)
+#### Task Group: Pipeline + Structs (§6, §7, §8, §9, §13)
 
-**Sections:** §6 Computed structs, §7 Compare functions, §8 Live track fields, §10 Classification
+**Sections:** §6 Pipeline stages, §7 Computed structs, §8 Compare functions, §9 Live track fields, §13 Classification
 **Tracing method:**
 
 1. Many structs are in-memory only — check if any field is persisted to DB
@@ -130,9 +130,9 @@ sequentially. For each group:
 - `internal/lidar/storage/sqlite/analysis_run_compare.go` — compare logic
 - `internal/lidar/l5tracks/tracking.go` — live track fields
 
-#### Task Group: Tuning + Entry Points + Debug (§9, §12, §13, §14)
+#### Task Group: Tuning + Entry Points + Debug (§10, §15, §16, §18)
 
-**Sections:** §9 Tuning params, §12 ECharts, §13 cmd/ entry points, §14 Debug routes
+**Sections:** §10 Tuning params, §15 ECharts, §16 cmd/ entry points, §18 Debug routes
 **Tracing method:**
 
 1. Tuning params: check `GET/POST /api/lidar/params`, `params_json` in DB
