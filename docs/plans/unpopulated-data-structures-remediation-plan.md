@@ -84,8 +84,7 @@ distribution). This is a separate UI task.
 
 **Priority:** High — 6 columns in `lidar_tracks` exist but are never written (currently hold NULL/0 defaults).
 **Effort:** Small–medium (2–3 days)
-**Risk:** Low — columns exist; `InsertTrack`/`UpdateTrack` just need
-      additional parameters to populate them.
+**Risk:** Low — columns exist; `InsertTrack`/`UpdateTrack` just need additional parameters to populate them.
 **Schedule:** Same sprint as Phase 1 or immediately after.
 
 ### Checklist
