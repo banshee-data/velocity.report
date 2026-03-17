@@ -1035,7 +1035,7 @@ lint: lint-go lint-python lint-web lint-docs
 check-mermaid: ## Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
 
-lint-docs: check-mermaid ## Check Mermaid fences, header metadata format, British English spelling, and relative links in docs/
+lint-docs: check-mermaid ## Check Mermaid fences, header metadata format, British English spelling, and relative links
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 	@python3 scripts/check-relative-links.py
