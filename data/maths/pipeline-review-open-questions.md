@@ -265,7 +265,7 @@ will include:
 - A human review step before any upload — the system never modifies OSM
   autonomously
 
-See [docs/plans/lidar-l7-scene-plan.md](../plans/lidar-l7-scene-plan.md)
+See [docs/plans/lidar-l7-scene-plan.md](../../docs/plans/lidar-l7-scene-plan.md)
 §OSM priors service for the architectural context.
 
 **Data persistence and the three data feeds.** While only edits for missing
@@ -494,7 +494,7 @@ the existing `analysis.CompareReports` infrastructure with Hungarian-matched
 temporal IoU.
 
 **Experiment proposal:** See
-[data/experiments/try/velocity-coherent-baseline-comparison.md](../../experiments/try/velocity-coherent-baseline-comparison.md)
+[data/experiments/try/velocity-coherent-baseline-comparison.md](../experiments/try/velocity-coherent-baseline-comparison.md)
 for the structured experiment design.
 
 ### Q7. Which defaults are backed by repeatable comparisons vs provisional?
@@ -664,7 +664,7 @@ additional, still leaving ~40% headroom for future work.
 **Performance measurement harness.** To detect regressions and validate
 budget estimates, a consistent measurement harness runs fixed PCAPs on
 test hardware and reports per-layer timing, frame drops, and throughput.
-See [docs/plans/lidar-performance-measurement-harness-plan.md](../plans/lidar-performance-measurement-harness-plan.md)
+See [docs/plans/lidar-performance-measurement-harness-plan.md](../../docs/plans/lidar-performance-measurement-harness-plan.md)
 for the harness design. The existing `make test-perf` target and nightly
 CI job provide the infrastructure; the harness plan extends this with
 per-layer breakdowns and hardware-specific baselines.
@@ -700,7 +700,7 @@ sites simultaneously, reporting per-site and aggregate metrics. Defaults
 are only promoted from "provisional" to "empirical" when they perform
 within 10% of optimal across all five sites.
 
-See [docs/plans/lidar-test-corpus-plan.md](../plans/lidar-test-corpus-plan.md)
+See [docs/plans/lidar-test-corpus-plan.md](../../docs/plans/lidar-test-corpus-plan.md)
 for the full test corpus plan.
 
 ## 4. Ground Plane and Priors Alignment: Synthesis
@@ -868,14 +868,14 @@ avoids throwaway work (see Q5).
 
 This review consolidates and addresses open questions from:
 
-- [platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md) — Q1–Q11
-- [lidar-clustering-observability-and-benchmark-plan.md](../plans/lidar-clustering-observability-and-benchmark-plan.md) — benchmark design
-- [speed-percentile-aggregation-alignment-plan.md](../plans/speed-percentile-aggregation-alignment-plan.md) — §5.2
-- [lidar-visualiser-track-quality-score-plan.md](../plans/lidar-visualiser-track-quality-score-plan.md) — §5.3
-- [lidar-bodies-in-motion-plan.md](../plans/lidar-bodies-in-motion-plan.md) — Q5, §5 item 7
-- [lidar-l7-scene-plan.md](../plans/lidar-l7-scene-plan.md) — L7 planned capabilities
-- [vector-scene-map.md](../lidar/architecture/vector-scene-map.md) — Q2, §4
-- [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md) — Q1, §4
+- [platform-data-science-metrics-first-plan.md](../../docs/plans/platform-data-science-metrics-first-plan.md) — Q1–Q11
+- [lidar-clustering-observability-and-benchmark-plan.md](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md) — benchmark design
+- [speed-percentile-aggregation-alignment-plan.md](../../docs/plans/speed-percentile-aggregation-alignment-plan.md) — §5.2
+- [lidar-visualiser-track-quality-score-plan.md](../../docs/plans/lidar-visualiser-track-quality-score-plan.md) — §5.3
+- [lidar-bodies-in-motion-plan.md](../../docs/plans/lidar-bodies-in-motion-plan.md) — Q5, §5 item 7
+- [lidar-l7-scene-plan.md](../../docs/plans/lidar-l7-scene-plan.md) — L7 planned capabilities
+- [vector-scene-map.md](../../docs/lidar/architecture/vector-scene-map.md) — Q2, §4
+- [ground-plane-extraction.md](../../docs/lidar/architecture/ground-plane-extraction.md) — Q1, §4
 - [20260221-ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md) — Q9, §4
 - [20260310-reflective-sign-pose-anchor-maths.md](proposals/20260310-reflective-sign-pose-anchor-maths.md) — Q3
 - [20260222-geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md) — Q8
