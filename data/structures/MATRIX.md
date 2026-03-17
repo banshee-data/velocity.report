@@ -8,7 +8,7 @@ visualiser via gRPC).
 
 - **Source:** Full-codebase audit (March 2026)
 - **Inventory script:** `scripts/list-matrix-fields.py` — `--checklist` generates the LLM-consumable tracing checklist
-- **Update workflow:** `@matrix-tracer` agent (`.github/agents/matrix-tracer.agent.md`)
+- **Update workflow:** `@matrix-tracer` agent (`../../.github/agents/matrix-tracer.agent.md`)
 - **Related:** [Remediation plan](../../docs/plans/unpopulated-data-structures-remediation-plan.md) · [Clustering observability](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md) · [HINT metric observability](../../docs/plans/hint-metric-observability-plan.md)
 
 ---
