@@ -269,8 +269,8 @@ _CREATE_TABLE_RE = re.compile(
 )
 
 _COLUMN_RE = re.compile(
-    r'^\s*[,]?\s*["`]?(\w+)["`]?\s+'
-    r"(INTEGER|TEXT|REAL|BLOB|BOOLEAN|DATETIME|TIMESTAMP|VARCHAR|NUMERIC)",
+    r'^\s*[,]?\s*["`]?(\w+)["`]?\s+'  # column name
+    r"[^,]+",  # rest of column definition (type, constraints, generated expr) up to comma
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -440,11 +440,6 @@ def extract_cmd_entries(root: Path) -> list[CmdEntry]:
 # §11  PDF generator consumers (Python)
 # ---------------------------------------------------------------------------
 
-_PY_REQUEST_RE = re.compile(
-    r"requests\.(get|post|put|delete)\(\s*" r'(?:f"[^"]*"|"[^"]*"|[a-zA-Z0-9_.]+)',
-    re.IGNORECASE,
-)
-
 _PY_URL_RE = re.compile(
     r"(?:self\.(?:base_url|api_url)|base_url)\s*" r'(?:\+\s*f?"|=\s*f?")' r'([^"]+)"',
 )
@@ -581,16 +576,6 @@ def extract_debug_routes(root: Path) -> list[DebugRoute]:
 # ---------------------------------------------------------------------------
 # §7  Computed-but-not-persisted structs
 # ---------------------------------------------------------------------------
-
-_STRUCT_RE = re.compile(
-    r"type\s+(\w+)\s+struct\s*\{([^}]*)\}",
-    re.DOTALL,
-)
-
-_STRUCT_FIELD_RE = re.compile(
-    r"^\s+(\w+)\s+",
-    re.MULTILINE,
-)
 
 # File → struct names of interest
 _COMPUTED_STRUCT_TARGETS: list[tuple[str, list[str]]] = [

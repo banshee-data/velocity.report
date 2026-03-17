@@ -510,7 +510,7 @@ endpoint, and no export path.
 | `internal/lidar/l6objects` | `features.go`   | `TrackFeatures` (20 features)       | —   | —   | —   | —   | Used in-memory by classifier                                                                                                         |
 | `internal/lidar/l6objects` | `features.go`   | `ClusterFeatures` (10 features)     | —   | —   | —   | —   | Used in-memory by classifier                                                                                                         |
 | `internal/lidar/l3grid`    | `foreground.go` | `FrameMetrics` (5 fields)           | 📋  | 📋  | —   | —   | Transient; [HINT plan C1](../../docs/plans/hint-metric-observability-plan.md)                                                        |
-| `internal/lidar/l5tracks`  | `tracking.go`   | `TrackAlignmentMetrics` (per-track) | 📋  | �   | —   | —   | [HINT plan D2](../../docs/plans/hint-metric-observability-plan.md); nested in `GET /api/lidar/tracks/metrics?include_per_track=true` |
+| `internal/lidar/l5tracks`  | `tracking.go`   | `TrackAlignmentMetrics` (per-track) | 📋  | ✅  | —   | —   | [HINT plan D2](../../docs/plans/hint-metric-observability-plan.md); nested in `GET /api/lidar/tracks/metrics?include_per_track=true` |
 | `internal/lidar/sweep`     | `runner.go`     | `ComboResult` (32 fields)           | 🔶  | 🔶  | —   | —   | Only `BestScore` persisted                                                                                                           |
 
 ---
