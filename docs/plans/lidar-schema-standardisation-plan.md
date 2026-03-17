@@ -168,7 +168,7 @@ ALTER TABLE lidar_track_obs RENAME COLUMN world_frame TO frame_id;
 
 -- rename scene_hash → grid_hash on lidar_bg_regions
 ALTER TABLE lidar_bg_regions RENAME COLUMN scene_hash TO grid_hash;
-DROP INDEX idx_bg_regions_scene_hash;
+DROP INDEX IF EXISTS idx_bg_regions_scene_hash;
 CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
 ```
 

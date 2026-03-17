@@ -214,11 +214,11 @@ the layer that actually hurts maintainability.
 
 ## Work breakdown
 
-### Phase 1 — Prerequisite: migration 030 (already planned)
+### Phase 1 — Prerequisites: migrations 000030–000031 (schema standardisation)
 
 Tracked in [lidar-schema-standardisation-plan.md](lidar-schema-standardisation-plan.md).
-This drops dead columns and renames `peak→max`, bringing the two tables' shared
-column set into clean alignment.
+This phase applies the LiDAR schema standardisation migrations to both tables:
+it drops dead columns, renames `peak→max`, `world_frame→frame_id`, and `scene_hash→grid_hash`, and performs the table renames from migration 000031 so that the shared column set and naming are fully aligned.
 
 ### Phase 2 — Go model normalisation
 
@@ -298,7 +298,7 @@ convenience for operators using TailSQL or direct sqlite3 access.
 
 | Phase            | Effort | Files touched                       |
 | ---------------- | ------ | ----------------------------------- |
-| Phase 1 (030)    | `M`    | ~15 Go + 3 TS + 1 proto + migration |
+| Phase 1 (030 + 031) | `M`  | ~15 Go + 3 TS + 1 proto + migration |
 | Phase 2 (Go DRY) | `S`    | 3–4 Go files in `storage/sqlite/`   |
 | Phase 3 (VIEW)   | `S`    | 1 migration file                    |
 | Phase 4 (docs)   | `S`    | 2–3 Markdown files                  |
@@ -331,4 +331,4 @@ convenience for operators using TailSQL or direct sqlite3 access.
 | Keep two tables (reject merge) | Different lifecycles (transient vs permanent), different PKs, FK relationships cannot be cleanly unified without surrogate keys and FK rewrites |
 | Normalise at Go layer          | Eliminates the real maintenance cost (duplicate structs, scan loops, column lists) without schema risk                                          |
 | Optional VIEW                  | Provides a unified read surface for operators without coupling live and snapshot write paths                                                    |
-| Sequence after 030             | Migration 030 aligns the column sets; consolidation is simpler once dead/renamed columns are removed                                            |
+| Sequence after 030 + 031       | Migrations 030 + 031 align the column sets; consolidation is simpler once dead/renamed columns are removed                                      |
