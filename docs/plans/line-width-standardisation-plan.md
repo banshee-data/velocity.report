@@ -130,7 +130,7 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 A scheduled GitHub Actions workflow runs weekly (e.g. Sunday
 night). It checks all code and documentation against the 100-
 column standard, and if violations exist, opens or updates a
-standing PR with the report.
+standing PR with the fixes applied.
 
 ```yaml
 # .github/workflows/line-width-nag.yml
@@ -160,18 +160,23 @@ jobs:
           #   2>&1 | tee /tmp/go-report.txt || true
           echo "Go lll check placeholder" > /tmp/go-report.txt
 
-      - name: Create or update nag issue
-        if: always()
-        uses: peter-evans/create-issue-from-file@v5
+      - name: Auto-format and open nag PR
+        uses: peter-evans/create-pull-request@v7
         with:
-          title: "Weekly line-width report"
-          content-filepath: /tmp/prose-report.txt
+          title: "style: weekly line-width cleanup"
+          body: |
+            Automated weekly PR to fix line-width violations.
+            See `docs/plans/line-width-standardisation-plan.md`
+            for the 100-column standard.
+          branch: chore/line-width-nag
+          commit-message: "[ai][style] auto-fix line-width violations"
           labels: housekeeping, style
-          update-existing: true
+          delete-branch: true
 ```
 
 The workflow uses `--report` mode so it never blocks other
-work. It simply keeps the current state visible.
+work. It simply keeps the current state visible via a
+standing PR that is easy to review and merge.
 
 ### Phase 4 — Optional CI gate
 

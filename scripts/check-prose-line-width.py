@@ -21,7 +21,7 @@ from pathlib import Path
 
 # ── Defaults ─────────────────────────────────────────────────────────────
 
-DEFAULT_WIDTH = 90
+DEFAULT_WIDTH = 100
 
 EXCLUDED_DIRS = {
     ".git",
