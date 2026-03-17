@@ -147,7 +147,8 @@ def check_file(filepath: Path, width: int) -> list[tuple[int, int, str]]:
 
     try:
         text = filepath.read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    except OSError as exc:
+        print(f"WARNING: cannot read {filepath}: {exc}", file=sys.stderr)
         return violations
 
     lines = text.splitlines()
