@@ -105,15 +105,28 @@ def main() -> int:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
 
-    targets = args.paths if args.paths else [str(repo_root)]
+    if args.paths:
+        targets: list[Path] = []
+        for t in args.paths:
+            p = Path(t)
+            if not p.is_absolute():
+                p = repo_root / p
+            targets.append(p)
+    else:
+        targets = [repo_root]
 
     files: list[Path] = []
-    for t in targets:
-        p = Path(t)
+    seen: set[Path] = set()
+    for p in targets:
         if p.is_file() and p.suffix == ".md":
-            files.append(p)
+            if p not in seen:
+                files.append(p)
+                seen.add(p)
         elif p.is_dir():
-            files.extend(find_markdown_files(p))
+            for fp in find_markdown_files(p):
+                if fp not in seen:
+                    files.append(fp)
+                    seen.add(fp)
 
     total_dead = 0
     for filepath in files:
