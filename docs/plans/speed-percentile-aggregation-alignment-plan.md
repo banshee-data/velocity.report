@@ -72,7 +72,7 @@ like `height_p95` or latency `p95`.
 | `cmd/tools/pcap-analyse`                                                    | `SpeedStatistics` computes P50/P85/P95 over a population of track max speeds (correct usage), but uses `p95` not `p98`.                           | ⚠️ Rename to `p98` (Phase 3)              |
 | `l6objects/classification.go` `ComputeSpeedPercentiles()`                   | Internal-only for classifier feature extraction. Not stored or exposed via API.                                                                   | ✅ Keep as internal                       |
 | `l6objects/features.go` `TrackFeatures.SpeedP50/P85/P95`                    | ML feature vector fields for training data export. Not stored in DB.                                                                              | ✅ Keep as internal                       |
-| Planning/docs surface                                                       | Plans updated to reflect aggregate-only direction. `BACKEND_SURFACE_MATRIX.md` marks per-track percentiles as design debt.                        | ✅ Aligned                                |
+| Planning/docs surface                                                       | Plans updated to reflect aggregate-only direction. `MATRIX.md` marks per-track percentiles as design debt.                                        | ✅ Aligned                                |
 
 ## 4. Decisions Already Settled
 

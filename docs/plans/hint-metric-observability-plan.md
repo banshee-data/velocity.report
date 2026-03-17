@@ -5,7 +5,7 @@
 - **Related:**
   - [HINT sweep mode](../lidar/operations/hint-sweep-mode.md)
   - [Unpopulated data structures remediation](unpopulated-data-structures-remediation-plan.md)
-  - [Backend surface matrix](../../data/structures/BACKEND_SURFACE_MATRIX.md)
+  - [Backend surface matrix](../../data/structures/MATRIX.md)
   - [Clustering observability](lidar-clustering-observability-and-benchmark-plan.md)
 
 ---
