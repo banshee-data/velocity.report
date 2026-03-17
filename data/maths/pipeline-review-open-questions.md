@@ -501,6 +501,8 @@ for the structured experiment design.
 
 **Answer: Audit by config key with evidence classification.**
 
+_Note: The table below is an illustrative snapshot of defaults and evidence as of March 2026. The canonical, up-to-date defaults are defined in `config/tuning.defaults.json`; always refer to that file when tuning or changing the implementation._
+
 | Config Key                        | Default | Evidence Level                                                 | Source                                      |
 | --------------------------------- | ------- | -------------------------------------------------------------- | ------------------------------------------- |
 | `background_update_fraction`      | 0.02    | **Theoretical** — standard EMA α for 50-frame effective window | EMA theory                                  |
