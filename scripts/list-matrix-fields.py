@@ -5,21 +5,17 @@ Scans Go, Proto, Python, and Swift source files and prints a structured
 inventory of HTTP endpoints, gRPC methods, DB tables/columns, pipeline
 stages, tuning parameters, cmd/ entry points, and debug routes.
 
-Usage:
-    python scripts/list-matrix-fields.py           # human-readable surface list
-    python scripts/list-matrix-fields.py --json     # machine-readable output
-    python scripts/list-matrix-fields.py --trace    # generate LLM tracing checklist
-    python scripts/list-matrix-fields.py --trace-continue  # resume from checklist
-    python scripts/list-matrix-fields.py --trace-status    # show checklist progress
+Two modes:
+    python scripts/list-matrix-fields.py              # human-readable surface list
+    python scripts/list-matrix-fields.py --checklist   # markdown checklist for LLM tracing
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -919,46 +915,86 @@ def print_text_report(inv: MatrixInventory) -> None:
     print(f"  §18 Debug routes:            {len(inv.debug_routes)}")
 
 
-def print_json_report(inv: MatrixInventory) -> None:
-    """Print machine-readable JSON."""
-    print(json.dumps(asdict(inv), indent=2))
-
-
 # ---------------------------------------------------------------------------
-# Tracing checklist — LLM-guided surface-mark audit
+# Markdown checklist — LLM-consumable surface-tracing task list
 # ---------------------------------------------------------------------------
-
-# Default checklist path, relative to repo root
-_CHECKLIST_FILENAME = "data/structures/.matrix-trace-checklist.json"
 
 # Surfaces to trace per item
 _SURFACES = ["DB", "Web", "PDF", "Mac"]
 
-# Valid mark values an LLM can assign
-_VALID_MARKS = {"✅", "📋", "🔶", "🗑️", "—", "?"}
+# Section groupings for LLM context-window partitioning.
+# Each group is a self-contained tracing task an LLM can handle in one request.
+_SECTION_GROUPS: list[dict[str, object]] = [
+    {
+        "id": "http",
+        "title": "HTTP API Surfaces",
+        "sections": ["§1", "§2"],
+        "focus": (
+            "Trace every HTTP endpoint to determine which surfaces consume it. "
+            "Check Go handler → DB calls, web/src fetch() calls, "
+            "tools/pdf-generator API client, tools/visualiser-macos HTTP calls."
+        ),
+    },
+    {
+        "id": "grpc",
+        "title": "gRPC + Proto Surfaces",
+        "sections": ["§3", "§11"],
+        "focus": (
+            "Trace gRPC methods and FrameBundle proto fields. "
+            "Almost all are Mac-only via StreamFrames. "
+            "Check for any that also touch DB or Web."
+        ),
+    },
+    {
+        "id": "db",
+        "title": "Database Schema Surfaces",
+        "sections": ["§4", "§5"],
+        "focus": (
+            "Trace every table and column. DB is always ✅. "
+            "Check which columns appear in HTTP JSON responses (Web), "
+            "PDF generator queries (PDF), or gRPC/Swift calls (Mac). "
+            "Flag deprecated columns as 🗑️."
+        ),
+    },
+    {
+        "id": "pipeline",
+        "title": "Pipeline + Structs",
+        "sections": ["§6", "§7", "§8", "§10"],
+        "focus": (
+            "Trace computed structs, comparison logic, live track fields, "
+            "and classification pipeline. Many are in-memory only. "
+            "Check if any field is persisted, returned via API, or sent via gRPC."
+        ),
+    },
+    {
+        "id": "config",
+        "title": "Tuning + Entry Points + Debug",
+        "sections": ["§9", "§12", "§13", "§14"],
+        "focus": (
+            "Trace tuning parameters (DB + Web only), ECharts endpoints "
+            "(DB + embedded HTML), cmd/ binaries (which write to DB), "
+            "and debug/admin routes (diagnostic only)."
+        ),
+    },
+]
 
 
 @dataclass
-class TraceItem:
-    """One row in the matrix that needs surface marks traced."""
+class ChecklistItem:
+    """One item that needs surface marks traced."""
 
-    id: str  # e.g. "§1.03"
+    id: str  # e.g. "§1.003"
     section: str  # e.g. "§1"
     section_title: str
     label: str  # human-readable: "GET /events"
     source_file: str  # e.g. "internal/api/server.go"
     handler: str  # e.g. "s.listEvents"
-    surfaces: dict[str, str]  # {"DB": "?", "Web": "?", "PDF": "?", "Mac": "?"}
-    notes: str  # LLM fills this in during tracing
-    status: str  # "pending" | "done" | "skip"
-
-    # Tracing guidance for the LLM
-    trace_instructions: str
+    trace_hint: str  # brief guidance for the LLM
 
 
-def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
+def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
     """Build the full list of items that need surface-mark tracing."""
-    items: list[TraceItem] = []
+    items: list[ChecklistItem] = []
     seq = 0
 
     def _add(
@@ -967,22 +1003,19 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
         label: str,
         source: str,
         handler: str,
-        instructions: str,
+        hint: str,
     ) -> None:
         nonlocal seq
         seq += 1
         items.append(
-            TraceItem(
+            ChecklistItem(
                 id=f"{section}.{seq:03d}",
                 section=section,
                 section_title=title,
                 label=label,
                 source_file=source,
                 handler=handler,
-                surfaces={s: "?" for s in _SURFACES},
-                notes="",
-                status="pending",
-                trace_instructions=instructions,
+                trace_hint=hint,
             )
         )
 
@@ -995,14 +1028,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"{ep.method} {ep.path}",
             ep.file,
             ep.handler,
-            (
-                f"1. Read handler `{ep.handler}` in `{ep.file}`.\n"
-                f"2. DB: does it call any SQL query/insert/update on the DB? "
-                f"Check for db.Query/db.Exec/store.* calls.\n"
-                f"3. Web: search web/src for fetch calls to `{ep.path}`.\n"
-                f"4. PDF: search tools/pdf-generator for `{ep.path}`.\n"
-                f"5. Mac: search tools/visualiser-macos for `{ep.path}`."
-            ),
+            f"handler `{ep.handler}` → check DB calls, web/src fetch, PDF api_client, Mac HTTP",
         )
 
     # §2 LiDAR HTTP
@@ -1015,16 +1041,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"{ep.method} {ep.path}",
             ep.file,
             ep.handler,
-            (
-                f"1. Read handler `{ep.handler}` in `{ep.file}`.\n"
-                f"2. DB: does it read/write SQLite? Check for store.* or "
-                f"db.* calls in the handler chain.\n"
-                f"3. Web: search web/src for fetch to `{ep.path}` or the "
-                f"path prefix.\n"
-                f"4. PDF: search tools/pdf-generator for this path.\n"
-                f"5. Mac: search tools/visualiser-macos for this path or "
-                f"appendingPathComponent containing it."
-            ),
+            f"handler `{ep.handler}` → check DB calls, web/src fetch, Mac appendingPathComponent",
         )
 
     # §3 gRPC
@@ -1037,14 +1054,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"rpc {m.name}({m.request}) → {m.response}",
             m.file,
             m.name,
-            (
-                f"1. Find the Go implementation of `{m.name}` in the gRPC "
-                f"server (internal/lidar/grpc/).\n"
-                f"2. DB: does the implementation read from SQLite?\n"
-                f"3. Web: gRPC methods are not called from Web (mark —).\n"
-                f"4. PDF: gRPC methods are not called from PDF (mark —).\n"
-                f"5. Mac: search Swift code for `{m.name}` call."
-            ),
+            f"Go impl in internal/lidar/grpc/ → DB reads? Mac: search Swift for `{m.name}`",
         )
 
     # §4 DB tables
@@ -1057,16 +1067,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"table: {t.name}",
             t.file,
             "",
-            (
-                f"1. DB: mark ✅ (it's a table, always in DB).\n"
-                f"2. Web: grep Go handlers for SELECT/INSERT on "
-                f"`{t.name}`. If any handler returns data from this "
-                f"table via HTTP, mark ✅.\n"
-                f"3. PDF: check if Python api_client.py fetches data "
-                f"that ultimately comes from `{t.name}`.\n"
-                f"4. Mac: check if gRPC or Swift HTTP calls fetch "
-                f"data from `{t.name}`."
-            ),
+            f"DB=✅ always. Web: handlers SELECT from `{t.name}`? PDF: api_client? Mac: gRPC?",
         )
 
     # §5 DB columns
@@ -1080,18 +1081,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
                 f"{t.name}.{col}",
                 t.file,
                 "",
-                (
-                    f"1. DB: mark ✅ (column exists in schema).\n"
-                    f"2. Web: is `{col}` included in any JSON response "
-                    f"from an HTTP handler that queries `{t.name}`? "
-                    f"Check the Go struct → JSON serialisation.\n"
-                    f"3. PDF: is `{col}` used in the PDF report data "
-                    f"pipeline?\n"
-                    f"4. Mac: is `{col}` sent via gRPC or HTTP to Mac?\n"
-                    f"5. Check if this column is deprecated (🗑️) or "
-                    f"partially wired (🔶) — look for TODOs or zero "
-                    f"writes."
-                ),
+                f"DB=✅. Check JSON serialisation of `{col}`, PDF usage, gRPC/Mac exposure. Flag 🗑️ if deprecated.",
             )
 
     # §6 Computed structs
@@ -1104,16 +1094,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"{s.name} ({len(s.fields)} fields)",
             s.file,
             "",
-            (
-                f"1. Read struct `{s.name}` in `{s.file}`.\n"
-                f"2. DB: is any field of this struct written to SQLite "
-                f"anywhere? Search for INSERT/UPDATE containing these "
-                f"field names.\n"
-                f"3. Web: is this struct returned in any HTTP response?\n"
-                f"4. PDF/Mac: is it consumed downstream?\n"
-                f"5. If no surface consumes it, mark all as — and note "
-                f"why in notes (e.g. 'in-memory only')."
-            ),
+            "in-memory struct — check if any field is persisted, returned via HTTP, or sent via gRPC",
         )
 
     # §7 Compare functions
@@ -1126,13 +1107,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"{f.name}()",
             f.file,
             f.name,
-            (
-                f"1. Read `{f.name}` in `{f.file}`.\n"
-                f"2. DB: does it read/write DB?\n"
-                f"3. Web: is there an HTTP endpoint that calls it?\n"
-                f"4. If no endpoint triggers it, note 'no triggering "
-                f"endpoint' and mark Web as 📋."
-            ),
+            "check DB read/write, check if any HTTP endpoint calls it",
         )
 
     # §8 Live track fields
@@ -1145,14 +1120,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"TrackedObject.{field_name}",
             "internal/lidar/l5tracks/tracking.go",
             "",
-            (
-                f"1. Check if `{field_name}` is stored in lidar_tracks "
-                f"or lidar_track_obs DB table.\n"
-                f"2. Check if it appears in JSON responses from track "
-                f"API endpoints.\n"
-                f"3. Check if it's sent via gRPC FrameBundle to Mac.\n"
-                f"4. Mark ✅ for each surface that fully wires this field."
-            ),
+            f"check lidar_tracks/lidar_track_obs for `{field_name}`, JSON responses, gRPC FrameBundle",
         )
 
     # §9 Tuning params
@@ -1165,12 +1133,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"{p.go_field} (json:{p.json_key})",
             "internal/config/tuning.go",
             "",
-            (
-                f"1. DB: is `{p.json_key}` stored in params_json in "
-                f"lidar_analysis_runs or lidar_sweeps?\n"
-                f"2. Web: is it returned by GET /api/lidar/params?\n"
-                f"3. PDF/Mac: not applicable (mark —)."
-            ),
+            "DB: params_json in lidar_analysis_runs? Web: GET /api/lidar/params? PDF/Mac: —",
         )
 
     # §10 Classification
@@ -1183,13 +1146,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"{s.name} ({len(s.fields)} items)",
             s.file,
             "",
-            (
-                f"1. Read `{s.name}` usage in the codebase.\n"
-                f"2. DB: is it persisted in lidar_tracks.object_class / "
-                f"object_confidence?\n"
-                f"3. Web: does the track API return classification data?\n"
-                f"4. Mac: does gRPC FrameBundle include classification?"
-            ),
+            "check lidar_tracks.object_class, track API JSON, gRPC FrameBundle classification",
         )
 
     # §11 Proto field groups
@@ -1202,14 +1159,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"message {g.message} ({len(g.fields)} fields)",
             g.file,
             "",
-            (
-                f"1. These are proto fields in `{g.message}`.\n"
-                f"2. Mac: mark ✅ — all proto fields are consumed by "
-                f"the macOS visualiser via StreamFrames.\n"
-                f"3. DB/Web/PDF: check if any field is also persisted "
-                f"or sent via HTTP. Most FrameBundle sub-messages are "
-                f"Mac-only (mark —)."
-            ),
+            "Mac=✅ via StreamFrames. Check if also persisted to DB or sent via HTTP.",
         )
 
     # §12 ECharts
@@ -1222,13 +1172,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"{ep.method} {ep.path}",
             ep.file,
             ep.handler,
-            (
-                f"1. Read handler `{ep.handler}`.\n"
-                f"2. DB: does it query SQLite for chart data?\n"
-                f"3. Web: these serve embedded ECharts HTML dashboards "
-                f"at /debug/lidar/*, not the Svelte SPA. Mark ✅.\n"
-                f"4. PDF/Mac: mark —."
-            ),
+            "DB: SQLite chart query? Web=✅ embedded ECharts at /debug/lidar/*. PDF/Mac: —",
         )
 
     # §13 cmd entries
@@ -1241,11 +1185,7 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             f"binary: {e.binary}",
             e.location,
             "main()",
-            (
-                f"1. Read main() in `{e.location}`.\n"
-                f"2. Does this binary write to the production SQLite DB?\n"
-                f"3. Describe what this binary does in the notes field."
-            ),
+            "does this binary write to production SQLite?",
         )
 
     # §14 Debug routes
@@ -1258,165 +1198,70 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             r.path,
             r.file,
             r.handler,
-            (
-                "1. Debug routes serve diagnostic pages.\n"
-                "2. These are not consumed by Web/PDF/Mac frontends.\n"
-                "3. Mark DB only if it queries the database (e.g. "
-                "db-stats, backup, tailsql)."
-            ),
+            "diagnostic only — mark DB only if it queries SQLite (db-stats, tailsql, backup)",
         )
 
     return items
 
 
-def _checklist_path(root: Path) -> Path:
-    return root / _CHECKLIST_FILENAME
-
-
-def _save_checklist(path: Path, items: list[TraceItem]) -> None:
-    data = {
-        "version": 1,
-        "description": (
-            "Surface-mark tracing checklist for velocity.report. "
-            "Each item needs DB/Web/PDF/Mac surface marks determined by "
-            "reading the source code. Use --trace-continue to resume."
-        ),
-        "instructions_for_llm": (
-            "Process items in order. For each item with status='pending':\n"
-            "1. Read the source file and handler listed.\n"
-            "2. Follow the trace_instructions to determine each surface mark.\n"
-            "3. Set each surface to one of: ✅ 📋 🔶 🗑️ — ?\n"
-            "4. Add any relevant notes.\n"
-            "5. Set status to 'done'.\n"
-            "6. Save the checklist file after each batch.\n"
-            "7. If you hit your context limit, stop and report progress. "
-            "The next session will pick up from where you left off using "
-            "--trace-continue.\n\n"
-            "IMPORTANT: Work section by section. Complete all items in one "
-            "section before moving to the next."
-        ),
-        "total_items": len(items),
-        "sections": _summarise_sections(items),
-        "items": [asdict(item) for item in items],
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
-def _load_checklist(path: Path) -> list[TraceItem]:
-    text = path.read_text(encoding="utf-8")
-    data = json.loads(text)
-    items: list[TraceItem] = []
-    for d in data["items"]:
-        items.append(
-            TraceItem(
-                id=d["id"],
-                section=d["section"],
-                section_title=d["section_title"],
-                label=d["label"],
-                source_file=d["source_file"],
-                handler=d["handler"],
-                surfaces=d["surfaces"],
-                notes=d["notes"],
-                status=d["status"],
-                trace_instructions=d["trace_instructions"],
-            )
-        )
-    return items
-
-
-def _summarise_sections(items: list[TraceItem]) -> list[dict[str, object]]:
-    """Per-section summary for quick LLM orientation."""
-    sections: dict[str, dict[str, int]] = {}
-    for item in items:
-        if item.section not in sections:
-            sections[item.section] = {"total": 0, "pending": 0, "done": 0, "skip": 0}
-        sections[item.section]["total"] += 1
-        sections[item.section][item.status] += 1
-
-    return [
-        {
-            "section": sec,
-            "title": next((i.section_title for i in items if i.section == sec), ""),
-            **counts,
-        }
-        for sec, counts in sections.items()
-    ]
-
-
-def print_trace_status(items: list[TraceItem]) -> None:
-    """Print progress summary for the checklist."""
-    total = len(items)
-    done = sum(1 for i in items if i.status == "done")
-    skip = sum(1 for i in items if i.status == "skip")
-    pending = total - done - skip
-
-    print("MATRIX TRACING CHECKLIST — Progress")
-    print("=" * 72)
-    print(f"  Total items:   {total}")
-    print(f"  Done:          {done}  ({done * 100 // total}%)")
-    print(f"  Skipped:       {skip}")
-    print(f"  Pending:       {pending}")
+def print_markdown_checklist(items: list[ChecklistItem]) -> None:
+    """Print a markdown checklist partitioned by surface-area groups."""
+    print("# Surface Tracing Checklist")
+    print()
+    print("Generated by `scripts/list-matrix-fields.py --checklist`.")
+    print(f"**{len(items)} items** across **{len(_SECTION_GROUPS)} task groups**.")
+    print()
+    print("## How to use this checklist")
+    print()
+    print("Each **Task Group** below is sized for one LLM context window.")
+    print("For each item, trace its exposure across four surfaces:")
+    print()
+    print("| Mark | Meaning |")
+    print("|------|---------|")
+    print("| ✅ | Fully wired to this surface |")
+    print("| 📋 | Planned — not yet implemented |")
+    print("| 🔶 | Partially wired (explain in notes) |")
+    print("| 🗑️ | Deprecated — to be removed |")
+    print("| — | Not applicable to this surface |")
+    print()
+    print(
+        "**Surfaces:** DB (SQLite), Web (Svelte UI :8080), "
+        "PDF (Python LaTeX generator), Mac (Metal visualiser via gRPC)"
+    )
     print()
 
-    # Per-section breakdown
-    print(f"  {'Section':<6} {'Title':<42} {'Done':>5} {'Pend':>5} {'Skip':>5}")
-    print(f"  {'-' * 6} {'-' * 42} {'-' * 5} {'-' * 5} {'-' * 5}")
-    for s in _summarise_sections(items):
-        print(
-            f"  {s['section']:<6} {str(s['title']):<42} "
-            f"{s['done']:>5} {s['pending']:>5} {s['skip']:>5}"
-        )
+    for group in _SECTION_GROUPS:
+        group_sections = group["sections"]
+        group_items = [i for i in items if i.section in group_sections]
+        if not group_items:
+            continue
 
-    if pending == 0:
+        print("---")
         print()
-        print("  ✅ ALL ITEMS TRACED — checklist complete.")
-        print("  Run with --trace-emit to generate the matrix markdown.")
-    else:
-        # Find next pending section
-        next_item = next((i for i in items if i.status == "pending"), None)
-        if next_item:
-            print()
-            print(f"  Next: {next_item.id} — {next_item.label}")
-            print(f"  Section: {next_item.section} {next_item.section_title}")
+        print(f"## Task Group: {group['title']}")
+        print()
+        print(f"**Sections:** {', '.join(str(s) for s in group_sections)}  ")
+        print(f"**Items:** {len(group_items)}  ")
+        print(f"**Focus:** {group['focus']}")
+        print()
 
+        current_section = ""
+        for item in group_items:
+            if item.section != current_section:
+                current_section = item.section
+                print(f"### {item.section} {item.section_title}")
+                print()
+                print("| ID | Item | Source | DB | Web | PDF | Mac | Notes |")
+                print("|---|---|---|---|---|---|---|---|")
 
-def print_trace_next_batch(items: list[TraceItem], batch_size: int = 30) -> None:
-    """Print the next batch of pending items for an LLM to process."""
-    pending = [i for i in items if i.status == "pending"]
-    if not pending:
-        print("All items have been traced. No pending items remain.")
-        return
+            handler_str = f" → `{item.handler}`" if item.handler else ""
+            print(
+                f"| {item.id} | `{item.label}` | "
+                f"`{item.source_file}`{handler_str} | | | | | "
+                f"{item.trace_hint} |"
+            )
 
-    batch = pending[:batch_size]
-    current_section = batch[0].section
-
-    print(f"TRACE BATCH — {len(batch)} items starting at {batch[0].id}")
-    print("=" * 72)
-    print()
-    print("For each item below:")
-    print("  1. Read the source_file and follow trace_instructions")
-    print("  2. Set each surface mark in the surfaces dict")
-    print("  3. Add notes if relevant")
-    print("  4. Set status to 'done'")
-    print(f"  5. Save changes to {_CHECKLIST_FILENAME}")
-    print()
-
-    for item in batch:
-        if item.section != current_section:
-            print(f"\n{'─' * 72}")
-            print(f"  SECTION CHANGE: {item.section} {item.section_title}")
-            print(f"{'─' * 72}")
-            current_section = item.section
-
-        print(f"\n  [{item.id}] {item.label}")
-        print(f"    File:    {item.source_file}")
-        if item.handler:
-            print(f"    Handler: {item.handler}")
-        print(f"    Surfaces: {item.surfaces}")
-        print("    Instructions:")
-        for line in item.trace_instructions.split("\n"):
-            print(f"      {line}")
+        print()
 
 
 # ---------------------------------------------------------------------------
@@ -1429,30 +1274,9 @@ def main() -> None:
         description="List backend surface inventory for velocity.report",
     )
     parser.add_argument(
-        "--json",
+        "--checklist",
         action="store_true",
-        help="Output as JSON instead of human-readable text",
-    )
-    parser.add_argument(
-        "--trace",
-        action="store_true",
-        help="Generate a fresh tracing checklist for LLM-guided audit",
-    )
-    parser.add_argument(
-        "--trace-continue",
-        action="store_true",
-        help="Show next pending batch from existing checklist",
-    )
-    parser.add_argument(
-        "--trace-status",
-        action="store_true",
-        help="Show progress summary of the tracing checklist",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=30,
-        help="Number of items per --trace-continue batch (default: 30)",
+        help="Output a markdown checklist for LLM-guided surface tracing",
     )
     parser.add_argument(
         "--root",
@@ -1465,7 +1289,6 @@ def main() -> None:
     if args.root:
         root = args.root.resolve()
     else:
-        # Script lives in scripts/ — root is one level up
         root = Path(__file__).resolve().parent.parent
 
     if not (root / "go.mod").exists():
@@ -1494,55 +1317,9 @@ def main() -> None:
     )
     inv.echart_endpoints = extract_echart_endpoints(inv.lidar_http)
 
-    if args.json:
-        print_json_report(inv)
-    elif args.trace:
-        checklist = _checklist_path(root)
-        if checklist.exists():
-            print(
-                f"Checklist already exists at {checklist}",
-                file=sys.stderr,
-            )
-            print(
-                "Use --trace-continue to resume, or delete the file to start fresh.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        trace_items = _build_trace_items(inv, root)
-        _save_checklist(checklist, trace_items)
-        print(f"Created tracing checklist: {checklist}")
-        print(f"  Total items: {len(trace_items)}")
-        print()
-        print_trace_status(trace_items)
-        print()
-        print("To begin tracing, run:")
-        print("  python scripts/list-matrix-fields.py --trace-continue")
-        print()
-        print("Or have an LLM read and edit the checklist directly:")
-        print(f"  {checklist}")
-    elif args.trace_continue:
-        checklist = _checklist_path(root)
-        if not checklist.exists():
-            print(
-                f"No checklist found at {checklist}",
-                file=sys.stderr,
-            )
-            print("Run with --trace first to generate one.", file=sys.stderr)
-            sys.exit(1)
-        trace_items = _load_checklist(checklist)
-        print_trace_status(trace_items)
-        print()
-        print_trace_next_batch(trace_items, batch_size=args.batch_size)
-    elif args.trace_status:
-        checklist = _checklist_path(root)
-        if not checklist.exists():
-            print(
-                f"No checklist found at {checklist}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        trace_items = _load_checklist(checklist)
-        print_trace_status(trace_items)
+    if args.checklist:
+        checklist_items = _build_checklist(inv, root)
+        print_markdown_checklist(checklist_items)
     else:
         print_text_report(inv)
 
