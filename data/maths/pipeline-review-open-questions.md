@@ -511,7 +511,7 @@ for the structured experiment design.
 | `warmup_duration_nanos`           | 30×10⁹  | **Empirical** — 30 s settling observed on kirk0                | Confirmed on one site                       |
 | `foreground_dbscan_eps`           | 0.8     | **Literature** — typical urban DBSCAN ε                        | Ester et al. 1996                           |
 | `foreground_min_cluster_points`   | 5       | **Provisional** — tuned for P40 at 10 Hz                       | Needs validation at other frame rates       |
-| `gating_distance_squared`         | 36.0    | **Theoretical** — χ²(2) conservative gate (6σ equivalent)      | Standard Kalman gating                      |
+| `gating_distance_squared`         | 36.0    | **Theoretical** — χ²(2) gate (Mahalanobis distance 6.0)        | Standard Kalman gating                      |
 | `process_noise_pos`               | 0.05    | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
 | `process_noise_vel`               | 0.2     | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
 | `measurement_noise`               | 0.05    | **Provisional** — tuned on kirk0                               | Should derive from sensor spec              |

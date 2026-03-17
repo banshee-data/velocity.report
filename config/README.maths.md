@@ -150,7 +150,7 @@ than duplicating values.
 | Config key                   | Default | Derivation                                                                 |
 | ---------------------------- | ------- | -------------------------------------------------------------------------- |
 | `background_update_fraction` | 0.02    | EMA α for 50-frame effective window; matches typical settling target       |
-| `gating_distance_squared`    | 36.0    | χ²(2) conservative gate (≈6σ); effectively never rejects on distance alone |
+| `gating_distance_squared`    | 36.0    | χ²(2) conservative gate (Mahalanobis distance 6.0); effectively never rejects on distance alone |
 | `max_reasonable_speed_mps`   | 30.0    | ~108 km/h; reasonable upper bound for UK residential/urban roads           |
 
 ### Literature keys
