@@ -538,8 +538,11 @@ removed in favour of a single canonical reference in
 column).
 
 **Validation plan:** See
-[config/OPTIMISATION_PLAN.md](../../config/OPTIMISATION_PLAN.md) for the
-structured plan to validate and graduate provisional defaults.
+[config/README.maths.md §6](../../config/README.maths.md) for the
+evidence levels and graduation criteria, and the per-layer sweep
+experiments in
+[data/experiments/try/](../experiments/try/) for the structured
+validation methodology.
 
 ### Q8. Rotating bounding boxes: do geometry-coherent replacements improve replay results enough?
 
