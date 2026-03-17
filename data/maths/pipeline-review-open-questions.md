@@ -91,9 +91,10 @@ enabling infrastructure step. The recommended sequence is:
 
 ## 3. Open Questions Addressed
 
-### Q1. Does tile-plane fitting outperform the height-band baseline enough to justify complexity?
+### Q1. How does tile-plane fitting align with the vector scene map?
 
-**Answer: Yes, for three specific and measurable scenarios.**
+**Answer: Yes, for three specific and measurable scenarios — and the
+construction path from tiles to vector-scene polygons is well-defined.**
 
 The current height-band filter is a zero-parameter, O(n) operation. It works
 well when the sensor is level and the ground is flat. It fails in three
@@ -133,56 +134,133 @@ common in UK residential deployments (sloped streets, kerbed pavements,
 outdoor-mounted sensors). The complexity cost is bounded and the
 correctness gain is measurable.
 
-### Q2. How should OSM/community priors be diffed, reviewed, and exported?
+**Tile → vector-scene alignment.** The ground plane and vector scene map use
+the same underlying geometry but at different granularities:
 
-**Answer: Three-stage validation with immutable-file semantics.**
+| Representation | Source | Granularity | Lifecycle |
+| --- | --- | --- | --- |
+| 1 m Cartesian tile | L4 streaming PCA | Fixed grid, per-tile plane (n, d) | Per-frame accumulation, settles in 20–50 s |
+| Vector-scene polygon | Region-grown tiles | Variable area, simplified boundary | Constructed from settled tiles, locked |
+| OSM prior polygon | External GeoJSON | Road/pavement/building outlines | Loaded once, used as alignment reference |
 
-The vector-scene-map proposal (§12) specifies a prior service using static
-GeoJSON files on a CDN, with contributions via pull requests. Three
-unresolved questions remain.
+The construction path is bottom-up and additive:
 
-**Q2a — Multi-contributor merging for the same grid cell.**
+1. **Tiles settle independently** via streaming PCA (O(1) per point per tile).
+2. **Region growing** merges adjacent settled tiles with compatible normals
+   (angle < 2°) and offsets (ΔZ < 3 cm) into polygons.
+3. **Polygon simplification** (Douglas–Peucker) reduces vertex count per LOD.
+4. **OSM alignment** computes a translation/rotation offset between observed
+   polygons and OSM prior polygons, producing a diff for map editing.
 
-Recommended resolution: **Per-contributor files with server-side union.**
+The tile plane and vector scene are **not competing representations** — tiles
+are the compute substrate, polygons are the output format. Both use the same
+plane equation (n, d) per surface region. Storage uses the same `GroundTile`
+struct proposed in `ground-plane-extraction.md`, serialised to SQLite for
+tiles and exported as GeoJSON for vector-scene polygons.
 
-Each contributor submits `<cell>.<fingerprint>.geojson` preserving immutability
-and signature provenance. A CI-generated unsigned `<cell>._merged.geojson`
-provides the query target. Clients prefer `_merged` when available, fall back
-to individual files. This preserves the immutability constraint while providing
-a single query endpoint.
+This alignment is confirmed across all four source documents:
+- `ground-plane-maths.md` → height-band filter (current runtime)
+- `ground-plane-extraction.md` → tile-plane fitting (§2, proposed)
+- `20260221-ground-plane-vector-scene-maths.md` → streaming PCA + settlement
+- `vector-scene-map.md` → region-grown polygons + LOD hierarchy
 
-The merge operation is geometric union: overlapping polygons are resolved by
-taking the polygon with higher `confidence` (from the contributor's evidence
-package). Non-overlapping polygons are concatenated. This is deterministic and
-auditable.
+### Q2. How should observed geometry align with OSM, and how do we propose edits?
 
-**Q2b — Spam and abuse screening.**
+**Answer: OSM is the canonical remote store. Our tools diff observed geometry
+against the community map and produce real-world OSM edits.**
 
-The GPG signature requirement is a sufficient disincentive at expected
-contribution volumes (< 100 contributors in the first year). Add two
-lightweight guards:
+The initial plan defers a velocity.report-hosted geometry service. Community
+members should be improving the OpenStreetMap map first and foremost. The
+project's role is to provide tooling that makes it easy to:
 
-1. **Bounding-box plausibility:** CI checks that contributed geometry lies
-   within ±0.005° of the cell centre and that polygon areas are within
-   [0.1 m², 10,000 m²].
-2. **Rate limiting:** Maximum 10 cell-file submissions per contributor per
-   day. This is enforced by the PR review bot, not by the CDN.
+1. **Diff** observed geometry (settled tile-plane polygons, kerb lines,
+   building footprints visible to the sensor) against the current state of
+   OSM for the deployment area.
+2. **Propose edits** that align the community map with observed ground truth,
+   packaged as standard OSM changesets or JOSM-compatible `.osm` files.
+3. **Quantify misalignment** with translation and rotation offset metrics
+   between observed and mapped geometry.
 
-Revocation: A revoked cell file is replaced with a tombstone file containing
-only a `revoked_at` timestamp and reason. The CDN serves the tombstone; clients
-treat it as "no data for this cell."
+**OSM-first workflow:**
 
-**Q2c — PCAP corpus hosting.**
+```
+Sensor observations (settled tiles)
+        │
+        ▼
+Region-grow into polygons (GeoJSON)
+        │
+        ▼
+Download OSM extract for deployment area
+        │
+        ▼
+Compute alignment: translation vector (dx, dy) + rotation offset (dθ)
+        │
+        ▼
+Diff: identify geometry in observations not present in OSM (new features)
+       and geometry in OSM not matching observations (misaligned features)
+        │
+        ▼
+Generate proposed edits as OSM-compatible changesets
+        │
+        ▼
+Human review in JOSM/iD → commit to OSM
+```
 
-Recommended: **Zenodo with stable DOI.** Zenodo provides free hosting for
-research data up to 50 GB per record, persistent DOIs, and versioning.
-Create one Zenodo community (`velocity-report`) with per-site records.
-Reference DOIs from `docs/references.bib`.
+**Translation/rotation offset model.** The alignment between observed
+geometry and OSM priors is computed as a rigid transform:
+
+- **Translation vector** (dx, dy) in metres — accounts for GPS offset,
+  datum differences, and systematic survey error.
+- **Rotation offset** dθ in radians — accounts for sensor heading
+  misalignment relative to map north.
+- **Confidence** — derived from the number and spatial distribution of
+  matched features (buildings, kerbs, road edges).
+
+When an OSM prior exists, the alignment offset tells us how far our
+observations differ from the map. If a street has 80% of buildings present
+at one fixed set of coordinates, we treat the OSM positions as authoritative
+and compute an offset vector to align our observations. The remaining 20%
+of unmapped or misaligned features become candidate edits.
+
+**GPS role:** GPS provides an initial translation estimate and takes
+precedence when no OSM prior is available. However, GPS may itself be wrong
+(multipath, ionospheric error, poor fix). The alignment system uses GPS as
+a starting point but refines via feature matching against OSM. If the
+GPS-derived position conflicts with a strong OSM prior (many matching
+buildings), the OSM prior wins and the GPS offset is recorded as a
+diagnostic metric.
+
+**Edit generation principles:**
+
+1. Each set of proposed world edits is identified as a real-world OSM edit
+   — not an internal velocity.report artifact.
+2. Edits provide geometry and a suggested offset vector; they do not move
+   100% of existing objects to a new reference frame (which may itself be
+   wrong).
+3. Gaps between observed and mapped geometry are aligned to the external
+   reference system to minimise spurious changes.
+4. The tool reports confidence per edit and flags low-confidence changes for
+   manual review.
+
+**Future mode — diff proposals for existing map data.** A planned extension
+will allow the system to generate structured diff reports that compare
+observed geometry against existing OSM data and propose corrections. This
+will include:
+
+- Per-feature alignment quality (translation/rotation residual)
+- Suggested geometry updates with provenance (sensor ID, capture time,
+  number of observations, confidence)
+- Changeset comments referencing the velocity.report evidence package
+- A human review step before any upload — the system never modifies OSM
+  autonomously
+
+See [docs/plans/lidar-l7-scene-plan.md](../plans/lidar-l7-scene-plan.md)
+§OSM priors service for the architectural context.
 
 ### Q3. Can LiDAR intensity create reliable pose anchors?
 
 **Answer: Yes, with a well-defined reliability ladder and quantified
-confidence bounds.**
+confidence bounds. Flagged for possible future improvement.**
 
 The reflective-sign-pose-anchor proposal defines a four-tier anchor ladder
 (signs > reflective patches > walls/facades > ground support). The key
@@ -208,9 +286,17 @@ recommended as the initial implementation. The reference case (cached
 `FrameStabilitySignal` feeding back to L3) should require measured evidence
 that false-reset rate decreases by ≥50% before the back-edge is enabled.
 
-### Q4. Should ground plane share settlement core with L3?
+**Future improvement note:** The thresholds above are initial estimates.
+Once the sign anchor system is implemented and evaluated on multiple sites,
+the confidence bounds and tier thresholds should be revisited with empirical
+data. In particular, the wall/facade tier may achieve better accuracy than
+estimated if surface roughness is characterised per anchor.
 
-**Answer: Yes, but with separated readiness outputs.**
+### Q4. Should ground plane share settlement core with L3, and how does this align with sign anchors and bodies-in-motion?
+
+**Answer: Yes, but with separated readiness outputs — and the unified
+settlement core is designed to be forward-compatible with both sign anchors
+and the bodies-in-motion kinematic extensions.**
 
 The unify-L3/L4-settling proposal correctly identifies that independent
 settlement lifecycles create duplicated work, inconsistent readiness states,
@@ -240,52 +326,112 @@ ensures that when L3 detects a scene change (divergent observations), L4
 also re-enters learning — preventing stale geometry from persisting after
 physical changes.
 
-### Q5. When does the CV tracker fragment too heavily?
+**Forward compatibility with sign anchors.** The reflective-sign-pose-anchor
+proposal (§8) defines a `FrameStabilitySignal` state machine with states:
+`unknown → stable ↔ shaky → moving → reacquire`. The unified settlement
+core's freeze/thaw policy must be compatible with this signal:
 
-**Answer: Three quantifiable fragmentation regimes.**
+- When `FrameStabilitySignal = stable`, settlement proceeds normally.
+- When `FrameStabilitySignal = shaky`, settlement pauses learning (freeze)
+  but does not reset — transient vibration should not invalidate settled
+  geometry.
+- When `FrameStabilitySignal = moving`, settlement triggers a hard reset
+  (re-enter LEARNING) because the sensor pose has changed.
+
+The unified `SettlementCore` already supports freeze/thaw via its `LOCKED`
+state. The sign-anchor integration adds a new freeze trigger (stability
+signal) alongside the existing trigger (observation divergence). These
+are additive — the settlement core does not need restructuring.
+
+**Forward compatibility with bodies-in-motion.** The bodies-in-motion plan
+introduces L7 scene-constrained prediction (road corridors, stop-line
+awareness). The unified settlement core produces the static geometry that
+L7 corridors are built from:
+
+- Settled ground tiles → region-grown polygons → road/pavement classification
+- Road polygons define corridor boundaries for L7 track prediction
+- Kerb polygons define lane edges for scene-constrained gating
+
+The settlement core's `READY_GROUND_GEOM` signal is the prerequisite for
+L7 corridor construction. If settlement resets (due to scene change or
+sensor movement), L7 corridors must also be invalidated. This dependency
+is one-directional (settlement → L7) and does not create a feedback loop.
+
+**Summary:** The unified settlement core is a future-forward foundation
+that serves three downstream consumers: L4 ground filtering, sign-anchor
+stability diagnostics, and L7 scene corridors. No structural changes are
+needed to support these future extensions — only additional readiness
+signals and freeze triggers.
+
+### Q5. CV tracker fragmentation: what is future-forward vs throwaway work?
+
+**Answer: Only pursue additive work that feeds into L7 corridors. Avoid
+intermediate optimisations at layers that will be replaced.**
 
 The constant-velocity (CV) Kalman filter fragments tracks when the true
 motion deviates from constant velocity for longer than the gating tolerance
-allows. The three regimes are:
+allows. Three fragmentation regimes exist (braking, turning, sparse
+clusters), but not all remedies are future-forward.
 
-**Regime 1 — Braking/acceleration.** A vehicle decelerating at 3 m/s²
-(typical urban braking) causes the CV prediction to overshoot by
-(1/2)at² = 0.015 m per frame at 10 Hz. After 10 frames (1 s), the cumulative
-error is 1.5 m. With a typical gating distance squared of 2.0 m², the track
-survives ~10–15 frames of braking before fragmentation.
+**Future-forward principle:** If L7 will provide polyline corridors for
+expected occlusion, noise, reflection zones, and lane boundaries, then
+optimisations that duplicate this corridor awareness at L5 are throwaway
+work. Only additive work that either (a) feeds into L7 corridor
+construction or (b) remains useful after L7 corridors exist should be
+pursued.
 
-A constant-acceleration (CA) model would eliminate this fragmentation
-entirely for linear braking. The CA model adds 2 state variables (ax, ay)
-and 4 covariance elements; the per-frame cost increase is ~20% for
-prediction and ~30% for update.
+**Future-forward work (pursue):**
 
-**Regime 2 — Turning.** A vehicle turning at 0.1 rad/s (typical urban turn)
-at 10 m/s produces lateral displacement of vωΔt² = 0.01 m per frame.
-Over 20 frames (2 s turn), the cumulative lateral error is 2.0 m. CV tracks
-fragment at the midpoint of most turns.
+1. **CA model extension (L5 state vector 4 → 6).** Adding acceleration
+   states is purely additive — the CA model is a strict superset of CV.
+   It eliminates braking/acceleration fragmentation (Regime 1) and remains
+   useful after L7 corridors exist because it improves state estimation
+   quality regardless of scene constraints. The per-frame cost increase is
+   ~20% for prediction and ~30% for update (~1 ms total).
 
-A constant-turn-rate-velocity (CTRV) model captures turn dynamics. However,
-CTRV adds 1 state variable (ω) and a nonlinear state transition requiring
-an Extended Kalman Filter (EKF) or Unscented Kalman Filter (UKF). The
-implementation complexity is significantly higher than CA.
+2. **IMM with CV+CA (L5).** The Interacting Multiple Model blender selects
+   the best motion model per track per frame. This is additive over CA and
+   future-compatible — IMM can later incorporate CTRV or corridor-aware
+   models as additional modes without restructuring.
 
-**Regime 3 — Sparse clusters.** When a cluster drops below `min_pts` (e.g.
-at range > 40 m or during partial occlusion), the track enters coasting.
-CV prediction during coasting accumulates error at the rate of velocity
-uncertainty. With typical process noise, coasting degrades to ≥ 1 m
-uncertainty within 5 frames. Re-association after 5+ missed frames often
-fails, creating a new track.
+3. **Settlement core (P4) producing geometry for L7 corridors.** The
+   unified settlement core produces settled ground tiles that L7 will
+   consume to construct road/pavement corridor polylines. This is enabling
+   infrastructure, not an intermediate optimisation.
 
-**Recommendation for sequencing:**
+4. **Benchmark harness for fragmentation measurement.** Measuring
+   fragmentation rate on fixed PCAPs is permanently useful — it validates
+   both current and future tracker improvements.
 
-1. CA model first (bodies-in-motion Phase 1): eliminates Regime 1 entirely,
-   moderate implementation effort (extend state vector from 4 to 6).
-2. IMM with CV+CA second (Phase 2): handles mixed constant-velocity and
-   braking segments without the lag of always-on CA.
-3. CTRV deferred to Phase 3: high implementation cost, benefits only turning
-   vehicles (a smaller fraction of the fragmentation problem).
-4. Sparse-cluster linking (Phase 4): requires scene-corridor awareness from
-   L7 to predict where occluded objects should reappear.
+**Not future-forward (avoid):**
+
+1. ~~CTRV model at L5.~~ CTRV captures turning dynamics, but L7 corridor-
+   constrained prediction will handle turns more robustly by clipping
+   predictions to road polygons. Implementing CTRV at L5 alone is effort
+   that L7 will supersede.
+
+2. ~~Ad-hoc sparse-cluster linking at L5.~~ Sparse-cluster re-association
+   without scene corridors is guesswork. L7 corridors predict where
+   occluded objects should reappear; without that context, L5 linking
+   heuristics are fragile and will be replaced.
+
+3. ~~L5 gating relaxation for specific road geometries.~~ Tuning L5 gates
+   for turns or intersections encodes scene knowledge at the wrong layer.
+   This knowledge belongs in L7 corridors.
+
+**Recommended sequencing (future-forward only):**
+
+1. **P1: Geometry-coherent track state** — fixes bounding box instability,
+   additive, no L7 dependency.
+2. **CA model** — extends L5 state vector, additive, no L7 dependency.
+3. **IMM (CV+CA)** — additive over CA, future-compatible with additional
+   modes.
+4. **P4: Unified settlement core** — enables L7 corridor construction.
+5. **L7 corridors** — consumes settled geometry, constrains predictions,
+   enables sparse-cluster linking and turn handling.
+
+This sequence avoids dead ends: every item either persists in the final
+architecture or enables a downstream capability.
 
 ### Q6. What benchmarks prove the foreground-plus-DBSCAN baseline should be replaced?
 
@@ -317,6 +463,10 @@ downstream parameters (same DBSCAN ε, same tracker config). Compare using
 the existing `analysis.CompareReports` infrastructure with Hungarian-matched
 temporal IoU.
 
+**Experiment proposal:** See
+[data/experiments/try/velocity-coherent-baseline-comparison.md](../../experiments/try/velocity-coherent-baseline-comparison.md)
+for the structured experiment design.
+
 ### Q7. Which defaults are backed by repeatable comparisons vs provisional?
 
 **Answer: Audit by config key with evidence classification.**
@@ -343,6 +493,10 @@ temporal IoU.
 validated through the parameter sweep infrastructure (Phase 4.2) across at
 least three sites with different road geometries before being considered
 stable defaults.
+
+**Validation plan:** See
+[config/OPTIMISATION_PLAN.md](../../config/OPTIMISATION_PLAN.md) for the
+structured plan to validate and graduate provisional defaults.
 
 ### Q8. Rotating bounding boxes: do geometry-coherent replacements improve replay results enough?
 
@@ -372,9 +526,11 @@ most visible artifact in the visualiser and the most frequently reported
 user issue. It also degrades classification accuracy (dimension features
 are noisy inputs to the rule cascade).
 
-### Q9. L3/L4 settlement boundary: how to handle the region-selection scoring weights?
+### Q9. L3/L4 settlement boundary: how to handle GPS alignment and priors?
 
-**Answer: Five weights with documented defaults and sensitivity.**
+**Answer: GPS is a translation/offset vector only. OSM priors are the
+primary alignment reference. Observed geometry aligns to the external
+reference system to minimise spurious changes.**
 
 The ground-plane-vector-scene-maths proposal (§4.4) defines region-selection
 scoring as:
@@ -399,14 +555,46 @@ The **coupling to existing config** (§4.5 of the proposal) is well-defined:
 This re-uses `closeness_multiplier`, `noise_relative`, and
 `safety_margin_meters` from the L3 config, avoiding new magic numbers.
 
-**Key design decision:** w_prior should default to 1.0 (neutral) and only
-deviate when external priors are loaded. This ensures the ground plane
+**GPS as offset vector.** GPS provides a translation vector (dx, dy) and
+optionally a height offset (dz). It does not define the reference frame for
+geometry — OSM does. The GPS role is:
+
+1. **Initial alignment** — When no OSM prior is available, GPS provides
+   the only geo-reference. The system uses GPS coordinates directly but
+   records the fix quality (HDOP, satellite count) as a confidence metric.
+2. **Prior alignment bootstrap** — When an OSM prior is available, GPS
+   provides the initial guess for the translation/rotation offset between
+   sensor frame and map frame. Feature matching against OSM buildings and
+   road edges refines this offset.
+3. **Conflict resolution** — If GPS position conflicts with a strong OSM
+   prior (e.g. 80% of buildings in view match OSM at a different offset),
+   the OSM prior takes precedence. The GPS-to-OSM discrepancy is recorded
+   as a diagnostic metric.
+
+**OSM alignment model.** When a street has 80% of buildings present at one
+fixed set of coordinates in OSM, we assume the OSM positions are
+authoritative. Our observations are aligned to the OSM frame using a
+rigid transform (translation + rotation). The remaining 20% of unmapped
+features become candidate edits — we provide the geometry and a suggested
+offset vector, but align gaps to the external reference system to minimise
+spurious changes.
+
+**Key design decision:** w_prior defaults to 1.0 (neutral) and only
+deviates when external priors are loaded. This ensures the ground plane
 system works identically with and without priors — priors are strictly
-additive, consistent with the GPS-additive principle.
+additive. GPS contributes only as a translation/offset vector, never as
+an absolute coordinate source that overrides observed geometry.
+
+**Future mode — map diff proposals.** Once the alignment model is
+established, the system can generate structured diff proposals comparing
+observed geometry against OSM data. See Q2 above for the proposed OSM edit
+workflow. A planned reference document will describe the diff format,
+changeset generation, and human review process.
 
 ### Q10. Performance-versus-accuracy tradeoff for edge hardware.
 
-**Answer: Budget allocation by layer with measured costs.**
+**Answer: Budget allocation by layer with measured costs. A performance
+measurement harness provides consistent regression detection.**
 
 The Raspberry Pi 4 (ARM Cortex-A72, 1.8 GHz, 4 cores) must process each
 frame within 100 ms at 10 Hz. The current measured budget (approximate):
@@ -440,28 +628,47 @@ All proposed mathematical improvements fit within the available 57% headroom
 individually. The combination of all proposals would consume ~12–17 ms
 additional, still leaving ~40% headroom for future work.
 
+**Performance measurement harness.** To detect regressions and validate
+budget estimates, a consistent measurement harness runs fixed PCAPs on
+test hardware and reports per-layer timing, frame drops, and throughput.
+See [docs/plans/lidar-performance-measurement-harness-plan.md](../plans/lidar-performance-measurement-harness-plan.md)
+for the harness design. The existing `make test-perf` target and nightly
+CI job provide the infrastructure; the harness plan extends this with
+per-layer breakdowns and hardware-specific baselines.
+
 ### Q11. Reference data coverage: does kirk0 overfit?
 
-**Answer: Almost certainly yes; remediation plan needed.**
+**Answer: Almost certainly yes; plan for five PCAPs with P40 sensor.**
 
 Kirk0 is a single capture at one site with one sensor model. All provisional
 defaults were tuned against it. The overfitting risk is real:
 
 - **Road geometry:** Kirk0 may be flat; sloped-road defaults are untested.
 - **Traffic mix:** Kirk0 may over-represent one vehicle class.
-- **Sensor model:** XT32-specific noise characteristics may not generalise.
+- **Sensor model:** P40-specific noise characteristics may not generalise.
 - **Weather/lighting:** One capture cannot cover wet/dry/wind conditions.
 
-**Minimum viable test corpus:**
+**Five-PCAP test corpus plan (P40 sensor):**
 
-1. Kirk0 (existing) — flat urban road, XT32
-2. A sloped residential street — validates ground-plane tiling
-3. A school zone or park entrance — validates pedestrian/cyclist classification
-4. A different sensor model (e.g. XT16, mid-range) — validates noise model
+| # | Site description | Validates | Status |
+| - | --- | --- | --- |
+| 1 | Kirk0 (existing) — flat urban road | Baseline defaults | ✓ Captured |
+| 2 | Sloped residential street (≥3° gradient) | Ground-plane tiling, height-band limits | Planned |
+| 3 | School zone or park entrance | Pedestrian/cyclist classification, low-speed tracks | Planned |
+| 4 | Multi-lane road or junction | Turning vehicles, lane-crossing, merge/split | Planned |
+| 5 | Rural or semi-rural road | Long-range sparse clusters, high-speed vehicles | Planned |
 
-Each site needs ≥ 20 manually labelled tracks covering the major classes.
-The parameter sweep infrastructure (Phase 4.2) should run across all sites
-simultaneously, reporting per-site and aggregate metrics.
+All captures use the Hesai P40 sensor to control for sensor-specific noise
+characteristics. Each site needs ≥ 20 manually labelled tracks covering
+the major classes (car, truck, cyclist, pedestrian at minimum).
+
+The parameter sweep infrastructure (Phase 4.2) should run across all five
+sites simultaneously, reporting per-site and aggregate metrics. Defaults
+are only promoted from "provisional" to "empirical" when they perform
+within 10% of optimal across all five sites.
+
+See [docs/plans/lidar-test-corpus-plan.md](../plans/lidar-test-corpus-plan.md)
+for the full test corpus plan.
 
 ## 4. Ground Plane and Priors Alignment: Synthesis
 
@@ -506,17 +713,22 @@ must enforce or validate the containment invariant separately (for example,
 via topology-preserving simplification, clipping simplified polygons to their
 parent, and/or post-simplification checks).
 
-**Gap 4: Priors integration has no implementation path.** The vector-scene-map
-(§12) describes an OSM prior service; the maths proposal (§4.4) includes a
-w_prior weight in region selection. But no code, no table, and no config
-key exists for prior loading. The implementation path should be:
+**Gap 4: Priors integration should be OSM-first.** The vector-scene-map
+(§12) describes a future online geometry-prior service; the maths proposal
+(§4.4) includes a w_prior weight in region selection. But no code, no table,
+and no config key exists for prior loading. The implementation path should
+be OSM-first (see Q2):
 
-1. Add a `ground_priors` config section with `source` (none/file/osm) and
-   `file_path` fields.
-2. Parse GeoJSON priors into the same polygon representation used by the
-   vector-scene-map.
-3. Feed polygon containment as w_prior into region selection scoring.
-4. Default w_prior = 1.0 (neutral) when no priors are loaded.
+1. Add an `osm_priors` config section with `enabled` (boolean) and
+   `extract_path` (path to Overpass/JOSM export) fields.
+2. Parse OSM GeoJSON exports into the same polygon representation used by
+   the vector-scene-map.
+3. Compute translation/rotation offset between observed polygons and OSM
+   polygons via feature matching.
+4. Feed polygon containment as w_prior into region selection scoring.
+5. Default w_prior = 1.0 (neutral) when no priors are loaded.
+6. Generate diff reports identifying geometry gaps between observations
+   and the OSM map, with suggested edits for human review.
 
 ### 4.2 Recommended ground plane implementation sequence
 
@@ -536,10 +748,12 @@ key exists for prior loading. The implementation path should be:
    as GeoJSON. This provides the foundation for the vector-scene-map without
    requiring the full LOD hierarchy initially.
 
-4. **Phase G4: Prior loading and alignment.** Add GeoJSON prior loading.
-   Compute alignment between observed polygons and prior polygons using
-   Procrustes or ICP. Report misalignment as a diagnostic metric. Apply
-   w_prior weight in region selection.
+4. **Phase G4: OSM prior loading and alignment.** Load OSM GeoJSON exports
+   as prior polygons. Compute rigid-transform alignment (translation +
+   rotation) between observed polygons and OSM polygons via feature
+   matching. Report misalignment as a diagnostic metric. Generate diff
+   reports with suggested edits for OSM contributors. Apply w_prior weight
+   in region selection scoring.
 
 ## 5. Implementations That Need Extending
 
@@ -605,16 +819,17 @@ Ordered by user-visible impact and mathematical maturity:
 | 2        | Tile-plane ground fitting (G1)          | L4    | M (3–4 days)  | **High** — correctness for sloped roads     | Maths complete, needs implementation  |
 | 3        | Unified settlement core (P4)            | L3–L4 | M (4–5 days)  | **Medium** — infrastructure simplification  | Proposal complete, enables G2 and P3  |
 | 4        | Classification config extraction (§5.1) | L6    | S (1–2 days)  | **Medium** — removes magic numbers          | Straightforward refactor              |
-| 5        | Multi-site test corpus (§Q11)           | Cross | M (ongoing)   | **High** — validates all defaults           | Requires field data collection        |
+| 5        | Five-site test corpus (§Q11)            | Cross | M (ongoing)   | **High** — validates all defaults           | Requires field data collection        |
 | 6        | Speed percentile alignment (§5.2)       | L8    | S (2–3 days)  | **Medium** — correctness for reports        | Implementation choices documented     |
-| 7        | CA/IMM motion models (bodies-in-motion) | L5    | L (8–10 days) | **Medium** — reduces fragmentation          | Requires P1 first                     |
-| 8        | Velocity-coherent foreground (P2)       | L3–L5 | XL (10+ days) | **High** — improves recall/fragmentation    | Needs benchmark evidence first        |
-| 9        | Sign/surface pose anchors               | L2–L8 | M (5–7 days)  | **Low** — diagnostics only in base case     | Needs L7 scene infrastructure         |
+| 7        | CA model (future-forward L5 extension)  | L5    | M (5–6 days)  | **Medium** — reduces braking fragmentation  | Additive over CV, no L7 dependency    |
+| 8        | IMM CV+CA blend                         | L5    | M (4–5 days)  | **Medium** — adaptive model selection       | Additive over CA, future-compatible   |
+| 9        | L7 corridors (enables turns + linking)  | L7    | L (10+ days)  | **High** — turns, sparse linking, lanes     | Requires P4 settled geometry          |
 
-**Critical path:** P1 → G1 → P4 → G2 → P3 → P2 → sign anchors.
+**Critical path:** P1 → G1 → P4 → G2 → CA → IMM → L7 corridors.
 
 Items 4, 5, and 6 are independent and can be pursued in parallel with the
-critical path.
+critical path. Items 7–9 are the future-forward kinematic sequence that
+avoids throwaway work (see Q5).
 
 ## 7. Cross-Reference to Existing Plans
 
