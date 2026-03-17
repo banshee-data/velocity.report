@@ -230,7 +230,7 @@ visualiser via gRPC).
 | `lidar_tracks`         | `end_unix_nanos`                  | INTEGER       | ✅  | ✅  | —   | ✅  |
 | `lidar_tracks`         | `observation_count`               | INTEGER       | ✅  | ✅  | —   | ✅  |
 | `lidar_tracks`         | `avg_speed_mps`                   | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `peak_speed_mps`                  | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`         | `peak_speed_mps`                  | REAL          | 🗑️  | ✅  | —   | ✅  |
 | `lidar_tracks`         | `p50_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
 | `lidar_tracks`         | `p85_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
 | `lidar_tracks`         | `p95_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
@@ -271,7 +271,7 @@ visualiser via gRPC).
 | `lidar_run_tracks`     | `end_unix_nanos`                  | INTEGER       | ✅  | ✅  | —   | —   |
 | `lidar_run_tracks`     | `observation_count`               | INTEGER       | ✅  | ✅  | —   | —   |
 | `lidar_run_tracks`     | `avg_speed_mps`                   | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `peak_speed_mps`                  | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`     | `peak_speed_mps`                  | REAL          | 🗑️  | ✅  | —   | —   |
 | `lidar_run_tracks`     | `p50_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
 | `lidar_run_tracks`     | `p85_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
 | `lidar_run_tracks`     | `p95_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
@@ -541,7 +541,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 | `internal/lidar/l5tracks` | `tracking.go` | `heading_rad`          | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `observation_count`    | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `avg_speed_mps`        | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `peak_speed_mps`       | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `peak_speed_mps`       | 🗑️  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `bounding_box_*`       | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `height_p95_max`       | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `intensity_mean_avg`   | ✅  | ✅  | —   | ✅  |
