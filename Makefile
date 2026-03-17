@@ -101,6 +101,7 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
+	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
@@ -1027,13 +1028,16 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid
+.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width
 
 lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
 
 check-mermaid: ## Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
+
+check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
+	@python3 scripts/check-prose-line-width.py --report
 
 lint-docs: check-mermaid ## Check Mermaid fences, header metadata format, and British English spelling in docs/
 	@python3 scripts/check-doc-header-metadata.py
