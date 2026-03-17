@@ -121,6 +121,8 @@ visualiser via gRPC).
 | Scenes         | `webserver.go`     | `GET/PUT/DEL /api/lidar/scenes/{id}`            | ✅  | ✅  | —   | —   |
 | Missed regions | `webserver.go`     | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | —   | —   |
 | Missed regions | `webserver.go`     | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | ✅  | —   | —   |
+| Destructive    | `webserver.go`     | `POST /api/lidar/tracks/clear`                  | ✅  | ✅  | —   | —   |
+| Destructive    | `webserver.go`     | `POST /api/lidar/runs/clear`                    | ✅  | ✅  | —   | —   |
 
 ---
 
@@ -146,30 +148,30 @@ visualiser via gRPC).
 
 **Source:** `internal/db/schema.sql`
 
-| Layer  | Table                  | Web | PDF | Mac | Notes                         |
-| ------ | ---------------------- | --- | --- | --- | ----------------------------- |
-| LiDAR  | `lidar_analysis_runs`  | ✅  | —   | —   | Run browser + label UI        |
-| LiDAR  | `lidar_clusters`       | ✅  | —   | ✅  | Cluster display, gRPC         |
-| LiDAR  | `lidar_tracks`         | ✅  | —   | ✅  | Track display, gRPC           |
-| LiDAR  | `lidar_track_obs`      | ✅  | —   | —   | Trajectory rendering          |
-| LiDAR  | `lidar_labels`         | ✅  | —   | —   | Training + HINT               |
-| LiDAR  | `lidar_scenes`         | ✅  | —   | —   | HINT labelling                |
-| LiDAR  | `lidar_evaluations`    | ✅  | —   | —   | Sweep/auto-tune               |
-| LiDAR  | `lidar_sweeps`         | ✅  | —   | —   | Sweep history                 |
-| LiDAR  | `lidar_bg_snapshot`    | ✅  | —   | —   | Grid visualisation            |
-| LiDAR  | `lidar_bg_regions`     | ✅  | —   | —   | Settling evaluation           |
-| LiDAR  | `lidar_missed_regions` | ✅  | —   | —   | Detection gap annotations     |
-| LiDAR  | `lidar_run_tracks`     | ✅  | —   | —   | Per-run track copies          |
-| Radar  | `radar_data`           | ✅  | ✅  | —   | Raw events + alt stats source |
-| Radar  | `radar_objects`        | ✅  | ✅  | —   | Primary report source         |
-| Radar  | `radar_data_transits`  | ✅  | ✅  | —   | Alternative report source     |
-| Radar  | `radar_transit_links`  | ✅  | —   | —   | Transit chain building        |
-| Radar  | `radar_commands`       | ✅  | —   | —   | Debug history                 |
-| Radar  | `radar_command_log`    | ✅  | —   | —   | Debug output                  |
-| Site   | `site`                 | ✅  | ✅  | —   | Location, metadata            |
-| Site   | `site_config_periods`  | ✅  | ✅  | —   | Mounting angle changes        |
-| Site   | `site_reports`         | ✅  | ✅  | —   | Report metadata + download    |
-| System | `schema_migrations`    | —   | —   | —   | Internal                      |
+| Layer  | Table                  | Web | PDF | Mac | Notes                                      |
+| ------ | ---------------------- | --- | --- | --- | ------------------------------------------ |
+| LiDAR  | `lidar_analysis_runs`  | ✅  | —   | —   | Run browser + label UI                     |
+| LiDAR  | `lidar_clusters`       | ✅  | —   | ✅  | Cluster display, gRPC                      |
+| LiDAR  | `lidar_tracks`         | ✅  | —   | ✅  | Track display, gRPC                        |
+| LiDAR  | `lidar_track_obs`      | ✅  | —   | —   | Trajectory rendering                       |
+| LiDAR  | `lidar_labels`         | ✅  | —   | —   | Training + HINT                            |
+| LiDAR  | `lidar_scenes`         | ✅  | —   | —   | HINT labelling                             |
+| LiDAR  | `lidar_evaluations`    | ✅  | —   | —   | Sweep/auto-tune                            |
+| LiDAR  | `lidar_sweeps`         | ✅  | —   | —   | Sweep history                              |
+| LiDAR  | `lidar_bg_snapshot`    | ✅  | —   | 🔶  | Grid visualisation (derived sent via gRPC) |
+| LiDAR  | `lidar_bg_regions`     | ✅  | —   | —   | Settling evaluation                        |
+| LiDAR  | `lidar_missed_regions` | ✅  | —   | —   | Detection gap annotations                  |
+| LiDAR  | `lidar_run_tracks`     | ✅  | —   | —   | Per-run track copies                       |
+| Radar  | `radar_data`           | ✅  | ✅  | —   | Raw events + alt stats source              |
+| Radar  | `radar_objects`        | ✅  | ✅  | —   | Primary report source                      |
+| Radar  | `radar_data_transits`  | ✅  | ✅  | —   | Alternative report source                  |
+| Radar  | `radar_transit_links`  | ✅  | —   | —   | Transit chain building                     |
+| Radar  | `radar_commands`       | ✅  | —   | —   | Debug history                              |
+| Radar  | `radar_command_log`    | ✅  | —   | —   | Debug output                               |
+| Site   | `site`                 | ✅  | ✅  | —   | Location, metadata                         |
+| Site   | `site_config_periods`  | ✅  | ✅  | —   | Mounting angle changes                     |
+| Site   | `site_reports`         | ✅  | ✅  | —   | Report metadata + download                 |
+| System | `schema_migrations`    | —   | —   | —   | Internal                                   |
 
 ---
 
@@ -209,8 +211,8 @@ visualiser via gRPC).
 | `lidar_clusters`       | `height_p95`                      | REAL          | ✅  | ✅  | —   | ✅  |
 | `lidar_clusters`       | `intensity_mean`                  | REAL          | ✅  | ✅  | —   | ✅  |
 | `lidar_clusters`       | `noise_points_count`              | INTEGER       | 🔶  | —   | —   | —   |
-| `lidar_clusters`       | `cluster_density`                 | REAL          | ✅  | 📋  | —   | —   |
-| `lidar_clusters`       | `aspect_ratio`                    | REAL          | ✅  | 📋  | —   | —   |
+| `lidar_clusters`       | `cluster_density`                 | REAL          | 🔶  | 📋  | —   | —   |
+| `lidar_clusters`       | `aspect_ratio`                    | REAL          | 🔶  | 📋  | —   | —   |
 | `lidar_tracks`         | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | ✅  |
 | `lidar_tracks`         | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | ✅  |
 | `lidar_tracks`         | `world_frame`                     | TEXT          | ✅  | ✅  | —   | ✅  |
@@ -231,12 +233,12 @@ visualiser via gRPC).
 | `lidar_tracks`         | `object_class`                    | TEXT          | ✅  | ✅  | —   | ✅  |
 | `lidar_tracks`         | `object_confidence`               | REAL          | ✅  | ✅  | —   | ✅  |
 | `lidar_tracks`         | `classification_model`            | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_tracks`         | `track_length_meters`             | REAL          | ✅  | 📋  | —   | ✅  |
-| `lidar_tracks`         | `track_duration_secs`             | REAL          | ✅  | 📋  | —   | ✅  |
-| `lidar_tracks`         | `occlusion_count`                 | INTEGER       | ✅  | 📋  | —   | ✅  |
-| `lidar_tracks`         | `max_occlusion_frames`            | INTEGER       | ✅  | 📋  | —   | —   |
-| `lidar_tracks`         | `spatial_coverage`                | REAL          | ✅  | 📋  | —   | —   |
-| `lidar_tracks`         | `noise_point_ratio`               | REAL          | ✅  | 📋  | —   | —   |
+| `lidar_tracks`         | `track_length_meters`             | REAL          | 🔶  | 📋  | —   | ✅  |
+| `lidar_tracks`         | `track_duration_secs`             | REAL          | 🔶  | 📋  | —   | ✅  |
+| `lidar_tracks`         | `occlusion_count`                 | INTEGER       | 🔶  | 📋  | —   | ✅  |
+| `lidar_tracks`         | `max_occlusion_frames`            | INTEGER       | 🔶  | 📋  | —   | —   |
+| `lidar_tracks`         | `spatial_coverage`                | REAL          | 🔶  | 📋  | —   | —   |
+| `lidar_tracks`         | `noise_point_ratio`               | REAL          | 🔶  | 📋  | —   | —   |
 | `lidar_track_obs`      | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | —   |
 | `lidar_track_obs`      | `ts_unix_nanos`                   | INTEGER PK    | ✅  | ✅  | —   | —   |
 | `lidar_track_obs`      | `world_frame`                     | TEXT          | ✅  | ✅  | —   | —   |
@@ -345,6 +347,7 @@ visualiser via gRPC).
 | `lidar_sweeps`         | `checkpoint_round`                | INTEGER       | ✅  | ✅  | —   | —   |
 | `lidar_sweeps`         | `checkpoint_bounds`               | TEXT          | ✅  | ✅  | —   | —   |
 | `lidar_sweeps`         | `checkpoint_results`              | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_sweeps`         | `checkpoint_request`              | TEXT          | ✅  | ✅  | —   | —   |
 | `lidar_bg_snapshot`    | `snapshot_id`                     | INTEGER PK    | ✅  | ✅  | —   | —   |
 | `lidar_bg_snapshot`    | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
 | `lidar_bg_snapshot`    | `taken_unix_nanos`                | INTEGER       | ✅  | ✅  | —   | —   |
@@ -688,19 +691,19 @@ are reserved for grouped/report aggregates only. These 6 columns should be
 | Category                | Total | DB  | Web | PDF | Mac |
 | ----------------------- | ----- | --- | --- | --- | --- |
 | HTTP endpoints (radar)  | 14    | 12  | 14  | 4   | 0   |
-| HTTP endpoints (LiDAR)  | 58    | 30  | 58  | 0   | 0   |
+| HTTP endpoints (LiDAR)  | 60    | 32  | 60  | 0   | 0   |
 | gRPC methods            | 9     | 0   | 0   | 0   | 9   |
-| DB tables               | 22    | —   | 21  | 6   | 2   |
+| DB tables               | 22    | —   | 21  | 6   | 3   |
 | Pipeline stages         | 7     | 5   | 5   | 0   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   | 0   |
 
 ### Gap summary
 
-| Category                             | Count | Details                                                                      |
-| ------------------------------------ | ----- | ---------------------------------------------------------------------------- |
-| Fields persisted but not surfaced    | 8     | track quality (3 DB+Mac, 3 DB-only), cluster quality (2)                     |
-| Schema columns never written         | 2     | `noise_points_count`, `statistics_json` (column exists, never populated)     |
-| Structs computed, not persisted      | 4     | NoiseCoverageMetrics, TrainingDatasetSummary, TrackFeatures, ClusterFeatures |
-| Transient pipeline metrics           | 3     | FrameMetrics, TrackAlignmentMetrics, per-track jitter                        |
-| Logic with no triggering endpoint    | 2     | `compareParams()`, `computeTemporalIoU()`                                    |
-| Deprecated columns (removal planned) | 6     | p50/p85/p95 on lidar_tracks + lidar_run_tracks                               |
+| Category                             | Count | Details                                                                                 |
+| ------------------------------------ | ----- | --------------------------------------------------------------------------------------- |
+| Schema columns never written         | 10    | `lidar_tracks` quality (6), `lidar_clusters` quality (3), `statistics_json` (1)         |
+| Fields live-only (Mac but not in DB) | 3     | `track_length_meters`, `track_duration_secs`, `occlusion_count` (gRPC ✅, DB column 🔶) |
+| Structs computed, not persisted      | 4     | NoiseCoverageMetrics, TrainingDatasetSummary, TrackFeatures, ClusterFeatures            |
+| Transient pipeline metrics           | 3     | FrameMetrics, TrackAlignmentMetrics, per-track jitter                                   |
+| Logic with no triggering endpoint    | 2     | `compareParams()`, `computeTemporalIoU()`                                               |
+| Deprecated columns (removal planned) | 6     | p50/p85/p95 on lidar_tracks + lidar_run_tracks                                          |
