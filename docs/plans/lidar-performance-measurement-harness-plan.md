@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (L1–L6, CI infrastructure)
-- **Related:** [Clustering Observability and Benchmark Plan](lidar-clustering-observability-and-benchmark-plan.md), [Pipeline Review Q10](../data/maths/pipeline-review-open-questions.md)
+- **Related:** [Clustering Observability and Benchmark Plan](lidar-clustering-observability-and-benchmark-plan.md), [Pipeline Review Q10](../../data/maths/pipeline-review-open-questions.md)
 
 ## Goal
 
@@ -151,4 +151,4 @@ Extend the current benchmark output with per-layer fields:
 
 - [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md) — clustering-specific benchmarks
 - [Test corpus plan](lidar-test-corpus-plan.md) — five-site PCAP corpus
-- [Config optimisation plan](../config/OPTIMISATION_PLAN.md) — parameter sweep infrastructure
+- [Config optimisation plan](../../config/OPTIMISATION_PLAN.md) — parameter sweep infrastructure

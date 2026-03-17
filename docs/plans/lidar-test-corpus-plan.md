@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting
-- **Related:** [Pipeline Review Q11](../data/maths/pipeline-review-open-questions.md), [Config Optimisation Plan](../config/OPTIMISATION_PLAN.md)
+- **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Optimisation Plan](../../config/OPTIMISATION_PLAN.md)
 
 ## Goal
 
@@ -106,7 +106,7 @@ results.
 
 ## References
 
-- [Pipeline review Q11](../data/maths/pipeline-review-open-questions.md) — overfitting analysis
-- [Config optimisation plan](../config/OPTIMISATION_PLAN.md) — sweep methodology
+- [Pipeline review Q11](../../data/maths/pipeline-review-open-questions.md) — overfitting analysis
+- [Config optimisation plan](../../config/OPTIMISATION_PLAN.md) — sweep methodology
 - [Performance harness plan](lidar-performance-measurement-harness-plan.md) — CI integration
 - [Parameter tuning plan](lidar-parameter-tuning-optimisation-plan.md) — sweep infrastructure

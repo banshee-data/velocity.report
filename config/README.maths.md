@@ -137,3 +137,40 @@ Code path:
 2. Some settling constants are still code defaults (not file keys), notably freeze duration and lock/reacquisition defaults in L3.
 3. As L4 ground-surface modelling matures, expect additional dedicated ground-plane keys to be added to this mapping.
 4. **Breaking change ahead:** the flat config schema is being restructured into layer-scoped sub-objects (`l3`, `l4`, `l5`, `pipeline`, `optimisation`). See [`CONFIG-RESTRUCTURE.md`](CONFIG-RESTRUCTURE.md) for the migration plan.
+
+## 7. Config Value Drift Prevention
+
+Default values are documented in several places:
+
+- `config/tuning.defaults.json` — **canonical source of truth** for current
+  defaults.
+- [`OPTIMISATION_PLAN.md`](OPTIMISATION_PLAN.md) — evidence levels,
+  validation methodology, and sweep ranges.
+- [`data/maths/pipeline-review-open-questions.md` §Q7](../data/maths/pipeline-review-open-questions.md)
+  — historical snapshot of defaults with evidence classification (kept for
+  context but should reference this file for current values).
+
+**Problem:** Default values duplicated across docs drift when
+`tuning.defaults.json` is updated. The Q7 table in the pipeline review
+previously listed stale values for 13 of 15 keys.
+
+**Recommended prevention approach:**
+
+1. **Short term — single canonical reference.** This file
+   (`config/README.maths.md`) should be the authoritative mapping of
+   config keys → maths rationale → evidence level. Other docs should
+   reference it rather than embedding default values inline.
+2. **Medium term — extend `config-order-sync --check-values`.** The
+   existing `scripts/config-order-sync` tool already parses Markdown
+   JSON blocks and Go struct tags for key-order consistency. A
+   `--check-values` flag could additionally:
+   - Parse Markdown tables with a `Default` column (pattern:
+     `| \`key_name\` | value | ...`)
+   - Compare extracted values against `tuning.defaults.json`
+   - Report mismatches with file, line, key, expected, and actual values
+   - Exit non-zero when drift is detected
+   - Wire into `make lint-docs` alongside the existing
+     `check-config-order` target
+3. **Target files for value checking:** `config/OPTIMISATION_PLAN.md`,
+   `data/maths/pipeline-review-open-questions.md` (Q7 table), and any
+   future per-layer config docs.

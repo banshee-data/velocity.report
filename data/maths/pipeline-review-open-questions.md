@@ -503,19 +503,19 @@ for the structured experiment design.
 
 | Config Key                        | Default | Evidence Level                                                 | Source                                      |
 | --------------------------------- | ------- | -------------------------------------------------------------- | ------------------------------------------- |
-| `background_update_fraction`      | 0.05    | **Theoretical** — standard EMA α for 20-frame effective window | EMA theory                                  |
-| `closeness_multiplier`            | 2.0     | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
-| `safety_margin_meters`            | 0.01    | **Theoretical** — sensor noise floor                           | Hesai XT32 spec                             |
+| `background_update_fraction`      | 0.02    | **Theoretical** — standard EMA α for 50-frame effective window | EMA theory                                  |
+| `closeness_multiplier`            | 3.0     | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
+| `safety_margin_meters`            | 0.15    | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
 | `noise_relative`                  | 0.02    | **Provisional** — approximate range-dependent noise            | Needs empirical validation per sensor model |
-| `neighbor_confirmation_count`     | 2       | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
-| `warmup_duration_nanos`           | 5×10⁹   | **Empirical** — 5 s settling observed on kirk0                 | Confirmed on one site                       |
-| `foreground_dbscan_eps`           | 0.3     | **Literature** — typical urban DBSCAN ε                        | Ester et al. 1996                           |
-| `foreground_min_cluster_points`   | 3       | **Provisional** — tuned for XT32 at 10 Hz                      | Needs validation at other frame rates       |
-| `gating_distance_squared`         | 2.0     | **Theoretical** — χ²(2) at 84%                                 | Standard Kalman gating                      |
-| `process_noise_pos`               | 0.1     | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
-| `process_noise_vel`               | 1.0     | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
-| `measurement_noise`               | 0.25    | **Provisional** — tuned on kirk0                               | Should derive from sensor spec              |
-| `max_reasonable_speed_mps`        | 50.0    | **Domain** — 180 km/h upper bound                              | Appropriate for UK roads                    |
+| `neighbor_confirmation_count`     | 3       | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
+| `warmup_duration_nanos`           | 30×10⁹  | **Empirical** — 30 s settling observed on kirk0                | Confirmed on one site                       |
+| `foreground_dbscan_eps`           | 0.8     | **Literature** — typical urban DBSCAN ε                        | Ester et al. 1996                           |
+| `foreground_min_cluster_points`   | 5       | **Provisional** — tuned for P40 at 10 Hz                       | Needs validation at other frame rates       |
+| `gating_distance_squared`         | 36.0    | **Theoretical** — χ²(2) conservative gate (6σ equivalent)      | Standard Kalman gating                      |
+| `process_noise_pos`               | 0.05    | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
+| `process_noise_vel`               | 0.2     | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
+| `measurement_noise`               | 0.05    | **Provisional** — tuned on kirk0                               | Should derive from sensor spec              |
+| `max_reasonable_speed_mps`        | 30.0    | **Domain** — 108 km/h upper bound                              | Appropriate for UK roads                    |
 | `obb_heading_smoothing_alpha`     | 0.08    | **Provisional** — heavy smoothing for stability                | Superseded by P1 geometry model             |
 | `obb_aspect_ratio_lock_threshold` | 0.25    | **Provisional** — may be too loose                             | Superseded by P1 geometry model             |
 
@@ -523,6 +523,19 @@ for the structured experiment design.
 validated through the parameter sweep infrastructure (Phase 4.2) across at
 least three sites with different road geometries before being considered
 stable defaults.
+
+**Canonical source for current defaults:**
+[`config/tuning.defaults.json`](../../config/tuning.defaults.json). The
+table above is a snapshot; see
+[`config/README.maths.md`](../../config/README.maths.md) for the
+authoritative key-to-maths cross-reference and evidence rationale. The
+existing `config-order-sync` tool enforces key ordering across config
+surfaces; extending it with a `--check-values` mode that parses Markdown
+tables and verifies default values match `tuning.defaults.json` would
+prevent this table from drifting again. Alternatively, this table could be
+removed in favour of a single canonical reference in
+`config/README.maths.md` (see §7 of that file for the proposed evidence
+column).
 
 **Validation plan:** See
 [config/OPTIMISATION_PLAN.md](../../config/OPTIMISATION_PLAN.md) for the
