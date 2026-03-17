@@ -2413,16 +2413,17 @@ func (x *FrameBundle) GetBackgroundSeq() uint64 {
 }
 
 type StreamRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	SensorId        string                 `protobuf:"bytes,1,opt,name=sensor_id,json=sensorId,proto3" json:"sensor_id,omitempty"`                       // which sensor to stream (or "all")
-	IncludePoints   bool                   `protobuf:"varint,2,opt,name=include_points,json=includePoints,proto3" json:"include_points,omitempty"`       // include full point cloud
-	IncludeClusters bool                   `protobuf:"varint,3,opt,name=include_clusters,json=includeClusters,proto3" json:"include_clusters,omitempty"` // include cluster set
-	IncludeTracks   bool                   `protobuf:"varint,4,opt,name=include_tracks,json=includeTracks,proto3" json:"include_tracks,omitempty"`       // include track set
-	IncludeDebug    bool                   `protobuf:"varint,5,opt,name=include_debug,json=includeDebug,proto3" json:"include_debug,omitempty"`          // include debug overlays
-	PointDecimation DecimationMode         `protobuf:"varint,6,opt,name=point_decimation,json=pointDecimation,proto3,enum=velocity.visualiser.v1.DecimationMode" json:"point_decimation,omitempty"`
-	DecimationRatio float32                `protobuf:"fixed32,7,opt,name=decimation_ratio,json=decimationRatio,proto3" json:"decimation_ratio,omitempty"` // 0.0-1.0
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	SensorId                  string                 `protobuf:"bytes,1,opt,name=sensor_id,json=sensorId,proto3" json:"sensor_id,omitempty"`                       // which sensor to stream (or "all")
+	IncludePoints             bool                   `protobuf:"varint,2,opt,name=include_points,json=includePoints,proto3" json:"include_points,omitempty"`       // include full point cloud
+	IncludeClusters           bool                   `protobuf:"varint,3,opt,name=include_clusters,json=includeClusters,proto3" json:"include_clusters,omitempty"` // include cluster set
+	IncludeTracks             bool                   `protobuf:"varint,4,opt,name=include_tracks,json=includeTracks,proto3" json:"include_tracks,omitempty"`       // include track set
+	IncludeDebug              bool                   `protobuf:"varint,5,opt,name=include_debug,json=includeDebug,proto3" json:"include_debug,omitempty"`          // include debug overlays
+	PointDecimation           DecimationMode         `protobuf:"varint,6,opt,name=point_decimation,json=pointDecimation,proto3,enum=velocity.visualiser.v1.DecimationMode" json:"point_decimation,omitempty"`
+	DecimationRatio           float32                `protobuf:"fixed32,7,opt,name=decimation_ratio,json=decimationRatio,proto3" json:"decimation_ratio,omitempty"`                                // 0.0-1.0
+	IncludeAssociatedClusters bool                   `protobuf:"varint,8,opt,name=include_associated_clusters,json=includeAssociatedClusters,proto3" json:"include_associated_clusters,omitempty"` // debug-only: include track-associated DBSCAN clusters
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *StreamRequest) Reset() {
@@ -2502,6 +2503,13 @@ func (x *StreamRequest) GetDecimationRatio() float32 {
 		return x.DecimationRatio
 	}
 	return 0
+}
+
+func (x *StreamRequest) GetIncludeAssociatedClusters() bool {
+	if x != nil {
+		return x.IncludeAssociatedClusters
+	}
+	return false
 }
 
 type PlaybackStatus struct {
@@ -3373,7 +3381,7 @@ const file_visualiser_proto_rawDesc = "" +
 	"\n" +
 	"background\x18\v \x01(\v2*.velocity.visualiser.v1.BackgroundSnapshotR\n" +
 	"background\x12%\n" +
-	"\x0ebackground_seq\x18\f \x01(\x04R\rbackgroundSeq\"\xc8\x02\n" +
+	"\x0ebackground_seq\x18\f \x01(\x04R\rbackgroundSeq\"\x88\x03\n" +
 	"\rStreamRequest\x12\x1b\n" +
 	"\tsensor_id\x18\x01 \x01(\tR\bsensorId\x12%\n" +
 	"\x0einclude_points\x18\x02 \x01(\bR\rincludePoints\x12)\n" +
@@ -3381,7 +3389,8 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x0einclude_tracks\x18\x04 \x01(\bR\rincludeTracks\x12#\n" +
 	"\rinclude_debug\x18\x05 \x01(\bR\fincludeDebug\x12Q\n" +
 	"\x10point_decimation\x18\x06 \x01(\x0e2&.velocity.visualiser.v1.DecimationModeR\x0fpointDecimation\x12)\n" +
-	"\x10decimation_ratio\x18\a \x01(\x02R\x0fdecimationRatio\"\x98\x01\n" +
+	"\x10decimation_ratio\x18\a \x01(\x02R\x0fdecimationRatio\x12>\n" +
+	"\x1binclude_associated_clusters\x18\b \x01(\bR\x19includeAssociatedClusters\"\x98\x01\n" +
 	"\x0ePlaybackStatus\x12\x16\n" +
 	"\x06paused\x18\x01 \x01(\bR\x06paused\x12\x12\n" +
 	"\x04rate\x18\x02 \x01(\x02R\x04rate\x120\n" +

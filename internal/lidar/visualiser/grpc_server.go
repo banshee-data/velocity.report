@@ -200,8 +200,8 @@ func (s *Server) SyntheticGenerator() *SyntheticGenerator {
 // StreamFrames implements the streaming RPC for frame data.
 func (s *Server) StreamFrames(req *pb.StreamRequest, stream pb.VisualiserService_StreamFramesServer) error {
 	diagf("[gRPC] *** NEW CLIENT CONNECTED ***")
-	diagf("[gRPC] StreamFrames started: sensor=%s points=%v clusters=%v tracks=%v",
-		req.SensorId, req.IncludePoints, req.IncludeClusters, req.IncludeTracks)
+	diagf("[gRPC] StreamFrames started: sensor=%s points=%v clusters=%v tracks=%v assoc_clusters=%v",
+		req.SensorId, req.IncludePoints, req.IncludeClusters, req.IncludeTracks, req.IncludeAssociatedClusters)
 
 	ctx := stream.Context()
 
@@ -557,43 +557,47 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 	}
 
 	// Include clusters if requested
-	if req.IncludeClusters && frame.Clusters != nil {
+	if req.IncludeClusters {
 		cs := frame.Clusters
-		pbClusters := make([]*pb.Cluster, len(cs.Clusters))
-		for i, c := range cs.Clusters {
-			pbCluster := &pb.Cluster{
-				ClusterId:   c.ClusterID,
-				SensorId:    c.SensorID,
-				TimestampNs: c.TimestampNanos,
-				CentroidX:   c.CentroidX,
-				CentroidY:   c.CentroidY,
-				CentroidZ:   c.CentroidZ,
-				AabbLength:  c.AABBLength,
-				AabbWidth:   c.AABBWidth,
-				AabbHeight:  c.AABBHeight,
-				PointsCount: int32(c.PointsCount),
-			}
-			if c.OBB != nil {
-				pbCluster.Obb = &pb.OrientedBoundingBox{
-					CenterX:    c.OBB.CenterX,
-					CenterY:    c.OBB.CenterY,
-					CenterZ:    c.OBB.CenterZ,
-					Length:     c.OBB.Length,
-					Width:      c.OBB.Width,
-					Height:     c.OBB.Height,
-					HeadingRad: c.OBB.HeadingRad,
-				}
-			}
-			pbClusters[i] = pbCluster
+		if req.IncludeAssociatedClusters && frame.AllClusters != nil {
+			cs = frame.AllClusters
 		}
-		pbFrame.Clusters = &pb.ClusterSet{
-			FrameId:     cs.FrameID,
-			TimestampNs: cs.TimestampNanos,
-			Clusters:    pbClusters,
-			Method:      pb.ClusteringMethod(cs.Method),
+		if cs != nil {
+			pbClusters := make([]*pb.Cluster, len(cs.Clusters))
+			for i, c := range cs.Clusters {
+				pbCluster := &pb.Cluster{
+					ClusterId:   c.ClusterID,
+					SensorId:    c.SensorID,
+					TimestampNs: c.TimestampNanos,
+					CentroidX:   c.CentroidX,
+					CentroidY:   c.CentroidY,
+					CentroidZ:   c.CentroidZ,
+					AabbLength:  c.AABBLength,
+					AabbWidth:   c.AABBWidth,
+					AabbHeight:  c.AABBHeight,
+					PointsCount: int32(c.PointsCount),
+				}
+				if c.OBB != nil {
+					pbCluster.Obb = &pb.OrientedBoundingBox{
+						CenterX:    c.OBB.CenterX,
+						CenterY:    c.OBB.CenterY,
+						CenterZ:    c.OBB.CenterZ,
+						Length:     c.OBB.Length,
+						Width:      c.OBB.Width,
+						Height:     c.OBB.Height,
+						HeadingRad: c.OBB.HeadingRad,
+					}
+				}
+				pbClusters[i] = pbCluster
+			}
+			pbFrame.Clusters = &pb.ClusterSet{
+				FrameId:     cs.FrameID,
+				TimestampNs: cs.TimestampNanos,
+				Clusters:    pbClusters,
+				Method:      pb.ClusteringMethod(cs.Method),
+			}
 		}
 	}
-
 	// Include tracks if requested
 	if req.IncludeTracks && frame.Tracks != nil {
 		ts := frame.Tracks

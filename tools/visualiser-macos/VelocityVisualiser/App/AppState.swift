@@ -109,6 +109,8 @@ private let logger = DevLogger(category: "AppState")
     @Published var showGating: Bool = false  // M6: Gating ellipses
     @Published var showAssociation: Bool = false  // M6: Association lines
     @Published var showResiduals: Bool = false  // M6: Residual vectors
+    @Published var showHeadingSource: Bool = false  // Debug: colour boxes by heading source
+    @Published var includeAssociatedClusters: Bool = false  // Debug: stream track-associated DBSCAN clusters
     @Published var showGrid: Bool = true  // Ground reference grid
     @Published var showTrackLabels: Bool = true  // Track ID/class labels above 3D boxes
     @Published var pointSize: Float = 5.0  // Point size for rendering (1-20)
@@ -512,6 +514,7 @@ private let logger = DevLogger(category: "AppState")
 
         grpcClient = VisualiserClient(address: serverAddress)
         grpcClient?.includeDebug = showDebug  // M6: Request debug data when enabled
+        grpcClient?.includeAssociatedClusters = includeAssociatedClusters
         clientDelegate = ClientDelegateAdapter(appState: self, generation: playbackStateGeneration)
         grpcClient?.delegate = clientDelegate
         logger.debug("Created VisualiserClient and delegate")
@@ -1156,6 +1159,14 @@ private let logger = DevLogger(category: "AppState")
         }
     }
 
+    private func restartStreamForRequestOptionChange() {
+        guard !isConnecting else { return }
+        guard isConnected else { return }
+        logger.info("Restarting stream to apply request-scoped debug options")
+        disconnect()
+        connect()
+    }
+
     /// Toggle debug mode — also toggles includeDebug on the stream.
     func toggleDebug() {
         showDebug.toggle()
@@ -1169,7 +1180,21 @@ private let logger = DevLogger(category: "AppState")
 
         // Update client stream to include/exclude debug data
         grpcClient?.includeDebug = showDebug
+        restartStreamForRequestOptionChange()
         sendOverlayPreferences()
+    }
+
+    /// Toggle heading-source colouring in the renderer.
+    func toggleHeadingSource() {
+        showHeadingSource.toggle()
+        renderer?.showHeadingSource = showHeadingSource
+    }
+
+    /// Toggle whether debug cluster rendering includes track-associated clusters.
+    func toggleIncludeAssociatedClusters() {
+        includeAssociatedClusters.toggle()
+        grpcClient?.includeAssociatedClusters = includeAssociatedClusters
+        restartStreamForRequestOptionChange()
     }
 
     // MARK: - Frame Handling
@@ -1209,6 +1234,7 @@ private let logger = DevLogger(category: "AppState")
         renderer?.showGating = showGating  // M6: Gating ellipses
         renderer?.showAssociation = showAssociation  // M6: Association lines
         renderer?.showResiduals = showResiduals  // M6: Residual vectors
+        renderer?.showHeadingSource = showHeadingSource  // Debug: colour boxes by heading source
         renderer?.selectedTrackID = selectedTrackID  // M6: Track selection highlight
         renderer?.filterOnlyInBox = filterOnlyInBox  // Filter foreground points outside boxes
 

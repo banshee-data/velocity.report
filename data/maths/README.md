@@ -70,8 +70,8 @@ The production pipeline uses four math-heavy layers:
 
 ### Proposals (not yet active — see [Roadmap](#prioritised-proposal-roadmap) below)
 
-- [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md) — **Partially Implemented**
-  — Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Guard 3 (90° jump rejection), fixes B, C, G applied; remaining fixes superseded by geometry-coherent model.
+- [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md) — **Implemented For Current Guard Stack**
+  — Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Guard 3 and fixes B, C, D, G are applied; Fix E is functionally complete for live renderers; Fix F is available as a debug-only full-cluster inspection path; geometry-coherent tracking remains the planned replacement.
 - [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md)
   — Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md)
@@ -112,10 +112,9 @@ heading prior when velocity data is available.
 boxes that spin, change shape, or fail to capture all cluster points). No
 upstream changes required.
 
-**Remaining OBB review work subsumed:** Fixes D (threshold tuning), E (renderer
-consistency), and F (debug cluster rendering) from the
-[OBB heading stability review](proposals/20260222-obb-heading-stability-review.md)
-become unnecessary once the geometry-coherent model replaces the guards.
+**Guard-stack note:** Geometry-coherent tracking still supersedes the current
+OBB guard stack, so pre-P1 work should stay limited to threshold tuning,
+telemetry, and debug validation rather than adding new public guard surfaces.
 
 ### P2 — Velocity-Coherent Foreground Extraction
 
@@ -196,12 +195,14 @@ structure to build a redundant anchor set.
 ### Maintenance — OBB Heading Stability Review (remaining items)
 
 **Source:** [obb-heading-stability-review.md](proposals/20260222-obb-heading-stability-review.md)
-**Status:** Guard 3, fixes B, C, G **implemented**. Fix D (config-only), E, F not started.
+**Status:** Guard 3 and fixes B, C, D, G **implemented**. Fix E is functionally
+complete for live renderers; Fix F is available as a debug-only gRPC/macOS
+validation path.
 
-Fix D (tighten aspect-ratio lock threshold) is a low-risk config change that
-can be applied any time. Fixes E and F provide incremental improvement but
-are **superseded by P1** — once the geometry-coherent model lands, the guards
-they improve will be removed.
+The remaining work is validation and eventual replacement, not more guard
+surface area: keep using replay comparisons plus the new heading-source /
+Guard 2 / Guard 3 telemetry as the control baseline until P1 replaces the
+guard stack.
 
 ## Config Mapping
 

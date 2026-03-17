@@ -72,9 +72,9 @@ It combines the original review and checklist into one maintained source.
 - **Severity:** Medium — macOS visualiser only — **Fixed**
 - **Implemented behaviour:** Three guards added to `update()` in tracking.go:
   1. **Min-points threshold:** clusters with fewer than `MinPointsForPCA` (4) points skip heading update, retaining the previous smoothed heading.
-  2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (0.25), the heading is locked because the principal axis is ambiguous.
+  2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (0.15), the heading is locked because the principal axis is ambiguous.
   3. **Reduced smoothing α:** `OBBHeadingSmoothingAlpha` lowered from 0.15 to 0.08 for heavier EMA smoothing.
-     Per-frame OBB dimensions are always updated regardless of heading lock.
+     When the heading is locked, length and width are held to preserve axis consistency while height still updates.
 
 ### R1 — Next high-impact items
 

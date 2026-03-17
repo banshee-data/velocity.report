@@ -43,8 +43,9 @@ struct ContentView: View {
                             showBackground: appState.showBackground, showBoxes: appState.showBoxes,
                             showClusters: appState.showClusters,
                             showVelocity: appState.showVelocity, showTrails: appState.showTrails,
-                            showDebug: appState.showDebug, showGrid: appState.showGrid,
-                            pointSize: appState.pointSize,
+                            showDebug: appState.showDebug,
+                            showHeadingSource: appState.showHeadingSource,
+                            showGrid: appState.showGrid, pointSize: appState.pointSize,
                             onRendererCreated: { renderer in appState.registerRenderer(renderer) },
                             onTrackSelected: { trackID in appState.selectTrack(trackID) },
                             onCameraChanged: { appState.reprojectLabels() })
@@ -768,6 +769,21 @@ struct OverlayTogglesView: View {
                 label: "D",
                 isOn: Binding(get: { appState.showDebug }, set: { _ in appState.toggleDebug() }),
                 help: "Debug Overlays")
+
+            if appState.showDebug {
+                ToggleButton(
+                    label: "H",
+                    isOn: Binding(
+                        get: { appState.showHeadingSource },
+                        set: { _ in appState.toggleHeadingSource() }),
+                    help: "Debug: Colour boxes by heading source")
+                ToggleButton(
+                    label: "A",
+                    isOn: Binding(
+                        get: { appState.includeAssociatedClusters },
+                        set: { _ in appState.toggleIncludeAssociatedClusters() }),
+                    help: "Debug: Include track-associated DBSCAN clusters")
+            }
         }.fixedSize()  // Prevent compression when viewport shrinks
     }
 }
@@ -2240,6 +2256,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var showVelocity: Bool
     var showTrails: Bool
     var showDebug: Bool
+    var showHeadingSource: Bool = false
     var showGrid: Bool
     var pointSize: Float
 
@@ -2262,6 +2279,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             metalView.renderer = renderer
             metalView.onTrackSelected = onTrackSelected
             metalView.onCameraChanged = onCameraChanged
+            renderer.showHeadingSource = showHeadingSource
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -2280,6 +2298,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         renderer.showVelocity = showVelocity
         renderer.showTrails = showTrails
         renderer.showDebug = showDebug
+        renderer.showHeadingSource = showHeadingSource
         renderer.showGrid = showGrid
         renderer.pointSize = pointSize
 

@@ -74,7 +74,7 @@ The configuration uses a flat JSON schema. **All keys are required** — the fil
   "max_covariance_diag": 100.0,
   "min_points_for_pca": 4,
   "obb_heading_smoothing_alpha": 0.08,
-  "obb_aspect_ratio_lock_threshold": 0.25,
+  "obb_aspect_ratio_lock_threshold": 0.15,
   "max_track_history_length": 200,
   "max_speed_history_length": 100,
   "merge_size_ratio": 2.5,

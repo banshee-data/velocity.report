@@ -85,6 +85,7 @@ enum VisualiserClientError: Error, LocalizedError {
     var includeClusters: Bool = true
     var includeTracks: Bool = true
     var includeDebug: Bool = false
+    var includeAssociatedClusters: Bool = false
     var decimationMode: Velocity_Visualiser_V1_DecimationMode = .decimationNone
     var decimationRatio: Float = 1.0
 
@@ -244,6 +245,7 @@ enum VisualiserClientError: Error, LocalizedError {
         request.includeClusters = includeClusters
         request.includeTracks = includeTracks
         request.includeDebug = includeDebug
+        request.includeAssociatedClusters = includeAssociatedClusters
         request.pointDecimation = decimationMode
         request.decimationRatio = decimationRatio
 

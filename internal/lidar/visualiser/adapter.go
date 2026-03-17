@@ -79,6 +79,7 @@ func (a *FrameAdapter) AdaptFrame(
 			associations = tracker.GetLastAssociations()
 		}
 		bundle.Clusters = a.adaptUnassociatedClusters(clusters, associations, frame.StartTimestamp)
+		bundle.AllClusters = a.adaptClusters(clusters, frame.StartTimestamp)
 	}
 
 	// M6: Adapt debug overlays if provided
@@ -291,6 +292,18 @@ func (a *FrameAdapter) adaptClusters(worldClusters []l4perception.WorldCluster, 
 			PointsCount:    wc.PointsCount,
 			HeightP95:      wc.HeightP95,
 			IntensityMean:  wc.IntensityMean,
+		}
+
+		if wc.OBB != nil {
+			cs.Clusters[i].OBB = &OrientedBoundingBox{
+				CenterX:    wc.OBB.CenterX,
+				CenterY:    wc.OBB.CenterY,
+				CenterZ:    wc.OBB.CenterZ,
+				Length:     wc.OBB.Length,
+				Width:      wc.OBB.Width,
+				Height:     wc.OBB.Height,
+				HeadingRad: wc.OBB.HeadingRad,
+			}
 		}
 	}
 
