@@ -200,18 +200,17 @@ The per-layer sweep experiments that will validate these keys are:
 
 ## 8. Config Value Drift Prevention
 
-Default values are documented in several places:
+Default values are documented in two places:
 
 - `config/tuning.defaults.json` — **canonical source of truth** for current
   defaults.
 - This file (§6) — evidence levels, derivations, and graduation criteria.
-- [`data/maths/pipeline-review-open-questions.md` §Q7](../data/maths/pipeline-review-open-questions.md)
-  — historical snapshot of defaults with evidence classification (kept for
-  context but should reference this file for current values).
+
+Other docs (e.g. `data/maths/pipeline-review-open-questions.md` §Q7)
+reference this file rather than duplicating default values.
 
 **Problem:** Default values duplicated across docs drift when
-`tuning.defaults.json` is updated. The Q7 table in the pipeline review
-previously listed stale values for 13 of 15 keys.
+`tuning.defaults.json` is updated.
 
 **Recommended prevention approach:**
 
@@ -230,6 +229,5 @@ previously listed stale values for 13 of 15 keys.
    - Exit non-zero when drift is detected
    - Wire into `make lint-docs` alongside the existing
      `check-config-order` target
-3. **Target files for value checking:** This file (§6 tables),
-   `data/maths/pipeline-review-open-questions.md` (Q7 table), and the
+3. **Target files for value checking:** This file (§6 tables) and the
    experiment sweep tables in `data/experiments/try/`.

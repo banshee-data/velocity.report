@@ -501,50 +501,23 @@ for the structured experiment design.
 
 **Answer: Audit by config key with evidence classification.**
 
-_Note: The table below is an illustrative snapshot of defaults and evidence as of March 2026. The canonical, up-to-date defaults are defined in `config/tuning.defaults.json`; always refer to that file when tuning or changing the implementation._
+The canonical evidence table — listing every config key, its default,
+evidence level, and derivation — lives in
+[`config/README.maths.md` §6](../../config/README.maths.md). Canonical
+default values are in
+[`config/tuning.defaults.json`](../../config/tuning.defaults.json).
 
-| Config Key                        | Default | Evidence Level                                                 | Source                                      |
-| --------------------------------- | ------- | -------------------------------------------------------------- | ------------------------------------------- |
-| `background_update_fraction`      | 0.02    | **Theoretical** — standard EMA α for 50-frame effective window | EMA theory                                  |
-| `closeness_multiplier`            | 3.0     | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
-| `safety_margin_meters`            | 0.15    | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
-| `noise_relative`                  | 0.02    | **Provisional** — approximate range-dependent noise            | Needs empirical validation per sensor model |
-| `neighbor_confirmation_count`     | 3       | **Provisional** — tuned on kirk0                               | Needs multi-site validation                 |
-| `warmup_duration_nanos`           | 30×10⁹  | **Empirical** — 30 s settling observed on kirk0                | Confirmed on one site                       |
-| `foreground_dbscan_eps`           | 0.8     | **Literature** — typical urban DBSCAN ε                        | Ester et al. 1996                           |
-| `foreground_min_cluster_points`   | 5       | **Provisional** — tuned for P40 at 10 Hz                       | Needs validation at other frame rates       |
-| `gating_distance_squared`         | 36.0    | **Theoretical** — χ²(2) gate (Mahalanobis distance 6.0)        | Standard Kalman gating                      |
-| `process_noise_pos`               | 0.05    | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
-| `process_noise_vel`               | 0.2     | **Provisional** — tuned on kirk0                               | Sensitivity analysis needed                 |
-| `measurement_noise`               | 0.05    | **Provisional** — tuned on kirk0                               | Should derive from sensor spec              |
-| `max_reasonable_speed_mps`        | 30.0    | **Domain** — 108 km/h upper bound                              | Appropriate for UK roads                    |
-| `obb_heading_smoothing_alpha`     | 0.08    | **Provisional** — heavy smoothing for stability                | Superseded by P1 geometry model             |
-| `obb_aspect_ratio_lock_threshold` | 0.25    | **Provisional** — may be too loose                             | Superseded by P1 geometry model             |
+In summary, roughly eight keys are **provisional** (tuned on kirk0 only),
+three are **theoretical** (derived from first principles), two are
+**literature**-based, and three are **empirical** (validated on at least
+one site). Provisional keys must be validated through the parameter sweep
+infrastructure (Phase 4.2) across at least three sites with different road
+geometries before being considered stable defaults.
 
-**Provisional keys** (those backed only by single-site tuning) should be
-validated through the parameter sweep infrastructure (Phase 4.2) across at
-least three sites with different road geometries before being considered
-stable defaults.
-
-**Canonical source for current defaults:**
-[`config/tuning.defaults.json`](../../config/tuning.defaults.json). The
-table above is a snapshot; see
-[`config/README.maths.md`](../../config/README.maths.md) for the
-authoritative key-to-maths cross-reference and evidence rationale. The
-existing `config-order-sync` tool enforces key ordering across config
-surfaces; extending it with a `--check-values` mode that parses Markdown
-tables and verifies default values match `tuning.defaults.json` would
-prevent this table from drifting again. Alternatively, this table could be
-removed in favour of a single canonical reference in
-`config/README.maths.md` (see §7 of that file for the proposed evidence
-column).
-
-**Validation plan:** See
-[config/README.maths.md §6](../../config/README.maths.md) for the
-evidence levels and graduation criteria, and the per-layer sweep
-experiments in
-[data/experiments/try/](../experiments/try/) for the structured
-validation methodology.
+**Validation plan:** The per-layer sweep experiments that will graduate
+provisional keys to empirical are in
+[data/experiments/try/](../experiments/try/) — see the L3, L4, L5
+per-layer sweeps and multi-key interaction grid.
 
 ### Q8. Rotating bounding boxes: do geometry-coherent replacements improve replay results enough?
 
