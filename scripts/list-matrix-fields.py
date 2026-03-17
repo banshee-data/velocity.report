@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""List all fields needed to regenerate BACKEND_SURFACE_MATRIX.md.
+"""List backend surface inventory for velocity.report.
 
 Scans Go, Proto, Python, and Swift source files and prints a structured
 inventory of HTTP endpoints, gRPC methods, DB tables/columns, pipeline
 stages, tuning parameters, cmd/ entry points, and debug routes.
 
 Usage:
-    python scripts/list-matrix-fields.py           # from repo root
+    python scripts/list-matrix-fields.py           # human-readable surface list
     python scripts/list-matrix-fields.py --json     # machine-readable output
-    python scripts/list-matrix-fields.py --coverage # gap analysis
     python scripts/list-matrix-fields.py --trace    # generate LLM tracing checklist
     python scripts/list-matrix-fields.py --trace-continue  # resume from checklist
     python scripts/list-matrix-fields.py --trace-status    # show checklist progress
@@ -446,15 +445,12 @@ def extract_cmd_entries(root: Path) -> list[CmdEntry]:
 # ---------------------------------------------------------------------------
 
 _PY_REQUEST_RE = re.compile(
-    r"requests\.(get|post|put|delete)\(\s*"
-    r'(?:f"[^"]*"|"[^"]*"|[a-zA-Z0-9_.]+)',
+    r"requests\.(get|post|put|delete)\(\s*" r'(?:f"[^"]*"|"[^"]*"|[a-zA-Z0-9_.]+)',
     re.IGNORECASE,
 )
 
 _PY_URL_RE = re.compile(
-    r"(?:self\.(?:base_url|api_url)|base_url)\s*"
-    r'(?:\+\s*f?"|=\s*f?")'
-    r'([^"]+)"',
+    r"(?:self\.(?:base_url|api_url)|base_url)\s*" r'(?:\+\s*f?"|=\s*f?")' r'([^"]+)"',
 )
 
 _PY_FSTRING_URL_RE = re.compile(
@@ -929,374 +925,6 @@ def print_json_report(inv: MatrixInventory) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Generation hints — what the matrix needs that requires human audit
-# ---------------------------------------------------------------------------
-
-GENERATION_HINTS: dict[str, dict[str, object]] = {
-    "§1": {
-        "title": "HTTP API Endpoints — Radar / Main Server",
-        "auto_extractable": True,
-        "matrix_rows": 14,
-        "notes": (
-            "Script extracts individual HandleFunc paths. Matrix groups "
-            "multi-method endpoints (e.g. GET/PUT/DEL on one row). "
-            "Surface marks (DB/Web/PDF/Mac) require tracing handler → "
-            "DB calls and checking which frontends call each endpoint."
-        ),
-        "source_files": ["internal/api/server.go"],
-        "matrix_columns": [
-            "Folder",
-            "File",
-            "Endpoint",
-            "DB",
-            "Web",
-            "PDF",
-            "Mac",
-        ],
-    },
-    "§2": {
-        "title": "HTTP API Endpoints — LiDAR Monitor",
-        "auto_extractable": True,
-        "matrix_rows": 77,
-        "notes": (
-            "Script finds ~67 routes from route structs and HandleFunc. "
-            "Gap: run_track_api.go sub-routes dispatched via URL path "
-            "parsing (runs/{id}/tracks, .../label, .../flags, .../compare, "
-            ".../labelling-progress) are not captured as separate endpoints. "
-            "Also missed-regions and sweeps history routes."
-        ),
-        "source_files": [
-            "internal/lidar/monitor/webserver.go",
-            "internal/lidar/monitor/track_api.go",
-            "internal/lidar/monitor/run_track_api.go",
-            "internal/api/lidar_labels.go",
-        ],
-        "matrix_columns": [
-            "Layer",
-            "File",
-            "Endpoint",
-            "DB",
-            "Web",
-            "PDF",
-            "Mac",
-        ],
-    },
-    "§3": {
-        "title": "gRPC Service — macOS Visualiser",
-        "auto_extractable": True,
-        "matrix_rows": 9,
-        "notes": "Exact match. Layer grouping (Streaming/Playback/Debug/Recording) "
-        "is manual curation.",
-        "source_files": [
-            "proto/velocity_visualiser/v1/visualiser.proto",
-        ],
-    },
-    "§4": {
-        "title": "Database Tables",
-        "auto_extractable": True,
-        "matrix_rows": 22,
-        "notes": (
-            "Script finds ~26 tables (includes migration-only tables). "
-            "Matrix has 22 curated rows with Layer grouping and Notes column. "
-            "Surface marks need checking: which tables are queried by Web "
-            "handlers, PDF generator, Mac gRPC."
-        ),
-        "source_files": ["internal/db/schema.sql"],
-    },
-    "§5": {
-        "title": "Database Fields — All Columns",
-        "auto_extractable": True,
-        "matrix_rows": "~300",
-        "notes": (
-            "Script extracts column names and types from schema.sql. "
-            "Matrix adds PK/FK/STORED/UNIQUE type annotations and "
-            "surface marks per column. The 🗑️ deprecated marks and 🔶 "
-            "partially-wired marks require code-path tracing."
-        ),
-        "source_files": ["internal/db/schema.sql"],
-    },
-    "§6": {
-        "title": "Pipeline Stages",
-        "auto_extractable": "partial",
-        "matrix_rows": 13,
-        "notes": (
-            "Script lists all .go files in l2-l6 dirs (~47 files). "
-            "Matrix has 13 curated rows with specific stage descriptions "
-            "and field counts. Curation needed: pick the primary file for "
-            "each pipeline stage, write the stage description, determine "
-            "surface marks."
-        ),
-        "curated_stages": [
-            ("l2frames", "frame_builder.go", "L2 Frame Builder (UDP → point clouds)"),
-            (
-                "l3grid",
-                "background.go",
-                "L3 Background Grid (foreground/background)",
-            ),
-            ("l3grid", "foreground.go", "L3 FrameMetrics (foreground fraction)"),
-            ("l4perception", "dbscan.go", "L4 Clustering (DBSCAN → world clusters)"),
-            ("l5tracks", "tracking.go", "L5 Tracking (Kalman → tracked objects)"),
-            (
-                "l5tracks",
-                "tracking.go",
-                "L5 TrackingMetrics (fragmentation, jitter)",
-            ),
-            ("adapters", "ground_truth.go", "L6 Evaluation (quality metrics)"),
-            ("l6objects", "quality.go", "L6 RunStatistics (12 fields)"),
-            ("l6objects", "quality.go", "L6 TrackQualityMetrics (8 fields)"),
-            ("l6objects", "quality.go", "L6 NoiseCoverageMetrics (7 fields)"),
-            ("l6objects", "quality.go", "L6 TrainingDatasetSummary (7 fields)"),
-            ("l6objects", "features.go", "L6 TrackFeatures (20 features)"),
-            ("l6objects", "features.go", "L6 ClusterFeatures (10 features)"),
-        ],
-        "source_dirs": [
-            "internal/lidar/l2frames",
-            "internal/lidar/l3grid",
-            "internal/lidar/l4perception",
-            "internal/lidar/l5tracks",
-            "internal/lidar/l6eval",
-            "internal/lidar/l6objects",
-            "internal/lidar/adapters",
-        ],
-    },
-    "§7": {
-        "title": "Go Structs — Computed but Not Persisted",
-        "auto_extractable": True,
-        "matrix_rows": 7,
-        "notes": (
-            "Script now extracts struct definitions and field counts. "
-            "Notes column needs human review: why it's not persisted, "
-            "links to remediation plans."
-        ),
-    },
-    "§8": {
-        "title": "Comparison Logic — No Triggering Endpoint",
-        "auto_extractable": True,
-        "matrix_rows": 4,
-        "notes": (
-            "Script extracts function names from analysis_run_compare.go. "
-            "Matrix also includes is_split_candidate and is_merge_candidate "
-            "flags which are DB column flags, not functions."
-        ),
-        "extra_items": [
-            "is_split_candidate flag (written but not triggerable)",
-            "is_merge_candidate flag (written but not triggerable)",
-        ],
-    },
-    "§9": {
-        "title": "Live Track Fields — Fully Wired (Reference)",
-        "auto_extractable": True,
-        "matrix_rows": 16,
-        "notes": (
-            "Script extracts TrackedObject fields. Matrix has 16 curated "
-            "rows showing only the fields that flow through all applicable "
-            "surfaces (a subset of the full struct). The selection of "
-            "which fields are 'fully wired' requires human verification."
-        ),
-    },
-    "§10": {
-        "title": "Tuning Parameters",
-        "auto_extractable": True,
-        "matrix_rows": 4,
-        "notes": (
-            "Script extracts 45 individual json-tagged params. Matrix "
-            "groups them: L3 Background (8), L4 Perception (3), L5 "
-            "Tracker (14), plus defaults row. Grouping is by Go struct "
-            "nesting in tuning.go."
-        ),
-    },
-    "§11": {
-        "title": "PDF Generator — Python Surfaces",
-        "auto_extractable": "partial",
-        "matrix_rows": 6,
-        "notes": (
-            "Script finds endpoint URLs from api_client.py. Matrix has "
-            "6 curated rows covering api_client.py, chart_builder.py, "
-            "document_builder.py, and map_utils.py — some rows describe "
-            "components rather than specific HTTP calls."
-        ),
-    },
-    "§12": {
-        "title": "macOS Visualiser — Swift Surfaces",
-        "auto_extractable": "partial",
-        "matrix_rows": 6,
-        "notes": (
-            "Script finds appendingPathComponent() URLs. Matrix has 6 "
-            "curated rows describing consumer roles (StreamFrames "
-            "subscriber, playback controls, point cloud rendering, etc) "
-            "not just HTTP paths."
-        ),
-    },
-    "§13": {
-        "title": "Classification Pipeline — Fully Wired (Reference)",
-        "auto_extractable": True,
-        "matrix_rows": 4,
-        "notes": (
-            "Script now extracts ObjectClass constants, ClassificationResult, "
-            "ClassificationFeatures, TrackClassifier structs. Notes paragraph "
-            "about data flow requires human curation."
-        ),
-    },
-    "§14": {
-        "title": "FrameBundle — macOS-Only Proto Fields",
-        "auto_extractable": True,
-        "matrix_rows": 12,
-        "notes": (
-            "Script extracts all proto message definitions. Matrix groups "
-            "FrameBundle sub-messages into 12 logical field groups with "
-            "field counts. The grouping and field-count aggregation need "
-            "curation: e.g. 'Point cloud (x/y/z/i/c)' = 7 fields."
-        ),
-    },
-    "§15": {
-        "title": "ECharts Dashboard Endpoints",
-        "auto_extractable": True,
-        "matrix_rows": 5,
-        "notes": (
-            "Subset of §2 endpoints matching /chart/ paths. Script "
-            "extracts these from the LiDAR HTTP routes. Matrix adds "
-            "'Data Source' and 'Method' columns."
-        ),
-    },
-    "§16": {
-        "title": "cmd/ Entry Points",
-        "auto_extractable": True,
-        "matrix_rows": 11,
-        "notes": ("Exact match. The 'Consumers' description column is human-curated."),
-    },
-    "§17": {
-        "title": "Speed Percentile Columns — Design Debt",
-        "auto_extractable": False,
-        "matrix_rows": 0,
-        "notes": (
-            "Narrative section — no table to extract. Describes 6 "
-            "deprecated columns (p50/p85/p95 on lidar_tracks + "
-            "lidar_run_tracks) and links to migration/removal plans."
-        ),
-    },
-    "§18": {
-        "title": "Debug / Admin Routes",
-        "auto_extractable": True,
-        "matrix_rows": 19,
-        "notes": (
-            "Script now combines: LiDAR monitor /debug/ routes from "
-            "route structs, radar server routes from db.AttachAdminRoutes "
-            "(tsweb debugger: pprof, db-stats, backup, tailsql) and "
-            "serialmux (send-command, tail). Plus static/SPA routes."
-        ),
-    },
-    "summary": {
-        "title": "Summary + Gap Summary Tables",
-        "auto_extractable": "partial",
-        "notes": (
-            "Counts-by-surface table is derivable by counting surface "
-            "marks across all section tables. Gap summary table requires "
-            "human analysis: identifying schema columns never written, "
-            "fields live-only (Mac but not DB), structs computed but not "
-            "persisted, transient pipeline metrics, logic with no "
-            "triggering endpoint, deprecated columns."
-        ),
-    },
-    "surface_marks": {
-        "title": "Surface Marks (✅/📋/🔶/🗑️/—)",
-        "auto_extractable": False,
-        "notes": (
-            "The core value of the matrix. Determining which surface "
-            "consumes each item requires tracing code paths:\n"
-            "  DB: handler → SQL INSERT/UPDATE/SELECT\n"
-            "  Web: Svelte fetch() calls → API endpoint → response fields\n"
-            "  PDF: Python api_client.py → endpoint → data used in LaTeX\n"
-            "  Mac: Swift appendingPathComponent / gRPC proto fields\n"
-            "This is fundamentally a human audit task."
-        ),
-    },
-}
-
-
-def print_coverage_report(inv: MatrixInventory) -> None:
-    """Print a gap analysis comparing script output to matrix requirements."""
-    total_cols = sum(len(t.columns) for t in inv.db_tables)
-
-    sections = [
-        ("§1", "Radar HTTP endpoints", len(inv.radar_http), 14),
-        ("§2", "LiDAR HTTP endpoints", len(inv.lidar_http), 77),
-        ("§3", "gRPC methods", len(inv.grpc_methods), 9),
-        ("§4", "DB tables", len(inv.db_tables), 22),
-        ("§5", "DB columns", total_cols, 300),
-        ("§6", "Pipeline stages (raw files)", len(inv.pipeline_stages), 13),
-        ("§7", "Computed structs", len(inv.computed_structs), 7),
-        ("§8", "Compare functions", len(inv.compare_functions), 4),
-        ("§9", "Live track fields", len(inv.live_track_fields), 16),
-        ("§10", "Tuning params (individual)", len(inv.tuning_params), 4),
-        ("§11", "PDF consumers", len(inv.pdf_consumers), 6),
-        ("§12", "Mac consumers", len(inv.mac_http_consumers), 6),
-        ("§13", "Classification items", len(inv.classification), 4),
-        ("§14", "Proto messages", len(inv.proto_field_groups), 12),
-        ("§15", "ECharts endpoints", len(inv.echart_endpoints), 5),
-        ("§16", "cmd/ entry points", len(inv.cmd_entries), 11),
-        ("§17", "Speed percentile debt", 0, 0),
-        ("§18", "Debug/admin routes", len(inv.debug_routes), 19),
-    ]
-
-    print("BACKEND_SURFACE_MATRIX.md — Coverage Analysis")
-    print("=" * 72)
-    print()
-    print(f"{'Section':<6} {'Description':<30} {'Found':>6} {'Matrix':>7}  Status")
-    print(f"{'-' * 6:<6} {'-' * 30:<30} {'-' * 6:>6} {'-' * 7:>7}  {'-' * 20}")
-
-    fully_covered = 0
-    partially_covered = 0
-    not_covered = 0
-
-    for ref, desc, found, matrix_rows in sections:
-        if matrix_rows == 0:
-            status = "narrative (no table)"
-            partially_covered += 1
-        elif found >= matrix_rows:
-            status = "✅ fully extractable"
-            fully_covered += 1
-        elif found > 0:
-            pct = found * 100 // matrix_rows
-            status = f"🔶 {pct}% extractable"
-            partially_covered += 1
-        else:
-            status = "❌ not extractable"
-            not_covered += 1
-
-        print(f"{ref:<6} {desc:<30} {found:>6} {matrix_rows:>7}  {status}")
-
-    print()
-    print("=" * 72)
-    print(f"  Fully extractable:   {fully_covered}/18 sections")
-    print(f"  Partially:           {partially_covered}/18 sections")
-    print(f"  Not extractable:     {not_covered}/18 sections")
-    print()
-    print("IMPORTANT: Counts above measure raw extraction only.")
-    print("The matrix also needs:")
-    print("  • Surface marks (✅/📋/🔶/🗑️/—) — requires code-path tracing")
-    print("  • Layer/Group column — human curation")
-    print("  • Notes column — human curation")
-    print("  • Summary + Gap summary tables — derivable from section data")
-    print()
-
-    print("GENERATION HINTS PER SECTION")
-    print("=" * 72)
-    for ref, hint in GENERATION_HINTS.items():
-        auto = hint.get("auto_extractable", False)
-        if auto is True:
-            badge = "AUTO"
-        elif auto == "partial":
-            badge = "PARTIAL"
-        else:
-            badge = "MANUAL"
-        print(f"\n  [{badge:>7}] {ref}: {hint['title']}")
-        notes = hint.get("notes", "")
-        if notes:
-            for line in notes.split("\n"):
-                print(f"           {line.strip()}")
-
-
-# ---------------------------------------------------------------------------
 # Tracing checklist — LLM-guided surface-mark audit
 # ---------------------------------------------------------------------------
 
@@ -1466,9 +1094,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
                 ),
             )
 
-    # §7 Computed structs
+    # §6 Computed structs
     seq = 0
-    sec, stitle = "§7", "Go Structs — Computed but Not Persisted"
+    sec, stitle = "§6", "Go Structs — Computed but Not Persisted"
     for s in inv.computed_structs:
         _add(
             sec,
@@ -1488,9 +1116,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §8 Compare functions
+    # §7 Compare functions
     seq = 0
-    sec, stitle = "§8", "Comparison Logic — No Triggering Endpoint"
+    sec, stitle = "§7", "Comparison Logic — No Triggering Endpoint"
     for f in inv.compare_functions:
         _add(
             sec,
@@ -1507,9 +1135,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §9 Live track fields
+    # §8 Live track fields
     seq = 0
-    sec, stitle = "§9", "Live Track Fields — Fully Wired (Reference)"
+    sec, stitle = "§8", "Live Track Fields — Fully Wired (Reference)"
     for field_name in inv.live_track_fields:
         _add(
             sec,
@@ -1527,9 +1155,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §10 Tuning params
+    # §9 Tuning params
     seq = 0
-    sec, stitle = "§10", "Tuning Parameters"
+    sec, stitle = "§9", "Tuning Parameters"
     for p in inv.tuning_params:
         _add(
             sec,
@@ -1545,9 +1173,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §13 Classification
+    # §10 Classification
     seq = 0
-    sec, stitle = "§13", "Classification Pipeline"
+    sec, stitle = "§10", "Classification Pipeline"
     for s in inv.classification:
         _add(
             sec,
@@ -1564,9 +1192,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §14 Proto field groups
+    # §11 Proto field groups
     seq = 0
-    sec, stitle = "§14", "FrameBundle — macOS-Only Proto Fields"
+    sec, stitle = "§11", "FrameBundle — macOS-Only Proto Fields"
     for g in inv.proto_field_groups:
         _add(
             sec,
@@ -1584,9 +1212,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §15 ECharts
+    # §12 ECharts
     seq = 0
-    sec, stitle = "§15", "ECharts Dashboard Endpoints"
+    sec, stitle = "§12", "ECharts Dashboard Endpoints"
     for ep in inv.echart_endpoints:
         _add(
             sec,
@@ -1603,9 +1231,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §16 cmd entries
+    # §13 cmd entries
     seq = 0
-    sec, stitle = "§16", "cmd/ Entry Points"
+    sec, stitle = "§13", "cmd/ Entry Points"
     for e in inv.cmd_entries:
         _add(
             sec,
@@ -1620,9 +1248,9 @@ def _build_trace_items(inv: MatrixInventory, root: Path) -> list[TraceItem]:
             ),
         )
 
-    # §18 Debug routes
+    # §14 Debug routes
     seq = 0
-    sec, stitle = "§18", "Debug / Admin Routes"
+    sec, stitle = "§14", "Debug / Admin Routes"
     for r in inv.debug_routes:
         _add(
             sec,
@@ -1649,7 +1277,7 @@ def _save_checklist(path: Path, items: list[TraceItem]) -> None:
     data = {
         "version": 1,
         "description": (
-            "Surface-mark tracing checklist for BACKEND_SURFACE_MATRIX.md. "
+            "Surface-mark tracing checklist for velocity.report. "
             "Each item needs DB/Web/PDF/Mac surface marks determined by "
             "reading the source code. Use --trace-continue to resume."
         ),
@@ -1665,8 +1293,7 @@ def _save_checklist(path: Path, items: list[TraceItem]) -> None:
             "The next session will pick up from where you left off using "
             "--trace-continue.\n\n"
             "IMPORTANT: Work section by section. Complete all items in one "
-            "section before moving to the next. This keeps output coherent "
-            "and allows partial matrix regeneration."
+            "section before moving to the next."
         ),
         "total_items": len(items),
         "sections": _summarise_sections(items),
@@ -1799,17 +1426,12 @@ def print_trace_next_batch(items: list[TraceItem], batch_size: int = 30) -> None
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="List all fields needed to regenerate BACKEND_SURFACE_MATRIX.md",
+        description="List backend surface inventory for velocity.report",
     )
     parser.add_argument(
         "--json",
         action="store_true",
         help="Output as JSON instead of human-readable text",
-    )
-    parser.add_argument(
-        "--coverage",
-        action="store_true",
-        help="Show coverage analysis: what the script can vs. cannot extract",
     )
     parser.add_argument(
         "--trace",
@@ -1874,8 +1496,6 @@ def main() -> None:
 
     if args.json:
         print_json_report(inv)
-    elif args.coverage:
-        print_coverage_report(inv)
     elif args.trace:
         checklist = _checklist_path(root)
         if checklist.exists():
