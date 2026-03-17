@@ -487,7 +487,7 @@ visualiser via gRPC).
 | `internal/lidar/l3grid`       | `foreground.go`    | L3 FrameMetrics (foreground fraction)      | —   | —   | —   | —   |
 | `internal/lidar/l4perception` | `dbscan.go`        | L4 Clustering (DBSCAN → world clusters)    | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks`     | `tracking.go`      | L5 Tracking (Kalman → tracked objects)     | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks`     | `tracking.go`      | L5 TrackingMetrics (fragmentation, jitter) | —   | 🔶  | —   | —   |
+| `internal/lidar/l5tracks`     | `tracking.go`      | L5 TrackingMetrics (fragmentation, jitter) | —   | ✅  | —   | —   |
 | `internal/lidar/adapters`     | `ground_truth.go`  | L6 Evaluation (quality metrics)            | ✅  | ✅  | —   | —   |
 | `internal/lidar/l6objects`    | `quality.go`       | L6 RunStatistics (12 fields)               | 📋  | 📋  | —   | —   |
 | `internal/lidar/l6objects`    | `quality.go`       | L6 TrackQualityMetrics (8 fields)          | ✅  | 📋  | —   | —   |
@@ -503,15 +503,15 @@ visualiser via gRPC).
 These structs are computed in-memory but have no persistence layer, no API
 endpoint, and no export path.
 
-| Folder                     | File            | Struct                              | DB  | Web | PDF | Mac | Notes                                                                         |
-| -------------------------- | --------------- | ----------------------------------- | --- | --- | --- | --- | ----------------------------------------------------------------------------- |
-| `internal/lidar/l6objects` | `quality.go`    | `NoiseCoverageMetrics` (7 fields)   | 📋  | 📋  | —   | —   | Partially implemented (TODOs)                                                 |
-| `internal/lidar/l6objects` | `quality.go`    | `TrainingDatasetSummary` (7 fields) | —   | —   | —   | —   | No consumer; separate project                                                 |
-| `internal/lidar/l6objects` | `features.go`   | `TrackFeatures` (20 features)       | —   | —   | —   | —   | Used in-memory by classifier                                                  |
-| `internal/lidar/l6objects` | `features.go`   | `ClusterFeatures` (10 features)     | —   | —   | —   | —   | Used in-memory by classifier                                                  |
-| `internal/lidar/l3grid`    | `foreground.go` | `FrameMetrics` (5 fields)           | 📋  | 📋  | —   | —   | Transient; [HINT plan C1](../../docs/plans/hint-metric-observability-plan.md) |
-| `internal/lidar/l5tracks`  | `tracking.go`   | `TrackAlignmentMetrics` (per-track) | 📋  | 📋  | —   | —   | [HINT plan D2](../../docs/plans/hint-metric-observability-plan.md)            |
-| `internal/lidar/sweep`     | `runner.go`     | `ComboResult` (32 fields)           | 🔶  | 🔶  | —   | —   | Only `BestScore` persisted                                                    |
+| Folder                     | File            | Struct                              | DB  | Web | PDF | Mac | Notes                                                                                                                                |
+| -------------------------- | --------------- | ----------------------------------- | --- | --- | --- | --- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `internal/lidar/l6objects` | `quality.go`    | `NoiseCoverageMetrics` (7 fields)   | 📋  | 📋  | —   | —   | Partially implemented (TODOs)                                                                                                        |
+| `internal/lidar/l6objects` | `quality.go`    | `TrainingDatasetSummary` (7 fields) | —   | —   | —   | —   | No consumer; separate project                                                                                                        |
+| `internal/lidar/l6objects` | `features.go`   | `TrackFeatures` (20 features)       | —   | —   | —   | —   | Used in-memory by classifier                                                                                                         |
+| `internal/lidar/l6objects` | `features.go`   | `ClusterFeatures` (10 features)     | —   | —   | —   | —   | Used in-memory by classifier                                                                                                         |
+| `internal/lidar/l3grid`    | `foreground.go` | `FrameMetrics` (5 fields)           | 📋  | 📋  | —   | —   | Transient; [HINT plan C1](../../docs/plans/hint-metric-observability-plan.md)                                                        |
+| `internal/lidar/l5tracks`  | `tracking.go`   | `TrackAlignmentMetrics` (per-track) | 📋  | �   | —   | —   | [HINT plan D2](../../docs/plans/hint-metric-observability-plan.md); nested in `GET /api/lidar/tracks/metrics?include_per_track=true` |
+| `internal/lidar/sweep`     | `runner.go`     | `ComboResult` (32 fields)           | 🔶  | 🔶  | —   | —   | Only `BestScore` persisted                                                                                                           |
 
 ---
 
@@ -530,24 +530,31 @@ endpoint, and no export path.
 
 Fields that flow correctly from pipeline through all applicable surfaces.
 
-| Folder                    | File          | Field                | DB  | Web | PDF | Mac |
-| ------------------------- | ------------- | -------------------- | --- | --- | --- | --- |
-| `internal/lidar/l5tracks` | `tracking.go` | `track_id`           | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `sensor_id`          | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `track_state`        | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `position (x, y, z)` | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `velocity (vx, vy)`  | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `speed_mps`          | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `heading_rad`        | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `observation_count`  | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `avg_speed_mps`      | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `peak_speed_mps`     | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `bounding_box_*`     | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `height_p95_max`     | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `intensity_mean_avg` | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `object_class`       | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `object_confidence`  | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `heading_source`     | —   | ✅  | —   | ✅  |
+| Folder                    | File          | Field                  | DB  | Web | PDF | Mac |
+| ------------------------- | ------------- | ---------------------- | --- | --- | --- | --- |
+| `internal/lidar/l5tracks` | `tracking.go` | `track_id`             | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `sensor_id`            | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `track_state`          | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `position (x, y, z)`   | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `velocity (vx, vy)`    | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `speed_mps`            | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `heading_rad`          | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `observation_count`    | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `avg_speed_mps`        | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `peak_speed_mps`       | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `bounding_box_*`       | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `height_p95_max`       | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `intensity_mean_avg`   | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `object_class`         | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `object_confidence`    | ✅  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `classification_model` | ✅  | ✅  | —   | —   |
+| `internal/lidar/l5tracks` | `tracking.go` | `heading_source`       | —   | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `track_length_meters`  | 🔶  | 📋  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `track_duration_secs`  | 🔶  | 📋  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `occlusion_count`      | 🔶  | 📋  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `max_occlusion_frames` | 🔶  | 📋  | —   | —   |
+| `internal/lidar/l5tracks` | `tracking.go` | `spatial_coverage`     | 🔶  | 📋  | —   | —   |
+| `internal/lidar/l5tracks` | `tracking.go` | `noise_point_ratio`    | 🔶  | 📋  | —   | —   |
 
 ---
 
@@ -630,10 +637,10 @@ generator.
 | Track alpha/opacity        | 1           | ✅    | —   | —   | —   |
 | Covariance 4×4             | 1           | ✅    | —   | —   | —   |
 | Debug: associations        | 4           | ✅    | —   | —   | —   |
-| Debug: gating ellipses     | 5           | ✅    | —   | —   | —   |
-| Debug: residuals           | 5           | ✅    | —   | —   | —   |
+| Debug: gating ellipses     | 6           | ✅    | —   | —   | —   |
+| Debug: residuals           | 6           | ✅    | —   | —   | —   |
 | Debug: predictions         | 5           | ✅    | —   | —   | —   |
-| Playback info              | 8           | ✅    | —   | —   | —   |
+| Playback info              | 9           | ✅    | —   | —   | —   |
 | Coordinate frame           | 6           | ✅    | —   | —   | —   |
 
 **Status:** These are intentionally Mac-only — they serve real-time
@@ -746,7 +753,7 @@ documented in §15. The radar server debug routes are attached via
 | HTTP endpoints (LiDAR)  | 77    | 39  | 76  | 0   | 11  |
 | gRPC methods            | 9     | 0   | 0   | 0   | 9   |
 | DB tables               | 22    | —   | 21  | 6   | 3   |
-| Pipeline stages         | 7     | 5   | 5   | 0   | 2   |
+| Pipeline stages         | 13    | 5   | 5   | 0   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   | 0   |
 | cmd/ entry points       | 11    | —   | —   | —   | —   |
 | Debug/admin routes      | 19    | —   | —   | —   | —   |
@@ -757,7 +764,9 @@ documented in §15. The radar server debug routes are attached via
 | ------------------------------------ | ----- | --------------------------------------------------------------------------------------- |
 | Schema columns never written         | 10    | `lidar_tracks` quality (6), `lidar_clusters` quality (3), `statistics_json` (1)         |
 | Fields live-only (Mac but not in DB) | 3     | `track_length_meters`, `track_duration_secs`, `occlusion_count` (gRPC ✅, DB column 🔶) |
-| Structs computed, not persisted      | 4     | NoiseCoverageMetrics, TrainingDatasetSummary, TrackFeatures, ClusterFeatures            |
-| Transient pipeline metrics           | 3     | FrameMetrics, TrackAlignmentMetrics, per-track jitter                                   |
+| Structs computed, not persisted      | 3     | NoiseCoverageMetrics, TrainingDatasetSummary, ClusterFeatures                           |
+| Structs in-memory, classifier only   | 1     | TrackFeatures (20 features; computed on-demand, never stored)                           |
+| Transient pipeline metrics           | 2     | FrameMetrics (HINT plan C1), per-track jitter                                           |
+| Metrics with Web endpoint only       | 2     | TrackingMetrics + TrackAlignmentMetrics via `GET /api/lidar/tracks/metrics`             |
 | Logic with no triggering endpoint    | 2     | `compareParams()`, `computeTemporalIoU()`                                               |
 | Deprecated columns (removal planned) | 6     | p50/p85/p95 on lidar_tracks + lidar_run_tracks                                          |
