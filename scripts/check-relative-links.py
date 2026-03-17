@@ -21,6 +21,8 @@ from pathlib import Path
 # Pattern matches Markdown links: [text](target)
 # Captures the target path (group 1).
 # Excludes angle-bracket autolinks like <https://...> that may contain parens.
+# Known limitation: does not handle balanced parentheses inside link targets
+# (e.g. Wikipedia disambiguation pages). These are rare in this repo.
 LINK_PATTERN = re.compile(r"\[(?:[^\]]*)\]\(([^)<>]+)\)")
 
 # Directories to skip entirely.
@@ -69,6 +71,13 @@ def check_file(filepath: Path, root: Path) -> list[tuple[int, str, str]]:
 
             # Resolve relative to the directory containing the source file.
             resolved = (filepath.parent / path_part).resolve()
+            # Guard against symlink traversal outside the repo.
+            try:
+                resolved.relative_to(root.resolve())
+            except ValueError:
+                rel_resolved = os.path.relpath(resolved, root)
+                dead.append((lineno, target, rel_resolved))
+                continue
             if not resolved.exists():
                 rel_resolved = os.path.relpath(resolved, root)
                 dead.append((lineno, target, rel_resolved))

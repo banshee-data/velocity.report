@@ -164,8 +164,8 @@ previously listed stale values for 13 of 15 keys.
    existing `scripts/config-order-sync` tool already parses Markdown
    JSON blocks and Go struct tags for key-order consistency. A
    `--check-values` flag could additionally:
-   - Parse Markdown tables with a `Default` column (pattern:
-     `| \`key_name\` | value | ...`)
+   - Parse Markdown tables that contain backtick-quoted config key names
+     and a "Default" column
    - Compare extracted values against `tuning.defaults.json`
    - Report mismatches with file, line, key, expected, and actual values
    - Exit non-zero when drift is detected
