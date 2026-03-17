@@ -30,7 +30,6 @@ EXCLUDED_DIRS = {
     "build",
     "dist",
     "node_modules",
-    "web/build",
 }
 
 DEFAULT_SCAN_PATHS = [
