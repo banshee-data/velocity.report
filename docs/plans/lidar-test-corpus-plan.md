@@ -26,13 +26,13 @@ All captures use the **Hesai P40** sensor to control for sensor-specific
 noise characteristics. Each site needs ≥ 20 manually labelled tracks
 covering the major classes (car, truck, cyclist, pedestrian at minimum).
 
-| # | Name | Site description | Validates | Duration | Status |
-| - | --- | --- | --- | --- | --- |
-| 1 | kirk0 | Flat urban road | Baseline defaults, straight-line vehicles | ~5 min | ✓ Captured |
-| 2 | slope1 | Sloped residential street (≥ 3° gradient) | Ground-plane tiling, height-band limits | ~5 min | Planned |
-| 3 | school1 | School zone or park entrance | Pedestrian/cyclist classification, low-speed tracks | ~10 min | Planned |
-| 4 | junction1 | Multi-lane road or junction | Turning vehicles, lane-crossing, merge/split | ~10 min | Planned |
-| 5 | rural1 | Rural or semi-rural road | Long-range sparse clusters, high-speed vehicles | ~5 min | Planned |
+| #   | Name      | Site description                          | Validates                                           | Duration | Status     |
+| --- | --------- | ----------------------------------------- | --------------------------------------------------- | -------- | ---------- |
+| 1   | kirk0     | Flat urban road                           | Baseline defaults, straight-line vehicles           | ~5 min   | ✓ Captured |
+| 2   | slope1    | Sloped residential street (≥ 3° gradient) | Ground-plane tiling, height-band limits             | ~5 min   | Planned    |
+| 3   | school1   | School zone or park entrance              | Pedestrian/cyclist classification, low-speed tracks | ~10 min  | Planned    |
+| 4   | junction1 | Multi-lane road or junction               | Turning vehicles, lane-crossing, merge/split        | ~10 min  | Planned    |
+| 5   | rural1    | Rural or semi-rural road                  | Long-range sparse clusters, high-speed vehicles     | ~5 min   | Planned    |
 
 ### Site selection criteria
 
@@ -87,14 +87,14 @@ results.
 
 ## Schedule
 
-| Phase | Work | Depends on |
-| --- | --- | --- |
-| 1 | Identify and confirm 4 new capture sites | Site access |
-| 2 | Capture PCAPs 2–5 with P40 sensor | Phase 1 + hardware |
-| 3 | Label ≥ 20 tracks per PCAP | Phase 2 + labelling UI |
-| 4 | Create baselines for each PCAP | Phase 3 + `pcap-analyse` |
-| 5 | Integrate into CI nightly run | Phase 4 |
-| 6 | Run parameter sweeps across full corpus | Phase 5 |
+| Phase | Work                                     | Depends on               |
+| ----- | ---------------------------------------- | ------------------------ |
+| 1     | Identify and confirm 4 new capture sites | Site access              |
+| 2     | Capture PCAPs 2–5 with P40 sensor        | Phase 1 + hardware       |
+| 3     | Label ≥ 20 tracks per PCAP               | Phase 2 + labelling UI   |
+| 4     | Create baselines for each PCAP           | Phase 3 + `pcap-analyse` |
+| 5     | Integrate into CI nightly run            | Phase 4                  |
+| 6     | Run parameter sweeps across full corpus  | Phase 5                  |
 
 ## Non-goals
 

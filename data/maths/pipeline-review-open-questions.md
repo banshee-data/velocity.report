@@ -58,30 +58,34 @@ refinement needed.
                                  │ heading prior improves
                                  ▼
                     ┌─────────────────────────┐
+                    │  P4: Unified L3/L4      │
+                    │  Settling               │
+                    │  [enables P3]           │
+                    └────────────┬────────────┘
+                                 │ settlement core feeds
+                                 ▼
+                    ┌─────────────────────────┐
+                    │  P3: Ground Plane +     │
+                    │  Vector Scene (L4)      │
+                    │  [builds on P4]         │
+                    └────────────┬────────────┘
+                                 │ better foreground + geometry
+                                 ▼
+                    ┌─────────────────────────┐
                     │  P2: Velocity-Coherent   │
                     │  Foreground (L3–L5)      │
-                    │  [independent, enhances P1] │
+                    │  [enhances P1+P3]        │
                     └────────────┬────────────┘
-                                 │ better foreground feeds
+                                 │ produces static geometry
                                  ▼
-  ┌──────────────────┐    ┌─────────────────────────┐
-  │ P4: Unified      │◄───│  P3: Ground Plane +     │
-  │ L3/L4 Settling   │    │  Vector Scene (L4)      │
-  │ [simplifies P3]  │    │  [benefits from P4]     │
-  └──────────────────┘    └────────────┬────────────┘
-                                       │ produces static geometry
-                                       ▼
                     ┌─────────────────────────┐
                     │  Sign/Surface Anchors   │
-                    │  (L2–L8)                │
-                    │  [best with L7 scene]   │
+                    │  + L7 Scene Corridors   │
+                    │  [consumes L7 scene]    │
                     └─────────────────────────┘
 ```
 
-**Sequencing refinement needed:** P4 (unified settling) is currently listed
-last but would reduce P3's implementation cost. If P3 is the higher-value
-deliverable (it is — see [§6 High-Value Work Priority](#6-high-value-work-priority)), then P4 should be brought forward as an
-enabling infrastructure step. The recommended sequence is:
+The recommended sequence is:
 
 1. **P1** — Geometry-coherent track state (standalone, highest visible impact)
 2. **P4** — Unified L3/L4 settling (infrastructure, enables P3)
@@ -137,11 +141,11 @@ correctness gain is measurable.
 **Tile → vector-scene alignment.** The ground plane and vector scene map use
 the same underlying geometry but at different granularities:
 
-| Representation | Source | Granularity | Lifecycle |
-| --- | --- | --- | --- |
-| 1 m Cartesian tile | L4 streaming PCA | Fixed grid, per-tile plane (n, d) | Per-frame accumulation, settles in 20–50 s |
-| Vector-scene polygon | Region-grown tiles | Variable area, simplified boundary | Constructed from settled tiles, locked |
-| OSM prior polygon | External GeoJSON | Road/pavement/building outlines | Loaded once, used as alignment reference |
+| Representation       | Source             | Granularity                        | Lifecycle                                  |
+| -------------------- | ------------------ | ---------------------------------- | ------------------------------------------ |
+| 1 m Cartesian tile   | L4 streaming PCA   | Fixed grid, per-tile plane (n, d)  | Per-frame accumulation, settles in 20–50 s |
+| Vector-scene polygon | Region-grown tiles | Variable area, simplified boundary | Constructed from settled tiles, locked     |
+| OSM prior polygon    | External GeoJSON   | Road/pavement/building outlines    | Loaded once, used as alignment reference   |
 
 The construction path is bottom-up and additive:
 
@@ -159,6 +163,7 @@ struct proposed in `ground-plane-extraction.md`, serialised to SQLite for
 tiles and exported as GeoJSON for vector-scene polygons.
 
 This alignment is confirmed across all four source documents:
+
 - `ground-plane-maths.md` → height-band filter (current runtime)
 - `ground-plane-extraction.md` → tile-plane fitting (§2, proposed)
 - `20260221-ground-plane-vector-scene-maths.md` → streaming PCA + settlement
@@ -193,7 +198,7 @@ Region-grow into polygons (GeoJSON)
 Download OSM extract for deployment area
         │
         ▼
-Compute alignment: translation vector (dx, dy) + rotation offset (dθ)
+Compute alignment: translation vector (dx, dy, dz) + rotation offset (dθ)
         │
         ▼
 Diff: identify geometry in observations not present in OSM (new features)
@@ -209,8 +214,14 @@ Human review in JOSM/iD → commit to OSM
 **Translation/rotation offset model.** The alignment between observed
 geometry and OSM priors is computed as a rigid transform:
 
-- **Translation vector** (dx, dy) in metres — accounts for GPS offset,
-  datum differences, and systematic survey error.
+- **Translation vector** (dx, dy, dz) in metres — accounts for GPS offset,
+  datum differences, systematic survey error, and altitude discrepancies.
+  The z-component is required because OSM Simple 3D Buildings include height
+  data (`height=*`, `min_height=*`, `roof:height=*`, `building:levels=*`)
+  and because LiDAR observes structures such as footbridges, elevated roads,
+  and building facades at their true elevation. The expected/predicted delta
+  between OSM map elevation and observed GPS altitude should be maintained
+  as a diagnostic metric.
 - **Rotation offset** dθ in radians — accounts for sensor heading
   misalignment relative to map north.
 - **Confidence** — derived from the number and spatial distribution of
@@ -256,6 +267,25 @@ will include:
 
 See [docs/plans/lidar-l7-scene-plan.md](../plans/lidar-l7-scene-plan.md)
 §OSM priors service for the architectural context.
+
+**Data persistence and the three data feeds.** While only edits for missing
+or misaligned geometry are exported to OSM, the full captured scene is
+stored locally. The system maintains a strict separation between three
+data feeds:
+
+| Data feed           | Storage                   | Contents                                                                                                 | Retention                                              |
+| ------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Raw sensor**      | PCAP/PCAPNG files         | Raw UDP packets from the LiDAR sensor                                                                    | Kept for replay/debug; large, not in production DB     |
+| **Debug capture**   | VRLOG files               | Per-frame foreground points, full point clouds, diagnostic overlays                                      | On-demand recording; not retained in production DB     |
+| **Production data** | `sensor_data.db` (SQLite) | Background grid, settled ground plane, vector map, bounding boxes, tracks, classification, analysis runs | Persistent; exportable; the canonical production store |
+
+The `sensor_data.db` does **not** store raw PCAP data or VRLOG foreground /
+full-frame point data. It stores the processed, accumulated results:
+background grid snapshots, region snapshots, track histories, cluster
+records, ground-plane tiles, vector-scene polygons, and analysis run
+statistics. This keeps the production database compact and self-contained
+while the full scene evidence remains accessible for offline analysis via
+the raw PCAP and VRLOG files.
 
 ### Q3. Can LiDAR intensity create reliable pose anchors?
 
@@ -555,9 +585,12 @@ The **coupling to existing config** (§4.5 of the proposal) is well-defined:
 This re-uses `closeness_multiplier`, `noise_relative`, and
 `safety_margin_meters` from the L3 config, avoiding new magic numbers.
 
-**GPS as offset vector.** GPS provides a translation vector (dx, dy) and
-optionally a height offset (dz). It does not define the reference frame for
-geometry — OSM does. The GPS role is:
+**GPS as offset vector.** GPS provides a translation vector (dx, dy, dz).
+It does not define the reference frame for geometry — OSM does. The
+z-component (dz) captures altitude offset between GPS-reported elevation
+and the map datum; this is essential for aligning structures with height
+data in OSM (footbridges, building heights, above-sea-level measurements).
+The GPS role is:
 
 1. **Initial alignment** — When no OSM prior is available, GPS provides
    the only geo-reference. The system uses GPS coordinates directly but
@@ -650,13 +683,13 @@ defaults were tuned against it. The overfitting risk is real:
 
 **Five-PCAP test corpus plan (P40 sensor):**
 
-| # | Site description | Validates | Status |
-| - | --- | --- | --- |
-| 1 | Kirk0 (existing) — flat urban road | Baseline defaults | ✓ Captured |
-| 2 | Sloped residential street (≥3° gradient) | Ground-plane tiling, height-band limits | Planned |
-| 3 | School zone or park entrance | Pedestrian/cyclist classification, low-speed tracks | Planned |
-| 4 | Multi-lane road or junction | Turning vehicles, lane-crossing, merge/split | Planned |
-| 5 | Rural or semi-rural road | Long-range sparse clusters, high-speed vehicles | Planned |
+| #   | Site description                         | Validates                                           | Status     |
+| --- | ---------------------------------------- | --------------------------------------------------- | ---------- |
+| 1   | Kirk0 (existing) — flat urban road       | Baseline defaults                                   | ✓ Captured |
+| 2   | Sloped residential street (≥3° gradient) | Ground-plane tiling, height-band limits             | Planned    |
+| 3   | School zone or park entrance             | Pedestrian/cyclist classification, low-speed tracks | Planned    |
+| 4   | Multi-lane road or junction              | Turning vehicles, lane-crossing, merge/split        | Planned    |
+| 5   | Rural or semi-rural road                 | Long-range sparse clusters, high-speed vehicles     | Planned    |
 
 All captures use the Hesai P40 sensor to control for sensor-specific noise
 characteristics. Each site needs ≥ 20 manually labelled tracks covering
@@ -723,8 +756,8 @@ be OSM-first (see Q2):
    `extract_path` (path to Overpass/JOSM export) fields.
 2. Parse OSM GeoJSON exports into the same polygon representation used by
    the vector-scene-map.
-3. Compute translation/rotation offset between observed polygons and OSM
-   polygons via feature matching.
+3. Compute translation (dx, dy, dz) and rotation offset between observed
+   polygons and OSM polygons via feature matching.
 4. Feed polygon containment as w_prior into region selection scoring.
 5. Default w_prior = 1.0 (neutral) when no priors are loaded.
 6. Generate diff reports identifying geometry gaps between observations
@@ -813,17 +846,17 @@ This is correct for track-level comparison. It should be extended with:
 
 Ordered by user-visible impact and mathematical maturity:
 
-| Priority | Item                                    | Layer | Effort        | Impact                                      | Readiness                             |
-| -------- | --------------------------------------- | ----- | ------------- | ------------------------------------------- | ------------------------------------- |
-| 1        | Geometry-coherent track state (P1)      | L5    | L (6–7 days)  | **Very high** — fixes most visible artefact | Proposal complete, ready to implement |
-| 2        | Tile-plane ground fitting (G1)          | L4    | M (3–4 days)  | **High** — correctness for sloped roads     | Maths complete, needs implementation  |
-| 3        | Unified settlement core (P4)            | L3–L4 | M (4–5 days)  | **Medium** — infrastructure simplification  | Proposal complete, enables G2 and P3  |
-| 4        | Classification config extraction (§5.1) | L6    | S (1–2 days)  | **Medium** — removes magic numbers          | Straightforward refactor              |
-| 5        | Five-site test corpus (§Q11)            | Cross | M (ongoing)   | **High** — validates all defaults           | Requires field data collection        |
-| 6        | Speed percentile alignment (§5.2)       | L8    | S (2–3 days)  | **Medium** — correctness for reports        | Implementation choices documented     |
-| 7        | CA model (future-forward L5 extension)  | L5    | M (5–6 days)  | **Medium** — reduces braking fragmentation  | Additive over CV, no L7 dependency    |
-| 8        | IMM CV+CA blend                         | L5    | M (4–5 days)  | **Medium** — adaptive model selection       | Additive over CA, future-compatible   |
-| 9        | L7 corridors (enables turns + linking)  | L7    | L (10+ days)  | **High** — turns, sparse linking, lanes     | Requires P4 settled geometry          |
+| Priority | Item                                    | Layer | Effort       | Impact                                      | Readiness                             |
+| -------- | --------------------------------------- | ----- | ------------ | ------------------------------------------- | ------------------------------------- |
+| 1        | Geometry-coherent track state (P1)      | L5    | L (6–7 days) | **Very high** — fixes most visible artefact | Proposal complete, ready to implement |
+| 2        | Tile-plane ground fitting (G1)          | L4    | M (3–4 days) | **High** — correctness for sloped roads     | Maths complete, needs implementation  |
+| 3        | Unified settlement core (P4)            | L3–L4 | M (4–5 days) | **Medium** — infrastructure simplification  | Proposal complete, enables G2 and P3  |
+| 4        | Classification config extraction (§5.1) | L6    | S (1–2 days) | **Medium** — removes magic numbers          | Straightforward refactor              |
+| 5        | Five-site test corpus (§Q11)            | Cross | M (ongoing)  | **High** — validates all defaults           | Requires field data collection        |
+| 6        | Speed percentile alignment (§5.2)       | L8    | S (2–3 days) | **Medium** — correctness for reports        | Implementation choices documented     |
+| 7        | CA model (future-forward L5 extension)  | L5    | M (5–6 days) | **Medium** — reduces braking fragmentation  | Additive over CV, no L7 dependency    |
+| 8        | IMM CV+CA blend                         | L5    | M (4–5 days) | **Medium** — adaptive model selection       | Additive over CA, future-compatible   |
+| 9        | L7 corridors (enables turns + linking)  | L7    | L (10+ days) | **High** — turns, sparse linking, lanes     | Requires P4 settled geometry          |
 
 **Critical path:** P1 → G1 → P4 → G2 → CA → IMM → L7 corridors.
 

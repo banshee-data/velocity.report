@@ -45,12 +45,12 @@ pedestrian classes.
 
 ### Metrics
 
-| Metric | Definition | Threshold |
-| --- | --- | --- |
-| Track completeness | Fraction of ground-truth tracks matched to a single pipeline track with temporal IoU ≥ 0.5 | ≥ 10% improvement (absolute) |
-| Fragmentation rate | Pipeline tracks per ground-truth track (lower is better) | < 1.2 for vehicles, < 1.5 for pedestrians |
-| Speed RMSE | Root mean square error of per-track average speed vs ground truth | ≤ 5% regression vs baseline |
-| Frame throughput | Frames processed per second on reference hardware | ≤ 20% regression vs baseline |
+| Metric             | Definition                                                                                 | Threshold                                 |
+| ------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| Track completeness | Fraction of ground-truth tracks matched to a single pipeline track with temporal IoU ≥ 0.5 | ≥ 10% improvement (absolute)              |
+| Fragmentation rate | Pipeline tracks per ground-truth track (lower is better)                                   | < 1.2 for vehicles, < 1.5 for pedestrians |
+| Speed RMSE         | Root mean square error of per-track average speed vs ground truth                          | ≤ 5% regression vs baseline               |
+| Frame throughput   | Frames processed per second on reference hardware                                          | ≤ 20% regression vs baseline              |
 
 ### Controls
 
