@@ -23,6 +23,7 @@ from pathlib import Path
 
 DEFAULT_WIDTH = 100
 
+# Basenames only — os.walk() yields directory basenames, not paths.
 EXCLUDED_DIRS = {
     ".git",
     ".venv",
