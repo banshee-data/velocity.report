@@ -46,8 +46,10 @@ that would show _why_ parameters improved between rounds.
 
 ### Batch A — Surface persisted data (small effort each)
 
-Data is already computed and written to SQLite. Work is API deserialization
-and web rendering.
+Many of these metrics are already computed and, where they are persisted to
+SQLite, the work in this batch is API deserialisation and web rendering. For
+metrics that are computed but not yet persisted, add the minimal SQLite
+fields first, then expose them via the same API/web paths.
 
 #### A1. Surface run statistics on web
 
@@ -70,8 +72,8 @@ PDF reports
 
 #### A2. Surface track quality metrics on web
 
-Include the 6 per-track quality columns already in `lidar_tracks` /
-`lidar_run_tracks` in API responses.
+Include the 6 per-track quality columns already in `lidar_tracks` in API
+responses.
 
 - [ ] Add `track_length_meters`, `track_duration_secs`, `occlusion_count`,
       `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` to

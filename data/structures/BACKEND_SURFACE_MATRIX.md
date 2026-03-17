@@ -6,8 +6,8 @@ which surfaces consume each item: **DB** (SQLite persistence), **Web**
 (Svelte UI on `:8080`), **PDF** (Python LaTeX generator), **Mac** (Metal
 visualiser via gRPC).
 
-**Source:** Full-codebase audit (March 2026)
-**Related:** [Remediation plan](../../docs/plans/unpopulated-data-structures-remediation-plan.md) · [Clustering observability](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md) · [HINT metric observability](../../docs/plans/hint-metric-observability-plan.md)
+- **Source:** Full-codebase audit (March 2026)
+- **Related:** [Remediation plan](../../docs/plans/unpopulated-data-structures-remediation-plan.md) · [Clustering observability](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md) · [HINT metric observability](../../docs/plans/hint-metric-observability-plan.md)
 
 ---
 

@@ -5,8 +5,8 @@ but never persisted, exposed via API, or consumed by any presentation
 surface — plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-**Status:** Active — Phases 1–3 proposed; Phases 4–10 proposed
-**Related:** [Backend → Surface Matrix](../../data/structures/BACKEND_SURFACE_MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
+- **Status:** Active — Phases 1–3 proposed; Phases 4–10 proposed
+- **Related:** [Backend → Surface Matrix](../../data/structures/BACKEND_SURFACE_MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
 
@@ -82,10 +82,10 @@ distribution). This is a separate UI task.
 
 ## Phase 2 — Populate Track Quality Columns
 
-**Priority:** High — 6 columns in `lidar_tracks` exist but are always NULL.
+**Priority:** High — 6 columns in `lidar_tracks` exist but are never written (currently hold NULL/0 defaults).
 **Effort:** Small–medium (2–3 days)
 **Risk:** Low — columns exist; `InsertTrack`/`UpdateTrack` just need
-additional parameters.
+      additional parameters to populate them.
 **Schedule:** Same sprint as Phase 1 or immediately after.
 
 ### Checklist
@@ -115,7 +115,7 @@ labelling.
 
 ## Phase 3 — Populate Cluster Quality Columns
 
-**Priority:** Medium — 3 columns in `lidar_clusters` are always NULL.
+**Priority:** Medium — 3 quality-related columns in `lidar_clusters` are currently unpopulated (2 are NULL and `noise_points_count` remains at its default 0).
 **Effort:** Small (1 day)
 **Risk:** Low — requires computing `noise_points_count`, `cluster_density`,
 and `aspect_ratio` from data already available at insert time.
@@ -124,7 +124,7 @@ become a priority.
 
 ### Checklist
 
-- [ ] Compute `noise_points_count` during clustering (requires adding
+- [ ] Compute `noise_points_count` during clustering (it currently remains at its schema default of 0; this requires adding
       a `NoisePointsCount` field to `WorldCluster` in `l4perception/types.go`
       and populating it during the L4 clustering step).
 - [ ] Compute `cluster_density` as `points_count / bbox_volume`.
