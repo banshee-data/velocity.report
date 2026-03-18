@@ -144,8 +144,6 @@ Extend the current benchmark output with per-layer fields:
 }
 ```
 
-```
-
 ## Implementation phases
 
 | Phase | Work                                               | Effort       |
@@ -170,4 +168,3 @@ Extend the current benchmark output with per-layer fields:
 - [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md) — clustering-specific benchmarks
 - [Test corpus plan](lidar-test-corpus-plan.md) — five-site PCAP corpus
 - [Config evidence levels](../../config/README.maths.md) — evidence classification and sweep experiments
-```
