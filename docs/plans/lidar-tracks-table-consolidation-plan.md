@@ -296,12 +296,12 @@ convenience for operators using TailSQL or direct sqlite3 access.
 
 ## Effort estimates
 
-| Phase            | Effort | Files touched                       |
-| ---------------- | ------ | ----------------------------------- |
-| Phase 1 (030 + 031) | `M`  | ~15 Go + 3 TS + 1 proto + migration |
-| Phase 2 (Go DRY) | `S`    | 3–4 Go files in `storage/sqlite/`   |
-| Phase 3 (VIEW)   | `S`    | 1 migration file                    |
-| Phase 4 (docs)   | `S`    | 2–3 Markdown files                  |
+| Phase               | Effort | Files touched                       |
+| ------------------- | ------ | ----------------------------------- |
+| Phase 1 (030 + 031) | `M`    | ~15 Go + 3 TS + 1 proto + migration |
+| Phase 2 (Go DRY)    | `S`    | 3–4 Go files in `storage/sqlite/`   |
+| Phase 3 (VIEW)      | `S`    | 1 migration file                    |
+| Phase 4 (docs)      | `S`    | 2–3 Markdown files                  |
 
 ## Checklist
 
