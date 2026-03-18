@@ -55,19 +55,20 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 </p>
             </div>
 
-            {# Responsive GIF/image: scales fluidly from mobile to desktop.
-               Replace visualiser-demo-placeholder.svg with visualiser-demo.gif
-               once the macOS window capture is recorded. See
-               docs/plans/homepage-responsive-gif-strategies.md for alternatives. #}
             <div class="mx-auto max-w-3xl mb-8">
-                <img
-                    src="/img/visualiser-demo-placeholder.svg"
-                    alt="VelocityVisualiser showing real-time LiDAR track visualisation with bounding boxes and velocity labels"
+                <video
+                    autoplay
+                    muted
+                    loop
+                    playsinline
+                    controls
+                    preload="auto"
                     class="w-full h-auto rounded-xl shadow-lg"
-                    loading="lazy"
-                    width="900"
-                    height="600"
-                />
+                    width="1600"
+                    height="900"
+                >
+                    <source src="/video/visualiser-demo.mp4" type="video/mp4" />
+                </video>
             </div>
 
             <div class="text-center">
@@ -85,7 +86,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
 
     <!-- Video Section -->
     <div class="mb-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 md:p-12">
-        <div class="max-w-4xl mx-auto text-center">
+        <div class="max-w-3xl mx-auto text-center">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Data-Driven Advocacy in Action</h2>
             <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-xl shadow-lg mb-8 bg-black">
                 <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/ZTJOI5gYZM4" title="SFMTA Board Meeting Address" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>

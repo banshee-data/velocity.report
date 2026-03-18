@@ -32,6 +32,9 @@ module.exports = function (eleventyConfig) {
   // Copy images with img alias for backwards compatibility
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
 
+  // Copy video files to output
+  eleventyConfig.addPassthroughCopy("src/video");
+
   // Watch CSS files for changes
   eleventyConfig.addWatchTarget("./src/css/");
 
