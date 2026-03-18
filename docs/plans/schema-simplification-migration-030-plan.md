@@ -426,7 +426,8 @@ No per-track percentile fields in the proto.
 1. **Migration 000030** — column drops, column renames (`peak`→`max`,
    `world_frame`→`frame_id`, `scene_hash`→`grid_hash`)
 2. **Migration 000031** — 7 table renames + `scene_id`→`replay_case_id`
-3. Both land in the same release window (v0.5.0)
+3. **`v0.5.1` follow-through** — wire `statistics_json` plus the committed track-quality fields, decide the fate of remaining unwired columns, and remove dormant ML/vector export scaffolding unless it gains a concrete owner
+4. Both schema migrations land in the same breaking release window (`v0.5.0`)
 
 ### Cross-references
 
@@ -439,3 +440,62 @@ No per-track percentile fields in the proto.
   L1–L10 numbering from v0.5.0
 - [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md) —
   separate plan for live vs analysis track table structure
+
+---
+
+## Part 6: Deep-Audit Extensions for v0.5.x
+
+The `MATRIX` audit and code pass surfaced four different cleanup classes. They
+should stay attached to this plan so `v0.5.x` has one canonical schema roadmap
+instead of another side document.
+
+### 6.1 Remove in `v0.5.0` (same breaking window)
+
+| Surface                                                     | Reason                                              | Action                                                  |
+| ----------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------- |
+| `lidar_tracks.{p50,p85,p95}_speed_mps`                      | Dead columns; never written or consumed             | Drop in migration 000030                                |
+| `lidar_run_tracks.{p50,p85,p95}_speed_mps`                  | Wrong abstraction; no downstream consumer           | Drop in migration 000030                                |
+| `peak_speed_mps`, `world_frame`, `scene_hash` legacy names  | Naming drift against current contracts              | Rename in migrations 000030–000031                      |
+| Stale references to deleted `schema-simplification...` docs | Planning drift creates a second, broken source path | Move all active references to this standardisation plan |
+
+### 6.2 Keep and wire by `v0.5.1`
+
+These should not be dropped in the `v0.5.0` break because they already have
+real near-term value or an existing non-DB consumer.
+
+| Surface                                                         | Why it stays today                                          | Required follow-through                                                             |
+| --------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `track_length_meters`, `track_duration_secs`, `occlusion_count` | Already live on proto/Mac; DB parity is the missing layer   | Populate via `InsertTrack()` / `UpdateTrack()` and expose on web                    |
+| `statistics_json`                                               | `RunStatistics` already exists and multiple plans assume it | Wire `CompleteRun()`, `GetRun()`, and `ListRuns()` or delete before `v0.5.x` closes |
+
+### 6.3 Wire quickly or delete; do not carry unowned through `v0.5.x`
+
+These are the real "trim debt, don't grow it" candidates. If nobody owns them
+in the `v0.5.1` window, the default action should be removal, not another cycle
+of dormant schema.
+
+| Surface                                                         | Current state                                         | Default rule                                                                          |
+| --------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` | Computed in tracker; no committed public surface yet  | Ship with owned HINT/run-quality work or drop in follow-on cleanup                    |
+| `noise_points_count`, `cluster_density`, `aspect_ratio`         | Cluster columns exist but remain unused and derivable | Compute as part of cluster diagnostics or remove instead of preserving dead DB weight |
+
+### 6.4 Dormant ML / vector export scaffolding
+
+The default `v0.5.x` position should be **delete until funded**, not "keep just
+in case". Unless a concrete owner commits to shipping an end-to-end training
+export workflow in the same release train, remove:
+
+- `TrackingPipelineConfig.FeatureExportFunc`
+- `l6objects.TrackFeatures`, `SortedFeatureNames()`, and `ToVector()`
+- `TrackTrainingFilter`, `TrainingDatasetSummary`, `FilterTracksForTraining()`, and `SummarizeTrainingDataset()`
+- placeholder research/export adapters in `internal/lidar/adapters/training_data.go` and `internal/lidar/adapters/track_export.go`
+
+Keep:
+
+- `ComputeSpeedPercentiles()` and the classifier's shipped internal feature extraction path
+- `RunStatistics` and run-comparison core logic, which already support active analytics work
+
+### 6.5 Adjacent cleanup worth bundling with `v0.5.x`
+
+- Replace all references to the deleted `schema-simplification-migration-030-plan.md` with this plan.
+- Stop describing split/merge candidate detection as complete until `CompareRuns()` moves beyond Hungarian 1:1 matching. Matched-track and parameter-diff logic are real today; split/merge detection is still aspirational.
