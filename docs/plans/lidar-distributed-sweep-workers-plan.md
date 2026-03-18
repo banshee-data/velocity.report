@@ -83,58 +83,58 @@ Target: 2 workers initially, architecture supports N.
 
 ```
                     ┌───────────────────────────────────┐
-                    │        User / Svelte Dashboard     │
-                    │  POST /api/lidar/sweep/start       │
-                    │  target: "server" | "worker-01"    │
+                    │        User / Svelte Dashboard    │
+                    │  POST /api/lidar/sweep/start      │
+                    │  target: "server" | "worker-01"   │
                     └────────────────┬──────────────────┘
                                      │
                     ┌────────────────▼──────────────────┐
-                    │    DRIVER  (velocity-report)       │
-                    │    normal server mode (:8080)      │
-                    │                                    │
-                    │  1. Expand params → combos[]       │
-                    │  2. Partition combos into jobs      │
-                    │  3. Dispatch to target worker(s)    │
-                    │  4. Poll worker /status endpoints   │
-                    │  5. Retrieve results from workers   │
-                    │  6. Confirm retrieval → worker      │
-                    │     flags results for cleanup       │
-                    │  7. Merge into unified SweepState   │
-                    │  8. Persist to lidar_sweeps         │
-                    │                                    │
-                    │  SQLite: lidar_sweep_jobs           │
-                    │  SQLite: lidar_sweep_workers (CRUD) │
+                    │    DRIVER  (velocity-report)      │
+                    │    normal server mode (:8080)     │
+                    │                                   │
+                    │  1. Expand params → combos[]      │
+                    │  2. Partition combos into jobs    │
+                    │  3. Dispatch to target worker(s)  │
+                    │  4. Poll worker /status endpoints │
+                    │  5. Retrieve results from workers │
+                    │  6. Confirm retrieval → worker    │
+                    │     flags results for cleanup     │
+                    │  7. Merge into unified SweepState │
+                    │  8. Persist to lidar_sweeps       │
+                    │                                   │
+                    │  SQLite: lidar_sweep_jobs         │
+                    │  SQLite: lidar_sweep_workers,CRUD │
                     └──────┬───────────────┬────────────┘
                            │               │
-              ┌────────────▼──┐      ┌─────▼───────────┐
-              │   WORKER A     │      │   WORKER B       │
-              │                │      │                  │
-              │  velocity-     │      │  velocity-       │
-              │  report        │      │  report          │
-              │  --worker      │      │  --worker        │
-              │  (:8082)       │      │  (:8082)         │
-              │                │      │                  │
-              │  Reduced API:  │      │  Reduced API:    │
-              │  /status       │      │  /status         │
-              │  /jobs         │      │  /jobs           │
-              │  /jobs/check   │      │  /jobs/check     │
-              │  /health       │      │  /health         │
-              │                │      │                  │
-              │  Local cache:  │      │  Local cache:    │
-              │  results held  │      │  results held    │
-              │  until driver  │      │  until driver    │
-              │  confirms      │      │  confirms        │
-              │  retrieval     │      │  retrieval       │
-              └───────┬────────┘      └────────┬─────────┘
-                      │                        │
-              ┌───────▼────────────────────────▼─────────┐
-              │         Shared Filesystem (NFS/SMB)       │
-              │                                           │
-              │  /mnt/pcap/                               │
-              │    ├─ site-01/capture-2026-03-10.pcap     │
-              │    ├─ site-01/capture-2026-03-11.pcap     │
-              │    └─ site-02/capture-2026-03-12.pcap     │
-              └───────────────────────────────────────────┘
+              ┌────────────▼──┐      ┌─────▼────────────┐
+              │   WORKER A    │      │   WORKER B       │
+              │               │      │                  │
+              │  velocity-    │      │  velocity-       │
+              │  report       │      │  report          │
+              │  --worker     │      │  --worker        │
+              │  (:8082)      │      │  (:8082)         │
+              │               │      │                  │
+              │  Reduced API: │      │  Reduced API:    │
+              │  /status      │      │  /status         │
+              │  /jobs        │      │  /jobs           │
+              │  /jobs/check  │      │  /jobs/check     │
+              │  /health      │      │  /health         │
+              │               │      │                  │
+              │  Local cache: │      │  Local cache:    │
+              │  results held │      │  results held    │
+              │  until driver │      │  until driver    │
+              │  confirms     │      │  confirms        │
+              │  retrieval    │      │  retrieval       │
+              └───────┬───────┘      └────────┬─────────┘
+                      │                       │
+              ┌───────▼───────────────────────▼─────────┐
+              │         Shared Filesystem (NFS/SMB)     │
+              │                                         │
+              │  /mnt/pcap/                             │
+              │    ├─ site-01/capture-2026-03-10.pcap   │
+              │    ├─ site-01/capture-2026-03-11.pcap   │
+              │    └─ site-02/capture-2026-03-12.pcap   │
+              └─────────────────────────────────────────┘
 ```
 
 ## Worker Execution Mode
