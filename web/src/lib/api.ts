@@ -435,7 +435,7 @@ import type {
 	AnalysisRun,
 	BackgroundGrid,
 	LabellingProgress,
-	LidarScene,
+	LidarReplayCase,
 	MissedRegion,
 	ObservationListResponse,
 	RunTrack,
@@ -568,7 +568,7 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 // LiDAR Scene and Run Labelling API
 // Uses API_BASE for consistency with other LiDAR endpoints.
 
-export async function getLidarScenes(sensorId?: string): Promise<LidarScene[]> {
+export async function getLidarScenes(sensorId?: string): Promise<LidarReplayCase[]> {
 	const params = new URLSearchParams();
 	if (sensorId) params.set('sensor_id', sensorId);
 	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
@@ -578,7 +578,7 @@ export async function getLidarScenes(sensorId?: string): Promise<LidarScene[]> {
 	return data.scenes || [];
 }
 
-export async function getLidarScene(sceneId: string): Promise<LidarScene> {
+export async function getLidarScene(sceneId: string): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`);
 	if (!res.ok) throw new Error(`Failed to fetch scene: ${res.status}`);
 	return res.json();
@@ -590,7 +590,7 @@ export async function createLidarScene(scene: {
 	pcap_start_secs?: number;
 	pcap_duration_secs?: number;
 	description?: string;
-}): Promise<LidarScene> {
+}): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -609,7 +609,7 @@ export async function updateLidarScene(
 		pcap_start_secs?: number;
 		pcap_duration_secs?: number;
 	}
-): Promise<LidarScene> {
+): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },

@@ -263,8 +263,8 @@ export type QualityLabel =
 	| 'truncated'
 	| 'disconnected';
 
-/** ReplayCase represents a PCAP-based evaluation environment */
-export interface LidarScene {
+/** LidarReplayCase represents a PCAP-based evaluation environment */
+export interface LidarReplayCase {
 	replay_case_id: string;
 	sensor_id: string;
 	pcap_file: string;

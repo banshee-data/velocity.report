@@ -13,12 +13,12 @@
 		getLidarScenes,
 		getRunTracks
 	} from '$lib/api';
-	import type { AnalysisRun, LabellingProgress, LidarScene, RunTrack } from '$lib/types/lidar';
+	import type { AnalysisRun, LabellingProgress, LidarReplayCase, RunTrack } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
 	let runs: AnalysisRun[] = [];
-	let scenes: LidarScene[] = [];
+	let scenes: LidarReplayCase[] = [];
 	let loading = true;
 	let error: string | null = null;
 
@@ -94,7 +94,7 @@
 		}
 	}
 
-	function findSceneForRun(run: AnalysisRun): LidarScene | null {
+	function findSceneForRun(run: AnalysisRun): LidarReplayCase | null {
 		const byRef = scenes.find((s) => s.reference_run_id === run.run_id);
 		if (byRef) return byRef;
 		if (run.source_path) {
@@ -163,7 +163,7 @@
 	}
 
 	/** Build href for the tracks page, passing scene and run IDs as query params. */
-	function tracksHref(run: AnalysisRun, scene: LidarScene | null): string {
+	function tracksHref(run: AnalysisRun, scene: LidarReplayCase | null): string {
 		const parts: string[] = [];
 		if (scene) parts.push(`replay_case_id=${encodeURIComponent(scene.replay_case_id)}`);
 		parts.push(`run_id=${encodeURIComponent(run.run_id)}`);

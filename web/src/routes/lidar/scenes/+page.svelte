@@ -14,13 +14,13 @@
 		scanPcapFiles,
 		updateLidarScene
 	} from '$lib/api';
-	import type { AnalysisRun, LidarScene } from '$lib/types/lidar';
+	import type { AnalysisRun, LidarReplayCase } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	// Scene list
-	let scenes: LidarScene[] = [];
+	let scenes: LidarReplayCase[] = [];
 	let loading = true;
 	let error: string | null = null;
 
@@ -28,7 +28,7 @@
 	let runs: AnalysisRun[] = [];
 
 	// Selected scene for editing
-	let selectedScene: LidarScene | null = null;
+	let selectedScene: LidarReplayCase | null = null;
 
 	// Create form state
 	let showCreateForm = false;
@@ -78,7 +78,7 @@
 		}
 	}
 
-	function selectScene(scene: LidarScene) {
+	function selectScene(scene: LidarReplayCase) {
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
 		editReferenceRunId = scene.reference_run_id ?? null;

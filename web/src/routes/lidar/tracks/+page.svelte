@@ -31,7 +31,7 @@
 		AnalysisRun,
 		BackgroundGrid,
 		LabellingProgress,
-		LidarScene,
+		LidarReplayCase,
 		MissedRegion,
 		RunTrack,
 		Track,
@@ -53,7 +53,7 @@
 	let isPlaying = false;
 
 	// Scene and run selection
-	let scenes: LidarScene[] = [];
+	let scenes: LidarReplayCase[] = [];
 	let selectedSceneId: string | null = null;
 	let runs: AnalysisRun[] = [];
 	let selectedRunId: string | null = null;
@@ -233,7 +233,7 @@
 	}
 
 	// Load runs for selected scene's sensor
-	async function loadRuns(scene: LidarScene) {
+	async function loadRuns(scene: LidarReplayCase) {
 		runsLoading = true;
 		try {
 			runs = await getLidarRuns({ sensor_id: scene.sensor_id });
