@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** Database, L5 Tracks, L8 Analytics, L9 Endpoints
-- **Prerequisite:** [Schema Simplification Migration 030](schema-simplification-migration-030-plan.md)
+- **Prerequisite:** [Schema Simplification Migrations 000030–000031](schema-simplification-migration-030-plan.md)
 - **Related:** [L8/L9/L10 Refactor](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Speed Percentile Alignment](speed-percentile-aggregation-alignment-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
 
 ## Problem
@@ -14,7 +14,7 @@ The schema contains two tables with heavily overlapping column sets:
 | `lidar_tracks`     | Live transient tracking buffer (pruned ~5 min)      | `track_id`           |
 | `lidar_run_tracks` | Immutable versioned snapshots tied to analysis runs | `(run_id, track_id)` |
 
-After migration 030 lands, the column overlap looks like this:
+After the schema standardisation migrations 000030–000031 land, the column overlap looks like this:
 
 | Category                    | Count | Columns                                                                                                                                                                                                                                                                                                                  |
 | --------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -214,11 +214,11 @@ the layer that actually hurts maintainability.
 
 ## Work breakdown
 
-### Phase 1 — Prerequisite: migration 030 (already planned)
+### Phase 1 — Prerequisites: migrations 000030–000031 (schema standardisation)
 
-Tracked in [schema-simplification-migration-030-plan.md](schema-simplification-migration-030-plan.md).
-This drops dead columns and renames `peak→max`, bringing the two tables' shared
-column set into clean alignment.
+Tracked in [Schema Simplification Migrations 000030–000031](schema-simplification-migration-030-plan.md).
+This phase applies the LiDAR schema standardisation migrations to both tables:
+it drops dead columns, renames `peak→max`, `world_frame→frame_id`, and `scene_hash→grid_hash`, and performs the table renames from migration 000031 so that the shared column set and naming are fully aligned.
 
 ### Phase 2 — Go model normalisation
 
@@ -296,16 +296,16 @@ convenience for operators using TailSQL or direct sqlite3 access.
 
 ## Effort estimates
 
-| Phase            | Effort | Files touched                       |
-| ---------------- | ------ | ----------------------------------- |
-| Phase 1 (030)    | `M`    | ~15 Go + 3 TS + 1 proto + migration |
-| Phase 2 (Go DRY) | `S`    | 3–4 Go files in `storage/sqlite/`   |
-| Phase 3 (VIEW)   | `S`    | 1 migration file                    |
-| Phase 4 (docs)   | `S`    | 2–3 Markdown files                  |
+| Phase               | Effort | Files touched                       |
+| ------------------- | ------ | ----------------------------------- |
+| Phase 1 (030 + 031) | `M`    | ~15 Go + 3 TS + 1 proto + migration |
+| Phase 2 (Go DRY)    | `S`    | 3–4 Go files in `storage/sqlite/`   |
+| Phase 3 (VIEW)      | `S`    | 1 migration file                    |
+| Phase 4 (docs)      | `S`    | 2–3 Markdown files                  |
 
 ## Checklist
 
-- [ ] Phase 1: Land migration 030 (tracked separately in [schema-simplification-migration-030-plan](schema-simplification-migration-030-plan.md))
+- [ ] Phase 1: Land migrations 030 + 031 (tracked separately in [LiDAR schema standardisation](schema-simplification-migration-030-plan.md))
 - [ ] Phase 2: Extract `TrackMeasurement` struct and embed in `TrackedObject` + `RunTrack`
 - [ ] Phase 2: Create shared `trackMeasurementColumns` constant
 - [ ] Phase 2: Create `scanTrackMeasurement()` helper
@@ -331,4 +331,4 @@ convenience for operators using TailSQL or direct sqlite3 access.
 | Keep two tables (reject merge) | Different lifecycles (transient vs permanent), different PKs, FK relationships cannot be cleanly unified without surrogate keys and FK rewrites |
 | Normalise at Go layer          | Eliminates the real maintenance cost (duplicate structs, scan loops, column lists) without schema risk                                          |
 | Optional VIEW                  | Provides a unified read surface for operators without coupling live and snapshot write paths                                                    |
-| Sequence after 030             | Migration 030 aligns the column sets; consolidation is simpler once dead/renamed columns are removed                                            |
+| Sequence after 030 + 031       | Migrations 030 + 031 align the column sets; consolidation is simpler once dead/renamed columns are removed                                      |
