@@ -83,7 +83,7 @@ func TestClearTracks(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		cluster := &WorldCluster{
 			SensorID:    sensorID,
-			FrameID:  "site/main",
+			FrameID:     "site/main",
 			TSUnixNanos: int64(1000 + i),
 			CentroidX:   float32(i),
 		}
@@ -109,7 +109,7 @@ func TestClearTracks(t *testing.T) {
 		obs := &TrackObservation{
 			TrackID:     "track-clear-1",
 			TSUnixNanos: int64(1000 + i),
-			FrameID:  "site/main",
+			FrameID:     "site/main",
 			X:           float32(i),
 		}
 		if err := InsertTrackObservation(db, obs); err != nil {
@@ -192,7 +192,7 @@ func TestGetTrackObservationsInRange(t *testing.T) {
 		obs := &TrackObservation{
 			TrackID:     "track-range-1",
 			TSUnixNanos: ts,
-			FrameID:  "site/main",
+			FrameID:     "site/main",
 			X:           float32(ts / 1000),
 		}
 		if err := InsertTrackObservation(db, obs); err != nil {
@@ -241,7 +241,7 @@ func TestGetTrackObservationsInRange_WithTrackIDFilter(t *testing.T) {
 			obs := &TrackObservation{
 				TrackID:     trackID,
 				TSUnixNanos: int64(1000 + i),
-				FrameID:  "site/main",
+				FrameID:     "site/main",
 				X:           float32(i),
 			}
 			if err := InsertTrackObservation(db, obs); err != nil {
@@ -303,7 +303,7 @@ func TestGetTracksInRange(t *testing.T) {
 		obs := &TrackObservation{
 			TrackID:     tr.id,
 			TSUnixNanos: tr.start,
-			FrameID:  "site/main",
+			FrameID:     "site/main",
 			X:           1.0,
 		}
 		if err := InsertTrackObservation(db, obs); err != nil {
@@ -375,7 +375,7 @@ func TestGetRecentClusters_Limit(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		cluster := &WorldCluster{
 			SensorID:    sensorID,
-			FrameID:  "site/main",
+			FrameID:     "site/main",
 			TSUnixNanos: int64(1000 + i),
 			CentroidX:   float32(i),
 		}
@@ -423,7 +423,7 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 		obs := &TrackObservation{
 			TrackID:     "track-history",
 			TSUnixNanos: baseNanos + int64(i)*int64(100*time.Millisecond),
-			FrameID:  "site/main",
+			FrameID:     "site/main",
 			X:           float32(i),
 			Y:           float32(i * 2),
 		}
@@ -491,7 +491,7 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 	if err := InsertTrackObservation(db, &TrackObservation{
 		TrackID:     recent.TrackID,
 		TSUnixNanos: recentBase + int64(time.Second),
-		FrameID:  "site/main",
+		FrameID:     "site/main",
 		X:           1.0,
 		Y:           1.0,
 	}); err != nil {
@@ -503,7 +503,7 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 		if err := InsertTrackObservation(db, &TrackObservation{
 			TrackID:     old.TrackID,
 			TSUnixNanos: oldBase + int64(i)*int64(500*time.Millisecond),
-			FrameID:  "site/main",
+			FrameID:     "site/main",
 			X:           float32(i),
 			Y:           float32(i),
 		}); err != nil {

@@ -1134,7 +1134,7 @@ func TestCov_HandleListSceneEvaluations_WithData(t *testing.T) {
 
 	evalStore := sqlite.NewEvaluationStore(testDB.DB)
 	eval := &sqlite.Evaluation{
-		ReplayCaseID:        "scene-eval-list",
+		ReplayCaseID:   "scene-eval-list",
 		ReferenceRunID: "ref-list",
 		CandidateRunID: "cand-list",
 		CompositeScore: 0.85,

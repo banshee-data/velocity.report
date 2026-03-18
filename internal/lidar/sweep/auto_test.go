@@ -558,8 +558,8 @@ func TestGroundTruthObjectiveValidation(t *testing.T) {
 				Params: []SweepParam{
 					{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
 				},
-				Objective: "ground_truth",
-				ReplayCaseID:   "test-scene",
+				Objective:    "ground_truth",
+				ReplayCaseID: "test-scene",
 			},
 			wantErr: "ground_truth objective requires a ground truth scorer to be configured",
 		},
@@ -615,8 +615,8 @@ func TestAutoTuneRequestGroundTruthFields(t *testing.T) {
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
 		},
-		Objective: "ground_truth",
-		ReplayCaseID:   "test-scene-123",
+		Objective:    "ground_truth",
+		ReplayCaseID: "test-scene-123",
 		GroundTruthWeights: &GroundTruthWeights{
 			DetectionRate:  2.0,
 			Fragmentation:  10.0,

@@ -355,10 +355,10 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 	}
 
 	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
-		"run_id":   run.RunID,
+		"run_id":         run.RunID,
 		"replay_case_id": sceneID,
-		"status":   "running",
-		"message":  "PCAP replay initiated; analysis run created",
+		"status":         "running",
+		"message":        "PCAP replay initiated; analysis run created",
 	})
 }
 
@@ -375,8 +375,8 @@ func (ws *WebServer) handleListSceneEvaluations(w http.ResponseWriter, r *http.R
 		evals = []*sqlite.Evaluation{}
 	}
 	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"replay_case_id":    sceneID,
-		"evaluations": evals,
+		"replay_case_id": sceneID,
+		"evaluations":    evals,
 	})
 }
 

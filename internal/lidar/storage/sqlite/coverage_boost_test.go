@@ -885,7 +885,7 @@ func TestListByScene_WithParams(t *testing.T) {
 	// Insert an evaluation with paramsJSON.
 	eval := &Evaluation{
 		EvaluationID:   "eval-1",
-		ReplayCaseID:        "scene-1",
+		ReplayCaseID:   "scene-1",
 		ReferenceRunID: "ref-run",
 		CandidateRunID: "cand-run",
 		DetectionRate:  0.95,
@@ -982,7 +982,7 @@ func TestEvaluationDelete_HappyPath(t *testing.T) {
 
 	eval := &Evaluation{
 		EvaluationID:   "eval-del-1",
-		ReplayCaseID:        "scene-d",
+		ReplayCaseID:   "scene-d",
 		ReferenceRunID: "ref",
 		CandidateRunID: "cand",
 		CompositeScore: 0.5,
@@ -1392,7 +1392,7 @@ func TestClosedDB_InsertCluster(t *testing.T) {
 
 	cluster := &WorldCluster{
 		SensorID:    "sensor-1",
-		FrameID:  "frame-1",
+		FrameID:     "frame-1",
 		TSUnixNanos: 1000,
 		CentroidX:   1.0,
 	}

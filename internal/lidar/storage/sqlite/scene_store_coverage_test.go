@@ -54,7 +54,7 @@ func TestSceneStore_ListScenes_WithOptionalFields(t *testing.T) {
 	startSecs := 10.0
 	durSecs := 30.0
 	s := &ReplayCase{
-		ReplayCaseID:           "full",
+		ReplayCaseID:      "full",
 		SensorID:          "sensor-c",
 		PCAPFile:          "c.pcap",
 		Description:       "test scene",
@@ -98,7 +98,7 @@ func TestSceneStore_UpdateScene_Success(t *testing.T) {
 	startSecs := 5.0
 	durSecs := 20.0
 	update := &ReplayCase{
-		ReplayCaseID:           "upd-1",
+		ReplayCaseID:      "upd-1",
 		Description:       "updated",
 		PCAPStartSecs:     &startSecs,
 		PCAPDurationSecs:  &durSecs,

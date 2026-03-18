@@ -389,7 +389,7 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:        "s1",
+		ReplayCaseID:   "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,
@@ -447,7 +447,7 @@ func TestRun_MultipleRounds(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:         "s1",
+		ReplayCaseID:    "s1",
 		NumRounds:       2,
 		Params:          []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		CarryOverLabels: true,
@@ -549,8 +549,8 @@ func TestStart_MapRequest(t *testing.T) {
 	})
 
 	req := map[string]interface{}{
-		"replay_case_id":   "s1",
-		"num_rounds": 1,
+		"replay_case_id": "s1",
+		"num_rounds":     1,
 		"params": []interface{}{
 			map[string]interface{}{"name": "eps", "type": "float64", "start": 0.1, "end": 1.0},
 		},
@@ -690,7 +690,7 @@ func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	bounds := map[string][2]float64{"eps": {0.1, 1.0}, "minpts": {2, 10}}
 	req := HINTSweepRequest{
-		ReplayCaseID:        "s1",
+		ReplayCaseID:   "s1",
 		Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}, {Name: "minpts", Type: "float64", Start: 2, End: 10}},
 		ValuesPerParam: 5,
 		TopK:           3,
@@ -707,9 +707,9 @@ func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
 		AcceptanceCriteria: &AcceptanceCriteria{},
 	}
 	scene := &HINTScene{
-		ReplayCaseID:  "s1",
-		SensorID: "sensor1",
-		PCAPFile: "test.pcap",
+		ReplayCaseID: "s1",
+		SensorID:     "sensor1",
+		PCAPFile:     "test.pcap",
 	}
 	result := tuner.buildAutoTuneRequest(bounds, req, scene, 1)
 	if len(result.Params) != 2 {
@@ -997,7 +997,7 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:        "s1",
+		ReplayCaseID:   "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,
@@ -1042,7 +1042,7 @@ func TestRun_SetOptimalParamsError(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:        "s1",
+		ReplayCaseID:   "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,

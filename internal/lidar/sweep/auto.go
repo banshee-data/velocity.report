@@ -69,7 +69,7 @@ type AutoTuneRequest struct {
 	AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria,omitempty"`
 
 	// Ground truth evaluation support
-	ReplayCaseID       string              `json:"replay_case_id,omitempty"`             // When set, enables ground truth evaluation
+	ReplayCaseID       string              `json:"replay_case_id,omitempty"`       // When set, enables ground truth evaluation
 	GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights,omitempty"` // Weights for ground truth scoring
 }
 

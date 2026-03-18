@@ -174,9 +174,9 @@ func TestHINTTunerStartValidation(t *testing.T) {
 	t.Run("missing replay_case_id returns error", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		err := tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:   "",
-			NumRounds: 1,
-			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+			ReplayCaseID: "",
+			NumRounds:    1,
+			Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		})
 		if err == nil || !strings.Contains(err.Error(), "replay_case_id") {
 			t.Errorf("expected replay_case_id error, got %v", err)
@@ -186,9 +186,9 @@ func TestHINTTunerStartValidation(t *testing.T) {
 	t.Run("num_rounds < 1 returns error", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		err := tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:   "scene1",
-			NumRounds: 0,
-			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+			ReplayCaseID: "scene1",
+			NumRounds:    0,
+			Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		})
 		if err == nil || !strings.Contains(err.Error(), "num_rounds") {
 			t.Errorf("expected num_rounds error, got %v", err)
@@ -198,9 +198,9 @@ func TestHINTTunerStartValidation(t *testing.T) {
 	t.Run("num_rounds > 10 returns error", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		err := tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:   "scene1",
-			NumRounds: 11,
-			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+			ReplayCaseID: "scene1",
+			NumRounds:    11,
+			Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		})
 		if err == nil || !strings.Contains(err.Error(), "num_rounds") {
 			t.Errorf("expected num_rounds error, got %v", err)
@@ -210,9 +210,9 @@ func TestHINTTunerStartValidation(t *testing.T) {
 	t.Run("empty params auto-populates defaults", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		err := tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:   "scene1",
-			NumRounds: 1,
-			Params:    []SweepParam{},
+			ReplayCaseID: "scene1",
+			NumRounds:    1,
+			Params:       []SweepParam{},
 		})
 		// Should NOT error — defaults are auto-populated.
 		// It may fail later (e.g. no scene getter) but not on param validation.
@@ -228,9 +228,9 @@ func TestHINTTunerStartValidation(t *testing.T) {
 			params[i] = SweepParam{Name: "p", Type: "float64", Start: 0, End: 1}
 		}
 		err := tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:   "scene1",
-			NumRounds: 1,
-			Params:    params,
+			ReplayCaseID: "scene1",
+			NumRounds:    1,
+			Params:       params,
 		})
 		if err == nil || !strings.Contains(err.Error(), "too many") {
 			t.Errorf("expected too many params error, got %v", err)
@@ -246,7 +246,7 @@ func TestHINTTunerStartValidation(t *testing.T) {
 
 		// Start will launch background goroutine - it will fail but threshold is applied
 		_ = tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:           "scene1",
+			ReplayCaseID:      "scene1",
 			NumRounds:         1,
 			MinLabelThreshold: 0,
 			Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -267,9 +267,9 @@ func TestHINTTunerStartValidation(t *testing.T) {
 		tuner.mu.Unlock()
 
 		err := tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:   "scene1",
-			NumRounds: 1,
-			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+			ReplayCaseID: "scene1",
+			NumRounds:    1,
+			Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		})
 		if err != ErrSweepAlreadyRunning {
 			t.Errorf("expected ErrSweepAlreadyRunning, got %v", err)
@@ -279,8 +279,8 @@ func TestHINTTunerStartValidation(t *testing.T) {
 	t.Run("Start accepts map[string]interface{}", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		reqMap := map[string]interface{}{
-			"replay_case_id":   "scene1",
-			"num_rounds": 1,
+			"replay_case_id": "scene1",
+			"num_rounds":     1,
 			"params": []interface{}{
 				map[string]interface{}{"name": "eps", "type": "float64", "start": 0.1, "end": 1.0},
 			},
@@ -529,7 +529,7 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	t.Run("round 1 adjusts weights", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		req := HINTSweepRequest{
-			ReplayCaseID:        "s1",
+			ReplayCaseID:   "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
 			Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -550,7 +550,7 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	t.Run("round 2 uses default weights", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		req := HINTSweepRequest{
-			ReplayCaseID:        "s1",
+			ReplayCaseID:   "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
 			Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -568,7 +568,7 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	t.Run("bounds are applied correctly", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		req := HINTSweepRequest{
-			ReplayCaseID:        "s1",
+			ReplayCaseID:   "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
 			Params: []SweepParam{
@@ -600,7 +600,7 @@ func TestBuildAutoTuneRequest(t *testing.T) {
 	t.Run("objective is ground_truth", func(t *testing.T) {
 		tuner := newQuietHINTTuner(nil)
 		req := HINTSweepRequest{
-			ReplayCaseID:        "s1",
+			ReplayCaseID:   "s1",
 			ValuesPerParam: 5,
 			TopK:           3,
 			Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -813,9 +813,9 @@ func TestHINTTunerPersistence(t *testing.T) {
 		})
 
 		_ = tuner.Start(context.Background(), HINTSweepRequest{
-			ReplayCaseID:   "scene1",
-			NumRounds: 1,
-			Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+			ReplayCaseID: "scene1",
+			NumRounds:    1,
+			Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		})
 
 		// Give goroutine time to start
@@ -898,9 +898,9 @@ func TestRunFailsWithoutSceneGetter(t *testing.T) {
 	tuner.pollInterval = 10 * time.Millisecond
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+		ReplayCaseID: "s1",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -926,9 +926,9 @@ func TestRunFailsWhenSceneNotFound(t *testing.T) {
 	tuner.SetSceneGetter(&mockSceneGetter{err: fmt.Errorf("scene not found")})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "missing",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+		ReplayCaseID: "missing",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -952,9 +952,9 @@ func TestRunFailsWithoutRunCreator(t *testing.T) {
 	})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+		ReplayCaseID: "s1",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -981,7 +981,7 @@ func TestRunCancelledByContext(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	err := tuner.Start(ctx, HINTSweepRequest{
-		ReplayCaseID:           "s1",
+		ReplayCaseID:      "s1",
 		NumRounds:         1,
 		RoundDurations:    []int{60}, // long wait
 		MinLabelThreshold: 0.9,
@@ -1009,18 +1009,18 @@ func TestRunUsesMidpointsForParams(t *testing.T) {
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			ReplayCaseID:  "s1",
-			SensorID: "sensor1",
-			PCAPFile: "test.pcap",
+			ReplayCaseID: "s1",
+			SensorID:     "sensor1",
+			PCAPFile:     "test.pcap",
 			// No OptimalParamsJSON
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.2, End: 0.8}},
+		ReplayCaseID: "s1",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.2, End: 0.8}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -1069,7 +1069,7 @@ func TestRunLoadsOptimalParams(t *testing.T) {
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			ReplayCaseID:           "s1",
+			ReplayCaseID:      "s1",
 			SensorID:          "sensor1",
 			PCAPFile:          "test.pcap",
 			OptimalParamsJSON: json.RawMessage(optimalParams),
@@ -1077,9 +1077,9 @@ func TestRunLoadsOptimalParams(t *testing.T) {
 	})
 	// No run creator → will fail after loading params but exercises the path
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+		ReplayCaseID: "s1",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -1101,7 +1101,7 @@ func TestRunInvalidOptimalParamsJSON(t *testing.T) {
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			ReplayCaseID:           "s1",
+			ReplayCaseID:      "s1",
 			SensorID:          "sensor1",
 			PCAPFile:          "test.pcap",
 			OptimalParamsJSON: json.RawMessage(`not json`),
@@ -1110,9 +1110,9 @@ func TestRunInvalidOptimalParamsJSON(t *testing.T) {
 	// No run creator → will fail after loading params but exercises the parse error path
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+		ReplayCaseID: "s1",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -1138,9 +1138,9 @@ func TestRunRunCreatorError(t *testing.T) {
 	tuner.SetRunCreator(&mockRunCreator{err: fmt.Errorf("pcap not found")})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+		ReplayCaseID: "s1",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -1170,9 +1170,9 @@ func TestRunPersistStartFailure(t *testing.T) {
 	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
-		NumRounds: 1,
-		Params:    []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
+		ReplayCaseID: "s1",
+		NumRounds:    1,
+		Params:       []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
 		t.Fatalf("Start should not fail: %v", err)
@@ -1213,7 +1213,7 @@ func TestRunRecordsRound(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	err := tuner.Start(ctx, HINTSweepRequest{
-		ReplayCaseID:           "s1",
+		ReplayCaseID:      "s1",
 		NumRounds:         1,
 		MinLabelThreshold: 0.0,
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
@@ -1357,7 +1357,7 @@ func TestRunRoundWithCarryOver(t *testing.T) {
 	bounds := map[string][2]float64{"eps": {0.1, 1.0}}
 
 	req := HINTSweepRequest{
-		ReplayCaseID:           "s1",
+		ReplayCaseID:      "s1",
 		NumRounds:         2,
 		MinLabelThreshold: 0.0,
 		CarryOverLabels:   true,
@@ -1398,7 +1398,7 @@ func TestStartDefaultValuesPerParam(t *testing.T) {
 	})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID:        "s1",
+		ReplayCaseID:   "s1",
 		NumRounds:      1,
 		ValuesPerParam: 0, // should get default
 		TopK:           0, // should get default

@@ -828,7 +828,7 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		sceneHash := g.SceneSignature()
 		snap := &RegionSnapshot{
 			SensorID:         g.SensorID,
-			GridHash:        sceneHash,
+			GridHash:         sceneHash,
 			RegionsJSON:      `[{"id": 0, "cell_list": [0,1,2], "cell_count": 3}]`,
 			RegionCount:      1,
 			CreatedUnixNanos: time.Now().UnixNano(),
@@ -1045,7 +1045,7 @@ func TestTryRestoreRegionsFromStoreLocked(t *testing.T) {
 		sceneHash := g.SceneSignature()
 		snap := &RegionSnapshot{
 			SensorID:         g.SensorID,
-			GridHash:        sceneHash,
+			GridHash:         sceneHash,
 			RegionsJSON:      `[{"id": 0, "cell_list": [0], "cell_count": 1}]`,
 			RegionCount:      1,
 			CreatedUnixNanos: time.Now().UnixNano(),
@@ -1246,7 +1246,7 @@ func TestTryRestoreRegionsFromStoreLocked_RestoreFromSceneHashError(t *testing.T
 	// Add a snapshot with invalid regions JSON to trigger restore error
 	snap := &RegionSnapshot{
 		SensorID:         g.SensorID,
-		GridHash:        sceneHash,
+		GridHash:         sceneHash,
 		RegionsJSON:      `invalid json`,
 		RegionCount:      1,
 		CreatedUnixNanos: time.Now().UnixNano(),

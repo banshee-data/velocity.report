@@ -586,9 +586,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay)
 		// or when there are no confirmed tracks to persist.
 		var (
-			dbTx       *sql.Tx
-			frameID string
-			txFailed   bool
+			dbTx     *sql.Tx
+			frameID  string
+			txFailed bool
 		)
 		if len(confirmedTracks) > 0 && cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
 			frameID = fmt.Sprintf("site/%s", sensorID)

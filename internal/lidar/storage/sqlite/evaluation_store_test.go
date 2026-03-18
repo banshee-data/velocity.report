@@ -95,7 +95,7 @@ func TestEvaluationStore_InsertAndGet(t *testing.T) {
 	store := NewEvaluationStore(db)
 
 	eval := &Evaluation{
-		ReplayCaseID:             "scene-1",
+		ReplayCaseID:        "scene-1",
 		ReferenceRunID:      "ref-run-1",
 		CandidateRunID:      "cand-run-1",
 		DetectionRate:       0.92,
@@ -157,7 +157,7 @@ func TestEvaluationStore_ListByScene(t *testing.T) {
 
 	// Insert two evaluations for the same scene
 	eval1 := &Evaluation{
-		ReplayCaseID:        "scene-1",
+		ReplayCaseID:   "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.874,
@@ -166,7 +166,7 @@ func TestEvaluationStore_ListByScene(t *testing.T) {
 		CandidateCount: 15,
 	}
 	eval2 := &Evaluation{
-		ReplayCaseID:        "scene-1",
+		ReplayCaseID:   "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-2",
 		CompositeScore: 0.841,
@@ -208,7 +208,7 @@ func TestEvaluationStore_Delete(t *testing.T) {
 	store := NewEvaluationStore(db)
 
 	eval := &Evaluation{
-		ReplayCaseID:        "scene-1",
+		ReplayCaseID:   "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.5,
@@ -259,7 +259,7 @@ func TestEvaluationStore_UniqueConstraint(t *testing.T) {
 	store := NewEvaluationStore(db)
 
 	eval1 := &Evaluation{
-		ReplayCaseID:        "scene-1",
+		ReplayCaseID:   "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.5,
@@ -270,7 +270,7 @@ func TestEvaluationStore_UniqueConstraint(t *testing.T) {
 
 	// Same (reference_run_id, candidate_run_id) pair should fail
 	eval2 := &Evaluation{
-		ReplayCaseID:        "scene-1",
+		ReplayCaseID:   "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.6,

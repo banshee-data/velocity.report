@@ -165,7 +165,7 @@
 	/** Build href for the tracks page, passing scene and run IDs as query params. */
 	function tracksHref(run: AnalysisRun, scene: LidarScene | null): string {
 		const parts: string[] = [];
-		if (scene) parts.push(`scene_id=${encodeURIComponent(scene.scene_id)}`);
+		if (scene) parts.push(`replay_case_id=${encodeURIComponent(scene.replay_case_id)}`);
 		parts.push(`run_id=${encodeURIComponent(run.run_id)}`);
 		return `/app/lidar/tracks?${parts.join('&')}`;
 	}
@@ -282,7 +282,7 @@
 										role="button"
 										tabindex="0"
 									>
-										{scene ? scene.description || scene.scene_id.substring(0, 8) : '-'}
+										{scene ? scene.description || scene.replay_case_id.substring(0, 8) : '-'}
 									</td>
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"

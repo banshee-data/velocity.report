@@ -486,7 +486,7 @@ func TestInsertRegionSnapshot(t *testing.T) {
 		RegionsJSON:      `[{"id":1,"params":{},"cell_list":[1,2,3],"mean_variance":0.5,"cell_count":3}]`,
 		VarianceDataJSON: `{"total_variance":0.8}`,
 		SettlingFrames:   100,
-		GridHash:        "abc123hash",
+		GridHash:         "abc123hash",
 		SourcePath:       "/path/to/test.pcap",
 	}
 
@@ -518,8 +518,8 @@ func TestInsertRegionSnapshot_NilSnapshot(t *testing.T) {
 	}
 }
 
-// TestGetRegionSnapshotBySceneHash tests retrieval by scene hash
-func TestGetRegionSnapshotBySceneHash(t *testing.T) {
+// TestGetRegionSnapshotByGridHash tests retrieval by scene hash
+func TestGetRegionSnapshotByGridHash(t *testing.T) {
 	fname := t.TempDir() + "/test_region_by_hash.db"
 	db, err := NewDB(fname)
 	if err != nil {
@@ -551,7 +551,7 @@ func TestGetRegionSnapshotBySceneHash(t *testing.T) {
 		RegionsJSON:      `[]`,
 		VarianceDataJSON: `{}`,
 		SettlingFrames:   50,
-		GridHash:        sceneHash,
+		GridHash:         sceneHash,
 		SourcePath:       "/test/file.pcap",
 	}
 
@@ -561,9 +561,9 @@ func TestGetRegionSnapshotBySceneHash(t *testing.T) {
 	}
 
 	// Retrieve by scene hash
-	retrieved, err := db.GetRegionSnapshotBySceneHash("test-sensor", sceneHash)
+	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", sceneHash)
 	if err != nil {
-		t.Fatalf("GetRegionSnapshotBySceneHash failed: %v", err)
+		t.Fatalf("GetRegionSnapshotByGridHash failed: %v", err)
 	}
 
 	if retrieved == nil {
@@ -581,8 +581,8 @@ func TestGetRegionSnapshotBySceneHash(t *testing.T) {
 	}
 }
 
-// TestGetRegionSnapshotBySceneHash_NotFound tests retrieval with non-existent hash
-func TestGetRegionSnapshotBySceneHash_NotFound(t *testing.T) {
+// TestGetRegionSnapshotByGridHash_NotFound tests retrieval with non-existent hash
+func TestGetRegionSnapshotByGridHash_NotFound(t *testing.T) {
 	fname := t.TempDir() + "/test_region_hash_notfound.db"
 	db, err := NewDB(fname)
 	if err != nil {
@@ -590,9 +590,9 @@ func TestGetRegionSnapshotBySceneHash_NotFound(t *testing.T) {
 	}
 	defer db.Close()
 
-	retrieved, err := db.GetRegionSnapshotBySceneHash("test-sensor", "nonexistent-hash")
+	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", "nonexistent-hash")
 	if err != nil {
-		t.Fatalf("GetRegionSnapshotBySceneHash failed: %v", err)
+		t.Fatalf("GetRegionSnapshotByGridHash failed: %v", err)
 	}
 
 	if retrieved != nil {
@@ -600,8 +600,8 @@ func TestGetRegionSnapshotBySceneHash_NotFound(t *testing.T) {
 	}
 }
 
-// TestGetRegionSnapshotBySceneHash_EmptyHash tests retrieval with empty hash
-func TestGetRegionSnapshotBySceneHash_EmptyHash(t *testing.T) {
+// TestGetRegionSnapshotByGridHash_EmptyHash tests retrieval with empty hash
+func TestGetRegionSnapshotByGridHash_EmptyHash(t *testing.T) {
 	fname := t.TempDir() + "/test_region_hash_empty.db"
 	db, err := NewDB(fname)
 	if err != nil {
@@ -610,9 +610,9 @@ func TestGetRegionSnapshotBySceneHash_EmptyHash(t *testing.T) {
 	defer db.Close()
 
 	// Empty hash should return nil without error
-	retrieved, err := db.GetRegionSnapshotBySceneHash("test-sensor", "")
+	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", "")
 	if err != nil {
-		t.Fatalf("GetRegionSnapshotBySceneHash failed: %v", err)
+		t.Fatalf("GetRegionSnapshotByGridHash failed: %v", err)
 	}
 
 	if retrieved != nil {
@@ -653,7 +653,7 @@ func TestGetRegionSnapshotBySourcePath(t *testing.T) {
 		RegionsJSON:      `[{"id":1}]`,
 		VarianceDataJSON: `{"settling":true}`,
 		SettlingFrames:   200,
-		GridHash:        "some-hash",
+		GridHash:         "some-hash",
 		SourcePath:       sourcePath,
 	}
 
@@ -754,7 +754,7 @@ func TestGetLatestRegionSnapshot(t *testing.T) {
 			RegionCount:      i + 1,
 			RegionsJSON:      `[]`,
 			SettlingFrames:   i * 10,
-			GridHash:        "hash-" + string(rune('a'+i)),
+			GridHash:         "hash-" + string(rune('a'+i)),
 		}
 
 		_, err = db.InsertRegionSnapshot(regionSnap)
@@ -801,8 +801,8 @@ func TestGetLatestRegionSnapshot_NotFound(t *testing.T) {
 	}
 }
 
-// TestGetRegionSnapshotBySceneHash_MostRecent tests that the most recent matching hash is returned
-func TestGetRegionSnapshotBySceneHash_MostRecent(t *testing.T) {
+// TestGetRegionSnapshotByGridHash_MostRecent tests that the most recent matching hash is returned
+func TestGetRegionSnapshotByGridHash_MostRecent(t *testing.T) {
 	fname := t.TempDir() + "/test_region_hash_recent.db"
 	db, err := NewDB(fname)
 	if err != nil {
@@ -834,7 +834,7 @@ func TestGetRegionSnapshotBySceneHash_MostRecent(t *testing.T) {
 			RegionCount:      (i + 1) * 10, // 10, 20, 30
 			RegionsJSON:      `[]`,
 			SettlingFrames:   i,
-			GridHash:        sceneHash,
+			GridHash:         sceneHash,
 		}
 
 		_, err = db.InsertRegionSnapshot(regionSnap)
@@ -844,9 +844,9 @@ func TestGetRegionSnapshotBySceneHash_MostRecent(t *testing.T) {
 	}
 
 	// Retrieve by scene hash - should get the most recent (highest ID)
-	retrieved, err := db.GetRegionSnapshotBySceneHash("test-sensor", sceneHash)
+	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", sceneHash)
 	if err != nil {
-		t.Fatalf("GetRegionSnapshotBySceneHash failed: %v", err)
+		t.Fatalf("GetRegionSnapshotByGridHash failed: %v", err)
 	}
 
 	if retrieved == nil {
@@ -891,7 +891,7 @@ func TestRegionSnapshotAllFields(t *testing.T) {
 		RegionsJSON:      `[{"id":1,"params":{"min_radius":5},"cell_list":[10,20,30],"mean_variance":1.5,"cell_count":3}]`,
 		VarianceDataJSON: `{"total_variance":2.5,"settled":true}`,
 		SettlingFrames:   150,
-		GridHash:        "abc123def456",
+		GridHash:         "abc123def456",
 		SourcePath:       "/data/pcap/capture-20250206.pcap",
 	}
 
@@ -975,7 +975,7 @@ func TestRegionSnapshotNullableFields(t *testing.T) {
 		RegionsJSON:      `[]`,
 		VarianceDataJSON: "", // Empty
 		SettlingFrames:   0,  // Zero
-		GridHash:        "", // Empty
+		GridHash:         "", // Empty
 		SourcePath:       "", // Empty
 	}
 

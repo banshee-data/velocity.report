@@ -127,7 +127,7 @@
 		saving = true;
 		saveError = null;
 		try {
-			const updated = await updateLidarScene(selectedScene.scene_id, {
+			const updated = await updateLidarScene(selectedScene.replay_case_id, {
 				description: editDescription || undefined,
 				reference_run_id: editReferenceRunId || undefined,
 				optimal_params_json: editOptimalParams || undefined,
@@ -135,7 +135,7 @@
 				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined
 			});
 			// Update in list
-			scenes = scenes.map((s) => (s.scene_id === updated.scene_id ? updated : s));
+			scenes = scenes.map((s) => (s.replay_case_id === updated.replay_case_id ? updated : s));
 			selectedScene = updated;
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Failed to update scene';
@@ -148,8 +148,8 @@
 		if (!confirm('Delete this scene? This cannot be undone.')) return;
 		try {
 			await deleteLidarScene(sceneId);
-			scenes = scenes.filter((s) => s.scene_id !== sceneId);
-			if (selectedScene?.scene_id === sceneId) {
+			scenes = scenes.filter((s) => s.replay_case_id !== sceneId);
+			if (selectedScene?.replay_case_id === sceneId) {
 				deselectScene();
 			}
 		} catch (e) {
@@ -499,8 +499,8 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each scenes as scene (scene.scene_id)}
-								{@const isSelected = selectedScene?.scene_id === scene.scene_id}
+							{#each scenes as scene (scene.replay_case_id)}
+								{@const isSelected = selectedScene?.replay_case_id === scene.replay_case_id}
 								<tr
 									class="border-surface-content/10 hover:bg-surface-200/50 cursor-pointer border-b transition-colors last:border-b-0 {isSelected
 										? 'bg-primary/5'
@@ -508,7 +508,7 @@
 									on:click={() => selectScene(scene)}
 								>
 									<td class="text-surface-content px-4 py-3 text-sm">
-										{scene.description || scene.scene_id.substring(0, 8)}
+										{scene.description || scene.replay_case_id.substring(0, 8)}
 									</td>
 									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
 										{scene.sensor_id}
@@ -525,7 +525,7 @@
 									<td class="px-4 py-3 text-right">
 										<button
 											class="text-sm text-red-500 hover:text-red-700"
-											on:click|stopPropagation={() => handleDelete(scene.scene_id)}
+											on:click|stopPropagation={() => handleDelete(scene.replay_case_id)}
 										>
 											Delete
 										</button>
@@ -554,7 +554,7 @@
 				</div>
 
 				<div class="text-surface-content/50 mb-4 font-mono text-xs">
-					{selectedScene.scene_id}
+					{selectedScene.replay_case_id}
 				</div>
 
 				{#if saveError}

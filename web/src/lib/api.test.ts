@@ -1856,11 +1856,11 @@ describe('api', () => {
 			it('should fetch scenes without filter', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ scenes: [{ scene_id: 's1', sensor_id: 'sensor1' }] })
+					json: async () => ({ scenes: [{ replay_case_id: 's1', sensor_id: 'sensor1' }] })
 				});
 				const { getLidarScenes } = await import('./api');
 				const result = await getLidarScenes();
-				expect(result).toEqual([{ scene_id: 's1', sensor_id: 'sensor1' }]);
+				expect(result).toEqual([{ replay_case_id: 's1', sensor_id: 'sensor1' }]);
 			});
 
 			it('should fetch scenes with sensor_id filter', async () => {
@@ -1990,7 +1990,7 @@ describe('api', () => {
 		describe('getLidarScene', () => {
 			it('should fetch a single scene by ID', async () => {
 				const mockScene = {
-					scene_id: 'scene-001',
+					replay_case_id: 'scene-001',
 					sensor_id: 'hesai-pandar40p',
 					pcap_file: 'test.pcap',
 					description: 'Test scene',
@@ -2022,7 +2022,7 @@ describe('api', () => {
 				};
 				const mockResponse = {
 					...newScene,
-					scene_id: 'scene-new',
+					replay_case_id: 'scene-new',
 					created_at_ns: 1000000000
 				};
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -2061,7 +2061,7 @@ describe('api', () => {
 					reference_run_id: 'run-001'
 				};
 				const mockResponse = {
-					scene_id: 'scene-001',
+					replay_case_id: 'scene-001',
 					sensor_id: 'hesai-pandar40p',
 					pcap_file: 'test.pcap',
 					...update,
