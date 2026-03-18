@@ -92,36 +92,36 @@ Extend the current benchmark output with per-layer fields:
     "l1l2_parse": {
       "mean_ms": 1.2,
       "p50_ms": 1.1,
-      "p95_ms": 1.8,
-      "p99_ms": 2.5,
+      "p85_ms": 1.8,
+      "p98_ms": 2.5,
       "max_ms": 4.1
     },
     "l3_background": {
       "mean_ms": 3.8,
       "p50_ms": 3.5,
-      "p95_ms": 5.2,
-      "p99_ms": 6.1,
+      "p85_ms": 5.2,
+      "p98_ms": 6.1,
       "max_ms": 8.3
     },
     "l4_perception": {
       "mean_ms": 8.4,
       "p50_ms": 7.9,
-      "p95_ms": 12.1,
-      "p99_ms": 15.0,
+      "p85_ms": 12.1,
+      "p98_ms": 15.0,
       "max_ms": 18.2
     },
     "l5_tracking": {
       "mean_ms": 3.1,
       "p50_ms": 2.8,
-      "p95_ms": 4.5,
-      "p99_ms": 5.8,
+      "p85_ms": 4.5,
+      "p98_ms": 5.8,
       "max_ms": 7.1
     },
     "l6_classification": {
       "mean_ms": 0.3,
       "p50_ms": 0.2,
-      "p95_ms": 0.5,
-      "p99_ms": 0.7,
+      "p85_ms": 0.5,
+      "p98_ms": 0.7,
       "max_ms": 1.0
     }
   }
