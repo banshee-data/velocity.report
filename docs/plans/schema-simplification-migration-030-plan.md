@@ -473,14 +473,14 @@ The `MATRIX` audit and code pass surfaced four different cleanup classes. They
 should stay attached to this plan so `v0.5.x` has one canonical schema roadmap
 instead of another side document.
 
-### 6.1 Remove in `v0.5.0` (same breaking window)
+### 6.1 Remove in `v0.5.0` (same breaking window) — ✅ Complete (#400)
 
-| Surface                                                     | Reason                                              | Action                                                  |
-| ----------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------- |
-| `lidar_tracks.{p50,p85,p95}_speed_mps`                      | Dead columns; never written or consumed             | Drop in migration 000030                                |
-| `lidar_run_tracks.{p50,p85,p95}_speed_mps`                  | Wrong abstraction; no downstream consumer           | Drop in migration 000030                                |
-| `peak_speed_mps`, `world_frame`, `scene_hash` legacy names  | Naming drift against current contracts              | Rename in migrations 000030–000031                      |
-| Stale references to deleted `schema-simplification...` docs | Planning drift creates a second, broken source path | Move all active references to this standardisation plan |
+| Surface                                                     | Reason                                              | Action                                                         |
+| ----------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| `lidar_tracks.{p50,p85,p95}_speed_mps`                      | Dead columns; never written or consumed             | ✅ Dropped in migration 000030                                 |
+| `lidar_run_tracks.{p50,p85,p95}_speed_mps`                  | Wrong abstraction; no downstream consumer           | ✅ Dropped in migration 000030                                 |
+| `peak_speed_mps`, `world_frame`, `scene_hash` legacy names  | Naming drift against current contracts              | ✅ Renamed in migrations 000030–000031                         |
+| Stale references to deleted `schema-simplification...` docs | Planning drift creates a second, broken source path | ✅ All active references point to this plan; doc sweep in #400 |
 
 ### 6.2 Keep and wire by `v0.5.1`
 

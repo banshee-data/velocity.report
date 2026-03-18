@@ -390,7 +390,7 @@ type TrackedObject struct {
 
     // Speed statistics (unchanged)
     AvgSpeedMps  float32
-    PeakSpeedMps float32
+    MaxSpeedMps float32
     speedHistory []float32
 
     // Quality metrics (unchanged)
@@ -410,7 +410,7 @@ type TrackedObject struct {
 type TrackObservation struct {
     TrackID     string
     TSUnixNanos int64
-    WorldFrame  string
+    FrameID  string
 
     // 3D Position - EXPANDED
     X, Y, Z float32  // Add Z coordinate
@@ -440,7 +440,7 @@ type TrackObservation struct {
 type WorldCluster struct {
     ClusterID   int64
     SensorID    string
-    WorldFrame  FrameID
+    FrameID  FrameID
     TSUnixNanos int64
 
     // World coordinates (unchanged)
