@@ -240,7 +240,13 @@ it can use the TDL (Track Description Language) query layer planned in v0.5.1.
 ### Column renames following table renames
 
 - `scene_id` → `replay_case_id` on `lidar_replay_cases`, `lidar_replay_evaluations`,
-  and any replay-case provenance columns
+  and `lidar_track_annotations` (nullable provenance FK added in migration 000019)
+- Index `idx_lidar_labels_scene` → `idx_lidar_track_annotations_replay_case`
+
+`lidar_track_annotations.scene_id` is a nullable soft reference to the replay
+case a human used when authoring the annotation (not a hard FK, but the same
+concept). Leaving it named `scene_id` after the table rename would create
+exactly the mixed-terminology problem the standardisation aims to eliminate.
 
 ### 000031_table_naming.up.sql
 
@@ -248,6 +254,9 @@ it can use the TDL (Track Description Language) query layer planned in v0.5.1.
 -- L5 track children
 ALTER TABLE lidar_track_obs RENAME TO lidar_track_observations;
 ALTER TABLE lidar_labels RENAME TO lidar_track_annotations;
+ALTER TABLE lidar_track_annotations RENAME COLUMN scene_id TO replay_case_id;
+DROP INDEX IF EXISTS idx_lidar_labels_scene;
+CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations (replay_case_id);
 
 -- L8 run family
 ALTER TABLE lidar_analysis_runs RENAME TO lidar_run_records;
@@ -280,6 +289,9 @@ ALTER TABLE lidar_run_missed_regions RENAME TO lidar_missed_regions;
 ALTER TABLE lidar_run_records RENAME TO lidar_analysis_runs;
 
 -- L5 track children
+DROP INDEX IF EXISTS idx_lidar_track_annotations_replay_case;
+CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
+ALTER TABLE lidar_track_annotations RENAME COLUMN replay_case_id TO scene_id;
 ALTER TABLE lidar_track_annotations RENAME TO lidar_labels;
 ALTER TABLE lidar_track_observations RENAME TO lidar_track_obs;
 ```
@@ -381,12 +393,24 @@ No per-track percentile fields in the proto.
 #### Storage layer (`internal/lidar/storage/sqlite/`)
 
 - All SQL referencing `lidar_track_obs` → `lidar_track_observations`
-- All SQL referencing `lidar_labels` → `lidar_track_annotations`
+- All SQL referencing `lidar_labels` → `lidar_track_annotations`; `scene_id` → `replay_case_id`
 - All SQL referencing `lidar_analysis_runs` → `lidar_run_records`
 - All SQL referencing `lidar_missed_regions` → `lidar_run_missed_regions`
 - All SQL referencing `lidar_scenes` → `lidar_replay_cases`; `scene_id` → `replay_case_id`
 - All SQL referencing `lidar_evaluations` → `lidar_replay_evaluations`
 - All SQL referencing `lidar_sweeps` → `lidar_tuning_sweeps`
+
+**internal/api/lidar_labels.go** — Rename in all SQL strings and the `Label` struct:
+
+- `scene_id` column references → `replay_case_id`
+- `SceneID` Go field → `ReplayCaseID`; update JSON tag to `"replay_case_id,omitempty"`
+- `idx_lidar_labels_scene` index name → `idx_lidar_track_annotations_replay_case` (if referenced directly)
+
+**internal/lidar/sweep/auto.go** and **hint.go** — `SweepRequest.SceneID` field
+references `lidar_scenes` by ID string at the application layer (not the column
+name). The struct field rename (`SceneID` → `ReplayCaseID`) follows the `Scene`
+→ `ReplayCase` type rename and must keep `json:"replay_case_id,omitempty"` for
+API compatibility.
 
 #### Go struct / type renames
 
