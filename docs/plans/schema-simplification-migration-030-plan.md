@@ -2,7 +2,7 @@
 
 - **Status:** Draft — prerequisite proto rename complete (#352); migration SQL and Go code changes pending
 - **Layers:** Database, L3 Grid, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints (API + web)
-- **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md), [LiDAR Table Naming Standardisation](lidar-table-naming-standardisation-plan.md)
+- **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md)
 
 ## Prerequisites
 
@@ -521,5 +521,5 @@ Keep:
 
 ### 6.5 Adjacent cleanup worth bundling with `v0.5.x`
 
-- Replace all references to the deleted `schema-simplification-migration-030-plan.md` with this plan.
+- Update all inbound cross-references in other plans to link to this file (`schema-simplification-migration-030-plan.md`) as the single canonical source for the v0.5.0 schema standardisation work.
 - Stop describing split/merge candidate detection as complete until `CompareRuns()` moves beyond Hungarian 1:1 matching. Matched-track and parameter-diff logic are real today; split/merge detection is still aspirational.

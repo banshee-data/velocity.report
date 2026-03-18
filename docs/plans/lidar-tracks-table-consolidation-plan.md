@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Layers:** Database, L5 Tracks, L8 Analytics, L9 Endpoints
 - **Prerequisite:** [Schema Simplification Migrations 000030–000031](schema-simplification-migration-030-plan.md)
-- **Related:** [L8/L9/L10 Refactor](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Speed Percentile Alignment](speed-percentile-aggregation-alignment-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [LiDAR Table Naming Standardisation](lidar-table-naming-standardization-plan.md)
+- **Related:** [L8/L9/L10 Refactor](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Speed Percentile Alignment](speed-percentile-aggregation-alignment-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
 
 ## Problem
 
