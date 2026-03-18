@@ -141,6 +141,10 @@ func TestAutoTuneSuspended_Found(t *testing.T) {
 	if resp["sensor_id"] != "sensor-a" {
 		t.Fatalf("expected sensor_id=sensor-a, got %v", resp["sensor_id"])
 	}
+	// checkpoint_round is JSON-decoded as float64.
+	if resp["checkpoint_round"] != float64(3) {
+		t.Fatalf("expected checkpoint_round=3, got %v", resp["checkpoint_round"])
+	}
 }
 
 func TestAutoTuneSuspended_StoreError(t *testing.T) {
