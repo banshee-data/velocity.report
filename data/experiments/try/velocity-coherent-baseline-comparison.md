@@ -67,7 +67,7 @@ pedestrian classes.
 - Same PCAP file for both runs (byte-identical input)
 - Same downstream config (DBSCAN ε, tracker parameters, classification)
 - Same hardware for timing comparisons
-- Deterministic mode enabled for reproducibility
+- Same `pcap-analyse` version and configuration for all runs; repeat each configuration at least twice and confirm metrics are stable within expected variance
 
 ## Acceptance criteria
 

@@ -60,7 +60,7 @@ keys at production defaults.
 
 ### Controls
 
-- Same as L3 experiment (byte-identical input, deterministic mode, same hardware)
+- Same as L3 experiment (byte-identical input, same `pcap-analyse` version, same hardware)
 - L3 parameters held at production defaults
 
 ## Acceptance criteria

@@ -69,7 +69,7 @@ sweep values, holding all other keys at production defaults
 - Same PCAP file for all sweep values (byte-identical input)
 - Same downstream config (L4, L5 parameters held at defaults)
 - Same hardware for timing comparisons
-- Deterministic mode enabled for reproducibility
+- Software versions and configs recorded for reproducibility
 
 ## Acceptance criteria
 

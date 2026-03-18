@@ -55,7 +55,8 @@ def check_file(filepath: Path, root: Path) -> list[tuple[int, str, str]]:
     dead: list[tuple[int, str, str]] = []
     try:
         text = filepath.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"warning: could not read {filepath} as UTF-8: {exc}", file=sys.stderr)
         return dead
 
     for lineno, line in enumerate(text.splitlines(), start=1):

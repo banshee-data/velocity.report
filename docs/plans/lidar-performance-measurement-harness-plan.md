@@ -35,7 +35,7 @@ report includes per-layer breakdowns:
 | L6    | Classification                      | Wall-clock time for classify pass                |
 | Total | End-to-end frame processing         | Sum of above                                     |
 
-Each timing is recorded per-frame and aggregated as: mean, p50, p95, p99,
+Each timing is recorded per-frame and aggregated as: mean, p50, p85, p98,
 max, and standard deviation. The benchmark JSON output includes both
 per-layer and total statistics.
 
@@ -80,52 +80,69 @@ Extend the current benchmark output with per-layer fields:
 
 ```json
 {
-  "name": "kirk0",
-  "platform": "ci",
-  "total_frames": 3000,
-  "total_duration_ms": 45000,
-  "fps": 66.7,
-  "frame_budget_ms": 100,
-  "drops": 0,
-  "drop_rate": 0.0,
-  "layers": {
-    "l1l2_parse": {
-      "mean_ms": 1.2,
-      "p50_ms": 1.1,
-      "p85_ms": 1.8,
-      "p98_ms": 2.5,
-      "max_ms": 4.1
+  "version": 1,
+  "timestamp": "2024-01-01T12:00:00Z",
+  "pcap_file": "kirk0.pcap",
+  "system_info": {
+    "hostname": "ci-runner-01",
+    "platform": "linux/arm64",
+    "cpu": "Raspberry Pi 4",
+    "memory_gb": 4
+  },
+  "metrics": {
+    "frame_time_stats": {
+      "total_frames": 3000,
+      "total_duration_ms": 45000,
+      "fps": 66.7,
+      "frame_budget_ms": 100,
+      "drops": 0,
+      "drop_rate": 0.0,
+      "mean_ms": 15.0,
+      "p50_ms": 14.2,
+      "p85_ms": 18.5,
+      "p98_ms": 22.0,
+      "max_ms": 30.0
     },
-    "l3_background": {
-      "mean_ms": 3.8,
-      "p50_ms": 3.5,
-      "p85_ms": 5.2,
-      "p98_ms": 6.1,
-      "max_ms": 8.3
-    },
-    "l4_perception": {
-      "mean_ms": 8.4,
-      "p50_ms": 7.9,
-      "p85_ms": 12.1,
-      "p98_ms": 15.0,
-      "max_ms": 18.2
-    },
-    "l5_tracking": {
-      "mean_ms": 3.1,
-      "p50_ms": 2.8,
-      "p85_ms": 4.5,
-      "p98_ms": 5.8,
-      "max_ms": 7.1
-    },
-    "l6_classification": {
-      "mean_ms": 0.3,
-      "p50_ms": 0.2,
-      "p85_ms": 0.5,
-      "p98_ms": 0.7,
-      "max_ms": 1.0
+    "layer_time_stats": {
+      "l1l2_parse": {
+        "mean_ms": 1.2,
+        "p50_ms": 1.1,
+        "p85_ms": 1.8,
+        "p98_ms": 2.5,
+        "max_ms": 4.1
+      },
+      "l3_background": {
+        "mean_ms": 3.8,
+        "p50_ms": 3.5,
+        "p85_ms": 5.2,
+        "p98_ms": 6.1,
+        "max_ms": 8.3
+      },
+      "l4_perception": {
+        "mean_ms": 8.4,
+        "p50_ms": 7.9,
+        "p85_ms": 12.1,
+        "p98_ms": 15.0,
+        "max_ms": 18.2
+      },
+      "l5_tracking": {
+        "mean_ms": 3.1,
+        "p50_ms": 2.8,
+        "p85_ms": 4.5,
+        "p98_ms": 5.8,
+        "max_ms": 7.1
+      },
+      "l6_classification": {
+        "mean_ms": 0.3,
+        "p50_ms": 0.2,
+        "p85_ms": 0.5,
+        "p98_ms": 0.7,
+        "max_ms": 1.0
+      }
     }
   }
 }
+```
 ```
 
 ## Implementation phases

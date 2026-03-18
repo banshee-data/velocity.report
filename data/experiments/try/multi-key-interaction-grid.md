@@ -64,7 +64,7 @@ RMSE, objective function), plus:
 ### Controls
 
 - Same PCAP corpus as per-layer sweeps (byte-identical input)
-- Deterministic mode enabled
+- `pcap-analyse` run with deterministic replay settings (e.g. `--deterministic` flag and a fixed config shared across all runs)
 - All keys not under test held at production defaults
 
 ## Acceptance criteria
