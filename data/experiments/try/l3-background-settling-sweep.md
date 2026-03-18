@@ -29,7 +29,8 @@ Run on all available labelled PCAPs (initially kirk0; expand to the five-site
 corpus as captures become available per the
 [test corpus plan](../../../docs/plans/lidar-test-corpus-plan.md)).
 Each PCAP must have a labelled reference analysis run (tracks annotated
-with `user_label` per class via the track-labelling UI).
+with `user_label` per class via the
+[track-labelling UI](../../../docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md)).
 
 ### Protocol
 

@@ -42,7 +42,9 @@ pedestrian classes.
 3. Record both runs as analysis runs (via `pcap-analyse`) and label
    reference tracks with `user_label` per class.
 4. Evaluate each candidate run against the scene's labelled reference
-   run using `GroundTruthEvaluator` (Hungarian-matched temporal IoU).
+   run using
+   [`GroundTruthEvaluator`](../../../docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md)
+   (Hungarian-matched temporal IoU).
 
 ### Metrics
 
