@@ -27,30 +27,101 @@ velocity.report covers sensor hardware, real-time data pipelines, web visualisat
 
 ### Data Scientist
 
-Data science in velocity.report is about making the live pipeline more measurable, reproducible, and explainable. The settled foundation is already documented: polar background settling, ground and cluster geometry, Kalman-plus-Hungarian tracking, and a rule-based classifier with explicit features and thresholds. The aim is not to replace that with a black box, but to improve it through labelled reference sets, replayable scorecards, threshold studies, drift analysis, and traffic-engineering metrics that hold up in reports and technical review.
+Data science in velocity.report is metrics-first systems work. The live path is
+deliberately transparent: L3 polar background settling, L4 geometry and
+clustering, L5 Kalman-plus-Hungarian tracking, L6 rule-based classification,
+and L8 scorecards. The job here is to make those layers more measurable,
+reproducible, and explainable through labelled scenes, replay packs, threshold
+studies, drift analysis, and traffic-engineering metrics that hold up in
+reports and technical review.
 
-New research follows a proposal-first framework: write down the maths, define the layer boundary, state the evaluation contract, and compare against the current baseline on fixed replay packs. Current research areas include geometry-coherent tracking, velocity-coherent foreground extraction, ground-plane and vector-scene maths, and optional offline classification research. Any future model must stay auditable, beat the transparent baseline on reproducible benchmarks, and preserve a tunable fallback path at runtime.
+Research in this repo is proposal-first. Write the maths, name the layer
+boundary, define the evaluation contract, then compare against the current
+baseline on fixed PCAP and VRLOG packs. Any future model must stay auditable,
+beat the transparent baseline on reproducible scorecards, and preserve a
+tunable fallback path at runtime.
 
-Open questions that currently need evidence-backed work include:
+Interesting problems in the repo right now:
 
-- whether the 2026-02-22 OBB fixes are good enough in replay, or whether geometry-coherent tracking is still required to stop rotating bounding boxes;
-- how radar + LiDAR fusion should be scored and staged: per-track association first, or later L7 scene/canonical-object fusion;
-- when the current height-band ground filter is no longer good enough, and what replay/static-export evidence justifies moving to tile-plane and vector-scene maths;
-- how OSM/community geometry priors should be diffed, reviewed, signed, and exported without weakening provenance;
-- whether highly reflective signs can be promoted into stable pose anchors for shake estimation, how far the intensity gate can be relaxed when signs are absent, whether walls, facades, or road geometry provide enough fallback redundancy without confusing the model with clutter or occlusion, and whether a cached back-edge into lower layers is worth weakening strict one-way layer guarantees;
-- whether velocity-coherent extraction beats the current baseline on fixed PCAP/VRLOG packs strongly enough to justify runtime adoption;
-- which config values are actually supported by repeatable scorecards, when they were last compared, and what artifact set was used.
+- **Rotating bounding boxes and unstable track geometry** — decide whether the
+  2026-02-22 OBB fixes are good enough in replay, or whether the repo should
+  move to geometry-coherent track state.
+  See [data/maths/proposals/20260222-obb-heading-stability-review.md](data/maths/proposals/20260222-obb-heading-stability-review.md)
+  and
+  [data/maths/proposals/20260222-geometry-coherent-tracking.md](data/maths/proposals/20260222-geometry-coherent-tracking.md).
+- **Velocity-coherent foreground extraction** — test whether a motion-aware
+  L3-L5 path beats the current background-subtraction plus DBSCAN baseline on
+  fixed labelled packs strongly enough to justify runtime adoption.
+  See [data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md),
+  [data/experiments/try/velocity-coherent-baseline-comparison.md](data/experiments/try/velocity-coherent-baseline-comparison.md),
+  and
+  [docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md](docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
+- **Ground-plane, vector-scene, and settling-boundary work** — determine when
+  the current height-band and tile-plane approach is no longer good enough,
+  and whether L3 and L4 should share one settlement core.
+  See [data/maths/ground-plane-maths.md](data/maths/ground-plane-maths.md),
+  [data/maths/proposals/20260221-ground-plane-vector-scene-maths.md](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md),
+  [data/maths/proposals/20260219-unify-l3-l4-settling.md](data/maths/proposals/20260219-unify-l3-l4-settling.md),
+  and [docs/lidar/architecture/vector-scene-map.md](docs/lidar/architecture/vector-scene-map.md).
+- **Radar + LiDAR fusion boundary** — work out whether fusion should be scored
+  as per-track association first or held for L7 scene and canonical-object
+  fusion.
+  See [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scene-plan.md)
+  and
+  [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md).
+- **Static pose anchors from signs and persistent surfaces** — test whether
+  reflective signs, walls, facades, and road geometry can become stable pose
+  anchors for shake estimation without poisoning lower-layer assumptions.
+  See [data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md).
+- **Config provenance, labelled runs, and scorecard evidence** — identify
+  which defaults are backed by repeatable comparisons, what artifacts were
+  used, and where the current evidence gaps are.
+  See [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md),
+  [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md),
+  and [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md).
 
-When contributing in this area, include the question being answered, the observed result, the exact parameter/config bundle, the validation date, and the replay artifacts used (`.pcap`, `.vrlog`, scene IDs, run IDs, baselines, and any LFS-backed files).
+When contributing in this area, always include the question being answered, the
+observed result, the exact parameter or config bundle, the validation date, and
+the replay artifacts used (`.pcap`, `.vrlog`, scene IDs, run IDs, baselines,
+and any LFS-backed files).
 
 Read next:
 
-- [data/maths/README.md](data/maths/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals
-- [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md) — the repo-wide data science stance: metrics first, no black boxes on the critical path
-- [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
-- [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md) — the metric and schema model for derived transit statistics
-- [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md) — collected metrics, objectives, and decision-making for tuning
-- [data/maths/classification-maths.md](data/maths/classification-maths.md) — the current transparent classification baseline and thresholds
+- **Architecture layers**
+  [docs/lidar/architecture/README.md](docs/lidar/architecture/README.md) —
+  index of the LiDAR architecture docs;
+  [docs/lidar/architecture/lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md)
+  — canonical L1-L10 layer model;
+  [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md)
+  — end-to-end runtime pipeline and data-science boundaries
+- **Algorithms**
+  [docs/lidar/architecture/foreground-tracking.md](docs/lidar/architecture/foreground-tracking.md)
+  — current polar-to-world extraction and tracking path;
+  [data/maths/clustering-maths.md](data/maths/clustering-maths.md) — DBSCAN,
+  geometry extraction, and complexity;
+  [data/maths/tracking-maths.md](data/maths/tracking-maths.md) — Kalman
+  filtering, gating, assignment, and lifecycle;
+  [data/maths/classification-maths.md](data/maths/classification-maths.md) —
+  the transparent classification baseline
+- **Experiments and evidence**
+  [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md)
+  — evidence contract and open questions;
+  [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md)
+  — labelled runs, reference scenes, and evaluator flow;
+  [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md)
+  — metrics, objectives, and search modes;
+  [data/experiments/README.md](data/experiments/README.md) — proposed
+  experiment format;
+  [data/explore/README.md](data/explore/README.md) — where exploratory studies
+  live after execution
+- **Maths and proposals**
+  [data/maths/README.md](data/maths/README.md) — maths index across active
+  layers and proposals;
+  [data/maths/proposals/20260222-geometry-coherent-tracking.md](data/maths/proposals/20260222-geometry-coherent-tracking.md),
+  [data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md),
+  [data/maths/proposals/20260221-ground-plane-vector-scene-maths.md](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md),
+  and
+  [data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)
 
 ### Designer (UX & Data Visualisation)
 
