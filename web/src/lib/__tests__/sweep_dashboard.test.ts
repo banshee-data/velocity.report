@@ -2500,6 +2500,48 @@ describe('downloadCSV with param_values format', () => {
 		downloadCSV();
 		expect(URL.createObjectURL).toHaveBeenCalled();
 	});
+
+	it('CSV headers match actual field names', async () => {
+		const origBlob = global.Blob;
+		let capturedContent = '';
+		(global as any).Blob = class MockBlob {
+			constructor(parts: string[]) {
+				capturedContent = parts.join('');
+			}
+		};
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					status: 'complete',
+					completed_combos: 1,
+					total_combos: 1,
+					results: [
+						{
+							param_values: { noise_relative: 0.05 },
+							overall_accept_mean: 0.85,
+							overall_accept_stddev: 0.02,
+							nonzero_cells_mean: 100,
+							nonzero_cells_stddev: 5,
+							active_tracks_mean: 3,
+							active_tracks_stddev: 0.5,
+							alignment_deg_mean: 1.2,
+							alignment_deg_stddev: 0.3,
+							misalignment_ratio_mean: 0.05,
+							misalignment_ratio_stddev: 0.01
+						}
+					]
+				})
+		});
+		pollStatus();
+		await flushPromises();
+		downloadCSV();
+		global.Blob = origBlob;
+		const header = capturedContent.split('\n')[0];
+		expect(header).toContain('overall_accept_mean');
+		expect(header).toContain('overall_accept_stddev');
+		expect(header).not.toContain('accept_rate_mean');
+	});
 });
 
 describe('init with manual sweep running', () => {

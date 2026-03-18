@@ -707,6 +707,10 @@ def generate_histogram_chart(
         try:
             if hasattr(metrics_all, "get"):
                 sample_n = extract_count_from_row(metrics_all, normalizer)
+            elif isinstance(metrics_all, (list, tuple)) and metrics_all:
+                first = metrics_all[0]
+                if isinstance(first, dict):
+                    sample_n = extract_count_from_row(first, normalizer)
         except Exception:
             sample_n = None
 

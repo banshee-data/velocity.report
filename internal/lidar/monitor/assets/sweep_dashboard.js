@@ -1902,8 +1902,8 @@ function downloadCSV() {
   }
 
   var metricCols = [
-    "accept_rate_mean",
-    "accept_rate_stddev",
+    "overall_accept_mean",
+    "overall_accept_stddev",
     "nonzero_cells_mean",
     "nonzero_cells_stddev",
     "active_tracks_mean",
