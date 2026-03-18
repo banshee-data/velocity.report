@@ -202,7 +202,7 @@ func TestUpdateTrack(t *testing.T) {
 	track.ObjectConfidence = 0.75
 	track.SetSpeedHistory([]float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7})
 
-	err = UpdateTrack(db, track, "site/main")
+	err = UpdateTrack(db, track)
 	if err != nil {
 		t.Fatalf("UpdateTrack failed: %v", err)
 	}

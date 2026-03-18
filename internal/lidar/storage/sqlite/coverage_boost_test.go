@@ -1420,7 +1420,7 @@ func TestClosedDB_UpdateTrack(t *testing.T) {
 	db.Close()
 
 	track := &TrackedObject{TrackID: "t1", SensorID: "sensor-1"}
-	err := UpdateTrack(db, track, "frame-1")
+	err := UpdateTrack(db, track)
 	if err == nil {
 		t.Error("expected error from UpdateTrack with closed DB")
 	}

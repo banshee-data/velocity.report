@@ -59,10 +59,10 @@ func setupLabelTestDB(t *testing.T) *sql.DB {
 			source_file TEXT,
 			FOREIGN KEY (track_id) REFERENCES lidar_tracks(track_id) ON DELETE CASCADE
 		);
-		CREATE INDEX idx_lidar_labels_track ON lidar_track_annotations(track_id);
-		CREATE INDEX idx_lidar_labels_time ON lidar_track_annotations(start_timestamp_ns, end_timestamp_ns);
-		CREATE INDEX idx_lidar_labels_class ON lidar_track_annotations(class_label);
-		CREATE INDEX idx_lidar_labels_scene ON lidar_track_annotations(replay_case_id);
+		CREATE INDEX idx_lidar_track_annotations_track ON lidar_track_annotations(track_id);
+		CREATE INDEX idx_lidar_track_annotations_time ON lidar_track_annotations(start_timestamp_ns, end_timestamp_ns);
+		CREATE INDEX idx_lidar_track_annotations_class ON lidar_track_annotations(class_label);
+		CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations(replay_case_id);
 	`)
 	if err != nil {
 		t.Fatalf("failed to create lidar_track_annotations table: %v", err)
@@ -307,7 +307,7 @@ func TestLidarLabelAPI_Export(t *testing.T) {
 
 	// Check Content-Disposition header
 	contentDisposition := rec.Header().Get("Content-Disposition")
-	if contentDisposition != "attachment; filename=lidar_labels_export.json" {
+	if contentDisposition != "attachment; filename=lidar_track_annotations_export.json" {
 		t.Errorf("unexpected Content-Disposition: %s", contentDisposition)
 	}
 }
@@ -769,7 +769,7 @@ func TestLidarLabelAPI_Export_Empty(t *testing.T) {
 
 	// Check Content-Disposition header
 	contentDisposition := rec.Header().Get("Content-Disposition")
-	if contentDisposition != "attachment; filename=lidar_labels_export.json" {
+	if contentDisposition != "attachment; filename=lidar_track_annotations_export.json" {
 		t.Errorf("unexpected Content-Disposition: %s", contentDisposition)
 	}
 }

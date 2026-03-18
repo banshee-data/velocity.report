@@ -304,7 +304,7 @@ func TestDeserializeFrameLegacySpeedField(t *testing.T) {
 				{
 					"TrackID": "legacy-track",
 					"SpeedMps": 4.5,
-					"MaxSpeedMps": 6.75
+					"PeakSpeedMps": 6.75
 				}
 			]
 		}
@@ -316,7 +316,7 @@ func TestDeserializeFrameLegacySpeedField(t *testing.T) {
 		t.Fatalf("expected one restored track, got %#v", frame.Tracks)
 	}
 	if got := frame.Tracks.Tracks[0].MaxSpeedMps; got != 6.75 {
-		t.Errorf("MaxSpeedMps = %v, want 6.75", got)
+		t.Errorf("MaxSpeedMps = %v, want 6.75 (mapped from legacy PeakSpeedMps)", got)
 	}
 }
 
@@ -1688,5 +1688,34 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 	_, err = rep.ReadFrame()
 	if err != io.EOF {
 		t.Errorf("expected EOF after %d frames, got err=%v", len(specs), err)
+	}
+}
+
+func TestProtoRoundTrip_MaxSpeedMps(t *testing.T) {
+	frame := testFrameBundle(1, time.Now().UnixNano())
+	frame.Tracks = &visualiser.TrackSet{
+		FrameID:        1,
+		TimestampNanos: frame.TimestampNanos,
+		Tracks: []visualiser.Track{
+			{
+				TrackID:     "trk-speed-1",
+				SpeedMps:    5.5,
+				MaxSpeedMps: 12.75,
+			},
+		},
+	}
+
+	pbFrame := frameBundleToStorageProto(frame)
+	restored := protoToFrameBundle(pbFrame)
+
+	if restored.Tracks == nil || len(restored.Tracks.Tracks) != 1 {
+		t.Fatalf("expected 1 track, got %v", restored.Tracks)
+	}
+	track := restored.Tracks.Tracks[0]
+	if track.MaxSpeedMps != 12.75 {
+		t.Errorf("MaxSpeedMps = %v, want 12.75", track.MaxSpeedMps)
+	}
+	if track.SpeedMps != 5.5 {
+		t.Errorf("SpeedMps = %v, want 5.5", track.SpeedMps)
 	}
 }

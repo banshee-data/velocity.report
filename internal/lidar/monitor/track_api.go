@@ -630,7 +630,7 @@ func (api *TrackAPI) handleUpdateTrack(w http.ResponseWriter, r *http.Request, t
 	}
 
 	// Persist to database
-	if err := sqlite.UpdateTrack(api.db, track, "site"); err != nil {
+	if err := sqlite.UpdateTrack(api.db, track); err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track: %v", err))
 		return
 	}

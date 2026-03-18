@@ -13,16 +13,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// REST API for scene management
-// These handlers manage LiDAR evaluation scenes (PCAP + sensor + params).
+// REST API for replay case management
+// These handlers manage LiDAR replay cases (PCAP + sensor + params).
 //
 // Routes:
-// - GET /api/lidar/scenes — list scenes (optional sensor_id filter)
-// - POST /api/lidar/scenes — create scene
-// - GET /api/lidar/scenes/{scene_id} — get scene details
-// - PUT /api/lidar/scenes/{scene_id} — update scene
-// - DELETE /api/lidar/scenes/{scene_id} — delete scene
-// - POST /api/lidar/scenes/{scene_id}/replay — replay scene
+// - GET /api/lidar/scenes — list replay cases (optional sensor_id filter)
+// - POST /api/lidar/scenes — create replay case
+// - GET /api/lidar/scenes/{replay_case_id} — get replay case details
+// - PUT /api/lidar/scenes/{replay_case_id} — update replay case
+// - DELETE /api/lidar/scenes/{replay_case_id} — delete replay case
+// - POST /api/lidar/scenes/{replay_case_id}/replay — replay case
 
 // handleScenes handles /api/lidar/scenes (list and create).
 func (ws *WebServer) handleScenes(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +41,7 @@ func (ws *WebServer) handleScenes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleSceneByID handles /api/lidar/scenes/{scene_id}/* routes.
+// handleSceneByID handles /api/lidar/scenes/{replay_case_id}/* routes.
 func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
@@ -50,7 +50,7 @@ func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 
 	sceneID, action := parseScenePath(r.URL.Path)
 	if sceneID == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "missing scene_id in path")
+		ws.writeJSONError(w, http.StatusBadRequest, "missing replay_case_id in path")
 		return
 	}
 
@@ -89,7 +89,7 @@ func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// parseScenePath extracts scene_id and action from /api/lidar/scenes/{scene_id}/{action}
+// parseScenePath extracts replay_case_id and action from /api/lidar/scenes/{replay_case_id}/{action}
 func parseScenePath(path string) (sceneID string, action string) {
 	trimmed := strings.TrimPrefix(path, "/api/lidar/scenes/")
 	if trimmed == path {

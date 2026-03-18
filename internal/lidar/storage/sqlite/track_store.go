@@ -12,7 +12,7 @@ import (
 type TrackStore interface {
 	InsertCluster(cluster *WorldCluster) (int64, error)
 	InsertTrack(track *TrackedObject, frameID string) error
-	UpdateTrack(track *TrackedObject, frameID string) error
+	UpdateTrack(track *TrackedObject) error
 	InsertTrackObservation(obs *TrackObservation) error
 	ClearTracks(sensorID string) error
 	GetTrack(trackID string) (*TrackedObject, error)
@@ -151,7 +151,7 @@ func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 }
 
 // UpdateTrack updates an existing track in the database.
-func UpdateTrack(db *sql.DB, track *TrackedObject, frameID string) error {
+func UpdateTrack(db *sql.DB, track *TrackedObject) error {
 	query := `
 		UPDATE lidar_tracks SET
 			track_state = ?,

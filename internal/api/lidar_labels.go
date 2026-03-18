@@ -476,7 +476,7 @@ func (api *LidarLabelAPI) handleExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", "attachment; filename=lidar_labels_export.json")
+	w.Header().Set("Content-Disposition", "attachment; filename=lidar_track_annotations_export.json")
 	json.NewEncoder(w).Encode(labels)
 }
 
