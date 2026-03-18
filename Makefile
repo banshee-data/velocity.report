@@ -1033,15 +1033,16 @@ format-sql:
 lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
 
-check-mermaid: ## Validate Mermaid code fences in Markdown docs
+check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
 
 check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
 	@python3 scripts/check-prose-line-width.py --report
 
-lint-docs: check-mermaid ## Check Mermaid fences, header metadata format, and British English spelling in docs/
+lint-docs: check-mermaid ## [gated] Check Mermaid fences, header metadata format, British English spelling, and relative links
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
+	@python3 scripts/check-relative-links.py
 
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
