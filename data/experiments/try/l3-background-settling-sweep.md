@@ -51,18 +51,18 @@ sweep values, holding all other keys at production defaults
 
 **Gated metrics (available via GroundTruthEvaluator):**
 
-| Metric              | Definition                                                                                     | Threshold                 |
-| ------------------- | ---------------------------------------------------------------------------------------------- | ------------------------- |
-| Confirmed track count | Number of confirmed tracks downstream                                                        | No regression vs baseline |
-| Objective function  | Composite score from `GroundTruthEvaluator`                                                    | Within 10% of optimal     |
+| Metric                | Definition                                  | Threshold                 |
+| --------------------- | ------------------------------------------- | ------------------------- |
+| Confirmed track count | Number of confirmed tracks downstream       | No regression vs baseline |
+| Objective function    | Composite score from `GroundTruthEvaluator` | Within 10% of optimal     |
 
 **Future / manual diagnostics (point-level, not yet in evaluator):**
 
-| Metric                | Definition                                                       | Notes                           |
-| --------------------- | ---------------------------------------------------------------- | ------------------------------- |
-| Foreground precision  | True foreground points / all foreground-classified points        | Requires point-level ground truth |
-| Foreground recall     | True foreground points / all ground-truth foreground points      | Requires point-level ground truth |
-| Ground false-pos rate | Ground points incorrectly classified as foreground / total       | Requires point-level ground truth |
+| Metric                | Definition                                                  | Notes                             |
+| --------------------- | ----------------------------------------------------------- | --------------------------------- |
+| Foreground precision  | True foreground points / all foreground-classified points   | Requires point-level ground truth |
+| Foreground recall     | True foreground points / all ground-truth foreground points | Requires point-level ground truth |
+| Ground false-pos rate | Ground points incorrectly classified as foreground / total  | Requires point-level ground truth |
 
 ### Controls
 
