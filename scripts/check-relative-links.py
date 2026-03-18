@@ -33,6 +33,8 @@ SKIP_DIRS = {
     "__pycache__",
     "vendor",
     ".build",
+    "DerivedData",
+    "build",
 }
 
 
