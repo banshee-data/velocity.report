@@ -1,8 +1,10 @@
-# Go Codebase Structural Hygiene Plan
+# Go Codebase Structural Hygiene Plan (v0.5.x)
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
-- **Target:** v0.5.0 onward — disrupt shaky conventions before they become foundations
+- **Target:** v0.5.x — disrupt shaky conventions before they become foundations
+- **Companion plan:**
+  [go-structured-logging-plan.md](go-structured-logging-plan.md) (v0.6+)
 
 ## Motivation
 
@@ -12,28 +14,32 @@ architecture (L1–L6) is well-layered. Test coverage is strong (120,000 lines o
 genuine structural strengths.
 
 But beneath that surface sit conventions that will compound if left to settle. God files
-growing a few methods per milestone. HTTP handlers that never propagate context. A logging
-layer that mixes three patterns. A global mutable map with no synchronisation. JSON tags
-that contradict each other in the same package. These are not emergencies. They are the kind
-of slow settling that turns a passable road into an expensive repair job two versions later.
+growing a few methods per milestone. HTTP handlers that never propagate context. A global
+mutable map with no synchronisation. JSON tags that contradict each other in the same
+package. Silent error drops that make failures invisible on a headless Pi. These are not
+emergencies. They are the kind of slow settling that turns a passable road into an expensive
+repair job two versions later.
 
-This plan names the structural issues, groups them into four backlog items sized for
-milestone scheduling, and orders them by the cost of deferral.
+This plan names the structural issues to address in v0.5.x and groups them into three
+backlog items sized for milestone scheduling. Logging and observability are covered
+separately in the [companion plan](go-structured-logging-plan.md).
 
 ## Analysis Summary
 
-| Category               | Finding                                                              | Severity |
-| ---------------------- | -------------------------------------------------------------------- | -------- |
-| Context propagation    | 30+ HTTP handlers ignore `r.Context()`                               | Critical |
-| God files              | `db.go` (1,420 LOC), `api/server.go` (1,711), `webserver.go` (1,905) | High     |
-| Race condition         | `serialmux.CurrentState` is a global map with no sync                | High     |
-| DB abstraction leak    | 4 files import `database/sql` directly, bypassing `db` package       | Medium   |
-| JSON tag inconsistency | `EventAPI` uses PascalCase; everything else uses snake_case          | Medium   |
-| Silent error drops     | 5 production-code instances of `_ = expr` discarding errors          | Medium   |
-| Logging inconsistency  | Mix of `log.Printf`, `fmt.Printf`, `monitoring.Logf`, emoji in logs  | Medium   |
-| God functions          | `setupRoutes` (415 LOC), `buildCosineSpeedExpr` (318 LOC)            | Medium   |
-| Test infrastructure    | `testutil.go` is 46 lines for 216 test files; DB setup inconsistent  | Low      |
-| Flaky test risk        | `time.Sleep` in 9 test files                                         | Low      |
+| Category            | Finding                                                              | Severity | Item |
+| ------------------- | -------------------------------------------------------------------- | -------- | ---- |
+| Context propagation | 30+ HTTP handlers ignore `r.Context()`                               | Critical | 1    |
+| God files           | `db.go` (1,420 LOC), `api/server.go` (1,711), `webserver.go` (1,905) | High     | 2    |
+| Race condition      | `serialmux.CurrentState` is a global map with no sync                | High     | 2    |
+| DB abstraction leak | 4 files import `database/sql` directly, bypassing `db` package       | Medium   | 2    |
+| JSON tag anomaly    | `EventAPI` uses PascalCase; everything else uses snake\_case         | Medium   | 3    |
+| Silent error drops  | Production `_ = expr` discarding errors (excluding `deploy/`)        | Medium   | 2    |
+| God functions       | `setupRoutes` (415 LOC), `buildCosineSpeedExpr` (318 LOC)            | Medium   | 2    |
+| Test infrastructure | `testutil.go` is 46 lines for 216 test files; DB setup inconsistent  | Low      | 2    |
+| Flaky test risk     | `time.Sleep` in 9 test files                                         | Low      | 2    |
+
+Logging inconsistency is tracked in the
+[companion plan](go-structured-logging-plan.md).
 
 ## Detailed Findings
 
@@ -130,35 +136,31 @@ now is a pre-release correction.
 
 ### 6. Silent Error Drops in Production Code (Medium)
 
-Five production-code locations discard errors with `_ =`:
+Production code discards errors with `_ =` in several locations. The `deploy/` package is
+excluded from this plan — it carries separate operational constraints and will be addressed
+as part of the deployment retirement workstream.
 
-- `db.go:251` — `_ = db.Close()` in error path
-- `deploy/sshconfig.go:44` — `homeDir, _ = os.UserHomeDir()`
-- `lidar/l3grid/export_bg_snapshot.go:45,61` — `_ = mgr.SetRingElevations(elevs)`
-- `lidar/monitor/datasource_handlers.go:122,134` — `_ = w.Write(...)`
+**Locations in scope (v0.5.x):**
 
-Some of these are genuinely unrecoverable (HTTP response writes after headers sent). Others
-mask real failures.
+- `internal/db/db.go:251` — `_ = db.Close()` in error path
+- `internal/lidar/l3grid/export_bg_snapshot.go:45,61` —
+  `_ = mgr.SetRingElevations(elevs)`
+- `internal/lidar/monitor/datasource_handlers.go:122,134` —
+  `_ = ws.startLiveListenerLocked()`
+- `internal/lidar/monitor/datasource_handlers.go:535,536,570` —
+  `_ = bgManager.SetParams(...)`
+- `internal/lidar/monitor/echarts_handlers.go:116,135,152,197,313,406,476,562` —
+  `_, _ = w.Write(...)` (HTTP response body writes)
 
-**Consequence:** Failures become invisible. Operators on a headless Pi cannot diagnose
-problems they cannot see.
+The HTTP response-write drops (`w.Write` after headers sent) are genuinely unrecoverable —
+the correct fix is to log the failure rather than return it. The `SetRingElevations` and
+`startLiveListenerLocked` drops mask real failures that operators cannot diagnose on a
+headless Pi.
 
-### 7. Logging Inconsistency (Medium)
+**Consequence:** Failures become invisible. Operators cannot diagnose problems they cannot
+see.
 
-The codebase uses three distinct logging mechanisms:
-
-1. `log.Printf()` — standard library, no levels, no structure
-2. `fmt.Printf()` — not logging at all, just prints to stdout
-3. `monitoring.Logf` — package-level function pointer, replaceable but not structured
-
-Emoji appears in log output (`⚠️ WARNING`). No log levels (DEBUG/INFO/WARN/ERROR). No
-structured key-value pairs. No correlation between request and log line.
-
-**Consequence:** On a Raspberry Pi running as a systemd service, operators use `journalctl`
-to diagnose problems. Unstructured, unlevel, mixed-destination logs make diagnosis slower
-than it needs to be.
-
-### 8. Test Infrastructure Thinness (Low)
+### 7. Test Infrastructure Thinness (Low)
 
 `internal/testutil/testutil.go` provides 3 assertion helpers and 2 HTTP helpers in 46 lines.
 The 216 test files contain significant duplicated setup code. Database test setup follows at
@@ -202,10 +204,11 @@ of the change and strong existing test coverage.
 
 ---
 
-### Item 2: Package Hygiene — God Files, Abstractions, Synchronisation
+### Item 2: Package Hygiene — God Files, Abstractions, Error Visibility
 
-**Summary:** Split overloaded files into domain-scoped units. Fix abstraction leaks and
-race conditions. Establish the convention that each file in a package owns one domain.
+**Summary:** Split overloaded files into domain-scoped units. Fix abstraction leaks, race
+conditions, and silent error drops. Establish the convention that each file in a package owns
+one domain and every error is either returned or logged.
 
 **Scope:**
 
@@ -221,12 +224,23 @@ race conditions. Establish the convention that each file in a package owns one d
    direct map access
 4. **Remove direct `database/sql` imports** from the 4 leaking files; expose needed types
    through the `db` package boundary (type aliases or wrapper types for `sql.Null*`)
-5. **Fix silent error drops** in the 5 production-code locations (log or return the error)
+5. **Fix silent error drops** (excluding `deploy/`):
+   - `db.go:251` — log the `Close()` error
+   - `l3grid/export_bg_snapshot.go:45,61` — return or log `SetRingElevations` error
+   - `monitor/datasource_handlers.go:122,134` — log `startLiveListenerLocked` error
+   - `monitor/datasource_handlers.go:535,536,570` — log `SetParams` error
+   - `monitor/echarts_handlers.go` (8 sites) — log `w.Write` errors at debug level
+6. **Expand `internal/testutil/`**:
+   - Add `SetupTestDB(t) *db.DB` and `CleanupTestDB(t, *db.DB)` as canonical helpers
+   - Add `WaitFor(t, condition func() bool, timeout)` to replace `time.Sleep`
+   - Migrate the 9 `time.Sleep` test files to use polling helpers
+   - Standardise database test setup — deprecate raw `sql.Open` patterns
 
-**Estimated effort:** 4–6 days. File splits are mechanical. The `CurrentState` fix is
-small. The abstraction leak fix requires interface thought.
+**Estimated effort:** 5–7 days. File splits are mechanical. The `CurrentState` fix is
+small. The abstraction leak fix requires interface thought. Error-drop fixes are
+straightforward.
 
-**Milestone:** v0.5.0 or v0.5.1 — before the split becomes more expensive.
+**Milestone:** v0.5.1 — before the split becomes more expensive.
 
 **Dependencies:** Ideally after Item 1 (context propagation), since method signatures will
 change. Can proceed in parallel if coordinated.
@@ -264,61 +278,27 @@ Both must be updated in the same change.
 
 ---
 
-### Item 4: Observability Foundation — Structured Logging and Test Infrastructure
-
-**Summary:** Replace the mixed logging patterns with Go's `log/slog` (available since Go
-1.21; the project uses Go 1.25). Expand test utilities to reduce duplication and eliminate
-`time.Sleep` synchronisation.
-
-**Scope:**
-
-1. **Introduce `log/slog`** as the standard logging interface:
-   - Replace `log.Printf` / `fmt.Printf` calls with `slog.Info`, `slog.Warn`, `slog.Error`
-   - Replace `monitoring.Logf` with an `slog.Handler`-backed logger
-   - Add structured key-value context to log calls (request path, duration, error)
-   - Remove emoji from log messages
-   - Configure JSON output for systemd/journalctl consumption
-2. **Expand `internal/testutil/`**:
-   - Add `SetupTestDB(t) *db.DB` and `CleanupTestDB(t, *db.DB)` as canonical helpers
-   - Add `WaitFor(t, condition func() bool, timeout)` to replace `time.Sleep`
-   - Migrate the 9 `time.Sleep` test files to use polling helpers
-3. **Standardise database test setup** — deprecate raw `sql.Open` patterns in favour of the
-   canonical helper
-
-**Estimated effort:** 5–8 days. The `slog` migration is mechanical but touches many files.
-Test infrastructure improvements can be done incrementally.
-
-**Milestone:** v0.5.1 or v0.6.0 — important but less urgent than Items 1–3. The logging
-convention should be established early; the test infrastructure can follow.
-
-**Dependencies:** Item 2 (package splits) should land first so the logging changes apply to
-the final file layout.
-
-**Risk:** `slog` migration touches many files. Functional behaviour is unchanged. Tests
-validate that logging calls do not alter control flow.
-
----
-
 ## Scheduling Recommendation
 
-| Milestone | Items                                | Rationale                                                                           |
-| --------- | ------------------------------------ | ----------------------------------------------------------------------------------- |
-| v0.5.0    | Item 1 (context), Item 3 (JSON tags) | Convention-setting. Must land before the release locks the contract.                |
-| v0.5.1    | Item 2 (package hygiene)             | Structural. Reduces cost of all future changes. Can land immediately after release. |
-| v0.6.0    | Item 4 (observability + test infra)  | Operational. Important but not blocking. Benefits from stable file layout.          |
+| Milestone | Items                                | Rationale                                                                  |
+| --------- | ------------------------------------ | -------------------------------------------------------------------------- |
+| v0.5.0    | Item 1 (context), Item 3 (JSON tags) | Convention-setting. Must land before the release locks the contract.       |
+| v0.5.1    | Item 2 (package hygiene + errors)    | Structural. Reduces cost of all future changes. Includes error visibility. |
 
 Items 1 and 3 are independent and can proceed in parallel. Item 2 benefits from Item 1
-landing first (fewer conflicts when signatures change). Item 4 benefits from Item 2 landing
-first (fewer file moves during logging migration).
+landing first (fewer conflicts when signatures change).
 
 ## What This Plan Does Not Cover
 
+- **Structured logging** — covered in
+  [go-structured-logging-plan.md](go-structured-logging-plan.md) (v0.6+)
 - **Schema migrations** (000030, 000031) — covered by the existing schema simplification
   plan
 - **Backward compatibility shim removal** — already complete per the v0.5.0 shim plan
 - **LiDAR pipeline architecture** — the L1–L6 layering is sound; this plan addresses
   infrastructure around it, not within it
 - **Frontend or Python code** — except where JSON tag changes require coordinated updates
+- **`deploy/` silent error drops** — deferred to the deployment retirement workstream
 - **Performance** — no bottleneck evidence warrants structural change; measure first
 - **New features** — this plan reduces maintenance burden; it adds no capabilities
 
@@ -331,3 +311,5 @@ Each backlog item should be verified by:
 3. Manual inspection that god files are below 500 lines after splitting
 4. Spot-check that `r.Context()` flows through to database calls
 5. JSON tag audit confirming 100% `snake_case` on exported API structs
+6. Grep for `_ =` in production code (excluding `deploy/`, `*.pb.go`, and `*_test.go`)
+   returns zero results
