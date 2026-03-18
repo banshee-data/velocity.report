@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -189,7 +188,10 @@ func TestDirectBackend_SetTuningParams_NilGrid(t *testing.T) {
 
 func TestDirectBackend_WaitForGridSettle_BecomesPositive(t *testing.T) {
 	sensorID := "direct-test-settle-become-" + t.Name()
-	mgr := l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
+	params := l3grid.BackgroundParams{
+		SeedFromFirstObservation: true,
+	}
+	mgr := l3grid.NewBackgroundManager(sensorID, 16, 360, params, nil)
 	if mgr == nil {
 		t.Fatal("failed to create BackgroundManager")
 	}
@@ -197,19 +199,33 @@ func TestDirectBackend_WaitForGridSettle_BecomesPositive(t *testing.T) {
 	ws := &WebServer{sensorID: sensorID}
 	db := NewDirectBackend(sensorID, ws)
 
-	var done atomic.Bool
+	// Feed points through ProcessFramePolar inside a goroutine.
+	// ProcessFramePolar acquires g.mu.Lock() internally, avoiding the
+	// data race that occurs when writing BackgroundCount directly.
+	// Multiple frames are needed: the first seeds the cells, subsequent
+	// frames classify observations as background.
 	go func() {
-		time.Sleep(200 * time.Millisecond)
-		mgr.Grid.BackgroundCount = 10
-		done.Store(true)
+		time.Sleep(100 * time.Millisecond)
+		points := make([]l3grid.PointPolar, 0, 360)
+		for az := 0; az < 360; az++ {
+			points = append(points, l3grid.PointPolar{
+				Channel:  1,
+				Azimuth:  float64(az),
+				Distance: 5.0,
+			})
+		}
+		// Frame 1: seeds cells. Frame 2+: classifies as background.
+		for i := 0; i < 3; i++ {
+			mgr.ProcessFramePolar(points)
+		}
 	}()
 
 	start := time.Now()
 	db.WaitForGridSettle(2 * time.Second)
 	elapsed := time.Since(start)
 
-	if elapsed > 1*time.Second {
-		t.Errorf("should have returned within ~500ms, took %v", elapsed)
+	if elapsed > 1500*time.Millisecond {
+		t.Errorf("should have returned within ~1s, took %v", elapsed)
 	}
 }
 
@@ -221,6 +237,7 @@ func TestDirectBackend_ResetGrid_WithFrameBuilder(t *testing.T) {
 
 	// Register a frame builder for this sensor so the fb != nil branch is covered.
 	fb := l2frames.NewFrameBuilderWithLogging(sensorID)
+	defer fb.Close()
 	l2frames.RegisterFrameBuilder(sensorID, fb)
 
 	trackerCfg := l5tracks.DefaultTrackerConfig()

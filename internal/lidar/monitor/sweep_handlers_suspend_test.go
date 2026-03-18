@@ -12,7 +12,6 @@ import (
 	"time"
 
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // --- handleAutoTuneSuspend ---
@@ -67,34 +66,16 @@ func TestAutoTuneSuspend_Error(t *testing.T) {
 
 func setupSuspendedSweepStore(t *testing.T) (*sql.DB, *sqlite.SweepStore) {
 	t.Helper()
-	db, err := sql.Open("sqlite3", ":memory:")
+	// Reuse the canonical schema from setupTestSweepStoreForHandlers to avoid
+	// schema drift, then add the extra column needed for suspended sweeps.
+	db, store := setupTestSweepStoreForHandlers(t)
+
+	_, err := db.Exec(`ALTER TABLE lidar_sweeps ADD COLUMN checkpoint_round INTEGER DEFAULT 0`)
 	if err != nil {
-		t.Fatalf("open db: %v", err)
+		t.Fatalf("alter table: %v", err)
 	}
 
-	_, err = db.Exec(`
-CREATE TABLE IF NOT EXISTS lidar_sweeps (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	sweep_id TEXT NOT NULL UNIQUE,
-	sensor_id TEXT NOT NULL,
-	mode TEXT NOT NULL DEFAULT 'sweep',
-	status TEXT NOT NULL DEFAULT 'running',
-	request TEXT NOT NULL,
-	results TEXT,
-	charts TEXT,
-	recommendation TEXT,
-	round_results TEXT,
-	error TEXT,
-	started_at DATETIME NOT NULL,
-	completed_at DATETIME,
-	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	checkpoint_round INTEGER DEFAULT 0
-)`)
-	if err != nil {
-		t.Fatalf("create table: %v", err)
-	}
-
-	return db, sqlite.NewSweepStore(db)
+	return db, store
 }
 
 func TestAutoTuneSuspended_NotConfigured(t *testing.T) {

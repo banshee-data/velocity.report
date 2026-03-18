@@ -22,13 +22,10 @@ func TestTrack_UnmarshalJSON_MaxSpeedMps_SnakeCase(t *testing.T) {
 	if err := json.Unmarshal(data, &track); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Go's standard json decoder uses bytes.EqualFold for case-insensitive
-	// matching, which does NOT strip underscores. So "max_speed_mps" cannot
-	// match the struct field "MaxSpeedMps". The UnmarshalJSON method detects
-	// the key in the raw map and returns early (skipping legacy PeakSpeedMps
-	// fallback), but the struct field value remains at its zero value.
-	if track.MaxSpeedMps != 0 {
-		t.Errorf("expected MaxSpeedMps=0 (snake_case not decoded by standard json), got %f", track.MaxSpeedMps)
+	// Go's standard json decoder does not match snake_case to PascalCase,
+	// but UnmarshalJSON explicitly decodes raw["max_speed_mps"] into MaxSpeedMps.
+	if track.MaxSpeedMps != 15.0 {
+		t.Errorf("expected MaxSpeedMps=15.0, got %f", track.MaxSpeedMps)
 	}
 }
 
