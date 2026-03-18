@@ -123,8 +123,8 @@ func TestSceneStore_UpdateScene_NotFound(t *testing.T) {
 	store := NewReplayCaseStore(db)
 
 	err := store.UpdateScene(&ReplayCase{ReplayCaseID: "nonexistent"})
-	if err == nil || !strings.Contains(err.Error(), "scene not found") {
-		t.Fatalf("expected 'scene not found', got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "replay case not found") {
+		t.Fatalf("expected 'replay case not found', got: %v", err)
 	}
 }
 
@@ -141,7 +141,7 @@ func TestSceneStore_DeleteScene_Success(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 	_, err := store.GetScene("del-1")
-	if err == nil || !strings.Contains(err.Error(), "scene not found") {
+	if err == nil || !strings.Contains(err.Error(), "replay case not found") {
 		t.Fatalf("expected not found after delete, got: %v", err)
 	}
 }
@@ -152,8 +152,8 @@ func TestSceneStore_DeleteScene_NotFound(t *testing.T) {
 	store := NewReplayCaseStore(db)
 
 	err := store.DeleteScene("nonexistent")
-	if err == nil || !strings.Contains(err.Error(), "scene not found") {
-		t.Fatalf("expected 'scene not found', got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "replay case not found") {
+		t.Fatalf("expected 'replay case not found', got: %v", err)
 	}
 }
 
@@ -188,8 +188,8 @@ func TestSceneStore_SetReferenceRun_NotFound(t *testing.T) {
 	store := NewReplayCaseStore(db)
 
 	err := store.SetReferenceRun("nonexistent", "run-1")
-	if err == nil || !strings.Contains(err.Error(), "scene not found") {
-		t.Fatalf("expected 'scene not found', got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "replay case not found") {
+		t.Fatalf("expected 'replay case not found', got: %v", err)
 	}
 }
 
@@ -219,8 +219,8 @@ func TestSceneStore_SetOptimalParams_NotFound(t *testing.T) {
 	store := NewReplayCaseStore(db)
 
 	err := store.SetOptimalParams("nonexistent", json.RawMessage(`{}`))
-	if err == nil || !strings.Contains(err.Error(), "scene not found") {
-		t.Fatalf("expected 'scene not found', got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "replay case not found") {
+		t.Fatalf("expected 'replay case not found', got: %v", err)
 	}
 }
 

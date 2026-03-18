@@ -173,7 +173,7 @@ func TestSceneAPI_CreateScene(t *testing.T) {
 			}
 
 			if w.Code == http.StatusCreated {
-				var resp sqlite.Scene
+				var resp sqlite.ReplayCase
 				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 					t.Errorf("failed to decode response: %v", err)
 				}
@@ -301,7 +301,7 @@ func TestSceneAPI_GetScene(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusOK {
-				var resp sqlite.Scene
+				var resp sqlite.ReplayCase
 				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 					t.Errorf("failed to decode response: %v", err)
 				}

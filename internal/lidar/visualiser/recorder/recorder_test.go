@@ -329,8 +329,8 @@ func TestDeserializeFramePrefersExplicitZeroMaxSpeed(t *testing.T) {
 			"Tracks": [
 				{
 					"TrackID": "mixed-track",
-					"MaxSpeedMps": 0,
-					"MaxSpeedMps": 6.75
+					"PeakSpeedMps": 6.75,
+					"MaxSpeedMps": 0
 				}
 			]
 		}
