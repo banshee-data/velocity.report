@@ -5,7 +5,7 @@ repos:
     hooks:
       - id: check-added-large-files
         args: ["--maxkb=1024"]
-        exclude: '^public_html/src/video/'
+        exclude: "^public_html/src/video/"
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: mixed-line-ending
