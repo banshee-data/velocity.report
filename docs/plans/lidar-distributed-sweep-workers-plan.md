@@ -28,7 +28,7 @@ Target: 2 workers initially, architecture supports N.
 1. **Unified binary** — no separate `cmd/sweep-worker` binary. Worker mode is an execution flag (`--worker`) on the same `velocity-report` binary we already ship. This aligns with the single-binary direction in the [distribution packaging plan](deploy-distribution-packaging-plan.md).
 2. **Reduced worker surface** — a worker does NOT expose the full web API (no dashboard, no radar endpoints, no report generation). It listens on port 8082 with a minimal HTTP surface: job status, past failures, health, and result retrieval.
 3. **Local result cache** — workers cache completed results locally. The driver confirms retrieval before results are scheduled for removal (flagged as retrieved, cleaned up later or when disk space is needed).
-4. **Pre-flight validation** — the `/jobs/check` endpoint on the worker confirms that PCAP files are available and readable, processes one frame to validate the configuration, then stops — before the full job kicks off.
+4. **Pre-flight validation** — the `/api/worker/jobs/check` endpoint on the worker confirms that PCAP files are available and readable, processes one frame to validate the configuration, then stops — before the full job kicks off.
 5. **Operator-configured workers** — worker hosts are defined via CRUD under the Settings page, not self-registered at runtime. The sweep UI picks from this configured list.
 
 ## Current Architecture
@@ -95,7 +95,7 @@ Target: 2 workers initially, architecture supports N.
                     │  1. Expand params → combos[]      │
                     │  2. Partition combos into jobs    │
                     │  3. Dispatch to target worker(s)  │
-                    │  4. Poll worker /status endpoints │
+                    │  4. Poll worker /api/worker/statu │
                     │  5. Retrieve results from workers │
                     │  6. Confirm retrieval → worker    │
                     │     flags results for cleanup     │
@@ -104,37 +104,34 @@ Target: 2 workers initially, architecture supports N.
                     │                                   │
                     │  SQLite: lidar_sweep_jobs         │
                     │  SQLite: lidar_sweep_workers,CRUD │
-                    └──────┬───────────────┬────────────┘
-                           │               │
-              ┌────────────▼──┐      ┌─────▼────────────┐
-              │   WORKER A    │      │   WORKER B       │
-              │               │      │                  │
-              │  velocity-    │      │  velocity-       │
-              │  report       │      │  report          │
-              │  --worker     │      │  --worker        │
-              │  (:8082)      │      │  (:8082)         │
-              │               │      │                  │
-              │  Reduced API: │      │  Reduced API:    │
-              │  /status      │      │  /status         │
-              │  /jobs        │      │  /jobs           │
-              │  /jobs/check  │      │  /jobs/check     │
-              │  /health      │      │  /health         │
-              │               │      │                  │
-              │  Local cache: │      │  Local cache:    │
-              │  results held │      │  results held    │
-              │  until driver │      │  until driver    │
-              │  confirms     │      │  confirms        │
-              │  retrieval    │      │  retrieval       │
-              └───────┬───────┘      └────────┬─────────┘
-                      │                       │
-              ┌───────▼───────────────────────▼─────────┐
-              │         Shared Filesystem (NFS/SMB)     │
-              │                                         │
-              │  /mnt/pcap/                             │
-              │    ├─ site-01/capture-2026-03-10.pcap   │
-              │    ├─ site-01/capture-2026-03-11.pcap   │
-              │    └─ site-02/capture-2026-03-12.pcap   │
-              └─────────────────────────────────────────┘
+                    └──────┬──────────────────────┬─────┘
+                           │                      │
+              ┌────────────▼──────────────┐  ┌────▼──────────────────────┐
+              │   WORKER A                │  │   WORKER B                │
+              │                           │  │                           │
+              │  velocity-report --worker │  │  velocity-report --worker │
+              │  (:8082)                  │  │  (:8082)                  │
+              │                           │  │                           │
+              │  /health                  │  │  /health                  │
+              │  /api/worker/status       │  │  /api/worker/status       │
+              │  /api/worker/jobs         │  │  /api/worker/jobs         │
+              │  /api/worker/jobs/check   │  │  /api/worker/jobs/check   │
+              │  /api/worker/failures     │  │  /api/worker/failures     │
+              │                           │  │                           │
+              │  Local cache:             │  │  Local cache:             │
+              │  results held until       │  │  results held until       │
+              │  driver confirms          │  │  driver confirms          │
+              │  retrieval                │  │  retrieval                │
+              └─────────────┬─────────────┘  └─────────────┬─────────────┘
+                            │                              │
+              ┌─────────────▼──────────────────────────────▼─────────────┐
+              │             Shared Filesystem (NFS/SMB)                  │
+              │                                                          │
+              │  /mnt/pcap/                                              │
+              │    ├─ site-01/capture-2026-03-10.pcap                    │
+              │    ├─ site-01/capture-2026-03-11.pcap                    │
+              │    └─ site-02/capture-2026-03-12.pcap                    │
+              └──────────────────────────────────────────────────────────┘
 ```
 
 ## Worker Execution Mode
@@ -164,22 +161,24 @@ velocity-report --worker \
 
 ### Worker HTTP Surface (port 8082)
 
-| Method | Path                     | Purpose                                                   |
-| ------ | ------------------------ | --------------------------------------------------------- |
-| `GET`  | `/health`                | Liveness check (uptime, version, disk space)              |
-| `GET`  | `/status`                | Current state: idle, running, job ID, progress            |
-| `GET`  | `/jobs`                  | List recent jobs (last 50) with status and timing         |
-| `GET`  | `/jobs/{job_id}`         | Single job detail including results if complete           |
-| `GET`  | `/jobs/{job_id}/results` | Retrieve cached results for a completed job               |
-| `POST` | `/jobs/{job_id}/confirm` | Driver confirms result retrieval; flags for cleanup       |
-| `POST` | `/jobs/submit`           | Driver submits a job (combos + sweep config)              |
-| `POST` | `/jobs/check`            | Pre-flight: validate PCAP readable, process 1 frame, stop |
-| `POST` | `/jobs/{job_id}/cancel`  | Cancel a running job                                      |
-| `GET`  | `/failures`              | List past job failures with error details                 |
+| Method | Path                                | Purpose                                                   |
+| ------ | ----------------------------------- | --------------------------------------------------------- |
+| `GET`  | `/health`                           | Liveness check (uptime, version, disk space)              |
+| `GET`  | `/api/worker/status`                | Current state: idle, running, job ID, progress            |
+| `GET`  | `/api/worker/jobs`                  | List recent jobs (last 50) with status and timing         |
+| `GET`  | `/api/worker/jobs/{job_id}`         | Single job detail including results if complete           |
+| `GET`  | `/api/worker/jobs/{job_id}/results` | Retrieve cached results for a completed job               |
+| `POST` | `/api/worker/jobs/{job_id}/confirm` | Driver confirms result retrieval; flags for cleanup       |
+| `POST` | `/api/worker/jobs/submit`           | Driver submits a job (combos + sweep config)              |
+| `POST` | `/api/worker/jobs/check`            | Pre-flight: validate PCAP readable, process 1 frame, stop |
+| `POST` | `/api/worker/jobs/{job_id}/cancel`  | Cancel a running job                                      |
+| `GET`  | `/api/worker/failures`              | List past job failures with error details                 |
 
-### Pre-Flight Validation (`/jobs/check`)
+`/health` is at root level, matching the existing LiDAR monitor convention. All other endpoints use the `/api/worker/` prefix, consistent with the `/api/lidar/` namespace on the main server.
 
-Before dispatching a full sweep job, the driver calls `/jobs/check` with the job's `SweepRequest` (PCAP file, sensor config). The worker:
+### Pre-Flight Validation (`/api/worker/jobs/check`)
+
+Before dispatching a full sweep job, the driver calls `/api/worker/jobs/check` with the job's `SweepRequest` (PCAP file, sensor config). The worker:
 
 1. Resolves the PCAP file path against `--pcap-root`
 2. Confirms the file exists and is readable
@@ -219,8 +218,8 @@ CREATE TABLE worker_result_cache (
 **Lifecycle:**
 
 1. Job completes → results written to `worker_result_cache`
-2. Driver calls `GET /jobs/{job_id}/results` → worker returns results JSON
-3. Driver calls `POST /jobs/{job_id}/confirm` → worker sets `retrieved = TRUE`
+2. Driver calls `GET /api/worker/jobs/{job_id}/results` → worker returns results JSON
+3. Driver calls `POST /api/worker/jobs/{job_id}/confirm` → worker sets `retrieved = TRUE`
 4. Background cleanup: results with `retrieved = TRUE` and `retrieved_at` older than 24 hours are deleted
 5. Emergency cleanup: if disk usage exceeds a threshold, oldest retrieved results are deleted first
 
@@ -298,7 +297,7 @@ type WorkerServer struct {
     Notes     string `json:"notes,omitempty"`
 }
 
-// CheckResult is returned by the worker /jobs/check pre-flight endpoint.
+// CheckResult is returned by the worker /api/worker/jobs/check pre-flight endpoint.
 type CheckResult struct {
     OK           bool   `json:"ok"`
     PCAPReadable bool   `json:"pcap_readable"`
@@ -337,16 +336,16 @@ See [Worker HTTP Surface](#worker-http-surface-port-8082) above.
 
 ## Failure Registry
 
-| Component         | Failure Mode                     | Detection                                      | Recovery                                                                 |
-| ----------------- | -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
-| Worker process    | Crash during combo execution     | Heartbeat timeout (configurable, default 60 s) | Driver marks job `failed`, re-queues combos                              |
-| Shared filesystem | NFS/SMB mount lost               | Worker PCAP open fails / `/jobs/check` fails   | Job fails with filesystem error; driver reports to user                  |
-| Driver process    | Crash mid-sweep                  | On restart, reads `lidar_sweep_jobs`           | Resume: re-queue incomplete jobs, merge completed results                |
-| Network partition | Worker cannot reach driver       | Driver poll fails                              | Driver retries; worker holds results in local cache                      |
-| Result retrieval  | Driver crashes before confirming | Worker retains cached results                  | Driver re-fetches on restart; worker does not delete unconfirmed results |
-| SQLite contention | Concurrent writes from driver    | WAL mode + retry                               | Already handled by existing SQLite configuration                         |
-| Combo execution   | PCAP replay timeout              | Existing `WaitForPCAPComplete` timeout         | Job marked failed with error detail; driver re-queues                    |
-| Config invalid    | Bad params or corrupt PCAP       | `/jobs/check` pre-flight fails                 | Job never starts; error shown to user immediately                        |
+| Component         | Failure Mode                     | Detection                                               | Recovery                                                                 |
+| ----------------- | -------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Worker process    | Crash during combo execution     | Heartbeat timeout (configurable, default 60 s)          | Driver marks job `failed`, re-queues combos                              |
+| Shared filesystem | NFS/SMB mount lost               | Worker PCAP open fails / `/api/worker/jobs/check` fails | Job fails with filesystem error; driver reports to user                  |
+| Driver process    | Crash mid-sweep                  | On restart, reads `lidar_sweep_jobs`                    | Resume: re-queue incomplete jobs, merge completed results                |
+| Network partition | Worker cannot reach driver       | Driver poll fails                                       | Driver retries; worker holds results in local cache                      |
+| Result retrieval  | Driver crashes before confirming | Worker retains cached results                           | Driver re-fetches on restart; worker does not delete unconfirmed results |
+| SQLite contention | Concurrent writes from driver    | WAL mode + retry                                        | Already handled by existing SQLite configuration                         |
+| Combo execution   | PCAP replay timeout              | Existing `WaitForPCAPComplete` timeout                  | Job marked failed with error detail; driver re-queues                    |
+| Config invalid    | Bad params or corrupt PCAP       | `/api/worker/jobs/check` pre-flight fails               | Job never starts; error shown to user immediately                        |
 
 ## Phased Rollout
 
@@ -398,10 +397,10 @@ internal/lidar/storage/sqlite/worker_server_store_test.go       (new — tests)
   - `SubmitDistributedSweep(req SweepRequest, workerID string)` — expands params, partitions combos into N chunks, creates jobs, dispatches to worker(s)
   - `MergeResults(sweepID string)` — retrieves completed job results from workers, confirms retrieval, merges into a unified `SweepState`
   - Partitioning strategy: round-robin combo assignment (combo `i` → worker `i % N`)
-  - Pre-flight: calls `POST /jobs/check` on target worker(s) before dispatching
+  - Pre-flight: calls `POST /api/worker/jobs/check` on target worker(s) before dispatching
 - Worker server CRUD endpoints under `/api/lidar/sweep/workers` (see [API Surface](#api-surface))
   - Wire into existing `WebServer` route registration
-  - Test connectivity endpoint calls worker's `/health`
+  - Test connectivity endpoint calls worker's `GET /health`
 - Settings UI (Svelte):
   - New "Sweep Workers" section under `/settings`
   - Table listing configured workers: name, host, port, enabled, status (reachable/unreachable)
@@ -508,10 +507,10 @@ internal/lidar/worker/cache_test.go         (new — unit tests)
   - Aggregated progress bar: completed combos across all workers / total combos
   - Results merge: display unified `ComboResult[]` from all workers, identical to single-machine output
 - Driver-side progress aggregation:
-  - Periodic poll of worker `/status` endpoints → compute aggregate `SweepState`
+  - Periodic poll of worker `/api/worker/status` endpoints → compute aggregate `SweepState`
   - Reuse existing sweep status polling pattern for dashboard updates
 - Pre-flight integration:
-  - Before starting a distributed sweep, driver calls `POST /jobs/check` on selected worker
+  - Before starting a distributed sweep, driver calls `POST /api/worker/jobs/check` on selected worker
   - If check fails, sweep is not started and error is shown in the UI
 - End-to-end integration test:
   - Spin up driver + 2 worker instances (in-process, using `--worker` flag)
@@ -560,7 +559,7 @@ docs/lidar/operations/distributed-sweep-setup.md           (new — operational 
 - Observability:
   - Structured logging for job lifecycle events (created, dispatched, preflight_passed, running, completed, retrieved, failed, reassigned)
   - Metrics: jobs_pending, jobs_running, jobs_completed, jobs_failed per sweep
-  - Worker `/health` endpoint: uptime, current job, last heartbeat, disk free, cache size
+  - Worker `GET /health` endpoint: uptime, current job, last heartbeat, disk free, cache size
 
 **Files changed:**
 
