@@ -33,8 +33,6 @@ private enum RunBrowserLayout {
     runBrowserLogger.debug("loadRunForReplay returned success=\(loadResponse != nil)")
     if let loadResponse {
         appState.setReplayFrameEncoding(loadResponse.frameEncoding)
-        // Update app state to indicate we're in VRLOG replay mode
-        appState.isLive = false
         // Set currentRunID so labels route to run-track API
         appState.currentRunID = runID
         await runBrowserState.primeTrackCache(runID: runID)
@@ -140,7 +138,7 @@ private enum RunBrowserLayout {
                             await runBrowserState.stopReplay()
                             await MainActor.run {
                                 appState.setReplayFrameEncoding(nil)
-                                appState.isLive = true
+                                appState.setPlaybackMode(.live)
                                 appState.currentRunID = nil
                             }
                         }

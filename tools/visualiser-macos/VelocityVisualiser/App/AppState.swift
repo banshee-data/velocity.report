@@ -322,10 +322,7 @@ private let logger = DevLogger(category: "AppState")
 
     var displayPlaybackMode: PlaybackMode {
         if !isConnected && playbackMode == .unknown { return .unknown }
-        if hasPlaybackMetadata { return playbackMode }
-        if playbackMode == .unknown { return .unknown }
-        if isLive { return .live }
-        return isSeekable ? .replaySeekable : .replayNonSeekable
+        return playbackMode
     }
 
     var displayReplayProgress: Double {
@@ -356,14 +353,13 @@ private let logger = DevLogger(category: "AppState")
         playbackCommandClientOverride ?? grpcClient
     }
 
-    fileprivate func setPlaybackMode(_ mode: PlaybackMode) {
-        guard playbackMode != mode else { return }
+    func setPlaybackMode(_ mode: PlaybackMode) {
         playbackMode = mode
         if mode != .replaySeekable { replayFrameEncoding = nil }
         switch mode {
         case .unknown:
-            // Preserve the last known flags until playback metadata arrives.
-            break
+            isLive = false
+            isSeekable = false
         case .live:
             isLive = true
             isSeekable = false
@@ -390,13 +386,6 @@ private let logger = DevLogger(category: "AppState")
     fileprivate func resetPlaybackState(mode: PlaybackMode) {
         bumpPlaybackGeneration()
         setPlaybackMode(mode)
-        // setPlaybackMode(.unknown) preserves isLive/isSeekable for transient
-        // mode changes, but a full reset must clear them so they are
-        // re-established from the first frame's playback metadata.
-        if mode == .unknown {
-            isLive = false
-            isSeekable = false
-        }
         hasPlaybackMetadata = false
         isPaused = false
         replayFinished = false
@@ -995,7 +984,7 @@ private let logger = DevLogger(category: "AppState")
     /// Load a recording from the given URL. Used by openRecording and for testing.
     func loadRecording(from url: URL) {
         Task { @MainActor [weak self] in
-            self?.isLive = false
+            self?.setPlaybackMode(.replayNonSeekable)
             // Note: Actual replay connection would need a reconnect to replay server
             print("Selected recording: \(url.path)")
         }

@@ -1902,8 +1902,8 @@ function downloadCSV() {
   }
 
   var metricCols = [
-    "accept_rate_mean",
-    "accept_rate_stddev",
+    "overall_accept_mean",
+    "overall_accept_stddev",
     "nonzero_cells_mean",
     "nonzero_cells_stddev",
     "active_tracks_mean",
@@ -1931,13 +1931,7 @@ function downloadCSV() {
   latestResults.forEach(function (r) {
     var row = [];
     paramKeys.forEach(function (k) {
-      var v;
-      if (r.param_values && r.param_values[k] !== undefined) {
-        v = r.param_values[k];
-      } else {
-        v = r[k];
-      }
-      row.push(v);
+      row.push(r.param_values ? r.param_values[k] : undefined);
     });
     row.push(r.overall_accept_mean);
     row.push(r.overall_accept_stddev);
@@ -2571,12 +2565,7 @@ function renderTable(results) {
     var tr = document.createElement("tr");
     var html = "";
     paramKeys.forEach(function (k) {
-      var v;
-      if (r.param_values && r.param_values[k] !== undefined) {
-        v = r.param_values[k];
-      } else {
-        v = r[k];
-      }
+      var v = r.param_values ? r.param_values[k] : undefined;
       if (typeof v === "number" && v !== Math.floor(v)) {
         html += '<td class="mono">' + escapeHTML(v.toFixed(4)) + "</td>";
       } else {
