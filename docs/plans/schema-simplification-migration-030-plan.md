@@ -1,18 +1,18 @@
 # Pre-v0.5.0 Schema Simplification Migration 030 Plan
 
-- **Status:** Draft — prerequisite proto rename complete (#352); migration SQL and Go code changes pending
+- **Status:** Implemented — migrations 000030 and 000031 written, Go code, web frontend, and tests updated in #400
 - **Layers:** Database, L3 Grid, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints (API + web)
 - **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md)
 
 ## Prerequisites
 
-| Prerequisite                             | Status         | Notes                                                                                |
-| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------ |
-| Proto `peak_speed_mps` → `max_speed_mps` | ✅ Complete    | Landed in #352 (proto field 25, Go/Swift/TS model); SQL column is the remaining step |
-| D-19 decision recorded                   | ✅ Complete    | Raw maximum renamed to `max_speed_mps`; `peak` reserved for future filtered metric   |
-| Migration SQL drafted                    | ✅ Complete    | DROP COLUMN + RENAME COLUMN statements ready (see §3 below)                          |
-| Go code changes                          | ❌ Not started | Track store, analysis run, l5tracks, l6objects, monitor API all need field renames   |
-| Web frontend changes                     | ❌ Not started | TypeScript type field renames and percentile field removal                           |
+| Prerequisite                             | Status      | Notes                                                                                |
+| ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| Proto `peak_speed_mps` → `max_speed_mps` | ✅ Complete | Landed in #352 (proto field 25, Go/Swift/TS model); SQL column is the remaining step |
+| D-19 decision recorded                   | ✅ Complete | Raw maximum renamed to `max_speed_mps`; `peak` reserved for future filtered metric   |
+| Migration SQL drafted                    | ✅ Complete | SQL files `000030_schema_simplification` and `000031_table_naming` landed in #400    |
+| Go code changes                          | ✅ Complete | All stores, types, and monitor API renamed to match new schema (#400)                |
+| Web frontend changes                     | ✅ Complete | TypeScript types and Svelte route pages updated (`scene_id` → `replay_case_id`) #400 |
 
 ## Goal
 
