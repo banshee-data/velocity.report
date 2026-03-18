@@ -1881,7 +1881,12 @@ describe('onSweepSceneSelected', () => {
 			json: () =>
 				Promise.resolve({
 					scenes: [
-						{ replay_case_id: 's1', pcap_file: 'test1.pcap', pcap_start_secs: 5, pcap_duration_secs: 30 },
+						{
+							replay_case_id: 's1',
+							pcap_file: 'test1.pcap',
+							pcap_start_secs: 5,
+							pcap_duration_secs: 30
+						},
 						{
 							replay_case_id: 's2',
 							pcap_file: 'test2.pcap',
