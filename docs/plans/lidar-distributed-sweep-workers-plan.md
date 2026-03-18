@@ -28,7 +28,7 @@ Target: 2 workers initially, architecture supports N.
 1. **Unified binary** — no separate `cmd/sweep-worker` binary. Worker mode is an execution flag (`--worker`) on the same `velocity-report` binary we already ship. This aligns with the single-binary direction in the [distribution packaging plan](deploy-distribution-packaging-plan.md).
 2. **Reduced worker surface** — a worker does NOT expose the full web API (no dashboard, no radar endpoints, no report generation). It listens on port 8082 with a minimal HTTP surface: job status, past failures, health, and result retrieval.
 3. **Local result cache** — workers cache completed results locally. The driver confirms retrieval before results are scheduled for removal (flagged as retrieved, cleaned up later or when disk space is needed).
-4. **Pre-flight validation** — a `check_job` endpoint on the worker confirms that PCAP files are available and readable, processes one frame to validate the configuration, then stops — before the full job kicks off.
+4. **Pre-flight validation** — the `/jobs/check` endpoint on the worker confirms that PCAP files are available and readable, processes one frame to validate the configuration, then stops — before the full job kicks off.
 5. **Operator-configured workers** — worker hosts are defined via CRUD under the Settings page, not self-registered at runtime. The sweep UI picks from this configured list.
 
 ## Current Architecture
@@ -314,22 +314,22 @@ type CheckResult struct {
 
 **Job lifecycle (under existing :8080 API):**
 
-| Method | Path                                | Purpose                                                           |
-| ------ | ----------------------------------- | ----------------------------------------------------------------- |
-| `POST` | `/api/lidar/sweep/start`            | Extended: accepts optional `target` field ("server" or worker ID) |
-| `GET`  | `/api/sweep/jobs/{sweep_id}`        | Get all jobs for a sweep                                          |
-| `GET`  | `/api/sweep/jobs/{sweep_id}/status` | Aggregated sweep progress                                         |
+| Method | Path                                      | Purpose                                                           |
+| ------ | ----------------------------------------- | ----------------------------------------------------------------- |
+| `POST` | `/api/lidar/sweep/start`                  | Extended: accepts optional `target` field ("server" or worker ID) |
+| `GET`  | `/api/lidar/sweep/jobs/{sweep_id}`        | Get all jobs for a sweep                                          |
+| `GET`  | `/api/lidar/sweep/jobs/{sweep_id}/status` | Aggregated sweep progress                                         |
 
 **Worker server CRUD (Settings):**
 
-| Method   | Path                                  | Purpose                                  |
-| -------- | ------------------------------------- | ---------------------------------------- |
-| `GET`    | `/api/sweep/workers`                  | List configured worker servers           |
-| `GET`    | `/api/sweep/workers/{worker_id}`      | Get single worker server                 |
-| `POST`   | `/api/sweep/workers`                  | Create a worker server entry             |
-| `PUT`    | `/api/sweep/workers/{worker_id}`      | Update a worker server entry             |
-| `DELETE` | `/api/sweep/workers/{worker_id}`      | Delete a worker server entry             |
-| `POST`   | `/api/sweep/workers/{worker_id}/test` | Test connectivity + run pre-flight check |
+| Method   | Path                                        | Purpose                                  |
+| -------- | ------------------------------------------- | ---------------------------------------- |
+| `GET`    | `/api/lidar/sweep/workers`                  | List configured worker servers           |
+| `GET`    | `/api/lidar/sweep/workers/{worker_id}`      | Get single worker server                 |
+| `POST`   | `/api/lidar/sweep/workers`                  | Create a worker server entry             |
+| `PUT`    | `/api/lidar/sweep/workers/{worker_id}`      | Update a worker server entry             |
+| `DELETE` | `/api/lidar/sweep/workers/{worker_id}`      | Delete a worker server entry             |
+| `POST`   | `/api/lidar/sweep/workers/{worker_id}/test` | Test connectivity + run pre-flight check |
 
 ### Worker Endpoints (port 8082)
 
@@ -340,13 +340,13 @@ See [Worker HTTP Surface](#worker-http-surface-port-8082) above.
 | Component         | Failure Mode                     | Detection                                      | Recovery                                                                 |
 | ----------------- | -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
 | Worker process    | Crash during combo execution     | Heartbeat timeout (configurable, default 60 s) | Driver marks job `failed`, re-queues combos                              |
-| Shared filesystem | NFS/SMB mount lost               | Worker PCAP open fails / check_job fails       | Job fails with filesystem error; driver reports to user                  |
+| Shared filesystem | NFS/SMB mount lost               | Worker PCAP open fails / `/jobs/check` fails   | Job fails with filesystem error; driver reports to user                  |
 | Driver process    | Crash mid-sweep                  | On restart, reads `lidar_sweep_jobs`           | Resume: re-queue incomplete jobs, merge completed results                |
 | Network partition | Worker cannot reach driver       | Driver poll fails                              | Driver retries; worker holds results in local cache                      |
 | Result retrieval  | Driver crashes before confirming | Worker retains cached results                  | Driver re-fetches on restart; worker does not delete unconfirmed results |
 | SQLite contention | Concurrent writes from driver    | WAL mode + retry                               | Already handled by existing SQLite configuration                         |
 | Combo execution   | PCAP replay timeout              | Existing `WaitForPCAPComplete` timeout         | Job marked failed with error detail; driver re-queues                    |
-| Config invalid    | Bad params or corrupt PCAP       | `check_job` pre-flight fails                   | Job never starts; error shown to user immediately                        |
+| Config invalid    | Bad params or corrupt PCAP       | `/jobs/check` pre-flight fails                 | Job never starts; error shown to user immediately                        |
 
 ## Phased Rollout
 
@@ -399,14 +399,14 @@ internal/lidar/storage/sqlite/worker_server_store_test.go       (new — tests)
   - `MergeResults(sweepID string)` — retrieves completed job results from workers, confirms retrieval, merges into a unified `SweepState`
   - Partitioning strategy: round-robin combo assignment (combo `i` → worker `i % N`)
   - Pre-flight: calls `POST /jobs/check` on target worker(s) before dispatching
-- Worker server CRUD endpoints under `/api/sweep/workers` (see [API Surface](#api-surface))
+- Worker server CRUD endpoints under `/api/lidar/sweep/workers` (see [API Surface](#api-surface))
   - Wire into existing `WebServer` route registration
   - Test connectivity endpoint calls worker's `/health`
 - Settings UI (Svelte):
   - New "Sweep Workers" section under `/settings`
   - Table listing configured workers: name, host, port, enabled, status (reachable/unreachable)
   - Add / Edit / Delete workers (modal form, follows existing serial-config pattern)
-  - "Test Connection" button per worker — calls `/api/sweep/workers/{id}/test`
+  - "Test Connection" button per worker — calls `/api/lidar/sweep/workers/{id}/test`
 - Integration tests: submit a sweep, verify jobs are created with correct combo partitions
 
 **Key design decisions:**
@@ -443,7 +443,7 @@ web/src/routes/(constrained)/settings/+page.svelte         (worker CRUD section)
   - When set: skip radar init, skip dashboard, skip gRPC visualiser, skip transit worker
   - Start LiDAR pipeline (L1–L5) for PCAP replay capability
   - Start minimal HTTP server on `--worker-listen` (default `:8082`)
-  - Register with driver at `--driver-url` on startup
+  - Use driver at `--driver-url` for job polling and result reporting (worker identity is configured via Settings)
 - Create `internal/lidar/worker/` package:
   - `server.go` — minimal HTTP server implementing the [worker endpoint table](#worker-http-surface-port-8082)
   - `executor.go` — poll loop: accept job from driver, execute combos via `sweep.Runner` + `DirectBackend`, cache results
@@ -455,15 +455,15 @@ web/src/routes/(constrained)/settings/+page.svelte         (worker CRUD section)
   - `--pcap-root` — shared filesystem mount (e.g. `/mnt/pcap`)
   - `--worker-listen` — HTTP listen address (default `:8082`)
   - `--worker-id` — optional; auto-generated from hostname if omitted
-- Heartbeat goroutine: POSTs to driver `/api/sweep/jobs/{id}/heartbeat` every 15 s while executing
-- SIGTERM handler: complete current combo, cache partial results, deregister
+- Heartbeat goroutine: POSTs to driver `/api/lidar/sweep/jobs/{id}/heartbeat` every 15 s while executing
+- SIGTERM handler: complete current combo, cache partial results, shut down cleanly
 
 **Key design decisions:**
 
 - No separate binary — `--worker` is a flag on the existing `cmd/radar/radar.go` entry point, consistent with `--enable-lidar`, `--disable-radar`, `--debug`
 - Worker is not stateless — it caches results locally until the driver confirms retrieval. This survives transient network issues and driver restarts.
 - Workers run their own LiDAR pipeline (L1–L5) for PCAP replay — they need sensor processing, not just an API client
-- `--pcap-root` must match the shared filesystem mount; the driver sends PCAP filenames (basenames), workers resolve full paths
+- `--pcap-root` must match the shared filesystem mount; the driver sends validated relative PCAP paths from this root (e.g. `site-01/capture-2026-03-10.pcap`), workers reject absolute/`..` paths and resolve full paths under `--pcap-root`
 
 **Shared filesystem layout:**
 
@@ -501,7 +501,7 @@ internal/lidar/worker/cache_test.go         (new — unit tests)
 
 - Sweep UI changes (Svelte):
   - **Target selector** in sweep configuration panel: "Run on: Server (local) / Worker-01 / Worker-02 / ..."
-    - Dropdown populated from `/api/sweep/workers` (enabled workers only)
+    - Dropdown populated from `/api/lidar/sweep/workers` (enabled workers only)
     - Default: "Server (local)" — runs sweep locally as today
     - Selecting a worker dispatches via the coordinator
   - Worker status badges: show each worker's current state (idle / running / error) next to its name
@@ -510,7 +510,7 @@ internal/lidar/worker/cache_test.go         (new — unit tests)
 - Driver-side progress aggregation:
   - Periodic poll of worker `/status` endpoints → compute aggregate `SweepState`
   - Reuse existing sweep status polling pattern for dashboard updates
-- `check_job` integration:
+- Pre-flight integration:
   - Before starting a distributed sweep, driver calls `POST /jobs/check` on selected worker
   - If check fails, sweep is not started and error is shown in the UI
 - End-to-end integration test:
@@ -547,7 +547,7 @@ docs/lidar/operations/distributed-sweep-setup.md           (new — operational 
   - Stale jobs reset to `pending` with incremented retry counter
   - Maximum retry limit (default 3) before permanent failure
 - Graceful worker shutdown:
-  - SIGTERM handler: complete current combo, cache partial results, deregister
+  - SIGTERM handler: complete current combo, cache partial results, shut down cleanly
   - Partial results: driver accepts `ComboResult[]` for completed combos within a chunk even if the chunk is incomplete
 - Result cache lifecycle:
   - Retrieved results: cleaned up after 24 hours (configurable)
@@ -558,7 +558,7 @@ docs/lidar/operations/distributed-sweep-setup.md           (new — operational 
   - Re-query workers for cached results from incomplete sweeps
   - Merge any completed job results into the parent sweep
 - Observability:
-  - Structured logging for job lifecycle events (created, dispatched, check_passed, running, completed, retrieved, failed, reassigned)
+  - Structured logging for job lifecycle events (created, dispatched, preflight_passed, running, completed, retrieved, failed, reassigned)
   - Metrics: jobs_pending, jobs_running, jobs_completed, jobs_failed per sweep
   - Worker `/health` endpoint: uptime, current job, last heartbeat, disk free, cache size
 
@@ -602,7 +602,7 @@ Phases 1–3 are strictly sequential. Phase 4 (dashboard) and Phase 5 (hardening
 
 5. **Backward compatible** — the single-machine sweep path (`POST /api/lidar/sweep/start` with no `target` field) continues to work unchanged. Distributed sweep is opt-in: configure worker servers in Settings, select a worker target in the sweep UI.
 
-6. **Shared filesystem required** — workers must have read access to the same PCAP directory tree. The driver sends PCAP basenames; workers resolve full paths against their configured `--pcap-root`.
+6. **Shared filesystem required** — workers must have read access to the same PCAP directory tree. The driver sends validated relative PCAP paths; workers resolve full paths against their configured `--pcap-root` and reject absolute or `..` paths.
 
 7. **Reduced worker surface** — the worker HTTP server (port 8082) exposes only job lifecycle and health endpoints. No dashboard, no radar, no PDF, no full LiDAR monitor UI.
 
