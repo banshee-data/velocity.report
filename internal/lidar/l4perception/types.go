@@ -41,7 +41,7 @@ type OrientedBoundingBox struct {
 type WorldCluster struct {
 	ClusterID         int64   // matches lidar_cluster_id INTEGER PRIMARY KEY
 	SensorID          string  // matches sensor_id TEXT NOT NULL
-	WorldFrame        FrameID // matches world_frame TEXT NOT NULL
+	FrameID           FrameID // matches frame_id TEXT NOT NULL
 	TSUnixNanos       int64   // matches ts_unix_nanos INTEGER NOT NULL
 	CentroidX         float32 // matches centroid_x REAL
 	CentroidY         float32 // matches centroid_y REAL

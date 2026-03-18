@@ -44,7 +44,7 @@ func NewSweepStore(db *sql.DB) *SweepStore {
 // InsertSweep creates a new sweep record when a sweep starts.
 func (s *SweepStore) InsertSweep(record SweepRecord) error {
 	query := `
-		INSERT INTO lidar_sweeps (
+		INSERT INTO lidar_tuning_sweeps (
 			sweep_id, sensor_id, mode, status, request, started_at,
 			objective_name, objective_version
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -71,7 +71,7 @@ func (s *SweepStore) InsertSweep(record SweepRecord) error {
 // UpdateSweepResults updates a sweep record with results on completion or error.
 func (s *SweepStore) UpdateSweepResults(sweepID, status string, results, recommendation, roundResults json.RawMessage, completedAt *time.Time, errMsg string, scoreComponents, recommendationExplanation, labelProvenanceSummary json.RawMessage, transformPipelineName, transformPipelineVersion string) error {
 	query := `
-		UPDATE lidar_sweeps
+		UPDATE lidar_tuning_sweeps
 		SET status = ?, results = ?, recommendation = ?, round_results = ?, error = ?, completed_at = ?,
 		    score_components_json = ?, recommendation_explanation_json = ?, label_provenance_summary_json = ?,
 		    transform_pipeline_name = ?, transform_pipeline_version = ?
@@ -107,7 +107,7 @@ func (s *SweepStore) UpdateSweepResults(sweepID, status string, results, recomme
 
 // UpdateSweepCharts saves chart configuration for a sweep.
 func (s *SweepStore) UpdateSweepCharts(sweepID string, charts json.RawMessage) error {
-	query := `UPDATE lidar_sweeps SET charts = ? WHERE sweep_id = ?`
+	query := `UPDATE lidar_tuning_sweeps SET charts = ? WHERE sweep_id = ?`
 	err := retryOnBusy(func() error {
 		_, err := s.db.Exec(query, string(charts), sweepID)
 		return err
@@ -125,7 +125,7 @@ func (s *SweepStore) GetSweep(sweepID string) (*SweepRecord, error) {
 		       recommendation, round_results, error, started_at, completed_at,
 		       objective_name, objective_version, transform_pipeline_name, transform_pipeline_version,
 		       score_components_json, recommendation_explanation_json, label_provenance_summary_json
-		FROM lidar_sweeps
+		FROM lidar_tuning_sweeps
 		WHERE sweep_id = ?
 	`
 	var rec SweepRecord
@@ -214,7 +214,7 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 
 	query := `
 		SELECT id, sweep_id, sensor_id, mode, status, error, started_at, completed_at
-		FROM lidar_sweeps
+		FROM lidar_tuning_sweeps
 		WHERE sensor_id = ?
 		ORDER BY started_at DESC
 		LIMIT ?
@@ -263,7 +263,7 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 // DeleteSweep removes a sweep record.
 func (s *SweepStore) DeleteSweep(sweepID string) error {
 	return retryOnBusy(func() error {
-		_, err := s.db.Exec(`DELETE FROM lidar_sweeps WHERE sweep_id = ?`, sweepID)
+		_, err := s.db.Exec(`DELETE FROM lidar_tuning_sweeps WHERE sweep_id = ?`, sweepID)
 		return err
 	})
 }
@@ -290,7 +290,7 @@ func (s *SweepStore) SaveSweepComplete(sweepID, status string, results, recommen
 // SaveSweepCheckpoint persists a mid-run checkpoint so a suspended auto-tune can be resumed.
 func (s *SweepStore) SaveSweepCheckpoint(sweepID string, round int, bounds, results, request json.RawMessage) error {
 	query := `
-		UPDATE lidar_sweeps
+		UPDATE lidar_tuning_sweeps
 		SET status = 'suspended',
 		    checkpoint_round = ?,
 		    checkpoint_bounds = ?,
@@ -312,7 +312,7 @@ func (s *SweepStore) SaveSweepCheckpoint(sweepID string, round int, bounds, resu
 func (s *SweepStore) LoadSweepCheckpoint(sweepID string) (round int, bounds, results, request json.RawMessage, err error) {
 	query := `
 		SELECT checkpoint_round, checkpoint_bounds, checkpoint_results, checkpoint_request
-		FROM lidar_sweeps
+		FROM lidar_tuning_sweeps
 		WHERE sweep_id = ? AND status = 'suspended'
 	`
 	var (
@@ -368,7 +368,7 @@ func (s *SweepStore) GetSuspendedSweep() (string, int, error) {
 func (s *SweepStore) GetSuspendedSweepInfo() (*SuspendedSweepInfo, error) {
 	query := `
 		SELECT sweep_id, sensor_id, COALESCE(checkpoint_round, 0), started_at
-		FROM lidar_sweeps
+		FROM lidar_tuning_sweeps
 		WHERE status = 'suspended'
 		ORDER BY started_at DESC
 		LIMIT 1

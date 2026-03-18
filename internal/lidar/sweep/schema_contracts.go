@@ -1,6 +1,6 @@
 package sweep
 
-// Schema contracts for JSON payloads persisted in lidar_sweeps and related tables.
+// Schema contracts for JSON payloads persisted in lidar_tuning_sweeps and related tables.
 // These constants document the expected structure of versioned JSON columns,
 // enabling backward-compatible evolution and validation.
 
@@ -8,7 +8,7 @@ package sweep
 const SchemaVersion = "1"
 
 // RoundRecordSchemaVersion identifies the schema version of round_results JSON.
-// The round_results column in lidar_sweeps stores a JSON array of HINTRound objects.
+// The round_results column in lidar_tuning_sweeps stores a JSON array of HINTRound objects.
 // Each HINTRound follows the schema defined by the HINTRound struct.
 const RoundRecordSchemaVersion = "1"
 

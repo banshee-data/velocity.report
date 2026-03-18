@@ -40,7 +40,7 @@ func (ws *WebServer) handleListPCAPFiles(w http.ResponseWriter, r *http.Request)
 	// Normalise paths to cleaned relative form for consistent comparison.
 	usedFiles := make(map[string]bool)
 	if ws.db != nil {
-		store := sqlite.NewSceneStore(ws.db.DB)
+		store := sqlite.NewReplayCaseStore(ws.db.DB)
 		scenes, err := store.ListScenes("")
 		if err == nil {
 			for _, s := range scenes {

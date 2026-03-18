@@ -52,7 +52,7 @@ func (s *MissedRegionStore) Insert(region *MissedRegion) error {
 	}
 
 	query := `
-		INSERT INTO lidar_missed_regions (
+		INSERT INTO lidar_run_missed_regions (
 			region_id, run_id, center_x, center_y, radius_m,
 			time_start_ns, time_end_ns, expected_label,
 			labeler_id, labeled_at, notes
@@ -84,7 +84,7 @@ func (s *MissedRegionStore) ListByRun(runID string) ([]*MissedRegion, error) {
 		SELECT region_id, run_id, center_x, center_y, radius_m,
 		       time_start_ns, time_end_ns, expected_label,
 		       labeler_id, labeled_at, notes
-		FROM lidar_missed_regions
+		FROM lidar_run_missed_regions
 		WHERE run_id = ?
 		ORDER BY time_start_ns
 	`
@@ -128,7 +128,7 @@ func (s *MissedRegionStore) ListByRun(runID string) ([]*MissedRegion, error) {
 
 // Delete removes a missed region by ID.
 func (s *MissedRegionStore) Delete(regionID string) error {
-	result, err := s.db.Exec("DELETE FROM lidar_missed_regions WHERE region_id = ?", regionID)
+	result, err := s.db.Exec("DELETE FROM lidar_run_missed_regions WHERE region_id = ?", regionID)
 	if err != nil {
 		return fmt.Errorf("delete missed region: %w", err)
 	}

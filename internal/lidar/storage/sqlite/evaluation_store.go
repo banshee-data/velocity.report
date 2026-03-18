@@ -13,7 +13,7 @@ import (
 // a candidate analysis run against a reference run for a given scene.
 type Evaluation struct {
 	EvaluationID        string          `json:"evaluation_id"`
-	SceneID             string          `json:"scene_id"`
+	ReplayCaseID        string          `json:"replay_case_id"`
 	ReferenceRunID      string          `json:"reference_run_id"`
 	CandidateRunID      string          `json:"candidate_run_id"`
 	DetectionRate       float64         `json:"detection_rate"`
@@ -58,14 +58,14 @@ func (s *EvaluationStore) Insert(eval *Evaluation) error {
 
 	return retryOnBusy(func() error {
 		_, err := s.db.Exec(`
-			INSERT INTO lidar_evaluations (
-				evaluation_id, scene_id, reference_run_id, candidate_run_id,
+			INSERT INTO lidar_replay_evaluations (
+				evaluation_id, replay_case_id, reference_run_id, candidate_run_id,
 				detection_rate, fragmentation, false_positive_rate, velocity_coverage,
 				quality_premium, truncation_rate, velocity_noise_rate, stopped_recovery_rate,
 				composite_score, matched_count, reference_count, candidate_count,
 				params_json, created_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			eval.EvaluationID, eval.SceneID, eval.ReferenceRunID, eval.CandidateRunID,
+			eval.EvaluationID, eval.ReplayCaseID, eval.ReferenceRunID, eval.CandidateRunID,
 			eval.DetectionRate, eval.Fragmentation, eval.FalsePositiveRate, eval.VelocityCoverage,
 			eval.QualityPremium, eval.TruncationRate, eval.VelocityNoiseRate, eval.StoppedRecoveryRate,
 			eval.CompositeScore, eval.MatchedCount, eval.ReferenceCount, eval.CandidateCount,
@@ -78,13 +78,13 @@ func (s *EvaluationStore) Insert(eval *Evaluation) error {
 // ListByScene returns all evaluations for a given scene, ordered by creation time descending.
 func (s *EvaluationStore) ListByScene(sceneID string) ([]*Evaluation, error) {
 	rows, err := s.db.Query(`
-		SELECT evaluation_id, scene_id, reference_run_id, candidate_run_id,
+		SELECT evaluation_id, replay_case_id, reference_run_id, candidate_run_id,
 		       detection_rate, fragmentation, false_positive_rate, velocity_coverage,
 		       quality_premium, truncation_rate, velocity_noise_rate, stopped_recovery_rate,
 		       composite_score, matched_count, reference_count, candidate_count,
 		       params_json, created_at
-		FROM lidar_evaluations
-		WHERE scene_id = ?
+		FROM lidar_replay_evaluations
+		WHERE replay_case_id = ?
 		ORDER BY created_at DESC`, sceneID)
 	if err != nil {
 		return nil, fmt.Errorf("query evaluations: %w", err)
@@ -105,18 +105,18 @@ func (s *EvaluationStore) ListByScene(sceneID string) ([]*Evaluation, error) {
 // Get returns a single evaluation by ID.
 func (s *EvaluationStore) Get(evaluationID string) (*Evaluation, error) {
 	row := s.db.QueryRow(`
-		SELECT evaluation_id, scene_id, reference_run_id, candidate_run_id,
+		SELECT evaluation_id, replay_case_id, reference_run_id, candidate_run_id,
 		       detection_rate, fragmentation, false_positive_rate, velocity_coverage,
 		       quality_premium, truncation_rate, velocity_noise_rate, stopped_recovery_rate,
 		       composite_score, matched_count, reference_count, candidate_count,
 		       params_json, created_at
-		FROM lidar_evaluations
+		FROM lidar_replay_evaluations
 		WHERE evaluation_id = ?`, evaluationID)
 
 	var e Evaluation
 	var paramsStr sql.NullString
 	err := row.Scan(
-		&e.EvaluationID, &e.SceneID, &e.ReferenceRunID, &e.CandidateRunID,
+		&e.EvaluationID, &e.ReplayCaseID, &e.ReferenceRunID, &e.CandidateRunID,
 		&e.DetectionRate, &e.Fragmentation, &e.FalsePositiveRate, &e.VelocityCoverage,
 		&e.QualityPremium, &e.TruncationRate, &e.VelocityNoiseRate, &e.StoppedRecoveryRate,
 		&e.CompositeScore, &e.MatchedCount, &e.ReferenceCount, &e.CandidateCount,
@@ -137,7 +137,7 @@ func (s *EvaluationStore) Get(evaluationID string) (*Evaluation, error) {
 // Delete removes an evaluation by ID.
 func (s *EvaluationStore) Delete(evaluationID string) error {
 	return retryOnBusy(func() error {
-		result, err := s.db.Exec(`DELETE FROM lidar_evaluations WHERE evaluation_id = ?`, evaluationID)
+		result, err := s.db.Exec(`DELETE FROM lidar_replay_evaluations WHERE evaluation_id = ?`, evaluationID)
 		if err != nil {
 			return fmt.Errorf("delete evaluation: %w", err)
 		}
@@ -157,7 +157,7 @@ func scanEvaluation(rows *sql.Rows) (*Evaluation, error) {
 	var e Evaluation
 	var paramsStr sql.NullString
 	err := rows.Scan(
-		&e.EvaluationID, &e.SceneID, &e.ReferenceRunID, &e.CandidateRunID,
+		&e.EvaluationID, &e.ReplayCaseID, &e.ReferenceRunID, &e.CandidateRunID,
 		&e.DetectionRate, &e.Fragmentation, &e.FalsePositiveRate, &e.VelocityCoverage,
 		&e.QualityPremium, &e.TruncationRate, &e.VelocityNoiseRate, &e.StoppedRecoveryRate,
 		&e.CompositeScore, &e.MatchedCount, &e.ReferenceCount, &e.CandidateCount,
