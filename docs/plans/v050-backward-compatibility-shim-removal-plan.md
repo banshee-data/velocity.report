@@ -4,13 +4,14 @@
 - **Layers:** Cross-cutting (API, protobuf, database)
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
-- **Status:** In Progress — Phases 1–5 complete; Phase 6 validation remaining
+- **Status:** Complete
 
 - **Update:** All shim removal work across Go, Python, Svelte, and macOS is
   complete. Speed contract reset (§1, §15) landed in #352; `avgSpeedMps` and
   `maxSpeedMps` verified through the full proto → client → model → UI chain.
   `pointBuffer` (§16) reclassified as renderer-retirement work, not a compat shim.
-  Remaining work is the Phase 6 validation gate (build verification).
+  All Phase 6 build validation gates passed (`make build-web`, `make build-radar-local`,
+  `make format && make lint && make test`).
 
 ## Tracking Snapshot
 
@@ -39,8 +40,7 @@
 | Sweep dashboard legacy test data cleaned       | §14     | Tests no longer use legacy top-level parameter field format                                               |
 | macOS legacy playback defaults removed         | §17     | `.unknown` no longer preserves stale `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode`  |
 
-**Remaining:** Phase 6 validation gate (build verification) and any
-SQL-migration-dependent column renames (deferred to migration 000030).
+**Remaining:** SQL-migration-dependent column renames deferred to migration 000030 (tracked in the schema simplification plan).
 
 ## Goal
 
