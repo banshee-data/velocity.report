@@ -44,12 +44,12 @@ func TestSerializeDeserialize_FullFrame(t *testing.T) {
 				{
 					TrackID: "t1", SensorID: "s1",
 					State: visualiser.TrackStateConfirmed,
-					Hits: 10, Misses: 2, ObservationCount: 12,
+					Hits:  10, Misses: 2, ObservationCount: 12,
 					FirstSeenNanos: 1000, LastSeenNanos: 2000,
 					X: 1.0, Y: 2.0, Z: 3.0, VX: 0.5, VY: 0.3, VZ: 0.0,
 					SpeedMps: 5.0, HeadingRad: 1.2,
 					Covariance4x4: []float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
-					BBoxLength: 4.5, BBoxWidth: 2.0, BBoxHeight: 1.5, BBoxHeadingRad: 0.5,
+					BBoxLength:    4.5, BBoxWidth: 2.0, BBoxHeight: 1.5, BBoxHeadingRad: 0.5,
 					HeightP95Max: 1.8, IntensityMeanAvg: 120, AvgSpeedMps: 4.5, MaxSpeedMps: 8.0,
 					ObjectClass: "car", ClassConfidence: 0.85,
 					TrackLengthMetres: 50.0, TrackDurationSecs: 10.0,
@@ -81,7 +81,7 @@ func TestSerializeDeserialize_FullFrame(t *testing.T) {
 			Confidence: []uint32{5, 10},
 			GridMetadata: visualiser.GridMetadata{
 				Rings: 40, AzimuthBins: 3600,
-				RingElevations:  []float32{-15.0, 15.0},
+				RingElevations:   []float32{-15.0, 15.0},
 				SettlingComplete: true,
 			},
 		},
