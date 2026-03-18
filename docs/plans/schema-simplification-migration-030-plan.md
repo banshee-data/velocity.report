@@ -290,9 +290,9 @@ ALTER TABLE lidar_run_records RENAME TO lidar_analysis_runs;
 
 -- L5 track children
 DROP INDEX IF EXISTS idx_lidar_track_annotations_replay_case;
-CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
 ALTER TABLE lidar_track_annotations RENAME COLUMN replay_case_id TO scene_id;
 ALTER TABLE lidar_track_annotations RENAME TO lidar_labels;
+CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
 ALTER TABLE lidar_track_observations RENAME TO lidar_track_obs;
 ```
 

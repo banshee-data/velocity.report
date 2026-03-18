@@ -14,7 +14,7 @@ The schema contains two tables with heavily overlapping column sets:
 | `lidar_tracks`     | Live transient tracking buffer (pruned ~5 min)      | `track_id`           |
 | `lidar_run_tracks` | Immutable versioned snapshots tied to analysis runs | `(run_id, track_id)` |
 
-After migration 030 lands, the column overlap looks like this:
+After the schema standardisation migrations 000030–000031 land, the column overlap looks like this:
 
 | Category                    | Count | Columns                                                                                                                                                                                                                                                                                                                  |
 | --------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -216,7 +216,7 @@ the layer that actually hurts maintainability.
 
 ### Phase 1 — Prerequisites: migrations 000030–000031 (schema standardisation)
 
-Tracked in [Schema Simplification Migration 030](schema-simplification-migration-030-plan.md).
+Tracked in [Schema Simplification Migrations 000030–000031](schema-simplification-migration-030-plan.md).
 This phase applies the LiDAR schema standardisation migrations to both tables:
 it drops dead columns, renames `peak→max`, `world_frame→frame_id`, and `scene_hash→grid_hash`, and performs the table renames from migration 000031 so that the shared column set and naming are fully aligned.
 
