@@ -1363,7 +1363,7 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: set-version log-go-tail log-go-cat log-go-tail-all git-fs
+.PHONY: set-version log-go-tail log-go-cat log-go-tail-all git-fs git-files
 
 set-version:
 	@if [ -z "$(VER)" ]; then \
@@ -1441,6 +1441,10 @@ log-go-tail-all:
 git-fs:
 	@git fetch origin main >/dev/null 2>&1 || true; \
 	git diff --name-only --diff-filter=ACMRTUXB origin/main...HEAD -- "$(or $(DIR),.)" | sort -u
+
+git-files:
+	@git fetch origin main >/dev/null 2>&1 || true; \
+	git diff --name-only origin/main...HEAD
 
 # =============================================================================
 # DATA VISUALIZATION

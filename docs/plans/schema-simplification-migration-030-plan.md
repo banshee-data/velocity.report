@@ -18,24 +18,31 @@
 
 Single migration (000030) that:
 
-1. Drops dead per-track percentile columns from both `lidar_tracks` and `lidar_run_tracks`.
-2. Drops always-NULL quality columns from `lidar_tracks`.
-3. Renames `peak_speed_mps` → `max_speed_mps` on both tables for radar/lidar consistency.
+1. Drops dead per-track percentile columns from both `lidar_tracks` and
+   `lidar_run_tracks`.
+2. Renames `peak_speed_mps` → `max_speed_mps` on both tables for
+   radar/lidar consistency.
 
 ## Motivation
 
-Schema audit (March 2026) found three categories of waste:
+Schema audit (March 2026) found two categories of waste in the track tables:
 
-| Category               | Columns                                                                                                                                            | Status                                                                    |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **Dead writes**        | `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` on `lidar_tracks`                                                                                | Written on INSERT/UPDATE, never selected                                  |
-| **Always NULL**        | `track_length_meters`, `track_duration_secs`, `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` on `lidar_tracks` | Schema exists, Go code never writes them                                  |
-| **Naming mismatch**    | `peak_speed_mps` on both tables                                                                                                                    | Radar uses `max_speed`; D-19 already decided rename                       |
-| **Misapplied concept** | `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` on `lidar_run_tracks`                                                                            | Stored and returned via API but no downstream consumer computes with them |
+| Category               | Columns                                                                 | Status                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Dead columns**       | `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` on `lidar_tracks`     | Never selected; Go code no longer writes them                             |
+| **Naming mismatch**    | `peak_speed_mps` on both tables                                         | Radar uses `max_speed`; D-19 already decided rename                       |
+| **Misapplied concept** | `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` on `lidar_run_tracks` | Stored and returned via API but no downstream consumer computes with them |
 
 Per-track percentiles are the wrong abstraction (see speed-percentile plan §1):
 percentiles are meaningful over a _population_ of tracks, not over one track's
 Kalman-filtered speed history.
+
+**Quality columns not yet populated:** The 6 quality columns on `lidar_tracks`
+(`track_length_meters`, `track_duration_secs`, `occlusion_count`,
+`max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`) exist in
+schema but are never written. Wiring them to `InsertTrack()` and
+`UpdateTrack()` is tracked separately in the unpopulated-data-structures
+remediation plan Phase 2. They must **not** be dropped by this migration.
 
 ## Non-goals
 
@@ -44,6 +51,10 @@ Kalman-filtered speed history.
 - Adding new track-level speed metrics (e.g. `speed_variance_mps`) — separate
   future work.
 - Touching `lidar_track_obs` — no changes needed.
+- Dropping quality columns (`track_length_meters`, `track_duration_secs`,
+  `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`,
+  `noise_point_ratio`) — these are planned for wiring (see
+  unpopulated-data-structures remediation Phase 2) and must not be dropped.
 
 ## Migration SQL
 
@@ -56,14 +67,6 @@ SQLite 3.35+ supports `ALTER TABLE ... DROP COLUMN` directly.
 ALTER TABLE lidar_tracks DROP COLUMN p50_speed_mps;
 ALTER TABLE lidar_tracks DROP COLUMN p85_speed_mps;
 ALTER TABLE lidar_tracks DROP COLUMN p95_speed_mps;
-
--- lidar_tracks: drop always-NULL quality columns
-ALTER TABLE lidar_tracks DROP COLUMN track_length_meters;
-ALTER TABLE lidar_tracks DROP COLUMN track_duration_secs;
-ALTER TABLE lidar_tracks DROP COLUMN occlusion_count;
-ALTER TABLE lidar_tracks DROP COLUMN max_occlusion_frames;
-ALTER TABLE lidar_tracks DROP COLUMN spatial_coverage;
-ALTER TABLE lidar_tracks DROP COLUMN noise_point_ratio;
 
 -- lidar_tracks: rename peak → max
 ALTER TABLE lidar_tracks RENAME COLUMN peak_speed_mps TO max_speed_mps;
@@ -85,14 +88,6 @@ ALTER TABLE lidar_tracks ADD COLUMN p50_speed_mps REAL;
 ALTER TABLE lidar_tracks ADD COLUMN p85_speed_mps REAL;
 ALTER TABLE lidar_tracks ADD COLUMN p95_speed_mps REAL;
 
--- lidar_tracks: restore quality columns
-ALTER TABLE lidar_tracks ADD COLUMN track_length_meters REAL;
-ALTER TABLE lidar_tracks ADD COLUMN track_duration_secs REAL;
-ALTER TABLE lidar_tracks ADD COLUMN occlusion_count INTEGER DEFAULT 0;
-ALTER TABLE lidar_tracks ADD COLUMN max_occlusion_frames INTEGER DEFAULT 0;
-ALTER TABLE lidar_tracks ADD COLUMN spatial_coverage REAL;
-ALTER TABLE lidar_tracks ADD COLUMN noise_point_ratio REAL;
-
 -- lidar_tracks: restore peak name
 ALTER TABLE lidar_tracks RENAME COLUMN max_speed_mps TO peak_speed_mps;
 
@@ -109,77 +104,76 @@ ALTER TABLE lidar_run_tracks RENAME COLUMN max_speed_mps TO peak_speed_mps;
 
 ### Storage layer (`internal/lidar/storage/sqlite/`)
 
-**track_store.go** — Remove percentile columns from INSERT/UPDATE/SELECT:
+**track_store.go** — Rename and remove percentile column references:
 
-- `InsertTrack()`: drop `p50_speed_mps, p85_speed_mps, p95_speed_mps` from UPSERT columns and ON CONFLICT SET
-- `UpdateTrack()`: drop percentile SET clauses
-- `GetActiveTracks()`, `GetTracksInRange()`: already don't select them — no change
-- Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
+- `InsertTrack()`: percentile columns are not currently written (never
+  wired). Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings.
+- `UpdateTrack()`: no percentile SET clauses exist.
+  Rename `peak_speed_mps` → `max_speed_mps`.
+- `GetActiveTracks()`, `GetTracksInRange()`, other SELECT queries: rename
+  `peak_speed_mps` → `max_speed_mps` in SQL strings.
 
-**analysis_run.go** — Remove percentile columns, rename peak:
+**analysis_run.go** — Rename peak in SQL:
 
-- `RunTrack` struct: remove `P50SpeedMps`, `P85SpeedMps`, `P95SpeedMps` fields; rename `PeakSpeedMps` → `MaxSpeedMps`
-- `RunTrackFromTrackedObject()`: remove percentile population; rename `PeakSpeedMps` → `MaxSpeedMps`
-- `InsertRunTrack()`: drop percentile columns from INSERT SQL
-- `GetRunTracks()`, `GetRunTrack()`: drop percentile columns from SELECT and `Scan()` calls
-- `ExportTracksCSV()` (if exists): update column headers
+- `RunTrack` struct: `MaxSpeedMps` field already exists (renamed from
+  `PeakSpeedMps`). No `P50SpeedMps`, `P85SpeedMps`, `P95SpeedMps` fields
+  exist.
+- `InsertRunTrack()`: no percentile columns in INSERT SQL (never wired).
+  Rename `peak_speed_mps` → `max_speed_mps`.
+- `GetRunTracks()`, `GetRunTrack()`: no percentile columns in SELECT.
+  Rename `peak_speed_mps` → `max_speed_mps`.
 
-**analysis_run_manager.go** — Update any `RecordTrack()` calls that reference removed fields.
+**analysis_run_manager.go** — No changes needed (already uses `MaxSpeedMps`).
 
 ### Tracking layer (`internal/lidar/l5tracks/`)
 
-**tracking.go** — Rename struct field:
-
-- `TrackedObject.PeakSpeedMps` → `TrackedObject.MaxSpeedMps`
-- Update speed comparison logic: `if speed > track.PeakSpeedMps` → `if speed > track.MaxSpeedMps`
+**tracking.go** — ✅ Already done. `TrackedObject.MaxSpeedMps` is the current
+field name. Speed comparison logic already uses `track.MaxSpeedMps`.
 
 ### Classification layer (`internal/lidar/l6objects/`)
 
-**classification.go** — Rename field references:
+**classification.go** — `ClassificationFeatures` uses `MaxSpeed` (already
+renamed). `ComputeSpeedPercentiles()` stays as internal-only — used by
+`extractFeatures()` for classifier feature extraction and by
+`TrackFeatures.Compute()`. Not exposed via API.
 
-- All `f.PeakSpeed` accesses (used for vehicle/cyclist classification thresholds) — rename to `f.MaxSpeed`
-- `ClassificationFeatures.PeakSpeed` → `ClassificationFeatures.MaxSpeed`
-
-**features.go** — Rename field:
-
-- `TrackFeatures.PeakSpeedMps` → `TrackFeatures.MaxSpeedMps`
-- Update CSV export header from `"peak_speed_mps"` to `"max_speed_mps"`
-- Update feature extraction: `f.PeakSpeedMps = track.PeakSpeedMps` → `f.MaxSpeedMps = track.MaxSpeedMps`
+**features.go** — `TrackFeatures.SpeedP50`, `.SpeedP85`, `.SpeedP95` are
+internal feature-vector fields for ML training data export. These are **not**
+per-track percentile columns in the DB. Decision: keep them as internal
+feature descriptors (not stored in DB, not exposed via API) until the ML
+pipeline is active.
 
 ### API layer (`internal/lidar/monitor/`)
 
-**track_api.go** — Rename JSON fields:
-
-- `TrackSummary.PeakSpeedMps` JSON tag: `"peak_speed_mps"` → `"max_speed_mps"`
-- `ClassStats.PeakSpeedMps` JSON tag: `"peak_speed_mps"` → `"max_speed_mps"`
-- Update accumulator field name (`accum.peakSpeed` → `accum.maxSpeed`)
+**track_api.go** — ✅ Already done. `TrackSummary.MaxSpeedMps` uses JSON tag
+`"max_speed_mps"`. `ClassStats.MaxSpeedMps` uses JSON tag `"max_speed_mps"`.
+Accumulator already uses `accum.maxSpeed`. No per-track percentile fields in
+the API response.
 
 ### PCAP analysis tool (`cmd/tools/pcap-analyse/`)
 
-**main.go** — Rename and drop:
+**main.go** — `SpeedStatistics` struct still has `P50Speed`, `P85Speed`,
+`P95Speed`. These compute percentiles across a **population** of per-track
+max speeds — this is correct aggregate usage. However, the naming
+(`p50_speed_mps` etc. in JSON tags) conflicts with the per-track column names
+being dropped.
 
-- `TrackExport.PeakSpeedMps` → `TrackExport.MaxSpeedMps`
-- Remove `P50SpeedMps`, `P85SpeedMps`, `P95SpeedMps` from struct and SQL INSERT
-- Update CSV headers
-- Remove `ComputeSpeedPercentiles()` call (or keep as offline-only — decision needed)
+**Recommendation:** Rename to `p50_max_speed_mps`, `p85_max_speed_mps`,
+`p95_max_speed_mps` to make clear these are population percentiles of track max
+speeds, not per-track percentiles. Also rename `P95` to `P98` to align with
+D-18 (`p98` is the canonical high-end aggregate percentile). Update tests.
 
 ### Web frontend (`web/src/`)
 
-**lib/types/lidar.ts** — Rename type fields:
-
-- `peak_speed_mps` → `max_speed_mps` on track and run-track types
-- Remove `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` from run-track type
-
-**Components** — Update any display references from "Peak" to "Max" in labels.
+**lib/types/lidar.ts** — No per-track percentile fields exist. No
+`peak_speed_mps` exists. Already aligned.
 
 ### Proto (`proto/velocity_visualiser/v1/`)
 
-**visualiser.proto** — Rename field:
+**visualiser.proto** — ✅ Already done. Field is `float max_speed_mps = 25;`.
+No per-track percentile fields in the proto.
 
-- `float peak_speed_mps = 25;` → `float max_speed_mps = 25;` (same field number, rename only)
-- Regenerate `visualiser.pb.go`
-
-**Swift** — Regenerate and update `PeakSpeedMps` → `MaxSpeedMps` references.
+**Swift** — Already uses `MaxSpeedMps`.
 
 ## pcap-analyse: Keep or Drop Offline Percentiles?
 
