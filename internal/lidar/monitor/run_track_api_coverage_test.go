@@ -782,8 +782,8 @@ func TestCov_HandleEvaluateRun_AutoDetectFromScene(t *testing.T) {
 	candRunID := covInsertRun(t, ws, "eval-scene-cand")
 
 	// Insert a scene linking the sensor to the reference run
-	sceneStore := sqlite.NewSceneStore(ws.db.DB)
-	scene := &sqlite.Scene{
+	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
+	scene := &sqlite.ReplayCase{
 		SensorID:       "test-sensor",
 		PCAPFile:       "/test/file.pcap",
 		ReferenceRunID: refRunID,
@@ -1169,7 +1169,7 @@ func TestCov_HandleEvaluateRun_ListScenesError(t *testing.T) {
 	runID := covInsertRun(t, ws, "eval-scenes-err")
 
 	// Drop the scenes table so ListScenes fails while GetRun still succeeds.
-	if _, err := ws.db.DB.Exec("DROP TABLE IF EXISTS lidar_scenes"); err != nil {
+	if _, err := ws.db.DB.Exec("DROP TABLE IF EXISTS lidar_replay_cases"); err != nil {
 		t.Fatalf("drop table: %v", err)
 	}
 
@@ -1198,8 +1198,8 @@ func TestCov_HandleEvaluateRun_SceneNoMatchingSourcePath(t *testing.T) {
 	// Candidate has SourcePath="/test/file.pcap"; scene has PCAPFile="/different/path.pcap".
 	// First pass (exact source path match) will NOT find it; second pass (fallback by
 	// sensor + ReferenceRunID) will.
-	sceneStore := sqlite.NewSceneStore(ws.db.DB)
-	scene := &sqlite.Scene{
+	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
+	scene := &sqlite.ReplayCase{
 		SensorID:       "test-sensor",
 		PCAPFile:       "/different/path.pcap",
 		ReferenceRunID: refRunID,
@@ -1434,8 +1434,8 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 	}
 
 	// Create a scene matching the source path
-	sceneStore := sqlite.NewSceneStore(ws.db.DB)
-	scene := &sqlite.Scene{
+	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
+	scene := &sqlite.ReplayCase{
 		SensorID:       "sensor-auto",
 		PCAPFile:       "/test/auto.pcap",
 		ReferenceRunID: "auto-ref-1",

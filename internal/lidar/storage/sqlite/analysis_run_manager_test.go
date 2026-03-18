@@ -191,7 +191,7 @@ func TestStartRun(t *testing.T) {
 
 	// Verify run is in database
 	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM lidar_analysis_runs WHERE run_id = ?", runID).Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_run_records WHERE run_id = ?", runID).Scan(&count)
 	if err != nil {
 		t.Fatalf("Failed to query database: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestStartRun(t *testing.T) {
 
 	// Verify params are stored
 	var paramsJSON string
-	err = db.QueryRow("SELECT params_json FROM lidar_analysis_runs WHERE run_id = ?", runID).Scan(&paramsJSON)
+	err = db.QueryRow("SELECT params_json FROM lidar_run_records WHERE run_id = ?", runID).Scan(&paramsJSON)
 	if err != nil {
 		t.Fatalf("Failed to query params: %v", err)
 	}
@@ -387,7 +387,7 @@ func TestCompleteRun(t *testing.T) {
 
 	err = db.QueryRow(`
 SELECT status, total_frames, total_clusters, total_tracks, duration_secs
-FROM lidar_analysis_runs WHERE run_id = ?`, runID).Scan(
+FROM lidar_run_records WHERE run_id = ?`, runID).Scan(
 		&status, &totalFrames, &totalClusters, &totalTracks, &durationSecs)
 	if err != nil {
 		t.Fatalf("Failed to query completed run: %v", err)
@@ -446,7 +446,7 @@ func TestFailRun(t *testing.T) {
 
 	// Verify database status
 	var status, storedErrMsg string
-	err = db.QueryRow("SELECT status, error_message FROM lidar_analysis_runs WHERE run_id = ?", runID).Scan(&status, &storedErrMsg)
+	err = db.QueryRow("SELECT status, error_message FROM lidar_run_records WHERE run_id = ?", runID).Scan(&status, &storedErrMsg)
 	if err != nil {
 		t.Fatalf("Failed to query failed run: %v", err)
 	}
@@ -558,7 +558,7 @@ func TestCompleteRun_WallClockFallback(t *testing.T) {
 
 	// Verify duration uses wall-clock fallback (should be > 0 from time.Sleep)
 	var durationSecs float64
-	err = db.QueryRow("SELECT duration_secs FROM lidar_analysis_runs WHERE run_id = ?", runID).Scan(&durationSecs)
+	err = db.QueryRow("SELECT duration_secs FROM lidar_run_records WHERE run_id = ?", runID).Scan(&durationSecs)
 	if err != nil {
 		t.Fatalf("Failed to query duration: %v", err)
 	}

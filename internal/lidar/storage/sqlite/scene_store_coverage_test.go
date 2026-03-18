@@ -11,11 +11,11 @@ import (
 func TestSceneStore_ListScenes_All(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert two scenes with different sensors
-	s1 := &Scene{SceneID: "s1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
-	s2 := &Scene{SceneID: "s2", SensorID: "sensor-b", PCAPFile: "b.pcap"}
+	s1 := &ReplayCase{ReplayCaseID: "s1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
+	s2 := &ReplayCase{ReplayCaseID: "s2", SensorID: "sensor-b", PCAPFile: "b.pcap"}
 	if err := store.InsertScene(s1); err != nil {
 		t.Fatalf("insert s1: %v", err)
 	}
@@ -48,13 +48,13 @@ func TestSceneStore_ListScenes_All(t *testing.T) {
 func TestSceneStore_ListScenes_WithOptionalFields(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert a scene with all optional fields
 	startSecs := 10.0
 	durSecs := 30.0
-	s := &Scene{
-		SceneID:           "full",
+	s := &ReplayCase{
+		ReplayCaseID:           "full",
 		SensorID:          "sensor-c",
 		PCAPFile:          "c.pcap",
 		Description:       "test scene",
@@ -67,7 +67,7 @@ func TestSceneStore_ListScenes_WithOptionalFields(t *testing.T) {
 	}
 
 	// Insert a reference run for FK
-	db.Exec("INSERT INTO lidar_analysis_runs (run_id) VALUES ('run-1')")
+	db.Exec("INSERT INTO lidar_run_records (run_id) VALUES ('run-1')")
 	store.SetReferenceRun("full", "run-1")
 
 	scenes, err := store.ListScenes("sensor-c")
@@ -88,17 +88,17 @@ func TestSceneStore_ListScenes_WithOptionalFields(t *testing.T) {
 func TestSceneStore_UpdateScene_Success(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
-	s := &Scene{SceneID: "upd-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
+	s := &ReplayCase{ReplayCaseID: "upd-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
 	if err := store.InsertScene(s); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	startSecs := 5.0
 	durSecs := 20.0
-	update := &Scene{
-		SceneID:           "upd-1",
+	update := &ReplayCase{
+		ReplayCaseID:           "upd-1",
 		Description:       "updated",
 		PCAPStartSecs:     &startSecs,
 		PCAPDurationSecs:  &durSecs,
@@ -120,9 +120,9 @@ func TestSceneStore_UpdateScene_Success(t *testing.T) {
 func TestSceneStore_UpdateScene_NotFound(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
-	err := store.UpdateScene(&Scene{SceneID: "nonexistent"})
+	err := store.UpdateScene(&ReplayCase{ReplayCaseID: "nonexistent"})
 	if err == nil || !strings.Contains(err.Error(), "scene not found") {
 		t.Fatalf("expected 'scene not found', got: %v", err)
 	}
@@ -131,9 +131,9 @@ func TestSceneStore_UpdateScene_NotFound(t *testing.T) {
 func TestSceneStore_DeleteScene_Success(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
-	s := &Scene{SceneID: "del-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
+	s := &ReplayCase{ReplayCaseID: "del-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
 	if err := store.InsertScene(s); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestSceneStore_DeleteScene_Success(t *testing.T) {
 func TestSceneStore_DeleteScene_NotFound(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	err := store.DeleteScene("nonexistent")
 	if err == nil || !strings.Contains(err.Error(), "scene not found") {
@@ -160,13 +160,13 @@ func TestSceneStore_DeleteScene_NotFound(t *testing.T) {
 func TestSceneStore_SetReferenceRun_Success(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
-	s := &Scene{SceneID: "ref-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
+	s := &ReplayCase{ReplayCaseID: "ref-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
 	if err := store.InsertScene(s); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
-	db.Exec("INSERT INTO lidar_analysis_runs (run_id) VALUES ('run-ref')")
+	db.Exec("INSERT INTO lidar_run_records (run_id) VALUES ('run-ref')")
 
 	if err := store.SetReferenceRun("ref-1", "run-ref"); err != nil {
 		t.Fatalf("set reference run: %v", err)
@@ -185,7 +185,7 @@ func TestSceneStore_SetReferenceRun_Success(t *testing.T) {
 func TestSceneStore_SetReferenceRun_NotFound(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	err := store.SetReferenceRun("nonexistent", "run-1")
 	if err == nil || !strings.Contains(err.Error(), "scene not found") {
@@ -196,9 +196,9 @@ func TestSceneStore_SetReferenceRun_NotFound(t *testing.T) {
 func TestSceneStore_SetOptimalParams_Success(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
-	s := &Scene{SceneID: "opt-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
+	s := &ReplayCase{ReplayCaseID: "opt-1", SensorID: "sensor-a", PCAPFile: "a.pcap"}
 	if err := store.InsertScene(s); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestSceneStore_SetOptimalParams_Success(t *testing.T) {
 func TestSceneStore_SetOptimalParams_NotFound(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	err := store.SetOptimalParams("nonexistent", json.RawMessage(`{}`))
 	if err == nil || !strings.Contains(err.Error(), "scene not found") {
@@ -226,10 +226,10 @@ func TestSceneStore_SetOptimalParams_NotFound(t *testing.T) {
 
 func TestSceneStore_InsertScene_DBClosed(t *testing.T) {
 	db := setupTestSceneDB(t)
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 	db.Close()
 
-	err := store.InsertScene(&Scene{SceneID: "x", SensorID: "s", PCAPFile: "f"})
+	err := store.InsertScene(&ReplayCase{ReplayCaseID: "x", SensorID: "s", PCAPFile: "f"})
 	if err == nil {
 		t.Fatal("expected error from closed DB")
 	}
@@ -237,7 +237,7 @@ func TestSceneStore_InsertScene_DBClosed(t *testing.T) {
 
 func TestSceneStore_GetScene_DBClosed(t *testing.T) {
 	db := setupTestSceneDB(t)
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 	db.Close()
 
 	_, err := store.GetScene("x")
@@ -248,7 +248,7 @@ func TestSceneStore_GetScene_DBClosed(t *testing.T) {
 
 func TestSceneStore_ListScenes_DBClosed(t *testing.T) {
 	db := setupTestSceneDB(t)
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 	db.Close()
 
 	_, err := store.ListScenes("")
@@ -259,10 +259,10 @@ func TestSceneStore_ListScenes_DBClosed(t *testing.T) {
 
 func TestSceneStore_UpdateScene_DBClosed(t *testing.T) {
 	db := setupTestSceneDB(t)
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 	db.Close()
 
-	err := store.UpdateScene(&Scene{SceneID: "x"})
+	err := store.UpdateScene(&ReplayCase{ReplayCaseID: "x"})
 	if err == nil {
 		t.Fatal("expected error from closed DB")
 	}
@@ -270,7 +270,7 @@ func TestSceneStore_UpdateScene_DBClosed(t *testing.T) {
 
 func TestSceneStore_DeleteScene_DBClosed(t *testing.T) {
 	db := setupTestSceneDB(t)
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 	db.Close()
 
 	err := store.DeleteScene("x")
@@ -281,7 +281,7 @@ func TestSceneStore_DeleteScene_DBClosed(t *testing.T) {
 
 func TestSceneStore_SetReferenceRun_DBClosed(t *testing.T) {
 	db := setupTestSceneDB(t)
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 	db.Close()
 
 	err := store.SetReferenceRun("x", "y")
@@ -292,7 +292,7 @@ func TestSceneStore_SetReferenceRun_DBClosed(t *testing.T) {
 
 func TestSceneStore_SetOptimalParams_DBClosed(t *testing.T) {
 	db := setupTestSceneDB(t)
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 	db.Close()
 
 	err := store.SetOptimalParams("x", nil)

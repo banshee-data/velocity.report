@@ -304,7 +304,7 @@ func TestDeserializeFrameLegacySpeedField(t *testing.T) {
 				{
 					"TrackID": "legacy-track",
 					"SpeedMps": 4.5,
-					"PeakSpeedMps": 6.75
+					"MaxSpeedMps": 6.75
 				}
 			]
 		}
@@ -330,7 +330,7 @@ func TestDeserializeFramePrefersExplicitZeroMaxSpeed(t *testing.T) {
 				{
 					"TrackID": "mixed-track",
 					"MaxSpeedMps": 0,
-					"PeakSpeedMps": 6.75
+					"MaxSpeedMps": 6.75
 				}
 			]
 		}

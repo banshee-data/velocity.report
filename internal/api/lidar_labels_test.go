@@ -22,7 +22,7 @@ func setupLabelTestDB(t *testing.T) *sql.DB {
 		CREATE TABLE lidar_tracks (
 			track_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
-			world_frame TEXT NOT NULL,
+			frame_id TEXT NOT NULL,
 			created_at INTEGER NOT NULL,
 			last_seen_at INTEGER NOT NULL,
 			track_state TEXT NOT NULL,
@@ -35,16 +35,16 @@ func setupLabelTestDB(t *testing.T) *sql.DB {
 
 	// Insert test track
 	_, err = db.Exec(`
-		INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, created_at, last_seen_at, track_state, observation_count)
+		INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, created_at, last_seen_at, track_state, observation_count)
 		VALUES ('track-001', 'test-sensor', 'ENU', 1000000000, 2000000000, 'confirmed', 10)
 	`)
 	if err != nil {
 		t.Fatalf("failed to insert test track: %v", err)
 	}
 
-	// Create lidar_labels table
+	// Create lidar_track_annotations table
 	_, err = db.Exec(`
-		CREATE TABLE lidar_labels (
+		CREATE TABLE lidar_track_annotations (
 			label_id TEXT PRIMARY KEY,
 			track_id TEXT NOT NULL,
 			class_label TEXT NOT NULL,
@@ -55,17 +55,17 @@ func setupLabelTestDB(t *testing.T) *sql.DB {
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
 			notes TEXT,
-			scene_id TEXT,
+			replay_case_id TEXT,
 			source_file TEXT,
 			FOREIGN KEY (track_id) REFERENCES lidar_tracks(track_id) ON DELETE CASCADE
 		);
-		CREATE INDEX idx_lidar_labels_track ON lidar_labels(track_id);
-		CREATE INDEX idx_lidar_labels_time ON lidar_labels(start_timestamp_ns, end_timestamp_ns);
-		CREATE INDEX idx_lidar_labels_class ON lidar_labels(class_label);
-		CREATE INDEX idx_lidar_labels_scene ON lidar_labels(scene_id);
+		CREATE INDEX idx_lidar_labels_track ON lidar_track_annotations(track_id);
+		CREATE INDEX idx_lidar_labels_time ON lidar_track_annotations(start_timestamp_ns, end_timestamp_ns);
+		CREATE INDEX idx_lidar_labels_class ON lidar_track_annotations(class_label);
+		CREATE INDEX idx_lidar_labels_scene ON lidar_track_annotations(replay_case_id);
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_labels table: %v", err)
+		t.Fatalf("failed to create lidar_track_annotations table: %v", err)
 	}
 
 	return db
@@ -117,7 +117,7 @@ func TestLidarLabelAPI_ListLabels(t *testing.T) {
 
 	// Insert test labels
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1000000000),
 			('label-002', 'track-001', 'truck', 2000000000, 2000000000),
@@ -157,7 +157,7 @@ func TestLidarLabelAPI_GetLabel(t *testing.T) {
 
 	// Insert test label
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
 	`)
 	if err != nil {
@@ -193,7 +193,7 @@ func TestLidarLabelAPI_UpdateLabel(t *testing.T) {
 
 	// Insert test label
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
 	`)
 	if err != nil {
@@ -237,7 +237,7 @@ func TestLidarLabelAPI_DeleteLabel(t *testing.T) {
 
 	// Insert test label
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
 	`)
 	if err != nil {
@@ -259,7 +259,7 @@ func TestLidarLabelAPI_DeleteLabel(t *testing.T) {
 
 	// Verify deletion
 	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM lidar_labels WHERE label_id = ?", "label-001").Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_track_annotations WHERE label_id = ?", "label-001").Scan(&count)
 	if err != nil {
 		t.Fatalf("failed to query database: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestLidarLabelAPI_Export(t *testing.T) {
 
 	// Insert test labels
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1000000000),
 			('label-002', 'track-001', 'truck', 2000000000, 2000000000)
@@ -318,7 +318,7 @@ func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
 
 	// Insert another track
 	_, err := db.Exec(`
-		INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, created_at, last_seen_at, track_state, observation_count)
+		INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, created_at, last_seen_at, track_state, observation_count)
 		VALUES ('track-002', 'test-sensor', 'ENU', 1000000000, 2000000000, 'confirmed', 5)
 	`)
 	if err != nil {
@@ -327,7 +327,7 @@ func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
 
 	// Insert test labels
 	_, err = db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1000000000),
 			('label-002', 'track-002', 'truck', 2000000000, 2000000000)
@@ -559,7 +559,7 @@ func TestLidarLabelAPI_UpdateLabel_InvalidJSON(t *testing.T) {
 
 	// Insert test label
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
 	`)
 	if err != nil {
@@ -629,7 +629,7 @@ func TestLidarLabelAPI_HandleLabelByID_MethodNotAllowed(t *testing.T) {
 
 	// Insert test label
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
 	`)
 	if err != nil {
@@ -663,7 +663,7 @@ func TestLidarLabelAPI_ListLabels_WithClassFilter(t *testing.T) {
 
 	// Insert test labels with different classes
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1000000000),
 			('label-002', 'track-001', 'truck', 2000000000, 2000000000),
@@ -704,7 +704,7 @@ func TestLidarLabelAPI_ListLabels_WithTimeFilters(t *testing.T) {
 
 	// Insert test labels with different timestamps
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, end_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, end_timestamp_ns, created_at_ns)
 		VALUES
 			('label-001', 'track-001', 'car', 1000000000, 1500000000, 1000000000),
 			('label-002', 'track-001', 'truck', 2000000000, 2500000000, 2000000000),
@@ -781,7 +781,7 @@ func TestLidarLabelAPI_UpdateLabel_WithAllFields(t *testing.T) {
 
 	// Insert test label
 	_, err := db.Exec(`
-		INSERT INTO lidar_labels (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
+		INSERT INTO lidar_track_annotations (label_id, track_id, class_label, start_timestamp_ns, created_at_ns)
 		VALUES ('label-001', 'track-001', 'car', 1000000000, 1000000000)
 	`)
 	if err != nil {

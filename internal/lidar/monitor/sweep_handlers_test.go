@@ -299,7 +299,7 @@ func setupTestSweepStoreForHandlers(t *testing.T) (*sql.DB, *sqlite.SweepStore) 
 	}
 
 	_, err = db.Exec(`
-CREATE TABLE IF NOT EXISTS lidar_sweeps (
+CREATE TABLE IF NOT EXISTS lidar_tuning_sweeps (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 sweep_id TEXT NOT NULL UNIQUE,
 sensor_id TEXT NOT NULL,
@@ -317,7 +317,7 @@ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 `)
 	if err != nil {
-		t.Fatalf("failed to create lidar_sweeps table: %v", err)
+		t.Fatalf("failed to create lidar_tuning_sweeps table: %v", err)
 	}
 
 	return db, sqlite.NewSweepStore(db)
@@ -578,7 +578,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 	t.Run("not configured returns 503", func(t *testing.T) {
 		ws := &WebServer{}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
-			strings.NewReader(`{"scene_id":"s1"}`))
+			strings.NewReader(`{"replay_case_id":"s1"}`))
 		w := httptest.NewRecorder()
 
 		ws.handleHINT(w, req)
@@ -604,7 +604,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 		runner := &mockHINTRunner{startErr: errors.New("sweep already in progress")}
 		ws := &WebServer{hintRunner: runner}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
-			strings.NewReader(`{"scene_id":"s1"}`))
+			strings.NewReader(`{"replay_case_id":"s1"}`))
 		w := httptest.NewRecorder()
 
 		ws.handleHINT(w, req)
@@ -617,7 +617,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &WebServer{hintRunner: runner}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
-			strings.NewReader(`{"scene_id":"s1","num_rounds":2}`))
+			strings.NewReader(`{"replay_case_id":"s1","num_rounds":2}`))
 		w := httptest.NewRecorder()
 
 		ws.handleHINT(w, req)

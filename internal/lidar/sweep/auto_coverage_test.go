@@ -378,7 +378,7 @@ func TestAutoTuner_Start_GroundTruth_NoSceneID(t *testing.T) {
 		Objective:      "ground_truth",
 	})
 	if err == nil {
-		t.Error("expected error for ground_truth without scene_id")
+		t.Error("expected error for ground_truth without replay_case_id")
 	}
 }
 
@@ -389,7 +389,7 @@ func TestAutoTuner_Start_GroundTruth_NoScorer(t *testing.T) {
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
 		Objective:      "ground_truth",
-		SceneID:        "scene-1",
+		ReplayCaseID:        "scene-1",
 	})
 	if err == nil {
 		t.Error("expected error for ground_truth without scorer")
@@ -745,7 +745,7 @@ func TestAutoTuner_Start_GroundTruth_DefaultWeights(t *testing.T) {
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
 		Objective:      "ground_truth",
-		SceneID:        "scene-1",
+		ReplayCaseID:        "scene-1",
 		// GroundTruthWeights not set -> should get defaults
 	})
 	if err != nil {
@@ -1095,7 +1095,7 @@ func TestAutoCov2_RunGroundTruth(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		SceneID:        "test-scene-1",
+		ReplayCaseID:        "test-scene-1",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
@@ -1136,7 +1136,7 @@ func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		SceneID:        "scene-save-test",
+		ReplayCaseID:        "scene-save-test",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
@@ -1180,7 +1180,7 @@ func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		SceneID:        "scene-err",
+		ReplayCaseID:        "scene-err",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
@@ -1216,7 +1216,7 @@ func TestAutoCov2_RunGroundTruthSceneStoreError(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		SceneID:        "scene-store-err",
+		ReplayCaseID:        "scene-store-err",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
@@ -1642,7 +1642,7 @@ func TestAutoCov2_RunGroundTruthCustomWeights(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		SceneID:        "custom-weights-scene",
+		ReplayCaseID:        "custom-weights-scene",
 		GroundTruthWeights: &GroundTruthWeights{
 			DetectionRate:  2.0,
 			Fragmentation:  5.0,

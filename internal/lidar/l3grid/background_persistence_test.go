@@ -558,7 +558,7 @@ func TestRegionManagerRestoreFromSnapshot(t *testing.T) {
 				{"id": 0, "cell_list": [0, 1, 2, 3], "cell_count": 4, "mean_variance": 0.1, "params": {"background_update_fraction": 0.02}},
 				{"id": 1, "cell_list": [4, 5, 6, 7], "cell_count": 4, "mean_variance": 0.5, "params": {"background_update_fraction": 0.05}}
 			]`,
-			SceneHash: "abc123",
+			GridHash: "abc123",
 		}
 
 		err := rm.RestoreFromSnapshot(snap, totalCells)
@@ -828,7 +828,7 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		sceneHash := g.SceneSignature()
 		snap := &RegionSnapshot{
 			SensorID:         g.SensorID,
-			SceneHash:        sceneHash,
+			GridHash:        sceneHash,
 			RegionsJSON:      `[{"id": 0, "cell_list": [0,1,2], "cell_count": 3}]`,
 			RegionCount:      1,
 			CreatedUnixNanos: time.Now().UnixNano(),
@@ -1045,7 +1045,7 @@ func TestTryRestoreRegionsFromStoreLocked(t *testing.T) {
 		sceneHash := g.SceneSignature()
 		snap := &RegionSnapshot{
 			SensorID:         g.SensorID,
-			SceneHash:        sceneHash,
+			GridHash:        sceneHash,
 			RegionsJSON:      `[{"id": 0, "cell_list": [0], "cell_count": 1}]`,
 			RegionCount:      1,
 			CreatedUnixNanos: time.Now().UnixNano(),
@@ -1246,7 +1246,7 @@ func TestTryRestoreRegionsFromStoreLocked_RestoreFromSceneHashError(t *testing.T
 	// Add a snapshot with invalid regions JSON to trigger restore error
 	snap := &RegionSnapshot{
 		SensorID:         g.SensorID,
-		SceneHash:        sceneHash,
+		GridHash:        sceneHash,
 		RegionsJSON:      `invalid json`,
 		RegionCount:      1,
 		CreatedUnixNanos: time.Now().UnixNano(),
@@ -1294,7 +1294,7 @@ func TestTryRestoreRegionsFromStoreLocked_SourcePathNoSnapshot(t *testing.T) {
 	g := makeTestGridWithData(4, 8)
 	g.RegionMgr = NewRegionManager(4, 8)
 	store := newMockRegionStore()
-	// Source path set but no matching snapshot → logs "trying scene_hash"
+	// Source path set but no matching snapshot → logs "trying grid_hash"
 	bm := &BackgroundManager{
 		Grid:       g,
 		store:      store,

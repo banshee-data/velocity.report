@@ -486,7 +486,7 @@ func TestInsertRegionSnapshot(t *testing.T) {
 		RegionsJSON:      `[{"id":1,"params":{},"cell_list":[1,2,3],"mean_variance":0.5,"cell_count":3}]`,
 		VarianceDataJSON: `{"total_variance":0.8}`,
 		SettlingFrames:   100,
-		SceneHash:        "abc123hash",
+		GridHash:        "abc123hash",
 		SourcePath:       "/path/to/test.pcap",
 	}
 
@@ -551,7 +551,7 @@ func TestGetRegionSnapshotBySceneHash(t *testing.T) {
 		RegionsJSON:      `[]`,
 		VarianceDataJSON: `{}`,
 		SettlingFrames:   50,
-		SceneHash:        sceneHash,
+		GridHash:        sceneHash,
 		SourcePath:       "/test/file.pcap",
 	}
 
@@ -570,8 +570,8 @@ func TestGetRegionSnapshotBySceneHash(t *testing.T) {
 		t.Fatal("Expected non-nil region snapshot")
 	}
 
-	if retrieved.SceneHash != sceneHash {
-		t.Errorf("SceneHash mismatch: got %q, want %q", retrieved.SceneHash, sceneHash)
+	if retrieved.GridHash != sceneHash {
+		t.Errorf("GridHash mismatch: got %q, want %q", retrieved.GridHash, sceneHash)
 	}
 	if retrieved.SensorID != "test-sensor" {
 		t.Errorf("SensorID mismatch: got %q, want %q", retrieved.SensorID, "test-sensor")
@@ -653,7 +653,7 @@ func TestGetRegionSnapshotBySourcePath(t *testing.T) {
 		RegionsJSON:      `[{"id":1}]`,
 		VarianceDataJSON: `{"settling":true}`,
 		SettlingFrames:   200,
-		SceneHash:        "some-hash",
+		GridHash:        "some-hash",
 		SourcePath:       sourcePath,
 	}
 
@@ -754,7 +754,7 @@ func TestGetLatestRegionSnapshot(t *testing.T) {
 			RegionCount:      i + 1,
 			RegionsJSON:      `[]`,
 			SettlingFrames:   i * 10,
-			SceneHash:        "hash-" + string(rune('a'+i)),
+			GridHash:        "hash-" + string(rune('a'+i)),
 		}
 
 		_, err = db.InsertRegionSnapshot(regionSnap)
@@ -834,7 +834,7 @@ func TestGetRegionSnapshotBySceneHash_MostRecent(t *testing.T) {
 			RegionCount:      (i + 1) * 10, // 10, 20, 30
 			RegionsJSON:      `[]`,
 			SettlingFrames:   i,
-			SceneHash:        sceneHash,
+			GridHash:        sceneHash,
 		}
 
 		_, err = db.InsertRegionSnapshot(regionSnap)
@@ -891,7 +891,7 @@ func TestRegionSnapshotAllFields(t *testing.T) {
 		RegionsJSON:      `[{"id":1,"params":{"min_radius":5},"cell_list":[10,20,30],"mean_variance":1.5,"cell_count":3}]`,
 		VarianceDataJSON: `{"total_variance":2.5,"settled":true}`,
 		SettlingFrames:   150,
-		SceneHash:        "abc123def456",
+		GridHash:        "abc123def456",
 		SourcePath:       "/data/pcap/capture-20250206.pcap",
 	}
 
@@ -935,8 +935,8 @@ func TestRegionSnapshotAllFields(t *testing.T) {
 	if retrieved.SettlingFrames != 150 {
 		t.Errorf("SettlingFrames mismatch: got %d, want %d", retrieved.SettlingFrames, 150)
 	}
-	if retrieved.SceneHash != "abc123def456" {
-		t.Errorf("SceneHash mismatch: got %q, want %q", retrieved.SceneHash, "abc123def456")
+	if retrieved.GridHash != "abc123def456" {
+		t.Errorf("GridHash mismatch: got %q, want %q", retrieved.GridHash, "abc123def456")
 	}
 	if retrieved.SourcePath != "/data/pcap/capture-20250206.pcap" {
 		t.Errorf("SourcePath mismatch: got %q, want %q", retrieved.SourcePath, "/data/pcap/capture-20250206.pcap")
@@ -975,7 +975,7 @@ func TestRegionSnapshotNullableFields(t *testing.T) {
 		RegionsJSON:      `[]`,
 		VarianceDataJSON: "", // Empty
 		SettlingFrames:   0,  // Zero
-		SceneHash:        "", // Empty
+		GridHash:        "", // Empty
 		SourcePath:       "", // Empty
 	}
 
@@ -998,8 +998,8 @@ func TestRegionSnapshotNullableFields(t *testing.T) {
 	if retrieved.VarianceDataJSON != "" {
 		t.Errorf("Expected empty VarianceDataJSON, got %q", retrieved.VarianceDataJSON)
 	}
-	if retrieved.SceneHash != "" {
-		t.Errorf("Expected empty SceneHash, got %q", retrieved.SceneHash)
+	if retrieved.GridHash != "" {
+		t.Errorf("Expected empty GridHash, got %q", retrieved.GridHash)
 	}
 	if retrieved.SourcePath != "" {
 		t.Errorf("Expected empty SourcePath, got %q", retrieved.SourcePath)

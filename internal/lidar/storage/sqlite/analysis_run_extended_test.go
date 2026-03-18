@@ -70,7 +70,7 @@ func setupAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 func insertTestAnalysisRun(t *testing.T, db *sql.DB, runID, sensorID string) {
 	t.Helper()
 	_, err := db.Exec(`
-		INSERT INTO lidar_analysis_runs (
+		INSERT INTO lidar_run_records (
 			run_id, created_at, source_type, source_path, sensor_id, params_json, status
 		) VALUES (?, ?, 'pcap', '/test.pcap', ?, '{}', 'completed')
 	`, runID, time.Now().UnixNano(), sensorID)
