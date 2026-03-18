@@ -42,13 +42,21 @@ keys at production defaults.
 
 ### Metrics
 
-| Metric             | Definition                                                                                     | Threshold                   |
-| ------------------ | ---------------------------------------------------------------------------------------------- | --------------------------- |
-| Cluster precision  | Clusters that map 1:1 to ground-truth objects / total clusters                                 | ≥ 0.80                      |
-| Per-class recall   | Ground-truth objects with ≥ 1 matching cluster, per class                                      | ≥ 0.85 vehicles, ≥ 0.70 VRU |
-| Split rate         | Ground-truth objects matched to > 1 cluster                                                    | ≤ 0.10                      |
-| Merge rate         | Clusters containing points from > 1 ground-truth object                                        | ≤ 0.05                      |
-| Objective function | Composite (see [tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md)) | Within 10% of optimal       |
+**Gated metrics (available via GroundTruthEvaluator):**
+
+| Metric              | Definition                                  | Threshold                 |
+| ------------------- | ------------------------------------------- | ------------------------- |
+| Confirmed track count | Confirmed tracks downstream               | No regression vs baseline |
+| Objective function  | Composite score from `GroundTruthEvaluator` | Within 10% of optimal     |
+
+**Future / manual diagnostics (cluster-level, not yet in evaluator):**
+
+| Metric           | Definition                                                           | Notes                             |
+| ---------------- | -------------------------------------------------------------------- | --------------------------------- |
+| Cluster precision | Clusters that map 1:1 to ground-truth objects / total clusters      | Requires cluster-level ground truth |
+| Per-class recall | Ground-truth objects with ≥ 1 matching cluster, per class            | Requires cluster-level ground truth |
+| Split rate       | Ground-truth objects matched to > 1 cluster                          | Requires cluster-level ground truth |
+| Merge rate       | Clusters containing points from > 1 ground-truth object             | Requires cluster-level ground truth |
 
 ### Controls
 

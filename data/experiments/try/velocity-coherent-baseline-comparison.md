@@ -39,18 +39,26 @@ pedestrian classes.
    PCAP with the production default config (`config/tuning.defaults.json`).
 2. Run the velocity-coherent extractor on the same PCAPs with the same
    downstream parameters (same DBSCAN ε, same tracker config).
-3. Generate analysis reports for both runs using `pcap-analyse`.
-4. Compare reports using `analysis.CompareReports` with Hungarian-matched
-   temporal IoU.
+3. Record both runs as analysis runs (via `pcap-analyse`) and label
+   reference tracks with `user_label` per class.
+4. Evaluate each candidate run against the scene's labelled reference
+   run using `GroundTruthEvaluator` (Hungarian-matched temporal IoU).
 
 ### Metrics
 
+**Gated metrics (available via GroundTruthEvaluator):**
+
 | Metric             | Definition                                                                                 | Threshold                                 |
 | ------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| Track completeness | Fraction of ground-truth tracks matched to a single pipeline track with temporal IoU ≥ 0.5 | ≥ 10% improvement (absolute)              |
-| Fragmentation rate | Pipeline tracks per ground-truth track (lower is better)                                   | < 1.2 for vehicles, < 1.5 for pedestrians |
-| Speed RMSE         | Root mean square error of per-track average speed vs ground truth                          | ≤ 5% regression vs baseline               |
-| Frame throughput   | Frames processed per second on reference hardware                                          | ≤ 20% regression vs baseline              |
+| Track completeness | Fraction of reference tracks matched with temporal IoU ≥ 0.5                               | ≥ 10% improvement (absolute)              |
+| Fragmentation rate | Pipeline tracks per reference track (lower is better)                                      | < 1.2 vehicles, < 1.5 pedestrians         |
+| Frame throughput   | Frames processed per second on reference hardware (`pcap-analyse -benchmark`)              | ≤ 20% regression vs baseline              |
+
+**Future / manual diagnostics (not yet implemented in the evaluator):**
+
+| Metric     | Definition                                              | Notes                           |
+| ---------- | ------------------------------------------------------- | ------------------------------- |
+| Speed RMSE | RMS error of per-track speed vs ground truth            | Requires speed ground truth labels |
 
 ### Controls
 
@@ -78,7 +86,8 @@ before retesting.
 - Velocity-coherent extractor implementation (at least L3 track-assisted
   promotion and L4 two-stage clustering)
 - Access to Raspberry Pi 4 for throughput measurements
-- `pcap-analyse` tool with comparison mode
+- `pcap-analyse` benchmark mode for throughput measurement
+- `GroundTruthEvaluator` for scored quality comparison against labelled reference runs
 
 ## Timeline
 

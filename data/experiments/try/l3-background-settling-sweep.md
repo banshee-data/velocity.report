@@ -27,8 +27,9 @@ mathematical rationale behind each key.
 
 Run on all available labelled PCAPs (initially kirk0; expand to the five-site
 corpus as captures become available per the
-[test corpus plan](../../../docs/plans/lidar-test-corpus-plan.md)). Each PCAP
-must have ≥ 20 manually labelled ground-truth tracks.
+[test corpus plan](../../../docs/plans/lidar-test-corpus-plan.md)).
+Each PCAP must have a labelled reference analysis run (tracks annotated
+with `user_label` per class via the track-labelling UI).
 
 ### Protocol
 
@@ -47,13 +48,20 @@ sweep values, holding all other keys at production defaults
 
 ### Metrics
 
-| Metric                | Definition                                                                                     | Threshold                 |
-| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------- |
-| Foreground precision  | True foreground points / all foreground-classified points                                      | ≥ 0.90 on all sites       |
-| Foreground recall     | True foreground points / all ground-truth foreground points                                    | ≥ 0.85 on all sites       |
-| Ground false-pos rate | Ground points incorrectly classified as foreground / total                                     | ≤ 0.05                    |
-| Confirmed track count | Number of confirmed tracks downstream                                                          | No regression vs baseline |
-| Objective function    | Composite (see [tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md)) | Within 10% of optimal     |
+**Gated metrics (available via GroundTruthEvaluator):**
+
+| Metric              | Definition                                                                                     | Threshold                 |
+| ------------------- | ---------------------------------------------------------------------------------------------- | ------------------------- |
+| Confirmed track count | Number of confirmed tracks downstream                                                        | No regression vs baseline |
+| Objective function  | Composite score from `GroundTruthEvaluator`                                                    | Within 10% of optimal     |
+
+**Future / manual diagnostics (point-level, not yet in evaluator):**
+
+| Metric                | Definition                                                       | Notes                           |
+| --------------------- | ---------------------------------------------------------------- | ------------------------------- |
+| Foreground precision  | True foreground points / all foreground-classified points        | Requires point-level ground truth |
+| Foreground recall     | True foreground points / all ground-truth foreground points      | Requires point-level ground truth |
+| Ground false-pos rate | Ground points incorrectly classified as foreground / total       | Requires point-level ground truth |
 
 ### Controls
 
@@ -77,10 +85,10 @@ a site-adaptive approach rather than a single default.
 
 ## Resources required
 
-- Labelled ground-truth tracks for kirk0 and additional sites
-- Sweep infrastructure (`make sweep` / HINT mode, Phase 3.9 ✅)
-- Access to Raspberry Pi 4 for throughput measurements
-- `pcap-analyse` tool with comparison mode
+- `pcap-analyse` for PCAP replay with parameter overrides
+- `GroundTruthEvaluator` for scored quality comparison against labelled
+  reference runs
+- Access to Raspberry Pi 4 for throughput measurements (`pcap-analyse -benchmark`)
 
 ## Timeline
 

@@ -56,13 +56,14 @@ covering the major classes (car, truck, cyclist, pedestrian at minimum).
 
 ### Labelling requirements
 
-Per PCAP, manually label:
+Per PCAP, create a labelled reference analysis run:
 
-- ≥ 20 vehicle tracks (car and/or truck)
-- ≥ 5 cyclist tracks (where present)
-- ≥ 5 pedestrian tracks (where present)
-- Label format: compatible with `analysis.CompareReports` (track ID,
-  class, start/end time, bounding box sequence)
+- ≥ 20 vehicle tracks with `user_label` = "car" or "truck"
+- ≥ 5 cyclist tracks with `user_label` = "cyclist" (where present)
+- ≥ 5 pedestrian tracks with `user_label` = "pedestrian" (where present)
+- Labels stored in `lidar_run_tracks.user_label` and `quality_label`
+  fields via the track-labelling UI
+- Scene `reference_run_id` set to this run for ground-truth evaluation
 
 ## Usage
 

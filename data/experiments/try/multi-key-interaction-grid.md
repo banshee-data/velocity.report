@@ -78,7 +78,8 @@ RMSE, objective function), plus:
 ## Resources required
 
 - Completed per-layer sweep results
-- Sweep infrastructure (`make sweep` / HINT mode)
+- `pcap-analyse` for PCAP replay with parameter overrides
+- `GroundTruthEvaluator` for scored quality comparison
 - Compute budget: up to 81 × 5 sites = 405 runs (each ≈ 5 min on Pi 4
   ≈ 34 hours; parallelisable on faster hardware)
 

@@ -489,9 +489,9 @@ These claims need benchmark evidence before the baseline is replaced.
    RMSE by more than 5%.
 
 **Benchmark protocol:** Run both extractors on the same PCAP with the same
-downstream parameters (same DBSCAN ε, same tracker config). Compare using
-the existing `analysis.CompareReports` infrastructure with Hungarian-matched
-temporal IoU.
+downstream parameters (same DBSCAN ε, same tracker config). Record each as an
+analysis run and evaluate the candidate against the scene's labelled reference
+run using `GroundTruthEvaluator` (Hungarian-matched temporal IoU).
 
 **Experiment proposal:** See
 [data/experiments/try/velocity-coherent-baseline-comparison.md](../experiments/try/velocity-coherent-baseline-comparison.md)
@@ -539,8 +539,10 @@ the dimension sync logic with a single Bayesian model.
 
 **Validation protocol:** Run geometry-coherent tracker on kirk0 PCAP and
 compare dimension stability, heading drift, and jump frequency against the
-current guard-based tracker. Use existing `analysis.CompareReports` for
-track-level comparison.
+current guard-based tracker. Compare analysis runs using
+`GroundTruthEvaluator` for track-level scored evaluation or
+run-to-run vrlog comparison via `analysis.CompareReports` for
+unlabelled diffs.
 
 **Why this is the highest-priority work:** Bounding box instability is the
 most visible artifact in the visualiser and the most frequently reported
@@ -823,8 +825,10 @@ and should sum to 1.0, not 100. The final score is then
 
 ### 5.4 Analysis run comparison infrastructure
 
-The existing `analysis.CompareReports` uses Hungarian-matched temporal IoU.
-This is correct for track-level comparison. It should be extended with:
+The vrlog-level `analysis.CompareReports` uses Hungarian-matched temporal IoU
+for unlabelled run-to-run diffs. The `GroundTruthEvaluator` provides scored
+quality comparison against labelled reference runs. Both should be extended
+with:
 
 1. **Per-class comparison:** Report metrics separately for each class to
    detect class-specific regressions.
