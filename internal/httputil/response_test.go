@@ -2,6 +2,8 @@ package httputil
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -115,4 +117,46 @@ func TestNotFound(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
+}
+
+// failWriter wraps a ResponseRecorder but returns an error on Write after
+// a configurable number of successful calls. This forces json.Encoder.Encode
+// to fail so we can exercise the log.Printf error branches.
+type failWriter struct {
+	*httptest.ResponseRecorder
+	writeCount int
+	failAfter  int
+}
+
+func (fw *failWriter) Write(b []byte) (int, error) {
+	fw.writeCount++
+	if fw.writeCount > fw.failAfter {
+		return 0, fmt.Errorf("simulated write failure")
+	}
+	return fw.ResponseRecorder.Write(b)
+}
+
+func TestWriteJSON_EncodeError(t *testing.T) {
+	t.Parallel()
+
+	// math.Inf(1) cannot be marshalled to JSON; Encode will return an error.
+	w := httptest.NewRecorder()
+	WriteJSON(w, http.StatusOK, math.Inf(1))
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("content-type = %s, want application/json", ct)
+	}
+}
+
+func TestWriteJSONError_EncodeError(t *testing.T) {
+	t.Parallel()
+
+	// Use a writer whose Write method fails after the first call so that
+	// json.Encoder.Encode returns an error for WriteJSONError.
+	w := &failWriter{ResponseRecorder: httptest.NewRecorder(), failAfter: 0}
+	WriteJSONError(w, http.StatusBadRequest, "test")
+	// Ensure no panic — the error is logged internally.
 }
