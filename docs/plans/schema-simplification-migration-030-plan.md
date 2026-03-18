@@ -1,4 +1,4 @@
-# Pre-v0.5.0 LiDAR Schema Standardisation Plan
+# Pre-v0.5.0 Schema Simplification Migration 030 Plan
 
 - **Status:** Draft — prerequisite proto rename complete (#352); migration SQL and Go code changes pending
 - **Layers:** Database, L3 Grid, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints (API + web)
@@ -198,7 +198,7 @@ ALTER TABLE lidar_track_obs RENAME COLUMN frame_id TO world_frame;
 
 -- restore scene_hash
 ALTER TABLE lidar_bg_regions RENAME COLUMN grid_hash TO scene_hash;
-DROP INDEX idx_bg_regions_grid_hash;
+DROP INDEX IF EXISTS idx_bg_regions_grid_hash;
 CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
 ```
 
