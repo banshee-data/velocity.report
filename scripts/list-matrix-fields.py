@@ -417,10 +417,16 @@ def extract_cmd_entries(root: Path) -> list[CmdEntry]:
         if "func main()" not in text:
             continue
         rel = _rel(go_file, root)
-        # Derive binary name: use grandparent if under cmd/tools/<name>/
+        # Derive binary name: use tool directory for cmd/tools/<name>/main.go,
+        # and file stem for single-file tools cmd/tools/<file>.go.
         parts = go_file.relative_to(cmd_dir).parts
         if len(parts) >= 2 and parts[0] == "tools":
-            binary = parts[1]  # e.g. gen-vrlog
+            if len(parts) == 2:
+                # Single-file tool: cmd/tools/<file>.go
+                binary = go_file.stem
+            else:
+                # Multi-file tool: cmd/tools/<name>/main.go
+                binary = parts[1]  # e.g. gen-vrlog
         elif len(parts) >= 2:
             binary = parts[0]  # e.g. radar, sweep
         else:
@@ -636,7 +642,11 @@ def extract_computed_structs(root: Path) -> list[GoStruct]:
     for rel_path, struct_names in _COMPUTED_STRUCT_TARGETS:
         src = root / rel_path
         text = _read(src)
-        pkg = rel_path.rsplit("/", 1)[-1].replace(".go", "")
+        pkg_match = re.search(r"^\s*package\s+(\w+)", text, re.MULTILINE)
+        if pkg_match:
+            pkg = pkg_match.group(1)
+        else:
+            pkg = Path(rel_path).parent.name
         for name in struct_names:
             fields = _extract_struct_fields(text, name)
             results.append(

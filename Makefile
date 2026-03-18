@@ -1439,7 +1439,8 @@ git-fs:
 	git diff --name-only --diff-filter=ACMRTUXB origin/main...HEAD -- "$(or $(DIR),.)" | sort -u
 
 git-files:
-	@git diff --name-only main..HEAD
+	@git fetch origin main >/dev/null 2>&1 || true; \
+	git diff --name-only origin/main...HEAD
 
 # =============================================================================
 # DATA VISUALIZATION
