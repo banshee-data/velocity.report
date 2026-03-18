@@ -50,17 +50,17 @@ pedestrian classes.
 
 **Gated metrics (available via GroundTruthEvaluator):**
 
-| Metric             | Definition                                                                                 | Threshold                                 |
-| ------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| Track completeness | Fraction of reference tracks matched with temporal IoU ≥ 0.5                               | ≥ 10% improvement (absolute)              |
-| Fragmentation rate | Pipeline tracks per reference track (lower is better)                                      | < 1.2 vehicles, < 1.5 pedestrians         |
-| Frame throughput   | Frames processed per second on reference hardware (`pcap-analyse -benchmark`)              | ≤ 20% regression vs baseline              |
+| Metric             | Definition                                                                    | Threshold                         |
+| ------------------ | ----------------------------------------------------------------------------- | --------------------------------- |
+| Track completeness | Fraction of reference tracks matched with temporal IoU ≥ 0.5                  | ≥ 10% improvement (absolute)      |
+| Fragmentation rate | Pipeline tracks per reference track (lower is better)                         | < 1.2 vehicles, < 1.5 pedestrians |
+| Frame throughput   | Frames processed per second on reference hardware (`pcap-analyse -benchmark`) | ≤ 20% regression vs baseline      |
 
 **Future / manual diagnostics (not yet implemented in the evaluator):**
 
-| Metric     | Definition                                              | Notes                           |
-| ---------- | ------------------------------------------------------- | ------------------------------- |
-| Speed RMSE | RMS error of per-track speed vs ground truth            | Requires speed ground truth labels |
+| Metric     | Definition                                   | Notes                              |
+| ---------- | -------------------------------------------- | ---------------------------------- |
+| Speed RMSE | RMS error of per-track speed vs ground truth | Requires speed ground truth labels |
 
 ### Controls
 

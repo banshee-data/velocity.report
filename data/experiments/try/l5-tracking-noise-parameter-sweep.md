@@ -61,18 +61,18 @@ the configured value is mismatched to the actual sensor noise.
 
 **Gated metrics (available via GroundTruthEvaluator):**
 
-| Metric             | Definition                                              | Threshold                 |
-| ------------------ | ------------------------------------------------------- | ------------------------- |
-| Track completeness | Fraction of GT tracks matched with temporal IoU ≥ 0.5   | No regression vs baseline |
-| Fragmentation rate | Pipeline tracks per ground-truth track                   | < 1.2 for vehicles        |
-| Objective function | Composite score from `GroundTruthEvaluator`              | Within 10% of optimal     |
+| Metric             | Definition                                            | Threshold                 |
+| ------------------ | ----------------------------------------------------- | ------------------------- |
+| Track completeness | Fraction of GT tracks matched with temporal IoU ≥ 0.5 | No regression vs baseline |
+| Fragmentation rate | Pipeline tracks per ground-truth track                | < 1.2 for vehicles        |
+| Objective function | Composite score from `GroundTruthEvaluator`           | Within 10% of optimal     |
 
 **Future / manual diagnostics (not yet in evaluator):**
 
-| Metric       | Definition                                              | Notes                              |
-| ------------ | ------------------------------------------------------- | ---------------------------------- |
-| Track jitter | RMS position deviation from smoothed trajectory         | Requires trajectory ground truth   |
-| Speed RMSE   | RMS error of per-track speed vs ground truth            | Requires speed ground truth labels |
+| Metric       | Definition                                      | Notes                              |
+| ------------ | ----------------------------------------------- | ---------------------------------- |
+| Track jitter | RMS position deviation from smoothed trajectory | Requires trajectory ground truth   |
+| Speed RMSE   | RMS error of per-track speed vs ground truth    | Requires speed ground truth labels |
 
 ### Controls
 

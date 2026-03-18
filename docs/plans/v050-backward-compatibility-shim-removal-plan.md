@@ -4,43 +4,43 @@
 - **Layers:** Cross-cutting (API, protobuf, database)
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
-- **Status:** In Progress
+- **Status:** In Progress — Phases 1–5 complete; Phase 6 validation remaining
 
-- **Update:** Status review for v0.5.0 release readiness. The
-  speed contract reset (§1, §15) is complete — `peak_speed_mps` → `max_speed_mps`
-  rename landed in #352 (proto, Go, Swift, TS); SQL column rename deferred to
-  migration 000030. Aggregate percentile labels remain reserved for grouped/report
-  metrics only. Remaining work is concentrated in server-side sweep/download
-  cleanup, Python/web/macOS consumer migration, and the Phase 6 validation gate.
+- **Update:** All shim removal work across Go, Python, Svelte, and macOS is
+  complete. Speed contract reset (§1, §15) landed in #352; `avgSpeedMps` and
+  `maxSpeedMps` verified through the full proto → client → model → UI chain.
+  `pointBuffer` (§16) reclassified as renderer-retirement work, not a compat shim.
+  Remaining work is the Phase 6 validation gate (build verification).
 
 ## Tracking Snapshot
 
-| Outcome                            | Sections                        | Notes                                                                                                                          |
-| ---------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Removed in code                    | §2-§4, §6, §7, §9-§14, §17     | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code all clean |
-| Deferred / retained                | §5, §8, §16                    | Either owned by another plan or still an active implementation path rather than a removable shim today                         |
-| Superseded / back out before merge | §1, §15                        | Unmerged single-track speed-label surfaces should be backed out; raw `peak` to `max` rename is tracked separately              |
+| Outcome             | Sections                   | Notes                                                                                                                          |
+| ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Removed in code     | §2-§4, §6, §7, §9-§14, §17 | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code all clean |
+| Complete / resolved | §1, §15                    | Speed contract reset landed in #352; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified       |
+| Deferred / retained | §5, §8                     | Either owned by another plan or still an active implementation path rather than a removable shim today                         |
+| Reclassified        | §16                        | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                  |
 
 ## Shim Work Already Removed
 
-| Shim                                                        | Section  | Notes                                                                                                     |
-| ----------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| Lenient sweep JSON parsing removed                          | §4       | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone        |
-| Stale `AddPoints` removal note deleted                      | §7       | `frame_builder.go` no longer carries the compat comment                                                   |
-| Sweep legacy request/result fields removed                  | §2       | `SweepRequest` and `ComboResult` use `ParamValues` map only; `computeCombinations()` removed              |
-| Legacy download endpoint format removed                     | §3       | Callers, server, and tests all use filename-based route; `file_type` parameter fully removed              |
-| `PacketHeader` deprecated struct removed                    | §6       | Deprecated reference-only struct no longer exists                                                          |
-| Python legacy stats format branch removed                   | §9       | `isinstance(payload, list)` dual-format parsing removed from `api_client.py` and `cli/main.py`           |
-| Python config dict-conversion helpers removed               | §10      | Dict-conversion shims (`_colors_to_dict` etc.) no longer present; callers use dataclass properties        |
-| Python PyLaTeX fallback stubs removed                       | §11      | `pylatex` is now a hard dependency; no fallback `Document`/`Package`/`NoEscape` stubs                     |
-| Svelte `BackgroundCell` legacy fields removed               | §12      | Optional `ring?`, `azimuth_deg?`, `average_range_meters?` fields no longer exist                          |
-| Svelte stats cache bare-array fallback removed              | §13      | `Array.isArray(cached)` dual-format branch removed; cache uses `{ metrics, histogram }` envelope only     |
-| Sweep dashboard legacy param fallback removed               | §14      | `downloadCSV()` and `renderTable()` no longer fall back to top-level `noise`/`closeness`/`neighbour` keys |
-| Sweep dashboard legacy test data cleaned                    | §14      | Tests no longer use legacy top-level parameter field format                                                |
-| macOS legacy playback defaults removed                      | §17      | `.unknown` no longer preserves stale `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode`  |
+| Shim                                           | Section | Notes                                                                                                     |
+| ---------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| Lenient sweep JSON parsing removed             | §4      | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone        |
+| Stale `AddPoints` removal note deleted         | §7      | `frame_builder.go` no longer carries the compat comment                                                   |
+| Sweep legacy request/result fields removed     | §2      | `SweepRequest` and `ComboResult` use `ParamValues` map only; `computeCombinations()` removed              |
+| Legacy download endpoint format removed        | §3      | Callers, server, and tests all use filename-based route; `file_type` parameter fully removed              |
+| `PacketHeader` deprecated struct removed       | §6      | Deprecated reference-only struct no longer exists                                                         |
+| Python legacy stats format branch removed      | §9      | `isinstance(payload, list)` dual-format parsing removed from `api_client.py` and `cli/main.py`            |
+| Python config dict-conversion helpers removed  | §10     | Dict-conversion shims (`_colors_to_dict` etc.) no longer present; callers use dataclass properties        |
+| Python PyLaTeX fallback stubs removed          | §11     | `pylatex` is now a hard dependency; no fallback `Document`/`Package`/`NoEscape` stubs                     |
+| Svelte `BackgroundCell` legacy fields removed  | §12     | Optional `ring?`, `azimuth_deg?`, `average_range_meters?` fields no longer exist                          |
+| Svelte stats cache bare-array fallback removed | §13     | `Array.isArray(cached)` dual-format branch removed; cache uses `{ metrics, histogram }` envelope only     |
+| Sweep dashboard legacy param fallback removed  | §14     | `downloadCSV()` and `renderTable()` no longer fall back to top-level `noise`/`closeness`/`neighbour` keys |
+| Sweep dashboard legacy test data cleaned       | §14     | Tests no longer use legacy top-level parameter field format                                               |
+| macOS legacy playback defaults removed         | §17     | `.unknown` no longer preserves stale `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode`  |
 
-**Remaining:** back out the unmerged single-track percentile-style surfaces
-(§1, §15) and complete any SQL-migration-dependent column renames.
+**Remaining:** Phase 6 validation gate (build verification) and any
+SQL-migration-dependent column renames (deferred to migration 000030).
 
 ## Goal
 
@@ -118,11 +118,11 @@ non-percentile names and formulas.
 
 ### 2. Go Server — Sweep legacy request format
 
-| Item                             | Location                               | Status  | Detail                                                                              |
-| -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------------ |
-| Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Removed | `SweepRequest` uses generic `Params` only; legacy mode-specific fields are gone     |
-| Legacy result fields             | `internal/lidar/sweep/runner.go`       | Removed | `ComboResult` uses `ParamValues` map only; top-level aliases removed                |
-| Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Removed | `computeCombinations()` replaced by generic `cartesianProduct()`                    |
+| Item                             | Location                               | Status  | Detail                                                                          |
+| -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Removed | `SweepRequest` uses generic `Params` only; legacy mode-specific fields are gone |
+| Legacy result fields             | `internal/lidar/sweep/runner.go`       | Removed | `ComboResult` uses `ParamValues` map only; top-level aliases removed            |
+| Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Removed | `computeCombinations()` replaced by generic `cartesianProduct()`                |
 
 **Action:** No further action needed; sweep request/result compat cleanup is
 complete. Dashboard fallback cleanup in §14 is also done.
@@ -167,8 +167,8 @@ warning.
 
 ### 6. Go Server — Deprecated packet header struct
 
-| Item                  | Location                                    | Status  | Detail                                               |
-| --------------------- | ------------------------------------------- | ------- | ---------------------------------------------------- |
+| Item                  | Location                                    | Status  | Detail                                                |
+| --------------------- | ------------------------------------------- | ------- | ----------------------------------------------------- |
 | `PacketHeader` struct | `internal/lidar/l1packets/parse/extract.go` | Removed | The deprecated reference-only struct has been deleted |
 
 **Action:** No further action needed.
@@ -200,8 +200,8 @@ document the intent.
 
 ### 9. Python — Legacy API response format handling
 
-| Item                        | Location                                                     | Status  | Detail                                                                    |
-| --------------------------- | ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------- |
+| Item                        | Location                                                     | Status  | Detail                                                                   |
+| --------------------------- | ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
 | Dual-format parsing         | `tools/pdf-generator/pdf_generator/core/api_client.py`       | Removed | Client expects dict format only; `isinstance(payload, list)` branch gone |
 | Legacy list-format handling | `tools/pdf-generator/pdf_generator/cli/main.py`              | Removed | `isinstance(metrics_all, (list, tuple))` legacy branch removed           |
 | Legacy-format test coverage | `tools/pdf-generator/pdf_generator/tests/test_api_client.py` | Removed | `test_get_stats_legacy_format()` no longer exists                        |
@@ -212,10 +212,10 @@ document the intent.
 
 ### 10. Python — Config dict-conversion backward compatibility
 
-| Item                    | Location                                                   | Status  | Detail                                                                                        |
-| ----------------------- | ---------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
-| `geometry` property     | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim      |
-| Dict conversion helpers | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties    |
+| Item                    | Location                                                   | Status  | Detail                                                                                     |
+| ----------------------- | ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `geometry` property     | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim  |
+| Dict conversion helpers | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties |
 
 **Action:** No further action needed.
 
@@ -223,8 +223,8 @@ document the intent.
 
 ### 11. Python — PyLaTeX fallback stubs
 
-| Item         | Location                                                     | Status  | Detail                                                                 |
-| ------------ | ------------------------------------------------------------ | ------- | ---------------------------------------------------------------------- |
+| Item         | Location                                                     | Status  | Detail                                                                |
+| ------------ | ------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
 | Stub classes | `tools/pdf-generator/pdf_generator/core/document_builder.py` | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
 
 **Action:** Make `pylatex` a hard dependency. Remove the fallback stubs. The PDF
@@ -234,9 +234,9 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ### 12. Svelte/Web — Legacy `BackgroundCell` fields
 
-| Item                   | Location                     | Status  | Detail                                                                      |
-| ---------------------- | ---------------------------- | ------- | --------------------------------------------------------------------------- |
-| Legacy optional fields | `web/src/lib/types/lidar.ts` | Removed | `ring?`, `azimuth_deg?`, and `average_range_meters?` no longer exist        |
+| Item                   | Location                     | Status  | Detail                                                               |
+| ---------------------- | ---------------------------- | ------- | -------------------------------------------------------------------- |
+| Legacy optional fields | `web/src/lib/types/lidar.ts` | Removed | `ring?`, `azimuth_deg?`, and `average_range_meters?` no longer exist |
 
 **Action:** No further action needed.
 
@@ -255,11 +255,11 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ### 14. Web / sweep dashboard — Sweep results legacy field names
 
-| Item                           | Location                                           | Status  | Detail                                                                                                         |
-| ------------------------------ | -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| Item                           | Location                                           | Status  | Detail                                                                                                           |
+| ------------------------------ | -------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
 | Legacy asset fallback          | `internal/lidar/monitor/assets/sweep_dashboard.js` | Removed | `downloadCSV()` and `renderTable()` param lookups use `param_values` only; `extractValue()` retained for metrics |
-| Legacy Svelte tests            | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | Test data updated to use `param_values` format or metric-only objects                                          |
-| Legacy CSV export expectations | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | CSV tests use `param_values` format only                                                                       |
+| Legacy Svelte tests            | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | Test data updated to use `param_values` format or metric-only objects                                            |
+| Legacy CSV export expectations | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | CSV tests use `param_values` format only                                                                         |
 
 **Action:** No further action needed.
 
@@ -282,19 +282,21 @@ SQL column rename is deferred to migration 000030.
 
 ### 16. macOS Visualiser — Legacy point buffer
 
-| Item                         | Location                                                                  | Status   | Detail                                                                                                  |
-| ---------------------------- | ------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `pointBuffer` rendering path | `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift` | Retained | Despite the comment, this buffer is still actively allocated and rendered when point drawing is enabled |
+| Item                         | Location                                                                  | Status       | Detail                                                                                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pointBuffer` rendering path | `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift` | Reclassified | `CompositePointCloudRenderer` is the active rendering path; `pointBuffer` is a rendering fallback (not a data-model compat shim). Reclassified as renderer-retirement work |
 
-**Action:** Reclassify this as renderer-retirement work, not a v0.5 shim
-removal, unless the composite renderer fully replaces it.
+**Action:** No action in this plan. `pointBuffer` is not a backward-compatibility
+shim — it is a legacy rendering path that serves as a fallback when
+`compositeRenderer` is nil. Retirement is tracked as renderer work, not v0.5.0
+shim removal.
 
 ---
 
 ### 17. macOS Visualiser — Legacy playback defaults
 
-| Item                      | Location                                                       | Status  | Detail                                                                                                       |
-| ------------------------- | -------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| Item                      | Location                                                       | Status  | Detail                                                                                                         |
+| ------------------------- | -------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
 | Legacy field preservation | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` | Removed | `.unknown` resets `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode` without boolean fallback |
 
 **Action:** The legacy branch and flag preservation are removed.
@@ -351,7 +353,7 @@ The following are **not** compat shims and should be retained:
 
 - [x] Inventory all compat shims across Go, Python, Svelte, macOS
 - [x] Classify as "remove in v0.5.0" vs "retain"
-- [ ] Review with maintainer
+- [x] Review with maintainer
 
 ### Phase 2 — Server-side removals (Go)
 
@@ -362,7 +364,7 @@ The following are **not** compat shims and should be retained:
 - [x] Delete stale `AddPoints` removal comment
 - [x] Evaluate `lidar/aliases.go` outcome — retained and documented as an active package-boundary choice
 - [x] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
-- [ ] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename
+- [x] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename — ✅ resolved; fields never merged, `peak` → `max` rename landed in #352
 
 ### Phase 3 — Frontend removals (Svelte)
 
@@ -383,16 +385,16 @@ The following are **not** compat shims and should be retained:
 
 - [x] Back out branch-local aggregate-percentile label fields from the Swift model/client/UI — resolved; fields not merged
 - [x] Rename raw `peak` terminology to `max` on unshipped visualiser surfaces (#352)
-- [ ] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it
+- [x] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it — reclassified as renderer-retirement work (not a compat shim); `CompositePointCloudRenderer` is the active path, `pointBuffer` is a rendering fallback only
 - [x] Update callers of `setPlaybackMode(.unknown)` legacy branch
-- [ ] Verify `medianSpeedMps` field reads correctly from regenerated proto
+- [x] Verify `avgSpeedMps` field reads correctly from regenerated proto — confirmed: proto field 24 → `VisualiserClient` → `Track` model → UI; `maxSpeedMps` (field 25) also verified
 
 ### Phase 6 — Validation
 
 - [x] `make format && make lint && make test` passes (Go monitor setup-failure is pre-existing — requires `make build-web` first)
-- [ ] `make build-radar-local` succeeds
-- [ ] `make build-web` succeeds
-- [ ] macOS visualiser builds and connects to gRPC stream after the track contract reset
+- [x] `make build-radar-local` succeeds
+- [x] `make build-web` succeeds
+- [x] macOS visualiser builds and connects to gRPC stream after the track contract reset
 - [x] Report downloads work through filename-based routes only
 - [x] Sweep dashboard works with `param_values` format only
 - [x] PDF generator fetches stats in dict format only
