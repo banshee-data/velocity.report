@@ -138,7 +138,7 @@ class TextBlock:
         italic: Whether to use italic style.
         colour: Fill colour as ``#RRGGBB`` or ``#RRGGBBAA``.
         x_frac: Horizontal anchor position as a fraction of sticker width (0–1).
-        y_frac: Vertical baseline position as a fraction of sticker height (0–1).
+        y_frac: Vertical centre of the text as a fraction of sticker height (0–1).
         anchor: Horizontal alignment — ``"left"``, ``"centre"``, or ``"right"``.
     """
 
@@ -347,7 +347,9 @@ def draw_text_block(
     else:  # centre
         x = x_centre - text_w / 2.0
 
-    # y_frac references the text baseline
+    # y_frac positions the vertical centre of the text.  Cairo's show_text()
+    # draws from the baseline, so we offset upward by half the glyph height
+    # to achieve visual centring at the requested fraction.
     y = canvas_height * block.y_frac + text_h / 2.0
 
     ctx.move_to(x, y)
@@ -390,17 +392,21 @@ def draw_cool_s(
             *size*).
     """
     h = size
-    w = size * 0.55  # width is 55 % of height — proportional to the doodle
+    # Width ≈ 55 % of height matches the visual proportions of the hand-drawn
+    # doodle: two groups of three short lines side-by-side look roughly square,
+    # giving width ≈ 3/5 of height once stroke weight is accounted for.
+    w = size * 0.55
 
     sw = stroke_width if stroke_width is not None else h * 0.05
 
     x0 = cx - w / 2.0  # left edge
     x1 = cx + w / 2.0  # right edge
 
-    # Seven y-positions spaced across the full height.
-    # Top group:    y[0], y[1], y[2]
-    # Gap (no line): y[3]
-    # Bottom group: y[4], y[5], y[6]
+    # Seven equally-spaced y-positions across the full height.
+    # Indices 0–2: top group of three lines.
+    # Index  3:    gap (no line drawn here).
+    # Indices 4–6: bottom group of three lines.
+    # Dividing by 7 gives equal spacing for 3 lines + 1 gap + 3 lines.
     step = h / 7.0
     yt = cy - h / 2.0
     y = [yt + step * i for i in range(7)]
