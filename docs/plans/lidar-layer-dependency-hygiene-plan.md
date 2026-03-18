@@ -1,9 +1,8 @@
 # Layer Dependency Hygiene: Move Sensor-Frame Types to L2
 
-**Status:** ✅ Implemented
-**Created:** 2026-03-08
-**Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception
-**Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
+- **Status:** ✅ Implemented
+- **Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception
+- **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
 
 The layer model declares strict forward-only dependencies (L1→L2→L3→…, never upward). An audit of real imports reveals several violations where lower layers import types from L4.
 

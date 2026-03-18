@@ -1,9 +1,9 @@
 # Metrics Registry and Observability Plan
 
-**Status:** Proposed
-**Layers:** Cross-cutting (all layers)
-**Scope:** canonical metric naming, repo-wide consistency rules, cross-strata enforcement, and future observability/export design
-**Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [Executive Decisions Register](../DECISIONS.md), [LiDAR Logging Stream Split](../lidar/architecture/lidar-logging-stream-split-and-rubric-design.md)
+- **Status:** Proposed
+- **Layers:** Cross-cutting (all layers)
+- **Scope:** canonical metric naming, repo-wide consistency rules, cross-strata enforcement, and future observability/export design
+- **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [Executive Decisions Register](../DECISIONS.md), [LiDAR Logging Stream Split](../lidar/architecture/lidar-logging-stream-split-and-rubric-design.md)
 
 ## 1. Problem
 

@@ -101,6 +101,7 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
+	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
@@ -263,7 +264,7 @@ build-mac:
 		echo "The macOS visualiser project hasn't been created yet."; \
 		echo "This is a planned feature currently in the design phase."; \
 		echo ""; \
-		echo "Documentation: docs/lidar/visualiser/"; \
+		echo "Documentation: docs/ui/"; \
 		exit 1; \
 	fi
 	@if ! command -v xcodebuild >/dev/null 2>&1; then \
@@ -938,7 +939,7 @@ schema-sync:
 # Generate schema ERD (Entity-Relationship Diagram) as SVG
 schema-erd:
 	@echo "Generating schema ERD (schema.svg)..."
-	@bash data/sqlite-erd/graph.sh internal/db/schema.sql
+	@bash scripts/sqlite-erd/graph.sh internal/db/schema.sql
 
 # =============================================================================
 # FORMATTING (mutating)
@@ -1004,6 +1005,8 @@ format-mac:
 	fi
 
 format-docs: ensure-web-cache
+	@echo "Fixing header metadata format..."
+	@python3 scripts/check-doc-header-metadata.py --fix
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
@@ -1025,16 +1028,21 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid
+.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width
 
 lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
 
-check-mermaid: ## Validate Mermaid code fences in Markdown docs
+check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
 
-lint-docs: check-mermaid ## Check Mermaid fences and British English spelling in docs/
+check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
+	@python3 scripts/check-prose-line-width.py --report
+
+lint-docs: check-mermaid ## [gated] Check Mermaid fences, header metadata format, British English spelling, and relative links
+	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
+	@python3 scripts/check-relative-links.py
 
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
@@ -1356,7 +1364,7 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: set-version log-go-tail log-go-cat log-go-tail-all git-fs
+.PHONY: set-version log-go-tail log-go-cat log-go-tail-all git-fs git-files
 
 set-version:
 	@if [ -z "$(VER)" ]; then \
@@ -1435,6 +1443,10 @@ git-fs:
 	@git fetch origin main >/dev/null 2>&1 || true; \
 	git diff --name-only --diff-filter=ACMRTUXB origin/main...HEAD -- "$(or $(DIR),.)" | sort -u
 
+git-files:
+	@git fetch origin main >/dev/null 2>&1 || true; \
+	git diff --name-only origin/main...HEAD
+
 # =============================================================================
 # DATA VISUALIZATION
 # =============================================================================
@@ -1445,21 +1457,21 @@ git-fs:
 plot-noise-sweep:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-sweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
+	$(VENV_PYTHON) data/explore/multisweep-graph/plot_noise_sweep.py --file "$(FILE)" \
 		--out "$${OUT:-noise-sweep.png}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
 
 # Multi-sweep grid (neighbour=1 by default)
 plot-multisweep:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-multisweep FILE=data.csv [OUT=plot.png]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
+	$(VENV_PYTHON) data/explore/multisweep-graph/plot_multisweep.py --file "$(FILE)" \
 		--out "$${OUT:-multisweep.png}" --neighbour $${NEIGHBOUR:-1}
 
 # Per-noise bar charts (neighbour=1, closeness=2.5 by default)
 plot-noise-buckets:
 	@[ -z "$(FILE)" ] && echo "Usage: make plot-noise-buckets FILE=data.csv [OUT_DIR=plots/]" && exit 1 || true
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
-	$(VENV_PYTHON) data/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
+	$(VENV_PYTHON) data/explore/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
 		--out-dir "$${OUT_DIR:-noise-plots}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
 
 # Live grid stats - periodic snapshots from running lidar system

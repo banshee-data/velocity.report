@@ -45,12 +45,12 @@ When contributing in this area, include the question being answered, the observe
 
 Read next:
 
-- [docs/maths/README.md](docs/maths/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals
+- [data/maths/README.md](data/maths/README.md) — the current mathematical foundations across settling, ground modelling, clustering, tracking, and proposals
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md) — the repo-wide data science stance: metrics first, no black boxes on the critical path
-- [docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labeling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
+- [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) — how labelled runs, ground truth, and tuning fit together
 - [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md) — the metric and schema model for derived transit statistics
 - [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md) — collected metrics, objectives, and decision-making for tuning
-- [docs/maths/classification-maths.md](docs/maths/classification-maths.md) — the current transparent classification baseline and thresholds
+- [data/maths/classification-maths.md](data/maths/classification-maths.md) — the current transparent classification baseline and thresholds
 
 ### Designer (UX & Data Visualisation)
 
@@ -76,7 +76,7 @@ Read next:
 
 - [README.md](README.md) — project overview, component map, and contributor setup
 - [docs/README.md](docs/README.md) — documentation structure, ownership, and naming rules
-- [docs/plans/platform-documentation-standardization-plan.md](docs/plans/platform-documentation-standardization-plan.md) — the current documentation quality contract and validation gates
+- [docs/plans/platform-documentation-standardisation-plan.md](docs/plans/platform-documentation-standardisation-plan.md) — the current documentation quality contract and validation gates
 - [public_html/README.md](public_html/README.md) — how the public docs site is built and organised
 - [public_html/src/guides/setup.md](public_html/src/guides/setup.md) — a representative public-facing guide to match tone, structure, and audience
 
@@ -90,9 +90,9 @@ Read next:
 
 - [docs/lidar/README.md](docs/lidar/README.md) — entry point to the LiDAR subsystem docs
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md) — the end-to-end LiDAR pipeline and component inventory
-- [docs/maths/README.md](docs/maths/README.md) — how the math-heavy layers fit together
-- [docs/maths/clustering-maths.md](docs/maths/clustering-maths.md) — clustering assumptions, geometry extraction, and complexity
-- [docs/maths/tracking-maths.md](docs/maths/tracking-maths.md) — Kalman filtering, gating, assignment, and lifecycle dynamics
+- [data/maths/README.md](data/maths/README.md) — how the math-heavy layers fit together
+- [data/maths/clustering-maths.md](data/maths/clustering-maths.md) — clustering assumptions, geometry extraction, and complexity
+- [data/maths/tracking-maths.md](data/maths/tracking-maths.md) — Kalman filtering, gating, assignment, and lifecycle dynamics
 
 ### Platform Engineer
 
@@ -230,6 +230,33 @@ For regular contributors, install pre-commit hooks to auto-format on every commi
 pip install pre-commit
 pre-commit install
 ```
+
+### Advisory Linting (Non-Blocking)
+
+Some lint checks are **advisory** — they report issues without
+blocking your PR. This is a deliberate low-friction workflow:
+
+1. **Local check** — Run `make lint` to see all warnings
+   including line-width reports.
+2. **Pre-commit hook** — Auto-formats code on commit if you
+   have `pre-commit install` enabled. Width-related prose
+   checks are opt-in and advisory.
+3. **CI check** — PR checks include an advisory line-width
+   job (`continue-on-error: true`). It shows a yellow tick,
+   not a red cross. Your PR can merge regardless.
+4. **Weekly nag PR** — A scheduled workflow opens a standing
+   PR each week with any remaining style fixes. Easy to
+   review and merge — no manual effort required.
+
+This means you never need to stop work for a style issue.
+Fix what you can locally, let CI flag the rest, and the
+weekly nag PR sweeps up anything that slips through.
+
+**Line width:** The repo standard is **100 columns** for all
+code and prose. Formatters (prettier, swift-format, black)
+enforce this automatically; the prose-width linter checks
+Markdown. For details see
+[`line-width-standardisation-plan.md`](docs/plans/line-width-standardisation-plan.md).
 
 ## Git Workflow
 

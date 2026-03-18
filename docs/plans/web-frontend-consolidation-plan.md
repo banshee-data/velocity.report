@@ -1,8 +1,8 @@
 # Frontend Consolidation Plan
 
-## Status: Draft
+- **Status:** Draft
 
-**Layers:** L9 Endpoints, L10 Clients
+- **Layers:** L9 Endpoints, L10 Clients
 
 ## Problem Statement
 

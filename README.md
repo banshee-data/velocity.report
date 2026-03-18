@@ -339,7 +339,7 @@ Hooks auto-format code on every commit — no manual `make format` needed.
 - Python formatting (ruff + black) for PDF generator code
 - Web formatting (prettier)
 
-**Note:** CI lint jobs are advisory (non-blocking), so PRs can merge even without perfect formatting. A weekly automated workflow cleans up any missed formatting issues. See [`.github/workflows/lint-autofix.yml`](.github/workflows/lint-autofix.yml) for details.
+**Note:** CI lint jobs are advisory (non-blocking), so PRs can merge even without perfect formatting. A weekly automated PR cleans up any missed formatting issues. See [`CONTRIBUTING.md`](CONTRIBUTING.md#advisory-linting-non-blocking) and [`.github/workflows/lint-autofix.yml`](.github/workflows/lint-autofix.yml) for details.
 
 ### Web Frontend Development
 

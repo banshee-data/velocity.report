@@ -233,9 +233,9 @@ Planned frontend controls:
 
 Math coupling reference:
 
-- `docs/maths/background-grid-settling-maths.md`
-- `docs/maths/ground-plane-maths.md`
-- `docs/maths/proposals/20260219-unify-l3-l4-settling.md`
+- `data/maths/background-grid-settling-maths.md`
+- `data/maths/ground-plane-maths.md`
+- `data/maths/proposals/20260219-unify-l3-l4-settling.md`
 
 Canonical config/maths mapping source:
 

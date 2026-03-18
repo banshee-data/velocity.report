@@ -1,7 +1,7 @@
 # Design: Track Quality Score and Reason Codes (Feature 1)
 
-**Status:** Proposed (February 2026)
-**Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
+- **Status:** Proposed (February 2026)
+- **Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
 
 ## Objective
 

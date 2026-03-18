@@ -16,7 +16,7 @@ Documentation structure, scope, and naming conventions.
 - `/docs/lidar/` # LiDAR pipeline and sensor
 - `/docs/radar/` # Radar sensor processing
 - `/docs/ui/` # Web, mac, PDF clients
-- `/docs/maths/` # Algorithms and signal theory
+- `/data/` # Stable data references, maths notes, and explorations
 - `/docs/plans/` # Implementation plans, roadmap
 - `/docs/BACKLOG.md` # Prioritised work queue with versioned milestones (v0.5 → v2.0)
 - `/docs/DECISIONS.md` # Resolved executive decisions register
@@ -32,25 +32,27 @@ Documentation structure, scope, and naming conventions.
   - Operational guides and implementation status live under `<hub>/operations/`.
 - UI/client surface docs for web/mac/pdf live under `docs/ui/`.
 - `docs/plans/` contains forward-looking implementation plans and deferred roadmap work only. Completed architecture specs and implementation records belong in their hub folder.
-- Maths stays separate under `docs/maths/`.
-- Maths proposals live only in `docs/maths/proposals/`.
+- Data science and maths references live under `data/`.
+  - Specification-grade structures live under `data/structures/`.
+  - Maths foundations live under `data/maths/` with proposals in `data/maths/proposals/`.
+  - Exploratory analyses and revisit-worthy deep dives live under `data/explore/`.
 
 ## Naming Conventions
 
 All documentation files use **lowercase-with-hyphens** (`kebab-case`) with a lowercase `.md` extension.
 
-| Rule                    | Scope                            | Example                                               |
-| ----------------------- | -------------------------------- | ----------------------------------------------------- |
-| No underscores          | everywhere                       | `foreground-tracking.md` not `foreground_tracking.md` |
-| No dates in filenames   | general docs                     | use git history for chronology                        |
-| UPPER_CASE filenames    | `docs/data/`, project-level docs | `VRLOG_FORMAT.md`, `README.md`, `BACKLOG.md`          |
-| Date prefix `YYYYMMDD-` | `docs/maths/proposals/` only     | `20260222-geometry-coherent-tracking.md`              |
+| Rule                    | Scope                                  | Example                                               |
+| ----------------------- | -------------------------------------- | ----------------------------------------------------- |
+| No underscores          | everywhere                             | `foreground-tracking.md` not `foreground_tracking.md` |
+| No dates in filenames   | general docs                           | use git history for chronology                        |
+| UPPER_CASE filenames    | `data/structures/`, project-level docs | `VRLOG_FORMAT.md`, `README.md`, `BACKLOG.md`          |
+| Date prefix `YYYYMMDD-` | `data/maths/proposals/` only           | `20260222-geometry-coherent-tracking.md`              |
 
 ### Path patterns
 
-- `docs/data/` — `UPPER_CASE.md` for specification-grade content.
+- `data/structures/` — `UPPER_CASE.md` for specification-grade content.
 - `docs/plans/` — `<hub>-<area>-<topic>-plan.md` (flat, no subdirectories).
-- `docs/maths/proposals/` — `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
+- `data/maths/proposals/` — `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
 - `<hub>/architecture/` — `<topic>.md`
 - `<hub>/operations/` — `<topic>.md`
 
@@ -66,7 +68,7 @@ Optional bold metadata may follow the title for docs that need implementation st
 
 ```
 **Status:** Proposed (February 2026)
-**Related:** [Other Doc](other-doc.md)
+**Related:** [Backlog](BACKLOG.md)
 ```
 
 Use `**Status:**` only when the doc tracks implementation progress (plans, architecture specs). Reference docs, maths notes, and READMEs do not need it.

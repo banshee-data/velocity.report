@@ -1,6 +1,6 @@
 # LiDAR Auto-Tuning Guide
 
-**Status**: Phases 1–2 implemented, Phase 5 (ground truth) implemented
+- **Status:** Phases 1–2 implemented, Phase 5 (ground truth) implemented
 
 Auto-tuning iteratively searches the parameter space to find values that maximise tracking quality. It runs multiple rounds of grid search, narrowing the search bounds after each round based on the.
 
@@ -19,7 +19,7 @@ This guide covers the complete auto-tuning system: tunable parameters, collected
 
 **Related documentation:**
 
-- [Settling Time Optimisation](settling-time-optimization.md) — Region persistence and settle modes
+- [Settling Time Optimisation](settling-time-optimisation.md) — Region persistence and settle modes
 - [Adaptive Region Parameters](adaptive-region-parameters.md) — Per-region parameter scaling
 - [LiDAR Terminology](../terminology.md) — Core terms (point, cluster, track, scene, run, sweep)
 
@@ -313,7 +313,7 @@ Note: `fragmentation` carries the highest default weight (5.0) because track fra
 | `per_combo` (default) | Full grid reset and re-settle for each combination.                               | Most accurate results. Use when you have time and want reliable comparisons.                                  |
 | `once`                | Full settle on the first combination only; subsequent combos do a short ~2s wait. | Faster iteration (~10× fewer settle seconds). Use for initial exploration when settle time dominates runtime. |
 
-The `once` mode leverages region persistence to restore the background model quickly. See [Settling Time Optimisation](settling-time-optimization.md) for details.
+The `once` mode leverages region persistence to restore the background model quickly. See [Settling Time Optimisation](settling-time-optimisation.md) for details.
 
 ### Data Sources
 

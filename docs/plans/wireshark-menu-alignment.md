@@ -1,13 +1,9 @@
 # Wireshark Menu Alignment Plan
 
-**Layers:** L10 Clients (macOS visualiser)
+- **Layers:** L10 Clients (macOS visualiser)
 
-> **Purpose:** Compare VelocityVisualiser menu structure with Wireshark's proven
-> menu design patterns to identify gaps, adopt relevant conventions, and align
-> keyboard shortcuts where appropriate.
->
-> **Source:** [`wireshark_main_window.ui`](https://github.com/wireshark/wireshark/blob/96fed9f3402169440cc662336827e46da6839d05/ui/qt/wireshark_main_window.ui)
-> (Qt XML, Wireshark 4.x)
+- **Purpose:** Compare VelocityVisualiser menu structure with Wireshark's proven menu design patterns to identify gaps, adopt relevant conventions, and align keyboard shortcuts where appropriate.
+- **Source:** [`wireshark_main_window.ui`](https://github.com/wireshark/wireshark/blob/96fed9f3402169440cc662336827e46da6839d05/ui/qt/wireshark_main_window.ui) (Qt XML, Wireshark 4.x)
 
 ---
 

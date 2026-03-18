@@ -1,9 +1,9 @@
 # AV Standard LIDAR Integration Plan
 
-**Status:** DEFERRED - AV Integration Only
-**Layers:** L4 Perception, L5 Tracks, L6 Objects
-**Author:** Agent Ictinus (Product Architecture)
-**Version:** 1.1
+- **Status:** DEFERRED - AV Integration Only
+- **Layers:** L4 Perception, L5 Tracks, L6 Objects
+- **Author:** Agent Ictinus (Product Architecture)
+- **Version:** 1.1
 
 ---
 

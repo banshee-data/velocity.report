@@ -1,11 +1,11 @@
 # Precompiled LaTeX Format Plan
 
-**Status**: Draft — awaiting review before implementation
-**Layers:** Cross-cutting (reporting infrastructure)
-**Parent**: [RPi Imager Fork Design § 4.6 Option B](deploy-rpi-imager-fork-plan.md)
-**Goal**: Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX
-tree and precompiled `.fmt` file, reducing the Raspberry Pi image by ~700–750 MB
-while preserving byte-identical PDF output.
+- **Status:** Draft — awaiting review before implementation
+- **Layers:** Cross-cutting (reporting infrastructure)
+- **Parent:** [RPi Imager Fork Design § 4.6 Option B](deploy-rpi-imager-fork-plan.md)
+- **Goal:** Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX
+  tree and precompiled `.fmt` file, reducing the Raspberry Pi image by ~700–750 MB
+  while preserving byte-identical PDF output.
 
 ## Problem Summary
 

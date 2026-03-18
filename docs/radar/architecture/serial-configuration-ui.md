@@ -1,8 +1,8 @@
 # Feature Specification: Serial Configuration and Testing via UI
 
-**Status:** Draft
-**Author:** Ictinus (Product Architect)
-**Issue:** Serial config + test (baud, port) via UI
+- **Status:** Draft
+- **Author:** Ictinus (Product Architect)
+- **Issue:** Serial config + test (baud, port) via UI
 
 ## Executive Summary
 

@@ -25,7 +25,7 @@ UDP packets (port 2368)
 
 ### Key Observations
 
-- Hesai Pandar40P packets are 1262 bytes (see [HESAI_PACKET_FORMAT.md](../../data/HESAI_PACKET_FORMAT.md) for protocol details)
+- Hesai Pandar40P packets are 1262 bytes (see [HESAI_PACKET_FORMAT.md](../../../data/structures/HESAI_PACKET_FORMAT.md) for protocol details)
 - Motor speed drives frame duration: 10-20 Hz (600-1200 RPM)
   - Sensor supports two speed modes with variable packet rates during transitions
   - Frame completion time: ~50-100ms depending on motor speed

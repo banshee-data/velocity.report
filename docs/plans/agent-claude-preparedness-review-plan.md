@@ -157,7 +157,7 @@ Both tools read from the same files. Copilot discovers them via the `.agent.md` 
 ### 4.3 DRY Enforcement Rules
 
 1. **No project fact may appear in more than one file.** If two agents need the same fact, it belongs in Layer 1.
-2. **Agent files reference, never restate.** Use `See [build-and-test.md](.github/knowledge/build-and-test.md) for make targets and venv setup.`
+2. **Agent files reference, never restate.** Use `See [build-and-test.md](../../.github/knowledge/build-and-test.md) for make targets and venv setup.`
 3. **Tenets are inherited, never copied.** Every agent gets Layer 0 automatically through the tool entry point. Agent files must not restate privacy/ethics principles.
 4. **Role mixins are opt-in by class.** Technical agents reference `role-technical.md`. Editorial agents reference `role-editorial.md`. Cross-functional agents reference both.
 5. **Persona content is the one exception.** Agent methodology, coordination rules, and forbidden actions are duplicated across Copilot and Claude definitions to maximise each platform's native features. This bounded duplication (~40–80 lines/agent) is drift-checked weekly by `scripts/check-agent-drift.sh`. This is annoying, if platform parity allowed us to we would remove this anti-pattern.
@@ -242,7 +242,7 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 **Role:** Product direction and tradeoff decisions. The agent that challenges scope, picks between competing options, and ensures the team builds the _right_ thing — not just the _next_ thing.
 
-**Reference:** [wiki page](docs/wiki/ruth.md)
+**Reference:** internal Ruth wiki page
 
 **Domain:**
 
@@ -264,7 +264,7 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 **Role:** Algorithmic rigour and mathematical methodology. The agent that validates statistical methods, reviews algorithm implementations, and ensures the maths is sound.
 
-**Reference:** [wiki page](/docs/wiki/researcher.md) (to be created)
+**Reference:** internal Researcher wiki page (to be created)
 
 **Domain:**
 
@@ -273,7 +273,7 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 - Background grid settling — EMA/EWA, Welford variance, convergence analysis (L3)
 - Traffic engineering statistics — p50, p85, p98 percentiles, confidence intervals
 - PCA, OBB computation, coordinate transforms
-- Academic methodology — references (`docs/references.bib`), reproducibility, peer-review standards
+- Academic methodology — references (`data/maths/references.bib`), reproducibility, peer-review standards
 - Tuning parameter validation — convergence bounds, stability analysis (`config/README.maths.md`)
 - Future research proposals — IMM, geometry-coherent tracking, velocity-coherent foreground
 
@@ -403,7 +403,7 @@ Whether to also create formal `SKILL.md` wrappers is a Copilot-specific UX decis
 
 ### 6.4 Finding: Copilot Agent File Reference Resolution
 
-**Question:** If an `.agent.md` body contains `See [build-and-test.md](.github/knowledge/build-and-test.md)`, does Copilot eagerly include that file's content when the agent loads?
+**Question:** If an `.agent.md` body contains `See [build-and-test.md](../../.github/knowledge/build-and-test.md)`, does Copilot eagerly include that file's content when the agent loads?
 
 **Answer: No.** Copilot does not eagerly resolve Markdown links in `.agent.md` bodies. The agent load sequence is:
 
@@ -412,7 +412,7 @@ Whether to also create formal `SKILL.md` wrappers is a Copilot-specific UX decis
 3. Load workspace instructions (`copilot-instructions.md`) as additional context
 4. That's it — no file traversal
 
-Markdown links like `[build-and-test.md](.github/knowledge/build-and-test.md)` remain literal text in the prompt. The agent _can_ read those files at runtime using its `read` tool, but only on demand — not eagerly at load time.
+Markdown links like `[build-and-test.md](../../.github/knowledge/build-and-test.md)` remain literal text in the prompt. The agent _can_ read those files at runtime using its `read` tool, but only on demand — not eagerly at load time.
 
 **What this means for the architecture:**
 
@@ -426,7 +426,7 @@ Markdown links like `[build-and-test.md](.github/knowledge/build-and-test.md)` r
 
 This reinforces **Option A** — keeping persona content directly in `.agent.md` bodies rather than factoring it out into separate files that won't be auto-loaded.
 
-**Contrast with SKILL.md:** Skills _do_ have progressive loading — relative file paths in `SKILL.md` body (e.g. `[script](./scripts/test.js)`) cause the agent to load resources when the skill activates. But this mechanism does not extend to `.agent.md` files.
+**Contrast with SKILL.md:** Skills _do_ have progressive loading — relative file paths in `SKILL.md` body (for example, `./scripts/test.js`) cause the agent to load resources when the skill activates. But this mechanism does not extend to `.agent.md` files.
 
 **Revised Layer 1/2 strategy:** The knowledge modules in `.github/knowledge/` remain valuable for DRY authoring and human reference, but the tool entry points (`copilot-instructions.md` and `CLAUDE.md`) need to inline or summarise the most critical facts rather than just linking. This is a minor adjustment — the entry points become slightly larger (~150 lines instead of ~80) but still dramatically smaller than the current 417 + 3,040 lines.
 

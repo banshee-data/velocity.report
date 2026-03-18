@@ -1,7 +1,7 @@
 # Design: Run-List Labelling Rollup Icon
 
-**Status:** Implemented (March 2026) — core backend, macOS, and web contract complete; web runs-list parity UI deferred
-**Layers:** SQLite store, L9 Endpoints, macOS visualiser, web contract
+- **Status:** Implemented (March 2026) — core backend, macOS, and web contract complete; web runs-list parity UI deferred
+- **Layers:** SQLite store, L9 Endpoints, macOS visualiser, web contract
 
 ## Objective
 

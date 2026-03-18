@@ -1,8 +1,8 @@
 # LiDAR L8 Analytics / L9 Endpoints / L10 Clients Refactor Plan
 
-**Status:** Revised implementation plan - reviewed against repository state and backlog on 2026-03-12
-**Layers:** L8 Analytics, L9 Endpoints, L10 Clients
-**Related:** [L7 Scene plan](lidar-l7-scene-plan.md), [speed percentile aggregation alignment](speed-percentile-aggregation-alignment-plan.md), [schema simplification migration 030](schema-simplification-migration-030-plan.md), [tracks table consolidation](lidar-tracks-table-consolidation-plan.md)
+- **Status:** Revised implementation plan - reviewed against repository state and backlog on 2026-03-12
+- **Layers:** L8 Analytics, L9 Endpoints, L10 Clients
+- **Related:** [L7 Scene plan](lidar-l7-scene-plan.md), [speed percentile aggregation alignment](speed-percentile-aggregation-alignment-plan.md), [schema simplification migration 030](schema-simplification-migration-030-plan.md), [tracks table consolidation](lidar-tracks-table-consolidation-plan.md)
 
 ## Executive Summary
 
@@ -106,7 +106,7 @@ The six-layer model is still described in multiple places, including:
 - `docs/lidar/architecture/lidar-data-layer-model.md`
 - `docs/lidar/architecture/README.md`
 - `docs/lidar/README.md`
-- `docs/data/DATA_STRUCTURES.md`
+- `data/structures/README.md`
 - `docs/lidar/terminology.md`
 - `internal/lidar/l1packets/doc.go` through `internal/lidar/l6objects/doc.go`
 
@@ -155,7 +155,7 @@ Docs that must be updated in this subphase:
 - `docs/lidar/architecture/lidar-data-layer-model.md`
 - `docs/lidar/architecture/README.md`
 - `docs/lidar/README.md`
-- `docs/data/DATA_STRUCTURES.md`
+- `data/structures/README.md`
 - `docs/lidar/terminology.md`
 - any repo-level architecture docs that still describe the six-layer model
 
@@ -416,7 +416,7 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the ten-layer model
 - [x] `docs/lidar/architecture/README.md` updated to describe `L1` through `L10`
 - [x] `docs/lidar/README.md` updated to the ten-layer terminology
-- [ ] `docs/data/DATA_STRUCTURES.md` updated to the ten-layer terminology and current package layout
+- [ ] `data/structures/README.md` updated to the ten-layer terminology and current package layout
 - [ ] `docs/lidar/terminology.md` updated to the ten-layer terminology
 - [x] relevant package doc comments under `internal/lidar/l1packets/` through `internal/lidar/l6objects/` updated
 - [x] `L9 Endpoints` and `L10 Clients` naming documented

@@ -22,19 +22,19 @@ Delete-before-insert with model version tracking — [transit-deduplication.md](
 
 ### D-04 — Geometry-coherent tracking (P1 maths)
 
-Schedule for v0.6 cycle — [proposal](maths/proposals/20260222-geometry-coherent-tracking.md), [maths README](maths/README.md)
+Schedule for v0.6 cycle — [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [maths README](../data/maths/README.md)
 
 ### D-05 — Maths proposal sequencing
 
-P1 → P2 → P4 → P3 confirmed — [maths README](maths/README.md)
+P1 → P2 → P4 → P3 confirmed — [maths README](../data/maths/README.md)
 
 ### D-06 — OBB heading fixes D/E/F
 
-Skip; P1 supersedes — [OBB heading review](maths/proposals/20260222-obb-heading-stability-review.md)
+Skip; P1 supersedes — [OBB heading review](../data/maths/proposals/20260222-obb-heading-stability-review.md)
 
 ### D-07 — Track labelling UI (Phase 9)
 
-Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-labeling-auto-aware-tuning-plan.md)
+Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-labelling-auto-aware-tuning-plan.md)
 
 ### D-08 — LaTeX footprint reduction
 
@@ -62,11 +62,11 @@ Defer to v0.7 frontend consolidation — [DESIGN §5.7](ui/DESIGN.md), [design r
 
 ### D-14 — Simplification & deprecation scope
 
-Plan confirmed; Phase 1 complete in v0.5, removal in v0.7 — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
+Plan confirmed; Phase 1 complete in v0.5, removal before v0.6.0 — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
 
 ### D-15 — Time-partitioned data tables
 
-Implement for v1.0 — [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)
+Implement in v0.9.0 — [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)
 
 ### D-16 — Speed limit schedules
 
@@ -99,6 +99,10 @@ Reflash-only upgrades in the current plan; over-the-air updates are deferred to 
 ### D-23 — TicTacTail platform extraction
 
 Generic cadenced aggregation + live surface + aligned history engine, extracted from VRLOG checker; in-repo `pkg/tictactail` — [platform plan](plans/tictactail-platform-plan.md)
+
+### D-24 — Migration 030 offline percentile policy
+
+Adopt Option A: remove persisted per-track speed percentiles from migration 030 and keep no DB-backed fallback path; revisit offline-only export computation later only if explicitly needed — [schema simplification plan](plans/schema-simplification-migration-030-plan.md)
 
 ### Milestone Rationale
 

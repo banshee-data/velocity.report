@@ -1,8 +1,8 @@
 # Simplification and Deprecation Plan
 
-## Status: Approved (Phase 1 complete)
+- **Status:** Approved (Phase 1 complete)
 
-**Layers:** Cross-cutting (platform)
+- **Layers:** Cross-cutting (platform)
 
 ## Goal
 

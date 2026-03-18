@@ -1,11 +1,10 @@
 # Bodies in Motion — Path Prediction and Sparse-Cluster Track Linking
 
-**Status:** 📋 Planned — v2.0+
-**Created:** 2026-03-08
-**Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
-**Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
-**Parent plan:** [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md) § 4
-**Maths proposal:** to be written — `docs/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
+- **Status:** 📋 Planned — v2.0+
+- **Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
+- **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
+- **Parent plan:** [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md) § 4
+- **Maths proposal:** to be written — `data/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
 
 ---
 
@@ -236,7 +235,7 @@ type RelationParams struct {
 - Implement IMM blending (CV + CA + CTRV)
 - Add ground-plane Z-clamping to prediction step
 - Add model-probability diagnostic to track state
-- Write maths proposal: `docs/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
+- Write maths proposal: `data/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
 
 ### Phase 2: sparse-cluster track linking (v2.0)
 

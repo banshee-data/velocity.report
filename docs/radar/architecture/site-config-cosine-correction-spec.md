@@ -1,7 +1,7 @@
 # Feature Specification: Site Configuration with Time-Based Cosine Error Correction
 
-**Status:** Implemented
-**Author:** Ictinus (Product Architecture Agent)
+- **Status:** Implemented
+- **Author:** Ictinus (Product Architecture Agent)
 
 ## Problem Statement
 

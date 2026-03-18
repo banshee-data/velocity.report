@@ -1,16 +1,17 @@
 # v0.5.0 Backward Compatibility Shim Removal Plan
 
-**Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
-**Layers:** Cross-cutting (API, protobuf, database)
-**Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
+- **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
+- **Layers:** Cross-cutting (API, protobuf, database)
+- **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
-## Status: In Progress
+- **Status:** In Progress
 
-**Update (March 8, 2026):** The earlier single-track speed-label expansion is
-superseded. Public track contracts should not reuse aggregate percentile labels; those remain
-grouped/report aggregate metrics only. Stable track surfaces remain
-`avg_speed_mps` plus the raw maximum for now, with a separate pending rename of
-raw `peak_speed_mps` to `max_speed_mps` on unshipped contracts.
+- **Update:** Status review for v0.5.0 release readiness. The
+  speed contract reset (§1, §15) is complete — `peak_speed_mps` → `max_speed_mps`
+  rename landed in #352 (proto, Go, Swift, TS); SQL column rename deferred to
+  migration 000030. Aggregate percentile labels remain reserved for grouped/report
+  metrics only. Remaining work is concentrated in server-side sweep/download
+  cleanup, Python/web/macOS consumer migration, and the Phase 6 validation gate.
 
 ## Tracking Snapshot
 
@@ -90,12 +91,12 @@ Intersections with other parent-plan projects:
 
 ### 1. Go Server — track speed contract reset
 
-| Item                                     | Location                                                                               | Status       | Detail                                                                                                                              |
-| ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Stable public track field                | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | Active       | `avg_speed_mps` remains the stable running-mean field for now                                                                       |
-| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | Active       | The raw maximum remains available today, but should be renamed from `peak_speed_mps` to `max_speed_mps` before merge where possible |
-| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                       | Superseded   | Do not merge single-track aggregate-percentile label expansion                                                                      |
-| Existing percentile columns/calculations | `lidar_tracks`, analysis runs, classifier features                                     | Transitional | Existing internal/storage use may remain temporarily during migration, but no new public dependency should be added                 |
+| Item                                     | Location                                                                               | Status       | Detail                                                                                                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Stable public track field                | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | Active       | `avg_speed_mps` remains the stable running-mean field for now                                                                   |
+| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | ✅ Renamed   | `peak_speed_mps` renamed to `max_speed_mps` on proto (field 25), Go, Swift, TS in #352; SQL column deferred to migration 000030 |
+| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                       | ✅ Resolved  | Single-track aggregate-percentile label expansion was not merged; percentiles remain aggregate-only                             |
+| Existing percentile columns/calculations | `lidar_tracks`, analysis runs, classifier features                                     | Transitional | SQL columns remain until migration 000030; no new public dependency should be added                                             |
 
 **Decision:** Keep `avg_speed_mps` and the raw maximum as the only stable public
 track speed fields for now. Reserve aggregate percentile labels for grouped/report aggregates
@@ -106,9 +107,9 @@ non-percentile names and formulas.
 
 **Action items:**
 
-1. Back out unmerged single-track aggregate-percentile proto/REST/UI work before merge
-2. Rename public/raw `peak_speed_mps` references to `max_speed_mps` where the
-   contract is still unshipped
+1. ~~Back out unmerged single-track aggregate-percentile proto/REST/UI work before merge~~ — ✅ resolved; fields not merged
+2. ~~Rename public/raw `peak_speed_mps` references to `max_speed_mps` where the
+   contract is still unshipped~~ — ✅ complete (#352); SQL column deferred to migration 000030
 3. Define replacement public track metrics in the speed percentile alignment plan
 4. Migrate any temporary internal percentile dependencies to the new track metrics
 5. Keep aggregate percentile work isolated to grouped/report surfaces
@@ -266,16 +267,16 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ### 15. macOS Visualiser — Branch-local track speed-label surfaces
 
-| Item                                        | Location                                                                  | Status       | Detail                                                                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Swift track model legacy speed-label fields | `tools/visualiser-macos/VelocityVisualiser/Models/Models.swift`           | Superseded   | Branch-local aggregate-percentile-labelled fields exist locally but should not ship as stable per-track metrics   |
-| Client mapping for legacy speed labels      | `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`   | Superseded   | The client still maps the superseded branch-local speed-label fields from the proto into the Swift model          |
-| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift` | Transitional | Generated from the current branch-local proto; revisit when the track contract is reset                           |
-| Raw-max terminology in helpers and UI       | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`          | Pending      | Helpers and labels still use `peak` language for the raw maximum; this should move to `max` on unshipped surfaces |
+| Item                                        | Location                                                                  | Status      | Detail                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| Swift track model legacy speed-label fields | `tools/visualiser-macos/VelocityVisualiser/Models/Models.swift`           | ✅ Resolved | Branch-local aggregate-percentile-labelled fields were not merged  |
+| Client mapping for legacy speed labels      | `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`   | ✅ Resolved | No superseded speed-label field mappings in the shipped proto      |
+| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift` | ✅ Updated  | Regenerated after `peak_speed_mps` → `max_speed_mps` rename (#352) |
+| Raw-max terminology in helpers and UI       | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`          | ✅ Renamed  | `peak` → `max` terminology updated on unshipped surfaces (#352)    |
 
-**Action:** Do not add more UI around the superseded single-track speed labels. Back out the
-unmerged speed-label surfaces and apply the separate raw `peak` to `max` rename
-on unshipped visualiser contracts.
+**Action:** ✅ Complete. Branch-local speed-label surfaces were not merged.
+The `peak` → `max` rename landed in #352 across proto, Go, Swift, and TS.
+SQL column rename is deferred to migration 000030.
 
 ---
 
@@ -325,12 +326,12 @@ The following are **not** compat shims and should be retained:
 
 ### External contract changes
 
-| Area                        | Old / branch-local state                                                                                                          | Target state                                                                                              | Status               | Notes                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------- |
-| Track speed public contract | Branch-local work adds aggregate percentile labels to single-track surfaces; raw max still uses `peak_speed_mps` in some surfaces | Public track metrics stay non-percentile; raw maximum is renamed to `max_speed_mps` on unshipped surfaces | Superseded / pending | Percentiles remain aggregate-only                                   |
-| Report downloads            | `/api/reports/{id}/download?file_type=pdf`                                                                                        | `/api/reports/{id}/download/{filename}.pdf`                                                               | Partial              | Server route is already strict; callers/tests still need migration  |
-| Sweep results               | Top-level `noise` / `closeness` / `neighbour` fallbacks                                                                           | `param_values` only                                                                                       | Partial              | Go request/result cleanup is done; dashboard fallbacks/tests remain |
-| Radar stats payload         | Bare `[...]` arrays may still exist in cached client data                                                                         | `{ "metrics": [...], "histogram": {...} }` only                                                           | Partial              | Fetch helper is updated; cache fallback remains                     |
+| Area                        | Old / branch-local state                                  | Target state                                                                  | Status             | Notes                                                               |
+| --------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------- |
+| Track speed public contract | `peak_speed_mps` on proto and model surfaces              | `max_speed_mps` on proto/Go/Swift/TS; SQL column deferred to migration 000030 | ✅ Complete (#352) | Percentiles remain aggregate-only                                   |
+| Report downloads            | `/api/reports/{id}/download?file_type=pdf`                | `/api/reports/{id}/download/{filename}.pdf`                                   | Partial            | Server route is already strict; callers/tests still need migration  |
+| Sweep results               | Top-level `noise` / `closeness` / `neighbour` fallbacks   | `param_values` only                                                           | Partial            | Go request/result cleanup is done; dashboard fallbacks/tests remain |
+| Radar stats payload         | Bare `[...]` arrays may still exist in cached client data | `{ "metrics": [...], "histogram": {...} }` only                               | Partial            | Fetch helper is updated; cache fallback remains                     |
 
 ### Internal cleanup targets
 
@@ -360,8 +361,9 @@ The following are **not** compat shims and should be retained:
 - [x] Delete `PacketHeader` struct
 - [x] Delete stale `AddPoints` removal comment
 - [x] Evaluate `lidar/aliases.go` outcome — retained and documented as an active package-boundary choice
-- [x] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
 - [ ] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename
+- [ ] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
+- [x] Proto `peak_speed_mps` → `max_speed_mps` rename on unshipped contracts (#352)
 
 ### Phase 3 — Frontend removals (Svelte)
 
@@ -380,11 +382,11 @@ The following are **not** compat shims and should be retained:
 
 ### Phase 5 — macOS removals (Swift)
 
-- [ ] Back out branch-local aggregate-percentile label fields from the Swift model/client/UI
-- [ ] Rename raw `peak` terminology to `max` on unshipped visualiser surfaces
+- [x] Back out branch-local aggregate-percentile label fields from the Swift model/client/UI — resolved; fields not merged
+- [x] Rename raw `peak` terminology to `max` on unshipped visualiser surfaces (#352)
 - [ ] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it
-- [x] Update callers of `setPlaybackMode(.unknown)` legacy branch
-- [ ] Verify `medianSpeedMps` field reads correctly from regenerated proto
+- [ ] Update callers of `setPlaybackMode(.unknown)` legacy branch
+- [x] Verify `avgSpeedMps` field reads correctly from regenerated proto
 
 ### Phase 6 — Validation
 
@@ -403,10 +405,10 @@ The following are **not** compat shims and should be retained:
 - This plan is intentionally aggressive: all shims removed in one release.
   Maintaining dual formats across a minor release boundary would require test
   matrices and documentation for both formats, which costs more than a clean break.
-- Legacy single-track speed-label additions are no longer part of the approved v0.5.0
-  contract. `avg_speed_mps` remains the stable running-mean field for tracks;
-  grouped/report aggregates continue to use percentile terminology; raw track
-  `peak` to `max` naming is tracked as a separate unshipped contract cleanup.
+- The speed contract reset is complete: `peak_speed_mps` → `max_speed_mps` landed in
+  #352. `avg_speed_mps` remains the stable running-mean field for tracks;
+  grouped/report aggregates continue to use percentile terminology. The SQL
+  column rename is deferred to migration 000030.
 - Items gated on external dependencies (deploy retirement, frontend consolidation)
   are excluded from this plan and tracked in the parent
   [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md)
