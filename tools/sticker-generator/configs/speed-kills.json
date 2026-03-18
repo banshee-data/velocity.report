@@ -1,0 +1,40 @@
+{
+  "name": "speed-kills",
+  "width_mm": 305.0,
+  "height_mm": 76.0,
+  "dpi": 150,
+  "background_colour": "#cc0000",
+  "border_colour": "#ffffff",
+  "border_width_mm": 2.5,
+  "blocks": [
+    {
+      "text": "SPEED KILLS",
+      "font_size_pt": 58,
+      "bold": true,
+      "italic": false,
+      "colour": "#ffffff",
+      "x_frac": 0.54,
+      "y_frac": 0.42,
+      "anchor": "centre"
+    },
+    {
+      "text": "slow down \u00b7 save lives",
+      "font_size_pt": 16,
+      "bold": false,
+      "italic": true,
+      "colour": "#ffcccc",
+      "x_frac": 0.54,
+      "y_frac": 0.74,
+      "anchor": "centre"
+    }
+  ],
+  "cool_s_decorations": [
+    {
+      "x_frac": 0.08,
+      "y_frac": 0.50,
+      "size_frac": 0.72,
+      "colour": "#ffffff",
+      "stroke_width_frac": 0.048
+    }
+  ]
+}
