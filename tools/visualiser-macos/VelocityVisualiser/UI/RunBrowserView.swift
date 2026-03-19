@@ -24,12 +24,9 @@ private enum RunBrowserLayout {
     runID: String, appState: AppState, runBrowserState: RunBrowserState,
     loadRunForReplay: @escaping @MainActor () async -> VRLogLoadResponse?
 ) async {
-    runBrowserLogger.debug("loadRunForReplayAndUpdateAppState() — runID=\(runID)")
-
     // Attempt the load first — if the guard rejects it (e.g. already
     // loading), bail out without touching playback state.
     let loadResponse = await loadRunForReplay()
-    runBrowserLogger.debug("loadRunForReplay returned success=\(loadResponse != nil)")
     guard let loadResponse else { return }
 
     // Only reset playback state after a successful load.
@@ -43,7 +40,6 @@ private enum RunBrowserLayout {
     // the client while the server starts broadcasting, causing
     // frames_sent=0 (frames lost before the new stream connects).
     appState.restartGRPCStream()
-    runBrowserLogger.debug("gRPC stream restarted for run \(runID)")
 }
 
 /// View for browsing and selecting analysis runs.
@@ -108,12 +104,15 @@ private enum RunBrowserLayout {
                 Divider()
 
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    // VStack (not LazyVStack) — 50 lightweight rows are
+                    // fine non-lazy, and this eliminates the macOS SwiftUI
+                    // bug where LazyVStack dispatches phantom tap-gesture
+                    // events during lazy row materialisation.
+                    VStack(spacing: 0) {
                         ForEach(runBrowserState.runs) { run in
                             RunRowView(
                                 run: run, isSelected: runBrowserState.selectedRunID == run.runId
                             ) {
-                                guard canInteract else { return }
                                 Task {
                                     if runBrowserState.selectedRunID == run.runId {
                                         dismiss()
@@ -128,7 +127,7 @@ private enum RunBrowserLayout {
                                 }
                             }
                         }
-                    }
+                    }.allowsHitTesting(canInteract)
                 }
             }
 
