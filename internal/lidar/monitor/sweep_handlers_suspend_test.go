@@ -239,10 +239,20 @@ func TestHINTStatus_WaitForChange_ClientDisconnect(t *testing.T) {
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	ws.handleHINTStatus(w, req)
-	// When context is cancelled, the handler returns without writing a response body.
-	// The response code may be 200 (default) but no JSON body should be encoded.
-	// The key assertion is that it doesn't panic or hang.
+	done := make(chan struct{})
+	go func() {
+		ws.handleHINTStatus(w, req)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		if w.Body.Len() != 0 {
+			t.Fatalf("expected empty response body when context is cancelled, got %q", w.Body.String())
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("handleHINTStatus did not return before timeout; possible hang")
+	}
 }
 
 // blockingHINTRunner wraps mockHINTRunner but blocks WaitForChange until ctx is done.

@@ -308,9 +308,13 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 
 // Close shuts down the frame callback worker and waits for it to drain.
 // Must be called when the FrameBuilder is no longer needed to avoid
-// goroutine leaks.
+// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
 func (fb *FrameBuilder) Close() {
 	fb.mu.Lock()
+	if fb.closed {
+		fb.mu.Unlock()
+		return
+	}
 	fb.closed = true
 	if fb.cleanupTimer != nil {
 		fb.cleanupTimer.Stop()

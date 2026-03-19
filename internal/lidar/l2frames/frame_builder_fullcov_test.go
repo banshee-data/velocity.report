@@ -592,6 +592,20 @@ func TestGetCurrentFrameStats_MultipleFrames(t *testing.T) {
 	}
 }
 
+// --- Close is idempotent ---
+
+func TestClose_Idempotent(t *testing.T) {
+	fb := NewFrameBuilder(FrameBuilderConfig{
+		SensorID: "close-idempotent",
+		FrameCallback: func(f *LiDARFrame) {
+			// no-op callback to ensure frameCh+worker are started
+		},
+	})
+	fb.Close()
+	// Second Close must not panic on double-close of closeCh.
+	fb.Close()
+}
+
 // --- Close unblocks blocking finalizeFrame send via closeCh ---
 
 func TestClose_UnblocksBlockingSend(t *testing.T) {
@@ -644,9 +658,9 @@ func TestClose_UnblocksBlockingSend(t *testing.T) {
 	// Give the goroutine time to reach the blocking select.
 	time.Sleep(30 * time.Millisecond)
 
-	// Close() should signal closeCh, unblocking finalizeFrame, then
-	// close frameCh and drain the worker. Unblock the worker first so
-	// it can drain.
+	// Close() should signal closeCh, unblocking finalizeFrame. Unblock
+	// the worker first so it can observe closeCh, exit its loop, and
+	// allow shutdown to complete.
 	close(blocker)
 	fb.Close()
 
