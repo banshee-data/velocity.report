@@ -102,27 +102,33 @@ private enum RunBrowserLayout {
                 }.padding()
                 Spacer()
             } else {
-                // Column headers
-                RunBrowserHeaderRow().padding(.horizontal, RunBrowserLayout.rowInset.leading)
-                    .padding(.top, 6)
+                // Column headers + Run list in a single ScrollView so header
+                // and rows share identical horizontal padding (no List inset
+                // mismatch).
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4)
 
-                // Run list
-                List(runBrowserState.runs) { run in
-                    RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
-                        Task {
-                            if runBrowserState.selectedRunID == run.runId {
-                                dismiss()
-                                return
+                        ForEach(runBrowserState.runs) { run in
+                            RunRowView(
+                                run: run, isSelected: runBrowserState.selectedRunID == run.runId
+                            ) {
+                                Task {
+                                    if runBrowserState.selectedRunID == run.runId {
+                                        dismiss()
+                                        return
+                                    }
+                                    guard run.hasVRLog else { return }
+                                    await loadRunForReplayAndUpdateAppState(
+                                        runID: run.runId, appState: appState,
+                                        runBrowserState: runBrowserState
+                                    ) { await runBrowserState.loadRunForReplay(run.runId) }
+                                    if runBrowserState.selectedRunID == run.runId { dismiss() }
+                                }
                             }
-                            guard run.hasVRLog else { return }
-                            await loadRunForReplayAndUpdateAppState(
-                                runID: run.runId, appState: appState,
-                                runBrowserState: runBrowserState
-                            ) { await runBrowserState.loadRunForReplay(run.runId) }
-                            if runBrowserState.selectedRunID == run.runId { dismiss() }
                         }
-                    }.listRowInsets(RunBrowserLayout.rowInset)
-                }.listStyle(.inset)
+                    }.padding(.horizontal, RunBrowserLayout.rowInset.leading)
+                }
             }
 
             Divider()
