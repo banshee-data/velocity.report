@@ -256,9 +256,9 @@ When implementing plan-hygiene or canonical-doc cleanup:
 3. Ensure each active non-symlink plan has exactly one `Canonical` hub-doc link.
 4. When a plan has graduated, replace it with a symlink rather than leaving a duplicated Markdown body behind.
 5. Update the mechanical enforcement path together with the docs:
-   - `scripts/check-plan-canonical-links.py`
-   - `scripts/flo-planning-review.sh`
-   - `make lint-docs` / CI wiring
+   - Create or update `scripts/check-plan-canonical-links.py` (when this checker exists in the repo).
+   - Keep `scripts/flo-planning-review.sh` (or its successor) aligned with the current plan-hygiene rules.
+   - Keep `make lint-docs` / CI wiring in step with the current documentation hygiene rules.
 6. Verify both blocker and advisory outputs before finishing so the hygiene rule is enforceable, not merely documented.
 
 ## Knowledge References

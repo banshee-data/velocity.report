@@ -130,7 +130,21 @@ Enforcement should be deterministic and local, with no LLM involvement.
 
 Add `scripts/check-plan-canonical-links.py` and wire it into `make lint-docs` plus CI.
 
-### 8.1 Hard-Fail Gates
+### 8.1 Rollout Sequence
+
+To avoid breaking the existing repository (which currently has plan files without `- **Canonical:**` metadata), enforcement should roll out in three phases:
+
+1. **Advisory only:** Land `scripts/check-plan-canonical-links.py` in advisory / report-only mode. Initially, run it locally and in CI as a non-fatal job that:
+   - reports missing `Canonical` metadata,
+   - reports obviously invalid targets (outside the repo or under `docs/plans/`),
+   - does **not** fail CI.
+2. **Repository refactor:** Use the advisory output to do a one-off refactor pass:
+   - add `- **Canonical:**` metadata to all non-symlink plans under `docs/plans/`,
+   - introduce or fix symlinked plans where appropriate,
+   - move any remaining long-lived content into the correct hub docs.
+3. **Hard-fail CI:** Once the repository is clean, update `make lint-docs` and CI so that the checker runs in hard-fail mode using the rules below.
+
+### 8.2 Hard-Fail Gates
 
 The checker should fail if any of the following are true:
 
@@ -142,9 +156,9 @@ The checker should fail if any of the following are true:
 6. A symlinked plan file resolves outside the repository.
 7. A symlinked plan file resolves to a missing target.
 8. A `Canonical` link appears more than once in the same plan header.
-9. A `Canonical` target points at a doc that is itself only a transient note rather than an owning hub doc.
+9. A `Canonical` target is not under an allowed hub-doc prefix (for example: `docs/lidar/`, `docs/radar/`, or `docs/ui/`).
 
-### 8.2 Advisory Gates
+### 8.3 Advisory Gates
 
 The checker should also emit an advisory report for:
 
