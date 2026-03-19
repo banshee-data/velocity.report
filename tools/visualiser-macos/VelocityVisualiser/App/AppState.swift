@@ -1221,7 +1221,7 @@ private let logger = DevLogger(category: "AppState")
         let minUIInterval: ContinuousClock.Duration =
             panelOpen
             ? .milliseconds(100)  // ~10 fps UI when panel visible
-            : .milliseconds(0)  // no throttle when panel hidden
+            : .milliseconds(16)  // ~60 fps cap to avoid landing inside layout passes
         if uiNow - lastUIUpdateClock >= minUIInterval {
             lastUIUpdateClock = uiNow
             Task { [weak self] in
@@ -1467,11 +1467,12 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         print("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
         delegateLogger.info("clientDidConnect called")
         Task { @MainActor [weak self] in
-            self?.appState?.isConnected = true
-            self?.appState?.connectionError = nil
-            self?.appState?.replayFinished = false
-            self?.appState?.hasPlaybackMetadata = false
-            self?.appState?.setPlaybackMode(.unknown)
+            guard let appState = self?.appState else { return }
+            appState.isConnected = true
+            appState.connectionError = nil
+            appState.replayFinished = false
+            appState.hasPlaybackMetadata = false
+            appState.setPlaybackMode(.unknown)
             // Note: isLive is determined from first frame's PlaybackInfo
             delegateLogger.debug("AppState updated: isConnected=true")
         }

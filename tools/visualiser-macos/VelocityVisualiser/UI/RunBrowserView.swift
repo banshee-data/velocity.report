@@ -25,24 +25,25 @@ private enum RunBrowserLayout {
     loadRunForReplay: @escaping @MainActor () async -> VRLogLoadResponse?
 ) async {
     runBrowserLogger.debug("loadRunForReplayAndUpdateAppState() — runID=\(runID)")
-    // Reset stale playback state before loading the new VRLOG.
-    // This clears isPaused, replayFinished, progress, timestamps.
-    appState.prepareForNewReplay()
 
+    // Attempt the load first — if the guard rejects it (e.g. already
+    // loading), bail out without touching playback state.
     let loadResponse = await loadRunForReplay()
     runBrowserLogger.debug("loadRunForReplay returned success=\(loadResponse != nil)")
-    if let loadResponse {
-        appState.setReplayFrameEncoding(loadResponse.frameEncoding)
-        // Set currentRunID so labels route to run-track API
-        appState.currentRunID = runID
-        await runBrowserState.primeTrackCache(runID: runID)
-        // Restart the gRPC stream AFTER the VRLOG has loaded on the
-        // server.  Doing this before the HTTP POST would disconnect
-        // the client while the server starts broadcasting, causing
-        // frames_sent=0 (frames lost before the new stream connects).
-        appState.restartGRPCStream()
-        runBrowserLogger.debug("gRPC stream restarted for run \(runID)")
-    }
+    guard let loadResponse else { return }
+
+    // Only reset playback state after a successful load.
+    appState.prepareForNewReplay()
+    appState.setReplayFrameEncoding(loadResponse.frameEncoding)
+    // Set currentRunID so labels route to run-track API
+    appState.currentRunID = runID
+    await runBrowserState.primeTrackCache(runID: runID)
+    // Restart the gRPC stream AFTER the VRLOG has loaded on the
+    // server.  Doing this before the HTTP POST would disconnect
+    // the client while the server starts broadcasting, causing
+    // frames_sent=0 (frames lost before the new stream connects).
+    appState.restartGRPCStream()
+    runBrowserLogger.debug("gRPC stream restarted for run \(runID)")
 }
 
 /// View for browsing and selecting analysis runs.
