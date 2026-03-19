@@ -43,16 +43,16 @@ func TestRun_SceneGetterNil(t *testing.T) {
 	if state.Status != "failed" {
 		t.Fatalf("expected failed, got %s", state.Status)
 	}
-	if state.Error != "scene getter not configured" {
+	if state.Error != "replay case getter not configured" {
 		t.Fatalf("unexpected error: %s", state.Error)
 	}
 }
 
-// TestRun_SceneNotFound tests run() when scene lookup fails.
+// TestRun_SceneNotFound tests run() when replay case lookup fails.
 func TestRun_SceneNotFound(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("scene not found")})
+	tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("replay case not found")})
 	tuner.sweepID = "test-scene-notfound"
 	initRunState(tuner, 1)
 	tuner.run(context.Background(), HINTSweepRequest{ReplayCaseID: "missing"})

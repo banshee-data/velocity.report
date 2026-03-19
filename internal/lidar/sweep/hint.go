@@ -596,15 +596,15 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 		}
 	}()
 
-	// Get scene
+	// Get replay case
 	if rt.sceneGetter == nil {
-		rt.failWithError("scene getter not configured")
+		rt.failWithError("replay case getter not configured")
 		return
 	}
 
 	scene, err := rt.sceneGetter.GetScene(req.ReplayCaseID)
 	if err != nil {
-		rt.failWithError(fmt.Sprintf("failed to get scene: %v", err))
+		rt.failWithError(fmt.Sprintf("failed to get replay case: %v", err))
 		return
 	}
 
