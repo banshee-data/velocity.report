@@ -70,7 +70,7 @@ func setupSuspendedSweepStore(t *testing.T) (*sql.DB, *sqlite.SweepStore) {
 	// schema drift, then add the extra column needed for suspended sweeps.
 	db, store := setupTestSweepStoreForHandlers(t)
 
-	_, err := db.Exec(`ALTER TABLE lidar_sweeps ADD COLUMN checkpoint_round INTEGER DEFAULT 0`)
+	_, err := db.Exec(`ALTER TABLE lidar_tuning_sweeps ADD COLUMN checkpoint_round INTEGER DEFAULT 0`)
 	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 		t.Fatalf("alter table: %v", err)
 	}
@@ -114,8 +114,8 @@ func TestAutoTuneSuspended_Found(t *testing.T) {
 	defer db.Close()
 
 	// Insert a suspended sweep record.
-	_, err := db.Exec(`INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at, checkpoint_round)
-		VALUES (?, ?, 'auto_tune', 'suspended', '{}', ?, 3)`,
+	_, err := db.Exec(`INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at, checkpoint_round)
+		       VALUES (?, ?, 'auto_tune', 'suspended', '{}', ?, 3)`,
 		"sweep-susp-001", "sensor-a", time.Now().Format(time.RFC3339))
 	if err != nil {
 		t.Fatalf("insert: %v", err)
