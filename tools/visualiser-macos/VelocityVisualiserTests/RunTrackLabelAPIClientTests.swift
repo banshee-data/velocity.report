@@ -104,7 +104,7 @@ struct AnalysisRunModelTests {
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil, sceneName: nil
+            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil, replayCaseName: nil
         )
     }
 }

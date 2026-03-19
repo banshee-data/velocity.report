@@ -1141,7 +1141,7 @@ struct VisualiserClientDecodeTests {
             sourcePath: "/path/to.vrlog", sensorId: "hesai-01", durationSecs: 1800.0,
             totalFrames: 5000, totalClusters: 3000, totalTracks: 150, confirmedTracks: 145,
             status: "completed", errorMessage: nil, vrlogPath: "/path/to.vrlog", notes: nil,
-            sceneName: nil)
+            replayCaseName: nil)
 
         let view = RunRowView(run: run, isSelected: false) {}
         let _ = view.body
@@ -1152,7 +1152,7 @@ struct VisualiserClientDecodeTests {
             runId: "run-xyz", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "running", errorMessage: nil, vrlogPath: nil, notes: nil,
-            sceneName: nil)
+            replayCaseName: nil)
 
         let view = RunRowView(run: run, isSelected: true) {}
         let _ = view.body
@@ -1163,7 +1163,7 @@ struct VisualiserClientDecodeTests {
             runId: "run-novr", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 300.0, totalFrames: 1000, totalClusters: 500,
             totalTracks: 10, confirmedTracks: 8, status: "completed", errorMessage: nil,
-            vrlogPath: nil, notes: nil, sceneName: nil)
+            vrlogPath: nil, notes: nil, replayCaseName: nil)
 
         let view = RunRowView(run: run, isSelected: false) {}
         let _ = view.body
@@ -1198,7 +1198,7 @@ struct AnalysisRunTests {
             runId: "run-1", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil,
-            sceneName: nil)
+            replayCaseName: nil)
 
         let formatted = run.formattedDate
         #expect(!formatted.isEmpty)
@@ -1209,7 +1209,7 @@ struct AnalysisRunTests {
             runId: "run-2", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "completed", errorMessage: nil, vrlogPath: "/path/to.vrlog",
-            notes: nil, sceneName: nil)
+            notes: nil, replayCaseName: nil)
 
         #expect(run.hasVRLog == true)
     }
@@ -1219,7 +1219,7 @@ struct AnalysisRunTests {
             runId: "run-3", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil,
-            sceneName: nil)
+            replayCaseName: nil)
 
         #expect(run.hasVRLog == false)
     }

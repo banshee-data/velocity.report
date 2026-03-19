@@ -313,7 +313,7 @@ struct AnalysisRun: Codable, Identifiable {
     let errorMessage: String?
     let vrlogPath: String?
     let notes: String?
-    let sceneName: String?
+    let replayCaseName: String?
     var labelRollup: RunLabelRollup? = nil
 
     var id: String { runId }

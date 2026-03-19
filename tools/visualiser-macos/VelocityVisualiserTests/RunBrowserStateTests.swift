@@ -304,7 +304,7 @@ import XCTest
                 sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 30.0,
                 totalFrames: 300, totalClusters: 100, totalTracks: 3, confirmedTracks: 3,
                 status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
-                sceneName: "test")
+                replayCaseName: "test")
         ]
 
         let tracksJSON = """
@@ -358,7 +358,7 @@ import XCTest
                 sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 30.0,
                 totalFrames: 300, totalClusters: 100, totalTracks: 3, confirmedTracks: 3,
                 status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
-                sceneName: "test")
+                replayCaseName: "test")
         ]
 
         let tracksJSON = """

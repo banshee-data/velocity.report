@@ -82,10 +82,10 @@ struct AnalysisRunComputedPropertyTests {
             runId: "4ea0f3ab-1234-5678-9abc-def012345678", createdAt: Date(), sourceType: "pcap",
             sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
             totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, sceneName: "kirk1")
+            status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil, replayCaseName: "kirk1")
         // UUID: first 8 chars up to first dash
         #expect(run.shortIdPrefix == "4ea0f3ab")
-        #expect(run.sceneName == "kirk1")
+        #expect(run.replayCaseName == "kirk1")
     }
 
     @Test func statusCompleted() throws {
@@ -122,7 +122,7 @@ struct AnalysisRunComputedPropertyTests {
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes,
-            sceneName: "test")
+            replayCaseName: "test")
     }
 }
 
@@ -330,7 +330,7 @@ struct PlaybackStatusModelTests {
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
-            sceneName: "test")
+            replayCaseName: "test")
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
@@ -341,7 +341,7 @@ struct PlaybackStatusModelTests {
             runId: "run-002", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 60.0, totalFrames: 600, totalClusters: 200,
             totalTracks: 10, confirmedTracks: 8, status: "running", errorMessage: nil,
-            vrlogPath: nil, notes: nil, sceneName: nil)
+            vrlogPath: nil, notes: nil, replayCaseName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
@@ -352,7 +352,7 @@ struct PlaybackStatusModelTests {
             runId: "run-001", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 120.0, totalFrames: 1200, totalClusters: 500,
             totalTracks: 25, confirmedTracks: 20, status: "completed", errorMessage: nil,
-            vrlogPath: "/data/test.vrlog", notes: nil, sceneName: "kirk0")
+            vrlogPath: "/data/test.vrlog", notes: nil, replayCaseName: "kirk0")
 
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
@@ -363,7 +363,7 @@ struct PlaybackStatusModelTests {
             runId: "run-003", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 5.0, totalFrames: 50, totalClusters: 10,
             totalTracks: 0, confirmedTracks: 0, status: "failed",
-            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil, sceneName: nil)
+            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil, replayCaseName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body

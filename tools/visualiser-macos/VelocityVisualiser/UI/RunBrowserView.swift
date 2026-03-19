@@ -13,7 +13,7 @@ private enum RunBrowserLayout {
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
     static let dateWidth: CGFloat = 130
-    static let sceneWidth: CGFloat = 80
+    static let replayCaseWidth: CGFloat = 90
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
@@ -166,7 +166,7 @@ private struct RunBrowserHeaderRow: View {
                 Text("Run")
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
-            Text("Scene").frame(width: RunBrowserLayout.sceneWidth, alignment: .leading)
+            Text("Replay Case").frame(width: RunBrowserLayout.replayCaseWidth, alignment: .leading)
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
@@ -202,9 +202,9 @@ private struct RunBrowserHeaderRow: View {
                     width: RunBrowserLayout.dateWidth, alignment: .leading
                 ).lineLimit(1)
 
-                // Col 3: Scene name
-                Text(run.sceneName ?? "-").font(.caption).frame(
-                    width: RunBrowserLayout.sceneWidth, alignment: .leading
+                // Col 3: Replay case name
+                Text(run.replayCaseName ?? "-").font(.caption).frame(
+                    width: RunBrowserLayout.replayCaseWidth, alignment: .leading
                 ).lineLimit(1)
 
                 // Col 4: Duration mm:ss
