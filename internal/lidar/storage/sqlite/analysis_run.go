@@ -41,8 +41,8 @@ type AnalysisRun struct {
 	VRLogPath        string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
 
 	// Derived fields (not persisted in DB, computed on retrieval)
-	SceneName   string          `json:"scene_name,omitempty"`   // Derived from SourcePath filename
-	LabelRollup *RunLabelRollup `json:"label_rollup,omitempty"` // Derived from run-track labels
+	ReplayCaseName string          `json:"replay_case_name,omitempty"` // Derived from SourcePath filename
+	LabelRollup    *RunLabelRollup `json:"label_rollup,omitempty"`     // Derived from run-track labels
 }
 
 // RunLabelRollup summarises the current human labelling state for a run.
@@ -62,14 +62,14 @@ func (r *RunLabelRollup) LabelledCount() int {
 	return r.Classified + r.TaggedOnly
 }
 
-// PopulateSceneName sets SceneName from SourcePath by extracting the base
+// PopulateReplayCaseName sets ReplayCaseName from SourcePath by extracting the base
 // filename without extension. E.g. "/data/kirk1.pcap" → "kirk1".
-func (r *AnalysisRun) PopulateSceneName() {
+func (r *AnalysisRun) PopulateReplayCaseName() {
 	if r.SourcePath != "" {
 		base := filepath.Base(r.SourcePath)
-		r.SceneName = strings.TrimSuffix(base, filepath.Ext(base))
+		r.ReplayCaseName = strings.TrimSuffix(base, filepath.Ext(base))
 	} else {
-		r.SceneName = ""
+		r.ReplayCaseName = ""
 	}
 }
 
@@ -549,7 +549,7 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		run.VRLogPath = vrlogPath.String
 	}
 
-	run.PopulateSceneName()
+	run.PopulateReplayCaseName()
 	labelRollup, err := s.GetRunLabelRollup(runID)
 	if err != nil {
 		return nil, err
@@ -625,7 +625,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 			run.VRLogPath = vrlogPath.String
 		}
 
-		run.PopulateSceneName()
+		run.PopulateReplayCaseName()
 
 		runs = append(runs, &run)
 	}
