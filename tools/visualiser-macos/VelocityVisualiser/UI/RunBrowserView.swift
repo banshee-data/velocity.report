@@ -12,8 +12,8 @@ private enum RunBrowserLayout {
     static let statusDotSize: CGFloat = 8
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
-    static let dateWidth: CGFloat = 130
-    static let replayCaseWidth: CGFloat = 60
+    static let dateWidth: CGFloat = 120
+    static let replayCaseWidth: CGFloat = 40
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
@@ -102,13 +102,12 @@ private enum RunBrowserLayout {
                 }.padding()
                 Spacer()
             } else {
-                // Column headers + Run list in a single ScrollView so header
-                // and rows share identical horizontal padding (no List inset
-                // mismatch).
+                // Sticky column header above the scrollable run list.
+                RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4).padding(
+                    .horizontal, RunBrowserLayout.rowInset.leading)
+
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4)
-
                         ForEach(runBrowserState.runs) { run in
                             RunRowView(
                                 run: run, isSelected: runBrowserState.selectedRunID == run.runId
@@ -127,7 +126,7 @@ private enum RunBrowserLayout {
                                 }
                             }
                         }
-                    }.padding(.horizontal, RunBrowserLayout.rowInset.leading)
+                    }
                 }
             }
 
@@ -156,7 +155,7 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 520, height: preferredHeight).onAppear {
+        }.frame(width: 450, height: preferredHeight).onAppear {
             Task { await runBrowserState.fetchRuns() }
         }
     }
@@ -172,7 +171,7 @@ private struct RunBrowserHeaderRow: View {
                 Text("Run")
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
-            Text("Replay Case").frame(width: RunBrowserLayout.replayCaseWidth, alignment: .leading)
+            Text("Case").frame(width: RunBrowserLayout.replayCaseWidth, alignment: .leading)
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
@@ -225,10 +224,12 @@ private struct RunBrowserHeaderRow: View {
                 // Col 6: Label rollup
                 RunLabelRollupIcon(rollup: run.labelRollup).frame(
                     width: RunBrowserLayout.labelsWidth, alignment: .center)
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
-                Rectangle())
-        }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).cornerRadius(4)
-            .onHover { hovering in isHovered = hovering }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
+                .horizontal, RunBrowserLayout.rowInset.leading
+            ).contentShape(Rectangle())
+        }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).onHover {
+            hovering in isHovered = hovering
+        }
     }
 }
 
