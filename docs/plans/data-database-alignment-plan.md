@@ -31,26 +31,26 @@ long-term target, or push further toward a single package.
 
 ### SQL operation count by package
 
-| Package | Files | SQL ops | Domain |
-|---------|------:|--------:|--------|
-| `internal/db/db.go` | 1 | ~35 | Radar objects, events, BgSnapshot, RegionSnapshot, stats, admin |
-| `internal/db/site.go` | 1 | ~5 | Site CRUD |
-| `internal/db/site_config_periods.go` | 1 | ~6 | Config periods |
-| `internal/db/site_report.go` | 1 | ~5 | Reports |
-| `internal/db/transit_worker.go` | 1 | ~14 | Transit analysis |
-| `internal/db/transit_gaps.go` | 1 | ~1 | Transit gaps |
-| `internal/db/migrate.go` | 1 | ~5 | Migrations |
-| `internal/db/migrate_cli.go` | 1 | ~1 | Migration CLI |
-| **`internal/db/` total** | **8** | **~72** | **Radar/core + infra** |
-| `internal/lidar/storage/sqlite/track_store.go` | 1 | ~14 | Tracks, clusters, observations |
-| `internal/lidar/storage/sqlite/analysis_run.go` | 1 | ~15 | Analysis runs |
-| `internal/lidar/storage/sqlite/analysis_run_manager.go` | 1 | ~3 | Run manager singleton |
-| `internal/lidar/storage/sqlite/sweep_store.go` | 1 | ~9 | Tuning sweeps |
-| `internal/lidar/storage/sqlite/scene_store.go` | 1 | ~7 | Replay cases |
-| `internal/lidar/storage/sqlite/evaluation_store.go` | 1 | ~4 | Evaluations |
-| `internal/lidar/storage/sqlite/missed_region_store.go` | 1 | ~3 | Missed regions |
-| **`internal/lidar/storage/sqlite/` total** | **7** | **~55** | **LiDAR** |
-| **Grand total** | **15** | **~127** | |
+| Package                                                 |  Files |  SQL ops | Domain                                                          |
+| ------------------------------------------------------- | -----: | -------: | --------------------------------------------------------------- |
+| `internal/db/db.go`                                     |      1 |      ~35 | Radar objects, events, BgSnapshot, RegionSnapshot, stats, admin |
+| `internal/db/site.go`                                   |      1 |       ~5 | Site CRUD                                                       |
+| `internal/db/site_config_periods.go`                    |      1 |       ~6 | Config periods                                                  |
+| `internal/db/site_report.go`                            |      1 |       ~5 | Reports                                                         |
+| `internal/db/transit_worker.go`                         |      1 |      ~14 | Transit analysis                                                |
+| `internal/db/transit_gaps.go`                           |      1 |       ~1 | Transit gaps                                                    |
+| `internal/db/migrate.go`                                |      1 |       ~5 | Migrations                                                      |
+| `internal/db/migrate_cli.go`                            |      1 |       ~1 | Migration CLI                                                   |
+| **`internal/db/` total**                                |  **8** |  **~72** | **Radar/core + infra**                                          |
+| `internal/lidar/storage/sqlite/track_store.go`          |      1 |      ~14 | Tracks, clusters, observations                                  |
+| `internal/lidar/storage/sqlite/analysis_run.go`         |      1 |      ~15 | Analysis runs                                                   |
+| `internal/lidar/storage/sqlite/analysis_run_manager.go` |      1 |       ~3 | Run manager singleton                                           |
+| `internal/lidar/storage/sqlite/sweep_store.go`          |      1 |       ~9 | Tuning sweeps                                                   |
+| `internal/lidar/storage/sqlite/scene_store.go`          |      1 |       ~7 | Replay cases                                                    |
+| `internal/lidar/storage/sqlite/evaluation_store.go`     |      1 |       ~4 | Evaluations                                                     |
+| `internal/lidar/storage/sqlite/missed_region_store.go`  |      1 |       ~3 | Missed regions                                                  |
+| **`internal/lidar/storage/sqlite/` total**              |  **7** |  **~55** | **LiDAR**                                                       |
+| **Grand total**                                         | **15** | **~127** |                                                                 |
 
 ### Import boundary enforcement
 
@@ -219,14 +219,14 @@ discovery.
 
 ### Effort summary
 
-| Gap | Size | Days | Priority |
-|-----|------|-----:|----------|
-| 1. Label SQL move | S | 1–2 | High — last remaining query-boundary violation |
-| 2. Unified PRAGMAs | XS | 0.5 | Medium — reduces drift risk |
-| 3. BgSnapshot docs | XS | 0.1 | Low — documentation only |
-| 4. Driver unification | XS | 0.5 | Medium — prevents behavioural drift |
-| 5. Migration version discovery | XS | 0.5 | Low — convenience |
-| **Total** | | **3–4** | |
+| Gap                            | Size |    Days | Priority                                       |
+| ------------------------------ | ---- | ------: | ---------------------------------------------- |
+| 1. Label SQL move              | S    |     1–2 | High — last remaining query-boundary violation |
+| 2. Unified PRAGMAs             | XS   |     0.5 | Medium — reduces drift risk                    |
+| 3. BgSnapshot docs             | XS   |     0.1 | Low — documentation only                       |
+| 4. Driver unification          | XS   |     0.5 | Medium — prevents behavioural drift            |
+| 5. Migration version discovery | XS   |     0.5 | Low — convenience                              |
+| **Total**                      |      | **3–4** |                                                |
 
 Compare with the original standardisation plan's 10–16 day estimate:
 the two-package model requires roughly **one-quarter** of the effort
