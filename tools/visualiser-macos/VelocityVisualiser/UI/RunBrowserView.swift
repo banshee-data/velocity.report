@@ -56,14 +56,6 @@ private enum RunBrowserLayout {
     /// Inject a shared run-browser state instance for the production sheet or tests.
     init(state: RunBrowserState) { _runBrowserState = StateObject(wrappedValue: state) }
 
-    /// Sheet height scales with item count: min 300, expands ~28pt per row, max 700.
-    private var preferredHeight: CGFloat {
-        if runBrowserState.runs.isEmpty { return 300 }
-        let chrome: CGFloat = 120  // header + column header + footer + dividers
-        let rows = CGFloat(runBrowserState.runs.count) * 28
-        return min(max(chrome + rows, 300), 700)
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -102,31 +94,32 @@ private enum RunBrowserLayout {
                 }.padding()
                 Spacer()
             } else {
+                // Sticky header outside ScrollView. Both header and rows
+                // use the same horizontal padding constant for alignment.
+                RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4).padding(
+                    .horizontal, RunBrowserLayout.rowInset.leading)
+
+                Divider()
+
                 ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                        Section {
-                            ForEach(runBrowserState.runs) { run in
-                                RunRowView(
-                                    run: run, isSelected: runBrowserState.selectedRunID == run.runId
-                                ) {
-                                    Task {
-                                        if runBrowserState.selectedRunID == run.runId {
-                                            dismiss()
-                                            return
-                                        }
-                                        guard run.hasVRLog else { return }
-                                        await loadRunForReplayAndUpdateAppState(
-                                            runID: run.runId, appState: appState,
-                                            runBrowserState: runBrowserState
-                                        ) { await runBrowserState.loadRunForReplay(run.runId) }
-                                        if runBrowserState.selectedRunID == run.runId { dismiss() }
+                    LazyVStack(spacing: 0) {
+                        ForEach(runBrowserState.runs) { run in
+                            RunRowView(
+                                run: run, isSelected: runBrowserState.selectedRunID == run.runId
+                            ) {
+                                Task {
+                                    if runBrowserState.selectedRunID == run.runId {
+                                        dismiss()
+                                        return
                                     }
+                                    guard run.hasVRLog else { return }
+                                    await loadRunForReplayAndUpdateAppState(
+                                        runID: run.runId, appState: appState,
+                                        runBrowserState: runBrowserState
+                                    ) { await runBrowserState.loadRunForReplay(run.runId) }
+                                    if runBrowserState.selectedRunID == run.runId { dismiss() }
                                 }
                             }
-                        } header: {
-                            RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4).padding(
-                                .horizontal, RunBrowserLayout.rowInset.leading
-                            ).background(.ultraThinMaterial)
                         }
                     }
                 }
@@ -157,9 +150,7 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 450, height: preferredHeight).onAppear {
-            Task { await runBrowserState.fetchRuns() }
-        }
+        }.frame(width: 450, height: 700).onAppear { Task { await runBrowserState.fetchRuns() } }
     }
 
 }
@@ -229,9 +220,9 @@ private struct RunBrowserHeaderRow: View {
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
                 .horizontal, RunBrowserLayout.rowInset.leading
             ).contentShape(Rectangle())
-        }.buttonStyle(.plain).frame(maxWidth: .infinity).disabled(!run.hasVRLog).background(
-            rowBackground
-        ).onHover { hovering in isHovered = hovering }
+        }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).onHover {
+            hovering in isHovered = hovering
+        }
     }
 }
 
