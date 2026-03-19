@@ -13,7 +13,7 @@ private enum RunBrowserLayout {
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
     static let dateWidth: CGFloat = 130
-    static let replayCaseWidth: CGFloat = 70
+    static let replayCaseWidth: CGFloat = 60
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
@@ -156,7 +156,7 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 560, height: preferredHeight).onAppear {
+        }.frame(width: 520, height: preferredHeight).onAppear {
             Task { await runBrowserState.fetchRuns() }
         }
     }
