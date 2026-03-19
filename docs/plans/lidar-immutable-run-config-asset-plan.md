@@ -12,7 +12,7 @@ Replace the current scattered `params_json` model with a deterministic asset
 model that cleanly separates reusable config from per-execution metadata and
 answers:
 
-1. What exact engine version produced this run?
+1. What exact build version produced this run?
 2. What exact effective runtime configuration did it use?
 3. Can reusable requested params be shared across replay cases and future
    artifacts without being confused for executed configs?
@@ -79,7 +79,7 @@ This is the core design change for this plan:
 - UUIDs, timestamps, and other per-execution facts stay on run/recording rows
 - reusable parameter content is stored separately from exact executed configs
 - exact reproducibility is represented by pairing a parameter set with embedded
-  engine identity on a deduplicated run-config row
+  build identity on a deduplicated run-config row
 - replay-case recommendations point to reusable parameter sets, not to
   build-specific executed configs
 
@@ -99,11 +99,11 @@ CREATE TABLE lidar_run_configs (
     run_config_id TEXT PRIMARY KEY,
     config_hash TEXT NOT NULL UNIQUE,
     param_set_id TEXT NOT NULL REFERENCES lidar_param_sets(param_set_id),
-    engine_name TEXT NOT NULL,
-    engine_version TEXT NOT NULL,
-    git_sha TEXT NOT NULL,
+    build_name TEXT NOT NULL,
+    build_version TEXT NOT NULL,
+    build_git_sha TEXT NOT NULL,
     created_at INTEGER NOT NULL,
-    UNIQUE (param_set_id, engine_name, engine_version, git_sha)
+    UNIQUE (param_set_id, build_name, build_version, build_git_sha)
 );
 
 CREATE TABLE lidar_run_records (
@@ -138,8 +138,8 @@ identity or hash.
 
 Deliberate simplification:
 
-- do not introduce a standalone `lidar_engine_builds` table
-- keep engine identity embedded in `lidar_run_configs`
+- do not introduce a standalone `lidar_builds` table
+- keep build identity embedded in `lidar_run_configs`
 - do not split `lidar_run_records` into extra source/stats/header tables
 - this stays aligned with the simplified 030/031-style table families and avoids
   new table families that have no useful life outside exact config or execution
@@ -159,19 +159,33 @@ Deliberate simplification:
 - durations normalised to a single representation
 - all omitted values must mean exactly one thing
 
-`param_set_type` distinguishes how the param set should be interpreted:
+`param_set_type` encodes the **shape contract** of the JSON payload. Each
+type implies a distinct JSON structure:
 
-- `requested` for reusable recommendations, user overrides, or sweep candidates
-- `effective` for the full runtime parameter surface actually applied by the
-  engine
-- `legacy` for historical backfills that cannot be reconstructed fully
+- `requested` — sparse subset of tuning keys. Only the keys the caller
+  explicitly set. The `params` object is partial and may omit entire layer
+  blocks. No `build` block.
+- `effective` — the complete runtime tuning surface as resolved by the
+  engine. Every layer and every key is present. No `build` block.
+- `legacy` — historical backfills where coverage is incomplete. Shape may
+  be partial or non-standard. No `build` block.
+
+The composed run config exported on read adds a `build` block to the
+effective param set. That composed shape uses a separate schema version
+(`run_config/v1`) and is never stored in `lidar_param_sets`. The `build`
+block is the distinguishing structural difference: if it is present, the
+object is a composed run config, not a standalone param set.
 
 `lidar_run_configs` stores the exact deterministic executed config:
 
 - one `param_set_id`
-- one embedded engine identity block:
-  `engine_name`, `engine_version`, `git_sha`
+- one embedded build identity block:
+  `build_name`, `build_version`, `build_git_sha`
 - one exact `config_hash`
+
+These column names align with existing codebase conventions: `build_version`
+in VRLOG `header.json` / analysis reports, and `version.Version` /
+`version.GitSHA` / `version.BuildTime` set via ldflags.
 
 `lidar_run_records` remains the single mutable execution envelope:
 
@@ -199,7 +213,7 @@ tables.
 - if a field is used for filtering, sorting, joins, or list rendering, keep it
   as a typed column on `lidar_run_records`
 - use `statistics_json` only for sparse or nested detail that is not hot in SQL
-- do not duplicate config identity, engine identity, or top-level run counters
+- do not duplicate config identity, build identity, or top-level run counters
   inside `statistics_json`
 - if a metric becomes query-critical, promote it to a typed column and stop
   mirroring it in JSON
@@ -209,9 +223,9 @@ tables.
 - `params_hash` is SHA-256 of the canonical param-set JSON, including
   `param_set_type` and `schema_version`
 - `config_hash` is SHA-256 of the exact composed run config:
-  `effective param set + engine_name + engine_version + git_sha`
-- same effective params + same engine identity => same `config_hash`
-- same effective params + different engine identity => different `config_hash`
+  `effective param set + build_name + build_version + build_git_sha`
+- same effective params + same build identity => same `config_hash`
+- same effective params + different build identity => different `config_hash`
 - same requested params reused across runs/builds => same `params_hash`
 - `params_hash` is not a cross-schema compatibility key; if the param schema
   changes, the hash must change too
@@ -275,16 +289,16 @@ Effective parameter set stored in `lidar_param_sets.params_json`:
 ```
 
 Exact run config is composed on read/export from the effective parameter set
-plus embedded engine identity:
+plus embedded build identity:
 
 ```json
 {
-  "schema_version": "effective/v1",
+  "schema_version": "run_config/v1",
   "param_set_type": "effective",
-  "engine": {
-    "engine_name": "velocity.report",
-    "engine_version": "0.5.0-pre6",
-    "git_sha": "7b5242213"
+  "build": {
+    "build_name": "velocity.report",
+    "build_version": "0.5.0-pre6",
+    "build_git_sha": "7b5242213"
   },
   "params": {
     "background": {
@@ -319,9 +333,9 @@ Run-config row stored in `lidar_run_configs`:
   "run_config_id": "rc_01HV7M3W6R6M2J2A8M4T7B2E1C",
   "config_hash": "sha256:8b7442f7e3b1c1b4c2d7e4aa2a10d5db2ef7d34e89d9d1f6a84c6f4e21a8f95a",
   "param_set_id": "ps_01HV7M2W3JY8Q6R4B1D5N9T2K7",
-  "engine_name": "velocity.report",
-  "engine_version": "0.5.0-pre6",
-  "git_sha": "7b5242213",
+  "build_name": "velocity.report",
+  "build_version": "0.5.0-pre6",
+  "build_git_sha": "7b5242213",
   "created_at": 1773952005123456789
 }
 ```
@@ -396,7 +410,7 @@ This points to reusable requested params, not to an executed config for any run.
 - evaluation config data in `lidar_replay_evaluations` should always derive
   from `candidate_run_id -> run_config_id`
 - run diff views should diff the composed exact config from
-  `run_config_id -> param_set_id + embedded engine identity`
+  `run_config_id -> param_set_id + embedded build identity`
 - grouping in the UI should use `params_hash` from `effective` parameter sets
   only
 
@@ -444,7 +458,7 @@ Add one config-asset package, likely `internal/lidar/configasset/`, that:
 
 - captures full effective runtime parameters
 - captures reusable requested params
-- captures current engine identity
+- captures current build identity
 - builds canonical parameter-set JSON deterministically
 - computes `params_hash` and `config_hash`
 - validates the absence of forbidden fields
@@ -463,25 +477,25 @@ type ParamSet struct {
     ParamsJSON          []byte
 }
 
-type EngineIdentity struct {
-    EngineName    string
-    EngineVersion string
-    GitSHA        string
+type BuildIdentity struct {
+    BuildName    string
+    BuildVersion string
+    BuildGitSHA  string
 }
 
 type RunConfig struct {
     RunConfigID   string
     ConfigHash    string
     ParamSetID    string
-    EngineName    string
-    EngineVersion string
-    GitSHA        string
+    BuildName     string
+    BuildVersion  string
+    BuildGitSHA   string
 }
 
 func MakeEffectiveParamSet(runtime Snapshot) (*ParamSet, error)
 func MakeRequestedParamSet(request Snapshot) (*ParamSet, error)
-func ReadEngineIdentity(info BuildInfo) (EngineIdentity, error)
-func EnsureRunConfig(db *sql.DB, paramSet *ParamSet, engine EngineIdentity) (*RunConfig, error)
+func ReadBuildIdentity(info BuildInfo) (BuildIdentity, error)
+func EnsureRunConfig(db *sql.DB, paramSet *ParamSet, build BuildIdentity) (*RunConfig, error)
 ```
 
 ### P0.3 Define the effective runtime surface
@@ -525,7 +539,7 @@ single-sourced:
 - exactly one run row per execution
 - exactly one `run_config_id` attached to that run
 - the run row must be created only after the effective param set and current
-  engine identity have been resolved into a run config
+  build identity have been resolved into a run config
 - if explicit launch intent exists, the row may also carry
   `requested_param_set_id`, but exact reproducibility still hangs off
   `run_config_id`
@@ -548,7 +562,7 @@ The system must distinguish between:
   sweep-selected candidate values
 - effective params: the full resolved runtime state that the engine actually
   used
-- engine identity: the binary/code identity that executed the run
+- build identity: the binary/code identity that executed the run
 - execution metadata: UUIDs, timestamps, source paths, replay windows,
   statuses, and derived run totals
 
@@ -560,10 +574,10 @@ Storage rules:
   `param_set_type = 'effective'`
 - launch intent may be attached to `lidar_run_records.requested_param_set_id`
   when known
-- exact executed configs live in `lidar_run_configs` with embedded engine
+- exact executed configs live in `lidar_run_configs` with embedded build
   identity
 - execution metadata must not be hashed into `params_hash` or `config_hash`
-- `statistics_json` must not duplicate exact config, engine identity, or the
+- `statistics_json` must not duplicate exact config, build identity, or the
   top-level typed counters already present on `lidar_run_records`
 
 ### P0.7 Backfill historical rows
@@ -574,8 +588,8 @@ Add a backfill step in the migration or a one-shot repair command that:
 2. Canonicalises recoverable content into `lidar_param_sets`
 3. Marks those rows as `effective` where exact resolution is possible
 4. Marks them as `legacy` where coverage is incomplete
-5. Resolves `lidar_run_configs` with whatever engine identity is known
-6. Uses explicit `unknown` engine values where historical build identity cannot
+5. Resolves `lidar_run_configs` with whatever build identity is known
+6. Uses explicit `unknown` build values where historical build identity cannot
    be recovered
 7. Sets `lidar_run_records.run_config_id`
 8. Leaves `requested_param_set_id` NULL unless original launch intent is known
@@ -598,9 +612,9 @@ Runs should expose:
 - `run_config_id`
 - `requested_param_set_id`
 - `param_set_id`
-- `engine_name`
-- `engine_version`
-- `git_sha`
+- `build_name`
+- `build_version`
+- `build_git_sha`
 - `config_hash`
 - `params_hash`
 - `schema_version`
@@ -610,7 +624,7 @@ Runs should expose:
 - `frame_start_ns`
 - `frame_end_ns`
 - `statistics_json`
-- optionally expanded exact config composed from param set + engine identity
+- optionally expanded exact config composed from param set + build identity
 
 Replay cases should expose:
 
@@ -664,7 +678,7 @@ Add or update tests for:
 
 - canonicalisation stability for parameter sets
 - hash stability for equivalent param sets and run configs
-- `config_hash` divergence when engine identity changes
+- `config_hash` divergence when build identity changes
 - timestamps/UUIDs never changing `params_hash` or `config_hash`
 - replay/reprocess creating exactly one run row
 - run rows always having the correct `run_config_id`
@@ -730,7 +744,7 @@ Requirements:
 
 - no persisted evaluation config snapshots in `lidar_replay_evaluations`
 - no config diff path reading legacy run JSON blobs
-- exact diff uses `run_config_id -> param_set_id + embedded engine identity`
+- exact diff uses `run_config_id -> param_set_id + embedded build identity`
 
 ### P2.4 UI simplification
 
@@ -740,7 +754,7 @@ After legacy column removal:
 - remove raw-string config editors tied directly to replay-case blobs
 - use parameter-set summaries and explicit clone/edit flows instead of mutating
   shared blobs in place
-- keep engine-identity resolution explicit when turning a recommendation into a
+- keep build-identity resolution explicit when turning a recommendation into a
   run
 
 ### P2.5 Future artifact attachments
@@ -781,7 +795,7 @@ Add cleanup-phase tests for:
 1. Introduce `param_set` and `run_config` schema plus the config-asset package
 2. Fix single-source run creation with an explicit execution-orchestration path
 3. Capture full effective parameter sets at runtime
-4. Capture current engine identity and resolve exact run configs
+4. Capture current build identity and resolve exact run configs
 5. Attach run configs to new runs
 6. Backfill existing runs and replay-case requested params
 7. Expose deterministic config metadata through API
@@ -824,7 +838,7 @@ Add cleanup-phase tests for:
 The core decision is simple:
 
 - reusable parameter intent should live in `lidar_param_sets`
-- exact reproducibility should live in `lidar_run_configs` with embedded engine
+- exact reproducibility should live in `lidar_run_configs` with embedded build
   identity
 - run rows and recording headers should keep UUIDs, timestamps, and other
   execution metadata
