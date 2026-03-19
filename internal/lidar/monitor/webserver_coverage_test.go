@@ -79,6 +79,27 @@ func TestCov_HandleSweepDashboard_WithQuerySensorID(t *testing.T) {
 	}
 }
 
+// TestCov_SweepDashboardJS_ReplayCaseID verifies that the sweep dashboard JS
+// uses replay_case_id (not the old scene_id) when populating the scene select
+// dropdown. This catches regressions from the lidar_scenes → lidar_replay_cases
+// rename.
+func TestCov_SweepDashboardJS_ReplayCaseID(t *testing.T) {
+	content, err := EchartsAssets.ReadFile("assets/sweep_dashboard.js")
+	if err != nil {
+		t.Fatalf("failed to read embedded sweep_dashboard.js: %v", err)
+	}
+
+	body := string(content)
+
+	if !containsString(body, "s.replay_case_id") {
+		t.Error("sweep_dashboard.js should reference s.replay_case_id for scene dropdown")
+	}
+
+	if containsString(body, "s.scene_id") {
+		t.Error("sweep_dashboard.js must not reference s.scene_id (renamed to replay_case_id)")
+	}
+}
+
 // --- handleBackgroundGridPolar ---
 
 func TestCov_HandleBackgroundGridPolar_NoManager(t *testing.T) {
