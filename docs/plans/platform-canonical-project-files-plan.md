@@ -1,9 +1,32 @@
 # Canonical Plan Graduation Plan
 
-- **Status:** Proposed
+- **Status:** Active
 - **Layers:** Cross-cutting (documentation and tooling)
 
 Use the existing hub structure in `docs/lidar/`, `docs/radar/`, and `docs/ui/` as the permanent home for substantial bodies of work, and treat `docs/plans/` as a temporary execution layer that eventually collapses into symlink aliases.
+
+## 0. Current State
+
+What is already in place and what remains to be done:
+
+**Done:**
+
+- [x] Hub directories established: `docs/lidar/architecture/`, `docs/lidar/operations/`,
+      `docs/radar/architecture/`, `docs/ui/`
+- [x] Agent workflow files written and in place at `.github/agents/` — `flo.agent.md`,
+      `grace.agent.md`, `appius.agent.md`, and `terry.agent.md` already encode the workflows
+      described in section 10 of this plan
+- [x] `scripts/flo-planning-review.sh` exists with plan-file enumeration
+- [x] Design rationale and enforcement rules settled (this document)
+
+**Not yet done:**
+
+- [ ] `scripts/check-plan-canonical-links.py` — does not exist
+- [ ] `make check-plan-hygiene` / `make report-plan-hygiene` — not wired up
+- [ ] `flo-planning-review.sh` updated to include symlinks and report `Canonical` targets
+- [ ] `Canonical` metadata added to any plan file (0 of 65 done)
+- [ ] Any plan graduated to a symlink
+- [ ] CI enforcement enabled
 
 ## 1. Problem
 
@@ -168,7 +191,7 @@ The checker should also emit an advisory report for:
 
 Advisories should not block merges, but they should appear in CI summaries and planning-review output so hygiene debt remains visible.
 
-### 8.3 Suggested Make Targets
+### 8.4 Suggested Make Targets
 
 Add two targets:
 
@@ -189,7 +212,15 @@ That makes split-work detection explicit in the PM review flow.
 
 ## 10. Agent Workflows
 
-The hygiene loop should be owned across PM, architecture, and implementation roles instead of relying on one generic docs pass.
+The workflows below are already encoded in the respective agent files at `.github/agents/`.
+This section records the intent; the agent files are the live instructions.
+
+| Agent             | File                             | Role in this workflow      |
+| ----------------- | -------------------------------- | -------------------------- |
+| Florence (PM)     | `.github/agents/flo.agent.md`    | Detect, triage, schedule   |
+| Grace (Architect) | `.github/agents/grace.agent.md`  | Choose canonical home      |
+| Appius (Dev)      | `.github/agents/appius.agent.md` | Enforce and land changes   |
+| Terry (Writer)    | `.github/agents/terry.agent.md`  | Polish after consolidation |
 
 ### 10.1 Florence (PM) — Detect And Triage
 
@@ -232,27 +263,49 @@ After consolidation lands:
 2. Tighten hub README navigation if the canonical doc should be easier to discover.
 3. Ensure the canonical doc reads as a stable body of work, not as an abandoned plan.
 
-## 11. One-Off Refactor
+## 11. Implementation Checklist
 
-Implementation is a one-time cleanup plus ongoing light enforcement.
+Three phases. Do not start phase N+1 until phase N is clean.
 
-### 11.1 Inventory
+### Phase 1 — Tooling
 
-1. Cluster existing plan files by subject area and owning hub.
-2. Identify where multiple plans already describe one architectural identity.
-3. Choose the hub doc that should become the stable body of work.
+- [ ] Write `scripts/check-plan-canonical-links.py` in advisory-only mode
+  - parses `- **Canonical:**` header lines in all non-symlink `.md` files under `docs/plans/`
+  - reports missing `Canonical` metadata
+  - reports targets that are under `docs/plans/` or outside the repo
+  - reports duplicate targets (two plans claiming the same canonical doc)
+  - reports symlinks resolving outside the repo or to `docs/plans/`
+  - exits 0 (advisory only at this phase)
+- [ ] Add `make check-plan-hygiene` target — runs the checker in hard-fail mode (exits non-zero)
+- [ ] Add `make report-plan-hygiene` target — runs the checker in advisory/report mode
+- [ ] Update `scripts/flo-planning-review.sh`:
+  - change `find ... -type f` to include symlinks (`-type f -o -type l`)
+  - report each active plan alongside its `Canonical` target
+  - flag any two active plans sharing the same canonical target
+- [ ] Wire `make report-plan-hygiene` into CI as a non-fatal advisory job
+- [ ] Verify advisory output runs cleanly against the current 65 plans
 
-### 11.2 Consolidate
+### Phase 2 — Repository Refactor
 
-1. Merge durable architecture and implementation truth into the hub doc.
-2. Keep only one active execution plan for that body of work.
-3. Convert superseded plans into symlinks to the hub doc.
+- [ ] Cluster all plan files by owning hub using advisory output
+- [ ] Identify collisions: plans sharing one architectural identity
+  - run `make report-plan-hygiene` and review groupings with Flo
+  - involve Grace for canonical-home decisions on ambiguous cases
+- [ ] Add `- **Canonical:**` metadata header to every non-symlink plan (65 files)
+- [ ] For plans with substantial durable content not yet in a hub doc:
+  - merge that content into the hub doc
+  - reduce the plan to execution sequencing only
+- [ ] Merge or consolidate sibling plans that share the same canonical doc
+- [ ] Convert superseded plans to symlinks pointing at the hub doc
+- [ ] Run `make report-plan-hygiene` — zero hard-fail violations, advisory only
 
-### 11.3 Enforce
+### Phase 3 — Hard-Fail Enforcement
 
-1. Add the `Canonical` metadata link to any remaining active plans.
-2. Add the CI checker.
-3. Update planning-review tooling to surface collisions.
+- [ ] Switch `check-plan-canonical-links.py` to hard-fail mode (exit 1 on any gate breach)
+- [ ] Update `make lint-docs` to call `make check-plan-hygiene`
+- [ ] Update CI to fail on `make lint-docs`
+- [ ] Verify full `make lint-docs` passes in CI
+- [ ] Graduate this plan (symlink or mark complete in backlog)
 
 ## 12. Non-Goals
 
