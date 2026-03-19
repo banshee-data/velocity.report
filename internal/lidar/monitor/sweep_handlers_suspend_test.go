@@ -18,7 +18,7 @@ import (
 
 func TestAutoTuneSuspend_NotConfigured(t *testing.T) {
 	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/suspend", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/suspend", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleAutoTuneSuspend(w, req)
@@ -31,7 +31,7 @@ func TestAutoTuneSuspend_Success(t *testing.T) {
 	runner := &mockSweepHandlerRunner{}
 	ws := &WebServer{autoTuneRunner: runner}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/suspend", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/suspend", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleAutoTuneSuspend(w, req)
@@ -53,7 +53,7 @@ func TestAutoTuneSuspend_Error(t *testing.T) {
 	runner := &mockSweepHandlerRunner{suspendErr: errors.New("cannot suspend: not running")}
 	ws := &WebServer{autoTuneRunner: runner}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/suspend", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/suspend", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleAutoTuneSuspend(w, req)
@@ -80,7 +80,7 @@ func setupSuspendedSweepStore(t *testing.T) (*sql.DB, *sqlite.SweepStore) {
 
 func TestAutoTuneSuspended_NotConfigured(t *testing.T) {
 	ws := &WebServer{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto-tune/suspended", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto/suspended", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleAutoTuneSuspended(w, req)
@@ -94,7 +94,7 @@ func TestAutoTuneSuspended_NotFound(t *testing.T) {
 	defer db.Close()
 
 	ws := &WebServer{sweepStore: store}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto-tune/suspended", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto/suspended", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleAutoTuneSuspended(w, req)
@@ -122,7 +122,7 @@ func TestAutoTuneSuspended_Found(t *testing.T) {
 	}
 
 	ws := &WebServer{sweepStore: store}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto-tune/suspended", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto/suspended", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleAutoTuneSuspended(w, req)
@@ -153,7 +153,7 @@ func TestAutoTuneSuspended_StoreError(t *testing.T) {
 	db.Close() // close it intentionally to trigger errors
 
 	ws := &WebServer{sweepStore: store}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto-tune/suspended", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/auto/suspended", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleAutoTuneSuspended(w, req)
@@ -168,7 +168,7 @@ func TestAutoTuneResume_ConflictError(t *testing.T) {
 	runner := &mockSweepHandlerRunner{resumeErr: errors.New("already in progress")}
 	ws := &WebServer{autoTuneRunner: runner}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/resume",
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/resume",
 		strings.NewReader(`{"sweep_id":"s1"}`))
 	w := httptest.NewRecorder()
 
@@ -182,7 +182,7 @@ func TestAutoTuneResume_ValidationError(t *testing.T) {
 	runner := &mockSweepHandlerRunner{resumeErr: errors.New("no checkpoint found")}
 	ws := &WebServer{autoTuneRunner: runner}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto-tune/resume",
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/auto/resume",
 		strings.NewReader(`{"sweep_id":"bad"}`))
 	w := httptest.NewRecorder()
 
@@ -235,7 +235,7 @@ func TestHINTStatus_WaitForChange_ClientDisconnect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately to simulate client disconnect
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/hint/status?wait_for_change=idle", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/sweep/hint?wait_for_change=idle", nil)
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 

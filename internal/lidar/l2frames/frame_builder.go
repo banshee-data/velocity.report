@@ -111,6 +111,7 @@ type FrameBuilder struct {
 	// Cleanup timer to finalize old frames
 	cleanupTimer    *time.Timer
 	cleanupInterval time.Duration // how often to check for frames to finalize
+	closed          bool          // set by Close() to prevent cleanupFrames rescheduling
 
 	// Time-based frame detection for accurate motor speed handling
 	expectedFrameDuration time.Duration // expected duration per frame based on motor speed
@@ -292,6 +293,7 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 // goroutine leaks.
 func (fb *FrameBuilder) Close() {
 	fb.mu.Lock()
+	fb.closed = true
 	if fb.cleanupTimer != nil {
 		fb.cleanupTimer.Stop()
 	}
@@ -758,8 +760,10 @@ func (fb *FrameBuilder) cleanupFrames() {
 		}
 	}
 
-	// Schedule next cleanup
-	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
+	// Schedule next cleanup unless the builder has been closed.
+	if !fb.closed {
+		fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
+	}
 }
 
 // finalizeFrame completes a frame and calls the callback
