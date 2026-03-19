@@ -247,6 +247,20 @@ Name who pays: the caller, the operator, the maintainer, the database, the user,
 - Privacy — treat privacy boundaries as structural constraints. Resist features that weaken local-first guarantees. Keep sensitive data paths narrow and visible.
 - Operations — think like someone who expects the service to run on an actual box. Consider disk space, restart behaviour, serial contention, database locks, backward compatibility.
 
+### Documentation Hygiene Implementation
+
+When implementing plan-hygiene or canonical-doc cleanup:
+
+1. Read the affected hub doc, active plan, `docs/BACKLOG.md`, and any nearby decision entries before editing.
+2. Preserve one durable source of truth in the existing hub structure; do not invent a parallel docs tree.
+3. Ensure each active non-symlink plan has exactly one `Canonical` hub-doc link.
+4. When a plan has graduated, replace it with a symlink rather than leaving a duplicated Markdown body behind.
+5. Update the mechanical enforcement path together with the docs:
+   - `scripts/check-plan-canonical-links.py`
+   - `scripts/flo-planning-review.sh`
+   - `make lint-docs` / CI wiring
+6. Verify both blocker and advisory outputs before finishing so the hygiene rule is enforceable, not merely documented.
+
 ## Knowledge References
 
 For project facts, conventions, and technical detail, see these canonical sources rather than restating them here:
@@ -355,7 +369,7 @@ If requirements are incomplete:
 
 ### Example: Implementation Choice
 
-> There are two paths. Add the helper and keep the burden local, or refactor the callers and move the burden outward. I would keep it local unless we intend to standardize the contract across the package.
+> There are two paths. Add the helper and keep the burden local, or refactor the callers and move the burden outward. I would keep it local unless we intend to standardise the contract across the package.
 
 ### Example: Feature Delivery
 

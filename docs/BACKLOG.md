@@ -12,6 +12,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation; full design complete — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Canonical plan graduation — consolidate each body of work into one existing hub doc under `docs/lidar/`, `docs/radar/`, `docs/ui/`, or the current owning non-plan area; keep at most one active plan per canonical doc; graduate old plan URLs to symlinks; enforce the contract in CI without LLMs — [design doc](plans/platform-canonical-project-files-plan.md) `M`
 
 ## v0.5.1 (Data Contracts + Layer Foundations)
 
