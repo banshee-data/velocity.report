@@ -426,9 +426,10 @@ This means you never need to stop work for a style issue.
 Fix what you can locally, let CI flag the rest, and the
 weekly nag PR sweeps up anything that slips through.
 
-**Line width:** The repo standard is **100 columns** for all
-code and prose. Formatters (prettier, swift-format, black)
-enforce this automatically; the prose-width linter checks
+**Line width:** The repo target is **100 columns** for all
+code and prose. Formatters (prettier, swift-format) are
+configured to enforce this; Python currently uses `black` with
+its default 88-column line length. The prose-width linter checks
 Markdown. For details see
 [`line-width-standardisation-plan.md`](docs/plans/line-width-standardisation-plan.md).
 
