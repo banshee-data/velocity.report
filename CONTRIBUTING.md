@@ -71,32 +71,32 @@ vector-scene maths, and optional offline classification work.
 #### Open questions that need evidence, not opinion:
 
 1. Whether the [2026-02-22 OBB](data/maths/proposals/20260222-obb-heading-stability-review.md) fixes hold up in replay, or
-  whether [geometry-coherent tracking](data/maths/proposals/20260222-geometry-coherent-tracking.md) is still needed to stop
-  bounding boxes rotating like weathervanes.
+   whether [geometry-coherent tracking](data/maths/proposals/20260222-geometry-coherent-tracking.md) is still needed to stop
+   bounding boxes rotating like weathervanes.
 1. Whether
-  [velocity-coherent extraction](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
-  beats the current baseline on fixed PCAP/VRLOG packs
-  strongly enough to justify
-  [runtime adoption](docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
+   [velocity-coherent extraction](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+   beats the current baseline on fixed PCAP/VRLOG packs
+   strongly enough to justify
+   [runtime adoption](docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
 1. Whether highly reflective signs can serve as stable [pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md),
-  how far the intensity gate can be relaxed without them, and
-  whether walls or road geometry provide enough fallback
-  without confusing the model.
+   how far the intensity gate can be relaxed without them, and
+   whether walls or road geometry provide enough fallback
+   without confusing the model.
 1. How radar + LiDAR fusion should be scored and staged:
-  existing [per-track association](data/maths/tracking-maths.md), or
-  [scene-level fusion](docs/plans/lidar-l7-scene-plan.md).
+   existing [per-track association](data/maths/tracking-maths.md), or
+   [scene-level fusion](docs/plans/lidar-l7-scene-plan.md).
 1. When the current
-  [height-band ground filter](data/maths/ground-plane-maths.md)
-  stops being good enough, and what replay evidence justifies
-  moving to [tile-plane and vector-scene maths](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md).
+   [height-band ground filter](data/maths/ground-plane-maths.md)
+   stops being good enough, and what replay evidence justifies
+   moving to [tile-plane and vector-scene maths](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md).
 1. How [OSM/community geometry priors](docs/plans/lidar-l7-scene-plan.md)
-  should be diffed, reviewed, signed, and exported without
-  weakening
-  [provenance](docs/lidar/architecture/vector-scene-map.md).
+   should be diffed, reviewed, signed, and exported without
+   weakening
+   [provenance](docs/lidar/architecture/vector-scene-map.md).
 1. Which [config values](config/tuning.defaults.json) are actually
-  supported by repeatable
-  [scorecards](docs/plans/lidar-parameter-tuning-optimisation-plan.md),
-  when they were last compared, and with what artefact set.
+   supported by repeatable
+   [scorecards](docs/plans/lidar-parameter-tuning-optimisation-plan.md),
+   when they were last compared, and with what artefact set.
 
 When contributing here, include the question being answered,
 the observed result, the exact parameter bundle, the
@@ -451,24 +451,24 @@ yet machines.
 [prefix] Description of change
 ```
 
-| Prefix   | Use                                                                                    |
-| -------- | -------------------------------------------------------------------------------------- |
-| `[go]`   | Go code, server, APIs                                                                  |
-| `[py]`   | Python (PDF generator, tools)                                                          |
-| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite)                                                |
-| `[mac]`  | macOS files (Swift, Xcode)                                                             |
-| `[docs]` | Documentation (Markdown, READMEs)                                                      |
-| `[sh]`   | Shell scripts (Makefile, bash)                                                         |
-| `[sql]`  | Database schema or migrations                                                          |
-| `[fs]`   | Filesystem operations (moves, renames)                                                 |
-| `[tex]`  | LaTeX/template changes                                                                 |
-| `[ci]`   | CI/CD configuration (GitHub Actions)                                                   |
-| `[make]` | Makefile changes                                                                       |
-| `[git]`  | Git configuration or hooks                                                             |
-| `[sed]`  | Find-and-replace across multiple files                                                 |
-| `[cfg]`  | Configuration files (tsconfig, package.json, etc.)                                     |
-| `[exe]`  | Machine-generated edits (e.g., npm install)                                            |
-| `[ai]`   | AI-authored edits (Copilot/Codex) — required alongside the language tag                |
+| Prefix   | Use                                                                     |
+| -------- | ----------------------------------------------------------------------- |
+| `[go]`   | Go code, server, APIs                                                   |
+| `[py]`   | Python (PDF generator, tools)                                           |
+| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite)                                 |
+| `[mac]`  | macOS files (Swift, Xcode)                                              |
+| `[docs]` | Documentation (Markdown, READMEs)                                       |
+| `[sh]`   | Shell scripts (Makefile, bash)                                          |
+| `[sql]`  | Database schema or migrations                                           |
+| `[fs]`   | Filesystem operations (moves, renames)                                  |
+| `[tex]`  | LaTeX/template changes                                                  |
+| `[ci]`   | CI/CD configuration (GitHub Actions)                                    |
+| `[make]` | Makefile changes                                                        |
+| `[git]`  | Git configuration or hooks                                              |
+| `[sed]`  | Find-and-replace across multiple files                                  |
+| `[cfg]`  | Configuration files (tsconfig, package.json, etc.)                      |
+| `[exe]`  | Machine-generated edits (e.g., npm install)                             |
+| `[ai]`   | AI-authored edits (Copilot/Codex) — required alongside the language tag |
 
 Examples:
 
