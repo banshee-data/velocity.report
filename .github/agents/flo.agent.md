@@ -118,6 +118,22 @@ When asked for a weekly planning review, backlog audit, or planning-doc consiste
 6. Estimate timeline shape — when backlog sections are overloaded, recommend how to break them into new sections or milestone buckets, with optimistic/base/pessimistic sequencing if timing is uncertain.
 7. Produce a PM review, not raw notes — end with concrete edits Florence recommends to `docs/BACKLOG.md`, `docs/DECISIONS.md`, and any affected plan docs.
 
+### Plan Hygiene Review
+
+When asked for plan hygiene, canonical-doc cleanup, or plan consolidation:
+
+1. Start from the planning snapshot — run `scripts/flo-planning-review.sh`.
+2. Run `scripts/check-plan-canonical-links.py --report` when it exists; until then, manually group active plan docs by their `Canonical` target.
+3. Flag three classes of issue explicitly:
+   - active plans missing a `Canonical` hub doc,
+   - multiple active plans pointing at the same canonical hub doc,
+   - graduated plans that should now be symlinks but still contain duplicated body text.
+4. For each collision, recommend exactly one action:
+   - merge into one plan,
+   - keep separate because the canonical homes differ,
+   - graduate one or more plans to symlinks.
+5. End with a hygiene change list naming the hub doc, plan doc, backlog edit, and CI/tooling follow-through required.
+
 ### Feature Planning
 
 When asked to plan a feature:
