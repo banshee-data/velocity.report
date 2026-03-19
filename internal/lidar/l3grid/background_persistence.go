@@ -53,7 +53,7 @@ type BgStore interface {
 // in addition to BgStore.
 type RegionStore interface {
 	InsertRegionSnapshot(s *RegionSnapshot) (int64, error)
-	GetRegionSnapshotByGridHash(sensorID, sceneHash string) (*RegionSnapshot, error)
+	GetRegionSnapshotByGridHash(sensorID, gridHash string) (*RegionSnapshot, error)
 	GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*RegionSnapshot, error)
 	GetLatestRegionSnapshot(sensorID string) (*RegionSnapshot, error)
 	InsertBgSnapshot(s *BgSnapshot) (int64, error)
@@ -219,21 +219,21 @@ func (bm *BackgroundManager) TryRestoreRegionsByGridHash(store RegionStore) bool
 		return false
 	}
 
-	// Compute current scene signature
-	sceneHash := bm.Grid.SceneSignature()
-	if sceneHash == "" {
-		diagf("[BackgroundManager] Cannot restore regions: scene hash is empty (not enough data)")
+	// Compute current grid hash
+	gridHash := bm.Grid.SceneSignature()
+	if gridHash == "" {
+		diagf("[BackgroundManager] Cannot restore regions: grid hash is empty (not enough data)")
 		return false
 	}
 
 	// Try to find a matching region snapshot
-	snap, err := store.GetRegionSnapshotByGridHash(bm.Grid.SensorID, sceneHash)
+	snap, err := store.GetRegionSnapshotByGridHash(bm.Grid.SensorID, gridHash)
 	if err != nil {
 		opsf("[BackgroundManager] Error looking up region snapshot: %v", err)
 		return false
 	}
 	if snap == nil {
-		diagf("[BackgroundManager] No region snapshot found for grid_hash=%s", sceneHash)
+		diagf("[BackgroundManager] No region snapshot found for grid_hash=%s", gridHash)
 		return false
 	}
 
@@ -249,7 +249,7 @@ func (bm *BackgroundManager) TryRestoreRegionsByGridHash(store RegionStore) bool
 	}
 
 	diagf("[BackgroundManager] Successfully restored regions from database: grid_hash=%s, regions=%d",
-		sceneHash, snap.RegionCount)
+		gridHash, snap.RegionCount)
 	return true
 }
 
@@ -293,15 +293,15 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 		}
 	}
 
-	// Fall back to scene hash matching
-	sceneHash := g.sceneSignatureUnlocked()
-	if sceneHash == "" {
+	// Fall back to grid hash matching
+	gridHash := g.sceneSignatureUnlocked()
+	if gridHash == "" {
 		return false
 	}
 
 	// Release lock for DB I/O, then re-acquire
 	g.mu.Unlock()
-	snap, err := regionStore.GetRegionSnapshotByGridHash(g.SensorID, sceneHash)
+	snap, err := regionStore.GetRegionSnapshotByGridHash(g.SensorID, gridHash)
 	g.mu.Lock()
 
 	if err != nil {
@@ -309,7 +309,7 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 		return false
 	}
 	if snap == nil {
-		diagf("[BackgroundManager] No region snapshot found for grid_hash=%s", sceneHash)
+		diagf("[BackgroundManager] No region snapshot found for grid_hash=%s", gridHash)
 		return false
 	}
 
@@ -320,7 +320,7 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 	}
 
 	diagf("[BackgroundManager] Restored regions from DB, skipping remaining settling: grid_hash=%s, regions=%d",
-		sceneHash, snap.RegionCount)
+		gridHash, snap.RegionCount)
 	return true
 }
 
@@ -395,12 +395,12 @@ func (bm *BackgroundManager) persistRegionsOnSettleLocked() {
 	}
 
 	// Build region snapshot while holding the lock
-	sceneHash := g.sceneSignatureUnlocked()
+	gridHash := g.sceneSignatureUnlocked()
 	regionSnap := g.RegionMgr.ToSnapshot(g.SensorID, 0) // will update snapshot_id after grid insert
 	if regionSnap == nil {
 		return
 	}
-	regionSnap.GridHash = sceneHash
+	regionSnap.GridHash = gridHash
 	regionSnap.SourcePath = bm.GetSourcePath()
 
 	// Release lock for DB I/O, then re-acquire

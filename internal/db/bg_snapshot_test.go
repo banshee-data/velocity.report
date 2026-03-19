@@ -541,8 +541,8 @@ func TestGetRegionSnapshotByGridHash(t *testing.T) {
 		t.Fatalf("InsertBgSnapshot failed: %v", err)
 	}
 
-	// Insert region snapshot with a specific scene hash
-	sceneHash := "unique-scene-hash-12345"
+	// Insert region snapshot with a specific grid hash
+	gridHash := "unique-scene-hash-12345"
 	regionSnap := &l3grid.RegionSnapshot{
 		SnapshotID:       bgID,
 		SensorID:         "test-sensor",
@@ -551,7 +551,7 @@ func TestGetRegionSnapshotByGridHash(t *testing.T) {
 		RegionsJSON:      `[]`,
 		VarianceDataJSON: `{}`,
 		SettlingFrames:   50,
-		GridHash:         sceneHash,
+		GridHash:         gridHash,
 		SourcePath:       "/test/file.pcap",
 	}
 
@@ -560,8 +560,8 @@ func TestGetRegionSnapshotByGridHash(t *testing.T) {
 		t.Fatalf("InsertRegionSnapshot failed: %v", err)
 	}
 
-	// Retrieve by scene hash
-	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", sceneHash)
+	// Retrieve by grid hash
+	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", gridHash)
 	if err != nil {
 		t.Fatalf("GetRegionSnapshotByGridHash failed: %v", err)
 	}
@@ -570,8 +570,8 @@ func TestGetRegionSnapshotByGridHash(t *testing.T) {
 		t.Fatal("Expected non-nil region snapshot")
 	}
 
-	if retrieved.GridHash != sceneHash {
-		t.Errorf("GridHash mismatch: got %q, want %q", retrieved.GridHash, sceneHash)
+	if retrieved.GridHash != gridHash {
+		t.Errorf("GridHash mismatch: got %q, want %q", retrieved.GridHash, gridHash)
 	}
 	if retrieved.SensorID != "test-sensor" {
 		t.Errorf("SensorID mismatch: got %q, want %q", retrieved.SensorID, "test-sensor")
@@ -824,8 +824,8 @@ func TestGetRegionSnapshotByGridHash_MostRecent(t *testing.T) {
 		t.Fatalf("InsertBgSnapshot failed: %v", err)
 	}
 
-	// Insert multiple region snapshots with the same scene hash
-	sceneHash := "duplicate-hash"
+	// Insert multiple region snapshots with the same grid hash
+	gridHash := "duplicate-hash"
 	for i := 0; i < 3; i++ {
 		regionSnap := &l3grid.RegionSnapshot{
 			SnapshotID:       bgID,
@@ -834,7 +834,7 @@ func TestGetRegionSnapshotByGridHash_MostRecent(t *testing.T) {
 			RegionCount:      (i + 1) * 10, // 10, 20, 30
 			RegionsJSON:      `[]`,
 			SettlingFrames:   i,
-			GridHash:         sceneHash,
+			GridHash:         gridHash,
 		}
 
 		_, err = db.InsertRegionSnapshot(regionSnap)
@@ -843,8 +843,8 @@ func TestGetRegionSnapshotByGridHash_MostRecent(t *testing.T) {
 		}
 	}
 
-	// Retrieve by scene hash - should get the most recent (highest ID)
-	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", sceneHash)
+	// Retrieve by grid hash - should get the most recent (highest ID)
+	retrieved, err := db.GetRegionSnapshotByGridHash("test-sensor", gridHash)
 	if err != nil {
 		t.Fatalf("GetRegionSnapshotByGridHash failed: %v", err)
 	}
