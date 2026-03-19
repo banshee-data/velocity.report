@@ -407,27 +407,29 @@ pre-commit install
 
 ### Advisory Linting (Non-Blocking)
 
-Some lint checks are **advisory** — they flag issues without
-blocking your PR. This is deliberate:
+Some lint checks are **advisory** — they report issues without
+blocking your PR. This is a deliberate low-friction workflow:
 
-1. **Local check** — `make lint` shows all warnings, including
-   line-width reports.
-2. **Pre-commit hook** — Auto-formats on commit. Width-related
-   prose checks are opt-in.
-3. **CI check** — An advisory line-width job runs with
-   `continue-on-error: true`. Yellow tick, not red cross.
-   Your PR can still merge.
-4. **Weekly nag PR** — A scheduled workflow opens a standing PR
-   each week with any remaining style fixes. Easy to review,
-   easy to merge, no manual effort required.
+1. **Local check** — Run `make lint` to see all warnings
+   including line-width reports.
+2. **Pre-commit hook** — Auto-formats code on commit if you
+   have `pre-commit install` enabled. Width-related prose
+   checks are opt-in and advisory.
+3. **CI check** — PR checks include an advisory line-width
+   job (`continue-on-error: true`). It shows a yellow tick,
+   not a red cross. Your PR can merge regardless.
+4. **Weekly nag PR** — A scheduled workflow opens a standing
+   PR each week with any remaining style fixes. Easy to
+   review and merge — no manual effort required.
 
-You never need to stop real work for a style issue. Fix what
-you can locally, let CI flag the rest, and the weekly PR
-sweeps up anything that slips through.
+This means you never need to stop work for a style issue.
+Fix what you can locally, let CI flag the rest, and the
+weekly nag PR sweeps up anything that slips through.
 
-**Line width:** 100 columns for all code and prose. Formatters
-enforce this automatically; the prose linter checks Markdown.
-For details see
+**Line width:** The repo standard is **100 columns** for all
+code and prose. Formatters (prettier, swift-format, black)
+enforce this automatically; the prose-width linter checks
+Markdown. For details see
 [`line-width-standardisation-plan.md`](docs/plans/line-width-standardisation-plan.md).
 
 ## Git Workflow
