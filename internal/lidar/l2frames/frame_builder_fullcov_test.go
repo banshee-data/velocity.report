@@ -2,6 +2,7 @@ package l2frames
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -81,12 +82,22 @@ func TestAddPointsDualInternal_Mismatch(t *testing.T) {
 	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "dual-mismatch"})
 	defer fb.Close()
 
+	// Defers run LIFO. We must unlock fb.mu before fb.Close() runs
+	// (which needs the lock). t.Fatal calls runtime.Goexit, so any
+	// code after it in the same defer never executes. By splitting the
+	// unlock into its own deferred call we guarantee the mutex is
+	// released regardless of whether recover finds a panic.
+	var panicked bool
 	defer func() {
-		if r := recover(); r == nil {
+		if !panicked {
 			t.Fatal("expected panic for mismatched slice lengths")
 		}
-		// Unlock the mutex that was held when panic occurred
-		fb.mu.Unlock()
+	}()
+	defer fb.mu.Unlock() // always runs before fb.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			panicked = true
+		}
 	}()
 
 	fb.mu.Lock()
@@ -549,23 +560,28 @@ func TestGetCurrentFrameStats_MultipleFrames(t *testing.T) {
 	defer fb.Close()
 
 	now := time.Now()
-	older := now.Add(-10 * time.Second)
-	newer := now.Add(-1 * time.Second)
+	oldest := now.Add(-10 * time.Second)
+	middle := now.Add(-5 * time.Second)
+	newest := now.Add(-1 * time.Second)
 
 	fb.mu.Lock()
-	fb.frameBuffer["old"] = &LiDARFrame{
-		FrameID:        "old",
-		StartTimestamp: older,
+	fb.frameBuffer["oldest"] = &LiDARFrame{
+		FrameID:        "oldest",
+		StartTimestamp: oldest,
 	}
-	fb.frameBuffer["new"] = &LiDARFrame{
-		FrameID:        "new",
-		StartTimestamp: newer,
+	fb.frameBuffer["middle"] = &LiDARFrame{
+		FrameID:        "middle",
+		StartTimestamp: middle,
+	}
+	fb.frameBuffer["newest"] = &LiDARFrame{
+		FrameID:        "newest",
+		StartTimestamp: newest,
 	}
 	fb.mu.Unlock()
 
 	count, oldestAge, newestAge := fb.GetCurrentFrameStats()
-	if count != 2 {
-		t.Fatalf("expected 2 frames, got %d", count)
+	if count != 3 {
+		t.Fatalf("expected 3 frames, got %d", count)
 	}
 	// The oldest frame should be ~10s old, newest ~1s old
 	if oldestAge < 9*time.Second {
@@ -573,5 +589,76 @@ func TestGetCurrentFrameStats_MultipleFrames(t *testing.T) {
 	}
 	if newestAge > 3*time.Second {
 		t.Fatalf("expected newest age <= 3s, got %v", newestAge)
+	}
+}
+
+// --- Close unblocks blocking finalizeFrame send via closeCh ---
+
+func TestClose_UnblocksBlockingSend(t *testing.T) {
+	// A slow callback blocks the callback worker so the channel stays full.
+	var blockerRunning atomic.Bool
+	blocker := make(chan struct{})
+	cb := func(f *LiDARFrame) {
+		blockerRunning.Store(true)
+		<-blocker // block until test releases
+	}
+
+	fb := NewFrameBuilderDI(FrameBuilderConfig{
+		SensorID:        "test-close-unblock",
+		FrameCallback:   cb,
+		FrameChCapacity: 1,
+	})
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
+
+	fb.SetBlockOnFrameChannel(true)
+
+	// Send one frame that the worker picks up and blocks on.
+	fb.frameCh <- &LiDARFrame{FrameID: "fill-0", SensorID: "test-close-unblock", PointCount: 1}
+	// Wait for the callback worker to pick it up.
+	for !blockerRunning.Load() {
+		time.Sleep(time.Millisecond)
+	}
+
+	// Fill the channel buffer (capacity 1).
+	fb.frameCh <- &LiDARFrame{FrameID: "fill-1", SensorID: "test-close-unblock", PointCount: 1}
+
+	// Start a blocking finalizeFrame in a goroutine.
+	finalizeDone := make(chan struct{})
+	go func() {
+		fb.mu.Lock()
+		fb.finalizeFrame(&LiDARFrame{
+			FrameID:    "close-test",
+			SensorID:   "test-close-unblock",
+			PointCount: 5000,
+			MinAzimuth: 0,
+			MaxAzimuth: 359.5,
+		}, "test-close")
+		fb.mu.Unlock()
+		close(finalizeDone)
+	}()
+
+	// Give the goroutine time to reach the blocking select.
+	time.Sleep(30 * time.Millisecond)
+
+	// Close() should signal closeCh, unblocking finalizeFrame, then
+	// close frameCh and drain the worker. Unblock the worker first so
+	// it can drain.
+	close(blocker)
+	fb.Close()
+
+	select {
+	case <-finalizeDone:
+		// Good — finalizeFrame returned via the closeCh path.
+	case <-time.After(5 * time.Second):
+		t.Fatal("finalizeFrame did not unblock after Close()")
+	}
+
+	// The frame sent during shutdown should be counted as dropped.
+	if fb.DroppedFrames() == 0 {
+		t.Error("expected at least 1 dropped frame from shutdown path")
 	}
 }
