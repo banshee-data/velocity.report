@@ -307,7 +307,7 @@ landing first (fewer conflicts when signatures change).
 Each backlog item should be verified by:
 
 1. `make lint-go && make test-go` — no regressions
-2. `go vet ./...` with race detector — no new warnings
+2. `go vet ./... && go test -race ./...` — no new vet warnings; race detector clean
 3. Manual inspection that god files are below 500 lines after splitting
 4. Spot-check that `r.Context()` flows through to database calls
 5. JSON tag audit confirming 100% `snake_case` on exported API structs

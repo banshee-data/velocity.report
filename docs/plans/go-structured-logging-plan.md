@@ -16,8 +16,8 @@ The Go codebase uses three distinct logging mechanisms:
 2. `fmt.Printf()` — not logging at all, just prints to stdout
 3. `monitoring.Logf` — package-level function pointer, replaceable but not structured
 
-Emoji appears in log output (`⚠️ WARNING`). No log levels. No structured key-value pairs.
-No correlation between request and log line. On a Raspberry Pi running as a systemd service,
+Emoji appears in log output (`⚠️ WARNING`). Outside the LiDAR pipeline, logs have no consistent levels and no structured key-value pairs.
+There is no correlation between a request and its log lines. On a Raspberry Pi running as a systemd service,
 operators use `journalctl` to diagnose problems. Unstructured, unlevel, mixed-destination
 logs make diagnosis slower than it needs to be.
 
@@ -89,14 +89,14 @@ appropriate stream.
    - Promote the stream API to a shared package (e.g. `internal/logstreams/`)
    - Re-export from `internal/monitoring/` which already exists as the cross-cutting
      logging package
-2. **Migrate `internal/api/`** — replace `log.Printf` calls in HTTP handlers with `opsf`
-   (errors) or `diagf` (lifecycle/request diagnostics)
-3. **Migrate `internal/db/`** — replace `log.Printf` calls with `opsf` (migration warnings,
-   schema sync failures) or `diagf` (transit worker progress, stats)
-4. **Migrate `internal/serialmux/`** — replace `log.Printf` calls with `opsf` (parse
-   errors, dropped data) or `diagf` (device state changes, connection lifecycle)
+2. **Migrate `internal/api/`** — replace `log.Printf` calls in HTTP handlers with `Opsf`
+   (errors) or `Diagf` (lifecycle/request diagnostics)
+3. **Migrate `internal/db/`** — replace `log.Printf` calls with `Opsf` (migration warnings,
+   schema sync failures) or `Diagf` (transit worker progress, stats)
+4. **Migrate `internal/serialmux/`** — replace `log.Printf` calls with `Opsf` (parse
+   errors, dropped data) or `Diagf` (device state changes, connection lifecycle)
 5. **Migrate `cmd/radar/`** — replace `log.Printf`/`fmt.Printf` calls in startup code with
-   `opsf` (startup failures) or `diagf` (configuration summary, version banner)
+   `Opsf` (startup failures) or `Diagf` (configuration summary, version banner)
 6. **Retire `monitoring.Logf`** — once all call sites are migrated, remove the function
    pointer and `SetLogger` API
 7. **Remove emoji** from all log messages
@@ -105,11 +105,11 @@ appropriate stream.
 
 The following is an indicative audit. Exact line numbers will shift as v0.5.x changes land.
 
-| Package          | Current pattern                 | Count | Target stream |
-| ---------------- | ------------------------------- | ----- | ------------- |
-| `api/`           | `log.Printf`                    | ~15   | ops/diag      |
-| `db/`            | `log.Printf` + emoji            | ~10   | ops/diag      |
-| `serialmux/`     | `log.Printf`                    | ~8    | ops/diag      |
+| Package          | Current pattern                 | Count | Target stream      |
+| ---------------- | ------------------------------- | ----- | ------------------ |
+| `api/`           | `log.Printf`                    | ~15   | `Opsf`/`Diagf`     |
+| `db/`            | `log.Printf` + emoji            | ~10   | `Opsf`/`Diagf`     |
+| `serialmux/`     | `log.Printf`                    | ~8    | `Opsf`/`Diagf`     |
 | `monitoring/`    | `Logf` (function pointer)       | 1     | —  (remove)   |
 | `cmd/radar/`     | `log.Printf` + `fmt.Printf`    | ~12   | ops/diag      |
 | `cmd/deploy/`    | `log.Printf` + `fmt.Printf`    | ~20   | ops/diag      |
