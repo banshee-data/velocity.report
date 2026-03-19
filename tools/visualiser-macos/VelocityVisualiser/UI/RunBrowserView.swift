@@ -103,8 +103,7 @@ private enum RunBrowserLayout {
                 Spacer()
             } else {
                 // Sticky column header above the scrollable run list.
-                RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4).padding(
-                    .horizontal, RunBrowserLayout.rowInset.leading)
+                RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4)
 
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -126,7 +125,7 @@ private enum RunBrowserLayout {
                                 }
                             }
                         }
-                    }.padding(.horizontal, RunBrowserLayout.rowInset.leading)
+                    }
                 }
             }
 
@@ -175,7 +174,9 @@ private struct RunBrowserHeaderRow: View {
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
-        }.frame(maxWidth: .infinity, alignment: .leading).font(.caption).foregroundColor(.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(
+            .horizontal, RunBrowserLayout.rowInset.leading
+        ).font(.caption).foregroundColor(.secondary)
     }
 }
 
@@ -224,11 +225,12 @@ private struct RunBrowserHeaderRow: View {
                 // Col 6: Label rollup
                 RunLabelRollupIcon(rollup: run.labelRollup).frame(
                     width: RunBrowserLayout.labelsWidth, alignment: .center)
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
-                Rectangle())
-        }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).onHover {
-            hovering in isHovered = hovering
-        }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
+                .horizontal, RunBrowserLayout.rowInset.leading
+            ).contentShape(Rectangle())
+        }.buttonStyle(.plain).frame(maxWidth: .infinity).disabled(!run.hasVRLog).background(
+            rowBackground
+        ).onHover { hovering in isHovered = hovering }
     }
 }
 
