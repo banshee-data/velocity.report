@@ -5,17 +5,14 @@
 #   1. internal/db/           — the primary database abstraction layer
 #   2. internal/lidar/storage/ — the LiDAR storage layer (SQLite repositories)
 #
-# Everything else (API handlers, pipeline, monitor, etc.) must use the
-# types and sentinels exported by those packages instead of importing
+# Everything else (API handlers, pipeline, monitor, cmd/, etc.) must use
+# the types and sentinels exported by those packages instead of importing
 # database/sql directly. This keeps the abstraction boundary intact so
 # that changes to connection pooling, query tracing, or context
 # propagation can be applied in one place.
 #
 # Test files (*_test.go) are exempt — they often open in-memory databases
 # for fixture setup.
-#
-# Tools under cmd/tools/ are exempt — standalone CLI utilities that
-# operate on raw databases outside the main server.
 #
 # Exit 0 if clean, 1 if violations found.
 
@@ -37,11 +34,6 @@ while IFS= read -r file; do
     # Allowed: internal/lidar/storage/
     case "$rel" in
         internal/lidar/storage/*) continue ;;
-    esac
-
-    # Allowed: cmd/tools/ (standalone CLI utilities)
-    case "$rel" in
-        cmd/tools/*) continue ;;
     esac
 
     violations="${violations}  ${rel}

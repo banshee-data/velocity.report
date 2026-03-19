@@ -56,7 +56,7 @@ long-term target, or push further toward a single package.
 
 - **Script:** `scripts/check-db-sql-imports.sh`
 - **Wired into:** `make lint-go`
-- **Exemptions:** `*_test.go`, `cmd/tools/`
+- **Exemptions:** `*_test.go`
 
 ### LiDAR BgSnapshot / RegionSnapshot — the crossover
 
@@ -217,6 +217,33 @@ discovery.
 
 **Effort:** XS — half a day.
 
+#### Gap 6: `cmd/tools/` direct database access
+
+Standalone CLI tools under `cmd/tools/` (e.g. `backfill_ring_elevations`)
+previously bypassed the import boundary entirely, opening SQLite via
+`sql.Open` and applying ad-hoc PRAGMAs. This undermines the two-package
+model: connection bootstrap, PRAGMA configuration, and raw SQL leak into
+a third location.
+
+**Work:**
+
+- Refactor each `cmd/tools/` binary to use `db.OpenDB()` (or an
+  appropriate store method) instead of `sql.Open` + manual PRAGMAs.
+- Replace `*sql.DB` parameters with the `sqlite.SQLDB` type alias so the
+  import boundary is honoured in non-test code.
+- Remove the `cmd/tools/` exemption from `scripts/check-db-sql-imports.sh`.
+
+**Relationship to single-binary plan:** The
+[deploy-distribution-packaging-plan.md](deploy-distribution-packaging-plan.md)
+moves these standalone tools into subcommands of a single
+`velocity-report` binary (e.g. `velocity-report backfill-rings`). Once
+that migration is complete, all database access originates from one
+binary whose `main` constructs the `db.DB` — eliminating the need for
+any `cmd/tools/` exemption. This gap is the first step on that path.
+
+**Effort:** XS — half a day. Mechanical refactor; `backfill_ring_elevations`
+is the only current violator.
+
 ### Effort summary
 
 | Gap                            | Size |    Days | Priority                                       |
@@ -226,7 +253,8 @@ discovery.
 | 3. BgSnapshot docs             | XS   |     0.1 | Low — documentation only                       |
 | 4. Driver unification          | XS   |     0.5 | Medium — prevents behavioural drift            |
 | 5. Migration version discovery | XS   |     0.5 | Low — convenience                              |
-| **Total**                      |      | **3–4** |                                                |
+| 6. cmd/tools/ DB access        | XS   |     0.5 | High — boundary exemption removal              |
+| **Total**                      |      | **3–5** |                                                |
 
 Compare with the original standardisation plan's 10–16 day estimate:
 the two-package model requires roughly **one-quarter** of the effort
@@ -278,6 +306,12 @@ left in place. Gaps 2–5 can be batched into a single follow-up PR.
   the target architecture (two packages instead of one). Phases 0, 2, 4,
   and 5 of the original plan are still relevant; phases 1 and 3 (move
   LiDAR SQL into `internal/db/`) are replaced by the two-package model.
+- **deploy-distribution-packaging-plan.md** — The single-binary plan
+  moves standalone `cmd/tools/` binaries into subcommands of
+  `velocity-report`. Once complete, all database access originates from
+  one binary — reinforcing the two-package boundary by construction.
+  Gap 6 is the preparatory step: each tool uses `db.OpenDB()` now so
+  the eventual move is a rename, not a refactor.
 - **lidar-tracks-table-consolidation-plan.md** — Orthogonal. That plan
   addresses Go-level struct duplication between live and analysis tracks,
   not the SQL package boundary.
@@ -288,9 +322,6 @@ left in place. Gaps 2–5 can be batched into a single follow-up PR.
 
 - Evaluate whether BgSnapshot methods should move to a small `internal/db/lidar`
   sub-package if `internal/db/db.go` grows past ~2,000 lines.
-- Consider whether `cmd/tools/backfill_ring_elevations/` should use the
-  `internal/db` bootstrap path instead of opening SQLite directly. Low
-  priority — standalone tool, exempt from lint.
 - Evaluate repository interface abstraction (interfaces over concrete
   stores) if a second storage backend becomes likely. Not warranted
   today — SQLite is the only target.
