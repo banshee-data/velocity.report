@@ -13,7 +13,7 @@ if [ $# -eq 0 ] || [ $# -gt 2 ]; then
 fi
 
 SCHEMA_FILE="$1"
-PACK_COLUMNS="${2:-3}"
+PACK_COLUMNS="${2:-2}"
 
 # Check if schema file exists
 if [ ! -f "$SCHEMA_FILE" ]; then
@@ -39,12 +39,17 @@ if [ ! -f "$SCRIPT_DIR/sqlite_graph.sql" ]; then
   exit 1
 fi
 
-# Generate DOT file using sqlite_graph.sql
-DOT_OUTPUT=$(sqlite3 "$TEMP_DB" < "$SCRIPT_DIR/sqlite_graph.sql")
+if [ ! -f "$SCRIPT_DIR/group-dot.py" ]; then
+  echo "Error: group-dot.py not found in script directory"
+  rm "$TEMP_DB"
+  exit 1
+fi
 
-# Create SVG using dot. Graphviz pack/packmode arranges disconnected table
-# groups into a grid, and array_i preserves the input ordering from sqlite_graph.sql
-# so alphabetical table output becomes a real placement hint.
+# Generate DOT file using sqlite_graph.sql
+DOT_OUTPUT=$(sqlite3 "$TEMP_DB" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py")
+
+# Create SVG using dot. group-dot.py organizes tables into site/lidar/radar
+# subgraphs, and pack/packmode arranges those subgraphs into a compact grid.
 TMP_OUTPUT=$(mktemp -t schema_svg)
 if ! echo "$DOT_OUTPUT" | dot -Gpack=true "-Gpackmode=array_i${PACK_COLUMNS}" -Gordering=out -Tsvg >"$TMP_OUTPUT"; then
   echo "Error: failed to render schema SVG with Graphviz 'dot'" >&2
