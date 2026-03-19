@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import {
 		getConfig,
 		getTransitWorkerState,
@@ -268,6 +269,21 @@
 
 <div id="main-content" class="space-y-6 p-4">
 	<Header title="Settings" subheading="Manage your application settings and preferences." />
+
+	<!-- Navigation to other settings pages -->
+	<Card title="Settings Sections">
+		<div class="space-y-2 p-4">
+			<a
+				href={resolve('/settings/serial')}
+				class="hover:bg-surface-100 block rounded-lg border p-4 transition-colors"
+			>
+				<h3 class="font-semibold">Serial Configuration</h3>
+				<p class="text-surface-content/70 text-sm">
+					Configure and test radar sensor serial port connections
+				</p>
+			</a>
+		</div>
+	</Card>
 
 	{#if loading}
 		<Card>
