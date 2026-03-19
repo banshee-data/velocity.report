@@ -126,7 +126,7 @@ private enum RunBrowserLayout {
                                 }
                             }
                         }
-                    }
+                    }.padding(.horizontal, RunBrowserLayout.rowInset.leading)
                 }
             }
 
@@ -224,9 +224,8 @@ private struct RunBrowserHeaderRow: View {
                 // Col 6: Label rollup
                 RunLabelRollupIcon(rollup: run.labelRollup).frame(
                     width: RunBrowserLayout.labelsWidth, alignment: .center)
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
-                .horizontal, RunBrowserLayout.rowInset.leading
-            ).contentShape(Rectangle())
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
+                Rectangle())
         }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).onHover {
             hovering in isHovered = hovering
         }
