@@ -17,7 +17,7 @@ private enum RunBrowserLayout {
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
-    static let rowInset = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
+    static let rowInset = EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 24)
 }
 
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
@@ -176,7 +176,7 @@ private struct RunBrowserHeaderRow: View {
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
-        }.font(.caption).foregroundColor(.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading).font(.caption).foregroundColor(.secondary)
     }
 }
 
