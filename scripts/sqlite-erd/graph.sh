@@ -7,12 +7,13 @@ REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 OUTPUT_FILE="$REPO_ROOT/data/structures/SCHEMA.svg"
 
 # Check if argument is provided
-if [ $# -eq 0 ]; then
-  echo "Usage: $0 <schema.sql>"
+if [ $# -eq 0 ] || [ $# -gt 2 ]; then
+  echo "Usage: $0 <schema.sql> [pack-columns]"
   exit 1
 fi
 
 SCHEMA_FILE="$1"
+PACK_COLUMNS="${2:-3}"
 
 # Check if schema file exists
 if [ ! -f "$SCHEMA_FILE" ]; then
@@ -20,8 +21,13 @@ if [ ! -f "$SCHEMA_FILE" ]; then
   exit 1
 fi
 
+if ! [[ "$PACK_COLUMNS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Error: pack-columns must be a positive integer"
+  exit 1
+fi
+
 # Create temporary database
-TEMP_DB=$(mktemp schema_XXXXXX.db)
+TEMP_DB=$(mktemp -t schema_db)
 
 # Import schema into temporary database
 sqlite3 "$TEMP_DB" < "$SCHEMA_FILE"
@@ -36,9 +42,11 @@ fi
 # Generate DOT file using sqlite_graph.sql
 DOT_OUTPUT=$(sqlite3 "$TEMP_DB" < "$SCRIPT_DIR/sqlite_graph.sql")
 
-# Create SVG using dot
-TMP_OUTPUT=$(mktemp schema_XXXXXX.svg)
-if ! echo "$DOT_OUTPUT" | dot -Tsvg >"$TMP_OUTPUT"; then
+# Create SVG using dot. Graphviz pack/packmode arranges disconnected table
+# groups into a grid, and array_i preserves the input ordering from sqlite_graph.sql
+# so alphabetical table output becomes a real placement hint.
+TMP_OUTPUT=$(mktemp -t schema_svg)
+if ! echo "$DOT_OUTPUT" | dot -Gpack=true "-Gpackmode=array_i${PACK_COLUMNS}" -Gordering=out -Tsvg >"$TMP_OUTPUT"; then
   echo "Error: failed to render schema SVG with Graphviz 'dot'" >&2
   rm -f "$TMP_OUTPUT" "$TEMP_DB"
   exit 1
@@ -48,4 +56,4 @@ mv "$TMP_OUTPUT" "$OUTPUT_FILE"
 # Clean up
 rm "$TEMP_DB"
 
-echo "Schema diagram generated: $OUTPUT_FILE"
+echo "Schema diagram generated: $OUTPUT_FILE (pack columns: $PACK_COLUMNS)"
