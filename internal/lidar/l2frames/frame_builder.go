@@ -30,6 +30,13 @@ func GetFrameBuilder(sensorID string) *FrameBuilder {
 	return fbRegistry[sensorID]
 }
 
+// UnregisterFrameBuilder removes a FrameBuilder from the global registry.
+func UnregisterFrameBuilder(sensorID string) {
+	fbRegistryMu.Lock()
+	defer fbRegistryMu.Unlock()
+	delete(fbRegistry, sensorID)
+}
+
 // Frame detection constants for azimuth-based rotation detection
 const (
 	// MinAzimuthCoverage is the minimum azimuth coverage (degrees) required for a valid frame
@@ -104,6 +111,8 @@ type FrameBuilder struct {
 	// Cleanup timer to finalize old frames
 	cleanupTimer    *time.Timer
 	cleanupInterval time.Duration // how often to check for frames to finalize
+	closed          bool          // set by Close() to prevent cleanupFrames rescheduling
+	closeCh         chan struct{} // closed by Close() to unblock in-flight blocking sends
 
 	// Time-based frame detection for accurate motor speed handling
 	expectedFrameDuration time.Duration // expected duration per frame based on motor speed
@@ -180,6 +189,7 @@ func NewFrameBuilder(config FrameBuilderConfig) *FrameBuilder {
 		cleanupInterval:       config.CleanupInterval,
 		expectedFrameDuration: config.ExpectedFrameDuration,
 		enableTimeBased:       config.EnableTimeBased,
+		closeCh:               make(chan struct{}),
 	}
 
 	// Start cleanup timer (protect with mutex to avoid race with timer callback)
@@ -245,6 +255,7 @@ func NewFrameBuilderDI(config FrameBuilderConfig) *FrameBuilder {
 		cleanupInterval:       config.CleanupInterval,
 		expectedFrameDuration: config.ExpectedFrameDuration,
 		enableTimeBased:       config.EnableTimeBased,
+		closeCh:               make(chan struct{}),
 	}
 
 	// Start cleanup timer (protect with mutex to avoid race with timer callback)
@@ -273,19 +284,47 @@ func NewFrameBuilderDI(config FrameBuilderConfig) *FrameBuilder {
 // frameCallbackWorker processes frames sequentially from the frameCh channel.
 // This ensures that only one frame callback runs at a time, preventing
 // concurrent tracker Update() and persistence operations.
+// The worker exits when closeCh is closed, after draining any remaining
+// frames from frameCh.
 func (fb *FrameBuilder) frameCallbackWorker() {
 	defer close(fb.frameDone)
-	for frame := range fb.frameCh {
-		fb.frameCallback(frame)
+	for {
+		select {
+		case frame := <-fb.frameCh:
+			fb.frameCallback(frame)
+		case <-fb.closeCh:
+			// Drain remaining frames so no sends block.
+			for {
+				select {
+				case frame := <-fb.frameCh:
+					fb.frameCallback(frame)
+				default:
+					return
+				}
+			}
+		}
 	}
 }
 
 // Close shuts down the frame callback worker and waits for it to drain.
 // Must be called when the FrameBuilder is no longer needed to avoid
-// goroutine leaks.
+// goroutine leaks. Close is idempotent — subsequent calls are no-ops.
 func (fb *FrameBuilder) Close() {
+	fb.mu.Lock()
+	if fb.closed {
+		fb.mu.Unlock()
+		return
+	}
+	fb.closed = true
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	// Signal shutdown. Any in-flight blocking sends in finalizeFrame
+	// will see closeCh and abort. The callback worker will drain
+	// remaining frames and exit.
+	close(fb.closeCh)
+	fb.mu.Unlock()
 	if fb.frameCh != nil {
-		close(fb.frameCh)
 		<-fb.frameDone
 	}
 }
@@ -746,8 +785,10 @@ func (fb *FrameBuilder) cleanupFrames() {
 		}
 	}
 
-	// Schedule next cleanup
-	fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
+	// Schedule next cleanup unless the builder has been closed.
+	if !fb.closed {
+		fb.cleanupTimer = time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)
+	}
 }
 
 // finalizeFrame completes a frame and calls the callback
@@ -825,7 +866,7 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 		}
 	}
 	// Call callback if provided (via serialised channel to avoid concurrent pipeline runs)
-	if fb.frameCallback != nil && fb.frameCh != nil {
+	if fb.frameCallback != nil && fb.frameCh != nil && !fb.closed {
 		tracef("[FrameBuilder] Invoking frame callback for ID=%s, Points=%d, Sensor=%s",
 			frame.FrameID, frame.PointCount, frame.SensorID)
 		if fb.blockOnFrameChannel {
@@ -840,8 +881,21 @@ func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
 			// switching) and prevents PCAP cancellation from progressing.
 			// Safe because the callback worker does not acquire fb.mu, and
 			// all finalizeFrame work is complete before this point.
+			//
+			// Use select with closeCh so that Close() can shut down
+			// without racing against this send. Close() closes closeCh
+			// (under fb.mu) before closing frameCh, so a concurrent
+			// Close will unblock the select here instead of panicking
+			// on a closed frameCh.
+			closeCh := fb.closeCh
 			fb.mu.Unlock()
-			fb.frameCh <- frame
+			select {
+			case fb.frameCh <- frame:
+			case <-closeCh:
+				// Shutdown in progress — drop the frame.
+				count := fb.droppedFrames.Add(1)
+				opsf("[FrameBuilder] Dropped frame %s during shutdown (total dropped: %d)", frame.FrameID, count)
+			}
 			fb.mu.Lock()
 		} else {
 			select {

@@ -412,3 +412,169 @@ func TestClassifyFeatures_AllClasses(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Coverage-gap tests: exercise branches missed by the primary test suite.
+// ---------------------------------------------------------------------------
+
+func TestClampConfidence_BelowMin(t *testing.T) {
+	result := clampConfidence(-0.5, 0.0, 1.0)
+	if result != 0.0 {
+		t.Errorf("expected 0.0, got %f", result)
+	}
+}
+
+func TestNewTrackClassifierWithMinObservations_Zero(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(0)
+	if tc.MinObservations != 1 {
+		t.Errorf("expected MinObservations=1 for input 0, got %d", tc.MinObservations)
+	}
+}
+
+func TestNewTrackClassifierWithMinObservations_Negative(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(-5)
+	if tc.MinObservations != 1 {
+		t.Errorf("expected MinObservations=1 for input -5, got %d", tc.MinObservations)
+	}
+}
+
+func TestExtractFeatures_NoSpeedHistory(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	track := &TrackedObject{
+		TrackID:              "no-speed",
+		ObservationCount:     10,
+		BoundingBoxHeightAvg: 1.5,
+		BoundingBoxLengthAvg: 4.0,
+		BoundingBoxWidthAvg:  2.0,
+		AvgSpeedMps:          8.0,
+		MaxSpeedMps:          12.0,
+	}
+	// Do not call SetSpeedHistory — speedHistory remains nil.
+	result := tc.Classify(track)
+	if result.Features.P50Speed != 0 || result.Features.P85Speed != 0 || result.Features.P95Speed != 0 {
+		t.Errorf("expected zero percentiles for empty speed history, got p50=%.2f p85=%.2f p95=%.2f",
+			result.Features.P50Speed, result.Features.P85Speed, result.Features.P95Speed)
+	}
+}
+
+func TestExtractFeatures_ZeroDuration(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	track := &TrackedObject{
+		TrackID:              "zero-dur",
+		ObservationCount:     5,
+		BoundingBoxHeightAvg: 1.5,
+		BoundingBoxLengthAvg: 4.0,
+		BoundingBoxWidthAvg:  2.0,
+		AvgSpeedMps:          8.0,
+		MaxSpeedMps:          12.0,
+		FirstUnixNanos:       1000,
+		LastUnixNanos:        1000, // equal → duration branch not taken
+	}
+	result := tc.Classify(track)
+	if result.Features.DurationSecs != 0 {
+		t.Errorf("expected DurationSecs=0 when LastUnixNanos==FirstUnixNanos, got %.4f",
+			result.Features.DurationSecs)
+	}
+}
+
+func TestIsTruck(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	f := ClassificationFeatures{
+		AvgLength: 6.0, AvgWidth: 2.2, AvgHeight: 2.5,
+		AvgSpeed: 8.0, MaxSpeed: 12.0, ObservationCount: 25,
+	}
+	if !tc.isTruck(f) {
+		t.Error("expected isTruck=true for truck-sized features")
+	}
+}
+
+func TestTruckConfidence(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	f := ClassificationFeatures{
+		AvgLength: 6.5, AvgWidth: 2.3, AvgHeight: 2.6,
+		AvgSpeed: 9.0, ObservationCount: 25,
+	}
+	conf := tc.truckConfidence(f)
+	if conf < LowConfidence || conf > HighConfidence {
+		t.Errorf("truck confidence %.2f outside expected range", conf)
+	}
+}
+
+func TestIsMotorcyclist(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	f := ClassificationFeatures{
+		AvgSpeed: 10.0, MaxSpeed: 15.0,
+		AvgWidth: 0.8, AvgLength: 2.0,
+		ObservationCount: 20,
+	}
+	if !tc.isMotorcyclist(f) {
+		t.Error("expected isMotorcyclist=true for motorcyclist features")
+	}
+}
+
+func TestMotorcyclistConfidence(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	f := ClassificationFeatures{
+		AvgSpeed: 12.0, MaxSpeed: 18.0,
+		AvgWidth: 0.7, AvgLength: 2.2,
+		ObservationCount: 20,
+	}
+	conf := tc.motorcyclistConfidence(f)
+	if conf < LowConfidence || conf > HighConfidence {
+		t.Errorf("motorcyclist confidence %.2f outside expected range", conf)
+	}
+}
+
+func TestBirdConfidence_VeryLowSpeed(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	f := ClassificationFeatures{
+		AvgHeight: 0.2, AvgSpeed: 0.05,
+		AvgLength: 0.3, AvgWidth: 0.3,
+		ObservationCount: 10,
+	}
+	result := tc.ClassifyFeatures(f)
+	if result.Class != ClassBird {
+		t.Errorf("expected bird, got %s", result.Class)
+	}
+	// The birdConfidence should apply the -0.15 penalty for very low speed.
+}
+
+func TestBusConfidence_AllBonuses(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	f := ClassificationFeatures{
+		AvgLength: 12.0, AvgWidth: 2.6, AvgHeight: 3.0,
+		AvgSpeed: 10.0, MaxSpeed: 15.0,
+		ObservationCount: 25,
+	}
+	conf := tc.busConfidence(f)
+	if conf < 0.8 {
+		t.Errorf("bus confidence %.2f lower than expected with all bonuses", conf)
+	}
+}
+
+func TestPedestrianConfidence_ManyObservations(t *testing.T) {
+	tc := NewTrackClassifierWithMinObservations(1)
+	f := ClassificationFeatures{
+		AvgHeight: 1.7, AvgSpeed: 1.2,
+		AvgLength: 0.5, AvgWidth: 0.5,
+		ObservationCount: 20,
+	}
+	result := tc.ClassifyFeatures(f)
+	if result.Class != ClassPedestrian {
+		t.Errorf("expected pedestrian, got %s", result.Class)
+	}
+}
+
+func TestComputeSpeedPercentiles_Nil(t *testing.T) {
+	p50, p85, p95 := ComputeSpeedPercentiles(nil)
+	if p50 != 0 || p85 != 0 || p95 != 0 {
+		t.Errorf("expected all zeros for nil input, got %.2f, %.2f, %.2f", p50, p85, p95)
+	}
+}
+
+func TestComputeSpeedPercentiles_SingleElement(t *testing.T) {
+	p50, p85, p95 := ComputeSpeedPercentiles([]float32{5.0})
+	if p50 != 5.0 || p85 != 5.0 || p95 != 5.0 {
+		t.Errorf("expected all 5.0 for single element, got %.2f, %.2f, %.2f", p50, p85, p95)
+	}
+}

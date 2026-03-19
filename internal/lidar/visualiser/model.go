@@ -283,8 +283,8 @@ func (t *Track) UnmarshalJSON(data []byte) error {
 	if _, ok := raw["MaxSpeedMps"]; ok {
 		return nil
 	}
-	if _, ok := raw["max_speed_mps"]; ok {
-		return nil
+	if v, ok := raw["max_speed_mps"]; ok {
+		return json.Unmarshal(v, &t.MaxSpeedMps)
 	}
 	if legacy, ok := raw["PeakSpeedMps"]; ok {
 		return json.Unmarshal(legacy, &t.MaxSpeedMps)
