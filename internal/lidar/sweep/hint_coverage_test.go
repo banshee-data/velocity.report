@@ -38,24 +38,24 @@ func TestRun_SceneGetterNil(t *testing.T) {
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.sweepID = "test-nil-getter"
 	initRunState(tuner, 1)
-	tuner.run(context.Background(), HINTSweepRequest{SceneID: "s1"})
+	tuner.run(context.Background(), HINTSweepRequest{ReplayCaseID: "s1"})
 	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Fatalf("expected failed, got %s", state.Status)
 	}
-	if state.Error != "scene getter not configured" {
+	if state.Error != "replay case getter not configured" {
 		t.Fatalf("unexpected error: %s", state.Error)
 	}
 }
 
-// TestRun_SceneNotFound tests run() when scene lookup fails.
+// TestRun_SceneNotFound tests run() when replay case lookup fails.
 func TestRun_SceneNotFound(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("scene not found")})
+	tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("replay case not found")})
 	tuner.sweepID = "test-scene-notfound"
 	initRunState(tuner, 1)
-	tuner.run(context.Background(), HINTSweepRequest{SceneID: "missing"})
+	tuner.run(context.Background(), HINTSweepRequest{ReplayCaseID: "missing"})
 	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Fatalf("expected failed, got %s", state.Status)
@@ -67,12 +67,12 @@ func TestRun_RunCreatorNil(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.sweepID = "test-no-creator"
 	initRunState(tuner, 1)
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID: "s1", NumRounds: 1,
+		ReplayCaseID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	state := tuner.GetHINTState()
@@ -86,13 +86,13 @@ func TestRun_RunCreatorFails(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{err: errForTest("create failed")})
 	tuner.sweepID = "test-create-fails"
 	initRunState(tuner, 1)
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID: "s1", NumRounds: 1,
+		ReplayCaseID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	state := tuner.GetHINTState()
@@ -106,7 +106,7 @@ func TestRun_ContextCancelledDuringLabels(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-1"})
 	tuner.pollInterval = 10 * time.Millisecond
@@ -117,7 +117,7 @@ func TestRun_ContextCancelledDuringLabels(t *testing.T) {
 	cancel() // Cancel immediately before run
 
 	tuner.run(ctx, HINTSweepRequest{
-		SceneID: "s1", NumRounds: 1,
+		ReplayCaseID: "s1", NumRounds: 1,
 		Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		RoundDurations: []int{1},
 	})
@@ -132,7 +132,7 @@ func TestRun_AutoTunerNil(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-1"})
 	tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10, byClass: map[string]int{"car": 10}})
@@ -145,7 +145,7 @@ func TestRun_AutoTunerNil(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID: "s1", NumRounds: 1,
+		ReplayCaseID: "s1", NumRounds: 1,
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		MinLabelThreshold: 0.5,
 	})
@@ -161,7 +161,7 @@ func TestRun_WithExistingOptimalParams(t *testing.T) {
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 			OptimalParamsJSON: json.RawMessage(`{"eps": 0.5}`),
 		},
 	})
@@ -170,7 +170,7 @@ func TestRun_WithExistingOptimalParams(t *testing.T) {
 	initRunState(tuner, 1)
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID: "s1", NumRounds: 1,
+		ReplayCaseID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	state := tuner.GetHINTState()
@@ -371,7 +371,7 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	tuner.SetPersister(persister)
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 			OptimalParamsJSON: json.RawMessage(`{"eps": 0.3}`),
 		},
 	})
@@ -389,7 +389,7 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID:        "s1",
+		ReplayCaseID:   "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,
@@ -423,7 +423,7 @@ func TestRun_MultipleRounds(t *testing.T) {
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-multi"})
@@ -447,7 +447,7 @@ func TestRun_MultipleRounds(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID:         "s1",
+		ReplayCaseID:    "s1",
 		NumRounds:       2,
 		Params:          []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		CarryOverLabels: true,
@@ -529,7 +529,7 @@ func TestRun_PanicRecovery(t *testing.T) {
 	initRunState(tuner, 1)
 
 	// Should not crash - panic should be recovered
-	tuner.run(context.Background(), HINTSweepRequest{SceneID: "s1"})
+	tuner.run(context.Background(), HINTSweepRequest{ReplayCaseID: "s1"})
 
 	state := tuner.GetHINTState()
 	if state.Status != "failed" {
@@ -545,12 +545,12 @@ func TestStart_MapRequest(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 
 	req := map[string]interface{}{
-		"scene_id":   "s1",
-		"num_rounds": 1,
+		"replay_case_id": "s1",
+		"num_rounds":     1,
 		"params": []interface{}{
 			map[string]interface{}{"name": "eps", "type": "float64", "start": 0.1, "end": 1.0},
 		},
@@ -578,11 +578,11 @@ func TestStart_PersisterStartError(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{startErr: errForTest("persist fail")})
 	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		SceneID: "s1", NumRounds: 1,
+		ReplayCaseID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
@@ -639,7 +639,7 @@ func TestStart_BadMapRequest(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	// Map with non-serializable value causes marshal error
 	req := map[string]interface{}{
-		"scene_id": make(chan int), // channels can't be marshaled
+		"replay_case_id": make(chan int), // channels can't be marshaled
 	}
 	err := tuner.Start(context.Background(), req)
 	if err == nil {
@@ -655,7 +655,7 @@ func TestStart_AlreadyRunning(t *testing.T) {
 	tuner.mu.Unlock()
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		SceneID: "s1", NumRounds: 1,
+		ReplayCaseID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != ErrSweepAlreadyRunning {
@@ -670,9 +670,9 @@ func TestStart_ValidationErrors(t *testing.T) {
 		name string
 		req  HINTSweepRequest
 	}{
-		{"empty scene_id", HINTSweepRequest{NumRounds: 1, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
-		{"zero rounds", HINTSweepRequest{SceneID: "s1", NumRounds: 0, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
-		{"too many rounds", HINTSweepRequest{SceneID: "s1", NumRounds: 11, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
+		{"empty replay_case_id", HINTSweepRequest{NumRounds: 1, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
+		{"zero rounds", HINTSweepRequest{ReplayCaseID: "s1", NumRounds: 0, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
+		{"too many rounds", HINTSweepRequest{ReplayCaseID: "s1", NumRounds: 11, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
 		// Note: "no params" is now valid — defaults are auto-populated
 	}
 	for _, tt := range tests {
@@ -690,7 +690,7 @@ func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	bounds := map[string][2]float64{"eps": {0.1, 1.0}, "minpts": {2, 10}}
 	req := HINTSweepRequest{
-		SceneID:        "s1",
+		ReplayCaseID:   "s1",
 		Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}, {Name: "minpts", Type: "float64", Start: 2, End: 10}},
 		ValuesPerParam: 5,
 		TopK:           3,
@@ -707,9 +707,9 @@ func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
 		AcceptanceCriteria: &AcceptanceCriteria{},
 	}
 	scene := &HINTScene{
-		SceneID:  "s1",
-		SensorID: "sensor1",
-		PCAPFile: "test.pcap",
+		ReplayCaseID: "s1",
+		SensorID:     "sensor1",
+		PCAPFile:     "test.pcap",
 	}
 	result := tuner.buildAutoTuneRequest(bounds, req, scene, 1)
 	if len(result.Params) != 2 {
@@ -980,7 +980,7 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	tuner.SetPersister(&mockHINTPersister{startErr: errForTest("start persist fail")})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-p"})
@@ -997,7 +997,7 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID:        "s1",
+		ReplayCaseID:   "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,
@@ -1025,7 +1025,7 @@ func TestRun_SetOptimalParamsError(t *testing.T) {
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			SceneID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-opt"})
@@ -1042,7 +1042,7 @@ func TestRun_SetOptimalParamsError(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		SceneID:        "s1",
+		ReplayCaseID:   "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,

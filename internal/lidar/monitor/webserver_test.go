@@ -176,6 +176,50 @@ func TestWebServer_StatusHandler(t *testing.T) {
 	}
 }
 
+// TestStatusHTML_ReplayCaseIDInJS verifies that the PCAP scene dropdown
+// JavaScript in status.html uses replay_case_id (not the old scene_id).
+// This catches the regression where the Go API returns replay_case_id but
+// the JS was still reading scene_id, breaking the dropdown population.
+func TestStatusHTML_ReplayCaseIDInJS(t *testing.T) {
+	stats := NewPacketStats()
+
+	config := WebServerConfig{
+		Address:           ":0",
+		Stats:             stats,
+		ParsingEnabled:    true,
+		UDPPort:           2369,
+		DB:                nil,
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+
+	server := NewWebServer(config)
+
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	mux := server.setupRoutes()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status handler returned %d, want 200", rr.Code)
+	}
+
+	body := rr.Body.String()
+
+	// The JS must use replay_case_id for the option value and the find() match.
+	if !strings.Contains(body, "s.replay_case_id") {
+		t.Error("status.html JS should reference s.replay_case_id for PCAP scene dropdown")
+	}
+
+	// Ensure the old field name is not present anywhere in the rendered HTML.
+	if strings.Contains(body, "s.scene_id") {
+		t.Error("status.html JS must not reference s.scene_id (renamed to replay_case_id)")
+	}
+}
+
 func TestWebServer_HealthHandler(t *testing.T) {
 	stats := NewPacketStats()
 

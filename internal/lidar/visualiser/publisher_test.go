@@ -1172,3 +1172,114 @@ func TestPublisher_SendBackgroundSnapshot_DeferredBeforeForeground(t *testing.T)
 		t.Errorf("lastBackgroundSeq = %d, want 0 (deferred)", pub.lastBackgroundSeq)
 	}
 }
+
+// TestPublisher_EmitFirstBackground_Found verifies that StartVRLogReplay
+// immediately publishes the first background frame before starting the
+// main replay loop, so the client sees the grid without delay.
+func TestPublisher_EmitFirstBackground_Found(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer pub.Stop()
+
+	bgSnapshot := &BackgroundSnapshot{
+		SequenceNumber: 1,
+		X:              []float32{1.0}, Y: []float32{2.0},
+	}
+
+	// Three foreground frames, then one background — client should receive
+	// the background frame immediately, not after the three foreground frames.
+	frames := []*FrameBundle{
+		{FrameID: 1, TimestampNanos: 1_000_000_000, SensorID: "s"},
+		{FrameID: 2, TimestampNanos: 1_100_000_000, SensorID: "s"},
+		{FrameID: 3, TimestampNanos: 1_200_000_000, SensorID: "s"},
+		{FrameID: 4, TimestampNanos: 1_300_000_000, SensorID: "s",
+			FrameType: FrameTypeBackground, Background: bgSnapshot},
+	}
+
+	reader := newMockFrameReader(frames)
+
+	req := &pb.StreamRequest{}
+	client := pub.addClient("test-emit-bg", req)
+	defer pub.removeClient("test-emit-bg")
+
+	if err := pub.StartVRLogReplay(reader); err != nil {
+		t.Fatalf("StartVRLogReplay() error = %v", err)
+	}
+	defer pub.StopVRLogReplay()
+
+	// The very first frame the client receives should be the background.
+	timeout := time.After(5 * time.Second)
+	select {
+	case frame := <-client.frameCh:
+		if frame.FrameType != FrameTypeBackground {
+			t.Errorf("first frame should be background, got type=%d", frame.FrameType)
+		}
+		if !frame.PlaybackInfo.Seekable {
+			t.Error("emitted background frame should have Seekable=true")
+		}
+	case <-timeout:
+		t.Fatal("timed out waiting for first background frame")
+	}
+
+	// Reader should be reset to 0 — the subsequent frames should be the
+	// foreground sequence from frame 0 onward.
+	select {
+	case frame := <-client.frameCh:
+		if frame.FrameType == FrameTypeBackground {
+			// Could be the foreground frame 1 or the background again
+			// (the replay loop re-reads from 0).  At minimum, verify we
+			// didn't get stuck.
+		}
+		if frame.TimestampNanos == 0 {
+			t.Error("second frame has zero timestamp — reader may not have reset")
+		}
+	case <-timeout:
+		t.Fatal("timed out waiting for second frame from replay loop")
+	}
+}
+
+// TestPublisher_EmitFirstBackground_NonePresent verifies that replay still
+// works when the VRLOG contains no background frames.
+func TestPublisher_EmitFirstBackground_NonePresent(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.ListenAddr = "localhost:0"
+	pub := NewPublisher(cfg)
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer pub.Stop()
+
+	frames := []*FrameBundle{
+		{FrameID: 1, TimestampNanos: 1_000_000_000, SensorID: "s"},
+		{FrameID: 2, TimestampNanos: 1_100_000_000, SensorID: "s"},
+	}
+
+	reader := newMockFrameReader(frames)
+
+	req := &pb.StreamRequest{}
+	client := pub.addClient("test-no-bg", req)
+	defer pub.removeClient("test-no-bg")
+
+	if err := pub.StartVRLogReplay(reader); err != nil {
+		t.Fatalf("StartVRLogReplay() error = %v", err)
+	}
+	defer pub.StopVRLogReplay()
+
+	// First frame should be the foreground frame (no background to emit).
+	timeout := time.After(5 * time.Second)
+	select {
+	case frame := <-client.frameCh:
+		if frame.FrameType == FrameTypeBackground {
+			t.Error("no background frames in VRLOG, but received background")
+		}
+		if frame.TimestampNanos != 1_000_000_000 {
+			t.Errorf("first frame timestamp = %d, want 1_000_000_000", frame.TimestampNanos)
+		}
+	case <-timeout:
+		t.Fatal("timed out waiting for first frame")
+	}
+}

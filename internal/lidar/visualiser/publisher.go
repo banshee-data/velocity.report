@@ -153,9 +153,9 @@ func (p *Publisher) ClearRecorder() {
 // Frames are published to all connected clients at the specified rate.
 func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogMu.Lock()
-	defer p.vrlogMu.Unlock()
 
 	if p.vrlogActive {
+		p.vrlogMu.Unlock()
 		return fmt.Errorf("VRLOG replay already active")
 	}
 
@@ -168,9 +168,50 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogActive = true
 
 	p.vrlogWg.Add(1)
+
+	p.vrlogMu.Unlock()
+
+	// Emit the first background frame AFTER releasing vrlogMu.
+	// Publish() → shouldSendBackground() → IsVRLogActive() acquires
+	// vrlogMu.RLock(), which would deadlock if the write lock were
+	// still held.
+	if err := p.emitFirstBackground(reader); err != nil {
+		diagf("[Visualiser] emitFirstBackground failed: %v", err)
+		p.StopVRLogReplay()
+		return fmt.Errorf("emit first background: %w", err)
+	}
+
 	go p.vrlogReplayLoop()
 
 	diagf("[Visualiser] Started VRLOG replay: %d total frames", reader.TotalFrames())
+	return nil
+}
+
+// emitFirstBackground scans the VRLOG for the first background frame and
+// publishes it immediately so the client sees the background grid at the
+// start of replay.  The reader is reset to frame 0 afterwards.
+func (p *Publisher) emitFirstBackground(reader FrameReader) error {
+	total := reader.TotalFrames()
+	for i := uint64(0); i < total; i++ {
+		frame, err := reader.ReadFrame()
+		if err != nil {
+			break
+		}
+		if frame.FrameType == FrameTypeBackground {
+			if frame.PlaybackInfo == nil {
+				frame.PlaybackInfo = &PlaybackInfo{}
+			}
+			frame.PlaybackInfo.IsLive = false
+			frame.PlaybackInfo.Seekable = true
+			p.Publish(frame)
+			diagf("[Visualiser] Emitted first background frame at index %d", i)
+			break
+		}
+	}
+	// Reset to the start so the main replay loop reads from frame 0.
+	if err := reader.Seek(0); err != nil {
+		return fmt.Errorf("seek to frame 0 after background scan: %w", err)
+	}
 	return nil
 }
 

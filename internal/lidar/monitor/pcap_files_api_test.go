@@ -77,13 +77,13 @@ func TestHandleListPCAPFiles_SuccessAndInUseFlags(t *testing.T) {
 	defer testDB.DB.Close()
 
 	// Mark both PCAP files as in use: one via relative path, one via absolute path.
-	store := sqlite.NewSceneStore(testDB.DB)
-	sceneRel := &sqlite.Scene{SensorID: "sensor-1", PCAPFile: "a.pcap"}
+	store := sqlite.NewReplayCaseStore(testDB.DB)
+	sceneRel := &sqlite.ReplayCase{SensorID: "sensor-1", PCAPFile: "a.pcap"}
 	if err := store.InsertScene(sceneRel); err != nil {
 		t.Fatalf("insert relative-path scene: %v", err)
 	}
 
-	sceneAbs := &sqlite.Scene{SensorID: "sensor-1", PCAPFile: fileB}
+	sceneAbs := &sqlite.ReplayCase{SensorID: "sensor-1", PCAPFile: fileB}
 	if err := store.InsertScene(sceneAbs); err != nil {
 		t.Fatalf("insert absolute-path scene: %v", err)
 	}

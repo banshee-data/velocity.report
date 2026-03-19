@@ -147,7 +147,9 @@ private let logger = DevLogger(category: "AppState")
     @Published var trackCount: Int = 0
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
     @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
-    @Published var metalViewSize: CGSize = .zero  // Metal view drawable size
+    /// Metal view drawable size — intentionally NOT @Published to avoid
+    /// GeometryReader → metalViewSize → objectWillChange → layout → cycle.
+    var metalViewSize: CGSize = .zero
     /// Cached data for the currently selected track, updated each frame.
     /// Used by inspector views to avoid reading non-Published currentFrame.
     @Published var selectedTrackData: Track?
@@ -962,34 +964,6 @@ private let logger = DevLogger(category: "AppState")
         isSeekingInProgress = editing
     }
 
-    // MARK: - Recording
-
-    // TODO: Remove openRecording() and loadRecording(from:) — local VRLOG playback
-    // is non-functional dead code. All VRLOG replay goes through the Go server
-    // via gRPC (RunBrowserState.loadRunForReplay → /api/lidar/vrlog/load).
-    func openRecording() {
-        // Open file dialog
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a .vrlog directory"
-
-        panel.begin { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
-            self?.loadRecording(from: url)
-        }
-    }
-
-    /// Load a recording from the given URL. Used by openRecording and for testing.
-    func loadRecording(from url: URL) {
-        Task { @MainActor [weak self] in
-            self?.setPlaybackMode(.replayNonSeekable)
-            // Note: Actual replay connection would need a reconnect to replay server
-            print("Selected recording: \(url.path)")
-        }
-    }
-
     // MARK: - Track Navigation
 
     /// Select the next track in the track list order. Wraps to the first track at the end.
@@ -1247,7 +1221,7 @@ private let logger = DevLogger(category: "AppState")
         let minUIInterval: ContinuousClock.Duration =
             panelOpen
             ? .milliseconds(100)  // ~10 fps UI when panel visible
-            : .milliseconds(0)  // no throttle when panel hidden
+            : .milliseconds(16)  // ~60 fps cap to avoid landing inside layout passes
         if uiNow - lastUIUpdateClock >= minUIInterval {
             lastUIUpdateClock = uiNow
             Task { [weak self] in
@@ -1493,11 +1467,12 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         print("[ClientDelegate] ✅ CLIENT CONNECTED - Starting frame stream")
         delegateLogger.info("clientDidConnect called")
         Task { @MainActor [weak self] in
-            self?.appState?.isConnected = true
-            self?.appState?.connectionError = nil
-            self?.appState?.replayFinished = false
-            self?.appState?.hasPlaybackMetadata = false
-            self?.appState?.setPlaybackMode(.unknown)
+            guard let appState = self?.appState else { return }
+            appState.isConnected = true
+            appState.connectionError = nil
+            appState.replayFinished = false
+            appState.hasPlaybackMetadata = false
+            appState.setPlaybackMode(.unknown)
             // Note: isLive is determined from first frame's PlaybackInfo
             delegateLogger.debug("AppState updated: isConnected=true")
         }

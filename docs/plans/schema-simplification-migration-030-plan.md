@@ -1,18 +1,18 @@
 # Pre-v0.5.0 Schema Simplification Migration 030 Plan
 
-- **Status:** Draft — prerequisite proto rename complete (#352); migration SQL and Go code changes pending
+- **Status:** Implemented — migrations 000030 and 000031 written, Go code, web frontend, and tests updated in #400
 - **Layers:** Database, L3 Grid, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints (API + web)
 - **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md)
 
 ## Prerequisites
 
-| Prerequisite                             | Status         | Notes                                                                                |
-| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------ |
-| Proto `peak_speed_mps` → `max_speed_mps` | ✅ Complete    | Landed in #352 (proto field 25, Go/Swift/TS model); SQL column is the remaining step |
-| D-19 decision recorded                   | ✅ Complete    | Raw maximum renamed to `max_speed_mps`; `peak` reserved for future filtered metric   |
-| Migration SQL drafted                    | ✅ Complete    | DROP COLUMN + RENAME COLUMN statements ready (see §3 below)                          |
-| Go code changes                          | ❌ Not started | Track store, analysis run, l5tracks, l6objects, monitor API all need field renames   |
-| Web frontend changes                     | ❌ Not started | TypeScript type field renames and percentile field removal                           |
+| Prerequisite                             | Status      | Notes                                                                                |
+| ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| Proto `peak_speed_mps` → `max_speed_mps` | ✅ Complete | Landed in #352 (proto field 25, Go/Swift/TS model); SQL column is the remaining step |
+| D-19 decision recorded                   | ✅ Complete | Raw maximum renamed to `max_speed_mps`; `peak` reserved for future filtered metric   |
+| Migration SQL drafted                    | ✅ Complete | SQL files `000030_schema_simplification` and `000031_table_naming` landed in #400    |
+| Go code changes                          | ✅ Complete | All stores, types, and monitor API renamed to match new schema (#400)                |
+| Web frontend changes                     | ✅ Complete | TypeScript types and Svelte route pages updated (`scene_id` → `replay_case_id`) #400 |
 
 ## Goal
 
@@ -473,14 +473,14 @@ The `MATRIX` audit and code pass surfaced four different cleanup classes. They
 should stay attached to this plan so `v0.5.x` has one canonical schema roadmap
 instead of another side document.
 
-### 6.1 Remove in `v0.5.0` (same breaking window)
+### 6.1 Remove in `v0.5.0` (same breaking window) — ✅ Complete (#400)
 
-| Surface                                                     | Reason                                              | Action                                                  |
-| ----------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------- |
-| `lidar_tracks.{p50,p85,p95}_speed_mps`                      | Dead columns; never written or consumed             | Drop in migration 000030                                |
-| `lidar_run_tracks.{p50,p85,p95}_speed_mps`                  | Wrong abstraction; no downstream consumer           | Drop in migration 000030                                |
-| `peak_speed_mps`, `world_frame`, `scene_hash` legacy names  | Naming drift against current contracts              | Rename in migrations 000030–000031                      |
-| Stale references to deleted `schema-simplification...` docs | Planning drift creates a second, broken source path | Move all active references to this standardisation plan |
+| Surface                                                     | Reason                                              | Action                                                         |
+| ----------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| `lidar_tracks.{p50,p85,p95}_speed_mps`                      | Dead columns; never written or consumed             | ✅ Dropped in migration 000030                                 |
+| `lidar_run_tracks.{p50,p85,p95}_speed_mps`                  | Wrong abstraction; no downstream consumer           | ✅ Dropped in migration 000030                                 |
+| `peak_speed_mps`, `world_frame`, `scene_hash` legacy names  | Naming drift against current contracts              | ✅ Renamed in migrations 000030–000031                         |
+| Stale references to deleted `schema-simplification...` docs | Planning drift creates a second, broken source path | ✅ All active references point to this plan; doc sweep in #400 |
 
 ### 6.2 Keep and wire by `v0.5.1`
 

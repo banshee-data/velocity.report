@@ -373,10 +373,10 @@ function loadSweepScenes() {
     })
     .then(function (data) {
       sweepScenesData = data.scenes || [];
-      select.innerHTML = '<option value="">(select a scene)</option>';
+      select.innerHTML = '<option value="">(select a replay case)</option>';
       sweepScenesData.forEach(function (s) {
         var opt = document.createElement("option");
-        opt.value = s.scene_id;
+        opt.value = s.replay_case_id;
         var label = s.pcap_file;
         if (s.description) label = s.description + " (" + s.pcap_file + ")";
         opt.textContent = label;
@@ -384,7 +384,8 @@ function loadSweepScenes() {
       });
     })
     .catch(function () {
-      select.innerHTML = '<option value="">(failed to load scenes)</option>';
+      select.innerHTML =
+        '<option value="">(failed to load replay cases)</option>';
     });
 }
 
@@ -403,7 +404,7 @@ function onSweepSceneSelected() {
   }
 
   var scene = sweepScenesData.find(function (s) {
-    return s.scene_id === sceneId;
+    return s.replay_case_id === sceneId;
   });
   if (!scene) {
     infoEl.style.display = "none";
@@ -835,7 +836,7 @@ function buildSceneJSON() {
   };
 
   if (ds === "scene") {
-    req.scene_id = val("scene_select");
+    req.replay_case_id = val("scene_select");
   }
 
   if (ds === "pcap" || ds === "scene") {
@@ -935,11 +936,11 @@ function loadScene(obj) {
     document.getElementById("settle_time").value = obj.settle_time;
   if (obj.settle_mode)
     document.getElementById("settle_mode").value = obj.settle_mode;
-  if (obj.scene_id) {
+  if (obj.replay_case_id) {
     document.getElementById("data_source").value = "scene";
     togglePCAP();
     var sceneSelect = document.getElementById("scene_select");
-    if (sceneSelect) sceneSelect.value = obj.scene_id;
+    if (sceneSelect) sceneSelect.value = obj.replay_case_id;
   } else if (obj.data_source) {
     document.getElementById("data_source").value = obj.data_source;
     togglePCAP();
@@ -1104,11 +1105,11 @@ function handleStartAutoTune() {
     req.pcap_duration_secs = numVal("pcap_duration_secs");
   }
 
-  // Include scene_id for ground truth evaluation
+  // Include replay_case_id for ground truth evaluation
   if (ds === "scene") {
     var sceneId = val("scene_select");
     if (sceneId) {
-      req.scene_id = sceneId;
+      req.replay_case_id = sceneId;
     }
   }
 
@@ -1733,15 +1734,15 @@ function applyRecommendation() {
 function applySceneParams() {
   var sceneId = document.getElementById("scene_select").value;
   if (!sceneId) {
-    showError("No scene selected.");
+    showError("No replay case selected.");
     return;
   }
 
   var scene = sweepScenesData.find(function (s) {
-    return s.scene_id === sceneId;
+    return s.replay_case_id === sceneId;
   });
   if (!scene || !scene.optimal_params_json) {
-    showError("Selected scene has no optimal parameters.");
+    showError("Selected replay case has no optimal parameters.");
     return;
   }
 
@@ -1749,7 +1750,7 @@ function applySceneParams() {
   try {
     tuningParams = JSON.parse(scene.optimal_params_json);
   } catch (e) {
-    showError("Failed to parse scene parameters: " + e.message);
+    showError("Failed to parse replay case parameters: " + e.message);
     return;
   }
 
@@ -1767,7 +1768,7 @@ function applySceneParams() {
         "Applied ✓";
       setTimeout(function () {
         document.getElementById("btn-apply-scene-params").textContent =
-          "Apply Scene Params";
+          "Apply Replay Case Params";
       }, 2000);
       fetchCurrentParams();
     })
@@ -3383,7 +3384,7 @@ function handleStartHINT() {
   }
 
   var req = {
-    scene_id: sceneId,
+    replay_case_id: sceneId,
     num_rounds: parseInt(document.getElementById("hint_rounds").value, 10) || 3,
     params: params,
     values_per_param:

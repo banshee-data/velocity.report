@@ -359,9 +359,7 @@ import XCTest
         state.isPaused = true
 
         state.stepForward(by: 50)
-        try await waitFor {
-            fake.seekFrameCalls == [99] && state.inFlightPlaybackCommand == nil
-        }
+        try await waitFor { fake.seekFrameCalls == [99] && state.inFlightPlaybackCommand == nil }
 
         XCTAssertEqual(fake.pauseCallCount, 0)
         XCTAssertTrue(state.isPaused)
@@ -378,9 +376,7 @@ import XCTest
         state.isPaused = true
 
         state.stepBackward(by: 50)
-        try await waitFor {
-            fake.seekFrameCalls == [0] && state.inFlightPlaybackCommand == nil
-        }
+        try await waitFor { fake.seekFrameCalls == [0] && state.inFlightPlaybackCommand == nil }
 
         XCTAssertEqual(fake.pauseCallCount, 0)
         XCTAssertTrue(state.isPaused)
@@ -627,39 +623,6 @@ import XCTest
         state.seek(to: 0.75)
         try await Task.sleep(for: .milliseconds(20))
         XCTAssertEqual(state.replayProgress, 0.75)
-    }
-
-    func testOpenRecording() async throws {
-        let state = AppState()
-        XCTAssertTrue(state.isLive)
-
-        // Use loadRecording directly since openRecording uses NSOpenPanel
-        let testURL = URL(fileURLWithPath: "/tmp/test.vrlog")
-
-        let expectation = expectation(description: "Recording loaded")
-
-        state.loadRecording(from: testURL)
-
-        // Wait deterministically for isLive to become false, with a bounded timeout.
-        Task {
-            let start = Date()
-            while true {
-                if !state.isLive {
-                    expectation.fulfill()
-                    break
-                }
-
-                if Date().timeIntervalSince(start) > 5.0 {
-                    XCTFail("Recording did not finish loading in time")
-                    expectation.fulfill()
-                    break
-                }
-
-                await Task.yield()
-            }
-        }
-
-        await fulfillment(of: [expectation], timeout: 6.0)
     }
 
     func testOnFrameReceived() async throws {
@@ -2804,8 +2767,7 @@ import XCTest
         XCTAssertTrue(state.allSeenTracks.isEmpty, "prepareForNewReplay() must reset allSeenTracks")
         XCTAssertTrue(
             state.inViewTrackIDs.isEmpty, "prepareForNewReplay() must reset inViewTrackIDs")
-        XCTAssertTrue(
-            state.trackMaxHits.isEmpty, "prepareForNewReplay() must reset trackMaxHits")
+        XCTAssertTrue(state.trackMaxHits.isEmpty, "prepareForNewReplay() must reset trackMaxHits")
     }
 
     func testDisconnectResetsSeenTracks() async throws {

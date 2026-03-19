@@ -880,7 +880,7 @@ describe('buildSceneJSON', () => {
 		const scenario = buildSceneJSON();
 		// scene translates to pcap for data_source
 		expect(scenario.data_source).toBe('pcap');
-		expect(scenario.scene_id).toBe('scene-1');
+		expect(scenario.replay_case_id).toBe('scene-1');
 		expect(scenario.pcap_file).toBe('test.pcap');
 	});
 
@@ -943,8 +943,8 @@ describe('loadScene', () => {
 		expect(valsEl.value).toBe('0.01, 0.05, 0.1');
 	});
 
-	it('handles scene_id by switching data source', () => {
-		loadScene({ scene_id: 'my-scene', params: [] });
+	it('handles replay_case_id by switching data source', () => {
+		loadScene({ replay_case_id: 'my-scene', params: [] });
 		expect(val('data_source')).toBe('scene');
 	});
 
@@ -1184,7 +1184,7 @@ describe('sweep control', () => {
 			expect(body.weights.acceptance).toBe(1.0);
 		});
 
-		it('includes scene_id when data_source is scene', () => {
+		it('includes replay_case_id when data_source is scene', () => {
 			setMode('auto');
 			(document.getElementById('data_source') as HTMLSelectElement).value = 'scene';
 			(document.getElementById('scene_select') as HTMLSelectElement).innerHTML =
@@ -1194,7 +1194,7 @@ describe('sweep control', () => {
 			global.fetch = jest.fn().mockResolvedValue({ ok: true });
 			handleStartAutoTune();
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-			expect(body.scene_id).toBe('s1');
+			expect(body.replay_case_id).toBe('s1');
 			expect(body.data_source).toBe('pcap');
 		});
 
@@ -1839,8 +1839,8 @@ describe('loadSweepScenes', () => {
 			json: () =>
 				Promise.resolve({
 					scenes: [
-						{ scene_id: 's1', pcap_file: 'test1.pcap', description: 'Scene 1' },
-						{ scene_id: 's2', pcap_file: 'test2.pcap' }
+						{ replay_case_id: 's1', pcap_file: 'test1.pcap', description: 'Scene 1' },
+						{ replay_case_id: 's2', pcap_file: 'test2.pcap' }
 					]
 				})
 		});
@@ -1881,9 +1881,14 @@ describe('onSweepSceneSelected', () => {
 			json: () =>
 				Promise.resolve({
 					scenes: [
-						{ scene_id: 's1', pcap_file: 'test1.pcap', pcap_start_secs: 5, pcap_duration_secs: 30 },
 						{
-							scene_id: 's2',
+							replay_case_id: 's1',
+							pcap_file: 'test1.pcap',
+							pcap_start_secs: 5,
+							pcap_duration_secs: 30
+						},
+						{
+							replay_case_id: 's2',
 							pcap_file: 'test2.pcap',
 							reference_run_id: 'ref-1',
 							optimal_params_json: '{"noise_relative": 0.05}'
@@ -2030,7 +2035,7 @@ describe('applySceneParams', () => {
 				Promise.resolve({
 					scenes: [
 						{
-							scene_id: 's1',
+							replay_case_id: 's1',
 							pcap_file: 'test.pcap',
 							optimal_params_json: '{"noise_relative": 0.05}'
 						}
@@ -2063,7 +2068,7 @@ describe('applySceneParams', () => {
 	it('shows error when no scene selected', () => {
 		(document.getElementById('scene_select') as HTMLSelectElement).value = '';
 		applySceneParams();
-		expect(document.getElementById('error-box')!.textContent).toContain('No scene selected');
+		expect(document.getElementById('error-box')!.textContent).toContain('No replay case selected');
 	});
 
 	it('shows error for scene without optimal params', async () => {
@@ -2072,7 +2077,7 @@ describe('applySceneParams', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [{ scene_id: 's3', pcap_file: 'test.pcap' }]
+					scenes: [{ replay_case_id: 's3', pcap_file: 'test.pcap' }]
 				})
 		});
 		loadSweepScenes();
@@ -2430,7 +2435,7 @@ describe('applySceneParams invalid JSON', () => {
 				Promise.resolve({
 					scenes: [
 						{
-							scene_id: 's-bad',
+							replay_case_id: 's-bad',
 							pcap_file: 'test.pcap',
 							optimal_params_json: 'not valid json{'
 						}
@@ -2913,7 +2918,7 @@ describe('applySceneParams setTimeout callback', () => {
 				Promise.resolve({
 					scenes: [
 						{
-							scene_id: 's1',
+							replay_case_id: 's1',
 							pcap_file: 'test.pcap',
 							optimal_params_json: '{"noise_relative": 0.05}'
 						}
@@ -2942,7 +2947,7 @@ describe('applySceneParams setTimeout callback', () => {
 		expect(document.getElementById('btn-apply-scene-params')!.textContent).toContain('Applied');
 		jest.advanceTimersByTime(2000);
 		expect(document.getElementById('btn-apply-scene-params')!.textContent).toBe(
-			'Apply Scene Params'
+			'Apply Replay Case Params'
 		);
 	});
 });
@@ -2960,9 +2965,9 @@ describe('onSweepSceneSelected without gtOption element', () => {
 			json: () =>
 				Promise.resolve({
 					scenes: [
-						{ scene_id: 's1', pcap_file: 'test.pcap' },
+						{ replay_case_id: 's1', pcap_file: 'test.pcap' },
 						{
-							scene_id: 's2',
+							replay_case_id: 's2',
 							pcap_file: 'test2.pcap',
 							reference_run_id: 'ref-1',
 							optimal_params_json: '{"noise_relative": 0.05}'
@@ -3734,7 +3739,7 @@ describe('HINT Functions', () => {
 			);
 
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-			expect(body.scene_id).toBe('scene-1');
+			expect(body.replay_case_id).toBe('scene-1');
 			expect(body.params).toHaveLength(1);
 			expect(body.params[0].name).toBe('noise_relative');
 			expect(body.num_rounds).toBe(3);

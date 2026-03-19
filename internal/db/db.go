@@ -1340,25 +1340,25 @@ func (db *DB) InsertRegionSnapshot(s *l3grid.RegionSnapshot) (int64, error) {
 	if s == nil {
 		return 0, nil
 	}
-	stmt := `INSERT INTO lidar_bg_regions (snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path)
+	stmt := `INSERT INTO lidar_bg_regions (snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, grid_hash, source_path)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := db.Exec(stmt, s.SnapshotID, s.SensorID, s.CreatedUnixNanos, s.RegionCount, s.RegionsJSON, s.VarianceDataJSON, s.SettlingFrames, s.SceneHash, s.SourcePath)
+	res, err := db.Exec(stmt, s.SnapshotID, s.SensorID, s.CreatedUnixNanos, s.RegionCount, s.RegionsJSON, s.VarianceDataJSON, s.SettlingFrames, s.GridHash, s.SourcePath)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
-// GetRegionSnapshotBySceneHash returns a region snapshot matching the given scene hash, or nil if none.
+// GetRegionSnapshotByGridHash returns a region snapshot matching the given grid hash, or nil if none.
 // This is used to restore regions when processing a PCAP that matches a previously seen scene.
-func (db *DB) GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*l3grid.RegionSnapshot, error) {
-	if sceneHash == "" {
+func (db *DB) GetRegionSnapshotByGridHash(sensorID, gridHash string) (*l3grid.RegionSnapshot, error) {
+	if gridHash == "" {
 		return nil, nil
 	}
-	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path
-		  FROM lidar_bg_regions WHERE sensor_id = ? AND scene_hash = ? ORDER BY region_set_id DESC LIMIT 1`
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, grid_hash, source_path
+		  FROM lidar_bg_regions WHERE sensor_id = ? AND grid_hash = ? ORDER BY region_set_id DESC LIMIT 1`
 
-	row := db.QueryRow(q, sensorID, sceneHash)
+	row := db.QueryRow(q, sensorID, gridHash)
 	return scanRegionSnapshot(row)
 }
 
@@ -1368,7 +1368,7 @@ func (db *DB) GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*l3gri
 	if sourcePath == "" {
 		return nil, nil
 	}
-	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, grid_hash, source_path
 		  FROM lidar_bg_regions WHERE sensor_id = ? AND source_path = ? ORDER BY region_set_id DESC LIMIT 1`
 
 	row := db.QueryRow(q, sensorID, sourcePath)
@@ -1377,7 +1377,7 @@ func (db *DB) GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*l3gri
 
 // GetLatestRegionSnapshot returns the most recent region snapshot for the given sensor_id, or nil if none.
 func (db *DB) GetLatestRegionSnapshot(sensorID string) (*l3grid.RegionSnapshot, error) {
-	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, scene_hash, source_path
+	q := `SELECT region_set_id, snapshot_id, sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, grid_hash, source_path
 		  FROM lidar_bg_regions WHERE sensor_id = ? ORDER BY region_set_id DESC LIMIT 1`
 
 	row := db.QueryRow(q, sensorID)
@@ -1394,10 +1394,10 @@ func scanRegionSnapshot(row *sql.Row) (*l3grid.RegionSnapshot, error) {
 	var regionsJSON string
 	var varianceJSON sql.NullString
 	var settlingFrames sql.NullInt64
-	var sceneHash sql.NullString
+	var gridHash sql.NullString
 	var sourcePath sql.NullString
 
-	if err := row.Scan(&regionSetID, &snapshotID, &sensor, &createdUnix, &regionCount, &regionsJSON, &varianceJSON, &settlingFrames, &sceneHash, &sourcePath); err != nil {
+	if err := row.Scan(&regionSetID, &snapshotID, &sensor, &createdUnix, &regionCount, &regionsJSON, &varianceJSON, &settlingFrames, &gridHash, &sourcePath); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -1413,7 +1413,7 @@ func scanRegionSnapshot(row *sql.Row) (*l3grid.RegionSnapshot, error) {
 		RegionsJSON:      regionsJSON,
 		VarianceDataJSON: varianceJSON.String,
 		SettlingFrames:   int(settlingFrames.Int64),
-		SceneHash:        sceneHash.String,
+		GridHash:         gridHash.String,
 		SourcePath:       sourcePath.String,
 	}
 	return snap, nil

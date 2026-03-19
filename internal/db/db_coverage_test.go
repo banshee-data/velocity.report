@@ -447,7 +447,7 @@ func TestInsertRegionSnapshot_ErrorPaths(t *testing.T) {
 			RegionsJSON:      `[{"x":1,"y":2}]`,
 			VarianceDataJSON: `{"var":0.5}`,
 			SettlingFrames:   10,
-			SceneHash:        "hash123",
+			GridHash:         "hash123",
 			SourcePath:       "/path/to/source",
 		}
 

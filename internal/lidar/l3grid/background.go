@@ -747,7 +747,7 @@ func (rm *RegionManager) ToSnapshot(sensorID string, snapshotID int64) *RegionSn
 		RegionsJSON:      string(regionsJSON),
 		VarianceDataJSON: varianceJSON,
 		SettlingFrames:   rm.SettlingMetrics.FramesSampled,
-		SceneHash:        "", // Will be set by caller with SceneSignature()
+		GridHash:         "", // Will be set by caller with SceneSignature()
 	}
 }
 
@@ -809,8 +809,8 @@ func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot, totalCells in
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Unix(0, snap.CreatedUnixNanos)
 
-	diagf("[RegionManager] Restored %d regions from snapshot (settling_frames=%d, scene_hash=%s)",
-		len(rm.Regions), snap.SettlingFrames, snap.SceneHash)
+	diagf("[RegionManager] Restored %d regions from snapshot (settling_frames=%d, grid_hash=%s)",
+		len(rm.Regions), snap.SettlingFrames, snap.GridHash)
 
 	return nil
 }

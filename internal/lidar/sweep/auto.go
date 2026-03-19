@@ -69,7 +69,7 @@ type AutoTuneRequest struct {
 	AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria,omitempty"`
 
 	// Ground truth evaluation support
-	SceneID            string              `json:"scene_id,omitempty"`             // When set, enables ground truth evaluation
+	ReplayCaseID       string              `json:"replay_case_id,omitempty"`       // When set, enables ground truth evaluation
 	GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights,omitempty"` // Weights for ground truth scoring
 }
 
@@ -119,7 +119,7 @@ type AutoTuner struct {
 
 	// Ground truth scoring support
 	// When set, this function is called to score each combination's results using ground truth evaluation.
-	// The function receives the scene_id, candidate run_id, and ground truth weights,
+	// The function receives the replay_case_id, candidate run_id, and ground truth weights,
 	// and returns the composite ground truth score.
 	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
 
@@ -171,7 +171,7 @@ func (at *AutoTuner) GetSweepID() string {
 
 // SetGroundTruthScorer sets the ground truth scoring function for label-aware auto-tuning.
 // This function will be called to evaluate each combination's results against reference ground truth
-// when objective is "ground_truth" and scene_id is set. The weights parameter allows per-request
+// when objective is "ground_truth" and replay_case_id is set. The weights parameter allows per-request
 // customisation of the scoring formula.
 func (at *AutoTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
 	at.mu.Lock()
@@ -235,8 +235,8 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 
 	// Validate ground truth configuration
 	if req.Objective == "ground_truth" {
-		if req.SceneID == "" {
-			return fmt.Errorf("ground_truth objective requires scene_id to be set")
+		if req.ReplayCaseID == "" {
+			return fmt.Errorf("ground_truth objective requires replay_case_id to be set")
 		}
 		if at.groundTruthScorer == nil {
 			return fmt.Errorf("ground_truth objective requires a ground truth scorer to be configured")
@@ -749,7 +749,7 @@ func (at *AutoTuner) runFromRound(
 				} else {
 					// Try detailed scorer first, fall back to simple scorer
 					if at.groundTruthScorerDetailed != nil {
-						score, components, err := at.groundTruthScorerDetailed(req.SceneID, result.RunID, *req.GroundTruthWeights)
+						score, components, err := at.groundTruthScorerDetailed(req.ReplayCaseID, result.RunID, *req.GroundTruthWeights)
 						if err != nil {
 							at.logger.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
 							scored[i].Score = 0.0
@@ -759,7 +759,7 @@ func (at *AutoTuner) runFromRound(
 						}
 					} else {
 						// Call ground truth scorer with per-request weights
-						score, err := at.groundTruthScorer(req.SceneID, result.RunID, *req.GroundTruthWeights)
+						score, err := at.groundTruthScorer(req.ReplayCaseID, result.RunID, *req.GroundTruthWeights)
 						if err != nil {
 							at.logger.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
 							scored[i].Score = 0.0
@@ -873,7 +873,7 @@ func (at *AutoTuner) runFromRound(
 	at.logger.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
 
 	// Save optimal params to scene when ground truth mode is enabled
-	if req.SceneID != "" && req.Objective == "ground_truth" && overallBest != nil && at.sceneStore != nil {
+	if req.ReplayCaseID != "" && req.Objective == "ground_truth" && overallBest != nil && at.sceneStore != nil {
 		// Extract just the parameter values (without score/metrics) for storage
 		optimalParams := make(map[string]interface{})
 		for k, v := range overallBest.ParamValues {
@@ -882,12 +882,12 @@ func (at *AutoTuner) runFromRound(
 
 		paramsJSON, err := json.Marshal(optimalParams)
 		if err != nil {
-			at.logger.Printf("[sweep] Error marshalling optimal params for scene %s: %v", req.SceneID, err)
+			at.logger.Printf("[sweep] Error marshalling optimal params for replay case %s: %v", req.ReplayCaseID, err)
 		} else {
-			if err := at.sceneStore.SetOptimalParams(req.SceneID, paramsJSON); err != nil {
-				at.logger.Printf("[sweep] Error saving optimal params for scene %s: %v", req.SceneID, err)
+			if err := at.sceneStore.SetOptimalParams(req.ReplayCaseID, paramsJSON); err != nil {
+				at.logger.Printf("[sweep] Error saving optimal params for replay case %s: %v", req.ReplayCaseID, err)
 			} else {
-				at.logger.Printf("[sweep] Saved optimal params for scene %s: %s", req.SceneID, string(paramsJSON))
+				at.logger.Printf("[sweep] Saved optimal params for replay case %s: %s", req.ReplayCaseID, string(paramsJSON))
 			}
 		}
 	}

@@ -2,6 +2,7 @@
 package visualiser
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -523,5 +524,67 @@ func TestPointCloudFrame_BroadcastScenario(t *testing.T) {
 	// Data should be released to pool
 	if pc.X != nil {
 		t.Error("expected X to be nil after all clients release")
+	}
+}
+
+func TestTrack_UnmarshalJSON_MaxSpeedMps(t *testing.T) {
+	input := `{"TrackID":"t1","MaxSpeedMps":9.5}`
+	var track Track
+	if err := json.Unmarshal([]byte(input), &track); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if track.MaxSpeedMps != 9.5 {
+		t.Errorf("MaxSpeedMps = %v, want 9.5", track.MaxSpeedMps)
+	}
+}
+
+func TestTrack_UnmarshalJSON_LegacyPeakSpeedMps(t *testing.T) {
+	input := `{"TrackID":"t1","PeakSpeedMps":7.25}`
+	var track Track
+	if err := json.Unmarshal([]byte(input), &track); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if track.MaxSpeedMps != 7.25 {
+		t.Errorf("MaxSpeedMps = %v, want 7.25 (mapped from legacy PeakSpeedMps)", track.MaxSpeedMps)
+	}
+}
+
+func TestTrack_UnmarshalJSON_LegacySnakeCasePeakSpeedMps(t *testing.T) {
+	input := `{"TrackID":"t1","peak_speed_mps":8.0}`
+	var track Track
+	if err := json.Unmarshal([]byte(input), &track); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if track.MaxSpeedMps != 8.0 {
+		t.Errorf("MaxSpeedMps = %v, want 8.0 (mapped from legacy peak_speed_mps)", track.MaxSpeedMps)
+	}
+}
+
+func TestTrack_UnmarshalJSON_NoSpeedFieldLeavesZero(t *testing.T) {
+	input := `{"TrackID":"t1","SpeedMps":3.0}`
+	var track Track
+	if err := json.Unmarshal([]byte(input), &track); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if track.MaxSpeedMps != 0 {
+		t.Errorf("MaxSpeedMps = %v, want 0 when no max/peak field present", track.MaxSpeedMps)
+	}
+}
+
+func TestTrack_MarshalJSON_UsesMaxSpeedMps(t *testing.T) {
+	track := Track{TrackID: "t1", MaxSpeedMps: 10.5}
+	data, err := json.Marshal(&track)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("re-unmarshal error: %v", err)
+	}
+	if _, ok := raw["MaxSpeedMps"]; !ok {
+		t.Error("marshalled JSON should contain MaxSpeedMps key")
+	}
+	if _, ok := raw["PeakSpeedMps"]; ok {
+		t.Error("marshalled JSON should not contain legacy PeakSpeedMps key")
 	}
 }

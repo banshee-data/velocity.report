@@ -87,13 +87,13 @@ func insertTestTrack(t *testing.T, db *sql.DB, trackID, sensorID, state string, 
 	t.Helper()
 	_, err := db.Exec(`
 		INSERT INTO lidar_tracks (
-			track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos,
-			observation_count, avg_speed_mps, peak_speed_mps, p50_speed_mps, p85_speed_mps, p95_speed_mps,
+			track_id, sensor_id, frame_id, track_state, start_unix_nanos, end_unix_nanos,
+			observation_count, avg_speed_mps, max_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model
 		)
 		VALUES (?, ?, 'sensor', ?, ?, ?,
-			5, 2.5, 3.0, 2.3, 2.7, 2.9,
+			5, 2.5, 3.0,
 			4.5, 2.0, 1.5,
 			1.4, 100.0, 'car', 0.9, 'default')
 	`, trackID, sensorID, state, startNanos, endNanos)
@@ -106,8 +106,8 @@ func insertTestTrack(t *testing.T, db *sql.DB, trackID, sensorID, state string, 
 func insertTestObservation(t *testing.T, db *sql.DB, trackID string, tsNanos int64, x, y float64) {
 	t.Helper()
 	_, err := db.Exec(`
-		INSERT INTO lidar_track_obs (
-			track_id, ts_unix_nanos, world_frame, x, y, z,
+		INSERT INTO lidar_track_observations (
+			track_id, ts_unix_nanos, frame_id, x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			height_p95, intensity_mean
@@ -1073,7 +1073,7 @@ func TestTrackAPI_HandleListClusters_WithDB(t *testing.T) {
 	// Insert test cluster with all required fields
 	now := time.Now().UnixNano()
 	_, err := db.Exec(`
-		INSERT INTO lidar_clusters (sensor_id, world_frame, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
+		INSERT INTO lidar_clusters (sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
 			bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
 		VALUES ('sensor-A', 'sensor', ?, 10.0, 5.0, 1.0, 4.5, 2.0, 1.5, 50, 1.4, 100.0)
 	`, now)

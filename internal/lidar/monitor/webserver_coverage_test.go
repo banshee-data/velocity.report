@@ -79,6 +79,27 @@ func TestCov_HandleSweepDashboard_WithQuerySensorID(t *testing.T) {
 	}
 }
 
+// TestCov_SweepDashboardJS_ReplayCaseID verifies that the sweep dashboard JS
+// uses replay_case_id (not the old scene_id) when populating the scene select
+// dropdown. This catches regressions from the lidar_scenes → lidar_replay_cases
+// rename.
+func TestCov_SweepDashboardJS_ReplayCaseID(t *testing.T) {
+	content, err := EchartsAssets.ReadFile("assets/sweep_dashboard.js")
+	if err != nil {
+		t.Fatalf("failed to read embedded sweep_dashboard.js: %v", err)
+	}
+
+	body := string(content)
+
+	if !containsString(body, "s.replay_case_id") {
+		t.Error("sweep_dashboard.js should reference s.replay_case_id for scene dropdown")
+	}
+
+	if containsString(body, "s.scene_id") {
+		t.Error("sweep_dashboard.js must not reference s.scene_id (renamed to replay_case_id)")
+	}
+}
+
 // --- handleBackgroundGridPolar ---
 
 func TestCov_HandleBackgroundGridPolar_NoManager(t *testing.T) {
@@ -305,7 +326,7 @@ func setupCov2WebServer(t *testing.T) *WebServer {
 
 	// Create minimal required tables
 	for _, ddl := range []string{
-		`CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		`CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,
 			source_type TEXT NOT NULL DEFAULT 'unknown',
 			source_path TEXT NOT NULL DEFAULT '',
@@ -319,8 +340,8 @@ func setupCov2WebServer(t *testing.T) *WebServer {
 			total_tracks INTEGER DEFAULT 0,
 			error_message TEXT DEFAULT ''
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_scenes (
-			scene_id TEXT PRIMARY KEY,
+		`CREATE TABLE IF NOT EXISTS lidar_replay_cases (
+			replay_case_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
 			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
@@ -345,7 +366,7 @@ func setupCov2WebServer(t *testing.T) *WebServer {
 		`CREATE TABLE IF NOT EXISTS lidar_tracked_objects (
 			track_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL DEFAULT '',
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			state TEXT NOT NULL DEFAULT 'active',
 			x REAL DEFAULT 0,
 			y REAL DEFAULT 0,
@@ -367,7 +388,7 @@ func setupCov2WebServer(t *testing.T) *WebServer {
 			observation_id INTEGER PRIMARY KEY AUTOINCREMENT,
 			track_id TEXT NOT NULL,
 			ts_unix_nanos INTEGER NOT NULL DEFAULT 0,
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			x REAL DEFAULT 0,
 			y REAL DEFAULT 0,
 			z REAL DEFAULT 0,
@@ -1499,7 +1520,7 @@ func setupCov3WebServer(t *testing.T) *WebServer {
 		`CREATE TABLE IF NOT EXISTS lidar_tracked_objects (
 			track_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL DEFAULT '',
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			state TEXT NOT NULL DEFAULT 'active',
 			x REAL DEFAULT 0,
 			y REAL DEFAULT 0,
@@ -1521,7 +1542,7 @@ func setupCov3WebServer(t *testing.T) *WebServer {
 			observation_id INTEGER PRIMARY KEY AUTOINCREMENT,
 			track_id TEXT NOT NULL,
 			ts_unix_nanos INTEGER NOT NULL DEFAULT 0,
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			x REAL DEFAULT 0,
 			y REAL DEFAULT 0,
 			z REAL DEFAULT 0,
@@ -1544,7 +1565,7 @@ func setupCov3WebServer(t *testing.T) *WebServer {
 			centroid_z REAL DEFAULT 0,
 			points_count INTEGER DEFAULT 0
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		`CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER NOT NULL DEFAULT 0,
 			source_type TEXT NOT NULL DEFAULT 'unknown',
@@ -1563,8 +1584,8 @@ func setupCov3WebServer(t *testing.T) *WebServer {
 			notes TEXT,
 			vrlog_path TEXT
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_scenes (
-			scene_id TEXT PRIMARY KEY,
+		`CREATE TABLE IF NOT EXISTS lidar_replay_cases (
+			replay_case_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
 			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
@@ -2553,7 +2574,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_EmptyVRLogPath(t *testing.T) {
 
 	// Insert a run without vrlog_path
 	_, err := ws.db.Exec(
-		`INSERT INTO lidar_analysis_runs (run_id, created_at, source_type, sensor_id, params_json, status)
+		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, params_json, status)
 		 VALUES ('run-novr', 1000, 'pcap', 'cov3-sensor', '{}', 'completed')`,
 	)
 	if err != nil {
@@ -2578,7 +2599,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 
 	// Insert a run with vrlog_path
 	_, err := ws.db.Exec(
-		`INSERT INTO lidar_analysis_runs (run_id, created_at, source_type, sensor_id, params_json, status, vrlog_path)
+		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, params_json, status, vrlog_path)
 		 VALUES ('run-vr', 1000, 'pcap', 'cov3-sensor', '{}', 'completed', '/var/lib/velocity-report/test.vrlog')`,
 	)
 	if err != nil {
@@ -3188,7 +3209,7 @@ func setupTrackDB(t *testing.T) *sql.DB {
 	_, err = rawDB.Exec(`CREATE TABLE lidar_clusters (
 		lidar_cluster_id INTEGER PRIMARY KEY,
 		sensor_id TEXT NOT NULL,
-		world_frame TEXT NOT NULL DEFAULT '',
+		frame_id TEXT NOT NULL DEFAULT '',
 		ts_unix_nanos INTEGER NOT NULL,
 		centroid_x REAL,
 		centroid_y REAL,
@@ -3206,13 +3227,13 @@ func setupTrackDB(t *testing.T) *sql.DB {
 	_, err = rawDB.Exec(`CREATE TABLE lidar_tracks (
 		track_id TEXT PRIMARY KEY,
 		sensor_id TEXT NOT NULL,
-		world_frame TEXT NOT NULL DEFAULT '',
+		frame_id TEXT NOT NULL DEFAULT '',
 		track_state TEXT NOT NULL,
 		start_unix_nanos INTEGER NOT NULL,
 		end_unix_nanos INTEGER,
 		observation_count INTEGER,
 		avg_speed_mps REAL,
-		peak_speed_mps REAL,
+		max_speed_mps REAL,
 		bounding_box_length_avg REAL,
 		bounding_box_width_avg REAL,
 		bounding_box_height_avg REAL,
@@ -3236,7 +3257,7 @@ func TestCov3_HandleClustersChart_WithDBData(t *testing.T) {
 	sensorID := "cov3-cluster-data"
 	now := time.Now().UnixNano()
 	_, err := rawDB.Exec(`INSERT INTO lidar_clusters
-		(sensor_id, world_frame, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
+		(sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
 		 bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
 		VALUES (?, 'world', ?, 1.5, 2.5, 0.3, 0.8, 0.6, 0.4, 15, 0.9, 100.0)`,
 		sensorID, now)
@@ -3244,7 +3265,7 @@ func TestCov3_HandleClustersChart_WithDBData(t *testing.T) {
 		t.Fatalf("insert cluster: %v", err)
 	}
 	_, err = rawDB.Exec(`INSERT INTO lidar_clusters
-		(sensor_id, world_frame, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
+		(sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
 		 bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
 		VALUES (?, 'world', ?, -3.0, 4.0, 0.1, 1.2, 0.9, 0.5, 25, 1.1, 120.0)`,
 		sensorID, now-1000)
@@ -3284,7 +3305,7 @@ func TestCov3_HandleClustersChart_WithDBTimeRange(t *testing.T) {
 
 	now := time.Now()
 	_, _ = rawDB.Exec(`INSERT INTO lidar_clusters
-		(sensor_id, world_frame, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
+		(sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
 		 bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
 		VALUES (?, 'world', ?, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 5, 0.5, 50.0)`,
 		"cov3-cluster-time", now.UnixNano())
@@ -3310,7 +3331,7 @@ func TestCov3_HandleTracksChart_WithDBData(t *testing.T) {
 	now := time.Now().UnixNano()
 	_, err := rawDB.Exec(`INSERT INTO lidar_tracks
 		(track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-		 observation_count, avg_speed_mps, peak_speed_mps,
+		 observation_count, avg_speed_mps, max_speed_mps,
 		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		 height_p95_max, intensity_mean_avg)
 		VALUES ('t1', ?, 'active', ?, ?, 10, 1.5, 3.0, 0.5, 0.3, 0.4, 0.8, 90.0)`,
@@ -3320,7 +3341,7 @@ func TestCov3_HandleTracksChart_WithDBData(t *testing.T) {
 	}
 	_, err = rawDB.Exec(`INSERT INTO lidar_tracks
 		(track_id, sensor_id, track_state, start_unix_nanos,
-		 observation_count, avg_speed_mps, peak_speed_mps,
+		 observation_count, avg_speed_mps, max_speed_mps,
 		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		 height_p95_max, intensity_mean_avg)
 		VALUES ('t2', ?, 'completed', ?, 5, 0.8, 1.2, 0.4, 0.2, 0.3, 0.6, 70.0)`,
@@ -3362,7 +3383,7 @@ func TestCov3_HandleTracksChart_WithStateFilter(t *testing.T) {
 	now := time.Now().UnixNano()
 	_, _ = rawDB.Exec(`INSERT INTO lidar_tracks
 		(track_id, sensor_id, track_state, start_unix_nanos,
-		 observation_count, avg_speed_mps, peak_speed_mps,
+		 observation_count, avg_speed_mps, max_speed_mps,
 		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 		 height_p95_max, intensity_mean_avg)
 		VALUES ('t1', ?, 'active', ?, 8, 1.0, 2.0, 0.3, 0.3, 0.3, 0.7, 80.0)`,
@@ -3793,7 +3814,7 @@ func setupCov4WebServer(t *testing.T) *WebServer {
 		`CREATE TABLE IF NOT EXISTS lidar_tracked_objects (
 			track_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL DEFAULT '',
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			state TEXT NOT NULL DEFAULT 'active',
 			x REAL DEFAULT 0, y REAL DEFAULT 0,
 			vx REAL DEFAULT 0, vy REAL DEFAULT 0,
@@ -3813,7 +3834,7 @@ func setupCov4WebServer(t *testing.T) *WebServer {
 			observation_id INTEGER PRIMARY KEY AUTOINCREMENT,
 			track_id TEXT NOT NULL,
 			ts_unix_nanos INTEGER NOT NULL DEFAULT 0,
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			x REAL DEFAULT 0, y REAL DEFAULT 0, z REAL DEFAULT 0,
 			velocity_x REAL DEFAULT 0, velocity_y REAL DEFAULT 0,
 			speed_mps REAL DEFAULT 0, heading_rad REAL DEFAULT 0,
@@ -3825,7 +3846,7 @@ func setupCov4WebServer(t *testing.T) *WebServer {
 		`CREATE TABLE IF NOT EXISTS lidar_clusters (
 			lidar_cluster_id INTEGER PRIMARY KEY,
 			sensor_id TEXT NOT NULL DEFAULT '',
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			ts_unix_nanos INTEGER NOT NULL DEFAULT 0,
 			centroid_x REAL DEFAULT 0, centroid_y REAL DEFAULT 0,
 			centroid_z REAL DEFAULT 0,
@@ -3839,13 +3860,13 @@ func setupCov4WebServer(t *testing.T) *WebServer {
 		`CREATE TABLE IF NOT EXISTS lidar_tracks (
 			track_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL DEFAULT '',
-			world_frame TEXT NOT NULL DEFAULT '',
+			frame_id TEXT NOT NULL DEFAULT '',
 			track_state TEXT NOT NULL DEFAULT 'active',
 			start_unix_nanos INTEGER NOT NULL DEFAULT 0,
 			end_unix_nanos INTEGER DEFAULT 0,
 			observation_count INTEGER DEFAULT 0,
 			avg_speed_mps REAL DEFAULT 0,
-			peak_speed_mps REAL DEFAULT 0,
+			max_speed_mps REAL DEFAULT 0,
 			bounding_box_length_avg REAL DEFAULT 0,
 			bounding_box_width_avg REAL DEFAULT 0,
 			bounding_box_height_avg REAL DEFAULT 0,
@@ -3855,7 +3876,7 @@ func setupCov4WebServer(t *testing.T) *WebServer {
 			object_confidence REAL DEFAULT 0,
 			classification_model TEXT DEFAULT ''
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		`CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER NOT NULL DEFAULT 0,
 			source_type TEXT NOT NULL DEFAULT 'unknown',
@@ -4280,7 +4301,7 @@ func TestCov4_HandleClustersChart_WithData(t *testing.T) {
 	now := time.Now().UnixNano()
 	for i := 0; i < 5; i++ {
 		_, err := ws.db.DB.Exec(
-			`INSERT INTO lidar_clusters (sensor_id, world_frame, ts_unix_nanos, centroid_x, centroid_y, centroid_z, bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
+			`INSERT INTO lidar_clusters (sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z, bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
 			 VALUES (?, 'world', ?, ?, ?, 0.0, 1.0, 0.5, 0.3, ?, 0.5, 100.0)`,
 			"cov4-sensor", now-int64(i)*1e8, float64(i)*1.5, float64(i)*2.0, 10+i,
 		)
@@ -4309,7 +4330,7 @@ func TestCov4_HandleTracksChart_WithData(t *testing.T) {
 	now := time.Now().UnixNano()
 	for i := 0; i < 3; i++ {
 		_, err := ws.db.DB.Exec(
-			`INSERT INTO lidar_tracks (track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos, observation_count, avg_speed_mps, peak_speed_mps, bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg, height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model)
+			`INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, track_state, start_unix_nanos, end_unix_nanos, observation_count, avg_speed_mps, max_speed_mps, bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg, height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model)
 			 VALUES (?, 'cov4-sensor', 'world', 'active', ?, ?, 5, 2.0, 3.0, 1.5, 0.8, 0.5, 1.0, 100.0, 'vehicle', 0.9, 'default')`,
 			fmt.Sprintf("track-%d", i), now-int64(i)*1e9, now,
 		)
@@ -4471,8 +4492,8 @@ func setupCov5WebServer(t *testing.T, sensorID string) (*WebServer, *sql.DB) {
 	// Simplified tables for testing
 	tables := []string{
 		`CREATE TABLE IF NOT EXISTS lidar_bg_snapshots (id INTEGER PRIMARY KEY, sensor_id TEXT, created_at TEXT, grid_data BLOB)`,
-		`CREATE TABLE IF NOT EXISTS lidar_clusters (id INTEGER PRIMARY KEY, sensor_id TEXT, lidar_cluster_id TEXT, world_frame TEXT, bounding_box TEXT, track_id INTEGER, created_at TEXT)`,
-		`CREATE TABLE IF NOT EXISTS lidar_tracks (id INTEGER PRIMARY KEY, sensor_id TEXT, track_id INTEGER, world_frame TEXT, bounding_box TEXT, speed_mps REAL, heading_deg REAL, created_at TEXT)`,
+		`CREATE TABLE IF NOT EXISTS lidar_clusters (id INTEGER PRIMARY KEY, sensor_id TEXT, lidar_cluster_id TEXT, frame_id TEXT, bounding_box TEXT, track_id INTEGER, created_at TEXT)`,
+		`CREATE TABLE IF NOT EXISTS lidar_tracks (id INTEGER PRIMARY KEY, sensor_id TEXT, track_id INTEGER, frame_id TEXT, bounding_box TEXT, speed_mps REAL, heading_deg REAL, created_at TEXT)`,
 	}
 	for _, ddl := range tables {
 		if _, err := sqlDB.Exec(ddl); err != nil {
@@ -5004,8 +5025,8 @@ func setupCov6WebServer(t *testing.T, sensorID string) (*WebServer, *sql.DB) {
 
 	// Tables needed for TrackAPI
 	tables := []string{
-		`CREATE TABLE IF NOT EXISTS lidar_clusters (id INTEGER PRIMARY KEY, sensor_id TEXT, lidar_cluster_id TEXT, world_frame TEXT, bounding_box TEXT, track_id INTEGER, created_at TEXT)`,
-		`CREATE TABLE IF NOT EXISTS lidar_tracks (id INTEGER PRIMARY KEY, sensor_id TEXT, track_id INTEGER, world_frame TEXT, bounding_box TEXT, speed_mps REAL, heading_deg REAL, created_at TEXT)`,
+		`CREATE TABLE IF NOT EXISTS lidar_clusters (id INTEGER PRIMARY KEY, sensor_id TEXT, lidar_cluster_id TEXT, frame_id TEXT, bounding_box TEXT, track_id INTEGER, created_at TEXT)`,
+		`CREATE TABLE IF NOT EXISTS lidar_tracks (id INTEGER PRIMARY KEY, sensor_id TEXT, track_id INTEGER, frame_id TEXT, bounding_box TEXT, speed_mps REAL, heading_deg REAL, created_at TEXT)`,
 	}
 	for _, ddl := range tables {
 		_, err := sqlDB.Exec(ddl)

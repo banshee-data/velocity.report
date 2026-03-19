@@ -1,26 +1,26 @@
 <script lang="ts">
 	/**
-	 * LiDAR Scene Management Page
+	 * LiDAR Replay Case Management Page
 	 *
-	 * CRUD interface for managing LiDAR scenes — associating PCAP files,
-	 * region maps, and background grids with a scene for ground truth labelling.
+	 * CRUD interface for managing LiDAR replay cases — associating PCAP files,
+	 * region maps, and background grids with a replay case for ground truth labelling.
 	 */
 	import type { PcapFileInfo } from '$lib/api';
 	import {
-		createLidarScene,
-		deleteLidarScene,
+		createLidarReplayCase,
+		deleteLidarReplayCase,
+		getLidarReplayCases,
 		getLidarRuns,
-		getLidarScenes,
 		scanPcapFiles,
-		updateLidarScene
+		updateLidarReplayCase
 	} from '$lib/api';
-	import type { AnalysisRun, LidarScene } from '$lib/types/lidar';
+	import type { AnalysisRun, LidarReplayCase } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button, SelectField } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	// Scene list
-	let scenes: LidarScene[] = [];
+	let scenes: LidarReplayCase[] = [];
 	let loading = true;
 	let error: string | null = null;
 
@@ -28,7 +28,7 @@
 	let runs: AnalysisRun[] = [];
 
 	// Selected scene for editing
-	let selectedScene: LidarScene | null = null;
+	let selectedScene: LidarReplayCase | null = null;
 
 	// Create form state
 	let showCreateForm = false;
@@ -62,9 +62,9 @@
 		loading = true;
 		error = null;
 		try {
-			scenes = await getLidarScenes();
+			scenes = await getLidarReplayCases();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load scenes';
+			error = e instanceof Error ? e.message : 'Failed to load replay cases';
 		} finally {
 			loading = false;
 		}
@@ -78,7 +78,7 @@
 		}
 	}
 
-	function selectScene(scene: LidarScene) {
+	function selectScene(scene: LidarReplayCase) {
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
 		editReferenceRunId = scene.reference_run_id ?? null;
@@ -101,7 +101,7 @@
 		creating = true;
 		createError = null;
 		try {
-			const scene = await createLidarScene({
+			const scene = await createLidarReplayCase({
 				sensor_id: newSensorId,
 				pcap_file: newPcapFile,
 				description: newDescription || undefined,
@@ -116,7 +116,7 @@
 			newPcapDurationSecs = '';
 			showCreateForm = false;
 		} catch (e) {
-			createError = e instanceof Error ? e.message : 'Failed to create scene';
+			createError = e instanceof Error ? e.message : 'Failed to create replay case';
 		} finally {
 			creating = false;
 		}
@@ -127,7 +127,7 @@
 		saving = true;
 		saveError = null;
 		try {
-			const updated = await updateLidarScene(selectedScene.scene_id, {
+			const updated = await updateLidarReplayCase(selectedScene.replay_case_id, {
 				description: editDescription || undefined,
 				reference_run_id: editReferenceRunId || undefined,
 				optimal_params_json: editOptimalParams || undefined,
@@ -135,25 +135,25 @@
 				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined
 			});
 			// Update in list
-			scenes = scenes.map((s) => (s.scene_id === updated.scene_id ? updated : s));
+			scenes = scenes.map((s) => (s.replay_case_id === updated.replay_case_id ? updated : s));
 			selectedScene = updated;
 		} catch (e) {
-			saveError = e instanceof Error ? e.message : 'Failed to update scene';
+			saveError = e instanceof Error ? e.message : 'Failed to update replay case';
 		} finally {
 			saving = false;
 		}
 	}
 
 	async function handleDelete(sceneId: string) {
-		if (!confirm('Delete this scene? This cannot be undone.')) return;
+		if (!confirm('Delete this replay case? This cannot be undone.')) return;
 		try {
-			await deleteLidarScene(sceneId);
-			scenes = scenes.filter((s) => s.scene_id !== sceneId);
-			if (selectedScene?.scene_id === sceneId) {
+			await deleteLidarReplayCase(sceneId);
+			scenes = scenes.filter((s) => s.replay_case_id !== sceneId);
+			if (selectedScene?.replay_case_id === sceneId) {
 				deselectScene();
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete scene';
+			error = e instanceof Error ? e.message : 'Failed to delete replay case';
 		}
 	}
 
@@ -213,7 +213,7 @@
 		for (const path of selectedFiles) {
 			try {
 				const desc = path.replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
-				const scene = await createLidarScene({
+				const scene = await createLidarReplayCase({
 					sensor_id: newSensorId,
 					pcap_file: path,
 					description: desc
@@ -221,7 +221,7 @@
 				scenes = [...scenes, scene];
 				created++;
 			} catch (e) {
-				scanError = `Failed after ${created} scenes: ${e instanceof Error ? e.message : String(e)}`;
+				scanError = `Failed after ${created} replay cases: ${e instanceof Error ? e.message : String(e)}`;
 				break;
 			}
 		}
@@ -247,9 +247,9 @@
 	<div class="vr-toolbar">
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-surface-content text-2xl font-semibold">LiDAR Scenes</h1>
+				<h1 class="text-surface-content text-2xl font-semibold">Replay Cases</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Manage scenes for ground truth labelling and parameter tuning
+					Manage replay cases for ground truth labelling and parameter tuning
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -257,7 +257,7 @@
 					{scanning ? 'Scanning...' : 'Scan PCAP Folder'}
 				</Button>
 				<Button variant="fill" color="primary" on:click={() => (showCreateForm = !showCreateForm)}>
-					{showCreateForm ? 'Cancel' : 'New Scene'}
+					{showCreateForm ? 'Cancel' : 'New Replay Case'}
 				</Button>
 			</div>
 		</div>
@@ -276,7 +276,7 @@
 			<!-- Create Form -->
 			{#if showCreateForm}
 				<div class="bg-surface-100 border-surface-content/10 mb-6 rounded-lg border p-6">
-					<h2 class="text-surface-content mb-4 text-lg font-semibold">Create New Scene</h2>
+					<h2 class="text-surface-content mb-4 text-lg font-semibold">Create New Replay Case</h2>
 
 					{#if createError}
 						<div class="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
@@ -315,7 +315,7 @@
 							<textarea
 								id="new-desc"
 								bind:value={newDescription}
-								placeholder="Describe the scene environment..."
+								placeholder="Describe the replay case environment..."
 								rows="2"
 								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
 							></textarea>
@@ -358,7 +358,7 @@
 							on:click={handleCreate}
 							disabled={creating || !newPcapFile}
 						>
-							{creating ? 'Creating...' : 'Create Scene'}
+							{creating ? 'Creating...' : 'Create Replay Case'}
 						</Button>
 					</div>
 				</div>
@@ -407,7 +407,9 @@
 									on:click={handleBulkCreate}
 									disabled={bulkCreating}
 								>
-									{bulkCreating ? 'Creating...' : `Add ${selectedFiles.size} Selected as Scenes`}
+									{bulkCreating
+										? 'Creating...'
+										: `Add ${selectedFiles.size} Selected as Replay Cases`}
 								</Button>
 							{/if}
 						</div>
@@ -467,11 +469,11 @@
 
 			<!-- Scene Table -->
 			{#if loading}
-				<div class="text-surface-content/50 py-12 text-center">Loading scenes...</div>
+				<div class="text-surface-content/50 py-12 text-center">Loading replay cases...</div>
 			{:else if scenes.length === 0}
 				<div class="text-surface-content/50 py-12 text-center">
-					<p>No scenes yet.</p>
-					<p class="mt-1 text-sm">Create a scene to start labelling tracks.</p>
+					<p>No replay cases yet.</p>
+					<p class="mt-1 text-sm">Create a replay case to start labelling tracks.</p>
 				</div>
 			{:else}
 				<div class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border">
@@ -499,8 +501,8 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each scenes as scene (scene.scene_id)}
-								{@const isSelected = selectedScene?.scene_id === scene.scene_id}
+							{#each scenes as scene (scene.replay_case_id)}
+								{@const isSelected = selectedScene?.replay_case_id === scene.replay_case_id}
 								<tr
 									class="border-surface-content/10 hover:bg-surface-200/50 cursor-pointer border-b transition-colors last:border-b-0 {isSelected
 										? 'bg-primary/5'
@@ -508,7 +510,7 @@
 									on:click={() => selectScene(scene)}
 								>
 									<td class="text-surface-content px-4 py-3 text-sm">
-										{scene.description || scene.scene_id.substring(0, 8)}
+										{scene.description || scene.replay_case_id.substring(0, 8)}
 									</td>
 									<td class="text-surface-content/70 px-4 py-3 font-mono text-sm">
 										{scene.sensor_id}
@@ -525,7 +527,7 @@
 									<td class="px-4 py-3 text-right">
 										<button
 											class="text-sm text-red-500 hover:text-red-700"
-											on:click|stopPropagation={() => handleDelete(scene.scene_id)}
+											on:click|stopPropagation={() => handleDelete(scene.replay_case_id)}
 										>
 											Delete
 										</button>
@@ -544,7 +546,7 @@
 				class="border-surface-content/10 bg-surface-100 w-[400px] flex-none overflow-y-auto border-l p-6"
 			>
 				<div class="mb-4 flex items-center justify-between">
-					<h2 class="text-surface-content text-lg font-semibold">Edit Scene</h2>
+					<h2 class="text-surface-content text-lg font-semibold">Edit Replay Case</h2>
 					<button
 						class="text-surface-content/50 hover:text-surface-content text-sm"
 						on:click={deselectScene}
@@ -554,7 +556,7 @@
 				</div>
 
 				<div class="text-surface-content/50 mb-4 font-mono text-xs">
-					{selectedScene.scene_id}
+					{selectedScene.replay_case_id}
 				</div>
 
 				{#if saveError}

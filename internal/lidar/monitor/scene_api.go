@@ -13,16 +13,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// REST API for scene management
-// These handlers manage LiDAR evaluation scenes (PCAP + sensor + params).
+// REST API for replay case management
+// These handlers manage LiDAR replay cases (PCAP + sensor + params).
 //
 // Routes:
-// - GET /api/lidar/scenes — list scenes (optional sensor_id filter)
-// - POST /api/lidar/scenes — create scene
-// - GET /api/lidar/scenes/{scene_id} — get scene details
-// - PUT /api/lidar/scenes/{scene_id} — update scene
-// - DELETE /api/lidar/scenes/{scene_id} — delete scene
-// - POST /api/lidar/scenes/{scene_id}/replay — replay scene
+// - GET /api/lidar/scenes — list replay cases (optional sensor_id filter)
+// - POST /api/lidar/scenes — create replay case
+// - GET /api/lidar/scenes/{replay_case_id} — get replay case details
+// - PUT /api/lidar/scenes/{replay_case_id} — update replay case
+// - DELETE /api/lidar/scenes/{replay_case_id} — delete replay case
+// - POST /api/lidar/scenes/{replay_case_id}/replay — replay case
 
 // handleScenes handles /api/lidar/scenes (list and create).
 func (ws *WebServer) handleScenes(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +41,7 @@ func (ws *WebServer) handleScenes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleSceneByID handles /api/lidar/scenes/{scene_id}/* routes.
+// handleSceneByID handles /api/lidar/scenes/{replay_case_id}/* routes.
 func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
@@ -50,7 +50,7 @@ func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 
 	sceneID, action := parseScenePath(r.URL.Path)
 	if sceneID == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "missing scene_id in path")
+		ws.writeJSONError(w, http.StatusBadRequest, "missing replay_case_id in path")
 		return
 	}
 
@@ -89,7 +89,7 @@ func (ws *WebServer) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// parseScenePath extracts scene_id and action from /api/lidar/scenes/{scene_id}/{action}
+// parseScenePath extracts replay_case_id and action from /api/lidar/scenes/{replay_case_id}/{action}
 func parseScenePath(path string) (sceneID string, action string) {
 	trimmed := strings.TrimPrefix(path, "/api/lidar/scenes/")
 	if trimmed == path {
@@ -111,7 +111,7 @@ func parseScenePath(path string) (sceneID string, action string) {
 func (ws *WebServer) handleListScenes(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 	scenes, err := store.ListScenes(sensorID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
@@ -120,7 +120,7 @@ func (ws *WebServer) handleListScenes(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure we return an empty array instead of null when no scenes
 	if scenes == nil {
-		scenes = []*sqlite.Scene{}
+		scenes = []*sqlite.ReplayCase{}
 	}
 
 	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -156,7 +156,7 @@ func (ws *WebServer) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scene := &sqlite.Scene{
+	scene := &sqlite.ReplayCase{
 		SensorID:         req.SensorID,
 		PCAPFile:         req.PCAPFile,
 		PCAPStartSecs:    req.PCAPStartSecs,
@@ -164,7 +164,7 @@ func (ws *WebServer) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		Description:      req.Description,
 	}
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 	if err := store.InsertScene(scene); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create scene: %v", err))
 		return
@@ -175,7 +175,7 @@ func (ws *WebServer) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 
 // handleGetScene retrieves a scene by ID.
 func (ws *WebServer) handleGetScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 	scene, err := store.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -212,7 +212,7 @@ func (ws *WebServer) handleUpdateScene(w http.ResponseWriter, r *http.Request, s
 		return
 	}
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 
 	// Get existing scene
 	scene, err := store.GetScene(sceneID)
@@ -252,7 +252,7 @@ func (ws *WebServer) handleUpdateScene(w http.ResponseWriter, r *http.Request, s
 
 // handleDeleteScene deletes a scene by ID.
 func (ws *WebServer) handleDeleteScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 	if err := store.DeleteScene(sceneID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
@@ -270,7 +270,7 @@ func (ws *WebServer) handleDeleteScene(w http.ResponseWriter, r *http.Request, s
 // handleReplayScene handles PCAP replay for a scene.
 // Replays the scene's PCAP file, creates an analysis run, and returns the run_id.
 func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 	scene, err := store.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -355,10 +355,10 @@ func (ws *WebServer) handleReplayScene(w http.ResponseWriter, r *http.Request, s
 	}
 
 	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
-		"run_id":   run.RunID,
-		"scene_id": sceneID,
-		"status":   "running",
-		"message":  "PCAP replay initiated; analysis run created",
+		"run_id":         run.RunID,
+		"replay_case_id": sceneID,
+		"status":         "running",
+		"message":        "PCAP replay initiated; analysis run created",
 	})
 }
 
@@ -375,8 +375,8 @@ func (ws *WebServer) handleListSceneEvaluations(w http.ResponseWriter, r *http.R
 		evals = []*sqlite.Evaluation{}
 	}
 	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"scene_id":    sceneID,
-		"evaluations": evals,
+		"replay_case_id": sceneID,
+		"evaluations":    evals,
 	})
 }
 
@@ -385,7 +385,7 @@ func (ws *WebServer) handleListSceneEvaluations(w http.ResponseWriter, r *http.R
 // POST /api/lidar/scenes/{scene_id}/evaluations
 // Request body: {"candidate_run_id": "..."}
 func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Request, sceneID string) {
-	sceneStore := sqlite.NewSceneStore(ws.db.DB)
+	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
 	scene, err := sceneStore.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -429,7 +429,7 @@ func (ws *WebServer) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.
 	}
 
 	eval := &sqlite.Evaluation{
-		SceneID:             sceneID,
+		ReplayCaseID:        sceneID,
 		ReferenceRunID:      scene.ReferenceRunID,
 		CandidateRunID:      req.CandidateRunID,
 		DetectionRate:       score.DetectionRate,

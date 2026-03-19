@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Scene represents a LiDAR evaluation scene tying a PCAP to a sensor and parameters.
-// A scene is a specific environment captured in a PCAP with optional reference ground truth.
-type Scene struct {
-	SceneID           string          `json:"scene_id"`
+// ReplayCase represents a LiDAR evaluation replay case tying a PCAP to a sensor and parameters.
+// A replay case is a specific environment captured in a PCAP with optional reference ground truth.
+type ReplayCase struct {
+	ReplayCaseID      string          `json:"replay_case_id"`
 	SensorID          string          `json:"sensor_id"`
 	PCAPFile          string          `json:"pcap_file"`
 	PCAPStartSecs     *float64        `json:"pcap_start_secs,omitempty"`
@@ -24,36 +24,36 @@ type Scene struct {
 	UpdatedAtNs       *int64          `json:"updated_at_ns,omitempty"`
 }
 
-// SceneStore provides persistence for LiDAR evaluation scenes.
-type SceneStore struct {
+// ReplayCaseStore provides persistence for LiDAR evaluation replay cases.
+type ReplayCaseStore struct {
 	db *sql.DB
 }
 
-// NewSceneStore creates a new SceneStore.
-func NewSceneStore(db *sql.DB) *SceneStore {
-	return &SceneStore{db: db}
+// NewReplayCaseStore creates a new ReplayCaseStore.
+func NewReplayCaseStore(db *sql.DB) *ReplayCaseStore {
+	return &ReplayCaseStore{db: db}
 }
 
-// InsertScene creates a new scene in the database.
-// If scene.SceneID is empty, a new UUID is generated.
-func (s *SceneStore) InsertScene(scene *Scene) error {
-	if scene.SceneID == "" {
-		scene.SceneID = uuid.New().String()
+// InsertScene creates a new replay case in the database.
+// If scene.ReplayCaseID is empty, a new UUID is generated.
+func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
+	if scene.ReplayCaseID == "" {
+		scene.ReplayCaseID = uuid.New().String()
 	}
 	if scene.CreatedAtNs == 0 {
 		scene.CreatedAtNs = time.Now().UnixNano()
 	}
 
 	query := `
-		INSERT INTO lidar_scenes (
-			scene_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
+		INSERT INTO lidar_replay_cases (
+			replay_case_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
 			description, reference_run_id, optimal_params_json,
 			created_at_ns, updated_at_ns
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := s.db.Exec(query,
-		scene.SceneID,
+		scene.ReplayCaseID,
 		scene.SensorID,
 		scene.PCAPFile,
 		nullFloat64(scene.PCAPStartSecs),
@@ -71,23 +71,23 @@ func (s *SceneStore) InsertScene(scene *Scene) error {
 	return nil
 }
 
-// GetScene retrieves a scene by ID.
-func (s *SceneStore) GetScene(sceneID string) (*Scene, error) {
+// GetScene retrieves a replay case by ID.
+func (s *ReplayCaseStore) GetScene(sceneID string) (*ReplayCase, error) {
 	query := `
-		SELECT scene_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
+		SELECT replay_case_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
 		       description, reference_run_id, optimal_params_json,
 		       created_at_ns, updated_at_ns
-		FROM lidar_scenes
-		WHERE scene_id = ?
+		FROM lidar_replay_cases
+		WHERE replay_case_id = ?
 	`
 
-	var scene Scene
+	var scene ReplayCase
 	var pcapStartSecs, pcapDurationSecs sql.NullFloat64
 	var description, referenceRunID, optimalParamsJSON sql.NullString
 	var updatedAtNs sql.NullInt64
 
 	err := s.db.QueryRow(query, sceneID).Scan(
-		&scene.SceneID,
+		&scene.ReplayCaseID,
 		&scene.SensorID,
 		&scene.PCAPFile,
 		&pcapStartSecs,
@@ -99,7 +99,7 @@ func (s *SceneStore) GetScene(sceneID string) (*Scene, error) {
 		&updatedAtNs,
 	)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("scene not found: %s", sceneID)
+		return nil, fmt.Errorf("replay case not found: %s", sceneID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get scene: %w", err)
@@ -131,27 +131,27 @@ func (s *SceneStore) GetScene(sceneID string) (*Scene, error) {
 	return &scene, nil
 }
 
-// ListScenes retrieves all scenes, optionally filtered by sensor_id.
-func (s *SceneStore) ListScenes(sensorID string) ([]*Scene, error) {
+// ListScenes retrieves all replay cases, optionally filtered by sensor_id.
+func (s *ReplayCaseStore) ListScenes(sensorID string) ([]*ReplayCase, error) {
 	var query string
 	var args []interface{}
 
 	if sensorID != "" {
 		query = `
-			SELECT scene_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
+			SELECT replay_case_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
 			       description, reference_run_id, optimal_params_json,
 			       created_at_ns, updated_at_ns
-			FROM lidar_scenes
+			FROM lidar_replay_cases
 			WHERE sensor_id = ?
 			ORDER BY created_at_ns DESC
 		`
 		args = append(args, sensorID)
 	} else {
 		query = `
-			SELECT scene_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
+			SELECT replay_case_id, sensor_id, pcap_file, pcap_start_secs, pcap_duration_secs,
 			       description, reference_run_id, optimal_params_json,
 			       created_at_ns, updated_at_ns
-			FROM lidar_scenes
+			FROM lidar_replay_cases
 			ORDER BY created_at_ns DESC
 		`
 	}
@@ -162,15 +162,15 @@ func (s *SceneStore) ListScenes(sensorID string) ([]*Scene, error) {
 	}
 	defer rows.Close()
 
-	var scenes []*Scene
+	var scenes []*ReplayCase
 	for rows.Next() {
-		var scene Scene
+		var scene ReplayCase
 		var pcapStartSecs, pcapDurationSecs sql.NullFloat64
 		var description, referenceRunID, optimalParamsJSON sql.NullString
 		var updatedAtNs sql.NullInt64
 
 		err := rows.Scan(
-			&scene.SceneID,
+			&scene.ReplayCaseID,
 			&scene.SensorID,
 			&scene.PCAPFile,
 			&pcapStartSecs,
@@ -218,22 +218,22 @@ func (s *SceneStore) ListScenes(sensorID string) ([]*Scene, error) {
 	return scenes, nil
 }
 
-// UpdateScene updates an existing scene's mutable fields for the given scene ID.
+// UpdateScene updates an existing replay case's mutable fields for the given scene ID.
 // Updates description, reference_run_id, optimal_params_json, pcap_start_secs, and pcap_duration_secs;
 // empty strings are stored as NULL, which clears those fields.
-func (s *SceneStore) UpdateScene(scene *Scene) error {
+func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 	scene.UpdatedAtNs = new(int64)
 	*scene.UpdatedAtNs = time.Now().UnixNano()
 
 	query := `
-		UPDATE lidar_scenes
+		UPDATE lidar_replay_cases
 		SET description = ?,
 		    reference_run_id = ?,
 		    optimal_params_json = ?,
 		    pcap_start_secs = ?,
 		    pcap_duration_secs = ?,
 		    updated_at_ns = ?
-		WHERE scene_id = ?
+		WHERE replay_case_id = ?
 	`
 
 	result, err := s.db.Exec(query,
@@ -243,7 +243,7 @@ func (s *SceneStore) UpdateScene(scene *Scene) error {
 		nullFloat64(scene.PCAPStartSecs),
 		nullFloat64(scene.PCAPDurationSecs),
 		scene.UpdatedAtNs,
-		scene.SceneID,
+		scene.ReplayCaseID,
 	)
 	if err != nil {
 		return fmt.Errorf("update scene: %w", err)
@@ -254,15 +254,15 @@ func (s *SceneStore) UpdateScene(scene *Scene) error {
 		return fmt.Errorf("check update result: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("scene not found: %s", scene.SceneID)
+		return fmt.Errorf("replay case not found: %s", scene.ReplayCaseID)
 	}
 
 	return nil
 }
 
-// DeleteScene deletes a scene by ID.
-func (s *SceneStore) DeleteScene(sceneID string) error {
-	query := `DELETE FROM lidar_scenes WHERE scene_id = ?`
+// DeleteScene deletes a replay case by ID.
+func (s *ReplayCaseStore) DeleteScene(sceneID string) error {
+	query := `DELETE FROM lidar_replay_cases WHERE replay_case_id = ?`
 
 	result, err := s.db.Exec(query, sceneID)
 	if err != nil {
@@ -274,19 +274,19 @@ func (s *SceneStore) DeleteScene(sceneID string) error {
 		return fmt.Errorf("check delete result: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("scene not found: %s", sceneID)
+		return fmt.Errorf("replay case not found: %s", sceneID)
 	}
 
 	return nil
 }
 
-// SetReferenceRun sets the reference run ID for a scene.
-func (s *SceneStore) SetReferenceRun(sceneID, runID string) error {
+// SetReferenceRun sets the reference run ID for a replay case.
+func (s *ReplayCaseStore) SetReferenceRun(sceneID, runID string) error {
 	query := `
-		UPDATE lidar_scenes
+		UPDATE lidar_replay_cases
 		SET reference_run_id = ?,
 		    updated_at_ns = ?
-		WHERE scene_id = ?
+		WHERE replay_case_id = ?
 	`
 
 	updatedAtNs := time.Now().UnixNano()
@@ -300,19 +300,19 @@ func (s *SceneStore) SetReferenceRun(sceneID, runID string) error {
 		return fmt.Errorf("check update result: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("scene not found: %s", sceneID)
+		return fmt.Errorf("replay case not found: %s", sceneID)
 	}
 
 	return nil
 }
 
-// SetOptimalParams sets the optimal parameters JSON for a scene.
-func (s *SceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
+// SetOptimalParams sets the optimal parameters JSON for a replay case.
+func (s *ReplayCaseStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
 	query := `
-		UPDATE lidar_scenes
+		UPDATE lidar_replay_cases
 		SET optimal_params_json = ?,
 		    updated_at_ns = ?
-		WHERE scene_id = ?
+		WHERE replay_case_id = ?
 	`
 
 	updatedAtNs := time.Now().UnixNano()
@@ -326,7 +326,7 @@ func (s *SceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage
 		return fmt.Errorf("check update result: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("scene not found: %s", sceneID)
+		return fmt.Errorf("replay case not found: %s", sceneID)
 	}
 
 	return nil

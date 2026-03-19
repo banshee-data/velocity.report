@@ -28,14 +28,14 @@ func setupSweepStoreWithRecord(t *testing.T) (*sql.DB, *sqlite.SweepStore, strin
 		"recommendation_explanation_json TEXT",
 		"label_provenance_summary_json TEXT",
 	} {
-		_, err := db.Exec("ALTER TABLE lidar_sweeps ADD COLUMN " + col)
+		_, err := db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN " + col)
 		if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 			t.Fatalf("ALTER TABLE ADD COLUMN %s: %v", col, err)
 		}
 	}
 
 	sweepID := "test-sweep-001"
-	_, err := db.Exec(`INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+	_, err := db.Exec(`INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
 		VALUES (?, 'sensor1', 'sweep', 'completed', '{}', ?)`,
 		sweepID, time.Now().Format(time.RFC3339))
 	if err != nil {

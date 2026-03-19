@@ -3,22 +3,22 @@
 	 * LiDAR Runs Page
 	 *
 	 * Table layout with a detail panel that slides out to the right,
-	 * matching the scenes page layout pattern.
+	 * matching the replay cases page layout pattern.
 	 */
 	import {
 		deleteRun,
 		deleteRunTrack,
 		getLabellingProgress,
+		getLidarReplayCases,
 		getLidarRuns,
-		getLidarScenes,
 		getRunTracks
 	} from '$lib/api';
-	import type { AnalysisRun, LabellingProgress, LidarScene, RunTrack } from '$lib/types/lidar';
+	import type { AnalysisRun, LabellingProgress, LidarReplayCase, RunTrack } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
 	let runs: AnalysisRun[] = [];
-	let scenes: LidarScene[] = [];
+	let scenes: LidarReplayCase[] = [];
 	let loading = true;
 	let error: string | null = null;
 
@@ -32,7 +32,7 @@
 		loading = true;
 		error = null;
 		try {
-			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarScenes()]);
+			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarReplayCases()]);
 			runs = runsResult;
 			scenes = scenesResult;
 		} catch (e) {
@@ -94,7 +94,7 @@
 		}
 	}
 
-	function findSceneForRun(run: AnalysisRun): LidarScene | null {
+	function findSceneForRun(run: AnalysisRun): LidarReplayCase | null {
 		const byRef = scenes.find((s) => s.reference_run_id === run.run_id);
 		if (byRef) return byRef;
 		if (run.source_path) {
@@ -163,9 +163,9 @@
 	}
 
 	/** Build href for the tracks page, passing scene and run IDs as query params. */
-	function tracksHref(run: AnalysisRun, scene: LidarScene | null): string {
+	function tracksHref(run: AnalysisRun, scene: LidarReplayCase | null): string {
 		const parts: string[] = [];
-		if (scene) parts.push(`scene_id=${encodeURIComponent(scene.scene_id)}`);
+		if (scene) parts.push(`replay_case_id=${encodeURIComponent(scene.replay_case_id)}`);
 		parts.push(`run_id=${encodeURIComponent(run.run_id)}`);
 		return `/app/lidar/tracks?${parts.join('&')}`;
 	}
@@ -180,7 +180,7 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">LiDAR Runs</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Analysis runs with parameters, scenes, and track summaries
+					Analysis runs with parameters, replay cases, and track summaries
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -207,7 +207,7 @@
 				<div class="text-surface-content/50 py-12 text-center">
 					<p>No analysis runs found.</p>
 					<p class="mt-1 text-sm">
-						Runs are created when a scene is replayed or live analysis is started.
+						Runs are created when a replay case is replayed or live analysis is started.
 					</p>
 				</div>
 			{:else}
@@ -225,7 +225,7 @@
 									>Tracks</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Scene</th
+									>Replay Case</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
@@ -282,7 +282,7 @@
 										role="button"
 										tabindex="0"
 									>
-										{scene ? scene.description || scene.scene_id.substring(0, 8) : '-'}
+										{scene ? scene.description || scene.replay_case_id.substring(0, 8) : '-'}
 									</td>
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"
@@ -395,9 +395,9 @@
 						</div>
 					{/if}
 
-					<!-- Scene info -->
+					<!-- Replay case info -->
 					<div>
-						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Scene</div>
+						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Replay Case</div>
 						{#if scene}
 							<dl class="text-sm">
 								<div class="flex justify-between py-1">
@@ -432,7 +432,7 @@
 								{/if}
 							</dl>
 						{:else}
-							<p class="text-surface-content/50 text-sm">No associated scene found</p>
+							<p class="text-surface-content/50 text-sm">No associated replay case found</p>
 						{/if}
 					</div>
 

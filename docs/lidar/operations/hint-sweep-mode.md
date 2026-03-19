@@ -124,8 +124,8 @@ the sweep if intermediate results look promising.
 
 ```go
 type HINTSweepRequest struct {
-    // Scene to use (provides PCAP, sensor_id)
-    SceneID string `json:"scene_id"`
+    // Replay case to use (provides PCAP, sensor_id)
+    ReplayCaseID string `json:"replay_case_id"`
 
     // Number of label-then-sweep cycles
     NumRounds int `json:"num_rounds"`
@@ -225,12 +225,12 @@ No schema changes required. The existing table already stores:
 The `status` column gains new values: `"awaiting_labels"`,
 `"running_reference"`, `"running_sweep"`.
 
-### Scene `reference_run_id`
+### Replay case `reference_run_id`
 
-Each round updates the scene's `reference_run_id` to point to the latest labelled
-run. This is already supported by `SceneStore.SetReferenceRun()`. On completion
-the scene's `optimal_params_json` is updated with the best parameters (already
-supported by `SceneStore.SetOptimalParams()`).
+Each round updates the replay case's `reference_run_id` to point to the latest labelled
+run. This is already supported by `ReplayCaseStore.SetReferenceRun()`. On completion
+the replay case's `optimal_params_json` is updated with the best parameters (already
+supported by `ReplayCaseStore.SetOptimalParams()`).
 
 ## Prerequisite: macOS Visualiser Label UX Changes
 
@@ -299,21 +299,21 @@ requirement.
    - Embeds/wraps `AutoTuner` for the sweep-round part.
    - Holds `analysisRunManager` for creating reference runs.
    - Holds `analysisRunStore` for querying label progress.
-   - Holds `sceneStore` for updating reference run IDs.
+   - Holds `replayCaseStore` for updating reference run IDs.
    - Holds `groundTruthScorer` (reuse same injection pattern).
 3. Implement the core loop in `run(ctx, req)`:
 
 ```
 func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest):
-    scene := sceneStore.GetScene(req.SceneID)
-    currentParams := loadCurrentParams()  // or use scene.optimal_params_json
+    replayCase := replayCaseStore.GetReplayCase(req.ReplayCaseID)
+    currentParams := loadCurrentParams()  // or use replayCase.optimal_params_json
     bounds := req.Params  // initial param bounds
 
     for round := 1..req.NumRounds:
         // --- Reference Run ---
         rt.setState("running_reference", round)
         runID := createReferenceRun(scene, currentParams)
-        sceneStore.SetReferenceRun(req.SceneID, runID)
+        replayCaseStore.SetReferenceRun(req.ReplayCaseID, runID)
         rt.setReferenceRunID(runID)
 
         // --- Carry Over Labels (round 2+) ---
@@ -336,7 +336,7 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest):
         rt.setSweepDeadline(now + sweepDuration)
 
         autoReq := buildAutoTuneRequest(bounds, req, scene)
-        autoReq.SceneID = req.SceneID  // ground truth uses this scene's reference_run_id
+        autoReq.ReplayCaseID = req.ReplayCaseID  // ground truth uses this replay case's reference_run_id
         autoReq.MaxRounds = 1  // single round per HINT cycle
         autoReq.Objective = "ground_truth"
 
@@ -354,7 +354,7 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest):
 
     // --- Complete ---
     applyBestParams(currentParams)
-    sceneStore.SetOptimalParams(req.SceneID, currentParams)
+    replayCaseStore.SetOptimalParams(req.ReplayCaseID, currentParams)
     rt.setState("completed")
 ```
 
@@ -447,7 +447,7 @@ labelling UI.
 **Wiring** in `webserver.go`:
 
 - Add `hintTuner *HINTTuner` field to `WebServer`.
-- Wire dependencies (analysisRunManager, analysisRunStore, sceneStore,
+- Wire dependencies (analysisRunManager, analysisRunStore, replayCaseStore,
   groundTruthScorer) in `cmd/radar/radar.go`.
 - Register routes with `mux.HandleFunc`.
 
@@ -534,7 +534,7 @@ Key elements:
   from the previous round.
 - **Countdown timer** to the deadline
 - **Link to Tracks page** — direct link to
-  `/app/lidar/tracks?scene_id=X&run_id=Y` to label
+  `/app/lidar/tracks?replay_case_id=X&run_id=Y` to label
 - **Editable next sweep duration** — number input pre-filled from
   `next_sweep_duration_mins` in the state response. Sent in the continue
   request body.

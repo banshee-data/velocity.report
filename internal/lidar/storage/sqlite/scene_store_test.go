@@ -9,7 +9,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// setupTestSceneDB creates a test database with the lidar_scenes table.
+// setupTestSceneDB creates a test database with the lidar_replay_cases table.
 func setupTestSceneDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -17,21 +17,21 @@ func setupTestSceneDB(t *testing.T) *sql.DB {
 		t.Fatalf("failed to open test db: %v", err)
 	}
 
-	// Create lidar_analysis_runs table (referenced by FK)
+	// Create lidar_run_records table (referenced by FK)
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_analysis_runs table: %v", err)
+		t.Fatalf("failed to create lidar_run_records table: %v", err)
 	}
 
-	// Create lidar_scenes table
+	// Create lidar_replay_cases table
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_scenes (
-			scene_id TEXT PRIMARY KEY,
+		CREATE TABLE IF NOT EXISTS lidar_replay_cases (
+			replay_case_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
 			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
@@ -41,11 +41,11 @@ func setupTestSceneDB(t *testing.T) *sql.DB {
 			optimal_params_json TEXT,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
-			FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE SET NULL
+			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id) ON DELETE SET NULL
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_scenes table: %v", err)
+		t.Fatalf("failed to create lidar_replay_cases table: %v", err)
 	}
 
 	return db
@@ -55,12 +55,12 @@ func TestSceneStore_InsertAndGet(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
 
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Create a scene
 	startSecs := 10.5
 	durationSecs := 30.0
-	scene := &Scene{
+	scene := &ReplayCase{
 		SensorID:         "sensor-001",
 		PCAPFile:         "test.pcap",
 		PCAPStartSecs:    &startSecs,
@@ -74,8 +74,8 @@ func TestSceneStore_InsertAndGet(t *testing.T) {
 	}
 
 	// Scene ID should be auto-generated
-	if scene.SceneID == "" {
-		t.Error("expected scene_id to be generated")
+	if scene.ReplayCaseID == "" {
+		t.Error("expected replay_case_id to be generated")
 	}
 
 	// Verify created_at_ns was set
@@ -84,7 +84,7 @@ func TestSceneStore_InsertAndGet(t *testing.T) {
 	}
 
 	// Retrieve the scene
-	retrieved, err := store.GetScene(scene.SceneID)
+	retrieved, err := store.GetScene(scene.ReplayCaseID)
 	if err != nil {
 		t.Fatalf("GetScene failed: %v", err)
 	}
@@ -111,10 +111,10 @@ func TestSceneStore_ListScenes(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
 
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert multiple scenes
-	scenes := []*Scene{
+	scenes := []*ReplayCase{
 		{SensorID: "sensor-001", PCAPFile: "scene1.pcap", Description: "Scene 1"},
 		{SensorID: "sensor-001", PCAPFile: "scene2.pcap", Description: "Scene 2"},
 		{SensorID: "sensor-002", PCAPFile: "scene3.pcap", Description: "Scene 3"},
@@ -156,10 +156,10 @@ func TestSceneStore_UpdateScene(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
 
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert a scene
-	scene := &Scene{
+	scene := &ReplayCase{
 		SensorID:    "sensor-001",
 		PCAPFile:    "test.pcap",
 		Description: "Original description",
@@ -184,7 +184,7 @@ func TestSceneStore_UpdateScene(t *testing.T) {
 	}
 
 	// Retrieve and verify
-	retrieved, err := store.GetScene(scene.SceneID)
+	retrieved, err := store.GetScene(scene.ReplayCaseID)
 	if err != nil {
 		t.Fatalf("GetScene failed: %v", err)
 	}
@@ -207,10 +207,10 @@ func TestSceneStore_DeleteScene(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
 
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert a scene
-	scene := &Scene{
+	scene := &ReplayCase{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -219,12 +219,12 @@ func TestSceneStore_DeleteScene(t *testing.T) {
 	}
 
 	// Delete the scene
-	if err := store.DeleteScene(scene.SceneID); err != nil {
+	if err := store.DeleteScene(scene.ReplayCaseID); err != nil {
 		t.Fatalf("DeleteScene failed: %v", err)
 	}
 
 	// Verify it's gone
-	_, err := store.GetScene(scene.SceneID)
+	_, err := store.GetScene(scene.ReplayCaseID)
 	if err == nil {
 		t.Error("expected error when getting deleted scene")
 	}
@@ -240,16 +240,16 @@ func TestSceneStore_SetReferenceRun(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
 
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert a run
-	_, err := db.Exec(`INSERT INTO lidar_analysis_runs (run_id) VALUES (?)`, "run-123")
+	_, err := db.Exec(`INSERT INTO lidar_run_records (run_id) VALUES (?)`, "run-123")
 	if err != nil {
 		t.Fatalf("failed to insert test run: %v", err)
 	}
 
 	// Insert a scene
-	scene := &Scene{
+	scene := &ReplayCase{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -258,12 +258,12 @@ func TestSceneStore_SetReferenceRun(t *testing.T) {
 	}
 
 	// Set reference run
-	if err := store.SetReferenceRun(scene.SceneID, "run-123"); err != nil {
+	if err := store.SetReferenceRun(scene.ReplayCaseID, "run-123"); err != nil {
 		t.Fatalf("SetReferenceRun failed: %v", err)
 	}
 
 	// Verify
-	retrieved, err := store.GetScene(scene.SceneID)
+	retrieved, err := store.GetScene(scene.ReplayCaseID)
 	if err != nil {
 		t.Fatalf("GetScene failed: %v", err)
 	}
@@ -275,11 +275,11 @@ func TestSceneStore_SetReferenceRun(t *testing.T) {
 	}
 
 	// Set to empty string (clear)
-	if err := store.SetReferenceRun(scene.SceneID, ""); err != nil {
+	if err := store.SetReferenceRun(scene.ReplayCaseID, ""); err != nil {
 		t.Fatalf("SetReferenceRun(empty) failed: %v", err)
 	}
 
-	retrieved, err = store.GetScene(scene.SceneID)
+	retrieved, err = store.GetScene(scene.ReplayCaseID)
 	if err != nil {
 		t.Fatalf("GetScene failed: %v", err)
 	}
@@ -292,10 +292,10 @@ func TestSceneStore_SetOptimalParams(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
 
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert a scene
-	scene := &Scene{
+	scene := &ReplayCase{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -305,12 +305,12 @@ func TestSceneStore_SetOptimalParams(t *testing.T) {
 
 	// Set optimal params
 	paramsJSON := json.RawMessage(`{"eps": 1.5, "min_pts": 3}`)
-	if err := store.SetOptimalParams(scene.SceneID, paramsJSON); err != nil {
+	if err := store.SetOptimalParams(scene.ReplayCaseID, paramsJSON); err != nil {
 		t.Fatalf("SetOptimalParams failed: %v", err)
 	}
 
 	// Verify
-	retrieved, err := store.GetScene(scene.SceneID)
+	retrieved, err := store.GetScene(scene.ReplayCaseID)
 	if err != nil {
 		t.Fatalf("GetScene failed: %v", err)
 	}
@@ -326,10 +326,10 @@ func TestSceneStore_NullableFields(t *testing.T) {
 	db := setupTestSceneDB(t)
 	defer db.Close()
 
-	store := NewSceneStore(db)
+	store := NewReplayCaseStore(db)
 
 	// Insert scene with minimal fields (no optional fields)
-	scene := &Scene{
+	scene := &ReplayCase{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -338,7 +338,7 @@ func TestSceneStore_NullableFields(t *testing.T) {
 	}
 
 	// Retrieve and verify nullable fields are nil
-	retrieved, err := store.GetScene(scene.SceneID)
+	retrieved, err := store.GetScene(scene.ReplayCaseID)
 	if err != nil {
 		t.Fatalf("GetScene failed: %v", err)
 	}
