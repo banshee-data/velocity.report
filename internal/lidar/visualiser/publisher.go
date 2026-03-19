@@ -167,11 +167,42 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogSendOneFrame = false
 	p.vrlogActive = true
 
+	// Scan for the first background frame and publish it immediately so the
+	// client sees the background grid without waiting for the replay loop to
+	// reach it (background frames are recorded at 30 s intervals, so the
+	// first one may be many seconds into the VRLOG).
+	p.emitFirstBackground(reader)
+
 	p.vrlogWg.Add(1)
 	go p.vrlogReplayLoop()
 
 	diagf("[Visualiser] Started VRLOG replay: %d total frames", reader.TotalFrames())
 	return nil
+}
+
+// emitFirstBackground scans the VRLOG for the first background frame and
+// publishes it immediately so the client sees the background grid at the
+// start of replay.  The reader is reset to frame 0 afterwards.
+func (p *Publisher) emitFirstBackground(reader FrameReader) {
+	total := reader.TotalFrames()
+	for i := uint64(0); i < total; i++ {
+		frame, err := reader.ReadFrame()
+		if err != nil {
+			break
+		}
+		if frame.FrameType == FrameTypeBackground {
+			if frame.PlaybackInfo == nil {
+				frame.PlaybackInfo = &PlaybackInfo{}
+			}
+			frame.PlaybackInfo.IsLive = false
+			frame.PlaybackInfo.Seekable = true
+			p.Publish(frame)
+			diagf("[Visualiser] Emitted first background frame at index %d", i)
+			break
+		}
+	}
+	// Reset to the start so the main replay loop reads from frame 0.
+	_ = reader.Seek(0)
 }
 
 // StopVRLogReplay stops the current VRLOG replay.
