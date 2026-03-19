@@ -1,8 +1,8 @@
-# Go Structured Logging Plan (v0.6+)
+# Go Logging Streams Unification Plan (v0.6+)
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
-- **Target:** v0.6.0 — unified logging model across the Go codebase
+- **Target:** v0.6.0 — unified logging streams and configuration across the Go codebase
 - **Prerequisite plans:**
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (v0.5.x)
 - **Existing design:**
@@ -188,7 +188,7 @@ parallel.
 ## Verification
 
 1. `make lint-go && make test-go` — no regressions
-2. `grep -rn 'log\.Printf\|fmt\.Printf\|monitoring\.Logf' internal/ cmd/` returns zero
+2. `grep -RInE 'log\.Printf|fmt\.Printf|monitoring\.Logf' internal/ cmd/` returns zero
    matches (excluding generated code and test files that legitimately use `log` for test
    output)
 3. `--log-level ops` produces only ops-stream output

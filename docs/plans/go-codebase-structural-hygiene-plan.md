@@ -229,7 +229,8 @@ straightforward.
 **Dependencies:** Ideally after Item 1 (context propagation), since method signatures will
 change. Can proceed in parallel if coordinated.
 
-**Risk:** File moves change import paths. No functional changes; tests should pass
+**Risk:** Large mechanical file moves can cause merge conflicts, code churn, or missed
+symbol moves; imports and public interfaces should remain stable and tests should pass
 unchanged.
 
 ---

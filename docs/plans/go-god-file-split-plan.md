@@ -13,7 +13,7 @@ hard to navigate, prone to merge conflicts, and resistant to targeted review. Ea
 adds 2–3 methods; by v0.7.0 these files will be 2,000+ lines apiece and splitting will
 touch every import site.
 
-Beyond the original three, a scan of the full Go codebase reveals nine further files
+Beyond the original three, a scan of the full Go codebase reveals thirteen further files
 exceeding 700 LOC that would benefit from domain-driven splitting.
 
 ## Current State
