@@ -292,7 +292,7 @@
 
             <div class="form-row">
               <div class="form-group" style="flex: 2;">
-                <label>Scene:</label>
+                <label>Replay Case:</label>
                 <select id="scene-select-{{.SensorID}}" style="margin-bottom: 8px;">
                   <option value="">(manual entry)</option>
                 </select>
@@ -415,7 +415,7 @@
                     scenesData = data.scenes || [];
                     scenesData.forEach(function (s) {
                       var opt = document.createElement('option');
-                      opt.value = s.scene_id;
+                      opt.value = s.replay_case_id;
                       var label = s.pcap_file;
                       if (s.description) label = s.description + ' (' + s.pcap_file + ')';
                       opt.textContent = label;
@@ -427,7 +427,7 @@
                 sceneSelect.addEventListener('change', function () {
                   var sceneId = sceneSelect.value;
                   if (!sceneId) return;
-                  var scene = scenesData.find(function (s) { return s.scene_id === sceneId; });
+                  var scene = scenesData.find(function (s) { return s.replay_case_id === sceneId; });
                   if (!scene) return;
                   pcapFile.value = scene.pcap_file;
                   if (startSecs && scene.pcap_start_secs != null) {

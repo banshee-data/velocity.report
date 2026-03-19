@@ -373,7 +373,7 @@ function loadSweepScenes() {
     })
     .then(function (data) {
       sweepScenesData = data.scenes || [];
-      select.innerHTML = '<option value="">(select a scene)</option>';
+      select.innerHTML = '<option value="">(select a replay case)</option>';
       sweepScenesData.forEach(function (s) {
         var opt = document.createElement("option");
         opt.value = s.replay_case_id;
@@ -384,7 +384,7 @@ function loadSweepScenes() {
       });
     })
     .catch(function () {
-      select.innerHTML = '<option value="">(failed to load scenes)</option>';
+      select.innerHTML = '<option value="">(failed to load replay cases)</option>';
     });
 }
 
