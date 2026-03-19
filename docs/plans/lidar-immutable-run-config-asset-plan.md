@@ -105,6 +105,32 @@ CREATE TABLE lidar_run_configs (
     created_at INTEGER NOT NULL,
     UNIQUE (param_set_id, engine_name, engine_version, git_sha)
 );
+
+CREATE TABLE lidar_run_records (
+    run_id TEXT PRIMARY KEY,
+    run_config_id TEXT NOT NULL REFERENCES lidar_run_configs(run_config_id),
+    requested_param_set_id TEXT REFERENCES lidar_param_sets(param_set_id),
+    sensor_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_path TEXT,
+    replay_case_id TEXT REFERENCES lidar_replay_cases(replay_case_id),
+    parent_run_id TEXT REFERENCES lidar_run_records(run_id),
+    created_at INTEGER NOT NULL,
+    completed_at INTEGER,
+    status TEXT NOT NULL,
+    error_message TEXT,
+    frame_start_ns INTEGER,
+    frame_end_ns INTEGER,
+    duration_secs REAL,
+    total_frames INTEGER,
+    total_clusters INTEGER,
+    total_tracks INTEGER,
+    confirmed_tracks INTEGER,
+    processing_time_ms INTEGER,
+    statistics_json TEXT,
+    vrlog_path TEXT,
+    notes TEXT
+);
 ```
 
 `created_at` above is row-bookkeeping only. It is not part of any deterministic
@@ -114,8 +140,10 @@ Deliberate simplification:
 
 - do not introduce a standalone `lidar_engine_builds` table
 - keep engine identity embedded in `lidar_run_configs`
+- do not split `lidar_run_records` into extra source/stats/header tables
 - this stays aligned with the simplified 030/031-style table families and avoids
-  a new table family that has no useful life outside exact run-config identity
+  new table families that have no useful life outside exact config or execution
+  identity
 
 ### Semantics
 
@@ -145,16 +173,36 @@ Deliberate simplification:
   `engine_name`, `engine_version`, `git_sha`
 - one exact `config_hash`
 
-`lidar_run_records` remains the execution envelope and owns non-deterministic
-facts:
+`lidar_run_records` remains the single mutable execution envelope:
 
-- `run_id`
-- `created_at`
-- `source_type`
-- `source_path`
-- replay window / scene linkage
-- `parent_run_id`
-- status, duration, totals, VRLOG path
+- one `run_config_id` for the exact executed config
+- optional `requested_param_set_id` for launch intent when a run was started
+  from an explicit override or replay-case recommendation
+- source and lineage fields:
+  `sensor_id`, `source_type`, `source_path`, `replay_case_id`, `parent_run_id`
+- lifecycle fields:
+  `created_at`, `completed_at`, `status`, `error_message`
+- hot summary fields used by run lists and detail headers:
+  `frame_start_ns`, `frame_end_ns`, `duration_secs`, `total_frames`,
+  `total_clusters`, `total_tracks`, `confirmed_tracks`,
+  `processing_time_ms`, `vrlog_path`
+- optional `statistics_json` for nested, cold, non-identity metrics only
+
+### Run-record design opinion
+
+`lidar_run_records` should stay as one row per execution and be "fat enough" to
+answer the common run-list and run-detail queries without inventing more light
+tables.
+
+- do not create separate `lidar_run_stats`, `lidar_run_sources`, or execution
+  header tables
+- if a field is used for filtering, sorting, joins, or list rendering, keep it
+  as a typed column on `lidar_run_records`
+- use `statistics_json` only for sparse or nested detail that is not hot in SQL
+- do not duplicate config identity, engine identity, or top-level run counters
+  inside `statistics_json`
+- if a metric becomes query-critical, promote it to a typed column and stop
+  mirroring it in JSON
 
 ### Hash rules
 
@@ -170,20 +218,64 @@ facts:
 
 ### Canonical JSON shapes
 
-Parameter set:
+Requested parameter set stored in `lidar_param_sets.params_json`:
+
+```json
+{
+  "schema_version": "requested/v1",
+  "param_set_type": "requested",
+  "params": {
+    "background": {
+      "background_update_fraction": 0.02,
+      "safety_margin_meters": 0.35
+    },
+    "clustering": {
+      "eps": 0.7,
+      "min_pts": 5
+    },
+    "tracking": {
+      "max_tracks": 128,
+      "max_misses": 4,
+      "hits_to_confirm": 3
+    }
+  }
+}
+```
+
+Effective parameter set stored in `lidar_param_sets.params_json`:
 
 ```json
 {
   "schema_version": "effective/v1",
   "param_set_type": "effective",
   "params": {
-    "...": "full resolved runtime config"
+    "background": {
+      "background_update_fraction": 0.02,
+      "closeness_sensitivity_multiplier": 1.25,
+      "safety_margin_meters": 0.35,
+      "neighbor_confirmation_count": 3,
+      "noise_relative_fraction": 0.12
+    },
+    "clustering": {
+      "eps": 0.7,
+      "min_pts": 5,
+      "cell_size": 0.7
+    },
+    "tracking": {
+      "max_tracks": 128,
+      "max_misses": 4,
+      "hits_to_confirm": 3,
+      "gating_distance_squared": 9.0
+    },
+    "classification": {
+      "model_type": "rule_based"
+    }
   }
 }
 ```
 
-Exact run config is composed from the parameter set plus embedded engine
-identity on read/export:
+Exact run config is composed on read/export from the effective parameter set
+plus embedded engine identity:
 
 ```json
 {
@@ -191,12 +283,91 @@ identity on read/export:
   "param_set_type": "effective",
   "engine": {
     "engine_name": "velocity.report",
-    "engine_version": "0.5.0-preX",
-    "git_sha": "abc123"
+    "engine_version": "0.5.0-pre6",
+    "git_sha": "7b5242213"
   },
   "params": {
-    "...": "full resolved runtime config"
+    "background": {
+      "background_update_fraction": 0.02,
+      "closeness_sensitivity_multiplier": 1.25,
+      "safety_margin_meters": 0.35,
+      "neighbor_confirmation_count": 3,
+      "noise_relative_fraction": 0.12
+    },
+    "clustering": {
+      "eps": 0.7,
+      "min_pts": 5,
+      "cell_size": 0.7
+    },
+    "tracking": {
+      "max_tracks": 128,
+      "max_misses": 4,
+      "hits_to_confirm": 3,
+      "gating_distance_squared": 9.0
+    },
+    "classification": {
+      "model_type": "rule_based"
+    }
   }
+}
+```
+
+Run-config row stored in `lidar_run_configs`:
+
+```json
+{
+  "run_config_id": "rc_01HV7M3W6R6M2J2A8M4T7B2E1C",
+  "config_hash": "sha256:8b7442f7e3b1c1b4c2d7e4aa2a10d5db2ef7d34e89d9d1f6a84c6f4e21a8f95a",
+  "param_set_id": "ps_01HV7M2W3JY8Q6R4B1D5N9T2K7",
+  "engine_name": "velocity.report",
+  "engine_version": "0.5.0-pre6",
+  "git_sha": "7b5242213",
+  "created_at": 1773952005123456789
+}
+```
+
+Run-record row stored in `lidar_run_records`:
+
+```json
+{
+  "run_id": "run_01HV7M4102M8QBX6NQ7P91QK0F",
+  "run_config_id": "rc_01HV7M3W6R6M2J2A8M4T7B2E1C",
+  "requested_param_set_id": "ps_01HV7M1M9H6R5C2X4D8T3N7P0A",
+  "sensor_id": "kirkland_northbound",
+  "source_type": "pcap_replay",
+  "source_path": "/data/pcap/kirkland/kirk1.pcap",
+  "replay_case_id": "case_kirk1_evening_rain",
+  "parent_run_id": "run_01HV7JYME6J8QW8Q1K2Q2R3H5N",
+  "created_at": 1773952006000000000,
+  "completed_at": 1773952047032000000,
+  "status": "completed",
+  "error_message": null,
+  "frame_start_ns": 1707436800000000000,
+  "frame_end_ns": 1707436842034000000,
+  "duration_secs": 42.034,
+  "total_frames": 420,
+  "total_clusters": 5821,
+  "total_tracks": 118,
+  "confirmed_tracks": 97,
+  "processing_time_ms": 41032,
+  "statistics_json": {
+    "schema_version": "run_statistics/v1",
+    "source_window": {
+      "pcap_start_secs": 120.0,
+      "pcap_duration_secs": 45.0
+    },
+    "label_rollup": {
+      "classified": 63,
+      "tagged_only": 14,
+      "unlabelled": 41
+    },
+    "quality": {
+      "split_candidate_count": 4,
+      "merge_candidate_count": 2
+    }
+  },
+  "vrlog_path": "/var/vrlog/run_01HV7M4102M8QBX6NQ7P91QK0F.vrlog",
+  "notes": null
 }
 ```
 
@@ -210,7 +381,9 @@ identity on read/export:
 ### Execution records
 
 - `lidar_run_records.run_config_id`
+- `lidar_run_records.requested_param_set_id` when launch intent is known
 - all per-run UUID, timestamp, source, parent, status, and duration fields
+- hot summary counters and `statistics_json`
 
 ### Recommendation refs
 
@@ -246,11 +419,16 @@ Add migration `000032` on `main` that:
 1. Creates `lidar_param_sets`
 2. Creates `lidar_run_configs`
 3. Adds nullable `run_config_id` to `lidar_run_records`
-4. Adds nullable `recommended_param_set_id` to `lidar_replay_cases`
-5. Adds indexes:
+4. Adds nullable `requested_param_set_id` to `lidar_run_records`
+5. Adds nullable `replay_case_id`, `completed_at`, `frame_start_ns`, and
+   `frame_end_ns` to `lidar_run_records` if they do not already exist
+6. Adds nullable `recommended_param_set_id` to `lidar_replay_cases`
+7. Adds indexes:
    - `idx_lidar_param_sets_params_hash`
    - `idx_lidar_run_configs_config_hash`
    - `idx_lidar_run_records_run_config`
+   - `idx_lidar_run_records_requested_param_set`
+   - `idx_lidar_run_records_replay_case`
    - `idx_lidar_replay_cases_recommended_param_set`
 
 Keep the legacy JSON columns during P0/P1:
@@ -271,6 +449,8 @@ Add one config-asset package, likely `internal/lidar/configasset/`, that:
 - computes `params_hash` and `config_hash`
 - validates the absence of forbidden fields
 - inserts or reuses deduplicated parameter-set and run-config rows
+- writes optional run-intent lineage (`requested_param_set_id`) without
+  confusing it for exact executed provenance
 
 Suggested API:
 
@@ -346,6 +526,9 @@ single-sourced:
 - exactly one `run_config_id` attached to that run
 - the run row must be created only after the effective param set and current
   engine identity have been resolved into a run config
+- if explicit launch intent exists, the row may also carry
+  `requested_param_set_id`, but exact reproducibility still hangs off
+  `run_config_id`
 
 Implementation guidance:
 
@@ -375,9 +558,13 @@ Storage rules:
   `param_set_type = 'requested'`
 - effective params must be stored in `lidar_param_sets` as
   `param_set_type = 'effective'`
+- launch intent may be attached to `lidar_run_records.requested_param_set_id`
+  when known
 - exact executed configs live in `lidar_run_configs` with embedded engine
   identity
 - execution metadata must not be hashed into `params_hash` or `config_hash`
+- `statistics_json` must not duplicate exact config, engine identity, or the
+  top-level typed counters already present on `lidar_run_records`
 
 ### P0.7 Backfill historical rows
 
@@ -391,9 +578,11 @@ Add a backfill step in the migration or a one-shot repair command that:
 6. Uses explicit `unknown` engine values where historical build identity cannot
    be recovered
 7. Sets `lidar_run_records.run_config_id`
-8. Reads existing `lidar_replay_cases.optimal_params_json`
-9. Canonicalises it into `lidar_param_sets` as `requested`
-10. Sets `lidar_replay_cases.recommended_param_set_id`
+8. Leaves `requested_param_set_id` NULL unless original launch intent is known
+   with confidence
+9. Reads existing `lidar_replay_cases.optimal_params_json`
+10. Canonicalises it into `lidar_param_sets` as `requested`
+11. Sets `lidar_replay_cases.recommended_param_set_id`
 
 Important:
 
@@ -407,6 +596,7 @@ Add deterministic config identity to the run and replay-case APIs.
 Runs should expose:
 
 - `run_config_id`
+- `requested_param_set_id`
 - `param_set_id`
 - `engine_name`
 - `engine_version`
@@ -415,6 +605,11 @@ Runs should expose:
 - `params_hash`
 - `schema_version`
 - `param_set_type`
+- `replay_case_id`
+- `completed_at`
+- `frame_start_ns`
+- `frame_end_ns`
+- `statistics_json`
 - optionally expanded exact config composed from param set + engine identity
 
 Replay cases should expose:
@@ -473,6 +668,8 @@ Add or update tests for:
 - timestamps/UUIDs never changing `params_hash` or `config_hash`
 - replay/reprocess creating exactly one run row
 - run rows always having the correct `run_config_id`
+- explicit requested launch intent preserved on `requested_param_set_id` when
+  applicable
 - backfill correctness for `effective`, `requested`, and `legacy`
 - replay-case `recommended_param_set_id` behaviour
 - recording metadata preserving the deterministic / non-deterministic split
@@ -481,6 +678,8 @@ Add or update tests for:
 
 - every new run record has a non-empty `run_config_id`
 - the attached run config is the exact deterministic pairing that was executed
+- `requested_param_set_id` is optional lineage only and never replaces
+  `run_config_id`
 - equivalent parameter sets deduplicate independently and equivalent exact run
   configs deduplicate to one row
 - `params_hash` groups only exact-equal param sets within the same
