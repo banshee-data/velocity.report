@@ -743,6 +743,124 @@ func TestTracker_Update_VelocityClamping(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Guard 2: aspect-ratio lock threshold behaviour
+// ---------------------------------------------------------------------------
+
+func TestTracker_Guard2_Threshold015AllowsModeratelyRectangularUpdates(t *testing.T) {
+	t.Parallel()
+
+	runScenario := func(threshold float32) *TrackedObject {
+		cfg := DefaultTrackerConfig()
+		cfg.HitsToConfirm = 1
+		cfg.MinPointsForPCA = 3
+		cfg.OBBAspectRatioLockThreshold = threshold
+		cfg.OBBHeadingSmoothingAlpha = 1.0 // No smoothing for threshold comparison
+		tracker := NewTracker(cfg)
+
+		now := time.Now()
+		tracker.Update([]WorldCluster{{
+			CentroidX:   5.0,
+			CentroidY:   0.0,
+			PointsCount: 50,
+			SensorID:    "s1",
+			OBB: &l4perception.OrientedBoundingBox{
+				HeadingRad: 0.0,
+				Length:     2.0,
+				Width:      1.6, // |L-W|/max = 0.20
+				Height:     1.5,
+			},
+		}}, now)
+
+		tracker.Update([]WorldCluster{{
+			CentroidX:   5.02,
+			CentroidY:   0.0,
+			PointsCount: 50,
+			SensorID:    "s1",
+			OBB: &l4perception.OrientedBoundingBox{
+				HeadingRad: 0.4,
+				Length:     2.0,
+				Width:      1.6,
+				Height:     1.5,
+			},
+		}}, now.Add(100*time.Millisecond))
+
+		tracks := tracker.GetActiveTracks()
+		require.Len(t, tracks, 1)
+		return tracks[0]
+	}
+
+	strictTrack := runScenario(0.25)
+	tunedTrack := runScenario(0.15)
+
+	assert.InDelta(t, 0.0, float64(strictTrack.OBBHeadingRad), 0.05,
+		"0.25 should still lock moderately rectangular observations")
+	assert.Equal(t, HeadingSourceLocked, strictTrack.HeadingSource)
+
+	assert.InDelta(t, 0.4, float64(tunedTrack.OBBHeadingRad), 0.05,
+		"0.15 should allow moderately rectangular observations to update heading")
+	assert.Equal(t, HeadingSourcePCA, tunedTrack.HeadingSource)
+}
+
+func TestTracker_Guard2_Threshold015StillLocksNearSquareClusters(t *testing.T) {
+	t.Parallel()
+
+	runScenario := func(threshold float32) (*TrackedObject, TrackingMetrics) {
+		cfg := DefaultTrackerConfig()
+		cfg.HitsToConfirm = 1
+		cfg.MinPointsForPCA = 3
+		cfg.OBBAspectRatioLockThreshold = threshold
+		cfg.OBBHeadingSmoothingAlpha = 1.0
+		tracker := NewTracker(cfg)
+
+		now := time.Now()
+		tracker.Update([]WorldCluster{{
+			CentroidX:   5.0,
+			CentroidY:   0.0,
+			PointsCount: 50,
+			SensorID:    "s1",
+			OBB: &l4perception.OrientedBoundingBox{
+				HeadingRad: 0.0,
+				Length:     2.4,
+				Width:      1.2,
+				Height:     1.5,
+			},
+		}}, now)
+
+		tracker.Update([]WorldCluster{{
+			CentroidX:   5.02,
+			CentroidY:   0.0,
+			PointsCount: 50,
+			SensorID:    "s1",
+			OBB: &l4perception.OrientedBoundingBox{
+				HeadingRad: 0.4,
+				Length:     2.0,
+				Width:      1.75, // |L-W|/max = 0.125
+				Height:     1.5,
+			},
+		}}, now.Add(100*time.Millisecond))
+
+		tracks := tracker.GetActiveTracks()
+		require.Len(t, tracks, 1)
+		return tracks[0], tracker.GetTrackingMetrics()
+	}
+
+	lockedTrack, lockedMetrics := runScenario(0.15)
+	unlockedTrack, unlockedMetrics := runScenario(0.10)
+
+	assert.InDelta(t, 0.0, float64(lockedTrack.OBBHeadingRad), 0.05,
+		"0.15 should still lock genuinely near-square observations")
+	assert.Equal(t, HeadingSourceLocked, lockedTrack.HeadingSource)
+	assert.Equal(t, 1, lockedMetrics.Guard2Locks)
+	assert.Equal(t, 1, lockedMetrics.HeadingSourceCounts.Locked)
+
+	assert.InDelta(t, 0.4, float64(unlockedTrack.OBBHeadingRad), 0.05,
+		"0.10 would allow the same near-square observation through")
+	assert.Equal(t, HeadingSourcePCA, unlockedTrack.HeadingSource)
+	assert.Equal(t, 0, unlockedMetrics.Guard2Locks)
+	assert.Equal(t, 1, unlockedMetrics.HeadingSourceCounts.PCA)
+}
+
+// ---------------------------------------------------------------------------
 // Guard 3: 90° heading jump rejection
 // ---------------------------------------------------------------------------
 

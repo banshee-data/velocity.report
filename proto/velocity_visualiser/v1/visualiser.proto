@@ -390,6 +390,7 @@ message StreamRequest {
   bool include_debug = 5;        // include debug overlays
   DecimationMode point_decimation = 6;
   float decimation_ratio = 7;    // 0.0-1.0
+  bool include_associated_clusters = 8; // debug-only: include track-associated DBSCAN clusters
 }
 
 message PlaybackStatus {

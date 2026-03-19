@@ -500,8 +500,16 @@ Parameters should be validated and tuned through:
 **Phase 1:** Implement core geometry state + axis selection
 
 - Replaces Guards 2 & 3
-- Can run in parallel with current system for A/B testing
-- Measure dimension stability, heading drift, flip frequency
+- Run behind `TrackerInterface` for A/B testing; keep geometry parameters in an
+  internal config struct and do not add a public runtime engine selector before
+  `v0.5.0`
+- Baseline the current tracker first using `HeadingSourceCounts`,
+  `Guard2Locks`, `Guard3Rejections`, and aspect-ratio-lock hit counts
+- Promote only if the fixed replay pack shows equal-or-lower heading jitter on
+  target near-square / slow-motion scenarios, no more than 5% regression in
+  fragmentation, empty-box ratio, or unbounded-point ratio, no material speed
+  correlation regression, and equal-or-better labelled composite score when
+  reference labels exist
 
 **Phase 2:** Add shape classification
 
@@ -627,4 +635,6 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 ---
 
 **Proposal Status:** Awaiting review and experimental validation.
-**Next Steps:** Implement Phase 1 (core geometry state + axis selection) for A/B testing against current system.
+**Next Steps:** Implement Phase 1 (core geometry state + axis selection) behind
+`TrackerInterface` for A/B testing against the current system, and do not
+switch the default tracker until the replay gate above passes.

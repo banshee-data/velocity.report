@@ -1,6 +1,6 @@
 # OBB Heading Stability Review
 
-- **Status:** Implemented — Guard 3 (90° jump rejection) replaces canonical-axis normalisation. Fixes B, C, G applied. Fix D config-only. Fixes E/F skipped — superseded by geometry-coherent tracking (D-04).
+- **Status:** Implemented for the current guard stack — Guard 3 (90° jump rejection) replaces canonical-axis normalisation. Fixes B, C, D, G are applied. Fix E is functionally complete for live renderers; the remaining mismatch is the DB-backed `/api/lidar/tracks` fallback when instantaneous OBB dimensions are absent. Fix F is available as a debug-only gRPC/macOS path for rendering all DBSCAN cluster OBBs. Geometry-coherent tracking (D-04) remains the planned replacement for the guard stack.
 - **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
 - **Related:**
 
@@ -149,17 +149,17 @@ renders all cluster boxes (ignoring association) would be valuable.
 
 ## 3. Problematic Code Paths (Summary)
 
-| Location                      | Issue                                                                | Status                                            |
-| ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
-| `l4perception/obb.go:103`     | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity     | Mitigated by velocity/displacement disambiguation |
-| `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis — swaps when axis flips | Handled by 90° jump rejection (Guard 3)           |
-| `l5tracks/tracking.go`        | Velocity disambiguation only when speed > 0.5 m/s                    | Displacement fallback added (Fix C)               |
-| `l5tracks/tracking.go`        | Aspect-ratio lock threshold 0.25 may be too loose                    | Open (Fix D)                                      |
-| `l5tracks/tracking.go`        | 90° heading jumps from PCA axis swaps                                | **Fixed:** Guard 3 rejects 60°–120° jumps         |
-| `l5tracks/tracking.go`        | No heading-source diagnostic data                                    | **Fixed:** HeadingSource enum added (Fix G)       |
-| `l5tracks/tracking.go`        | Dimension averaging not axis-locked                                  | **Fixed:** per-frame cluster dims used (Fix B)    |
-| `MetalRenderer.swift`         | Track boxes use averaged dims with smoothed heading                  | Comment updated; Fix E pending                    |
-| `adapter.go`                  | Associated clusters not rendered (hinders debugging)                 | Open (Fix F)                                      |
+| Location                      | Issue                                                                | Status                                                |
+| ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------- |
+| `l4perception/obb.go:103`     | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity     | Mitigated by velocity/displacement disambiguation     |
+| `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis — swaps when axis flips | Handled by 90° jump rejection (Guard 3)               |
+| `l5tracks/tracking.go`        | Velocity disambiguation only when speed > 0.5 m/s                    | Displacement fallback added (Fix C)                   |
+| `l5tracks/tracking.go`        | Aspect-ratio lock threshold was too loose at 0.25                    | **Fixed:** default tightened to 0.15 (Fix D)          |
+| `l5tracks/tracking.go`        | 90° heading jumps from PCA axis swaps                                | **Fixed:** Guard 3 rejects 60°–120° jumps             |
+| `l5tracks/tracking.go`        | No heading-source diagnostic data                                    | **Fixed:** HeadingSource enum added (Fix G)           |
+| `l5tracks/tracking.go`        | Dimension averaging not axis-locked                                  | **Fixed:** per-frame cluster dims used (Fix B)        |
+| `MetalRenderer.swift`         | Track boxes use averaged dims with smoothed heading                  | Live renderers fixed; DB-backed REST fallback remains |
+| `adapter.go`                  | Associated clusters not rendered (hinders debugging)                 | **Fixed:** debug-only full-cluster path available     |
 
 ---
 
@@ -370,8 +370,12 @@ before tracking smoothing is applied.
 6. **Fix E** (renderer consistency) — synchronise both renderers.
 7. **Fix F** (debug cluster rendering) — optional, for ongoing tuning.
 
-Guard 3, fixes B, C, and G are implemented.
-Fix D is config-only. Fixes E and F are skipped — superseded by geometry-coherent tracking (D-04).
+Guard 3, fixes B, C, D, and G are implemented.
+Fix E is functionally complete for live macOS/web rendering; only the DB-backed
+`/api/lidar/tracks` fallback may still fall back to averaged dimensions when
+instantaneous OBB dimensions are absent. Fix F is available as a debug-only
+gRPC/macOS path for raw DBSCAN OBB inspection. Geometry-coherent tracking
+(D-04) still supersedes further expansion of the guard stack.
 
 ---
 
@@ -391,6 +395,9 @@ Fix D is config-only. Fixes E and F are skipped — superseded by geometry-coher
 - Run existing `.vrlog` captures through the pipeline with and without fixes.
 - Measure heading jitter RMS (already tracked in
   `HeadingJitterSumSq`/`HeadingJitterCount`).
+- Record `HeadingSourceCounts`, `Guard2Locks`, and `Guard3Rejections` from
+  `GetTrackingMetrics()` / `/api/lidar/tracks/metrics` as the control baseline
+  before any geometry-coherent A/B work.
 - Use heading-source debug rendering (Fix G) to identify which tracks have
   unstable heading sources.
 
@@ -421,9 +428,9 @@ The tracker already computes:
 
 ## 9. Open Questions
 
-1. What is the optimal aspect-ratio lock threshold (Fix D)? The current 0.25
-   is likely too loose; 0.15 is proposed but should be validated against replay
-   data across multiple sites.
+1. The branch default is now 0.15 for Fix D. Keep comparing 0.25, 0.15, and
+   0.10 on a fixed replay pack to catch site-specific regressions before any
+   tracker swap or broader release.
 
 2. Should the velocity-coherent extraction proposal (20260220) subsume Fix C?
    If per-point velocity vectors become available, they provide a stronger

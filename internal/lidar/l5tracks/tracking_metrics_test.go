@@ -199,6 +199,9 @@ func TestGetTrackingMetrics(t *testing.T) {
 		assert.Equal(t, 0, metrics.ActiveTracks)
 		assert.Equal(t, 0, metrics.TotalAlignmentSamples)
 		assert.Equal(t, float32(0), metrics.MeanAlignmentRad)
+		assert.Equal(t, HeadingSourceCounts{}, metrics.HeadingSourceCounts)
+		assert.Equal(t, 0, metrics.Guard2Locks)
+		assert.Equal(t, 0, metrics.Guard3Rejections)
 	})
 
 	t.Run("counts only non-deleted tracks", func(t *testing.T) {
@@ -304,6 +307,24 @@ func TestGetTrackingMetrics(t *testing.T) {
 		assert.InDelta(t, 0.1, float64(perTrack.MisalignmentRate), 0.001) // 10/100
 		assert.InDelta(t, 5.0, float64(perTrack.SpeedMps), 0.01)
 	})
+
+	t.Run("reports heading-source and guard counters", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewTracker(TrackerConfig{})
+		tracker.headingSourceSamples = [4]int64{2, 3, 4, 5}
+		tracker.guard2LockCount = 7
+		tracker.guard3RejectCount = 11
+
+		metrics := tracker.GetTrackingMetrics()
+		assert.Equal(t, HeadingSourceCounts{
+			PCA:          2,
+			Velocity:     3,
+			Displacement: 4,
+			Locked:       5,
+		}, metrics.HeadingSourceCounts)
+		assert.Equal(t, 7, metrics.Guard2Locks)
+		assert.Equal(t, 11, metrics.Guard3Rejections)
+	})
 }
 
 // TestRecordFrameStatsAndSceneMetrics tests the scene-level foreground capture metrics.
@@ -341,11 +362,21 @@ func TestRecordFrameStatsAndSceneMetrics(t *testing.T) {
 		tracker := NewTracker(TrackerConfig{})
 
 		tracker.RecordFrameStats(100, 80)
+		tracker.TracksCreated = 9
+		tracker.TracksConfirmed = 4
+		tracker.headingSourceSamples = [4]int64{1, 2, 3, 4}
+		tracker.guard2LockCount = 5
+		tracker.guard3RejectCount = 6
 		tracker.Reset()
 
 		metrics := tracker.GetTrackingMetrics()
 		assert.Equal(t, float32(0), metrics.ForegroundCaptureRatio)
 		assert.Equal(t, float32(0), metrics.UnboundedPointRatio)
 		assert.Equal(t, float32(0), metrics.EmptyBoxRatio)
+		assert.Equal(t, 0, metrics.TracksCreated)
+		assert.Equal(t, 0, metrics.TracksConfirmed)
+		assert.Equal(t, HeadingSourceCounts{}, metrics.HeadingSourceCounts)
+		assert.Equal(t, 0, metrics.Guard2Locks)
+		assert.Equal(t, 0, metrics.Guard3Rejections)
 	})
 }

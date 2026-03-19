@@ -9,6 +9,8 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Helper function to safely cast interface{} to *FrameBundle in tests
@@ -158,6 +160,15 @@ func TestFrameAdapter_AdaptFrame_WithClusters(t *testing.T) {
 			PointsCount:       100,
 			HeightP95:         1.8,
 			IntensityMean:     75.0,
+			OBB: &l4perception.OrientedBoundingBox{
+				CenterX:    5.0,
+				CenterY:    10.0,
+				CenterZ:    1.0,
+				Length:     4.5,
+				Width:      2.0,
+				Height:     1.5,
+				HeadingRad: 0.25,
+			},
 		},
 		{
 			ClusterID:         2,
@@ -913,6 +924,15 @@ func TestAdaptClusters_Direct(t *testing.T) {
 			PointsCount:       100,
 			HeightP95:         1.8,
 			IntensityMean:     75.0,
+			OBB: &l4perception.OrientedBoundingBox{
+				CenterX:    5.0,
+				CenterY:    10.0,
+				CenterZ:    1.0,
+				Length:     4.5,
+				Width:      2.0,
+				Height:     1.5,
+				HeadingRad: 0.25,
+			},
 		},
 		{
 			ClusterID:         2,
@@ -971,6 +991,12 @@ func TestAdaptClusters_Direct(t *testing.T) {
 	if c1.IntensityMean != 75.0 {
 		t.Errorf("expected IntensityMean=75.0, got %f", c1.IntensityMean)
 	}
+	if c1.OBB == nil {
+		t.Fatal("expected first cluster OBB to be preserved")
+	}
+	if c1.OBB.HeadingRad != 0.25 {
+		t.Errorf("expected OBB HeadingRad=0.25, got %f", c1.OBB.HeadingRad)
+	}
 
 	// Verify second cluster
 	c2 := cs.Clusters[1]
@@ -980,6 +1006,69 @@ func TestAdaptClusters_Direct(t *testing.T) {
 	if c2.CentroidX != 20.0 {
 		t.Errorf("expected CentroidX=20.0, got %f", c2.CentroidX)
 	}
+}
+
+func TestFrameAdapter_AdaptFrame_PreservesAllClustersForDebugStreaming(t *testing.T) {
+	adapter := NewFrameAdapter("hesai-01")
+	now := time.Now()
+
+	trackerCfg := l5tracks.DefaultTrackerConfig()
+	trackerCfg.HitsToConfirm = 1
+	tracker := l5tracks.NewTracker(trackerCfg)
+
+	initialCluster := l4perception.WorldCluster{
+		ClusterID:         1,
+		SensorID:          "hesai-01",
+		TSUnixNanos:       now.UnixNano(),
+		CentroidX:         5.0,
+		CentroidY:         10.0,
+		CentroidZ:         1.0,
+		BoundingBoxLength: 4.5,
+		BoundingBoxWidth:  2.0,
+		BoundingBoxHeight: 1.5,
+		PointsCount:       100,
+		HeightP95:         1.8,
+		IntensityMean:     75.0,
+		OBB: &l4perception.OrientedBoundingBox{
+			CenterX:    5.0,
+			CenterY:    10.0,
+			CenterZ:    1.0,
+			Length:     4.5,
+			Width:      2.0,
+			Height:     1.5,
+			HeadingRad: 0.1,
+		},
+	}
+	tracker.Update([]l4perception.WorldCluster{initialCluster}, now)
+
+	nextTime := now.Add(100 * time.Millisecond)
+	associatedCluster := initialCluster
+	associatedCluster.TSUnixNanos = nextTime.UnixNano()
+	associatedCluster.CentroidX = 5.1
+	associatedCluster.OBB = &l4perception.OrientedBoundingBox{
+		CenterX:    5.1,
+		CenterY:    10.0,
+		CenterZ:    1.0,
+		Length:     4.5,
+		Width:      2.0,
+		Height:     1.5,
+		HeadingRad: 0.12,
+	}
+	tracker.Update([]l4perception.WorldCluster{associatedCluster}, nextTime)
+
+	frame := &l2frames.LiDARFrame{
+		SensorID:       "hesai-01",
+		StartTimestamp: nextTime,
+		Points:         []l2frames.Point{},
+	}
+
+	bundle := toFrameBundle(t, adapter.AdaptFrame(frame, nil, []l4perception.WorldCluster{associatedCluster}, tracker, nil))
+	require.NotNil(t, bundle.Clusters)
+	assert.Empty(t, bundle.Clusters.Clusters, "associated clusters should stay hidden in the default cluster stream")
+	require.NotNil(t, bundle.AllClusters)
+	require.Len(t, bundle.AllClusters.Clusters, 1)
+	require.NotNil(t, bundle.AllClusters.Clusters[0].OBB)
+	assert.InDelta(t, 0.12, float64(bundle.AllClusters.Clusters[0].OBB.HeadingRad), 0.001)
 }
 
 func TestAdaptClusters_Empty(t *testing.T) {

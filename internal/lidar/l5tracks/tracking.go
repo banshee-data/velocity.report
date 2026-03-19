@@ -241,6 +241,12 @@ type TrackingMetrics struct {
 	// Total tracks created and confirmed since last reset
 	TracksCreated   int `json:"tracks_created"`
 	TracksConfirmed int `json:"tracks_confirmed"`
+	// Heading source counts across OBB-bearing track updates since last reset.
+	HeadingSourceCounts HeadingSourceCounts `json:"heading_source_counts"`
+	// Guard2Locks counts aspect-ratio lock events (Guard 2) since last reset.
+	Guard2Locks int `json:"guard2_locks"`
+	// Guard3Rejections counts 90° jump rejections (Guard 3) since last reset.
+	Guard3Rejections int `json:"guard3_rejections"`
 
 	// Scene-level foreground capture metrics
 	// ForegroundCaptureRatio is the fraction of foreground points assigned to
@@ -277,6 +283,14 @@ type TrackAlignmentMetrics struct {
 	SpeedMps         float32 `json:"speed_mps"`
 }
 
+// HeadingSourceCounts tracks how often each heading source path was selected.
+type HeadingSourceCounts struct {
+	PCA          int `json:"pca"`
+	Velocity     int `json:"velocity"`
+	Displacement int `json:"displacement"`
+	Locked       int `json:"locked"`
+}
+
 // Tracker manages multi-object tracking with explicit lifecycle states.
 type Tracker struct {
 	Tracks      map[string]*TrackedObject
@@ -298,6 +312,11 @@ type Tracker struct {
 	// Empty box accumulators — updated in Update() per frame.
 	EmptyBoxFrames int64 // Running sum of unmatched active tracks across frames
 	TotalBoxFrames int64 // Running sum of active tracks across frames
+
+	// OBB heading telemetry accumulators.
+	headingSourceSamples [4]int64
+	guard2LockCount      int64
+	guard3RejectCount    int64
 
 	// lastAssociations stores the result of the most recent associate() call.
 	// It is a slice indexed by cluster index; each element is the trackID
@@ -341,10 +360,15 @@ func (t *Tracker) Reset() {
 	t.NextTrackID = 1
 	t.LastUpdateNanos = 0
 	t.lastAssociations = nil
+	t.TracksCreated = 0
+	t.TracksConfirmed = 0
 	t.TotalForegroundPoints = 0
 	t.ClusteredPoints = 0
 	t.EmptyBoxFrames = 0
 	t.TotalBoxFrames = 0
+	t.headingSourceSamples = [4]int64{}
+	t.guard2LockCount = 0
+	t.guard3RejectCount = 0
 	diagf("Tracker reset: cleared_tracks=%d", clearedTracks)
 }
 
@@ -1084,6 +1108,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				if aspectDiff/maxDim < t.Config.OBBAspectRatioLockThreshold {
 					updateHeading = false
 					headingSource = HeadingSourceLocked
+					t.guard2LockCount++
 				}
 			}
 		}
@@ -1175,6 +1200,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 				if absDelta > math.Pi/3 && absDelta < 2*math.Pi/3 {
 					updateHeading = false
 					headingSource = HeadingSourceLocked
+					t.guard3RejectCount++
 				}
 			}
 
@@ -1184,6 +1210,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 		}
 
 		track.HeadingSource = headingSource
+		if idx := int(headingSource); idx >= 0 && idx < len(t.headingSourceSamples) {
+			t.headingSourceSamples[idx]++
+		}
 
 		// Use cluster (DBSCAN) dimensions directly for per-frame rendering.
 		// The DBSCAN OBB dimensions are aligned with the current frame's PCA
@@ -1652,6 +1681,14 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	// Fragmentation: fraction of created tracks that never confirmed
 	metrics.TracksCreated = t.TracksCreated
 	metrics.TracksConfirmed = t.TracksConfirmed
+	metrics.HeadingSourceCounts = HeadingSourceCounts{
+		PCA:          int(t.headingSourceSamples[HeadingSourcePCA]),
+		Velocity:     int(t.headingSourceSamples[HeadingSourceVelocity]),
+		Displacement: int(t.headingSourceSamples[HeadingSourceDisplacement]),
+		Locked:       int(t.headingSourceSamples[HeadingSourceLocked]),
+	}
+	metrics.Guard2Locks = int(t.guard2LockCount)
+	metrics.Guard3Rejections = int(t.guard3RejectCount)
 	if t.TracksCreated > 0 {
 		metrics.FragmentationRatio = 1.0 - float32(t.TracksConfirmed)/float32(t.TracksCreated)
 	}

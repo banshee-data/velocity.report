@@ -10,6 +10,8 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -548,6 +550,51 @@ func TestFrameBundleToProto_ClusterOBB(t *testing.T) {
 	if c1.Obb != nil {
 		t.Errorf("expected nil OBB on cluster 1, got %+v", c1.Obb)
 	}
+}
+
+func TestFrameBundleToProto_IncludeAssociatedClustersUsesAllClusters(t *testing.T) {
+	frame := &FrameBundle{
+		FrameID:        1,
+		TimestampNanos: time.Now().UnixNano(),
+		SensorID:       "test-sensor",
+		CoordinateFrame: CoordinateFrameInfo{
+			FrameID:        "site/test",
+			ReferenceFrame: "ENU",
+		},
+		Clusters: &ClusterSet{
+			FrameID:        1,
+			TimestampNanos: time.Now().UnixNano(),
+			Clusters: []Cluster{
+				{ClusterID: 2, CentroidX: 20, CentroidY: 30},
+			},
+			Method: ClusteringDBSCAN,
+		},
+		AllClusters: &ClusterSet{
+			FrameID:        1,
+			TimestampNanos: time.Now().UnixNano(),
+			Clusters: []Cluster{
+				{ClusterID: 1, CentroidX: 10, CentroidY: 20},
+				{ClusterID: 2, CentroidX: 20, CentroidY: 30},
+			},
+			Method: ClusteringDBSCAN,
+		},
+	}
+
+	defaultReq := &pb.StreamRequest{IncludeClusters: true}
+	defaultFrame := frameBundleToProto(frame, defaultReq)
+	require.NotNil(t, defaultFrame.Clusters)
+	require.Len(t, defaultFrame.Clusters.Clusters, 1)
+	assert.Equal(t, int64(2), defaultFrame.Clusters.Clusters[0].ClusterId)
+
+	debugReq := &pb.StreamRequest{
+		IncludeClusters:           true,
+		IncludeAssociatedClusters: true,
+	}
+	debugFrame := frameBundleToProto(frame, debugReq)
+	require.NotNil(t, debugFrame.Clusters)
+	require.Len(t, debugFrame.Clusters.Clusters, 2)
+	assert.Equal(t, int64(1), debugFrame.Clusters.Clusters[0].ClusterId)
+	assert.Equal(t, int64(2), debugFrame.Clusters.Clusters[1].ClusterId)
 }
 
 func TestFrameBundleToProto_WithTracks(t *testing.T) {

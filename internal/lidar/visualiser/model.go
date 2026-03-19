@@ -22,7 +22,11 @@ type FrameBundle struct {
 
 	// Perception outputs
 	Clusters *ClusterSet
-	Tracks   *TrackSet
+	// AllClusters is an optional debug-only view of all DBSCAN clusters,
+	// including those associated with tracks. It is not emitted unless a
+	// client explicitly opts into associated-cluster streaming.
+	AllClusters *ClusterSet
+	Tracks      *TrackSet
 
 	// Debug overlays (optional)
 	Debug *DebugOverlaySet
