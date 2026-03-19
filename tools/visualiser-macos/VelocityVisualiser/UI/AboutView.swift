@@ -58,14 +58,6 @@ struct AboutView: View {
                 )
 
                 aboutSection(
-                    title: "Privacy by Design",
-                    body: "No cameras. No licence plates. No biometric data of any kind. "
-                        + "The system records speed measurements, not identities. "
-                        + "All data stays on the device that collected it. "
-                        + "Communities should not need to build a surveillance infrastructure "
-                        + "in order to ask for a safer street.")
-
-                aboutSection(
                     title: "Two Stacks, One Purpose",
                     body:
                         "The production stack pairs a radar sensor with a Go server, SQLite database, "
@@ -75,6 +67,14 @@ struct AboutView: View {
                         + "Both stacks serve the same end. The production stack is ready today. "
                         + "The research stack is where today\u{2019}s curiosity becomes tomorrow\u{2019}s capability."
                 )
+
+                aboutSection(
+                    title: "Privacy by Design",
+                    body: "No cameras. No licence plates. No biometric data of any kind. "
+                        + "The system records speed measurements, not identities. "
+                        + "All data stays on the device that collected it. "
+                        + "Communities should not need to build a surveillance infrastructure "
+                        + "in order to ask for a safer street.")
 
                 aboutSection(
                     title: "Source & Setup",

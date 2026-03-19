@@ -147,7 +147,9 @@ private let logger = DevLogger(category: "AppState")
     @Published var trackCount: Int = 0
     @Published var cacheStatus: String = ""  // M3.5: Background cache status
     @Published var trackLabels: [MetalRenderer.TrackScreenLabel] = []  // Projected track labels for overlay
-    @Published var metalViewSize: CGSize = .zero  // Metal view drawable size
+    /// Metal view drawable size — intentionally NOT @Published to avoid
+    /// GeometryReader → metalViewSize → objectWillChange → layout → cycle.
+    var metalViewSize: CGSize = .zero
     /// Cached data for the currently selected track, updated each frame.
     /// Used by inspector views to avoid reading non-Published currentFrame.
     @Published var selectedTrackData: Track?

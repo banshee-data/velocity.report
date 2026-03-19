@@ -186,43 +186,43 @@ private struct RunBrowserHeaderRow: View {
     }
 
     var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 0) {
-                // Col 1: 0xfirst6uuid with status dot
-                HStack(spacing: RunBrowserLayout.runStatusSpacing) {
-                    StatusDot(status: run.status)
-                    Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(
-                        1)
-                }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
+        HStack(spacing: 0) {
+            // Col 1: 0xfirst6uuid with status dot
+            HStack(spacing: RunBrowserLayout.runStatusSpacing) {
+                StatusDot(status: run.status)
+                Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(1)
+            }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
 
-                // Col 2: Date/time (space-padded for monospaced alignment)
-                Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
-                    width: RunBrowserLayout.dateWidth, alignment: .leading
-                ).lineLimit(1)
+            // Col 2: Date/time (space-padded for monospaced alignment)
+            Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
+                width: RunBrowserLayout.dateWidth, alignment: .leading
+            ).lineLimit(1)
 
-                // Col 3: Replay case name
-                Text(run.replayCaseName ?? "-").font(.caption).frame(
-                    width: RunBrowserLayout.replayCaseWidth, alignment: .leading
-                ).lineLimit(1)
+            // Col 3: Replay case name
+            Text(run.replayCaseName ?? "-").font(.caption).frame(
+                width: RunBrowserLayout.replayCaseWidth, alignment: .leading
+            ).lineLimit(1)
 
-                // Col 4: Duration mm:ss
-                Text(runRowFormatDuration(run.durationSecs)).font(
-                    .system(.caption, design: .monospaced)
-                ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
+            // Col 4: Duration mm:ss
+            Text(runRowFormatDuration(run.durationSecs)).font(
+                .system(.caption, design: .monospaced)
+            ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
 
-                // Col 5: Tracks count
-                Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
-                    width: RunBrowserLayout.tracksWidth, alignment: .trailing)
+            // Col 5: Tracks count
+            Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
+                width: RunBrowserLayout.tracksWidth, alignment: .trailing)
 
-                // Col 6: Label rollup
-                RunLabelRollupIcon(rollup: run.labelRollup).frame(
-                    width: RunBrowserLayout.labelsWidth, alignment: .center)
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
-                .horizontal, RunBrowserLayout.rowInset.leading
-            ).contentShape(Rectangle())
-        }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).onHover {
-            hovering in isHovered = hovering
-        }
+            // Col 6: Label rollup
+            RunLabelRollupIcon(rollup: run.labelRollup).frame(
+                width: RunBrowserLayout.labelsWidth, alignment: .center)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
+            .horizontal, RunBrowserLayout.rowInset.leading
+        ).contentShape(Rectangle()).onTapGesture {
+            guard run.hasVRLog else { return }
+            onSelect()
+        }.opacity(run.hasVRLog ? 1.0 : 0.5).accessibilityAddTraits(.isButton).background(
+            rowBackground
+        ).onHover { hovering in isHovered = hovering }
     }
 }
 
