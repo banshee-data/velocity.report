@@ -33,6 +33,7 @@ logs/
 # Go Binaries & Build Artifacts
 # =============================================================================
 app-*
+/backfill_ring_elevations
 /gen-vrlog
 /settling-eval
 /replay-server
