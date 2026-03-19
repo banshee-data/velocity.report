@@ -1852,14 +1852,14 @@ describe('api', () => {
 
 	// LiDAR labelling and transit API tests
 	describe('LiDAR labelling API', () => {
-		describe('getLidarScenes', () => {
+		describe('getLidarReplayCases', () => {
 			it('should fetch scenes without filter', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
 					json: async () => ({ scenes: [{ replay_case_id: 's1', sensor_id: 'sensor1' }] })
 				});
-				const { getLidarScenes } = await import('./api');
-				const result = await getLidarScenes();
+				const { getLidarReplayCases } = await import('./api');
+				const result = await getLidarReplayCases();
 				expect(result).toEqual([{ replay_case_id: 's1', sensor_id: 'sensor1' }]);
 			});
 
@@ -1868,8 +1868,8 @@ describe('api', () => {
 					ok: true,
 					json: async () => ({ scenes: [] })
 				});
-				const { getLidarScenes } = await import('./api');
-				const result = await getLidarScenes('hesai');
+				const { getLidarReplayCases } = await import('./api');
+				const result = await getLidarReplayCases('hesai');
 				expect(result).toEqual([]);
 				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
 				expect(callUrl).toContain('sensor_id=hesai');
@@ -1877,8 +1877,8 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
-				const { getLidarScenes } = await import('./api');
-				await expect(getLidarScenes()).rejects.toThrow('Failed to fetch replay cases: 500');
+				const { getLidarReplayCases } = await import('./api');
+				await expect(getLidarReplayCases()).rejects.toThrow('Failed to fetch replay cases: 500');
 			});
 		});
 
@@ -1987,7 +1987,7 @@ describe('api', () => {
 	});
 
 	describe('LiDAR Replay Case Management', () => {
-		describe('getLidarScene', () => {
+		describe('getLidarReplayCase', () => {
 			it('should fetch a single scene by ID', async () => {
 				const mockScene = {
 					replay_case_id: 'scene-001',
@@ -2000,20 +2000,22 @@ describe('api', () => {
 					ok: true,
 					json: async () => mockScene
 				});
-				const { getLidarScene } = await import('./api');
-				const result = await getLidarScene('scene-001');
+				const { getLidarReplayCase } = await import('./api');
+				const result = await getLidarReplayCase('scene-001');
 				expect(result).toEqual(mockScene);
 				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/scenes/scene-001');
 			});
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
-				const { getLidarScene } = await import('./api');
-				await expect(getLidarScene('bad-id')).rejects.toThrow('Failed to fetch replay case: 404');
+				const { getLidarReplayCase } = await import('./api');
+				await expect(getLidarReplayCase('bad-id')).rejects.toThrow(
+					'Failed to fetch replay case: 404'
+				);
 			});
 		});
 
-		describe('createLidarScene', () => {
+		describe('createLidarReplayCase', () => {
 			it('should create a new scene', async () => {
 				const newScene = {
 					sensor_id: 'hesai-pandar40p',
@@ -2029,8 +2031,8 @@ describe('api', () => {
 					ok: true,
 					json: async () => mockResponse
 				});
-				const { createLidarScene } = await import('./api');
-				const result = await createLidarScene(newScene);
+				const { createLidarReplayCase } = await import('./api');
+				const result = await createLidarReplayCase(newScene);
 				expect(result).toEqual(mockResponse);
 				expect(global.fetch).toHaveBeenCalledWith(
 					'/api/lidar/scenes',
@@ -2044,9 +2046,9 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
-				const { createLidarScene } = await import('./api');
+				const { createLidarReplayCase } = await import('./api');
 				await expect(
-					createLidarScene({
+					createLidarReplayCase({
 						sensor_id: 'hesai-pandar40p',
 						pcap_file: 'test.pcap'
 					})
@@ -2054,7 +2056,7 @@ describe('api', () => {
 			});
 		});
 
-		describe('updateLidarScene', () => {
+		describe('updateLidarReplayCase', () => {
 			it('should update an existing scene', async () => {
 				const update = {
 					description: 'Updated description',
@@ -2071,8 +2073,8 @@ describe('api', () => {
 					ok: true,
 					json: async () => mockResponse
 				});
-				const { updateLidarScene } = await import('./api');
-				const result = await updateLidarScene('scene-001', update);
+				const { updateLidarReplayCase } = await import('./api');
+				const result = await updateLidarReplayCase('scene-001', update);
 				expect(result).toEqual(mockResponse);
 				expect(global.fetch).toHaveBeenCalledWith(
 					'/api/lidar/scenes/scene-001',
@@ -2086,18 +2088,18 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
-				const { updateLidarScene } = await import('./api');
-				await expect(updateLidarScene('scene-001', {})).rejects.toThrow(
+				const { updateLidarReplayCase } = await import('./api');
+				await expect(updateLidarReplayCase('scene-001', {})).rejects.toThrow(
 					'Failed to update replay case: 500'
 				);
 			});
 		});
 
-		describe('deleteLidarScene', () => {
+		describe('deleteLidarReplayCase', () => {
 			it('should delete a scene', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { deleteLidarScene } = await import('./api');
-				await deleteLidarScene('scene-001');
+				const { deleteLidarReplayCase } = await import('./api');
+				await deleteLidarReplayCase('scene-001');
 				expect(global.fetch).toHaveBeenCalledWith(
 					'/api/lidar/scenes/scene-001',
 					expect.objectContaining({
@@ -2108,8 +2110,8 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
-				const { deleteLidarScene } = await import('./api');
-				await expect(deleteLidarScene('scene-001')).rejects.toThrow(
+				const { deleteLidarReplayCase } = await import('./api');
+				await expect(deleteLidarReplayCase('scene-001')).rejects.toThrow(
 					'Failed to delete replay case: 404'
 				);
 			});

@@ -568,7 +568,7 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 // LiDAR Replay Case and Run Labelling API
 // Uses API_BASE for consistency with other LiDAR endpoints.
 
-export async function getLidarScenes(sensorId?: string): Promise<LidarReplayCase[]> {
+export async function getLidarReplayCases(sensorId?: string): Promise<LidarReplayCase[]> {
 	const params = new URLSearchParams();
 	if (sensorId) params.set('sensor_id', sensorId);
 	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
@@ -578,13 +578,13 @@ export async function getLidarScenes(sensorId?: string): Promise<LidarReplayCase
 	return data.scenes || [];
 }
 
-export async function getLidarScene(sceneId: string): Promise<LidarReplayCase> {
-	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`);
+export async function getLidarReplayCase(replayCaseId: string): Promise<LidarReplayCase> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`);
 	if (!res.ok) throw new Error(`Failed to fetch replay case: ${res.status}`);
 	return res.json();
 }
 
-export async function createLidarScene(scene: {
+export async function createLidarReplayCase(scene: {
 	sensor_id: string;
 	pcap_file: string;
 	pcap_start_secs?: number;
@@ -600,8 +600,8 @@ export async function createLidarScene(scene: {
 	return res.json();
 }
 
-export async function updateLidarScene(
-	sceneId: string,
+export async function updateLidarReplayCase(
+	replayCaseId: string,
 	update: {
 		description?: string;
 		reference_run_id?: string;
@@ -610,7 +610,7 @@ export async function updateLidarScene(
 		pcap_duration_secs?: number;
 	}
 ): Promise<LidarReplayCase> {
-	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(update)
@@ -619,8 +619,8 @@ export async function updateLidarScene(
 	return res.json();
 }
 
-export async function deleteLidarScene(sceneId: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
+export async function deleteLidarReplayCase(replayCaseId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
 		method: 'DELETE'
 	});
 	if (!res.ok) throw new Error(`Failed to delete replay case: ${res.status}`);

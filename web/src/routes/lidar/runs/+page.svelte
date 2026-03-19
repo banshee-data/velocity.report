@@ -9,8 +9,8 @@
 		deleteRun,
 		deleteRunTrack,
 		getLabellingProgress,
+		getLidarReplayCases,
 		getLidarRuns,
-		getLidarScenes,
 		getRunTracks
 	} from '$lib/api';
 	import type { AnalysisRun, LabellingProgress, LidarReplayCase, RunTrack } from '$lib/types/lidar';
@@ -32,7 +32,7 @@
 		loading = true;
 		error = null;
 		try {
-			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarScenes()]);
+			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarReplayCases()]);
 			runs = runsResult;
 			scenes = scenesResult;
 		} catch (e) {

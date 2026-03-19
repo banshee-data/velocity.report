@@ -1734,7 +1734,7 @@ function applyRecommendation() {
 function applySceneParams() {
   var sceneId = document.getElementById("scene_select").value;
   if (!sceneId) {
-    showError("No scene selected.");
+    showError("No replay case selected.");
     return;
   }
 
@@ -1742,7 +1742,7 @@ function applySceneParams() {
     return s.replay_case_id === sceneId;
   });
   if (!scene || !scene.optimal_params_json) {
-    showError("Selected scene has no optimal parameters.");
+    showError("Selected replay case has no optimal parameters.");
     return;
   }
 
@@ -1750,7 +1750,7 @@ function applySceneParams() {
   try {
     tuningParams = JSON.parse(scene.optimal_params_json);
   } catch (e) {
-    showError("Failed to parse scene parameters: " + e.message);
+    showError("Failed to parse replay case parameters: " + e.message);
     return;
   }
 
@@ -1768,7 +1768,7 @@ function applySceneParams() {
         "Applied ✓";
       setTimeout(function () {
         document.getElementById("btn-apply-scene-params").textContent =
-          "Apply Scene Params";
+          "Apply Replay Case Params";
       }, 2000);
       fetchCurrentParams();
     })

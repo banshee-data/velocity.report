@@ -16,8 +16,8 @@
 		deleteMissedRegion,
 		getBackgroundGrid,
 		getLabellingProgress,
+		getLidarReplayCases,
 		getLidarRuns,
-		getLidarScenes,
 		getMissedRegions,
 		getRunTracks,
 		getTrackHistory,
@@ -224,7 +224,7 @@
 	async function loadScenes() {
 		scenesLoading = true;
 		try {
-			scenes = await getLidarScenes(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
+			scenes = await getLidarReplayCases(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
 		} catch {
 			scenes = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {

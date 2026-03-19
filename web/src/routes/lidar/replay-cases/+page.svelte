@@ -7,12 +7,12 @@
 	 */
 	import type { PcapFileInfo } from '$lib/api';
 	import {
-		createLidarScene,
-		deleteLidarScene,
+		createLidarReplayCase,
+		deleteLidarReplayCase,
+		getLidarReplayCases,
 		getLidarRuns,
-		getLidarScenes,
 		scanPcapFiles,
-		updateLidarScene
+		updateLidarReplayCase
 	} from '$lib/api';
 	import type { AnalysisRun, LidarReplayCase } from '$lib/types/lidar';
 	import { onMount } from 'svelte';
@@ -62,7 +62,7 @@
 		loading = true;
 		error = null;
 		try {
-			scenes = await getLidarScenes();
+			scenes = await getLidarReplayCases();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load replay cases';
 		} finally {
@@ -101,7 +101,7 @@
 		creating = true;
 		createError = null;
 		try {
-			const scene = await createLidarScene({
+			const scene = await createLidarReplayCase({
 				sensor_id: newSensorId,
 				pcap_file: newPcapFile,
 				description: newDescription || undefined,
@@ -127,7 +127,7 @@
 		saving = true;
 		saveError = null;
 		try {
-			const updated = await updateLidarScene(selectedScene.replay_case_id, {
+			const updated = await updateLidarReplayCase(selectedScene.replay_case_id, {
 				description: editDescription || undefined,
 				reference_run_id: editReferenceRunId || undefined,
 				optimal_params_json: editOptimalParams || undefined,
@@ -147,7 +147,7 @@
 	async function handleDelete(sceneId: string) {
 		if (!confirm('Delete this replay case? This cannot be undone.')) return;
 		try {
-			await deleteLidarScene(sceneId);
+			await deleteLidarReplayCase(sceneId);
 			scenes = scenes.filter((s) => s.replay_case_id !== sceneId);
 			if (selectedScene?.replay_case_id === sceneId) {
 				deselectScene();
@@ -213,7 +213,7 @@
 		for (const path of selectedFiles) {
 			try {
 				const desc = path.replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
-				const scene = await createLidarScene({
+				const scene = await createLidarReplayCase({
 					sensor_id: newSensorId,
 					pcap_file: path,
 					description: desc
