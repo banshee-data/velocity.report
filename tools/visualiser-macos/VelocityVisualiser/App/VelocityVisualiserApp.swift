@@ -58,11 +58,6 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("Connect/Disconnect") { appState.toggleConnection() }.keyboardShortcut(
                 "c", modifiers: [.command, .shift])
-
-            Divider()
-
-            Button("Open Recording...") { appState.openRecording() }.keyboardShortcut(
-                "o", modifiers: .command)
         }
 
         // Playback commands

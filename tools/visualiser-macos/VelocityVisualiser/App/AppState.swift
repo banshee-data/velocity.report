@@ -962,34 +962,6 @@ private let logger = DevLogger(category: "AppState")
         isSeekingInProgress = editing
     }
 
-    // MARK: - Recording
-
-    // TODO: Remove openRecording() and loadRecording(from:) — local VRLOG playback
-    // is non-functional dead code. All VRLOG replay goes through the Go server
-    // via gRPC (RunBrowserState.loadRunForReplay → /api/lidar/vrlog/load).
-    func openRecording() {
-        // Open file dialog
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a .vrlog directory"
-
-        panel.begin { [weak self] response in
-            guard response == .OK, let url = panel.url else { return }
-            self?.loadRecording(from: url)
-        }
-    }
-
-    /// Load a recording from the given URL. Used by openRecording and for testing.
-    func loadRecording(from url: URL) {
-        Task { @MainActor [weak self] in
-            self?.setPlaybackMode(.replayNonSeekable)
-            // Note: Actual replay connection would need a reconnect to replay server
-            print("Selected recording: \(url.path)")
-        }
-    }
-
     // MARK: - Track Navigation
 
     /// Select the next track in the track list order. Wraps to the first track at the end.

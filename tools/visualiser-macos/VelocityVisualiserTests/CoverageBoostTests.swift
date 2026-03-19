@@ -177,17 +177,6 @@ import XCTest
         XCTAssertEqual(state.currentFrame?.frameID, 100)
     }
 
-    // MARK: - Load Recording Tests
-
-    func testLoadRecordingFromURL() throws {
-        let state = AppState()
-        let tempURL = URL(fileURLWithPath: "/tmp/test.vrlog")
-
-        // loadRecording sets isLive = false inside an async Task, so we
-        // only verify the method executes without crashing.
-        state.loadRecording(from: tempURL)
-    }
-
     // MARK: - Connect Without Client Tests
 
     func testConnectSetsConnectingFlag() throws {
