@@ -36,7 +36,7 @@ type SceneGetter interface {
 
 // HINTScene is a minimal scene representation.
 type HINTScene struct {
-	SceneID           string
+	ReplayCaseID      string
 	SensorID          string
 	PCAPFile          string
 	PCAPStartSecs     *float64
@@ -52,7 +52,7 @@ type ReferenceRunCreator interface {
 
 // HINTSweepRequest defines the request for an HINT tuning sweep.
 type HINTSweepRequest struct {
-	SceneID               string              `json:"scene_id"`
+	ReplayCaseID          string              `json:"replay_case_id"`
 	NumRounds             int                 `json:"num_rounds"`
 	RoundDurations        []int               `json:"round_durations"`
 	Params                []SweepParam        `json:"params"`
@@ -272,8 +272,8 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	}
 
 	// Validate request
-	if req.SceneID == "" {
-		return fmt.Errorf("scene_id is required")
+	if req.ReplayCaseID == "" {
+		return fmt.Errorf("replay_case_id is required")
 	}
 	if req.NumRounds < 1 || req.NumRounds > 10 {
 		return fmt.Errorf("num_rounds must be between 1 and 10, got %d", req.NumRounds)
@@ -307,7 +307,7 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	sensorID := ""
 	var scenePCAPDuration float64
 	if rt.sceneGetter != nil {
-		if scene, err := rt.sceneGetter.GetScene(req.SceneID); err == nil && scene != nil {
+		if scene, err := rt.sceneGetter.GetScene(req.ReplayCaseID); err == nil && scene != nil {
 			sensorID = scene.SensorID
 			if scene.PCAPDurationSecs != nil && *scene.PCAPDurationSecs > 0 {
 				scenePCAPDuration = *scene.PCAPDurationSecs
@@ -375,7 +375,7 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	rt.cancel = cancel
 	go rt.run(runCtx, req)
 
-	rt.logger.Printf("[hint] Started HINT tuning session %s for scene %s (%d rounds)", rt.sweepID, req.SceneID, req.NumRounds)
+	rt.logger.Printf("[hint] Started HINT tuning session %s for replay case %s (%d rounds)", rt.sweepID, req.ReplayCaseID, req.NumRounds)
 	return nil
 }
 
@@ -596,15 +596,15 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 		}
 	}()
 
-	// Get scene
+	// Get replay case
 	if rt.sceneGetter == nil {
-		rt.failWithError("scene getter not configured")
+		rt.failWithError("replay case getter not configured")
 		return
 	}
 
-	scene, err := rt.sceneGetter.GetScene(req.SceneID)
+	scene, err := rt.sceneGetter.GetScene(req.ReplayCaseID)
 	if err != nil {
-		rt.failWithError(fmt.Sprintf("failed to get scene: %v", err))
+		rt.failWithError(fmt.Sprintf("failed to get replay case: %v", err))
 		return
 	}
 
@@ -704,7 +704,7 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 		}
 
 		if rt.sceneStore != nil {
-			if err := rt.sceneStore.SetOptimalParams(req.SceneID, paramsJSON); err != nil {
+			if err := rt.sceneStore.SetOptimalParams(req.ReplayCaseID, paramsJSON); err != nil {
 				rt.logger.Printf("[hint] Failed to persist optimal params: %v", err)
 			} else {
 				rt.logger.Printf("[hint] Applied optimal params: %s", paramsJSON)
@@ -771,7 +771,7 @@ func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *
 	rt.logger.Printf("[hint] Created reference run: %s", runID)
 
 	// Set as scene's reference run
-	if err := rt.sceneGetter.SetReferenceRun(req.SceneID, runID); err != nil {
+	if err := rt.sceneGetter.SetReferenceRun(req.ReplayCaseID, runID); err != nil {
 		return nil, 0, fmt.Errorf("failed to set reference run: %w", err)
 	}
 
@@ -964,7 +964,7 @@ func (rt *HINTTuner) buildAutoTuneRequest(bounds map[string][2]float64, req HINT
 	// Build base request — always use the scene's PCAP so the exploration
 	// sweep replays the same capture window as the reference run.
 	autoReq := AutoTuneRequest{
-		SceneID:            req.SceneID,
+		ReplayCaseID:       req.ReplayCaseID,
 		Objective:          "ground_truth",
 		Params:             params,
 		ValuesPerParam:     req.ValuesPerParam,

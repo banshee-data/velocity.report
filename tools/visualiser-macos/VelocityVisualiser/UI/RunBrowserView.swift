@@ -12,39 +12,34 @@ private enum RunBrowserLayout {
     static let statusDotSize: CGFloat = 8
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
-    static let dateWidth: CGFloat = 130
-    static let sceneWidth: CGFloat = 80
+    static let dateWidth: CGFloat = 120
+    static let replayCaseWidth: CGFloat = 40
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
-    static let rowInset = EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)
+    static let rowInset = EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 24)
 }
 
 @available(macOS 15.0, *) @MainActor func loadRunForReplayAndUpdateAppState(
     runID: String, appState: AppState, runBrowserState: RunBrowserState,
     loadRunForReplay: @escaping @MainActor () async -> VRLogLoadResponse?
 ) async {
-    runBrowserLogger.debug("loadRunForReplayAndUpdateAppState() — runID=\(runID)")
-    // Reset stale playback state before loading the new VRLOG.
-    // This clears isPaused, replayFinished, progress, timestamps.
-    appState.prepareForNewReplay()
-
+    // Attempt the load first — if the guard rejects it (e.g. already
+    // loading), bail out without touching playback state.
     let loadResponse = await loadRunForReplay()
-    runBrowserLogger.debug("loadRunForReplay returned success=\(loadResponse != nil)")
-    if let loadResponse {
-        appState.setReplayFrameEncoding(loadResponse.frameEncoding)
-        // Update app state to indicate we're in VRLOG replay mode
-        appState.isLive = false
-        // Set currentRunID so labels route to run-track API
-        appState.currentRunID = runID
-        await runBrowserState.primeTrackCache(runID: runID)
-        // Restart the gRPC stream AFTER the VRLOG has loaded on the
-        // server.  Doing this before the HTTP POST would disconnect
-        // the client while the server starts broadcasting, causing
-        // frames_sent=0 (frames lost before the new stream connects).
-        appState.restartGRPCStream()
-        runBrowserLogger.debug("gRPC stream restarted for run \(runID)")
-    }
+    guard let loadResponse else { return }
+
+    // Only reset playback state after a successful load.
+    appState.prepareForNewReplay()
+    appState.setReplayFrameEncoding(loadResponse.frameEncoding)
+    // Set currentRunID so labels route to run-track API
+    appState.currentRunID = runID
+    await runBrowserState.primeTrackCache(runID: runID)
+    // Restart the gRPC stream AFTER the VRLOG has loaded on the
+    // server.  Doing this before the HTTP POST would disconnect
+    // the client while the server starts broadcasting, causing
+    // frames_sent=0 (frames lost before the new stream connects).
+    appState.restartGRPCStream()
 }
 
 /// View for browsing and selecting analysis runs.
@@ -57,14 +52,6 @@ private enum RunBrowserLayout {
 
     /// Inject a shared run-browser state instance for the production sheet or tests.
     init(state: RunBrowserState) { _runBrowserState = StateObject(wrappedValue: state) }
-
-    /// Sheet height scales with item count: min 300, expands ~28pt per row, max 700.
-    private var preferredHeight: CGFloat {
-        if runBrowserState.runs.isEmpty { return 300 }
-        let chrome: CGFloat = 120  // header + column header + footer + dividers
-        let rows = CGFloat(runBrowserState.runs.count) * 28
-        return min(max(chrome + rows, 300), 700)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -104,27 +91,35 @@ private enum RunBrowserLayout {
                 }.padding()
                 Spacer()
             } else {
-                // Column headers
-                RunBrowserHeaderRow().padding(.horizontal, RunBrowserLayout.rowInset.leading)
-                    .padding(.top, 6)
+                // Sticky header outside ScrollView. Both header and rows
+                // use the same horizontal padding constant for alignment.
+                RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4).padding(
+                    .horizontal, RunBrowserLayout.rowInset.leading)
 
-                // Run list
-                List(runBrowserState.runs) { run in
-                    RunRowView(run: run, isSelected: runBrowserState.selectedRunID == run.runId) {
-                        Task {
-                            if runBrowserState.selectedRunID == run.runId {
-                                dismiss()
-                                return
+                Divider()
+
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(runBrowserState.runs) { run in
+                            RunRowView(
+                                run: run, isSelected: runBrowserState.selectedRunID == run.runId
+                            ) {
+                                Task {
+                                    if runBrowserState.selectedRunID == run.runId {
+                                        dismiss()
+                                        return
+                                    }
+                                    guard run.hasVRLog else { return }
+                                    await loadRunForReplayAndUpdateAppState(
+                                        runID: run.runId, appState: appState,
+                                        runBrowserState: runBrowserState
+                                    ) { await runBrowserState.loadRunForReplay(run.runId) }
+                                    if runBrowserState.selectedRunID == run.runId { dismiss() }
+                                }
                             }
-                            guard run.hasVRLog else { return }
-                            await loadRunForReplayAndUpdateAppState(
-                                runID: run.runId, appState: appState,
-                                runBrowserState: runBrowserState
-                            ) { await runBrowserState.loadRunForReplay(run.runId) }
-                            if runBrowserState.selectedRunID == run.runId { dismiss() }
                         }
-                    }.listRowInsets(RunBrowserLayout.rowInset)
-                }.listStyle(.inset)
+                    }
+                }
             }
 
             Divider()
@@ -140,7 +135,7 @@ private enum RunBrowserLayout {
                             await runBrowserState.stopReplay()
                             await MainActor.run {
                                 appState.setReplayFrameEncoding(nil)
-                                appState.isLive = true
+                                appState.setPlaybackMode(.live)
                                 appState.currentRunID = nil
                             }
                         }
@@ -152,9 +147,7 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 640, height: preferredHeight).onAppear {
-            Task { await runBrowserState.fetchRuns() }
-        }
+        }.frame(width: 450, height: 700).task { await runBrowserState.fetchRuns() }
     }
 
 }
@@ -168,11 +161,11 @@ private struct RunBrowserHeaderRow: View {
                 Text("Run")
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
-            Text("Scene").frame(width: RunBrowserLayout.sceneWidth, alignment: .leading)
+            Text("Case").frame(width: RunBrowserLayout.replayCaseWidth, alignment: .leading)
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
-        }.font(.caption).foregroundColor(.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading).font(.caption).foregroundColor(.secondary)
     }
 }
 
@@ -190,41 +183,43 @@ private struct RunBrowserHeaderRow: View {
     }
 
     var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 0) {
-                // Col 1: 0xfirst6uuid with status dot
-                HStack(spacing: RunBrowserLayout.runStatusSpacing) {
-                    StatusDot(status: run.status)
-                    Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(
-                        1)
-                }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
+        HStack(spacing: 0) {
+            // Col 1: 0xfirst6uuid with status dot
+            HStack(spacing: RunBrowserLayout.runStatusSpacing) {
+                StatusDot(status: run.status)
+                Text(run.shortIdPrefix).font(.system(.caption, design: .monospaced)).lineLimit(1)
+            }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
 
-                // Col 2: Date/time (space-padded for monospaced alignment)
-                Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
-                    width: RunBrowserLayout.dateWidth, alignment: .leading
-                ).lineLimit(1)
+            // Col 2: Date/time (space-padded for monospaced alignment)
+            Text(run.formattedDate).font(.system(.caption, design: .monospaced)).frame(
+                width: RunBrowserLayout.dateWidth, alignment: .leading
+            ).lineLimit(1)
 
-                // Col 3: Scene name
-                Text(run.sceneName ?? "-").font(.caption).frame(
-                    width: RunBrowserLayout.sceneWidth, alignment: .leading
-                ).lineLimit(1)
+            // Col 3: Replay case name
+            Text(run.replayCaseName ?? "-").font(.caption).frame(
+                width: RunBrowserLayout.replayCaseWidth, alignment: .leading
+            ).lineLimit(1)
 
-                // Col 4: Duration mm:ss
-                Text(runRowFormatDuration(run.durationSecs)).font(
-                    .system(.caption, design: .monospaced)
-                ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
+            // Col 4: Duration mm:ss
+            Text(runRowFormatDuration(run.durationSecs)).font(
+                .system(.caption, design: .monospaced)
+            ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
 
-                // Col 5: Tracks count
-                Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
-                    width: RunBrowserLayout.tracksWidth, alignment: .trailing)
+            // Col 5: Tracks count
+            Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
+                width: RunBrowserLayout.tracksWidth, alignment: .trailing)
 
-                // Col 6: Label rollup
-                RunLabelRollupIcon(rollup: run.labelRollup).frame(
-                    width: RunBrowserLayout.labelsWidth, alignment: .center)
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).contentShape(
-                Rectangle())
-        }.buttonStyle(.plain).disabled(!run.hasVRLog).background(rowBackground).cornerRadius(4)
-            .onHover { hovering in isHovered = hovering }
+            // Col 6: Label rollup
+            RunLabelRollupIcon(rollup: run.labelRollup).frame(
+                width: RunBrowserLayout.labelsWidth, alignment: .center)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
+            .horizontal, RunBrowserLayout.rowInset.leading
+        ).contentShape(Rectangle()).onTapGesture {
+            guard run.hasVRLog else { return }
+            onSelect()
+        }.opacity(run.hasVRLog ? 1.0 : 0.5).accessibilityAddTraits(.isButton).background(
+            rowBackground
+        ).onHover { hovering in isHovered = hovering }
     }
 }
 

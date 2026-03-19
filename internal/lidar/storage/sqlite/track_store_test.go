@@ -82,7 +82,7 @@ func TestInsertCluster(t *testing.T) {
 
 	cluster := &WorldCluster{
 		SensorID:          "sensor-001",
-		WorldFrame:        "site/main",
+		FrameID:           "site/main",
 		TSUnixNanos:       1234567890000000000,
 		CentroidX:         10.5,
 		CentroidY:         20.5,
@@ -202,7 +202,7 @@ func TestUpdateTrack(t *testing.T) {
 	track.ObjectConfidence = 0.75
 	track.SetSpeedHistory([]float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7})
 
-	err = UpdateTrack(db, track, "site/main")
+	err = UpdateTrack(db, track)
 	if err != nil {
 		t.Fatalf("UpdateTrack failed: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 		{
 			TrackID:           "track-obs-test",
 			TSUnixNanos:       1234567890000000000,
-			WorldFrame:        "site/main",
+			FrameID:           "site/main",
 			X:                 10.0,
 			Y:                 20.0,
 			Z:                 1.0,
@@ -269,7 +269,7 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 		{
 			TrackID:           "track-obs-test",
 			TSUnixNanos:       1234567891000000000,
-			WorldFrame:        "site/main",
+			FrameID:           "site/main",
 			X:                 15.0,
 			Y:                 20.0,
 			Z:                 1.0,

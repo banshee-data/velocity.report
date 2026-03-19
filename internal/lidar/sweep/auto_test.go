@@ -543,14 +543,14 @@ func TestGroundTruthObjectiveValidation(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "ground_truth without scene_id",
+			name: "ground_truth without replay_case_id",
 			req: AutoTuneRequest{
 				Params: []SweepParam{
 					{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
 				},
 				Objective: "ground_truth",
 			},
-			wantErr: "ground_truth objective requires scene_id to be set",
+			wantErr: "ground_truth objective requires replay_case_id to be set",
 		},
 		{
 			name: "ground_truth without scorer",
@@ -558,8 +558,8 @@ func TestGroundTruthObjectiveValidation(t *testing.T) {
 				Params: []SweepParam{
 					{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
 				},
-				Objective: "ground_truth",
-				SceneID:   "test-scene",
+				Objective:    "ground_truth",
+				ReplayCaseID: "test-scene",
 			},
 			wantErr: "ground_truth objective requires a ground truth scorer to be configured",
 		},
@@ -615,8 +615,8 @@ func TestAutoTuneRequestGroundTruthFields(t *testing.T) {
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.1},
 		},
-		Objective: "ground_truth",
-		SceneID:   "test-scene-123",
+		Objective:    "ground_truth",
+		ReplayCaseID: "test-scene-123",
 		GroundTruthWeights: &GroundTruthWeights{
 			DetectionRate:  2.0,
 			Fragmentation:  10.0,
@@ -624,8 +624,8 @@ func TestAutoTuneRequestGroundTruthFields(t *testing.T) {
 		},
 	}
 
-	if req.SceneID != "test-scene-123" {
-		t.Errorf("expected SceneID 'test-scene-123', got %q", req.SceneID)
+	if req.ReplayCaseID != "test-scene-123" {
+		t.Errorf("expected ReplayCaseID 'test-scene-123', got %q", req.ReplayCaseID)
 	}
 	if req.GroundTruthWeights == nil {
 		t.Fatal("expected GroundTruthWeights to be set")

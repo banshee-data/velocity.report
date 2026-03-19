@@ -143,7 +143,6 @@ Extend the current benchmark output with per-layer fields:
   }
 }
 ```
-```
 
 ## Implementation phases
 

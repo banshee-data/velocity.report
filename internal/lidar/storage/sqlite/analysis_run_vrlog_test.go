@@ -43,7 +43,7 @@ func setupTestAnalysisDB(t *testing.T) (*sql.DB, func()) {
 
 	// Create the analysis runs table
 	schema := `
-		CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER NOT NULL,
 			source_type TEXT NOT NULL,

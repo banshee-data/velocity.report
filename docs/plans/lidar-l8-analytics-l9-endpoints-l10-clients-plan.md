@@ -2,7 +2,7 @@
 
 - **Status:** Revised implementation plan - reviewed against repository state and backlog on 2026-03-12
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients
-- **Related:** [L7 Scene plan](lidar-l7-scene-plan.md), [speed percentile aggregation alignment](speed-percentile-aggregation-alignment-plan.md), [schema simplification migration 030](schema-simplification-migration-030-plan.md), [tracks table consolidation](lidar-tracks-table-consolidation-plan.md)
+- **Related:** [L7 Scene plan](lidar-l7-scene-plan.md), [speed percentile aggregation alignment](speed-percentile-aggregation-alignment-plan.md), [schema standardisation 000030–000031](schema-simplification-migration-030-plan.md), [tracks table consolidation](lidar-tracks-table-consolidation-plan.md)
 
 ## Executive Summary
 
@@ -36,13 +36,13 @@ This plan now directly absorbs the two backlog items currently attached to it:
 
 Adjacent backlog items that influence sequencing but remain separate deliverables:
 
-| Item                                                                                                                    | Why it matters here                                                      | Rule for this plan                                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `Track speed metric redesign + aggregate-only percentiles`                                                              | defines canonical percentile semantics                                   | use its decisions when shaping `l8analytics/percentiles.go`; do not re-litigate metric naming here                     |
-| `Schema simplification (migration 000030)`                                                                              | removes dead per-track percentile columns and renames `peak_speed_mps`   | treat as follow-on storage cleanup once the `L8` API is stable                                                         |
-| `LiDAR tracks table consolidation`                                                                                      | depends on shared track analytics and storage helpers                    | sequence after Phase 2, not before                                                                                     |
-| `Visualiser track proto parity`, `debug overlay + cluster proto follow-through`, `performance and scene health metrics` | all depend on a stable `L9` contract and package path                    | rebase those implementations onto `l9endpoints/` during or after Phase 3                                               |
-| `Frontend consolidation (Phases 0-5)` and `Retire Go-embedded dashboards`                                               | define the deletion point for the legacy ECharts and HTML client surface | treat `internal/lidar/l9endpoints/l10clients/` as transitional only; delete it once consolidated frontend parity lands |
+| Item                                                                                                                    | Why it matters here                                                                      | Rule for this plan                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Track speed metric redesign + aggregate-only percentiles`                                                              | defines canonical percentile semantics                                                   | use its decisions when shaping `l8analytics/percentiles.go`; do not re-litigate metric naming here                     |
+| `Schema simplification (migration 000030)`                                                                              | removes dead per-track percentile columns and renames `peak_speed_mps` → `max_speed_mps` | treat as follow-on storage cleanup once the `L8` API is stable                                                         |
+| `LiDAR tracks table consolidation`                                                                                      | depends on shared track analytics and storage helpers                                    | sequence after Phase 2, not before                                                                                     |
+| `Visualiser track proto parity`, `debug overlay + cluster proto follow-through`, `performance and scene health metrics` | all depend on a stable `L9` contract and package path                                    | rebase those implementations onto `l9endpoints/` during or after Phase 3                                               |
+| `Frontend consolidation (Phases 0-5)` and `Retire Go-embedded dashboards`                                               | define the deletion point for the legacy ECharts and HTML client surface                 | treat `internal/lidar/l9endpoints/l10clients/` as transitional only; delete it once consolidated frontend parity lands |
 
 ## Repository Baseline
 

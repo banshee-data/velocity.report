@@ -11,8 +11,8 @@ import (
 // TrackStore defines the interface for track persistence operations.
 type TrackStore interface {
 	InsertCluster(cluster *WorldCluster) (int64, error)
-	InsertTrack(track *TrackedObject, worldFrame string) error
-	UpdateTrack(track *TrackedObject, worldFrame string) error
+	InsertTrack(track *TrackedObject, frameID string) error
+	UpdateTrack(track *TrackedObject) error
 	InsertTrackObservation(obs *TrackObservation) error
 	ClearTracks(sensorID string) error
 	GetTrack(trackID string) (*TrackedObject, error)
@@ -27,7 +27,7 @@ type TrackStore interface {
 type TrackObservation struct {
 	TrackID     string
 	TSUnixNanos int64
-	WorldFrame  string
+	FrameID     string
 
 	// Position (world frame)
 	X, Y, Z float32
@@ -55,7 +55,7 @@ type Executor interface {
 func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 	query := `
 		INSERT INTO lidar_clusters (
-			sensor_id, world_frame, ts_unix_nanos,
+			sensor_id, frame_id, ts_unix_nanos,
 			centroid_x, centroid_y, centroid_z,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			points_count, height_p95, intensity_mean
@@ -64,7 +64,7 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 
 	result, err := db.Exec(query,
 		cluster.SensorID,
-		cluster.WorldFrame,
+		cluster.FrameID,
 		cluster.TSUnixNanos,
 		cluster.CentroidX,
 		cluster.CentroidY,
@@ -89,27 +89,27 @@ func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
 }
 
 // InsertTrack inserts a new track into the database.
-func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
+func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 	// Use ON CONFLICT DO UPDATE to avoid cascade deleting observations
-	// (INSERT OR REPLACE would delete the row first, triggering cascade delete on lidar_track_obs)
+	// (INSERT OR REPLACE would delete the row first, triggering cascade delete on lidar_track_observations)
 	query := `
 		INSERT INTO lidar_tracks (
-			track_id, sensor_id, world_frame, track_state,
+			track_id, sensor_id, frame_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps,
+			avg_speed_mps, max_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(track_id) DO UPDATE SET
 			sensor_id = excluded.sensor_id,
-			world_frame = excluded.world_frame,
+			frame_id = excluded.frame_id,
 			track_state = excluded.track_state,
 			start_unix_nanos = excluded.start_unix_nanos,
 			end_unix_nanos = excluded.end_unix_nanos,
 			observation_count = excluded.observation_count,
 			avg_speed_mps = excluded.avg_speed_mps,
-			peak_speed_mps = excluded.peak_speed_mps,
+			max_speed_mps = excluded.max_speed_mps,
 			bounding_box_length_avg = excluded.bounding_box_length_avg,
 			bounding_box_width_avg = excluded.bounding_box_width_avg,
 			bounding_box_height_avg = excluded.bounding_box_height_avg,
@@ -127,7 +127,7 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 	_, err := exec.Exec(query,
 		track.TrackID,
 		track.SensorID,
-		worldFrame,
+		frameID,
 		string(track.State),
 		track.FirstUnixNanos,
 		endNanos,
@@ -151,14 +151,14 @@ func InsertTrack(exec Executor, track *TrackedObject, worldFrame string) error {
 }
 
 // UpdateTrack updates an existing track in the database.
-func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
+func UpdateTrack(db *sql.DB, track *TrackedObject) error {
 	query := `
 		UPDATE lidar_tracks SET
 			track_state = ?,
 			end_unix_nanos = ?,
 			observation_count = ?,
 			avg_speed_mps = ?,
-			peak_speed_mps = ?,
+			max_speed_mps = ?,
 			bounding_box_length_avg = ?,
 			bounding_box_width_avg = ?,
 			bounding_box_height_avg = ?,
@@ -200,8 +200,8 @@ func UpdateTrack(db *sql.DB, track *TrackedObject, worldFrame string) error {
 // InsertTrackObservation inserts a track observation into the database.
 func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 	query := `
-		INSERT OR REPLACE INTO lidar_track_obs (
-			track_id, ts_unix_nanos, world_frame,
+		INSERT OR REPLACE INTO lidar_track_observations (
+			track_id, ts_unix_nanos, frame_id,
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
@@ -212,7 +212,7 @@ func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 	_, err := exec.Exec(query,
 		obs.TrackID,
 		obs.TSUnixNanos,
-		obs.WorldFrame,
+		obs.FrameID,
 		obs.X, obs.Y, obs.Z,
 		obs.VelocityX, obs.VelocityY, obs.SpeedMps, obs.HeadingRad,
 		obs.BoundingBoxLength, obs.BoundingBoxWidth, obs.BoundingBoxHeight,
@@ -244,7 +244,7 @@ func PruneDeletedTracks(db *sql.DB, sensorID string, ttl time.Duration) (int64, 
 
 	// Delete orphaned observations first (foreign-key safe).
 	_, err = tx.Exec(`
-		DELETE FROM lidar_track_obs
+		DELETE FROM lidar_track_observations
 		WHERE track_id IN (
 			SELECT track_id FROM lidar_tracks
 			WHERE sensor_id = ? AND track_state = 'deleted'
@@ -290,7 +290,7 @@ func ClearTracks(db *sql.DB, sensorID string) error {
 	steps := []struct {
 		query string
 	}{
-		{query: `DELETE FROM lidar_track_obs WHERE track_id IN (SELECT track_id FROM lidar_tracks WHERE sensor_id = ?)`},
+		{query: `DELETE FROM lidar_track_observations WHERE track_id IN (SELECT track_id FROM lidar_tracks WHERE sensor_id = ?)`},
 		{query: `DELETE FROM lidar_tracks WHERE sensor_id = ?`},
 		{query: `DELETE FROM lidar_clusters WHERE sensor_id = ?`},
 	}
@@ -323,7 +323,7 @@ func ClearRuns(db *sql.DB, sensorID string) error {
 	}
 
 	// Delete runs for this sensor (CASCADE will delete lidar_run_tracks)
-	query := `DELETE FROM lidar_analysis_runs WHERE sensor_id = ?`
+	query := `DELETE FROM lidar_run_records WHERE sensor_id = ?`
 	if _, err := tx.Exec(query, sensorID); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("clear runs failed: %w", err)
@@ -349,7 +349,7 @@ func DeleteRun(db *sql.DB, runID string) error {
 	}
 
 	// Delete the run (CASCADE will delete lidar_run_tracks)
-	query := `DELETE FROM lidar_analysis_runs WHERE run_id = ?`
+	query := `DELETE FROM lidar_run_records WHERE run_id = ?`
 	result, err := tx.Exec(query, runID)
 	if err != nil {
 		tx.Rollback()
@@ -382,12 +382,12 @@ func GetTrackObservationsInRange(db *sql.DB, sensorID string, startNanos, endNan
 	}
 
 	query := `
-		SELECT o.track_id, o.ts_unix_nanos, o.world_frame,
+		SELECT o.track_id, o.ts_unix_nanos, o.frame_id,
 			o.x, o.y, o.z,
 			o.velocity_x, o.velocity_y, o.speed_mps, o.heading_rad,
 			o.bounding_box_length, o.bounding_box_width, o.bounding_box_height,
 			o.height_p95, o.intensity_mean
-		FROM lidar_track_obs o
+		FROM lidar_track_observations o
 		JOIN lidar_tracks t ON o.track_id = t.track_id
 		WHERE t.sensor_id = ? AND o.ts_unix_nanos BETWEEN ? AND ?
 	`
@@ -413,7 +413,7 @@ func GetTrackObservationsInRange(db *sql.DB, sensorID string, startNanos, endNan
 		if err := rows.Scan(
 			&obs.TrackID,
 			&obs.TSUnixNanos,
-			&obs.WorldFrame,
+			&obs.FrameID,
 			&obs.X, &obs.Y, &obs.Z,
 			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
 			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,
@@ -437,7 +437,7 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 		query = `
 			SELECT track_id, sensor_id, track_state,
 				start_unix_nanos, end_unix_nanos, observation_count,
-				avg_speed_mps, peak_speed_mps,
+				avg_speed_mps, max_speed_mps,
 				bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 				height_p95_max, intensity_mean_avg,
 				object_class, object_confidence, classification_model
@@ -450,7 +450,7 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 		query = `
 			SELECT track_id, sensor_id, track_state,
 				start_unix_nanos, end_unix_nanos, observation_count,
-				avg_speed_mps, peak_speed_mps,
+				avg_speed_mps, max_speed_mps,
 				bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 				height_p95_max, intensity_mean_avg,
 				object_class, object_confidence, classification_model
@@ -563,7 +563,7 @@ func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, end
 	query.WriteString(`
 		SELECT track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps,
+			avg_speed_mps, max_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model
@@ -671,12 +671,12 @@ func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, end
 // GetTrackObservations retrieves observations for a track.
 func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObservation, error) {
 	query := `
-		SELECT track_id, ts_unix_nanos, world_frame,
+		SELECT track_id, ts_unix_nanos, frame_id,
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			height_p95, intensity_mean
-		FROM lidar_track_obs
+		FROM lidar_track_observations
 		WHERE track_id = ?
 		ORDER BY ts_unix_nanos DESC
 		LIMIT ?
@@ -694,7 +694,7 @@ func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObserv
 		err := rows.Scan(
 			&obs.TrackID,
 			&obs.TSUnixNanos,
-			&obs.WorldFrame,
+			&obs.FrameID,
 			&obs.X, &obs.Y, &obs.Z,
 			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
 			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,
@@ -716,7 +716,7 @@ func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObserv
 // GetRecentClusters retrieves recent clusters from the database.
 func GetRecentClusters(db *sql.DB, sensorID string, startNanos, endNanos int64, limit int) ([]*WorldCluster, error) {
 	query := `
-		SELECT lidar_cluster_id, sensor_id, world_frame, ts_unix_nanos,
+		SELECT lidar_cluster_id, sensor_id, frame_id, ts_unix_nanos,
 			centroid_x, centroid_y, centroid_z,
 			bounding_box_length, bounding_box_width, bounding_box_height,
 			points_count, height_p95, intensity_mean
@@ -738,7 +738,7 @@ func GetRecentClusters(db *sql.DB, sensorID string, startNanos, endNanos int64, 
 		err := rows.Scan(
 			&c.ClusterID,
 			&c.SensorID,
-			&c.WorldFrame,
+			&c.FrameID,
 			&c.TSUnixNanos,
 			&c.CentroidX, &c.CentroidY, &c.CentroidZ,
 			&c.BoundingBoxLength, &c.BoundingBoxWidth, &c.BoundingBoxHeight,

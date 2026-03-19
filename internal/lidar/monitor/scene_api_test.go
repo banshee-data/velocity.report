@@ -22,21 +22,21 @@ func setupTestSceneAPIDB(t *testing.T) *db.DB {
 		t.Fatalf("failed to open test db: %v", err)
 	}
 
-	// Create lidar_analysis_runs table (referenced by FK)
+	// Create lidar_run_records table (referenced by FK)
 	_, err = sqlDB.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_analysis_runs (
+		CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_analysis_runs table: %v", err)
+		t.Fatalf("failed to create lidar_run_records table: %v", err)
 	}
 
-	// Create lidar_scenes table
+	// Create lidar_replay_cases table
 	_, err = sqlDB.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_scenes (
-			scene_id TEXT PRIMARY KEY,
+		CREATE TABLE IF NOT EXISTS lidar_replay_cases (
+			replay_case_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
 			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
@@ -46,18 +46,18 @@ func setupTestSceneAPIDB(t *testing.T) *db.DB {
 			optimal_params_json TEXT,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
-			FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE SET NULL
+			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id) ON DELETE SET NULL
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_scenes table: %v", err)
+		t.Fatalf("failed to create lidar_replay_cases table: %v", err)
 	}
 
-	// Create lidar_evaluations table
+	// Create lidar_replay_evaluations table
 	_, err = sqlDB.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_evaluations (
+		CREATE TABLE IF NOT EXISTS lidar_replay_evaluations (
 			evaluation_id TEXT PRIMARY KEY,
-			scene_id TEXT NOT NULL,
+			replay_case_id TEXT NOT NULL,
 			reference_run_id TEXT NOT NULL,
 			candidate_run_id TEXT NOT NULL,
 			detection_rate REAL,
@@ -74,14 +74,14 @@ func setupTestSceneAPIDB(t *testing.T) *db.DB {
 			candidate_count INTEGER,
 			params_json TEXT,
 			created_at INTEGER NOT NULL,
-			FOREIGN KEY (scene_id) REFERENCES lidar_scenes(scene_id) ON DELETE CASCADE,
-			FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id),
-			FOREIGN KEY (candidate_run_id) REFERENCES lidar_analysis_runs(run_id)
+			FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases(replay_case_id) ON DELETE CASCADE,
+			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id),
+			FOREIGN KEY (candidate_run_id) REFERENCES lidar_run_records(run_id)
 		);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_pair ON lidar_evaluations(reference_run_id, candidate_run_id);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_pair ON lidar_replay_evaluations(reference_run_id, candidate_run_id);
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_evaluations table: %v", err)
+		t.Fatalf("failed to create lidar_replay_evaluations table: %v", err)
 	}
 
 	return &db.DB{DB: sqlDB}
@@ -173,12 +173,12 @@ func TestSceneAPI_CreateScene(t *testing.T) {
 			}
 
 			if w.Code == http.StatusCreated {
-				var resp sqlite.Scene
+				var resp sqlite.ReplayCase
 				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 					t.Errorf("failed to decode response: %v", err)
 				}
-				if resp.SceneID == "" {
-					t.Error("expected scene_id to be set")
+				if resp.ReplayCaseID == "" {
+					t.Error("expected replay_case_id to be set")
 				}
 				if resp.SensorID != "sensor-001" {
 					t.Errorf("sensor_id = %s, want sensor-001", resp.SensorID)
@@ -192,10 +192,10 @@ func TestSceneAPI_ListScenes(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 
 	// Insert test scenes
-	scenes := []*sqlite.Scene{
+	scenes := []*sqlite.ReplayCase{
 		{SensorID: "sensor-001", PCAPFile: "scene1.pcap"},
 		{SensorID: "sensor-001", PCAPFile: "scene2.pcap"},
 		{SensorID: "sensor-002", PCAPFile: "scene3.pcap"},
@@ -260,10 +260,10 @@ func TestSceneAPI_GetScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &sqlite.Scene{
+	scene := &sqlite.ReplayCase{
 		SensorID:    "sensor-001",
 		PCAPFile:    "test.pcap",
 		Description: "Test scene",
@@ -279,7 +279,7 @@ func TestSceneAPI_GetScene(t *testing.T) {
 	}{
 		{
 			name:       "existing scene",
-			sceneID:    scene.SceneID,
+			sceneID:    scene.ReplayCaseID,
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -301,12 +301,12 @@ func TestSceneAPI_GetScene(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusOK {
-				var resp sqlite.Scene
+				var resp sqlite.ReplayCase
 				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 					t.Errorf("failed to decode response: %v", err)
 				}
-				if resp.SceneID != scene.SceneID {
-					t.Errorf("scene_id = %s, want %s", resp.SceneID, scene.SceneID)
+				if resp.ReplayCaseID != scene.ReplayCaseID {
+					t.Errorf("replay_case_id = %s, want %s", resp.ReplayCaseID, scene.ReplayCaseID)
 				}
 			}
 		})
@@ -317,10 +317,10 @@ func TestSceneAPI_UpdateScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &sqlite.Scene{
+	scene := &sqlite.ReplayCase{
 		SensorID:    "sensor-001",
 		PCAPFile:    "test.pcap",
 		Description: "Original",
@@ -337,7 +337,7 @@ func TestSceneAPI_UpdateScene(t *testing.T) {
 	}
 
 	bodyBytes, _ := json.Marshal(updateReq)
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.SceneID, bytes.NewReader(bodyBytes))
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, bytes.NewReader(bodyBytes))
 	w := httptest.NewRecorder()
 
 	ws.handleSceneByID(w, req)
@@ -347,7 +347,7 @@ func TestSceneAPI_UpdateScene(t *testing.T) {
 	}
 
 	// Verify update
-	retrieved, err := store.GetScene(scene.SceneID)
+	retrieved, err := store.GetScene(scene.ReplayCaseID)
 	if err != nil {
 		t.Fatalf("failed to get scene: %v", err)
 	}
@@ -363,10 +363,10 @@ func TestSceneAPI_DeleteScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &sqlite.Scene{
+	scene := &sqlite.ReplayCase{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -374,7 +374,7 @@ func TestSceneAPI_DeleteScene(t *testing.T) {
 		t.Fatalf("failed to insert scene: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/scenes/"+scene.SceneID, nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/scenes/"+scene.ReplayCaseID, nil)
 	w := httptest.NewRecorder()
 
 	ws.handleSceneByID(w, req)
@@ -384,7 +384,7 @@ func TestSceneAPI_DeleteScene(t *testing.T) {
 	}
 
 	// Verify deletion
-	_, err := store.GetScene(scene.SceneID)
+	_, err := store.GetScene(scene.ReplayCaseID)
 	if err == nil {
 		t.Error("expected scene to be deleted")
 	}
@@ -394,10 +394,10 @@ func TestSceneAPI_ReplayScene(t *testing.T) {
 	ws := setupTestSceneWebServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewSceneStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
 
 	// Insert test scene
-	scene := &sqlite.Scene{
+	scene := &sqlite.ReplayCase{
 		SensorID: "sensor-001",
 		PCAPFile: "test.pcap",
 	}
@@ -405,7 +405,7 @@ func TestSceneAPI_ReplayScene(t *testing.T) {
 		t.Fatalf("failed to insert scene: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.SceneID+"/replay", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
 	w := httptest.NewRecorder()
 
 	ws.handleSceneByID(w, req)
@@ -426,8 +426,8 @@ func TestSceneAPI_ReplayScene(t *testing.T) {
 		if _, ok := resp["run_id"]; !ok {
 			t.Error("response should contain run_id field")
 		}
-		if resp["scene_id"] != scene.SceneID {
-			t.Errorf("scene_id = %v, want %s", resp["scene_id"], scene.SceneID)
+		if resp["replay_case_id"] != scene.ReplayCaseID {
+			t.Errorf("replay_case_id = %v, want %s", resp["replay_case_id"], scene.ReplayCaseID)
 		}
 	}
 }
@@ -528,7 +528,7 @@ func TestSceneAPI_ListSceneEvaluations(t *testing.T) {
 		t.Fatalf("status = %d, want %d body=%s", w.Code, http.StatusOK, w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), "scene-xyz") {
-		t.Fatalf("expected scene_id in response, got %s", w.Body.String())
+		t.Fatalf("expected replay_case_id in response, got %s", w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), "evaluations") {
 		t.Fatalf("expected evaluations key in response, got %s", w.Body.String())
@@ -549,13 +549,13 @@ func TestSceneAPI_ReplayScene_ErrorBranches(t *testing.T) {
 	})
 
 	t.Run("invalid json body", func(t *testing.T) {
-		store := sqlite.NewSceneStore(ws.db.DB)
-		scene := &sqlite.Scene{SensorID: "sensor-001", PCAPFile: "test.pcap"}
+		store := sqlite.NewReplayCaseStore(ws.db.DB)
+		scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
 		if err := store.InsertScene(scene); err != nil {
 			t.Fatalf("failed to insert scene: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.SceneID+"/replay", strings.NewReader("{"))
+		req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", strings.NewReader("{"))
 		w := httptest.NewRecorder()
 		ws.handleSceneByID(w, req)
 		if w.Code != http.StatusBadRequest {

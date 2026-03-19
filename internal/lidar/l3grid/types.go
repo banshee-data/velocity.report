@@ -41,7 +41,7 @@ type RegionSnapshot struct {
 	RegionsJSON      string // matches regions_json TEXT NOT NULL - serialised RegionData slice
 	VarianceDataJSON string // matches variance_data_json TEXT - optional settling metrics
 	SettlingFrames   int    // matches settling_frames INTEGER
-	SceneHash        string // matches scene_hash TEXT - for scene similarity detection
+	GridHash         string // matches grid_hash TEXT - for scene similarity detection
 	SourcePath       string // matches source_path TEXT - PCAP filename for exact match restoration
 }
 

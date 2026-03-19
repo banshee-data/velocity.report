@@ -16,8 +16,8 @@
 		deleteMissedRegion,
 		getBackgroundGrid,
 		getLabellingProgress,
+		getLidarReplayCases,
 		getLidarRuns,
-		getLidarScenes,
 		getMissedRegions,
 		getRunTracks,
 		getTrackHistory,
@@ -31,7 +31,7 @@
 		AnalysisRun,
 		BackgroundGrid,
 		LabellingProgress,
-		LidarScene,
+		LidarReplayCase,
 		MissedRegion,
 		RunTrack,
 		Track,
@@ -53,7 +53,7 @@
 	let isPlaying = false;
 
 	// Scene and run selection
-	let scenes: LidarScene[] = [];
+	let scenes: LidarReplayCase[] = [];
 	let selectedSceneId: string | null = null;
 	let runs: AnalysisRun[] = [];
 	let selectedRunId: string | null = null;
@@ -63,7 +63,7 @@
 	let runsLoading = false;
 
 	// Derived state
-	$: selectedScene = scenes.find((s) => s.scene_id === selectedSceneId) ?? null;
+	$: selectedScene = scenes.find((s) => s.replay_case_id === selectedSceneId) ?? null;
 	$: selectedRun = runs.find((r) => r.run_id === selectedRunId) ?? null;
 
 	// Data
@@ -224,7 +224,7 @@
 	async function loadScenes() {
 		scenesLoading = true;
 		try {
-			scenes = await getLidarScenes(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
+			scenes = await getLidarReplayCases(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
 		} catch {
 			scenes = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {
@@ -233,7 +233,7 @@
 	}
 
 	// Load runs for selected scene's sensor
-	async function loadRuns(scene: LidarScene) {
+	async function loadRuns(scene: LidarReplayCase) {
 		runsLoading = true;
 		try {
 			runs = await getLidarRuns({ sensor_id: scene.sensor_id });
@@ -274,7 +274,7 @@
 		runTracks = [];
 		labellingProgress = null;
 		if (selectedSceneId !== null) {
-			const scene = scenes.find((s) => s.scene_id === selectedSceneId);
+			const scene = scenes.find((s) => s.replay_case_id === selectedSceneId);
 			if (scene) {
 				loadRuns(scene);
 			} else {
@@ -615,11 +615,11 @@
 		// Load scenes and optionally pre-select from URL query params
 		await loadScenes();
 		const params = $page.url.searchParams;
-		const qsSceneId = params.get('scene_id');
+		const qsSceneId = params.get('replay_case_id');
 		const qsRunId = params.get('run_id');
-		if (qsSceneId && scenes.find((s) => s.scene_id === qsSceneId)) {
+		if (qsSceneId && scenes.find((s) => s.replay_case_id === qsSceneId)) {
 			selectedSceneId = qsSceneId;
-			const scene = scenes.find((s) => s.scene_id === qsSceneId);
+			const scene = scenes.find((s) => s.replay_case_id === qsSceneId);
 			if (scene) {
 				await loadRuns(scene);
 				if (qsRunId && runs.find((r) => r.run_id === qsRunId)) {
@@ -673,8 +673,8 @@
 					options={[
 						{ label: 'None (Historical)', value: null },
 						...scenes.map((s) => ({
-							label: s.description || s.scene_id,
-							value: s.scene_id
+							label: s.description || s.replay_case_id,
+							value: s.replay_case_id
 						}))
 					]}
 					disabled={scenesLoading || scenes.length === 0}

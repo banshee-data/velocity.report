@@ -1299,10 +1299,10 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 	}
 	defer database.Close()
 
-	// Insert analysis run using existing lidar_analysis_runs table
+	// Insert analysis run using existing lidar_run_records table
 	runID := fmt.Sprintf("pcap-%d", time.Now().UnixNano())
 	_, err = database.Exec(`
-		INSERT INTO lidar_analysis_runs
+		INSERT INTO lidar_run_records
 		(run_id, created_at, source_type, source_path, sensor_id, params_json,
 		 duration_secs, total_frames, total_tracks, confirmed_tracks, status)
 		VALUES (?, ?, 'pcap', ?, 'hesai-pandar40p', '{}', ?, ?, ?, ?, 'completed')`,
@@ -1323,7 +1323,7 @@ func persistToDatabase(dbPath string, result *AnalysisResult, tracks []*l5tracks
 		_, err := database.Exec(`
 			INSERT OR REPLACE INTO lidar_run_tracks
 			(run_id, track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-			 observation_count, avg_speed_mps, peak_speed_mps,
+			 observation_count, avg_speed_mps, max_speed_mps,
 			 bounding_box_height_avg, bounding_box_length_avg, bounding_box_width_avg,
 			 object_class, object_confidence)
 			VALUES (?, ?, 'hesai-pandar40p', 'confirmed', 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,

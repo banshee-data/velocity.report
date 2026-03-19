@@ -53,7 +53,7 @@ type BgStore interface {
 // in addition to BgStore.
 type RegionStore interface {
 	InsertRegionSnapshot(s *RegionSnapshot) (int64, error)
-	GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*RegionSnapshot, error)
+	GetRegionSnapshotByGridHash(sensorID, gridHash string) (*RegionSnapshot, error)
 	GetRegionSnapshotBySourcePath(sensorID, sourcePath string) (*RegionSnapshot, error)
 	GetLatestRegionSnapshot(sensorID string) (*RegionSnapshot, error)
 	InsertBgSnapshot(s *BgSnapshot) (int64, error)
@@ -118,13 +118,13 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 		regionSnap := g.RegionMgr.ToSnapshot(g.SensorID, id)
 		if regionSnap != nil {
 			// Add scene hash for future matching
-			regionSnap.SceneHash = g.SceneSignature()
+			regionSnap.GridHash = g.SceneSignature()
 			if _, err := regionStore.InsertRegionSnapshot(regionSnap); err != nil {
 				opsf("[BackgroundManager] Failed to persist region snapshot: %v", err)
 				// Don't fail the main snapshot persist for region errors
 			} else {
-				diagf("[BackgroundManager] Persisted region snapshot: sensor=%s, regions=%d, scene_hash=%s",
-					g.SensorID, regionSnap.RegionCount, regionSnap.SceneHash)
+				diagf("[BackgroundManager] Persisted region snapshot: sensor=%s, regions=%d, grid_hash=%s",
+					g.SensorID, regionSnap.RegionCount, regionSnap.GridHash)
 			}
 		}
 	}
@@ -208,32 +208,32 @@ func (bm *BackgroundManager) restoreRegionsLocked(snap *RegionSnapshot) error {
 	return nil
 }
 
-// TryRestoreRegionsBySceneHash attempts to restore regions from the database if the current
+// TryRestoreRegionsByGridHash attempts to restore regions from the database if the current
 // scene signature matches a previously saved region snapshot. This is called early in PCAP
 // processing after collecting enough frames to compute a scene signature.
 // Also restores the linked grid snapshot if available.
 // Caller must NOT hold g.mu — this method acquires the lock internally.
 // Returns true if regions were successfully restored.
-func (bm *BackgroundManager) TryRestoreRegionsBySceneHash(store RegionStore) bool {
+func (bm *BackgroundManager) TryRestoreRegionsByGridHash(store RegionStore) bool {
 	if bm == nil || bm.Grid == nil || store == nil {
 		return false
 	}
 
-	// Compute current scene signature
-	sceneHash := bm.Grid.SceneSignature()
-	if sceneHash == "" {
-		diagf("[BackgroundManager] Cannot restore regions: scene hash is empty (not enough data)")
+	// Compute current grid hash
+	gridHash := bm.Grid.SceneSignature()
+	if gridHash == "" {
+		diagf("[BackgroundManager] Cannot restore regions: grid hash is empty (not enough data)")
 		return false
 	}
 
 	// Try to find a matching region snapshot
-	snap, err := store.GetRegionSnapshotBySceneHash(bm.Grid.SensorID, sceneHash)
+	snap, err := store.GetRegionSnapshotByGridHash(bm.Grid.SensorID, gridHash)
 	if err != nil {
 		opsf("[BackgroundManager] Error looking up region snapshot: %v", err)
 		return false
 	}
 	if snap == nil {
-		diagf("[BackgroundManager] No region snapshot found for scene_hash=%s", sceneHash)
+		diagf("[BackgroundManager] No region snapshot found for grid_hash=%s", gridHash)
 		return false
 	}
 
@@ -248,8 +248,8 @@ func (bm *BackgroundManager) TryRestoreRegionsBySceneHash(store RegionStore) boo
 		return false
 	}
 
-	diagf("[BackgroundManager] Successfully restored regions from database: scene_hash=%s, regions=%d",
-		sceneHash, snap.RegionCount)
+	diagf("[BackgroundManager] Successfully restored regions from database: grid_hash=%s, regions=%d",
+		gridHash, snap.RegionCount)
 	return true
 }
 
@@ -289,19 +289,19 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 				sourcePath, snap.RegionCount)
 			return true
 		} else {
-			diagf("[BackgroundManager] No region snapshot found for source_path=%s, trying scene_hash", sourcePath)
+			diagf("[BackgroundManager] No region snapshot found for source_path=%s, trying grid_hash", sourcePath)
 		}
 	}
 
-	// Fall back to scene hash matching
-	sceneHash := g.sceneSignatureUnlocked()
-	if sceneHash == "" {
+	// Fall back to grid hash matching
+	gridHash := g.sceneSignatureUnlocked()
+	if gridHash == "" {
 		return false
 	}
 
 	// Release lock for DB I/O, then re-acquire
 	g.mu.Unlock()
-	snap, err := regionStore.GetRegionSnapshotBySceneHash(g.SensorID, sceneHash)
+	snap, err := regionStore.GetRegionSnapshotByGridHash(g.SensorID, gridHash)
 	g.mu.Lock()
 
 	if err != nil {
@@ -309,7 +309,7 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 		return false
 	}
 	if snap == nil {
-		diagf("[BackgroundManager] No region snapshot found for scene_hash=%s", sceneHash)
+		diagf("[BackgroundManager] No region snapshot found for grid_hash=%s", gridHash)
 		return false
 	}
 
@@ -319,8 +319,8 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 		return false
 	}
 
-	diagf("[BackgroundManager] Restored regions from DB, skipping remaining settling: scene_hash=%s, regions=%d",
-		sceneHash, snap.RegionCount)
+	diagf("[BackgroundManager] Restored regions from DB, skipping remaining settling: grid_hash=%s, regions=%d",
+		gridHash, snap.RegionCount)
 	return true
 }
 
@@ -395,12 +395,12 @@ func (bm *BackgroundManager) persistRegionsOnSettleLocked() {
 	}
 
 	// Build region snapshot while holding the lock
-	sceneHash := g.sceneSignatureUnlocked()
+	gridHash := g.sceneSignatureUnlocked()
 	regionSnap := g.RegionMgr.ToSnapshot(g.SensorID, 0) // will update snapshot_id after grid insert
 	if regionSnap == nil {
 		return
 	}
-	regionSnap.SceneHash = sceneHash
+	regionSnap.GridHash = gridHash
 	regionSnap.SourcePath = bm.GetSourcePath()
 
 	// Release lock for DB I/O, then re-acquire
@@ -443,7 +443,7 @@ func (bm *BackgroundManager) persistRegionsOnSettleLocked() {
 	if _, err := regionStore.InsertRegionSnapshot(regionSnap); err != nil {
 		opsf("[BackgroundManager] Failed to persist regions on settle: %v", err)
 	} else {
-		diagf("[BackgroundManager] Persisted regions on settling complete: sensor=%s, regions=%d, scene_hash=%s, source_path=%s, snapshot_id=%d",
-			g.SensorID, regionSnap.RegionCount, regionSnap.SceneHash, regionSnap.SourcePath, snapshotID)
+		diagf("[BackgroundManager] Persisted regions on settling complete: sensor=%s, regions=%d, grid_hash=%s, source_path=%s, snapshot_id=%d",
+			g.SensorID, regionSnap.RegionCount, regionSnap.GridHash, regionSnap.SourcePath, snapshotID)
 	}
 }

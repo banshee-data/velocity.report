@@ -70,7 +70,7 @@ func setupAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 func insertTestAnalysisRun(t *testing.T, db *sql.DB, runID, sensorID string) {
 	t.Helper()
 	_, err := db.Exec(`
-		INSERT INTO lidar_analysis_runs (
+		INSERT INTO lidar_run_records (
 			run_id, created_at, source_type, source_path, sensor_id, params_json, status
 		) VALUES (?, ?, 'pcap', '/test.pcap', ?, '{}', 'completed')
 	`, runID, time.Now().UnixNano(), sensorID)
@@ -1050,62 +1050,62 @@ func TestListRuns_WithAllFields(t *testing.T) {
 	}
 }
 
-// --- PopulateSceneName ---
+// --- PopulateReplayCaseName ---
 
-func TestPopulateSceneName_BasicPCAP(t *testing.T) {
+func TestPopulateReplayCaseName_BasicPCAP(t *testing.T) {
 	r := &AnalysisRun{SourcePath: "/data/recordings/kirk1.pcap"}
-	r.PopulateSceneName()
-	if r.SceneName != "kirk1" {
-		t.Errorf("expected scene name 'kirk1', got %q", r.SceneName)
+	r.PopulateReplayCaseName()
+	if r.ReplayCaseName != "kirk1" {
+		t.Errorf("expected replay case name 'kirk1', got %q", r.ReplayCaseName)
 	}
 }
 
-func TestPopulateSceneName_EmptyPath(t *testing.T) {
+func TestPopulateReplayCaseName_EmptyPath(t *testing.T) {
 	r := &AnalysisRun{SourcePath: ""}
-	r.PopulateSceneName()
-	if r.SceneName != "" {
-		t.Errorf("expected empty scene name for empty path, got %q", r.SceneName)
+	r.PopulateReplayCaseName()
+	if r.ReplayCaseName != "" {
+		t.Errorf("expected empty replay case name for empty path, got %q", r.ReplayCaseName)
 	}
 }
 
-func TestPopulateSceneName_ClearsStaleValue(t *testing.T) {
+func TestPopulateReplayCaseName_ClearsStaleValue(t *testing.T) {
 	r := &AnalysisRun{SourcePath: "/data/kirk1.pcap"}
-	r.PopulateSceneName()
-	if r.SceneName != "kirk1" {
-		t.Fatalf("setup: expected 'kirk1', got %q", r.SceneName)
+	r.PopulateReplayCaseName()
+	if r.ReplayCaseName != "kirk1" {
+		t.Fatalf("setup: expected 'kirk1', got %q", r.ReplayCaseName)
 	}
 	r.SourcePath = ""
-	r.PopulateSceneName()
-	if r.SceneName != "" {
-		t.Errorf("expected empty scene name after clearing SourcePath, got %q", r.SceneName)
+	r.PopulateReplayCaseName()
+	if r.ReplayCaseName != "" {
+		t.Errorf("expected empty replay case name after clearing SourcePath, got %q", r.ReplayCaseName)
 	}
 }
 
-func TestPopulateSceneName_MultipleDots(t *testing.T) {
+func TestPopulateReplayCaseName_MultipleDots(t *testing.T) {
 	r := &AnalysisRun{SourcePath: "/data/test.capture.2024.pcap"}
-	r.PopulateSceneName()
-	if r.SceneName != "test.capture.2024" {
-		t.Errorf("expected 'test.capture.2024', got %q", r.SceneName)
+	r.PopulateReplayCaseName()
+	if r.ReplayCaseName != "test.capture.2024" {
+		t.Errorf("expected 'test.capture.2024', got %q", r.ReplayCaseName)
 	}
 }
 
-func TestPopulateSceneName_NoExtension(t *testing.T) {
+func TestPopulateReplayCaseName_NoExtension(t *testing.T) {
 	r := &AnalysisRun{SourcePath: "/data/recordings/kirk0"}
-	r.PopulateSceneName()
-	if r.SceneName != "kirk0" {
-		t.Errorf("expected 'kirk0', got %q", r.SceneName)
+	r.PopulateReplayCaseName()
+	if r.ReplayCaseName != "kirk0" {
+		t.Errorf("expected 'kirk0', got %q", r.ReplayCaseName)
 	}
 }
 
-func TestPopulateSceneName_JustFilename(t *testing.T) {
+func TestPopulateReplayCaseName_JustFilename(t *testing.T) {
 	r := &AnalysisRun{SourcePath: "scene.pcap"}
-	r.PopulateSceneName()
-	if r.SceneName != "scene" {
-		t.Errorf("expected 'scene', got %q", r.SceneName)
+	r.PopulateReplayCaseName()
+	if r.ReplayCaseName != "scene" {
+		t.Errorf("expected 'scene', got %q", r.ReplayCaseName)
 	}
 }
 
-func TestPopulateSceneName_PopulatedOnGetRun(t *testing.T) {
+func TestPopulateReplayCaseName_PopulatedOnGetRun(t *testing.T) {
 	db, cleanup := setupAnalysisRunTestDB(t)
 	defer cleanup()
 
@@ -1125,12 +1125,12 @@ func TestPopulateSceneName_PopulatedOnGetRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRun failed: %v", err)
 	}
-	if run.SceneName != "kirk1" {
-		t.Errorf("expected SceneName 'kirk1' from GetRun, got %q", run.SceneName)
+	if run.ReplayCaseName != "kirk1" {
+		t.Errorf("expected ReplayCaseName 'kirk1' from GetRun, got %q", run.ReplayCaseName)
 	}
 }
 
-func TestPopulateSceneName_PopulatedOnListRuns(t *testing.T) {
+func TestPopulateReplayCaseName_PopulatedOnListRuns(t *testing.T) {
 	db, cleanup := setupAnalysisRunTestDB(t)
 	defer cleanup()
 
@@ -1153,7 +1153,7 @@ func TestPopulateSceneName_PopulatedOnListRuns(t *testing.T) {
 	if len(runs) == 0 {
 		t.Fatal("expected at least one run")
 	}
-	if runs[0].SceneName != "kirk0" {
-		t.Errorf("expected SceneName 'kirk0' from ListRuns, got %q", runs[0].SceneName)
+	if runs[0].ReplayCaseName != "kirk0" {
+		t.Errorf("expected ReplayCaseName 'kirk0' from ListRuns, got %q", runs[0].ReplayCaseName)
 	}
 }

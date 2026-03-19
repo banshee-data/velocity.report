@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS lidar_bg_regions (
     regions_json TEXT NOT NULL,  -- serialised []Region with CellToRegionID
     variance_data_json TEXT,     -- optional: SettlingMetrics for debugging
     settling_frames INTEGER,     -- frames used to identify regions
-    scene_hash TEXT,             -- optional: hash for scene similarity detection
+    grid_hash TEXT,              -- optional: hash for scene similarity detection
     UNIQUE(snapshot_id)
 );
 
@@ -268,8 +268,8 @@ Implement both options in phases:
 
 1. ✅ Add `lidar_bg_regions` table
    - Migration: `000017_create_lidar_bg_regions.up.sql`
-   - Schema: `region_set_id`, `snapshot_id`, `sensor_id`, `created_unix_nanos`, `region_count`, `regions_json`, `variance_data_json`, `settling_frames`, `scene_hash`
-   - Indexes: `idx_bg_regions_sensor`, `idx_bg_regions_scene_hash`
+   - Schema: `region_set_id`, `snapshot_id`, `sensor_id`, `created_unix_nanos`, `region_count`, `regions_json`, `variance_data_json`, `settling_frames`, `grid_hash`
+   - Indexes: `idx_bg_regions_sensor`, `idx_bg_regions_grid_hash`
 
 2. ✅ Implement `RegionManager.ToSnapshot()` and `RestoreFromSnapshot()`
    - `ToSnapshot()`: Serialises regions to `RegionSnapshot` with JSON-encoded `RegionData`
@@ -297,7 +297,7 @@ Implement both options in phases:
 **DB Methods** (`internal/db/db.go`):
 
 - `InsertRegionSnapshot()`
-- `GetRegionSnapshotBySceneHash()`
+- `GetRegionSnapshotByGridHash()`
 - `GetLatestRegionSnapshot()`
 
 **Outcome**: Full state restoration including region-specific parameters. Settling period can be skipped entirely when scene hash matches a previous run.

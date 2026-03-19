@@ -795,7 +795,7 @@ func main() {
 		// Wire ground truth scorer and scene store for label-aware auto-tuning.
 		// The scene store enables persisting optimal params after ground truth sweeps.
 		// The scorer closure resolves the scene's reference_run_id at evaluation time.
-		sceneStore := sqlite.NewSceneStore(lidarDB.DB)
+		sceneStore := sqlite.NewReplayCaseStore(lidarDB.DB)
 		analysisRunStore := sqlite.NewAnalysisRunStore(lidarDB.DB)
 		autoTuner.SetSceneStore(sceneStore)
 		groundTruthScorer := func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
@@ -1084,9 +1084,9 @@ func (b *backgroundManagerBridge) GetBackgroundSequenceNumber() uint64 {
 // These bridge the lidar package types to the sweep package interfaces
 // to avoid circular imports.
 
-// hintSceneAdapter bridges sqlite.SceneStore to sweep.SceneGetter.
+// hintSceneAdapter bridges sqlite.ReplayCaseStore to sweep.SceneGetter.
 type hintSceneAdapter struct {
-	store *sqlite.SceneStore
+	store *sqlite.ReplayCaseStore
 }
 
 func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
@@ -1095,7 +1095,7 @@ func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
 		return nil, err
 	}
 	return &sweep.HINTScene{
-		SceneID:           scene.SceneID,
+		ReplayCaseID:      scene.ReplayCaseID,
 		SensorID:          scene.SensorID,
 		PCAPFile:          scene.PCAPFile,
 		PCAPStartSecs:     scene.PCAPStartSecs,

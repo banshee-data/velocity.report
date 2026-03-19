@@ -32,7 +32,7 @@
     Auto-Tune iteratively narrows parameter bounds across multiple rounds, scoring each combination automatically.
   </p>
   <p class="mode-description hint-only">
-    Human-in-the-Loop runs reference scenes, waits for you to label tracks, then sweeps using ground truth scores.
+    Human-in-the-Loop runs reference replay cases, waits for you to label tracks, then sweeps using ground truth scores.
     Repeat for each round.
   </p>
 
@@ -122,7 +122,7 @@
             <select id="data_source" onchange="togglePCAP()">
               <option value="live">Live</option>
               <option value="pcap">PCAP Replay</option>
-              <option value="scene">Scene</option>
+              <option value="scene">Replay Case</option>
             </select>
           </label>
         </div>
@@ -138,11 +138,11 @@
           </label>
         </div>
         <div id="scene-fields" class="field-stack" style="display: none">
-          <label><span>Scene</span>
+          <label><span>Replay Case</span>
             <select id="scene_select" onchange="onSweepSceneSelected()">
-              <option value="">Loading scenes...</option>
+              <option value="">Loading replay cases...</option>
             </select>
-            <small class="field-desc">Select a pre-configured scene. PCAP settings will be populated
+            <small class="field-desc">Select a pre-configured replay case. PCAP settings will be populated
               automatically.</small>
           </label>
           <div id="scene-info" style="
@@ -153,7 +153,7 @@
               "></div>
           <div id="scene-actions" style="display: none; margin-top: 8px">
             <button class="btn-sm btn-secondary" onclick="applySceneParams()" id="btn-apply-scene-params">
-              Apply Scene Params
+              Apply Replay Case Params
             </button>
           </div>
         </div>
@@ -318,7 +318,7 @@
               </option>
             </select>
             <small class="field-desc">Scoring function for ranking combinations. Ground Truth
-              requires a scene with reference run.</small>
+              requires a replay case with reference run.</small>
           </label>
         </div>
         <div id="weight-fields" style="display: none; margin-top: 10px">

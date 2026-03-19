@@ -558,7 +558,7 @@ func TestRegionManagerRestoreFromSnapshot(t *testing.T) {
 				{"id": 0, "cell_list": [0, 1, 2, 3], "cell_count": 4, "mean_variance": 0.1, "params": {"background_update_fraction": 0.02}},
 				{"id": 1, "cell_list": [4, 5, 6, 7], "cell_count": 4, "mean_variance": 0.5, "params": {"background_update_fraction": 0.05}}
 			]`,
-			SceneHash: "abc123",
+			GridHash: "abc123",
 		}
 
 		err := rm.RestoreFromSnapshot(snap, totalCells)
@@ -685,7 +685,7 @@ func TestBackgroundManager_RestoreFromSnapshot_Integration(t *testing.T) {
 
 // mockRegionStore is a test double for RegionStore interface.
 type mockRegionStore struct {
-	regionSnapshots map[string]*RegionSnapshot // key: sceneHash or sourcePath
+	regionSnapshots map[string]*RegionSnapshot // key: gridHash or sourcePath
 	bgSnapshots     map[int64]*BgSnapshot
 	insertErr       error
 	getErr          error
@@ -707,11 +707,11 @@ func (m *mockRegionStore) InsertRegionSnapshot(s *RegionSnapshot) (int64, error)
 	return m.lastInsertedID, nil
 }
 
-func (m *mockRegionStore) GetRegionSnapshotBySceneHash(sensorID, sceneHash string) (*RegionSnapshot, error) {
+func (m *mockRegionStore) GetRegionSnapshotByGridHash(sensorID, gridHash string) (*RegionSnapshot, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
-	key := "hash:" + sensorID + ":" + sceneHash
+	key := "hash:" + sensorID + ":" + gridHash
 	return m.regionSnapshots[key], nil
 }
 
@@ -746,8 +746,8 @@ func (m *mockRegionStore) GetBgSnapshotByID(snapshotID int64) (*BgSnapshot, erro
 	return m.bgSnapshots[snapshotID], nil
 }
 
-func (m *mockRegionStore) addRegionSnapshotBySceneHash(sensorID, sceneHash string, snap *RegionSnapshot) {
-	key := "hash:" + sensorID + ":" + sceneHash
+func (m *mockRegionStore) addRegionSnapshotByGridHash(sensorID, gridHash string, snap *RegionSnapshot) {
+	key := "hash:" + sensorID + ":" + gridHash
 	m.regionSnapshots[key] = snap
 }
 
@@ -756,15 +756,15 @@ func (m *mockRegionStore) addRegionSnapshotBySourcePath(sensorID, sourcePath str
 	m.regionSnapshots[key] = snap
 }
 
-// TestTryRestoreRegionsBySceneHash tests the TryRestoreRegionsBySceneHash function.
-func TestTryRestoreRegionsBySceneHash(t *testing.T) {
+// TestTryRestoreRegionsByGridHash tests the TryRestoreRegionsByGridHash function.
+func TestTryRestoreRegionsByGridHash(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns false for nil manager", func(t *testing.T) {
 		t.Parallel()
 		var bm *BackgroundManager
 		store := newMockRegionStore()
-		result := bm.TryRestoreRegionsBySceneHash(store)
+		result := bm.TryRestoreRegionsByGridHash(store)
 		assert.False(t, result)
 	})
 
@@ -772,7 +772,7 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		t.Parallel()
 		bm := &BackgroundManager{Grid: nil}
 		store := newMockRegionStore()
-		result := bm.TryRestoreRegionsBySceneHash(store)
+		result := bm.TryRestoreRegionsByGridHash(store)
 		assert.False(t, result)
 	})
 
@@ -780,7 +780,7 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		t.Parallel()
 		g := makeTestGridWithData(4, 8)
 		bm := &BackgroundManager{Grid: g}
-		result := bm.TryRestoreRegionsBySceneHash(nil)
+		result := bm.TryRestoreRegionsByGridHash(nil)
 		assert.False(t, result)
 	})
 
@@ -793,7 +793,7 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		bm := &BackgroundManager{Grid: g}
 		store := newMockRegionStore()
 
-		result := bm.TryRestoreRegionsBySceneHash(store)
+		result := bm.TryRestoreRegionsByGridHash(store)
 		assert.False(t, result)
 	})
 
@@ -803,7 +803,7 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		bm := &BackgroundManager{Grid: g}
 		store := newMockRegionStore()
 
-		result := bm.TryRestoreRegionsBySceneHash(store)
+		result := bm.TryRestoreRegionsByGridHash(store)
 		assert.False(t, result)
 	})
 
@@ -814,7 +814,7 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		store := newMockRegionStore()
 		store.getErr = assert.AnError
 
-		result := bm.TryRestoreRegionsBySceneHash(store)
+		result := bm.TryRestoreRegionsByGridHash(store)
 		assert.False(t, result)
 	})
 
@@ -825,17 +825,17 @@ func TestTryRestoreRegionsBySceneHash(t *testing.T) {
 		bm := &BackgroundManager{Grid: g}
 		store := newMockRegionStore()
 
-		sceneHash := g.SceneSignature()
+		gridHash := g.SceneSignature()
 		snap := &RegionSnapshot{
 			SensorID:         g.SensorID,
-			SceneHash:        sceneHash,
+			GridHash:         gridHash,
 			RegionsJSON:      `[{"id": 0, "cell_list": [0,1,2], "cell_count": 3}]`,
 			RegionCount:      1,
 			CreatedUnixNanos: time.Now().UnixNano(),
 		}
-		store.addRegionSnapshotBySceneHash(g.SensorID, sceneHash, snap)
+		store.addRegionSnapshotByGridHash(g.SensorID, gridHash, snap)
 
-		result := bm.TryRestoreRegionsBySceneHash(store)
+		result := bm.TryRestoreRegionsByGridHash(store)
 		assert.True(t, result)
 		assert.True(t, g.RegionMgr.IdentificationComplete)
 	})
@@ -1042,15 +1042,15 @@ func TestTryRestoreRegionsFromStoreLocked(t *testing.T) {
 			sourcePath: "/nonexistent/path.pcap",
 		}
 
-		sceneHash := g.SceneSignature()
+		gridHash := g.SceneSignature()
 		snap := &RegionSnapshot{
 			SensorID:         g.SensorID,
-			SceneHash:        sceneHash,
+			GridHash:         gridHash,
 			RegionsJSON:      `[{"id": 0, "cell_list": [0], "cell_count": 1}]`,
 			RegionCount:      1,
 			CreatedUnixNanos: time.Now().UnixNano(),
 		}
-		store.addRegionSnapshotBySceneHash(g.SensorID, sceneHash, snap)
+		store.addRegionSnapshotByGridHash(g.SensorID, gridHash, snap)
 
 		g.mu.Lock()
 		result := bm.tryRestoreRegionsFromStoreLocked()
@@ -1220,7 +1220,7 @@ func TestTryRestoreRegionsFromStoreLocked_SourcePathError(t *testing.T) {
 	assert.False(t, result)
 }
 
-func TestTryRestoreRegionsFromStoreLocked_SceneHashError(t *testing.T) {
+func TestTryRestoreRegionsFromStoreLocked_GridHashError(t *testing.T) {
 	t.Parallel()
 	g := makeTestGridWithData(4, 8)
 	g.RegionMgr = NewRegionManager(4, 8)
@@ -1236,22 +1236,22 @@ func TestTryRestoreRegionsFromStoreLocked_SceneHashError(t *testing.T) {
 	assert.False(t, result)
 }
 
-func TestTryRestoreRegionsFromStoreLocked_RestoreFromSceneHashError(t *testing.T) {
+func TestTryRestoreRegionsFromStoreLocked_RestoreFromGridHashError(t *testing.T) {
 	t.Parallel()
 	g := makeTestGridWithData(4, 8)
 	g.RegionMgr = NewRegionManager(4, 8)
 	store := newMockRegionStore()
-	sceneHash := g.SceneSignature()
+	gridHash := g.SceneSignature()
 
 	// Add a snapshot with invalid regions JSON to trigger restore error
 	snap := &RegionSnapshot{
 		SensorID:         g.SensorID,
-		SceneHash:        sceneHash,
+		GridHash:         gridHash,
 		RegionsJSON:      `invalid json`,
 		RegionCount:      1,
 		CreatedUnixNanos: time.Now().UnixNano(),
 	}
-	store.addRegionSnapshotBySceneHash(g.SensorID, sceneHash, snap)
+	store.addRegionSnapshotByGridHash(g.SensorID, gridHash, snap)
 	bm := &BackgroundManager{Grid: g, store: store}
 
 	g.mu.Lock()
@@ -1294,7 +1294,7 @@ func TestTryRestoreRegionsFromStoreLocked_SourcePathNoSnapshot(t *testing.T) {
 	g := makeTestGridWithData(4, 8)
 	g.RegionMgr = NewRegionManager(4, 8)
 	store := newMockRegionStore()
-	// Source path set but no matching snapshot → logs "trying scene_hash"
+	// Source path set but no matching snapshot → logs "trying grid_hash"
 	bm := &BackgroundManager{
 		Grid:       g,
 		store:      store,
@@ -1363,16 +1363,16 @@ func TestRestoreFromSnapshotLocked_NilBgSnapshot(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TryRestoreRegionsBySceneHash additional branches
+// TryRestoreRegionsByGridHash additional branches
 // ---------------------------------------------------------------------------
 
-func TestTryRestoreRegionsBySceneHash_GetError(t *testing.T) {
+func TestTryRestoreRegionsByGridHash_GetError(t *testing.T) {
 	t.Parallel()
 	g := makeTestGridWithData(4, 8)
 	store := newMockRegionStore()
 	store.getErr = fmt.Errorf("DB error")
 
-	result := g.Manager.TryRestoreRegionsBySceneHash(store)
+	result := g.Manager.TryRestoreRegionsByGridHash(store)
 	assert.False(t, result)
 }
 

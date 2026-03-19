@@ -41,8 +41,8 @@ type AnalysisRun struct {
 	VRLogPath        string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
 
 	// Derived fields (not persisted in DB, computed on retrieval)
-	SceneName   string          `json:"scene_name,omitempty"`   // Derived from SourcePath filename
-	LabelRollup *RunLabelRollup `json:"label_rollup,omitempty"` // Derived from run-track labels
+	ReplayCaseName string          `json:"replay_case_name,omitempty"` // Derived from SourcePath filename
+	LabelRollup    *RunLabelRollup `json:"label_rollup,omitempty"`     // Derived from run-track labels
 }
 
 // RunLabelRollup summarises the current human labelling state for a run.
@@ -62,14 +62,14 @@ func (r *RunLabelRollup) LabelledCount() int {
 	return r.Classified + r.TaggedOnly
 }
 
-// PopulateSceneName sets SceneName from SourcePath by extracting the base
+// PopulateReplayCaseName sets ReplayCaseName from SourcePath by extracting the base
 // filename without extension. E.g. "/data/kirk1.pcap" → "kirk1".
-func (r *AnalysisRun) PopulateSceneName() {
+func (r *AnalysisRun) PopulateReplayCaseName() {
 	if r.SourcePath != "" {
 		base := filepath.Base(r.SourcePath)
-		r.SceneName = strings.TrimSuffix(base, filepath.Ext(base))
+		r.ReplayCaseName = strings.TrimSuffix(base, filepath.Ext(base))
 	} else {
-		r.SceneName = ""
+		r.ReplayCaseName = ""
 	}
 }
 
@@ -400,7 +400,7 @@ func retryOnBusy(operation func() error) error {
 // InsertRun creates a new analysis run.
 func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 	query := `
-		INSERT INTO lidar_analysis_runs (
+		INSERT INTO lidar_run_records (
 			run_id, created_at, source_type, source_path, sensor_id,
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
@@ -438,7 +438,7 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 
 // UpdateRunStatus updates the status of an analysis run.
 func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error {
-	query := `UPDATE lidar_analysis_runs SET status = ?, error_message = ? WHERE run_id = ?`
+	query := `UPDATE lidar_run_records SET status = ?, error_message = ? WHERE run_id = ?`
 	return retryOnBusy(func() error {
 		_, err := s.db.Exec(query, status, nullString(errorMsg), runID)
 		if err != nil {
@@ -450,7 +450,7 @@ func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error
 
 // UpdateRunVRLogPath updates the vrlog_path of an analysis run.
 func (s *AnalysisRunStore) UpdateRunVRLogPath(runID, vrlogPath string) error {
-	query := `UPDATE lidar_analysis_runs SET vrlog_path = ? WHERE run_id = ?`
+	query := `UPDATE lidar_run_records SET vrlog_path = ? WHERE run_id = ?`
 	return retryOnBusy(func() error {
 		_, err := s.db.Exec(query, nullString(vrlogPath), runID)
 		if err != nil {
@@ -463,7 +463,7 @@ func (s *AnalysisRunStore) UpdateRunVRLogPath(runID, vrlogPath string) error {
 // CompleteRun marks a run as completed with final statistics.
 func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error {
 	query := `
-		UPDATE lidar_analysis_runs SET
+		UPDATE lidar_run_records SET
 			duration_secs = ?,
 			total_frames = ?,
 			total_clusters = ?,
@@ -499,7 +499,7 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
 			status, error_message, parent_run_id, notes, vrlog_path
-		FROM lidar_analysis_runs
+		FROM lidar_run_records
 		WHERE run_id = ?
 	`
 
@@ -549,7 +549,7 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		run.VRLogPath = vrlogPath.String
 	}
 
-	run.PopulateSceneName()
+	run.PopulateReplayCaseName()
 	labelRollup, err := s.GetRunLabelRollup(runID)
 	if err != nil {
 		return nil, err
@@ -566,7 +566,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 			params_json, duration_secs, total_frames, total_clusters,
 			total_tracks, confirmed_tracks, processing_time_ms,
 			status, error_message, parent_run_id, notes, vrlog_path
-		FROM lidar_analysis_runs
+		FROM lidar_run_records
 		ORDER BY created_at DESC
 		LIMIT ?
 	`
@@ -625,7 +625,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 			run.VRLogPath = vrlogPath.String
 		}
 
-		run.PopulateSceneName()
+		run.PopulateReplayCaseName()
 
 		runs = append(runs, &run)
 	}
@@ -660,7 +660,7 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 		INSERT INTO lidar_run_tracks (
 			run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps,
+			avg_speed_mps, max_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
@@ -722,7 +722,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	query := `
 		SELECT run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps,
+			avg_speed_mps, max_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
@@ -828,7 +828,7 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 	query := `
 		SELECT run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps,
+			avg_speed_mps, max_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,
@@ -1121,7 +1121,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	query := `
 		SELECT run_id, track_id, sensor_id, track_state,
 			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, peak_speed_mps,
+			avg_speed_mps, max_speed_mps,
 			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
 			height_p95_max, intensity_mean_avg,
 			object_class, object_confidence, classification_model,

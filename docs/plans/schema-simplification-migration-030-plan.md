@@ -1,27 +1,30 @@
-# Schema Simplification Migration 030 Plan
+# Pre-v0.5.0 Schema Simplification Migration 030 Plan
 
-- **Status:** Draft — prerequisite proto rename complete (#352); migration SQL and Go code changes pending
+- **Status:** Implemented — migrations 000030 and 000031 written, Go code, web frontend, and tests updated in #400
 - **Layers:** Database, L3 Grid, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints (API + web)
 - **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [DECISIONS.md D-19](../DECISIONS.md), [L7 Scene Plan](lidar-l7-scene-plan.md), [L8/L9/L10 Plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md)
 
 ## Prerequisites
 
-| Prerequisite                             | Status         | Notes                                                                                |
-| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------ |
-| Proto `peak_speed_mps` → `max_speed_mps` | ✅ Complete    | Landed in #352 (proto field 25, Go/Swift/TS model); SQL column is the remaining step |
-| D-19 decision recorded                   | ✅ Complete    | Raw maximum renamed to `max_speed_mps`; `peak` reserved for future filtered metric   |
-| Migration SQL drafted                    | ✅ Complete    | DROP COLUMN + RENAME COLUMN statements ready (see §3 below)                          |
-| Go code changes                          | ❌ Not started | Track store, analysis run, l5tracks, l6objects, monitor API all need field renames   |
-| Web frontend changes                     | ❌ Not started | TypeScript type field renames and percentile field removal                           |
+| Prerequisite                             | Status      | Notes                                                                                |
+| ---------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| Proto `peak_speed_mps` → `max_speed_mps` | ✅ Complete | Landed in #352 (proto field 25, Go/Swift/TS model); SQL column is the remaining step |
+| D-19 decision recorded                   | ✅ Complete | Raw maximum renamed to `max_speed_mps`; `peak` reserved for future filtered metric   |
+| Migration SQL drafted                    | ✅ Complete | SQL files `000030_schema_simplification` and `000031_table_naming` landed in #400    |
+| Go code changes                          | ✅ Complete | All stores, types, and monitor API renamed to match new schema (#400)                |
+| Web frontend changes                     | ✅ Complete | TypeScript types and Svelte route pages updated (`scene_id` → `replay_case_id`) #400 |
 
 ## Goal
 
-Single migration (000030) that:
+Two coordinated migrations (000030 + 000031) that standardise the LiDAR schema
+before v0.5.0:
 
-1. Drops dead per-track percentile columns from both `lidar_tracks` and
-   `lidar_run_tracks`.
-2. Renames `peak_speed_mps` → `max_speed_mps` on both tables for
-   radar/lidar consistency.
+1. **000030 — Column cleanup:** drop dead/NULL columns, rename
+   `peak_speed_mps` → `max_speed_mps`, rename `world_frame` → `frame_id`,
+   rename `scene_hash` → `grid_hash`.
+2. **000031 — Table naming standardisation:** rename 7 tables into a coherent
+   family model (`bg`, `track`, `run`, `replay_case`, `tuning`) and rename
+   associated FK columns.
 
 ## Motivation
 
@@ -50,13 +53,92 @@ remediation plan Phase 2. They must **not** be dropped by this migration.
   per-cluster height), not population statistics. They stay.
 - Adding new track-level speed metrics (e.g. `speed_variance_mps`) — separate
   future work.
-- Touching `lidar_track_obs` — no changes needed.
-- Dropping quality columns (`track_length_meters`, `track_duration_secs`,
-  `occlusion_count`, `max_occlusion_frames`, `spatial_coverage`,
-  `noise_point_ratio`) — these are planned for wiring (see
-  unpopulated-data-structures remediation Phase 2) and must not be dropped.
+- Touching `lidar_track_obs` (beyond the `world_frame` rename).
+- Radar table names — this plan is explicitly LiDAR-only.
+- Merging live and analysis track tables — handled separately in
+  [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md).
+- Storage package reorganisation (`l8analytics/store/`, etc.) — separate
+  follow-on work during L8 consolidation.
+- `lidar_labels` layer ownership documentation — separate follow-on.
 
-## Migration SQL
+---
+
+## Part 1: Naming Design
+
+### Design Rules
+
+1. Use full words by default, but allow entrenched short forms when they are
+   already clear and low-risk. `bg` is an allowed exception.
+2. Group tables by conceptual owner rather than one global prefix:
+   - `lidar_bg_*` for L3 persisted background/grid state
+   - `lidar_track_*` for live L5 track tables and direct children
+   - `lidar_run_*` for artefacts owned by an executed analysis run
+   - `lidar_replay_*` for saved replay fixtures and replay-scoped scores
+   - `lidar_tuning_*` for optimisation sessions
+3. Reserve `scene` for future L7 canonical scene work.
+4. Prefer plural entity names for tables.
+5. Keep already-good anchor names when renaming them would create unnecessary
+   FK and API churn.
+
+### Current Schema Inventory
+
+| Current table          | Current role                              | Issue                           |
+| ---------------------- | ----------------------------------------- | ------------------------------- |
+| `lidar_bg_regions`     | L3 persisted region state                 | acceptable (`bg` exception)     |
+| `lidar_bg_snapshot`    | L3 persisted grid snapshot                | acceptable                      |
+| `lidar_clusters`       | L4 cluster persistence                    | acceptable                      |
+| `lidar_tracks`         | live L5 track buffer                      | acceptable anchor name          |
+| `lidar_track_obs`      | per-observation track state               | abbreviated child noun          |
+| `lidar_labels`         | track-linked annotation spans             | overly generic                  |
+| `lidar_analysis_runs`  | run metadata                              | breaks the `lidar_run_*` family |
+| `lidar_run_tracks`     | run-scoped track snapshots                | acceptable run-owned child      |
+| `lidar_scenes`         | saved replay fixture                      | collides with future L7 "scene" |
+| `lidar_evaluations`    | run-vs-run scores scoped to a replay case | missing replay owner            |
+| `lidar_missed_regions` | run-scoped missed-detection evidence      | owner is implicit               |
+| `lidar_sweeps`         | tuning/sweep metadata                     | should align to tuning family   |
+
+### Target Schema
+
+After both migrations, the LiDAR schema reads as:
+
+```text
+lidar_bg_regions
+lidar_bg_snapshot
+
+lidar_clusters
+
+lidar_tracks
+lidar_track_observations
+lidar_track_annotations
+
+lidar_run_records
+lidar_run_tracks
+lidar_run_missed_regions
+
+lidar_replay_cases
+lidar_replay_evaluations
+
+lidar_tuning_sweeps
+```
+
+### Why Keep `lidar_tracks`
+
+The live-track table could be named `lidar_track_states`, but renaming it
+before v0.5.0 buys little and costs a lot:
+
+- `lidar_track_obs` and `lidar_labels` FK to it
+- many docs already use `lidar_tracks` as the anchor name
+- the main inconsistency is the surrounding family names, not the word `tracks`
+
+### Why Keep Separate Physical Track Tables
+
+This plan is naming + column cleanup only. It does **not** merge live and
+analysis track tables. That question is handled separately in the
+[Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md).
+
+---
+
+## Part 2: Migration 000030 — Column Cleanup
 
 ### 000030_schema_simplification.up.sql
 
@@ -78,6 +160,16 @@ ALTER TABLE lidar_run_tracks DROP COLUMN p95_speed_mps;
 
 -- lidar_run_tracks: rename peak → max
 ALTER TABLE lidar_run_tracks RENAME COLUMN peak_speed_mps TO max_speed_mps;
+
+-- rename world_frame → frame_id on three tables
+ALTER TABLE lidar_clusters RENAME COLUMN world_frame TO frame_id;
+ALTER TABLE lidar_tracks RENAME COLUMN world_frame TO frame_id;
+ALTER TABLE lidar_track_obs RENAME COLUMN world_frame TO frame_id;
+
+-- rename scene_hash → grid_hash on lidar_bg_regions
+ALTER TABLE lidar_bg_regions RENAME COLUMN scene_hash TO grid_hash;
+DROP INDEX IF EXISTS idx_bg_regions_scene_hash;
+CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
 ```
 
 ### 000030_schema_simplification.down.sql
@@ -98,20 +190,133 @@ ALTER TABLE lidar_run_tracks ADD COLUMN p95_speed_mps REAL;
 
 -- lidar_run_tracks: restore peak name
 ALTER TABLE lidar_run_tracks RENAME COLUMN max_speed_mps TO peak_speed_mps;
+
+-- restore world_frame
+ALTER TABLE lidar_clusters RENAME COLUMN frame_id TO world_frame;
+ALTER TABLE lidar_tracks RENAME COLUMN frame_id TO world_frame;
+ALTER TABLE lidar_track_obs RENAME COLUMN frame_id TO world_frame;
+
+-- restore scene_hash
+ALTER TABLE lidar_bg_regions RENAME COLUMN grid_hash TO scene_hash;
+DROP INDEX IF EXISTS idx_bg_regions_grid_hash;
+CREATE INDEX idx_bg_regions_scene_hash ON lidar_bg_regions (scene_hash);
 ```
 
-## Go Code Changes
+### pcap-analyse: Drop Offline Percentiles (Confirmed)
 
-### Storage layer (`internal/lidar/storage/sqlite/`)
+The `pcap-analyse` tool computes per-track P50/P85/P95 for offline analysis
+and writes them to the `lidar_run_tracks` table. With the columns dropped:
+
+**Decision: Option A — Drop completely.** Remove `ComputeSpeedPercentiles()`
+call and the struct fields. If offline percentile analysis is needed later,
+it can use the TDL (Track Description Language) query layer planned in v0.5.1.
+
+---
+
+## Part 3: Migration 000031 — Table Naming Standardisation
+
+### Tables to rename
+
+| Current                | Proposed                   | Why                                                                  |
+| ---------------------- | -------------------------- | -------------------------------------------------------------------- |
+| `lidar_track_obs`      | `lidar_track_observations` | remove abbreviation                                                  |
+| `lidar_labels`         | `lidar_track_annotations`  | make track ownership explicit; avoid collision with run-track labels |
+| `lidar_analysis_runs`  | `lidar_run_records`        | align the run anchor with the `lidar_run_*` family                   |
+| `lidar_missed_regions` | `lidar_run_missed_regions` | make run ownership explicit                                          |
+| `lidar_scenes`         | `lidar_replay_cases`       | make replay-fixture role explicit; avoid L7 scene collision          |
+| `lidar_evaluations`    | `lidar_replay_evaluations` | scores are persisted against a replay case                           |
+| `lidar_sweeps`         | `lidar_tuning_sweeps`      | make the tuning-session owner explicit                               |
+
+### Tables to keep unchanged
+
+| Keep                | Why                                                            |
+| ------------------- | -------------------------------------------------------------- |
+| `lidar_bg_regions`  | `bg` is an allowed exception and already established           |
+| `lidar_bg_snapshot` | paired naturally with `lidar_bg_regions`                       |
+| `lidar_tracks`      | core live-track anchor; renaming would force unnecessary churn |
+| `lidar_clusters`    | already clear and short; no conflicting family                 |
+| `lidar_run_tracks`  | already reads correctly as a run-owned child table             |
+
+### Column renames following table renames
+
+- `scene_id` → `replay_case_id` on `lidar_replay_cases`, `lidar_replay_evaluations`,
+  and `lidar_track_annotations` (nullable provenance FK added in migration 000019)
+- Index `idx_lidar_labels_scene` → `idx_lidar_track_annotations_replay_case`
+
+`lidar_track_annotations.scene_id` is a nullable soft reference to the replay
+case a human used when authoring the annotation (not a hard FK, but the same
+concept). Leaving it named `scene_id` after the table rename would create
+exactly the mixed-terminology problem the standardisation aims to eliminate.
+
+### 000031_table_naming.up.sql
+
+```sql
+-- L5 track children
+ALTER TABLE lidar_track_obs RENAME TO lidar_track_observations;
+ALTER TABLE lidar_labels RENAME TO lidar_track_annotations;
+ALTER TABLE lidar_track_annotations RENAME COLUMN scene_id TO replay_case_id;
+DROP INDEX IF EXISTS idx_lidar_labels_scene;
+CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations (replay_case_id);
+
+-- L8 run family
+ALTER TABLE lidar_analysis_runs RENAME TO lidar_run_records;
+ALTER TABLE lidar_missed_regions RENAME TO lidar_run_missed_regions;
+
+-- L8 replay family
+ALTER TABLE lidar_scenes RENAME TO lidar_replay_cases;
+ALTER TABLE lidar_replay_cases RENAME COLUMN scene_id TO replay_case_id;
+ALTER TABLE lidar_evaluations RENAME TO lidar_replay_evaluations;
+ALTER TABLE lidar_replay_evaluations RENAME COLUMN scene_id TO replay_case_id;
+
+-- L8 tuning
+ALTER TABLE lidar_sweeps RENAME TO lidar_tuning_sweeps;
+```
+
+### 000031_table_naming.down.sql
+
+```sql
+-- L8 tuning
+ALTER TABLE lidar_tuning_sweeps RENAME TO lidar_sweeps;
+
+-- L8 replay family
+ALTER TABLE lidar_replay_evaluations RENAME COLUMN replay_case_id TO scene_id;
+ALTER TABLE lidar_replay_evaluations RENAME TO lidar_evaluations;
+ALTER TABLE lidar_replay_cases RENAME COLUMN replay_case_id TO scene_id;
+ALTER TABLE lidar_replay_cases RENAME TO lidar_scenes;
+
+-- L8 run family
+ALTER TABLE lidar_run_missed_regions RENAME TO lidar_missed_regions;
+ALTER TABLE lidar_run_records RENAME TO lidar_analysis_runs;
+
+-- L5 track children
+DROP INDEX IF EXISTS idx_lidar_track_annotations_replay_case;
+ALTER TABLE lidar_track_annotations RENAME COLUMN replay_case_id TO scene_id;
+ALTER TABLE lidar_track_annotations RENAME TO lidar_labels;
+CREATE INDEX idx_lidar_labels_scene ON lidar_labels (scene_id);
+ALTER TABLE lidar_track_observations RENAME TO lidar_track_obs;
+```
+
+---
+
+## Part 4: Go Code Changes
+
+### Migration 000030 code changes
+
+#### Storage layer (`internal/lidar/storage/sqlite/`)
 
 **track_store.go** — Rename and remove percentile column references:
 
-- `InsertTrack()`: percentile columns are not currently written (never
-  wired). Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings.
-- `UpdateTrack()`: no percentile SET clauses exist.
-  Rename `peak_speed_mps` → `max_speed_mps`.
-- `GetActiveTracks()`, `GetTracksInRange()`, other SELECT queries: rename
-  `peak_speed_mps` → `max_speed_mps` in SQL strings.
+- `InsertTrack()`: drop `p50_speed_mps, p85_speed_mps, p95_speed_mps` from UPSERT columns and ON CONFLICT SET
+- `UpdateTrack()`: drop percentile SET clauses
+- `GetActiveTracks()`, `GetTracksInRange()`: already don't select them — no change
+- Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
+- Rename `world_frame` → `frame_id` in all SQL strings; rename `WorldFrame` Go field → `FrameID`
+
+**cluster_store.go** — Rename `world_frame` → `frame_id` in SQL strings;
+rename `WorldFrame` Go field → `FrameID`.
+
+**bg_region_store.go** / **bg_store.go** — Rename `scene_hash` → `grid_hash`
+in SQL and index references; rename `SceneHash` Go field → `GridHash`.
 
 **analysis_run.go** — Rename peak in SQL:
 
@@ -125,32 +330,36 @@ ALTER TABLE lidar_run_tracks RENAME COLUMN max_speed_mps TO peak_speed_mps;
 
 **analysis_run_manager.go** — No changes needed (already uses `MaxSpeedMps`).
 
-### Tracking layer (`internal/lidar/l5tracks/`)
+#### Tracking layer (`internal/lidar/l5tracks/`)
 
-**tracking.go** — ✅ Already done. `TrackedObject.MaxSpeedMps` is the current
-field name. Speed comparison logic already uses `track.MaxSpeedMps`.
+**tracking.go** — Rename struct field:
 
-### Classification layer (`internal/lidar/l6objects/`)
+- `TrackedObject.PeakSpeedMps` → `TrackedObject.MaxSpeedMps`
+- `TrackedObject.WorldFrame` → `TrackedObject.FrameID`
+- Update speed comparison logic: `if speed > track.PeakSpeedMps` → `if speed > track.MaxSpeedMps`
+
+#### Classification layer (`internal/lidar/l6objects/`)
 
 **classification.go** — `ClassificationFeatures` uses `MaxSpeed` (already
 renamed). `ComputeSpeedPercentiles()` stays as internal-only — used by
 `extractFeatures()` for classifier feature extraction and by
 `TrackFeatures.Compute()`. Not exposed via API.
 
-**features.go** — `TrackFeatures.SpeedP50`, `.SpeedP85`, `.SpeedP95` are
-internal feature-vector fields for ML training data export. These are **not**
-per-track percentile columns in the DB. Decision: keep them as internal
-feature descriptors (not stored in DB, not exposed via API) until the ML
-pipeline is active.
+- `ClassificationFeatures.PeakSpeed` → `ClassificationFeatures.MaxSpeed`
 
-### API layer (`internal/lidar/monitor/`)
+**features.go** — Rename field:
 
-**track_api.go** — ✅ Already done. `TrackSummary.MaxSpeedMps` uses JSON tag
-`"max_speed_mps"`. `ClassStats.MaxSpeedMps` uses JSON tag `"max_speed_mps"`.
-Accumulator already uses `accum.maxSpeed`. No per-track percentile fields in
-the API response.
+- `TrackFeatures.PeakSpeedMps` → `TrackFeatures.MaxSpeedMps`
+- Update CSV export header from `"peak_speed_mps"` to `"max_speed_mps"`
 
-### PCAP analysis tool (`cmd/tools/pcap-analyse/`)
+#### API layer (`internal/lidar/monitor/`)
+
+**track_api.go** — Rename JSON fields:
+
+- `TrackSummary.PeakSpeedMps` JSON tag: `"peak_speed_mps"` → `"max_speed_mps"`
+- `ClassStats.PeakSpeedMps` JSON tag: `"peak_speed_mps"` → `"max_speed_mps"`
+
+#### PCAP analysis tool (`cmd/tools/pcap-analyse/`)
 
 **main.go** — `SpeedStatistics` struct still has `P50Speed`, `P85Speed`,
 `P95Speed`. These compute percentiles across a **population** of per-track
@@ -158,214 +367,91 @@ max speeds — this is correct aggregate usage. However, the naming
 (`p50_speed_mps` etc. in JSON tags) conflicts with the per-track column names
 being dropped.
 
-**Recommendation:** Rename to `p50_max_speed_mps`, `p85_max_speed_mps`,
-`p95_max_speed_mps` to make clear these are population percentiles of track max
-speeds, not per-track percentiles. Also rename `P95` to `P98` to align with
-D-18 (`p98` is the canonical high-end aggregate percentile). Update tests.
+- `TrackExport.PeakSpeedMps` → `TrackExport.MaxSpeedMps`
+- Remove `P50SpeedMps`, `P85SpeedMps`, `P95SpeedMps` from struct and SQL INSERT
+- Update CSV headers
+- Remove `ComputeSpeedPercentiles()` call
 
-### Web frontend (`web/src/`)
-
-**lib/types/lidar.ts** — No per-track percentile fields exist. No
-`peak_speed_mps` exists. Already aligned.
-
-### Proto (`proto/velocity_visualiser/v1/`)
+#### Proto (`proto/velocity_visualiser/v1/`)
 
 **visualiser.proto** — ✅ Already done. Field is `float max_speed_mps = 25;`.
 No per-track percentile fields in the proto.
 
 **Swift** — Already uses `MaxSpeedMps`.
 
-## pcap-analyse: Keep or Drop Offline Percentiles?
+#### Web frontend (`web/src/`)
 
-The `pcap-analyse` tool computes per-track P50/P85/P95 for offline analysis
-and writes them to the `lidar_run_tracks` table. Once we drop those columns,
-two options:
+**lib/types/lidar.ts** — Rename type fields:
 
-**Option A — Drop completely:** Remove `ComputeSpeedPercentiles()` call and the
-struct fields. Offline analysis uses the same schema as the server. Simplest.
+- `peak_speed_mps` → `max_speed_mps` on track and run-track types
+- Remove `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` from run-track type
 
-**Option B — Keep as local-only CSV export:** Compute percentiles for the
-CSV export (offline analysis) but don't persist to the database. Requires
-splitting the export struct from the DB struct.
+**Components** — Update display references from "Peak" to "Max" in labels.
 
-**Recommendation:** Option A. If offline percentile analysis is needed later,
-it can use the TDL (Track Description Language) query layer planned in v0.5.1.
+### Migration 000031 code changes
 
-## Testing
+#### Storage layer (`internal/lidar/storage/sqlite/`)
 
-- Run existing Go tests — `make test-go` must pass after all renames
-- Verify migration applies cleanly on a fresh DB and on a DB with existing data
-- Verify `make test-web` passes after TypeScript type changes
-- Run `make schema-erd` to regenerate ERD after migration
+- All SQL referencing `lidar_track_obs` → `lidar_track_observations`
+- All SQL referencing `lidar_labels` → `lidar_track_annotations`; `scene_id` → `replay_case_id`
+- All SQL referencing `lidar_analysis_runs` → `lidar_run_records`
+- All SQL referencing `lidar_missed_regions` → `lidar_run_missed_regions`
+- All SQL referencing `lidar_scenes` → `lidar_replay_cases`; `scene_id` → `replay_case_id`
+- All SQL referencing `lidar_evaluations` → `lidar_replay_evaluations`
+- All SQL referencing `lidar_sweeps` → `lidar_tuning_sweeps`
+
+**internal/api/lidar_labels.go** — Rename in all SQL strings and the `Label` struct:
+
+- `scene_id` column references → `replay_case_id`
+- `SceneID` Go field → `ReplayCaseID`; update JSON tag to `"replay_case_id,omitempty"`
+- `idx_lidar_labels_scene` index name → `idx_lidar_track_annotations_replay_case` (if referenced directly)
+
+**internal/lidar/sweep/auto.go** and **hint.go** — `SweepRequest.SceneID` field
+references `lidar_scenes` by ID string at the application layer (not the column
+name). The struct field rename (`SceneID` → `ReplayCaseID`) follows the `Scene`
+→ `ReplayCase` type rename and must keep `json:"replay_case_id,omitempty"` for
+API compatibility.
+
+#### Go struct / type renames
+
+- `SceneStore` → `ReplayCaseStore`; `Scene` → `ReplayCase`; `SceneID` → `ReplayCaseID`
+- `AnalysisRun` struct references → `RunRecord` (if applicable)
+- Update FK field names where `scene_id` appeared
+
+#### API paths (`internal/lidar/monitor/`)
+
+- `/api/lidar/scenes/` → `/api/lidar/replay-cases/`
+- Update handler registrations and route constants
+
+#### Web frontend
+
+- Update TypeScript type definitions for renamed tables and API paths
+- Update any UI references
+
+---
+
+## Part 5: Testing
+
+- `make test-go` must pass after all renames
+- Verify both migrations apply cleanly on a fresh DB and on a DB with existing data
+- `make test-web` passes after TypeScript type changes
+- `make schema-erd` to regenerate ERD after migrations
 
 ## Risk
 
 - **Low:** All dropped columns are either never-read or always-NULL
-- **Medium:** `peak` → `max` rename touches many files (~15 Go, ~3 TS, 1 proto,
-  ~5 Swift) — requires coordinated commit
-- **Mitigation:** The branch already drops percentile _additions_ from the proto;
-  this migration aligns the database with that direction
+- **Medium:** `peak` → `max` rename touches ~15 Go, ~3 TS, 1 proto, ~5 Swift files
+- **Medium:** 7 table renames touch SQL strings across ~12 Go files + API paths + web types
+- **Mitigation:** v0.5.0 is the coordinated breaking-change release — one clean
+  cut, no long-lived aliases
 
----
+## Sequencing
 
-## Optional Extension: Layer-Model Alignment
-
-The schema audit also surfaced terminology collisions and ownership ambiguities
-when mapping the current database tables to the
-[L1–L10 layer model](../lidar/architecture/lidar-data-layer-model.md). These can
-be addressed independently of the core migration 000030, but are documented here
-for coherent planning.
-
-### Table → Layer Ownership Map
-
-| Table                  | Current Layer | Notes                                                                |
-| ---------------------- | ------------- | -------------------------------------------------------------------- |
-| `lidar_clusters`       | L4 Perception | Correct — per-frame cluster primitives                               |
-| `lidar_track_obs`      | L5 Tracks     | Correct — per-observation state within a track                       |
-| `lidar_tracks`         | L5 Tracks     | Correct — live transient track buffer (pruned after ~5 min)          |
-| `lidar_labels`         | L6 → L8       | Human-assigned ground truth; consumed by L8 evaluation scoring       |
-| `lidar_bg_regions`     | L3 Grid       | Correct — background grid state                                      |
-| `lidar_bg_snapshot`    | L3 Grid       | Correct — serialised grid snapshot for PCAP restoration              |
-| `lidar_analysis_runs`  | L8 Analytics  | Correct — run metadata and aggregate statistics                      |
-| `lidar_run_tracks`     | L8 Analytics  | Correct — versioned track snapshots from analysis runs               |
-| `lidar_scenes`         | L8 Analytics  | **Naming collision** — see §E1 below                                 |
-| `lidar_evaluations`    | L8 Analytics  | Correct — run-vs-run comparison scores                               |
-| `lidar_missed_regions` | L8 Analytics  | Correct — evaluation detail (undetected ground-truth regions)        |
-| `lidar_sweeps`         | L8 Analytics  | Correct — parameter sweep metadata                                   |
-| `radar_*`              | Mixed         | Radar tables predate the layer model; alignment is out-of-scope here |
-| `site` / `site_*`      | L9 Endpoints  | Correct — server configuration and report metadata                   |
-
-### E1 — `lidar_scenes` Naming Collision with L7 Scene
-
-**Problem:** The layer model reserves "Scene" (L7) for a _persistent canonical
-world model_ — accumulated geometry, canonical objects, OSM priors, and
-multi-sensor fusion. The current `lidar_scenes` table is an _evaluation context_:
-it ties a PCAP file to a sensor, stores a reference run and optimal parameters,
-and groups `lidar_evaluations` under it. This is L8 Analytics, not L7 Scene.
-
-When L7 is eventually implemented (planned for v1.0), there will be a genuine
-`l7scene` package and likely a `lidar_scene_*` table family. Having the current
-L8 evaluation-context table already named `lidar_scenes` will cause confusion.
-
-**Options:**
-
-| Option | Rename to                         | Pros                           | Cons                                        |
-| ------ | --------------------------------- | ------------------------------ | ------------------------------------------- |
-| A      | `lidar_evaluation_contexts`       | Precise, self-documenting      | Long; FK references in evaluations/sweeps   |
-| B      | `lidar_pcap_scenes`               | Keeps "scene" but qualifies it | Still collides when L7 adds `lidar_scene_*` |
-| C      | `lidar_evaluation_sets`           | Short, avoids "scene"          | Set implies a many-to-many grouping         |
-| D      | Do nothing; document the conflict | Zero migration effort          | Confusion grows as L7 materialises          |
-
-**Recommendation:** Option A (`lidar_evaluation_contexts`). Although the FK
-cascade makes it a medium-effort rename, it eliminates the collision cleanly.
-Can be deferred to the L8 consolidation phase but should be done before any L7
-work begins.
-
-**If accepted, migration scope:**
-
-- Rename `lidar_scenes` → `lidar_evaluation_contexts`
-- Rename `scene_id` column → `context_id` throughout `lidar_evaluation_contexts`,
-  `lidar_evaluations`, `lidar_sweeps`
-- Update `SceneID` / `Scene` struct names in `scene_store.go`, `scene_api.go`
-- Update web frontend type definitions and API paths (`/api/lidar/scenes/` →
-  `/api/lidar/evaluation-contexts/`)
-
-### E2 — `world_frame` Column Name Ambiguity
-
-**Problem:** The `world_frame` column on `lidar_clusters`, `lidar_tracks`, and
-`lidar_track_obs` stores an L2 `FrameID` string (format: `"sensorID-frame-N"`).
-The name "world_frame" suggests an L7 world-model concept — a coordinate frame
-or global geometry reference — which it is not. It is purely a temporal frame
-identifier from L2.
-
-**Options:**
-
-| Option | Rename to     | Pros                           | Cons                                        |
-| ------ | ------------- | ------------------------------ | ------------------------------------------- |
-| A      | `frame_id`    | Matches L2 `FrameID` type name | Very generic; could collide with future FKs |
-| B      | `l2_frame_id` | Layer-prefixed, unambiguous    | Unconventional; "l2" prefix in column names |
-| C      | Do nothing    | Zero effort                    | Misleading name persists                    |
-
-**Recommendation:** Option A (`frame_id`). It aligns with the Go type name and
-is short. Future FK collisions are unlikely since no other table has a
-`frame_id` column. Can bundle into migration 000030 or defer.
-
-**If accepted, migration scope:**
-
-- `ALTER TABLE lidar_clusters RENAME COLUMN world_frame TO frame_id;`
-- `ALTER TABLE lidar_tracks RENAME COLUMN world_frame TO frame_id;`
-- `ALTER TABLE lidar_track_obs RENAME COLUMN world_frame TO frame_id;`
-- Update Go code: `WorldFrame` field/SQL references → `FrameID` / `frame_id`
-  across `track_store.go`, `cluster_store.go`, and `l5tracks/tracking.go`
-
-### E3 — `scene_hash` on `lidar_bg_regions`
-
-**Problem:** The `scene_hash` column on `lidar_bg_regions` is a hash of the L3
-background grid state, used for PCAP restoration (matching a regions snapshot to
-its grid configuration). The name suggests an L7 Scene hash.
-
-**Options:**
-
-| Option | Rename to   | Pros                             | Cons                         |
-| ------ | ----------- | -------------------------------- | ---------------------------- |
-| A      | `grid_hash` | Accurate — it hashes the L3 grid | Minor migration + Go changes |
-| B      | Do nothing  | Zero effort                      | Misleading once L7 exists    |
-
-**Recommendation:** Option A (`grid_hash`). Small change, high clarity. The
-indexed column `idx_bg_regions_scene_hash` would also rename to
-`idx_bg_regions_grid_hash`.
-
-**If accepted, migration scope:**
-
-- `ALTER TABLE lidar_bg_regions RENAME COLUMN scene_hash TO grid_hash;`
-- `DROP INDEX idx_bg_regions_scene_hash;`
-- `CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);`
-- Update Go code in `bg_region_store.go` / `bg_store.go`
-
-### E4 — `lidar_labels` Layer Ownership
-
-**Problem:** `lidar_labels` contains human-assigned ground-truth labels applied
-to tracks. The labels are _authored_ at L6 Objects (by a human labeller
-classifying tracked objects) but _consumed_ at L8 Analytics (evaluation scoring
-compares predicted vs labelled classes). The store currently lives alongside L5
-track storage.
-
-**Action:** No schema change needed. Document that `lidar_labels` is an L6→L8
-bridge table. When L8 storage is eventually separated (per the
-[L8 consolidation plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)),
-`lidar_labels` should move with the L8 evaluation stores.
-
-### E5 — Storage Package Reorganisation
-
-**Problem:** All lidar SQLite stores live in a single package
-`internal/lidar/storage/sqlite/`. This conflates L3 grid stores, L5 track
-stores, and L8 analytics stores. The
-[L8 plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) already identifies
-`analysis_run.go` and `analysis_run_compare.go` as belonging in a future
-`l8analytics/` package.
-
-**Action:** No schema change involved — this is a Go package reorganisation.
-Document as a prerequisite for L8 consolidation:
-
-- Move `analysis_run.go`, `analysis_run_compare.go`, `scene_store.go`,
-  `evaluation_store.go`, `missed_region_store.go`, `sweep_store.go` into
-  `internal/lidar/l8analytics/store/` (or similar)
-- L3 stores (`bg_region_store.go`, `bg_store.go`) stay or move to
-  `internal/lidar/l3grid/store/`
-- L5 stores (`track_store.go`, `cluster_store.go`, `track_obs_store.go`) stay
-
-### Sequencing
-
-These extensions are independent of each other and of the core migration 000030.
-Recommended ordering:
-
-1. **Migration 000030** (this plan) — drop dead columns, rename peak → max
-2. **E2 + E3** (low effort) — rename `world_frame` → `frame_id` and
-   `scene_hash` → `grid_hash`; can bundle into 000030 or a follow-on 000031
-3. **E1** (medium effort) — rename `lidar_scenes` table; best done during L8
-   consolidation phase to minimise API churn
-4. **E4 + E5** (code-only) — document label ownership; reorganise storage
-   packages during L8 consolidation
+1. **Migration 000030** — column drops, column renames (`peak`→`max`,
+   `world_frame`→`frame_id`, `scene_hash`→`grid_hash`)
+2. **Migration 000031** — 7 table renames + `scene_id`→`replay_case_id`
+3. **`v0.5.1` follow-through** — wire `statistics_json` plus the committed track-quality fields, decide the fate of remaining unwired columns, and remove dormant ML/vector export scaffolding unless it gains a concrete owner
+4. Both schema migrations land in the same breaking release window (`v0.5.0`)
 
 ### Cross-references
 
@@ -376,3 +462,64 @@ Recommended ordering:
   rename
 - [Layer Model](../lidar/architecture/lidar-data-layer-model.md) — frozen
   L1–L10 numbering from v0.5.0
+- [Tracks Table Consolidation Plan](lidar-tracks-table-consolidation-plan.md) —
+  separate plan for live vs analysis track table structure
+
+---
+
+## Part 6: Deep-Audit Extensions for v0.5.x
+
+The `MATRIX` audit and code pass surfaced four different cleanup classes. They
+should stay attached to this plan so `v0.5.x` has one canonical schema roadmap
+instead of another side document.
+
+### 6.1 Remove in `v0.5.0` (same breaking window) — ✅ Complete (#400)
+
+| Surface                                                     | Reason                                              | Action                                                         |
+| ----------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| `lidar_tracks.{p50,p85,p95}_speed_mps`                      | Dead columns; never written or consumed             | ✅ Dropped in migration 000030                                 |
+| `lidar_run_tracks.{p50,p85,p95}_speed_mps`                  | Wrong abstraction; no downstream consumer           | ✅ Dropped in migration 000030                                 |
+| `peak_speed_mps`, `world_frame`, `scene_hash` legacy names  | Naming drift against current contracts              | ✅ Renamed in migrations 000030–000031                         |
+| Stale references to deleted `schema-simplification...` docs | Planning drift creates a second, broken source path | ✅ All active references point to this plan; doc sweep in #400 |
+
+### 6.2 Keep and wire by `v0.5.1`
+
+These should not be dropped in the `v0.5.0` break because they already have
+real near-term value or an existing non-DB consumer.
+
+| Surface                                                         | Why it stays today                                          | Required follow-through                                                             |
+| --------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `track_length_meters`, `track_duration_secs`, `occlusion_count` | Already live on proto/Mac; DB parity is the missing layer   | Populate via `InsertTrack()` / `UpdateTrack()` and expose on web                    |
+| `statistics_json`                                               | `RunStatistics` already exists and multiple plans assume it | Wire `CompleteRun()`, `GetRun()`, and `ListRuns()` or delete before `v0.5.x` closes |
+
+### 6.3 Wire quickly or delete; do not carry unowned through `v0.5.x`
+
+These are the real "trim debt, don't grow it" candidates. If nobody owns them
+in the `v0.5.1` window, the default action should be removal, not another cycle
+of dormant schema.
+
+| Surface                                                         | Current state                                         | Default rule                                                                          |
+| --------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` | Computed in tracker; no committed public surface yet  | Ship with owned HINT/run-quality work or drop in follow-on cleanup                    |
+| `noise_points_count`, `cluster_density`, `aspect_ratio`         | Cluster columns exist but remain unused and derivable | Compute as part of cluster diagnostics or remove instead of preserving dead DB weight |
+
+### 6.4 Dormant ML / vector export scaffolding
+
+The default `v0.5.x` position should be **delete until funded**, not "keep just
+in case". Unless a concrete owner commits to shipping an end-to-end training
+export workflow in the same release train, remove:
+
+- `TrackingPipelineConfig.FeatureExportFunc`
+- `l6objects.TrackFeatures`, `SortedFeatureNames()`, and `ToVector()`
+- `TrackTrainingFilter`, `TrainingDatasetSummary`, `FilterTracksForTraining()`, and `SummarizeTrainingDataset()`
+- placeholder research/export adapters in `internal/lidar/adapters/training_data.go` and `internal/lidar/adapters/track_export.go`
+
+Keep:
+
+- `ComputeSpeedPercentiles()` and the classifier's shipped internal feature extraction path
+- `RunStatistics` and run-comparison core logic, which already support active analytics work
+
+### 6.5 Adjacent cleanup worth bundling with `v0.5.x`
+
+- Update all inbound cross-references in other plans to link to this file (`schema-simplification-migration-030-plan.md`) as the single canonical source for the v0.5.0 schema standardisation work.
+- Stop describing split/merge candidate detection as complete until `CompareRuns()` moves beyond Hungarian 1:1 matching. Matched-track and parameter-diff logic are real today; split/merge detection is still aspirational.

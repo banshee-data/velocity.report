@@ -937,12 +937,12 @@ func TestTrackingPipelineConfig_DBPruneSuccess(t *testing.T) {
 	db := setupTestDB(t)
 
 	// Insert a soft-deleted track older than deletedTrackTTL (5 min).
-	worldFrame := fmt.Sprintf("site/%s", sensorID)
+	frameID := fmt.Sprintf("site/%s", sensorID)
 	oldNanos := time.Now().Add(-20 * time.Minute).UnixNano()
 	_, err := db.Exec(`INSERT INTO lidar_tracks
-		(track_id, sensor_id, world_frame, track_state, start_unix_nanos, end_unix_nanos)
+		(track_id, sensor_id, frame_id, track_state, start_unix_nanos, end_unix_nanos)
 		VALUES (?, ?, ?, 'deleted', ?, ?)`,
-		"old-track-1", sensorID, worldFrame, oldNanos, oldNanos,
+		"old-track-1", sensorID, frameID, oldNanos, oldNanos,
 	)
 	if err != nil {
 		t.Fatalf("insert old track: %v", err)

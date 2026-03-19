@@ -137,7 +137,7 @@ func TestMissedRegionStore_ListByRun_ScanError(t *testing.T) {
 
 	// Create a minimal table with a TEXT labeled_at column so scan into sql.NullInt64 fails.
 	_, err = sqlDB.Exec(`
-		CREATE TABLE lidar_missed_regions (
+		CREATE TABLE lidar_run_missed_regions (
 			region_id TEXT PRIMARY KEY,
 			run_id TEXT NOT NULL,
 			center_x REAL NOT NULL,
@@ -156,7 +156,7 @@ func TestMissedRegionStore_ListByRun_ScanError(t *testing.T) {
 	}
 
 	_, err = sqlDB.Exec(`
-		INSERT INTO lidar_missed_regions (
+		INSERT INTO lidar_run_missed_regions (
 			region_id, run_id, center_x, center_y, radius_m,
 			time_start_ns, time_end_ns, expected_label, labeler_id, labeled_at, notes
 		) VALUES (

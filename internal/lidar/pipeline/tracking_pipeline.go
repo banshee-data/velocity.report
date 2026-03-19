@@ -108,7 +108,7 @@ type ObjectStage interface {
 // L3-L6 packages (e.g. internal/lidar/storage/sqlite).
 type PersistenceSink interface {
 	// PersistTrack writes or updates a track record.
-	PersistTrack(track *l5tracks.TrackedObject, worldFrame string) error
+	PersistTrack(track *l5tracks.TrackedObject, frameID string) error
 	// PersistObservation writes a single observation for a track.
 	PersistObservation(obs *sqlite.TrackObservation) error
 }
@@ -586,12 +586,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay)
 		// or when there are no confirmed tracks to persist.
 		var (
-			dbTx       *sql.Tx
-			worldFrame string
-			txFailed   bool
+			dbTx     *sql.Tx
+			frameID  string
+			txFailed bool
 		)
 		if len(confirmedTracks) > 0 && cfg.DB != nil && (cfg.DisableTrackPersistence == nil || !cfg.DisableTrackPersistence.Load()) {
-			worldFrame = fmt.Sprintf("site/%s", sensorID)
+			frameID = fmt.Sprintf("site/%s", sensorID)
 			if tx, txErr := cfg.DB.Begin(); txErr != nil {
 				opsf("Failed to begin track persistence tx: %v", txErr)
 			} else {
@@ -633,7 +633,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 			// Persist track to database
 			if dbTx != nil && !txFailed {
-				if err := sqlite.InsertTrack(dbTx, track, worldFrame); err != nil {
+				if err := sqlite.InsertTrack(dbTx, track, frameID); err != nil {
 					opsf("Failed to insert track %s: %v", track.TrackID, err)
 					txFailed = true
 				}
@@ -651,7 +651,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 					obs := &sqlite.TrackObservation{
 						TrackID:           track.TrackID,
 						TSUnixNanos:       frame.StartTimestamp.UnixNano(),
-						WorldFrame:        worldFrame,
+						FrameID:           frameID,
 						X:                 track.X,
 						Y:                 track.Y,
 						Z:                 track.LatestZ,

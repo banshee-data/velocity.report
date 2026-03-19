@@ -102,6 +102,7 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
 
     /// Fetch the list of runs from the backend.
     func fetchRuns() async {
+        guard !isLoading else { return }
         isLoading = true
         error = nil
 
@@ -119,6 +120,7 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
 
     /// Load a run for VRLOG replay.
     func loadRunForReplay(_ runID: String) async -> VRLogLoadResponse? {
+        guard !isLoadingReplay else { return nil }
         guard runs.first(where: { $0.runId == runID }) != nil else {
             error = "Run not found"
             return nil

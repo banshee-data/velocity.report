@@ -10,7 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// setupTestSweepDB creates a test database with the lidar_sweeps table.
+// setupTestSweepDB creates a test database with the lidar_tuning_sweeps table.
 func setupTestSweepDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -18,9 +18,9 @@ func setupTestSweepDB(t *testing.T) *sql.DB {
 		t.Fatalf("failed to open test db: %v", err)
 	}
 
-	// Create lidar_sweeps table
+	// Create lidar_tuning_sweeps table
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_sweeps (
+		CREATE TABLE IF NOT EXISTS lidar_tuning_sweeps (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			sweep_id TEXT NOT NULL UNIQUE,
 			sensor_id TEXT NOT NULL,
@@ -45,7 +45,7 @@ func setupTestSweepDB(t *testing.T) *sql.DB {
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_sweeps table: %v", err)
+		t.Fatalf("failed to create lidar_tuning_sweeps table: %v", err)
 	}
 
 	return db
@@ -465,12 +465,12 @@ func TestSweepStore_GetSweep_InvalidTimeFormat(t *testing.T) {
 	// We need to store a string that SQLite won't auto-convert but is not RFC3339
 	// Use a string type column to bypass SQLite's DATETIME type affinity
 	// Recreate the table with started_at as TEXT to avoid SQLite DROP COLUMN issues
-	_, err := db.Exec(`DROP TABLE lidar_sweeps`)
+	_, err := db.Exec(`DROP TABLE lidar_tuning_sweeps`)
 	if err != nil {
-		t.Fatalf("failed to drop lidar_sweeps table: %v", err)
+		t.Fatalf("failed to drop lidar_tuning_sweeps table: %v", err)
 	}
 	_, err = db.Exec(`
-		CREATE TABLE lidar_sweeps (
+		CREATE TABLE lidar_tuning_sweeps (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			sweep_id TEXT NOT NULL UNIQUE,
 			sensor_id TEXT NOT NULL,
@@ -495,12 +495,12 @@ func TestSweepStore_GetSweep_InvalidTimeFormat(t *testing.T) {
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to recreate lidar_sweeps table with TEXT started_at: %v", err)
+		t.Fatalf("failed to recreate lidar_tuning_sweeps table with TEXT started_at: %v", err)
 	}
 
 	// Insert with an invalid RFC3339 format that SQLite won't convert
 	_, err = db.Exec(`
-		INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`, "sweep-bad-start", "sensor-001", "manual", "running", `{}`, "2024/01/01 12:00:00")
 	if err != nil {
@@ -524,12 +524,12 @@ func TestSweepStore_GetSweep_InvalidCompletedAtFormat(t *testing.T) {
 	store := NewSweepStore(db)
 
 	// Recreate the table with completed_at as TEXT to avoid SQLite DROP COLUMN issues
-	_, err := db.Exec(`DROP TABLE lidar_sweeps`)
+	_, err := db.Exec(`DROP TABLE lidar_tuning_sweeps`)
 	if err != nil {
-		t.Fatalf("failed to drop lidar_sweeps table: %v", err)
+		t.Fatalf("failed to drop lidar_tuning_sweeps table: %v", err)
 	}
 	_, err = db.Exec(`
-		CREATE TABLE lidar_sweeps (
+		CREATE TABLE lidar_tuning_sweeps (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			sweep_id TEXT NOT NULL UNIQUE,
 			sensor_id TEXT NOT NULL,
@@ -554,12 +554,12 @@ func TestSweepStore_GetSweep_InvalidCompletedAtFormat(t *testing.T) {
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to recreate lidar_sweeps table with TEXT completed_at: %v", err)
+		t.Fatalf("failed to recreate lidar_tuning_sweeps table with TEXT completed_at: %v", err)
 	}
 
 	// Insert with valid started_at but invalid completed_at format
 	_, err = db.Exec(`
-		INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at, completed_at)
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at, completed_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`, "sweep-bad-complete", "sensor-001", "manual", "completed", `{}`,
 		time.Now().UTC().Format(time.RFC3339), "01/02/2024 15:04:05")
@@ -628,24 +628,24 @@ func TestSweepStore_ListSweeps_InvalidTimeFormat(t *testing.T) {
 	}
 
 	// Copy existing data
-	_, err = db.Exec(`INSERT INTO lidar_sweeps_temp SELECT * FROM lidar_sweeps`)
+	_, err = db.Exec(`INSERT INTO lidar_sweeps_temp SELECT * FROM lidar_tuning_sweeps`)
 	if err != nil {
 		t.Fatalf("failed to copy data: %v", err)
 	}
 
 	// Drop old table and rename
-	_, err = db.Exec(`DROP TABLE lidar_sweeps`)
+	_, err = db.Exec(`DROP TABLE lidar_tuning_sweeps`)
 	if err != nil {
 		t.Fatalf("failed to drop old table: %v", err)
 	}
-	_, err = db.Exec(`ALTER TABLE lidar_sweeps_temp RENAME TO lidar_sweeps`)
+	_, err = db.Exec(`ALTER TABLE lidar_sweeps_temp RENAME TO lidar_tuning_sweeps`)
 	if err != nil {
 		t.Fatalf("failed to rename table: %v", err)
 	}
 
 	// Insert a sweep with invalid started_at format
 	_, err = db.Exec(`
-		INSERT INTO lidar_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`, "sweep-bad-list", "sensor-001", "manual", "running", `{}`, "2024/01/01 10:00:00")
 	if err != nil {

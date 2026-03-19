@@ -628,7 +628,7 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 }
 
 // handleEvaluateRun compares a candidate run against a reference run, persists
-// the result to lidar_evaluations, and returns ground truth scores.
+// the result to lidar_replay_evaluations, and returns ground truth scores.
 // POST /api/lidar/runs/{run_id}/evaluate
 // Request body: {"reference_run_id": "..."} or auto-detect from scene
 func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, candidateRunID string) {
@@ -660,7 +660,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 		}
 
 		// Try to find a scene for this sensor that has a reference run
-		sceneStore := sqlite.NewSceneStore(ws.db.DB)
+		sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
 		scenes, err := sceneStore.ListScenes(candidateRun.SensorID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
@@ -672,7 +672,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 			for _, scene := range scenes {
 				if scene.ReferenceRunID != "" && scene.PCAPFile == candidateRun.SourcePath {
 					referenceRunID = scene.ReferenceRunID
-					matchedSceneID = scene.SceneID
+					matchedSceneID = scene.ReplayCaseID
 					break
 				}
 			}
@@ -683,7 +683,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 			for _, scene := range scenes {
 				if scene.ReferenceRunID != "" {
 					referenceRunID = scene.ReferenceRunID
-					matchedSceneID = scene.SceneID
+					matchedSceneID = scene.ReplayCaseID
 					break
 				}
 			}
@@ -710,7 +710,7 @@ func (ws *WebServer) handleEvaluateRun(w http.ResponseWriter, r *http.Request, c
 	if matchedSceneID != "" {
 		candidateRun, _ := runStore.GetRun(candidateRunID)
 		eval := &sqlite.Evaluation{
-			SceneID:             matchedSceneID,
+			ReplayCaseID:        matchedSceneID,
 			ReferenceRunID:      referenceRunID,
 			CandidateRunID:      candidateRunID,
 			DetectionRate:       score.DetectionRate,

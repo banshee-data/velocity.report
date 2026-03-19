@@ -33,7 +33,7 @@ struct AboutView: View {
             // App icon + title
             Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 80, height: 80)
 
-            Text("VelocityReport.app").font(.title).fontWeight(.semibold)
+            Text("VelocityVisualiser.app").font(.title).fontWeight(.semibold)
 
             HStack(spacing: 1) {
                 Text("v\(appVersion)  SHA:").font(.caption).foregroundColor(.secondary).help(
@@ -47,25 +47,43 @@ struct AboutView: View {
             // Description
             VStack(alignment: .leading, spacing: 10) {
                 aboutSection(
-                    title: "Citizen Radar",
-                    body:
-                        "velocity.report is a citizen radar system that helps communities measure "
-                        + "vehicle speeds using affordable, privacy-preserving sensors. No cameras, "
-                        + "no licence plates, just velocity measurements that respect privacy.")
+                    title: "Civic Engagement Platform",
+                    body: "velocity.report is a street safety platform for neighbourhoods. "
+                        + "It measures vehicle speeds using affordable radar sensors and turns that data "
+                        + "into PDF reports — speed distributions, percentile analysis — "
+                        + "the kind of evidence a residents\u{2019} group can put in front of a council and "
+                        + "expect to be taken seriously. "
+                        + "Designed for streets where people of all ages should feel safe: "
+                        + "the eight-year-old on a bicycle, the eighty-year-old crossing to the shops."
+                )
 
                 aboutSection(
-                    title: "How It Works",
+                    title: "Two Stacks, One Purpose",
                     body:
-                        "This visualiser connects to a velocity.report backend server via gRPC to "
-                        + "display real-time LiDAR point clouds, tracked objects, and velocity data. "
-                        + "A running server instance on a local machine is required.")
+                        "The production stack pairs a radar sensor with a Go server, SQLite database, "
+                        + "and PDF reports — local, offline, and deliberately self-contained. "
+                        + "This visualiser belongs to the research stack: a LiDAR-based scene analysis pipeline "
+                        + "being built toward unified object tracking and richer spatial understanding. "
+                        + "Both stacks serve the same end. The production stack is ready today. "
+                        + "The research stack is where today\u{2019}s curiosity becomes tomorrow\u{2019}s capability."
+                )
 
                 aboutSection(
-                    title: "Reports & Evidence",
-                    body:
-                        "Collected speed data is used to generate PDF reports with speed distributions, "
-                        + "percentile analysis, and hourly heatmaps; evidence that neighbourhood "
-                        + "change-makers can present to councils to advocate for safer streets.")
+                    title: "Privacy by Design",
+                    body: "No cameras. No licence plates. No biometric data of any kind. "
+                        + "The system records speed measurements, not identities. "
+                        + "All data stays on the device that collected it. "
+                        + "Communities should not need to build a surveillance infrastructure "
+                        + "in order to ask for a safer street.")
+
+                aboutSection(
+                    title: "Source & Setup",
+                    body: "The full source is on GitHub under an Apache 2.0 licence. "
+                        + "Clone the repository, follow the README, and the production stack "
+                        + "can be running the same afternoon. "
+                        + "The visualiser requires a local server with LiDAR support. "
+                        + "Both are documented; neither requires special expertise to deploy, "
+                        + "only patience and a willingness to read before clicking.")
             }.padding(.horizontal, 16)
 
             Divider().padding(.horizontal, 24)

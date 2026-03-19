@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** Database, L5 Tracks, L8 Analytics, L9 Endpoints
-- **Prerequisite:** [Schema Simplification Migration 030](schema-simplification-migration-030-plan.md)
+- **Prerequisite:** [Schema Simplification Migrations 000030–000031](schema-simplification-migration-030-plan.md)
 - **Related:** [L8/L9/L10 Refactor](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Speed Percentile Alignment](speed-percentile-aggregation-alignment-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
 
 ## Problem
@@ -14,12 +14,12 @@ The schema contains two tables with heavily overlapping column sets:
 | `lidar_tracks`     | Live transient tracking buffer (pruned ~5 min)      | `track_id`           |
 | `lidar_run_tracks` | Immutable versioned snapshots tied to analysis runs | `(run_id, track_id)` |
 
-After migration 030 lands, the column overlap looks like this:
+After the schema standardisation migrations 000030–000031 land, the column overlap looks like this:
 
 | Category                    | Count | Columns                                                                                                                                                                                                                                                                                                                  |
 | --------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Shared (identical)**      | 16    | `track_id`, `sensor_id`, `track_state`, `start_unix_nanos`, `end_unix_nanos`, `observation_count`, `avg_speed_mps`, `max_speed_mps`, `bounding_box_length_avg`, `bounding_box_width_avg`, `bounding_box_height_avg`, `height_p95_max`, `intensity_mean_avg`, `object_class`, `object_confidence`, `classification_model` |
-| **Only `lidar_tracks`**     | 1     | `world_frame` (L2 frame identifier; may rename to `frame_id` per migration-030 extension E2)                                                                                                                                                                                                                             |
+| **Only `lidar_tracks`**     | 1     | `frame_id` (L2 frame identifier; renamed from `world_frame` per migration 030)                                                                                                                                                                                                                                           |
 | **Only `lidar_run_tracks`** | 10    | `run_id`, `user_label`, `label_confidence`, `labeler_id`, `labeled_at`, `quality_label`, `label_source`, `is_split_candidate`, `is_merge_candidate`, `linked_track_ids`                                                                                                                                                  |
 
 The 16 shared columns are defined in two `CREATE TABLE` statements, written by
@@ -40,7 +40,7 @@ copies all measurement columns so the data survives track deletion.
 ```
                           ┌─────────────────────────┐
 Tracker (per frame) ──────┤ sqlite.InsertTrack()    │──▶ lidar_tracks
-                          │ sqlite.InsertTrackObs() │──▶ lidar_track_obs
+                          │ sqlite.InsertTrackObs() │──▶ lidar_track_observations
                           └─────────┬───────────────┘
                                     │ if analysis run active
                                     ▼
@@ -49,11 +49,11 @@ RunTrackFromTrackedObject │ store.InsertRunTrack()  │──▶ lidar_run_tra
                           └─────────────────────────┘
 
 FK children of lidar_tracks:
-  lidar_track_obs  (track_id) ON DELETE CASCADE
-  lidar_labels     (track_id) ON DELETE CASCADE
+  lidar_track_observations  (track_id) ON DELETE CASCADE
+  lidar_track_annotations    (track_id) ON DELETE CASCADE
 
 FK parent of lidar_run_tracks:
-  lidar_analysis_runs (run_id) ON DELETE CASCADE
+  lidar_run_records (run_id) ON DELETE CASCADE
 ```
 
 There are **no JOINs** between the two tables anywhere in the codebase. They
@@ -103,7 +103,7 @@ CREATE TABLE lidar_tracks (
     is_merge_candidate INTEGER DEFAULT 0,
     linked_track_ids TEXT,
     PRIMARY KEY (track_id, COALESCE(run_id, '')),
-    FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE CASCADE
+    FOREIGN KEY (run_id) REFERENCES lidar_run_records(run_id) ON DELETE CASCADE
 );
 ```
 
@@ -111,29 +111,29 @@ CREATE TABLE lidar_tracks (
 strategy must be one of:
 
 - **A1 — Surrogate PK:** `id INTEGER PRIMARY KEY AUTOINCREMENT` with a `UNIQUE`
-  index on `(track_id, run_id)`. Breaks the FK from `lidar_track_obs` (currently
+  index on `(track_id, run_id)`. Breaks the FK from `lidar_track_observations` (currently
   FK on `track_id`) — would need a column change or filter constraint.
 - **A2 — Sentinel value:** Use `run_id TEXT NOT NULL DEFAULT '__live__'` instead
-  of NULL. PK becomes `(track_id, run_id)`. The FK to `lidar_analysis_runs`
+  of NULL. PK becomes `(track_id, run_id)`. The FK to `lidar_run_records`
   needs an exception for the sentinel, which means dropping the FK constraint
   and enforcing run validity in application code.
 - **A3 — Composite PK with NULL:** SQLite technically allows NULLs in a composite
   PK (unlike PostgreSQL), so `PRIMARY KEY (track_id, run_id)` is valid. But
-  `lidar_track_obs.track_id` FK currently references `lidar_tracks(track_id)`,
+  `lidar_track_observations.track_id` FK currently references `lidar_tracks(track_id)`,
   which assumes `track_id` alone is unique — it would no longer be.
 
-All three sub-options require rewriting the FK from `lidar_track_obs` and
-`lidar_labels` to scope to live-only rows. This is the dominant migration cost.
+All three sub-options require rewriting the FK from `lidar_track_observations` and
+`lidar_track_annotations` to scope to live-only rows. This is the dominant migration cost.
 
-| Aspect       | Pros                                                              | Cons                                                                                         |
-| ------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| DRY          | Single column definition; single Go struct                        | —                                                                                            |
-| Queries      | Can query across live + historical in one SELECT                  | Must add `WHERE run_id IS [NOT] NULL` to every existing query                                |
-| Pruning      | `DELETE WHERE run_id IS NULL AND track_state = 'deleted' AND ...` | Must never accidentally prune snapshot rows                                                  |
-| FK integrity | —                                                                 | `lidar_track_obs` and `lidar_labels` FK must change from `track_id` → composite or surrogate |
-| Performance  | —                                                                 | Hot upsert table now contains immutable snapshot rows; table size grows unbounded per run    |
-| Migration    | —                                                                 | Multi-step data migration: create new table, copy from both, rewrite FKs, drop old tables    |
-| Complexity   | —                                                                 | Mixed lifecycle (ephemeral + permanent) in one table                                         |
+| Aspect       | Pros                                                              | Cons                                                                                                             |
+| ------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| DRY          | Single column definition; single Go struct                        | —                                                                                                                |
+| Queries      | Can query across live + historical in one SELECT                  | Must add `WHERE run_id IS [NOT] NULL` to every existing query                                                    |
+| Pruning      | `DELETE WHERE run_id IS NULL AND track_state = 'deleted' AND ...` | Must never accidentally prune snapshot rows                                                                      |
+| FK integrity | —                                                                 | `lidar_track_observations` and `lidar_track_annotations` FK must change from `track_id` → composite or surrogate |
+| Performance  | —                                                                 | Hot upsert table now contains immutable snapshot rows; table size grows unbounded per run                        |
+| Migration    | —                                                                 | Multi-step data migration: create new table, copy from both, rewrite FKs, drop old tables                        |
+| Complexity   | —                                                                 | Mixed lifecycle (ephemeral + permanent) in one table                                                             |
 
 ### Option B — Keep separate tables; normalise Go layer only
 
@@ -173,15 +173,15 @@ CREATE VIEW lidar_all_tracks AS
     FROM lidar_run_tracks;
 ```
 
-| Aspect       | Pros                                                               | Cons                                                           |
-| ------------ | ------------------------------------------------------------------ | -------------------------------------------------------------- |
-| DRY (Go)     | Single struct + scan helper eliminates Go duplication              | SQL schema still has two column lists                          |
-| DRY (SQL)    | Optional VIEW provides unified read surface                        | Schema migration still maintains two `CREATE TABLE` statements |
-| FK integrity | No changes to lidar_track_obs or lidar_labels FKs                  | —                                                              |
-| Performance  | Hot table stays small (live only); snapshot table grows separately | —                                                              |
-| Lifecycle    | Clean separation: live rows pruned independently                   | —                                                              |
-| Migration    | Minimal: Go refactor only (no SQL migration beyond 030)            | —                                                              |
-| Risk         | Low — no schema change, existing queries unchanged                 | —                                                              |
+| Aspect       | Pros                                                                  | Cons                                                           |
+| ------------ | --------------------------------------------------------------------- | -------------------------------------------------------------- |
+| DRY (Go)     | Single struct + scan helper eliminates Go duplication                 | SQL schema still has two column lists                          |
+| DRY (SQL)    | Optional VIEW provides unified read surface                           | Schema migration still maintains two `CREATE TABLE` statements |
+| FK integrity | No changes to lidar_track_observations or lidar_track_annotations FKs | —                                                              |
+| Performance  | Hot table stays small (live only); snapshot table grows separately    | —                                                              |
+| Lifecycle    | Clean separation: live rows pruned independently                      | —                                                              |
+| Migration    | Minimal: Go refactor only (no SQL migration beyond 030)               | —                                                              |
+| Risk         | Low — no schema change, existing queries unchanged                    | —                                                              |
 
 ### Option C — Slim `lidar_run_tracks` to labels-only; reference live tracks
 
@@ -214,11 +214,11 @@ the layer that actually hurts maintainability.
 
 ## Work breakdown
 
-### Phase 1 — Prerequisite: migration 030 (already planned)
+### Phase 1 — Prerequisites: migrations 000030–000031 (schema standardisation)
 
-Tracked in [schema-simplification-migration-030-plan.md](schema-simplification-migration-030-plan.md).
-This drops dead columns and renames `peak→max`, bringing the two tables' shared
-column set into clean alignment.
+Tracked in [Schema Simplification Migrations 000030–000031](schema-simplification-migration-030-plan.md).
+This phase applies the LiDAR schema standardisation migrations to both tables:
+it drops dead columns, renames `peak→max`, `world_frame→frame_id`, and `scene_hash→grid_hash`, and performs the table renames from migration 000031 so that the shared column set and naming are fully aligned.
 
 ### Phase 2 — Go model normalisation
 
@@ -248,7 +248,7 @@ column set into clean alignment.
    type TrackedObject struct {
        TrackID    string
        TrackMeasurement
-       WorldFrame string         // live-only
+       FrameID string             // live-only
        // ... L5 tracking fields (Kalman state, history, etc.)
    }
 
@@ -296,16 +296,16 @@ convenience for operators using TailSQL or direct sqlite3 access.
 
 ## Effort estimates
 
-| Phase            | Effort | Files touched                       |
-| ---------------- | ------ | ----------------------------------- |
-| Phase 1 (030)    | `M`    | ~15 Go + 3 TS + 1 proto + migration |
-| Phase 2 (Go DRY) | `S`    | 3–4 Go files in `storage/sqlite/`   |
-| Phase 3 (VIEW)   | `S`    | 1 migration file                    |
-| Phase 4 (docs)   | `S`    | 2–3 Markdown files                  |
+| Phase               | Effort | Files touched                       |
+| ------------------- | ------ | ----------------------------------- |
+| Phase 1 (030 + 031) | `M`    | ~15 Go + 3 TS + 1 proto + migration |
+| Phase 2 (Go DRY)    | `S`    | 3–4 Go files in `storage/sqlite/`   |
+| Phase 3 (VIEW)      | `S`    | 1 migration file                    |
+| Phase 4 (docs)      | `S`    | 2–3 Markdown files                  |
 
 ## Checklist
 
-- [ ] Phase 1: Land migration 030 (tracked separately in [schema-simplification-migration-030-plan](schema-simplification-migration-030-plan.md))
+- [ ] Phase 1: Land migrations 030 + 031 (tracked separately in [LiDAR schema standardisation](schema-simplification-migration-030-plan.md))
 - [ ] Phase 2: Extract `TrackMeasurement` struct and embed in `TrackedObject` + `RunTrack`
 - [ ] Phase 2: Create shared `trackMeasurementColumns` constant
 - [ ] Phase 2: Create `scanTrackMeasurement()` helper
@@ -331,4 +331,4 @@ convenience for operators using TailSQL or direct sqlite3 access.
 | Keep two tables (reject merge) | Different lifecycles (transient vs permanent), different PKs, FK relationships cannot be cleanly unified without surrogate keys and FK rewrites |
 | Normalise at Go layer          | Eliminates the real maintenance cost (duplicate structs, scan loops, column lists) without schema risk                                          |
 | Optional VIEW                  | Provides a unified read surface for operators without coupling live and snapshot write paths                                                    |
-| Sequence after 030             | Migration 030 aligns the column sets; consolidation is simpler once dead/renamed columns are removed                                            |
+| Sequence after 030 + 031       | Migrations 030 + 031 align the column sets; consolidation is simpler once dead/renamed columns are removed                                      |
