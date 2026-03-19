@@ -27,19 +27,38 @@ velocity.report covers sensor hardware, real-time data pipelines, web visualisat
 
 ### Data Scientist
 
-Data science in velocity.report is metrics-first systems work. The live path is
-deliberately transparent: L3 polar background settling, L4 geometry and
-clustering, L5 Kalman-plus-Hungarian tracking, L6 rule-based classification,
-and L8 scorecards. The job here is to make those layers more measurable,
-reproducible, and explainable through labelled scenes, replay packs, threshold
-studies, drift analysis, and traffic-engineering metrics that hold up in
-reports and technical review.
+Data science in velocity.report is about building a faithful, explainable model
+of a real street from noisy radar and LiDAR streams. The interesting work is
+not prompt-driven AI or opaque end-to-end models. It is physically grounded
+modelling: learning stable structure from partial observations, fusing sensor
+streams without losing provenance, turning dense point data into compact vector
+and track representations, and producing low-bandwidth traffic-analysis outputs
+that still preserve the important evidence from the original LiDAR data.
+
+The core challenge is to move from raw packets to an accurate world model
+without giving up auditability. The pipeline is layered on purpose: L3 handles
+background settling, L4 handles geometry and clustering, L5 handles motion and
+identity, L6 handles explicit semantic interpretation, and L7/L8 grow toward
+scene and analytics layers. Those boundaries let contributors improve one
+modelling step at a time while keeping information hiding, provenance, and
+evaluation contracts intact.
+
+If you like state estimation, sensor fusion, uncertainty, hyperparameter
+optimisation, and modelling real physical systems under tight deployment
+constraints, this is a strong fit. The downstream goal is not to stream giant
+point clouds forever. It is to preserve enough structure for audit and replay
+while exporting stable tracks, scene features, speed profiles, counts,
+percentiles, and report-ready traffic metrics that can survive technical
+scrutiny.
 
 Research in this repo is proposal-first. Write the maths, name the layer
 boundary, define the evaluation contract, then compare against the current
-baseline on fixed PCAP and VRLOG packs. Any future model must stay auditable,
-beat the transparent baseline on reproducible scorecards, and preserve a
-tunable fallback path at runtime.
+baseline on fixed PCAP and VRLOG packs. Optimisation work is explicit rather
+than magical: sweep parameters, compare scorecards, identify robust defaults,
+decide when scene-specific profiles beat global settings, and only promote
+changes that win on reproducible evidence. Any future model must stay
+auditable, beat the transparent baseline on reproducible scorecards, and
+preserve a tunable fallback path at runtime.
 
 Interesting problems in the repo right now:
 
@@ -75,16 +94,17 @@ Interesting problems in the repo right now:
   anchors for shake estimation without poisoning lower-layer assumptions. See:
   [reflective sign pose anchor maths](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md).
 
-- **Config provenance, labelled runs, and scorecard evidence** — identify
-  which defaults are backed by repeatable comparisons, what artifacts were
-  used, and where the current evidence gaps are. See:
+- **Hyperparameter optimisation, config provenance, and scorecard evidence** —
+  identify which defaults are backed by repeatable comparisons, which settings
+  should be global versus scene-specific, what artefacts were used, and where
+  the current evidence gaps are. See:
   [metrics-first plan](docs/plans/platform-data-science-metrics-first-plan.md),
   [track labelling and auto-aware tuning](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md),
   [auto-tuning operations guide](docs/lidar/operations/auto-tuning.md).
 
 When contributing in this area, always include the question being answered, the
 observed result, the exact parameter or config bundle, the validation date, and
-the replay artifacts used (`.pcap`, `.vrlog`, scene IDs, run IDs, baselines,
+the replay artefacts used (`.pcap`, `.vrlog`, scene IDs, run IDs, baselines,
 and any LFS-backed files).
 
 Read next:
