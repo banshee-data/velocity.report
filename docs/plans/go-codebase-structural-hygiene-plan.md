@@ -3,8 +3,9 @@
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
 - **Target:** v0.5.x — disrupt shaky conventions before they become foundations
-- **Companion plan:**
-  [go-structured-logging-plan.md](go-structured-logging-plan.md) (v0.6+)
+- **Companion plans:**
+  [go-structured-logging-plan.md](go-structured-logging-plan.md) (v0.6+),
+  [go-god-file-split-plan.md](go-god-file-split-plan.md) (god file splits)
 
 ## Motivation
 
@@ -26,17 +27,17 @@ separately in the [companion plan](go-structured-logging-plan.md).
 
 ## Analysis Summary
 
-| Category            | Finding                                                              | Severity | Item |
-| ------------------- | -------------------------------------------------------------------- | -------- | ---- |
-| Context propagation | 30+ HTTP handlers ignore `r.Context()`                               | Critical | 1    |
-| God files           | `db.go` (1,420 LOC), `api/server.go` (1,711), `webserver.go` (1,905) | High     | 2    |
-| Race condition      | `serialmux.CurrentState` is a global map with no sync                | High     | 2    |
-| DB abstraction leak | 4 files import `database/sql` directly, bypassing `db` package       | Medium   | 2    |
-| JSON tag anomaly    | `EventAPI` uses PascalCase; everything else uses snake\_case         | Medium   | 3    |
-| Silent error drops  | Production `_ = expr` discarding errors (excluding `deploy/`)        | Medium   | 2    |
-| God functions       | `setupRoutes` (415 LOC), `buildCosineSpeedExpr` (318 LOC)            | Medium   | 2    |
-| Test infrastructure | `testutil.go` is 46 lines for 216 test files; DB setup inconsistent  | Low      | 2    |
-| Flaky test risk     | `time.Sleep` in 9 test files                                         | Low      | 2    |
+| Category            | Finding                                                                                                                     | Severity | Item |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- | ---- |
+| Context propagation | 30+ HTTP handlers ignore `r.Context()`                                                                                      | Critical | 1    |
+| God files           | `db.go` (1,420 LOC), `api/server.go` (1,711), `webserver.go` (1,905) — see [god file split plan](go-god-file-split-plan.md) | High     | —    |
+| Race condition      | `serialmux.CurrentState` is a global map with no sync                                                                       | High     | 2    |
+| DB abstraction leak | 4 files import `database/sql` directly, bypassing `db` package                                                              | Medium   | 2    |
+| JSON tag anomaly    | `EventAPI` uses PascalCase; everything else uses snake_case                                                                 | Medium   | 3    |
+| Silent error drops  | Production `_ = expr` discarding errors (excluding `deploy/`)                                                               | Medium   | 2    |
+| God functions       | `setupRoutes` (415 LOC), `buildCosineSpeedExpr` (318 LOC)                                                                   | Medium   | —    |
+| Test infrastructure | `testutil.go` is 46 lines for 216 test files; DB setup inconsistent                                                         | Low      | 2    |
+| Flaky test risk     | `time.Sleep` in 9 test files                                                                                                | Low      | 2    |
 
 Logging inconsistency is tracked in the
 [companion plan](go-structured-logging-plan.md).
@@ -60,25 +61,13 @@ signature — a change that grows linearly with feature count.
 
 ### 2. God Files (High)
 
-Three files carry disproportionate weight:
+Extracted to a dedicated plan:
+[go-god-file-split-plan.md](go-god-file-split-plan.md).
 
-| File                                  | Lines | Methods/Handlers    | Concerns mixed                                                           |
-| ------------------------------------- | ----- | ------------------- | ------------------------------------------------------------------------ |
-| `internal/db/db.go`                   | 1,420 | 20 receiver methods | Radar events, LiDAR backgrounds, regions, admin routes, stats            |
-| `internal/api/server.go`              | 1,711 | 27 handler methods  | Sites, config, events, reports, serial commands, transit, DB stats       |
-| `internal/lidar/monitor/webserver.go` | 1,905 | ~40 routes          | Status, snapshots, metrics, sweeps, grids, pcap, charts, debug, playback |
-
-The `db` package already has good per-domain files (`site.go`, `transit_worker.go`,
-`site_config_periods.go`). The god file is `db.go` itself, which mixes radar recording,
-background snapshot CRUD, region snapshots, admin HTTP routes, and database statistics into
-one 1,420-line file.
-
-**Consequence:** Merge conflicts. Cognitive load. Contributors cannot reason about radar
-queries without scrolling past background snapshot code. The file will only grow as new
-query methods are added.
-
-**Burden if deferred:** Each milestone adds 2–3 methods to `db.go`. By v0.7.0 it will be
-2,000+ lines and splitting it will require touching every import site.
+That plan covers the three original god files (`db.go`, `api/server.go`, `webserver.go`),
+two additional Tier 1 files discovered during the full codebase scan (`l5tracks/tracking.go`
+at 1,676 LOC, `storage/sqlite/analysis_run.go` at 1,400 LOC), and phased splits for eleven
+Tier 2 files above 700 LOC.
 
 ### 3. Global Mutable State Without Synchronisation (High)
 
@@ -204,33 +193,28 @@ of the change and strong existing test coverage.
 
 ---
 
-### Item 2: Package Hygiene — God Files, Abstractions, Error Visibility
+### Item 2: Package Hygiene — Abstractions, Error Visibility, Test Infrastructure
 
-**Summary:** Split overloaded files into domain-scoped units. Fix abstraction leaks, race
-conditions, and silent error drops. Establish the convention that each file in a package owns
-one domain and every error is either returned or logged.
+**Summary:** Fix abstraction leaks, race conditions, and silent error drops. Establish the
+convention that each file in a package owns one domain and every error is either returned or
+logged. God file splits are tracked separately in
+[go-god-file-split-plan.md](go-god-file-split-plan.md).
 
 **Scope:**
 
-1. **Split `internal/db/db.go`** into:
-   - `db_radar.go` — `RecordRadarObject`, `RadarObjects`, `RadarObjectRollupRange`,
-     `RecordRawData`, `Events`, `RadarDataRange`
-   - `db_lidar.go` — all `BgSnapshot` and `RegionSnapshot` methods
-   - `db_admin.go` — `GetDatabaseStats`, `AttachAdminRoutes`, TailSQL/backup handlers
-   - `db.go` — `NewDB`, `OpenDB`, `Close`, struct definition, shared helpers only
-2. **Split `internal/api/server.go`** into handler files by domain (sites, config, events,
-   reports, serial, transit, admin)
-3. **Protect `serialmux.CurrentState`** with `sync.RWMutex` and accessor functions; remove
+1. **Split god files** — see [go-god-file-split-plan.md](go-god-file-split-plan.md)
+   for per-file checklists and phasing
+2. **Protect `serialmux.CurrentState`** with `sync.RWMutex` and accessor functions; remove
    direct map access
-4. **Remove direct `database/sql` imports** from the 4 leaking files; expose needed types
+3. **Remove direct `database/sql` imports** from the 4 leaking files; expose needed types
    through the `db` package boundary (type aliases or wrapper types for `sql.Null*`)
-5. **Fix silent error drops** (excluding `deploy/`):
+4. **Fix silent error drops** (excluding `deploy/`):
    - `db.go:251` — log the `Close()` error
    - `l3grid/export_bg_snapshot.go:45,61` — return or log `SetRingElevations` error
    - `monitor/datasource_handlers.go:122,134` — log `startLiveListenerLocked` error
    - `monitor/datasource_handlers.go:535,536,570` — log `SetParams` error
    - `monitor/echarts_handlers.go` (8 sites) — log `w.Write` errors at debug level
-6. **Expand `internal/testutil/`**:
+5. **Expand `internal/testutil/`**:
    - Add `SetupTestDB(t) *db.DB` and `CleanupTestDB(t, *db.DB)` as canonical helpers
    - Add `WaitFor(t, condition func() bool, timeout)` to replace `time.Sleep`
    - Migrate the 9 `time.Sleep` test files to use polling helpers
@@ -295,6 +279,8 @@ landing first (fewer conflicts when signatures change).
 - **Schema migrations** (000030, 000031) — covered by the existing schema simplification
   plan
 - **Backward compatibility shim removal** — already complete per the v0.5.0 shim plan
+- **God file splits** — extracted to
+  [go-god-file-split-plan.md](go-god-file-split-plan.md)
 - **LiDAR pipeline architecture** — the L1–L6 layering is sound; this plan addresses
   infrastructure around it, not within it
 - **Frontend or Python code** — except where JSON tag changes require coordinated updates
@@ -308,7 +294,7 @@ Each backlog item should be verified by:
 
 1. `make lint-go && make test-go` — no regressions
 2. `go vet ./... && go test -race ./...` — no new vet warnings; race detector clean
-3. Manual inspection that god files are below 500 lines after splitting
+3. God file LOC targets met — see [go-god-file-split-plan.md](go-god-file-split-plan.md)
 4. Spot-check that `r.Context()` flows through to database calls
 5. JSON tag audit confirming 100% `snake_case` on exported API structs
 6. Grep for `_ =` in production code (excluding `deploy/`, `*.pb.go`, and `*_test.go`)

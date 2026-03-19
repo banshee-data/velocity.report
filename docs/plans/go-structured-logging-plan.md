@@ -105,15 +105,15 @@ appropriate stream.
 
 The following is an indicative audit. Exact line numbers will shift as v0.5.x changes land.
 
-| Package          | Current pattern                 | Count | Target stream      |
-| ---------------- | ------------------------------- | ----- | ------------------ |
-| `api/`           | `log.Printf`                    | ~15   | `Opsf`/`Diagf`     |
-| `db/`            | `log.Printf` + emoji            | ~10   | `Opsf`/`Diagf`     |
-| `serialmux/`     | `log.Printf`                    | ~8    | `Opsf`/`Diagf`     |
-| `monitoring/`    | `Logf` (function pointer)       | 1     | —  (remove)   |
-| `cmd/radar/`     | `log.Printf` + `fmt.Printf`    | ~12   | ops/diag      |
-| `cmd/deploy/`    | `log.Printf` + `fmt.Printf`    | ~20   | ops/diag      |
-| `cmd/tools/*`    | `log.Printf` + `fmt.Printf`    | ~15   | ops/diag      |
+| Package       | Current pattern             | Count | Target stream  |
+| ------------- | --------------------------- | ----- | -------------- |
+| `api/`        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
+| `db/`         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
+| `serialmux/`  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
+| `monitoring/` | `Logf` (function pointer)   | 1     | — (remove)     |
+| `cmd/radar/`  | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
+| `cmd/deploy/` | `log.Printf` + `fmt.Printf` | ~20   | ops/diag       |
+| `cmd/tools/*` | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
 
 **Estimated effort:** 3–5 days. Mechanical migration with clear routing rubric.
 
@@ -166,10 +166,10 @@ helpers.
 
 ## Scheduling Recommendation
 
-| Milestone | Items                                       | Rationale                                           |
-| --------- | ------------------------------------------- | --------------------------------------------------- |
-| v0.6.0    | Item 1 (stream migration), Item 2 (config)  | Unified logging model across the entire Go process. |
-| v0.6.0    | Item 3 (test infra)                         | Reduces flaky test risk. Independent of logging.    |
+| Milestone | Items                                      | Rationale                                           |
+| --------- | ------------------------------------------ | --------------------------------------------------- |
+| v0.6.0    | Item 1 (stream migration), Item 2 (config) | Unified logging model across the entire Go process. |
+| v0.6.0    | Item 3 (test infra)                        | Reduces flaky test risk. Independent of logging.    |
 
 Items 1 and 2 are sequential (2 depends on 1). Item 3 is independent and can proceed in
 parallel.
