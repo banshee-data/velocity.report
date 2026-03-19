@@ -229,7 +229,7 @@ discovery.
 | **Total** | | **3–4** | |
 
 Compare with the original standardisation plan's 10–16 day estimate:
-the two-package model requires roughly **one quarter** of the effort
+the two-package model requires roughly **one-quarter** of the effort
 because it preserves the existing split rather than fighting the import
 graph.
 
