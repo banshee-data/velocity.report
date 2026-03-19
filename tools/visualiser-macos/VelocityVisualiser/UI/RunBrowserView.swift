@@ -47,11 +47,6 @@ private enum RunBrowserLayout {
     @StateObject private var runBrowserState: RunBrowserState
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
-    /// Guards row interactions until the initial LazyVStack layout has
-    /// settled.  On macOS, tap gestures can fire phantom events during
-    /// the first population of a lazy container — this flag prevents
-    /// those phantom taps from triggering run loads.
-    @State private var canInteract = false
 
     init() { _runBrowserState = StateObject(wrappedValue: RunBrowserState()) }
 
@@ -104,11 +99,7 @@ private enum RunBrowserLayout {
                 Divider()
 
                 ScrollView {
-                    // VStack (not LazyVStack) — 50 lightweight rows are
-                    // fine non-lazy, and this eliminates the macOS SwiftUI
-                    // bug where LazyVStack dispatches phantom tap-gesture
-                    // events during lazy row materialisation.
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(runBrowserState.runs) { run in
                             RunRowView(
                                 run: run, isSelected: runBrowserState.selectedRunID == run.runId
@@ -127,7 +118,7 @@ private enum RunBrowserLayout {
                                 }
                             }
                         }
-                    }.allowsHitTesting(canInteract)
+                    }
                 }
             }
 
@@ -156,14 +147,7 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 450, height: 700).task {
-            await runBrowserState.fetchRuns()
-            // Allow a brief layout-settle period before enabling row
-            // interactions — macOS SwiftUI can dispatch phantom tap events
-            // during the initial population of a LazyVStack.
-            try? await Task.sleep(for: .milliseconds(300))
-            canInteract = true
-        }
+        }.frame(width: 450, height: 700).task { await runBrowserState.fetchRuns() }
     }
 
 }
