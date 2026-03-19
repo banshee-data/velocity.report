@@ -99,11 +99,10 @@ CREATE TABLE lidar_run_configs (
     run_config_id TEXT PRIMARY KEY,
     config_hash TEXT NOT NULL UNIQUE,
     param_set_id TEXT NOT NULL REFERENCES lidar_param_sets(param_set_id),
-    build_name TEXT NOT NULL,
     build_version TEXT NOT NULL,
     build_git_sha TEXT NOT NULL,
     created_at INTEGER NOT NULL,
-    UNIQUE (param_set_id, build_name, build_version, build_git_sha)
+    UNIQUE (param_set_id, build_version, build_git_sha)
 );
 
 CREATE TABLE lidar_run_records (
@@ -180,7 +179,7 @@ object is a composed run config, not a standalone param set.
 
 - one `param_set_id`
 - one embedded build identity block:
-  `build_name`, `build_version`, `build_git_sha`
+  `build_version`, `build_git_sha`
 - one exact `config_hash`
 
 These column names align with existing codebase conventions: `build_version`
@@ -223,7 +222,7 @@ tables.
 - `params_hash` is SHA-256 of the canonical param-set JSON, including
   `param_set_type` and `schema_version`
 - `config_hash` is SHA-256 of the exact composed run config:
-  `effective param set + build_name + build_version + build_git_sha`
+  `effective param set + build_version + build_git_sha`
 - same effective params + same build identity => same `config_hash`
 - same effective params + different build identity => different `config_hash`
 - same requested params reused across runs/builds => same `params_hash`
@@ -296,7 +295,6 @@ plus embedded build identity:
   "schema_version": "run_config/v1",
   "param_set_type": "effective",
   "build": {
-    "build_name": "velocity.report",
     "build_version": "0.5.0-pre6",
     "build_git_sha": "7b5242213"
   },
@@ -333,7 +331,6 @@ Run-config row stored in `lidar_run_configs`:
   "run_config_id": "rc_01HV7M3W6R6M2J2A8M4T7B2E1C",
   "config_hash": "sha256:8b7442f7e3b1c1b4c2d7e4aa2a10d5db2ef7d34e89d9d1f6a84c6f4e21a8f95a",
   "param_set_id": "ps_01HV7M2W3JY8Q6R4B1D5N9T2K7",
-  "build_name": "velocity.report",
   "build_version": "0.5.0-pre6",
   "build_git_sha": "7b5242213",
   "created_at": 1773952005123456789
@@ -478,18 +475,16 @@ type ParamSet struct {
 }
 
 type BuildIdentity struct {
-    BuildName    string
     BuildVersion string
     BuildGitSHA  string
 }
 
 type RunConfig struct {
-    RunConfigID   string
-    ConfigHash    string
-    ParamSetID    string
-    BuildName     string
-    BuildVersion  string
-    BuildGitSHA   string
+    RunConfigID  string
+    ConfigHash   string
+    ParamSetID   string
+    BuildVersion string
+    BuildGitSHA  string
 }
 
 func MakeEffectiveParamSet(runtime Snapshot) (*ParamSet, error)
@@ -612,7 +607,6 @@ Runs should expose:
 - `run_config_id`
 - `requested_param_set_id`
 - `param_set_id`
-- `build_name`
 - `build_version`
 - `build_git_sha`
 - `config_hash`
