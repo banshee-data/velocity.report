@@ -102,28 +102,31 @@ private enum RunBrowserLayout {
                 }.padding()
                 Spacer()
             } else {
-                // Sticky column header above the scrollable run list.
-                RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4)
-
                 ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(runBrowserState.runs) { run in
-                            RunRowView(
-                                run: run, isSelected: runBrowserState.selectedRunID == run.runId
-                            ) {
-                                Task {
-                                    if runBrowserState.selectedRunID == run.runId {
-                                        dismiss()
-                                        return
+                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        Section {
+                            ForEach(runBrowserState.runs) { run in
+                                RunRowView(
+                                    run: run, isSelected: runBrowserState.selectedRunID == run.runId
+                                ) {
+                                    Task {
+                                        if runBrowserState.selectedRunID == run.runId {
+                                            dismiss()
+                                            return
+                                        }
+                                        guard run.hasVRLog else { return }
+                                        await loadRunForReplayAndUpdateAppState(
+                                            runID: run.runId, appState: appState,
+                                            runBrowserState: runBrowserState
+                                        ) { await runBrowserState.loadRunForReplay(run.runId) }
+                                        if runBrowserState.selectedRunID == run.runId { dismiss() }
                                     }
-                                    guard run.hasVRLog else { return }
-                                    await loadRunForReplayAndUpdateAppState(
-                                        runID: run.runId, appState: appState,
-                                        runBrowserState: runBrowserState
-                                    ) { await runBrowserState.loadRunForReplay(run.runId) }
-                                    if runBrowserState.selectedRunID == run.runId { dismiss() }
                                 }
                             }
+                        } header: {
+                            RunBrowserHeaderRow().padding(.top, 6).padding(.bottom, 4).padding(
+                                .horizontal, RunBrowserLayout.rowInset.leading
+                            ).background(.ultraThinMaterial)
                         }
                     }
                 }
@@ -174,9 +177,7 @@ private struct RunBrowserHeaderRow: View {
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(
-            .horizontal, RunBrowserLayout.rowInset.leading
-        ).font(.caption).foregroundColor(.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading).font(.caption).foregroundColor(.secondary)
     }
 }
 
