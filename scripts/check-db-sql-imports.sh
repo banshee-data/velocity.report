@@ -44,7 +44,8 @@ while IFS= read -r file; do
         cmd/tools/*) continue ;;
     esac
 
-    violations="${violations}  ${rel}\n"
+    violations="${violations}  ${rel}
+"
 done < <(grep -rl '"database/sql"' "$REPO_ROOT" \
     --include='*.go' \
     --exclude='*_test.go' \
@@ -61,7 +62,7 @@ if [ -n "$violations" ]; then
     echo "  - sqlite.ErrNotFound           (sentinel for sql.ErrNoRows)"
     echo ""
     echo "Violations:"
-    echo -e "$violations"
+    printf '%s' "$violations"
     exit 1
 fi
 
