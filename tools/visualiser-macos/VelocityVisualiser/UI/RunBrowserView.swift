@@ -51,6 +51,11 @@ private enum RunBrowserLayout {
     @StateObject private var runBrowserState: RunBrowserState
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+    /// Guards row interactions until the initial LazyVStack layout has
+    /// settled.  On macOS, tap gestures can fire phantom events during
+    /// the first population of a lazy container — this flag prevents
+    /// those phantom taps from triggering run loads.
+    @State private var canInteract = false
 
     init() { _runBrowserState = StateObject(wrappedValue: RunBrowserState()) }
 
@@ -108,6 +113,7 @@ private enum RunBrowserLayout {
                             RunRowView(
                                 run: run, isSelected: runBrowserState.selectedRunID == run.runId
                             ) {
+                                guard canInteract else { return }
                                 Task {
                                     if runBrowserState.selectedRunID == run.runId {
                                         dismiss()
@@ -151,7 +157,14 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 450, height: 700).onAppear { Task { await runBrowserState.fetchRuns() } }
+        }.frame(width: 450, height: 700).task {
+            await runBrowserState.fetchRuns()
+            // Allow a brief layout-settle period before enabling row
+            // interactions — macOS SwiftUI can dispatch phantom tap events
+            // during the initial population of a LazyVStack.
+            try? await Task.sleep(for: .milliseconds(300))
+            canInteract = true
+        }
     }
 
 }
