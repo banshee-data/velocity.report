@@ -153,9 +153,9 @@ func (p *Publisher) ClearRecorder() {
 // Frames are published to all connected clients at the specified rate.
 func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogMu.Lock()
-	defer p.vrlogMu.Unlock()
 
 	if p.vrlogActive {
+		p.vrlogMu.Unlock()
 		return fmt.Errorf("VRLOG replay already active")
 	}
 
@@ -167,13 +167,16 @@ func (p *Publisher) StartVRLogReplay(reader FrameReader) error {
 	p.vrlogSendOneFrame = false
 	p.vrlogActive = true
 
-	// Scan for the first background frame and publish it immediately so the
-	// client sees the background grid without waiting for the replay loop to
-	// reach it (background frames are recorded at 30 s intervals, so the
-	// first one may be many seconds into the VRLOG).
+	p.vrlogWg.Add(1)
+
+	p.vrlogMu.Unlock()
+
+	// Emit the first background frame AFTER releasing vrlogMu.
+	// Publish() → shouldSendBackground() → IsVRLogActive() acquires
+	// vrlogMu.RLock(), which would deadlock if the write lock were
+	// still held.
 	p.emitFirstBackground(reader)
 
-	p.vrlogWg.Add(1)
 	go p.vrlogReplayLoop()
 
 	diagf("[Visualiser] Started VRLOG replay: %d total frames", reader.TotalFrames())
