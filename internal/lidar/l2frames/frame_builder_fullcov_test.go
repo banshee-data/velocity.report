@@ -94,8 +94,6 @@ func TestAddPointsDualInternal_Mismatch(t *testing.T) {
 		[]Point{{X: 1}},
 		[]PointPolar{{Distance: 1}, {Distance: 2}},
 	)
-	// If we reach here, no panic occurred — the deferred recover will fail
-	fb.mu.Unlock()
 }
 
 // --- addPointToCurrentFrame nil guard ---
