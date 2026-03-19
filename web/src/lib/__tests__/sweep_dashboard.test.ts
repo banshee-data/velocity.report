@@ -2068,7 +2068,7 @@ describe('applySceneParams', () => {
 	it('shows error when no scene selected', () => {
 		(document.getElementById('scene_select') as HTMLSelectElement).value = '';
 		applySceneParams();
-		expect(document.getElementById('error-box')!.textContent).toContain('No scene selected');
+		expect(document.getElementById('error-box')!.textContent).toContain('No replay case selected');
 	});
 
 	it('shows error for scene without optimal params', async () => {
@@ -2947,7 +2947,7 @@ describe('applySceneParams setTimeout callback', () => {
 		expect(document.getElementById('btn-apply-scene-params')!.textContent).toContain('Applied');
 		jest.advanceTimersByTime(2000);
 		expect(document.getElementById('btn-apply-scene-params')!.textContent).toBe(
-			'Apply Scene Params'
+			'Apply Replay Case Params'
 		);
 	});
 });
