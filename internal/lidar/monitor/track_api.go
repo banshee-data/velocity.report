@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -17,13 +16,13 @@ import (
 // TrackAPI provides HTTP handlers for track-related endpoints.
 // It supports both in-memory tracker queries and database persistence.
 type TrackAPI struct {
-	db       *sql.DB
+	db       *sqlite.SQLDB
 	sensorID string
 	tracker  *l5tracks.Tracker // Optional: in-memory tracker for real-time queries
 }
 
 // NewTrackAPI creates a new TrackAPI instance.
-func NewTrackAPI(db *sql.DB, sensorID string) *TrackAPI {
+func NewTrackAPI(db *sqlite.SQLDB, sensorID string) *TrackAPI {
 	return &TrackAPI{
 		db:       db,
 		sensorID: sensorID,

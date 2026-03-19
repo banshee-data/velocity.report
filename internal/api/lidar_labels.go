@@ -1,13 +1,13 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/google/uuid"
 )
 
@@ -123,11 +123,11 @@ type LidarLabel struct {
 
 // LidarLabelAPI provides HTTP handlers for label management.
 type LidarLabelAPI struct {
-	db *sql.DB
+	db *sqlite.SQLDB
 }
 
 // NewLidarLabelAPI creates a new label API instance.
-func NewLidarLabelAPI(db *sql.DB) *LidarLabelAPI {
+func NewLidarLabelAPI(db *sqlite.SQLDB) *LidarLabelAPI {
 	return &LidarLabelAPI{db: db}
 }
 
@@ -331,7 +331,7 @@ func (api *LidarLabelAPI) handleGetLabel(w http.ResponseWriter, r *http.Request,
 		&label.ReplayCaseID,
 		&label.SourceFile,
 	)
-	if err == sql.ErrNoRows {
+	if err == sqlite.ErrNotFound {
 		api.writeJSONError(w, http.StatusNotFound, "label not found")
 		return
 	}
@@ -355,7 +355,7 @@ func (api *LidarLabelAPI) handleUpdateLabel(w http.ResponseWriter, r *http.Reque
 	// Check if label exists
 	var exists bool
 	err := api.db.QueryRow("SELECT 1 FROM lidar_track_annotations WHERE label_id = ?", labelID).Scan(&exists)
-	if err == sql.ErrNoRows {
+	if err == sqlite.ErrNotFound {
 		api.writeJSONError(w, http.StatusNotFound, "label not found")
 		return
 	}
