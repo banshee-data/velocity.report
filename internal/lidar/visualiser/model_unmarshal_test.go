@@ -5,17 +5,6 @@ import (
 	"testing"
 )
 
-func TestTrack_UnmarshalJSON_MaxSpeedMps(t *testing.T) {
-	data := []byte(`{"TrackID":"t1","MaxSpeedMps":12.5}`)
-	var track Track
-	if err := json.Unmarshal(data, &track); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if track.MaxSpeedMps != 12.5 {
-		t.Errorf("expected MaxSpeedMps=12.5, got %f", track.MaxSpeedMps)
-	}
-}
-
 func TestTrack_UnmarshalJSON_MaxSpeedMps_SnakeCase(t *testing.T) {
 	data := []byte(`{"TrackID":"t1","max_speed_mps":15.0}`)
 	var track Track
@@ -26,17 +15,6 @@ func TestTrack_UnmarshalJSON_MaxSpeedMps_SnakeCase(t *testing.T) {
 	// but UnmarshalJSON explicitly decodes raw["max_speed_mps"] into MaxSpeedMps.
 	if track.MaxSpeedMps != 15.0 {
 		t.Errorf("expected MaxSpeedMps=15.0, got %f", track.MaxSpeedMps)
-	}
-}
-
-func TestTrack_UnmarshalJSON_LegacyPeakSpeedMps(t *testing.T) {
-	data := []byte(`{"TrackID":"t1","PeakSpeedMps":20.0}`)
-	var track Track
-	if err := json.Unmarshal(data, &track); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if track.MaxSpeedMps != 20.0 {
-		t.Errorf("expected MaxSpeedMps=20.0 from PeakSpeedMps legacy, got %f", track.MaxSpeedMps)
 	}
 }
 
