@@ -565,7 +565,7 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 	return res.json();
 }
 
-// LiDAR Scene and Run Labelling API
+// LiDAR Replay Case and Run Labelling API
 // Uses API_BASE for consistency with other LiDAR endpoints.
 
 export async function getLidarScenes(sensorId?: string): Promise<LidarReplayCase[]> {
@@ -573,14 +573,14 @@ export async function getLidarScenes(sensorId?: string): Promise<LidarReplayCase
 	if (sensorId) params.set('sensor_id', sensorId);
 	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch scenes: ${res.status}`);
+	if (!res.ok) throw new Error(`Failed to fetch replay cases: ${res.status}`);
 	const data = await res.json();
 	return data.scenes || [];
 }
 
 export async function getLidarScene(sceneId: string): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`);
-	if (!res.ok) throw new Error(`Failed to fetch scene: ${res.status}`);
+	if (!res.ok) throw new Error(`Failed to fetch replay case: ${res.status}`);
 	return res.json();
 }
 
@@ -596,7 +596,7 @@ export async function createLidarScene(scene: {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(scene)
 	});
-	if (!res.ok) throw new Error(`Failed to create scene: ${res.status}`);
+	if (!res.ok) throw new Error(`Failed to create replay case: ${res.status}`);
 	return res.json();
 }
 
@@ -615,7 +615,7 @@ export async function updateLidarScene(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(update)
 	});
-	if (!res.ok) throw new Error(`Failed to update scene: ${res.status}`);
+	if (!res.ok) throw new Error(`Failed to update replay case: ${res.status}`);
 	return res.json();
 }
 
@@ -623,7 +623,7 @@ export async function deleteLidarScene(sceneId: string): Promise<void> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${sceneId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Failed to delete scene: ${res.status}`);
+	if (!res.ok) throw new Error(`Failed to delete replay case: ${res.status}`);
 }
 
 // PCAP file scanning API

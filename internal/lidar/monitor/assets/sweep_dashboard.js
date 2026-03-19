@@ -384,7 +384,8 @@ function loadSweepScenes() {
       });
     })
     .catch(function () {
-      select.innerHTML = '<option value="">(failed to load replay cases)</option>';
+      select.innerHTML =
+        '<option value="">(failed to load replay cases)</option>';
     });
 }
 

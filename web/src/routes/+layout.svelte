@@ -86,9 +86,9 @@
 			currentUrl={page.url}
 		/>
 		<NavItem
-			text="Lidar Scenes"
+			text="Replay Cases"
 			icon={mdiMovieOpen}
-			path="/app/lidar/scenes"
+			path="/app/lidar/replay-cases"
 			currentUrl={page.url}
 		/>
 		<NavItem

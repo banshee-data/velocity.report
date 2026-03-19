@@ -3,7 +3,7 @@
 	 * LiDAR Runs Page
 	 *
 	 * Table layout with a detail panel that slides out to the right,
-	 * matching the scenes page layout pattern.
+	 * matching the replay cases page layout pattern.
 	 */
 	import {
 		deleteRun,
@@ -180,7 +180,7 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">LiDAR Runs</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Analysis runs with parameters, scenes, and track summaries
+					Analysis runs with parameters, replay cases, and track summaries
 				</p>
 			</div>
 			<div class="flex gap-2">
@@ -207,7 +207,7 @@
 				<div class="text-surface-content/50 py-12 text-center">
 					<p>No analysis runs found.</p>
 					<p class="mt-1 text-sm">
-						Runs are created when a scene is replayed or live analysis is started.
+						Runs are created when a replay case is replayed or live analysis is started.
 					</p>
 				</div>
 			{:else}
@@ -225,7 +225,7 @@
 									>Tracks</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
-									>Scene</th
+									>Replay Case</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Created</th
@@ -395,9 +395,9 @@
 						</div>
 					{/if}
 
-					<!-- Scene info -->
+					<!-- Replay case info -->
 					<div>
-						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Scene</div>
+						<div class="text-surface-content/70 mb-1 block text-sm font-medium">Replay Case</div>
 						{#if scene}
 							<dl class="text-sm">
 								<div class="flex justify-between py-1">
@@ -432,7 +432,7 @@
 								{/if}
 							</dl>
 						{:else}
-							<p class="text-surface-content/50 text-sm">No associated scene found</p>
+							<p class="text-surface-content/50 text-sm">No associated replay case found</p>
 						{/if}
 					</div>
 

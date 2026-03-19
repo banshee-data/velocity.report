@@ -1878,7 +1878,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarScenes } = await import('./api');
-				await expect(getLidarScenes()).rejects.toThrow('Failed to fetch scenes: 500');
+				await expect(getLidarScenes()).rejects.toThrow('Failed to fetch replay cases: 500');
 			});
 		});
 
@@ -1986,7 +1986,7 @@ describe('api', () => {
 		});
 	});
 
-	describe('LiDAR Scene Management', () => {
+	describe('LiDAR Replay Case Management', () => {
 		describe('getLidarScene', () => {
 			it('should fetch a single scene by ID', async () => {
 				const mockScene = {
@@ -2009,7 +2009,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getLidarScene } = await import('./api');
-				await expect(getLidarScene('bad-id')).rejects.toThrow('Failed to fetch scene: 404');
+				await expect(getLidarScene('bad-id')).rejects.toThrow('Failed to fetch replay case: 404');
 			});
 		});
 
@@ -2050,7 +2050,7 @@ describe('api', () => {
 						sensor_id: 'hesai-pandar40p',
 						pcap_file: 'test.pcap'
 					})
-				).rejects.toThrow('Failed to create scene: 400');
+				).rejects.toThrow('Failed to create replay case: 400');
 			});
 		});
 
@@ -2088,7 +2088,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { updateLidarScene } = await import('./api');
 				await expect(updateLidarScene('scene-001', {})).rejects.toThrow(
-					'Failed to update scene: 500'
+					'Failed to update replay case: 500'
 				);
 			});
 		});
@@ -2109,7 +2109,9 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteLidarScene } = await import('./api');
-				await expect(deleteLidarScene('scene-001')).rejects.toThrow('Failed to delete scene: 404');
+				await expect(deleteLidarScene('scene-001')).rejects.toThrow(
+					'Failed to delete replay case: 404'
+				);
 			});
 		});
 
