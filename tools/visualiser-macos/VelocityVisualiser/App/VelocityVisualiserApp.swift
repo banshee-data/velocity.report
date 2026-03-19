@@ -23,7 +23,7 @@ private let appLogger = DevLogger(category: "App")
             AppCommands(appState: appState)
         }
 
-        Window("About VelocityReport.app", id: "about") { AboutView() }.windowResizability(
+        Window("About VelocityVisualiser.app", id: "about") { AboutView() }.windowResizability(
             .contentSize
         ).defaultPosition(.center)
     }
@@ -47,7 +47,7 @@ struct AppCommands: Commands {
     var body: some Commands {
         // About panel
         CommandGroup(replacing: .appInfo) {
-            Button("About VelocityReport.app") { openWindow(id: "about") }
+            Button("About VelocityVisualiser.app") { openWindow(id: "about") }
         }
 
         // Suppress the macOS default View menu items (tab bar, toolbar, sidebar)

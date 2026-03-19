@@ -33,7 +33,7 @@ struct AboutView: View {
             // App icon + title
             Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 80, height: 80)
 
-            Text("VelocityReport.app").font(.title).fontWeight(.semibold)
+            Text("VelocityVisualiser.app").font(.title).fontWeight(.semibold)
 
             HStack(spacing: 1) {
                 Text("v\(appVersion)  SHA:").font(.caption).foregroundColor(.secondary).help(
