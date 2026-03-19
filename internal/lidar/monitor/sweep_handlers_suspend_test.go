@@ -71,7 +71,7 @@ func setupSuspendedSweepStore(t *testing.T) (*sql.DB, *sqlite.SweepStore) {
 	db, store := setupTestSweepStoreForHandlers(t)
 
 	_, err := db.Exec(`ALTER TABLE lidar_sweeps ADD COLUMN checkpoint_round INTEGER DEFAULT 0`)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 		t.Fatalf("alter table: %v", err)
 	}
 
