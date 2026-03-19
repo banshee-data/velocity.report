@@ -237,7 +237,10 @@ func TestDirectBackend_ResetGrid_WithFrameBuilder(t *testing.T) {
 
 	// Register a frame builder for this sensor so the fb != nil branch is covered.
 	fb := l2frames.NewFrameBuilderWithLogging(sensorID)
-	defer fb.Close()
+	defer func() {
+		fb.Close()
+		l2frames.UnregisterFrameBuilder(sensorID)
+	}()
 	l2frames.RegisterFrameBuilder(sensorID, fb)
 
 	trackerCfg := l5tracks.DefaultTrackerConfig()

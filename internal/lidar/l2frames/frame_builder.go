@@ -30,6 +30,13 @@ func GetFrameBuilder(sensorID string) *FrameBuilder {
 	return fbRegistry[sensorID]
 }
 
+// UnregisterFrameBuilder removes a FrameBuilder from the global registry.
+func UnregisterFrameBuilder(sensorID string) {
+	fbRegistryMu.Lock()
+	defer fbRegistryMu.Unlock()
+	delete(fbRegistry, sensorID)
+}
+
 // Frame detection constants for azimuth-based rotation detection
 const (
 	// MinAzimuthCoverage is the minimum azimuth coverage (degrees) required for a valid frame
@@ -284,6 +291,11 @@ func (fb *FrameBuilder) frameCallbackWorker() {
 // Must be called when the FrameBuilder is no longer needed to avoid
 // goroutine leaks.
 func (fb *FrameBuilder) Close() {
+	fb.mu.Lock()
+	if fb.cleanupTimer != nil {
+		fb.cleanupTimer.Stop()
+	}
+	fb.mu.Unlock()
 	if fb.frameCh != nil {
 		close(fb.frameCh)
 		<-fb.frameDone
