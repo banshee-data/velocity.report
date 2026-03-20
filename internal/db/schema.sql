@@ -1,25 +1,4 @@
-CREATE TABLE lidar_run_records (
-          run_id TEXT PRIMARY KEY
-        , created_at INTEGER NOT NULL
-        , source_type TEXT NOT NULL
-        , source_path TEXT
-        , sensor_id TEXT NOT NULL
-        , params_json TEXT NOT NULL
-        , duration_secs REAL
-        , total_frames INTEGER
-        , total_clusters INTEGER
-        , total_tracks INTEGER
-        , confirmed_tracks INTEGER
-        , processing_time_ms INTEGER
-        , status TEXT DEFAULT 'running'
-        , error_message TEXT
-        , parent_run_id TEXT
-        , notes TEXT
-        , statistics_json TEXT
-        , vrlog_path TEXT
-          );
-
-   CREATE TABLE lidar_bg_regions (
+CREATE TABLE lidar_bg_regions (
           region_set_id INTEGER PRIMARY KEY AUTOINCREMENT
         , snapshot_id INTEGER REFERENCES lidar_bg_snapshot (snapshot_id)
         , sensor_id TEXT NOT NULL
@@ -64,7 +43,66 @@ CREATE TABLE lidar_run_records (
         , aspect_ratio REAL
           );
 
-   CREATE TABLE lidar_run_missed_regions (
+   CREATE TABLE IF NOT EXISTS "lidar_run_records" (
+          run_id TEXT PRIMARY KEY
+        , created_at INTEGER NOT NULL
+        , source_type TEXT NOT NULL
+        , source_path TEXT
+        , sensor_id TEXT NOT NULL
+        , params_json TEXT NOT NULL
+        , duration_secs REAL
+        , total_frames INTEGER
+        , total_clusters INTEGER
+        , total_tracks INTEGER
+        , confirmed_tracks INTEGER
+        , processing_time_ms INTEGER
+        , status TEXT DEFAULT 'running'
+        , error_message TEXT
+        , parent_run_id TEXT
+        , notes TEXT
+        , statistics_json TEXT
+        , vrlog_path TEXT
+          );
+
+   CREATE TABLE IF NOT EXISTS "lidar_replay_cases" (
+          replay_case_id TEXT PRIMARY KEY
+        , sensor_id TEXT NOT NULL
+        , pcap_file TEXT NOT NULL
+        , pcap_start_secs REAL
+        , pcap_duration_secs REAL
+        , description TEXT
+        , reference_run_id TEXT
+        , optimal_params_json TEXT
+        , created_at_ns INTEGER NOT NULL
+        , updated_at_ns INTEGER
+        , FOREIGN KEY (reference_run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE SET NULL
+          );
+
+   CREATE TABLE IF NOT EXISTS "lidar_replay_evaluations" (
+          evaluation_id TEXT PRIMARY KEY
+        , replay_case_id TEXT NOT NULL
+        , reference_run_id TEXT NOT NULL
+        , candidate_run_id TEXT NOT NULL
+        , detection_rate REAL
+        , fragmentation REAL
+        , false_positive_rate REAL
+        , velocity_coverage REAL
+        , quality_premium REAL
+        , truncation_rate REAL
+        , velocity_noise_rate REAL
+        , stopped_recovery_rate REAL
+        , composite_score REAL
+        , matched_count INTEGER
+        , reference_count INTEGER
+        , candidate_count INTEGER
+        , params_json TEXT
+        , created_at INTEGER NOT NULL
+        , FOREIGN KEY (replay_case_id) REFERENCES "lidar_replay_cases" (replay_case_id) ON DELETE CASCADE
+        , FOREIGN KEY (reference_run_id) REFERENCES "lidar_run_records" (run_id)
+        , FOREIGN KEY (candidate_run_id) REFERENCES "lidar_run_records" (run_id)
+          );
+
+   CREATE TABLE IF NOT EXISTS "lidar_run_missed_regions" (
           region_id TEXT PRIMARY KEY
         , run_id TEXT NOT NULL
         , center_x REAL NOT NULL
@@ -76,7 +114,7 @@ CREATE TABLE lidar_run_records (
         , labeler_id TEXT
         , labeled_at INTEGER
         , notes TEXT
-        , FOREIGN KEY (run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
+        , FOREIGN KEY (run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE CASCADE
           );
 
    CREATE TABLE lidar_run_tracks (
@@ -107,73 +145,7 @@ CREATE TABLE lidar_run_records (
         , quality_label TEXT
         , label_source TEXT
         , PRIMARY KEY (run_id, track_id)
-        , FOREIGN KEY (run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
-          );
-
-   CREATE TABLE lidar_replay_cases (
-          replay_case_id TEXT PRIMARY KEY
-        , sensor_id TEXT NOT NULL
-        , pcap_file TEXT NOT NULL
-        , pcap_start_secs REAL
-        , pcap_duration_secs REAL
-        , description TEXT
-        , reference_run_id TEXT
-        , optimal_params_json TEXT
-        , created_at_ns INTEGER NOT NULL
-        , updated_at_ns INTEGER
-        , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id) ON DELETE SET NULL
-          );
-
-   CREATE TABLE lidar_replay_evaluations (
-          evaluation_id TEXT PRIMARY KEY
-        , replay_case_id TEXT NOT NULL
-        , reference_run_id TEXT NOT NULL
-        , candidate_run_id TEXT NOT NULL
-        , detection_rate REAL
-        , fragmentation REAL
-        , false_positive_rate REAL
-        , velocity_coverage REAL
-        , quality_premium REAL
-        , truncation_rate REAL
-        , velocity_noise_rate REAL
-        , stopped_recovery_rate REAL
-        , composite_score REAL
-        , matched_count INTEGER
-        , reference_count INTEGER
-        , candidate_count INTEGER
-        , params_json TEXT
-        , created_at INTEGER NOT NULL
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
-        , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id)
-        , FOREIGN KEY (candidate_run_id) REFERENCES lidar_run_records (run_id)
-          );
-
-   CREATE TABLE lidar_tuning_sweeps (
-          id INTEGER PRIMARY KEY AUTOINCREMENT
-        , sweep_id TEXT NOT NULL UNIQUE
-        , sensor_id TEXT NOT NULL
-        , mode TEXT NOT NULL DEFAULT 'sweep'
-        , status TEXT NOT NULL DEFAULT 'running'
-        , request TEXT NOT NULL
-        , results TEXT
-        , charts TEXT
-        , recommendation TEXT
-        , round_results TEXT
-        , error TEXT
-        , started_at DATETIME NOT NULL
-        , completed_at DATETIME
-        , created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        , objective_name TEXT
-        , objective_version TEXT
-        , transform_pipeline_name TEXT
-        , transform_pipeline_version TEXT
-        , score_components_json TEXT
-        , recommendation_explanation_json TEXT
-        , label_provenance_summary_json TEXT
-        , checkpoint_round INTEGER
-        , checkpoint_bounds TEXT
-        , checkpoint_results TEXT
-        , checkpoint_request TEXT
+        , FOREIGN KEY (run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE CASCADE
           );
 
    CREATE TABLE lidar_tracks (
@@ -202,7 +174,7 @@ CREATE TABLE lidar_run_records (
         , noise_point_ratio REAL
           );
 
-   CREATE TABLE lidar_track_annotations (
+   CREATE TABLE IF NOT EXISTS "lidar_track_annotations" (
           label_id TEXT PRIMARY KEY
         , track_id TEXT NOT NULL
         , class_label TEXT NOT NULL
@@ -218,7 +190,7 @@ CREATE TABLE lidar_run_records (
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
-   CREATE TABLE lidar_track_observations (
+   CREATE TABLE IF NOT EXISTS "lidar_track_observations" (
           track_id TEXT NOT NULL
         , ts_unix_nanos INTEGER NOT NULL
         , frame_id TEXT NOT NULL
@@ -236,6 +208,34 @@ CREATE TABLE lidar_run_records (
         , intensity_mean REAL
         , PRIMARY KEY (track_id, ts_unix_nanos)
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
+          );
+
+   CREATE TABLE IF NOT EXISTS "lidar_tuning_sweeps" (
+          id INTEGER PRIMARY KEY AUTOINCREMENT
+        , sweep_id TEXT NOT NULL UNIQUE
+        , sensor_id TEXT NOT NULL
+        , mode TEXT NOT NULL DEFAULT 'sweep'
+        , status TEXT NOT NULL DEFAULT 'running'
+        , request TEXT NOT NULL
+        , results TEXT
+        , charts TEXT
+        , recommendation TEXT
+        , round_results TEXT
+        , error TEXT
+        , started_at DATETIME NOT NULL
+        , completed_at DATETIME
+        , created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        , objective_name TEXT
+        , objective_version TEXT
+        , transform_pipeline_name TEXT
+        , transform_pipeline_version TEXT
+        , score_components_json TEXT
+        , recommendation_explanation_json TEXT
+        , label_provenance_summary_json TEXT
+        , checkpoint_round INTEGER
+        , checkpoint_bounds TEXT
+        , checkpoint_results TEXT
+        , checkpoint_request TEXT
           );
 
    CREATE TABLE IF NOT EXISTS "radar_commands" (
@@ -380,17 +380,13 @@ CREATE INDEX idx_lidar_tracks_time ON lidar_tracks (start_unix_nanos, end_unix_n
 
 CREATE INDEX idx_lidar_tracks_class ON lidar_tracks (object_class);
 
-CREATE INDEX idx_lidar_track_observations_track ON lidar_track_observations (track_id);
+CREATE INDEX idx_lidar_runs_created ON "lidar_run_records" (created_at);
 
-CREATE INDEX idx_lidar_track_observations_time ON lidar_track_observations (ts_unix_nanos);
+CREATE INDEX idx_lidar_runs_source ON "lidar_run_records" (source_path);
 
-CREATE INDEX idx_lidar_runs_created ON lidar_run_records (created_at);
+CREATE INDEX idx_lidar_runs_parent ON "lidar_run_records" (parent_run_id);
 
-CREATE INDEX idx_lidar_runs_source ON lidar_run_records (source_path);
-
-CREATE INDEX idx_lidar_runs_parent ON lidar_run_records (parent_run_id);
-
-CREATE INDEX idx_lidar_runs_status ON lidar_run_records (status);
+CREATE INDEX idx_lidar_runs_status ON "lidar_run_records" (status);
 
 CREATE INDEX idx_lidar_run_tracks_run ON lidar_run_tracks (run_id);
 
@@ -445,30 +441,34 @@ CREATE TRIGGER update_site_timestamp AFTER
 
 END;
 
+CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
+
+CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
+
+CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_label);
+
+CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
+
+CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations (replay_case_id);
+
+CREATE INDEX idx_lidar_track_observations_track ON lidar_track_observations (track_id);
+
+CREATE INDEX idx_lidar_track_observations_time ON lidar_track_observations (ts_unix_nanos);
+
 CREATE INDEX idx_lidar_track_annotations_track ON lidar_track_annotations (track_id);
 
 CREATE INDEX idx_lidar_track_annotations_time ON lidar_track_annotations (start_timestamp_ns, end_timestamp_ns);
 
 CREATE INDEX idx_lidar_track_annotations_class ON lidar_track_annotations (class_label);
 
-CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
-
-CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
-
-CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
-
-CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_label);
-
-CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations (replay_case_id);
+CREATE INDEX idx_lidar_run_missed_regions_run_id ON lidar_run_missed_regions (run_id);
 
 CREATE INDEX idx_lidar_replay_cases_sensor ON lidar_replay_cases (sensor_id);
 
 CREATE INDEX idx_lidar_replay_cases_pcap ON lidar_replay_cases (pcap_file);
 
-CREATE INDEX idx_lidar_run_missed_regions_run_id ON lidar_run_missed_regions (run_id);
+CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (reference_run_id, candidate_run_id);
 
 CREATE INDEX idx_lidar_tuning_sweeps_sensor ON lidar_tuning_sweeps (sensor_id);
 
 CREATE INDEX idx_lidar_tuning_sweeps_status ON lidar_tuning_sweeps (status);
-
-CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (reference_run_id, candidate_run_id);
