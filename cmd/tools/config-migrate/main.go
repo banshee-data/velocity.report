@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
@@ -58,56 +59,65 @@ type legacyTuningConfig struct {
 }
 
 func main() {
-	inPath := flag.String("in", "", "Legacy flat JSON config path")
-	outPath := flag.String("out", "", "Output path for migrated v2 config (defaults to stdout)")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("config-migrate", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	inPath := fs.String("in", "", "Legacy flat JSON config path")
+	outPath := fs.String("out", "", "Output path for migrated v2 config (defaults to stdout)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
 
 	if *inPath == "" {
-		fmt.Fprintln(os.Stderr, "error: --in is required")
-		os.Exit(2)
+		fmt.Fprintln(stderr, "error: --in is required")
+		return 2
 	}
 
 	data, err := os.ReadFile(*inPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: read %s: %v\n", *inPath, err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "error: read %s: %v\n", *inPath, err)
+		return 1
 	}
 
 	legacyData, err := filterLegacyMetadata(data)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: parse %s: %v\n", *inPath, err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "error: parse %s: %v\n", *inPath, err)
+		return 1
 	}
 
 	var legacy legacyTuningConfig
 	if err := json.Unmarshal(legacyData, &legacy); err != nil {
-		fmt.Fprintf(os.Stderr, "error: decode legacy config: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "error: decode legacy config: %v\n", err)
+		return 1
 	}
 
 	migrated := migrateLegacyConfig(legacy)
 	if err := migrated.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: migrated config failed validation: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "error: migrated config failed validation: %v\n", err)
+		return 1
 	}
 	output, err := json.MarshalIndent(migrated, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: encode migrated config: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "error: encode migrated config: %v\n", err)
+		return 1
 	}
 	output = append(output, '\n')
 
 	if *outPath == "" {
-		if _, err := os.Stdout.Write(output); err != nil {
-			fmt.Fprintf(os.Stderr, "error: write stdout: %v\n", err)
-			os.Exit(1)
+		if _, err := stdout.Write(output); err != nil {
+			fmt.Fprintf(stderr, "error: write stdout: %v\n", err)
+			return 1
 		}
-		return
+		return 0
 	}
 	if err := os.WriteFile(*outPath, output, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "error: write %s: %v\n", *outPath, err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "error: write %s: %v\n", *outPath, err)
+		return 1
 	}
+	return 0
 }
 
 func filterLegacyMetadata(data []byte) ([]byte, error) {
