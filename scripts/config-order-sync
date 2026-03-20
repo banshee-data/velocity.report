@@ -91,8 +91,12 @@ def extract_keys_from_go_struct(path: Path, struct_name: str) -> list[str]:
         if not match:
             continue
         key = match.group(1)
-        if key == "-" or key in seen:
+        if key == "-":
             continue
+        if key in seen:
+            raise ValueError(
+                f"{path}: duplicate json tag '{key}' in struct {struct_name}"
+            )
         seen.add(key)
         keys.append(key)
 
@@ -120,12 +124,16 @@ def flatten_leaf_paths(obj: object, prefix: str = "") -> list[str]:
     return []
 
 
-def choose_best_markdown_block(blocks: list[MarkdownJSONBlock], canonical_obj: OrderedDict) -> MarkdownJSONBlock:
+def choose_best_markdown_block(
+    blocks: list[MarkdownJSONBlock], canonical_obj: OrderedDict
+) -> MarkdownJSONBlock:
     canonical_paths = set(flatten_leaf_paths(canonical_obj))
     best: MarkdownJSONBlock | None = None
     best_score = -1
     for block in blocks:
-        score = len([path for path in flatten_leaf_paths(block.obj) if path in canonical_paths])
+        score = len(
+            [path for path in flatten_leaf_paths(block.obj) if path in canonical_paths]
+        )
         if score > best_score:
             best = block
             best_score = score
@@ -134,7 +142,9 @@ def choose_best_markdown_block(blocks: list[MarkdownJSONBlock], canonical_obj: O
     return best
 
 
-def nested_key_status(existing: OrderedDict, canonical: OrderedDict) -> tuple[list[str], list[str], bool]:
+def nested_key_status(
+    existing: OrderedDict, canonical: OrderedDict
+) -> tuple[list[str], list[str], bool]:
     existing_paths = flatten_leaf_paths(existing)
     canonical_paths = flatten_leaf_paths(canonical)
     existing_set = set(existing_paths)
@@ -227,9 +237,18 @@ def apply_json_target(
             return False, False, f"[FAIL] {path}: " + "; ".join(issues)
         return True, False, f"[OK] {path}"
 
-    ordered, still_missing = reorder_object(obj, canonical_obj, fill_missing=True)
+    has_real_values = (
+        any(v is not None for v in canonical_obj.values()) if canonical_obj else True
+    )
+    fill = has_real_values
+
+    ordered, still_missing = reorder_object(obj, canonical_obj, fill_missing=fill)
     if still_missing:
-        return False, False, f"[FAIL] {path}: cannot sync missing keys: {', '.join(still_missing)}"
+        return (
+            False,
+            False,
+            f"[FAIL] {path}: cannot sync missing keys: {', '.join(still_missing)}",
+        )
     changed = ordered != obj
     if changed:
         write_json_object(path, ordered)
@@ -264,9 +283,18 @@ def apply_markdown_target(
             return False, False, f"[FAIL] {path}: " + "; ".join(issues)
         return True, False, f"[OK] {path}"
 
-    ordered, still_missing = reorder_object(block.obj, canonical_obj, fill_missing=True)
+    has_real_values = (
+        any(v is not None for v in canonical_obj.values()) if canonical_obj else True
+    )
+    fill = has_real_values
+
+    ordered, still_missing = reorder_object(block.obj, canonical_obj, fill_missing=fill)
     if still_missing:
-        return False, False, f"[FAIL] {path}: cannot sync missing keys: {', '.join(still_missing)}"
+        return (
+            False,
+            False,
+            f"[FAIL] {path}: cannot sync missing keys: {', '.join(still_missing)}",
+        )
 
     block_text = json.dumps(ordered, indent=2)
     new_text = text[: block.start] + block_text + text[block.end :]
@@ -278,15 +306,37 @@ def apply_markdown_target(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Ensure consistent nested tuning key order across config sources.")
+    parser = argparse.ArgumentParser(
+        description="Ensure consistent nested tuning key order across config sources."
+    )
     main_group = parser.add_mutually_exclusive_group(required=True)
     main_group.add_argument("--main-json", help="Canonical source JSON object file.")
-    main_group.add_argument("--main-go-struct", help="Canonical source Go struct in PATH:STRUCT format.")
-    main_group.add_argument("--main-md", help="Canonical source markdown file containing a JSON code block.")
-    parser.add_argument("--json-target", action="append", default=[], help="JSON file target to validate/sync.")
-    parser.add_argument("--md-target", action="append", default=[], help="Markdown target containing a JSON block.")
-    parser.add_argument("--discover", action="store_true", help="Auto-discover config targets in ./config.")
-    parser.add_argument("--check", action="store_true", help="Check only (non-mutating).")
+    main_group.add_argument(
+        "--main-go-struct", help="Canonical source Go struct in PATH:STRUCT format."
+    )
+    main_group.add_argument(
+        "--main-md", help="Canonical source markdown file containing a JSON code block."
+    )
+    parser.add_argument(
+        "--json-target",
+        action="append",
+        default=[],
+        help="JSON file target to validate/sync.",
+    )
+    parser.add_argument(
+        "--md-target",
+        action="append",
+        default=[],
+        help="Markdown target containing a JSON block.",
+    )
+    parser.add_argument(
+        "--discover",
+        action="store_true",
+        help="Auto-discover config targets in ./config.",
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="Check only (non-mutating)."
+    )
     args = parser.parse_args()
 
     cwd = Path.cwd().resolve()
@@ -297,18 +347,27 @@ def main() -> int:
             canonical_obj = load_json_object(main_path)
         elif args.main_md:
             main_path = normalize_source_path(args.main_md, cwd)
-            blocks = parse_markdown_json_blocks(main_path.read_text(encoding="utf-8"), main_path)
+            blocks = parse_markdown_json_blocks(
+                main_path.read_text(encoding="utf-8"), main_path
+            )
             canonical_obj = blocks[0].obj
         else:
             rel_path, struct_name = parse_go_source(args.main_go_struct)
             main_path = normalize_source_path(rel_path, cwd)
-            canonical_obj = OrderedDict((key, None) for key in extract_keys_from_go_struct(main_path, struct_name))
+            canonical_obj = OrderedDict(
+                (key, None)
+                for key in extract_keys_from_go_struct(main_path, struct_name)
+            )
     except Exception as err:  # noqa: BLE001
         print(f"error: failed to load canonical source: {err}", file=sys.stderr)
         return 2
 
-    json_targets: set[Path] = {normalize_source_path(path, cwd) for path in args.json_target}
-    md_targets: set[Path] = {normalize_source_path(path, cwd) for path in args.md_target}
+    json_targets: set[Path] = {
+        normalize_source_path(path, cwd) for path in args.json_target
+    }
+    md_targets: set[Path] = {
+        normalize_source_path(path, cwd) for path in args.md_target
+    }
 
     if args.discover:
         discover_targets(cwd, md_targets, json_targets)
@@ -321,7 +380,9 @@ def main() -> int:
     explicit_md_failures: list[str] = []
     for md_path in sorted(md_targets):
         try:
-            blocks = parse_markdown_json_blocks(md_path.read_text(encoding="utf-8"), md_path)
+            blocks = parse_markdown_json_blocks(
+                md_path.read_text(encoding="utf-8"), md_path
+            )
             choose_best_markdown_block(blocks, canonical_obj)
             filtered_md_targets.add(md_path)
         except Exception as err:  # noqa: BLE001
@@ -334,20 +395,27 @@ def main() -> int:
         return 1
 
     if not json_targets and not filtered_md_targets:
-        print("error: no targets selected (use --json-target/--md-target and/or --discover)", file=sys.stderr)
+        print(
+            "error: no targets selected (use --json-target/--md-target and/or --discover)",
+            file=sys.stderr,
+        )
         return 2
 
     failed = False
     changed_count = 0
 
     for json_path in sorted(json_targets):
-        ok, changed, msg = apply_json_target(json_path, canonical_obj, check_only=args.check)
+        ok, changed, msg = apply_json_target(
+            json_path, canonical_obj, check_only=args.check
+        )
         print(msg)
         failed = failed or not ok
         changed_count += int(changed)
 
     for md_path in sorted(filtered_md_targets):
-        ok, changed, msg = apply_markdown_target(md_path, canonical_obj, check_only=args.check)
+        ok, changed, msg = apply_markdown_target(
+            md_path, canonical_obj, check_only=args.check
+        )
         print(msg)
         failed = failed or not ok
         changed_count += int(changed)

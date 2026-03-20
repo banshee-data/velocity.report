@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 
-KEY_RE = re.compile(r"^[a-z0-9_.]+$")
+KEY_RE = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)*$")
 JSON_BLOCK_RE = re.compile(r"```json[ \t]*\n(.*?)\n```", re.DOTALL)
 
 
@@ -81,7 +81,9 @@ def extract_json_blocks(path: Path) -> list[dict]:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
             line = text[: match.start(1)].count("\n") + 1
-            raise ValueError(f"{path}: invalid JSON block at line {line}: {exc}") from exc
+            raise ValueError(
+                f"{path}: invalid JSON block at line {line}: {exc}"
+            ) from exc
         if isinstance(parsed, dict):
             blocks.append(parsed)
     return blocks
@@ -109,22 +111,29 @@ def compare_key_sets(label: str, source_keys: list[str], maths_keys: list[str]) 
     if source_only or maths_only:
         print(f"[FAIL] {label}: key mismatch")
         if source_only:
-            print(f"  - present in source, missing in maths list: {', '.join(source_only)}")
+            print(
+                f"  - present in source, missing in maths list: {', '.join(source_only)}"
+            )
         if maths_only:
-            print(f"  - present in maths list, missing in source: {', '.join(maths_only)}")
+            print(
+                f"  - present in maths list, missing in source: {', '.join(maths_only)}"
+            )
         return False
     print(f"[OK] {label}: keys match ({len(source_keys)})")
     return True
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check README.maths leaf paths against docs and tuning JSON")
+    parser = argparse.ArgumentParser(
+        description="Check README.maths leaf paths against docs and tuning JSON"
+    )
     parser.add_argument("--maths-md", default="config/README.maths.md")
     parser.add_argument("--doc-md", action="append", default=["config/README.md"])
     parser.add_argument("--doc-glob", action="append", default=[])
     parser.add_argument("--require-key", default="version")
-    parser.add_argument("--tuning-json-glob", action="append", default=["config/tuning*.json"])
-    parser.add_argument("--webserver-mode", choices=["subset", "exact"], default="exact")
+    parser.add_argument(
+        "--tuning-json-glob", action="append", default=["config/tuning*.json"]
+    )
     args = parser.parse_args()
 
     root = Path.cwd().resolve()
@@ -153,16 +162,22 @@ def main() -> int:
             continue
         selected = [block for block in blocks if args.require_key in block]
         if not selected:
-            print(f"[FAIL] {doc_path}: no JSON block contains required key '{args.require_key}'")
+            print(
+                f"[FAIL] {doc_path}: no JSON block contains required key '{args.require_key}'"
+            )
             failed = True
             continue
         for index, block in enumerate(selected, start=1):
-            ok = compare_key_sets(f"{doc_path} block#{index}", flatten_leaf_paths(block), maths_keys)
+            ok = compare_key_sets(
+                f"{doc_path} block#{index}", flatten_leaf_paths(block), maths_keys
+            )
             if not ok:
                 failed = True
 
     if not tuning_paths:
-        print(f"[FAIL] no tuning JSON files matched: {', '.join(args.tuning_json_glob)}")
+        print(
+            f"[FAIL] no tuning JSON files matched: {', '.join(args.tuning_json_glob)}"
+        )
         failed = True
     else:
         for tuning_path in tuning_paths:
@@ -176,7 +191,9 @@ def main() -> int:
                 print(f"[FAIL] {tuning_path}: expected top-level JSON object")
                 failed = True
                 continue
-            ok = compare_key_sets(str(tuning_path), flatten_leaf_paths(parsed), maths_keys)
+            ok = compare_key_sets(
+                str(tuning_path), flatten_leaf_paths(parsed), maths_keys
+            )
             if not ok:
                 failed = True
 

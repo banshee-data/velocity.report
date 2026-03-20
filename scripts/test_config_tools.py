@@ -374,8 +374,6 @@ def test_readme_maths_helpers_and_main(
             "readme-maths-check",
             "--doc-glob",
             "docs/extra.md",
-            "--webserver-mode",
-            "subset",
         ],
     )
     assert mod.main() == 0
