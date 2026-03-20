@@ -485,7 +485,12 @@
         </small>
         <textarea id="paste-params-json" rows="8"
           style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical"
-          placeholder='{"foreground_dbscan_eps": 0.3, "measurement_noise": 0.9, ...}'></textarea>
+          placeholder='{
+  "l3.ema_baseline_v1.noise_relative": 0.05,
+  "l3.ema_baseline_v1.safety_margin_metres": 0.5,
+  "l4.dbscan_xy_v1.foreground_dbscan_eps": 0.3,
+  "l5.cv_kf_v1.measurement_noise": 0.9
+}'></textarea>
         <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
           <button class="btn-sm btn-add" id="btn-paste-apply" onclick="applyPastedParams()">
             Apply to System
