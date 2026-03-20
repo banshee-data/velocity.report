@@ -1,6 +1,6 @@
 # Config Restructure: Flat → Layer-Scoped
 
-- **Status:** Proposal — full design complete, Phase 1 implementation pending (v0.5.0)
+- **Status:** Phase 1 complete, Phase 2 complete (CLI flag deprecation pending)
 - **Schema version:** `2`
 - **Motivation:** Support multi-engine algorithm selection (CV, IMM, HDBSCAN),
   layer-isolated evaluation, and coherent parameter grouping.
@@ -1021,28 +1021,30 @@ for the full statistical protocol.
 
 ## 8. Implementation Sequence
 
-### Phase 1 — Structural realignment (v0.5.0)
+### Phase 1 — Structural realignment (v0.5.0) ✅ Complete
 
 Reorganise the existing 44 flat params into the versioned, layer-scoped,
 engine-selectable schema. No new parameters are added in this phase — the
 config surface area is identical, only the structure changes.
 
-| Step | Description                                                                                                         | Depends on |
-| ---- | ------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1    | Define engine structs with embedded common types; wrapper structs with engine selector + pointers (L3, L4, L5 only) | —          |
-| 2    | Implement engine registry and `LoadTuningConfig` with strict validation                                             | Step 1     |
-| 3    | Add `make config-migrate` target (converts v1 flat → v2 nested)                                                     | Step 1     |
-| 4    | Regenerate `tuning.defaults.json`, `tuning.example.json`, `tuning.optimised.json`                                   | Step 3     |
-| 5    | Apply spelling corrections (`neighbor` → `neighbour`, `meters` → `metres`)                                          | Step 4     |
-| 6    | Update factory functions to accept concrete engine structs                                                          | Step 1     |
-| 7    | Update sweep param path resolution (dot-paths only)                                                                 | Step 1     |
-| 8    | Update `config-order-check` / `config-order-sync` for nested keys                                                   | Step 4     |
-| 9    | Update `config/README.md` and `config/README.maths.md`                                                              | Step 4     |
-| 10   | Update `/api/lidar/params` endpoint schema                                                                          | Step 6     |
-| 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     |
-| 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    |
+Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 
-### Phase 2 — Essential new variable exposure (v0.6.0)
+| Step | Description                                                                                                         | Depends on | Status |
+| ---- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------ |
+| 1    | Define engine structs with embedded common types; wrapper structs with engine selector + pointers (L3, L4, L5 only) | —          | ✅     |
+| 2    | Implement engine registry and `LoadTuningConfig` with strict validation                                             | Step 1     | ✅     |
+| 3    | Add `make config-migrate` target (converts v1 flat → v2 nested)                                                     | Step 1     | ✅     |
+| 4    | Regenerate `tuning.defaults.json`, `tuning.example.json`, `tuning.optimised.json`                                   | Step 3     | ✅     |
+| 5    | Apply spelling corrections (`neighbor` → `neighbour`, `meters` → `metres`)                                          | Step 4     | ✅     |
+| 6    | Update factory functions to accept concrete engine structs                                                          | Step 1     | ✅     |
+| 7    | Update sweep param path resolution (dot-paths only)                                                                 | Step 1     | ✅     |
+| 8    | Update `config-order-check` / `config-order-sync` for nested keys                                                   | Step 4     | ✅     |
+| 9    | Update `config/README.md` and `config/README.maths.md`                                                              | Step 4     | ✅     |
+| 10   | Update `/api/lidar/params` endpoint schema                                                                          | Step 6     | ✅     |
+| 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     | ✅     |
+| 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    | ✅     |
+
+### Phase 2 — Essential new variable exposure (v0.6.0) ✅ Complete (CLI deprecation pending)
 
 Expose the highest-impact hardcoded constants: L1 sensor/network settings and
 L3 background/foreground parameters. CLI flags for sensor/network settings
@@ -1051,12 +1053,16 @@ L3 background/foreground parameters. CLI flags for sensor/network settings
 becomes the single source of truth (no dual sources, DRY). Deprecated flags
 log a warning and are removed in a subsequent release.
 
-| Step | Description                                                                     | Depends on  |
-| ---- | ------------------------------------------------------------------------------- | ----------- |
-| 13   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     |
-| 14   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     |
-| 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 |
-| 16   | Update `config/README.md` with new field documentation                          | Step 15     |
+Delivered alongside Phase 1 in `dd/config-restructure`. L1Config struct and
+all 16 new L3 fields are wired and validated. CLI flag deprecation warnings
+are pending — tracked separately.
+
+| Step | Description                                                                     | Depends on  | Status                                 |
+| ---- | ------------------------------------------------------------------------------- | ----------- | -------------------------------------- |
+| 13   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     | ✅ struct + wiring; ⏳ CLI deprecation |
+| 14   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     | ✅                                     |
+| 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅                                     |
+| 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅                                     |
 
 ### Phase 3 — Remaining variable exposure + L6 classification (v2.0)
 

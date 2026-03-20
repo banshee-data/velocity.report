@@ -10,9 +10,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - Legacy `.vrlog` speed-key compatibility cleanup — remove pre-max speed-key fallback readers from the visualiser replay path before v1.0 platform cleanup, after the current migration window closes — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
-- Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, and strict validation; full design complete — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
-- Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
-- Canonical plan graduation — consolidate each body of work into one existing hub doc under `docs/lidar/`, `docs/radar/`, `docs/ui/`, or the current owning non-plan area; keep at most one active plan per canonical doc; graduate old plan URLs to symlinks; enforce the contract in CI without LLMs — [design doc](plans/platform-canonical-project-files-plan.md) `M`
 
 ## v0.5.1 (Data Contracts + Layer Foundations)
 
@@ -25,6 +22,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
+- Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Canonical plan graduation — consolidate each body of work into one existing hub doc under `docs/lidar/`, `docs/radar/`, `docs/ui/`, or the current owning non-plan area; keep at most one active plan per canonical doc; graduate old plan URLs to symlinks; enforce the contract in CI without LLMs — [design doc](plans/platform-canonical-project-files-plan.md) `M`
 
 ## v0.5.2 (Replay/Runtime Stabilisation)
 
@@ -56,7 +55,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Typed UUID prefixes — migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite — [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
-- Config restructure Phase 2 — expose L1 sensor/network and L3 background/foreground constants as tuning params; deprecate CLI flags — [design doc](../config/CONFIG-RESTRUCTURE.md) `M`
+- Config restructure Phase 2 remaining — deprecate CLI flags (`--lidar-sensor`, `--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port`) with log warnings; struct wiring and config files already delivered — [design doc](../config/CONFIG-RESTRUCTURE.md) `S`
 - L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9endpoints/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
 - [#382] Distributed sweep workers plan — architecture for parallel sweep execution across multiple cores or nodes `S`
 - [#387] LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis `M`
@@ -182,3 +181,5 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#352] `FrameTypeEmpty` and deterministic recording guarantee — `FrameTypeEmpty` (value 4) for sensor rotations with no foreground objects; blocking frame channel ensures 1:1 PCAP-to-VRLOG mapping; throttle-safe recording — [design doc](../data/structures/VRLOG_FORMAT.md)
 - [#381] macOS visualiser replay enhancements — seekable VRLOG replay with `seekToTimestamp`, frame stepping, UI throttling, background frame skipping, frame coalescing, performance tracing, and replay epoch tracking — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
 - [#400] Schema simplification migrations 000030 + 000031 — dropped dead per-track percentile columns (`p50/p85/p95_speed_mps`), renamed `peak_speed_mps` → `max_speed_mps`; renamed `world_frame` → `frame_id`, `scene_hash` → `grid_hash`; renamed 7 tables into coherent `track_*/run_*/replay_*/tuning_*` families; `scene_id` → `replay_case_id` on replay and annotation tables; Go stores, types, API handlers, and web TypeScript updated — [design doc](plans/schema-simplification-migration-030-plan.md)
+- [#407] Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, strict validation, spelling corrections, factory function updates, dot-path sweep params, config-migrate/config-validate tooling, README updates — [design doc](../config/CONFIG-RESTRUCTURE.md)
+- [#407] Config restructure Phase 2 (struct + wiring) — L1Config struct, 16 new L3 fields, regenerated config files, updated documentation; CLI flag deprecation pending — [design doc](../config/CONFIG-RESTRUCTURE.md)
