@@ -4,14 +4,15 @@
 - **Layers:** Cross-cutting (API, protobuf, database)
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
-- **Status:** Complete
+- **Status:** Pending shim removal — one outstanding item (§18)
 
-- **Update:** All shim removal work across Go, Python, Svelte, and macOS is
+- **Update:** All v0.5.0 shim removal work across Go, Python, Svelte, and macOS is
   complete. Speed contract reset (§1, §15) landed in #352; `avgSpeedMps` and
   `maxSpeedMps` verified through the full proto → client → model → UI chain.
   `pointBuffer` (§16) reclassified as renderer-retirement work, not a compat shim.
   All Phase 6 build validation gates passed (`make build-web`, `make build-radar-local`,
-  `make format && make lint && make test`).
+  `make format && make lint && make test`). One shim remains: the VRLOG
+  `Track.UnmarshalJSON` legacy speed-key fallback (§18), deferred to v0.5.2.
 
 ## Tracking Snapshot
 
@@ -21,6 +22,7 @@
 | Complete / resolved | §1, §15                    | Speed contract reset landed in #352; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified       |
 | Deferred / retained | §5, §8                     | Either owned by another plan or still an active implementation path rather than a removable shim today                         |
 | Reclassified        | §16                        | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                  |
+| Pending removal     | §18                        | VRLOG `Track.UnmarshalJSON` legacy speed-key fallback; deferred to v0.5.2 after migration window closes                        |
 
 ## Shim Work Already Removed
 
@@ -40,7 +42,10 @@
 | Sweep dashboard legacy test data cleaned       | §14     | Tests no longer use legacy top-level parameter field format                                               |
 | macOS legacy playback defaults removed         | §17     | `.unknown` no longer preserves stale `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode`  |
 
-**Remaining:** SQL-migration-dependent column renames deferred to migration 000030 (tracked in the schema simplification plan).
+**Remaining:**
+
+- §18 VRLOG `Track.UnmarshalJSON` legacy speed-key fallback — deferred to v0.5.2
+- SQL-migration-dependent column renames deferred to migration 000030 (tracked in the schema simplification plan)
 
 ## Goal
 
@@ -303,6 +308,24 @@ shim removal.
 `setPlaybackMode` is now `internal` (was `fileprivate`) so `RunBrowserView`
 uses it directly instead of mutating `isLive`. Tests updated for the new
 `.unknown` reset semantics.
+
+---
+
+### 18. Go/macOS — VRLOG legacy speed-key fallback
+
+| Item                             | Location                                                         | Status  | Detail                                                                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Track.UnmarshalJSON` fallback   | `internal/lidar/visualiser/model.go`                             | Pending | Remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps` for pre-#352 `.vrlog` files                                                                    |
+| Legacy unmarshal tests           | `internal/lidar/visualiser/model_test.go`                        | Pending | `TestTrack_UnmarshalJSON_LegacyPeakSpeedMps`, `TestTrack_UnmarshalJSON_LegacySnakeCasePeakSpeedMps`, `TestTrack_UnmarshalJSON_NoSpeedFieldLeavesZero` |
+| Legacy recorder deserialise test | `internal/lidar/visualiser/recorder/recorder_test.go`            | Pending | `TestDeserializeFrameLegacySpeedField`                                                                                                                |
+| Legacy analysis fallback test    | `internal/lidar/analysis/compat_test.go`                         | Pending | `TestGenerateReportFallsBackToFrameSpeedWhenMaxMissing`                                                                                               |
+| Deprecation log message          | `cmd/radar/radar.go`                                             | Pending | `legacy JSON decode path; replay may be slower`                                                                                                       |
+| macOS UI deprecation tooltip     | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | Pending | `Legacy JSON VRLOG detected — replay will be slower`                                                                                                  |
+
+**Action:** Remove the `UnmarshalJSON` fallback, associated tests, and UI
+deprecation strings. Deferred to v0.5.2 to allow the migration window for
+pre-#352 `.vrlog` files to close. After removal, old `.vrlog` files with
+`PeakSpeedMps`/`peak_speed_mps` keys will lose speed data on replay.
 
 ---
 
