@@ -134,30 +134,6 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 	return cfg
 }
 
-func (ws *WebServer) editableRuntimeTuningPatch(bm *l3grid.BackgroundManager) (map[string]interface{}, error) {
-	cfg := ws.runtimeTuningConfig(bm)
-	raw, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("marshal runtime tuning config: %w", err)
-	}
-	var nested map[string]interface{}
-	if err := json.Unmarshal(raw, &nested); err != nil {
-		return nil, fmt.Errorf("unmarshal runtime tuning config: %w", err)
-	}
-	flat := make(map[string]interface{})
-	if err := flattenTuningPatch("", nested, flat); err != nil {
-		return nil, fmt.Errorf("flatten runtime tuning config: %w", err)
-	}
-
-	editable := make(map[string]interface{})
-	for path, value := range flat {
-		if validateRuntimeTuningPath(path) == nil {
-			editable[path] = value
-		}
-	}
-	return editable, nil
-}
-
 func normaliseTuningPatch(raw map[string]interface{}) (map[string]interface{}, error) {
 	flat := make(map[string]interface{})
 	if err := flattenTuningPatch("", raw, flat); err != nil {
@@ -275,10 +251,19 @@ func applyRuntimeTuningPatch(ws *WebServer, bm *l3grid.BackgroundManager, paths 
 	}
 	sort.Strings(orderedPaths)
 
+	// Filter to runtime-editable paths; silently skip non-editable fields
+	// so callers can POST the full nested config without errors.
+	editablePaths := make([]string, 0, len(orderedPaths))
 	for _, path := range orderedPaths {
-		if err := validateRuntimeTuningPath(path); err != nil {
-			return err
+		if validateRuntimeTuningPath(path) == nil {
+			editablePaths = append(editablePaths, path)
 		}
+	}
+	if len(editablePaths) == 0 {
+		return fmt.Errorf("no runtime-editable parameters in patch")
+	}
+
+	for _, path := range editablePaths {
 		if err := setConfigValueByPath(cfg, path, paths[path]); err != nil {
 			return err
 		}
@@ -287,7 +272,7 @@ func applyRuntimeTuningPatch(ws *WebServer, bm *l3grid.BackgroundManager, paths 
 		return err
 	}
 
-	for _, path := range orderedPaths {
+	for _, path := range editablePaths {
 		if err := applyRuntimeTuningPath(ws, bm, cfg, path); err != nil {
 			return err
 		}

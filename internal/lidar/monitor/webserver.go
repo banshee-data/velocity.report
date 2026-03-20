@@ -791,16 +791,16 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 // handleTuningParams is the unified LIDAR configuration endpoint for all
 // tuning parameters including background subtraction, frame builder, and tracker configuration.
 //
-// Query params: sensor_id (required), format (optional: "flat", "pretty")
+// Query params: sensor_id (required), source (optional: "default"), format (optional: "compact")
 //
-// GET: Returns the full nested TuningConfig (L1/L3/L4/L5 sections).
-//   - format=flat  — flattens the response to dot-path keys (e.g. "l3.ema_baseline_v1.noise_relative")
-//     for dashboard and sweep tooling that expects a scalar map.
-//   - format=pretty — returns the nested structure with indented JSON.
+// GET: Returns the full nested TuningConfig (L1/L3/L4/L5 sections) as indented JSON.
+//   - source=default — returns the built-in default config rather than the live runtime config.
+//   - format=compact — returns a single-line JSON response (default is indented).
 //
-// POST: Accepts partial JSON updates using dot-path keys or nested objects.
+// POST: Accepts partial or full JSON updates using nested objects (or legacy dot-path keys).
 //
-//	All fields are optional; only provided fields are applied.
+//	All fields are optional; only runtime-editable fields are applied,
+//	non-editable fields are silently ignored.
 func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -815,34 +815,16 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 
 	switch r.Method {
 	case http.MethodGet:
-		resp := ws.runtimeTuningConfig(bm)
-		format := r.URL.Query().Get("format")
+		var resp *cfgpkg.TuningConfig
+		if r.URL.Query().Get("source") == "default" {
+			resp = cfgpkg.MustLoadDefaultConfig()
+		} else {
+			resp = ws.runtimeTuningConfig(bm)
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
-
-		if format == "flat" {
-			// Flatten nested config to dot-path keys for dashboard compatibility.
-			raw, err := json.Marshal(resp)
-			if err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, "failed to marshal config")
-				return
-			}
-			var nested map[string]interface{}
-			if err := json.Unmarshal(raw, &nested); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, "failed to flatten config")
-				return
-			}
-			flat := make(map[string]interface{})
-			if err := flattenTuningPatch("", nested, flat); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, "failed to flatten config")
-				return
-			}
-			enc.Encode(flat)
-			return
-		}
-
-		if format == "pretty" {
+		if r.URL.Query().Get("format") != "compact" {
 			enc.SetIndent("", "  ")
 		}
 		if err := enc.Encode(resp); err != nil {
@@ -890,7 +872,9 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(resp)
 		return
 	default:
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -1229,10 +1213,8 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		params := mgr.GetParams()
 		bgParams = &params
 
-		editableParams, err := ws.editableRuntimeTuningPatch(mgr)
-		if err != nil {
-			opsf("monitor: failed to build editable tuning config for status page: %v", err)
-		} else if jsonBytes, err := json.MarshalIndent(editableParams, "", "  "); err == nil {
+		cfg := ws.runtimeTuningConfig(mgr)
+		if jsonBytes, err := json.MarshalIndent(cfg, "", "  "); err == nil {
 			bgParamsJSON = string(jsonBytes)
 			bgParamsJSONLines = strings.Count(bgParamsJSON, "\n") + 2
 		}

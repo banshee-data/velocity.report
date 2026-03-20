@@ -635,7 +635,7 @@ function removeParamRow(id) {
   if (row) row.remove();
   updateSweepSummary();
   if (window.currentParamsCache)
-    displayCurrentParams(window.currentParamsCache);
+    displayCurrentParams(window.currentParamsCache, window.defaultParamsCache);
 }
 
 function updateParamFields(id) {
@@ -697,7 +697,7 @@ function updateParamFields(id) {
   }
   updateSweepSummary();
   if (window.currentParamsCache)
-    displayCurrentParams(window.currentParamsCache);
+    displayCurrentParams(window.currentParamsCache, window.defaultParamsCache);
 }
 
 function showError(msg) {
@@ -1923,45 +1923,20 @@ function applyPastedParams() {
     return;
   }
 
-  var extracted = extractEditableTuningParams(parsed);
-  var tuningParams = extracted.params;
-  var filteredMetrics = extracted.filteredMetricKeys;
-  var filteredUnsupported = extracted.filteredUnsupportedKeys;
-
-  var paramCount = Object.keys(tuningParams).length;
-  if (paramCount === 0) {
-    showError(
-      "No tuning parameters found after filtering. Keys filtered: " +
-        filteredMetrics.concat(filteredUnsupported).join(", "),
-    );
-    return;
-  }
-
-  statusEl.textContent = "Applying " + paramCount + " params...";
+  statusEl.textContent = "Applying params...";
   btn.disabled = true;
 
   fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(tuningParams),
+    body: JSON.stringify(parsed),
   })
     .then(function (r) {
       if (!r.ok)
         return r.text().then(function (t) {
           throw new Error(t);
         });
-      statusEl.textContent =
-        "Applied " +
-        paramCount +
-        " params" +
-        (filteredMetrics.length || filteredUnsupported.length
-          ? " (" +
-            filteredMetrics.length +
-            " metric keys filtered, " +
-            filteredUnsupported.length +
-            " unsupported keys ignored)"
-          : "") +
-        " ✓";
+      statusEl.textContent = "Applied ✓";
       btn.disabled = false;
       fetchCurrentParams();
     })
@@ -1973,18 +1948,13 @@ function applyPastedParams() {
 }
 
 function loadCurrentIntoEditor() {
-  fetch(
-    "/api/lidar/params?sensor_id=" +
-      encodeURIComponent(sensorId) +
-      "&format=flat",
-  )
+  fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId))
     .then(function (r) {
       return r.json();
     })
     .then(function (params) {
-      var tuningParams = extractEditableTuningParams(params).params;
       document.getElementById("paste-params-json").value = JSON.stringify(
-        tuningParams,
+        params,
         null,
         2,
       );
@@ -2773,18 +2743,34 @@ window.addEventListener("resize", function () {
 // ---- Current params display ----
 
 function fetchCurrentParams() {
-  fetch(
-    "/api/lidar/params?sensor_id=" +
-      encodeURIComponent(sensorId) +
-      "&format=flat",
-  )
-    .then(function (r) {
+  var baseUrl = "/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId);
+
+  var fetches = [
+    fetch(baseUrl).then(function (r) {
       if (!r.ok) throw new Error("Failed to fetch params");
       return r.json();
-    })
-    .then(function (params) {
-      window.currentParamsCache = params;
-      displayCurrentParams(params);
+    }),
+  ];
+
+  // Fetch defaults once — cache for subsequent calls.
+  if (!window.defaultParamsCache) {
+    fetches.push(
+      fetch(baseUrl + "&source=default").then(function (r) {
+        if (!r.ok) throw new Error("Failed to fetch defaults");
+        return r.json();
+      }),
+    );
+  } else {
+    fetches.push(Promise.resolve(window.defaultParamsCache));
+  }
+
+  Promise.all(fetches)
+    .then(function (results) {
+      var current = results[0];
+      var defaults = results[1];
+      window.currentParamsCache = current;
+      window.defaultParamsCache = defaults;
+      displayCurrentParams(current, defaults);
     })
     .catch(function (err) {
       document.getElementById("current-params-display").textContent =
@@ -2792,62 +2778,43 @@ function fetchCurrentParams() {
     });
 }
 
-function displayCurrentParams(params) {
-  params = normaliseParamMap(params);
-  // Get list of currently swept parameters in order
-  var sweptParams = {};
-  var sweptParamOrder = [];
-  var rows = document.getElementById("param-rows").children;
-  for (var i = 0; i < rows.length; i++) {
-    var rowId = rows[i].id.replace("param-row-", "");
-    var nameEl = document.getElementById("pname-" + rowId);
-    if (nameEl && nameEl.value) {
-      sweptParams[nameEl.value] = true;
-      sweptParamOrder.push(nameEl.value);
+function renderJsonDiff(currentJson, defaultJson) {
+  var currentLines = currentJson.split("\n");
+  var defaultLines = defaultJson.split("\n");
+  var html = [];
+  var changedCount = 0;
+  for (var i = 0; i < currentLines.length; i++) {
+    var line = currentLines[i];
+    var isChanged =
+      i < defaultLines.length && currentLines[i] !== defaultLines[i];
+    if (isChanged) {
+      changedCount++;
+      html.push('<span class="diff-changed">' + escapeHTML(line) + "</span>");
+    } else {
+      html.push("<span>" + escapeHTML(line) + "</span>");
     }
   }
+  return { html: html.join("\n"), changedCount: changedCount };
+}
 
-  // Sort keys: swept params first (in order), then remaining alphabetically
-  var keys = Object.keys(params);
-  var sweptKeys = sweptParamOrder.filter(function (k) {
-    return keys.indexOf(k) !== -1;
-  });
-  var otherKeys = keys
-    .filter(function (k) {
-      return sweptParamOrder.indexOf(k) === -1;
-    })
-    .sort();
-  var sortedKeys = sweptKeys.concat(otherKeys);
+function displayCurrentParams(current, defaults) {
+  var currentJson = JSON.stringify(current, null, 2);
+  var defaultJson = defaults ? JSON.stringify(defaults, null, 2) : currentJson;
+  var diff = renderJsonDiff(currentJson, defaultJson);
+  var el = document.getElementById("current-params-display");
+  el.innerHTML = "<pre>" + diff.html + "</pre>";
 
-  var lines = [];
-  sortedKeys.forEach(function (key) {
-    var value = params[key];
-    var displayValue = value;
-
-    // Format value for display
-    if (typeof value === "boolean") {
-      displayValue = value ? "true" : "false";
-    } else if (typeof value === "number") {
-      if (Number.isInteger(value)) {
-        displayValue = value.toString();
-      } else {
-        displayValue = value.toFixed(6).replace(/\.?0+$/, "");
-      }
-    } else if (value === null) {
-      displayValue = "null";
-    }
-
-    var line = escapeHTML(key) + ": " + escapeHTML(displayValue);
-    var isSwept = sweptParams[key] === true;
-
-    if (isSwept) {
-      lines.push('<span class="param-line swept">' + line + "</span>");
-    } else {
-      lines.push('<span class="param-line">' + line + "</span>");
-    }
-  });
-
-  document.getElementById("current-params-display").innerHTML = lines.join("");
+  // Update header with change count
+  var header = document.querySelector(".current-params-header .field-desc");
+  if (header) {
+    header.textContent =
+      diff.changedCount > 0
+        ? diff.changedCount +
+          " value" +
+          (diff.changedCount !== 1 ? "s" : "") +
+          " changed from default (highlighted)."
+        : "All values match defaults.";
+  }
 }
 
 // ---- Chart builder ----
@@ -3304,6 +3271,8 @@ function init() {
   currentSweepId = null;
   viewingHistorical = false;
   pendingResumeSweepId = null;
+  window.currentParamsCache = null;
+  window.defaultParamsCache = null;
 
   sensorId = document.querySelector('meta[name="sensor-id"]').content;
 
@@ -3432,9 +3401,13 @@ function init() {
     .getElementById("param-rows")
     .addEventListener("input", updateSweepSummary);
 
-  // Update highlighted params when param rows change
+  // Re-render params display when param rows change
   document.getElementById("param-rows").addEventListener("change", function () {
-    displayCurrentParams(window.currentParamsCache || {});
+    if (window.currentParamsCache)
+      displayCurrentParams(
+        window.currentParamsCache,
+        window.defaultParamsCache,
+      );
   });
 }
 

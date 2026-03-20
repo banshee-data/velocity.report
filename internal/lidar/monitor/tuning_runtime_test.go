@@ -383,8 +383,17 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 		t.Fatalf("expected tracker runtime apply error, got %v", err)
 	}
 
-	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"unknown.path": 1}); err == nil || !strings.Contains(err.Error(), "unknown tuning path") {
-		t.Fatalf("expected unknown path error, got %v", err)
+	// Non-editable paths are silently skipped; a patch with ONLY non-editable paths errors.
+	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"unknown.path": 1}); err == nil || !strings.Contains(err.Error(), "no runtime-editable parameters") {
+		t.Fatalf("expected no-editable-params error, got %v", err)
+	}
+	// Non-editable paths mixed with editable ones are accepted (non-editable silently skipped).
+	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{
+		"l3.ema_baseline_v1.noise_relative": 0.15,
+		"version":                           2,
+		"l1.sensor":                         "test",
+	}); err != nil {
+		t.Fatalf("expected mixed patch with non-editable paths to succeed, got %v", err)
 	}
 	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"l3.ema_baseline_v1.noise_relative": 2.0}); err == nil || !strings.Contains(err.Error(), "noise_relative must be between 0 and 1") {
 		t.Fatalf("expected validation error, got %v", err)

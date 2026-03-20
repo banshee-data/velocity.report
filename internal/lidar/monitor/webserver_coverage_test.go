@@ -475,6 +475,30 @@ func TestCov2_HandleTuningParams_GET_PrettyFormat(t *testing.T) {
 	}
 }
 
+func TestCov2_HandleTuningParams_GET_SourceDefault(t *testing.T) {
+	bm := l3grid.NewBackgroundManager("cov2-tuning-default", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-default", bm)
+
+	ws := &WebServer{}
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tuning-params?sensor_id=cov2-tuning-default&source=default", nil)
+	w := httptest.NewRecorder()
+	ws.handleTuningParams(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	// Verify it returns a nested structure with version field.
+	var result map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+	if _, ok := result["version"]; !ok {
+		t.Error("expected nested config with 'version' field")
+	}
+	if _, ok := result["l3"]; !ok {
+		t.Error("expected nested config with 'l3' field")
+	}
+}
+
 func TestCov2_HandleTuningParams_GET_WithTracker(t *testing.T) {
 	bm := l3grid.NewBackgroundManager("cov2-tuning-tracker", 10, 36, l3grid.BackgroundParams{}, nil)
 	l3grid.RegisterBackgroundManager("cov2-tuning-tracker", bm)
@@ -4465,11 +4489,12 @@ func TestCov4_HandleStatus_HTMLPage(t *testing.T) {
 		t.Errorf("expected text/html, got %s", w.Header().Get("Content-Type"))
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "l3.ema_baseline_v1.background_update_fraction") {
-		t.Errorf("status page should render canonical tuning keys, body: %s", body)
+	// Status page now renders nested JSON (not flat dot-path keys)
+	if !strings.Contains(body, "background_update_fraction") {
+		t.Errorf("status page should render tuning config with background_update_fraction, body: %s", body)
 	}
-	if !strings.Contains(body, "l3.ema_baseline_v1.neighbour_confirmation_count") {
-		t.Errorf("status page should render canonical neighbour key, body: %s", body)
+	if !strings.Contains(body, "neighbour_confirmation_count") {
+		t.Errorf("status page should render neighbour_confirmation_count, body: %s", body)
 	}
 	if strings.Contains(body, "neighbor_confirmation_count") {
 		t.Errorf("status page should not render legacy neighbour key, body: %s", body)

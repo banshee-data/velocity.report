@@ -314,8 +314,8 @@ func TestDirectBackend_SetTuningParams_EmptyParams(t *testing.T) {
 	db := NewDirectBackend(sensorID, ws)
 
 	err := db.SetTuningParams(map[string]interface{}{})
-	if err != nil {
-		t.Errorf("unexpected error for empty params: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no runtime-editable parameters") {
+		t.Errorf("expected 'no runtime-editable parameters' error for empty params, got %v", err)
 	}
 }
 
@@ -396,8 +396,8 @@ func TestDirectBackend_SetTuningParams_RuntimeApplyError(t *testing.T) {
 	db := NewDirectBackend(sensorID, ws)
 
 	err := db.SetTuningParams(map[string]interface{}{"unknown.path": 1})
-	if err == nil || !strings.Contains(err.Error(), "unknown tuning path") {
-		t.Fatalf("expected runtime apply error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no runtime-editable parameters") {
+		t.Fatalf("expected 'no runtime-editable parameters' error, got %v", err)
 	}
 }
 

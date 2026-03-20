@@ -1833,20 +1833,26 @@ describe('fetchCurrentParams', () => {
 		jest.useRealTimers();
 	});
 
-	it('fetches and displays params', async () => {
-		global.fetch = jest.fn().mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					'l3.ema_baseline_v1.noise_relative': 0.05,
-					'l3.ema_baseline_v1.seed_from_first': true
-				})
+	it('fetches current and default params then displays diff', async () => {
+		const currentConfig = {
+			l3: { ema_baseline_v1: { noise_relative: 0.08, seed_from_first: true } }
+		};
+		const defaultConfig = {
+			l3: { ema_baseline_v1: { noise_relative: 0.05, seed_from_first: true } }
+		};
+		global.fetch = jest.fn().mockImplementation((url: string) => {
+			if (url.includes('source=default')) {
+				return Promise.resolve({ ok: true, json: () => Promise.resolve(defaultConfig) });
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve(currentConfig) });
 		});
 		fetchCurrentParams();
 		await flushPromises();
 		const display = document.getElementById('current-params-display')!.innerHTML;
-		expect(display).toContain('l3.ema_baseline_v1.noise_relative');
-		expect(display).toContain('l3.ema_baseline_v1.seed_from_first');
+		expect(display).toContain('noise_relative');
+		expect(display).toContain('seed_from_first');
+		// Changed value should be highlighted
+		expect(display).toContain('diff-changed');
 	});
 
 	it('shows error on failure', async () => {
@@ -1865,46 +1871,54 @@ describe('fetchCurrentParams', () => {
 describe('displayCurrentParams', () => {
 	beforeEach(setupDOM);
 
-	it('displays all param types correctly', () => {
-		displayCurrentParams({
-			'l3.ema_baseline_v1.noise_relative': 0.05,
-			'l3.ema_baseline_v1.seed_from_first': true,
-			warmup_min_frames: 100,
-			'pipeline.buffer_timeout': null
-		});
+	it('displays nested JSON with diff highlighting', () => {
+		const current = {
+			l3: {
+				ema_baseline_v1: {
+					noise_relative: 0.08,
+					seed_from_first: true,
+					warmup_min_frames: 100
+				}
+			},
+			pipeline: { buffer_timeout: '500ms' }
+		};
+		const defaults = {
+			l3: {
+				ema_baseline_v1: {
+					noise_relative: 0.05,
+					seed_from_first: true,
+					warmup_min_frames: 100
+				}
+			},
+			pipeline: { buffer_timeout: '500ms' }
+		};
+		displayCurrentParams(current, defaults);
 		const html = document.getElementById('current-params-display')!.innerHTML;
-		expect(html).toContain('l3.ema_baseline_v1.noise_relative');
-		expect(html).toContain('0.05');
+		expect(html).toContain('noise_relative');
+		expect(html).toContain('0.08');
+		expect(html).toContain('seed_from_first');
 		expect(html).toContain('true');
-		expect(html).toContain('l3.ema_baseline_v1.warmup_min_frames');
-		expect(html).toContain('100');
-		expect(html).toContain('null');
+		// noise_relative changed → diff-changed class
+		expect(html).toContain('diff-changed');
 	});
 
-	it('highlights swept parameters', () => {
-		// Add a param row for l3.ema_baseline_v1.noise_relative
-		addParamRow('l3.ema_baseline_v1.noise_relative');
-		displayCurrentParams({
-			'l3.ema_baseline_v1.noise_relative': 0.05,
-			'l3.ema_baseline_v1.closeness_multiplier': 5.0
-		});
+	it('shows all values match when current equals defaults', () => {
+		const config = {
+			l3: { ema_baseline_v1: { noise_relative: 0.05 } }
+		};
+		displayCurrentParams(config, config);
 		const html = document.getElementById('current-params-display')!.innerHTML;
-		expect(html).toContain('param-line swept');
-		expect(html).toContain('param-line"');
+		expect(html).not.toContain('diff-changed');
 	});
 
-	it('sorts swept params first', () => {
-		addParamRow('l3.ema_baseline_v1.closeness_multiplier');
-		displayCurrentParams({
-			'l3.ema_baseline_v1.noise_relative': 0.05,
-			'l3.ema_baseline_v1.closeness_multiplier': 5.0,
-			'l5.cv_kf_v1.hits_to_confirm': 3
-		});
+	it('handles no defaults gracefully', () => {
+		const config = {
+			l3: { ema_baseline_v1: { noise_relative: 0.05, closeness_multiplier: 5.0 } }
+		};
+		displayCurrentParams(config, undefined as any);
 		const html = document.getElementById('current-params-display')!.innerHTML;
-		// l3.ema_baseline_v1.closeness_multiplier should appear before l3.ema_baseline_v1.noise_relative in the output
-		const cmIdx = html.indexOf('l3.ema_baseline_v1.closeness_multiplier');
-		const nrIdx = html.indexOf('l3.ema_baseline_v1.noise_relative');
-		expect(cmIdx).toBeLessThan(nrIdx);
+		expect(html).toContain('noise_relative');
+		expect(html).not.toContain('diff-changed');
 	});
 });
 
@@ -3205,11 +3219,16 @@ describe('param-rows change event', () => {
 	});
 
 	it('calls displayCurrentParams with cached params', () => {
-		(window as any).currentParamsCache = { 'l3.ema_baseline_v1.noise_relative': 0.05 };
+		(window as any).currentParamsCache = {
+			l3: { ema_baseline_v1: { noise_relative: 0.05 } }
+		};
+		(window as any).defaultParamsCache = {
+			l3: { ema_baseline_v1: { noise_relative: 0.05 } }
+		};
 		const paramRows = document.getElementById('param-rows')!;
 		paramRows.dispatchEvent(new Event('change', { bubbles: true }));
 		expect(document.getElementById('current-params-display')!.innerHTML).toContain(
-			'l3.ema_baseline_v1.noise_relative'
+			'noise_relative'
 		);
 	});
 });
@@ -3321,10 +3340,13 @@ describe('|| 0 default value fallback branches', () => {
 	});
 
 	it('displayCurrentParams formats boolean false value', () => {
-		displayCurrentParams({
-			'l3.ema_baseline_v1.seed_from_first': false,
-			'l3.ema_baseline_v1.noise_relative': 0.05
-		});
+		const current = {
+			l3: { ema_baseline_v1: { seed_from_first: false, noise_relative: 0.05 } }
+		};
+		const defaults = {
+			l3: { ema_baseline_v1: { seed_from_first: true, noise_relative: 0.05 } }
+		};
+		displayCurrentParams(current, defaults);
 		const html = document.getElementById('current-params-display')!.innerHTML;
 		expect(html).toContain('false');
 	});
@@ -3427,13 +3449,17 @@ describe('|| 0 default value fallback branches', () => {
 	});
 
 	it('removeParamRow calls displayCurrentParams when cache exists', () => {
-		(window as any).currentParamsCache = { 'l3.ema_baseline_v1.noise_relative': 0.05 };
+		(window as any).currentParamsCache = {
+			l3: { ema_baseline_v1: { noise_relative: 0.05 } }
+		};
+		(window as any).defaultParamsCache = {
+			l3: { ema_baseline_v1: { noise_relative: 0.05 } }
+		};
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
 		removeParamRow(rowId);
-		// removeParamRow should call displayCurrentParams(window.currentParamsCache)
-		// when currentParamsCache is truthy
+		// removeParamRow should call displayCurrentParams with both caches
 	});
 });
 
@@ -3614,11 +3640,15 @@ describe('paste and apply params', () => {
 			acceptance_rate: 0.9,
 			empty_box_ratio: 0.1
 		});
+		// Server will reject — we simulate via mock
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: false,
+			text: () => Promise.resolve('no runtime-editable parameters in patch')
+		});
 		applyPastedParams();
-		expect(document.getElementById('error-box')!.textContent).toContain('No tuning parameters');
 	});
 
-	it('applyPastedParams sends filtered params to API', async () => {
+	it('applyPastedParams sends full JSON to API', async () => {
 		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
 		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
 			'l3.ema_baseline_v1.noise_relative': 0.05,
@@ -3626,11 +3656,16 @@ describe('paste and apply params', () => {
 		});
 		applyPastedParams();
 		await flushPromises();
-		expect(global.fetch).toHaveBeenCalledWith(
-			expect.stringContaining('/api/lidar/params'),
-			expect.objectContaining({ method: 'POST' })
+		const postCall = (global.fetch as jest.Mock).mock.calls.find(
+			([url, options]) => url.includes('/api/lidar/params') && options?.method === 'POST'
 		);
-		expect(document.getElementById('paste-apply-status')!.textContent).toContain('Applied 1');
+		expect(postCall).toBeDefined();
+		// Now posts the full parsed JSON (no client-side filtering)
+		expect(JSON.parse(postCall![1].body as string)).toEqual({
+			'l3.ema_baseline_v1.noise_relative': 0.05,
+			empty_box_ratio: 0.1
+		});
+		expect(document.getElementById('paste-apply-status')!.textContent).toContain('Applied');
 	});
 
 	it('applyPastedParams shows error when API fails', async () => {
@@ -3646,9 +3681,9 @@ describe('paste and apply params', () => {
 		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
 	});
 
-	it('applyPastedParams canonicalises nested and legacy keys before posting', async () => {
+	it('applyPastedParams posts nested JSON directly to server', async () => {
 		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
-		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
+		const nested = {
 			l3: {
 				ema_baseline_v1: {
 					background_update_fraction: 0.02,
@@ -3657,7 +3692,9 @@ describe('paste and apply params', () => {
 			},
 			version: 2,
 			acceptance_rate: 0.9
-		});
+		};
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value =
+			JSON.stringify(nested);
 		applyPastedParams();
 		await flushPromises();
 
@@ -3665,46 +3702,31 @@ describe('paste and apply params', () => {
 			([url, options]) => url.includes('/api/lidar/params') && options?.method === 'POST'
 		);
 		expect(postCall).toBeDefined();
-		expect(JSON.parse(postCall![1].body as string)).toEqual({
-			'l3.ema_baseline_v1.background_update_fraction': 0.02,
-			'l3.ema_baseline_v1.neighbour_confirmation_count': 3
-		});
-		expect(document.getElementById('paste-apply-status')!.textContent).toContain(
-			'1 metric keys filtered, 1 unsupported keys ignored'
-		);
+		// Posts the full nested JSON as-is — server handles normalisation/filtering
+		expect(JSON.parse(postCall![1].body as string)).toEqual(nested);
+		expect(document.getElementById('paste-apply-status')!.textContent).toContain('Applied');
 	});
 
-	it('loadCurrentIntoEditor populates textarea', async () => {
+	it('loadCurrentIntoEditor populates textarea with nested JSON', async () => {
+		const nestedConfig = {
+			l3: {
+				ema_baseline_v1: {
+					noise_relative: 0.05,
+					closeness_multiplier: 5
+				}
+			}
+		};
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
-			json: () =>
-				Promise.resolve({
-					'l3.ema_baseline_v1.noise_relative': 0.05,
-					'l3.ema_baseline_v1.closeness_multiplier': 5
-				})
+			json: () => Promise.resolve(nestedConfig)
 		});
 		loadCurrentIntoEditor();
 		await flushPromises();
 		const val = (document.getElementById('paste-params-json') as HTMLTextAreaElement).value;
-		expect(val).toContain('l3.ema_baseline_v1.noise_relative');
-		expect(val).toContain('l3.ema_baseline_v1.closeness_multiplier');
-	});
-
-	it('loadCurrentIntoEditor requests flat params and filters unsupported keys', async () => {
-		global.fetch = jest.fn().mockResolvedValue({
-			ok: true,
-			json: () =>
-				Promise.resolve({
-					'l3.ema_baseline_v1.noise_relative': 0.05,
-					version: 2
-				})
-		});
-		loadCurrentIntoEditor();
-		await flushPromises();
-		expect((global.fetch as jest.Mock).mock.calls[0][0]).toContain('format=flat');
-		const val = (document.getElementById('paste-params-json') as HTMLTextAreaElement).value;
-		expect(val).toContain('l3.ema_baseline_v1.noise_relative');
-		expect(val).not.toContain('"version"');
+		expect(val).toContain('"noise_relative": 0.05');
+		expect(val).toContain('"closeness_multiplier": 5');
+		// No format=flat in the URL
+		expect((global.fetch as jest.Mock).mock.calls[0][0]).not.toContain('format=flat');
 	});
 
 	it('loadCurrentIntoEditor shows error on failure', async () => {

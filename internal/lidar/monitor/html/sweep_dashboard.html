@@ -467,7 +467,7 @@
       <div id="current-params-card" class="card">
         <h2>Current Tuning Parameters</h2>
         <div class="current-params-header">
-          <small class="field-desc">Swept parameters highlighted in yellow.</small>
+          <small class="field-desc">All values match defaults.</small>
           <button class="refresh-params-btn" onclick="fetchCurrentParams()">
             Refresh
           </button>
@@ -479,17 +479,30 @@
       <div id="paste-params-card" class="card">
         <h2>Paste &amp; Apply Params</h2>
         <small class="field-desc" style="display: block; margin-bottom: 8px">
-          Paste a JSON object of tuning parameters (e.g. from a sweep recommendation or
-          another source) and apply directly to the system. Only recognised parameter keys
-          are sent; metric keys are filtered out automatically.
+          Paste a full tuning config JSON (same format as tuning.defaults.json)
+          and apply to the system. Non-editable fields are silently ignored.
         </small>
-        <textarea id="paste-params-json" rows="8"
-          style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical"
-          placeholder='{
-  "l3.ema_baseline_v1.noise_relative": 0.05,
-  "l3.ema_baseline_v1.safety_margin_metres": 0.5,
-  "l4.dbscan_xy_v1.foreground_dbscan_eps": 0.3,
-  "l5.cv_kf_v1.measurement_noise": 0.9
+        <textarea id="paste-params-json" rows="12"
+          style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical" placeholder='{
+  "l3": {
+    "engine": "ema_baseline_v1",
+    "ema_baseline_v1": {
+      "noise_relative": 0.05,
+      "safety_margin_metres": 0.5
+    }
+  },
+  "l4": {
+    "engine": "dbscan_xy_v1",
+    "dbscan_xy_v1": {
+      "foreground_dbscan_eps": 0.3
+    }
+  },
+  "l5": {
+    "engine": "cv_kf_v1",
+    "cv_kf_v1": {
+      "measurement_noise": 0.9
+    }
+  }
 }'></textarea>
         <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
           <button class="btn-sm btn-add" id="btn-paste-apply" onclick="applyPastedParams()">
