@@ -367,7 +367,7 @@ func applyRuntimeTuningPath(ws *WebServer, bm *l3grid.BackgroundManager, cfg *cf
 func setConfigValueByPath(cfg *cfgpkg.TuningConfig, path string, value interface{}) error {
 	current := reflect.ValueOf(cfg)
 	segments := strings.Split(path, ".")
-	for i, segment := range segments {
+	for _, segment := range segments[:len(segments)-1] {
 		if current.Kind() == reflect.Ptr {
 			if current.IsNil() {
 				current.Set(reflect.New(current.Type().Elem()))
@@ -382,12 +382,22 @@ func setConfigValueByPath(cfg *cfgpkg.TuningConfig, path string, value interface
 		if err != nil {
 			return err
 		}
-		if i == len(segments)-1 {
-			return assignJSONValue(field, value, path)
-		}
 		current = field
 	}
-	return fmt.Errorf("%q did not resolve to a config field", path)
+	if current.Kind() == reflect.Ptr {
+		if current.IsNil() {
+			current.Set(reflect.New(current.Type().Elem()))
+		}
+		current = current.Elem()
+	}
+	if current.Kind() != reflect.Struct {
+		return fmt.Errorf("%s does not resolve to a config field", path)
+	}
+	field, err := fieldByJSONName(current, segments[len(segments)-1])
+	if err != nil {
+		return err
+	}
+	return assignJSONValue(field, value, path)
 }
 
 func fieldByJSONName(v reflect.Value, name string) (reflect.Value, error) {

@@ -157,6 +157,13 @@ func TestNormaliseTuningPatchAndValidateRuntimePath(t *testing.T) {
 	if _, err := normaliseTuningPatch(map[string]interface{}{"": 1}); err == nil || !strings.Contains(err.Error(), "empty key") {
 		t.Fatalf("expected empty-key error, got %v", err)
 	}
+	if _, err := normaliseTuningPatch(map[string]interface{}{
+		"l3": map[string]interface{}{
+			"": 1,
+		},
+	}); err == nil || !strings.Contains(err.Error(), "empty key") {
+		t.Fatalf("expected nested empty-key error, got %v", err)
+	}
 	if err := flattenTuningPatch("", 1, map[string]interface{}{}); err == nil || !strings.Contains(err.Error(), "JSON object") {
 		t.Fatalf("expected root object error, got %v", err)
 	}
@@ -202,8 +209,18 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	if err := setConfigValueByPath(cfg, "unknown.path", 1); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
 		t.Fatalf("expected unknown path error, got %v", err)
 	}
+	if err := setConfigValueByPath(cfg, "l1.sensor.extra.value", 1); err == nil || !strings.Contains(err.Error(), "does not resolve to a config field") {
+		t.Fatalf("expected mid-path non-struct resolution error, got %v", err)
+	}
 	if err := setConfigValueByPath(cfg, "l3.ema_baseline_v1.noise_relative.extra", 1); err == nil || !strings.Contains(err.Error(), "does not resolve to a config field") {
 		t.Fatalf("expected non-struct resolution error, got %v", err)
+	}
+	cfg.L3.EmaTrackAssistV2 = nil
+	if err := setConfigValueByPath(cfg, "l3.ema_track_assist_v2.promotion_threshold.extra", 1); err == nil || !strings.Contains(err.Error(), "does not resolve to a config field") {
+		t.Fatalf("expected nil-pointer allocation resolution error, got %v", err)
+	}
+	if err := setConfigValueByPath(cfg, "l3.ema_baseline_v1.missing", 1); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
+		t.Fatalf("expected final-segment lookup error, got %v", err)
 	}
 
 	type embedded struct {
@@ -213,6 +230,9 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 		*embedded
 		Name string `json:"name"`
 		skip string `json:"skip"`
+	}
+	type emptyTag struct {
+		Value int `json:",omitempty"`
 	}
 	field, err := fieldByJSONName(reflect.ValueOf(container{}), "value")
 	if err != nil || field.Kind() != reflect.Int {
@@ -248,6 +268,9 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	}
 	if name, tagged := jsonName(typ.Field(0)); name != "embedded" || tagged {
 		t.Fatalf("jsonName(empty tag default) = (%q, %v)", name, tagged)
+	}
+	if name, tagged := jsonName(reflect.TypeOf(emptyTag{}).Field(0)); name != "Value" || !tagged {
+		t.Fatalf("jsonName(blank tag name) = (%q, %v)", name, tagged)
 	}
 }
 
@@ -322,6 +345,17 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	}
 	if ws.snapshotTuningConfig().L3.EmaBaselineV1.NoiseRelative != 0.2 {
 		t.Fatal("stored tuning config was not updated")
+	}
+
+	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{
+		"l4.dbscan_xy_v1.foreground_dbscan_eps": "bad",
+	}); err == nil || !strings.Contains(err.Error(), "cannot unmarshal string") {
+		t.Fatalf("expected setConfigValueByPath type error, got %v", err)
+	}
+	if err := applyRuntimeTuningPatch(&WebServer{}, bm, map[string]interface{}{
+		"l5.cv_kf_v1.max_tracks": 128,
+	}); err == nil || !strings.Contains(err.Error(), "requires an active tracker") {
+		t.Fatalf("expected tracker runtime apply error, got %v", err)
 	}
 
 	if err := applyRuntimeTuningPatch(ws, bm, map[string]interface{}{"unknown.path": 1}); err == nil || !strings.Contains(err.Error(), "unknown tuning path") {
