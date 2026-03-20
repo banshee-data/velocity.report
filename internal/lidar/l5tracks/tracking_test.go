@@ -55,6 +55,24 @@ func TestTrackerConfigFromTuning_NilConfig(t *testing.T) {
 	}
 }
 
+func TestTracker_GetConfigReturnsSnapshot(t *testing.T) {
+	tracker := NewTracker(DefaultTrackerConfig())
+	tracker.UpdateConfig(func(cfg *TrackerConfig) {
+		cfg.GatingDistanceSquared = 42
+		cfg.HitsToConfirm = 7
+	})
+
+	snapshot := tracker.GetConfig()
+	if snapshot.GatingDistanceSquared != 42 || snapshot.HitsToConfirm != 7 {
+		t.Fatalf("unexpected config snapshot: %+v", snapshot)
+	}
+
+	snapshot.GatingDistanceSquared = 99
+	if tracker.GetConfig().GatingDistanceSquared != 42 {
+		t.Fatal("GetConfig should return a copy, not a mutable alias")
+	}
+}
+
 func TestTracker_InitTrack(t *testing.T) {
 	tracker := NewTracker(DefaultTrackerConfig())
 	now := time.Now()
