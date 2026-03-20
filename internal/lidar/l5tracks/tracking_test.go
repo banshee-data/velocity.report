@@ -48,6 +48,13 @@ func TestDefaultTrackerConfig(t *testing.T) {
 	}
 }
 
+func TestTrackerConfigFromTuning_NilConfig(t *testing.T) {
+	cfg := TrackerConfigFromTuning(nil)
+	if cfg != (TrackerConfig{}) {
+		t.Fatalf("expected zero-value tracker config, got %+v", cfg)
+	}
+}
+
 func TestTracker_InitTrack(t *testing.T) {
 	tracker := NewTracker(DefaultTrackerConfig())
 	now := time.Now()
