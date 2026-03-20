@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -373,6 +374,30 @@ func TestDirectBackend_SetTuningParams_ForegroundMaxInputPoints(t *testing.T) {
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestDirectBackend_SetTuningParams_InvalidPatch(t *testing.T) {
+	sensorID := "direct-test-invalid-patch-" + t.Name()
+	_ = l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
+	ws := &WebServer{sensorID: sensorID}
+	db := NewDirectBackend(sensorID, ws)
+
+	err := db.SetTuningParams(map[string]interface{}{"": 1})
+	if err == nil || !strings.Contains(err.Error(), "empty key") {
+		t.Fatalf("expected empty-key error, got %v", err)
+	}
+}
+
+func TestDirectBackend_SetTuningParams_RuntimeApplyError(t *testing.T) {
+	sensorID := "direct-test-runtime-apply-" + t.Name()
+	_ = l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
+	ws := &WebServer{sensorID: sensorID}
+	db := NewDirectBackend(sensorID, ws)
+
+	err := db.SetTuningParams(map[string]interface{}{"unknown.path": 1})
+	if err == nil || !strings.Contains(err.Error(), "unknown tuning path") {
+		t.Fatalf("expected runtime apply error, got %v", err)
 	}
 }
 
