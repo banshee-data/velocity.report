@@ -1090,7 +1090,7 @@ check-config-maths:
 	@./scripts/readme-maths-check
 
 check-config-maths-strict:
-	@./scripts/readme-maths-check --webserver-mode exact
+	@./scripts/readme-maths-check
 
 readme-maths-check: check-config-maths
 

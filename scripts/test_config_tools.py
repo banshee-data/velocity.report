@@ -73,7 +73,6 @@ def test_config_order_sync_helpers_and_targets(tmp_path: Path) -> None:
                 '    Alpha int `json:"alpha"`',
                 '    Skip int `json:"-"`',
                 '    Beta int `json:"beta"`',
-                '    Dup int `json:"alpha"`',
                 "}",
             ]
         )
@@ -82,6 +81,23 @@ def test_config_order_sync_helpers_and_targets(tmp_path: Path) -> None:
     )
     assert mod.parse_go_source(f"{go_source}:Example") == (str(go_source), "Example")
     assert mod.extract_keys_from_go_struct(go_source, "Example") == ["alpha", "beta"]
+
+    go_dup_source = tmp_path / "types_dup.go"
+    go_dup_source.write_text(
+        "\n".join(
+            [
+                "package test",
+                "type Duped struct {",
+                '    Alpha int `json:"alpha"`',
+                '    Dup int `json:"alpha"`',
+                "}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate json tag 'alpha'"):
+        mod.extract_keys_from_go_struct(go_dup_source, "Duped")
     with pytest.raises(ValueError, match="struct Missing not found"):
         mod.extract_keys_from_go_struct(go_source, "Missing")
 
