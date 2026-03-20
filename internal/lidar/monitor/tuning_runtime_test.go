@@ -491,17 +491,10 @@ func TestRuntimeTuningConfigFloat32RoundTrip(t *testing.T) {
 		t.Fatalf("unmarshal runtime: %v", err)
 	}
 
-	// Duration fields differ in string format ("5m" vs "5m0s") — exclude them.
-	durationKeys := map[string]bool{
-		"settling_period": true, "freeze_duration": true,
-		"snapshot_interval": true, "deleted_track_grace_period": true,
-	}
 	// Compare only tuning layers (L3, L4, L5) — L1 is overwritten with runtime state.
 	for _, layer := range []string{"l3", "l4", "l5"} {
 		dSub := deepCopyMap(defaultMap[layer])
 		rSub := deepCopyMap(runtimeMap[layer])
-		removeDurationKeys(dSub, durationKeys)
-		removeDurationKeys(rSub, durationKeys)
 		dJSON, _ := json.MarshalIndent(dSub, "", "  ")
 		rJSON, _ := json.MarshalIndent(rSub, "", "  ")
 		if string(dJSON) != string(rJSON) {
@@ -525,12 +518,25 @@ func deepCopyMap(v interface{}) map[string]interface{} {
 	return m
 }
 
-func removeDurationKeys(m map[string]interface{}, keys map[string]bool) {
-	for k, v := range m {
-		if keys[k] {
-			delete(m, k)
-		} else if sub, ok := v.(map[string]interface{}); ok {
-			removeDurationKeys(sub, keys)
+func TestCompactDuration(t *testing.T) {
+	tests := []struct {
+		input time.Duration
+		want  string
+	}{
+		{0, "0s"},
+		{5 * time.Second, "5s"},
+		{5 * time.Minute, "5m"},
+		{2 * time.Hour, "2h"},
+		{500 * time.Millisecond, "500ms"},
+		{2*time.Hour + 30*time.Minute, "2h 30m"},
+		{3*time.Hour + 15*time.Minute + 30*time.Second, "3h 15m 30s"},
+		{1*time.Minute + 500*time.Millisecond, "1m 500ms"},
+		{1*time.Hour + 1*time.Second, "1h 1s"},
+	}
+	for _, tt := range tests {
+		got := compactDuration(tt.input)
+		if got != tt.want {
+			t.Errorf("compactDuration(%v): got %q, want %q", tt.input, got, tt.want)
 		}
 	}
 }

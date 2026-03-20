@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
@@ -18,6 +19,35 @@ import (
 // float32→float64 conversions (e.g. 0.10000000149011612 → 0.1).
 func roundTo6(v float64) float64 {
 	return math.Round(v*1e6) / 1e6
+}
+
+// compactDuration formats a time.Duration using only the most significant
+// non-zero units with lowercase single-letter suffixes separated by spaces.
+// Examples: "5m", "2h", "3h 15m 30s", "500ms".
+func compactDuration(d time.Duration) string {
+	if d == 0 {
+		return "0s"
+	}
+	var parts []string
+	if h := int(d.Hours()); h != 0 {
+		parts = append(parts, fmt.Sprintf("%dh", h))
+		d -= time.Duration(h) * time.Hour
+	}
+	if m := int(d.Minutes()); m != 0 {
+		parts = append(parts, fmt.Sprintf("%dm", m))
+		d -= time.Duration(m) * time.Minute
+	}
+	if s := int(d.Seconds()); s != 0 {
+		parts = append(parts, fmt.Sprintf("%ds", s))
+		d -= time.Duration(s) * time.Second
+	}
+	if ms := int(d.Milliseconds()); ms != 0 {
+		parts = append(parts, fmt.Sprintf("%dms", ms))
+	}
+	if len(parts) == 0 {
+		return "0s"
+	}
+	return strings.Join(parts, " ")
 }
 
 var (
@@ -103,9 +133,9 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 		}
 		if l3 != nil {
 			// These remain driven from config snapshots because runtime keeps them in Params.
-			l3.FreezeDuration = cfg.GetFreezeDuration().String()
-			l3.SettlingPeriod = cfg.GetSettlingPeriod().String()
-			l3.SnapshotInterval = cfg.GetSnapshotInterval().String()
+			l3.FreezeDuration = compactDuration(cfg.GetFreezeDuration())
+			l3.SettlingPeriod = compactDuration(cfg.GetSettlingPeriod())
+			l3.SnapshotInterval = compactDuration(cfg.GetSnapshotInterval())
 		}
 	}
 
@@ -133,7 +163,7 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 			l5.MaxSpeedHistoryLength = trackerCfg.MaxSpeedHistoryLength
 			l5.MergeSizeRatio = roundTo6(float64(trackerCfg.MergeSizeRatio))
 			l5.SplitSizeRatio = roundTo6(float64(trackerCfg.SplitSizeRatio))
-			l5.DeletedTrackGracePeriod = trackerCfg.DeletedTrackGracePeriod.String()
+			l5.DeletedTrackGracePeriod = compactDuration(trackerCfg.DeletedTrackGracePeriod)
 			l5.MinObservationsForClassification = trackerCfg.MinObservationsForClassification
 		}
 	}
