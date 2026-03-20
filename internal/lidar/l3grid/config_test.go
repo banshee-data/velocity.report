@@ -1,6 +1,7 @@
 package l3grid
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -330,5 +331,94 @@ func TestBackgroundConfig_Validate_EdgeCases(t *testing.T) {
 	cfg.SnapshotInterval = 0
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("Zero durations should be valid, got: %v", err)
+	}
+}
+
+func TestBackgroundConfigFromTuning_NilBlocks(t *testing.T) {
+	cfg := BackgroundConfigFromTuning(nil, nil)
+	if cfg == nil {
+		t.Fatal("expected empty background config, got nil")
+	}
+	if *cfg != (BackgroundConfig{}) {
+		t.Fatalf("expected zero-value background config, got %+v", *cfg)
+	}
+}
+
+func TestBackgroundConfig_Validate_NewFieldErrors(t *testing.T) {
+	tests := []struct {
+		name     string
+		mutate   func(*BackgroundConfig)
+		wantText string
+	}{
+		{
+			name: "FreezeThresholdMultiplier",
+			mutate: func(c *BackgroundConfig) {
+				c.FreezeThresholdMultiplier = 0
+			},
+			wantText: "FreezeThresholdMultiplier must be positive",
+		},
+		{
+			name: "SensorMovementForegroundThreshold",
+			mutate: func(c *BackgroundConfig) {
+				c.SensorMovementForegroundThreshold = 2
+			},
+			wantText: "SensorMovementForegroundThreshold must be in [0, 1]",
+		},
+		{
+			name: "BackgroundDriftThresholdMeters",
+			mutate: func(c *BackgroundConfig) {
+				c.BackgroundDriftThresholdMeters = -1
+			},
+			wantText: "BackgroundDriftThresholdMeters must be non-negative",
+		},
+		{
+			name: "BackgroundDriftRatioThreshold",
+			mutate: func(c *BackgroundConfig) {
+				c.BackgroundDriftRatioThreshold = 2
+			},
+			wantText: "BackgroundDriftRatioThreshold must be in [0, 1]",
+		},
+		{
+			name: "SettlingMinCoverage",
+			mutate: func(c *BackgroundConfig) {
+				c.SettlingMinCoverage = 2
+			},
+			wantText: "SettlingMinCoverage must be in [0, 1]",
+		},
+		{
+			name: "SettlingMaxSpreadDelta",
+			mutate: func(c *BackgroundConfig) {
+				c.SettlingMaxSpreadDelta = -1
+			},
+			wantText: "SettlingMaxSpreadDelta must be non-negative",
+		},
+		{
+			name: "SettlingMinRegionStability",
+			mutate: func(c *BackgroundConfig) {
+				c.SettlingMinRegionStability = 2
+			},
+			wantText: "SettlingMinRegionStability must be in [0, 1]",
+		},
+		{
+			name: "SettlingMinConfidence",
+			mutate: func(c *BackgroundConfig) {
+				c.SettlingMinConfidence = -1
+			},
+			wantText: "SettlingMinConfidence must be non-negative",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultBackgroundConfig()
+			tc.mutate(cfg)
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatalf("expected error containing %q", tc.wantText)
+			}
+			if got := err.Error(); !strings.Contains(got, tc.wantText) {
+				t.Fatalf("Validate() error = %q, want substring %q", got, tc.wantText)
+			}
+		})
 	}
 }
