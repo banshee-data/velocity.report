@@ -1094,6 +1094,8 @@ lint-go:
 	else \
 		echo "OK"; \
 	fi
+	@echo "Checking database/sql import boundary..."
+	@bash scripts/check-db-sql-imports.sh
 
 lint-python:
 	@echo "Checking Python formatting (black --check, ruff)..."

@@ -658,17 +658,41 @@ func TestClose_UnblocksBlockingSend(t *testing.T) {
 	// Give the goroutine time to reach the blocking select.
 	time.Sleep(30 * time.Millisecond)
 
-	// Close() should signal closeCh, unblocking finalizeFrame. Unblock
-	// the worker first so it can observe closeCh, exit its loop, and
-	// allow shutdown to complete.
+	// Close() should signal closeCh, unblocking finalizeFrame. Start
+	// Close() in a goroutine so that closeCh is closed while the channel
+	// is still full (worker is still blocked on blocker). This ensures
+	// the finalizeFrame select takes the closeCh path. Close() then
+	// blocks on <-fb.frameDone waiting for the worker to exit.
+	closeDone := make(chan struct{})
+	go func() {
+		fb.Close()
+		close(closeDone)
+	}()
+
+	// Wait for Close() to have closed closeCh rather than relying on a
+	// sleep, which can be flaky on slow CI runners.
+	select {
+	case <-fb.closeCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close() did not close closeCh in time")
+	}
+
+	// Now unblock the worker so it can observe closeCh, exit its loop,
+	// and allow shutdown to complete.
 	close(blocker)
-	fb.Close()
 
 	select {
 	case <-finalizeDone:
 		// Good — finalizeFrame returned via the closeCh path.
 	case <-time.After(5 * time.Second):
 		t.Fatal("finalizeFrame did not unblock after Close()")
+	}
+
+	// Wait for Close() to finish.
+	select {
+	case <-closeDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close() did not complete")
 	}
 
 	// The frame sent during shutdown should be counted as dropped.

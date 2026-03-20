@@ -1,29 +1,32 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	dbpkg "github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-// RunBackfill opens the DB at dbPathPtr and delegates to RunBackfillDB.
+// RunBackfill opens the DB at dbPathPtr via the internal/db bootstrap path
+// (which applies production PRAGMAs) and delegates to RunBackfillDB.
 func RunBackfill(dbPathPtr *string, embeddedElevs []float64, dry bool) (int, int, int, error) {
 	if dbPathPtr == nil || *dbPathPtr == "" {
 		return 0, 0, 0, fmt.Errorf("db path nil or empty")
 	}
-	db, err := sql.Open("sqlite", *dbPathPtr)
+	opened, err := dbpkg.OpenDB(*dbPathPtr)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	defer db.Close()
+	defer opened.Close()
 
-	// set busy timeout to avoid transient locks when used from CLI
-	_, _ = db.Exec("PRAGMA busy_timeout = 5000;")
-	return RunBackfillDB(db, embeddedElevs, dry)
+	return RunBackfillDB(opened.DB, embeddedElevs, dry)
 }
 
-// RunBackfillDB performs the backfill on an existing *sql.DB (useful for tests)
-func RunBackfillDB(db *sql.DB, embeddedElevs []float64, dry bool) (int, int, int, error) {
+// RunBackfillDB performs the backfill on an existing database connection.
+// The parameter uses the sqlite.SQLDB type alias so callers outside the
+// storage layer need not import database/sql directly.
+func RunBackfillDB(db *sqlite.SQLDB, embeddedElevs []float64, dry bool) (int, int, int, error) {
 	q := `SELECT snapshot_id, sensor_id, rings FROM lidar_bg_snapshot
 		 WHERE ring_elevations_json IS NULL OR ring_elevations_json = ''`
 	rows, err := db.Query(q)

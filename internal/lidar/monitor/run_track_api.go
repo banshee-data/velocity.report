@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -516,7 +515,7 @@ func (ws *WebServer) handleGetRun(w http.ResponseWriter, r *http.Request, runID 
 
 	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	run, err := store.GetRun(runID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sqlite.ErrNotFound) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
 		return
 	}
@@ -542,7 +541,7 @@ func (ws *WebServer) handleReprocessRun(w http.ResponseWriter, r *http.Request, 
 	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
 	originalRun, err := runStore.GetRun(runID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sqlite.ErrNotFound) {
 			ws.writeJSONError(w, http.StatusNotFound, "run not found")
 		} else {
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run: %v", err))
@@ -822,7 +821,7 @@ func (ws *WebServer) handleDeleteMissedRegion(w http.ResponseWriter, r *http.Req
 
 	store := sqlite.NewMissedRegionStore(ws.db.DB)
 	err := store.Delete(regionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sqlite.ErrNotFound) {
 		ws.writeJSONError(w, http.StatusNotFound, "missed region not found")
 		return
 	}

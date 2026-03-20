@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -125,7 +124,7 @@ type TrackingPipelineConfig struct {
 	FgForwarder         ForegroundForwarder       // Use interface to avoid import cycle
 	Tracker             l5tracks.TrackerInterface // Use interface for dependency injection and testing
 	Classifier          *l6objects.TrackClassifier
-	DB                  *sql.DB // Use standard sql.DB to avoid import cycle with db package
+	DB                  *sqlite.SQLDB // Use sqlite.SQLDB to avoid importing database/sql directly
 	SensorID            string
 	AnalysisRunManager  *sqlite.AnalysisRunManager // Optional: for recording analysis runs
 	VisualiserPublisher VisualiserPublisher        // Optional: gRPC publisher
@@ -586,7 +585,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Skip entirely when DisableTrackPersistence is set (e.g. analysis replay)
 		// or when there are no confirmed tracks to persist.
 		var (
-			dbTx     *sql.Tx
+			dbTx     *sqlite.SQLTx
 			frameID  string
 			txFailed bool
 		)
