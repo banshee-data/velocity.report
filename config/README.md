@@ -27,7 +27,7 @@ The runtime rejects:
 ./velocity-report --enable-lidar
 ./velocity-report --config config/tuning.example.json --enable-lidar
 
-make config-validate CONFIG=config/tuning.defaults.json
+make config-validate TUNING_CONFIG=config/tuning.defaults.json
 make config-migrate IN=config/legacy-flat.json OUT=config/tuning.migrated.json
 ```
 

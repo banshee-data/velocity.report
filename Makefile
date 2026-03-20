@@ -103,7 +103,7 @@ help:
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
 	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
-	@echo "  config-validate      Validate a schema v2 tuning JSON (CONFIG=...)"
+	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
@@ -1055,7 +1055,7 @@ check-agent-drift: ## Compare agent definitions between Copilot and Claude for d
 
 .PHONY: config-migrate config-validate
 
-CONFIG ?= config/tuning.defaults.json
+TUNING_CONFIG ?= config/tuning.defaults.json
 
 config-migrate:
 	@if [ -z "$(IN)" ]; then \
@@ -1065,7 +1065,7 @@ config-migrate:
 	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-migrate --in "$(IN)" $(if $(OUT),--out "$(OUT)")
 
 config-validate:
-	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --in "$(CONFIG)"
+	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --in "$(TUNING_CONFIG)"
 
 check-config-order:
 	@./scripts/config-order-sync \
