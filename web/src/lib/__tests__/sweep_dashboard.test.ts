@@ -65,6 +65,8 @@ const {
 	pollAutoTuneStatus,
 	comboLabel,
 	formatParamValues,
+	normaliseParamMap,
+	extractEditableTuningParams,
 	renderRecommendation,
 	renderTable,
 	renderCharts,
@@ -484,6 +486,51 @@ describe('formatParamValues', () => {
 	it('uses raw key as label for unknown parameters', () => {
 		const params = { unknown_param: 42 };
 		expect(formatParamValues(params)).toContain('unknown_param=42');
+	});
+
+	it('normalises legacy flat keys before formatting', () => {
+		const formatted = formatParamValues({
+			background_update_fraction: 0.02,
+			safety_margin_meters: 0.5
+		});
+		expect(formatted).toContain('Background Update Fraction=0.0200');
+		expect(formatted).toContain('Safety Margin (m)=0.5000');
+	});
+});
+
+describe('param normalisation helpers', () => {
+	it('normaliseParamMap flattens nested config and canonicalises legacy names', () => {
+		expect(
+			normaliseParamMap({
+				l3: {
+					ema_baseline_v1: {
+						noise_relative: 0.05,
+						neighbor_confirmation_count: 3,
+						safety_margin_meters: 0.4
+					}
+				},
+				background_update_fraction: 0.02
+			})
+		).toEqual({
+			'l3.ema_baseline_v1.noise_relative': 0.05,
+			'l3.ema_baseline_v1.neighbour_confirmation_count': 3,
+			'l3.ema_baseline_v1.safety_margin_metres': 0.4,
+			'l3.ema_baseline_v1.background_update_fraction': 0.02
+		});
+	});
+
+	it('extractEditableTuningParams keeps only supported tuning params', () => {
+		expect(
+			extractEditableTuningParams({
+				l3: { ema_baseline_v1: { noise_relative: 0.05 } },
+				acceptance_rate: 0.9,
+				version: 2
+			})
+		).toEqual({
+			params: { 'l3.ema_baseline_v1.noise_relative': 0.05 },
+			filteredMetricKeys: ['acceptance_rate'],
+			filteredUnsupportedKeys: ['version']
+		});
 	});
 });
 
@@ -1829,6 +1876,7 @@ describe('displayCurrentParams', () => {
 		expect(html).toContain('l3.ema_baseline_v1.noise_relative');
 		expect(html).toContain('0.05');
 		expect(html).toContain('true');
+		expect(html).toContain('l3.ema_baseline_v1.warmup_min_frames');
 		expect(html).toContain('100');
 		expect(html).toContain('null');
 	});
@@ -2068,6 +2116,37 @@ describe('applyRecommendation', () => {
 			'Failed to fetch recommendation'
 		);
 	});
+
+	it('canonicalises legacy recommendation keys before posting params', async () => {
+		global.fetch = jest.fn().mockImplementation((url: string, options?: RequestInit) => {
+			if (url.includes('/api/lidar/sweep/auto')) {
+				return Promise.resolve({
+					ok: true,
+					json: () =>
+						Promise.resolve({
+							recommendation: {
+								background_update_fraction: 0.02,
+								safety_margin_meters: 0.5,
+								score: 0.9
+							}
+						})
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+
+		applyRecommendation();
+		await flushPromises();
+
+		const postCall = (global.fetch as jest.Mock).mock.calls.find(
+			([url, options]) => url.includes('/api/lidar/params') && options?.method === 'POST'
+		);
+		expect(postCall).toBeDefined();
+		expect(JSON.parse(postCall![1].body as string)).toEqual({
+			'l3.ema_baseline_v1.background_update_fraction': 0.02,
+			'l3.ema_baseline_v1.safety_margin_metres': 0.5
+		});
+	});
 });
 
 describe('applySceneParams', () => {
@@ -2147,6 +2226,40 @@ describe('applySceneParams', () => {
 		applySceneParams();
 		await flushPromises();
 		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
+	});
+
+	it('canonicalises legacy scene params before posting', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					scenes: [
+						{
+							replay_case_id: 'legacy-scene',
+							pcap_file: 'test.pcap',
+							optimal_params_json:
+								'{"background_update_fraction":0.02,"neighbor_confirmation_count":3}'
+						}
+					]
+				})
+		});
+		loadSweepScenes();
+		await flushPromises();
+		(document.getElementById('scene_select') as HTMLSelectElement).value = 'legacy-scene';
+		onSweepSceneSelected();
+
+		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+		applySceneParams();
+		await flushPromises();
+
+		const postCall = (global.fetch as jest.Mock).mock.calls.find(
+			([url, options]) => url.includes('/api/lidar/params') && options?.method === 'POST'
+		);
+		expect(postCall).toBeDefined();
+		expect(JSON.parse(postCall![1].body as string)).toEqual({
+			'l3.ema_baseline_v1.background_update_fraction': 0.02,
+			'l3.ema_baseline_v1.neighbour_confirmation_count': 3
+		});
 	});
 });
 
@@ -3533,6 +3646,34 @@ describe('paste and apply params', () => {
 		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
 	});
 
+	it('applyPastedParams canonicalises nested and legacy keys before posting', async () => {
+		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
+			l3: {
+				ema_baseline_v1: {
+					background_update_fraction: 0.02,
+					neighbor_confirmation_count: 3
+				}
+			},
+			version: 2,
+			acceptance_rate: 0.9
+		});
+		applyPastedParams();
+		await flushPromises();
+
+		const postCall = (global.fetch as jest.Mock).mock.calls.find(
+			([url, options]) => url.includes('/api/lidar/params') && options?.method === 'POST'
+		);
+		expect(postCall).toBeDefined();
+		expect(JSON.parse(postCall![1].body as string)).toEqual({
+			'l3.ema_baseline_v1.background_update_fraction': 0.02,
+			'l3.ema_baseline_v1.neighbour_confirmation_count': 3
+		});
+		expect(document.getElementById('paste-apply-status')!.textContent).toContain(
+			'1 metric keys filtered, 1 unsupported keys ignored'
+		);
+	});
+
 	it('loadCurrentIntoEditor populates textarea', async () => {
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
@@ -3547,6 +3688,23 @@ describe('paste and apply params', () => {
 		const val = (document.getElementById('paste-params-json') as HTMLTextAreaElement).value;
 		expect(val).toContain('l3.ema_baseline_v1.noise_relative');
 		expect(val).toContain('l3.ema_baseline_v1.closeness_multiplier');
+	});
+
+	it('loadCurrentIntoEditor requests flat params and filters unsupported keys', async () => {
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			json: () =>
+				Promise.resolve({
+					'l3.ema_baseline_v1.noise_relative': 0.05,
+					version: 2
+				})
+		});
+		loadCurrentIntoEditor();
+		await flushPromises();
+		expect((global.fetch as jest.Mock).mock.calls[0][0]).toContain('format=flat');
+		const val = (document.getElementById('paste-params-json') as HTMLTextAreaElement).value;
+		expect(val).toContain('l3.ema_baseline_v1.noise_relative');
+		expect(val).not.toContain('"version"');
 	});
 
 	it('loadCurrentIntoEditor shows error on failure', async () => {

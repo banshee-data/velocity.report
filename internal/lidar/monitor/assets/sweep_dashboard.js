@@ -242,6 +242,82 @@ var PARAM_SCHEMA = {
   },
 };
 
+var LEGACY_PARAM_ALIASES = {
+  neighbor_confirmation_count:
+    "l3.ema_baseline_v1.neighbour_confirmation_count",
+  "l3.ema_baseline_v1.neighbor_confirmation_count":
+    "l3.ema_baseline_v1.neighbour_confirmation_count",
+  safety_margin_meters: "l3.ema_baseline_v1.safety_margin_metres",
+  "l3.ema_baseline_v1.safety_margin_meters":
+    "l3.ema_baseline_v1.safety_margin_metres",
+};
+
+function buildParamSuffixMap(schema) {
+  var suffixCounts = {};
+  Object.keys(schema).forEach(function (key) {
+    var suffix = key.split(".").pop();
+    suffixCounts[suffix] = (suffixCounts[suffix] || 0) + 1;
+  });
+
+  var suffixMap = {};
+  Object.keys(schema).forEach(function (key) {
+    var suffix = key.split(".").pop();
+    if (suffixCounts[suffix] === 1) {
+      suffixMap[suffix] = key;
+    }
+  });
+
+  Object.keys(LEGACY_PARAM_ALIASES).forEach(function (alias) {
+    if (alias.indexOf(".") === -1) {
+      suffixMap[alias] = LEGACY_PARAM_ALIASES[alias];
+    }
+  });
+
+  return suffixMap;
+}
+
+var PARAM_SUFFIX_MAP = buildParamSuffixMap(PARAM_SCHEMA);
+
+function isParamObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function canonicalParamKey(key) {
+  if (PARAM_SCHEMA[key]) {
+    return key;
+  }
+  if (LEGACY_PARAM_ALIASES[key]) {
+    return LEGACY_PARAM_ALIASES[key];
+  }
+  if (key.indexOf(".") === -1 && PARAM_SUFFIX_MAP[key]) {
+    return PARAM_SUFFIX_MAP[key];
+  }
+  return key;
+}
+
+function flattenParamObject(prefix, value, out) {
+  if (isParamObject(value)) {
+    Object.keys(value).forEach(function (key) {
+      var next = prefix ? prefix + "." + key : key;
+      flattenParamObject(next, value[key], out);
+    });
+    return;
+  }
+  if (!prefix) {
+    return;
+  }
+  out[canonicalParamKey(prefix)] = value;
+}
+
+function normaliseParamMap(params) {
+  if (!isParamObject(params)) {
+    return {};
+  }
+  var flat = {};
+  flattenParamObject("", params, flat);
+  return flat;
+}
+
 var paramNames = Object.keys(PARAM_SCHEMA);
 var paramCounter = 0;
 
@@ -304,7 +380,7 @@ var METRIC_KEYS = [
 
 function metricLabel(key) {
   if (key === "_combo") return "Combination";
-  var schema = PARAM_SCHEMA[key];
+  var schema = PARAM_SCHEMA[canonicalParamKey(key)];
   if (schema) return schema.label;
   return key.replace(/_/g, " ").replace(/\b\w/g, function (c) {
     return c.toUpperCase();
@@ -312,8 +388,13 @@ function metricLabel(key) {
 }
 
 function extractValue(result, key) {
-  if (result.param_values && result.param_values[key] !== undefined) {
-    return result.param_values[key];
+  var canonicalKey = canonicalParamKey(key);
+  var paramValues = normaliseParamMap(result.param_values || {});
+  if (paramValues[canonicalKey] !== undefined) {
+    return paramValues[canonicalKey];
+  }
+  if (result[canonicalKey] !== undefined) {
+    return result[canonicalKey];
   }
   if (result[key] !== undefined) {
     return result[key];
@@ -329,7 +410,7 @@ function getAvailableMetrics(results) {
   if (!results || results.length === 0) return defaultResult;
 
   var r0 = results[0];
-  var params = Object.keys(r0.param_values || {});
+  var params = Object.keys(normaliseParamMap(r0.param_values || {}));
   var metrics = METRIC_KEYS.filter(function (k) {
     return r0[k] !== undefined;
   });
@@ -1273,8 +1354,9 @@ function stopPolling() {
 }
 
 function comboLabel(r) {
-  if (r.param_values) {
-    return Object.entries(r.param_values)
+  var paramValues = normaliseParamMap(r.param_values || {});
+  if (Object.keys(paramValues).length > 0) {
+    return Object.entries(paramValues)
       .map(function (e) {
         var key = e[0];
         var v = e[1];
@@ -1527,7 +1609,8 @@ function formatScore(score) {
 
 function formatParamValues(params) {
   if (!params) return "";
-  return Object.keys(params)
+  var normalised = normaliseParamMap(params);
+  return Object.keys(normalised)
     .filter(function (k) {
       return (
         k !== "score" &&
@@ -1538,7 +1621,7 @@ function formatParamValues(params) {
       );
     })
     .map(function (k) {
-      var v = params[k];
+      var v = normalised[k];
       var schema = PARAM_SCHEMA[k];
       var label = schema ? schema.label : k;
       if (typeof v === "number" && v !== Math.floor(v)) {
@@ -1552,10 +1635,11 @@ function formatParamValues(params) {
 function renderRecommendation(rec, roundResults) {
   var card = document.getElementById("recommendation-card");
   var content = document.getElementById("recommendation-content");
+  var normalisedRec = normaliseParamMap(rec || {});
 
   // Build param cards
   var paramHtml = '<div class="recommendation-params">';
-  var paramKeys = Object.keys(rec).filter(function (k) {
+  var paramKeys = Object.keys(normalisedRec).filter(function (k) {
     return (
       k !== "score" &&
       k !== "acceptance_rate" &&
@@ -1572,7 +1656,7 @@ function renderRecommendation(rec, roundResults) {
   paramKeys.forEach(function (k) {
     var schema = PARAM_SCHEMA[k];
     var label = schema ? schema.label : k;
-    var v = rec[k];
+    var v = normalisedRec[k];
     var displayVal =
       typeof v === "number" && v !== Math.floor(v) ? v.toFixed(6) : v;
     paramHtml +=
@@ -1687,25 +1771,14 @@ function applyRecommendation() {
         showError("No recommendation available.");
         return;
       }
-      // Build tuning params (exclude score/metrics keys)
-      var tuningParams = {};
-      Object.keys(st.recommendation).forEach(function (k) {
-        if (
-          k !== "score" &&
-          k !== "acceptance_rate" &&
-          k !== "misalignment_ratio" &&
-          k !== "alignment_deg" &&
-          k !== "nonzero_cells" &&
-          k !== "foreground_capture" &&
-          k !== "unbounded_point_ratio" &&
-          k !== "empty_box_ratio" &&
-          k !== "fragmentation_ratio" &&
-          k !== "heading_jitter_deg" &&
-          k !== "speed_jitter_mps"
-        ) {
-          tuningParams[k] = st.recommendation[k];
-        }
-      });
+      var extracted = extractEditableTuningParams(st.recommendation);
+      var tuningParams = extracted.params;
+      if (Object.keys(tuningParams).length === 0) {
+        showError(
+          "Recommendation did not contain any editable tuning parameters.",
+        );
+        return;
+      }
 
       fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId), {
         method: "POST",
@@ -1753,6 +1826,13 @@ function applySceneParams() {
     showError("Failed to parse replay case parameters: " + e.message);
     return;
   }
+  tuningParams = extractEditableTuningParams(tuningParams).params;
+  if (Object.keys(tuningParams).length === 0) {
+    showError(
+      "Selected replay case did not contain any editable tuning parameters.",
+    );
+    return;
+  }
 
   fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId), {
     method: "POST",
@@ -1794,6 +1874,31 @@ var METRIC_FILTER_KEYS = [
   "speed_jitter_mps",
 ];
 
+function extractEditableTuningParams(params) {
+  var normalised = normaliseParamMap(params);
+  var tuningParams = {};
+  var filteredMetricKeys = [];
+  var filteredUnsupportedKeys = [];
+
+  Object.keys(normalised).forEach(function (key) {
+    if (METRIC_FILTER_KEYS.indexOf(key) !== -1) {
+      filteredMetricKeys.push(key);
+      return;
+    }
+    if (!PARAM_SCHEMA[key]) {
+      filteredUnsupportedKeys.push(key);
+      return;
+    }
+    tuningParams[key] = normalised[key];
+  });
+
+  return {
+    params: tuningParams,
+    filteredMetricKeys: filteredMetricKeys,
+    filteredUnsupportedKeys: filteredUnsupportedKeys,
+  };
+}
+
 function applyPastedParams() {
   var textarea = document.getElementById("paste-params-json");
   var statusEl = document.getElementById("paste-apply-status");
@@ -1818,22 +1923,16 @@ function applyPastedParams() {
     return;
   }
 
-  // Filter out metric keys
-  var tuningParams = {};
-  var filtered = [];
-  Object.keys(parsed).forEach(function (k) {
-    if (METRIC_FILTER_KEYS.indexOf(k) !== -1) {
-      filtered.push(k);
-    } else {
-      tuningParams[k] = parsed[k];
-    }
-  });
+  var extracted = extractEditableTuningParams(parsed);
+  var tuningParams = extracted.params;
+  var filteredMetrics = extracted.filteredMetricKeys;
+  var filteredUnsupported = extracted.filteredUnsupportedKeys;
 
   var paramCount = Object.keys(tuningParams).length;
   if (paramCount === 0) {
     showError(
-      "No tuning parameters found after filtering metrics. Keys filtered: " +
-        filtered.join(", "),
+      "No tuning parameters found after filtering. Keys filtered: " +
+        filteredMetrics.concat(filteredUnsupported).join(", "),
     );
     return;
   }
@@ -1855,8 +1954,12 @@ function applyPastedParams() {
         "Applied " +
         paramCount +
         " params" +
-        (filtered.length
-          ? " (" + filtered.length + " metric keys filtered)"
+        (filteredMetrics.length || filteredUnsupported.length
+          ? " (" +
+            filteredMetrics.length +
+            " metric keys filtered, " +
+            filteredUnsupported.length +
+            " unsupported keys ignored)"
           : "") +
         " ✓";
       btn.disabled = false;
@@ -1873,14 +1976,15 @@ function loadCurrentIntoEditor() {
   fetch(
     "/api/lidar/params?sensor_id=" +
       encodeURIComponent(sensorId) +
-      "&format=pretty",
+      "&format=flat",
   )
     .then(function (r) {
       return r.json();
     })
     .then(function (params) {
+      var tuningParams = extractEditableTuningParams(params).params;
       document.getElementById("paste-params-json").value = JSON.stringify(
-        params,
+        tuningParams,
         null,
         2,
       );
@@ -2518,8 +2622,11 @@ function buildScatterOption(results, cfg) {
 function renderTable(results) {
   // Determine param columns from first result
   var paramKeys = [];
-  if (results[0] && results[0].param_values) {
-    paramKeys = Object.keys(results[0].param_values);
+  var paramValuesList = results.map(function (r) {
+    return normaliseParamMap(r.param_values || {});
+  });
+  if (results[0]) {
+    paramKeys = Object.keys(paramValuesList[0]);
   }
 
   // Check if we have ground truth scores
@@ -2562,11 +2669,12 @@ function renderTable(results) {
   // Rebuild body
   var tbody = document.getElementById("results-body");
   tbody.innerHTML = "";
-  results.forEach(function (r) {
+  results.forEach(function (r, idx) {
+    var paramValues = paramValuesList[idx];
     var tr = document.createElement("tr");
     var html = "";
     paramKeys.forEach(function (k) {
-      var v = r.param_values ? r.param_values[k] : undefined;
+      var v = paramValues[k];
       if (typeof v === "number" && v !== Math.floor(v)) {
         html += '<td class="mono">' + escapeHTML(v.toFixed(4)) + "</td>";
       } else {
@@ -2685,6 +2793,7 @@ function fetchCurrentParams() {
 }
 
 function displayCurrentParams(params) {
+  params = normaliseParamMap(params);
   // Get list of currently swept parameters in order
   var sweptParams = {};
   var sweptParamOrder = [];
@@ -3104,6 +3213,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatDuration: formatDuration,
     comboLabel: comboLabel,
     formatParamValues: formatParamValues,
+    normaliseParamMap: normaliseParamMap,
+    extractEditableTuningParams: extractEditableTuningParams,
     PARAM_SCHEMA: PARAM_SCHEMA,
     val: val,
     numVal: numVal,
