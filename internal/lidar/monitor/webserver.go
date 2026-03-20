@@ -338,9 +338,16 @@ func cloneTuningConfig(cfg *cfgpkg.TuningConfig) *cfgpkg.TuningConfig {
 	if cfg == nil {
 		return nil
 	}
-	data, _ := json.Marshal(cfg)
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		opsf("monitor: failed to marshal tuning config for clone: %v", err)
+		return cfg
+	}
 	var cloned cfgpkg.TuningConfig
-	_ = json.Unmarshal(data, &cloned)
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		opsf("monitor: failed to unmarshal tuning config for clone: %v", err)
+		return cfg
+	}
 	return &cloned
 }
 
