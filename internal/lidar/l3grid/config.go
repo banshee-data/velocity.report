@@ -101,7 +101,10 @@ func BackgroundConfigFromTuning(l3cfg *config.L3EmaBaselineV1, l4cfg *config.L4D
 }
 
 func mustParseDuration(raw string) time.Duration {
-	d, _ := time.ParseDuration(raw)
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		panic(fmt.Sprintf("mustParseDuration: invalid duration %q: %v", raw, err))
+	}
 	return d
 }
 
