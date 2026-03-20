@@ -34,7 +34,7 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.Se
 		log.Printf("using default tuning config")
 	}
 
-	bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
+	bgConfig := backgroundConfigFromTuningConfig(tuningCfg)
 	// For offline evaluation disable warmup gating so we can observe the
 	// full settling curve from frame 0. Set high settling period and
 	// warmup to not truncate the observation window.
@@ -175,4 +175,8 @@ func runPCAPEval(pcapFile, tuningFile, sensorID string, udpPort int) (*l3grid.Se
 		Rationale:           rationale,
 		WallDuration:        wallDur.Round(time.Millisecond).String(),
 	}, nil
+}
+
+func backgroundConfigFromTuningConfig(tuningCfg *config.TuningConfig) *l3grid.BackgroundConfig {
+	return l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
 }
