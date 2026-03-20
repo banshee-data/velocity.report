@@ -531,6 +531,39 @@ func TestCov2_HandleTuningParams_POST_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestCov2_HandleTuningParams_POST_InvalidPatch(t *testing.T) {
+	bm := l3grid.NewBackgroundManager("cov2-tuning-badpatch", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-badpatch", bm)
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"l3": map[string]interface{}{
+			"": 1,
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-badpatch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws := &WebServer{}
+	ws.handleTuningParams(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCov2_HandleTuningParams_POST_EmptyJSONPatch(t *testing.T) {
+	bm := l3grid.NewBackgroundManager("cov2-tuning-emptypatch", 10, 36, l3grid.BackgroundParams{}, nil)
+	l3grid.RegisterBackgroundManager("cov2-tuning-emptypatch", bm)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-emptypatch", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ws := &WebServer{}
+	ws.handleTuningParams(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
 func TestCov2_HandleTuningParams_POST_FormSubmission(t *testing.T) {
 	bm := l3grid.NewBackgroundManager("cov2-tuning-form", 10, 36, l3grid.BackgroundParams{}, nil)
 	l3grid.RegisterBackgroundManager("cov2-tuning-form", bm)
