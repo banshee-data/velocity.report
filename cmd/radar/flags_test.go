@@ -417,6 +417,9 @@ func TestHandlePCAPStartedVisualiserAndCallbacks_TypedNil(t *testing.T) {
 	handlePCAPStartedVisualiser(publisher, server, func(string, ...any) {})
 	publishPCAPProgress(server, 1, 2)
 	pcapTimestampsCallback(server)(3, 4)
+	if isNilHelperTarget(42) {
+		t.Fatal("expected concrete non-nil value to be treated as non-nil")
+	}
 }
 
 func TestNewVRLogRecorderOrLog(t *testing.T) {
