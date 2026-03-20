@@ -339,6 +339,14 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	fn(&t.Config)
 }
 
+// GetConfig returns a snapshot of the tracker's current configuration
+// under a read lock. Safe to call from any goroutine.
+func (t *Tracker) GetConfig() TrackerConfig {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.Config
+}
+
 // Reset clears all tracks and resets the tracker to its initial state.
 // This is used between sweep permutations to ensure each combination
 // starts with a clean tracker (no residual Kalman filter state).

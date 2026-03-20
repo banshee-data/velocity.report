@@ -99,7 +99,7 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 	if ws.tracker != nil && syncRuntimeState {
 		l5 := cfg.L5.ActiveCommon()
 		if l5 != nil {
-			trackerCfg := ws.tracker.Config
+			trackerCfg := ws.tracker.GetConfig()
 			l5.GatingDistanceSquared = float64(trackerCfg.GatingDistanceSquared)
 			l5.ProcessNoisePos = float64(trackerCfg.ProcessNoisePos)
 			l5.ProcessNoiseVel = float64(trackerCfg.ProcessNoiseVel)
