@@ -1,10 +1,17 @@
 package main
 
 import (
+	"errors"
+	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 )
 
 // TestBgFlushEnableCondition verifies the logic that determines whether
@@ -146,4 +153,244 @@ func TestConfigurePDFLaTeXFlowInvalid(t *testing.T) {
 	if err := configurePDFLaTeXFlow("invalid-flow", ""); err == nil {
 		t.Fatal("expected error for invalid --pdf-latex-flow")
 	}
+}
+
+func TestVisitedFlags(t *testing.T) {
+	oldCommandLine := flag.CommandLine
+	defer func() {
+		flag.CommandLine = oldCommandLine
+	}()
+
+	fs := flag.NewFlagSet("visited-flags", flag.ContinueOnError)
+	fs.Bool("alpha", false, "")
+	fs.Bool("beta", false, "")
+	if err := fs.Parse([]string{"-alpha"}); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	flag.CommandLine = fs
+
+	got := visitedFlags()
+	if !got["alpha"] {
+		t.Fatalf("visitedFlags did not mark alpha as visited: %#v", got)
+	}
+	if got["beta"] {
+		t.Fatalf("visitedFlags unexpectedly marked beta as visited: %#v", got)
+	}
+}
+
+func TestValidateSupportedTuning(t *testing.T) {
+	cfg := config.MustLoadDefaultConfig()
+	if err := validateSupportedTuning(cfg); err != nil {
+		t.Fatalf("validateSupportedTuning(default) returned error: %v", err)
+	}
+
+	cfg = config.MustLoadDefaultConfig()
+	cfg.L3.Engine = "other"
+	if err := validateSupportedTuning(cfg); err == nil || !strings.Contains(err.Error(), "unsupported l3.engine") {
+		t.Fatalf("expected l3 error, got %v", err)
+	}
+
+	cfg = config.MustLoadDefaultConfig()
+	cfg.L4.Engine = "other"
+	if err := validateSupportedTuning(cfg); err == nil || !strings.Contains(err.Error(), "unsupported l4.engine") {
+		t.Fatalf("expected l4 error, got %v", err)
+	}
+
+	cfg = config.MustLoadDefaultConfig()
+	cfg.L5.Engine = "other"
+	if err := validateSupportedTuning(cfg); err == nil || !strings.Contains(err.Error(), "unsupported l5.engine") {
+		t.Fatalf("expected l5 error, got %v", err)
+	}
+}
+
+func TestEnsureSupportedTuning(t *testing.T) {
+	cfg := config.MustLoadDefaultConfig()
+	cfg.L3.Engine = "other"
+	var got string
+	ensureSupportedTuning(cfg, func(format string, args ...any) {
+		got = fmt.Sprintf(format, args...)
+	})
+	if !strings.Contains(got, "unsupported l3.engine") {
+		t.Fatalf("unexpected fatal message: %q", got)
+	}
+}
+
+func TestDeprecatedLidarFlagWarnings(t *testing.T) {
+	cfg := config.MustLoadDefaultConfig()
+	warnings := deprecatedLidarFlagWarnings(map[string]bool{
+		"lidar-sensor":                  true,
+		"lidar-udp-port":                true,
+		"lidar-forward-port":            true,
+		"lidar-foreground-forward-port": true,
+	}, cfg, "config/tuning.defaults.json")
+
+	if len(warnings) != 4 {
+		t.Fatalf("expected 4 warnings, got %d: %#v", len(warnings), warnings)
+	}
+	if !strings.Contains(warnings[0], "--lidar-sensor") || !strings.Contains(warnings[3], "--lidar-foreground-forward-port") {
+		t.Fatalf("unexpected warnings: %#v", warnings)
+	}
+	if got := deprecatedLidarFlagWarnings(map[string]bool{}, cfg, "config/tuning.defaults.json"); len(got) != 0 {
+		t.Fatalf("expected no warnings, got %#v", got)
+	}
+}
+
+type stubRingElevationsSetter struct {
+	err      error
+	lastElev []float64
+}
+
+func (s *stubRingElevationsSetter) SetRingElevations(elev []float64) error {
+	s.lastElev = append([]float64(nil), elev...)
+	return s.err
+}
+
+func TestRingElevationLogMessage(t *testing.T) {
+	cfg := &parse.Pandar40PConfig{}
+	cfg.AngleCorrections[0].Elevation = 1.25
+
+	setter := &stubRingElevationsSetter{}
+	if msg := ringElevationLogMessage(setter, "sensor-a", cfg); msg != "BackgroundManager ring elevations set for sensor sensor-a" {
+		t.Fatalf("unexpected success message: %q", msg)
+	}
+	if len(setter.lastElev) != len(cfg.AngleCorrections) || setter.lastElev[0] != 1.25 {
+		t.Fatalf("unexpected elevations: %#v", setter.lastElev)
+	}
+
+	setter.err = errors.New("boom")
+	if msg := ringElevationLogMessage(setter, "sensor-b", cfg); !strings.Contains(msg, "Failed to set ring elevations for background manager sensor-b: boom") {
+		t.Fatalf("unexpected error message: %q", msg)
+	}
+}
+
+func TestTuningHashOrWarn(t *testing.T) {
+	cfg := config.MustLoadDefaultConfig()
+	originalMarshal := marshalTuningJSON
+	t.Cleanup(func() {
+		marshalTuningJSON = originalMarshal
+	})
+
+	hash := tuningHashOrWarn(cfg, func(string, ...any) {})
+	if hash == "" {
+		t.Fatal("expected non-empty tuning hash")
+	}
+
+	var warned string
+	marshalTuningJSON = func(any) ([]byte, error) {
+		return nil, errors.New("nope")
+	}
+	hash = tuningHashOrWarn(cfg, func(format string, args ...any) {
+		warned = fmt.Sprintf(format, args...)
+	})
+	if hash != "" || !strings.Contains(warned, "unable to compute tuning config provenance hash") {
+		t.Fatalf("unexpected warning result: hash=%q warned=%q", hash, warned)
+	}
+}
+
+func TestMustLoadValidatedPandarConfig(t *testing.T) {
+	var fatal string
+	fatalf := func(format string, args ...any) {
+		fatal = fmt.Sprintf(format, args...)
+	}
+
+	cfg := &parse.Pandar40PConfig{}
+	got := mustLoadValidatedPandarConfig(
+		func() (*parse.Pandar40PConfig, error) { return cfg, nil },
+		func(*parse.Pandar40PConfig) error { return nil },
+		fatalf,
+	)
+	if got != cfg || fatal != "" {
+		t.Fatalf("unexpected success result: got=%v fatal=%q", got, fatal)
+	}
+
+	fatal = ""
+	got = mustLoadValidatedPandarConfig(
+		func() (*parse.Pandar40PConfig, error) { return nil, errors.New("load boom") },
+		func(*parse.Pandar40PConfig) error { return nil },
+		fatalf,
+	)
+	if got != nil || !strings.Contains(fatal, "Failed to load embedded lidar configuration: load boom") {
+		t.Fatalf("unexpected load failure result: got=%v fatal=%q", got, fatal)
+	}
+
+	fatal = ""
+	got = mustLoadValidatedPandarConfig(
+		func() (*parse.Pandar40PConfig, error) { return cfg, nil },
+		func(*parse.Pandar40PConfig) error { return errors.New("invalid") },
+		fatalf,
+	)
+	if got != nil || !strings.Contains(fatal, "Invalid embedded lidar configuration: invalid") {
+		t.Fatalf("unexpected validate failure result: got=%v fatal=%q", got, fatal)
+	}
+}
+
+func TestEnsureValidForwardMode(t *testing.T) {
+	ensureValidForwardMode("grpc", func(string, ...any) {})
+
+	var fatal string
+	ensureValidForwardMode("bad", func(format string, args ...any) {
+		fatal = fmt.Sprintf(format, args...)
+	})
+	if !strings.Contains(fatal, "Invalid --lidar-forward-mode: bad") {
+		t.Fatalf("unexpected fatal message: %q", fatal)
+	}
+}
+
+type stubReplayPublisher struct {
+	active  bool
+	stopped bool
+}
+
+func (s *stubReplayPublisher) IsVRLogActive() bool {
+	return s.active
+}
+
+func (s *stubReplayPublisher) StopVRLogReplay() {
+	s.stopped = true
+}
+
+type stubReplayServer struct {
+	vrlogModes  []bool
+	replayModes []bool
+	progress    [][2]uint64
+}
+
+func (s *stubReplayServer) SetVRLogMode(v bool) {
+	s.vrlogModes = append(s.vrlogModes, v)
+}
+
+func (s *stubReplayServer) SetReplayMode(v bool) {
+	s.replayModes = append(s.replayModes, v)
+}
+
+func (s *stubReplayServer) SetPCAPProgress(current, total uint64) {
+	s.progress = append(s.progress, [2]uint64{current, total})
+}
+
+func TestHandlePCAPStartedVisualiserAndPublishProgress(t *testing.T) {
+	var logs []string
+	logf := func(format string, args ...any) {
+		logs = append(logs, fmt.Sprintf(format, args...))
+	}
+
+	publisher := &stubReplayPublisher{active: true}
+	server := &stubReplayServer{}
+	handlePCAPStartedVisualiser(publisher, server, logf)
+	if !publisher.stopped {
+		t.Fatal("expected active VRLOG replay to be stopped")
+	}
+	if len(server.vrlogModes) != 1 || len(server.replayModes) != 2 || server.replayModes[0] || !server.replayModes[1] {
+		t.Fatalf("unexpected replay mode transitions: %+v %+v", server.vrlogModes, server.replayModes)
+	}
+	if len(logs) != 2 {
+		t.Fatalf("unexpected log count: %#v", logs)
+	}
+
+	publishPCAPProgress(server, 10, 20)
+	if len(server.progress) != 1 || server.progress[0] != [2]uint64{10, 20} {
+		t.Fatalf("unexpected progress updates: %#v", server.progress)
+	}
+
+	handlePCAPStartedVisualiser(nil, nil, logf)
+	publishPCAPProgress(nil, 1, 2)
 }

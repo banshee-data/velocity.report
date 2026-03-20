@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -328,36 +327,13 @@ func main() {
 		log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration from %s", *configFile)
-	if tuningCfg.L3.Engine != "ema_baseline_v1" {
-		log.Fatalf("Unsupported l3.engine %q: this branch only implements ema_baseline_v1 at runtime", tuningCfg.L3.Engine)
-	}
-	if tuningCfg.L4.Engine != "dbscan_xy_v1" {
-		log.Fatalf("Unsupported l4.engine %q: this branch only implements dbscan_xy_v1 at runtime", tuningCfg.L4.Engine)
-	}
-	if tuningCfg.L5.Engine != "cv_kf_v1" {
-		log.Fatalf("Unsupported l5.engine %q: this branch only implements cv_kf_v1 at runtime", tuningCfg.L5.Engine)
-	}
-	if explicitFlags["lidar-sensor"] {
-		log.Printf("Warning: --lidar-sensor is deprecated; using l1.sensor=%q from %s", tuningCfg.GetSensor(), *configFile)
-	}
-	if explicitFlags["lidar-udp-port"] {
-		log.Printf("Warning: --lidar-udp-port is deprecated; using l1.udp_port=%d from %s", tuningCfg.GetUDPPort(), *configFile)
-	}
-	if explicitFlags["lidar-forward-port"] {
-		log.Printf("Warning: --lidar-forward-port is deprecated; using l1.forward_port=%d from %s", tuningCfg.GetForwardPort(), *configFile)
-	}
-	if explicitFlags["lidar-foreground-forward-port"] {
-		log.Printf("Warning: --lidar-foreground-forward-port is deprecated; using l1.foreground_forward_port=%d from %s", tuningCfg.GetForegroundForwardPort(), *configFile)
+	ensureSupportedTuning(tuningCfg, log.Fatalf)
+	for _, warning := range deprecatedLidarFlagWarnings(explicitFlags, tuningCfg, *configFile) {
+		log.Print(warning)
 	}
 
 	// Compute tuning config hash for VRLOG provenance.
-	tuningJSON, err := json.Marshal(tuningCfg)
-	var tuningHash string
-	if err != nil {
-		log.Printf("Warning: unable to compute tuning config provenance hash: %v", err)
-	} else {
-		tuningHash = fmt.Sprintf("%x", sha256.Sum256(tuningJSON))
-	}
+	tuningHash := tuningHashOrWarn(tuningCfg, log.Printf)
 
 	// var r radar.RadarPortInterface
 	var radarSerial serialmux.SerialMuxInterface
@@ -483,13 +459,11 @@ func main() {
 		}
 
 		if !*lidarNoParse {
-			config, err := parse.LoadEmbeddedPandar40PConfig()
-			if err != nil {
-				log.Fatalf("Failed to load embedded lidar configuration: %v", err)
-			}
-			if err := config.Validate(); err != nil {
-				log.Fatalf("Invalid embedded lidar configuration: %v", err)
-			}
+			config := mustLoadValidatedPandarConfig(
+				parse.LoadEmbeddedPandar40PConfig,
+				func(cfg *parse.Pandar40PConfig) error { return cfg.Validate() },
+				log.Fatalf,
+			)
 			parser = parse.NewPandar40PParser(*config)
 			parse.ConfigureTimestampMode(parser)
 
@@ -504,16 +478,7 @@ func main() {
 			// Wire per-ring elevation corrections from parser config into BackgroundManager
 			// This ensures background ASC exports use the same per-channel elevations as frames.
 			if backgroundManager != nil {
-				elev := parse.ElevationsFromConfig(config)
-				if elev != nil {
-					if err := backgroundManager.SetRingElevations(elev); err != nil {
-						log.Printf("Failed to set ring elevations for background manager %s: %v", lidarSensorID, err)
-					} else {
-						log.Printf("BackgroundManager ring elevations set for sensor %s", lidarSensorID)
-					}
-				} else {
-					log.Printf("No elevation corrections available for sensor %s; background export will use z=0 projection", lidarSensorID)
-				}
+				log.Print(ringElevationLogMessage(backgroundManager, lidarSensorID, config))
 			}
 
 			// Initialise visualiser components if gRPC mode is enabled
@@ -522,10 +487,7 @@ func main() {
 
 			// Validate forward mode
 			forwardMode := *lidarForwardMode
-			validModes := map[string]bool{"lidarview": true, "grpc": true, "both": true}
-			if !validModes[forwardMode] {
-				log.Fatalf("Invalid --lidar-forward-mode: %s (must be: lidarview, grpc, or both)", forwardMode)
-			}
+			ensureValidForwardMode(forwardMode, log.Fatalf)
 
 			// Initialise gRPC publisher if needed
 			if forwardMode == "grpc" || forwardMode == "both" {
@@ -660,20 +622,7 @@ func main() {
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 			TuningConfig:      tuningCfg,
 			OnPCAPStarted: func() {
-				// Stop any active VRLOG replay so its frames don't
-				// interleave with the new PCAP pipeline frames.
-				if visualiserPublisher != nil && visualiserPublisher.IsVRLogActive() {
-					visualiserPublisher.StopVRLogReplay()
-					log.Printf("[Visualiser] Stopped VRLOG replay before PCAP start")
-				}
-				if visualiserServer != nil {
-					// Clear VRLOG mode and force a fresh replay epoch so
-					// clients recognise the source change.
-					visualiserServer.SetVRLogMode(false)
-					visualiserServer.SetReplayMode(false)
-					visualiserServer.SetReplayMode(true)
-					log.Printf("[Visualiser] PCAP started — switched to replay mode")
-				}
+				handlePCAPStartedVisualiser(visualiserPublisher, visualiserServer, log.Printf)
 			},
 			OnPCAPStopped: func() {
 				if visualiserServer != nil {
@@ -682,9 +631,7 @@ func main() {
 				}
 			},
 			OnPCAPProgress: func(current, total uint64) {
-				if visualiserServer != nil {
-					visualiserServer.SetPCAPProgress(current, total)
-				}
+				publishPCAPProgress(visualiserServer, current, total)
 			},
 			OnPCAPTimestamps: func(startNs, endNs int64) {
 				if visualiserServer != nil {
