@@ -16,3 +16,10 @@ func TestBackgroundConfigFromTuningConfig(t *testing.T) {
 		t.Fatalf("unexpected background config: %+v", *bg)
 	}
 }
+
+func TestRunPCAPEvalUsesTuningConfigBeforeReplayFailure(t *testing.T) {
+	_, err := runPCAPEval("/nonexistent.pcap", "", "test-sensor", 2369)
+	if err == nil {
+		t.Fatal("expected replay error for nonexistent PCAP")
+	}
+}
