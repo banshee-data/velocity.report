@@ -2118,7 +2118,7 @@ describe('applyRecommendation', () => {
 	});
 
 	it('canonicalises legacy recommendation keys before posting params', async () => {
-		global.fetch = jest.fn().mockImplementation((url: string, options?: RequestInit) => {
+		global.fetch = jest.fn().mockImplementation((url: string) => {
 			if (url.includes('/api/lidar/sweep/auto')) {
 				return Promise.resolve({
 					ok: true,
