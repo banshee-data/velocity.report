@@ -282,7 +282,7 @@ function setupDOM(): void {
 function makeTestResults(): Record<string, any>[] {
 	return [
 		{
-			param_values: { noise_relative: 0.05, closeness_multiplier: 5.0 },
+			param_values: { l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5.0 },
 			overall_accept_mean: 0.85,
 			overall_accept_stddev: 0.02,
 			nonzero_cells_mean: 100,
@@ -297,7 +297,7 @@ function makeTestResults(): Record<string, any>[] {
 			bucket_means: [0.9, 0.85, 0.8, 0.7]
 		},
 		{
-			param_values: { noise_relative: 0.1, closeness_multiplier: 10.0 },
+			param_values: { l3.ema_baseline_v1.noise_relative: 0.1, l3.ema_baseline_v1.closeness_multiplier: 10.0 },
 			overall_accept_mean: 0.9,
 			overall_accept_stddev: 0.01,
 			nonzero_cells_mean: 200,
@@ -318,7 +318,7 @@ function makeTestResults(): Record<string, any>[] {
 function makeGTResults(): Record<string, any>[] {
 	return [
 		{
-			param_values: { noise_relative: 0.05 },
+			param_values: { l3.ema_baseline_v1.noise_relative: 0.05 },
 			detection_rate: 0.9,
 			ground_truth_score: 0.85,
 			fragmentation: 0.1,
@@ -336,7 +336,7 @@ function makeFetchRouter(overrides: Record<string, any> = {}) {
 	const routes: Record<string, any> = {
 		'/api/lidar/sweep/auto': { status: 'idle' },
 		'/api/lidar/sweep/status': { status: 'idle', results: [] },
-		'/api/lidar/params': { noise_relative: 0.05 },
+		'/api/lidar/params': { l3.ema_baseline_v1.noise_relative: 0.05 },
 		'/api/lidar/scenes': { scenes: [] },
 		'/api/lidar/sweeps': [],
 		...overrides
@@ -383,9 +383,9 @@ describe('PARAM_SCHEMA', () => {
 	});
 
 	it('includes expected parameters', () => {
-		expect(PARAM_SCHEMA).toHaveProperty('noise_relative');
-		expect(PARAM_SCHEMA).toHaveProperty('closeness_multiplier');
-		expect(PARAM_SCHEMA).toHaveProperty('neighbor_confirmation_count');
+		expect(PARAM_SCHEMA).toHaveProperty('l3.ema_baseline_v1.noise_relative');
+		expect(PARAM_SCHEMA).toHaveProperty('l3.ema_baseline_v1.closeness_multiplier');
+		expect(PARAM_SCHEMA).toHaveProperty('l3.ema_baseline_v1.neighbour_confirmation_count');
 		expect(PARAM_SCHEMA).toHaveProperty('hits_to_confirm');
 		expect(PARAM_SCHEMA).toHaveProperty('max_misses');
 	});
@@ -418,14 +418,14 @@ describe('PARAM_SCHEMA', () => {
 
 describe('comboLabel', () => {
 	it('formats param_values with short keys', () => {
-		const result = { param_values: { noise_relative: 0.05, closeness_multiplier: 5 } };
+		const result = { param_values: { l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5 } };
 		const label = comboLabel(result);
 		expect(label).toContain('relative=0.050');
 		expect(label).toContain('multiplier=5');
 	});
 
 	it('formats integer values without decimals', () => {
-		const result = { param_values: { neighbor_confirmation_count: 3 } };
+		const result = { param_values: { l3.ema_baseline_v1.neighbour_confirmation_count: 3 } };
 		expect(comboLabel(result)).toContain('count=3');
 	});
 
@@ -443,7 +443,7 @@ describe('formatParamValues', () => {
 	});
 
 	it('formats parameter values with labels from PARAM_SCHEMA', () => {
-		const params = { noise_relative: 0.05, closeness_multiplier: 5 };
+		const params = { l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5 };
 		const formatted = formatParamValues(params);
 		expect(formatted).toContain('Noise Relative=0.0500');
 		expect(formatted).toContain('Closeness Multiplier=5');
@@ -451,7 +451,7 @@ describe('formatParamValues', () => {
 
 	it('excludes metric keys (score, acceptance_rate, etc.)', () => {
 		const params = {
-			noise_relative: 0.05,
+			l3.ema_baseline_v1.noise_relative: 0.05,
 			score: 0.95,
 			acceptance_rate: 0.9,
 			misalignment_ratio: 0.01,
@@ -608,13 +608,13 @@ describe('addParamRow', () => {
 	});
 
 	it('selects the specified parameter', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		const sel = document.getElementById('pname-' + id) as HTMLSelectElement;
-		expect(sel.value).toBe('noise_relative');
+		expect(sel.value).toBe('l3.ema_baseline_v1.noise_relative');
 	});
 
 	it('creates numeric input fields for float64 type', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		expect(document.getElementById('pstart-' + id)).not.toBeNull();
 		expect(document.getElementById('pend-' + id)).not.toBeNull();
 		expect(document.getElementById('pstep-' + id)).not.toBeNull();
@@ -632,7 +632,7 @@ describe('removeParamRow', () => {
 	beforeEach(setupDOM);
 
 	it('removes an existing param row', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		expect(document.getElementById('param-rows')!.children.length).toBe(1);
 		removeParamRow(id);
 		expect(document.getElementById('param-rows')!.children.length).toBe(0);
@@ -648,7 +648,7 @@ describe('updateParamFields', () => {
 	beforeEach(setupDOM);
 
 	it('creates start/end/step/values fields for float64 type', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		// Fields are already created by addParamRow, verify them
 		const startEl = document.getElementById('pstart-' + id) as HTMLInputElement;
 		expect(startEl).not.toBeNull();
@@ -658,7 +658,7 @@ describe('updateParamFields', () => {
 	});
 
 	it('creates start/end/step fields for int type', () => {
-		const id = addParamRow('neighbor_confirmation_count');
+		const id = addParamRow('l3.ema_baseline_v1.neighbour_confirmation_count');
 		const startEl = document.getElementById('pstart-' + id) as HTMLInputElement;
 		expect(startEl).not.toBeNull();
 		expect(startEl.value).toBe('0');
@@ -667,7 +667,7 @@ describe('updateParamFields', () => {
 	});
 
 	it('creates values field for bool type', () => {
-		const id = addParamRow('seed_from_first');
+		const id = addParamRow('l3.ema_baseline_v1.seed_from_first');
 		const valsEl = document.getElementById('pvals-' + id) as HTMLInputElement;
 		expect(valsEl).not.toBeNull();
 		expect(valsEl.value).toBe('true, false');
@@ -676,7 +676,7 @@ describe('updateParamFields', () => {
 	});
 
 	it('creates values field for string type', () => {
-		const id = addParamRow('buffer_timeout');
+		const id = addParamRow('pipeline.buffer_timeout');
 		const valsEl = document.getElementById('pvals-' + id) as HTMLInputElement;
 		expect(valsEl).not.toBeNull();
 		// No start/end/step for string
@@ -684,13 +684,13 @@ describe('updateParamFields', () => {
 	});
 
 	it('sets description text', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		const descEl = document.getElementById('pdesc-' + id)!;
 		expect(descEl.textContent).toContain('Fraction of measured range');
 	});
 
 	it('clears fields when name is empty', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		// Change to empty
 		(document.getElementById('pname-' + id) as HTMLSelectElement).value = '';
 		updateParamFields(id);
@@ -714,27 +714,27 @@ describe('getParamValueCount', () => {
 	});
 
 	it('counts comma-separated values from values input', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05, 0.1';
 		expect(getParamValueCount(id.toString())).toBe(3);
 	});
 
 	it('returns 2 for bool type without explicit values', () => {
-		const id = addParamRow('seed_from_first');
+		const id = addParamRow('l3.ema_baseline_v1.seed_from_first');
 		// Clear the default "true, false" value to test the bool default
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '';
 		expect(getParamValueCount(id.toString())).toBe(2);
 	});
 
 	it('calculates count from start/end/step for numeric types', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		// Default: start=0.01, end=0.2, step=0.001
 		// count = floor((0.2 - 0.01) / 0.001) + 1 = 191
 		expect(getParamValueCount(id.toString())).toBe(191);
 	});
 
 	it('returns 0 when step is 0', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('pstep-' + id) as HTMLInputElement).value = '0';
 		expect(getParamValueCount(id.toString())).toBe(0);
 	});
@@ -768,7 +768,7 @@ describe('updateSweepSummary', () => {
 	});
 
 	it('shows permutation count in manual mode', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		// Set explicit values to have a known count
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05, 0.1';
 		updateSweepSummary();
@@ -777,7 +777,7 @@ describe('updateSweepSummary', () => {
 	});
 
 	it('doubles count when seed is toggle', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05';
 		(document.getElementById('seed') as HTMLSelectElement).value = 'toggle';
 		updateSweepSummary();
@@ -788,7 +788,7 @@ describe('updateSweepSummary', () => {
 
 	it('shows values per param in auto mode', () => {
 		setMode('auto');
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		updateSweepSummary();
 		const html = document.getElementById('sweep-summary')!.innerHTML;
 		expect(html).toContain('5 values');
@@ -796,7 +796,7 @@ describe('updateSweepSummary', () => {
 	});
 
 	it('includes runtime estimate with settle_mode once', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05';
 		(document.getElementById('settle_mode') as HTMLSelectElement).value = 'once';
 		updateSweepSummary();
@@ -805,7 +805,7 @@ describe('updateSweepSummary', () => {
 	});
 
 	it('includes runtime estimate with settle_mode per_combo', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05';
 		(document.getElementById('settle_mode') as HTMLSelectElement).value = 'per_combo';
 		updateSweepSummary();
@@ -815,7 +815,7 @@ describe('updateSweepSummary', () => {
 
 	it('auto mode with seed toggle and settle once', () => {
 		setMode('auto');
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('seed') as HTMLSelectElement).value = 'toggle';
 		(document.getElementById('settle_mode') as HTMLSelectElement).value = 'once';
 		updateSweepSummary();
@@ -833,7 +833,7 @@ describe('buildSceneJSON', () => {
 	beforeEach(setupDOM);
 
 	it('builds scenario with default values', () => {
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const scenario = buildSceneJSON();
 		expect(scenario.seed).toBe('true');
 		expect(scenario.iterations).toBe(10);
@@ -841,12 +841,12 @@ describe('buildSceneJSON', () => {
 		expect(scenario.settle_time).toBe('5s');
 		expect(scenario.data_source).toBe('live');
 		expect(scenario.params).toHaveLength(1);
-		expect(scenario.params[0].name).toBe('noise_relative');
+		expect(scenario.params[0].name).toBe('l3.ema_baseline_v1.noise_relative');
 		expect(scenario.params[0].type).toBe('float64');
 	});
 
 	it('includes start/end/step for numeric params', () => {
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const scenario = buildSceneJSON();
 		expect(scenario.params[0].start).toBe(0.01);
 		expect(scenario.params[0].end).toBe(0.2);
@@ -854,7 +854,7 @@ describe('buildSceneJSON', () => {
 	});
 
 	it('includes explicit values when provided', () => {
-		const id = addParamRow('noise_relative');
+		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05, 0.1';
 		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual([0.01, 0.05, 0.1]);
@@ -864,7 +864,7 @@ describe('buildSceneJSON', () => {
 	it('includes pcap fields when data_source is pcap', () => {
 		(document.getElementById('data_source') as HTMLSelectElement).value = 'pcap';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const scenario = buildSceneJSON();
 		expect(scenario.data_source).toBe('pcap');
 		expect(scenario.pcap_file).toBe('test.pcap');
@@ -876,7 +876,7 @@ describe('buildSceneJSON', () => {
 			'<option value="scene-1">Scene 1</option>';
 		(document.getElementById('scene_select') as HTMLSelectElement).value = 'scene-1';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const scenario = buildSceneJSON();
 		// scene translates to pcap for data_source
 		expect(scenario.data_source).toBe('pcap');
@@ -885,21 +885,21 @@ describe('buildSceneJSON', () => {
 	});
 
 	it('handles bool param values', () => {
-		addParamRow('seed_from_first');
-		// seed_from_first is bool, default values "true, false"
+		addParamRow('l3.ema_baseline_v1.seed_from_first');
+		// l3.ema_baseline_v1.seed_from_first is bool, default values "true, false"
 		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual([true, false]);
 	});
 
 	it('handles int param values', () => {
-		const id = addParamRow('neighbor_confirmation_count');
+		const id = addParamRow('l3.ema_baseline_v1.neighbour_confirmation_count');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '1, 3, 5';
 		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual([1, 3, 5]);
 	});
 
 	it('handles string param values', () => {
-		const id = addParamRow('buffer_timeout');
+		const id = addParamRow('pipeline.buffer_timeout');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '500ms, 1s, 2s';
 		const scenario = buildSceneJSON();
 		expect(scenario.params[0].values).toEqual(['500ms', '1s', '2s']);
@@ -907,7 +907,7 @@ describe('buildSceneJSON', () => {
 
 	it('skips rows with no parameter selected', () => {
 		addParamRow(); // no name
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const scenario = buildSceneJSON();
 		expect(scenario.params).toHaveLength(1);
 	});
@@ -923,7 +923,7 @@ describe('loadScene', () => {
 			interval: '3s',
 			settle_time: '10s',
 			settle_mode: 'per_combo',
-			params: [{ name: 'noise_relative', type: 'float64', start: 0.02, end: 0.1, step: 0.01 }]
+			params: [{ name: 'l3.ema_baseline_v1.noise_relative', type: 'float64', start: 0.02, end: 0.1, step: 0.01 }]
 		});
 		expect(val('seed')).toBe('false');
 		expect(val('iterations')).toBe('20');
@@ -935,7 +935,7 @@ describe('loadScene', () => {
 
 	it('loads explicit values', () => {
 		loadScene({
-			params: [{ name: 'noise_relative', type: 'float64', values: [0.01, 0.05, 0.1] }]
+			params: [{ name: 'l3.ema_baseline_v1.noise_relative', type: 'float64', values: [0.01, 0.05, 0.1] }]
 		});
 		const rows = document.getElementById('param-rows')!.children;
 		const rowId = rows[0].id.replace('param-row-', '');
@@ -955,8 +955,8 @@ describe('loadScene', () => {
 	});
 
 	it('clears existing param rows before loading', () => {
-		addParamRow('noise_relative');
-		addParamRow('closeness_multiplier');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
+		addParamRow('l3.ema_baseline_v1.closeness_multiplier');
 		expect(document.getElementById('param-rows')!.children.length).toBe(2);
 		loadScene({ params: [{ name: 'hits_to_confirm', type: 'int', start: 1, end: 5, step: 1 }] });
 		expect(document.getElementById('param-rows')!.children.length).toBe(1);
@@ -967,7 +967,7 @@ describe('toggleJSONEditor', () => {
 	beforeEach(setupDOM);
 
 	it('shows editor and apply button on first toggle', () => {
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		toggleJSONEditor();
 		expect(document.getElementById('json-editor-wrap')!.style.display).toBe('');
 		expect(document.getElementById('btn-apply-json')!.style.display).toBe('');
@@ -976,7 +976,7 @@ describe('toggleJSONEditor', () => {
 	});
 
 	it('hides editor on second toggle', () => {
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		toggleJSONEditor(); // show
 		toggleJSONEditor(); // hide
 		expect(document.getElementById('json-editor-wrap')!.style.display).toBe('none');
@@ -1015,7 +1015,7 @@ describe('downloadScene', () => {
 	beforeEach(setupDOM);
 
 	it('creates and clicks a download link', () => {
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const clickSpy = jest.fn();
 		jest.spyOn(document, 'createElement').mockImplementation((tag: string) => {
 			if (tag === 'a') {
@@ -1283,7 +1283,7 @@ describe('pollStatus (manual mode)', () => {
 					completed_combos: 3,
 					total_combos: 10,
 					current_combo: {
-						param_values: { noise_relative: 0.05 },
+						param_values: { l3.ema_baseline_v1.noise_relative: 0.05 },
 						overall_accept_mean: 0.85
 					}
 				})
@@ -1454,7 +1454,7 @@ describe('pollAutoTuneStatus', () => {
 					total_combos: 25,
 					total_rounds: 3,
 					round: 2,
-					round_results: [{ best_score: 0.92, best_params: { noise_relative: 0.05 } }]
+					round_results: [{ best_score: 0.92, best_params: { l3.ema_baseline_v1.noise_relative: 0.05 } }]
 				})
 		});
 		pollAutoTuneStatus();
@@ -1472,7 +1472,7 @@ describe('pollAutoTuneStatus', () => {
 					total_combos: 25,
 					total_rounds: 3,
 					recommendation: {
-						noise_relative: 0.05,
+						l3.ema_baseline_v1.noise_relative: 0.05,
 						score: 0.95,
 						acceptance_rate: 0.9,
 						misalignment_ratio: 0.02,
@@ -1485,7 +1485,7 @@ describe('pollAutoTuneStatus', () => {
 							num_combos: 25,
 							best_score: 0.9,
 							best_params: {},
-							bounds: { noise_relative: [0.01, 0.2] }
+							bounds: { l3.ema_baseline_v1.noise_relative: [0.01, 0.2] }
 						}
 					],
 					results: makeTestResults()
@@ -1552,8 +1552,8 @@ describe('renderRecommendation', () => {
 
 	it('renders recommendation card with params and metrics', () => {
 		const rec = {
-			noise_relative: 0.05,
-			closeness_multiplier: 5.0,
+			l3.ema_baseline_v1.noise_relative: 0.05,
+			l3.ema_baseline_v1.closeness_multiplier: 5.0,
 			score: 0.95,
 			acceptance_rate: 0.9,
 			misalignment_ratio: 0.02,
@@ -1566,7 +1566,7 @@ describe('renderRecommendation', () => {
 				num_combos: 25,
 				best_score: 0.9,
 				best_params: {},
-				bounds: { noise_relative: [0.01, 0.2] }
+				bounds: { l3.ema_baseline_v1.noise_relative: [0.01, 0.2] }
 			}
 		];
 		renderRecommendation(rec, roundResults);
@@ -1615,7 +1615,7 @@ describe('renderTable', () => {
 	it('renders results with param_values', () => {
 		renderTable([
 			{
-				param_values: { noise_relative: 0.05, closeness_multiplier: 5 },
+				param_values: { l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5 },
 				overall_accept_mean: 0.85,
 				overall_accept_stddev: 0.02,
 				nonzero_cells_mean: 100,
@@ -1653,7 +1653,7 @@ describe('renderCharts', () => {
 	it('creates only bar charts when only one numeric param', () => {
 		const results = [
 			{
-				param_values: { noise_relative: 0.05, seed_from_first: true },
+				param_values: { l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.seed_from_first: true },
 				overall_accept_mean: 0.85,
 				overall_accept_stddev: 0.02,
 				nonzero_cells_mean: 100,
@@ -1755,13 +1755,13 @@ describe('fetchCurrentParams', () => {
 	it('fetches and displays params', async () => {
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({ noise_relative: 0.05, seed_from_first: true })
+			json: () => Promise.resolve({ l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.seed_from_first: true })
 		});
 		fetchCurrentParams();
 		await flushPromises();
 		const display = document.getElementById('current-params-display')!.innerHTML;
-		expect(display).toContain('noise_relative');
-		expect(display).toContain('seed_from_first');
+		expect(display).toContain('l3.ema_baseline_v1.noise_relative');
+		expect(display).toContain('l3.ema_baseline_v1.seed_from_first');
 	});
 
 	it('shows error on failure', async () => {
@@ -1782,13 +1782,13 @@ describe('displayCurrentParams', () => {
 
 	it('displays all param types correctly', () => {
 		displayCurrentParams({
-			noise_relative: 0.05,
-			seed_from_first: true,
+			l3.ema_baseline_v1.noise_relative: 0.05,
+			l3.ema_baseline_v1.seed_from_first: true,
 			warmup_min_frames: 100,
-			buffer_timeout: null
+			pipeline.buffer_timeout: null
 		});
 		const html = document.getElementById('current-params-display')!.innerHTML;
-		expect(html).toContain('noise_relative');
+		expect(html).toContain('l3.ema_baseline_v1.noise_relative');
 		expect(html).toContain('0.05');
 		expect(html).toContain('true');
 		expect(html).toContain('100');
@@ -1796,21 +1796,21 @@ describe('displayCurrentParams', () => {
 	});
 
 	it('highlights swept parameters', () => {
-		// Add a param row for noise_relative
-		addParamRow('noise_relative');
-		displayCurrentParams({ noise_relative: 0.05, closeness_multiplier: 5.0 });
+		// Add a param row for l3.ema_baseline_v1.noise_relative
+		addParamRow('l3.ema_baseline_v1.noise_relative');
+		displayCurrentParams({ l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5.0 });
 		const html = document.getElementById('current-params-display')!.innerHTML;
 		expect(html).toContain('param-line swept');
 		expect(html).toContain('param-line"');
 	});
 
 	it('sorts swept params first', () => {
-		addParamRow('closeness_multiplier');
-		displayCurrentParams({ noise_relative: 0.05, closeness_multiplier: 5.0, hits_to_confirm: 3 });
+		addParamRow('l3.ema_baseline_v1.closeness_multiplier');
+		displayCurrentParams({ l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5.0, hits_to_confirm: 3 });
 		const html = document.getElementById('current-params-display')!.innerHTML;
-		// closeness_multiplier should appear before noise_relative in the output
-		const cmIdx = html.indexOf('closeness_multiplier');
-		const nrIdx = html.indexOf('noise_relative');
+		// l3.ema_baseline_v1.closeness_multiplier should appear before l3.ema_baseline_v1.noise_relative in the output
+		const cmIdx = html.indexOf('l3.ema_baseline_v1.closeness_multiplier');
+		const nrIdx = html.indexOf('l3.ema_baseline_v1.noise_relative');
 		expect(cmIdx).toBeLessThan(nrIdx);
 	});
 });
@@ -1891,7 +1891,7 @@ describe('onSweepSceneSelected', () => {
 							replay_case_id: 's2',
 							pcap_file: 'test2.pcap',
 							reference_run_id: 'ref-1',
-							optimal_params_json: '{"noise_relative": 0.05}'
+							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
 						}
 					]
 				})
@@ -1985,7 +1985,7 @@ describe('applyRecommendation', () => {
 					ok: true,
 					json: () =>
 						Promise.resolve({
-							recommendation: { noise_relative: 0.05, score: 0.9, acceptance_rate: 0.85 }
+							recommendation: { l3.ema_baseline_v1.noise_relative: 0.05, score: 0.9, acceptance_rate: 0.85 }
 						})
 				});
 			}
@@ -2037,7 +2037,7 @@ describe('applySceneParams', () => {
 						{
 							replay_case_id: 's1',
 							pcap_file: 'test.pcap',
-							optimal_params_json: '{"noise_relative": 0.05}'
+							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
 						}
 					]
 				})
@@ -2123,7 +2123,7 @@ describe('init', () => {
 		expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('sensor_id=test-sensor'));
 	});
 
-	it('adds a default noise_relative param row', () => {
+	it('adds a default l3.ema_baseline_v1.noise_relative param row', () => {
 		jest.useFakeTimers();
 		setupDOM();
 		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
@@ -2150,7 +2150,7 @@ describe('init', () => {
 			'/api/lidar/sweep/auto': {
 				status: 'complete',
 				recommendation: {
-					noise_relative: 0.05,
+					l3.ema_baseline_v1.noise_relative: 0.05,
 					score: 0.95,
 					acceptance_rate: 0.9,
 					misalignment_ratio: 0.02,
@@ -2323,7 +2323,7 @@ describe('updateSweepSummary additional branches', () => {
 
 	it('auto mode with bool param (no start/end fields, else branch)', () => {
 		setMode('auto');
-		addParamRow('seed_from_first');
+		addParamRow('l3.ema_baseline_v1.seed_from_first');
 		updateSweepSummary();
 		const html = document.getElementById('sweep-summary')!.innerHTML;
 		expect(html).toContain('5 values');
@@ -2331,7 +2331,7 @@ describe('updateSweepSummary additional branches', () => {
 
 	it('auto mode with per_combo settle (else branch for runtime)', () => {
 		setMode('auto');
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('settle_mode') as HTMLSelectElement).value = 'per_combo';
 		(document.getElementById('seed') as HTMLSelectElement).value = 'true';
 		updateSweepSummary();
@@ -2403,7 +2403,7 @@ describe('applyRecommendation error on params POST', () => {
 					ok: true,
 					json: () =>
 						Promise.resolve({
-							recommendation: { noise_relative: 0.05, score: 0.9 }
+							recommendation: { l3.ema_baseline_v1.noise_relative: 0.05, score: 0.9 }
 						})
 				});
 			}
@@ -2484,7 +2484,7 @@ describe('downloadCSV with param_values format', () => {
 					total_combos: 1,
 					results: [
 						{
-							param_values: { noise_relative: 0.05, closeness_multiplier: 5 },
+							param_values: { l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5 },
 							overall_accept_mean: 0.85,
 							overall_accept_stddev: 0.02,
 							nonzero_cells_mean: 100,
@@ -2523,7 +2523,7 @@ describe('downloadCSV with param_values format', () => {
 					total_combos: 1,
 					results: [
 						{
-							param_values: { noise_relative: 0.05 },
+							param_values: { l3.ema_baseline_v1.noise_relative: 0.05 },
 							overall_accept_mean: 0.85,
 							overall_accept_stddev: 0.02,
 							nonzero_cells_mean: 100,
@@ -2645,8 +2645,8 @@ describe('init with manual sweep running', () => {
 
 describe('dynamic chart utility functions', () => {
 	it('metricLabel returns schema label for known params', () => {
-		expect(metricLabel('noise_relative')).toBe('Noise Relative');
-		expect(metricLabel('closeness_multiplier')).toBe('Closeness Multiplier');
+		expect(metricLabel('l3.ema_baseline_v1.noise_relative')).toBe('Noise Relative');
+		expect(metricLabel('l3.ema_baseline_v1.closeness_multiplier')).toBe('Closeness Multiplier');
 	});
 
 	it('metricLabel returns "Combination" for _combo', () => {
@@ -2659,8 +2659,8 @@ describe('dynamic chart utility functions', () => {
 	});
 
 	it('extractValue gets param_values first', () => {
-		const r = { param_values: { noise_relative: 0.05 }, noise_relative: 999 };
-		expect(extractValue(r, 'noise_relative')).toBe(0.05);
+		const r = { param_values: { l3.ema_baseline_v1.noise_relative: 0.05 }, l3.ema_baseline_v1.noise_relative: 999 };
+		expect(extractValue(r, 'l3.ema_baseline_v1.noise_relative')).toBe(0.05);
 	});
 
 	it('extractValue falls back to top-level keys', () => {
@@ -2682,8 +2682,8 @@ describe('dynamic chart utility functions', () => {
 	it('getAvailableMetrics extracts params and metrics', () => {
 		const results = makeTestResults();
 		const { params, metrics } = getAvailableMetrics(results);
-		expect(params).toContain('noise_relative');
-		expect(params).toContain('closeness_multiplier');
+		expect(params).toContain('l3.ema_baseline_v1.noise_relative');
+		expect(params).toContain('l3.ema_baseline_v1.closeness_multiplier');
 		expect(metrics).toContain('overall_accept_mean');
 	});
 
@@ -2704,7 +2704,7 @@ describe('dynamic chart utility functions', () => {
 	it('generateDefaultCharts with 1 numeric param produces 4 charts', () => {
 		const results = [
 			{
-				param_values: { noise_relative: 0.05, seed_from_first: true },
+				param_values: { l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.seed_from_first: true },
 				overall_accept_mean: 0.85,
 				nonzero_cells_mean: 100,
 				active_tracks_mean: 3,
@@ -2735,7 +2735,7 @@ describe('buildSeriesOption', () => {
 		const results = makeTestResults();
 		const cfg = {
 			title: 'Test',
-			x_metric: 'noise_relative',
+			x_metric: 'l3.ema_baseline_v1.noise_relative',
 			y_metric: 'overall_accept_mean',
 			group_by: ''
 		};
@@ -2748,9 +2748,9 @@ describe('buildSeriesOption', () => {
 		const results = makeTestResults();
 		const cfg = {
 			title: 'Test',
-			x_metric: 'noise_relative',
+			x_metric: 'l3.ema_baseline_v1.noise_relative',
 			y_metric: 'overall_accept_mean',
-			group_by: 'closeness_multiplier'
+			group_by: 'l3.ema_baseline_v1.closeness_multiplier'
 		};
 		const opt = buildSeriesOption(results, cfg, 'bar');
 		expect(opt.series.length).toBeGreaterThanOrEqual(1);
@@ -2763,8 +2763,8 @@ describe('buildHeatmapOption', () => {
 		const results = makeTestResults();
 		const cfg = {
 			title: 'Heatmap Test',
-			x_metric: 'noise_relative',
-			y_metric: 'closeness_multiplier',
+			x_metric: 'l3.ema_baseline_v1.noise_relative',
+			y_metric: 'l3.ema_baseline_v1.closeness_multiplier',
 			z_metric: 'overall_accept_mean'
 		};
 		const opt = buildHeatmapOption(results, cfg);
@@ -2780,7 +2780,7 @@ describe('buildScatterOption', () => {
 		const results = makeTestResults();
 		const cfg = {
 			title: 'Scatter Test',
-			x_metric: 'noise_relative',
+			x_metric: 'l3.ema_baseline_v1.noise_relative',
 			y_metric: 'overall_accept_mean'
 		};
 		const opt = buildScatterOption(results, cfg);
@@ -2920,7 +2920,7 @@ describe('applySceneParams setTimeout callback', () => {
 						{
 							replay_case_id: 's1',
 							pcap_file: 'test.pcap',
-							optimal_params_json: '{"noise_relative": 0.05}'
+							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
 						}
 					]
 				})
@@ -2970,7 +2970,7 @@ describe('onSweepSceneSelected without gtOption element', () => {
 							replay_case_id: 's2',
 							pcap_file: 'test2.pcap',
 							reference_run_id: 'ref-1',
-							optimal_params_json: '{"noise_relative": 0.05}'
+							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
 						}
 					]
 				})
@@ -3034,11 +3034,11 @@ describe('param-rows change event', () => {
 	});
 
 	it('calls displayCurrentParams with cached params', () => {
-		(window as any).currentParamsCache = { noise_relative: 0.05 };
+		(window as any).currentParamsCache = { l3.ema_baseline_v1.noise_relative: 0.05 };
 		const paramRows = document.getElementById('param-rows')!;
 		paramRows.dispatchEvent(new Event('change', { bubbles: true }));
 		expect(document.getElementById('current-params-display')!.innerHTML).toContain(
-			'noise_relative'
+			'l3.ema_baseline_v1.noise_relative'
 		);
 	});
 });
@@ -3092,7 +3092,7 @@ describe('|| 0 default value fallback branches', () => {
 	it('renderTable with GT results missing optional fields', () => {
 		renderTable([
 			{
-				param_values: { noise_relative: 0.05 },
+				param_values: { l3.ema_baseline_v1.noise_relative: 0.05 },
 				overall_accept_mean: 0.85,
 				overall_accept_stddev: 0.02,
 				nonzero_cells_mean: 100,
@@ -3115,7 +3115,7 @@ describe('|| 0 default value fallback branches', () => {
 					total_combos: 1,
 					results: [
 						{
-							param_values: { noise_relative: 0.05 },
+							param_values: { l3.ema_baseline_v1.noise_relative: 0.05 },
 							overall_accept_mean: 0.85,
 							overall_accept_stddev: 0.02,
 							nonzero_cells_mean: 100,
@@ -3140,7 +3140,7 @@ describe('|| 0 default value fallback branches', () => {
 					status: 'running',
 					completed_combos: 1,
 					total_combos: 5,
-					current_combo: { param_values: { noise_relative: 0.05 } },
+					current_combo: { param_values: { l3.ema_baseline_v1.noise_relative: 0.05 } },
 					results: []
 				})
 		});
@@ -3150,7 +3150,7 @@ describe('|| 0 default value fallback branches', () => {
 	});
 
 	it('displayCurrentParams formats boolean false value', () => {
-		displayCurrentParams({ seed_from_first: false, noise_relative: 0.05 });
+		displayCurrentParams({ l3.ema_baseline_v1.seed_from_first: false, l3.ema_baseline_v1.noise_relative: 0.05 });
 		const html = document.getElementById('current-params-display')!.innerHTML;
 		expect(html).toContain('false');
 	});
@@ -3160,7 +3160,7 @@ describe('|| 0 default value fallback branches', () => {
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
-		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'noise_relative';
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'l3.ema_baseline_v1.noise_relative';
 		updateParamFields(rowId);
 		// Clear iterations and max_rounds to trigger || defaults
 		(document.getElementById('iterations') as HTMLInputElement).value = '';
@@ -3210,9 +3210,9 @@ describe('|| 0 default value fallback branches', () => {
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
 		// Use a param that might lack defaultStart/defaultEnd in the schema
-		// closeness_multiplier has defaultStart: 1, defaultEnd: 20, desc defined
-		// Let's use 'seed_from_first' which is a bool type
-		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'seed_from_first';
+		// l3.ema_baseline_v1.closeness_multiplier has defaultStart: 1, defaultEnd: 20, desc defined
+		// Let's use 'l3.ema_baseline_v1.seed_from_first' which is a bool type
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'l3.ema_baseline_v1.seed_from_first';
 		updateParamFields(rowId);
 		// Bool type creates a different field layout, covering the else branch
 		const fields = document.getElementById('pfields-' + rowId)!.innerHTML;
@@ -3223,11 +3223,11 @@ describe('|| 0 default value fallback branches', () => {
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
-		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'seed_from_first';
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'l3.ema_baseline_v1.seed_from_first';
 		updateParamFields(rowId);
 		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = 'true, false';
 		const scenario = buildSceneJSON();
-		const param = scenario.params.find((p: any) => p.name === 'seed_from_first');
+		const param = scenario.params.find((p: any) => p.name === 'l3.ema_baseline_v1.seed_from_first');
 		expect(param.values).toEqual([true, false]);
 	});
 
@@ -3235,11 +3235,11 @@ describe('|| 0 default value fallback branches', () => {
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
-		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'buffer_timeout';
+		(document.getElementById('pname-' + rowId) as HTMLInputElement).value = 'pipeline.buffer_timeout';
 		updateParamFields(rowId);
 		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = '500ms, 1s, 2s';
 		const scenario = buildSceneJSON();
-		const param = scenario.params.find((p: any) => p.name === 'buffer_timeout');
+		const param = scenario.params.find((p: any) => p.name === 'pipeline.buffer_timeout');
 		expect(param.values).toEqual(['500ms', '1s', '2s']);
 	});
 
@@ -3249,7 +3249,7 @@ describe('|| 0 default value fallback branches', () => {
 	});
 
 	it('removeParamRow calls displayCurrentParams when cache exists', () => {
-		(window as any).currentParamsCache = { noise_relative: 0.05 };
+		(window as any).currentParamsCache = { l3.ema_baseline_v1.noise_relative: 0.05 };
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
@@ -3443,7 +3443,7 @@ describe('paste and apply params', () => {
 	it('applyPastedParams sends filtered params to API', async () => {
 		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
 		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
-			noise_relative: 0.05,
+			l3.ema_baseline_v1.noise_relative: 0.05,
 			empty_box_ratio: 0.1
 		});
 		applyPastedParams();
@@ -3461,7 +3461,7 @@ describe('paste and apply params', () => {
 			text: () => Promise.resolve('Bad request')
 		});
 		(document.getElementById('paste-params-json') as HTMLTextAreaElement).value = JSON.stringify({
-			noise_relative: 0.05
+			l3.ema_baseline_v1.noise_relative: 0.05
 		});
 		applyPastedParams();
 		await flushPromises();
@@ -3471,13 +3471,13 @@ describe('paste and apply params', () => {
 	it('loadCurrentIntoEditor populates textarea', async () => {
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({ noise_relative: 0.05, closeness_multiplier: 5 })
+			json: () => Promise.resolve({ l3.ema_baseline_v1.noise_relative: 0.05, l3.ema_baseline_v1.closeness_multiplier: 5 })
 		});
 		loadCurrentIntoEditor();
 		await flushPromises();
 		const val = (document.getElementById('paste-params-json') as HTMLTextAreaElement).value;
-		expect(val).toContain('noise_relative');
-		expect(val).toContain('closeness_multiplier');
+		expect(val).toContain('l3.ema_baseline_v1.noise_relative');
+		expect(val).toContain('l3.ema_baseline_v1.closeness_multiplier');
 	});
 
 	it('loadCurrentIntoEditor shows error on failure', async () => {
@@ -3566,8 +3566,8 @@ describe('loadHistoricalSweep branches', () => {
 					mode: 'auto',
 					status: 'complete',
 					results: makeTestResults(),
-					recommendation: JSON.stringify({ noise_relative: 0.05 }),
-					round_results: JSON.stringify([{ round: 1, best: { noise_relative: 0.05 } }])
+					recommendation: JSON.stringify({ l3.ema_baseline_v1.noise_relative: 0.05 }),
+					round_results: JSON.stringify([{ round: 1, best: { l3.ema_baseline_v1.noise_relative: 0.05 } }])
 				})
 		});
 		loadHistoricalSweep('sw-rec');
@@ -3716,7 +3716,7 @@ describe('HINT Functions', () => {
 			row.className = 'param-row';
 			row.id = 'param-row-99';
 			row.innerHTML = [
-				'<label class="param-name"><span>Parameter</span><select id="pname-99"><option value="noise_relative" selected>Noise Relative</option></select></label>',
+				'<label class="param-name"><span>Parameter</span><select id="pname-99"><option value="l3.ema_baseline_v1.noise_relative" selected>Noise Relative</option></select></label>',
 				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-99" type="number" value="0.1" /></label>',
 				'<label class="param-field"><span>End</span><input id="pend-99" type="number" value="0.5" /></label></div>'
 			].join('');
@@ -3741,7 +3741,7 @@ describe('HINT Functions', () => {
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
 			expect(body.replay_case_id).toBe('scene-1');
 			expect(body.params).toHaveLength(1);
-			expect(body.params[0].name).toBe('noise_relative');
+			expect(body.params[0].name).toBe('l3.ema_baseline_v1.noise_relative');
 			expect(body.num_rounds).toBe(3);
 			expect(body.min_label_threshold).toBeCloseTo(0.9);
 			expect(body.carry_over_labels).toBe(true);
@@ -3759,7 +3759,7 @@ describe('HINT Functions', () => {
 			row.className = 'param-row';
 			row.id = 'param-row-98';
 			row.innerHTML = [
-				'<label class="param-name"><span>Parameter</span><select id="pname-98"><option value="noise_relative" selected>X</option></select></label>',
+				'<label class="param-name"><span>Parameter</span><select id="pname-98"><option value="l3.ema_baseline_v1.noise_relative" selected>X</option></select></label>',
 				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-98" type="number" value="0" /></label>',
 				'<label class="param-field"><span>End</span><input id="pend-98" type="number" value="1" /></label></div>'
 			].join('');
@@ -3783,7 +3783,7 @@ describe('HINT Functions', () => {
 			paramRow.className = 'param-row';
 			paramRow.id = 'param-row-97';
 			paramRow.innerHTML = [
-				'<label class="param-name"><span>Parameter</span><select id="pname-97"><option value="noise_relative" selected>Test</option></select></label>',
+				'<label class="param-name"><span>Parameter</span><select id="pname-97"><option value="l3.ema_baseline_v1.noise_relative" selected>Test</option></select></label>',
 				'<div class="param-fields"><label class="param-field"><span>Start</span><input id="pstart-97" type="number" value="0" /></label>',
 				'<label class="param-field"><span>End</span><input id="pend-97" type="number" value="1" /></label></div>'
 			].join('');
@@ -4007,12 +4007,12 @@ describe('HINT Functions', () => {
 				status: 'completed',
 				current_round: 3,
 				total_rounds: 3,
-				recommendation: { noise_relative: 0.3, closeness_multiplier: 7 }
+				recommendation: { l3.ema_baseline_v1.noise_relative: 0.3, l3.ema_baseline_v1.closeness_multiplier: 7 }
 			});
 
 			expect(document.getElementById('recommendation-card')!.style.display).toBe('block');
 			expect(document.getElementById('recommendation-content')!.innerHTML).toContain(
-				'noise_relative'
+				'l3.ema_baseline_v1.noise_relative'
 			);
 			expect(document.getElementById('hint-status-text')!.innerHTML).toContain('complete');
 		});
@@ -4357,7 +4357,7 @@ describe('pollAutoTuneStatus ETA remaining', () => {
 						completed_combos: 25,
 						total_combos: 25,
 						total_rounds: 1,
-						recommendation: { noise_relative: 0.05, score: 0.95 },
+						recommendation: { l3.ema_baseline_v1.noise_relative: 0.05, score: 0.95 },
 						results: makeTestResults()
 					})
 			})
@@ -4386,7 +4386,7 @@ describe('buildSeriesOption additional branches', () => {
 		const results = makeTestResults();
 		const cfg = {
 			title: 'Sorted X',
-			x_metric: 'noise_relative',
+			x_metric: 'l3.ema_baseline_v1.noise_relative',
 			y_metric: 'overall_accept_mean',
 			group_by: ''
 		};
@@ -4417,8 +4417,8 @@ describe('buildHeatmapOption tooltip', () => {
 		const results = makeTestResults();
 		const cfg = {
 			title: 'HM',
-			x_metric: 'noise_relative',
-			y_metric: 'closeness_multiplier',
+			x_metric: 'l3.ema_baseline_v1.noise_relative',
+			y_metric: 'l3.ema_baseline_v1.closeness_multiplier',
 			z_metric: 'overall_accept_mean'
 		};
 		const opt = buildHeatmapOption(results, cfg);
@@ -4433,7 +4433,7 @@ describe('buildScatterOption tooltip', () => {
 		const results = makeTestResults();
 		const cfg = {
 			title: 'Scatter',
-			x_metric: 'noise_relative',
+			x_metric: 'l3.ema_baseline_v1.noise_relative',
 			y_metric: 'overall_accept_mean'
 		};
 		const opt = buildScatterOption(results, cfg);
@@ -4490,7 +4490,7 @@ describe('renderTable param_values and float formatting', () => {
 	it('uses param_values for column values and formats floats', () => {
 		renderTable([
 			{
-				param_values: { noise_relative: 0.0567, closeness_multiplier: 5 },
+				param_values: { l3.ema_baseline_v1.noise_relative: 0.0567, l3.ema_baseline_v1.closeness_multiplier: 5 },
 				overall_accept_mean: 0.85,
 				overall_accept_stddev: 0.02,
 				nonzero_cells_mean: 100,
@@ -4626,7 +4626,7 @@ describe('loadHistoricalSweep malformed results JSON', () => {
 					mode: 'auto',
 					status: 'complete',
 					results: makeTestResults(),
-					recommendation: '{"noise_relative": 0.05}',
+					recommendation: '{"l3.ema_baseline_v1.noise_relative": 0.05}',
 					round_results: '[{"round":1,"best_score":0.9}]'
 				})
 		});
@@ -4645,7 +4645,7 @@ describe('loadHistoricalSweep malformed results JSON', () => {
 					mode: 'auto',
 					status: 'complete',
 					results: makeTestResults(),
-					recommendation: '{"noise_relative": 0.05}',
+					recommendation: '{"l3.ema_baseline_v1.noise_relative": 0.05}',
 					round_results: 'not-valid-json'
 				})
 		});
@@ -4675,7 +4675,7 @@ describe('init with complete auto-tune status', () => {
 						Promise.resolve({
 							status: 'complete',
 							results: makeTestResults(),
-							recommendation: { noise_relative: 0.05 },
+							recommendation: { l3.ema_baseline_v1.noise_relative: 0.05 },
 							round_results: [{ round: 1, best_score: 0.9 }]
 						})
 				});
@@ -4683,7 +4683,7 @@ describe('init with complete auto-tune status', () => {
 			if (url.includes('/api/lidar/params')) {
 				return Promise.resolve({
 					ok: true,
-					json: () => Promise.resolve({ noise_relative: 0.05 })
+					json: () => Promise.resolve({ l3.ema_baseline_v1.noise_relative: 0.05 })
 				});
 			}
 			if (url.includes('/api/lidar/scenes')) {
@@ -4722,7 +4722,7 @@ describe('init with complete auto-tune status', () => {
 			if (url.includes('/api/lidar/params')) {
 				return Promise.resolve({
 					ok: true,
-					json: () => Promise.resolve({ noise_relative: 0.05 })
+					json: () => Promise.resolve({ l3.ema_baseline_v1.noise_relative: 0.05 })
 				});
 			}
 			if (url.includes('/api/lidar/scenes')) {
@@ -4797,11 +4797,11 @@ describe('handleStartHINT class coverage JSON parse', () => {
 
 describe('getAvailableMetrics fallback', () => {
 	it('falls back to default metrics when result has no known metric keys', () => {
-		const results = [{ param_values: { noise_relative: 0.05 }, custom_field: 42 }];
+		const results = [{ param_values: { l3.ema_baseline_v1.noise_relative: 0.05 }, custom_field: 42 }];
 		const avail = getAvailableMetrics(results);
 		// Should still have metrics (the defaults)
 		expect(avail.metrics.length).toBeGreaterThan(0);
-		expect(avail.params).toContain('noise_relative');
+		expect(avail.params).toContain('l3.ema_baseline_v1.noise_relative');
 	});
 });
 
@@ -4883,7 +4883,7 @@ describe('handleStartAutoTune with acceptance criteria', () => {
 		(document.getElementById('ac_max_empty_boxes') as HTMLInputElement).value = '0.3';
 
 		// Add a param row
-		addParamRow('noise_relative');
+		addParamRow('l3.ema_baseline_v1.noise_relative');
 
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
