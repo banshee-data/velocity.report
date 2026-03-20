@@ -219,8 +219,12 @@ func (d *DirectBackend) SetTuningParams(params map[string]interface{}) error {
 
 	// Patch values have already round-tripped through JSON during assignment,
 	// so this flat string-keyed map is guaranteed to marshal here.
-	data, _ := json.Marshal(patch)
-	diagf("[DirectBackend] Applied tuning params: %s", string(data))
+	data, err := json.Marshal(patch)
+	if err != nil {
+		diagf("[DirectBackend] Applied tuning params (marshal failed: %v): %#v", err, patch)
+	} else {
+		diagf("[DirectBackend] Applied tuning params: %s", string(data))
+	}
 	return nil
 }
 

@@ -791,15 +791,16 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 // handleTuningParams is the unified LIDAR configuration endpoint for all
 // tuning parameters including background subtraction, frame builder, and tracker configuration.
 //
-// Query params: sensor_id (required)
+// Query params: sensor_id (required), format (optional: "flat", "pretty")
 //
-// GET: Returns all configuration parameters including:
-//   - Background params: noise_relative, closeness_multiplier, neighbor_confirmation_count, etc.
-//   - Frame builder params: buffer_timeout, min_frame_points
-//   - Flush params: flush_interval, flush_disable
-//   - Tracker params (if tracker available): gating_distance_squared, process_noise_pos, etc.
+// GET: Returns the full nested TuningConfig (L1/L3/L4/L5 sections).
+//   - format=flat  — flattens the response to dot-path keys (e.g. "l3.ema_baseline_v1.noise_relative")
+//     for dashboard and sweep tooling that expects a scalar map.
+//   - format=pretty — returns the nested structure with indented JSON.
 //
-// POST: Accepts partial JSON updates. All fields are optional; only non-nil fields are applied.
+// POST: Accepts partial JSON updates using dot-path keys or nested objects.
+//
+//	All fields are optional; only provided fields are applied.
 func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -815,18 +816,38 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 	switch r.Method {
 	case http.MethodGet:
 		resp := ws.runtimeTuningConfig(bm)
-		if r.URL.Query().Get("format") == "pretty" {
-			w.Header().Set("Content-Type", "application/json")
-			enc := json.NewEncoder(w)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(resp); err != nil {
-				opsf("failed to encode response: %v", err)
+		format := r.URL.Query().Get("format")
+
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+
+		if format == "flat" {
+			// Flatten nested config to dot-path keys for dashboard compatibility.
+			raw, err := json.Marshal(resp)
+			if err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, "failed to marshal config")
+				return
 			}
+			var nested map[string]interface{}
+			if err := json.Unmarshal(raw, &nested); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, "failed to flatten config")
+				return
+			}
+			flat := make(map[string]interface{})
+			if err := flattenTuningPatch("", nested, flat); err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, "failed to flatten config")
+				return
+			}
+			enc.Encode(flat)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if format == "pretty" {
+			enc.SetIndent("", "  ")
+		}
+		if err := enc.Encode(resp); err != nil {
+			opsf("failed to encode response: %v", err)
+		}
 		return
 	case http.MethodPost:
 		var body map[string]interface{}
