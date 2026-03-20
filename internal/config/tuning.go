@@ -687,8 +687,6 @@ func (c *L3Config) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		c.EmaTrackAssistV2 = block
-	default:
-		return fmt.Errorf("l3: unknown engine %q", engine)
 	}
 	return nil
 }
@@ -731,8 +729,6 @@ func (c *L4Config) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		c.HdbscanAdaptiveV1 = block
-	default:
-		return fmt.Errorf("l4: unknown engine %q", engine)
 	}
 	return nil
 }
@@ -775,8 +771,6 @@ func (c *L5Config) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		c.ImmCvCaRtsEvalV2 = block
-	default:
-		return fmt.Errorf("l5: unknown engine %q", engine)
 	}
 	return nil
 }
