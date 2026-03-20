@@ -410,6 +410,15 @@ func TestHandlePCAPStartedVisualiserAndPublishProgress(t *testing.T) {
 	publishPCAPProgress(nil, 1, 2)
 }
 
+func TestHandlePCAPStartedVisualiserAndCallbacks_TypedNil(t *testing.T) {
+	var publisher *stubReplayPublisher
+	var server *stubReplayServer
+
+	handlePCAPStartedVisualiser(publisher, server, func(string, ...any) {})
+	publishPCAPProgress(server, 1, 2)
+	pcapTimestampsCallback(server)(3, 4)
+}
+
 func TestNewVRLogRecorderOrLog(t *testing.T) {
 	recordPath := t.TempDir()
 	var logs []string

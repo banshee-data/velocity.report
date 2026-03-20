@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
@@ -35,6 +36,19 @@ type pcapTimestampsSetter interface {
 }
 
 var marshalTuningJSON = json.Marshal
+
+func isNilHelperTarget(target any) bool {
+	if target == nil {
+		return true
+	}
+	value := reflect.ValueOf(target)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
 
 func validateSupportedTuning(tuningCfg *config.TuningConfig) error {
 	if tuningCfg.L3.Engine != "ema_baseline_v1" {
@@ -113,11 +127,11 @@ func ensureValidForwardMode(mode string, fatalf logfFunc) {
 }
 
 func handlePCAPStartedVisualiser(publisher vrlogReplayController, server replayModeController, logf logfFunc) {
-	if publisher != nil && publisher.IsVRLogActive() {
+	if !isNilHelperTarget(publisher) && publisher.IsVRLogActive() {
 		publisher.StopVRLogReplay()
 		logf("[Visualiser] Stopped VRLOG replay before PCAP start")
 	}
-	if server != nil {
+	if !isNilHelperTarget(server) {
 		server.SetVRLogMode(false)
 		server.SetReplayMode(false)
 		server.SetReplayMode(true)
@@ -126,7 +140,7 @@ func handlePCAPStartedVisualiser(publisher vrlogReplayController, server replayM
 }
 
 func publishPCAPProgress(server pcapProgressSetter, current, total uint64) {
-	if server != nil {
+	if !isNilHelperTarget(server) {
 		server.SetPCAPProgress(current, total)
 	}
 }
@@ -145,7 +159,7 @@ func pcapStartedCallback(publisher vrlogReplayController, server replayModeContr
 
 func pcapTimestampsCallback(server pcapTimestampsSetter) func(int64, int64) {
 	return func(startNs, endNs int64) {
-		if server != nil {
+		if !isNilHelperTarget(server) {
 			server.SetPCAPTimestamps(startNs, endNs)
 		}
 	}
