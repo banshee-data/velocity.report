@@ -15,7 +15,7 @@ type BackgroundConfig struct {
 	// Core background model parameters
 	UpdateFraction            float32       // Alpha for background update (default: 0.02)
 	ClosenessSensitivity      float32       // Multiplier for closeness threshold (default: 8.0)
-	SafetyMargin              float32       // Meters added to threshold (default: 0.4)
+	SafetyMargin              float32       // Metres added to threshold (default: 0.4)
 	FreezeDuration            time.Duration // Time to freeze cell after foreground (default: 5s)
 	FreezeThresholdMultiplier float32       // Multiplier for freeze trigger gate (default: 3.0)
 	NeighbourConfirmation     int           // Neighbours required for foreground (default: 7)

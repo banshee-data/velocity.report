@@ -46,7 +46,7 @@ type TrackerConfig struct {
 	MaxMisses               int           // Consecutive misses before tentative track deletion
 	MaxMissesConfirmed      int           // Consecutive misses before confirmed track deletion (coasting)
 	HitsToConfirm           int           // Consecutive hits needed for confirmation
-	GatingDistanceSquared   float32       // Squared gating distance for association (meters²)
+	GatingDistanceSquared   float32       // Squared gating distance for association (metres²)
 	ProcessNoisePos         float32       // Process noise for position (σ²)
 	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
 	MeasurementNoise        float32       // Measurement noise (σ²)

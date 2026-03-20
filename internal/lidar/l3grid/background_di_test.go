@@ -97,7 +97,7 @@ func TestAssignRegionParams_ZeroDefaults(t *testing.T) {
 		t.Errorf("expected positive noise fraction, got %f", rp.NoiseRelativeFraction)
 	}
 	if rp.NeighbourConfirmationCount <= 0 {
-		t.Errorf("expected positive neighbor count, got %d", rp.NeighbourConfirmationCount)
+		t.Errorf("expected positive neighbour count, got %d", rp.NeighbourConfirmationCount)
 	}
 	if rp.SettleUpdateFraction <= 0 {
 		t.Errorf("expected positive update fraction, got %f", rp.SettleUpdateFraction)

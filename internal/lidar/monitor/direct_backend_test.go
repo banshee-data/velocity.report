@@ -372,7 +372,7 @@ func TestDirectBackend_SetTuningParams_ForegroundClusterParams(t *testing.T) {
 }
 
 func TestDirectBackend_SetTuningParams_NeighbourConfirmation(t *testing.T) {
-	sensorID := "direct-test-neighbor-" + t.Name()
+	sensorID := "direct-test-neighbour-" + t.Name()
 	_ = l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
 	ws := &WebServer{sensorID: sensorID}
 	db := NewDirectBackend(sensorID, ws)

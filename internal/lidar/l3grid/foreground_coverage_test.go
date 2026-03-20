@@ -698,7 +698,7 @@ func TestMask_DefaultClosenessSensitivity(t *testing.T) {
 	}
 }
 
-func TestMask_NegativeNeighborConfirmCount(t *testing.T) {
+func TestMask_NegativeNeighbourConfirmCount(t *testing.T) {
 	g := makeCoverageGrid(2, 4)
 	g.Params.NeighbourConfirmationCount = -1 // → defaults to 3 (lines 108-110)
 	bm := g.Manager

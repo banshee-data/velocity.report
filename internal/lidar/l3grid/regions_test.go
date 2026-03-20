@@ -257,7 +257,7 @@ func TestRegionParameterApplication(t *testing.T) {
 
 	// Verify high variance region has more relaxed parameters
 	if highVarianceParams.NeighbourConfirmationCount <= grid.Params.NeighbourConfirmationCount {
-		t.Errorf("High variance region should require more neighbor confirmation, got %d vs base %d",
+		t.Errorf("High variance region should require more neighbour confirmation, got %d vs base %d",
 			highVarianceParams.NeighbourConfirmationCount, grid.Params.NeighbourConfirmationCount)
 	}
 }
